@@ -1,6 +1,5 @@
 ﻿module Fable.Transforms.Fable2Php
 
-open System.IO
 open Fable
 open Fable.AST
 open Fable.AST.Php
@@ -396,8 +395,9 @@ let phpVoid = unscopedIdent "void"
 let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
     match t with
     | Fable.String -> ExType phpString
-    | Fable.Number((Int32|Int16|Int8|UInt16|UInt32|UInt8),_) -> ExType phpInt
+    | Fable.Number((Int32|Int16|Int8|UInt16|UInt32|UInt8|Int64|UInt64),_) -> ExType phpInt
     | Fable.Number((Float32|Float64),_) -> ExType phpFloat
+    | Fable.Number((BigInt|Decimal|NativeInt|UNativeInt),_) -> ExType phpObj
     | Fable.Boolean  -> ExType phpBool
     | Fable.Char  -> ExType phpChar
     | Fable.AnonymousRecordType _ -> ExType phpObj
@@ -405,15 +405,11 @@ let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
     | Fable.DelegateType _ -> ExType phpObj
     | Fable.LambdaType _ -> ExType phpObj
     | Fable.GenericParam _ -> ExType phpObj
-    | Fable.Enum ref ->
-        match com.TryFindType(ref) with
-        | Ok phpType -> InType phpType
-        | Error ent -> ExType { Name = ent.DisplayName; Namespace = None; Class = None }
-    | Fable.Array t -> ArrayRef (convertTypeRef com t)
+    | Fable.Array(t,_) -> ArrayRef (convertTypeRef com t)
     | Fable.List _ -> ExType { Name = "FSharpList"; Namespace = Some "FSharpList"; Class = None }
     | Fable.Option(t,_) -> ExType { Name = "object"; Namespace = None; Class = None }
     | Fable.DeclaredType(ref, _) ->
-        let ent = com.GetEntity(ref)
+//        let ent = com.GetEntity(ref)
         match com.TryFindType(ref) with
         | Ok phpType -> InType phpType
         | Error ent -> ExType (getPhpTypeForEntity com ent)
@@ -516,11 +512,13 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
     match expr with
     | Fable.Extended _ -> failwith "TODO: Extended instructions"
 
+    | Fable.Unresolved _ -> failwith "Unexpected unresolved expression"
+
     | Fable.Value(value,range) ->
         // this is a value (number / record instanciation ...)
         convertValue com value range
 
-    | Fable.Operation(Fable.Binary(op, left,right), t, _) ->
+    | Fable.Operation(Fable.Binary(op, left,right), _, t, _) ->
         // the result of a binary operation
         let opstr =
             match op with
@@ -537,40 +535,26 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
             | BinaryOperator.BinaryAndBitwise -> "&"
             | BinaryOperator.BinaryOrBitwise -> "|"
             | BinaryOperator.BinaryXorBitwise -> "^"
-            | BinaryOperator.BinaryEqual -> "=="
-            | BinaryOperator.BinaryUnequal -> "!="
-            | BinaryOperator.BinaryEqualStrict -> "==="
-            | BinaryOperator.BinaryUnequalStrict -> "!=="
+            | BinaryOperator.BinaryEqual -> "==="
+            | BinaryOperator.BinaryUnequal -> "!=="
             | BinaryOperator.BinaryModulus -> "%"
             | BinaryOperator.BinaryDivide -> "/"
             | BinaryOperator.BinaryExponent -> "**"
             | BinaryOperator.BinaryShiftLeft -> "<<"
             | BinaryOperator.BinaryShiftRightSignPropagating -> ">>"
             | BinaryOperator.BinaryShiftRightZeroFill -> ">>>"
-            | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
-            | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
         PhpBinaryOp(opstr, convertExpr com left, convertExpr com right)
-    | Fable.Operation(Fable.Unary(op, expr),_,_) ->
-        // the result of an unary operation
-        match op with
-        | UnaryOperator.UnaryVoid ->
-            // there is no void function in Php. One in defined in FSharp.Core.php
-            // it takes a value and returns nothing
-            com.AddRequire("fable-library/FSharp.Core.php")
-            PhpFunctionCall(PhpIdent phpVoid, [convertExpr com expr])
-        | _ ->
-            let opStr =
-                match op with
-                | UnaryOperator.UnaryNot -> "!"
-                | UnaryOperator.UnaryMinus -> "-"
-                | UnaryOperator.UnaryPlus -> "+"
-                | UnaryOperator.UnaryNotBitwise -> "~~~"
-                | UnaryOperator.UnaryDelete -> failwith "UnaryDelete not supported"
-                | UnaryOperator.UnaryTypeof -> failwith "UnaryTypeof not supported"
-                | UnaryOperator.UnaryVoid -> failwith "Should not happen"
+    | Fable.Operation(Fable.Unary(op, expr),_,_,_) ->
+        let opStr =
+            match op with
+            | UnaryOperator.UnaryNot -> "!"
+            | UnaryOperator.UnaryMinus -> "-"
+            | UnaryOperator.UnaryPlus -> "+"
+            | UnaryOperator.UnaryNotBitwise -> "~~~"
+            | UnaryOperator.UnaryAddressOf -> failwith "UnaryAddressOf not supported"
 
-            PhpUnaryOp(opStr, convertExpr com expr)
-    | Fable.Operation(Fable.Logical(op, left, right),_,_) ->
+        PhpUnaryOp(opStr, convertExpr com expr)
+    | Fable.Operation(Fable.Logical(op, left, right),_,_,_) ->
         // this is a binary logical operation
         let opstr =
             match op with
@@ -583,8 +567,8 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // static function call
         match callee with
         | Fable.Import({Selector = "op_UnaryNegation_Int32"},_,_) -> PhpUnaryOp("-", convertExpr com args.[0])
-        | Fable.Get(this, Fable.FieldGet(field, index),_,_) ->
-            PhpField(convertExpr com this, Prop.StrField (fixName field), None)
+        | Fable.Get(this, Fable.FieldGet i,_,_) ->
+            PhpField(convertExpr com this, StrField (fixName i.Name), None)
         | Fable.Get((Fable.Get(_,_,ty,_) as this), Fable.ExprGet(Fable.Value(Fable.StringConstant m, None)),_,_)
                 when match ty with Fable.Array _ -> true | _ -> false
                 ->
@@ -660,22 +644,19 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         let phpExpr = convertExpr com expr
 
         match kind with
-        | Fable.UnionField(caseIndex, fieldIndex) ->
+        | Fable.UnionField i ->
             // had to add the field info (and not only the index)
             // because we implement Cases as classes (contrary to JS where cases are arrays)
-            match expr.Type with
-            | Fable.DeclaredType(entRef, _) -> Some entRef
-            | _ -> None
-            |> Option.bind (fun entRef ->
-                let ent = com.GetEntity(entRef)
-                List.tryItem caseIndex ent.UnionCases)
-            |> Option.bind (fun unionCase -> unionCase.UnionCaseFields |> List.tryItem fieldIndex)
+            let ent = com.GetEntity(i.Entity)
+            List.tryItem i.CaseIndex ent.UnionCases
+            |> Option.bind (fun unionCase -> unionCase.UnionCaseFields |> List.tryItem i.FieldIndex)
             |> Option.map (fun field -> PhpField(phpExpr, StrField field.Name, None))
             |> Option.defaultWith (fun _ -> failwith "Cannot find union field name")
         | Fable.OptionValue ->
             // option is simply erased
             phpExpr
-        | Fable.FieldGet(name, _) ->
+        | Fable.FieldGet i ->
+            let name = i.Name
             match getExprType phpExpr with
             | Some phpType ->
                 match tryFindField name phpType with
@@ -864,7 +845,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
     | Fable.Expr.Lambda(arg,body,_) ->
         // lambda is transpiled as a function
         convertFunction com body [arg]
-    | Fable.Expr.Delegate(args, body, _) ->
+    | Fable.Expr.Delegate(args, body, _, _) ->
         // delegates are also tanspiled as functions
         convertFunction com body args
 
@@ -987,8 +968,22 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpNew( t, [ for arg in args do convertExpr com arg ] )
 
 
-    | Fable.NumberConstant(v,_,_) ->
-        PhpConst(PhpConstNumber v)
+    | Fable.NumberConstant(x,_,_) ->
+        match x with
+        | :? int8 as x -> PhpConst(PhpConstNumber(float x))
+        | :? uint8 as x -> PhpConst(PhpConstNumber(float x))
+        | :? int16 as x -> PhpConst(PhpConstNumber(float x))
+        | :? uint16 as x -> PhpConst(PhpConstNumber(float x))
+        | :? int32 as x -> PhpConst(PhpConstNumber(float x))
+        | :? uint32 as x -> PhpConst(PhpConstNumber(float x))
+        | :? float32 as x -> PhpConst(PhpConstNumber(float x))
+        | :? float as x -> PhpConst(PhpConstNumber(x))
+        | _ ->
+            addError com [] range $"Numeric literal is not supported: {x.GetType().FullName}"
+            PhpConst(PhpConstNull)
+    | Fable.StringTemplate _ ->
+        addError com [] range $"String templates are not supported"
+        PhpConst(PhpConstNull)
     | Fable.StringConstant(s) ->
         PhpConst(PhpConstString s)
     | Fable.BoolConstant(b) ->
@@ -997,38 +992,37 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpConst(PhpConstNull)
     | Fable.CharConstant(c) ->
         PhpConst(PhpConstString (string c))
-    | Fable.EnumConstant(e,ref) ->
-        convertExpr com e
     | Fable.Null _ ->
         PhpConst(PhpConstNull)
     | Fable.NewList(Some(head,tail),_) ->
         libCall com "List" "FSharpList" "cons" [ convertExpr com head; convertExpr com tail]
     | Fable.NewList(None,_) ->
         libCall com "List" "FSharpList" "_empty" []
-    | Fable.NewArray(values,_) ->
-        PhpNewArray([for v in values -> (PhpArrayNoIndex, convertExpr com v)])
+    | Fable.NewArray(kind,_,_) ->
+        match kind with
+        | Fable.ArrayValues values -> PhpNewArray([for v in values -> (PhpArrayNoIndex, convertExpr com v)])
+        | _ -> PhpNewArray([]) // TODO
 
     | Fable.NewOption(opt,_,_) ->
         match opt with
         | Some expr -> convertExpr com expr
         | None -> PhpConst(PhpConstNull)
-    | Fable.NewAnonymousRecord(values, fields, _ ) ->
+    | Fable.NewAnonymousRecord(values, fields, _genArgs, _isStruct) ->
         PhpNewArray[ for i in 0 .. values.Length - 1 do
                         PhpArrayString fields.[i], convertExpr com values.[i] ]
-
 
     | Fable.BaseValue(ident,_) ->
         match ident with
         | None -> PhpParent
         | Some ident -> convertExpr com (Fable.IdentExpr ident)
-    | Fable.NewArrayFrom(size,_) ->
-        PhpNewArray([])
     | Fable.RegexConstant(source, flags) ->
         let modifiers =
             flags
             |> List.map (function
+                | RegexUnicode -> ""
                 | RegexIgnoreCase -> "i"
                 | RegexMultiline -> "m"
+                | RegexSingleline -> "s"
                 | RegexGlobal ->
                     addWarning com [] range "Regex global flag is not supported in Php"
                     ""
@@ -1042,7 +1036,6 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpVar("this", None)
     | Fable.TypeInfo _ ->
         failwith "Not implemented"
-
 
 and canBeCompiledAsSwitch evalExpr tree =
     match tree with
@@ -1225,8 +1218,8 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
                     | None -> []
             )]
 
-    | Fable.WhileLoop(guard, body, label,_) ->
-        com.EnterBreakable label
+    | Fable.WhileLoop(guard, body,_) ->
+        com.EnterBreakable None
         let phpGuard = convertExpr com guard
         let phpBody = convertExprToStatement com body Do
         com.LeaveBreakable()
@@ -1242,16 +1235,12 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
 
         [ PhpFor(id,startExpr, limitExpr, isUp, bodyExpr)]
 
-    | Fable.Extended(Fable.Break label,_) ->
-        let phpLevel =
-            match label with
-            | Some lbl -> com.FindLableLevel lbl |> Some
-            | None -> None
-        [ PhpBreak phpLevel ]
     | Fable.Extended(Fable.Debugger, _) ->
         [ PhpDo (PhpFunctionCall(PhpIdent (unscopedIdent "assert"), [ PhpConst (PhpConstBool false)])) ]
     | Fable.Extended(Fable.Throw(expr, _ ),_) ->
-            [ PhpThrow(convertExpr com expr)]
+        match expr with
+        | None -> failwith "TODO: rethrow"
+        | Some expr -> [ PhpThrow(convertExpr com expr)]
     | Fable.Extended(Fable.Curry(expr, arrity),_) ->
         failwith "Curry is not implemented"
 
@@ -1270,7 +1259,8 @@ let convertMemberDecl (com: IPhpCompiler) (decl: Fable.MemberDecl) =
     let name =
         fixName decl.Name //.Substring(typ.Name.Length + 2) |> fixName
 
-    if decl.Info.IsInstance then
+    let info = com.GetMember(decl.MemberRef)
+    if info.IsInstance then
         com.SetThisArgument(fixName decl.Args.[0].Name)
 
     let body = convertExprToStatement com decl.Body Return
@@ -1281,7 +1271,7 @@ let convertMemberDecl (com: IPhpCompiler) (decl: Fable.MemberDecl) =
                         | Fable.Unit -> ()
                         | _ -> fixName arg.Name ]
       PhpFun.Matchings = []
-      PhpFun.Static = not decl.Info.IsInstance
+      PhpFun.Static = not info.IsInstance
       PhpFun.Body = body}
 
 
@@ -1360,8 +1350,9 @@ let convertDecl (com: IPhpCompiler)  decl =
           for t in extraTypes do
             PhpType t ]
     | Fable.Declaration.MemberDeclaration decl ->
-        com.AddImport(decl.Name, decl.Info.IsValue)
-        if decl.Info.IsValue then
+        let info = com.GetMember(decl.MemberRef)
+        com.AddImport(decl.Name, info.IsValue)
+        if info.IsValue then
             [ PhpDeclValue(fixName decl.Name, convertExpr com decl.Body) ]
         else
             let body = convertExprToStatement com decl.Body Return
@@ -1571,15 +1562,19 @@ type PhpCompiler(com: Fable.Compiler) =
         member this.Require = Set.toList require
         member this.NsUse = Set.toList nsUse
 
+        member this.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
+        member this.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
         member this.AddLog(msg,severity, rang, fileName, tag) = com.AddLog(msg,severity, ?range = rang, ?fileName= fileName, ?tag = tag)
         member this.AddWatchDependency(file) = com.AddWatchDependency(file)
-        member this.GetEntity(e) = com.GetEntity(e)
         member this.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
-        member this.GetOrAddInlineExpr(name, p ) = com.GetOrAddInlineExpr(name, p)
+        member this.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+        member this.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member this.LibraryDir = com.LibraryDir
         member this.CurrentFile = com.CurrentFile
         member this.OutputDir = com.OutputDir
+        member this.OutputType = com.OutputType
         member this.ProjectFile = com.ProjectFile
+        member this.SourceFiles = com.SourceFiles
         member this.Options = com.Options
         member this.Plugins = com.Plugins
         member this.GetRootModule(fileName) = com.GetRootModule(fileName)
@@ -1589,30 +1584,32 @@ type PhpCompiler(com: Fable.Compiler) =
         member this.FindLableLevel(label) =
             List.findIndex(function Some v when v = label -> true | _ -> false) breakable
 
+module Compiler =
 
-let transformFile com (file: Fable.File) =
-    let phpComp = PhpCompiler(com) :> IPhpCompiler
-    phpComp.ClearRequire(__SOURCE_DIRECTORY__ + @"/src/")
+    let transformFile com (file: Fable.File) =
+        let phpComp = PhpCompiler(com) :> IPhpCompiler
+        phpComp.ClearRequire(__SOURCE_DIRECTORY__ + @"/src/")
 
-    let rootModule = com.GetRootModule(phpComp.CurrentFile) |> nsreplacement
-    phpComp.SetPhpNamespace(rootModule)
-    let decls =
-        [
-            for i,decl in List.indexed file.Declarations do
-                let decls =
-                    try
-                        convertDecl phpComp decl
-                    with
-                    |    ex ->
-                        eprintfn "Error while transpiling decl %d: %O" i ex
-                        reraise()
-                for d in decls  do
-                    i,d
-        ]
+        let rootModule = com.GetRootModule(phpComp.CurrentFile) |> nsreplacement
+        phpComp.SetPhpNamespace(rootModule)
+        let decls =
+            [
+                for i,decl in List.indexed file.Declarations do
+                    let decls =
+                        try
+                            convertDecl phpComp decl
+                        with
+                        |    ex ->
+                            eprintfn "Error while transpiling decl %d: %O" i ex
+                            reraise()
+                    for d in decls  do
+                        i,d
+            ]
 
-
-    { Filename = phpComp.CurrentFile + ".php"
-      Namespace = Some phpComp.PhpNamespace
-      Require = phpComp.Require
-      Uses = phpComp.NsUse
-      Decls = decls }
+        {
+            Filename = phpComp.CurrentFile + ".php"
+            Namespace = Some phpComp.PhpNamespace
+            Require = phpComp.Require
+            Uses = phpComp.NsUse
+            Decls = decls
+        }

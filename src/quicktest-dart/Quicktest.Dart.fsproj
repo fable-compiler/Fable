@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="QuickTest.fs" />
+    <Content Include="QuickTest.fs.dart" />
+    <Content Include="analysis_options.yaml" />
+    <Content Include="pubspec.lock" />
+    <Content Include="pubspec.yaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />
+  </ItemGroup>
+</Project>

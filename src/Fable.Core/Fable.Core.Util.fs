@@ -5,10 +5,13 @@ open System
 [<AutoOpen>]
 module Util =
     /// Used to indicate that a member is only implemented in the native target language
-    let nativeOnly<'T> : 'T = failwith "Native only"
+    let inline nativeOnly<'T> : 'T =
+        // try/catch is just for padding so it doesn't get optimized
+        try failwith "You've hit dummy code used for Fable bindings. This probably means you're compiling Fable code to .NET by mistake, please check."
+        with ex -> raise ex
 
-    /// Used to indicate that a member is only implemented in native Javascript
-    let jsNative<'T> : 'T = failwith "JS only"
+    /// Alias of nativeOnly
+    let inline jsNative<'T> : 'T = nativeOnly<'T>
 
 module Experimental =
     /// Reads the name of an identifier, a property or a type
@@ -44,8 +47,21 @@ module Reflection =
     let getCaseFields (x: obj): obj[] = nativeOnly
 
 module Compiler =
+    /// Compiler full version as string
     let version: string = ""
+
+    /// Compiler major/minor version as number (e.g. 3.6)
     let majorMinorVersion: float = 0.
+
+    /// Indicates if compiler is running in debug mode
     let debugMode: bool = false
+
+    /// Indicates if Fable will compile numeric arrays as JS typed arrays
     let typedArrays: bool = false
+
+    /// Extension used for generated files
     let extension: string = ".fs.js"
+
+    /// In watch compilations, indicates if the file is being recompiled
+    /// not because of a direct change, but because a dependency has changed
+    let triggeredByDependency: bool = false

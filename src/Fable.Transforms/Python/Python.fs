@@ -1,13 +1,19 @@
-// fsharplint:disable MemberNames InterfaceNames
+// Python AST based on https://docs.python.org/3/library/ast.html. Currently uses records instead of tagged unions to
+// better match with the Python AST docs.
 namespace rec Fable.AST.Python
 
-open Fable.AST
+// fsharplint:disable MemberNames InterfaceNames
 
+open Fable.AST
+open Fable.AST.Python
+
+/// https://docs.python.org/3/library/ast.html#expressions
 type Expression =
     | Attribute of Attribute
     | Subscript of Subscript
     | BoolOp of BoolOp
     | BinOp of BinOp
+    | Await of Expression
     /// A yield from expression. Because these are expressions, they must be wrapped in a Expr node if the value sent
     /// back is not used.
     | YieldFrom of Expression option
@@ -83,6 +89,7 @@ type Identifier =
         let (Identifier name) = this
         name
 
+/// https://docs.python.org/3/library/ast.html#statements
 type Statement =
     | Pass
     | Break
@@ -91,6 +98,7 @@ type Statement =
     | For of For
     | Try of Try
     | Expr of Expr
+    | With of With
     | While of While
     | Raise of Raise
     | Import of Import
@@ -100,6 +108,7 @@ type Statement =
     | NonLocal of NonLocal
     | ClassDef of ClassDef
     | AsyncFor of AsyncFor
+    | AnnAssign of AnnAssign
     | ImportFrom of ImportFrom
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
@@ -141,6 +150,19 @@ type Try =
       OrElse: Statement list
       FinalBody: Statement list
       Loc: SourceLocation option }
+
+/// A single context manager in a with block. context_expr is the context manager, often a Call node. optional_vars is a
+/// Name, Tuple or List for the as foo part, or None if that isn’t used.
+type WithItem =
+    { ContextExpr: Expression
+      OptionalVars: Expression option }
+
+/// A with block. items is a list of withitem nodes representing the context managers, and body is the indented block
+/// inside the context.
+type With =
+    { Items: WithItem list
+      Body: Statement list
+      TypeComment: string option }
 
 /// A single argument in a list. arg is a raw string of the argument name, annotation is its annotation, such as a Str
 /// or Name node.
@@ -190,50 +212,26 @@ type Arguments =
 /// or List within targets.
 ///
 /// type_comment is an optional string with the type annotation as a comment.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse('a = b = 1'), indent=4)) # Multiple assignment
-/// Module(
-///     body=[
-///         Assign(
-///             targets=[
-///                 Name(id='a', ctx=Store()),
-///                 Name(id='b', ctx=Store())],
-///             value=Constant(value=1))],
-///     type_ignores=[])
-///
-/// >>> print(ast.dump(ast.parse('a,b = c'), indent=4)) # Unpacking
-/// Module(
-///     body=[
-///         Assign(
-///             targets=[
-///                 Tuple(
-///                     elts=[
-///                         Name(id='a', ctx=Store()),
-///                         Name(id='b', ctx=Store())],
-///                     ctx=Store())],
-///             value=Name(id='c', ctx=Load()))],
-///     type_ignores=[])
-/// ```
+/// https://docs.python.org/3/library/ast.html#ast.Assign
 type Assign =
     { Targets: Expression list
       Value: Expression
       TypeComment: string option }
 
+/// An assignment with a type annotation. target is a single node and can be a Name, a Attribute or a Subscript.
+/// annotation is the annotation, such as a Constant or Name node. value is a single optional node. simple is a
+/// boolean integer set to True for a Name node in target that do not appear in between parenthesis and are hence
+/// pure names and not expressions.
+/// https://docs.python.org/3/library/ast.html#ast.AnnAssign
+type AnnAssign =
+    { Target: Expression
+      Value: Expression option
+      Annotation: Expression
+      Simple: bool }
+
 /// When an expression, such as a function call, appears as a statement by itself with its return value not used or
 /// stored, it is wrapped in this container. value holds one of the other nodes in this section, a Constant, a Name, a
 /// Lambda, a Yield or YieldFrom node.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse('-a'), indent=4))
-/// Module(
-///     body=[
-///         Expr(
-///             value=UnaryOp(
-///                 op=USub(),
-///                 operand=Name(id='a', ctx=Load())))],
-///     type_ignores=[])
-///```
 type Expr = { Value: Expression }
 
 /// A for loop. target holds the variable(s) the loop assigns to, as a single Name, Tuple or List node. iter holds the
@@ -241,27 +239,6 @@ type Expr = { Value: Expression }
 /// are executed if the loop finishes normally, rather than via a break statement.
 ///
 /// type_comment is an optional string with the type annotation as a comment.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse("""
-/// ... for x in y:
-/// ...     ...
-/// ... else:
-/// ...     ...
-/// ... """), indent=4))
-/// Module(
-///     body=[
-///         For(
-///             target=Name(id='x', ctx=Store()),
-///             iter=Name(id='y', ctx=Load()),
-///             body=[
-///                 Expr(
-///                     value=Constant(value=Ellipsis))],
-///             orelse=[
-///                 Expr(
-///                     value=Constant(value=Ellipsis))])],
-///     type_ignores=[])
-///```
 type For =
     { Target: Expression
       Iterator: Expression
@@ -277,26 +254,6 @@ type AsyncFor =
       TypeComment: string option }
 
 /// A while loop. test holds the condition, such as a Compare node.
-///
-/// ```py
-/// >> print(ast.dump(ast.parse("""
-/// ... while x:
-/// ...    ...
-/// ... else:
-/// ...    ...
-/// ... """), indent=4))
-/// Module(
-///     body=[
-///         While(
-///             test=Name(id='x', ctx=Load()),
-///             body=[
-///                 Expr(
-///                     value=Constant(value=Ellipsis))],
-///             orelse=[
-///                 Expr(
-///                     value=Constant(value=Ellipsis))])],
-///     type_ignores=[])
-/// ```
 type While =
     { Test: Expression
       Body: Statement list
@@ -401,7 +358,8 @@ type Raise =
     { Exception: Expression
       Cause: Expression option }
 
-    static member Create(exc, ?cause) : Statement = { Exception = exc; Cause = cause } |> Raise
+    static member Create(exc, ?cause) : Statement =
+        { Exception = exc; Cause = cause } |> Raise
 
 /// A function definition.
 ///
@@ -419,15 +377,6 @@ type FunctionDef =
       DecoratorList: Expression list
       Returns: Expression option
       TypeComment: string option }
-
-    static member Create(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
-        { Name = name
-          Args = args
-          Body = body
-          DecoratorList = defaultArg decoratorList []
-          Returns = returns
-          TypeComment = typeComment }
-        |> FunctionDef
 
 /// global and nonlocal statements. names is a list of raw strings.
 ///
@@ -804,19 +753,32 @@ type AST =
     | Keyword of Keyword
     | Arg of Arg
     | Identifier of Identifier
+    | WithItem of WithItem
 
 [<AutoOpen>]
 module PythonExtensions =
+    let [<Literal>] Ellipsis = "..."
+
     type Statement with
+
         static member break'() : Statement = Break
-        static member continue' (?loc) : Statement = Continue
+        static member continue' ?loc : Statement = Continue
         static member import(names) : Statement = Import { Names = names }
         static member expr(value) : Statement = { Expr.Value = value } |> Expr
-        static member raise(value) : Statement = { Exception=value; Cause=None} |> Raise
+        static member ellipsis : Statement = Statement.expr(Expression.ellipsis)
+
+        static member raise(value) : Statement =
+            { Exception = value; Cause = None } |> Raise
 
         static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc) : Statement =
             Try.try' (body, ?handlers = handlers, ?orElse = orElse, ?finalBody = finalBody, ?loc = loc)
             |> Try
+
+        static member with'(items, ?body, ?typeComment) : Statement =
+            { Items = items
+              Body = defaultArg body []
+              TypeComment = typeComment }
+            |> With
 
         static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) : Statement =
             { Name = name
@@ -827,11 +789,36 @@ module PythonExtensions =
               Loc = loc }
             |> ClassDef
 
+        static member functionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
+            { FunctionDef.Name = name
+              Args = args
+              Body = body
+              DecoratorList = defaultArg decoratorList []
+              Returns = returns
+              TypeComment = typeComment }
+            |> FunctionDef
+
+        static member asyncFunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
+            { AsyncFunctionDef.Name = name
+              Args = args
+              Body = body
+              DecoratorList = defaultArg decoratorList []
+              Returns = returns
+              TypeComment = typeComment }
+            |> AsyncFunctionDef
+
         static member assign(targets, value, ?typeComment) : Statement =
             { Targets = targets
               Value = value
               TypeComment = typeComment }
             |> Assign
+
+        static member assign(target, annotation, ?value, ?simple) : Statement =
+            { Target = target
+              Value = value
+              Annotation = annotation
+              Simple = defaultArg simple true }
+            |> AnnAssign
 
         static member return'(?value) : Statement = Return { Value = value }
 
@@ -857,7 +844,11 @@ module PythonExtensions =
             ImportFrom.importFrom (``module``, names, ?level = level)
             |> ImportFrom
 
-        static member nonLocal(ids) = NonLocal.Create ids |> Statement.NonLocal
+        static member nonLocal(ids) =
+            NonLocal.Create ids |> Statement.NonLocal
+
+        static member global'(ids) =
+            Global.Create ids |> Statement.Global
 
     type Expression with
 
@@ -867,11 +858,18 @@ module PythonExtensions =
               Loc = loc }
             |> Name
 
-        static member name(name, ?ctx) : Expression = Expression.name(Identifier(name), ?ctx = ctx)
-        static member identifier(name, ?ctx, ?loc) : Expression = Expression.name(Identifier(name), ?ctx = ctx, ?loc = loc)
-        static member identifier(identifier, ?ctx, ?loc) : Expression = Expression.name(identifier, ?ctx = ctx, ?loc = loc)
+        static member name(name, ?ctx) : Expression =
+            Expression.name (Identifier(name), ?ctx = ctx)
 
-        static member dict(keys, values) : Expression = { Keys = keys; Values = values } |> Dict
+        static member identifier(name, ?ctx, ?loc) : Expression =
+            Expression.name (Identifier(name), ?ctx = ctx, ?loc = loc)
+
+        static member identifier(identifier, ?ctx, ?loc) : Expression =
+            Expression.name (identifier, ?ctx = ctx, ?loc = loc)
+
+        static member dict(keys, values) : Expression =
+            { Keys = keys; Values = values } |> Dict
+
         static member tuple(elts, ?loc) : Expression = { Elements = elts; Loc = loc } |> Tuple
         static member slice(?lower, ?upper, ?slice) : Expression = Slice(lower, upper, slice)
 
@@ -904,22 +902,9 @@ module PythonExtensions =
               Loc = loc }
             |> Compare
 
-        static member compare(left, op, comparators, ?loc) : Expression =
-            let op =
-              match op with
-              | BinaryEqual -> Eq
-              | BinaryEqualStrict -> Is
-              | BinaryUnequal -> NotEq
-              | BinaryUnequalStrict -> IsNot
-              | BinaryLess -> Lt
-              | BinaryLessOrEqual -> LtE
-              | BinaryGreater -> Gt
-              | BinaryGreaterOrEqual -> GtE
-              | _ -> failwith $"compare: Operator {op} not supported"
-            Expression.compare(left, [op], comparators)
-
-        static member none() =
-            Expression.name (Identifier(name="None"))
+        static member none = Expression.name (Identifier(name = "None"))
+        static member any = Expression.name (Identifier(name = "Any"))
+        static member ellipsis = Expression.name (Identifier(name = Ellipsis))
 
         static member attribute(value, attr, ?ctx) : Expression =
             { Value = value
@@ -929,17 +914,15 @@ module PythonExtensions =
 
         static member unaryOp(op, operand, ?loc) : Expression =
             let op =
-              match op with
-                  | UnaryMinus -> USub
-                  | UnaryPlus -> UAdd
-                  | UnaryNot -> Not
-                  | UnaryNotBitwise -> Invert
-                  // | UnaryTypeof -> "typeof"
-                  // | UnaryVoid ->
-                  // | UnaryDelete -> "delete"
-                  | _ -> failwith $"unaryOp: Operator {op} not supported"
+                match op with
+                | UnaryMinus -> USub
+                | UnaryPlus -> UAdd
+                | UnaryNot -> Not
+                | UnaryNotBitwise -> Invert
+                // | UnaryAddressOf -> "&"
+                | _ -> failwith $"unaryOp: Operator {op} not supported"
 
-            Expression.unaryOp(op, operand, ?loc=loc)
+            Expression.unaryOp (op, operand, ?loc = loc)
 
         static member unaryOp(op, operand, ?loc) : Expression =
             { Op = op
@@ -947,7 +930,11 @@ module PythonExtensions =
               Loc = loc }
             |> UnaryOp
 
-        static member namedExpr(target, value, ?loc) = { Target = target; Value = value; Loc=loc } |> NamedExpr
+        static member namedExpr(target, value, ?loc) =
+            { Target = target
+              Value = value
+              Loc = loc }
+            |> NamedExpr
 
         static member subscript(value, slice, ?ctx) : Expression =
             { Value = value
@@ -964,33 +951,44 @@ module PythonExtensions =
 
         static member binOp(left, op, right, ?loc) : Expression =
             let op =
-              match op with
-              | BinaryPlus -> Add
-              | BinaryMinus -> Sub
-              | BinaryMultiply -> Mult
-              | BinaryDivide -> Div
-              | BinaryModulus -> Mod
-              | BinaryOrBitwise -> BitOr
-              | BinaryAndBitwise -> BitAnd
-              | BinaryShiftLeft -> LShift
-              | BinaryShiftRightZeroFill -> RShift
-              | BinaryShiftRightSignPropagating -> RShift
-              | BinaryXorBitwise -> BitXor
-              | _ -> failwith $"binOp: Operator {op} not supported"
+                match op with
+                | BinaryPlus -> Add
+                | BinaryMinus -> Sub
+                | BinaryMultiply -> Mult
+                | BinaryDivide -> Div
+                | BinaryModulus -> Mod
+                | BinaryOrBitwise -> BitOr
+                | BinaryAndBitwise -> BitAnd
+                | BinaryShiftLeft -> LShift
+                | BinaryShiftRightZeroFill -> RShift
+                | BinaryShiftRightSignPropagating -> RShift
+                | BinaryXorBitwise -> BitXor
+                | _ -> failwith $"binOp: Operator {op} not supported"
 
-            Expression.binOp(left, op, right, ?loc=loc)
+            Expression.binOp (left, op, right, ?loc = loc)
 
-        static member boolOp(op, values, ?loc) : Expression = { Values = values; Operator = op; Loc=loc } |> BoolOp
-        static member boolOp(op, values, ?loc) : Expression =
+        static member boolOp(op: BoolOperator, values, ?loc) : Expression =
+            { Values = values
+              Operator = op
+              Loc = loc }
+            |> BoolOp
+
+        static member boolOp(op: LogicalOperator, values, ?loc) : Expression =
             let op =
                 match op with
                 | LogicalAnd -> And
                 | LogicalOr -> Or
 
-            Expression.boolOp(op, values, ?loc=loc)
-        static member constant(value: obj, ?loc) : Expression = Constant (value=value, loc=loc)
-        static member starred(value: Expression, ?ctx: ExpressionContext) : Expression = Starred(value, ctx |> Option.defaultValue Load)
-        static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression = List(elts, ctx |> Option.defaultValue Load)
+            Expression.boolOp (op, values, ?loc = loc)
+
+        static member constant(value: obj, ?loc) : Expression = Constant(value = value, loc = loc)
+        static member string(value: string, ?loc) : Expression = Constant(value = value, loc = loc)
+
+        static member starred(value: Expression, ?ctx: ExpressionContext) : Expression =
+            Starred(value, ctx |> Option.defaultValue Load)
+
+        static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression =
+            List(elts, ctx |> Option.defaultValue Load)
 
     type List with
 
@@ -1007,6 +1005,12 @@ module PythonExtensions =
     type Alias with
 
         static member alias(name, ?asname) = { Name = name; AsName = asname }
+
+    type WithItem with
+
+        static member withItem(contextExpr, ?optinalVars) =
+            { ContextExpr = contextExpr
+              OptionalVars = optinalVars }
 
     type Try with
 
@@ -1041,7 +1045,7 @@ module PythonExtensions =
               TypeComment = typeComment }
 
         static member arg(arg, ?annotation, ?typeComment) =
-          Arg.arg(Identifier(arg), ?annotation=annotation, ?typeComment=typeComment)
+            Arg.arg (Identifier(arg), ?annotation = annotation, ?typeComment = typeComment)
 
     type Keyword with
 
@@ -1064,7 +1068,8 @@ module PythonExtensions =
               KwDefaults = defaultArg kwDefaults []
               KwArg = kwarg
               Defaults = defaultArg defaults [] }
-        static member empty = Arguments.arguments()
+
+        static member empty = Arguments.arguments ()
 
     type For with
 

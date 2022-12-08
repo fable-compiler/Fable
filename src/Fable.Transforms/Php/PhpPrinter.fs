@@ -1,12 +1,11 @@
 ﻿module Fable.Transforms.PhpPrinter
 
 open System
-open System.IO
 open Fable.AST.Php
 
 module Output =
     type Writer =
-        { Writer: TextWriter
+        { Writer: System.Text.StringBuilder
           Indent: int
           Precedence: int
           UsedTypes: PhpType Set
@@ -19,16 +18,15 @@ module Output =
         let create w =
             { Writer = w; Indent = 0; Precedence = Int32.MaxValue; UsedTypes = Set.empty; CurrentNamespace = None }
 
-    let writeIndent  ctx =
+    let writeIndent ctx =
         for _ in 1 .. ctx.Indent do
-            ctx.Writer.Write("    ")
+            ctx.Writer.Append("    ") |> ignore
 
     let write ctx txt =
-        ctx.Writer.Write(txt: string)
-
+        ctx.Writer.Append(txt: string) |> ignore
 
     let writeln ctx txt =
-         ctx.Writer.WriteLine(txt: string)
+        ctx.Writer.AppendLine(txt: string) |> ignore
 
     let writei ctx txt =
         writeIndent ctx
@@ -37,7 +35,7 @@ module Output =
     let writeiln ctx txt =
         writeIndent ctx
         writeln ctx txt
-      
+
     let writeVarList ctx vars =
         let mutable first = true
         for var in vars do
@@ -61,7 +59,7 @@ module Output =
             | ByRef v ->
                 write ctx "&$"
                 write ctx v
-             
+
     module Precedence =
         let binary =
             function
@@ -69,7 +67,7 @@ module Output =
             | "+" | "-" | "."         -> 4
             | "<<" | ">>" |  ">>>"    -> 5
             | "<" | "<=" | ">=" | ">" -> 7
-            | "==" | "!=" | "===" 
+            | "==" | "!=" | "==="
             | "!==" | "<>" | "<=>"    -> 7
             | "&" -> 8
             | "^" -> 9
@@ -89,13 +87,13 @@ module Output =
             | "(void)" -> 10
             | op -> failwithf "Unknown unary operator %s" op
 
-        let _new = 0 
+        let _new = 0
         let instanceOf = 1
-        let ternary = 14 
+        let ternary = 14
         let assign = 15
-            
 
-        let clear ctx = { ctx with Precedence = Int32.MaxValue} 
+
+        let clear ctx = { ctx with Precedence = Int32.MaxValue}
 
     let writeIdent ctx (id: PhpIdentity) =
         match id.Namespace with
@@ -106,7 +104,7 @@ module Output =
                 write ctx @"\"
         | None -> ()
         match id.Class with
-        | Some cls -> 
+        | Some cls ->
             write ctx cls
             write ctx "::"
         | None -> ()
@@ -125,7 +123,7 @@ module Output =
 
     let rec writeTypeRef ctx ref =
         match ref with
-        | InType t -> 
+        | InType t ->
            if not (Set.contains t ctx.UsedTypes) then
                match t.Namespace with
                | None -> write ctx @"\"
@@ -134,9 +132,9 @@ module Output =
                        write ctx @"\"
                        write ctx ns
                        write ctx @"\"
-                
+
            write ctx t.Name
- 
+
         | ExType id -> writeIdent ctx id
         | ArrayRef t ->
             writeTypeRef ctx t
@@ -164,17 +162,17 @@ module Output =
                 (fun subCtx ->
                     write subCtx op
                     writeExpr subCtx expr )
-        | PhpConst cst -> 
+        | PhpConst cst ->
             match cst with
             | PhpConstNumber n -> write ctx (string n)
             | PhpConstString s -> writeStr ctx s
             | PhpConstBool true -> write ctx "true"
             | PhpConstBool false -> write ctx "false"
             | PhpConstNull -> write ctx "NULL"
-        | PhpVar (v,_) -> 
+        | PhpVar (v,_) ->
             write ctx "$"
             write ctx v
-        | PhpGlobal v -> 
+        | PhpGlobal v ->
             write ctx "$GLOBALS['"
             //write ctx "$"
             write ctx v
@@ -258,9 +256,9 @@ module Output =
                 write ctx " use ("
                 writeUseList ctx uses
                 write ctx ")"
-            
+
             write ctx " { "
-            let multiline = body.Length > 1 
+            let multiline = body.Length > 1
             let bodyCtx =
                 if multiline then
                     writeln ctx ""
@@ -290,10 +288,10 @@ module Output =
                                    first <- false
                                else
                                    write ctx ", "
-                               writeExpr ctx value 
+                               writeExpr ctx value
 
 
-                        | _ -> 
+                        | _ ->
                             writeExpr ctx args.[n]
 
                 elif n < args.Length then
@@ -325,7 +323,7 @@ module Output =
         | PhpArrayNoIndex ->
             ()
 
-        
+
     and writeStatement ctx st =
         match st with
         | PhpStatement.PhpReturn expr ->
@@ -351,10 +349,10 @@ module Output =
             let caseCtx = indent casesCtx
             for case,sts in cases do
                 match case with
-                | IntCase i -> 
+                | IntCase i ->
                     writei casesCtx "case "
                     write casesCtx (string i)
-                | StringCase s -> 
+                | StringCase s ->
                     writei casesCtx "case '"
                     write casesCtx s
                     write casesCtx "'"
@@ -368,7 +366,7 @@ module Output =
         | PhpBreak level ->
             writei ctx "break"
             match level with
-            | Some l -> 
+            | Some l ->
                 write ctx " "
                 write ctx (string level)
             | None -> ()
@@ -407,7 +405,7 @@ module Output =
 
             match catch with
             | Some(var, sts) ->
-                writeiln ctx "catch (exception $" 
+                writeiln ctx "catch (exception $"
                 write ctx var
                 writeln ctx ") {"
                 for st in sts do
@@ -436,7 +434,7 @@ module Output =
             write ctx " = "
             writeExpr ctx start
             write ctx "; $"
-            write ctx ident 
+            write ctx ident
             write ctx " <= "
             writeExpr ctx limit
             write ctx "; $"
@@ -457,7 +455,7 @@ module Output =
         writei ctx ""
         if f.Static then
             write ctx "static "
-        
+
         write ctx "function "
         write ctx f.Name
         write ctx "("
@@ -478,14 +476,14 @@ module Output =
         for s in f.Body do
             writeStatement bodyCtx s
         writeiln ctx "}"
-            
+
     let writeField ctx (m: PhpField) =
         writei ctx "public $"
         write ctx m.Name
         writeln ctx ";"
 
     let writeCtor ctx (ctor: PhpConstructor) =
-        
+
         writei ctx "function __construct("
         let mutable first = true
         for a in ctor.Args do
@@ -514,7 +512,7 @@ module Output =
             write ctx t.Name
         | None -> ()
 
-        if t.Interfaces <> [] then 
+        if t.Interfaces <> [] then
             write ctx " implements "
             let mutable first = true
             for itf in t.Interfaces do
@@ -524,12 +522,12 @@ module Output =
                     write ctx ", "
                 write ctx itf.Name
 
-        writeln ctx " {" 
+        writeln ctx " {"
         let mbctx = indent ctx
         for m in t.Fields do
             writeField mbctx m
 
-        t.Constructor 
+        t.Constructor
         |> Option.iter (writeCtor mbctx)
 
         for m in t.Methods do
@@ -551,7 +549,7 @@ module Output =
         | PhpType t -> writeType ctx t
         | PhpFun t -> writeFunc ctx t
         | PhpDeclValue(n,expr) -> writeAssign ctx n expr
-        | PhpAction statements -> 
+        | PhpAction statements ->
             for s in statements do
                 writeStatement ctx s
 
@@ -564,13 +562,12 @@ module Output =
             writeln ctx ""
         )
 
-
         if not (List.isEmpty file.Require) then
             //writeln ctx "define('__ROOT__',dirname(__FILE__));"
             for v,r in file.Require do
                 write ctx "require_once("
                 match v with
-                | Some var -> 
+                | Some var ->
                     write ctx var
                     write ctx "."
                 | None -> ()
@@ -578,7 +575,7 @@ module Output =
                 writeStr ctx r
                 writeln ctx ");"
             writeln ctx ""
-       
+
         if not (List.isEmpty file.Uses) then
             for u in file.Uses do
                 write ctx "use "
@@ -591,15 +588,25 @@ module Output =
                 write ctx u.Name
                 writeln ctx ";"
             writeln ctx ""
-            
+
         let ctx =
-            { ctx with 
+            { ctx with
                 UsedTypes = set file.Uses
                 CurrentNamespace = file.Namespace }
-
 
         for i,d in file.Decls do
             writeln ctx ( "#" + string i)
             writeDecl ctx d
             writeln ctx ""
 
+
+let isEmpty (file: PhpFile): bool =
+    false //TODO: determine if printer will not print anything
+
+let run (writer: Printer.Writer) (file: PhpFile): Async<unit> =
+    async {
+        let sb = System.Text.StringBuilder()
+        let ctx = Output.Writer.create sb
+        Output.writeFile ctx file
+        do! writer.Write(sb.ToString())
+    }

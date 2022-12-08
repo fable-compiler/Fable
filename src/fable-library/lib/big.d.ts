@@ -4,7 +4,7 @@
 //                 Roman Nuritdinov (Ky6uk) <https://github.com/Ky6uk>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 
-import { CustomNumeric } from "../Numeric";
+import { CustomNumeric } from "../Numeric.js";
 
 export type BigSource = number | string | Big;
 

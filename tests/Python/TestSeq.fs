@@ -1,5 +1,6 @@
 module Fable.Tests.Seqs
 
+open Util
 open Util.Testing
 
 let sumFirstTwo (zs: seq<float>) =
@@ -7,11 +8,18 @@ let sumFirstTwo (zs: seq<float>) =
     let first = Seq.head zs
     first + second
 
+let seqChoose xss =
+    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
+    xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
+
 let rec sumFirstSeq (zs: seq<float>) (n: int): float =
    match n with
    | 0 -> 0.
    | 1 -> Seq.head zs
    | _ -> (Seq.head zs) + sumFirstSeq (Seq.skip 1 zs) (n-1)
+
+type DummyUnion = Number of int
+type ExceptFoo = { Bar:string }
 
 type Point =
     { x: int; y: int }
@@ -31,11 +39,22 @@ type MyNumberWrapper =
     { MyNumber: MyNumber }
 
 [<Fact>]
-let ``test Seq.empty works`` () =
-    let xs = Seq.empty<int>
-    Seq.length xs
-    |> equal 0
-
+let ``test Can test untyped enumerables`` () =
+    let sumEnumerable (enumerable: obj) =
+        let mutable sum = 0
+        match enumerable with
+        | :? System.Collections.IEnumerable as items ->
+            for item in items do
+                sum <- sum + (item :?> int)
+        | _ -> sum <- -1
+        sum
+    let xs = box [|1; 2|]
+    let ys = box [3; 4]
+    let zs = box 1
+    sumEnumerable xs |> equal 3
+    sumEnumerable ys |> equal 7
+    sumEnumerable zs |> equal -1
+    
 [<Fact>]
 let ``test Seq.length works`` () =
     let xs = [1.; 2.; 3.; 4.]
@@ -43,20 +62,86 @@ let ``test Seq.length works`` () =
     |> equal 4
 
 [<Fact>]
-let ``test Seq.map works`` () =
-    let xs = [1; 2; 3; 4]
-    xs
-    |> Seq.map string
-    |> List.ofSeq
-    |> equal ["1"; "2"; "3"; "4"]
-
+let ``test Seq.delay works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = Seq.delay (fun () -> xs :> _ seq)
+    ys |> Seq.head
+    |> equal 1.
 
 [<Fact>]
-let ``test Seq.singleton works`` () =
-    let xs = Seq.singleton 42
-    xs
-    |> List.ofSeq
-    |> equal [42]
+let ``test Seq.unfold works`` () =
+    1 |> Seq.unfold (fun x ->
+       if x <= 5 then Some(x, x + 1)
+       else None)
+    |> Seq.length
+    |> equal 5
+
+[<Fact>]
+let ``test Seq.empty works`` () =
+    let xs = Seq.empty<int>
+    Seq.length xs
+    |> equal 0
+
+[<Fact>]
+let ``test Seq.append works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = [0.]
+    let zs = Seq.append ys xs
+    sumFirstTwo zs
+    |> equal 1.
+
+[<Fact>]
+let ``test Seq.average for empty sequence`` () =
+    let xs = Seq.empty<float>
+    (try Seq.average xs |> ignore; false with | _ -> true) |> equal true
+
+[<Fact>]
+let ``test Seq.averageBy for empty sequence`` () =
+    let xs = Seq.empty<float>
+    (try Seq.averageBy ((*) 2.) xs |> ignore; false with | _ -> true) |> equal true
+
+[<Fact>]
+let ``test Seq.average works`` () =
+    let xs = seq {1.; 2.; 3.; 4.}
+    Seq.average xs
+    |> equal 2.5
+
+[<Fact>]
+let ``test Seq.averageBy works`` () =
+    let xs = seq {1.; 2.; 3.; 4.}
+    Seq.averageBy ((*) 2.) xs
+    |> equal 5.
+
+[<Fact>]
+let ``test Seq.average works with custom types`` () =
+    seq {MyNumber 1; MyNumber 2; MyNumber 3}
+    |> Seq.average |> equal (MyNumber 2)
+
+[<Fact>]
+let ``test Seq.averageBy works with custom types`` () =
+    seq {{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }}
+    |> Seq.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+
+[<Fact>]
+let ``test Seq.choose works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let zs = xs |> Seq.choose (fun x ->
+       if x > 2. then Some x
+       else None)
+    sumFirstTwo zs
+    |> equal 7.
+
+[<Fact>]
+let ``test Seq.choose works with generic arguments`` () =
+    let res = seqChoose [ Some [ 5 ] ]
+    equal [ 5 ] res
+
+[<Fact>]
+let ``test Seq.concat works`` () =
+    let xs = [[1.]; [2.]; [3.]; [4.]]
+    let ys = xs |> Seq.concat
+    sumFirstTwo ys
+    |> equal 3.
 
 [<Fact>]
 let ``test Seq.collect works`` () =
@@ -266,30 +351,30 @@ let ``test Seq.iter works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let total = ref 0.
     xs |> Seq.iter (fun x ->
-       total := !total + x
+       total.Value <- total.Value + x
     )
-    !total |> equal 10.
+    total.Value |> equal 10.
 
 [<Fact>]
 let ``test Seq.iter2 works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let total = ref 0.
     Seq.iter2 (fun x y ->
-       total := !total + x + y
+       total.Value <- total.Value + x + y
     ) xs xs
-    !total |> equal 20.
+    total.Value |> equal 20.
 
 [<Fact>]
 let ``test Seq.iteri works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let total = ref 0.
     xs |> Seq.iteri (fun i x ->
-       total := !total + (float i) * x
+       total.Value <- total.Value + (float i) * x
     )
-    !total |> equal 20.
+    total.Value |> equal 20.
 
 [<Fact>]
-let ``test Seq.map works II`` () =
+let ``test Seq.map works`` () =
     let xs = [1.]
     let ys = xs |> Seq.map ((*) 2.)
     ys |> Seq.head
@@ -613,12 +698,12 @@ let ``test Seq.skip fails when there're not enough elements`` () =
     let error, xs = ref false, [|1;2;3;4;5|]
     try
         Seq.skip 5 xs |> Seq.length |> equal 0
-    with _ -> error := true
-    equal false !error
+    with _ -> error.Value <- true
+    equal false error.Value
     try
         Seq.skip 6 xs |> Seq.length |> equal 0
-    with _ -> error := true
-    equal true !error
+    with _ -> error.Value <- true
+    equal true error.Value
 
 [<Fact>]
 let ``test Seq.toArray works`` () =
@@ -686,13 +771,13 @@ let ``test Seq.cache works`` () =
      let count = ref 0
      let xs =
         1 |> Seq.unfold(fun i ->
-           count := !count + 1
+           count.Value <- count.Value + 1
            if i <= 10 then Some(i, i+1)
            else None)
            |> Seq.cache
      xs |> Seq.length |> ignore
      xs |> Seq.length |> ignore
-     !count
+     count.Value
      |> equal 11
 
 [<Fact>]
@@ -710,12 +795,11 @@ let ``test Seq.compareWith works`` () =
     Seq.compareWith (-) xs ys |> equal -1
     Seq.compareWith (-) xs zs |> equal 1
 
-// FIXME:
-//[<Fact>]
-// let ``test Seq.countBy works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> Seq.countBy (fun x -> x % 2)
-//     ys |> Seq.length |> equal 2
+[<Fact>]
+let ``test Seq.countBy works`` () =
+     let xs = [1; 2; 3; 4]
+     let ys = xs |> Seq.countBy (fun x -> x % 2)
+     ys |> Seq.length |> equal 2
 
 [<Fact>]
 let ``test Seq.distinct works`` () =
@@ -765,10 +849,309 @@ let ``test Seq.distinctBy works on infinite sequences`` () =
         |> Seq.take 5
     xs |> Seq.toList |> equal [1; 5; 10; 15; 20]
 
-// [<Fact>]
-// let ``test Seq.groupBy works`` () =
-//     let xs = [1; 2; 3; 4]
-//     let ys = xs |> Seq.groupBy (fun x -> x % 2)
-//     ys |> Seq.length |> equal 2
-//     ys |> Seq.iter (fun (k,v) ->
-//         v |> Seq.exists (fun x -> x % 2 <> k) |> equal false)
+[<Fact>]
+let ``test Seq.groupBy works`` () =
+     let xs = [1; 2; 3; 4]
+     let ys = xs |> Seq.groupBy (fun x -> x % 2)
+     ys |> Seq.length |> equal 2
+     ys |> Seq.iter (fun (k,v) ->
+         v |> Seq.exists (fun x -> x % 2 <> k) |> equal false)
+
+[<Fact>]
+let ``test Seq.groupBy with structural equality works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
+    ys |> Seq.length |> equal 2
+
+[<Fact>]
+let ``test Seq.exactlyOne works`` () =
+    let xs = [1.]
+    xs |> Seq.exactlyOne
+    |> equal 1.
+
+[<Fact>]
+let ``test Seq.tryExactlyOne works`` () =
+        seq {1.} |> Seq.tryExactlyOne |> equal (Some 1.)
+        seq {1.; 2.} |> Seq.tryExactlyOne |> equal None
+        Seq.empty<float> |> Seq.tryExactlyOne |> equal None
+
+[<Fact>]
+let ``test Seq.initInfinite works`` () =
+    Seq.initInfinite (fun i -> 2. * float i)
+    |> Seq.take 10
+    |> Seq.sum
+    |> equal 90.
+
+[<Fact>]
+let ``test Seq.last works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.last
+    |> equal 4.
+
+[<Fact>]
+let ``test Seq.tryLast works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.tryLast xs |> equal (Some 4.)
+    Seq.tryLast [] |> equal None
+
+[<Fact>]
+let ``test Seq.pairwise works`` () =
+    let xs = [1; 2; 3; 4]
+    xs |> Seq.pairwise
+    |> Seq.map (fun (x, y) -> sprintf "%i%i" x y)
+    |> String.concat ""
+    |> equal "122334"
+
+[<Fact>]
+let ``test Seq.pairwise works with empty input`` () = // See #1941
+    ([||] : int array) |> Seq.pairwise |> Seq.toArray |> equal [||]
+    [1] |> Seq.pairwise |> Seq.toList |> equal []
+    [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
+
+[<Fact>]
+let ``test Seq.readonly works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.readonly
+    |> Seq.head
+    |> equal 1.
+
+[<Fact>]
+let ``test Seq.singleton works`` () =
+    let xs = Seq.singleton 1.
+    Seq.head xs |> equal 1.
+    Seq.head xs |> equal 1.
+
+[<Fact>]
+let ``test Seq.singleton works with None`` () =
+    let xs : int option seq = Seq.singleton None
+    xs
+    |> Seq.length
+    |> equal 1
+
+[<Fact>]
+let ``test Seq.skipWhile works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.skipWhile (fun i -> i <= 3.)
+    |> Seq.head
+    |> equal 4.
+
+[<Fact>]
+let ``test Seq.take works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.take 2
+    |> Seq.last
+    |> equal 2.
+    // Seq.take should throw an exception if there're not enough elements
+    try xs |> Seq.take 20 |> Seq.length with _ -> -1
+    |> equal -1
+
+[<Fact>]
+let ``test Seq.takeWhile works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.takeWhile (fun i -> i < 3.)
+    |> Seq.last
+    |> equal 2.
+
+[<Fact>]
+let ``test Seq.truncate works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.truncate 2
+    |> Seq.last
+    |> equal 2.
+    // Seq.truncate shouldn't throw an exception if there're not enough elements
+    try xs |> Seq.truncate 20 |> Seq.length with _ -> -1
+    |> equal 5
+
+[<Fact>]
+let ``test Seq.where works`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.where (fun i -> i <= 3.)
+    |> Seq.length
+    |> equal 3
+
+[<Fact>]
+let ``test Seq.except works`` () =
+    Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3
+    Seq.except [2] [2; 4; 6] |> Seq.head |> equal 4
+    Seq.except [1] [1; 1; 1; 1] |> Seq.isEmpty |> equal true
+    Seq.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> Seq.isEmpty |> equal true
+    Seq.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> Seq.isEmpty |> equal true
+    Seq.except [(1, 2)] [(1, 2)] |> Seq.isEmpty |> equal true
+    Seq.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> Seq.isEmpty |> equal true
+    Seq.except [|49|] [|7; 49|] |> Seq.last|> equal 7
+    Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
+
+[<Fact>]
+let ``test Seq.item throws exception when index is out of range`` () =
+    let xs = [0]
+    (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true
+
+[<Fact>]
+let ``test Seq iterators from range do rewind`` () =
+    let xs = seq {for i=1 to 5 do i}
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+    let xs = seq {1..5}
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+    let xs = seq {'A'..'F'}
+    xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
+    xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
+
+[<Fact>]
+let ``test Seq.filter doesn't blow the stack with long sequences`` () = // See #459
+  let max = 1000000
+  let a = [| for i in 1 .. max -> 0  |] // init with 0
+  let b = a |> Seq.filter( fun x -> x > 10) |> Seq.toArray
+  equal 0 b.Length
+
+[<Fact>]
+let ``test Seq.windowed works`` () = // See #1716
+    let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ] :> _ seq
+    Seq.windowed 3 nums |> Seq.toArray |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
+    Seq.windowed 5 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+    Seq.windowed 6 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+    Seq.windowed 7 nums |> Seq.isEmpty |> equal true
+
+[<Fact>]
+let ``test Seq.allPairs works`` () =
+    let mutable accX = 0
+    let mutable accY = 0
+    let xs = seq { accX <- accX + 1; for i = 1 to 4 do i }
+    let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do i }
+    let res = Seq.allPairs xs ys
+    let res1 = List.ofSeq res
+    let res2 = List.ofSeq res
+    let expected =
+        [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f');
+         (2, 'a'); (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f');
+         (3, 'a'); (3, 'b'); (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f');
+         (4, 'a'); (4, 'b'); (4, 'c'); (4, 'd'); (4, 'e'); (4, 'f')]
+    accX |> equal 2
+    accY |> equal 1
+    equal expected res1
+    equal expected res2
+
+[<Fact>]
+let ``test Seq.splitInto works`` () =
+    seq {1..10} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..7|]; [|8..10|] ]
+    seq {1..11} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..11|] ]
+    seq {1..12} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..12|] ]
+    seq {1..5} |> Seq.splitInto 4 |> Seq.toList |> equal [ [|1..2|]; [|3|]; [|4|]; [|5|] ]
+    seq {1..4} |> Seq.splitInto 20 |> Seq.toList |> equal [ [|1|]; [|2|]; [|3|]; [|4|] ]
+
+[<Fact>]
+let ``test Seq.transpose works`` () =
+    let seqEqual (expected: seq<'T seq>) (actual: seq<'T seq>) =
+        (actual |> Seq.map Seq.toArray |> Seq.toArray)
+        |> equal (expected |> Seq.map Seq.toArray |> Seq.toArray)
+    // integer seq
+    Seq.transpose (seq [seq {1..3}; seq {4..6}])
+    |> seqEqual [seq [1; 4]; seq [2; 5]; seq [3; 6]]
+    Seq.transpose (seq [seq {1..3}])
+    |> seqEqual [seq [1]; seq [2]; seq [3]]
+    Seq.transpose (seq [seq [1]; seq [2]])
+    |> seqEqual [seq {1..2}]
+    // string seq
+    Seq.transpose (seq [seq ["a";"b";"c"]; seq ["d";"e";"f"]])
+    |> seqEqual [seq ["a";"d"]; seq ["b";"e"]; seq ["c";"f"]]
+    // empty seq
+    Seq.transpose Seq.empty
+    |> seqEqual Seq.empty
+    // seq of empty seqs - m x 0 seq transposes to 0 x m (i.e. empty)
+    Seq.transpose (seq [Seq.empty])
+    |> seqEqual Seq.empty
+    Seq.transpose (seq [Seq.empty; Seq.empty])
+    |> seqEqual Seq.empty
+    // sequences of lists
+    Seq.transpose [["a";"b"]; ["c";"d"]]
+    |> seqEqual [seq ["a";"c"]; seq ["b";"d"]]
+    Seq.transpose (seq { ["a";"b"]; ["c";"d"] })
+    |> seqEqual [seq ["a";"c"]; seq ["b";"d"]]
+
+[<Fact>]
+let ``test Seq.udpateAt works`` () =
+    // integer list
+    equal [0; 2; 3; 4; 5] (Seq.updateAt 0 0 [1..5] |> Seq.toList)
+    equal [1; 2; 0; 4; 5] (Seq.updateAt 2 0 [1..5] |> Seq.toList)
+    equal [1; 2; 3; 4; 0] (Seq.updateAt 4 0 [1..5] |> Seq.toList)
+
+    //string list
+    equal ["0"; "2"; "3"; "4"; "5"] (Seq.updateAt 0 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "0"; "4"; "5"] (Seq.updateAt 2 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "3"; "4"; "0"] (Seq.updateAt 4 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Seq.updateAt 0 0 [] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.updateAt -1 0 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.updateAt 2 0 [1] |> Seq.toList |> ignore)
+
+[<Fact>]
+let ``test Seq.insertAt works`` () =
+    // integer list
+    equal [0; 1; 2; 3; 4; 5] (Seq.insertAt 0 0 [1..5] |> Seq.toList)
+    equal [1; 2; 0; 3; 4; 5] (Seq.insertAt 2 0 [1..5] |> Seq.toList)
+    equal [1; 2; 3; 4; 0; 5] (Seq.insertAt 4 0 [1..5] |> Seq.toList)
+
+    //string list
+    equal ["0"; "1"; "2"; "3"; "4"; "5"] (Seq.insertAt 0 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "0"; "3"; "4"; "5"] (Seq.insertAt 2 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "3"; "4"; "0"; "5"] (Seq.insertAt 4 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+    // empty list & out of bounds
+    equal [0] (Seq.insertAt 0 0 [] |> Seq.toList)
+    throwsAnyError (fun () -> Seq.insertAt -1 0 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.insertAt 2 0 [1] |> Seq.toList |> ignore)
+
+[<Fact>]
+let ``test Seq.insertManyAt works`` () =
+    // integer list
+    equal [0; 0; 1; 2; 3; 4; 5] (Seq.insertManyAt 0 [0; 0] [1..5] |> Seq.toList)
+    equal [1; 2; 0; 0; 3; 4; 5] (Seq.insertManyAt 2 [0; 0] [1..5] |> Seq.toList)
+    equal [1; 2; 3; 4; 0; 0; 5] (Seq.insertManyAt 4 [0; 0] [1..5] |> Seq.toList)
+
+    //string list
+    equal ["0"; "0"; "1"; "2"; "3"; "4"; "5"] (Seq.insertManyAt 0 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "0"; "0"; "3"; "4"; "5"] (Seq.insertManyAt 2 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "3"; "4"; "0"; "0"; "5"] (Seq.insertManyAt 4 ["0"; "0"] ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+    // empty list & out of bounds
+    equal [0; 0] (Seq.insertManyAt 0 [0; 0] [] |> Seq.toList)
+    throwsAnyError (fun () -> Seq.insertManyAt -1 [0; 0] [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.insertManyAt 2 [0; 0] [1] |> Seq.toList |> ignore)
+
+[<Fact>]
+let ``test Seq.removeAt works`` () =
+    // integer list
+    equal [2; 3; 4; 5] (Seq.removeAt 0 [1..5] |> Seq.toList)
+    equal [1; 2; 4; 5] (Seq.removeAt 2 [1..5] |> Seq.toList)
+    equal [1; 2; 3; 4] (Seq.removeAt 4 [1..5] |> Seq.toList)
+
+    //string list
+    equal ["2"; "3"; "4"; "5"] (Seq.removeAt 0 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "4"; "5"] (Seq.removeAt 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "3"; "4"] (Seq.removeAt 4 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Seq.removeAt 0 [] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeAt -1 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeAt 2 [1] |> Seq.toList |> ignore)
+
+[<Fact>]
+let ``test Seq.removeManyAt works`` () =
+    // integer list
+    equal [3; 4; 5] (Seq.removeManyAt 0 2 [1..5] |> Seq.toList)
+    equal [1; 2; 5] (Seq.removeManyAt 2 2 [1..5] |> Seq.toList)
+    equal [1; 2; 3] (Seq.removeManyAt 3 2 [1..5] |> Seq.toList)
+
+    //string list
+    equal ["3"; "4"; "5"] (Seq.removeManyAt 0 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "5"] (Seq.removeManyAt 2 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+    equal ["1"; "2"; "3"] (Seq.removeManyAt 3 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Seq.removeManyAt 0 2 [] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeManyAt -1 2 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeManyAt 2 2 [1] |> Seq.toList |> ignore)

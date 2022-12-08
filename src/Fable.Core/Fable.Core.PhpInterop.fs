@@ -55,47 +55,47 @@ let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = nativeOnly
 /// E.g. `jsOptions<MyOpt> (fun o -> o.foo <- 5)` in JS becomes `{ foo: 5 }`
 let phpOptions<'T> (f: 'T->unit): 'T = nativeOnly
 
-/// Create an empty JS object: {}
-///let createEmpty<'T> : 'T = nativeOnly
+// /// Create an empty JS object: {}
+// let createEmpty<'T> : 'T = nativeOnly
 
-///// Get the Py function constructor for class types
-//let pyConstructor<'T> : obj = nativeOnly
+// /// Get the Py function constructor for class types
+// let pyConstructor<'T> : obj = nativeOnly
 
-/// Makes an expression the default export for the JS module.
-/// Used to interact with JS tools that require a default export.
-/// ATTENTION: This statement must appear on the root level of the file module.
-//[<Emit("export default $0")>]
-//let exportDefault (x: obj): unit = nativeOnly
+// /// Makes an expression the default export for the JS module.
+// /// Used to interact with JS tools that require a default export.
+// /// ATTENTION: This statement must appear on the root level of the file module.
+// [<Emit("export default $0")>]
+// let exportDefault (x: obj): unit = nativeOnly
 
-/// Works like `ImportAttribute` (same semantics as ES6 imports).
-/// You can use "*" or "default" selectors.
-//let import<'T> (selector: string) (path: string):'T = nativeOnly
+// /// Works like `ImportAttribute` (same semantics as ES6 imports).
+// /// You can use "*" or "default" selectors.
+// let import<'T> (selector: string) (path: string):'T = nativeOnly
 
-/// F#: let myMember = importMember<string> "myModule"
-/// Py: from my_module import my_member
-/// Note the import must be immediately assigned to a value in a let binding
-//let importMember<'T> (path: string):'T = nativeOnly
+// /// F#: let myMember = importMember<string> "myModule"
+// /// Py: from my_module import my_member
+// /// Note the import must be immediately assigned to a value in a let binding
+// let importMember<'T> (path: string):'T = nativeOnly
 
-/// F#: let defaultMember = importDefault<unit->obj> "myModule"
-/// JS: import defaultMember from "myModule"
-//let importDefault<'T> (path: string):'T = nativeOnly
+// /// F#: let defaultMember = importDefault<unit->obj> "myModule"
+// /// JS: import defaultMember from "myModule"
+// let importDefault<'T> (path: string):'T = nativeOnly
 
-/// F#: let myLib = importAll<obj> "myLib"
-/// JS: import * as myLib from "myLib"
-//let importAll<'T> (path: string):'T = nativeOnly
+// /// F#: let myLib = importAll<obj> "myLib"
+// /// JS: import * as myLib from "myLib"
+// let importAll<'T> (path: string):'T = nativeOnly
 
-/// Imports a file only for its side effects
-//let importSideEffects (path: string): unit = nativeOnly
+// /// Imports a file only for its side effects
+// let importSideEffects (path: string): unit = nativeOnly
 
-/// Imports a file dynamically at runtime
-//let importDynamic<'T> (path: string): JS.Promise<'T> = nativeOnly
+// /// Imports a file dynamically at runtime
+// let importDynamic<'T> (path: string): JS.Promise<'T> = nativeOnly
 
-/// Imports a reference from an external file dynamically at runtime
-/// ATTENTION: Needs fable-compiler 2.3, pass the reference directly in argument position (avoid pipes)
-//let importValueDynamic (x: 'T): JS.Promise<'T> = nativeOnly
+// /// Imports a reference from an external file dynamically at runtime
+// /// ATTENTION: Needs fable-compiler 2.3, pass the reference directly in argument position (avoid pipes)
+// let importValueDynamic (x: 'T): JS.Promise<'T> = nativeOnly
 
-/// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
-//let toPlainJsObj(o: 'T): obj = nativeOnly
+// /// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
+// let toPlainJsObj(o: 'T): obj = nativeOnly
 
 /// Compiles to JS `this` keyword.
 ///
@@ -103,22 +103,22 @@ let phpOptions<'T> (f: 'T->unit): 'T = nativeOnly
 ///     jqueryMethod(fun x y -> jsThis?add(x, y))
 let [<Emit("this")>] phpThis<'T> : 'T = nativeOnly
 
-/// JS `in` operator
-//let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = nativeOnly
+// /// JS `in` operator
+// let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = nativeOnly
 
-/// JS non-strict null checking
-//let [<Emit("$0 == null")>] isNullOrUndefined (target: obj): bool = nativeOnly
+// /// JS non-strict null checking
+// let [<Emit("$0 == null")>] isNullOrUndefined (target: obj): bool = nativeOnly
 
-/// Use it when importing a constructor from a JS library.
-//type [<AllowNullLiteral>] JsConstructor =
+// /// Use it when importing a constructor from a JS library.
+// type [<AllowNullLiteral>] JsConstructor =
 //    [<Emit("new $0($1...)")>]
 //    abstract Create: [<ParamArray>]args: obj[] -> obj
 
-/// Use it when importing dynamic functions from JS. If you need a constructor, use `JsConstructor`.
-///
-/// ## Sample
-///     let f: JsFunc = import "myFunction" "./myLib"
-///     f.Invoke(5, "bar")
-//type [<AllowNullLiteral>] JsFunc private () =
+// /// Use it when importing dynamic functions from JS. If you need a constructor, use `JsConstructor`.
+// ///
+// /// ## Sample
+// ///     let f: JsFunc = import "myFunction" "./myLib"
+// ///     f.Invoke(5, "bar")
+// type [<AllowNullLiteral>] JsFunc private () =
 //    [<Emit("$0($1...)")>]
 //    member __.Invoke([<ParamArray>]args:obj[]): obj = nativeOnly

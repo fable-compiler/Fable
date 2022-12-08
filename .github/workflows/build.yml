@@ -1,0 +1,145 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Separate build job for JavaScript
+  build-javascript:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.4.1
+
+    - name: Fable Tests - JavaScript
+      run: dotnet fsi build.fsx test-js
+
+  # Separate build job for TypeScript
+  build-typescript:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.4.1
+
+    - name: Fable Tests - TypeScript
+      run: dotnet fsi build.fsx test-ts
+
+    # - name: Fable Tests - TypeScript
+    #   run: dotnet fsi build.fsx test-ts
+
+  # Separate build job for Integration
+  build-integration:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.4.1
+
+    - name: Fable Tests
+      run: dotnet fsi build.fsx test-integration
+
+  # Separate build job for Python since we use a test matrix (will run in parallell)
+  build-python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, "3.10"]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Setup dotnet tools
+        run: dotnet tool restore
+
+      # - name: Check F# formatting (fantomas)
+      #   run: dotnet fantomas src/Fable.Transforms/Python --check
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Fable Library - Python
+        run: dotnet fsi build.fsx library-py
+
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Fable Tests - Python
+        run: dotnet fsi build.fsx test-py
+
+  # Separate build job for Rust (will run in parallel)
+  build-rust:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test: ["default", "threaded"]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.4.1
+
+    - name: Setup Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Fable Tests - Rust
+      run: dotnet fsi build.fsx test-rust-${{ matrix.test }}
+
+  build-dart:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup Dart SDK
+      uses: dart-lang/setup-dart@v1.3
+
+    - name: Fable Tests - Dart
+      run: dotnet fsi build.fsx test-dart

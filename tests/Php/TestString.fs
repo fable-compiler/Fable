@@ -37,7 +37,7 @@ let ``test sprintf with different decimal digits works`` () =
       sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
 
 [<Fact>]
-let ``sprintf displays sign correctly`` () =
+let ``test sprintf displays sign correctly`` () =
       sprintf "%i" 1 |> equal "1"
       sprintf "%d" 1 |> equal "1"
       sprintf "%d" 1L |> equal "1"

@@ -1,0 +1,53 @@
+[tool.poetry]
+name = "Fable"
+version = "4.0.0"
+description = "Fable"
+authors = ["Alfonso Garcia-Caro <@alfonsogcnunez>", "Dag Brattli <dag@brattli.net>"]
+license = "MIT License"
+readme = "README.md"
+homepage = "https://fable.io"
+
+[tool.poetry.dependencies]
+python = ">= 3.9, < 4.0"
+fable-library = "*"
+python-dateutil = "^2.8.2"
+
+[tool.poetry.dev-dependencies]
+fable-library = {path = "./build/fable-library-py", develop = true}
+pytest = "^6.2.4"
+black = {version = "^22.6.0", allow-prereleases = true}
+isort = "^5.10.1"
+
+[tool.pyright]
+reportMissingTypeStubs = false
+reportMissingImports = false
+reportUnnecessaryTypeIgnoreComment = true
+reportUnusedImport = true
+reportUnusedVariable = true
+reportUnnecessaryIsInstance = true
+reportUnnecessaryComparison = true
+reportUnnecessaryCast = true
+reportPrivateUsage = true
+reportImportCycles = true
+reportDuplicateImport = true
+reportConstantRedefinition = true
+reportOverlappingOverload = true
+reportInconsistentConstructor = true
+reportImplicitStringConcatenation = true
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+
+[tool.isort]
+profile = "black"
+atomic = true
+lines_after_imports = 2
+lines_between_types = 1
+multi_line_output = 3            # corresponds to -m  flag
+include_trailing_comma = true    # corresponds to -tc flag
+line_length = 88
+known_third_party = ["cognite","pytest"]
+py_version=310
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

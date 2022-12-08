@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
+            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
             "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--noCache", "--runScript"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": true,
@@ -33,13 +33,11 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "type": "pwa-node"
+            "type": "node"
         },
         {
             "args": [
                 "${workspaceFolder}/build/tests",
-                "-r",
-                "esm",
                 "--reporter",
                 "dot",
                 "--timeout",
@@ -52,13 +50,13 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "type": "pwa-node"
+            "type": "node"
         },
         {
             "name": "Run Fable.Cli",
             "type": "coreclr",
             "request": "launch",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp3.1/fable.dll",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
             "args": ["watch", "--exclude", "Fable.Core"],
             "cwd": "${workspaceRoot}/src/quicktest",
             "stopAtEntry": false,
@@ -75,7 +73,7 @@
             "request": "launch",
             "name": "Run bench-compiler JS tests",
             "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-            "args": ["out-tests", "-r", "esm"],
+            "args": ["out-tests"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
@@ -83,17 +81,19 @@
             "request": "launch",
             "name": "Run bench-compiler (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
-            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
+            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
+            // "args": ["${workspaceRoot}/src/fcs-fable/fcs-fable.fsproj", "out-fcs", "--fableLib", "out-lib"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "coreclr",
             "request": "launch",
             "name": "Run bench-compiler (.NET)",
-            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/net5.0/bench-compiler.dll",
-            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
+            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/net6.0/bench-compiler.dll",
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
+            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
+            // "args": ["${workspaceRoot}/src/fcs-fable/fcs-fable.fsproj", "out-fcs", "--fableLib", "out-lib"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {
@@ -105,5 +105,39 @@
             "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "build/tests-js"],
             "stopOnEntry": true
         },
+        {
+            "name": "Run Fable.Cli on fable-test",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+            "args": ["--outDir", "${workspaceRoot}/../fable-test", "--fableLib", "../../Fable/build/fable-library-rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache"],
+            "cwd": "${workspaceRoot}/../fable-test",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+        {
+            "name": "Run Fable.Cli on tests/Rust",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+            "args": ["--outDir", "${workspaceRoot}/build/tests/Rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache"],
+            "cwd": "${workspaceRoot}/tests/Rust",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+        {
+            "name": "Run Fable.Cli on library-rust",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+            "args": ["--outDir", "${workspaceRoot}/build/fable-library-rust/src", "--fableLib", ".", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache", "--define", "FABLE_LIBRARY"],
+            "cwd": "${workspaceRoot}/src/fable-library-rust/src",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+
     ]
 }

@@ -1,16 +1,88 @@
-namespace Fable.Import
-
-[<System.Obsolete("Use Fable.Core.JS")>]
-module JS =
-    /// Use Fable.Core.JS
-    let obsolete<'T> : 'T = failwith "Use Fable.Core.JS"
-
 namespace Fable.Core
+
+#nowarn "1182"
 
 open System
 open System.Text.RegularExpressions
 
+[<RequireQualifiedAccess>]
+module JSX =
+    /// Used to decorate a function to turn it into a JSX component.
+    /// Arguments will become the props except for `children` argument.
+    type ComponentAttribute() =
+        inherit Attribute()
+
+    /// Represents a JSX prop, alias for a string * obj tuple.
+    /// Prop key must be a literal string that can be resolved at compile-time.
+    type Prop = string * obj
+
+    /// Represents a string key value pair used for styles in JSX.
+    /// Key must be a literal string that can be resolved at compile-time.
+    type Style = string * string
+
+    /// Represents an entity that can be used as a JSX tag.
+    /// Usually strings (for standard HTML tags) or functions returning JSX.Element
+    type ElementType = obj
+
+    /// The actual representation of JSX elements depend on the framework used.
+    /// E.g. if using React, JSX.Element will be the same as ReactElement
+    [<AllowNullLiteral>]
+    type Element =
+        class end
+
+    /// Instantiates a JSX Element with F# code. The `props` argument must be a list literal
+    /// that can be resolved at compile-time.
+    let create (componentOrTag: ElementType) (props: Prop list): Element = nativeOnly
+
+    /// Creates a JSX Element directly from a string template, which can be interpolated.
+    /// When using interpolation note the holes must follow JSX syntax rules.
+    /// E.g. holes in the middle of a string or in the position of a prop key are not valid.
+    let html (template: string): Element = nativeOnly
+
+    /// Same as JSX.html. Use it with editor tools that can recognize JSX as an embedded language.
+    let jsx (template: string): Element = nativeOnly
+
+    /// Converts a string into a JSX Element
+    let text (text: string): Element = nativeOnly
+
+    /// Null JSX Element
+    let nothing: Element = nativeOnly
+
 module JS =
+    /// Used to remove the arguments of a surrounding function immediately calling a function decorated with this argument.
+    /// This is convenient to represent JS patterns when a function is actually loaded lazily with a dynamic import.
+    type RemoveSurroundingArgsAttribute() =
+        inherit Attribute()
+
+    /// Used for move a surrounding function to the first argument of call to the function decorated with the attribute.
+    /// This is convenient to represent JS patterns for higher order components, like React.memo.
+    type WrapSurroundingFunctionAttribute() =
+        inherit Attribute()
+
+    type [<AllowNullLiteral>] Function =
+        abstract name: string
+        abstract length: int
+        abstract apply: thisArg: obj * args: obj[] -> obj
+        abstract bind: thisArg: obj * [<ParamArray>] args: obj[] -> Function
+        abstract call: thisArg: obj * [<ParamArray>] args: obj[] -> obj
+        [<Emit "$0($1...)">] abstract Invoke: [<ParamArray>] args: obj[] -> obj
+        [<Emit "new $0($1...)">] abstract Create: [<ParamArray>] args: obj[] -> obj
+
+    [<AbstractClass>]
+    type DecoratorAttribute() =
+        inherit Attribute()
+        abstract Decorate: fn: Function -> Function
+
+    [<AbstractClass>]
+    type ReflectedDecoratorAttribute() =
+        inherit Attribute()
+        abstract Decorate: fn: Function * info: Reflection.MethodInfo -> Function
+
+    // Hack because currently Fable doesn't keep information about spread for anonymous function
+    // We also use function (instead of an arrow) to make sure `this` is bound correctly
+    [<Emit("function (...args) { return $0(args) }")>]
+    let spreadFunc (fn: obj[] -> obj): Function = jsNative
+
     type [<AllowNullLiteral>] PropertyDescriptor =
         abstract configurable: bool option with get, set
         abstract enumerable: bool option with get, set
@@ -214,6 +286,12 @@ module JS =
 
     and [<AllowNullLiteral>] WeakSetConstructor =
         [<Emit("new $0($1...)")>] abstract Create: ?iterable: seq<'T> -> WeakSet<'T>
+
+    and [<AllowNullLiteral>] AsyncIterable =
+        interface end
+
+    and [<AllowNullLiteral>] AsyncIterable<'T> =
+        inherit AsyncIterable
 
     and [<AllowNullLiteral>] Promise<'T> =
         abstract ``then``: ?onfulfilled: ('T->'TResult) * ?onrejected: (obj->'TResult) -> Promise<'TResult>
@@ -446,22 +524,29 @@ module JS =
     let [<Global>] Infinity: float = nativeOnly
     let [<Global>] Math: Math = nativeOnly
     let [<Global>] JSON: JSON = nativeOnly
-    let [<Global>] eval: string -> string = nativeOnly
-    let [<Global>] isFinite: float -> bool = nativeOnly
-    let [<Global>] isNaN: float -> bool = nativeOnly
-    let [<Global>] parseFloat: string -> float = nativeOnly
-    let [<Global>] parseInt: string -> int -> int = nativeOnly
-    let [<Global>] decodeURI: string -> string = nativeOnly
-    let [<Global>] decodeURIComponent: string -> string = nativeOnly
-    let [<Global>] encodeURI: string -> string = nativeOnly
-    let [<Global>] encodeURIComponent: string -> string = nativeOnly
+    let [<Global>] eval (string: string) : string = nativeOnly
+    let [<Global>] isFinite (testValue: float) : bool = nativeOnly
+    let [<Global>] isNaN (value: float) : bool = nativeOnly
+    let [<Global>] parseFloat (string: string) : float = nativeOnly
+    let [<Global>] parseInt (string: string) (radix: int) : int = nativeOnly
+    let [<Global>] decodeURI (encodedURI: string) : string = nativeOnly
+    let [<Global>] decodeURIComponent (encodedURI: string) : string = nativeOnly
+    let [<Global>] encodeURI (uri: string) : string = nativeOnly
+    let [<Global>] encodeURIComponent (uriComponent: string) : string = nativeOnly
     let [<Global>] console : Console = nativeOnly
-    let [<Global>] setTimeout (callback: unit -> unit) (ms: int): int = nativeOnly
-    let [<Global>] clearTimeout (token: int): unit = nativeOnly
-    let [<Global>] setInterval(callback: unit -> unit) (ms: int) : int = nativeOnly
-    let [<Global>] clearInterval (token: int): unit = nativeOnly
+    let [<Global>] setTimeout (callback: unit -> unit) (ms: int) : int = nativeOnly
+    let [<Global>] clearTimeout (token: int) : unit = nativeOnly
+    let [<Global>] setInterval (callback: unit -> unit) (ms: int) : int = nativeOnly
+    let [<Global>] clearInterval (token: int) : unit = nativeOnly
     let [<Emit("debugger")>] debugger () : unit = nativeOnly
     let [<Emit("void 0")>] undefined<'a> : 'a = nativeOnly
+
+    /// Embeds literal JS code into F#. Code will be printed as statements,
+    /// if you want to return a value use JS `return` keyword within a function.
+    let js (template: string): 'T = nativeOnly
+
+    /// Embeds a literal JS expression into F#
+    let expr_js (template: string): 'T = nativeOnly
 
     [<Literal>]
     let private CONSTRUCTORS_WARNING = "JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name"
@@ -532,7 +617,7 @@ module JS =
     [<Obsolete(CONSTRUCTORS_WARNING)>]
     let [<Global>] Float64Array: Float64ArrayConstructor = nativeOnly
 
-    // [<ObsoleCONSTRUCTORS_WARNING)>]
+    // [<Obsolete(CONSTRUCTORS_WARNING)>]
     // let [<Global>] BigInt64Array: BigInt64ArrayConstructor = nativeOnly
 
     [<RequireQualifiedAccess>]

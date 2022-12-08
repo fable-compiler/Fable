@@ -6,7 +6,6 @@ module Native
 open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import
 
 [<AllowNullLiteral>]
 type Cons<'T> =
@@ -24,8 +23,9 @@ module Helpers =
     let allocateArrayFrom (xs: 'T[]) (len: int): 'T[] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int): 'T[] =
-        if isNull cons then JS.Constructors.Array.Create(len)
-        else cons.Allocate(len)
+        if jsTypeof cons = "function"
+        then cons.Allocate(len)
+        else JS.Constructors.Array.Create(len)
 
     let inline isDynamicArrayImpl arr =
         JS.Constructors.Array.isArray arr
@@ -112,7 +112,4 @@ module Helpers =
     // Inlining in combination with dynamic application may cause problems with uncurrying
     // Using Emit keeps the argument signature
     [<Emit("$1.sort($0)")>]
-    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit = nativeOnly //!!array?sort(comparer)
-
-    [<Emit("$2.set($0.subarray($1, $1 + $4), $3)")>]
-    let copyToTypedArray (src: 'T[]) (srci: int) (trg: 'T[]) (trgi: int) (cnt: int): unit = nativeOnly
+    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit = nativeOnly

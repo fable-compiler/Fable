@@ -1,14 +1,15 @@
+import { Exception, ensureErrorOrException } from './Types.js';
 import { IDisposable } from "./Util.js";
 
 export type Continuation<T> = (x: T) => void;
 
 export type Continuations<T> = [
   Continuation<T>,
-  Continuation<Error>,
+  Continuation<Error | Exception>,
   Continuation<OperationCanceledError>
 ];
 
-export class CancellationToken {
+export class CancellationToken implements IDisposable {
   private _id: number;
   private _cancelled: boolean;
   private _listeners: Map<number, () => void>;
@@ -41,6 +42,11 @@ export class CancellationToken {
     const id = this.addListener(state == null ? f : () => f(state));
     return { Dispose() { $.removeListener(id); } };
   }
+  public Dispose() {
+    // Implement IDisposable for compatibility but do nothing
+    // According to docs, calling Dispose does not trigger cancellation
+    // https://docs.microsoft.com/en-us/dotnet/api/system.threading.cancellationtokensource.dispose?view=net-6.0
+  }
 }
 
 export class OperationCanceledError extends Error {
@@ -69,7 +75,7 @@ export class Trampoline {
 
 export interface IAsyncContext<T> {
   onSuccess: Continuation<T>;
-  onError: Continuation<Error>;
+  onError: Continuation<Error | Exception>;
   onCancel: Continuation<OperationCanceledError>;
 
   cancelToken: CancellationToken;
@@ -87,14 +93,14 @@ export function protectedCont<T>(f: IAsync<T>) {
         try {
           f(ctx);
         } catch (err) {
-          ctx.onError(err);
+          ctx.onError(ensureErrorOrException(err));
         }
       });
     } else {
       try {
         f(ctx);
       } catch (err) {
-        ctx.onError(err);
+        ctx.onError(ensureErrorOrException(err));
       }
     }
   };
@@ -106,8 +112,8 @@ export function protectedBind<T, U>(computation: IAsync<T>, binder: (x: T) => IA
       onSuccess: (x: T) => {
         try {
           binder(x)(ctx);
-        } catch (ex) {
-          ctx.onError(ex);
+        } catch (err) {
+          ctx.onError(ensureErrorOrException(err));
         }
       },
       onError: ctx.onError,
@@ -184,8 +190,8 @@ export class AsyncBuilder {
         onError: (ex: any) => {
           try {
             catchHandler(ex)(ctx);
-          } catch (ex2) {
-            ctx.onError(ex2);
+          } catch (err) {
+            ctx.onError(ensureErrorOrException(err));
           }
         },
       });

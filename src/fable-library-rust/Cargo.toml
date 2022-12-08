@@ -1,0 +1,31 @@
+[package]
+name = "fable_library_rust"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+atomic = []
+bigint = ["dep:num-bigint", "dep:num-integer", "dep:num-traits"]
+date = ["dep:chrono"]
+decimal = ["dep:rust_decimal"]
+default = ["guid", "date", "decimal", "bigint", "func_type_enum", "small_string"]
+func_type_enum = []
+guid = ["dep:uuid"]
+no_std = ["dep:hashbrown"]
+small_string = []
+static_do_bindings = ["dep:startup"]
+threaded = ["atomic", "dep:futures"]
+
+[dependencies]
+startup = { version = "0.1", path = "vendored/startup", optional = true }
+hashbrown = { version = "0.13", optional = true }
+num-bigint = { version = "0.4", optional = true }
+num-integer = { version = "0.1", optional = true }
+num-traits = { version = "0.2", optional = true }
+rust_decimal = { version = "1.26", features = ["maths"], default-features = false, optional = true }
+futures = { version = "0.3", features = ["executor", "thread-pool"], optional = true }
+uuid = { version = "1.2", features = ["v4"], default-features = false, optional = true }
+chrono = { version = "0.4", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }

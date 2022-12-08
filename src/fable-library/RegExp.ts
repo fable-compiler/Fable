@@ -1,15 +1,17 @@
 export type MatchEvaluator = (match: any) => string;
 
-export function create(pattern: string, options: number = 0) {
+export function create(pattern: string, options = 0) {
   // Supported RegexOptions
   // * IgnoreCase:  0x0001
   // * Multiline:   0x0002
+  // * Compiled:    0x0008 (ignored)
   // * Singleline:  0x0010
   // * ECMAScript:  0x0100 (ignored)
-  if ((options & ~(1 ^ 2 ^ 16 ^ 256)) !== 0) {
-    throw new Error("RegexOptions only supports: IgnoreCase, Multiline, Singleline and ECMAScript");
+  if ((options & ~(1 ^ 2 ^ 8 ^ 16 ^ 256)) !== 0) {
+    throw new Error("RegexOptions only supports: IgnoreCase, Multiline, Compiled, Singleline and ECMAScript");
   }
-  let flags = "g";
+  // Set always global and unicode flags for compatibility with dotnet, see #2925
+  let flags = "gu";
   flags += options & 1 ? "i" : ""; // 0x0001 RegexOptions.IgnoreCase
   flags += options & 2 ? "m" : "";
   flags += options & 16 ? "s" : "";
@@ -25,35 +27,36 @@ export function unescape(str: string) {
   return str.replace(/\\([\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, "$1");
 }
 
-export function isMatch(str: string | RegExp, pattern: string, options: number = 0) {
-  let reg: RegExp;
-  reg = str instanceof RegExp
-    ? (reg = str as RegExp, str = pattern, reg.lastIndex = options, reg)
-    : reg = create(pattern, options);
-  return reg.test(str as string);
+export function isMatch(reg: RegExp, input: string, startAt = 0) {
+  reg.lastIndex = startAt;
+  return reg.test(input);
 }
 
-export function match(str: string | RegExp, pattern: string, options: number = 0) {
-  let reg: RegExp;
-  reg = str instanceof RegExp
-    ? (reg = str as RegExp, str = pattern, reg.lastIndex = options, reg)
-    : reg = create(pattern, options);
-  return reg.exec(str as string);
+export function match(reg: RegExp, input: string, startAt = 0) {
+  reg.lastIndex = startAt;
+  return reg.exec(input);
 }
 
-export function matches(str: string | RegExp, pattern: string, options: number = 0) {
-  let reg: RegExp;
-  reg = str instanceof RegExp
-    ? (reg = str as RegExp, str = pattern, reg.lastIndex = options, reg)
-    : reg = create(pattern, options);
+export function matches(reg: RegExp, input: string, startAt = 0) {
+  if (input == null) {
+    throw new Error("Input cannot ve null");
+  }
   if (!reg.global) {
     throw new Error("Non-global RegExp"); // Prevent infinite loop
   }
-  let m = reg.exec(str as string);
+  reg.lastIndex = startAt;
   const matches: RegExpExecArray[] = [];
-  while (m !== null) {
-    matches.push(m);
-    m = reg.exec(str as string);
+  let m: RegExpExecArray | null;
+  let lastMatchIndex = -1;
+  // tslint:disable-next-line:no-conditional-assignment
+  while ((m = reg.exec(input)) != null) {
+    // It can happen even global regex get stuck, see #2845
+    if (m.index === lastMatchIndex) {
+      reg.lastIndex++
+    } else {
+      lastMatchIndex = m.index;
+      matches.push(m);
+    }
   }
   return matches;
 }

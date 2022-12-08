@@ -3,6 +3,10 @@ module Fable.Core.JsInterop
 open System
 open Fable.Core
 
+/// Compiles to ?? operator in JavaScript
+[<Emit("$0 ?? $1")>]
+let (??=) (nullable: 'T) (defaultValue: 'T): 'T = nativeOnly
+
 /// Has same effect as `unbox` (dynamic casting erased in compiled JS code).
 /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
 let (!!) x: 'T = nativeOnly
@@ -39,7 +43,7 @@ let emitJsExpr<'T> (args: obj) (jsCode: string): 'T = nativeOnly
 
 /// Same as emitJsExpr but intended for JS code that must appear in a statement position
 /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements
-/// E.g. `emitJsExpr aValue "while($0 < 5) doSomething()"`
+/// E.g. `emitJsStatement aValue "while($0 < 5) doSomething()"`
 let emitJsStatement<'T> (args: obj) (jsCode: string): 'T = nativeOnly
 
 /// Create a literal JS object from a collection of key-value tuples.

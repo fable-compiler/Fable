@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Fable.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "src/quicktest-dart --lang dart --noCache --exclude Fable.Core",
+      "workingDirectory": "../../../../.."
+    }
+  }
+}

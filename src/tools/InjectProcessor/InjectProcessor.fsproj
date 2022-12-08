@@ -1,21 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../Fable.Transforms/Fable.Transforms.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="../../Fable.Cli/ProjectCoreCracker.fs" />
-    <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
-    <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
-    <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />
     <Compile Include="InjectProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
-    <!-- <PackageReference Include="FSharp.Compiler.Service" Version="35.0.0" /> -->
+    <Reference Include="../../../lib/fcs/FSharp.Core.dll" />
     <Reference Include="../../../lib/fcs/FSharp.Compiler.Service.dll" />
+    <Reference Include="../../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
   </ItemGroup>
 </Project>

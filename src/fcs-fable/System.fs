@@ -6,10 +6,14 @@ namespace System
 
 type Environment() =
     static member ProcessorCount = 1
+    static member Exit(_exitcode) = ()
 
 module Diagnostics =
     type Trace() =
         static member TraceInformation(_s) = () //TODO: proper implementation
+
+    type ActivitySource(_name: string, ?_version: string) =
+        member _.StartActivity(?_name, ?_kind) = null
 
 module Reflection =
     type AssemblyName(assemblyName: string) =
@@ -30,3 +34,10 @@ type StringComparer(comp: System.StringComparison) =
             | _ -> failwithf "Unsupported StringComparison: %A" comp
     interface System.Collections.Generic.IComparer<string> with
         member x.Compare(a,b) = System.String.Compare(a, b, comp)
+
+type ArraySegment<'T>(arr: 'T[]) =
+    member _.Array = arr
+    member _.Count = arr.Length
+    member _.Offset = 0
+    new (arr: 'T[], offset: int, count: int) =
+        ArraySegment<'T>(Array.sub arr offset count)

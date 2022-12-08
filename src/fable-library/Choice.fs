@@ -7,13 +7,13 @@ type Result<'T, 'TError> =
 
 module Result =
     [<CompiledName("Map")>]
-    let map mapping result = match result with Error e -> Error e | Ok x -> Ok (mapping x)
+    let map (mapping: 'a -> 'b) (result: Result<'a,'c>): Result<'b,'c> = match result with Error e -> Error e | Ok x -> Ok (mapping x)
 
     [<CompiledName("MapError")>]
-    let mapError mapping result = match result with Error e -> Error (mapping e) | Ok x -> Ok x
+    let mapError (mapping: 'a -> 'b) (result: Result<'c,'a>): Result<'c,'b> = match result with Error e -> Error (mapping e) | Ok x -> Ok x
 
     [<CompiledName("Bind")>]
-    let bind binder result = match result with Error e -> Error e | Ok x -> binder x
+    let bind (binder: 'a -> Result<'b,'c>) (result: Result<'a,'c>): Result<'b,'c> = match result with Error e -> Error e | Ok x -> binder x
 
 [<CompiledName("FSharpChoice`2")>]
 type Choice<'T1,'T2> =
@@ -61,9 +61,9 @@ type Choice<'T1,'T2,'T3,'T4,'T5,'T6,'T7> =
     | Choice7Of7 of 'T7
 
 module Choice =
-    let makeChoice1Of2 (x: 'T1) = Choice1Of2 x
+    let makeChoice1Of2 (x: 'T1): Choice<'T1,'a> = Choice1Of2 x
 
-    let makeChoice2Of2 (x: 'T2) = Choice2Of2 x
+    let makeChoice2Of2 (x: 'T2): Choice<'a,'T2> = Choice2Of2 x
 
     let tryValueIfChoice1Of2 (x: Choice<'T1, 'T2>): Option<'T1> =
         match x with

@@ -939,7 +939,7 @@ let resources =
         "Override implementations should be given as part of the initial declaration of a type."
       );
       ( "IntfImplInIntrinsicAugmentation",
-        "Interface implementations in augmentations are now deprecated. Interface implementations should be given on the initial declaration of a type."
+        "Interface implementations should normally be given on the initial declaration of a type. Interface implementations in augmentations may lead to accessing static bindings before they are initialized, though only if the interface implementation is invoked during initialization of the static data, and in turn access the static data. You may remove this warning using #nowarn \"69\" if you have checked this is not the case."
       );
       ( "IntfImplInExtrinsicAugmentation",
         "Interface implementations should be given on the initial declaration of a type."
@@ -965,6 +965,9 @@ let resources =
       ( "AssemblyNotResolved",
         "Assembly reference '{0}' was not found or is invalid"
       );
+      ( "HashLoadedSourceHasIssues0",
+        "One or more informational messages in loaded file.\n"
+      );
       ( "HashLoadedSourceHasIssues1",
         "One or more warnings in loaded file.\n"
       );
@@ -988,5 +991,11 @@ let resources =
       );
       ( "TargetInvocationExceptionWrapper",
         "internal error: {0}"
+      );
+      ( "NotUpperCaseConstructorWithoutRQA",
+        "Lowercase discriminated union cases are only allowed when using RequireQualifiedAccess attribute"
+      );
+      ( "ErrorFromAddingTypeEquationTuples",
+        "Type mismatch. Expecting a tuple of length {0} of type\n    {1}    \nbut given a tuple of length {2} of type\n    {3}    {4}\n"
       );
     ]

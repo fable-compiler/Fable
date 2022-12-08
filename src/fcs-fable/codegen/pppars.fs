@@ -2,11 +2,12 @@
 module internal FSharp.Compiler.PPParser
 #nowarn "64";; // turn off warnings that type variables used in production annotations are instantiated to concrete type
 open FSharp.Compiler
+open FSharp.Compiler.Syntax
 open Internal.Utilities.Text.Lexing
 open Internal.Utilities.Text.Parsing.ParseHelpers
-//# 3 "src/fsharp/pppars.fsy"
+//# 3 "src/Compiler/pppars.fsy"
 
-open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.DiagnosticsLogger
 open FSharp.Compiler.ParseHelpers
 open FSharp.Compiler.Syntax
 
@@ -21,7 +22,7 @@ let fail (ps : Internal.Utilities.Text.Parsing.IParseState) i e =
     errorR(Error(e,m))
     dummy
 
-//# 24 "pppars.fs"
+//# 25 "pppars.fs"
 // This type is the type of tokens accepted by the parser
 type token = 
   | OP_NOT
@@ -140,7 +141,7 @@ let _fsyacc_reductionSymbolCounts = [|1us; 1us; 1us; 3us; 1us; 3us; 1us; 2us; 3u
 let _fsyacc_productionToNonTerminalTable = [|0us; 1us; 2us; 3us; 3us; 4us; 4us; 4us; 4us; 4us; 4us; 4us; 4us; 4us; 4us; 4us; 4us; 4us; 4us; |]
 let _fsyacc_immediateActions = [|65535us; 49152us; 16385us; 16386us; 65535us; 65535us; 65535us; 16387us; 16388us; 65535us; 65535us; 16389us; 16390us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 16394us; 65535us; 16395us; 16396us; 16397us; 65535us; 16399us; 65535us; 16400us; 16401us; 16402us; |]
 let _fsyacc_reductions ()  =    [| 
-//# 143 "pppars.fs"
+//# 144 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data :  LexerIfdefExpression )) in
             Microsoft.FSharp.Core.Operators.box
@@ -149,207 +150,207 @@ let _fsyacc_reductions ()  =    [|
                       raise (Internal.Utilities.Text.Parsing.Accept(Microsoft.FSharp.Core.Operators.box _1))
                    )
                  : '_startstart));
-//# 152 "pppars.fs"
+//# 153 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'Full)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 38 "src/fsharp/pppars.fsy"
+//# 38 "src/Compiler/pppars.fsy"
                                    _1 
                    )
-//# 38 "src/fsharp/pppars.fsy"
+//# 38 "src/Compiler/pppars.fsy"
                  :  LexerIfdefExpression ));
-//# 163 "pppars.fs"
+//# 164 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 41 "src/fsharp/pppars.fsy"
+//# 41 "src/Compiler/pppars.fsy"
                                                    doNothing parseState ()                                         
                    )
-//# 41 "src/fsharp/pppars.fsy"
+//# 41 "src/Compiler/pppars.fsy"
                  : 'Recover));
-//# 173 "pppars.fs"
+//# 174 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 44 "src/fsharp/pppars.fsy"
+//# 44 "src/Compiler/pppars.fsy"
                                                    _2                                                            
                    )
-//# 44 "src/fsharp/pppars.fsy"
+//# 44 "src/Compiler/pppars.fsy"
                  : 'Full));
-//# 184 "pppars.fs"
+//# 185 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'Recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 45 "src/fsharp/pppars.fsy"
+//# 45 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsMissingToken("#if/#elif")) 
                    )
-//# 45 "src/fsharp/pppars.fsy"
+//# 45 "src/Compiler/pppars.fsy"
                  : 'Full));
-//# 195 "pppars.fs"
+//# 196 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 48 "src/fsharp/pppars.fsy"
+//# 48 "src/Compiler/pppars.fsy"
                                                    _2                                                            
                    )
-//# 48 "src/fsharp/pppars.fsy"
+//# 48 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 206 "pppars.fs"
+//# 207 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 49 "src/fsharp/pppars.fsy"
+//# 49 "src/Compiler/pppars.fsy"
                                                    IfdefId(_1)                                                   
                    )
-//# 49 "src/fsharp/pppars.fsy"
+//# 49 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 217 "pppars.fs"
+//# 218 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 50 "src/fsharp/pppars.fsy"
+//# 50 "src/Compiler/pppars.fsy"
                                                    IfdefNot(_2)                                                  
                    )
-//# 50 "src/fsharp/pppars.fsy"
+//# 50 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 228 "pppars.fs"
+//# 229 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 51 "src/fsharp/pppars.fsy"
+//# 51 "src/Compiler/pppars.fsy"
                                                    IfdefAnd(_1,_3)                                               
                    )
-//# 51 "src/fsharp/pppars.fsy"
+//# 51 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 240 "pppars.fs"
+//# 241 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 52 "src/fsharp/pppars.fsy"
+//# 52 "src/Compiler/pppars.fsy"
                                                    IfdefOr(_1,_3)                                                
                    )
-//# 52 "src/fsharp/pppars.fsy"
+//# 52 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 252 "pppars.fs"
+//# 253 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 54 "src/fsharp/pppars.fsy"
+//# 54 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("&&"))     
                    )
-//# 54 "src/fsharp/pppars.fsy"
+//# 54 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 263 "pppars.fs"
+//# 264 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 55 "src/fsharp/pppars.fsy"
+//# 55 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("||"))     
                    )
-//# 55 "src/fsharp/pppars.fsy"
+//# 55 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 274 "pppars.fs"
+//# 275 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 56 "src/fsharp/pppars.fsy"
+//# 56 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("!"))      
                    )
-//# 56 "src/fsharp/pppars.fsy"
+//# 56 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 285 "pppars.fs"
+//# 286 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 57 "src/fsharp/pppars.fsy"
+//# 57 "src/Compiler/pppars.fsy"
                                                    doNothing parseState dummy                                    
                    )
-//# 57 "src/fsharp/pppars.fsy"
+//# 57 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 295 "pppars.fs"
+//# 296 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'Recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 58 "src/fsharp/pppars.fsy"
+//# 58 "src/Compiler/pppars.fsy"
                                                    fail parseState 3 (FSComp.SR.ppparsMissingToken(")"))         
                    )
-//# 58 "src/fsharp/pppars.fsy"
+//# 58 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 307 "pppars.fs"
+//# 308 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 59 "src/fsharp/pppars.fsy"
+//# 59 "src/Compiler/pppars.fsy"
                                                    fail parseState 2 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 59 "src/fsharp/pppars.fsy"
+//# 59 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 318 "pppars.fs"
+//# 319 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 60 "src/fsharp/pppars.fsy"
+//# 60 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken(")"))      
                    )
-//# 60 "src/fsharp/pppars.fsy"
+//# 60 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 329 "pppars.fs"
+//# 330 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'Expr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'Recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 61 "src/fsharp/pppars.fsy"
+//# 61 "src/Compiler/pppars.fsy"
                                                    fail parseState 2 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 61 "src/fsharp/pppars.fsy"
+//# 61 "src/Compiler/pppars.fsy"
                  : 'Expr));
-//# 341 "pppars.fs"
+//# 342 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 62 "src/fsharp/pppars.fsy"
+//# 62 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 62 "src/fsharp/pppars.fsy"
+//# 62 "src/Compiler/pppars.fsy"
                  : 'Expr));
 |]
-//# 352 "pppars.fs"
+//# 353 "pppars.fs"
 let tables () : Internal.Utilities.Text.Parsing.Tables<_> = 
   { reductions= _fsyacc_reductions ();
     endOfInputTag = _fsyacc_endOfInputTag;

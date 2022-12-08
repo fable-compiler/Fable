@@ -3,74 +3,38 @@ module Fable.Transforms.State
 open Fable
 open Fable.AST
 open System.Collections.Generic
-open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.Symbols
-
-#if FABLE_COMPILER
-type Dictionary<'TKey, 'TValue> with
-    member x.GetOrAdd (key, valueFactory) =
-        match x.TryGetValue key with
-        | true, v -> v
-        | false, _ -> let v = valueFactory(key) in x.Add(key, v); v
-    member x.AddOrUpdate (key, valueFactory, updateFactory) =
-        if x.ContainsKey(key)
-        then let v = updateFactory key x.[key] in x.[key] <- v; v
-        else let v = valueFactory(key) in x.Add(key, v); v
-    static member From<'K, 'V when 'K : equality>(kvs: KeyValuePair<'K, 'V> seq) =
-        let d = Dictionary()
-        for kv in kvs do
-            d.Add(kv.Key, kv.Value)
-        d
-
-type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
-#else
-open System.Collections.Concurrent
-type ConcurrentDictionary<'TKey, 'TValue> with
-    static member From(kvs: KeyValuePair<'TKey, 'TValue> seq) =
-        ConcurrentDictionary(kvs)
-#endif
-
-type Package =
-    { Id: string
-      Version: string
-      FsprojPath: string
-      DllPath: string
-      SourcePaths: string list
-      Dependencies: Set<string> }
 
 type PluginRef =
     { DllPath: string
       TypeFullName: string }
 
-type Assemblies(getPlugin, checkResults: FSharpCheckProjectResults) =
+type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
     let assemblies = Dictionary()
     let coreAssemblies = Dictionary()
 
     let plugins =
         let plugins = Dictionary<Fable.EntityRef, System.Type>()
-        let coreAssemblyNames = HashSet Metadata.coreAssemblies
-
-        for asm in checkResults.ProjectContext.GetReferencedAssemblies() do
+        for asm in fsharpAssemblies do
             match asm.FileName with
             | Some path ->
                 let path = Path.normalizePath path
-                let asmName = path.Substring(path.LastIndexOf('/') + 1).Replace(".dll", "")
-                let isCoreAssembly = coreAssemblyNames.Contains(asmName)
-                try
-                    let scanForPlugins =
-                        not isCoreAssembly && asm.Contents.Attributes |> Seq.exists (fun attr ->
-                            attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
-                    if scanForPlugins then
-                       for e in asm.Contents.Entities do
-                               if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
-                                   let plugin = getPlugin { DllPath = path; TypeFullName = e.FullName }
-                                   plugins.Add(FSharp2Fable.FsEnt.Ref e, plugin)
-                with _ -> ()
-
-                assemblies.Add(path, asm)
-                if isCoreAssembly then
+                let asmName = path.Substring(path.LastIndexOf('/') + 1)
+                let asmName = asmName.Substring(0, asmName.Length - 4) // Remove .dll extension
+                if Compiler.CoreAssemblyNames.Contains(asmName) then
                     coreAssemblies.Add(asmName, asm)
+                else
+                    try
+                        let scanForPlugins =
+                            asm.Contents.Attributes |> Seq.exists (fun attr ->
+                                attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
+                        if scanForPlugins then
+                           for e in asm.Contents.Entities do
+                                   if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
+                                       let plugin = getPlugin { DllPath = path; TypeFullName = e.FullName }
+                                       plugins.Add(FSharp2Fable.FsEnt.Ref e, plugin)
+                    with _ -> ()
+                    assemblies.Add(path, asm)
             | None -> ()
 
         ({ MemberDeclarationPlugins = Map.empty }, plugins)
@@ -79,81 +43,119 @@ type Assemblies(getPlugin, checkResults: FSharpCheckProjectResults) =
                 { acc with MemberDeclarationPlugins = Map.add kv.Key kv.Value acc.MemberDeclarationPlugins }
             else acc)
 
-    let findEntityByPath asmPathOrName (entityRef: Fable.EntityRef) (asm: FSharpAssembly option) =
-        match asm with
-        | Some asm ->
-            let entPath = List.ofArray (entityRef.FullName.Split('.'))
-            match asm.Contents.FindEntityByPath(entPath) with
-            | Some e -> FSharp2Fable.FsEnt e :> Fable.Entity
-            | None -> failwithf "Cannot find dll entity %s" entityRef.FullName
-        | None -> failwithf "Cannot find assembly %s" asmPathOrName
+    let tryFindEntityByPath (entityFullName: string) (asm: FSharpAssembly) =
+        let entPath = List.ofArray (entityFullName.Split('.'))
+        asm.Contents.FindEntityByPath(entPath)
+        |> Option.map(fun e -> FSharp2Fable.FsEnt e :> Fable.Entity)
 
-    member _.GetEntityByAssemblyPath(asmPath, entityRef) =
-        match assemblies.TryGetValue(asmPath) with
-        | true, asm -> Some asm
-        | false, _ -> None
-        |> findEntityByPath asmPath entityRef
+    member _.TryGetEntityByAssemblyPath(asmPath, entityFullName) =
+        assemblies
+        |> Dictionary.tryFind asmPath
+        |> Option.bind (tryFindEntityByPath entityFullName)
 
-    member _.GetEntityByCoreAssemblyName(asmName, entityRef: Fable.EntityRef) =
-        match coreAssemblies.TryGetValue(asmName) with
-        | true, asm -> Some asm
-        | false, _ -> None
-        |> findEntityByPath asmName entityRef
+    member _.TryGetEntityByCoreAssemblyName(asmName, entityFullName) =
+        coreAssemblies
+        |> Dictionary.tryFind asmName
+        |> Option.bind (tryFindEntityByPath entityFullName)
 
     member _.Plugins = plugins
 
 type ImplFile =
     {
-        Ast: FSharpImplementationFileContents
+        Declarations: FSharpImplementationFileDeclaration list
         RootModule: string
         Entities: IReadOnlyDictionary<string, Fable.Entity>
+        InlineExprs: (string * InlineExprLazy) list
     }
+    static member From(file: FSharpImplementationFileContents) =
+        let declarations = file.Declarations
+        let entities = Dictionary()
+        let rec loop (ents: FSharpEntity seq) =
+            for e in ents do
+                let fableEnt = FSharp2Fable.FsEnt e :> Fable.Entity
+                if not e.IsFSharpAbbreviation || not (entities.ContainsKey(fableEnt.FullName)) then
+                    entities[fableEnt.FullName] <- fableEnt
+                loop e.NestedEntities
 
-type Project(projFile: string,
-             checkResults: FSharpCheckProjectResults,
-             ?getPlugin: PluginRef -> System.Type,
-             ?optimizeFSharpAst,
-             ?assemblies) =
+        FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop
+        {
+            Declarations = file.Declarations
+            Entities = entities
+            RootModule = FSharp2Fable.Compiler.getRootModule declarations
+            InlineExprs = FSharp2Fable.Compiler.getInlineExprs file.FileName declarations
+        }
 
-    let optimizeFSharpAst = defaultArg optimizeFSharpAst false
-    let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
-    let assemblies =
-        match assemblies with
-        | Some assemblies -> assemblies
-        | None -> Assemblies(getPlugin, checkResults)
-//    do printfn "MEMORY %i" (System.GC.GetTotalMemory(true))
+type PrecompiledInfo =
+    abstract DllPath: string
+    abstract TryGetRootModule: normalizedFullPath: string -> string option
+    abstract TryGetInlineExpr: memberUniqueName: string -> InlineExpr option
 
-    let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
+type Project private (
+        projFile: string,
+        sourceFiles: string[],
+        implFiles: Map<string, ImplFile>,
+        assemblies: Assemblies,
+        ?precompiledInfo: PrecompiledInfo) =
 
-    let implFiles =
-        (if optimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
-         else checkResults.AssemblyContents.ImplementationFiles)
-        |> Seq.map (fun file ->
-            let entities = Dictionary()
-            let rec loop (ents: FSharpEntity seq) =
-                for e in ents do
-                    if e.IsFSharpAbbreviation then ()
-                    else
-                        let fableEnt = FSharp2Fable.FsEnt e :> Fable.Entity
-                        entities.Add(fableEnt.FullName, fableEnt)
-                        loop e.NestedEntities
-            FSharp2Fable.Compiler.getRootFSharpEntities file |> loop
-            let key = Path.normalizePathAndEnsureFsExtension file.FileName
-            key, { Ast = file
-                   RootModule = FSharp2Fable.Compiler.getRootModule file
-                   Entities = entities })
+    let inlineExprsDic =
+        implFiles
+        |> Map.values
+        |> Seq.map (fun f -> f.InlineExprs)
+        |> Seq.concat
         |> dict
 
-    member this.Update(checkResults: FSharpCheckProjectResults) =
-        Project(this.ProjectFile, checkResults,
-                optimizeFSharpAst=optimizeFSharpAst,
-                assemblies=assemblies)
+    let precompiledInfo = precompiledInfo |> Option.defaultWith (fun () ->
+        { new PrecompiledInfo with
+            member _.DllPath = ""
+            member _.TryGetRootModule(_) = None
+            member _.TryGetInlineExpr(_) = None })
+
+    static member From(projFile: string,
+                       sourceFiles: string[],
+                       fsharpFiles: FSharpImplementationFileContents list,
+                       fsharpAssemblies: FSharpAssembly list,
+                       ?getPlugin: PluginRef -> System.Type,
+                       ?precompiledInfo: PrecompiledInfo) =
+
+        let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
+        let assemblies = Assemblies(getPlugin, fsharpAssemblies)
+
+        let implFilesMap =
+            fsharpFiles
+            |> List.toArray
+            |> Array.Parallel.map (fun file ->
+                let key = Path.normalizePathAndEnsureFsExtension file.FileName
+                key, ImplFile.From(file))
+            |> Map
+
+        Project(projFile, sourceFiles, implFilesMap, assemblies, ?precompiledInfo=precompiledInfo)
+
+    member this.Update(files: FSharpImplementationFileContents list) =
+        let implFiles =
+            (this.ImplementationFiles, files) ||> List.fold (fun implFiles file ->
+                let key = Path.normalizePathAndEnsureFsExtension file.FileName
+                let file = ImplFile.From(file)
+                Map.add key file implFiles)
+        Project(this.ProjectFile, this.SourceFiles, implFiles, this.Assemblies, this.PrecompiledInfo)
+
+    member _.TryGetInlineExpr(com: Compiler, memberUniqueName: string) =
+        inlineExprsDic
+        |> Dictionary.tryFind memberUniqueName
+        |> Option.map (fun e -> e.Calculate(com))
+
+    member _.GetFileInlineExprs(com: Compiler): (string * InlineExpr)[] =
+        match Map.tryFind com.CurrentFile implFiles with
+        | None -> [||]
+        | Some implFile ->
+            implFile.InlineExprs
+            |> List.mapToArray (fun (uniqueName, expr) ->
+                uniqueName, expr.Calculate(com))
 
     member _.ProjectFile = projFile
+    member _.SourceFiles = sourceFiles
     member _.ImplementationFiles = implFiles
     member _.Assemblies = assemblies
-    member _.InlineExprs = inlineExprs
-    member _.Errors = checkResults.Diagnostics
+    member _.PrecompiledInfo = precompiledInfo
 
 type Log =
     { Message: string
@@ -172,17 +174,18 @@ type Log =
     static member MakeError(msg, ?fileName, ?range, ?tag) =
         Log.Make(Severity.Error, msg, ?fileName=fileName, ?range=range, ?tag=tag)
 
-/// Type with utilities for compiling F# files to JS
+/// Type with utilities for compiling F# files to JS.
 /// Not thread-safe, an instance must be created per file
-type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string) =
-    let logs = ResizeArray<Log>()
-    let watchDependencies = HashSet<string>()
-    let fableLibraryDir = fableLibraryDir.TrimEnd('/')
+type CompilerImpl(currentFile, project: Project, options, fableLibDir: string, ?outType: OutputType, ?outDir: string,
+                        ?watchDependencies: HashSet<string>, ?logs: ResizeArray<Log>, ?isPrecompilingInlineFunction: bool) =
 
-    member _.Options = options
-    member _.CurrentFile = currentFile
+    let outType = defaultArg outType OutputType.Exe
+    let logs = Option.defaultWith ResizeArray logs
+    let fableLibraryDir = fableLibDir.TrimEnd('/')
+
     member _.Logs = logs.ToArray()
-    member _.WatchDependencies = Array.ofSeq watchDependencies
+    member _.WatchDependencies =
+        match watchDependencies with Some w -> Array.ofSeq w | None -> [||]
 
     interface Compiler with
         member _.Options = options
@@ -190,42 +193,67 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.LibraryDir = fableLibraryDir
         member _.CurrentFile = currentFile
         member _.OutputDir = outDir
+        member _.OutputType = outType
         member _.ProjectFile = project.ProjectFile
+        member _.SourceFiles =  project.SourceFiles
+
+        member _.IsPrecompilingInlineFunction =
+            defaultArg isPrecompilingInlineFunction false
+
+        member _.WillPrecompileInlineFunction(file) =
+            let fableLibraryDir =
+                if Path.isRelativePath fableLibraryDir then
+                    Path.Combine(Path.GetDirectoryName(currentFile), fableLibraryDir)
+                else fableLibraryDir
+                |> Path.getRelativeFileOrDirPath false file true
+            CompilerImpl(file, project, options, fableLibraryDir, outType, ?outDir=outDir,
+                ?watchDependencies=watchDependencies, logs=logs, isPrecompilingInlineFunction=true)
 
         member _.GetImplementationFile(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
-            match project.ImplementationFiles.TryGetValue(fileName) with
-            | true, file -> file.Ast
-            | false, _ -> failwith ("Cannot find implementation file " + fileName)
+            match Map.tryFind fileName project.ImplementationFiles with
+            | Some file -> file.Declarations
+            | None -> failwith ("Cannot find implementation file " + fileName)
 
         member this.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
-            match project.ImplementationFiles.TryGetValue(fileName) with
-            | true, file -> file.RootModule
-            | false, _ ->
-                let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
-                (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
-                "" // failwith msg
+            match Dictionary.tryFind fileName project.ImplementationFiles with
+            | Some file -> file.RootModule
+            | None ->
+                match project.PrecompiledInfo.TryGetRootModule(fileName) with
+                | Some r -> r
+                | None ->
+                    let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
+                    (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
+                    "" // failwith msg
 
-        member _.GetEntity(entityRef: Fable.EntityRef) =
+        member _.TryGetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with
-            | Fable.CoreAssemblyName name -> project.Assemblies.GetEntityByCoreAssemblyName(name, entityRef)
-            | Fable.AssemblyPath path -> project.Assemblies.GetEntityByAssemblyPath(path, entityRef)
+            | Fable.CoreAssemblyName name -> project.Assemblies.TryGetEntityByCoreAssemblyName(name, entityRef.FullName)
+            | Fable.AssemblyPath path
+            | Fable.PrecompiledLib(_, path) -> project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef.FullName)
             | Fable.SourcePath fileName ->
                 // let fileName = Path.normalizePathAndEnsureFsExtension fileName
-                match project.ImplementationFiles.TryGetValue(fileName) with
-                | true, file ->
-                    match file.Entities.TryGetValue(entityRef.FullName) with
-                    | true, e -> e
-                    | false, _ -> failwithf "Cannot find entity %s in %s" entityRef.FullName fileName
-                | false, _ -> failwith ("Cannot find implementation file " + fileName)
+                project.ImplementationFiles
+                |> Dictionary.tryFind fileName
+                |> Option.bind (fun file -> ReadOnlyDictionary.tryFind entityRef.FullName file.Entities)
+                |> Option.orElseWith (fun () ->
+                    // Check also the precompiled dll because this may come from a precompiled inline expr
+                    project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entityRef.FullName))
 
-        member _.GetOrAddInlineExpr(fullName, generate) =
-            project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
+        member this.GetInlineExpr(memberUniqueName) =
+            match project.TryGetInlineExpr(this, memberUniqueName) with
+            | Some e -> e
+            | None ->
+                match project.PrecompiledInfo.TryGetInlineExpr(memberUniqueName) with
+                | Some e -> e
+                | None -> failwith ("Cannot find inline member: " + memberUniqueName)
 
         member _.AddWatchDependency(file) =
-            if file <> currentFile then
+            match watchDependencies with
+            | Some watchDependencies when file <> currentFile ->
                 watchDependencies.Add(file) |> ignore
+            | _ -> ()
 
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             Log.Make(severity, msg, ?range=range, ?fileName=fileName, ?tag=tag)

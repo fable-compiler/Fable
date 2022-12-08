@@ -12,6 +12,8 @@ import { compare, equals, structuralHash } from "./Util.js";
 // Note: We use non-strict null check for backwards compatibility with
 // code that use F# options to represent values that could be null in JS
 
+export type Nullable<T> = T | undefined;
+
 export type Option<T> = T | Some<T> | undefined;
 
 // Using a class here for better compatibility with TS files importing Some
@@ -88,6 +90,14 @@ export function defaultArg<T>(opt: Option<T>, defaultValue: T): T {
 
 export function defaultArgWith<T>(opt: Option<T>, defThunk: () => T): T {
   return (opt != null) ? value(opt) : defThunk();
+}
+
+export function orElse<T>(opt: Option<T>, ifNone: Option<T>): Option<T> {
+  return opt == null ? ifNone : opt;
+}
+
+export function orElseWith<T>(opt: Option<T>, ifNoneThunk: () => Option<T>): Option<T> {
+  return opt == null ? ifNoneThunk() : opt;
 }
 
 export function filter<T>(predicate: (arg: T) => boolean, opt: Option<T>): Option<T> {

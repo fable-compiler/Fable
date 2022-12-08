@@ -5,6 +5,7 @@ module ArrayModule
 
 open System.Collections.Generic
 open Fable.Core
+open Fable.Core.JsInterop
 
 open Native
 open Native.Helpers
@@ -150,14 +151,21 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[
 
 let where predicate (array: _[]) = filterImpl predicate array
 
-let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+let indexOf<'T> (array: 'T[]) (item: 'T) (start: int option) (count: int option) ([<Inject>] eq: IEqualityComparer<'T>) =
+    let start = defaultArg start 0
+    let end' = count |> Option.map (fun c -> start + c) |> Option.defaultValue array.Length
+
     let rec loop i =
-        if i >= array.Length
-        then false
+        if i >= end'
+        then -1
         else
-            if eq.Equals (value, array.[i]) then true
+            if eq.Equals (item, array.[i]) then i
             else loop (i + 1)
-    loop 0
+
+    loop start
+
+let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+    indexOf array value None None eq >= 0
 
 let empty cons = allocateArrayFromCons cons 0
 
@@ -198,6 +206,10 @@ let copy (array: 'T[]) =
     //     res
     // else
     copyImpl array
+
+let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int) =
+    // TODO: Check array lengths
+    System.Array.Copy(source, sourceIndex, target, targetIndex, count)
 
 let reverse (array: 'T[]) =
     // if isTypedArrayImpl array then
@@ -274,9 +286,8 @@ let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
         insertImpl array i x |> ignore
         i <- i + 1
 
-let removeInPlace (item: 'T) (array: 'T[]) =
-    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    let i = indexOfImpl array item 0
+let removeInPlace (item: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+    let i = indexOf array item None None eq
     if i > -1 then
         spliceImpl array i 1 |> ignore
         true
@@ -292,50 +303,6 @@ let removeAllInPlace predicate (array: 'T[]) =
         else
             count
     countRemoveAll 0
-
-// TODO: Check array lengths
-let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
-    let diff = targetIndex - sourceIndex
-    for i = sourceIndex to sourceIndex + count - 1 do
-        target.[i + diff] <- source.[i]
-
-// More performant method to copy arrays, see #2352
-let copyToTypedArray (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
-    try
-        Helpers.copyToTypedArray source sourceIndex target targetIndex count
-    with _ ->
-        // If these are not typed arrays (e.g. they come from JS), default to `copyTo`
-        copyTo source sourceIndex target targetIndex count
-
-// Performance test for above method
-// let numloops = 10000
-
-// do
-//     let src: uint8[] = Array.zeroCreate 16384
-//     let trg: uint8[] = Array.zeroCreate 131072
-
-//     measureTime <| fun () ->
-//         for _ in 1 .. numloops do
-//           let rec loopi i =
-//             if i < trg.Length then
-//               Array.blit src 0 trg i src.Length
-//               loopi (i + src.Length) in loopi 0
-
-// do
-//     let src: char[] = Array.zeroCreate 16384
-//     let trg: char[] = Array.zeroCreate 131072
-
-//     measureTime <| fun () ->
-//         for _ in 1 .. numloops do
-//           let rec loopi i =
-//             if i < trg.Length then
-//               Array.blit src 0 trg i src.Length
-//               loopi (i + src.Length) in loopi 0
-
-let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) =
-    let start = defaultArg start 0
-    let i = indexOfImpl array item start
-    if count.IsSome && i >= start + count.Value then -1 else i
 
 let partition (f: 'T -> bool) (source: 'T[]) ([<Inject>] cons: Cons<'T>) =
     let len = source.Length
@@ -363,7 +330,7 @@ let tryFind (predicate: 'T -> bool) (array: 'T[]): 'T option =
 let findIndex (predicate: 'T -> bool) (array: 'T[]): int =
     match findIndexImpl predicate array with
     | index when index > -1 -> index
-    | _ -> indexNotFound()
+    | _ -> indexNotFound(); -1
 
 let tryFindIndex (predicate: 'T -> bool) (array: 'T[]): int option =
     match findIndexImpl predicate array with
@@ -411,7 +378,7 @@ let findLastIndex predicate (array: _[]) =
 
 let findIndexBack predicate (array: _[]) =
     let rec loop i =
-        if i < 0 then indexNotFound()
+        if i < 0 then indexNotFound(); -1
         elif predicate array.[i] then i
         else loop (i - 1)
     loop (array.Length - 1)
@@ -501,8 +468,8 @@ let permute f (array: 'T[]) =
 
 let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) =
     let lower = defaultArg lower 0
-    let upper = defaultArg upper 0
-    let length = (if upper > 0 then upper else target.Length - 1) - lower
+    let upper = defaultArg upper -1
+    let length = (if upper >= 0 then upper else target.Length - 1) - lower
     // can't cast to TypedArray, so can't use TypedArray-specific methods
     // if isTypedArrayImpl target && source.Length <= length then
     //     typedArraySetImpl target source lower
@@ -607,30 +574,66 @@ let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
         result
 
 let splitAt (index: int) (array: 'T[]): 'T[] * 'T[] =
-    if index < 0 then invalidArg "index" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
-    if index > array.Length then invalidArg "index" "The input sequence has an insufficient number of elements."
+    if index < 0 || index > array.Length then
+        invalidArg "index" SR.indexOutOfBounds
     subArrayImpl array 0 index, skipImpl array index
 
-let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
-    if isNull array1 then
-        if isNull array2 then 0 else -1
-    elif isNull array2 then
+// Note that, though it's not consistent with `compare` operator,
+// Array.compareWith doesn't compare first the length, see #2961
+let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
+    if isNull source1 then
+        if isNull source2 then 0 else -1
+    elif isNull source2 then
         1
     else
+        let len1 = source1.Length
+        let len2 = source2.Length
+        let len = if len1 < len2 then len1 else len2
         let mutable i = 0
-        let mutable result = 0
+        let mutable res = 0
+        while res = 0 && i < len do
+            res <- comparer source1.[i] source2.[i]
+            i <- i + 1
+        if res <> 0 then res
+        elif len1 > len2 then 1
+        elif len1 < len2 then -1
+        else 0
+
+let compareTo (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
+    if isNull source1 then
+        if isNull source2 then 0 else -1
+    elif isNull source2 then
+        1
+    else
+        let len1 = source1.Length
+        let len2 = source2.Length
+        if len1 > len2 then 1
+        elif len1 < len2 then -1
+        else
+            let mutable i = 0
+            let mutable res = 0
+            while res = 0 && i < len1 do
+                res <- comparer source1.[i] source2.[i]
+                i <- i + 1
+            res
+
+let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) =
+    if isNull array1 then
+        if isNull array2 then true else false
+    elif isNull array2 then
+        false
+    else
+        let mutable i = 0
+        let mutable result = true
         let length1 = array1.Length
         let length2 = array2.Length
-        if length1 > length2 then 1
-        elif length1 < length2 then -1
+        if length1 > length2 then false
+        elif length1 < length2 then false
         else
-            while i < length1 && result = 0 do
-                result <- comparer array1.[i] array2.[i]
+            while i < length1 && result do
+                result <- equals array1.[i] array2.[i]
                 i <- i + 1
             result
-
-let equalsWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
-    compareWith compare array1 array2 = 0
 
 let exactlyOne (array: 'T[]) =
     if array.Length = 1 then array.[0]
@@ -775,7 +778,7 @@ let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGener
 let windowed (windowSize: int) (source: 'T[]): 'T[][] =
     if windowSize <= 0 then
         failwith "windowSize must be positive"
-    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize) |> allocateArray
+    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize + 1) |> allocateArray
     for i = windowSize to source.Length do
         res.[i - windowSize] <- source.[i-windowSize..i-1]
     res
@@ -815,3 +818,73 @@ let transpose (arrays: 'T[] seq) ([<Inject>] cons: Cons<'T>): 'T[][] =
             for j in 0..len-1 do
                 result.[i].[j] <- arrays.[j].[i]
         result
+
+let insertAt (index: int) (y: 'T) (xs: 'T[]) ([<Inject>] cons: Cons<'T>): 'T[] =
+    let len = xs.Length
+    if index < 0 || index > len then
+        invalidArg "index" SR.indexOutOfBounds
+    let target = allocateArrayFromCons cons (len + 1)
+    for i = 0 to (index - 1) do
+        target.[i] <- xs.[i]
+    target.[index] <- y
+    for i = index to (len - 1) do
+        target.[i + 1] <- xs.[i]
+    target
+
+let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]) ([<Inject>] cons: Cons<'T>): 'T[] =
+    let len = xs.Length
+    if index < 0 || index > len then
+        invalidArg "index" SR.indexOutOfBounds
+    let ys = arrayFrom ys
+    let len2 = ys.Length
+    let target = allocateArrayFromCons cons (len + len2)
+    for i = 0 to (index - 1) do
+        target.[i] <- xs.[i]
+    for i = 0 to (len2 - 1) do
+        target.[index + i] <- ys.[i]
+    for i = index to (len - 1) do
+        target.[i + len2] <- xs.[i]
+    target
+
+let removeAt (index: int) (xs: 'T[]): 'T[] =
+    if index < 0 || index >= xs.Length then
+        invalidArg "index" SR.indexOutOfBounds
+    let mutable i = -1
+    xs |> filter (fun _ ->
+        i <- i + 1
+        i <> index)
+
+let removeManyAt (index: int) (count: int) (xs: 'T[]): 'T[] =
+    let mutable i = -1
+    // incomplete -1, in-progress 0, complete 1
+    let mutable status = -1
+    let ys =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                status <- 0
+                false
+            elif i > index then
+                if i < index + count then
+                    false
+                else
+                    status <- 1
+                    true
+            else true)
+    let status =
+        if status = 0 && i + 1 = index + count then 1
+        else status
+    if status < 1 then
+        // F# always says the wrong parameter is index but the problem may be count
+        let arg = if status < 0 then "index" else "count"
+        invalidArg arg SR.indexOutOfBounds
+    ys
+
+let updateAt (index: int) (y: 'T) (xs: 'T[]) ([<Inject>] cons: Cons<'T>): 'T[] =
+    let len = xs.Length
+    if index < 0 || index >= len then
+        invalidArg "index" SR.indexOutOfBounds
+    let target = allocateArrayFromCons cons len
+    for i = 0 to (len - 1) do
+        target.[i] <- if i = index then y else xs.[i]
+    target

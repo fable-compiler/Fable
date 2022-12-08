@@ -5,8 +5,10 @@ open FSharp.Compiler.EditorServices
 open FSharp.Compiler.SourceCodeServices
 open Fable.Compiler.Platform
 
+// let references = Metadata.references_full
+// let metadataPath = "../../../../temp/metadata/" // .NET BCL binaries
 let references = Metadata.references_core
-let metadataPath = "../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
+let metadataPath =  __SOURCE_DIRECTORY__ + "/../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
 [<EntryPoint>]
 let main _argv =
@@ -18,7 +20,7 @@ let main _argv =
     let checker = InteractiveChecker.Create(references, readAllBytes, defines, optimize)
 
     let projectFileName = "project"
-    let fileName = "test_script.fsx"
+    let fileName = __SOURCE_DIRECTORY__ + "/test_script.fsx"
     let source = readAllText fileName
 
     let parseResults, typeCheckResults, projectResults =
@@ -49,11 +51,11 @@ let main _argv =
     // Get declarations (autocomplete) for msg
     let partialName = { QualifyingIdents = []; PartialIdent = "msg"; EndColumn = 17; LastDotPos = None }
     let decls = typeCheckResults.GetDeclarationListInfo(Some parseResults, 6, inputLines.[5], partialName, (fun _ -> []))
-    [ for item in decls.Items -> item.Name ] |> printfn "\n---> msg AutoComplete = %A" // should be string methods
+    [ for item in decls.Items -> item.NameInList ] |> printfn "\n---> msg AutoComplete = %A" // should be string methods
 
     // Get declarations (autocomplete) for canvas
     let partialName = { QualifyingIdents = []; PartialIdent = "canvas"; EndColumn = 10; LastDotPos = None }
     let decls = typeCheckResults.GetDeclarationListInfo(Some parseResults, 8, inputLines.[7], partialName, (fun _ -> []))
-    [ for item in decls.Items -> item.Name ] |> printfn "\n---> canvas AutoComplete = %A"
+    [ for item in decls.Items -> item.NameInList ] |> printfn "\n---> canvas AutoComplete = %A"
 
     0

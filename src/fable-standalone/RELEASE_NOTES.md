@@ -1,3 +1,7 @@
+### 3.2.11
+
+* Enable Fable.Repl.Lib
+
 ### 3.1.12
 
 * Sync with Fable dotnet tool

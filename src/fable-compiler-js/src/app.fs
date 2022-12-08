@@ -6,9 +6,15 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 #if LOCAL_TEST
-let [<Global>] __dirname = "__dirname"
-let getMetadataDir(): string = __dirname + "/../../fable-metadata/lib/"
-let getFableLibDir(): string = __dirname + "/../../../build/fable-library/"
+let [<Emit("import.meta.url")>] importMetaUrl(): string = jsNative
+let fileURLToPath (path: string): string = importMember "url"
+let dirname (path: string): string = importMember "path"
+let join (path1: string) (path2: string): string = importMember "path"
+let inline getCurrentFilePath() = fileURLToPath(importMetaUrl())
+
+let currentDirName = getCurrentFilePath() |> dirname
+let getMetadataDir(): string = join currentDirName "../../fable-metadata/lib/"
+let getFableLibDir(): string = join currentDirName "../../../build/fable-library/"
 let getVersion(): string = ".next"
 let initFable (): Fable.Standalone.IFableManager = import "init" "../../fable-standalone/src/Main.fs.js"
 #else
@@ -36,8 +42,9 @@ module Imports =
         let importPath = normalizePath importPath
         let outDir = normalizePath outDir
         // It may happen the importPath is already in outDir,
-        // for example package sources in .fable folder
-        if importPath.StartsWith(outDir) then importPath
+        // for example package sources in fable_modules folder
+        if importPath.StartsWith(outDir + "/") then importPath
+        // if importPath.StartsWith(outDir + "/", StringComparison.OrdinalIgnoreCase) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
             let targetDir = getOrAddDeduplicateTargetDir importDir (fun (currentTargetDirs: Set<string>) ->
@@ -81,7 +88,6 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
     let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator())
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
-        member _.EscapeJsStringLiteral(str) = escapeJsString(str)
         member _.MakeImportPath(path) =
             let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir options.outDir path
             if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
@@ -139,7 +145,7 @@ let parseFiles projectFileName options =
     printfn "InteractiveChecker created in %d ms" ms0
 
     // parse F# files to AST
-    let parseFSharpProject () = fable.ParseFSharpProject(checker, projectFileName, fileNames, sources)
+    let parseFSharpProject () = fable.ParseAndCheckProject(checker, projectFileName, fileNames, sources)
     let parseRes, ms1 = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
@@ -151,7 +157,7 @@ let parseFiles projectFileName options =
 
     // clear cache to lower memory usage
     // if not options.watch then
-    fable.ClearParseCaches(checker)
+    fable.ClearCache(checker)
 
     // exclude signature files
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
@@ -161,14 +167,22 @@ let parseFiles projectFileName options =
     let libDir = options.libDir |> Option.defaultValue (getFableLibDir()) |> normalizeFullPath
 
     let parseFable (res, fileName) =
-        fable.CompileToBabelAst(libDir, res, fileName,
-            typedArrays = options.typedArrays,
-            typescript = options.typescript)
+        fable.CompileToTargetAst(libDir, res, fileName,
+            options.typedArrays, options.language)
 
     let fileExt =
-        match options.outDir with
-        | Some _ -> if options.typescript then ".ts" else ".js"
-        | None -> if options.typescript then ".fs.ts" else ".fs.js"
+        match options.language.ToLowerInvariant() with
+        | "js" | "javascript" -> ".js"
+        | "ts" | "typescript" -> ".ts"
+        | "py" | "python" -> ".py"
+        | "php" -> ".php"
+        | "dart" -> ".dart"
+        | "rust" -> ".rs"
+        | _ -> failwithf "Unsupported language: %s" options.language
+    let fileExt =
+        if Option.isNone options.outDir
+        then ".fs" + fileExt
+        else fileExt
 
     let getOrAddDeduplicateTargetDir =
         let dedupDic = System.Collections.Generic.Dictionary()
@@ -190,12 +204,12 @@ let parseFiles projectFileName options =
                 let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
                 printfn "%s Typed AST: %s" fileName fsAstStr
 
-            // transform F# AST to Babel AST
+            // transform F# AST to target language AST
             let res, ms2 = measureTime parseFable (parseRes, fileName)
             printfn "File: %s, Fable time: %d ms" fileName ms2
             res.FableErrors |> printErrors showWarnings
 
-            // print Babel AST as JavaScript/TypeScript
+            // get output path
             let outPath =
                 match options.outDir with
                 | None ->
@@ -203,8 +217,10 @@ let parseFiles projectFileName options =
                 | Some outDir ->
                     let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
                     Path.ChangeExtension(absPath, fileExt)
+
+            // print target language AST to writer
             let writer = new SourceWriter(fileName, outPath, projDir, options, fileExt, getOrAddDeduplicateTargetDir)
-            do! fable.PrintBabelAst(res, writer)
+            do! fable.PrintTargetAst(res, writer)
 
             // create output folder
             ensureDirExists(Path.GetDirectoryName(outPath))
@@ -247,7 +263,7 @@ let run opts projectFileName outDir =
             // TODO: This only works if the project is an .fsx file
             let outDir = Option.defaultValue "." outDir
             let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectFileName) + ".js")
-            let runArgs = opts.[i+1..] |> String.concat " "
+            let runArgs = opts[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
     let options = {
         outDir = opts |> argValue ["--outDir"; "-o"] |> Option.orElse outDir
@@ -256,8 +272,10 @@ let run opts projectFileName outDir =
         optimize = opts |> hasFlag "--optimize"
         sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
         typedArrays = opts |> tryFlag "--typedArrays"
-                           |> Option.defaultValue (opts |> hasFlag "--typescript" |> not)
-        typescript = opts |> hasFlag "--typescript"
+        language = opts |> argValue ["--language"; "--lang"]
+                        |> Option.orElse (tryFlag "--typescript" opts
+                        |> Option.map (fun _ -> "TypeScript"))
+                        |> Option.defaultValue "JavaScript"
         printAst = opts |> hasFlag "--printAst"
         // watch = opts |> hasFlag "--watch"
     }

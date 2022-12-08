@@ -14,5 +14,18 @@
     },
     "files.trimTrailingWhitespace": true,
     "files.trimFinalNewlines": true,
-    "gitlens.codeLens.enabled": false
+    "gitlens.codeLens.enabled": false,
+    "FSharp.excludeProjectDirectories": [
+        ".git",
+        "paket-files",
+        "fable_modules",
+        "packages",
+        "node_modules",
+        "src/fcs-fable"
+    ],
+    "rust-analyzer.linkedProjects": [
+        "build/fable-library-rust/Cargo.toml",
+        "build/tests/Rust/Cargo.toml"
+    ],
+    "editor.inlayHints.enabled": "offUnlessPressed"
 }

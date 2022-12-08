@@ -1377,7 +1377,11 @@ module internal BigNatModule =
             check P2 "P2";
             check P3 "P3"
 #else
+#if FABLE_COMPILER
+          let Invariant (_: BigNat*BigNat*int*int) = ()
+#else
           let Invariant(_,_,_,_) = ()           
+#endif
 #endif      
           let mutable finished = false
           while( not finished ) do
@@ -1556,7 +1560,12 @@ module internal BigNatModule =
         then (k,ten2k)::prior
         else route ((k,ten2k)::prior) (k+1) (mul ten2k ten2k)
       let kten2ks = route [] 0 (embed 10)
+#if FABLE_COMPILER
+      let rec collect isLeading digits n (arg: list<int*BigNat>) =
+        match arg with
+#else
       let rec collect isLeading digits n = function
+#endif
         | [] ->
             // Have 0 <= n < 10^1, so collect a single digit (if needed) 
             let n = eval32 n

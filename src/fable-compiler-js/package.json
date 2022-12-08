@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "fable-compiler-js",
   "version": "3.0.1",
   "main": "index.js",

@@ -2,11 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
-    <RollForward>Major</RollForward>
+    <TargetFramework>net6.0</TargetFramework>
+    <!-- <RollForward>Major</RollForward> -->
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
 
   <!-- CoreRT optimization settings (https://aka.ms/OptimizeCoreRT) -->
@@ -25,8 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
-    <PackageReference Include="source-map-sharp" Version="1.0.7" />
+    <PackageReference Include="source-map-sharp" Version="1.0.8" />
     <!-- <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-*" /> -->
   </ItemGroup>
 

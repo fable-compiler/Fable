@@ -1,0 +1,80 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>Fable.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="6.0.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.1" />
+    <PackageReference Include="XUnit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.UMX" Version="1.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Js/Main/Globs/*.fs" />
+    <Compile Include="Util.fs" />
+    <Compile Include="Misc/Util2.fs" />
+    <Compile Include="Misc/Util3.fs" />
+    <Compile Include="Misc/Aether.fs" />
+    <Compile Include="../../tests_external/Util3.fs" />
+    <Compile Include="TestAsync.fs" />
+    <Compile Include="TestApplicative.fs" />
+    <Compile Include="TestArithmetic.fs" />
+    <Compile Include="TestArray.fs" />
+    <Compile Include="TestChar.fs" />
+    <Compile Include="TestComparison.fs" />
+    <Compile Include="TestCustomOperators.fs" />
+    <Compile Include="TestConvert.fs" />
+    <Compile Include="TestDateTime.fs" />
+    <Compile Include="TestDictionary.fs" />
+    <Compile Include="TestEnum.fs" />
+    <Compile Include="TestEnumerable.fs" />
+    <Compile Include="TestEvent.fs" />
+    <Compile Include="TestFn.fs" />
+    <Compile Include="TestGuid.fs" />
+    <Compile Include="TestList.fs" />
+    <Compile Include="TestLoops.fs" />
+    <Compile Include="TestMap.fs" />
+    <Compile Include="MiscTestsHelper.fs" />
+    <Compile Include="TestMisc.fs" />
+    <Compile Include="TestRegex.fs" />
+    <Compile Include="TestSet.fs" />
+    <Compile Include="TestSystemIO.fs" />
+    <Compile Include="TestObservable.fs" />
+    <Compile Include="TestOption.fs" />
+    <Compile Include="TestQueue.fs" />
+    <Compile Include="TestRecordType.fs" />
+    <Compile Include="TestReflection.fs" />
+    <Compile Include="TestResizeArray.fs" />
+    <Compile Include="TestResult.fs" />
+    <Compile Include="TestSeq.fs" />
+    <Compile Include="TestSeqExpression.fs" />
+    <Compile Include="TestStack.fs" />
+    <Compile Include="TestString.fs" />
+    <Compile Include="TestSudoku.fs" />
+    <Compile Include="TestTailCall.fs" />
+    <Compile Include="TestTimeSpan.fs" />
+    <Compile Include="TestTask.fs" />
+    <Compile Include="TestType.fs" />
+    <Compile Include="TestTupleType.fs" />
+    <Compile Include="TestUnionType.fs" />
+    <Compile Include="TestUri.fs" />
+    <Compile Include="TestPyInterop.fs" />
+
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+</Project>

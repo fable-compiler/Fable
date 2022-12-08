@@ -1,5 +1,24 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`React tests Counter JSX renders correctly 1`] = `
+<div>
+  <div
+    style="padding: 10px;"
+  >
+    <h1
+      data-testid="header-jsx"
+    >
+      5
+    </h1>
+    <button
+      data-testid="button-increment-jsx"
+    >
+      Increment
+    </button>
+  </div>
+</div>
+`;
+
 exports[`React tests Counter renders correctly 1`] = `
 <div>
   <div
@@ -8,12 +27,33 @@ exports[`React tests Counter renders correctly 1`] = `
     <h1
       data-testid="header"
     >
-      0
+      5
     </h1>
     <button
       data-testid="button-increment"
     >
       Increment
+    </button>
+    <button
+      class="ms-Button ms-Button--default root-109"
+      data-is-focusable="true"
+      type="button"
+    >
+      <span
+        class="ms-Button-flexContainer flexContainer-110"
+        data-automationid="splitbuttonprimary"
+      >
+        <span
+          class="ms-Button-textContainer textContainer-111"
+        >
+          <span
+            class="ms-Button-label label-113"
+            id="id__0"
+          >
+            A fluent button
+          </span>
+        </span>
+      </span>
     </button>
   </div>
 </div>

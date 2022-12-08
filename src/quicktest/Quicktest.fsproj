@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="QuickTest.fs" />
+    <Content Include="quicktest.fs.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />
+  </ItemGroup>
+</Project>

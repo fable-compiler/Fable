@@ -56,6 +56,8 @@ let ``test Option.defaultValue works II`` () =
 let ``test Option.orElse works`` () =
     Some 5 |> Option.orElse (Some 4) |> equal (Some 5)
     None |> Option.orElse (Some "foo") |> equal (Some "foo")
+    Some None |> Option.orElse (Some (Some "foo")) |> equal (Some None)
+    Some (Some "foo") |> Option.orElse (Some (Some "bar")) |> equal (Some (Some "foo"))
 
 [<Fact>]
 let ``test Option.defaultWith works`` () =
@@ -66,6 +68,8 @@ let ``test Option.defaultWith works`` () =
 let ``test Option.orElseWith works`` () =
     Some 5 |> Option.orElseWith (fun () -> Some 4) |> equal (Some 5)
     None |> Option.orElseWith (fun () -> Some "foo") |> equal (Some "foo")
+    Some None |> Option.orElseWith (fun () -> Some (Some "foo")) |> equal (Some None)
+    Some (Some "foo") |> Option.orElseWith (fun () -> Some (Some "bar")) |> equal (Some (Some "foo"))
 
 [<Fact>]
 let ``test Option.isSome/isNone works`` () =
@@ -79,6 +83,24 @@ let ``test Option.isSome/isNone works`` () =
 [<Fact>]
 let ``test Option.IsSome/IsNone works II`` () =
     let o1 = None
+    let o2 = Some 5
+    o1.IsNone |> equal true
+    o1.IsSome |> equal false
+    o2.IsNone |> equal false
+    o2.IsSome |> equal true
+
+[<Fact>]
+let ``test ValueOption.isSome/isNone works`` () =
+    let o1: int voption = ValueNone
+    let o2 = ValueSome 5
+    ValueOption.isNone o1 |> equal true
+    ValueOption.isSome o1 |> equal false
+    ValueOption.isNone o2 |> equal false
+    ValueOption.isSome o2 |> equal true
+
+[<Fact>]
+let ``test ValueOption.IsSome/IsNone works II`` () =
+    let o1: int voption = ValueNone
     let o2 = Some 5
     o1.IsNone |> equal true
     o1.IsSome |> equal false
@@ -144,18 +166,18 @@ let ``test Option.fold works`` () =
     (5, None) ||> Option.fold (*) |> equal 5
     (5, Some 7) ||> Option.fold (*) |> equal 35
 
-// [<Fact>]
-// let ``test Option.foldBack works`` () =
-//     (None, 5) ||> Option.foldBack (*) |> equal 5
-//     (Some 7, 5) ||> Option.foldBack (*) |> equal 35
+[<Fact>]
+let ``test Option.foldBack works`` () =
+    (None, 5) ||> Option.foldBack (*) |> equal 5
+    (Some 7, 5) ||> Option.foldBack (*) |> equal 35
 
 [<Fact>]
 let ``test Option.fold works II`` () =
     folding1 (FoldA (Some (FoldB 1))) [] |> equal [1]
 
-// [<Fact>]
-// let ``test Option.foldBack works II`` ( )=
-//     folding2 (FoldA (Some (FoldB 1))) [] |> equal [1]
+[<Fact>]
+let ``test Option.foldBack works II`` ( )=
+    folding2 (FoldA (Some (FoldB 1))) [] |> equal [1]
 
 [<Fact>]
 let ``test Option.toArray works`` () =
@@ -229,9 +251,9 @@ let ``test Mixing refs and options works`` () =
         (fun f -> slot.Value <- Some f),
         // TODO!!! If we change this to `slot.Value.Value` it fails
         (fun v -> slot.Value.Value v)
-    setter (fun i -> res := i + 2)
+    setter (fun i -> res.Value <- i + 2)
     getter 5
-    equal 7 !res
+    equal 7 res.Value
 
 [<Fact>]
 let ``test Generic options work`` () =

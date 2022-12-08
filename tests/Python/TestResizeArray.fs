@@ -1,6 +1,9 @@
 module Fable.Tests.ResizeArrays
 
 open Util.Testing
+open System.Text
+
+type Animal = Duck of int | Dog of int
 
 [<Fact>]
 let ``test ResizeArray zero creation works`` () =
@@ -42,8 +45,8 @@ let ``test ResizeArray iteration works`` () =
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     let acc = ref 0.
     for i in li do
-       acc := !acc + i
-    equal 15. !acc
+       acc.Value <- acc.Value + i
+    equal 15. acc.Value
 
 [<Fact>]
 let ``test ResizeArray iteration with index works`` () =
@@ -162,7 +165,6 @@ let ``test ResizeArray.AddRange works`` () =
 [<Fact>]
 let ``test ResizeArray.InsertRange works`` () =
     let li = ResizeArray<_>()
-    let mutable sum = 0
     li.Add(1); li.Add(2); li.Add(5)
     li.InsertRange(2, [3;4])
     Seq.toList li |> equal [1;2;3;4;5]
@@ -214,9 +216,9 @@ let ``test ResizeArray.RemoveRange works`` () =
     let xs = ResizeArray<int>()
     for x in [1 .. 5] do xs.Add(x)
     xs.RemoveRange(1, 2) // [1;2;3;4;5] -> [1;4;5]
-    equal 1 xs.[0]
-    equal 4 xs.[1]
-    equal 5 xs.[2]
+    equal 1 xs[0]
+    equal 4 xs[1]
+    equal 5 xs[2]
 
 [<Fact>]
 let ``test ResizeArray.Exists works`` () =
@@ -235,14 +237,12 @@ let ``test ResizeArray.RemoveAt works`` () =
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.RemoveAt(2)
     equal 4. li.[2]
-
 [<Fact>]
 let ``test ResizeArray.Insert works`` () =
     let li = ResizeArray<_>()
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.Insert(2, 8.)
     equal 8. li.[2]
-
 [<Fact>]
 let ``test ResizeArray.ReverseInPlace works`` () =
     let li = ResizeArray<_>()
@@ -260,6 +260,7 @@ let ``test ResizeArray.SortInPlace works`` () =
     li2.Sort()
     equal 2 li2.[1]
 
+(*
 [<Fact>]
 let ``test ResizeArray.SortInPlaceWith works`` () =
     let li = ResizeArray<_>()
@@ -281,7 +282,7 @@ let ``test ResizeArray.SortInPlaceWith works with custom comparer`` () =
     let comparer = System.Collections.Generic.Comparer<int>.Default
     ns.Sort(comparer)
     Seq.toList ns |> equal [1;2;3]
-
+*)
 [<Fact>]
 let ``test ResizeArray.ToArray works`` () =
     let li = ResizeArray<_>()
@@ -289,16 +290,51 @@ let ``test ResizeArray.ToArray works`` () =
     equal 5 li.Count
     let ar = li.ToArray()
     Array.length ar |> equal li.Count
-    ar.[0] <- 2.
-    equal 3. li.[0]
-    equal 2. ar.[0]
+    ar[0] <- 2.
+    equal 3. li[0]
+    equal 2. ar[0]
+
+[<Fact>]
+let ``test ResizeArray<byte>.ToArray works`` () =
+    let li = ResizeArray<byte>()
+    li.Add(0x66uy); li.Add(0x61uy); li.Add(0x62uy); li.Add(0x6cuy); li.Add(0x65uy)
+    let ar = li.ToArray()
+    let text = ar |> Encoding.UTF8.GetString
+    equal text "fable"
 
 [<Fact>]
 let ``test ResizeArray.Item is undefined when index is out of range`` () =
     let xs = ResizeArray [0]
-    #if FABLE_COMPILER
-    isNull <| box (xs.Item 1)
-    #else
     try (xs.Item 1) |> ignore; false with _ -> true
-    #endif
     |> equal true
+
+[<Fact>]
+let ``test ResizeArray.Remove works with non-primitive types`` () =
+    let myResizeArray = ResizeArray<Animal>()
+    myResizeArray.Add (Duck 5)
+    myResizeArray.Remove (Duck 3) |> ignore
+    myResizeArray.Count |> equal 1
+    myResizeArray.Remove (Dog 5) |> ignore
+    myResizeArray.Count |> equal 1
+    myResizeArray.Remove (Duck 5) |> ignore
+    myResizeArray.Count |> equal 0
+
+[<Fact>]
+let ``test ResizeArray.Contains works with non-primitive types`` () =
+    let myResizeArray = ResizeArray<Animal>()
+    myResizeArray.Add (Duck 5)
+    myResizeArray.Contains (Duck 3) |> equal false
+    myResizeArray.Contains (Dog 5) |> equal false
+    myResizeArray.Contains (Duck 5) |> equal true
+
+[<Fact>]
+let ``test ResizeArray.IndexOf works with non-primitive types`` () =
+    let myResizeArray = ResizeArray<Animal>()
+    myResizeArray.Add (Duck 5)
+    myResizeArray.IndexOf (Duck 3) |> equal -1
+    myResizeArray.IndexOf (Dog 5) |> equal -1
+    myResizeArray.IndexOf (Duck 5) |> equal 0
+    myResizeArray.Add(Dog 3)
+    myResizeArray.IndexOf(Dog 3) |> equal 1
+    myResizeArray.IndexOf(Dog 3, 0, 1) |> equal -1
+    myResizeArray.IndexOf(Duck 5, 1) |> equal -1

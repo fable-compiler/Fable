@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Util/Util.fs" />
+    <Compile Include="Lib.fs" />
+    <Compile Include="Lib2.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Fable.Core/Fable.Core.fsproj" />
+  </ItemGroup>
+</Project>

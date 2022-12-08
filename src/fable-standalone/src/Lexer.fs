@@ -41,7 +41,7 @@ let inline orTry f =
 /// Return all tokens of current line
 let tokenizeLine (args: string[]) lineStr =
     let defines =
-        args |> Seq.choose (fun s -> if s.StartsWith "--define:" then Some s.[9..] else None)
+        args |> Seq.choose (fun s -> if s.StartsWith "--define:" then Some s[9..] else None)
              |> Seq.toList
     let sourceTokenizer = FSharpSourceTokenizer(defines, Some "/tmp.fsx")
     let lineTokenizer = sourceTokenizer.CreateLineTokenizer lineStr
@@ -60,11 +60,11 @@ let inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterP
     elif token.Tag = FSharpTokenTag.INFIX_AT_HAT_OP then
          // The lexer return INFIX_AT_HAT_OP token for both "^" and "@" symbols.
          // We have to check the char itself to distinguish one from another.
-         if token.FullMatchedLength = 1 && lineStr.[token.LeftColumn] = '^' then
+         if token.FullMatchedLength = 1 && lineStr[token.LeftColumn] = '^' then
             StaticallyResolvedTypeParameterPrefix
          else Other
     elif token.Tag = FSharpTokenTag.LPAREN then
-        if token.FullMatchedLength = 1 && lineStr.[token.LeftColumn+1] = '|' then
+        if token.FullMatchedLength = 1 && lineStr[token.LeftColumn+1] = '|' then
            ActivePattern
         else Other
     else Other
@@ -162,7 +162,7 @@ let private getSymbolFromTokens (tokens: FSharpTokenInfo list) line col (lineStr
                   Line = line
                   LeftColumn = leftCol
                   RightColumn = first.RightColumn + 1
-                  Text = lineStr.[leftCol..first.RightColumn] })
+                  Text = lineStr[leftCol..first.RightColumn] })
     | SymbolLookupKind.Fuzzy
     | SymbolLookupKind.ByRightColumn ->
         // Select IDENT token. If failed, select OPERATOR token.
@@ -171,7 +171,7 @@ let private getSymbolFromTokens (tokens: FSharpTokenInfo list) line col (lineStr
             match k with
             | Ident | GenericTypeParameter | StaticallyResolvedTypeParameter | Keyword -> true
             | _ -> false)
-            /// Gets the option if Some x, otherwise try to get another value
+            // Gets the option if Some x, otherwise try to get another value
 
         |> orTry (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
         |> Option.map (fun token ->

@@ -1,3 +1,23 @@
+### 4.2.1
+
+* Get sources from PluginHelper
+
+### 4.2.0
+
+* Add Entity.DeclaringEntity
+
+### 4.1.0
+
+* Add IsInternal/IsPrivate to Entity and MemberFunctionOrValue
+
+### 4.0.0
+
+* Stable AST for Fable 4
+
+### 4.0.0-snake-island-alpha-001
+
+* Snake Island alpha release
+
 ### 3.1.1
 
 * Publish with icon and symbols @cartermp

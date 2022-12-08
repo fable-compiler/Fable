@@ -1,5 +1,5 @@
 open System
-open Fable.Import
+//open Fable.Import
 
 let foo() =
     let msg = String.Concat("Hello"," ","world")

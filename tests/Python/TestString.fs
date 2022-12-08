@@ -1,7 +1,11 @@
 module Fable.Tests.String
 
 open System
+open System.Globalization
+
 open Util.Testing
+
+#nowarn "44" // This construct is deprecated. Uri.EscapeUriString can corrupt the Uri string in some cases. (code 44)
 
 let containsInOrder (substrings: string list) (str: string) =
     let mutable lastIndex = -1
@@ -37,7 +41,7 @@ let ``test sprintf with different decimal digits works`` () =
       sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
 
 [<Fact>]
-let ``sprintf displays sign correctly`` () =
+let ``test sprintf displays sign correctly`` () =
       sprintf "%i" 1 |> equal "1"
       sprintf "%d" 1 |> equal "1"
       sprintf "%d" 1L |> equal "1"
@@ -121,9 +125,9 @@ let ``test sprintf \"%X\" works`` () =
 
     sprintf "255: %X" 255 |> equal "255: FF"
     sprintf "255: %x" 255 |> equal "255: ff"
-//    sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
-//    sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
-//    sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
+    sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+    sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
+    sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
     sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
     sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
     sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
@@ -146,9 +150,21 @@ let ``test sprintf integers with sign and padding works`` () =
 
 [<Fact>]
 let ``test String.Format combining padding and zeroes pattern works`` () =
-    String.Format("{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
-    String.Format("{0:000.00}foo", 5) |> equal "005.00foo"
-    String.Format("{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
+    String.Format(CultureInfo.InvariantCulture, "{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
+    String.Format(CultureInfo.InvariantCulture, "{0:000.00}foo", 5) |> equal "005.00foo"
+    String.Format(CultureInfo.InvariantCulture, "{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
+
+[<Fact>]
+let ``test String.Format works`` () =
+    let arg1, arg2, arg3 = "F#", "Fable", "Babel"
+    String.Format(CultureInfo.InvariantCulture, "{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
+    |> equal "Babel is to Fable what Fable is to F#"
+
+[<Fact>]
+let ``test String.Format with array works`` () =
+    let args = [| "F#" :> obj; "Fable"; "Babel" |]
+    String.Format("{2} is to {1} what {1} is to {0}", args=args)
+    |> equal "Babel is to Fable what Fable is to F#"
 
 [<Fact>]
 let ``test StringBuilder works`` () =
@@ -191,7 +207,7 @@ let ``test StringBuilder.Append works with various overloads`` () =
                       .Append("bcd".ToCharArray())
                       .Append('/')
                       .Append(true)
-                      .Append(5.2)
+                      .AppendFormat(CultureInfo.InvariantCulture, "{0}", 5.2)
                       .Append(34)
     equal "aaabcd/true5.234" (builder.ToString().ToLower())
 
@@ -721,8 +737,8 @@ let ``test String.collect works`` () =
 let ``test String.iter works`` () =
     let res = ref ""
     "Hello world!"
-    |> String.iter (fun c -> res := !res + c.ToString())
-    equal "Hello world!" !res
+    |> String.iter (fun c -> res.Value <- res.Value + c.ToString())
+    equal "Hello world!" res.Value
 
 [<Fact>]
 let ``test String.iteri works`` () =
@@ -796,24 +812,24 @@ let ``test System.Uri.UnescapeDataString works`` () =
     System.Uri.UnescapeDataString("http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a")
     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
 
-//[<Fact>]
-// let ``test System.Uri.EscapeDataString works`` () =
-//     System.Uri.EscapeDataString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld%21"
-//     System.Uri.EscapeDataString("http://kvz.io/") |> equal "http%3A%2F%2Fkvz.io%2F"
-//     System.Uri.EscapeDataString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
-//     |> equal "http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a"
+[<Fact>]
+let ``test System.Uri.EscapeDataString works`` () =
+    System.Uri.EscapeDataString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld%21"
+    System.Uri.EscapeDataString("http://kvz.io/") |> equal "http%3A%2F%2Fkvz.io%2F"
+    System.Uri.EscapeDataString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
+    |> equal "http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a"
 
-// [<Fact>]
-// let ``test System.Uri.EscapeUriString works`` () =
-//     System.Uri.EscapeUriString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld!"
-//     System.Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
-//     System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
-//     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
+[<Fact>]
+let ``test System.Uri.EscapeUriString works`` () =
+    System.Uri.EscapeUriString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld!"
+    System.Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
+    System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
+    |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
 
 // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
-// [<Fact>]
-// let ``test Passing Char.IsDigit as a function reference does not make String.filter hang`` () =
-//     "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
+[<Fact>]
+let ``test Passing Char.IsDigit as a function reference does not make String.filter hang`` () =
+    "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
 
 [<Fact>]
 let ``test sprintf with double percent should be unescaped`` () =
@@ -832,3 +848,16 @@ let ``test Can create FormattableString`` () =
     s.ArgumentCount |> equal 3
     s.GetArgument(2) |> equal (box true)
     s.GetArguments() |> equal [|100; 3; true|]
+
+#if FABLE_COMPILER
+//[<Fact>]
+//let ``test Can use FormattableString.GetStrings() extension`` () =
+//    let orderAmount = 100
+//    let convert (s: FormattableString) = s
+//    let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
+//    s.GetStrings() |> equal [|"You owe: "; " "; " "; ""|]
+//    let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
+//    s2.GetStrings() |> equal [|""; "This is \""; "\" awesome!"|]
+//    let s3: FormattableString = $"""I have no holes"""
+//    s3.GetStrings() |> equal [|"I have no holes"|]
+#endif

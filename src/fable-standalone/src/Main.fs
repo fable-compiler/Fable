@@ -13,7 +13,7 @@ open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.Symbols
 
 type CheckerImpl(checker: InteractiveChecker) =
-    member __.Checker = checker
+    member _.Checker = checker
     interface IChecker
 
 let mapError (error: FSharpDiagnostic) =
@@ -32,20 +32,21 @@ let mapError (error: FSharpDiagnostic) =
             | FSharpDiagnosticSeverity.Error -> false
     }
 
-type ParseResults (project: Lazy<Project>,
+type ParseAndCheckResults
+                  (project: Lazy<Project>,
                    parseFileResultsOpt: FSharpParseFileResults option,
                    checkFileResultsOpt: FSharpCheckFileResults option,
                    checkProjectResults: FSharpCheckProjectResults,
                    otherFSharpOptions: string[]) =
 
-    member __.GetProject () = project.Force()
-    member __.ParseFileResultsOpt = parseFileResultsOpt
-    member __.CheckFileResultsOpt = checkFileResultsOpt
-    member __.CheckProjectResults = checkProjectResults
+    member _.GetProject () = project.Force()
+    member _.ParseFileResultsOpt = parseFileResultsOpt
+    member _.CheckFileResultsOpt = checkFileResultsOpt
+    member _.CheckProjectResults = checkProjectResults
 
-    interface IParseResults with
-        member __.OtherFSharpOptions = otherFSharpOptions
-        member __.Errors = checkProjectResults.Diagnostics |> Array.map mapError
+    interface IParseAndCheckResults with
+        member _.OtherFSharpOptions = otherFSharpOptions
+        member _.Errors = checkProjectResults.Diagnostics |> Array.map mapError
 
 let inline private tryGetLexerSymbolIslands (sym: Lexer.LexerSymbol) =
   match sym.Text with
@@ -73,7 +74,7 @@ let findLongIdentsAndResidue (col: int, lineStr:string) =
         | "" -> [], ""
         | text ->
             let res = text.Split '.' |> List.ofArray |> List.rev
-            if lineStr.[col - 1] = '.' then res |> List.rev, ""
+            if lineStr[col - 1] = '.' then res |> List.rev, ""
             else
                 match res with
                 | head :: tail -> tail |> List.rev, head
@@ -107,6 +108,8 @@ let convertGlyph glyph =
         Glyph.Error
     | FSharpGlyph.Event ->
         Glyph.Event
+    | FSharpGlyph.TypeParameter ->
+        Glyph.TypeParameter
 
 let makeProjOptions projectFileName fileNames otherFSharpOptions =
     let projOptions: FSharpProjectOptions =
@@ -123,23 +126,38 @@ let makeProjOptions projectFileName fileNames otherFSharpOptions =
         Stamp = None }
     projOptions
 
-let makeProject (projectOptions: FSharpProjectOptions) (projectResults: FSharpCheckProjectResults) =
+let makeCompiler fableLibrary typedArrays language fsharpOptions project fileName: CompilerImpl =
+    let define = fsharpOptions |> Array.choose (fun (x: string) ->
+        if x.StartsWith("--define:") || x.StartsWith("-d:")
+        then x[(x.IndexOf(':') + 1)..] |> Some
+        else None) |> Array.toList
+    let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
+    CompilerImpl(fileName, project, options, fableLibrary)
+
+let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpCheckProjectResults) =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
-    Project(projectOptions.ProjectFileName, projectResults, optimizeFSharpAst=optimize)
+    let implFiles =
+        if optimize then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+        else checkResults.AssemblyContents.ImplementationFiles
+    Project.From(
+        projectOptions.ProjectFileName,
+        projectOptions.SourceFiles,
+        implFiles,
+        checkResults.ProjectContext.GetReferencedAssemblies())
 
-let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
-    let projectResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
+let parseAndCheckProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
+    let checkResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
+    let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
+    let project = lazy (makeProject projectOptions checkResults)
+    ParseAndCheckResults (project, None, None, checkResults, otherFSharpOptions)
+
+let parseAndCheckFileInProject (checker: InteractiveChecker) fileName projectFileName fileNames sources otherFSharpOptions =
+    let results, checkResults, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
     let project = lazy (makeProject projectOptions projectResults)
-    ParseResults (project, None, None, projectResults, otherFSharpOptions)
-
-let parseFSharpFileInProject (checker: InteractiveChecker) fileName projectFileName fileNames sources otherFSharpOptions =
-    let parseResults, checkResults, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
-    let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
-    let project = lazy (makeProject projectOptions projectResults)
-    ParseResults (project, Some parseResults, Some checkResults, projectResults, otherFSharpOptions)
+    ParseAndCheckResults (project, Some results, Some checkResults, projectResults, otherFSharpOptions)
 
 let tooltipToString (el: ToolTipElement): string[] =
     let dataToString (data: ToolTipElementData) =
@@ -166,8 +184,8 @@ let tooltipToString (el: ToolTipElement): string[] =
     | ToolTipElement.CompositionError err -> [|err|]
 
 /// Get tool tip at the specified location
-let getDeclarationLocation (parseResults: ParseResults) line col lineText =
-    match parseResults.CheckFileResultsOpt with
+let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
+    match results.CheckFileResultsOpt with
     | Some checkFile ->
         match findLongIdents(col - 1, lineText) with
         | None -> None
@@ -186,8 +204,8 @@ let getDeclarationLocation (parseResults: ParseResults) line col lineText =
     | None -> None
 
 /// Get tool tip at the specified location
-let getToolTipAtLocation (parseResults: ParseResults) line col lineText =
-    match parseResults.CheckFileResultsOpt with
+let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
+    match results.CheckFileResultsOpt with
     | Some checkFile ->
         match findLongIdents(col - 1, lineText) with
         | None ->
@@ -200,120 +218,179 @@ let getToolTipAtLocation (parseResults: ParseResults) line col lineText =
     | None ->
         [||]
 
-let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int) lineText =
-   match parseResults.CheckFileResultsOpt with
+let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: int) lineText =
+   match results.CheckFileResultsOpt with
     | Some checkFile ->
         let ln, residue = findLongIdentsAndResidue(col - 1, lineText)
         let longName = QuickParse.GetPartialLongNameEx(lineText, col - 1)
         let longName = { longName with QualifyingIdents = ln; PartialIdent = residue }
-        let decls = checkFile.GetDeclarationListInfo(parseResults.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
+        let decls = checkFile.GetDeclarationListInfo(results.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
         decls.Items |> Array.map (fun decl ->
-            { Name = decl.Name; Glyph = convertGlyph decl.Glyph })
+            { Name = decl.NameInList; Glyph = convertGlyph decl.Glyph })
     | None ->
         [||]
 
-let compileToFableAst (parseResults: IParseResults) fileName fableLibrary typedArrays language =
-    let res = parseResults :?> ParseResults
-    let project = res.GetProject()
-    let define = parseResults.OtherFSharpOptions |> Array.choose (fun x ->
-        if x.StartsWith("--define:") || x.StartsWith("-d:")
-        then x.[(x.IndexOf(':') + 1)..] |> Some
-        else None) |> Array.toList
-    let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
-    let com = CompilerImpl(fileName, project, options, fableLibrary)
-    let fableAst =
+let mapFableError (com: Compiler) (log: Log) =
+    let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
+    {
+        FileName = com.CurrentFile
+        StartLine = r.start.line
+        StartColumn = r.start.column
+        EndLine = r.``end``.line
+        EndColumn = r.``end``.column
+        Message =
+            if log.Tag = "FABLE"
+            then "FABLE: " + log.Message
+            else log.Message
+        IsWarning =
+            match log.Severity with
+            | Fable.Severity.Error -> false
+            | Fable.Severity.Warning
+            | Fable.Severity.Info -> true
+    }
+
+type BabelResult(ast: Babel.Program, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+type DartResult(ast: Dart.File, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+type PhpResult(ast: Php.PhpFile, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+type PythonResult(ast: Python.Module, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+type RustResult(ast: Rust.AST.Types.Crate, errors) =
+    member _.Ast = ast
+    interface IFableResult with
+        member _.FableErrors = errors
+
+let transformToFableAst (com: Compiler): Fable.File =
+    let fileName = com.CurrentFile
+    try
         FSharp2Fable.Compiler.transformFile com
         |> FableTransforms.transformFile com
-    let errors =
-        com.Logs |> Array.map (fun log ->
-            let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
-            {
-                FileName = fileName
-                StartLine = r.start.line
-                StartColumn = r.start.column
-                EndLine = r.``end``.line
-                EndColumn = r.``end``.column
-                Message =
-                    if log.Tag = "FABLE"
-                    then "FABLE: " + log.Message
-                    else log.Message
-                IsWarning =
-                    match log.Severity with
-                    | Fable.Severity.Error -> false
-                    | Fable.Severity.Warning
-                    | Fable.Severity.Info -> true
-            })
-    (com, fableAst, errors)
+    with
+    | Fable.FableError msg ->
+        com.AddLog(msg, Severity.Error, fileName=fileName)
+        Fable.File([])
+    | ex ->
+        let msg = ex.Message + Environment.NewLine + ex.StackTrace
+        com.AddLog(msg, Severity.Error, fileName=fileName, tag="EXCEPTION")
+        Fable.File([])
 
-type BabelResult(program: Babel.Program, errors) =
-    member _.Program = program
-    interface IBabelResult with
-        member _.FableErrors = errors
+let transformToTargetAst (com: CompilerImpl) (fableAst: Fable.File): IFableResult =
+    // get errors
+    let errors = com.Logs |> Array.map (mapFableError com)
+
+    // transform Fable AST to target language AST
+    match (com :> Compiler).Options.Language with
+    | JavaScript | TypeScript ->
+        let ast = Fable2Babel.Compiler.transformFile com fableAst
+        upcast BabelResult(ast, errors)
+    | Php ->
+        let ast = Fable2Php.Compiler.transformFile com fableAst
+        upcast PhpResult(ast, errors)
+    | Python ->
+        let ast = Fable2Python.Compiler.transformFile com fableAst
+        upcast PythonResult(ast, errors)
+    | Dart ->
+        let ast = Fable2Dart.Compiler.transformFile com fableAst
+        upcast DartResult(ast, errors)
+    | Rust ->
+        let ast = Rust.Fable2Rust.Compiler.transformFile com fableAst
+        upcast RustResult(ast, errors)
+
+let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language: IFableResult =
+    let res = results :?> ParseAndCheckResults
+    let project = res.GetProject()
+    let com = makeCompiler fableLibrary typedArrays language results.OtherFSharpOptions project fileName
+    let fableAst = transformToFableAst com
+    fableAst |> transformToTargetAst com
+
+let makeWriter (writer: IWriter) =
+    { new Printer.Writer with
+        member _.Dispose() = writer.Dispose()
+        member _.MakeImportPath(path) = writer.MakeImportPath(path)
+        member _.AddLog(msg, severity, ?range) = ()
+        member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
+        member _.Write(str) = writer.Write(str) }
+
+let getLanguage (language: string) =
+    match language.ToLowerInvariant() with
+    | "js" | "javascript" -> JavaScript
+    | "ts" | "typescript" -> TypeScript
+    | "py" | "python" -> Python
+    | "php" -> Php
+    | "dart" -> Dart
+    | "rust" -> Rust
+    | _ -> failwithf "Unsupported language: %s" language
 
 let init () =
   { new IFableManager with
-        member __.Version = Fable.Literals.VERSION
+        member _.Version = Fable.Literals.VERSION
 
-        member __.CreateChecker(references, readAllBytes, otherOptions) =
+        member _.CreateChecker(references, readAllBytes, otherOptions) =
             InteractiveChecker.Create(references, readAllBytes, otherOptions)
             |> CheckerImpl :> IChecker
 
-        member __.ClearParseCaches(checker) =
+        member _.ClearCache(checker) =
             let c = checker :?> CheckerImpl
             c.Checker.ClearCache()
 
-        member __.ParseFSharpProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
+        member _.ParseAndCheckProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
-            parseFSharpProject c.Checker projectFileName fileNames sources otherFSharpOptions :> IParseResults
+            parseAndCheckProject c.Checker projectFileName fileNames sources otherFSharpOptions :> IParseAndCheckResults
 
-        member __.ParseFSharpFileInProject(checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions) =
+        member _.ParseAndCheckFileInProject(checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions) =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
-            parseFSharpFileInProject c.Checker fileName projectFileName fileNames sources otherFSharpOptions :> IParseResults
+            parseAndCheckFileInProject c.Checker fileName projectFileName fileNames sources otherFSharpOptions :> IParseAndCheckResults
 
-        member __.GetParseErrors(parseResults:IParseResults) =
-            parseResults.Errors
+        member _.GetErrors(results:IParseAndCheckResults) =
+            results.Errors
 
-        member __.GetDeclarationLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
-            let res = parseResults :?> ParseResults
+        member _.GetDeclarationLocation(results:IParseAndCheckResults, line:int, col:int, lineText:string) =
+            let res = results :?> ParseAndCheckResults
             getDeclarationLocation res line col lineText
 
-        member __.GetToolTipText(parseResults:IParseResults, line:int, col:int, lineText:string) =
-            let res = parseResults :?> ParseResults
+        member _.GetToolTipText(results:IParseAndCheckResults, line:int, col:int, lineText:string) =
+            let res = results :?> ParseAndCheckResults
             getToolTipAtLocation res line col lineText
 
-        member __.GetCompletionsAtLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
-            let res = parseResults :?> ParseResults
+        member _.GetCompletionsAtLocation(results:IParseAndCheckResults, line:int, col:int, lineText:string) =
+            let res = results :?> ParseAndCheckResults
             getCompletionsAtLocation res line col lineText
 
-        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string,
-                                    ?typedArrays, ?typescript) =
-            let language = match typescript with | Some true -> TypeScript | _ -> JavaScript
-            let com, fableAst, errors =
-                compileToFableAst parseResults fileName fableLibrary typedArrays language
-            let babelAst =
-                fableAst |> Fable2Babel.Compiler.transformFile com
-            upcast BabelResult(babelAst, errors)
+        member _.CompileToTargetAst(fableLibrary:string, results:IParseAndCheckResults, fileName:string, typedArrays, language) =
+            let language = getLanguage language
+            let typedArrays =
+                if language = JavaScript then typedArrays else None // only used for JS
+            compileToTargetAst results fileName fableLibrary typedArrays language
 
-        member _.PrintBabelAst(babelResult, writer) =
-            match babelResult with
-            | :? BabelResult as babel ->
-                let writer =
-                    { new BabelPrinter.Writer with
-                        member _.Dispose() = writer.Dispose()
-                        member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
-                        member _.MakeImportPath(path) = writer.MakeImportPath(path)
-                        member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
-                        member _.Write(str) = writer.Write(str) }
+        member _.PrintTargetAst(fableResult, writer) =
+            let writer = makeWriter writer
+            match fableResult with
+            | :? BabelResult as babel -> BabelPrinter.run writer babel.Ast
+            | :? DartResult as dart -> DartPrinter.run writer dart.Ast
+            | :? PhpResult as php -> PhpPrinter.run writer php.Ast
+            | :? PythonResult as python -> PythonPrinter.run writer python.Ast
+            | :? RustResult as rust -> Rust.RustPrinter.run writer rust.Ast
+            | _ -> failwith "Unexpected Fable result"
 
-                BabelPrinter.run writer babel.Program
-            | _ ->
-                failwith "Unexpected Babel result"
-
-        member __.FSharpAstToString(parseResults:IParseResults, fileName:string) =
-            let res = parseResults :?> ParseResults
+        member _.FSharpAstToString(results:IParseAndCheckResults, fileName:string) =
+            let res = results :?> ParseAndCheckResults
             let project = res.GetProject()
             let implFile = project.ImplementationFiles.Item(fileName)
-            AstPrint.printFSharpDecls "" implFile.Ast.Declarations |> String.concat "\n"
+            AstPrint.printFSharpDecls "" implFile.Declarations |> String.concat "\n"
   }

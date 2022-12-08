@@ -1,47 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
-    <Version>3.2.9</Version>
-    <PackageVersion>3.0.0-local-build-20210819-1229</PackageVersion>
-    <PackageReleaseNotes>* Don't print JS files in watch mode if there're F# errors
-* Fix SRTP with local inline functions</PackageReleaseNotes>
+    <TargetFramework>net6.0</TargetFramework>
+    <Version>4.0.0</Version>
+    <PackageVersion>4.0.0-theta-018</PackageVersion>
+    <PackageReleaseNotes>* When using a .csproj, make sure the project is restored before parsing
+* Rust, added Stack, Queue</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <PackageId>Fable</PackageId>
     <AssemblyName>fable</AssemblyName>
     <PackAsTool>true</PackAsTool>
     <Description>F# to JS compiler</Description>
+    <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup Condition="'$(Pack)' == 'true'">
-    <Content Include="..\..\build\fable-library\**\*.js" PackagePath="fable-library\" />
+    <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />
+    <Content Include="..\..\build\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
+    <Content Include="..\..\build\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
+    <Content Include="..\..\build\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
+    <Content Include="..\..\build\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="Contributors.fs" />
     <Compile Include="Globbing.fs" />
-    <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
     <Compile Include="FileWatchers.fs" />
     <Compile Include="Pipeline.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="Entry.fs" />
+    <Content Include="RELEASE_NOTES.md" />
+    <Content Include="Properties\launchSettings.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
-    <!-- <ProjectReference Include="../../../fsharp/src/fsharp/FSharp.Compiler.Service/FSharp.Compiler.Service.fsproj" /> -->
-  </ItemGroup>
-  <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="5.0.1" /> -->
-    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+    <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
+    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
-    <PackageReference Include="source-map-sharp" Version="1.0.7" />
+    <PackageReference Include="Buildalyzer" Version="4.1.6" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
+    <PackageReference Include="source-map-sharp" Version="1.0.8" />
   </ItemGroup>
 </Project>

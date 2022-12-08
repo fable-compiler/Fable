@@ -7,12 +7,19 @@ import { protectedCont } from "./AsyncBuilder.js";
 import { protectedBind } from "./AsyncBuilder.js";
 import { protectedReturn } from "./AsyncBuilder.js";
 import { FSharpChoice$2, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
+import { TimeoutException } from "./SystemException.js";
+import { Exception } from "./Types.js";
 
 // Implemented just for type references
 export class Async<_T> { }
 
 function emptyContinuation<T>(_x: T) {
   // NOP
+}
+
+// see AsyncBuilder.Delay
+function delay<T>(generator: () => IAsync<T>) {
+  return protectedCont((ctx: IAsyncContext<T>) => generator()(ctx));
 }
 
 // MakeAsync: body:(AsyncActivation<'T> -> AsyncReturn) -> Async<'T>
@@ -58,8 +65,33 @@ export function throwIfCancellationRequested(token: CancellationToken) {
   }
 }
 
-export function startChild<T>(computation: IAsync<T>): IAsync<IAsync<T>> {
+function throwAfter(millisecondsDueTime: number) : IAsync<void> {
+  return protectedCont((ctx: IAsyncContext<void>) => {
+    let tokenId: number;
+    const timeoutId = setTimeout(() => {
+      ctx.cancelToken.removeListener(tokenId);
+      ctx.onError(new TimeoutException());
+    }, millisecondsDueTime);
+    tokenId = ctx.cancelToken.addListener(() => {
+      clearTimeout(timeoutId);
+      ctx.onCancel(new OperationCanceledError());
+    });
+  });
+}
+
+export function startChild<T>(computation: IAsync<T>, ms?: number): IAsync<IAsync<T>> {
+  if (ms) {
+    const computationWithTimeout = protectedBind(
+      parallel2(
+        computation,
+        throwAfter(ms)),
+      xs => protectedReturn(xs[0]));
+
+    return startChild(computationWithTimeout);
+  }
+
   const promise = startAsPromise(computation);
+
   // JS Promises are hot, computation has already started
   // but we delay returning the result
   return protectedCont((ctx) =>
@@ -80,7 +112,7 @@ export function cancellationToken() {
 export const defaultCancellationToken = new CancellationToken();
 
 export function catchAsync<T>(work: IAsync<T>) {
-  return protectedCont((ctx: IAsyncContext<FSharpChoice$2<T, Error>>) => {
+  return protectedCont((ctx: IAsyncContext<FSharpChoice$2<T, Error | Exception>>) => {
     work({
       onSuccess: (x) => ctx.onSuccess(Choice_makeChoice1Of2(x)),
       onError: (ex) => ctx.onSuccess(Choice_makeChoice2Of2(ex)),
@@ -101,7 +133,24 @@ export function ignore<T>(computation: IAsync<T>) {
 }
 
 export function parallel<T>(computations: Iterable<IAsync<T>>) {
-  return awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w))));
+  return delay(() => awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w)))));
+}
+
+function parallel2<T, U>(a: IAsync<T>, b: IAsync<U>): IAsync<[T, U]> {
+  return delay(() => awaitPromise(Promise.all([ startAsPromise(a), startAsPromise(b) ])));
+}
+
+export function sequential<T>(computations: Iterable<IAsync<T>>) {
+
+  function _sequential<T>(computations: Iterable<IAsync<T>>): Promise<T[]> {
+    let pr: Promise<T[]> = Promise.resolve([]);
+    for (const c of computations) {
+      pr = pr.then(results => startAsPromise(c).then(r => results.concat([r])))
+    }
+    return pr;
+  }
+
+  return delay(() => awaitPromise<T[]>(_sequential<T>(computations)));
 }
 
 export function sleep(millisecondsDueTime: number) {
@@ -116,6 +165,10 @@ export function sleep(millisecondsDueTime: number) {
       ctx.onCancel(new OperationCanceledError());
     });
   });
+}
+
+export function runSynchronously(): never {
+  throw new Error("Asynchronous code cannot be run synchronously in JS");
 }
 
 export function start<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {

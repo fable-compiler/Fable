@@ -101,8 +101,8 @@ let ``test xs.Remove works`` () =
 let ``test Map.iter works`` () =
     let xs = Map [1.,1.; 2.,4.; 3.,9.; 4.,16.]
     let total = ref 0.
-    xs |> Map.iter (fun x y -> total := !total + x + y)
-    !total |> equal 40.
+    xs |> Map.iter (fun x y -> total.Value <- total.Value + x + y)
+    total.Value |> equal 40.
 
 [<Fact>]
 let ``test Map.forAll works`` () =
@@ -268,14 +268,14 @@ let ``test Map.toSeq generates sequences that can be iterated multiple times`` (
     pr someSeq |> equal "a, b"
     pr someSeq |> equal "a, b"
 
-// [<Fact>]
-// let ``test Map can be casted to IDictionary`` () =
-//     let map = Map [ "a", 1; "b", 2; "c", 3]
-//     let dic = map :> System.Collections.Generic.IDictionary<_,_>
-//     dic.TryGetValue("c") |> equal (true,3)
-//     dic.TryGetValue("d") |> fst |> equal false
-//     dic.Keys |> Seq.toList |> equal ["a"; "b"; "c"]
-//     dic.Values |> Seq.toList |> equal [1; 2; 3]
+[<Fact>]
+let ``test Map can be casted to IDictionary`` () =
+     let map = Map [ "a", 1; "b", 2; "c", 3]
+     let dic = map :> System.Collections.Generic.IDictionary<_,_>
+     dic.TryGetValue("c") |> equal (true,3)
+     dic.TryGetValue("d") |> fst |> equal false
+     dic.Keys |> Seq.toList |> equal ["a"; "b"; "c"]
+     dic.Values |> Seq.toList |> equal [1; 2; 3]
 
 [<Fact>]
 let ``test KeyValuePair can be referenced`` () =

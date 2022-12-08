@@ -30,12 +30,12 @@ let ($) (callee: obj) (args: obj): 'a = nativeOnly
 let (==>) (key: string) (v: obj): string*obj = nativeOnly
 
 /// Destructure a tuple of arguments and applies to literal Python code as with EmitAttribute.
-/// E.g. `emitPyExpr (arg1, arg2) "$0 + $1"` in Python becomes `arg1 + arg2`
-let emitPyExpr<'T> (args: obj) (pyCode: string): 'T = nativeOnly
+/// E.g. `emitExpr (arg1, arg2) "$0 + $1"` in Python becomes `arg1 + arg2`
+let emitExpr<'T> (args: obj) (pyCode: string): 'T = nativeOnly
 
-/// Same as emitPyExpr but intended for Python code that must appear in a statement position
-/// E.g. `emitPyExpr aValue "while($0 < 5) doSomething()"`
-let emitPyStatement<'T> (args: obj) (pyCode: string): 'T = nativeOnly
+/// Same as emitExpr but intended for Python code that must appear in a statement position
+/// E.g. `emitStatement aValue "while($0 < 5) doSomething()"`
+let emitStatement<'T> (args: obj) (pyCode: string): 'T = nativeOnly
 
 /// Create a literal Python object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in Python becomes `{ a: 5 }`
@@ -44,11 +44,6 @@ let createObj (fields: #seq<string*obj>): obj = nativeOnly
 /// Create a literal Python object from a collection of union constructors.
 /// E.g. `keyValueList CaseRules.LowerFirst [ MyUnion 4 ]` in Python becomes `{ myUnion: 4 }`
 let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = nativeOnly
-
-/// Create a literal Py object from a mutator lambda. Normally used when
-/// the options interface has too many fields to be represented with a Pojo record.
-/// E.g. `pyOptions<MyOpt> (fun o -> o.foo <- 5)` in Python becomes `{ "foo": 5 }`
-let pyOptions<'T> (f: 'T->unit): 'T = nativeOnly
 
 /// Create an empty Python object: {}
 let createEmpty<'T> : 'T = nativeOnly

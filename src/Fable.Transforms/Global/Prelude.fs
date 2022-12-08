@@ -1,5 +1,23 @@
 namespace Fable
 
+open System
+open System.Globalization
+open System.Text
+
+module Dictionary =
+    open System.Collections.Generic
+    let tryFind key (dic: #IDictionary<'Key, 'Value>) =
+        match dic.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ -> None
+
+module ReadOnlyDictionary =
+    open System.Collections.Generic
+    let tryFind key (dic: #IReadOnlyDictionary<'Key, 'Value>) =
+        match dic.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ -> None
+
 [<RequireQualifiedAccess>]
 module Tuple =
     let make2 x y = x, y
@@ -17,12 +35,43 @@ module Option =
         x
 
 [<RequireQualifiedAccess>]
+module Map =
+    let matchesKeyValue k v map =
+        match Map.tryFind k map with
+        | None -> false
+        | Some v2 -> v = v2
+
+[<RequireQualifiedAccess>]
 module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
 
+    let mapToListIndexed (f: int -> 'a -> 'b) (xs: 'a seq) =
+        let mutable i = -1
+        ([], xs) ||> Seq.fold (fun li x ->
+            i <- i + 1
+            (f i x)::li) |> List.rev
+
+    let chooseToList (f: 'a -> 'b option) (xs: 'a seq) =
+        ([], xs) ||> Seq.fold (fun li x -> match f x with Some x -> x::li | None -> li) |> List.rev
+
 [<RequireQualifiedAccess>]
 module Array =
+    let filteri (filter: int -> 'a -> bool) (xs: 'a[]): 'a[] =
+        let mutable i = -1
+        xs |> Array.filter (fun x ->
+            i <- i + 1
+            filter i x)
+
+    let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T[]) =
+        let r1 = ResizeArray()
+        let r2 = ResizeArray()
+        for x in xs do
+            match f x with
+            | Choice1Of2 x -> r1.Add(x)
+            | Choice2Of2 x -> r2.Add(x)
+        r1.ToArray(), r2.ToArray()
+
     let mapToList (f: 'a -> 'b) (xs: 'a array) =
         let mutable li = []
         for i = xs.Length - 1 downto 0 do
@@ -101,6 +150,24 @@ module List =
         | Some i -> List.splitAt i xs
         | None -> xs, []
 
+    /// Only zips first elements until length differs
+    let zipSafe (xs: 'T1 list) (ys: 'T2 list) =
+        let rec inner acc xs ys =
+            match xs, ys with
+            | x::xs, y::ys -> inner ((x,y)::acc) xs ys
+            | _ -> List.rev acc
+        inner [] xs ys
+
+[<RequireQualifiedAccess>]
+module Result =
+    let mapEither mapOk mapError = function
+        | Ok x -> mapOk x |> Ok
+        | Error e -> mapError e |> Error
+
+    let extract extractOk extractError = function
+        | Ok x -> extractOk x
+        | Error e -> extractError e
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
 
@@ -110,6 +177,12 @@ module Patterns =
 
     let (|SetContains|_|) set item =
         if Set.contains item set then Some SetContains else None
+
+    let (|ListLast|_|) (xs: 'a list) =
+        if List.isEmpty xs then None
+        else
+            let xs, last = List.splitLast xs
+            Some(xs, last)
 
 module Naming =
     open Fable.Core
@@ -125,17 +198,27 @@ module Naming =
         then txt.Substring(0, txt.Length - pattern.Length) |> Some
         else None
 
+    let (|Regex|_|) (reg: Regex) (str: string) =
+        let m = reg.Match(str)
+        if m.Success then
+            m.Groups
+            |> Seq.cast<Group>
+            |> Seq.map (fun g -> g.Value)
+            |> Seq.toList
+            |> Some
+        else None
+
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
-    let [<Literal>] fableHiddenDir = ".fable"
+    let [<Literal>] fableModules = "fable_modules"
+    let [<Literal>] fableRegion = "FABLE_REGION"
+    let [<Literal>] fablePrecompile = "Fable.Precompiled"
+    let [<Literal>] fableProjExt = ".fableproj"
     let [<Literal>] unknown = "UNKNOWN"
 
-    let isInFableHiddenDir (file: string) =
-        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableHiddenDir)
-
-    let umdModules =
-        set ["commonjs"; "amd"; "umd"]
+    let isInFableModules (file: string) =
+        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableModules)
 
     let isIdentChar index (c: char) =
         let code = int c
@@ -151,16 +234,20 @@ module Naming =
             found <- found || not(isIdentChar i ident.[i])
         found
 
-    let sanitizeIdentForbiddenChars (ident: string) =
+    let sanitizeIdentForbiddenCharsWith replace (ident: string) =
         if hasIdentForbiddenChars ident then
-            System.String.Concat(seq {
-                for i = 0 to (ident.Length - 1) do
-                    let c = ident.[i]
-                    if isIdentChar i c
-                    then yield string c
-                    else yield "$" + System.String.Format("{0:X}", int c).PadLeft(4, '0')
-                })
+            Seq.init ident.Length (fun i ->
+                let c = ident.[i]
+                if isIdentChar i c
+                then string c
+                else replace c
+            )
+            |> String.Concat
         else ident
+
+    let sanitizeIdentForbiddenChars (ident: string) =
+        ident |> sanitizeIdentForbiddenCharsWith (fun c ->
+            "$" + String.Format("{0:X}", int c).PadLeft(4, '0'))
 
     let replaceRegex (pattern: string) (value: string) (input: string) =
         Regex.Replace(input, pattern, value)
@@ -168,6 +255,11 @@ module Naming =
     let replacePrefix (prefix: string) (value: string) (input: string) =
         if input.StartsWith(prefix) then
             value + (input.Substring(prefix.Length))
+        else input
+
+    let replaceSuffix (suffix: string) (value: string) (input: string) =
+        if input.EndsWith(suffix) then
+            (input.Substring(0, input.Length - suffix.Length)) + value
         else input
 
     let removeGetSetPrefix (s: string) =
@@ -201,6 +293,9 @@ module Naming =
         | CaseRules.SnakeCaseAllCaps -> (dashify "_" name).ToUpperInvariant()
         | CaseRules.KebabCase -> dashify "-" name
         | CaseRules.None | _ -> name
+
+    // TODO: Reserved words for other languages
+    // Dart: List, identical...
 
     let jsKeywords =
         System.Collections.Generic.HashSet [
@@ -443,14 +538,52 @@ module Naming =
         // Check if it already exists
         |> preventConflicts conflicts
 
+    // Ported to F# from https://github.com/microsoft/referencesource/blob/master/System.Web/Util/HttpEncoder.cs#L391
+    let escapeString charRequiresEncoding (value: string) : string =
+        if (String.IsNullOrEmpty(value)) then
+            String.Empty
+        else
+            let sb = StringBuilder(value.Length)
+            for i = 0 to value.Length - 1 do
+                match value.[i] with
+                | '\'' -> sb.Append("\\\'") |> ignore
+                | '\"' -> sb.Append("\\\"") |> ignore
+                | '\\' -> sb.Append("\\\\") |> ignore
+                | '\r' -> sb.Append("\\r") |> ignore
+                | '\t' -> sb.Append("\\t") |> ignore
+                | '\n' -> sb.Append("\\n") |> ignore
+                | '\b' -> sb.Append("\\b") |> ignore
+                | '\f' -> sb.Append("\\f") |> ignore
+                | c when charRequiresEncoding c
+                        || c < (char) 0x20  // other control chars
+                        || c = '\u0085'     // other newline chars
+                        || c = '\u2028'
+                        || c = '\u2029' ->
+                    let u = String.Format(@"\u{0:x4}", int c)
+                    sb.Append(u) |> ignore
+                | c -> sb.Append(c) |> ignore
+
+            sb.ToString()
+
 module Path =
     open System
 
+    let normalizePath (path: string) =
+        path.Replace('\\', '/').TrimEnd('/')
+
     let Combine (path1: string, path2: string) =
+#if FABLE_COMPILER
+        // TODO: Make sure path2 is not absolute in the polyfill
         let path1 =
             if path1.Length = 0 then path1
             else (path1.TrimEnd [|'\\';'/'|]) + "/"
-        path1 + (path2.TrimStart [|'\\';'/'|])
+        let path2 =
+            if path2.StartsWith("./") then path2.[2..]
+            else path2.TrimStart [|'\\';'/'|]
+        path1 + path2
+#else
+        IO.Path.Combine(path1, path2)
+#endif
 
     let ChangeExtension (path: string, ext: string) =
         let i = path.LastIndexOf(".")
@@ -463,7 +596,7 @@ module Path =
         else path.Substring(i)
 
     let GetFileName (path: string) =
-        let normPath = path.Replace("\\", "/").TrimEnd('/')
+        let normPath = normalizePath path
         let i = normPath.LastIndexOf("/")
         normPath.Substring(i + 1)
 
@@ -474,35 +607,51 @@ module Path =
         else filename.Substring(0, i)
 
     let GetDirectoryName (path: string) =
-        let normPath = path.Replace("\\", "/")
+        let normPath = normalizePath path
         let i = normPath.LastIndexOf("/")
         if i < 0 then ""
         else normPath.Substring(0, i)
 
-    let GetFullPath (path: string) =
+    let GetDirectoryAndFileNames (path: string) =
+        let normPath = normalizePath path
+        let i = normPath.LastIndexOf("/")
+        if i < 0 then "", normPath
+        else normPath.Substring(0, i), normPath.Substring(i + 1)
+
+    let IsPathRooted (path: string): bool =
 #if FABLE_COMPILER
-        path //TODO: proper implementation
+        path.StartsWith("/") || path.StartsWith("\\") || path.IndexOf(":") = 1
+#else
+        IO.Path.IsPathRooted(path)
+#endif
+
+    let GetFullPath (path: string): string =
+#if FABLE_COMPILER
+        // In the REPL we just remove the dot dirs as in foo/.././bar > bar
+        let rec removeDotDirs acc parts =
+            match acc, parts with
+            | _, [] -> List.rev acc |> String.concat "/"
+            | _, "."::rest -> removeDotDirs acc rest
+            | _parent::acc, ".."::rest -> removeDotDirs acc rest
+            | acc, part::rest -> removeDotDirs (part::acc) rest
+        path.Split('/')
+        |> Array.toList
+        |> removeDotDirs []
 #else
         IO.Path.GetFullPath(path)
 #endif
-
-    let normalizePath (path: string) =
-        path.Replace('\\', '/')
 
     let normalizeFullPath (path: string) =
         normalizePath (GetFullPath path)
 
     /// If path belongs to a signature file (.fsi), replace the extension with .fs
-    let normalizePathAndEnsureFsExtension (path: string) =
-        let path = normalizePath path
+    let ensureFsExtension (path: string) =
         if path.EndsWith(".fsi")
         then path.Substring(0, path.Length - 1)
         else path
 
-    let replaceExtension (newExt: string) (path: string) =
-        let i = path.LastIndexOf(".")
-        if i > 0 then path.Substring(0, i) + newExt
-        else path + newExt
+    let normalizePathAndEnsureFsExtension (path: string) =
+        normalizePath path |> ensureFsExtension
 
     /// Checks if path starts with "./", ".\" or ".."
     let isRelativePath (path: string) =
@@ -520,7 +669,7 @@ module Path =
         else false
 
     /// Creates a relative path from one file or folder to another.
-    let getRelativeFileOrDirPath fromIsDir fromFullPath toIsDir toFullPath =
+    let getRelativeFileOrDirPath fromIsDir (fromFullPath: string) toIsDir (toFullPath: string) =
         // Algorithm adapted from http://stackoverflow.com/a/6244188
         let pathDifference (path1: string) (path2: string) =
             let mutable c = 0  //index up to which the paths are the same
@@ -545,16 +694,13 @@ module Path =
             if isDir
             then Combine (path, Naming.dummyFile)
             else path
-        // Normalizing shouldn't be necessary at this stage but just in case
-        let fromFullPath = normalizePath fromFullPath
-        let toFullPath = normalizePath toFullPath
         if fromFullPath.[0] <> toFullPath.[0] then
             // If paths start differently, it means we're on Windows
             // and drive letters are different, so just return the toFullPath
             toFullPath
         else
-            let fromPath = addDummyFile fromIsDir fromFullPath
-            let toPath = addDummyFile toIsDir toFullPath
+            let fromPath = addDummyFile fromIsDir fromFullPath |> normalizePath
+            let toPath = addDummyFile toIsDir toFullPath |> normalizePath
             match (pathDifference fromPath toPath).Replace(Naming.dummyFile, "") with
             | "" -> "."
             // Some folders start with a period, see #1599

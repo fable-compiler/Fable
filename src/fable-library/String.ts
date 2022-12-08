@@ -122,10 +122,12 @@ export function interpolate(str: string, values: any[]): string {
     const matchIndex = match.index + (match[1] || "").length;
     result += str.substring(strIdx, matchIndex).replace(/%%/g, "%");
     const [, , flags, padLength, precision, format] = match;
-    result += formatReplacement(values[valIdx++], flags, padLength, precision, format);
+    // Save interpolateRegExp.lastIndex before running formatReplacement because the values
+    // may also involve interpolation and make use of interpolateRegExp (see #3078)
     strIdx = interpolateRegExp.lastIndex;
-    // Likewise we need to move interpolateRegExp.lastIndex one char behind to make sure we match the no-escape char next time
-    interpolateRegExp.lastIndex -= 1;
+    result += formatReplacement(values[valIdx++], flags, padLength, precision, format);
+    // Move interpolateRegExp.lastIndex one char behind to make sure we match the no-escape char next time
+    interpolateRegExp.lastIndex = strIdx - 1;
     match = interpolateRegExp.exec(str);
   }
   result += str.substring(strIdx).replace(/%%/g, "%");
@@ -145,7 +147,7 @@ export function toConsoleError(arg: IPrintfFormat | string) {
   return continuePrint((x: string) => console.error(x), arg);
 }
 
-export function toText(arg: IPrintfFormat | string): string {
+export function toText(arg: IPrintfFormat | string) {
   return continuePrint((x: string) => x, arg);
 }
 
@@ -205,10 +207,10 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
     const minusFlag = flags.indexOf("-") >= 0; // Right padding
     const ch = minusFlag || !zeroFlag ? " " : "0";
     if (ch === "0") {
-      rep = padLeft(rep, padLength - sign.length, ch, minusFlag);
+      rep = pad(rep, padLength - sign.length, ch, minusFlag);
       rep = sign + rep;
     } else {
-      rep = padLeft(sign + rep, padLength, ch, minusFlag);
+      rep = pad(sign + rep, padLength, ch, minusFlag);
     }
   } else {
     rep = sign + rep;
@@ -287,7 +289,10 @@ export function format(str: string, ...args: any[]) {
     args.shift();
   }
 
-  return str.replace(formatRegExp, (_, idx, padLength, format, precision, pattern) => {
+  return str.replace(formatRegExp, (_, idx: number, padLength, format, precision, pattern) => {
+    if (idx < 0 || idx >= args.length) {
+      throw new Error("Index must be greater or equal to zero and less than the arguments' length.")
+    }
     let rep = args[idx];
     if (isNumeric(rep)) {
       precision = precision == null ? null : parseInt(precision, 10);
@@ -316,13 +321,39 @@ export function format(str: string, ...args: any[]) {
         default:
           if (pattern) {
             let sign = "";
-            rep = (pattern as string).replace(/(0+)(\.0+)?/, (_, intPart, decimalPart) => {
+            rep = (pattern as string).replace(/([0#,]+)(\.[0#]+)?/, (_, intPart: string, decimalPart: string) => {
               if (isLessThan(rep, 0)) {
                 rep = multiply(rep, -1);
                 sign = "-";
               }
-              rep = toFixed(rep, decimalPart != null ? decimalPart.length - 1 : 0);
-              return padLeft(rep, (intPart || "").length - sign.length + (decimalPart != null ? decimalPart.length : 0), "0");
+              decimalPart = decimalPart == null ? "" : decimalPart.substring(1);
+              rep = toFixed(rep, Math.max(decimalPart.length, 0));
+
+              let [repInt, repDecimal] = (rep as string).split(".");
+              repDecimal ||= "";
+
+              const leftZeroes = intPart.replace(/,/g, "").replace(/^#+/, "").length;
+              repInt = padLeft(repInt, leftZeroes, "0");
+
+              const rightZeros = decimalPart.replace(/#+$/, "").length;
+              if (rightZeros > repDecimal.length) {
+                repDecimal = padRight(repDecimal, rightZeros, "0");
+              } else if (rightZeros < repDecimal.length) {
+                repDecimal = repDecimal.substring(0, rightZeros) + repDecimal.substring(rightZeros).replace(/0+$/, "");
+              }
+
+              // Thousands separator
+              if (intPart.indexOf(",") > 0) {
+                const i = repInt.length % 3;
+                const thousandGroups = Math.floor(repInt.length / 3);
+                let thousands = i > 0 ? repInt.substr(0, i) + (thousandGroups > 0 ? "," : "") : "";
+                for (let j = 0; j < thousandGroups; j++) {
+                  thousands += repInt.substr(i + j * 3, 3) + (j < thousandGroups - 1 ? "," : "");
+                }
+                repInt = thousands;
+              }
+
+              return repDecimal.length > 0 ? repInt + "." + repDecimal : repInt;
             });
             rep = sign + rep;
           }
@@ -334,7 +365,7 @@ export function format(str: string, ...args: any[]) {
     }
     padLength = parseInt((padLength || " ").substring(1), 10);
     if (!isNaN(padLength)) {
-      rep = padLeft(String(rep), Math.abs(padLength), " ", padLength < 0);
+      rep = pad(String(rep), Math.abs(padLength), " ", padLength < 0);
     }
     return rep;
   });
@@ -412,7 +443,7 @@ export function fromBase64String(b64Encoded: string) {
   return bytes;
 }
 
-export function padLeft(str: string, len: number, ch?: string, isRight?: boolean) {
+function pad(str: string, len: number, ch?: string, isRight?: boolean) {
   ch = ch || " ";
   len = len - str.length;
   for (let i = 0; i < len; i++) {
@@ -421,8 +452,12 @@ export function padLeft(str: string, len: number, ch?: string, isRight?: boolean
   return str;
 }
 
+export function padLeft(str: string, len: number, ch?: string) {
+  return pad(str, len, ch);
+}
+
 export function padRight(str: string, len: number, ch?: string) {
-  return padLeft(str, len, ch, true);
+  return pad(str, len, ch, true);
 }
 
 export function remove(str: string, startIndex: number, count?: number) {
@@ -450,42 +485,52 @@ export function getCharAtIndex(input: string, index: number) {
   return input[index];
 }
 
-export function split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
+export function split(str: string, splitters: string[], count?: number, options?: number) {
   count = typeof count === "number" ? count : undefined;
-  removeEmpty = typeof removeEmpty === "number" ? removeEmpty : undefined;
+  options = typeof options === "number" ? options : 0;
   if (count && count < 0) {
     throw new Error("Count cannot be less than zero");
   }
   if (count === 0) {
     return [];
   }
-  if (!Array.isArray(splitters)) {
-    if (removeEmpty === 0) {
-      return str.split(splitters, count);
-    }
-    const len = arguments.length;
-    splitters = Array(len - 1);
-    for (let key = 1; key < len; key++) {
-      splitters[key - 1] = arguments[key];
-    }
-  }
-  splitters = splitters.map((x) => escape(x));
-  splitters = splitters.length > 0 ? splitters : [" "];
-  let i = 0;
+
+  const removeEmpty = (options & 1) === 1;
+  const trim = (options & 2) === 2;
+
+  splitters = splitters || [];
+  splitters = splitters.filter(x => x).map(escape);
+  splitters = splitters.length > 0 ? splitters : ["\\s"];
+
   const splits: string[] = [];
   const reg = new RegExp(splitters.join("|"), "g");
-  while (count == null || count > 1) {
-    const m = reg.exec(str);
-    if (m === null) { break; }
-    if (!removeEmpty || (m.index - i) > 0) {
-      count = count != null ? count - 1 : count;
-      splits.push(str.substring(i, m.index));
+
+  let findSplits = true;
+  let i = 0;
+  do {
+    const match = reg.exec(str);
+
+    if (match === null) {
+      const candidate = trim ? str.substring(i).trim() : str.substring(i);
+      if (!removeEmpty || candidate.length > 0) {
+        splits.push(candidate);
+      }
+      findSplits = false;
+    } else {
+      const candidate = trim ? str.substring(i, match.index).trim() : str.substring(i, match.index);
+      if (!removeEmpty || candidate.length > 0) {
+        if (count != null && splits.length + 1 === count) {
+          splits.push(trim ? str.substring(i).trim() : str.substring(i));
+          findSplits = false;
+        } else {
+          splits.push(candidate);
+        }
+      }
+
+      i = reg.lastIndex;
     }
-    i = reg.lastIndex;
-  }
-  if (!removeEmpty || (str.length - i) > 0) {
-    splits.push(str.substring(i));
-  }
+  } while (findSplits)
+
   return splits;
 }
 
@@ -518,4 +563,24 @@ export function substring(str: string, startIndex: number, length?: number) {
     throw new Error("Invalid startIndex and/or length");
   }
   return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
+}
+
+interface FormattableString {
+  strs: TemplateStringsArray,
+  args: any[],
+  fmts?: string[]
+}
+
+export function fmt(strs: TemplateStringsArray, ...args: any[]): FormattableString {
+  return ({ strs, args });
+}
+
+export function fmtWith(fmts: string[]) {
+  return (strs: TemplateStringsArray, ...args: any[]) => ({ strs, args, fmts } as FormattableString);
+}
+
+export function getFormat(s: FormattableString) {
+  return s.fmts
+    ? s.strs.reduce((acc, newPart, index) => acc + `{${String(index - 1) + s.fmts![index - 1]}}` + newPart)
+    : s.strs.reduce((acc, newPart, index) => acc + `{${index - 1}}` + newPart);
 }

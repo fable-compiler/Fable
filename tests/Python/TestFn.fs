@@ -38,3 +38,39 @@ let ``test nonlocal works`` () =
     fn ()
 
     value |> equal 42
+
+[<Fact>]
+let ``test partially apply 1-3`` () =
+    let add a b c = a + b + c
+
+    let part = add 1
+    part 2 3 |> equal 6
+
+
+[<Fact>]
+let ``test partially apply 2-3`` () =
+    let add a b c = a + b + c
+
+    let part = add 1 2
+    part 3 |> equal 6
+
+[<Fact>]
+let ``test partially apply 1-4`` () =
+    let add a b c d = a + b + c + d
+
+    let part = add 1 2 3
+    part 4 |> equal 10
+
+[<Fact>]
+let ``test partially apply 2-4`` () =
+    let add a b c d = a + b + c + d
+
+    let part = add 1 2
+    part 3 4 |> equal 10
+
+[<Fact>]
+let ``test partially apply 3-4`` () =
+    let add a b c d = a + b + c + d
+
+    let part = add 1
+    part 2 3 4 |> equal 10

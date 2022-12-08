@@ -1,3 +1,95 @@
+### 4.0.0-theta-007
+
+*Fix #3249 by enabling uncurrying for functions with multiple parameters @inosik
+
+### 4.0.0-theta-006
+
+* Python fixes for decorator attribute
+
+### 4.0.0-theta-005
+
+* Add JSX.jsx function
+
+### 4.0.0-theta-004
+
+* Add ??= operator to JsInterop
+
+### 4.0.0-theta-003
+
+* Python fixes for Interactive
+
+### 4.0.0-theta-002
+
+* Python helpers for Interactive
+* JS helpers for JSX/React integration
+
+### 4.0.0-theta-001
+
+* Fable 4 theta release
+
+### 4.0.0-snake-island-alpha-007
+
+* Snake Island alpha release
+
+### 4.0.0-snake-island-alpha-006
+
+* Some Rust helpers
+
+### 4.0.0-snake-island-alpha-005
+
+* DartNullable and other Dart helpers
+
+### 4.0.0-snake-island-alpha-004
+
+* JSX string templates
+
+### 4.0.0-snake-island-alpha-003
+
+* Add Dart print/Future/Stream
+
+### 4.0.0-snake-island-alpha-002
+
+* JSX Support
+
+### 4.0.0-snake-island-alpha-001
+
+* Snake Island alpha release
+
+### 3.7.1
+
+* Add `AsyncIterable` to Fable.Core.JS
+
+### 3.7.0
+
+* Fix #2863: Add a nestable union type U9 @cannorin
+* Fix links in doc comments
+
+### 3.6.2
+
+* Fix #2805: Improve jsNative error messages
+* Revert changes in Core.JS, see Fulma/issues/294
+
+### 3.6.1
+
+* TypescriptTaggedUnion @cannorin
+
+### 3.6.0
+
+* Add Fable.Core.Compiler.triggeredByDependency flag
+
+### 3.4.0
+
+* ParamObject attribute
+
+### 3.3.1
+
+* JS.Decorator/ReflectedDecorator attributes
+* JS.Function
+
+### 3.2.9
+
+* Add `FormattableString.GetStrings()` extension
+
 ### 3.2.8
 
 * Experimental.namesofLambda

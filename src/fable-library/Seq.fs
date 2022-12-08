@@ -21,9 +21,9 @@ module SR =
 
 module Enumerator =
 
-    let noReset() = raise (new System.NotSupportedException(SR.resetNotSupported))
-    let notStarted() = raise (new System.InvalidOperationException(SR.enumerationNotStarted))
-    let alreadyFinished() = raise (new System.InvalidOperationException(SR.enumerationAlreadyFinished))
+    let noReset() = raise (System.NotSupportedException(SR.resetNotSupported))
+    let notStarted() = raise (System.InvalidOperationException(SR.enumerationNotStarted))
+    let alreadyFinished() = raise (System.InvalidOperationException(SR.enumerationAlreadyFinished))
 
     [<Sealed>]
     [<CompiledName("Seq")>]
@@ -47,13 +47,13 @@ module Enumerator =
 
     type FromFunctions<'T>(current, next, dispose) =
         interface IEnumerator<'T> with
-            member __.Current = current()
+            member _.Current = current()
         interface System.Collections.IEnumerator with
-            member __.Current = box (current())
-            member __.MoveNext() = next()
-            member __.Reset() = noReset()
+            member _.Current = box (current())
+            member _.MoveNext() = next()
+            member _.Reset() = noReset()
         interface System.IDisposable with
-            member __.Dispose() = dispose()
+            member _.Dispose() = dispose()
 
     let inline fromFunctions current next dispose: IEnumerator<'T> =
         new FromFunctions<_>(current, next, dispose) :> IEnumerator<'T>
@@ -92,7 +92,7 @@ module Enumerator =
     //     let dispose() = ()
     //     fromFunctions current next dispose
 
-    let cast (e: System.Collections.IEnumerator): IEnumerator<'T> =
+    let cast (e: IEnumerator<'T>): IEnumerator<'T> =
         let current() = unbox<'T> e.Current
         let next() = e.MoveNext()
         let dispose() =
@@ -101,8 +101,8 @@ module Enumerator =
             | _ -> ()
         fromFunctions current next dispose
 
-    let concat<'T,'U when 'U :> seq<'T>> (sources: seq<'U>) =
-        let mutable outerOpt: IEnumerator<'U> option = None
+    let concat<'T> (sources: seq<seq<'T>>) =
+        let mutable outerOpt: IEnumerator<seq<'T>> option = None
         let mutable innerOpt: IEnumerator<'T> option = None
         let mutable started = false
         let mutable finished = false
@@ -208,7 +208,7 @@ module Enumerator =
 // [<RequireQualifiedAccess>]
 // module Seq =
 
-let indexNotFound() = raise (new System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
+let indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
 let checkNonNull argName arg = if isNull arg then nullArg argName
 
@@ -222,7 +222,7 @@ let ofSeq (xs: seq<'T>): IEnumerator<'T> =
 let delay (generator: unit -> seq<'T>) =
     mkSeq (fun () -> generator().GetEnumerator())
 
-let concat (sources: seq<#seq<'T>>) =
+let concat (sources: seq<seq<'T>>) =
     mkSeq (fun () -> Enumerator.concat sources)
 
 let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
@@ -239,14 +239,14 @@ let ofArray (arr: 'T[]) =
 
 let toArray (xs: seq<'T>): 'T[] =
     match xs with
-    | :? array<'T> as a -> a
+    // | :? array<'T> as a -> Array.ofSeq a
     | :? list<'T> as a -> Array.ofList a
     | _ -> Array.ofSeq xs
 
-let ofList (xs: 'T list) =
+let ofList (xs: list<'T>) =
     (xs :> seq<'T>)
 
-let toList (xs: seq<'T>): 'T list =
+let toList (xs: seq<'T>): list<'T> =
     match xs with
     | :? array<'T> as a -> List.ofArray a
     | :? list<'T> as a -> a
@@ -267,7 +267,7 @@ let generateIndexed create compute dispose =
 let append (xs: seq<'T>) (ys: seq<'T>) =
     concat [| xs; ys |]
 
-let cast (xs: System.Collections.IEnumerable) =
+let cast (xs: IEnumerable<'T>) =
     mkSeq (fun () ->
         checkNonNull "source" xs
         xs.GetEnumerator()
@@ -326,7 +326,7 @@ let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> seq
 let enumerateThenFinally (source: seq<'T>) (compensation: unit -> unit) =
     finallyEnumerable(compensation, (fun () -> source))
 
-let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> #seq<'U>) =
+let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> seq<'U>) =
     finallyEnumerable(
         (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
         (fun () -> source resource :> seq<_>))
@@ -408,7 +408,7 @@ let tryFindIndex predicate (xs: seq<'T>) =
 let findIndex predicate (xs: seq<'T>) =
     match tryFindIndex predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let tryFindIndexBack predicate (xs: seq<'T>) =
     xs
@@ -418,7 +418,7 @@ let tryFindIndexBack predicate (xs: seq<'T>) =
 let findIndexBack predicate (xs: seq<'T>) =
     match tryFindIndexBack predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
     use e = ofSeq xs
@@ -578,21 +578,85 @@ let readOnly (xs: seq<'T>) =
     checkNonNull "source" xs
     map id xs
 
-let cache (xs: seq<'T>) =
-    let mutable cached = false
-    let xsCache = ResizeArray()
-    delay (fun () ->
-        if not cached then
-            cached <- true
-            xs |> map (fun x -> xsCache.Add(x); x)
-        else
-            xsCache :> seq<'T>
-    )
+type CachedSeq<'T>(cleanup,res:seq<'T>) =
+    interface System.IDisposable with
+        member _.Dispose() = cleanup()
+    interface System.Collections.Generic.IEnumerable<'T> with
+        member _.GetEnumerator() = res.GetEnumerator()
+    interface System.Collections.IEnumerable with
+        member _.GetEnumerator() = (res :> System.Collections.IEnumerable).GetEnumerator()
+    member _.Clear() = cleanup()
+
+// Adapted from https://github.com/dotnet/fsharp/blob/eb1337f218275da5294b5fbab2cf77f35ca5f717/src/fsharp/FSharp.Core/seq.fs#L971
+let cache (source: seq<'T>) =
+    checkNonNull "source" source
+    // Wrap a seq to ensure that it is enumerated just once and only as far as is necessary.
+    //
+    // This code is required to be thread safe.
+    // The necessary calls should be called at most once (include .MoveNext() = false).
+    // The enumerator should be disposed (and dropped) when no longer required.
+    //------
+    // The state is (prefix,enumerator) with invariants:
+    //   * the prefix followed by elts from the enumerator are the initial sequence.
+    //   * the prefix contains only as many elements as the longest enumeration so far.
+    let prefix      = ResizeArray<_>()
+
+    // None          = Unstarted.
+    // Some(Some e)  = Started.
+    // Some None     = Finished.
+    let mutable enumeratorR = None
+
+    let oneStepTo i =
+      // If possible, step the enumeration to prefix length i (at most one step).
+      // Be speculative, since this could have already happened via another thread.
+      if i >= prefix.Count then // is a step still required?
+          // If not yet started, start it (create enumerator).
+          let optEnumerator =
+              match enumeratorR with
+              | None ->
+                  let optEnumerator = Some (source.GetEnumerator())
+                  enumeratorR <- Some optEnumerator
+                  optEnumerator
+              | Some optEnumerator ->
+                  optEnumerator
+
+          match optEnumerator with
+          | Some enumerator ->
+              if enumerator.MoveNext() then
+                  prefix.Add(enumerator.Current)
+              else
+                  enumerator.Dispose()     // Move failed, dispose enumerator,
+                  enumeratorR <- Some None // drop it and record finished.
+          | None -> ()
+
+    let result =
+        unfold (fun i ->
+            // i being the next position to be returned
+            // A lock is needed over the reads to prefix.Count since the list may be being resized
+            // NOTE: we could change to a reader/writer lock here
+            lock prefix <| fun () ->
+                if i < prefix.Count then
+                    Some (prefix.[i],i+1)
+                else
+                    oneStepTo i
+                    if i < prefix.Count then
+                        Some (prefix.[i],i+1)
+                    else
+                        None) 0
+    let cleanup() =
+       lock prefix <| fun () ->
+           prefix.Clear()
+           match enumeratorR with
+           | Some (Some e) -> e.Dispose()
+           | _ -> ()
+           enumeratorR <- None
+
+    (new CachedSeq<_>(cleanup, result) :> seq<_>)
 
 let allPairs (xs: seq<'T1>) (ys: seq<'T2>): seq<'T1 * 'T2> =
     let ysCache = cache ys
     delay (fun () ->
-        let mapping x = ysCache |> map (fun y -> (x, y))
+        let mapping (x: 'T1) = ysCache |> map (fun y -> (x, y))
         concat (map mapping xs)
     )
 
@@ -658,11 +722,11 @@ let scanBack folder (xs: seq<'T>) (state: 'State) =
         |> ofArray
     )
 
-let skip count (xs: seq<'T>) =
+let skip count (source: seq<'T>) =
     mkSeq (fun () ->
-        let e = ofSeq xs
+        let e = ofSeq source
         try
-            for i = 1 to count do
+            for _ = 1 to count do
                 if not (e.MoveNext()) then
                     invalidArg "source" SR.notEnoughElements
             let compensation () = ()
@@ -756,7 +820,7 @@ let windowed windowSize (xs: seq<'T>): 'T seq seq =
         |> ofArray
     )
 
-let transpose (xss: seq<#seq<'T>>) =
+let transpose (xss: seq<seq<'T>>) =
     delay (fun () ->
         xss
         |> toArray
@@ -808,7 +872,7 @@ let average (xs: seq<'T>) ([<Inject>] averager: IGenericAverager<'T>): 'T =
     let folder acc x = count <- count + 1; averager.Add(acc, x)
     let total = fold folder (averager.GetZero()) xs
     if count = 0 then
-        invalidArg "xs" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+        invalidArg "source" SR.inputSequenceEmpty
     else averager.DivideByInt(total, count)
 
 let averageBy (f: 'T -> 'U) (xs: seq<'T>) ([<Inject>] averager: IGenericAverager<'U>): 'U =
@@ -816,7 +880,7 @@ let averageBy (f: 'T -> 'U) (xs: seq<'T>) ([<Inject>] averager: IGenericAverager
     let inline folder acc x = count <- count + 1; averager.Add(acc, f x)
     let total = fold folder (averager.GetZero()) xs
     if count = 0 then
-        invalidArg "xs" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+        invalidArg "source" SR.inputSequenceEmpty
     else averager.DivideByInt(total, count)
 
 let permute f (xs: seq<'T>) =
@@ -848,3 +912,102 @@ let chunkBySize (chunkSize: int) (xs: seq<'T>): seq<seq<'T>> =
 // let mapi2 = mapIndexed2
 // let readonly = readOnly
 // let rev = reverse
+
+let insertAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
+    let mutable isDone = false
+    if index < 0 then
+        invalidArg "index" SR.indexOutOfBounds
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e ->
+            if (isDone || i < index) && e.MoveNext()
+            then Some e.Current
+            elif i = index then
+                isDone <- true
+                Some y
+            else
+                if not isDone then
+                    invalidArg "index" SR.indexOutOfBounds
+                None)
+        (fun e -> e.Dispose())
+
+let insertManyAt (index: int) (ys: seq<'T>) (xs: seq<'T>): seq<'T> =
+    // incomplete -1, in-progress 0, complete 1
+    let mutable status = -1
+    if index < 0 then
+        invalidArg "index" SR.indexOutOfBounds
+    generateIndexed
+        (fun () -> ofSeq xs, ofSeq ys)
+        (fun i (e1, e2) ->
+            if i = index then
+                status <- 0
+            let inserted =
+                if status = 0 then
+                    if e2.MoveNext() then Some e2.Current
+                    else status <- 1; None
+                else None
+            match inserted with
+            | Some inserted -> Some inserted
+            | None ->
+                if e1.MoveNext() then Some e1.Current
+                else
+                    if status < 1 then
+                        invalidArg "index" SR.indexOutOfBounds
+                    None)
+        (fun (e1, e2) ->
+            e1.Dispose()
+            e2.Dispose())
+
+let removeAt (index: int) (xs: seq<'T>): seq<'T> =
+    let mutable isDone = false
+    if index < 0 then
+        invalidArg "index" SR.indexOutOfBounds
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e ->
+            if (isDone || i < index) && e.MoveNext()
+            then Some e.Current
+            elif i = index && e.MoveNext() then
+                isDone <- true
+                if e.MoveNext() then Some e.Current else None
+            else
+                if not isDone then
+                    invalidArg "index" SR.indexOutOfBounds
+                None)
+        (fun e -> e.Dispose())
+
+let removeManyAt (index: int) (count: int) (xs: seq<'T>): seq<'T> =
+    if index < 0 then
+        invalidArg "index" SR.indexOutOfBounds
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e ->
+            if i < index then
+                if e.MoveNext() then Some e.Current
+                else invalidArg "index" SR.indexOutOfBounds
+            else
+                if i = index then
+                    for _ = 1 to count do
+                        if not(e.MoveNext()) then
+                            invalidArg "count" SR.indexOutOfBounds
+                if e.MoveNext() then Some e.Current
+                else None)
+        (fun e -> e.Dispose())
+
+let updateAt (index: int) (y: 'T) (xs: seq<'T>): seq<'T> =
+    let mutable isDone = false
+    if index < 0 then
+        invalidArg "index" SR.indexOutOfBounds
+    generateIndexed
+        (fun () -> ofSeq xs)
+        (fun i e ->
+            if (isDone || i < index) && e.MoveNext()
+            then Some e.Current
+            elif i = index && e.MoveNext() then
+                isDone <- true
+                Some y
+            else
+                if not isDone then
+                    invalidArg "index" SR.indexOutOfBounds
+                None)
+        (fun e -> e.Dispose())

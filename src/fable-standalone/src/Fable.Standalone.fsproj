@@ -3,19 +3,21 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <OtherFlags>$(OtherFlags) --nowarn:3536 --nowarn:1182</OtherFlags>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
     <ProjectReference Include="../../fcs-fable/fcs-fable.fsproj" />
+    <ProjectReference Include="../../Fable.Transforms/Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Fable.Transforms -->
+    <!-- Fable.AST -->
     <Compile Include="../../Fable.AST/Common.fs" />
     <Compile Include="../../Fable.AST/Fable.fs" />
     <Compile Include="../../Fable.AST/Plugins.fs" />
+
+    <!-- Fable.Transforms -->
     <Compile Include="../../Fable.Transforms/Global/Babel.fs" />
     <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
@@ -27,14 +29,31 @@
     <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />
     <Compile Include="../../Fable.Transforms/FSharp2Fable.Util.fs" />
     <Compile Include="../../Fable.Transforms/ReplacementsInject.fs" />
-    <Compile Include="../../Fable.Transforms/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Replacements.Util.fs" />
     <Compile Include="../../Fable.Transforms/Python/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Rust/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Dart/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Replacements.Api.fs" />
     <Compile Include="../../Fable.Transforms/FSharp2Fable.fs" />
     <Compile Include="../../Fable.Transforms/FableTransforms.fs" />
     <Compile Include="../../Fable.Transforms/Fable2Babel.fs" />
+    <Compile Include="../../Fable.Transforms/Printer.fs" />
     <Compile Include="../../Fable.Transforms/BabelPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/Python/Python.fs" />
+    <Compile Include="../../Fable.Transforms/Python/Fable2Python.fs" />
+    <Compile Include="../../Fable.Transforms/Python/PythonPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/Php/Php.fs" />
+    <Compile Include="../../Fable.Transforms/Php/Fable2Php.fs" />
+    <Compile Include="../../Fable.Transforms/Php/PhpPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/Dart/Dart.fs" />
+    <Compile Include="../../Fable.Transforms/Dart/Fable2Dart.fs" />
+    <Compile Include="../../Fable.Transforms/Dart/DartPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/Rust/RustPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/Rust/Fable2Rust.fs" />
     <Compile Include="../../Fable.Transforms/State.fs" />
 
+    <!-- Fable.Standalone -->
     <Compile Include="Interfaces.fs"/>
     <Compile Include="Lexer.fs"/>
     <Compile Include="Main.fs"/>

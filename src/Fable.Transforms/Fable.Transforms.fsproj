@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Babel.fs" />
@@ -16,12 +17,16 @@
     <Compile Include="OverloadSuffix.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="ReplacementsInject.fs" />
+    <Compile Include="Replacements.Util.fs" />
     <Compile Include="Python/Replacements.fs" />
+    <Compile Include="Rust/Replacements.fs" />
+    <Compile Include="Dart/Replacements.fs" />
     <Compile Include="Replacements.fs" />
+    <Compile Include="Replacements.Api.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fs" />
-    <Compile Include="Fable2Extended.fs" />
     <Compile Include="Fable2Babel.fs" />
+    <Compile Include="Printer.fs" />
     <Compile Include="BabelPrinter.fs" />
     <Compile Include="Python/Python.fs" />
     <Compile Include="Python/Fable2Python.fs" />
@@ -33,16 +38,20 @@
     <Compile Include="Lua/Compiler.fs" />
     <Compile Include="Lua/Fable2Lua.fs" />
     <Compile Include="Lua/LuaPrinter.fs" />
+    <Compile Include="Dart/Dart.fs" />
+    <Compile Include="Dart/Fable2Dart.fs" />
     <Compile Include="Dart/DartPrinter.fs" />
-
+    <Compile Include="Rust/RustPrinter.fs" />
+    <Compile Include="Rust/Fable2Rust.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="5.0.1" /> -->
-    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
-    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+    <ProjectReference Include="../Fable.AST/Fable.AST.fsproj" />
+    <ProjectReference Include="Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Fable.AST\Fable.AST.fsproj" />
+    <!-- <PackageReference Include="FSharp.Compiler.Service" Version="40.0" /> -->
+    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
 </Project>

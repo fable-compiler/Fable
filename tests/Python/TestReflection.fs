@@ -53,6 +53,11 @@ type MyClass<'T1, 'T2>(v1: 'T1, v2: 'T2) =
     member _.Value1 = v1
     member _.Value2 = v2
 
+type MyRecord = {
+    String: string
+    Int: int
+}
+
 [<Fact>]
 let ``test typedefof works`` () =
     let tdef1 = typedefof<int list>
@@ -174,11 +179,6 @@ exception MyException of String: string * Int: int
 
 let flip f b a = f a b
 
-type MyRecord = {
-    String: string
-    Int: int
-}
-
 type MyUnion =
     | StringCase of SomeString: string * string
     | IntCase of SomeInt: int
@@ -249,4 +249,343 @@ let ``test FSharp.Reflection Record`` () =
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
+[<Fact>]
+let ``test PropertyInfo.GetValue works`` () =
+    let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
+
+    let theType: System.Type = typeof<RecordGetValueType>
+
+    // now we want to print out the fields
+    let fieldNameToValue: Map<string, obj> =
+        match theType with
+        | t when FSharpType.IsRecord t ->
+            FSharpType.GetRecordFields(t)
+            |> Seq.fold
+                (fun acc field ->
+                    let fieldValue = field.GetValue value
+                    acc.Add (field.Name, fieldValue)
+                )
+                Map.empty
+        | _ -> Map.empty
+
+    let expected = "map [(Age, 12); (Firstname, Maxime)]"
+
+    equal expected (sprintf "%O" fieldNameToValue)
+
+
+[<Fact>]
+let ``test Comparing anonymous record types works`` () =
+  let x = {| numbers = [3; 4] |}
+  typeof<AnonRec1> = typeof<AnonRec2> |> equal false
+  typeof<AnonRec1> = typeof<AnonRec1> |> equal true
+  typeof<AnonRec2> = x.GetType() |> equal true
+  let generic = typeof<Result<AnonRec2, string>>
+  generic = typeof<Result<AnonRec1, string>> |> equal false
+  generic = typeof<Result<{| numbers: int list |}, string>> |> equal true
+
+
+[<Fact>]
+let ``test FSharp.Reflection: Anonymous Record`` () =
+    let typ = typeof<{| String: string; Int: int |}>
+    let record = {| String = "a"; Int = 1 |}
+    let recordTypeFields = FSharpType.GetRecordFields typ
+    let recordValueFields = FSharpValue.GetRecordFields record
+
+    let expectedRecordFields = // Alphabetical order
+        [| "Int", box 1
+           "String", box "a" |]
+
+    let recordFields =
+        recordTypeFields
+        |> Array.map (fun field -> field.Name)
+        |> flip Array.zip recordValueFields
+
+    FSharpType.IsRecord typ |> equal true
+    recordFields |> equal expectedRecordFields
+
+    Array.zip recordTypeFields recordValueFields
+    |> Array.forall (fun (info, value) ->
+        FSharpValue.GetRecordField(record, info) = value)
+    |> equal true
+
+    FSharpValue.MakeRecord(typ, recordValueFields)
+    |> unbox<{| String: string; Int: int |}>
+    |> equal record
+
+[<Fact>]
+let ``test FSharp.Reflection Functions`` () =
+    let recordType = typeof<RecordF>
+    let fields = FSharpType.GetRecordFields recordType
+    let funcProperty = Array.head fields
+    let funcType = funcProperty.PropertyType
+    let domain, range = FSharpType.GetFunctionElements funcType
+    equal domain typeof<int>
+    equal range typeof<string>
+    equal true (FSharpType.IsFunction funcType)
+
+[<Fact>]
+let ``test FSharp.Reflection: Tuple`` () =
+    let typ = typeof<string * int>
+    let tuple = "a", 1
+    let tupleTypeFields = FSharpType.GetTupleElements typ
+    let tupleValueFields = FSharpValue.GetTupleFields tuple
+
+    let expectedTupleFields =
+        [|
+            typeof<string>, box "a"
+            typeof<int>, box 1
+        |]
+
+    let tupleFields = Array.zip tupleTypeFields tupleValueFields
+
+    let isTuple = FSharpType.IsTuple typ
+    let matchTupleFields = tupleFields = expectedTupleFields
+    let matchIndividualTupleFields =
+        tupleValueFields
+        |> Array.mapi (fun i value -> i, value)
+        |> Array.forall (fun (i, value) ->
+            FSharpValue.GetTupleField(tuple, i) = value
+        )
+    let canMakeSameTuple =
+        unbox<string * int> (FSharpValue.MakeTuple(tupleValueFields, typ)) = tuple
+
+    let all = isTuple && matchTupleFields && matchIndividualTupleFields && canMakeSameTuple
+    all |> equal true
+
+[<Fact>]
+let ``test FSharp.Reflection: Array of tuples is not classified as a tuple`` () =
+    let typ = typeof<(string * int * int)[]>
+    equal true typ.IsArray
+    FSharpType.IsTuple typ |> equal false
+
+[<Fact>]
+let ``test FSharp.Reflection: MakeTupleType`` () =
+    let t = FSharpType.MakeTupleType [|typeof<float>; typeof<string>; typeof<int[]>|]
+    FSharpValue.MakeTuple([|5.; "foo"; [|2;3|]|], t)
+    |> unbox<float * string * int[]>
+    |> equal (5., "foo", [|2;3|])
+
+    let real = typeof<float * string * int[]>
+    let generated = FSharpType.MakeTupleType [|typeof<float>; typeof<string>; typeof<int[]>|]
+    equal real generated
+
+[<Fact>]
+let ``test FSharp.Reflection Union`` () =
+    let typ = typeof<MyUnion>
+    let unionCase1 = StringCase("a", "b")
+    let unionCase2 = IntCase 1
+    let unionTypeFields = FSharpType.GetUnionCases typ
+    unionTypeFields |> Array.map (fun x -> x.Name) |> equal [| "StringCase"; "IntCase" |]
+    let unionCase1Info, unionCase1ValueFields = FSharpValue.GetUnionFields(unionCase1, typ)
+    let unionCase2Info, unionCase2ValueFields = FSharpValue.GetUnionFields(unionCase2, typ)
+    let unionCaseInfos = [| unionCase1Info; unionCase2Info |]
+    let unionCaseValueFields = [| unionCase1ValueFields; unionCase2ValueFields |]
+
+    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string>; typeof<string> |], [| "SomeString"; "Item2" |], [| box "a"; box "b" |]
+    let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| "SomeInt" |], [| box 1 |]
+    let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
+
+    let unionFields =
+        Array.zip unionCaseInfos unionCaseValueFields
+        |> Array.map (fun (info, values) ->
+            let types =
+                info.GetFields()
+                |> Array.map (fun field -> field.PropertyType)
+            let names =
+                info.GetFields()
+                |> Array.map (fun field -> field.Name)
+            info.Tag, info.Name, types, names, values)
+
+    let canMakeSameUnionCases =
+        unbox<MyUnion> (FSharpValue.MakeUnion(unionCase1Info, unionCase1ValueFields)) = unionCase1
+        && unbox<MyUnion> (FSharpValue.MakeUnion(unionCase2Info, unionCase2ValueFields)) = unionCase2
+
+    FSharpType.IsUnion typ |> equal true
+    unionFields |> equal expectedUnionFields
+    canMakeSameUnionCases |> equal true
+
+
+[<Fact>]
+let ``test FSharp.Reflection: Result`` () =
+    let typ = typeof<Result<int,string>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
+    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
+
+[<Fact>]
+let ``test FSharp.Reflection: Choice`` () =
+    let typ = typeof<Choice<int,string>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Choice<_,string>.Choice1Of2 5))
+    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Choice<int,_>.Choice2Of2 "foo"))
+
+    let typ = typeof<Choice<float,string list,float>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box -0.3|]) |> equal (box (Choice<_,string list,float>.Choice1Of3 -0.3))
+    FSharpValue.MakeUnion(ucis.[1], [|box ["foo";"bar"]|]) |> equal (box (Choice<float,_,float>.Choice2Of3 ["foo";"bar"]))
+    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> equal (box (Choice<float,string list,_>.Choice3Of3 3.5))
+    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> (=) (box (Choice<float,string list,_>.Choice1Of3 3.5)) |> equal false
+
+[<Fact>]
+let ``test Type.GenericTypeArguments works`` () =
+    let recordType = typeof<AsyncRecord>
+    let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
+    asyncProp.PropertyType.GenericTypeArguments |> Array.head |> equal typeof<string>
+
+[<Fact>]
+let ``test Recursive types work`` () =
+    let cons =
+        FSharpType.GetUnionCases(typeof<MyList<int>>)
+        |> Array.find (fun x -> x.Name = "Cons")
+    let fieldTypes = cons.GetFields()
+    fieldTypes.[0].PropertyType.FullName |> equal typeof<int>.FullName
+    fieldTypes.[1].PropertyType.GetGenericTypeDefinition().FullName |> equal typedefof<MyList<obj>>.FullName
+
+[<Fact>]
+let ``test Calling constructor of generic type in inline functions works`` () =
+    let a = create<A>()
+    let b = create<B>()
+    a.Value |> equal 5
+    b.Value |> equal 10
+
+// See https://github.com/Microsoft/visualfsharp/issues/5992
+[<Fact>]
+let ``test Generic numbers type info doesn't get into runtime`` () =
+    let value = 0.7833263478179128134089M
+    value.GetType().FullName |> equal "System.Decimal"
+
+  // See https://github.com/thoth-org/Thoth.Json/issues/74
+[<Fact>]
+let ``test Reflection info of int64/decimal with units of measure works`` () =
+    typeof< int64 > = typeof< int64<m> > |> equal true
+    typeof< decimal > = typeof< decimal<m> > |> equal true
+
+
+[<Fact>]
+let ``test Reflection works with enums`` () =
+      typeof<MyEnum>.IsEnum |> equal true
+      typeof<int>.IsEnum |> equal false
+      let t = typeof<MyEnum>
+      t.IsEnum |> equal true
+      t.GetEnumUnderlyingType() |> equal typeof<sbyte>
+      System.Enum.GetUnderlyingType(t) |> equal typeof<sbyte>
+
+[<Fact>]
+let ``test Can create generic classes at runtime`` () =
+    let t = typedefof<MyClass<obj, obj>>
+    let t = t.MakeGenericType(typeof<int>, typeof<string>)
+    let x = System.Activator.CreateInstance(t, 123, "abc")
+    x :? MyClass |> equal true
+    x :? MyClass2 |> equal false
+    let x = x :?> MyClass<int, string>
+    x.Value1 |> equal 123
+    x.Value2 |> equal "abc"
+
+[<Fact>]
+let ``test IsSubclassOf works`` () =
+    let t1 = typeof<MyClass>
+    let t2 = typeof<MyClass<obj, obj>>
+    let t3 = typeof<MyClass2>
+    t3.IsSubclassOf(t1) |> equal false
+    t2.IsSubclassOf(t1) |> equal true
+    t1.IsSubclassOf(t2) |> equal false
+
+[<Fact>]
+let ``test .GetInterface works when types are know at compile time`` () = // #2321
+    let t = typeof<MyClass3<int>>.GetInterface("MyInterface`1")
+    t.GetGenericArguments().[0] = typeof<int> |> equal true
+    t.GetGenericArguments().[0] = typeof<string> |> equal false
+    typeof<MyClass3<int>>.GetInterface("myInterface`1") |> isNull |> equal true
+    typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
+    typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true
+
+
+[<Fact>]
+let ``test GetType and typeof return the same Type instance for primitive types`` () =
+    let inline getTypeGeneric (x: 'T) =
+      x.GetType()
+
+    obj.ReferenceEquals(getTypeGeneric 2, typeof<int>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2, typeof<uint32>) |> equal false
+    obj.ReferenceEquals(getTypeGeneric 2u, typeof<uint32>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2uy, typeof<byte>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric 2s, typeof<int16>) |> equal true
+
+    obj.ReferenceEquals(getTypeGeneric([| 2 |]).GetElementType(), typeof<int>) |> equal true
+    obj.ReferenceEquals(getTypeGeneric([| 2 |]).GetElementType(), typeof<uint32>) |> equal false
+
+#if FABLE_COMPILER
+open Fable.Core
+open Fable.Core.Reflection
+
+type R1 = { x: int }
+type R2 = { y: int }
+
+type Maybe<'t> =
+    | Just of 't
+    | Nothing
+
+type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
+type GenericTestRecord<'t> = { Other: 't; Value : Maybe<string> }
+
+// helper class to extract the name of a type argument
+type Types() =
+    static member inline getNameOf<'t> () : string =
+        typeof<'t>.Name
+
+    static member inline get<'t> () : System.Type =
+        typeof<'t>
+
+type MyUnion20 =
+    | Union20_A
+    | Union20_B of int * string
+
+type MyRecord20 =
+    { FieldA: int
+      FieldB: string }
+
+[<Fact>]
+let ``test Recursively reading generic arguments of nested generic types works`` () =
+    let typeInfo = Types.get<Maybe<Maybe<int>>>()
+
+    // recursively reads the generic arguments
+    let rec getGenericArgs (typeDef: System.Type) : string list =
+        [ yield typeDef.Name
+          for genericTypeArg in typeDef.GetGenericArguments() do
+            yield! getGenericArgs genericTypeArg ]
+
+    getGenericArgs typeInfo
+    |> equal ["Maybe`1"; "Maybe`1"; "Int32"]
+
+[<Fact>]
+let ``test Name can be extracted from RecWithGenDU`` () =
+    let name = Types.getNameOf<Maybe<list<RecWithGenDU<string>>>>()
+    equal false (name = "")
+
+[<Fact>]
+let ``test Name can be extracted from GenericTestRecord`` () =
+    let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
+    equal false (name = "")
+
+[<Fact>]
+let ``test Can check unions and records without type`` () =
+    let x = box Union20_A
+    let y = box { FieldA = 5; FieldB = "foo" }
+    isUnion x |> equal true
+    isRecord x |> equal false
+    isUnion y |> equal false
+    isRecord y |> equal true
+
+[<Fact>]
+let ``test Can get union values without type`` () =
+    let x = box Union20_A
+    let y = Union20_B(5, "foo") |> box
+    getCaseTag x |> equal 0
+    getCaseTag y |> equal 1
+    getCaseName x |> equal "Union20_A"
+    getCaseName y |> equal "Union20_B"
+    getCaseFields x |> equal [||]
+    getCaseFields y |> equal [|5; "foo"|]
+
+#endif
 #endif

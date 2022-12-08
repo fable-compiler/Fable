@@ -16,6 +16,7 @@ type Glyph =
     | Function
     | Error
     | Event
+    | TypeParameter
 
 type Error =
     { FileName: string
@@ -42,32 +43,30 @@ type SourceMapping =
 type IChecker =
     interface end
 
-type IParseResults =
+type IParseAndCheckResults =
     abstract OtherFSharpOptions: string[]
     abstract Errors: Error[]
 
-type IBabelResult =
+type IFableResult =
     abstract FableErrors: Error[]
 
 type IWriter =
     inherit System.IDisposable
     abstract AddSourceMapping: SourceMapping -> unit
-    abstract EscapeJsStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
 
 type IFableManager =
     abstract Version: string
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * otherOptions: string[] -> IChecker
-    abstract ClearParseCaches: checker: IChecker -> unit
-    abstract ParseFSharpProject: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseResults
-    abstract ParseFSharpFileInProject: checker: IChecker * fileName: string * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseResults
-    abstract GetParseErrors: parseResults: IParseResults -> Error[]
-    abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Range option
-    abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> string[]
-    abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Completion[]
-    abstract CompileToBabelAst: fableLibrary: string * parseResults: IParseResults * fileName: string
-                                * ?typedArrays: bool
-                                * ?typescript: bool -> IBabelResult
-    abstract PrintBabelAst: babelResult: IBabelResult * IWriter -> Async<unit>
-    abstract FSharpAstToString: parseResults: IParseResults * fileName: string -> string
+    abstract ClearCache: checker: IChecker -> unit
+    abstract ParseAndCheckProject: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseAndCheckResults
+    abstract ParseAndCheckFileInProject: checker: IChecker * fileName: string * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseAndCheckResults
+    abstract GetErrors: parseResults: IParseAndCheckResults -> Error[]
+    abstract GetDeclarationLocation: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> Range option
+    abstract GetToolTipText: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> string[]
+    abstract GetCompletionsAtLocation: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> Completion[]
+    abstract CompileToTargetAst: fableLibrary: string * parseResults: IParseAndCheckResults * fileName: string
+                                * typedArrays: bool option * language: string -> IFableResult
+    abstract PrintTargetAst: fableResult: IFableResult * IWriter -> Async<unit>
+    abstract FSharpAstToString: parseResults: IParseAndCheckResults * fileName: string -> string

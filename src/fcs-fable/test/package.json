@@ -2,13 +2,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "dotnet build -c Release fcs-fable-test.fsproj",
-    "build-bench": "dotnet build -c Release bench/fcs-fable-bench.fsproj",
+    "build-test": "dotnet build -c Release",
+    "build-bench": "dotnet build -c Release bench",
     "build-node": "fable fcs-fable-test.fsproj out-test",
-    "test": "dotnet run -c Release fcs-fable-test.fsproj",
+    "test": "dotnet run -c Release",
     "test-node": "node out-test/test",
-    "test-dotnet": "dotnet run -c Release -p fcs-fable-test.fsproj",
-    "bench-dotnet": "dotnet run -c Release -p bench/fcs-fable-bench.fsproj ../fcs-fable.fsproj"
+    "bench": "dotnet run -c Release --project bench ../fcs-fable.fsproj"
   },
   "devDependencies": {
     "fable-compiler-js": "^3.0.0"

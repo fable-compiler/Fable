@@ -1,6 +1,12 @@
 module Fable.Tests.List
 
 open Util.Testing
+open Fable.Tests.Util
+
+type List(x: int) =
+    member val Value = x
+
+type ExceptFoo = { Bar:string }
 
 let tryListChoose xss =
     let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
@@ -27,6 +33,11 @@ type MyNumber =
 
 type MyNumberWrapper =
     { MyNumber: MyNumber }
+
+module List =
+    let filteri f (xs: 'T list) =
+        let mutable i = -1
+        List.filter (fun x -> i <- i + 1; f i x) xs
 
 [<Fact>]
 let ``test Some [] works`` () =
@@ -208,10 +219,10 @@ let ``test List.filter works`` () =
     let ys = xs |> List.filter (fun x -> x > 5)
     equal ys.IsEmpty true
 
-// [<Fact>]
-// let ``test List.filter doesn't work backwards`` () =
-//     let li = [1; 2; 3; 4; 5]
-//     li |> List.filteri (fun i _ -> i <> 1) |> equal [1; 3; 4; 5]
+[<Fact>]
+let ``test List.filter doesn't work backwards`` () =
+    let li = [1; 2; 3; 4; 5]
+    li |> List.filteri (fun i _ -> i <> 1) |> equal [1; 3; 4; 5]
 
 [<Fact>]
 let ``test List.find works`` () =
@@ -238,18 +249,17 @@ let ``test List.fold2 works`` () =
     List.fold2 (fun x y z -> x + y + z) 0 xs ys
     |> equal 20
 
-// FIXME: need to handle reduce from right in native.fs
-// [<Fact>]
-// let ``test List.foldBack works`` () =
-//     [1; 2; 3; 4]
-//     |> List.foldBack (fun x acc -> acc - x) <| 100
-//     |> equal 90
+[<Fact>]
+let ``test List.foldBack works`` () =
+    [1; 2; 3; 4]
+    |> List.foldBack (fun x acc -> acc - x) <| 100
+    |> equal 90
 
-// [<Fact>]
-// let ``test List.foldBack with composition works`` () =
-//     [1; 2; 3; 4]
-//     |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
-//     |> equal 12
+[<Fact>]
+let ``test List.foldBack with composition works`` () =
+    [1; 2; 3; 4]
+    |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
+    |> equal 12
 
 // [<Fact>]
 let ``test List.forall works`` () =
@@ -294,9 +304,9 @@ let ``test List.iter2 works`` () =
     let ys = [2; 4; 6; 8]
     let total = ref 0
     List.iter2 (fun x y ->
-    total := !total + (y - x)
+    total.Value <- total.Value + (y - x)
     ) xs ys
-    equal 10 !total
+    equal 10 total.Value
 
 [<Fact>]
 let ``test List.iteri works`` () =
@@ -378,11 +388,11 @@ let ``test List.reduce works`` () =
     xs |> List.reduce (+)
     |> equal 3
 
-// [<Fact>]
-// let ``test List.reduceBack works`` () =
-//         let xs = [1; 2]
-//         xs |> List.reduceBack (+)
-//         |> equal 3
+[<Fact>]
+let ``test List.reduceBack works`` () =
+    let xs = [1; 2]
+    xs |> List.reduceBack (+)
+    |> equal 3
 
 [<Fact>]
 let ``test List.replicate works`` () =
@@ -589,21 +599,19 @@ let ``test List.tryFindIndex works`` () =
     ys.Value |> equal 1
     xs |> List.tryFindIndex ((=) 5) |> equal None
 
-// FIXME: AttributeError: 'list' object has no attribute 'reduceRight'
-// [<Fact>]
-// let ``test List.unzip works`` () =
-//     let xs = [1, 2]
-//     let ys, zs = xs |> List.unzip
-//     ys.Head + zs.Head
-//     |> equal 3
+[<Fact>]
+let ``test List.unzip works`` () =
+    let xs = [1, 2]
+    let ys, zs = xs |> List.unzip
+    ys.Head + zs.Head
+    |> equal 3
 
-// FIXME: AttributeError: 'list' object has no attribute 'reduceRight'
-// [<Fact>]
-// let ``test List.unzip3 works`` () =
-//     let xs = [(1, 2, 3); (4, 5, 6)]
-//     let ys, zs, ks = xs |> List.unzip3
-//     ys.[1] + zs.[1] + ks.[1]
-//     |> equal 15
+[<Fact>]
+let ``test List.unzip3 works`` () =
+    let xs = [(1, 2, 3); (4, 5, 6)]
+    let ys, zs, ks = xs |> List.unzip3
+    ys.[1] + zs.[1] + ks.[1]
+    |> equal 15
 
 [<Fact>]
 let ``test List.zip works`` () =
@@ -660,18 +668,17 @@ let ``test List.collect works`` () =
     sumFirstList ys 5
     |> equal 15.
 
-// FIXME: AttributeError: 'list' object has no attribute 'forEach'
-//[<Fact>]
-// let ``test List.concat works`` () =
-//     let xs = [[1]; [2]; [3]; [4]]
-//     let ys = xs |> List.concat
-//     ys.Head  + ys.Tail.Head
-//     |> equal 3
+[<Fact>]
+let ``test List.concat works`` () =
+    let xs = [[1]; [2]; [3]; [4]]
+    let ys = xs |> List.concat
+    ys.Head  + ys.Tail.Head
+    |> equal 3
 
-//     let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
-//     let ys1 = xs1 |> List.concat
-//     sumFirstList ys1 7
-//     |> equal 28.
+    let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+    let ys1 = xs1 |> List.concat
+    sumFirstList ys1 7
+    |> equal 28.
 
 [<Fact>]
 let ``test List.contains works`` () =
@@ -701,6 +708,104 @@ let ``test List.averageBy works`` () =
     |> List.averageBy (fun x -> x * 2.)
     |> equal 5.
 
+[<Fact>]
+let ``test List.average works with custom types`` () =
+        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.average |> equal (MyNumber 2)
+
+[<Fact>]
+let ``test List.averageBy works with custom types`` () =
+    [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
+    |> List.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+
+[<Fact>]
+let ``test List.distinct works`` () =
+    let xs = [1; 1; 1; 2; 2; 3; 3]
+    let ys = xs |> List.distinct
+    ys |> List.length |> equal 3
+    ys |> List.sum |> equal 6
+
+[<Fact>]
+let ``test List.distinct with tuples works`` () =
+    let xs = [(1, 2); (2, 3); (1, 2)]
+    let ys = xs |> List.distinct
+    ys |> List.length |> equal 2
+    ys |> List.sumBy fst |> equal 3
+
+[<Fact>]
+let ``test List.distinctBy works`` () =
+    let xs = [4; 4; 4; 6; 6; 5; 5]
+    let ys = xs |> List.distinctBy (fun x -> x % 2)
+    ys |> List.length |> equal 2
+    ys |> List.head >= 4 |> equal true
+
+[<Fact>]
+let ``test List.distinctBy with tuples works`` () =
+    let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
+    let ys = xs |> List.distinctBy (fun (x,_) -> x % 2)
+    ys |> List.length |> equal 2
+    ys |> List.head |> fst >= 4 |> equal true
+
+[<Fact>]
+let ``test List.findBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.find ((>) 4.) |> equal 1.
+    xs |> List.findBack ((>) 4.) |> equal 3.
+
+[<Fact>]
+let ``test List.findIndexBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.findIndex ((>) 4.) |> equal 0
+    xs |> List.findIndexBack ((>) 4.) |> equal 2
+
+[<Fact>]
+let ``test List.tryFindBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.tryFind ((>) 4.) |> equal (Some 1.)
+    xs |> List.tryFindBack ((>) 4.) |> equal (Some 3.)
+    xs |> List.tryFindBack ((=) 5.) |> equal None
+
+[<Fact>]
+let ``test List.tryFindIndexBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
+    xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+    xs |> List.tryFindIndexBack ((=) 5.) |> equal None
+
+[<Fact>]
+let ``test List.foldBack2 works`` () =
+        ([1; 2; 3; 4], [1; 2; 3; 4], 0)
+        |||> List.foldBack2 (fun x y acc -> acc - y * x)
+        |> equal -30
+
+[<Fact>]
+let ``test List.indexed works`` () =
+    let xs = ["a"; "b"; "c"] |> List.indexed
+    xs.Length |> equal 3
+    fst xs.[2] |> equal 2
+    snd xs.[2] |> equal "c"
+
+[<Fact>]
+let ``test List.map3 works`` () =
+        let xs = [1;2;3]
+        let ys = [5;4;3]
+        let zs = [7;8;9]
+        let ks = List.map3 (fun x y z -> z - y - x) xs ys zs
+        List.sum ks
+        |> equal 6
+
+[<Fact>]
+let ``test List.mapi2 works`` () =
+        let xs = [7;8;9]
+        let ys = [5;4;3]
+        let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
+        List.sum zs |> equal 16
+
+[<Fact>]
+let ``test List.mapFold works`` () =
+    let xs = [1y; 2y; 3y; 4y]
+    let result = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst result |> List.sum |> equal 20y
+    snd result |> equal 10y
 
 [<Fact>]
 let ``test List.singleton works`` () =
@@ -708,6 +813,337 @@ let ``test List.singleton works`` () =
     xs
     |> equal [42]
 
+[<Fact>]
+let ``test List.mapFoldBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let result = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst result |> List.sum |> equal -20.
+    snd result |> equal -10.
+
+// TODO: Runtime uncurry to arity 2
+[<Fact>]
+let ``test List.mapFold works II`` () =
+    let f x y = x,y
+    let xs,_ = List.mapFold f "a" ["b"]
+    equal "a" xs.Head
+
+[<Fact>]
+let ``test List.mapFoldBack works II`` () =
+    let f x y = x,y
+    let xs,_ = List.mapFoldBack f ["a"] "b"
+    equal "a" xs.Head
+
+[<Fact>]
+let ``test List.partition works`` () =
+        let xs = [1; 2; 3; 4; 5; 6]
+        let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
+        List.sum zs |> equal 9
+        equal 2 ys.[0]
+        equal 5 zs.[2]
+
+[<Fact>]
+let ``test List.pairwise works`` () =
+    List.pairwise<int> [] |> equal []
+    List.pairwise [1] |> equal []
+    let xs = [1; 2; 3; 4]
+    let xs2 = xs |> List.pairwise
+    equal [(1, 2); (2, 3); (3, 4)] xs2
+    xs2 |> List.map (fun (x, y) -> sprintf "%i%i" x y)
+    |> String.concat ""
+    |> equal "122334"
+
+[<Fact>]
+let ``test List.permute works`` () =
+    let xs = [1; 2; 3; 4; 5; 6]
+    let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
+    equal 4 ys.[2]
+    equal 6 ys.[4]
+
+[<Fact>]
+let ``test List.chunkBySize works`` () =
+    [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
+    [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
+
+[<Fact>]
+let ``test List.range works`` () =
+    [1..5]
+    |> List.reduce (+)
+    |> equal 15
+    [0..2..9]
+    |> List.reduce (+)
+    |> equal 20
+
+[<Fact>]
+let ``test List.zip3 works`` () =
+    let xs = [1; 2; 3]
+    let ys = [4; 5; 6]
+    let zs = [7; 8; 9]
+    let ks = List.zip3 xs ys zs
+    let x, y, z = List.last ks
+    equal 3 x
+    equal 6 y
+    equal 9 z
+
+[<Fact>]
+let ``test List.tryItem works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    List.tryItem 3 xs |> equal (Some 4.)
+    List.tryItem 4 xs |> equal None
+    List.tryItem -1 xs |> equal None
+
+[<Fact>]
+let ``test List.tryHead works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    List.tryHead xs |> equal (Some 1.)
+    List.tryHead [] |> equal None
+
+[<Fact>]
+let ``test List.last works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.last
+    |> equal 4.
+
+[<Fact>]
+let ``test List.tryLast works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    List.tryLast xs |> equal (Some 4.)
+    List.tryLast [] |> equal None
+
+[<Fact>]
+let ``test List.countBy works`` () =
+     let xs = [1; 2; 3; 4]
+     xs |> List.countBy (fun x -> x % 2)
+     |> List.length |> equal 2
+
+[<Fact>]
+let ``test List.groupBy returns valid list`` () =
+     let xs = [1; 2]
+     let worked =
+         match List.groupBy (fun _ -> true) xs with
+         | [true, [1; 2]] -> true
+         | _ -> false
+     worked |> equal true
+
+[<Fact>]
+let ``test List.groupBy maintains order`` () =
+     let xs = [ 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 ]
+     let mapped = xs |> List.take 4 |> List.map (fun (x,y) -> x, [x,y; x,y+1])
+     let grouped = xs |> List.groupBy fst
+     grouped |> equal mapped
+
+[<Fact>]
+let ``test List.unfold works`` () =
+    let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
+    let sum =
+        match xs with
+        | n1::n2::n3::[] -> n1 + n2 + n3
+        | _ -> 0.0
+    sum |> equal 6.0
+
+[<Fact>]
+let ``test List.splitAt works`` () =
+    let li = [1;2;3;4]
+    List.splitAt 0 li |> equal ([], [1;2;3;4])
+    List.splitAt 3 li |> equal ([1;2;3], [4])
+    List.splitAt 4 li |> equal ([1;2;3;4], [])
+
+[<Fact>]
+let ``test List.windowed works`` () = // See #1716
+    let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]
+    List.windowed 3 nums |> equal [[1.0; 1.5; 2.0]; [1.5; 2.0; 1.5]; [2.0; 1.5; 1.0]; [1.5; 1.0; 1.5]]
+    List.windowed 5 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0 ]; [ 1.5; 2.0; 1.5; 1.0; 1.5 ]]
+    List.windowed 6 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]]
+    List.windowed 7 nums |> List.isEmpty |> equal true
+
+[<Fact>]
+let ``test Types with same name as imports work`` () =
+    let li = [List 5]
+    equal 5 li.Head.Value
+
+[<Fact>]
+let ``test List.Item throws exception when index is out of range`` () =
+    let xs = [0]
+    (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
+
+[<Fact>]
+let ``test List.except works`` () =
+    List.except [2] [1; 3; 2] |> List.last |> equal 3
+    List.except [2] [2; 4; 6] |> List.head |> equal 4
+    List.except [1] [1; 1; 1; 1] |> List.isEmpty |> equal true
+    List.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> List.isEmpty |> equal true
+    List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
+    List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
+    List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
+    List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true
+
+[<Fact>]
+let ``test List iterators from range do rewind`` () =
+    let xs = [1..5] |> List.toSeq
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+[<Fact>]
+let ``test List comprehensions returning None work`` () =
+    let spam : string option list = [for _ in 0..5 -> None]
+    List.length spam |> equal 6
+
+[<Fact>]
+let ``test Int list tail doesn't get wrapped with `| 0` ``  () = // See #1447
+    let revert xs =
+        let rec rev acc (ls: int list) =
+            match ls with
+            | [] -> acc
+            | h::t -> rev (h::acc) t
+        rev [] xs
+    let res = revert [2;3;4]
+    equal 3 res.Length
+    equal 4 res.Head
+
+[<Fact>]
+let ``test List.allPairs works`` () =
+    let xs = [1;2;3;4]
+    let ys = ['a';'b';'c';'d';'e';'f']
+    List.allPairs xs ys
+    |> equal
+        [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+         (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+         (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+         (4, 'd'); (4, 'e'); (4, 'f')]
+
+// TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
+// #if FABLE_COMPILER
+[<Fact>]
+let ``test Implicit yields work`` () =
+    let makeList condition =
+        [
+            1
+            2
+            if condition then
+                3
+        ]
+    makeList true |> List.sum |> equal 6
+    makeList false |> List.sum |> equal 3
+// #endif
+
+[<Fact>]
+let ``test List.splitInto works`` () =
+    [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
+    [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
+    [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
+    [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
+    [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
+
+[<Fact>]
+let ``test List.transpose works`` () =
+    // integer list
+    List.transpose (seq [[1..3]; [4..6]])
+    |> equal [[1; 4]; [2; 5]; [3; 6]]
+    List.transpose [[1..3]]
+    |> equal [[1]; [2]; [3]]
+    List.transpose [[1]; [2]]
+    |> equal [[1..2]]
+    // string list
+    List.transpose (seq [["a";"b";"c"]; ["d";"e";"f"]])
+    |> equal [["a";"d"]; ["b";"e"]; ["c";"f"]]
+    // empty list
+    List.transpose []
+    |> equal []
+    // list of empty lists - m x 0 list transposes to 0 x m (i.e. empty)
+    List.transpose [[]]
+    |> equal []
+    List.transpose [[]; []]
+    |> equal []
+    // jagged lists
+    throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
+    throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
+    throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
+    throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
+    throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
+
+[<Fact>]
+let ``test Array.udpateAt works`` () =
+    // integer list
+    equal [|0; 2; 3; 4; 5|] (Array.updateAt 0 0 [|1..5|])
+    equal [|1; 2; 0; 4; 5|] (Array.updateAt 2 0 [|1..5|])
+    equal [|1; 2; 3; 4; 0|] (Array.updateAt 4 0 [|1..5|])
+
+    //string list
+    equal [|"0"; "2"; "3"; "4"; "5"|] (Array.updateAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "4"; "5"|] (Array.updateAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"|] (Array.updateAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.updateAt 0 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
+
+[<Fact>]
+let ``test Array.insertAt works`` () =
+    // integer list
+    equal [|0; 1; 2; 3; 4; 5|] (Array.insertAt 0 0 [|1..5|])
+    equal [|1; 2; 0; 3; 4; 5|] (Array.insertAt 2 0 [|1..5|])
+    equal [|1; 2; 3; 4; 0; 5|] (Array.insertAt 4 0 [|1..5|])
+
+    //string list
+    equal [|"0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "3"; "4"; "5"|] (Array.insertAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"; "5"|] (Array.insertAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    equal [|0|] (Array.insertAt 0 0 [||])
+    throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
+
+[<Fact>]
+let ``test Array.insertManyAt works`` () =
+    // integer list
+    equal [|0; 0; 1; 2; 3; 4; 5|] (Array.insertManyAt 0 [0; 0] [|1..5|])
+    equal [|1; 2; 0; 0; 3; 4; 5|] (Array.insertManyAt 2 [0; 0] [|1..5|])
+    equal [|1; 2; 3; 4; 0; 0; 5|] (Array.insertManyAt 4 [0; 0] [|1..5|])
+
+    //string list
+    equal [|"0"; "0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertManyAt 0 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "0"; "3"; "4"; "5"|] (Array.insertManyAt 2 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"; "0"; "5"|] (Array.insertManyAt 4 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
+    throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
+
+[<Fact>]
+let ``test Array.removeAt works`` () =
+    // integer list
+    equal [|2; 3; 4; 5|] (Array.removeAt 0 [|1..5|])
+    equal [|1; 2; 4; 5|] (Array.removeAt 2 [|1..5|])
+    equal [|1; 2; 3; 4|] (Array.removeAt 4 [|1..5|])
+
+    //string list
+    equal [|"2"; "3"; "4"; "5"|] (Array.removeAt 0 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "4"; "5"|] (Array.removeAt 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"|] (Array.removeAt 4 [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.removeAt 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
+
+[<Fact>]
+let ``test Array.removeManyAt works`` () =
+    // integer list
+    equal [|3; 4; 5|] (Array.removeManyAt 0 2 [|1..5|])
+    equal [|1; 2; 5|] (Array.removeManyAt 2 2 [|1..5|])
+    equal [|1; 2; 3|] (Array.removeManyAt 3 2 [|1..5|])
+
+    //string list
+    equal [|"3"; "4"; "5"|] (Array.removeManyAt 0 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "5"|] (Array.removeManyAt 2 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"|] (Array.removeManyAt 3 2 [|"1"; "2"; "3"; "4"; "5"|])
+
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
 
 [<Fact>]
 let ``test List.collect works II`` () =

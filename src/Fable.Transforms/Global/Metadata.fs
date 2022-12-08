@@ -29,10 +29,12 @@ let coreAssemblies = [|
     "System.Runtime"
     "System.Runtime.Extensions"
     "System.Runtime.Numerics"
+    "System.Runtime.InteropServices"
     "System.Text.Encoding"
     "System.Text.Encoding.Extensions"
     "System.Text.RegularExpressions"
     "System.Threading"
     "System.Threading.Tasks"
+    "System.Threading.Thread"
     "System.ValueTuple"
     |]

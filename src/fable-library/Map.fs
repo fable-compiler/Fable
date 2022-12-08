@@ -374,8 +374,8 @@ module MapTree =
     let fold f x m =
         foldOpt (OptimizedClosures.FSharpFunc<_, _, _, _>.Adapt f) x m
 
-    let foldSectionOpt (comparer: IComparer<'Key>) lo hi (f: OptimizedClosures.FSharpFunc<_, _, _, _>) (m: MapTree<'Key, 'Value>) x =
-        let rec foldFromTo (f: OptimizedClosures.FSharpFunc<_, _, _, _>) (m: MapTree<'Key, 'Value>) x =
+    let foldSectionOpt (comparer: IComparer<'Key>) lo hi (f: OptimizedClosures.FSharpFunc<_, _, _, 'a>) (m: MapTree<'Key, 'Value>) x =
+        let rec foldFromTo (f: OptimizedClosures.FSharpFunc<_, _, _, 'a>) (m: MapTree<'Key, 'Value>) x =
             match m with
             | None -> x
             | Some m2 ->
@@ -505,13 +505,11 @@ module MapTree =
 
     let mkIEnumerator m =
         let mutable i = mkIterator m
-        { new IEnumerator<_> with
-              member _.Current = current i
-          interface System.Collections.IEnumerator with
-              member _.Current = box (current i)
+        { new IEnumerator<KeyValuePair<'a,'b>> with
+              member _.Current: KeyValuePair<'a,'b> = current i
+              member _.Current: obj = box (current i)
               member _.MoveNext() = moveNext i
               member _.Reset() = i <- mkIterator m
-          interface System.IDisposable with
               member _.Dispose() = ()}
 
     let toSeq s =
@@ -525,7 +523,6 @@ open Fable.Core
 
 [<Sealed>]
 [<CompiledName("FSharpMap")>]
-[<NoOverloadSuffix>]
 type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key, 'Value>) =
 
     // [<System.NonSerialized>]
@@ -655,6 +652,12 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         | Some v -> value <- v; true
         | None -> false
 
+    member __.Keys: ICollection<'Key> =
+        MapTree.toArray tree |> Array.map (fun kvp -> kvp.Key) :> _
+
+    member __.Values: ICollection<'Value> =
+        MapTree.toArray tree |> Array.map (fun kvp -> kvp.Value) :> _
+
     member m.TryFind key =
 // #if TRACE_SETS_AND_MAPS
 //         MapTree.report()
@@ -702,7 +705,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         member _.``Symbol.toStringTag`` = "FSharpMap"
 
     interface IJsonSerializable with
-        member this.toJSON(_key) =
+        member this.toJSON() =
             JS.Constructors.Array.from(this) |> box
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
@@ -877,6 +880,12 @@ let toList (table: Map<_, _>) =
 // [<CompiledName("ToArray")>]
 let toArray (table: Map<_, _>) =
     table.ToArray()
+
+let keys (table: Map<'K, 'V>): ICollection<'K> =
+    table.Keys
+
+let values (table: Map<'K, 'V>): ICollection<'V> =
+    table.Values
 
 // [<CompiledName("Empty")>]
 let empty<'Key, 'Value  when 'Key : comparison> ([<Inject>] comparer: IComparer<'Key>) : Map<'Key, 'Value> =

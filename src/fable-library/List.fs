@@ -3,16 +3,6 @@ module ListModule
 open Fable.Core
 open Native
 
-module SR =
-    let indexOutOfBounds = "The index was outside the range of elements in the list."
-    let inputListWasEmpty = "List was empty"
-    let inputMustBeNonNegative = "The input must be non-negative."
-    let inputSequenceEmpty = "The input sequence was empty."
-    let inputSequenceTooLong = "The input sequence contains more than one element."
-    let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
-    let listsHadDifferentLengths = "The lists had different lengths."
-    let notEnoughElements = "The input sequence has an insufficient number of elements."
-
 [<CustomEquality; CustomComparison>]
 [<CompiledName("FSharpList")>]
 type LinkedList<'T when 'T: comparison> =
@@ -31,7 +21,7 @@ type LinkedList<'T when 'T: comparison> =
     member xs.IsEmpty = xs.tail.IsNone
 
     member xs.Length =
-        let rec loop i xs =
+        let rec loop i (xs: 'T list) =
             match xs.tail with
             | None -> i
             | Some t -> loop (i + 1) t
@@ -39,16 +29,16 @@ type LinkedList<'T when 'T: comparison> =
 
     member xs.Head =
         match xs.tail with
-        | None -> invalidArg "list" SR.inputListWasEmpty
+        | None -> invalidArg "list" SR.inputWasEmpty
         | Some _ -> xs.head
 
     member xs.Tail =
         match xs.tail with
-        | None -> invalidArg "list" SR.inputListWasEmpty
+        | None -> invalidArg "list" SR.inputWasEmpty
         | Some t -> t
 
     member xs.Item with get (index) =
-        let rec loop i xs =
+        let rec loop i (xs: 'T list) =
             match xs.tail with
             | None -> invalidArg "index" SR.indexOutOfBounds
             | Some t ->
@@ -64,7 +54,7 @@ type LinkedList<'T when 'T: comparison> =
         then true
         else
             let ys = other :?> 'T list
-            let rec loop xs ys =
+            let rec loop (xs: 'T list) (ys: 'T list) =
                 match xs.tail, ys.tail with
                 | None, None -> true
                 | None, Some _ -> false
@@ -87,13 +77,13 @@ type LinkedList<'T when 'T: comparison> =
         loop 0 0 xs
 
     interface IJsonSerializable with
-        member this.toJSON(_key) =
+        member this.toJSON() =
             Helpers.arrayFrom(this) |> box
 
     interface System.IComparable with
         member xs.CompareTo(other: obj) =
             let ys = other :?> 'T list
-            let rec loop xs ys =
+            let rec loop (xs: 'T list) (ys: 'T list) =
                 match xs.tail, ys.tail with
                 | None, None -> 0
                 | None, Some _ -> -1
@@ -115,21 +105,21 @@ and ListEnumerator<'T when 'T: comparison>(xs: 'T list) =
     let mutable it = xs
     let mutable current = Unchecked.defaultof<'T>
     interface System.Collections.Generic.IEnumerator<'T> with
-        member __.Current = current
+        member _.Current = current
     interface System.Collections.IEnumerator with
-        member __.Current = box (current)
-        member __.MoveNext() =
+        member _.Current = box (current)
+        member _.MoveNext() =
             match it.tail with
             | None -> false
             | Some t ->
                 current <- it.head
                 it <- t
                 true
-        member __.Reset() =
+        member _.Reset() =
             it <- xs
             current <- Unchecked.defaultof<'T>
     interface System.IDisposable with
-        member __.Dispose() = ()
+        member _.Dispose() = ()
 
 and 'T list when 'T: comparison = LinkedList<'T>
 and List<'T> when 'T: comparison = LinkedList<'T>
@@ -138,7 +128,7 @@ and List<'T> when 'T: comparison = LinkedList<'T>
 // [<RequireQualifiedAccess>]
 // module List =
 
-let inline indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
+let indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
 let empty () = List.Empty
 
@@ -168,7 +158,7 @@ let rec tryLast (xs: 'T list) =
 let last (xs: 'T list) =
     match tryLast xs with
     | Some x -> x
-    | None -> failwith SR.inputListWasEmpty
+    | None -> failwith SR.inputWasEmpty
 
 let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
     let rec loop (xs: 'T list) (ys: 'T list) =
@@ -423,7 +413,7 @@ let tryFindIndex f xs: int option =
 let findIndex f xs: int =
     match tryFindIndex f xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let tryFindIndexBack f xs: int option =
     xs |> toArray |> Array.tryFindIndexBack f
@@ -431,7 +421,7 @@ let tryFindIndexBack f xs: int option =
 let findIndexBack f xs: int =
     match tryFindIndexBack f xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound(); -1
 
 let tryItem n (xs: 'T list) =
     let rec loop i (xs: 'T list) =
@@ -488,11 +478,11 @@ let replicate n x =
     initialize n (fun _ -> x)
 
 let reduce f (xs: 'T list) =
-    if xs.IsEmpty then invalidOp SR.inputListWasEmpty
+    if xs.IsEmpty then invalidOp SR.inputWasEmpty
     else fold f (head xs) (tail xs)
 
 let reduceBack f (xs: 'T list) =
-    if xs.IsEmpty then invalidOp SR.inputListWasEmpty
+    if xs.IsEmpty then invalidOp SR.inputWasEmpty
     else foldBack f (tail xs) (head xs)
 
 let forAll f xs =
@@ -508,7 +498,7 @@ let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
     match xs.IsEmpty, ys.IsEmpty with
     | true, true -> false
     | false, false -> f xs.Head ys.Head || exists2 f xs.Tail ys.Tail
-    | _ -> invalidArg "list2" SR.listsHadDifferentLengths
+    | _ -> invalidArg "list2" SR.differentLengths
 
 let unzip xs =
     foldBack (fun (x, y) (lacc, racc) -> List.Cons(x, lacc), List.Cons(y, racc)) xs (List.Empty, List.Empty)
@@ -695,3 +685,88 @@ let transpose (lists: seq<'T list>): 'T list list =
 // let mapi = mapIndexed
 // let mapi2 = mapIndexed2
 // let rev = reverse
+
+let insertAt (index: int) (y: 'T) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let result =
+        (List.Empty, xs) ||> fold (fun acc x ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                List.Cons(x, List.Cons(y, acc))
+            else List.Cons(x, acc))
+    let result =
+        if isDone then result
+        elif i + 1 = index then List.Cons(y, result)
+        else invalidArg "index" SR.indexOutOfBounds
+    reverse result
+
+let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let ys = ofSeq ys
+    let result =
+        (List.Empty, xs) ||> fold (fun acc x ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                List.Cons(x, append ys acc)
+            else List.Cons(x, acc))
+    let result =
+        if isDone then result
+        elif i + 1 = index then append ys result
+        else invalidArg "index" SR.indexOutOfBounds
+    reverse result
+
+let removeAt (index: int) (xs: 'T list): 'T list =
+    let mutable i = -1
+    let mutable isDone = false
+    let ys =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                isDone <- true
+                false
+            else true)
+    if not isDone then
+        invalidArg "index" SR.indexOutOfBounds
+    ys
+
+let removeManyAt (index: int) (count: int) (xs: 'T list): 'T list =
+    let mutable i = -1
+    // incomplete -1, in-progress 0, complete 1
+    let mutable status = -1
+    let ys =
+        xs |> filter (fun _ ->
+            i <- i + 1
+            if i = index then
+                status <- 0
+                false
+            elif i > index then
+                if i < index + count then
+                    false
+                else
+                    status <- 1
+                    true
+            else true)
+    let status =
+        if status = 0 && i + 1 = index + count then 1
+        else status
+    if status < 1 then
+        // F# always says the wrong parameter is index but the problem may be count
+        let arg = if status < 0 then "index" else "count"
+        invalidArg arg SR.indexOutOfBounds
+    ys
+
+let updateAt (index: int) (y: 'T) (xs: 'T list): 'T list =
+    let mutable isDone = false
+    let ys =
+        xs |> mapIndexed (fun i x ->
+            if i = index then
+                isDone <- true
+                y
+            else x)
+    if not isDone then
+        invalidArg "index" SR.indexOutOfBounds
+    ys

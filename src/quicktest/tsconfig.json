@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es2015",
+    "module": "es2015",
+    "sourceMap": false,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmitOnError": true,
+    "newLine": "lf",
+    "forceConsistentCasingInFileNames": true,
+    "preserveWatchOutput": true
+  }
+}
