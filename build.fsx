@@ -216,7 +216,8 @@ let buildLibraryPy() =
     // Copy python related files from projectDir to buildDir
     copyFiles libraryDir "*" buildDirPy
     copyFiles projectDir "*.py" (buildDirPy </> "fable_library")
-     // Fix issues with Fable .fsproj not supporting links
+
+    // Fix issues with Fable .fsproj not supporting links
     copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")
     removeDirRecursive (buildDirPy </> "fable_library/fable-library")
 
