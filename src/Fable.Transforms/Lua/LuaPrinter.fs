@@ -7,10 +7,17 @@ open Fable
 open Fable.AST
 open Fable.AST.Lua
 
+type System.Text.StringBuilder with
+    member sb.Write (txt: string) =
+        sb.Append(txt) |> ignore
+    member sb.WriteLine (txt: string) =
+        sb.Append(txt) |> ignore
+        sb.AppendLine() |> ignore
 
 module Output =
+
     type Writer =
-        { Writer: TextWriter
+        { Writer: System.Text.StringBuilder
           Indent: int
           Precedence: int
           CurrentNamespace: string option }
@@ -307,3 +314,14 @@ module Output =
         // sprintf "%s" file.ASTDebug |> write ctx
         //sprintf "%A" file.Statements |> write ctx
         //writeln ctx " --]]"
+
+let isEmpty (file: File): bool =
+    false //TODO: determine if printer will not print anything
+
+let run (writer: Printer.Writer) (lib: File): Async<unit> =
+    async {
+        let sb = System.Text.StringBuilder()
+        let ctx = Output.Writer.create sb
+        Output.writeFile ctx lib
+        do! writer.Write(sb.ToString())
+    }

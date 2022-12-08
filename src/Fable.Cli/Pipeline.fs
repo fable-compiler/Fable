@@ -361,15 +361,15 @@ module Lua =
             member _.Dispose() = stream.Dispose()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
-        let program =
+        let lua =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
             |> Fable2Lua.transformFile com
 
         //
-        if not (isSilent) then
+        if not (isSilent || LuaPrinter.isEmpty lua) then
             use writer = new LuaWriter(com, cliArgs, pathResolver, outPath)
-            do! LuaPrinter.run writer crate
+            do! LuaPrinter.run writer lua
 
     }
 
