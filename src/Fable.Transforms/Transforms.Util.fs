@@ -819,13 +819,13 @@ module AST =
             | UInt64  -> Types.uint64
             | Int128  -> Types.int128
             | UInt128 -> Types.uint128
-            | BigInt  -> Types.bigint
             | NativeInt -> Types.nativeint
             | UNativeInt -> Types.unativeint
             | Float16 -> Types.float16
             | Float32 -> Types.float32
             | Float64 -> Types.float64
             | Decimal -> Types.decimal
+            | BigInt  -> Types.bigint
         match info with
         | NumberInfo.Empty -> getKindName kind
         | NumberInfo.IsMeasure uom -> getKindName kind + "[" + uom + "]"
