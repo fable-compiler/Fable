@@ -778,8 +778,11 @@ module Annotation =
                 | UInt64 -> "uint64"
                 | Int32
                 | BigInt
+                | Int128
+                | UInt128
                 | NativeInt
                 | UNativeInt -> "int"
+                | Float16
                 | Float32 -> "float32"
                 | Float64 -> "float"
                 | _ -> failwith $"Unsupported number type: {kind}"

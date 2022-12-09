@@ -711,8 +711,11 @@ module TypeInfo =
         | UInt32 -> "u32" |> primitiveType
         | Int64 -> "i64" |> primitiveType
         | UInt64 -> "u64" |> primitiveType
+        | Int128 -> "i128" |> primitiveType
+        | UInt128 -> "u128" |> primitiveType
         | NativeInt -> "isize" |> primitiveType
         | UNativeInt -> "usize" |> primitiveType
+        | Float16 -> "f32" |> primitiveType
         | Float32 -> "f32" |> primitiveType
         | Float64 -> "f64" |> primitiveType
         | Decimal -> transformDecimalType com ctx
@@ -1445,14 +1448,18 @@ module Util =
             mkGenericPathExpr ["i16";"MIN"] None
         | Int16, (:? int16 as x) when x = System.Int16.MaxValue ->
             mkGenericPathExpr ["i16";"MAX"] None
-        | Int32, (:? int32 as x) when int32 x = System.Int32.MinValue ->
+        | Int32, (:? int32 as x) when x = System.Int32.MinValue ->
             mkGenericPathExpr ["i32";"MIN"] None
-        | Int32, (:? int32 as x) when int32 x = System.Int32.MaxValue ->
+        | Int32, (:? int32 as x) when x = System.Int32.MaxValue ->
             mkGenericPathExpr ["i32";"MAX"] None
-        | Int64, (:? int64 as x) when int64 x = System.Int64.MinValue ->
+        | Int64, (:? int64 as x) when x = System.Int64.MinValue ->
             mkGenericPathExpr ["i64";"MIN"] None
-        | Int64, (:? int64 as x) when int64 x = System.Int64.MaxValue ->
+        | Int64, (:? int64 as x) when x = System.Int64.MaxValue ->
             mkGenericPathExpr ["i64";"MAX"] None
+        // | Int128, (:? System.Int128 as x) when x = System.Int128.MinValue ->
+        //     mkGenericPathExpr ["i128";"MIN"] None
+        // | Int128, (:? System.Int128 as x) when x = System.Int128.MaxValue ->
+        //     mkGenericPathExpr ["i128";"MAX"] None
 
         // | UInt8, (:? uint8 as x) when x = System.Byte.MinValue ->
         //     mkGenericPathExpr ["u8";"MIN"] None
@@ -1470,6 +1477,10 @@ module Util =
         //     mkGenericPathExpr ["u64";"MIN"] None
         | UInt64, (:? uint64 as x) when x = System.UInt64.MaxValue ->
             mkGenericPathExpr ["u64";"MAX"] None
+        // | UInt128, (:? System.UInt128 as x) when x = System.UInt128.MinValue ->
+        //     mkGenericPathExpr ["u128";"MIN"] None
+        // | UInt128, (:? System.UInt128 as x) when x = System.UInt128.MaxValue ->
+        //     mkGenericPathExpr ["u128";"MAX"] None
 
         | Float32, (:? float32 as x) when System.Single.IsNaN(x) ->
             mkGenericPathExpr ["f32";"NAN"] None
@@ -1485,42 +1496,53 @@ module Util =
             mkGenericPathExpr ["f64";"NEG_INFINITY"] None
 
         | NativeInt, (:? nativeint as x) ->
-            let expr = mkIsizeLitExpr (abs x |> uint64)
+            let expr = mkIsizeLitExpr (abs x |> string)
             if x < 0n then expr |> mkNegExpr else expr
         | Int8, (:? int8 as x) ->
-            let expr = mkInt8LitExpr (abs x |> uint64)
+            let expr = mkInt8LitExpr (abs x |> string)
             if x < 0y then expr |> mkNegExpr else expr
         | Int16, (:? int16 as x) ->
-            let expr = mkInt16LitExpr (abs x |> uint64)
+            let expr = mkInt16LitExpr (abs x |> string)
             if x < 0s then expr |> mkNegExpr else expr
         | Int32, (:? int32 as x) ->
-            let expr = mkInt32LitExpr (abs x |> uint64)
+            let expr = mkInt32LitExpr (abs x |> string)
             if x < 0 then expr |> mkNegExpr else expr
         | Int64, (:? int64 as x) ->
-            let expr = mkInt64LitExpr (abs x |> uint64)
+            let expr = mkInt64LitExpr (abs x |> string)
             if x < 0 then expr |> mkNegExpr else expr
+        | Int128, x -> // (:? System.Int128 as x) ->
+            // let expr = mkInt128LitExpr (System.Int128.Abs(x) |> string)
+            // if x < 0 then expr |> mkNegExpr else expr
+            let s = string x
+            let expr = mkInt128LitExpr (s.TrimStart('-'))
+            if s.StartsWith("-") then expr |> mkNegExpr else expr
         | UNativeInt, (:? unativeint as x) ->
-            mkUsizeLitExpr (x |> uint64)
+            mkUsizeLitExpr (x |> string)
         | UInt8, (:? uint8 as x) ->
-            mkUInt8LitExpr (x |> uint64)
+            mkUInt8LitExpr (x |> string)
         | UInt16, (:? uint16 as x) ->
-            mkUInt16LitExpr (x |> uint64)
+            mkUInt16LitExpr (x |> string)
         | UInt32, (:? uint32 as x) ->
-            mkUInt32LitExpr (x |> uint64)
+            mkUInt32LitExpr (x |> string)
         | UInt64, (:? uint64 as x) ->
-            mkUInt64LitExpr (x |> uint64)
+            mkUInt64LitExpr (x |> string)
+        | UInt128, x -> // (:? System.UInt128 as x) ->
+            mkUInt128LitExpr (x |> string)
+        | Float16, (:? float32 as x) ->
+            let expr = mkFloat32LitExpr (abs x |> string)
+            if x < 0.0f then expr |> mkNegExpr else expr
         | Float32, (:? float32 as x) ->
-            let expr = mkFloat32LitExpr (abs x)
+            let expr = mkFloat32LitExpr (abs x |> string)
             if x < 0.0f then expr |> mkNegExpr else expr
         | Float64, (:? float as x) ->
-            let expr = mkFloat64LitExpr (abs x)
+            let expr = mkFloat64LitExpr (abs x |> string)
             if x < 0.0 then expr |> mkNegExpr else expr
         | Decimal, (:? decimal as x) ->
             Replacements.makeDecimal com r t x |> transformExpr com ctx
         | kind, x ->
             $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
             |> addError com [] r
-            mkFloat64LitExpr 0.
+            mkFloat64LitExpr (string 0.)
 
     let makeStaticString com ctx (value: Rust.Expr) =
         makeLibCall com ctx None "String" "string" [value]

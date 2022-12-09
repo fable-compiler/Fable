@@ -186,6 +186,7 @@ let getParseParams (kind: NumberKind) =
 //         | Float32 -> "toSingle"
 //         | Float64 -> "toDouble"
 //         | Decimal -> "toDecimal"
+//         | Int128 | UInt128 | Float16
 //         | BigInt | NativeInt | UNativeInt ->
 //             FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
 //     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
@@ -204,6 +205,8 @@ let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10
     | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
     | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
     | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+    | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
+    | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
 let needToCast typeFrom typeTo =
