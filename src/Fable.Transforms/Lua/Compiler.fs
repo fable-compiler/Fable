@@ -1,5 +1,6 @@
 module rec Fable.Compilers.Lua
 
+open Fable
 open Fable.AST
 open Fable.AST.Fable
 
@@ -14,3 +15,5 @@ type LuaCompiler(com: Fable.Compiler) =
     member this.DecisionTreeTargets (exprs: (list<Fable.Ident> * Expr) list) =
         decisionTreeTargets <- exprs
     member this.GetDecisionTreeTargets (idx: int) = decisionTreeTargets.[idx]
+    member this.GetMember(memberRef: Fable.MemberRef): Fable.MemberFunctionOrValue =
+        com.GetMember(memberRef: Fable.MemberRef)

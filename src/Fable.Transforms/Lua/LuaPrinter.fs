@@ -77,6 +77,7 @@ module Output =
             match c with
             | ConstString s -> s |> sprintf "'%s'" |> write ctx
             | ConstNumber n -> n |> sprintf "%f" |> write ctx
+            | ConstInteger n -> n |> sprintf "%i" |> write ctx
             | ConstBool b -> b |> sprintf "%b" |> write ctx
             | ConstNull -> write ctx "nil"
         | FunctionCall(e, args) ->
@@ -208,7 +209,7 @@ module Output =
             writeln ctx ""
             writei ctx "}"
         | NoOp -> ()
-        | Brackets expr ->
+        | Parentheses expr ->
             write ctx "("
             writeExpr ctx expr
             write ctx ")"

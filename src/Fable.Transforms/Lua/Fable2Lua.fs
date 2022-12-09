@@ -14,9 +14,31 @@ open Fable.Naming
 open Fable.Core
 
 
-// type LuaCompiler(com: Fable.Compiler) =
-//     interface ILuaCompiler // with
-        //member this.AddType(entref, Type: LuaType) = this.AddType(entref, phpType)
+type UsedNames =
+    { RootScope: HashSet<string>
+      DeclarationScopes: HashSet<string>
+      CurrentDeclarationScope: HashSet<string> }
+type BoundVars =
+    { EnclosingScope: HashSet<string>
+      LocalScope: HashSet<string>
+      Inceptions: int }
+
+type ITailCallOpportunity =
+    abstract Label: string
+    abstract Args: Fable.Ident list
+    abstract IsRecursiveRef: Fable.Expr -> bool
+
+type Context =
+    { File: Fable.File
+      UsedNames: UsedNames
+      BoundVars: BoundVars
+      DecisionTargets: (Fable.Ident list * Fable.Expr) list
+      HoistVars: Fable.Ident list -> bool
+      TailCallOpportunity: ITailCallOpportunity option
+      OptimizeTailCall: unit -> unit
+      ScopedTypeParams: Set<string>
+      TypeParamsScope: int }
+
 module Transforms =
     module Helpers =
         let transformStatements transformStatements transformReturn exprs = [
@@ -58,6 +80,8 @@ module Transforms =
     let transformValueKind (com: LuaCompiler) = function
         | Fable.NumberConstant(:? float as v,kind,_) ->
             Const(ConstNumber v)
+        | Fable.NumberConstant(:? int as v,kind,_) ->
+            Const(ConstInteger v)
         | Fable.StringConstant(s) ->
             Const(ConstString s)
         | Fable.BoolConstant(b) ->
@@ -166,7 +190,7 @@ module Transforms =
                         GetObjMethod(transformExpr expr, info.Name)
                     | _ -> transformExpr expr
                 | Fable.Expr.Delegate _ ->
-                    transformExpr expr |> Brackets
+                    transformExpr expr |> Parentheses
                 | _ -> transformExpr expr
             FunctionCall(lhs, List.map transformExpr callInfo.Args)
         | Fable.Expr.Import (info, t, r) ->
@@ -261,7 +285,7 @@ module Transforms =
                 //transformExpr expr
             FunctionCall(Helpers.ident "error", [errorExpr])
         | Fable.Extended(Fable.ExtendedSet.Curry(expr, d), _) ->
-            transformExpr expr |> sprintf "todo curry %A" |> Unknown
+            transformExpr expr |> sprintf "(Fable2Lua:~266) todo curry %A" |> Unknown
         | Fable.Delegate(idents, body, _, _) ->
             Function(idents |> List.map(fun i -> i.Name), [transformExpr body |> Return |> flattenReturnIifes]) //can be flattened
         | Fable.ForLoop(ident, start, limit, body, isUp, _) ->
@@ -295,9 +319,54 @@ module Transforms =
                     | _ -> ()
                 ])
             ]
-        | x -> Unknown (sprintf "%A" x)
+        | x -> Unknown (sprintf "(transform fallthrough) %A" x)
 
-    let transformDeclarations (com: LuaCompiler) = function
+
+    let transformDeclarations (com: LuaCompiler) ctx decl =
+        let withCurrentScope (ctx: Context) (usedNames: Set<string>) f =
+            let ctx =
+                { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
+
+            let result = f ctx
+            ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
+            result
+        let transformAttachedProperty (com: LuaCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
+            //TODO For some reason this never gets hit
+            let isStatic = not info.IsInstance
+            let isGetter = info.IsGetter
+
+            let decorators =
+                [ if isStatic then
+                    Helpers.ident "staticmethod"
+                elif isGetter then
+                    Helpers.ident "property"
+                else
+                    Helpers.ident $"{memb.Name}.setter" ]
+
+            let args, body, returnType = [""], [Do (Unknown "")] , Unknown ""
+                //getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
+
+            let key = "key"
+                // memberFromName com ctx memb.Name
+                // |> nameFromKey com ctx
+
+            // let arguments =
+            //     if isStatic then
+            //        // { args with Args = [""] }
+            //     else
+            //         { args with Args = args}//args.Args }
+
+            Function ( args, body )
+            //(key, arguments, body = body, decoratorList = decorators, returns = returnType)
+            |> List.singleton
+        let transformAttachedMethod (com: LuaCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
+            [Helpers.ident info.FullName]
+            //TODO For some reason this never gets hit
+
+
+
+
+        match decl with
         | Fable.ModuleDeclaration m ->
             Assignment(["moduleDecTest"], Expr.Const (ConstString "moduledectest"), false)
         | Fable.MemberDeclaration m ->
@@ -313,15 +382,61 @@ module Transforms =
                 FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), unwrapSelfExStatements, info.IsPublic)
         | Fable.ClassDeclaration(d) ->
             com.AddClassDecl d
-            //todo - build prototype members out
-            //SNoOp
-            sprintf "ClassDeclaration %A" d |> Unknown |> Do
+            let ent = d.Entity
+            let classMembers =
+                d.AttachedMembers
+                |> List.collect (fun memb ->
+                    withCurrentScope ctx memb.UsedNames
+                    <| fun ctx ->
+                        let info =
+                            memb.ImplementedSignatureRef
+                            |> Option.map com.GetMember
+                            |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
+
+                        if not memb.IsMangled
+                           && (info.IsGetter || info.IsSetter) then
+                            transformAttachedProperty com ctx info memb
+                        else
+                            transformAttachedMethod com ctx info memb)
+            match d.Constructor with
+                | Some cons ->
+                    withCurrentScope ctx cons.UsedNames <| fun ctx ->
+                        Assignment([d.Name], NewArr(classMembers), true)   //transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
+                | None ->
+                    Assignment([d.Name], NewArr(classMembers), true)
+
         | x -> sprintf "%A" x |> Unknown |> Do
 
 let transformFile com (file: Fable.File): File =
+    let declScopes =
+        let hs = HashSet()
+
+        for decl in file.Declarations do
+            hs.UnionWith(decl.UsedNames)
+
+        hs
+    let ctx: Context =
+        {
+            File = file
+            UsedNames =
+                { RootScope = HashSet file.UsedNamesInRootScope
+                  DeclarationScopes = declScopes
+                  CurrentDeclarationScope = Unchecked.defaultof<_> }
+            BoundVars =
+                { EnclosingScope = HashSet()
+                  LocalScope = HashSet()
+                  Inceptions = 0 }
+            DecisionTargets = []
+            HoistVars = fun _ -> false
+            TailCallOpportunity = None
+            OptimizeTailCall = fun () -> ()
+            ScopedTypeParams = Set.empty
+            TypeParamsScope = 0
+        }
+
     let comp = LuaCompiler(com)
     {
         Filename = "abc"
-        Statements =  file.Declarations |> List.map (Transforms.transformDeclarations comp)
+        Statements =  file.Declarations |> List.map (Transforms.transformDeclarations comp ctx)
         ASTDebug = sprintf "%A" file.Declarations
     }

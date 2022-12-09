@@ -4,6 +4,7 @@ namespace rec Fable.AST.Lua
 
 type Const =
     | ConstNumber of float
+    | ConstInteger of int
     | ConstString of string
     | ConstBool of bool
     | ConstNull
@@ -43,7 +44,7 @@ type Expr =
     | SetValue of Expr * value: Expr
     | SetExpr of Expr * Expr * value: Expr
     | FunctionCall of f: Expr * args: Expr list
-    | Brackets of Expr
+    | Parentheses of Expr
     | AnonymousFunc of args: string list * body: Statement list
     | Unknown of string
     | Macro of string * args: Expr list
