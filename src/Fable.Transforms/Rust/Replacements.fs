@@ -2932,6 +2932,9 @@ let private replacedModules =
     Types.uint32, parseNum
     Types.int64, parseNum
     Types.uint64, parseNum
+    Types.int128, parseNum
+    Types.uint128, parseNum
+    Types.float16, parseNum
     Types.float32, parseNum
     Types.float64, parseNum
     Types.decimal, decimals
