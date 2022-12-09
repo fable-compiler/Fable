@@ -227,85 +227,96 @@ module Literals =
           kind = LitKind.Char(value)
           span = DUMMY_SP }
 
-    let mkIntLit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) None
+    let mkIntLit (value: Symbol): Lit =
+        { token = mkIntTokenLit value None
           kind = LitKind.Int(value, LitIntType.Unsuffixed)
           span = DUMMY_SP }
 
-    let mkIsizeLit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "isize")
+    let mkIsizeLit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "isize")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.Isize))
           span = DUMMY_SP }
 
-    let mkInt8Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "i8")
+    let mkInt8Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "i8")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I8))
           span = DUMMY_SP }
 
-    let mkInt16Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "i16")
+    let mkInt16Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "i16")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I16))
           span = DUMMY_SP }
 
-    let mkInt32Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "i32")
+    let mkInt32Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "i32")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I32))
           span = DUMMY_SP }
 
-    let mkInt64Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "i64")
+    let mkInt64Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "i64")
           kind = LitKind.Int(value, LitIntType.Signed(IntTy.I64))
           span = DUMMY_SP }
 
-    let mkUsizeLit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "usize")
+    let mkInt128Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "i128")
+          kind = LitKind.Int(value, LitIntType.Signed(IntTy.I128))
+          span = DUMMY_SP }
+
+    let mkUsizeLit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "usize")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.Usize))
           span = DUMMY_SP }
 
-    let mkUInt8Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "u8")
+    let mkUInt8Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "u8")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U8))
           span = DUMMY_SP }
 
-    let mkUInt16Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "u16")
+    let mkUInt16Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "u16")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U16))
           span = DUMMY_SP }
 
-    let mkUInt32Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "u32")
+    let mkUInt32Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "u32")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U32))
           span = DUMMY_SP }
 
-    let mkUInt64Lit (value: uint64): Lit =
-        { token = mkIntTokenLit (string value) (Some "u64")
+    let mkUInt64Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "u64")
           kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U64))
           span = DUMMY_SP }
 
-    let mkFloatLit (value: float): Lit =
+    let mkUInt128Lit (value: Symbol): Lit =
+        { token = mkIntTokenLit value (Some "u128")
+          kind = LitKind.Int(value, LitIntType.Unsigned(UintTy.U128))
+          span = DUMMY_SP }
+
+    let mkFloatLit (value: Symbol): Lit =
         let strValueWithDot =
-            let s = string value
-            if s.Contains(".") then s else s + ".0"
+            if value.Contains(".") || value.Contains("e") || value.Contains("E")
+            then value
+            else value + ".0"
         { token = mkFloatTokenLit strValueWithDot None
-          kind = LitKind.Float(string value, LitFloatType.Unsuffixed)
+          kind = LitKind.Float(value, LitFloatType.Unsuffixed)
           span = DUMMY_SP }
 
-    let mkFloat32Lit (value: float32): Lit =
+    let mkFloat32Lit (value: Symbol): Lit =
         let strValueWithDot =
-            let s = string value
-            if s.Contains(".") then s else s + ".0"
+            if value.Contains(".") || value.Contains("e") || value.Contains("E")
+            then value
+            else value + ".0"
         { token = mkFloatTokenLit strValueWithDot (Some "f32")
-          kind = LitKind.Float(string value, LitFloatType.Suffixed(FloatTy.F32))
+          kind = LitKind.Float(value, LitFloatType.Suffixed(FloatTy.F32))
           span = DUMMY_SP }
 
-    let mkFloat64Lit (value: float): Lit =
+    let mkFloat64Lit (value: Symbol): Lit =
         let strValueWithDot =
-            let s = string value
-            if s.Contains(".") || s.Contains("e") || s.Contains("E")
-            then s
-            else s + ".0"
+            if value.Contains(".") || value.Contains("e") || value.Contains("E")
+            then value
+            else value + ".0"
         { token = mkFloatTokenLit strValueWithDot (Some "f64")
-          kind = LitKind.Float(string value, LitFloatType.Suffixed(FloatTy.F64))
+          kind = LitKind.Float(value, LitFloatType.Suffixed(FloatTy.F64))
           span = DUMMY_SP }
 
     let mkStrLit (value: Symbol): Lit =
@@ -640,6 +651,11 @@ module Exprs =
         |> mkInt64Lit
         |> mkLitExpr
 
+    let mkInt128LitExpr value: Expr =
+        value
+        |> mkInt128Lit
+        |> mkLitExpr
+
     let mkUsizeLitExpr value: Expr =
         value
         |> mkUsizeLit
@@ -663,6 +679,12 @@ module Exprs =
     let mkUInt64LitExpr value: Expr =
         value
         |> mkUInt64Lit
+        |> ExprKind.Lit
+        |> mkExpr
+
+    let mkUInt128LitExpr value: Expr =
+        value
+        |> mkUInt128Lit
         |> ExprKind.Lit
         |> mkExpr
 

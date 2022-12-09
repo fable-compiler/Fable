@@ -32,6 +32,7 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
         // and use JS BigInt to represent int64
 //        | Int64 -> Some "BigInt64Array"
 //        | UInt64 -> Some "BigUint64Array"
+        | Int128 | UInt128 | Float16
         | Int64 | UInt64 | BigInt | Decimal | NativeInt | UNativeInt -> None
     | _ -> None
 
@@ -179,6 +180,7 @@ let castBigIntMethod typeTo =
         | Float32 -> "toSingle"
         | Float64 -> "toDouble"
         | Decimal -> "toDecimal"
+        | Int128 | UInt128 | Float16
         | BigInt | NativeInt | UNativeInt -> FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
 
@@ -196,6 +198,8 @@ let kindIndex t = //         0   1   2   3   4   5   6   7   8   9  10  11
     | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
     | Decimal -> 10 // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
     | BigInt -> 11 // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+    | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
+    | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
 let needToCast typeFrom typeTo =
@@ -280,12 +284,13 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
         match kind with
         | Decimal ->
             let n = Helper.LibCall(com, "decimal", "toNumber", Number(Float64, NumberInfo.Empty), args)
-
             Helper.LibCall(com, "long", "fromNumber", targetType, [ n; makeBoolConst unsigned ])
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
         | Int64 | UInt64 -> Helper.LibCall(com, "long", "fromValue", targetType, args @ [ makeBoolConst unsigned ])
         | Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 as kind -> fromInteger kind args.Head
         | Float32 | Float64 -> Helper.LibCall(com, "long", "fromNumber", targetType, args @ [ makeBoolConst unsigned ])
+        | Float16 -> FableError "Casting float16 to long is not supported" |> raise
+        | Int128 | UInt128 -> FableError "Casting (u)int128 to long is not supported" |> raise
         | NativeInt | UNativeInt -> FableError "Converting (u)nativeint to long is not supported" |> raise
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
@@ -2252,7 +2257,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 -> toInt com ctx r t args |> Some
             | Float32 | Float64 -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
-            | BigInt | NativeInt | UNativeInt -> None
+            | Int128 | UInt128 | Float16 | BigInt | NativeInt | UNativeInt -> None
         | _ -> None
     | ("Ceiling"
       | "Floor"
@@ -2301,7 +2306,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             | Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 -> toInt com ctx r t args |> Some
             | Float32 | Float64 -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
-            | BigInt | NativeInt | UNativeInt -> None
+            | Int128 | UInt128 | Float16 | BigInt | NativeInt | UNativeInt -> None
         | _ -> None
     | None, "DivRem" ->
         Helper.LibCall(com, "big_int", "divRem", t, args, i.SignatureArgTypes, ?loc = r)

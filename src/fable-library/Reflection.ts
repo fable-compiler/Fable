@@ -159,12 +159,15 @@ export const int32_type: TypeInfo = new TypeInfo("System.Int32");
 export const uint32_type: TypeInfo = new TypeInfo("System.UInt32");
 export const int64_type: TypeInfo = new TypeInfo("System.Int64");
 export const uint64_type: TypeInfo = new TypeInfo("System.UInt64");
-export const bigint_type: TypeInfo = new TypeInfo("System.Numerics.BigInteger");
+export const int128_type: TypeInfo = new TypeInfo("System.Int128");
+export const uint128_type: TypeInfo = new TypeInfo("System.UInt128");
 export const nativeint_type: TypeInfo = new TypeInfo("System.IntPtr");
 export const unativeint_type: TypeInfo = new TypeInfo("System.UIntPtr");
+export const float16_type: TypeInfo = new TypeInfo("System.Half");
 export const float32_type: TypeInfo = new TypeInfo("System.Single");
 export const float64_type: TypeInfo = new TypeInfo("System.Double");
 export const decimal_type: TypeInfo = new TypeInfo("System.Decimal");
+export const bigint_type: TypeInfo = new TypeInfo("System.Numerics.BigInteger");
 
 export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string {
   if (Array.isArray(info)) {

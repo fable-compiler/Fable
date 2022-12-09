@@ -70,8 +70,11 @@ module Types =
     let [<Literal>] uint32 = "System.UInt32"
     let [<Literal>] int64 = "System.Int64"
     let [<Literal>] uint64 = "System.UInt64"
+    let [<Literal>] int128 = "System.Int128"
+    let [<Literal>] uint128 = "System.UInt128"
     let [<Literal>] nativeint = "System.IntPtr"
     let [<Literal>] unativeint = "System.UIntPtr"
+    let [<Literal>] float16 = "System.Half"
     let [<Literal>] float32 = "System.Single"
     let [<Literal>] float64 = "System.Double"
     let [<Literal>] decimal = "System.Decimal"
@@ -699,9 +702,12 @@ module AST =
         | UInt32 -> "uint32"
         | Int64 -> "int64"
         | UInt64 -> "uint64"
+        | Int128 -> "int128"
+        | UInt128 -> "uint128"
         | BigInt  -> "bigint"
         | NativeInt -> "nativeint"
         | UNativeInt -> "unativeint"
+        | Float16 -> "float16"
         | Float32 -> "float32"
         | Float64 -> "float64"
         | Decimal -> "decimal"
@@ -811,9 +817,12 @@ module AST =
             | UInt32  -> Types.uint32
             | Int64   -> Types.int64
             | UInt64  -> Types.uint64
+            | Int128  -> Types.int128
+            | UInt128 -> Types.uint128
             | BigInt  -> Types.bigint
             | NativeInt -> Types.nativeint
             | UNativeInt -> Types.unativeint
+            | Float16 -> Types.float16
             | Float32 -> Types.float32
             | Float64 -> Types.float64
             | Decimal -> Types.decimal
