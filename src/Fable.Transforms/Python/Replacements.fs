@@ -2147,10 +2147,10 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
 
     let isFloat =
-        match i.SignatureArgTypes.Head with
+        match i.SignatureArgTypes with
         | Number ((Float32
                   | Float64),
-                  _) -> true
+                  _) :: _ -> true
         | _ -> false
 
     match i.CompiledName, args with
