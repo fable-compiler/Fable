@@ -1764,8 +1764,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc=r) |> Some
 
     let isFloat =
-        match i.SignatureArgTypes.Head with
-        | Number((Float32 | Float64),_) -> true
+        match i.SignatureArgTypes with
+        | Number((Float32 | Float64),_) :: _ -> true
         | _ -> false
 
     match i.CompiledName, args with
