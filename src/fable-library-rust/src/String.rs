@@ -7,7 +7,6 @@ pub mod String_ {
     use crate::Native_::{arrayFrom, Array, Func1, Func2, Lrc, String, ToString, Vec};
 
     use core::cmp::Ordering;
-    use core::fmt::Debug;
     use core::hash::{Hash, Hasher};
 
     // -----------------------------------------------------------
@@ -18,7 +17,7 @@ pub mod String_ {
         use crate::Native_::Lrc;
 
         #[repr(transparent)]
-        #[derive(Clone, Debug)]
+        #[derive(Clone)]
         pub struct LrcStr(Lrc<str>);
 
         pub type string = LrcStr;
@@ -53,7 +52,7 @@ pub mod String_ {
 
         const INLINE_MAX: usize = 22;
 
-        #[derive(Clone, Debug)]
+        #[derive(Clone)]
         pub enum LrcStr {
             Static(&'static str),
             Inline { len: u8, buf: [u8; INLINE_MAX] },
@@ -112,6 +111,20 @@ pub mod String_ {
     pub use EnumString::*;
 
     // -----------------------------------------------------------
+    // macros
+    // -----------------------------------------------------------
+
+    #[macro_export]
+    macro_rules! sformat {
+        ($($arg:tt)*) => {{
+            let res = format!($($arg)*);
+            $crate::String_::stringFrom(res)
+        }}
+    }
+
+    pub use crate::sformat;
+
+    // -----------------------------------------------------------
     // traits
     // -----------------------------------------------------------
 
@@ -131,6 +144,12 @@ pub mod String_ {
         type Target = str;
         fn deref(&self) -> &Self::Target {
             self.as_str()
+        }
+    }
+
+    impl core::fmt::Debug for string {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", self.as_str())
         }
     }
 
