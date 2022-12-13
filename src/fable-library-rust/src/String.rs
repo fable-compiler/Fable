@@ -115,14 +115,23 @@ pub mod String_ {
     // -----------------------------------------------------------
 
     #[macro_export]
-    macro_rules! sformat {
+    macro_rules! sprintf {
         ($($arg:tt)*) => {{
             let res = format!($($arg)*);
             $crate::String_::stringFrom(res)
         }}
     }
 
-    pub use crate::sformat;
+    #[macro_export]
+    macro_rules! kprintf {
+        ($f:expr, $($arg:expr),+) => {{
+            let res = format!($($arg),+);
+            $f($crate::String_::stringFrom(res))
+        }}
+    }
+
+    pub use crate::sprintf;
+    pub use crate::kprintf;
 
     // -----------------------------------------------------------
     // traits

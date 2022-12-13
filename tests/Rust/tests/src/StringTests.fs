@@ -108,12 +108,12 @@ let ``StringBuilder.Append works with various overloads`` () =
 //     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
 //     sb.ToString() |> equal "Hello World!"
 
-// [<Fact>]
-// let ``kprintf works`` () =
-//     let f (s:string) = s + "XX"
-//     Printf.kprintf f "hello" |> equal "helloXX"
-//     Printf.kprintf f "%X" 255 |> equal "FFXX"
-//     Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
+[<Fact>]
+let ``kprintf works`` () =
+    let f (s:string) = s + "XX"
+    Printf.kprintf f "hello" |> equal "helloXX"
+    Printf.kprintf f "%X" 255 |> equal "FFXX"
+    Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
 
 // [<Fact>]
 // let ``kprintf works indirectly`` () = // See #1204
@@ -339,9 +339,9 @@ let ``interpolated string with format and double % should be unescaped`` () =
 let ``interpolated string with double % should not interfere with holes afterwards `` () =
     $"%%{99. - 1.5}" |> equal "%97.5"
 
-// [<Fact>]
-// let ``interpolated string with double % should not interfere with format afterwards `` () =
-//     $"%%%g{99. - 1.5}" |> equal "%97.5"
+[<Fact>]
+let ``interpolated string with double % should not interfere with format afterwards `` () =
+    $"%%%g{99. - 1.5}" |> equal "%97.5"
 
 [<Fact>]
 let ``interpolated string with consecutive holes work`` () =
@@ -349,17 +349,17 @@ let ``interpolated string with consecutive holes work`` () =
     $"""%s{"foo"}%i{5}""" |> equal "foo5"
     $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
 
-// [<Fact>]
-// let ``interpolated string with double braces should be unescaped`` () =
-//     $"{{ {100} }}" |> equal "{ 100 }"
+[<Fact>]
+let ``interpolated string with double braces should be unescaped`` () =
+    $"{{ {100} }}" |> equal "{ 100 }"
 
-// [<Fact>]
-// let ``interpolated string with format and double braces should be unescaped`` () =
-//     $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
+[<Fact>]
+let ``interpolated string with format and double braces should be unescaped`` () =
+    $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
 
-// [<Fact>]
-// let ``sprintf with double % should be unescaped`` () =
-//     sprintf "%d%%" 100 |> equal "100%"
+[<Fact>]
+let ``sprintf with double % should be unescaped`` () =
+    sprintf "%d%%" 100 |> equal "100%"
 
 // [<Fact>]
 // let ``sprintf \"%A\" with lists works`` () =
@@ -387,30 +387,30 @@ let ``interpolated string with consecutive holes work`` () =
 //     containsInOrder ["Hello"; "Hola"] a |> equal true
 //     containsInOrder ["Hello"; "Hola"] b |> equal true
 
-// [<Fact>]
-// let ``sprintf \"%X\" works`` () =
-//     //These should all be the Native JS Versions (except int64 / uint64)
-//     //See #1530 for more information.
+[<Fact>]
+let ``sprintf \"%X\" works`` () =
+    //These should all be the Native JS Versions (except int64 / uint64)
+    //See #1530 for more information.
 
-//     sprintf "255: %X" 255 |> equal "255: FF"
-//     sprintf "255: %x" 255 |> equal "255: ff"
-//     sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
-//     sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
-//     sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
-//     sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
-//     sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
-//     sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
-//     sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
-//     sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
-//     sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
+    sprintf "255: %X" 255 |> equal "255: FF"
+    sprintf "255: %x" 255 |> equal "255: ff"
+    sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+    sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
+    sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
+    sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
+    sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
+    sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
+    sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
+    sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
+    sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
 
-// [<Fact>]
-// let ``sprintf integers with sign and padding works`` () = // See #1931
-//     sprintf "%+04i" 1 |> equal "+001"
-//     sprintf "%+04i" -1 |> equal "-001"
-//     sprintf "%5d" -5 |> equal "   -5"
-//     sprintf "%5d" -5L |> equal "   -5"
-//     sprintf "%- 4i" 5 |> equal " 5  "
+[<Fact>]
+let ``sprintf integers with sign and padding works`` () = // See #1931
+    sprintf "%+04i" 1 |> equal "+001"
+    sprintf "%+04i" -1 |> equal "-001"
+    sprintf "%5d" -5 |> equal "   -5"
+    sprintf "%5d" -5L |> equal "   -5"
+    // sprintf "%- 4i" 5 |> equal " 5  " //TODO:
 
 // [<Fact>]
 // let ``parameterized padding works`` () = // See #2336
