@@ -135,7 +135,6 @@ let ``StringBuilder.Append works with various overloads`` () =
 // [<Fact>]
 // let ``ksprintf curries correctly`` () =
 //     let append (a: string) b = a + b
-
 //     let step1 = Printf.ksprintf append "%d"
 //     let step2 = step1 42
 //     let result = step2 "The answer is: "
@@ -148,78 +147,79 @@ let ``StringBuilder.Append works with various overloads`` () =
 //     Printf.bprintf sb " %s!" "world"
 //     sb.ToString() |> equal "Hello world!"
 
-// [<Fact>]
-// let ``sprintf works`` () =
-//     // Immediately applied
-//     sprintf "%.2f %g" 0.5468989 5.
-//     |> equal "0.55 5"
-//     // Curried
-//     let printer = sprintf "Hi %s, good %s!"
-//     let printer = printer "Alfonso"
-//     printer "morning" |> equal "Hi Alfonso, good morning!"
-//     printer "evening" |> equal "Hi Alfonso, good evening!"
+[<Fact>]
+let ``sprintf works`` () =
+    // Immediately applied
+    sprintf "%.2f %g" 0.5468989 5.
+    |> equal "0.55 5"
+    // Curried
+    let printer = sprintf "Hi %s, good %s!"
+    let printer = printer "Alfonso"
+    printer "morning" |> equal "Hi Alfonso, good morning!"
+    printer "evening" |> equal "Hi Alfonso, good evening!"
 
-// [<Fact>]
-// let ``sprintf works II`` () =
-//     let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
-//     let printer2 = printer2 "afternoon"
-//     printer2 "?" |> equal "Hi Maxime, good afternoon?"
+[<Fact>]
+let ``sprintf works II`` () =
+    let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
+    let printer2 = printer2 "afternoon"
+    printer2 "?" |> equal "Hi Maxime, good afternoon?"
 
-// [<Fact>]
-// let ``sprintf with different decimal digits works`` () = // See #1932
-//     sprintf "Percent: %.0f%%" 5.0 |> equal "Percent: 5%"
-//     sprintf "Percent: %.2f%%" 5. |> equal "Percent: 5.00%"
-//     sprintf "Percent: %.1f%%" 5.24 |> equal "Percent: 5.2%"
-//     sprintf "Percent: %.2f%%" 5.268 |> equal "Percent: 5.27%"
-//     sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
+[<Fact>]
+let ``sprintf with different decimal digits works`` () = // See #1932
+    sprintf "Percent: %.0f%%" 5.0 |> equal "Percent: 5%"
+    sprintf "Percent: %.2f%%" 5. |> equal "Percent: 5.00%"
+    sprintf "Percent: %.1f%%" 5.24 |> equal "Percent: 5.2%"
+    sprintf "Percent: %.2f%%" 5.268 |> equal "Percent: 5.27%"
+    sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
+    sprintf "Percent: %g%%" 5.67 |> equal "Percent: 5.67%"
 
-// [<Fact>]
-// let ``sprintf displays sign correctly`` () = // See #1937
-//     sprintf "%i" 1 |> equal "1"
-//     sprintf "%d" 1 |> equal "1"
-//     sprintf "%d" 1L |> equal "1"
-//     sprintf "%.2f" 1. |> equal "1.00"
-//     sprintf "%i" -1 |> equal "-1"
-//     sprintf "%d" -1 |> equal "-1"
-//     sprintf "%d" -1L |> equal "-1"
-//     sprintf "%.2f" -1. |> equal "-1.00"
+[<Fact>]
+let ``sprintf displays sign correctly`` () = // See #1937
+    sprintf "%i" 1 |> equal "1"
+    sprintf "%d" 1 |> equal "1"
+    sprintf "%d" 1L |> equal "1"
+    sprintf "%.2f" 1. |> equal "1.00"
+    sprintf "%i" -1 |> equal "-1"
+    sprintf "%d" -1 |> equal "-1"
+    sprintf "%d" -1L |> equal "-1"
+    sprintf "%.2f" -1. |> equal "-1.00"
 
-// [<Fact>]
-// let ``Print.sprintf works`` () = // See #1216
-//     let res = Printf.sprintf "%s" "abc"
-//     equal "res: abc" ("res: " + res)
+[<Fact>]
+let ``Print.sprintf works`` () = // See #1216
+    let res = Printf.sprintf "%s" "abc"
+    equal "res: abc" ("res: " + res)
 
-// [<Fact>]
-// let ``sprintf without arguments works`` () =
-//     sprintf "hello" |> equal "hello"
+[<Fact>]
+let ``sprintf without arguments works`` () =
+    sprintf "hello" |> equal "hello"
 
 // [<Fact>]
 // let ``input of print format can be retrieved`` () =
-//     let pathScan (pf:PrintfFormat<_,_,_,_,'t>) =
+//     let pathScan (pf: PrintfFormat<_,_,_,_,'t>) =
 //         let formatStr = pf.Value
 //         formatStr
 //     equal "/hello/%s" (pathScan "/hello/%s")
 
-// [<Fact>]
-// let ``sprintf with escaped percent symbols works`` () = // See #195
-//     let r, r1, r2 = "Ratio", 0.213849, 0.799898
-//     sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
-//     |> equal "Ratio1: 21.38% Ratio2: 79.99%"
+[<Fact>]
+let ``sprintf with escaped percent symbols works`` () = // See #195
+    let r, r1, r2 = "Ratio", 0.213849, 0.799898
+    sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
+    |> equal "Ratio1: 21.38% Ratio2: 79.99%"
 
-// [<Fact>]
-// let ``sprintf with percent symbols in arguments works`` () = // See #329
-//     let same s = sprintf "%s" s |> equal s
-//     same "%"
-//     same "%%"
-//     same "%%%"
-//     same "%%%%"
-//     same "% %"
-//     same "%% %%"
-//     same "%% % % %%"
+[<Fact>]
+let ``sprintf with percent symbols in arguments works`` () = // See #329
+    let same s = sprintf "%s" s |> equal s
+    same "%"
+    same "%%"
+    same "%%%"
+    same "%%%%"
+    same "% %"
+    same "%% %%"
+    same "%% % % %%"
 
-// [<Fact>]
-// let ``Fix #2398: Exception when two successive string format placeholders and value of first one ends in `%``` () =
-//     sprintf "%c%s" '%' "text" |> equal "%text"
+[<Fact>]
+let ``Fix #2398: Exception when two successive string format placeholders and value of first one ends in '%'`` () =
+    sprintf "%c%s" '%' "text" |> equal "%text"
 
 // [<Fact>]
 // let ``Unions with sprintf %A`` () =

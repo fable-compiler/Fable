@@ -4187,6 +4187,8 @@ module Compiler =
                 if selector = Fable.Naming.placeholder then
                     "`importMember` must be assigned to a variable"
                     |> addError com [] r
+                let isMacro = selector.EndsWith("!")
+                let selector = selector |> Fable.Naming.replaceSuffix "!" ""
                 let path =
                     if path.EndsWith(".fs") then
                         let fileExt = (self :> Compiler).Options.FileExtension
@@ -4222,7 +4224,9 @@ module Compiler =
 
                         imports.Add(cacheKey, import)
                         import
-                $"{import.LocalIdent}"
+                if isMacro
+                then $"{import.LocalIdent}!"
+                else $"{import.LocalIdent}"
 
             member _.GetAllImports(ctx) =
                 imports.Values
