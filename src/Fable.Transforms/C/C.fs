@@ -69,7 +69,7 @@ type Expr =
     | AnonymousFunc of args: string list * body: Statement list
     | Unknown of string
     | Macro of string * args: Expr list
-    | Ternary of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
+    // | Ternary of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | NoOp
     | Function of args: string list * body: Statement list
     // | NewStructInst of name: string * values: (string * Expr) list

@@ -37,3 +37,9 @@ let addMore i a b =
     let first = a.X + b.X + i
     let second = a.Y + b.Y + i + first
     { X = first ; Y = second }
+let condition1 x =
+    if x.X = 1 then
+        if x.Y > 3 then
+            2
+        else 4
+    else 3

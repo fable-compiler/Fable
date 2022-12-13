@@ -168,16 +168,16 @@ module Output =
 
             writeExpr ctx value
 
-        | Ternary(guardExpr, thenExpr, elseExpr) ->
+        // | Ternary(guardExpr, thenExpr, elseExpr) ->
 
-            write ctx "("
-            writeExpr ctx guardExpr
-            let ctxI = indent ctx
-            write ctx " and "
-            writeExpr ctxI thenExpr
-            write ctx " or "
-            writeExpr ctxI elseExpr
-            write ctx ")"
+        //     write ctx "("
+        //     writeExpr ctx guardExpr
+        //     let ctxI = indent ctx
+        //     write ctx " and "
+        //     writeExpr ctxI thenExpr
+        //     write ctx " or "
+        //     writeExpr ctxI elseExpr
+        //     write ctx ")"
 
         | Macro (macro, args) ->
             let regex = System.Text.RegularExpressions.Regex("\$(?<n>\d)(?<s>\.\.\.)?")
@@ -335,21 +335,22 @@ module Output =
             writeln ctx ";"
 
         | IfThenElse(guard, thenSt, elseSt) ->
-            writei ctx "if "
+            writei ctx "if ("
             writeExpr ctx guard
-            write ctx " then"
+            write ctx ") {"
             let ctxI = indent ctx
             for statement in thenSt do
                 writeln ctxI ""
                 writeStatement ctxI statement
             writeln ctx ""
-            writei ctx "else"
+            writei ctx "}"
+            writei ctx "else {"
             for statement in elseSt do
                 writeln ctxI ""
                 writeStatement ctxI statement
             writeln ctx ""
-            writei ctx "end"
-            writeln ctx ";"
+            writei ctx "}"
+            writeln ctx ""
 
         | SNoOp -> ()
 

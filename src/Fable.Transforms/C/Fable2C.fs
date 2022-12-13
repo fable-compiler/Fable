@@ -57,8 +57,8 @@ module Transforms =
                 | AnonymousFunc(args, body) -> failwith "Not Implemented"
                 | Unknown(_) -> failwith "Not Implemented"
                 | Macro(_, args) -> args |> List.collect identUsesInExpr
-                | Ternary(guardExpr, thenExpr, elseExpr) ->
-                    identUsesInExpr guardExpr @ identUsesInExpr thenExpr @ identUsesInExpr elseExpr
+                // | Ternary(guardExpr, thenExpr, elseExpr) ->
+                //     identUsesInExpr guardExpr @ identUsesInExpr thenExpr @ identUsesInExpr elseExpr
                 | NoOp -> failwith "Not Implemented"
                 | Function(args, body) -> failwith "Not Implemented"
                 | NewArr(values) ->
@@ -116,6 +116,8 @@ module Transforms =
                             for (name, t) in toCleanup do
                                 yield FunctionCall("Rc_Dispose" |> voidIdent, [Ident {Name = name; Type = t}]) |> Do
                             yield Return (Ident { Name="ret"; Type=t })
+                        | IfThenElse(guard, thenSt, elseSt) ->
+                            yield IfThenElse(guard, addCleanupOnExit com t toCleanup thenSt, addCleanupOnExit com t toCleanup elseSt)
                         | _ -> yield s
                 ]
 
@@ -333,7 +335,7 @@ module Transforms =
         | Fable.Expr.CurriedApply(applied, args, _, _) ->
             FunctionCall(transformExpr applied, args |> List.map transformExpr) |> singletonStatement
         | Fable.Expr.IfThenElse (guardExpr, thenExpr, elseExpr, _) ->
-            Ternary(transformExpr guardExpr, transformExpr thenExpr, transformExpr elseExpr) |> singletonStatement
+            [IfThenElse(transformExpr guardExpr, transformExprAsStatements com thenExpr, transformExprAsStatements com elseExpr)]
         | Fable.Test(expr, kind, b) ->
             match kind with
             | Fable.UnionCaseTest i->
