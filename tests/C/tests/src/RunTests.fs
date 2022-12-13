@@ -52,3 +52,7 @@ let stuff () =
     let m = A
     let n = B 4
     n
+
+let matchstuff = function
+    | A -> 0
+    | B i -> i

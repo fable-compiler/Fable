@@ -19,7 +19,7 @@ type CCompiler(com: Fable.Compiler) =
     member this.GetEntity entRef= com.TryGetEntity(entRef).Value
     member this.GenAndCallDeferredFunctionFromExpr (scopedArgs, body, retType) =
         let seed = scopedArgs.GetHashCode() + body.GetHashCode() //todo prevent collisions
-        let delegatedName = "delegated" + seed.ToString() //todo generate procedurally
+        let delegatedName = "delegated_" + seed.ToString() //todo generate procedurally
         let declaration = C.FunctionDeclaration(
                 delegatedName,
                 scopedArgs |> List.map (fun (s: C.CIdent) -> s.Name, s.Type),

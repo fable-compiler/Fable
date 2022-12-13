@@ -199,6 +199,7 @@ module Transforms =
                 CStruct ent.CompiledName |> Rc
             else Pointer Void
         | _ ->
+            failwithf "unrecognised %A" t
             Pointer Void
     let isRcType (com: CCompiler) t =
         let cType = transformType com t
@@ -535,7 +536,7 @@ let transformFile com (file: Fable.File): File =
     {
         Filename = "abc"
         Includes = comp.GetIncludes()
-        Declarations = (comp.GetAdditionalDeclarations() @ (file.Declarations |> List.collect (Transforms.transformDeclarations comp)))
+        Declarations = ((file.Declarations |> List.collect (Transforms.transformDeclarations comp)) @ comp.GetAdditionalDeclarations())
                         |> List.map transformDeclPostprocess
         ASTDebug = sprintf "%A" file.Declarations
     }
