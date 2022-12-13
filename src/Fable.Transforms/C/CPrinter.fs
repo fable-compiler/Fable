@@ -208,7 +208,6 @@ module Output =
 
                 pos <- m.Index + m.Length
             write ctx (macro.Substring(pos))
-
         | Function(args, body) ->
             write ctx "function "
             write ctx "("

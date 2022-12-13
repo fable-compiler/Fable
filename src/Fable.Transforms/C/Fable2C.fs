@@ -112,11 +112,14 @@ module Transforms =
                         | Return r -> // where the scope ends, add clean up
                             // yield! toCleanup
                             // yield DeclareIdent("ret", t)
-                            yield Assignment(["ret"],r, t)
-                            //cleanup
-                            for (name, t) in toCleanup do
-                                yield FunctionCall("Rc_Dispose" |> voidIdent, [Ident {Name = name; Type = t}]) |> Do
-                            yield Return (Ident { Name="ret"; Type=t })
+                            if toCleanup.Length > 0 then
+                                yield Assignment(["ret"],r, t)
+                                //cleanup
+                                for (name, t) in toCleanup do
+                                    yield FunctionCall("Rc_Dispose" |> voidIdent, [Ident {Name = name; Type = t}]) |> Do
+                                yield Return (Ident { Name="ret"; Type=t })
+                            else
+                                yield Return r
                         | IfThenElse(guard, thenSt, elseSt) ->
                             yield IfThenElse(guard, addCleanupOnExit com t toCleanup thenSt, addCleanupOnExit com t toCleanup elseSt)
                         | _ -> yield s
