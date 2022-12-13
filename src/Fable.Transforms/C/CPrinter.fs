@@ -94,6 +94,8 @@ module Output =
         | CStruct name ->
             write ctx "struct "
             write ctx name
+        | Rc _ ->
+            write ctx "struct Rc"
         | x -> sprintf "%A" x |> write ctx
 
     let rec writeExpr ctx = function
@@ -122,8 +124,12 @@ module Output =
             for b in body do
                 writeStatement ctxI b
             writei ctx "end)"
-        | Unary(Not, expr) ->
-            write ctx "not "
+        | Unary(op, expr) ->
+            let op =
+                match op with
+                | Not -> "!"
+                | RefOf -> "&"
+            write ctx op
             writeExpr ctx expr
         | Binary (op, left, right) ->
             writeExpr ctx left
@@ -134,6 +140,10 @@ module Output =
         | GetField(expr, fieldName) ->
             writeExpr ctx expr
             write ctx "."
+            write ctx fieldName
+        | GetFieldThroughPointer(expr, fieldName) ->
+            writeExpr ctx expr
+            write ctx "->"
             write ctx fieldName
         | GetObjMethod(expr, fieldName) ->
             writeExpr ctx expr
@@ -239,11 +249,15 @@ module Output =
 
         | NoOp -> ()
         | Brackets expr ->
-
             write ctx "("
-
             writeExpr ctx expr
-
+            write ctx ")"
+        | Cast (t, expr) ->
+            write ctx "("
+            writeType ctx t
+            write ctx ")"
+            write ctx "("
+            writeExpr ctx expr
             write ctx ")"
         | Unknown x ->
             writeCommented ctx "unknown" x
@@ -381,6 +395,7 @@ module Output =
 
     let writeFile ctx (file: File) =
         writeln ctx "#include <stdio.h>"
+        writeln ctx "#include \"../../fable-lib/rc.c\"" // todo imports should handle this
         //todo write includes
         for fInclude in file.Includes do
             if fInclude.IsBuiltIn then

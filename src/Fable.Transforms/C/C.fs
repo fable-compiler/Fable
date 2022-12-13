@@ -16,6 +16,7 @@ type CType =
     | Array of CType
     | Pointer of CType
     | CStruct of string
+    | Rc of CType
 
 
 type Const =
@@ -31,7 +32,7 @@ type CIdent =
 
 type UnaryOp =
     | Not
-    | NotBitwise
+    | RefOf
 
 type BinaryOp =
     | Equals
@@ -57,12 +58,14 @@ type Expr =
     | Unary of UnaryOp * Expr
     | Binary of BinaryOp * Expr * Expr
     | GetField of Expr * name: string
+    | GetFieldThroughPointer of Expr * name: string
     | GetObjMethod of Expr * name: string
     | GetAtIndex of Expr * idx: Expr
     | SetValue of Expr * value: Expr
     | SetExpr of Expr * Expr * value: Expr
     | FunctionCall of f: Expr * args: Expr list
     | Brackets of Expr
+    | Cast of CType * Expr
     | AnonymousFunc of args: string list * body: Statement list
     | Unknown of string
     | Macro of string * args: Expr list

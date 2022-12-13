@@ -31,3 +31,9 @@ type Simple2 = {
 
 let addBoth a b =
     { X = a.X + b.X ; Y = a.Y + b.Y}
+let forwardToAddBoth x =
+    addBoth {X = 1; Y = 2} x
+let addMore i a b =
+    let first = a.X + b.X + i
+    let second = a.Y + b.Y + i + first
+    { X = first ; Y = second }

@@ -24,6 +24,7 @@ module Transforms =
                 | [] -> ()
             ]
         let ident name t = Ident { Name = name; Type = t }
+        let voidIdent name = ident name Void
         let fcall args expr= FunctionCall(expr, args)
         let iife statements = FunctionCall(AnonymousFunc([], statements), [])
         let debugLog expr = FunctionCall(Helpers.ident "print" Void, [expr]) |> Do
@@ -62,6 +63,10 @@ module Transforms =
                 | Function(args, body) -> failwith "Not Implemented"
                 | NewArr(values) ->
                     values |> List.collect identUsesInExpr
+                | GetFieldThroughPointer(expr, name) ->
+                    identUsesInExpr expr
+                | Cast(_, expr) ->
+                    identUsesInExpr expr
             let rec identUsesInSingleStatement = function
                 | Return expr -> identUsesInExpr expr
                 | Do expr -> identUsesInExpr expr
@@ -91,6 +96,28 @@ module Transforms =
                 // | lst ->
                 //     let captures = []
                     // com.CreateAdditionalDeclaration(FunctionDeclaration())
+            let addCleanupOnExit (com: CCompiler) t args statements =
+                let locallyDeclaredIdents =
+                    statements |> List.choose(function
+                                                | DeclareIdent(name, Rc t) -> Some (name, t)
+                                                | _ -> None)
+                let rcArgs = args |> List.filter (function
+                                                    | _, Rc t -> true
+                                                    | _ -> false )
+                let toCleanup = rcArgs @ locallyDeclaredIdents
+                [
+                    for s in statements do
+                        match s with
+                        | Return r -> // where the scope ends, add clean up
+                            // yield! toCleanup
+                            // yield DeclareIdent("ret", t)
+                            yield Assignment(["ret"],r, t)
+                            //cleanup
+                            for (name, t) in toCleanup do
+                                yield FunctionCall("Rc_Dispose" |> voidIdent, [Ident {Name = name; Type = t}]) |> Do
+                            yield Return (Ident { Name="ret"; Type=t })
+                        | _ -> yield s
+                ]
 
         let getEntityFieldsAsIdents (ent: Fable.Entity): Fable.Ident list =
             ent.FSharpFields
@@ -160,12 +187,20 @@ module Transforms =
             Void
         | Fable.Type.DeclaredType (entRef, genArgs) ->
             let ent = com.GetEntity entRef
-            if ent.IsFSharpRecord && ent.IsValueType then
-                CStruct ent.CompiledName
+            if ent.IsFSharpRecord then
+                if ent.IsValueType then
+                    CStruct ent.CompiledName
+                else
+                    CStruct ent.CompiledName |> Rc
             else Pointer Void
         | _ ->
             Pointer Void
-    let transformCallArgs com =
+    let isRcType (com: CCompiler) t =
+        let cType = transformType com t
+        match cType with
+        | Rc _ -> true
+        | _ -> false
+    let transformCallArgsWithTypes com =
         List.filter(fun (ident: Fable.Ident) -> match ident.Type with | Fable.Unit -> false | _ -> true)
         >> List.map(fun ident -> ident.Name, transformType com ident.Type)
     let transformOp com =
@@ -197,6 +232,13 @@ module Transforms =
             | _ -> sprintf "%A %A" op expr |> Unknown
         | x -> Unknown(sprintf "%A" x)
 
+    let transformCallArgs com args =
+        match args with
+        | [] -> []
+        | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
+        | args ->
+            args |> List.map (fun arg -> transformLeaveContext com arg)
+
     let transformExprAsStatements (com: CCompiler) (expr: Fable.Expr) : Statement list =
         let transformExpr = transformExpr com
         let transformOp = transformOp com
@@ -216,7 +258,8 @@ module Transforms =
                 | Fable.Expr.Delegate _ ->
                     transformExpr expr |> Brackets
                 | _ -> transformExpr expr
-            FunctionCall(lhs, List.map transformExpr callInfo.Args) |> singletonStatement
+            let args = transformCallArgs com callInfo.Args
+            FunctionCall(lhs, args) |> singletonStatement
         | Fable.Expr.Import (info, t, r) ->
             let path = "todo"
                 // match info.Kind, info.Path with
@@ -237,7 +280,13 @@ module Transforms =
         | Fable.Expr.Operation (kind, _, _, _) ->
             transformOp kind |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fi), t, _) ->
-            GetField(transformExpr expr, fi.Name) |> singletonStatement
+            match transformType com expr.Type with
+            | Rc tOut ->
+                let ptr = Brackets(GetField(Cast(tOut |> Pointer, transformExpr expr), "data"))
+                GetFieldThroughPointer(ptr, fi.Name)
+            | _ ->
+                GetField(transformExpr expr, fi.Name)
+            |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.UnionField(fi), _, _) ->
             GetField(transformExpr expr, sprintf "p_%i" fi.CaseIndex) |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.ExprGet(e), _, _) ->
@@ -351,7 +400,30 @@ module Transforms =
         | x -> [Unknown (sprintf "%A" x) |> Do]
     let transformExpr com expr =
         let retType = transformType com expr.Type
-        transformExprAsStatements com expr |> Transforms.Helpers.Out.statementsToExpr com retType
+        transformExprAsStatements com expr
+        |> Helpers.Out.statementsToExpr com retType
+
+    let transformLeaveContext com expr =
+        let outExpr = transformExpr com expr
+        let isOnlyReference =
+            match expr with
+            | Fable.Let _
+            | Fable.Call _
+            | Fable.CurriedApply _
+            | Fable.Value(_, _)
+            | Fable.Operation(Fable.Binary _, _, _, _)
+            | Fable.Lambda _
+            | Fable.Delegate _
+            | Fable.IfThenElse _
+            | Fable.DecisionTree _
+            | Fable.DecisionTreeSuccess _
+            | Fable.Sequential _
+            | Fable.ForLoop _ ->
+                true
+            | _ -> false
+        if isRcType com expr.Type && not (isOnlyReference) then
+            FunctionCall(Helpers.voidIdent("Rc_Clone"), [outExpr])
+        else outExpr
 
     let transformDeclarations (com: CCompiler) = function
         | Fable.ModuleDeclaration m ->
@@ -369,23 +441,50 @@ module Transforms =
             // match m.MemberRef with
             // | MemberRef(ety, _) -> com.GetEntity(ety)
             // failwithf "%A" m
-            let body = transformExprAsStatements com m.Body
-            [FunctionDeclaration(m.Name, m.Args |> transformCallArgs com, body, transformType com m.Body.Type)]
+            let t = transformType com m.Body.Type
+            let args = m.Args |> transformCallArgsWithTypes com
+            let body = transformExprAsStatements com m.Body |> Helpers.Out.addCleanupOnExit com t args
+            [FunctionDeclaration(m.Name, args, body, t)]
         | Fable.ClassDeclaration(d) ->
             let ent = com.GetEntity(d.Entity)
-            if ent.IsFSharpRecord && ent.IsValueType then
-                let idents = Transforms.Helpers.getEntityFieldsAsIdents ent
-                let fields = idents |> List.map (fun i -> i.Name, transformType com i.Type)
-                let cdIdent = Ident { Name = "item"; Type = Void }
-                [
-                    StructDeclaration(ent.CompiledName, fields)
-                    FunctionDeclaration(ent.CompiledName + "_new", fields, [
-                        DeclareIdent("item", CStruct d.Name)
-                        for (name, ctype) in fields do
-                            Do(SetValue(GetField(Ident {Name = "item"; Type = Void;}, name), Ident {Name = name; Type = Void}))
-                        Return (cdIdent)
-                    ], CStruct ent.CompiledName)
-                ]
+            if ent.IsFSharpRecord then
+                if ent.IsValueType then
+                    let idents = Transforms.Helpers.getEntityFieldsAsIdents ent
+                    let fields = idents |> List.map (fun i -> i.Name, transformType com i.Type)
+                    let cdIdent = Ident { Name = "item"; Type = Void }
+                    [
+                        StructDeclaration(ent.CompiledName, fields)
+                        FunctionDeclaration(ent.CompiledName + "_new", fields, [
+                            DeclareIdent("item", CStruct d.Name)
+                            for (name, ctype) in fields do
+                                Do(SetValue(GetField(Ident {Name = "item"; Type = Void;}, name), Ident {Name = name; Type = Void}))
+                            Return (cdIdent)
+                        ], CStruct ent.CompiledName)
+                    ]
+                else
+                    let idents = Transforms.Helpers.getEntityFieldsAsIdents ent
+                    let fields = idents |> List.map (fun i -> i.Name, transformType com i.Type)
+                    let cdIdent = { Name = "item"; Type = CStruct d.Name }
+                    let rcIdent = { Name = "rc"; Type = Rc (CStruct d.Name)}
+                    [
+                        StructDeclaration(ent.CompiledName, fields)
+                        FunctionDeclaration(ent.CompiledName + "_new", fields, [
+                            DeclareIdent("item", CStruct d.Name)
+                            for (name, ctype) in fields do
+                                Do(SetValue(GetField(Ident cdIdent, name), Ident {Name = name; Type = ctype}))
+                            Assignment(["rc"],
+                                FunctionCall(Ident { Name="Rc_New"; Type= Void},
+                                    [
+                                        FunctionCall(
+                                            Helpers.voidIdent "sizeof",[ Helpers.voidIdent "item"])
+                                        Unary(UnaryOp.RefOf, Helpers.voidIdent "item")
+                                        Const ConstNull
+                                    ]
+                                ),
+                                Rc (CStruct d.Name))
+                            Return (Ident rcIdent)
+                        ], Rc (CStruct d.Name))
+                    ]
             else
                 []
         | x -> []
