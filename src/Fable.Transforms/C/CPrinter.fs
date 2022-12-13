@@ -382,6 +382,13 @@ module Output =
     let writeFile ctx (file: File) =
         writeln ctx "#include <stdio.h>"
         //todo write includes
+        for fInclude in file.Includes do
+            if fInclude.IsBuiltIn then
+                sprintf "#include <%s>" fInclude.Name |> writei ctx
+                writeln ctx ""
+            else
+                sprintf "#include \"%s\"" fInclude.Name |> writei ctx
+                writeln ctx ""
         for s in file.Declarations do
             writeDeclaration ctx s
         writeln ctx ""

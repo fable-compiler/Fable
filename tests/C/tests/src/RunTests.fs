@@ -23,3 +23,11 @@ let m () =
 let another x =
     let b = 2
     x + 1 + b
+
+type Simple2 = {
+    X: int
+    Y: int
+}
+
+let addBoth a b =
+    { X = a.X + b.X ; Y = a.Y + b.Y}

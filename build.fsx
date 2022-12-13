@@ -620,7 +620,7 @@ let testRust testMode =
         runInDir buildDir "cargo test --features threaded"
 
 let testC() =
-    buildCLibraryIfNotExists() // NOTE: fable-library-py needs to be built separately.
+    buildCLibraryIfNotExists() // NOTE: fable-library-c needs to be built separately.
 
     let projectDir = "tests/C"
     let buildDir = "build/tests/C"

@@ -23,26 +23,74 @@ module Transforms =
                     yield transformReturn h
                 | [] -> ()
             ]
-        let ident name = Ident { Name = name }
+        let ident name t = Ident { Name = name; Type = t }
         let fcall args expr= FunctionCall(expr, args)
         let iife statements = FunctionCall(AnonymousFunc([], statements), [])
-        let debugLog expr = FunctionCall(Helpers.ident "print", [expr]) |> Do
+        let debugLog expr = FunctionCall(Helpers.ident "print" Void, [expr]) |> Do
         let libEquality a b=
-            FunctionCall(GetObjMethod(FunctionCall(Helpers.ident "require", [ConstString "./fable-lib/Util" |> Const]), "equals"), [a; b])
+            FunctionCall(GetObjMethod(FunctionCall(Helpers.ident "require" Void, [ConstString "./fable-lib/Util" |> Const]), "equals"), [a; b])
         let maybeIife = function
             | [] -> NoOp
             | [Return expr] -> expr
             | statements -> iife statements
 
-        let statementsToExpr (com: CCompiler) = function
-            | [] -> NoOp
-            | lst ->
-                match lst |> List.rev with
-                Return expr::revT -> expr
-                | _ -> sprintf "%A" lst |> Expr.Unknown
-            // | lst ->
-            //     let captures = []
-                // com.CreateAdditionalDeclaration(FunctionDeclaration())
+
+        module Out =
+            open Fable.AST.C
+            let rec identUsesInExpr = function
+                | FunctionCall(f, args) ->
+                    f::args |> List.map identUsesInExpr |> List.collect id
+                | Unary(_, expr) ->
+                    identUsesInExpr expr
+                | GetField(expr, name) ->
+                    identUsesInExpr expr
+                | Ident i ->
+                    [i]
+                | Const(_) -> []
+                | Binary(_, l, r) -> identUsesInExpr l @ identUsesInExpr r
+                | GetObjMethod(expr, name) -> identUsesInExpr expr
+                | GetAtIndex(expr, idx) -> identUsesInExpr expr
+                | SetValue(expr, value) -> identUsesInExpr expr @ identUsesInExpr value
+                | SetExpr(a, b, value) -> identUsesInExpr a @ identUsesInExpr b @ identUsesInExpr value
+                | Brackets(expr) -> identUsesInExpr expr
+                | AnonymousFunc(args, body) -> failwith "Not Implemented"
+                | Unknown(_) -> failwith "Not Implemented"
+                | Macro(_, args) -> args |> List.collect identUsesInExpr
+                | Ternary(guardExpr, thenExpr, elseExpr) ->
+                    identUsesInExpr guardExpr @ identUsesInExpr thenExpr @ identUsesInExpr elseExpr
+                | NoOp -> failwith "Not Implemented"
+                | Function(args, body) -> failwith "Not Implemented"
+                | NewArr(values) ->
+                    values |> List.collect identUsesInExpr
+            let rec identUsesInSingleStatement = function
+                | Return expr -> identUsesInExpr expr
+                | Do expr -> identUsesInExpr expr
+                | DeclareIdent(_, _) -> []
+                | Assignment(names, expr, _) -> identUsesInExpr expr
+                | SNoOp -> []
+                | ForLoop(_, start, limit, body) ->
+                    (identUsesInExpr start) @ (identUsesInExpr limit) @ (body |> List.collect identUsesInSingleStatement)
+                | WhileLoop(guard, body) ->
+                    (identUsesInExpr guard) @ (body |> List.collect identUsesInSingleStatement)
+                | IfThenElse(guard, thenSt, elseSt) ->
+                    (identUsesInExpr guard) @ (thenSt |> List.collect identUsesInSingleStatement) @ (elseSt |> List.collect identUsesInSingleStatement)
+            let identUsesInStatements =
+                List.collect identUsesInSingleStatement
+                >> Set.ofList
+
+
+
+
+            let statementsToExpr (com: CCompiler) retType = function
+                | [] -> NoOp
+                | [Return expr] ->
+                    expr
+                | lst ->
+                    let identsToCapture = identUsesInStatements lst
+                    com.GenAndCallDeferredFunctionFromExpr(identsToCapture |> Set.toList, lst, retType)
+                // | lst ->
+                //     let captures = []
+                    // com.CreateAdditionalDeclaration(FunctionDeclaration())
 
         let getEntityFieldsAsIdents (ent: Fable.Entity): Fable.Ident list =
             ent.FSharpFields
@@ -77,15 +125,15 @@ module Transforms =
             if entity.IsFSharpRecord then
                 let names = entity.FSharpFields |> List.map(fun f -> f.Name)
                 let values = values |> List.map (transformExpr com)
-                FunctionCall(Ident({ Name = entity.CompiledName + "_new"}), values)
+                FunctionCall(Ident({ Name = entity.CompiledName + "_new"; Type = C.Void}), values)
             else sprintf "unknown ety %A %A %A %A" values ref args entity |> Unknown
         | Fable.NewAnonymousRecord(values, names, _, _) ->
             let transformedValues = values |> List.map (transformExpr com)
-            FunctionCall(Ident({ Name = "anon" + "_new"}), transformedValues)
+            FunctionCall(Ident({ Name = "anon" + "_new"; Type = C.Void}), transformedValues)
         | Fable.NewUnion(values, tag, entRef, _) ->
             let entity = com.GetEntity(entRef)
             let values = values |> List.map(transformExpr com)// |> List.mapi(fun i x -> sprintf "p_%i" i, x)
-            FunctionCall(Ident({ Name = entity.FullName + "_new"}), values)
+            FunctionCall(Ident({ Name = entity.FullName + "_new"; Type = C.Void}), values)
         | Fable.NewOption (value, t, _) ->
             value |> Option.map (transformExpr com) |> Option.defaultValue (Const ConstNull)
         | Fable.NewTuple(values, isStruct) ->
@@ -124,7 +172,7 @@ module Transforms =
         let transformExpr = transformExpr com
         function
         | Fable.OperationKind.Binary(BinaryModulus, left, right) ->
-             GetField(Helpers.ident "math", "fmod") |> Helpers.fcall [transformExpr left; transformExpr right]
+             GetField(Helpers.ident "math" Void, "fmod") |> Helpers.fcall [transformExpr left; transformExpr right]
         | Fable.OperationKind.Binary (op, left, right) ->
             let op = match op with
                 | BinaryMultiply -> Multiply
@@ -180,12 +228,12 @@ module Transforms =
                 //     "fable-lib/" + name
                 // | _ ->
                 //     info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle
-            let rcall = FunctionCall(Ident { Name= "require" }, [Const (ConstString path)])
+            let rcall = FunctionCall(Ident { Name= "require"; Type = Void; }, [Const (ConstString path)])
             match info.Selector with
             | "" -> rcall |> singletonStatement
             | s -> GetObjMethod(rcall, s) |> singletonStatement
         | Fable.Expr.IdentExpr(i) when i.Name <> "" ->
-            Ident { Name = i.Name } |> singletonStatement
+            Ident { Name = i.Name; Type = Void } |> singletonStatement
         | Fable.Expr.Operation (kind, _, _, _) ->
             transformOp kind |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fi), t, _) ->
@@ -261,7 +309,7 @@ module Transforms =
             // let errorExpr =
             //     Const (ConstString ("There was an error, todo " + sprintf "%A" expr))
                 //transformExpr expr
-            FunctionCall(Helpers.ident "error", expr |> Option.map transformExpr |> Option.toList)
+            FunctionCall(Helpers.ident "error" Void, expr |> Option.map transformExpr |> Option.toList)
             |> singletonStatement
         | Fable.Extended(Fable.ExtendedSet.Curry(expr, d), _) ->
             transformExpr expr
@@ -281,18 +329,18 @@ module Transforms =
             ]
         | Fable.TryCatch(body, catch, finalizer, _) ->
             [
-                Assignment(["status"; "resOrErr"], FunctionCall(Helpers.ident "pcall", [
+                Assignment(["status"; "resOrErr"], FunctionCall(Helpers.ident "pcall" Void, [
                     Function([], [
                         transformExpr body |> Return
                     ])
                 ]), transformType com body.Type)
                 let finalizer = finalizer |> Option.map transformExpr
                 let catch = catch |> Option.map (fun (ident, expr) -> ident.Name, transformExpr expr)
-                IfThenElse(Helpers.ident "status", [
+                IfThenElse(Helpers.ident "status" Void, [
                     match finalizer with
                     | Some finalizer -> yield Do finalizer
                     | None -> ()
-                    yield Helpers.ident "resOrErr" |> Return
+                    yield Helpers.ident "resOrErr" Void |> Return
                 ], [
                     match catch with
                     | Some(ident, expr) ->
@@ -301,8 +349,9 @@ module Transforms =
                 ])
             ]
         | x -> [Unknown (sprintf "%A" x) |> Do]
-    let transformExpr com expr=
-        transformExprAsStatements com expr |> Transforms.Helpers.statementsToExpr com
+    let transformExpr com expr =
+        let retType = transformType com expr.Type
+        transformExprAsStatements com expr |> Transforms.Helpers.Out.statementsToExpr com retType
 
     let transformDeclarations (com: CCompiler) = function
         | Fable.ModuleDeclaration m ->
@@ -327,13 +376,13 @@ module Transforms =
             if ent.IsFSharpRecord && ent.IsValueType then
                 let idents = Transforms.Helpers.getEntityFieldsAsIdents ent
                 let fields = idents |> List.map (fun i -> i.Name, transformType com i.Type)
-                let cdIdent = Ident { Name = "item" }
+                let cdIdent = Ident { Name = "item"; Type = Void }
                 [
                     StructDeclaration(ent.CompiledName, fields)
                     FunctionDeclaration(ent.CompiledName + "_new", fields, [
                         DeclareIdent("item", CStruct d.Name)
                         for (name, ctype) in fields do
-                            Do(SetValue(GetField(Ident {Name = "item"}, name), Ident {Name = name}))
+                            Do(SetValue(GetField(Ident {Name = "item"; Type = Void;}, name), Ident {Name = name; Type = Void}))
                         Return (cdIdent)
                     ], CStruct ent.CompiledName)
                 ]
@@ -351,9 +400,8 @@ let transformFile com (file: Fable.File): File =
     let comp = CCompiler(com)
     {
         Filename = "abc"
-        Includes = []
-        Declarations = (comp.GetAdditionalDeclarations() @ file.Declarations)
-                        |> List.collect (Transforms.transformDeclarations comp)
+        Includes = comp.GetIncludes()
+        Declarations = (comp.GetAdditionalDeclarations() @ (file.Declarations |> List.collect (Transforms.transformDeclarations comp)))
                         |> List.map transformDeclPostprocess
         ASTDebug = sprintf "%A" file.Declarations
     }

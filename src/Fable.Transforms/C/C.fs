@@ -27,7 +27,7 @@ type Const =
 
 
 type CIdent =
-    { Name: string }
+    { Name: string; Type: CType }
 
 type UnaryOp =
     | Not
@@ -87,7 +87,10 @@ type Statement =
     | IfThenElse of guard: Expr * thenSt: Statement list * elseSt: Statement list
 
 type Include =
-    | Named of string
+    {
+        Name: string
+        IsBuiltIn : bool
+    }
 
 type Declaration =
     | FunctionDeclaration of name: string * args: (string * CType) list * body: Statement list * returnType: CType
