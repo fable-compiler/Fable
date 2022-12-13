@@ -43,3 +43,12 @@ let condition1 x =
             2
         else 4
     else 3
+
+type DU =
+    | A
+    | B of int
+
+let stuff () =
+    let m = A
+    let n = B 4
+    n

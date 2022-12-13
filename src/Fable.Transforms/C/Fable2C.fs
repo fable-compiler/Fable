@@ -161,8 +161,9 @@ module Transforms =
             FunctionCall(Ident({ Name = "anon" + "_new"; Type = C.Void}), transformedValues)
         | Fable.NewUnion(values, tag, entRef, _) ->
             let entity = com.GetEntity(entRef)
-            let values = values |> List.map(transformExpr com)// |> List.mapi(fun i x -> sprintf "p_%i" i, x)
-            FunctionCall(Ident({ Name = entity.FullName + "_new"; Type = C.Void}), values)
+            let values = values |> List.map(transformExpr com)
+            let tagM = entity.UnionCases[tag]
+            FunctionCall(Ident({ Name = entity.CompiledName + "_" + tagM.Name + "_new"; Type = C.Void}), values)
         | Fable.NewOption (value, t, _) ->
             value |> Option.map (transformExpr com) |> Option.defaultValue (Const ConstNull)
         | Fable.NewTuple(values, isStruct) ->
@@ -194,6 +195,8 @@ module Transforms =
                     CStruct ent.CompiledName
                 else
                     CStruct ent.CompiledName |> Rc
+            elif ent.IsFSharpUnion then
+                CStruct ent.CompiledName |> Rc
             else Pointer Void
         | _ ->
             Pointer Void
@@ -487,6 +490,36 @@ module Transforms =
                             Return (Ident rcIdent)
                         ], Rc (CStruct d.Name))
                     ]
+            elif ent.IsFSharpUnion then
+                [
+                    for i, case in ent.UnionCases |> List.mapi (fun i x -> i, x) do
+                        let fields =
+                            case.UnionCaseFields
+                                    |> List.map (fun f -> f.Name, transformType com f.FieldType)
+                        let fieldsIncTag =
+                            ["tag", Int] @ fields
+                        let structName = ent.CompiledName + "_" + case.Name
+                        yield StructDeclaration(structName, fieldsIncTag)
+                        yield FunctionDeclaration(structName + "_new", fields, [
+                            let cdIdent = { Name = "item"; Type = CStruct structName }
+                            let rcIdent = { Name = "rc"; Type = Rc (CStruct d.Name)}
+                            DeclareIdent("item", CStruct structName)
+                            Do(SetValue(GetField(Ident cdIdent, "tag"), ConstInt32 i |> Const))
+                            for (name, ctype) in fields do
+                                Do(SetValue(GetField(Ident cdIdent, name), Ident {Name = name; Type = ctype}))
+                            Assignment(["rc"],
+                                FunctionCall(Ident { Name="Rc_New"; Type= Void},
+                                    [
+                                        FunctionCall(
+                                            Helpers.voidIdent "sizeof",[ Helpers.voidIdent "item"])
+                                        Unary(UnaryOp.RefOf, Helpers.voidIdent "item")
+                                        Const ConstNull
+                                    ]
+                                ),
+                                Rc (CStruct d.Name))
+                            Return (Ident rcIdent)
+                        ], Rc (CStruct d.Name))
+                ]
             else
                 []
         | x -> []

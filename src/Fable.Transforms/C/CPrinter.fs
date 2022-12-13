@@ -305,7 +305,6 @@ module Output =
             writei ctx ""
             writeExpr ctx expr
             writeln ctx ";"
-
         | ForLoop (name, start, limit, body) ->
             writei ctx "for "
             write ctx name
@@ -315,8 +314,8 @@ module Output =
             writeExpr ctx limit
             write ctx " do"
             let ctxI = indent ctx
+            writeln ctxI ""
             for statement in body do
-                writeln ctxI ""
                 writeStatement ctxI statement
             writeln ctx ""
             writei ctx "end"
@@ -327,8 +326,8 @@ module Output =
             writeExpr ctx guard
             write ctx " do"
             let ctxI = indent ctx
+            writeln ctxI ""
             for statement in body do
-                writeln ctxI ""
                 writeStatement ctxI statement
             writeln ctx ""
             writei ctx "end"
@@ -339,16 +338,15 @@ module Output =
             writeExpr ctx guard
             write ctx ") {"
             let ctxI = indent ctx
+            writeln ctxI ""
             for statement in thenSt do
-                writeln ctxI ""
                 writeStatement ctxI statement
-            writeln ctx ""
             writei ctx "}"
-            writei ctx "else {"
-            for statement in elseSt do
-                writeln ctxI ""
-                writeStatement ctxI statement
             writeln ctx ""
+            writei ctx "else {"
+            writeln ctxI ""
+            for statement in elseSt do
+                writeStatement ctxI statement
             writei ctx "}"
             writeln ctx ""
 
