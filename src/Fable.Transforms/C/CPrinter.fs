@@ -394,6 +394,7 @@ module Output =
 
     let writeFile ctx (file: File) =
         writeln ctx "#include <stdio.h>"
+        writeln ctx "#include <assert.h>"
         writeln ctx "#include \"../../fable-lib/rc.c\"" // todo imports should handle this
         //todo write includes
         for fInclude in file.Includes do

@@ -1,11 +1,4 @@
-
-let main () =
-    let x = 1
-    let y = 2
-    let a = "hello world"
-    x
-
-// let hello () = "hello world"
+open Fable.Core
 
 [<Struct>]
 type Simple1 = {
@@ -47,6 +40,7 @@ let condition1 x =
 type DU =
     | A
     | B of int
+    | C of a: int * b: int
 
 let stuff () =
     let m = A
@@ -56,3 +50,17 @@ let stuff () =
 let matchstuff = function
     | A -> 0
     | B i -> i
+    | C _ -> 1
+
+// [<Emit("assert($0)")>]
+// let assertTrue (x: bool) =
+//     nativeOnly
+
+// let add2Eq4 () =
+//     let res = 2 + 2
+//     assertTrue(res = 4)
+
+let main () =
+    //add2Eq4()
+    let a = "hello world"
+    1

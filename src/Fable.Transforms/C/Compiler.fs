@@ -18,7 +18,9 @@ type CCompiler(com: Fable.Compiler) =
     member this.GetDecisionTreeTargets (idx: int) = decisionTreeTargets.[idx]
     member this.GetEntity entRef= com.TryGetEntity(entRef).Value
     member this.GenAndCallDeferredFunctionFromExpr (scopedArgs, body, retType) =
-        let seed = scopedArgs.GetHashCode() + body.GetHashCode() //todo prevent collisions
+        let seed =
+            let v = scopedArgs.GetHashCode() + body.GetHashCode()
+            if v < 0 then -v else v//todo prevent collisions
         let delegatedName = "delegated_" + seed.ToString() //todo generate procedurally
         let declaration = C.FunctionDeclaration(
                 delegatedName,

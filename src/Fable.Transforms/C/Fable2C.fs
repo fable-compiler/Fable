@@ -82,7 +82,8 @@ module Transforms =
             let identUsesInStatements =
                 List.collect identUsesInSingleStatement
                 >> Set.ofList
-
+            let unwrapRc tOut expr=
+                Brackets(GetField(Cast(tOut |> Pointer, expr), "data"))
 
 
 
@@ -199,8 +200,8 @@ module Transforms =
                 CStruct ent.CompiledName |> Rc
             else Pointer Void
         | _ ->
-            failwithf "unrecognised %A" t
-            Pointer Void
+            sprintf "unrecognised %A" t |> CStruct
+            //Pointer Void
     let isRcType (com: CCompiler) t =
         let cType = transformType com t
         match cType with
@@ -282,19 +283,27 @@ module Transforms =
             | "" -> rcall |> singletonStatement
             | s -> GetObjMethod(rcall, s) |> singletonStatement
         | Fable.Expr.IdentExpr(i) when i.Name <> "" ->
-            Ident { Name = i.Name; Type = Void } |> singletonStatement
+            Ident { Name = i.Name; Type = transformType com i.Type } |> singletonStatement
         | Fable.Expr.Operation (kind, _, _, _) ->
             transformOp kind |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fi), t, _) ->
             match transformType com expr.Type with
             | Rc tOut ->
-                let ptr = Brackets(GetField(Cast(tOut |> Pointer, transformExpr expr), "data"))
+                let ptr =
+                    transformExpr expr |> Helpers.Out.unwrapRc tOut
                 GetFieldThroughPointer(ptr, fi.Name)
             | _ ->
                 GetField(transformExpr expr, fi.Name)
             |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.UnionField(fi), _, _) ->
-            GetField(transformExpr expr, sprintf "p_%i" fi.CaseIndex) |> singletonStatement
+            let outExpr = transformExpr expr
+            let ety = com.GetEntity fi.Entity
+            let case = ety.UnionCases |> List.item fi.CaseIndex
+            let structName = ety.CompiledName + "_" + case.Name
+            let ptr =  Helpers.Out.unwrapRc (CStruct structName) outExpr
+            let field = case.UnionCaseFields |> List.item fi.FieldIndex
+            //failwithf "%A" (case, ety, ety.UnionCases, expr.Type)
+            GetFieldThroughPointer(ptr, field.Name) |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.ExprGet(e), _, _) ->
             GetAtIndex(transformExpr expr, transformExpr e) |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.TupleIndex(i), _, _) ->
@@ -343,7 +352,19 @@ module Transforms =
         | Fable.Test(expr, kind, b) ->
             match kind with
             | Fable.UnionCaseTest i->
-                Binary(Equals, GetField(transformExpr expr, "tag") , Const (ConstInt32 i)) |> singletonStatement
+                match expr.Type with
+                | Fable.DeclaredType(entRef, genArgs) ->
+                    let ent = com.GetEntity(entRef)
+                    assert(ent.IsFSharpUnion)
+                    let unionCase = ent.UnionCases |> List.head
+                    let structName = ent.CompiledName + "_" + unionCase.Name
+                    let tOut = CStruct (structName)
+                    let ptr =
+                        transformExpr expr |> Helpers.Out.unwrapRc tOut
+                    let tagValExpr = GetFieldThroughPointer(ptr, "tag")
+                    Binary(Equals, tagValExpr , Const (ConstInt32 i)) |> singletonStatement
+                | _ ->
+                    Binary(Equals, GetField(transformExpr expr, "tag") , Const (ConstInt32 i)) |> singletonStatement
             | Fable.OptionTest isSome ->
                 if isSome then Binary(Unequal, Const ConstNull, transformExpr expr) else Binary(Equals, Const ConstNull, transformExpr expr)
                 |> singletonStatement
