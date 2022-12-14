@@ -153,7 +153,12 @@ module Transforms =
                 | _ -> ConstNull
             Const(c)
         | Fable.StringConstant(s) ->
-            Const(ConstString s)
+            FunctionCall(Ident { Name="Rc_New"; Type= Char }, [
+                ConstInt32(s.Length) |> Const
+                ConstString s |> Const
+                Const ConstNull
+            ])
+            //Const(ConstString s)
         | Fable.BoolConstant(b) ->
             Const(ConstBool b)
         | Fable.UnitConstant ->
@@ -198,7 +203,7 @@ module Transforms =
                 Int
             | _ -> Void
         | Fable.Type.String ->
-            Array Char
+            Rc (Char)
         | Fable.Type.Unit ->
             Void
         | Fable.Type.DeclaredType (entRef, genArgs) ->

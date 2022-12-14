@@ -17,6 +17,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="./tests/src/util.fs" />
+    <Compile Include="./tests/src/ArithmeticTests.fs" />
+    <Compile Include="./tests/src/ArrayTests.fs" />
+    <Compile Include="./tests/src/StringTests.fs" />
     <Compile Include="./tests/src/RunTests.fs" />
     <Compile Include="./tests/src/main.fs" />
   </ItemGroup>
