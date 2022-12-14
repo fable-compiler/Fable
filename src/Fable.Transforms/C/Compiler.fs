@@ -1,5 +1,6 @@
 module rec Fable.Compilers.C
 
+open Fable
 open Fable.AST
 open Fable.AST.Fable
 
@@ -9,6 +10,7 @@ type CCompiler(com: Fable.Compiler) =
     let mutable decisionTreeTargets = []
     let mutable additionalDeclarations = []
     let mutable includes = Set.empty
+    let mutable identSubstitutions = Map.empty
     //member this.Com = com
     // member this.AddClassDecl (c: ClassDecl) =
     //     types <- types |> Map.add c.Entity c
@@ -18,6 +20,7 @@ type CCompiler(com: Fable.Compiler) =
         decisionTreeTargets <- exprs
     member this.GetDecisionTreeTargets (idx: int) = decisionTreeTargets.[idx]
     member this.GetEntity entRef= com.TryGetEntity(entRef).Value
+    member this.GetMember = com.GetMember
     // member _.MakeImportPath(path) =
     //     let projDir = System.IO.Path.GetDirectoryName(cliArgs.ProjectFile)
     //     let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
@@ -38,4 +41,8 @@ type CCompiler(com: Fable.Compiler) =
     member this.RegisterInclude(fInclude: Fable.AST.C.Include) =
         // failwithf "%A" com.LibraryDir
         includes <- includes |> Set.add fInclude
+    member this.RegisterIdentSubstitution (oldIdent: string, newIdent: string) =
+        identSubstitutions <- identSubstitutions |> Map.add oldIdent newIdent
+    member this.GetIdentSubstitution oldValue =
+        identSubstitutions |> Map.tryFind oldValue |> Option.defaultValue oldValue
     member this.GetIncludes() = includes |> Set.toList

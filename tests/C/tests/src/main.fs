@@ -2,7 +2,8 @@ module Main
 
 open RunTests
 
-let main () =
+[<EntryPoint>]
+let main args = // args
     //add2Eq4()
     let a = "hello world"
     stuff()

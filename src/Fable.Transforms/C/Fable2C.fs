@@ -167,7 +167,7 @@ module Transforms =
             if entity.IsFSharpRecord then
                 let names = entity.FSharpFields |> List.map(fun f -> f.Name)
                 let values = values |> List.map (transformExpr com)
-                FunctionCall(Ident({ Name = entity.CompiledName + "_new"; Type = C.Void}), values)
+                FunctionCall(Ident({ Name = entity.FullName.Replace(".", "_") + "_new"; Type = C.Void}), values)
             else sprintf "unknown ety %A %A %A %A" values ref args entity |> Unknown
         | Fable.NewAnonymousRecord(values, names, _, _) ->
             let transformedValues = values |> List.map (transformExpr com)
@@ -176,7 +176,7 @@ module Transforms =
             let entity = com.GetEntity(entRef)
             let values = values |> List.map(transformExpr com)
             let tagM = entity.UnionCases[tag]
-            FunctionCall(Ident({ Name = entity.CompiledName + "_" + tagM.Name + "_new"; Type = C.Void}), values)
+            FunctionCall(Ident({ Name = entity.FullName.Replace(".", "_") + "_" + tagM.Name + "_new"; Type = C.Void}), values)
         | Fable.NewOption (value, t, _) ->
             value |> Option.map (transformExpr com) |> Option.defaultValue (Const ConstNull)
         | Fable.NewTuple(values, isStruct) ->
@@ -205,11 +205,11 @@ module Transforms =
             let ent = com.GetEntity entRef
             if ent.IsFSharpRecord then
                 if ent.IsValueType then
-                    CStruct ent.CompiledName
+                    ent.FullName.Replace(".", "_") |> CStruct
                 else
-                    CStruct ent.CompiledName |> Rc
+                     ent.FullName.Replace(".", "_") |> CStruct |> Rc
             elif ent.IsFSharpUnion then
-                CStruct ent.CompiledName |> Rc
+                 ent.FullName.Replace(".", "_") |> CStruct |> Rc
             else Pointer Void
         | _ ->
             sprintf "unrecognised %A" t |> CStruct
@@ -293,9 +293,20 @@ module Transforms =
                 // | _ ->
                 //     info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle
             com.RegisterInclude({Name = info.Path.TrimEnd("fs".ToCharArray()) + "c"; IsBuiltIn = false})
-            Ident { Name = info.Selector; Type = transformType com t } |> singletonStatement
+            let fullName =
+                match info.Kind with
+                | Fable.UserImport _ -> info.Selector
+                | Fable.LibraryImport x ->  info.Selector
+                | Fable.MemberImport m ->
+                    let mm = com.GetMember m
+                    mm.FullName.Replace(".", "_")
+                | Fable.ClassImport c ->
+                    c.FullName.Replace(".", "_")
+
+            Ident { Name = fullName; Type = transformType com t } |> singletonStatement
         | Fable.Expr.IdentExpr(i) when i.Name <> "" ->
-            Ident { Name = i.Name; Type = transformType com i.Type } |> singletonStatement
+            let name = com.GetIdentSubstitution i.Name
+            Ident { Name = name; Type = transformType com i.Type } |> singletonStatement
         | Fable.Expr.Operation (kind, _, _, _) ->
             transformOp kind |> singletonStatement
         | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fi), t, _) ->
@@ -311,7 +322,7 @@ module Transforms =
             let outExpr = transformExpr expr
             let ety = com.GetEntity fi.Entity
             let case = ety.UnionCases |> List.item fi.CaseIndex
-            let structName = ety.CompiledName + "_" + case.Name
+            let structName = ety.FullName.Replace(".", "_") + "_" + case.Name
             let ptr =  Helpers.Out.unwrapRc (CStruct structName) outExpr
             let field = case.UnionCaseFields |> List.item fi.FieldIndex
             //failwithf "%A" (case, ety, ety.UnionCases, expr.Type)
@@ -369,7 +380,7 @@ module Transforms =
                     let ent = com.GetEntity(entRef)
                     assert(ent.IsFSharpUnion)
                     let unionCase = ent.UnionCases |> List.head
-                    let structName = ent.CompiledName + "_" + unionCase.Name
+                    let structName = ent.FullName.Replace(".", "_") + "_" + unionCase.Name
                     let tOut = CStruct (structName)
                     let ptr =
                         transformExpr expr |> Helpers.Out.unwrapRc tOut
@@ -480,10 +491,18 @@ module Transforms =
             // match m.MemberRef with
             // | MemberRef(ety, _) -> com.GetEntity(ety)
             // failwithf "%A" m
+            let mr = com.GetMember(m.MemberRef)
+            let isEntryPoint = mr.Attributes |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.entryPoint) |> Option.isSome
             let t = transformType com m.Body.Type
-            let args = m.Args |> transformCallArgsWithTypes com
+            let args = if isEntryPoint then [] else m.Args |> transformCallArgsWithTypes com
             let body = transformExprAsStatements com m.Body |> Helpers.Out.addCleanupOnExit com t args
-            [FunctionDeclaration(m.Name, args, body, t)]
+            let finalName =
+                if mr.Attributes |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.entryPoint) |> Option.isSome then
+                    "main"
+                else
+                    mr.FullName.Replace(".", "_")
+            com.RegisterIdentSubstitution(mr.CompiledName, finalName)
+            [FunctionDeclaration(finalName, args, body, t)]
         | Fable.ClassDeclaration(d) ->
             let ent = com.GetEntity(d.Entity)
             if ent.IsFSharpRecord then
@@ -492,23 +511,23 @@ module Transforms =
                     let fields = idents |> List.map (fun i -> i.Name, transformType com i.Type)
                     let cdIdent = Ident { Name = "item"; Type = Void }
                     [
-                        StructDeclaration(ent.CompiledName, fields)
-                        FunctionDeclaration(ent.CompiledName + "_new", fields, [
-                            DeclareIdent("item", CStruct d.Name)
+                        StructDeclaration(ent.FullName.Replace(".", "_"), fields)
+                        FunctionDeclaration(ent.FullName.Replace(".", "_") + "_new", fields, [
+                            DeclareIdent("item", ent.FullName.Replace(".", "_") |> CStruct)
                             for (name, ctype) in fields do
                                 Do(SetValue(GetField(Ident {Name = "item"; Type = Void;}, name), Ident {Name = name; Type = Void}))
                             Return (cdIdent)
-                        ], CStruct ent.CompiledName)
+                        ], ent.FullName.Replace(".", "_") |> CStruct)
                     ]
                 else
                     let idents = Transforms.Helpers.getEntityFieldsAsIdents ent
                     let fields = idents |> List.map (fun i -> i.Name, transformType com i.Type)
-                    let cdIdent = { Name = "item"; Type = CStruct d.Name }
-                    let rcIdent = { Name = "rc"; Type = Rc (CStruct d.Name)}
+                    let cdIdent = { Name = "item"; Type = ent.FullName.Replace(".", "_") |> CStruct }
+                    let rcIdent = { Name = "rc"; Type = ent.FullName.Replace(".", "_") |> CStruct |> Rc}
                     [
-                        StructDeclaration(ent.CompiledName, fields)
-                        FunctionDeclaration(ent.CompiledName + "_new", fields, [
-                            DeclareIdent("item", CStruct d.Name)
+                        StructDeclaration(ent.FullName.Replace(".", "_"), fields)
+                        FunctionDeclaration(ent.FullName.Replace(".", "_") + "_new", fields, [
+                            DeclareIdent("item", ent.FullName.Replace(".", "_") |> CStruct)
                             for (name, ctype) in fields do
                                 Do(SetValue(GetField(Ident cdIdent, name), Ident {Name = name; Type = ctype}))
                             Assignment(["rc"],
@@ -520,9 +539,9 @@ module Transforms =
                                         Const ConstNull
                                     ]
                                 ),
-                                Rc (CStruct d.Name))
+                                Rc (ent.FullName.Replace(".", "_") |> CStruct))
                             Return (Ident rcIdent)
-                        ], Rc (CStruct d.Name))
+                        ], Rc (ent.FullName.Replace(".", "_") |> CStruct))
                     ]
             elif ent.IsFSharpUnion then
                 [
@@ -532,11 +551,11 @@ module Transforms =
                                     |> List.map (fun f -> f.Name, transformType com f.FieldType)
                         let fieldsIncTag =
                             ["tag", Int] @ fields
-                        let structName = ent.CompiledName + "_" + case.Name
+                        let structName = ent.FullName.Replace(".", "_") + "_" + case.Name
                         yield StructDeclaration(structName, fieldsIncTag)
                         yield FunctionDeclaration(structName + "_new", fields, [
                             let cdIdent = { Name = "item"; Type = CStruct structName }
-                            let rcIdent = { Name = "rc"; Type = Rc (CStruct d.Name)}
+                            let rcIdent = { Name = "rc"; Type = Rc (CStruct structName)}
                             DeclareIdent("item", CStruct structName)
                             Do(SetValue(GetField(Ident cdIdent, "tag"), ConstInt32 i |> Const))
                             for (name, ctype) in fields do
@@ -550,9 +569,9 @@ module Transforms =
                                         Const ConstNull
                                     ]
                                 ),
-                                Rc (CStruct d.Name))
+                                Rc (ent.FullName.Replace(".", "_") |> CStruct))
                             Return (Ident rcIdent)
-                        ], Rc (CStruct d.Name))
+                        ], Rc (ent.FullName.Replace(".", "_") |> CStruct))
                 ]
             else
                 []
