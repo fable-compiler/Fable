@@ -639,6 +639,7 @@ let testC() =
     // copyFile (projectDir </> "cunit.c") (buildDir </> "cunit.c")
     // copyFile (projectDir </> "runtests.c") (buildDir </> "runtests.c")
     runInDir buildDir "gcc ./tests/src/main.c -g" // -g gives debug symbols
+    runInDir buildDir "a.exe"
 
 let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then
