@@ -351,6 +351,41 @@ module Output =
 
         | SNoOp -> ()
 
+    let rec writeHeaderDeclaration ctx declaration =
+        match declaration with
+        | FunctionDeclaration(name, args, body, returnType) ->
+            writei ctx ""
+            writeType ctx returnType
+            write ctx " "
+            write ctx name
+            write ctx "("
+            // let args = if exportToMod then "self"::args else args
+            let mutable first = true
+            for (arg, t) in args do
+                if not first then
+                    write ctx ", "
+                first <- false
+                writeType ctx t
+                write ctx " "
+                write ctx arg
+            // args |> Helper.separateWithCommas |> write ctx
+            write ctx ");"
+            writeln ctx ""
+        | StructDeclaration(name, fields) ->
+            writei ctx ""
+            write ctx "struct "
+            write ctx name
+            write ctx " {"
+            let ctxI = indent ctx
+            writeln ctxI ""
+            for (name, t) in fields do
+                writei ctxI ""
+                writeType ctxI t
+                write ctxI " "
+                write ctxI name
+                writeln ctxI ";"
+            writeln ctx "};"
+        | NothingDeclared _ -> ()
 
     let rec writeDeclaration ctx declaration =
         match declaration with
@@ -391,17 +426,32 @@ module Output =
             writeln ctx "};"
         | NothingDeclared _ -> ()
 
-    let writeFile ctx (file: File) =
-        // writeln ctx "#include <stdio.h>"
-        // writeln ctx "#include <assert.h>"
-        // writeln ctx "#include \"../../fable-lib/rc.c\"" // todo imports should handle this
-        //todo write includes
+    let writeHeaderFile ctx (file: File) =
         for fInclude in file.Includes do
             if fInclude.IsBuiltIn then
                 sprintf "#include <%s>" fInclude.Name |> writei ctx
                 writeln ctx ""
             else
-                sprintf "#include \"%s\"" fInclude.Name |> writei ctx
+                sprintf "#include \"%s\"" (fInclude.Name.Replace(".c", ".h")) |> writei ctx
+                writeln ctx ""
+        for s in file.Declarations do
+            writeHeaderDeclaration ctx s
+        writeln ctx ""
+    let writeFile ctx (file: File) =
+        // writeln ctx "#include <stdio.h>"
+        // writeln ctx "#include <assert.h>"
+        // writeln ctx "#include \"../../fable-lib/rc.c\"" // todo imports should handle this
+        //todo write includes
+        let useHFiles = false
+        for fInclude in file.Includes do
+            if fInclude.IsBuiltIn then
+                sprintf "#include <%s>" fInclude.Name |> writei ctx
+                writeln ctx ""
+            else
+                if useHFiles then
+                    sprintf "#include \"%s\"" (fInclude.Name.Replace(".c", ".h")) |> writei ctx
+                else
+                    sprintf "#include \"%s\"" fInclude.Name |> writei ctx
                 writeln ctx ""
         for s in file.Declarations do
             writeDeclaration ctx s

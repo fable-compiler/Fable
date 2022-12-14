@@ -1,5 +1,8 @@
 #include <stdlib.h>
 
+#ifndef Rc_C
+#define Rc_C
+
 struct Rc {
     void *data;
     int (*dispose) (void *data);
@@ -67,3 +70,5 @@ int __example_use_rc() {
 struct __Example_Use_Rc_Struct_Complex {
     struct Rc a; //__Example_Use_Rc_Struct
 };
+
+#endif

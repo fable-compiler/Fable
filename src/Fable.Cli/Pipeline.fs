@@ -351,9 +351,12 @@ module C =
             |> FableTransforms.transformFile com
             |> Fable2C.transformFile com
 
-        use w = new IO.StreamWriter(outPath)
-        let ctx = CPrinter.Output.Writer.create w
-        CPrinter.Output.writeFile ctx program
+        use headerWriter = new IO.StreamWriter(outPath.TrimEnd(".c".ToCharArray()) + ".h")
+        let ctxHeader = CPrinter.Output.Writer.create headerWriter
+        use fileWriter = new IO.StreamWriter(outPath)
+        let ctxFile = CPrinter.Output.Writer.create fileWriter
+        CPrinter.Output.writeHeaderFile ctxHeader program
+        CPrinter.Output.writeFile ctxFile program
     }
 
 let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
