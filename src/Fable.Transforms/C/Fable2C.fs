@@ -105,9 +105,18 @@ module Transforms =
                 let rcArgs = args |> List.filter (function
                                                     | _, Rc t -> true
                                                     | _ -> false )
+                let rationalizedStatements =
+                    //there should only be a return statement in the tail call position
+                    match statements |> List.rev with
+                    | h::t ->
+                        let tNext =
+                            t |> List.map(function
+                                    | Return x -> Do x
+                                    | x -> x)
+                        (h::tNext) |> List.rev
                 let toCleanup = rcArgs @ locallyDeclaredIdents
                 [
-                    for s in statements do
+                    for s in rationalizedStatements do
                         match s with
                         | Return r -> // where the scope ends, add clean up
                             // yield! toCleanup
@@ -252,7 +261,10 @@ module Transforms =
     let transformExprAsStatements (com: CCompiler) (expr: Fable.Expr) : Statement list =
         let transformExpr = transformExpr com
         let transformOp = transformOp com
-        let singletonStatement expr = [Return expr]
+        let singletonStatement outExpr =
+            match expr.Type with
+            | Fable.Type.Unit -> [Do outExpr]
+            | _ -> [Return outExpr]
 
         match expr with
         | Fable.Expr.Value(value, _) -> transformValueKind com value |> singletonStatement
