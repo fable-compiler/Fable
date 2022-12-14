@@ -196,7 +196,7 @@ export function isException(x: any) {
 }
 
 export function ensureErrorOrException(e: any) {
-  return isException(e) ? e : new Error(String(e));
+  return isException(e) ? new Error(String(e)): e;
 }
 
 export abstract class FSharpException extends Exception
