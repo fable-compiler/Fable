@@ -576,7 +576,7 @@ let transformFile com (file: Fable.File): File =
         ((file.Declarations |> List.collect (Transforms.transformDeclarations comp)) @ comp.GetAdditionalDeclarations())
          |> List.map transformDeclPostprocess
     {
-        Filename = "abc"
+        Filename = com.CurrentFile
         Includes = builtInIncludes @ comp.GetIncludes()
         Declarations =  declarations
         ASTDebug = sprintf "%A" file.Declarations

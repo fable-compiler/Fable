@@ -427,6 +427,8 @@ module Output =
         | NothingDeclared _ -> ()
 
     let writeHeaderFile ctx (file: File) =
+        file.Filename.Replace(".","_").Replace("/", "_").Replace(":", "_") |> sprintf "#ifndef %s"  |> writeln ctx
+        file.Filename.Replace(".","_").Replace("/", "_").Replace(":", "_") |> sprintf "#define %s"  |> writeln ctx
         for fInclude in file.Includes do
             if fInclude.IsBuiltIn then
                 sprintf "#include <%s>" fInclude.Name |> writei ctx
@@ -437,11 +439,16 @@ module Output =
         for s in file.Declarations do
             writeHeaderDeclaration ctx s
         writeln ctx ""
+        writeln ctx "#endif"
+
     let writeFile ctx (file: File) =
         // writeln ctx "#include <stdio.h>"
         // writeln ctx "#include <assert.h>"
         // writeln ctx "#include \"../../fable-lib/rc.c\"" // todo imports should handle this
         //todo write includes
+        file.Filename.Replace(".","_").Replace("/", "_").Replace(":", "_") |> sprintf "#ifndef %s"  |> writeln ctx
+        file.Filename.Replace(".","_").Replace("/", "_").Replace(":", "_") |> sprintf "#define %s"  |> writeln ctx
+
         let useHFiles = false
         for fInclude in file.Includes do
             if fInclude.IsBuiltIn then
@@ -456,6 +463,8 @@ module Output =
         for s in file.Declarations do
             writeDeclaration ctx s
         writeln ctx ""
+
+        writeln ctx "#endif"
 
         // writeln ctx "--[["
 
