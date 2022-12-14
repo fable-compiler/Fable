@@ -271,7 +271,6 @@ module Transforms =
             let args = transformCallArgs com callInfo.Args
             FunctionCall(lhs, args) |> singletonStatement
         | Fable.Expr.Import (info, t, r) ->
-            let path = "todo"
                 // match info.Kind, info.Path with
                 // | LibraryImport, Regex "fable-lib\/(\w+).(?:fs|js)" [name] ->
                 //     "fable-lib/" + name
@@ -281,10 +280,8 @@ module Transforms =
                 //     "fable-lib/" + name
                 // | _ ->
                 //     info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle
-            let rcall = FunctionCall(Ident { Name= "require"; Type = Void; }, [Const (ConstString path)])
-            match info.Selector with
-            | "" -> rcall |> singletonStatement
-            | s -> GetObjMethod(rcall, s) |> singletonStatement
+            com.RegisterInclude({Name = info.Path.TrimEnd("fs".ToCharArray()) + "c"; IsBuiltIn = false})
+            Ident { Name = info.Selector; Type = transformType com t } |> singletonStatement
         | Fable.Expr.IdentExpr(i) when i.Name <> "" ->
             Ident { Name = i.Name; Type = transformType com i.Type } |> singletonStatement
         | Fable.Expr.Operation (kind, _, _, _) ->
@@ -556,11 +553,19 @@ let transformDeclPostprocess = function
     | x -> x
 
 let transformFile com (file: Fable.File): File =
+    let builtInIncludes =
+        [
+            { Name = "stdio.h"; IsBuiltIn = true }
+            { Name = "assert.h"; IsBuiltIn = true }
+            { Name = getLibPath com "rc"; IsBuiltIn = false }
+        ]
     let comp = CCompiler(com)
+    let declarations =
+        ((file.Declarations |> List.collect (Transforms.transformDeclarations comp)) @ comp.GetAdditionalDeclarations())
+         |> List.map transformDeclPostprocess
     {
         Filename = "abc"
-        Includes = comp.GetIncludes()
-        Declarations = ((file.Declarations |> List.collect (Transforms.transformDeclarations comp)) @ comp.GetAdditionalDeclarations())
-                        |> List.map transformDeclPostprocess
+        Includes = builtInIncludes @ comp.GetIncludes()
+        Declarations =  declarations
         ASTDebug = sprintf "%A" file.Declarations
     }

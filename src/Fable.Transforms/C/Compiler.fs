@@ -4,6 +4,7 @@ open Fable.AST
 open Fable.AST.Fable
 
 type CCompiler(com: Fable.Compiler) =
+
     let mutable types = Map.empty
     let mutable decisionTreeTargets = []
     let mutable additionalDeclarations = []
@@ -17,6 +18,10 @@ type CCompiler(com: Fable.Compiler) =
         decisionTreeTargets <- exprs
     member this.GetDecisionTreeTargets (idx: int) = decisionTreeTargets.[idx]
     member this.GetEntity entRef= com.TryGetEntity(entRef).Value
+    // member _.MakeImportPath(path) =
+    //     let projDir = System.IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+    //     let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
+    //     if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
     member this.GenAndCallDeferredFunctionFromExpr (scopedArgs, body, retType) =
         let seed =
             let v = scopedArgs.GetHashCode() + body.GetHashCode()
@@ -31,5 +36,6 @@ type CCompiler(com: Fable.Compiler) =
         C.FunctionCall(C.Ident {Name = delegatedName; Type = C.Void }, scopedArgs |> List.map C.Ident)
     member this.GetAdditionalDeclarations() = additionalDeclarations
     member this.RegisterInclude(fInclude: Fable.AST.C.Include) =
-        includes |> Set.add fInclude
+        // failwithf "%A" com.LibraryDir
+        includes <- includes |> Set.add fInclude
     member this.GetIncludes() = includes |> Set.toList

@@ -632,12 +632,13 @@ let testC() =
         "--outDir " + buildDir
         "--exclude Fable.Core"
         "--lang C"
-        "--fableLib " + buildDir </> "fable-lib"
+        "--fableLib " + projectDir </> "fable-lib"
+        "--noCache"
     ]
 
     // copyFile (projectDir </> "cunit.c") (buildDir </> "cunit.c")
     // copyFile (projectDir </> "runtests.c") (buildDir </> "runtests.c")
-    runInDir buildDir "gcc ./tests/src/runtests.c"
+    runInDir buildDir "gcc ./tests/src/main.c"
 
 let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then

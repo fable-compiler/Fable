@@ -345,6 +345,7 @@ module C =
     open Fable.Transforms
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
+        //com.LibraryDir <- cliArgs.FableLibraryPath todo
         let program =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com

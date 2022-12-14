@@ -17,5 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="./tests/src/RunTests.fs" />
+    <Compile Include="./tests/src/main.fs" />
   </ItemGroup>
 </Project>

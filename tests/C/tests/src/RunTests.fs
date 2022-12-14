@@ -1,4 +1,7 @@
+module RunTests
+
 open Fable.Core
+
 
 [<Struct>]
 type Simple1 = {
@@ -52,16 +55,11 @@ let matchstuff = function
     | B i -> i
     | C _ -> 1
 
-[<Emit("assert($0)")>]
-let assertTrue (x: bool) =
-    nativeOnly
+// [<Emit("assert($0)")>]
+// let assertTrue (x: bool) =
+//     nativeOnly
 
-let add2Eq4 () =
-    let res = 2 + 2
-    assertTrue(res = 4)
-    1
-
-let main () =
-    //add2Eq4()
-    let a = "hello world"
-    1
+// let add2Eq4 () =
+//     let res = 2 + 2
+//     assertTrue(res = 4)
+//     1
