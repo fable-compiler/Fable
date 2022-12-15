@@ -195,8 +195,12 @@ export function isException(x: any) {
   return x instanceof Exception || x instanceof Error;
 }
 
+export function isPromise(x: any) {
+  return x instanceof Promise;
+}
+
 export function ensureErrorOrException(e: any) {
-  return isException(e) ? e : new Error(String(e));
+  return (isException(e) || isPromise(e)) ? e : new Error(String(e));
 }
 
 export abstract class FSharpException extends Exception
