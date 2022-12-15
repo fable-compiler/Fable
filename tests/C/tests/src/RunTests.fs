@@ -55,3 +55,11 @@ let matchstuff = function
     | A -> 0
     | B i -> i
     | C _ -> 1
+
+let genericMap f x =
+    f x
+
+let testGenericMap () =
+    let res = genericMap (fun x -> { X = x.X + 1; Y = x.Y + 1}) { X = 1; Y = 1 }
+    assertTrue(res = { X = 2; Y = 2})
+    ()

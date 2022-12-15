@@ -93,7 +93,7 @@ module Transforms =
                     expr
                 | lst ->
                     let identsToCapture = identUsesInStatements lst
-                    com.GenAndCallDeferredFunctionFromExpr(identsToCapture |> Set.toList, lst, retType)
+                    com.GenAndCallDeferredClosureFromExpr(identsToCapture |> Set.toList, [], lst, retType)
                 // | lst ->
                 //     let captures = []
                     // com.CreateAdditionalDeclaration(FunctionDeclaration())
@@ -216,6 +216,10 @@ module Transforms =
             elif ent.IsFSharpUnion then
                  ent.FullName.Replace(".", "_") |> CStruct |> Rc
             else Pointer Void
+        | Fable.Type.GenericParam(name, false, constraints) ->
+            Rc Void
+        | Fable.Type.LambdaType(arg, returnType) ->
+            Rc Void
         | _ ->
             sprintf "unrecognised %A" t |> CStruct
             //Pointer Void
@@ -297,7 +301,7 @@ module Transforms =
                 //     "fable-lib/" + name
                 // | _ ->
                 //     info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle
-            com.RegisterInclude({Name = info.Path.TrimEnd("fs".ToCharArray()) + "c"; IsBuiltIn = false})
+            com.RegisterInclude({Name = info.Path.Replace(".fs",".c"); IsBuiltIn = false})
             let fullName =
                 match info.Kind with
                 | Fable.UserImport _ -> info.Selector
@@ -372,7 +376,16 @@ module Transforms =
                 // |> Helpers.maybeIife
             else sprintf "not equal lengths %A %A" idents boundValues |> Unknown |> singletonStatement
         | Fable.Expr.Lambda(arg, body, name) ->
-            Function([arg.Name], transformExprAsStatements com body) |> singletonStatement
+            //let closedOverIdents
+            let bodyStmnts = transformExprAsStatements com body
+            let identsToCapture = []
+            let res = com.GenAndCallDeferredClosureFromExpr(
+                        [{Name = arg.Name; Type = transformType com arg.Type}],
+                        identsToCapture,
+                        bodyStmnts,
+                        transformType com body.Type)
+            res |> singletonStatement
+            // Function([arg.Name], transformExprAsStatements com body) |> singletonStatement
         | Fable.Expr.CurriedApply(applied, args, _, _) ->
             FunctionCall(transformExpr applied, args |> List.map transformExpr) |> singletonStatement
         | Fable.Expr.IfThenElse (guardExpr, thenExpr, elseExpr, _) ->

@@ -1,8 +1,8 @@
 module StringTests
 open Util
 
-let concat a b =
-    a + " " + b
+// let concat a b =
+//     a + " " + b
 
 let testStringConcatWorks () =
     // let a = "hello"

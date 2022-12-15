@@ -37,6 +37,46 @@ type CCompiler(com: Fable.Compiler) =
                 retType)
         additionalDeclarations <- declaration::additionalDeclarations
         C.FunctionCall(C.Ident {Name = delegatedName; Type = C.Void }, scopedArgs |> List.map C.Ident)
+    member this.GenAndCallDeferredClosureFromExpr (scopedArgs, closedOverIdents, body, retType) =
+        let seed =
+            let v = scopedArgs.GetHashCode() + body.GetHashCode()
+            if v < 0 then -v else v//todo prevent collisions
+        let delegatedName = "delegated_" + seed.ToString() //todo generate procedurally
+        let functionDeclaration = C.FunctionDeclaration(
+                delegatedName,
+                scopedArgs |> List.map (fun (s: C.CIdent) -> s.Name, s.Type),
+                body,
+                retType)
+        let structClosureNm = "delegatedclosure_" + seed.ToString()
+        let structClosureDeclaration = C.StructDeclaration(
+            structClosureNm,
+            closedOverIdents
+        )
+        let newStructClosureDeclaration = C.FunctionDeclaration(
+            structClosureNm + "_new",
+            closedOverIdents,
+            [
+                C.DeclareIdent("item", structClosureNm |> C.CStruct)
+                for (name, ctype) in closedOverIdents do
+                    C.Do(C.SetValue(C.GetField(C.Ident {Name = "item"; Type = C.Void;}, name), C.Ident {Name = name; Type = C.Void}))
+                C.Assignment(["rc"],
+                    C.FunctionCall(C.Ident { Name="Rc_New"; Type= C.Void},
+                        [
+
+                            C.FunctionCall(C.Ident { Name = "sizeof"; Type = C.Void }, [ C.Ident { Name = "item"; Type = C.Void }])
+                            C.Unary(C.UnaryOp.RefOf, C.Ident { Name = "item"; Type = C.Void })
+                            C.Const C.ConstNull
+                        ]
+                    ),
+                    C.Rc (structClosureNm |> C.CStruct))
+                C.Return (C.Ident { Name = "rc"; Type = structClosureNm |> C.CStruct})
+            ],
+            C.Rc C.Void
+        )
+        additionalDeclarations <- structClosureDeclaration::newStructClosureDeclaration::functionDeclaration::additionalDeclarations
+        //struct with captures
+        C.FunctionCall(C.Ident {Name = structClosureNm + "_new"; Type = C.Void },
+            closedOverIdents |> List.map (fun (name, t) -> C.Ident {Name = name; Type = t }))
     member this.GetAdditionalDeclarations() = additionalDeclarations
     member this.RegisterInclude(fInclude: Fable.AST.C.Include) =
         // failwithf "%A" com.LibraryDir
