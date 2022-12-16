@@ -55,18 +55,19 @@ module Transforms =
                 | SetExpr(a, b, value) -> identUsesInExpr a @ identUsesInExpr b @ identUsesInExpr value
                 | Brackets(expr) -> identUsesInExpr expr
                 | AnonymousFunc(args, body) -> failwith "Not Implemented"
-                | Unknown(_) -> failwith "Not Implemented"
+                | Unknown(_) -> []
                 | Macro(_, args) -> args |> List.collect identUsesInExpr
                 // | Ternary(guardExpr, thenExpr, elseExpr) ->
                 //     identUsesInExpr guardExpr @ identUsesInExpr thenExpr @ identUsesInExpr elseExpr
-                | NoOp -> failwith "Not Implemented"
-                | Function(args, body) -> failwith "Not Implemented"
+                | NoOp -> []
+                // | Function(args, body) -> failwith "Not Implemented"
                 | NewArr(values) ->
                     values |> List.collect identUsesInExpr
                 | GetFieldThroughPointer(expr, name) ->
                     identUsesInExpr expr
                 | Cast(_, expr) ->
                     identUsesInExpr expr
+                | Comment(_) -> []
             let rec identUsesInSingleStatement = function
                 | Return expr -> identUsesInExpr expr
                 | Do expr -> identUsesInExpr expr
@@ -93,7 +94,7 @@ module Transforms =
                     expr
                 | lst ->
                     let identsToCapture = identUsesInStatements lst
-                    com.GenAndCallDeferredClosureFromExpr(identsToCapture |> Set.toList, [], lst, retType)
+                    com.GenAndCallDeferredFunctionFromExpr(identsToCapture |> Set.toList, lst, retType)
                 // | lst ->
                 //     let captures = []
                     // com.CreateAdditionalDeclaration(FunctionDeclaration())
@@ -280,6 +281,10 @@ module Transforms =
         | Fable.Expr.Call(expr, callInfo, t, r) ->
             let lhs =
                 match expr with
+                // | Fable.Expr.IdentExpr i ->
+                //     let ptr =
+                //         transformExpr expr |> Helpers.Out.unwrapRc Void
+                //     GetFieldThroughPointer(ptr, "fn")
                 | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fi), t, _) ->
                     match t with
                     | Fable.DeclaredType(_, _)
@@ -290,6 +295,8 @@ module Transforms =
                     transformExpr expr |> Brackets
                 | _ -> transformExpr expr
             let args = transformCallArgs com callInfo.Args
+            //let mref = callInfo.MemberRef |> Option.map com.GetMember
+            //sprintf "%A" expr |> Unknown |> singletonStatement
             FunctionCall(lhs, args) |> singletonStatement
         | Fable.Expr.Import (info, t, r) ->
                 // match info.Kind, info.Path with
@@ -380,14 +387,31 @@ module Transforms =
             let bodyStmnts = transformExprAsStatements com body
             let identsToCapture = []
             let res = com.GenAndCallDeferredClosureFromExpr(
+                        expr.Type,
                         [{Name = arg.Name; Type = transformType com arg.Type}],
                         identsToCapture,
                         bodyStmnts,
                         transformType com body.Type)
-            res |> singletonStatement
+            [ sprintf "%A" expr.Type |> Comment |> Do ]
+            @ (res |> singletonStatement)
             // Function([arg.Name], transformExprAsStatements com body) |> singletonStatement
-        | Fable.Expr.CurriedApply(applied, args, _, _) ->
-            FunctionCall(transformExpr applied, args |> List.map transformExpr) |> singletonStatement
+        | Fable.Expr.CurriedApply(applied, args, t, _) ->
+            match applied with
+            | Fable.Expr.IdentExpr i ->
+                // i.Type
+                //todo need to get to
+                //struct Rc resr2 = ((struct delegatedclosure_1742910231*)f.data)->fn(x);
+                let tOut = com.GenFunctionSignatureAlias(args |> List.map (fun a -> a.Type |> transformType com), transformType com t)
+                let ptr =
+                    transformExpr applied |> Helpers.Out.unwrapRc tOut
+                let tagValExpr = GetFieldThroughPointer(ptr, "fn")
+                let called = FunctionCall(tagValExpr,  args |> List.map transformExpr)
+                [
+                    sprintf "%A" i.Type |> Comment |> Do
+                ] @ (singletonStatement called)
+                // sprintf "%A" expr |> Unknown |> singletonStatement
+            | _ ->
+                FunctionCall(transformExpr applied, args |> List.map transformExpr) |> singletonStatement
         | Fable.Expr.IfThenElse (guardExpr, thenExpr, elseExpr, _) ->
             [IfThenElse(transformExpr guardExpr, transformExprAsStatements com thenExpr, transformExprAsStatements com elseExpr)]
         | Fable.Test(expr, kind, b) ->
@@ -434,8 +458,9 @@ module Transforms =
             |> Unknown
             |> singletonStatement
         | Fable.Delegate(idents, body, _, _) ->
-            Function(idents |> List.map(fun i -> i.Name), transformExprAsStatements com body) //can be flattened
-            |> singletonStatement
+            // Function(idents |> List.map(fun i -> i.Name), transformExprAsStatements com body) //can be flattened
+            // |> singletonStatement
+            sprintf "%A" expr |> Unknown |> singletonStatement
         | Fable.ForLoop(ident, start, limit, body, isUp, _) ->
             [ForLoop(ident.Name, transformExpr start, transformExpr limit, transformExprAsStatements com body)]
         | Fable.TypeCast(expr, t) ->
@@ -446,11 +471,11 @@ module Transforms =
             ]
         | Fable.TryCatch(body, catch, finalizer, _) ->
             [
-                Assignment(["status"; "resOrErr"], FunctionCall(Helpers.ident "pcall" Void, [
-                    Function([], [
-                        transformExpr body |> Return
-                    ])
-                ]), transformType com body.Type)
+                // Assignment(["status"; "resOrErr"], FunctionCall(Helpers.ident "pcall" Void, [
+                //     Function([], [
+                //         transformExpr body |> Return
+                //     ])
+                // ]), transformType com body.Type)
                 let finalizer = finalizer |> Option.map transformExpr
                 let catch = catch |> Option.map (fun (ident, expr) -> ident.Name, transformExpr expr)
                 IfThenElse(Helpers.ident "status" Void, [

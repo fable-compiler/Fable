@@ -10,4 +10,5 @@ let main args = // args
     ArithmeticTests.testMultiply()
     ArithmeticTests.testDivide()
     StringTests.testStringConcatWorks()
+    RunTests.testGenericMap()
     0

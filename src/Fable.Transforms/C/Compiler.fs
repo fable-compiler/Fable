@@ -8,7 +8,7 @@ type CCompiler(com: Fable.Compiler) =
 
     let mutable types = Map.empty
     let mutable decisionTreeTargets = []
-    let mutable additionalDeclarations = []
+    let mutable additionalDeclarations = Set.empty
     let mutable includes = Set.empty
     let mutable identSubstitutions = Map.empty
     //member this.Com = com
@@ -25,6 +25,14 @@ type CCompiler(com: Fable.Compiler) =
     //     let projDir = System.IO.Path.GetDirectoryName(cliArgs.ProjectFile)
     //     let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
     //     if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
+    member this.GenFunctionSignatureAlias (args, retType) =
+        let seed =
+            let v = args.GetHashCode() + retType.GetHashCode()
+            if v < 0 then -v else v//todo prevent collisions
+        let declName = "function_" + seed.ToString();
+        additionalDeclarations <- additionalDeclarations |> Set.add (C.TypedefFnDeclaration(declName, args |> List.mapi (fun i a -> "p_"+i.ToString(), a), retType))
+        C.CTypeDef declName
+
     member this.GenAndCallDeferredFunctionFromExpr (scopedArgs, body, retType) =
         let seed =
             let v = scopedArgs.GetHashCode() + body.GetHashCode()
@@ -35,9 +43,9 @@ type CCompiler(com: Fable.Compiler) =
                 scopedArgs |> List.map (fun (s: C.CIdent) -> s.Name, s.Type),
                 body,
                 retType)
-        additionalDeclarations <- declaration::additionalDeclarations
+        additionalDeclarations <- additionalDeclarations |> Set.add (declaration)
         C.FunctionCall(C.Ident {Name = delegatedName; Type = C.Void }, scopedArgs |> List.map C.Ident)
-    member this.GenAndCallDeferredClosureFromExpr (scopedArgs, closedOverIdents, body, retType) =
+    member this.GenAndCallDeferredClosureFromExpr (lambdaType: Fable.Type, scopedArgs, closedOverIdents, body, retType) =
         let seed =
             let v = scopedArgs.GetHashCode() + body.GetHashCode()
             if v < 0 then -v else v//todo prevent collisions
@@ -48,15 +56,18 @@ type CCompiler(com: Fable.Compiler) =
                 body,
                 retType)
         let structClosureNm = "delegatedclosure_" + seed.ToString()
+        let fsParams = (scopedArgs |> List.map (fun s -> s.Type)) @ (closedOverIdents |> List.map snd)
+        let identParam = "fn", this.GenFunctionSignatureAlias(fsParams, retType)
         let structClosureDeclaration = C.StructDeclaration(
             structClosureNm,
-            closedOverIdents
+            identParam::closedOverIdents
         )
         let newStructClosureDeclaration = C.FunctionDeclaration(
             structClosureNm + "_new",
             closedOverIdents,
             [
                 C.DeclareIdent("item", structClosureNm |> C.CStruct)
+                C.Do(C.SetValue(C.GetField(C.Ident {Name = "item"; Type = C.Void;}, "fn"), C.Ident {Name = delegatedName; Type = C.Void}))
                 for (name, ctype) in closedOverIdents do
                     C.Do(C.SetValue(C.GetField(C.Ident {Name = "item"; Type = C.Void;}, name), C.Ident {Name = name; Type = C.Void}))
                 C.Assignment(["rc"],
@@ -73,11 +84,15 @@ type CCompiler(com: Fable.Compiler) =
             ],
             C.Rc C.Void
         )
-        additionalDeclarations <- structClosureDeclaration::newStructClosureDeclaration::functionDeclaration::additionalDeclarations
+        additionalDeclarations <-
+            additionalDeclarations
+            |> Set.add functionDeclaration
+            |> Set.add newStructClosureDeclaration
+            |> Set.add structClosureDeclaration
         //struct with captures
         C.FunctionCall(C.Ident {Name = structClosureNm + "_new"; Type = C.Void },
             closedOverIdents |> List.map (fun (name, t) -> C.Ident {Name = name; Type = t }))
-    member this.GetAdditionalDeclarations() = additionalDeclarations
+    member this.GetAdditionalDeclarations() = additionalDeclarations |> Set.toList
     member this.RegisterInclude(fInclude: Fable.AST.C.Include) =
         // failwithf "%A" com.LibraryDir
         includes <- includes |> Set.add fInclude

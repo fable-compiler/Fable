@@ -17,6 +17,7 @@ type CType =
     | Pointer of CType
     | CStruct of string
     | Rc of CType
+    | CTypeDef of string
 
 
 type Const =
@@ -68,11 +69,10 @@ type Expr =
     | Cast of CType * Expr
     | AnonymousFunc of args: string list * body: Statement list
     | Unknown of string
+    | Comment of string
     | Macro of string * args: Expr list
-    // | Ternary of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | NoOp
-    | Function of args: string list * body: Statement list
-    // | NewStructInst of name: string * values: (string * Expr) list
+    // | Function of args: string list * body: Statement list
     | NewArr of values: Expr list
 
 
@@ -99,6 +99,7 @@ type Declaration =
     | FunctionDeclaration of name: string * args: (string * CType) list * body: Statement list * returnType: CType
     | StructDeclaration of name: string * params: (string * CType) list
     | NothingDeclared
+    | TypedefFnDeclaration of name: string * args: (string * CType) list * returnType: CType
 
 type File =
     { Filename: string

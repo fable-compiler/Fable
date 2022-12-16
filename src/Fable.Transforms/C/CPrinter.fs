@@ -36,9 +36,6 @@ module Output =
         for _ in 1 .. ctx.Indent do
             ctx.Writer.Write("    ")
 
-
-
-
     let write ctx txt =
         ctx.Writer.Write(txt: string)
 
@@ -46,9 +43,6 @@ module Output =
     let writei ctx txt =
         writeIndent ctx
         write ctx txt
-
-
-
 
     let writeln ctx txt =
         ctx.Writer.WriteLine(txt: string)
@@ -58,6 +52,11 @@ module Output =
         write ctx help
         writeln ctx txt
         writeln ctx "*/"
+
+    let writeCommentedShort ctx txt =
+        write ctx "/*"
+        write ctx txt
+        write ctx "*/"
 
     let writeOp ctx = function
         | Multiply -> write ctx "*"
@@ -96,6 +95,8 @@ module Output =
             write ctx name
         | Rc _ ->
             write ctx "struct Rc"
+            //
+        | CTypeDef td -> write ctx td
         | x -> sprintf "%A" x |> write ctx
 
     let rec writeExpr ctx = function
@@ -208,15 +209,15 @@ module Output =
 
                 pos <- m.Index + m.Length
             write ctx (macro.Substring(pos))
-        | Function(args, body) ->
-            write ctx "function "
-            write ctx "("
-            args |> Helper.separateWithCommas |> write ctx
-            write ctx ")"
-            let ctxI = indent ctx
-            writeln ctxI ""
-            body |> List.iter (writeStatement ctxI)
-            writei ctx "end"
+        // | Function(args, body) ->
+        //     write ctx "function "
+        //     write ctx "("
+        //     args |> Helper.separateWithCommas |> write ctx
+        //     write ctx ")"
+        //     let ctxI = indent ctx
+        //     writeln ctxI ""
+        //     body |> List.iter (writeStatement ctxI)
+        //     writei ctx "end"
 
         // | NewStructInst(args) ->
         //     write ctx "{"
@@ -260,7 +261,8 @@ module Output =
             write ctx ")"
         | Unknown x ->
             writeCommented ctx "unknown" x
-        | x -> sprintf "%A" x |> writeCommented ctx "todo"
+        | Comment c ->
+            writeCommentedShort ctx c
 
     and writeExprs ctx = function
 
@@ -385,6 +387,21 @@ module Output =
                 write ctxI name
                 writeln ctxI ";"
             writeln ctx "};"
+        | TypedefFnDeclaration(name, args, returnArg) ->
+            write ctx "("
+            writeType ctx returnArg
+            write ctx ")"
+            let mutable first = true
+            write ctx ("(*" + name + ")")
+            write ctx "("
+            for (name, t) in args do
+                if not first then
+                    write ctx ", "
+                first <- false
+                writeType ctx t
+                write ctx " "
+                write ctx name
+            write ctx ")"
         | NothingDeclared _ -> ()
 
     let rec writeDeclaration ctx declaration =
@@ -424,6 +441,21 @@ module Output =
                 write ctxI name
                 writeln ctxI ";"
             writeln ctx "};"
+        | TypedefFnDeclaration(name, args, returnArg) ->
+            write ctx "typedef "
+            writeType ctx returnArg
+            write ctx ""
+            let mutable first = true
+            write ctx ("(*" + name + ")")
+            write ctx "("
+            for (name, t) in args do
+                if not first then
+                    write ctx ", "
+                first <- false
+                writeType ctx t
+                write ctx " "
+                write ctx name
+            writeln ctx ");"
         | NothingDeclared _ -> ()
 
     let writeHeaderFile ctx (file: File) =
