@@ -260,9 +260,13 @@ module private Transforms =
         match e with
         | Let(ident, value, letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             let canEraseBinding =
-                match value with
-                | Import(i,_,_) -> i.IsCompilerGenerated
-                | NestedLambda(args, lambdaBody, name) ->
+                match value, com.Options.Language with
+                | Import(i,_,_), _ -> i.IsCompilerGenerated
+                // Don't move local functions declared by user
+                | Lambda _, (Dart|Python) ->
+                    ident.IsCompilerGenerated && canInlineArg com ident.Name value letBody
+                // For now restricted to JS/TS/Rust // TODO: fix issues in Dart and Python tests
+                | NestedLambda(args, lambdaBody, name), (JavaScript|TypeScript|Rust) ->
                     match lambdaBody with
                     | Import(i,_,_) -> i.IsCompilerGenerated
                     // Check the lambda doesn't reference itself recursively
