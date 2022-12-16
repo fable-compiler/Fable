@@ -262,10 +262,12 @@ module private Transforms =
             let canEraseBinding =
                 match value, com.Options.Language with
                 | Import(i,_,_), _ -> i.IsCompilerGenerated
-                // Don't move local functions declared by user
+                // Don't move local functions declared by user (Dart/Python only)
+                // TODO: remove this for Dart/Python when the next match is fixed
                 | Lambda _, (Dart|Python) ->
                     ident.IsCompilerGenerated && canInlineArg com ident.Name value letBody
-                // For now restricted to JS/TS/Rust // TODO: fix issues in Dart and Python tests
+                // Replace non-recursive lambda bindings (JS/TS/Rust only)
+                // TODO: fix issues with Dart/Python tests and enable for Dart/Python
                 | NestedLambda(args, lambdaBody, name), (JavaScript|TypeScript|Rust) ->
                     match lambdaBody with
                     | Import(i,_,_) -> i.IsCompilerGenerated
