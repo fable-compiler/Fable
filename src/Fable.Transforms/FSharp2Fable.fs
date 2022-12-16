@@ -594,7 +594,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // we replace with immutable bindings instead which generates better code
         // and increases the chances of the tuple being removed in beta reduction
         | FSharpExprPatterns.NewTuple(tupleType, tupleValues) as tupleExpr
-            when var.IsCompilerGenerated && var.CompiledName = "matchValue" ->
+            when var.IsCompilerGenerated &&
+                (var.CompiledName = "matchValue" || var.CompiledName = "patternInput") ->
 
             let! tupleValues = transformExprList com ctx tupleValues
 
@@ -845,8 +846,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let tupleElemValue =
             match tupleExpr with
             | FSharpExprPatterns.Value tupleIdent
-                    when tupleIdent.IsCompilerGenerated
-                    && tupleIdent.CompiledName = "matchValue" ->
+                when tupleIdent.IsCompilerGenerated &&
+                    (tupleIdent.CompiledName = "matchValue" || tupleIdent.CompiledName = "patternInput") ->
                 tryGetValueFromScope ctx tupleIdent
                 |> Option.bind (function
                     | Fable.Value(Fable.NewTuple(values,_),_) ->
