@@ -388,12 +388,13 @@ module Output =
                 writeln ctxI ";"
             writeln ctx "};"
         | TypedefFnDeclaration(name, args, returnArg) ->
-            write ctx "("
+            write ctx "typedef "
             writeType ctx returnArg
-            write ctx ")"
+            write ctx " "
             let mutable first = true
-            write ctx ("(*" + name + ")")
-            write ctx "("
+            // write ctx ("(*" + name + ")")
+            write ctx name
+            write ctx " ("
             for (name, t) in args do
                 if not first then
                     write ctx ", "
@@ -401,7 +402,7 @@ module Output =
                 writeType ctx t
                 write ctx " "
                 write ctx name
-            write ctx ")"
+            writeln ctx ");"
         | NothingDeclared _ -> ()
 
     let rec writeDeclaration ctx declaration =
@@ -444,10 +445,11 @@ module Output =
         | TypedefFnDeclaration(name, args, returnArg) ->
             write ctx "typedef "
             writeType ctx returnArg
-            write ctx ""
+            write ctx " "
             let mutable first = true
-            write ctx ("(*" + name + ")")
-            write ctx "("
+            // write ctx ("(*" + name + ")")
+            write ctx name
+            write ctx " ("
             for (name, t) in args do
                 if not first then
                     write ctx ", "

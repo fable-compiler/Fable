@@ -16,7 +16,15 @@ struct Rc Rc_New(int size, void *data, void *dispose(void *data)) {
     rc.data = malloc(size);
     rc.dispose = dispose;
     memcpy(rc.data, data, size);
-    // rc.Data =
+    return rc;
+};
+
+struct Rc Rc_New_Int(int data) {
+    struct Rc rc;
+    rc.count = malloc(sizeof(int));
+    *rc.count = 1;
+    rc.data = malloc(4);
+    memcpy(rc.data, &data, 4);
     return rc;
 };
 

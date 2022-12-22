@@ -13,6 +13,7 @@ open Fable.Compilers.C
 open Fable.Naming
 open Fable.Core
 
+
 module Transforms =
     module Helpers =
         let transformStatements transformStatements transformReturn exprs = [
@@ -143,6 +144,83 @@ module Transforms =
                 let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
                 id)
             |> Seq.toList
+
+    module FCalls =
+        let newRc expr t =
+            match t with
+            | C.Int ->
+                FunctionCall(Ident { Name="Rc_New_Int"; Type = t},
+                    [
+                        expr
+                    ]
+                )
+            | _ ->
+                FunctionCall(Ident { Name="Rc_New"; Type = t},
+                    [
+                        FunctionCall(
+                            Helpers.voidIdent "sizeof",[ expr ])
+                        Unary(UnaryOp.RefOf, expr)
+                        Const ConstNull
+                    ]
+                )
+    //from rs
+    let isClosedOverIdent com ctx (ident: Fable.Ident) =
+        true
+    //from rs
+    let getIgnoredNames (name: string option) (args: Fable.Ident list) =
+        let argNames = args |> List.map (fun arg -> arg.Name)
+        let allNames = name |> Option.fold (fun xs x -> x :: xs) argNames
+        allNames |> Set.ofList
+
+    //from rs
+    let tryFindClosedOverIdent com ctx (ignoredNames: HashSet<string>) expr =
+        match expr with
+        | Fable.IdentExpr ident ->
+            if not (ignoredNames.Contains(ident.Name))
+                && (isClosedOverIdent com ctx ident)
+            then Some ident
+            else None
+        // add local names in the closure to the ignore list
+        // TODO: not perfect, local name shadowing will ignore captured names
+        | Fable.ForLoop(ident, _, _, _, _, _) ->
+            ignoredNames.Add(ident.Name) |> ignore
+            None
+        | Fable.Lambda(arg, _, _) ->
+            ignoredNames.Add(arg.Name) |> ignore
+            None
+        | Fable.Delegate(args, body, name, _) ->
+            args |> List.iter (fun arg ->
+                ignoredNames.Add(arg.Name) |> ignore)
+            None
+        | Fable.Let(ident, _, _) ->
+            ignoredNames.Add(ident.Name) |> ignore
+            None
+        | Fable.LetRec(bindings, _) ->
+            bindings |> List.iter (fun (ident, _) ->
+                ignoredNames.Add(ident.Name) |> ignore)
+            None
+        | Fable.DecisionTree(_, targets) ->
+            targets |> List.iter (fun (idents, _) ->
+                idents |> List.iter (fun ident ->
+                    ignoredNames.Add(ident.Name) |> ignore))
+            None
+        | _ ->
+            None
+
+    //from rs
+    let getCapturedIdents com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+        let ignoredNames = HashSet(getIgnoredNames name args)
+        let mutable capturedIdents = Map.empty
+        let addClosedOver expr =
+            tryFindClosedOverIdent com ctx ignoredNames expr
+            |> Option.iter (fun ident ->
+                capturedIdents <- capturedIdents |> Map.add ident.Name ident
+            )
+            false
+        // collect all closed over names that are not arguments
+        deepExists addClosedOver body |> ignore
+        capturedIdents
+
     let transformValueKind (com: CCompiler) = function
         | Fable.NumberConstant(v, kind,_) ->
             let c =
@@ -196,40 +274,41 @@ module Transforms =
         | x -> sprintf "unknown %A" x |> ConstString |> Const
 
     let transformType (com: CCompiler) (t: Fable.Type) =
-        match t with
-        | Fable.Type.Char -> Char
-        | Fable.Type.Number(kind, info) ->
-            match kind with
-            | Int32 ->
-                Int
-            | _ -> Void
-        | Fable.Type.String ->
-            Rc (Char)
-        | Fable.Type.Unit ->
-            Void
-        | Fable.Type.DeclaredType (entRef, genArgs) ->
-            let ent = com.GetEntity entRef
-            if ent.IsFSharpRecord then
-                if ent.IsValueType then
-                    ent.FullName.Replace(".", "_") |> CStruct
-                else
-                     ent.FullName.Replace(".", "_") |> CStruct |> Rc
-            elif ent.IsFSharpUnion then
-                 ent.FullName.Replace(".", "_") |> CStruct |> Rc
-            else Pointer Void
-        | Fable.Type.GenericParam(name, false, constraints) ->
-            Rc Void
-        | Fable.Type.LambdaType(arg, returnType) ->
-            Rc Void
-        | _ ->
-            sprintf "unrecognised %A" t |> CStruct
-            //Pointer Void
+        let tOut =
+            match t with
+            | Fable.Type.Char -> Char
+            | Fable.Type.Number(kind, info) ->
+                match kind with
+                | Int32 ->
+                    Int
+                | _ -> Void
+            | Fable.Type.String ->
+                Rc (Char)
+            | Fable.Type.Unit ->
+                Void
+            | Fable.Type.DeclaredType (entRef, genArgs) ->
+                let ent = com.GetEntity entRef
+                if ent.IsFSharpRecord then
+                    if ent.IsValueType then
+                        ent.FullName.Replace(".", "_") |> CStruct
+                    else
+                        ent.FullName.Replace(".", "_") |> CStruct |> Rc
+                elif ent.IsFSharpUnion then
+                    ent.FullName.Replace(".", "_") |> CStruct |> Rc
+                else Pointer Void
+            | Fable.Type.GenericParam(name, false, constraints) ->
+                Rc Void
+            | Fable.Type.LambdaType(arg, returnType) ->
+                Rc Void
+            | _ ->
+                sprintf "unrecognised %A" t |> CStruct
+        tOut
     let isRcType (com: CCompiler) t =
         let cType = transformType com t
         match cType with
         | Rc _ -> true
         | _ -> false
-    let transformCallArgsWithTypes com =
+    let transformCallIdentsWithTypes com =
         List.filter(fun (ident: Fable.Ident) -> match ident.Type with | Fable.Unit -> false | _ -> true)
         >> List.map(fun ident -> ident.Name, transformType com ident.Type)
     let transformOp com =
@@ -261,12 +340,28 @@ module Transforms =
             | _ -> sprintf "%A %A" op expr |> Unknown
         | x -> Unknown(sprintf "%A" x)
 
-    let transformCallArgs com args =
+    let shouldBox expectedType (actualType: Fable.Type) =
+        match expectedType, actualType with
+        | Fable.Type.GenericParam _, Fable.Type.Number _ ->
+            true
+        | Fable.Type.GenericParam _, Fable.Type.Boolean _ ->
+            true
+        | _ -> false
+
+    let transformCallArgs (com: CCompiler) (memberRef: Fable.AST.Fable.MemberRef option) args=
         match args with
         | [] -> []
         | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
         | args ->
-            args |> List.map (fun arg -> transformLeaveContext com arg)
+            let parameters =
+                memberRef |> Option.map com.GetMember |> Option.map (fun m -> m.CurriedParameterGroups |> List.concat) |> Option.defaultValue []
+
+            args |> List.mapi (fun idx arg ->
+                        let shouldBox = parameters |> List.tryItem idx |> Option.map (fun p -> shouldBox p.Type arg.Type) |> Option.defaultValue false
+                        if shouldBox then
+                            FCalls.newRc (transformLeaveContext com arg) (transformType com arg.Type)
+                        else transformLeaveContext com arg
+                        )
 
     let transformExprAsStatements (com: CCompiler) (expr: Fable.Expr) : Statement list =
         let transformExpr = transformExpr com
@@ -294,7 +389,8 @@ module Transforms =
                 | Fable.Expr.Delegate _ ->
                     transformExpr expr |> Brackets
                 | _ -> transformExpr expr
-            let args = transformCallArgs com callInfo.Args
+
+            let args = transformCallArgs com callInfo.MemberRef callInfo.Args
             //let mref = callInfo.MemberRef |> Option.map com.GetMember
             //sprintf "%A" expr |> Unknown |> singletonStatement
             FunctionCall(lhs, args) |> singletonStatement
@@ -356,8 +452,12 @@ module Transforms =
         | Fable.Expr.Sequential exprs ->
             exprs |> List.map (transformExprAsStatements com) |> List.collect id
         | Fable.Expr.Let (ident, value, body) ->
+            let shouldBox = shouldBox ident.Type value.Type
+            let outType =
+                if shouldBox then transformType com value.Type |> Rc else transformType com value.Type
             [
-                yield Assignment([ident.Name], transformExpr value, transformType com value.Type)
+                yield sprintf "%A" value.Type |> Comment |> Do
+                yield Assignment([ident.Name], transformExpr value, outType)
                 yield! transformExprAsStatements com body
             ]
         | Fable.Expr.Emit(m, _, _) ->
@@ -367,7 +467,7 @@ module Transforms =
             //     argsExprs
             //     @ [macroExpr]
             // asSingleExprIife exprs
-            Macro(m.Macro, m.CallInfo.Args |> List.map transformExpr) |> singletonStatement
+            Macro(m.Macro, m.CallInfo.Args |> transformCallArgs com m.CallInfo.MemberRef) |> singletonStatement
         | Fable.Expr.DecisionTree(expr, lst) ->
             com.DecisionTreeTargets(lst)
             transformExpr expr |> singletonStatement
@@ -385,15 +485,19 @@ module Transforms =
         | Fable.Expr.Lambda(arg, body, name) ->
             //let closedOverIdents
             let bodyStmnts = transformExprAsStatements com body
-            let identsToCapture = []
+            let identsToCapture =
+                getCapturedIdents com () None [arg] body
+                |> Map.toList
+                |> List.map (snd >> fun ident -> ident.Name, ident.Type |> transformType com)
             let res = com.GenAndCallDeferredClosureFromExpr(
                         expr.Type,
                         [{Name = arg.Name; Type = transformType com arg.Type}],
                         identsToCapture,
                         bodyStmnts,
                         transformType com body.Type)
-            [ sprintf "%A" expr.Type |> Comment |> Do ]
-            @ (res |> singletonStatement)
+            // [ sprintf "%A" expr.Type |> Comment |> Do ]
+            // @ (res |> singletonStatement)
+            res |> singletonStatement
             // Function([arg.Name], transformExprAsStatements com body) |> singletonStatement
         | Fable.Expr.CurriedApply(applied, args, t, _) ->
             match applied with
@@ -401,11 +505,15 @@ module Transforms =
                 // i.Type
                 //todo need to get to
                 //struct Rc resr2 = ((struct delegatedclosure_1742910231*)f.data)->fn(x);
-                let tOut = com.GenFunctionSignatureAlias(args |> List.map (fun a -> a.Type |> transformType com), transformType com t)
+                //let tOut = com.GenFunctionSignatureAlias(args |> List.map (fun a -> a.Type |> transformType com), transformType com t)
                 let ptr =
-                    transformExpr applied |> Helpers.Out.unwrapRc tOut
-                let tagValExpr = GetFieldThroughPointer(ptr, "fn")
-                let called = FunctionCall(tagValExpr,  args |> List.map transformExpr)
+                    transformExpr applied
+                let ptrUnwrapped =
+                    let closureTmpl = CStruct "FnClosure1"
+                    ptr
+                    |> Helpers.Out.unwrapRc closureTmpl
+                let tagValExpr = GetFieldThroughPointer(ptrUnwrapped, "fn")
+                let called = FunctionCall(tagValExpr,  ptr::(args |> List.map transformExpr))
                 [
                     sprintf "%A" i.Type |> Comment |> Do
                 ] @ (singletonStatement called)
@@ -537,7 +645,7 @@ module Transforms =
             let mr = com.GetMember(m.MemberRef)
             let isEntryPoint = mr.Attributes |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.entryPoint) |> Option.isSome
             let t = transformType com m.Body.Type
-            let args = if isEntryPoint then [] else m.Args |> transformCallArgsWithTypes com
+            let args = if isEntryPoint then [] else m.Args |> transformCallIdentsWithTypes com
             let body = transformExprAsStatements com m.Body |> Helpers.Out.addCleanupOnExit com t args
             let finalName =
                 if mr.Attributes |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.entryPoint) |> Option.isSome then
@@ -574,14 +682,15 @@ module Transforms =
                             for (name, ctype) in fields do
                                 Do(SetValue(GetField(Ident cdIdent, name), Ident {Name = name; Type = ctype}))
                             Assignment(["rc"],
-                                FunctionCall(Ident { Name="Rc_New"; Type= Void},
-                                    [
-                                        FunctionCall(
-                                            Helpers.voidIdent "sizeof",[ Helpers.voidIdent "item"])
-                                        Unary(UnaryOp.RefOf, Helpers.voidIdent "item")
-                                        Const ConstNull
-                                    ]
-                                ),
+                                FCalls.newRc (Helpers.voidIdent "item") Void,
+                                // FunctionCall(Ident { Name="Rc_New"; Type= Void},
+                                //     [
+                                //         FunctionCall(
+                                //             Helpers.voidIdent "sizeof",[ Helpers.voidIdent "item"])
+                                //         Unary(UnaryOp.RefOf, Helpers.voidIdent "item")
+                                //         Const ConstNull
+                                //     ]
+                                // ),
                                 Rc (ent.FullName.Replace(".", "_") |> CStruct))
                             Return (Ident rcIdent)
                         ], Rc (ent.FullName.Replace(".", "_") |> CStruct))
@@ -604,14 +713,15 @@ module Transforms =
                             for (name, ctype) in fields do
                                 Do(SetValue(GetField(Ident cdIdent, name), Ident {Name = name; Type = ctype}))
                             Assignment(["rc"],
-                                FunctionCall(Ident { Name="Rc_New"; Type= Void},
-                                    [
-                                        FunctionCall(
-                                            Helpers.voidIdent "sizeof",[ Helpers.voidIdent "item"])
-                                        Unary(UnaryOp.RefOf, Helpers.voidIdent "item")
-                                        Const ConstNull
-                                    ]
-                                ),
+                                // FunctionCall(Ident { Name="Rc_New"; Type= Void},
+                                //     [
+                                //         FunctionCall(
+                                //             Helpers.voidIdent "sizeof",[ Helpers.voidIdent "item"])
+                                //         Unary(UnaryOp.RefOf, Helpers.voidIdent "item")
+                                //         Const ConstNull
+                                //     ]
+                                // ),
+                                FCalls.newRc (Helpers.voidIdent "item") Void,
                                 Rc (ent.FullName.Replace(".", "_") |> CStruct))
                             Return (Ident rcIdent)
                         ], Rc (ent.FullName.Replace(".", "_") |> CStruct))
@@ -631,12 +741,19 @@ let transformFile com (file: Fable.File): File =
         [
             { Name = "stdio.h"; IsBuiltIn = true }
             { Name = "assert.h"; IsBuiltIn = true }
+            { Name = getLibPath com "native"; IsBuiltIn = false }
+            { Name = getLibPath com "closure"; IsBuiltIn = false }
             { Name = getLibPath com "rc"; IsBuiltIn = false }
         ]
     let comp = CCompiler(com)
+
     let declarations =
-        ((file.Declarations |> List.collect (Transforms.transformDeclarations comp)) @ comp.GetAdditionalDeclarations())
-         |> List.map transformDeclPostprocess
+        file.Declarations
+        |> List.collect (fun dec ->
+                            let stdDecs = Transforms.transformDeclarations comp dec
+                            let additionalDecs = comp.GetAdditionalDeclarationsAndClear()
+                            additionalDecs @ stdDecs)
+        |> List.map transformDeclPostprocess
     {
         Filename = com.CurrentFile
         Includes = builtInIncludes @ comp.GetIncludes()

@@ -11,4 +11,6 @@ let main args = // args
     ArithmeticTests.testDivide()
     StringTests.testStringConcatWorks()
     RunTests.testGenericMap()
+    RunTests.testGenericMapWithClosure()
+    // RunTests.testGenericMap2()
     0
