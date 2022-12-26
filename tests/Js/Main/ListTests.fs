@@ -546,6 +546,9 @@ let tests =
             xs.[2..] |> List.sum |> equal 7
             xs.[1..2] |> List.sum |> equal 5
             xs.[0..-1] |> List.sum |> equal 0
+            xs.[-1..-1] |> List.sum |> equal 0
+            xs.[-1..2] |> List.sum |> equal 6
+            xs.[0..5] |> List.sum |> equal 10
 
     testCase "List.truncate works" <| fun () ->
             [1..3] = (List.truncate 3 [1..5]) |> equal true

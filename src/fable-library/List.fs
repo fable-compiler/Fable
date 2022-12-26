@@ -623,11 +623,14 @@ let truncate count (xs: 'T list) =
 
 let getSlice (startIndex: int option) (endIndex: int option) (xs: 'T list) =
     let len = length xs
-    let startIndex = defaultArg startIndex 0
-    let endIndex = defaultArg endIndex (len - 1)
-    if startIndex < 0 then invalidArg "startIndex" SR.indexOutOfBounds
-    elif endIndex >= len then invalidArg "endIndex" SR.indexOutOfBounds
-    elif endIndex < startIndex then List.Empty
+    let startIndex =
+        let index = defaultArg startIndex 0
+        if index < 0 then 0 else index
+    let endIndex =
+        let index = defaultArg endIndex (len - 1)
+        if index >= len then len - 1 else index
+
+    if endIndex < startIndex then List.Empty
     else xs |> skip startIndex |> take (endIndex - startIndex + 1)
 
 let splitAt index (xs: 'T list) =
