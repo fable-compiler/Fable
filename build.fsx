@@ -527,7 +527,7 @@ let testPython() =
     let buildDir = "build/tests/Python"
 
     cleanDirs [buildDir]
-    runInDir projectDir "dotnet test"
+    runInDir projectDir "dotnet test -c Release"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"
@@ -562,8 +562,8 @@ let testRust testMode =
     copyFiles (projectDir </> "tests/src") "*.rs" (buildDir </> "tests/src")
 
     // run .NET tests
-    runInDir testAstDir "dotnet test"
-    runInDir projectDir "dotnet test"
+    runInDir testAstDir "dotnet test -c Release"
+    runInDir projectDir "dotnet test -c Release"
 
     // build Fable Rust tests
     runFableWithArgs projectDir [
