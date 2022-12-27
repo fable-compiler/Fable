@@ -486,7 +486,7 @@ let testJs() =
 
     compileAndRunTestsWithMocha true "Main"
 
-    runInDir "tests/Js/Main" "dotnet run"
+    runInDir "tests/Js/Main" "dotnet run -c Release"
 
     // Adaptive tests must go in a different project to avoid conflicts with Queue shim, see #2559
     compileAndRunTestsWithMocha true "Adaptive"
