@@ -1452,8 +1452,9 @@ module Util =
                 Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
             | _ -> args
 
+        let allDefaultsAreNone = args.Defaults |> List.forall (function Expression.Name ({Id=Identifier "None"}) -> true | _ -> false)
         let (|ImmediatelyApplied|_|) = function
-            | Expression.Call {Func=callee; Args=appliedArgs } when args.Args.Length = appliedArgs.Length ->
+            | Expression.Call {Func=callee; Args=appliedArgs } when args.Args.Length = appliedArgs.Length && allDefaultsAreNone ->
                 // To be sure we're not running side effects when deleting the function check the callee is an identifier
                 match callee with
                 | Expression.Name(_) ->
@@ -1468,6 +1469,7 @@ module Util =
             | _ -> None
 
         match body with
+        // Check if we can remove the function
         | [Statement.Return { Value=Some (ImmediatelyApplied(callExpr))}] -> callExpr, []
         | _ ->
             let ident =
