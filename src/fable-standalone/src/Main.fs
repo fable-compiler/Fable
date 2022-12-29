@@ -340,6 +340,7 @@ let init () =
         member _.Version = Fable.Literals.VERSION
 
         member _.CreateChecker(references, readAllBytes, otherOptions) =
+            let otherOptions = Array.append [|"--define:FABLE_STANDALONE"|] otherOptions
             InteractiveChecker.Create(references, readAllBytes, otherOptions)
             |> CheckerImpl :> IChecker
 
