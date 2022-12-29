@@ -1477,16 +1477,15 @@ type PhpCompiler(com: Fable.Compiler) =
             require <- Set.add (Some "__FABLE_LIBRARY__",  "/" + path) require
 
         else
-            let fullPhpPath =
-                let p = fixExt file
+            let fullPhpPath p =
                 if Path.IsPathRooted p then
                     p
                 else
                     Path.GetFullPath(Path.Combine(Path.GetDirectoryName(com.CurrentFile), p))
 
-            if fullPhpPath <> com.CurrentFile then
+            if fullPhpPath file <> com.CurrentFile then
                 let path =
-                    let p = Path.getRelativePath basePath fullPhpPath
+                    let p = Path.getRelativePath basePath (fullPhpPath (fixExt file))
                     if p.StartsWith "./" then
                         p.Substring 2
                     else
