@@ -1,5 +1,3 @@
-import builtins
-
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
 from .types import FSharpRef

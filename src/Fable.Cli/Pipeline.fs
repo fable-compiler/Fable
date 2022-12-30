@@ -137,6 +137,7 @@ module Python =
         Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace("-", "_")
         |> Naming.applyCaseRule Core.CaseRules.SnakeCase
         |> Py.Naming.checkPyKeywords
+        |> Py.Naming.checkPyStdlib
 
     let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
         let fileExt = cliArgs.CompilerOptions.FileExtension

@@ -108,12 +108,12 @@ let ``StringBuilder.Append works with various overloads`` () =
 //     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
 //     sb.ToString() |> equal "Hello World!"
 
-// [<Fact>]
-// let ``kprintf works`` () =
-//     let f (s:string) = s + "XX"
-//     Printf.kprintf f "hello" |> equal "helloXX"
-//     Printf.kprintf f "%X" 255 |> equal "FFXX"
-//     Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
+[<Fact>]
+let ``kprintf works`` () =
+    let f (s:string) = s + "XX"
+    Printf.kprintf f "hello" |> equal "helloXX"
+    Printf.kprintf f "%X" 255 |> equal "FFXX"
+    Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
 
 // [<Fact>]
 // let ``kprintf works indirectly`` () = // See #1204
@@ -135,7 +135,6 @@ let ``StringBuilder.Append works with various overloads`` () =
 // [<Fact>]
 // let ``ksprintf curries correctly`` () =
 //     let append (a: string) b = a + b
-
 //     let step1 = Printf.ksprintf append "%d"
 //     let step2 = step1 42
 //     let result = step2 "The answer is: "
@@ -148,78 +147,79 @@ let ``StringBuilder.Append works with various overloads`` () =
 //     Printf.bprintf sb " %s!" "world"
 //     sb.ToString() |> equal "Hello world!"
 
-// [<Fact>]
-// let ``sprintf works`` () =
-//     // Immediately applied
-//     sprintf "%.2f %g" 0.5468989 5.
-//     |> equal "0.55 5"
-//     // Curried
-//     let printer = sprintf "Hi %s, good %s!"
-//     let printer = printer "Alfonso"
-//     printer "morning" |> equal "Hi Alfonso, good morning!"
-//     printer "evening" |> equal "Hi Alfonso, good evening!"
+[<Fact>]
+let ``sprintf works`` () =
+    // Immediately applied
+    sprintf "%.2f %g" 0.5468989 5.
+    |> equal "0.55 5"
+    // Curried
+    let printer = sprintf "Hi %s, good %s!"
+    let printer = printer "Alfonso"
+    printer "morning" |> equal "Hi Alfonso, good morning!"
+    printer "evening" |> equal "Hi Alfonso, good evening!"
 
-// [<Fact>]
-// let ``sprintf works II`` () =
-//     let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
-//     let printer2 = printer2 "afternoon"
-//     printer2 "?" |> equal "Hi Maxime, good afternoon?"
+[<Fact>]
+let ``sprintf works II`` () =
+    let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
+    let printer2 = printer2 "afternoon"
+    printer2 "?" |> equal "Hi Maxime, good afternoon?"
 
-// [<Fact>]
-// let ``sprintf with different decimal digits works`` () = // See #1932
-//     sprintf "Percent: %.0f%%" 5.0 |> equal "Percent: 5%"
-//     sprintf "Percent: %.2f%%" 5. |> equal "Percent: 5.00%"
-//     sprintf "Percent: %.1f%%" 5.24 |> equal "Percent: 5.2%"
-//     sprintf "Percent: %.2f%%" 5.268 |> equal "Percent: 5.27%"
-//     sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
+[<Fact>]
+let ``sprintf with different decimal digits works`` () = // See #1932
+    sprintf "Percent: %.0f%%" 5.0 |> equal "Percent: 5%"
+    sprintf "Percent: %.2f%%" 5. |> equal "Percent: 5.00%"
+    sprintf "Percent: %.1f%%" 5.24 |> equal "Percent: 5.2%"
+    sprintf "Percent: %.2f%%" 5.268 |> equal "Percent: 5.27%"
+    sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
+    sprintf "Percent: %g%%" 5.67 |> equal "Percent: 5.67%"
 
-// [<Fact>]
-// let ``sprintf displays sign correctly`` () = // See #1937
-//     sprintf "%i" 1 |> equal "1"
-//     sprintf "%d" 1 |> equal "1"
-//     sprintf "%d" 1L |> equal "1"
-//     sprintf "%.2f" 1. |> equal "1.00"
-//     sprintf "%i" -1 |> equal "-1"
-//     sprintf "%d" -1 |> equal "-1"
-//     sprintf "%d" -1L |> equal "-1"
-//     sprintf "%.2f" -1. |> equal "-1.00"
+[<Fact>]
+let ``sprintf displays sign correctly`` () = // See #1937
+    sprintf "%i" 1 |> equal "1"
+    sprintf "%d" 1 |> equal "1"
+    sprintf "%d" 1L |> equal "1"
+    sprintf "%.2f" 1. |> equal "1.00"
+    sprintf "%i" -1 |> equal "-1"
+    sprintf "%d" -1 |> equal "-1"
+    sprintf "%d" -1L |> equal "-1"
+    sprintf "%.2f" -1. |> equal "-1.00"
 
-// [<Fact>]
-// let ``Print.sprintf works`` () = // See #1216
-//     let res = Printf.sprintf "%s" "abc"
-//     equal "res: abc" ("res: " + res)
+[<Fact>]
+let ``Print.sprintf works`` () = // See #1216
+    let res = Printf.sprintf "%s" "abc"
+    equal "res: abc" ("res: " + res)
 
-// [<Fact>]
-// let ``sprintf without arguments works`` () =
-//     sprintf "hello" |> equal "hello"
+[<Fact>]
+let ``sprintf without arguments works`` () =
+    sprintf "hello" |> equal "hello"
 
 // [<Fact>]
 // let ``input of print format can be retrieved`` () =
-//     let pathScan (pf:PrintfFormat<_,_,_,_,'t>) =
+//     let pathScan (pf: PrintfFormat<_,_,_,_,'t>) =
 //         let formatStr = pf.Value
 //         formatStr
 //     equal "/hello/%s" (pathScan "/hello/%s")
 
-// [<Fact>]
-// let ``sprintf with escaped percent symbols works`` () = // See #195
-//     let r, r1, r2 = "Ratio", 0.213849, 0.799898
-//     sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
-//     |> equal "Ratio1: 21.38% Ratio2: 79.99%"
+[<Fact>]
+let ``sprintf with escaped percent symbols works`` () = // See #195
+    let r, r1, r2 = "Ratio", 0.213849, 0.799898
+    sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
+    |> equal "Ratio1: 21.38% Ratio2: 79.99%"
 
-// [<Fact>]
-// let ``sprintf with percent symbols in arguments works`` () = // See #329
-//     let same s = sprintf "%s" s |> equal s
-//     same "%"
-//     same "%%"
-//     same "%%%"
-//     same "%%%%"
-//     same "% %"
-//     same "%% %%"
-//     same "%% % % %%"
+[<Fact>]
+let ``sprintf with percent symbols in arguments works`` () = // See #329
+    let same s = sprintf "%s" s |> equal s
+    same "%"
+    same "%%"
+    same "%%%"
+    same "%%%%"
+    same "% %"
+    same "%% %%"
+    same "%% % % %%"
 
-// [<Fact>]
-// let ``Fix #2398: Exception when two successive string format placeholders and value of first one ends in `%``` () =
-//     sprintf "%c%s" '%' "text" |> equal "%text"
+[<Fact>]
+let ``Fix #2398: Exception when two successive string format placeholders and value of first one ends in '%'`` () =
+    sprintf "%c%s" '%' "text" |> equal "%text"
 
 // [<Fact>]
 // let ``Unions with sprintf %A`` () =
@@ -339,9 +339,9 @@ let ``interpolated string with format and double % should be unescaped`` () =
 let ``interpolated string with double % should not interfere with holes afterwards `` () =
     $"%%{99. - 1.5}" |> equal "%97.5"
 
-// [<Fact>]
-// let ``interpolated string with double % should not interfere with format afterwards `` () =
-//     $"%%%g{99. - 1.5}" |> equal "%97.5"
+[<Fact>]
+let ``interpolated string with double % should not interfere with format afterwards `` () =
+    $"%%%g{99. - 1.5}" |> equal "%97.5"
 
 [<Fact>]
 let ``interpolated string with consecutive holes work`` () =
@@ -349,17 +349,17 @@ let ``interpolated string with consecutive holes work`` () =
     $"""%s{"foo"}%i{5}""" |> equal "foo5"
     $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
 
-// [<Fact>]
-// let ``interpolated string with double braces should be unescaped`` () =
-//     $"{{ {100} }}" |> equal "{ 100 }"
+[<Fact>]
+let ``interpolated string with double braces should be unescaped`` () =
+    $"{{ {100} }}" |> equal "{ 100 }"
 
-// [<Fact>]
-// let ``interpolated string with format and double braces should be unescaped`` () =
-//     $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
+[<Fact>]
+let ``interpolated string with format and double braces should be unescaped`` () =
+    $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
 
-// [<Fact>]
-// let ``sprintf with double % should be unescaped`` () =
-//     sprintf "%d%%" 100 |> equal "100%"
+[<Fact>]
+let ``sprintf with double % should be unescaped`` () =
+    sprintf "%d%%" 100 |> equal "100%"
 
 // [<Fact>]
 // let ``sprintf \"%A\" with lists works`` () =
@@ -387,30 +387,30 @@ let ``interpolated string with consecutive holes work`` () =
 //     containsInOrder ["Hello"; "Hola"] a |> equal true
 //     containsInOrder ["Hello"; "Hola"] b |> equal true
 
-// [<Fact>]
-// let ``sprintf \"%X\" works`` () =
-//     //These should all be the Native JS Versions (except int64 / uint64)
-//     //See #1530 for more information.
+[<Fact>]
+let ``sprintf \"%X\" works`` () =
+    //These should all be the Native JS Versions (except int64 / uint64)
+    //See #1530 for more information.
 
-//     sprintf "255: %X" 255 |> equal "255: FF"
-//     sprintf "255: %x" 255 |> equal "255: ff"
-//     sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
-//     sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
-//     sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
-//     sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
-//     sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
-//     sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
-//     sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
-//     sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
-//     sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
+    sprintf "255: %X" 255 |> equal "255: FF"
+    sprintf "255: %x" 255 |> equal "255: ff"
+    sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+    sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
+    sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
+    sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
+    sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
+    sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
+    sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
+    sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
+    sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
 
-// [<Fact>]
-// let ``sprintf integers with sign and padding works`` () = // See #1931
-//     sprintf "%+04i" 1 |> equal "+001"
-//     sprintf "%+04i" -1 |> equal "-001"
-//     sprintf "%5d" -5 |> equal "   -5"
-//     sprintf "%5d" -5L |> equal "   -5"
-//     sprintf "%- 4i" 5 |> equal " 5  "
+[<Fact>]
+let ``sprintf integers with sign and padding works`` () = // See #1931
+    sprintf "%+04i" 1 |> equal "+001"
+    sprintf "%+04i" -1 |> equal "-001"
+    sprintf "%5d" -5 |> equal "   -5"
+    sprintf "%5d" -5L |> equal "   -5"
+    // sprintf "%- 4i" 5 |> equal " 5  " //TODO:
 
 // [<Fact>]
 // let ``parameterized padding works`` () = // See #2336

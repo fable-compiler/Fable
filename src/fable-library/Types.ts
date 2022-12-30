@@ -195,8 +195,13 @@ export function isException(x: any) {
   return x instanceof Exception || x instanceof Error;
 }
 
+export function isPromise(x: any) {
+  return x instanceof Promise;
+}
+
 export function ensureErrorOrException(e: any) {
-  return isException(e) ? e : new Error(String(e));
+  // Exceptionally admitting promises as errors for compatibility with React.suspense (see #3298)
+  return (isException(e) || isPromise(e)) ? e : new Error(String(e));
 }
 
 export abstract class FSharpException extends Exception

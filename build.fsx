@@ -514,7 +514,7 @@ let testJs() =
 
     compileAndRunTestsWithMocha true "Main"
 
-    runInDir "tests/Js/Main" "dotnet run"
+    runInDir "tests/Js/Main" "dotnet run -c Release"
 
     // Adaptive tests must go in a different project to avoid conflicts with Queue shim, see #2559
     compileAndRunTestsWithMocha true "Adaptive"
@@ -555,7 +555,7 @@ let testPython() =
     let buildDir = "build/tests/Python"
 
     cleanDirs [buildDir]
-    runInDir projectDir "dotnet test"
+    runInDir projectDir "dotnet test -c Release"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"
@@ -609,8 +609,8 @@ let testRust testMode =
     copyFiles (projectDir </> "tests/src") "*.rs" (buildDir </> "tests/src")
 
     // run .NET tests
-    runInDir testAstDir "dotnet test"
-    runInDir projectDir "dotnet test"
+    runInDir testAstDir "dotnet test -c Release"
+    runInDir projectDir "dotnet test -c Release"
 
     // build Fable Rust tests
     runFableWithArgs projectDir [
@@ -641,19 +641,26 @@ let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then
         buildLibraryDart(true)
 
-    let runDir = "tests/Dart"
-//    let projectDir = runDir + "/src"
+    let buildDir = resolveDir "build/tests/Dart"
+    let sourceDir = resolveDir "tests/Dart"
 
-    runFableWithArgsInDirAs (not isWatch) runDir [
+    cleanDirs [buildDir]
+    makeDirRecursive buildDir
+    copyFiles sourceDir "pubspec.*" buildDir
+    copyFiles sourceDir "analysis_options.yaml" buildDir
+    copyFiles sourceDir "*.dart" buildDir
+
+    runFableWithArgsInDirAs (not isWatch) sourceDir [
         "src"
+        "--outDir " + (buildDir </> "src")
         "--exclude Fable.Core"
         "--lang Dart"
         "--noCache"
         if isWatch then
             "--watch"
-            "--runWatch dart test main.dart"
+            $"--runWatch dart test {buildDir}/main.dart"
     ]
-    runInDir runDir "dart test main.dart"
+    runInDir buildDir "dart test main.dart"
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = Publish.loadReleaseVersion "src/Fable.Cli" + "-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")

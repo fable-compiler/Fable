@@ -1049,15 +1049,18 @@ module TypeHelpers =
             Types.int16, Int16
             Types.uint16, UInt16
             Types.int32, Int32
-            Types.uint32 , UInt32
+            Types.uint32, UInt32
             Types.int64, Int64
-            Types.uint64 , UInt64
-            Types.bigint, BigInt
+            Types.uint64, UInt64
+            Types.int128, Int128
+            Types.uint128, UInt128
             Types.nativeint, NativeInt
             Types.unativeint, UNativeInt
+            Types.float16, Float16
             Types.float32, Float32
             Types.float64, Float64
             Types.decimal, Decimal
+            Types.bigint, BigInt
         ]
 
     let numbersWithMeasure =
