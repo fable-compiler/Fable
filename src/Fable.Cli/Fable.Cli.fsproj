@@ -23,6 +23,7 @@
     <Content Include="..\..\build\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
     <Content Include="..\..\build\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
     <Content Include="..\..\build\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
+    <Content Include="..\fable-library-php\**\*.*" PackagePath="fable-library-php\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
