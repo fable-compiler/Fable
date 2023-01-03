@@ -503,8 +503,8 @@ module Util =
         | Fable.Char -> Integer
         | Fable.Number(kind, _) ->
             match kind with
-            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
-            | Float32 | Float64 -> Double
+            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 | Int128 | UInt128 -> Integer
+            | Float16 | Float32 | Float64 -> Double
             | Decimal | BigInt | NativeInt | UNativeInt -> Dynamic // TODO
         | Fable.Option(genArg, _isStruct) ->
             transformOptionType com ctx genArg

@@ -27,7 +27,8 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
         // and use JS BigInt to represent int64
 //        | Int64 -> Some "BigInt64Array"
 //        | UInt64 -> Some "BigUint64Array"
-        | Int64 | UInt64 | BigInt | Decimal | NativeInt | UNativeInt -> None
+        | Int64 | UInt64 | NativeInt | UNativeInt
+        | Int128 | UInt128 | Float16 | Decimal | BigInt -> None
     | _ -> None
 
 let error msg =
@@ -171,6 +172,7 @@ let castBigIntMethod typeTo =
         | Float32 -> "toSingle"
         | Float64 -> "toDouble"
         | Decimal -> "toDecimal"
+        | Int128 | UInt128 | Float16
         | BigInt | NativeInt | UNativeInt -> FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
 
@@ -188,6 +190,8 @@ let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10
     | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
     | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
     | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+    | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
+    | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
 let needToCast typeFrom typeTo =
@@ -262,6 +266,8 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
         | Int64 | UInt64 -> Helper.LibCall(com, "Long", "fromValue", targetType, args @ [makeBoolConst unsigned])
         | Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 as kind -> fromInteger kind args.Head
+        | Float16 -> FableError "Casting float16 to long is not supported" |> raise
+        | Int128 | UInt128 -> FableError "Casting (u)int128 to long is not supported" |> raise
         | NativeInt | UNativeInt
         | Float32 | Float64 -> Helper.LibCall(com, "Long", "fromNumber", targetType, args @ [makeBoolConst unsigned])
     | _ ->
@@ -1747,8 +1753,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc=r) |> Some
 
     let isFloat =
-        match i.SignatureArgTypes.Head with
-        | Number((Float32 | Float64),_) -> true
+        match i.SignatureArgTypes with
+        | Number((Float32 | Float64),_) :: _ -> true
         | _ -> false
 
     match i.CompiledName, args with
@@ -1829,7 +1835,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 -> toInt com ctx r t args |> Some
             | Float32 | Float64 -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
-            | BigInt | NativeInt | UNativeInt -> None
+            | Int128 | UInt128 | Float16 | BigInt | NativeInt | UNativeInt -> None
         | _ -> None
     | ("Ceiling" | "Floor" | "Round" | "Truncate" |
         "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth), _ ->
@@ -1860,7 +1866,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             | Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 -> toInt com ctx r t args |> Some
             | Float32 | Float64 -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
-            | BigInt | NativeInt | UNativeInt -> None
+            | Int128 | UInt128 | Float16 | BigInt | NativeInt | UNativeInt -> None
         | _ -> None
     | None, "DivRem" ->
         Helper.LibCall(com, "BigInt", "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2919,6 +2925,9 @@ let private replacedModules =
     Types.uint32, parseNum
     Types.int64, parseNum
     Types.uint64, parseNum
+    Types.int128, parseNum
+    Types.uint128, parseNum
+    Types.float16, parseNum
     Types.float32, parseNum
     Types.float64, parseNum
     Types.decimal, decimals

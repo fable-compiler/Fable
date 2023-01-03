@@ -82,6 +82,24 @@ module Functions =
 
 open Functions
 
+module Issue3301 =
+    let rec simple x a =
+        if x <= 0 then a
+        else
+            simple (x-1) (a+1)
+
+    let rec binding x a =
+        if x <= 0 then a
+        else
+            let bb = binding (x-1)
+            bb (a+1)
+
+    let rec tupleDeconstruction x a =
+        if x <= 0 then a
+        else
+            let (bb, _) = (tupleDeconstruction, 1)
+            bb (x-1) (a+1)
+
 type MyTailCall() =
     member x.Sum(v, m, s) =
         if v >= m
@@ -106,6 +124,18 @@ type Element =
         | Element(action, children) ->
             action()
             for child in children do child.Activate()
+
+[<Fact>]
+let ``test Tailcall works in tail position`` () =
+    Issue3301.simple 100000 1 |> equal 100001
+
+[<Fact>]
+let ``test Tailcall works with bindings`` () =
+    Issue3301.binding 100000 1 |> equal 100001
+
+[<Fact>]
+let ``test Tailcall works with tuple deconstruction`` () =
+    Issue3301.tupleDeconstruction 100000 1 |> equal 100001
 
 [<Fact>]
 let ``test Recursive functions can be tailcall optimized`` () =

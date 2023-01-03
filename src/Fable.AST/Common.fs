@@ -30,9 +30,12 @@ type NumberKind =
     | UInt32
     | Int64
     | UInt64
+    | Int128
+    | UInt128
     | BigInt
     | NativeInt
     | UNativeInt
+    | Float16
     | Float32
     | Float64
     | Decimal

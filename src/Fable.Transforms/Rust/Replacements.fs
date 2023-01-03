@@ -186,6 +186,7 @@ let getParseParams (kind: NumberKind) =
 //         | Float32 -> "toSingle"
 //         | Float64 -> "toDouble"
 //         | Decimal -> "toDecimal"
+//         | Int128 | UInt128 | Float16
 //         | BigInt | NativeInt | UNativeInt ->
 //             FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
 //     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
@@ -204,6 +205,8 @@ let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10
     | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
     | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
     | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+    | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
+    | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
 let needToCast typeFrom typeTo =
@@ -812,44 +815,88 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 //         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
 //     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
+let makeRustFormatString interpolated (fmt: string) =
+    let pattern1 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(\w)"
+    let pattern2 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(?:(P)\(\)|(\w)(?:%P\(\))?)"
+    let pattern = if interpolated then pattern2 else pattern1
+    let input = fmt.Replace("{", "{{").Replace("}", "}}").Replace("%%", "%")
+    let mutable count = 0
+    let rustFmt = Regex.Replace(input, pattern, fun m ->
+        count <- count + 1
+        let g1 = m.Groups[1].Value
+        let g2 = m.Groups[2].Value.Replace(" ", "")  // pad with space
+                                  .Replace("-", "<") // left-justified
+        let g3 = m.Groups[3].Value.Replace("*", "$") // width parameter
+        let g4 = m.Groups[4].Value
+        let g5 = m.Groups[5].Value
+        let g4 =
+            if g4 = "" && (g5 = "f" || g5 = "F")
+            then ".6"
+            else g4
+        let g5 =
+            match g5 with
+            | "A" -> "?"
+            | "B" -> "b"
+            | ("o"|"x"|"X"|"e"|"E") as t -> t
+            | _ -> ""
+        let argFmt =
+            if g2 + g3 + g4 + g5 = "" then g1 + "{}"
+            else g1 + "{:" + g2 + g3 + g4 + g5 + "}"
+        argFmt
+    )
+    rustFmt, count
+
+let makeRustFormatExpr r t (fmt: string) cont macroExpr =
+    let rustFmt, count = makeRustFormatString false fmt
+    let count = count + 1 + (List.length cont) // arg count + fmt + [cont]
+    let fmtExpr = $"\"{rustFmt}\"" |> emitExpr None String []
+    let applied = Extended(Curry(macroExpr, count), r)
+    curriedApply r t applied (cont @ [fmtExpr])
+
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Value", Some callee, _ ->
-        getFieldWith None t callee "input" |> Some
-    | "PrintFormatToStringThen", _, _ ->
-        match args with
-        | [_] -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | [cont; fmt] -> makeInstanceCall r t i fmt "cont" [cont] |> Some
-        | _ -> None
-    | "PrintFormatToString", _, _ ->
-        match args with
-        | [template] -> Some template
-        | _ -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "PrintFormatLine", _, _ ->
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("PrintFormatToError"|"PrintFormatLineToError"), _, _ ->
-        // addWarning com ctx.FileName r "eprintf will behave as eprintfn"
-        Helper.LibCall(com, "String", "toConsoleError", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
-        // addWarning com ctx.FileName r "fprintfn will behave as printfn"
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "PrintFormat", _, _ ->
-        // addWarning com ctx.FileName r "Printf will behave as printfn"
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "PrintFormatThen", _, arg::callee::_ ->
-        makeInstanceCall r t i callee "cont" [arg] |> Some
-    | "PrintFormatToStringThenFail", _, _ ->
-        Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("PrintFormatToStringBuilder"      // bprintf
-    |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
-       ), _, _ -> fsharpModule com ctx r t i thisArg args
-    | ".ctor", _, str::(Value(NewArray(ArrayValues templateArgs, _, _), _) as values)::_ ->
-        let simpleFormats = [|"%b";"%c";"%d";"%f";"%g";"%i";"%s";"%u"|]
-        match makeStringTemplateFrom simpleFormats templateArgs str with
-        | Some stringTemplate -> makeValue r stringTemplate |> Some // Value(StringTemplate)
-        | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
-    | ".ctor", _, arg::_ ->
-        Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
+    // | "get_Value", Some callee, _ ->
+    //     callee |> Some //TODO:
+    | ("PrintFormatToString"|"PrintFormatToStringThen"), None, [StringConst fmt] ->
+        let macro = Helper.LibValue(com, "String", "sprintf!", Any)
+        macro |> makeRustFormatExpr r t fmt [] |> Some
+    | "PrintFormatToString", None, [format] ->
+        format |> Some
+    | ( "PrintFormatThen"|"PrintFormatToStringThen"), None, [cont; StringConst fmt] ->
+        let macro = Helper.LibValue(com, "String", "kprintf!", Any)
+        macro |> makeRustFormatExpr r t fmt [cont] |> Some
+    // | "PrintFormatThen", None, [cont; format] ->
+    //     format |> Some //TODO:
+    | "PrintFormatToError", None, [StringConst fmt] ->
+        let macro = makeIdentExpr "eprint!"
+        macro |> makeRustFormatExpr r t fmt [] |> Some
+    |"PrintFormatLineToError", None, [StringConst fmt] ->
+        let macro = makeIdentExpr "eprintln!"
+        macro |> makeRustFormatExpr r t fmt [] |> Some
+    | "PrintFormat", None, [StringConst fmt] ->
+        let macro = makeIdentExpr "print!"
+        macro |> makeRustFormatExpr r t fmt [] |> Some
+    | "PrintFormatLine", None, [StringConst fmt] ->
+        let macro = makeIdentExpr "println!"
+        macro |> makeRustFormatExpr r t fmt [] |> Some
+    // | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
+    //     // addWarning com ctx.FileName r "fprintfn will behave as printfn"
+    //     Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // | "PrintFormatToStringThenFail", _, _ ->
+    //     Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // | ("PrintFormatToStringBuilder"      // bprintf
+    // |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
+    //    ), _, _ -> fsharpModule com ctx r t i thisArg args
+    | ".ctor", _, (StringConst fmt)::(Value(NewArray(ArrayValues templateArgs, _, _), _))::_ ->
+        let rustFmt, _count = makeRustFormatString true fmt
+        let formatArgs = (makeStrConst rustFmt) :: templateArgs
+        "format!" |> emitFormat com r t formatArgs |> Some
+    // | ".ctor", _, str::(Value(NewArray(ArrayValues templateArgs, _, _), _) as values)::_ ->
+    //     let simpleFormats = [|"%b";"%c";"%d";"%f";"%g";"%i";"%s";"%u"|]
+    //     match makeStringTemplateFrom simpleFormats templateArgs str with
+    //     | Some stringTemplate -> stringTemplate |> makeValue r |> Some // Value(StringTemplate)
+    //     | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
+    | ".ctor", _, [format] -> format |> Some // just passing along the format
     | _ -> None
 
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1717,8 +1764,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc=r) |> Some
 
     let isFloat =
-        match i.SignatureArgTypes.Head with
-        | Number((Float32 | Float64),_) -> true
+        match i.SignatureArgTypes with
+        | Number((Float32 | Float64),_) :: _ -> true
         | _ -> false
 
     match i.CompiledName, args with
@@ -2885,6 +2932,9 @@ let private replacedModules =
     Types.uint32, parseNum
     Types.int64, parseNum
     Types.uint64, parseNum
+    Types.int128, parseNum
+    Types.uint128, parseNum
+    Types.float16, parseNum
     Types.float32, parseNum
     Types.float64, parseNum
     Types.decimal, decimals

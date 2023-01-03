@@ -1107,7 +1107,7 @@ type LitKind =
     /// A character literal (`'a'`).
     | Char of char
     /// An integer literal (`1`).
-    | Int of u128 * LitIntType
+    | Int of Symbol * LitIntType
     /// A float literal (`1f64` or `1E10f64`).
     | Float of Symbol * LitFloatType
     /// A boolean literal.

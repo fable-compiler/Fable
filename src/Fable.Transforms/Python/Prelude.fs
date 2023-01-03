@@ -117,6 +117,44 @@ module Naming =
                                              // Other names
                                              "self" ]
 
+    let pyStdlib =
+        System.Collections.Generic.HashSet [ "abc"
+                                             "asyncio"
+                                             "array"
+                                             "base64"
+                                             "builtins"
+                                             "collections"
+                                             "dataclasses"
+                                             "datetime"
+                                             "decimal"
+                                             "enum"
+                                             "functools"
+                                             "inspect"
+                                             "itertools"
+                                             "io"
+                                             "locale"
+                                             "math"
+                                             "operator"
+                                             "os"
+                                             "pathlib"
+                                             "platform"
+                                             "queue"
+                                             "random"
+                                             "re"
+                                             "readline"
+                                             "posix"
+                                             "string"
+                                             "struct"
+                                             "sys"
+                                             "tempfile"
+                                             "threading"
+                                             "time"
+                                             "typing"
+                                             "unicodedata"
+                                             "urllib"
+                                             "uuid"
+                                             "warnings" ]
+
     let reflectionSuffix = "_reflection"
 
 
@@ -175,6 +213,12 @@ module Naming =
 
     let checkPyKeywords name =
         if pyKeywords.Contains name then
+            name + "_"
+        else
+            name
+
+    let checkPyStdlib name =
+        if pyStdlib.Contains name then
             name + "_"
         else
             name

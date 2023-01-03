@@ -149,9 +149,12 @@ let getBoxedZero kind: obj =
     | UInt32 -> 0u: uint32
     | Int64 -> 0L: int64
     | UInt64 -> 0UL: uint64
+    | Int128 -> 0L: int64 //System.Int128.Zero
+    | UInt128 -> 0UL: uint64 //System.UInt128.Zero
     | BigInt -> 0I: bigint
     | NativeInt -> 0n: nativeint
     | UNativeInt -> 0un: unativeint
+    | Float16 -> 0.f: float32 //System.Half.Zero
     | Float32 -> 0.f: float32
     | Float64 -> 0.: float
     | Decimal -> 0M: decimal
@@ -166,9 +169,12 @@ let getBoxedOne kind: obj =
     | UInt32 -> 1u: uint32
     | Int64 -> 1L: int64
     | UInt64 -> 1UL: uint64
+    | Int128 -> 1L: int64 //System.Int128.One
+    | UInt128 -> 1UL: uint64 //System.UInt128.One
     | BigInt -> 1I: bigint
     | NativeInt -> 1n: nativeint
     | UNativeInt -> 1un: unativeint
+    | Float16 -> 1.f: float32 //System.Half.One
     | Float32 -> 1.f: float32
     | Float64 -> 1.: float
     | Decimal -> 1M: decimal

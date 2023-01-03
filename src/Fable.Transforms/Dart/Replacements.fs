@@ -132,6 +132,9 @@ let getParseParams (kind: NumberKind) =
         | UInt32 -> false, "Int32", true, 32
         | Int64 -> false, "Long", false, 64
         | UInt64 -> false, "Long", true, 64
+        | Int128 -> false, "Int32", false, 64 //128
+        | UInt128 -> false, "Int32", true, 64 //128
+        | Float16 -> true, "Double", false, 32 //16
         | Float32 -> true, "Double", false, 32
         | Float64 -> true, "Double", false, 64
         | Decimal -> true, "Decimal", false, 128
@@ -153,6 +156,7 @@ let castBigIntMethod typeTo =
         | Float32 -> "toSingle"
         | Float64 -> "toDouble"
         | Decimal -> "toDecimal"
+        | Int128 | UInt128 | Float16
         | BigInt | NativeInt | UNativeInt -> FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
 
@@ -170,6 +174,8 @@ let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10
     | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
     | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
     | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+    | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
+    | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
 let needToCast typeFrom typeTo =
@@ -1530,8 +1536,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc=r) |> Some
 
     let isFloat =
-        match i.SignatureArgTypes.Head with
-        | Number((Float32 | Float64),_) -> true
+        match i.SignatureArgTypes with
+        | Number((Float32 | Float64),_) :: _ -> true
         | _ -> false
 
     match i.CompiledName, args with
@@ -1611,7 +1617,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
                 toInt com ctx r t args |> Some
             | Float32 | Float64 -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
-            | BigInt | NativeInt | UNativeInt -> None
+            | Int128 | UInt128 | Float16 | BigInt | NativeInt | UNativeInt -> None
         | _ -> None
     | ("Ceiling" | "Floor" | "Round" | "Truncate" |
         "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth), _ ->
@@ -1641,7 +1647,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
                 toInt com ctx r t args |> Some
             | Float32 | Float64 -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
-            | BigInt | NativeInt | UNativeInt -> None
+            | Int128 | UInt128 | Float16 | BigInt | NativeInt | UNativeInt -> None
         | _ -> None
     | None, "DivRem" ->
         Helper.LibCall(com, "BigInt", "divRem", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
@@ -2731,6 +2737,9 @@ let private replacedModules =
     Types.uint32, parseNum
     Types.int64, parseNum
     Types.uint64, parseNum
+    Types.int128, parseNum
+    Types.uint128, parseNum
+    Types.float16, parseNum
     Types.float32, parseNum
     Types.float64, parseNum
     Types.decimal, decimals
