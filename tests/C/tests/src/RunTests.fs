@@ -61,14 +61,17 @@ let genericMap f x =
 
 let testGenericMap () =
     let res = genericMap (fun x -> { X = x.X + 1; Y = x.Y + 1}) { X = 1; Y = 1 }
-    assertTrue(res = { X = 2; Y = 2})
+    // assertTrue(res = { X = 2; Y = 2})
+    assertTrue(res.X = 2)
+    assertTrue(res.Y = 2)
     ()
 
 let testGenericMapWithClosure () =
     let capt = { X = 3; Y = 4 }
     let res = genericMap (fun x ->
                     { X = x.X + 1 + capt.X; Y = x.Y + 1 + capt.Y}) { X = 1; Y = 1 }
-    assertTrue(res = { X = 5; Y = 6})
+    assertTrue(res.X = 5)
+    assertTrue(res.Y = 6)
     ()
 
 // Currently this cannot work as generics are represented as Rc

@@ -297,7 +297,7 @@ module Output =
             write ctx " = "
             writeExpr ctx expr
             writeln ctx ";"
-        | Return expr ->
+        | Return (expr, _) ->
             writei ctx "return "
             writeExpr ctx expr
             writeln ctx ";"

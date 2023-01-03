@@ -39,9 +39,9 @@ struct Rc Rc_Clone(struct Rc value) {
 
 int Rc_Dispose(struct Rc value) {
     *value.count = *value.count - 1;
-    if(value.dispose != NULL)
-        value.dispose(value.data);
     if(*value.count == 0){
+        if(value.dispose != NULL)
+            value.dispose(value.data);
         free(value.data);
         free(value.count);
     }

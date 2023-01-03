@@ -33,9 +33,8 @@ module Transforms =
             FunctionCall(GetObjMethod(FunctionCall(Helpers.ident "require" Void, [ConstString "./fable-lib/Util" |> Const]), "equals"), [a; b])
         let maybeIife = function
             | [] -> NoOp
-            | [Return expr] -> expr
+            | [Return (expr, _)] -> expr
             | statements -> iife statements
-
 
         module Out =
             open Fable.AST.C
@@ -70,7 +69,7 @@ module Transforms =
                     identUsesInExpr expr
                 | Comment(_) -> []
             let rec identUsesInSingleStatement = function
-                | Return expr -> identUsesInExpr expr
+                | Return (expr, _) -> identUsesInExpr expr
                 | Do expr -> identUsesInExpr expr
                 | DeclareIdent(_, _) -> []
                 | Assignment(names, expr, _) -> identUsesInExpr expr
@@ -91,7 +90,7 @@ module Transforms =
 
             let statementsToExpr (com: CCompiler) retType = function
                 | [] -> NoOp
-                | [Return expr] ->
+                | [Return (expr, _)] ->
                     expr
                 | lst ->
                     let identsToCapture = identUsesInStatements lst
@@ -99,42 +98,42 @@ module Transforms =
                 // | lst ->
                 //     let captures = []
                     // com.CreateAdditionalDeclaration(FunctionDeclaration())
-            let addCleanupOnExit (com: CCompiler) t args statements =
-                let locallyDeclaredIdents =
-                    statements |> List.choose(function
-                                                | DeclareIdent(name, Rc t) -> Some (name, t)
-                                                | _ -> None)
-                let rcArgs = args |> List.filter (function
-                                                    | _, Rc t -> true
-                                                    | _ -> false )
-                let rationalizedStatements =
-                    //there should only be a return statement in the tail call position
-                    match statements |> List.rev with
-                    | h::t ->
-                        let tNext =
-                            t |> List.map(function
-                                    | Return x -> Do x
-                                    | x -> x)
-                        (h::tNext) |> List.rev
-                let toCleanup = rcArgs @ locallyDeclaredIdents
-                [
-                    for s in rationalizedStatements do
-                        match s with
-                        | Return r -> // where the scope ends, add clean up
-                            // yield! toCleanup
-                            // yield DeclareIdent("ret", t)
-                            if toCleanup.Length > 0 then
-                                yield Assignment(["ret"],r, t)
-                                //cleanup
-                                for (name, t) in toCleanup do
-                                    yield FunctionCall("Rc_Dispose" |> voidIdent, [Ident {Name = name; Type = t}]) |> Do
-                                yield Return (Ident { Name="ret"; Type=t })
-                            else
-                                yield Return r
-                        | IfThenElse(guard, thenSt, elseSt) ->
-                            yield IfThenElse(guard, addCleanupOnExit com t toCleanup thenSt, addCleanupOnExit com t toCleanup elseSt)
-                        | _ -> yield s
-                ]
+            // let addCleanupOnExit (com: CCompiler) t args statements =
+            //     let locallyDeclaredIdents =
+            //         statements |> List.choose(function
+            //                                     | DeclareIdent(name, Rc t) -> Some (name, t)
+            //                                     | _ -> None)
+            //     let rcArgs = args |> List.filter (function
+            //                                         | _, Rc t -> true
+            //                                         | _ -> false )
+            //     let rationalizedStatements =
+            //         //there should only be a return statement in the tail call position
+            //         match statements |> List.rev with
+            //         | h::t ->
+            //             let tNext =
+            //                 t |> List.map(function
+            //                         | Return x -> Do x
+            //                         | x -> x)
+            //             (h::tNext) |> List.rev
+            //     let toCleanup = rcArgs @ locallyDeclaredIdents
+            //     [
+            //         for s in rationalizedStatements do
+            //             match s with
+            //             | Return r -> // where the scope ends, add clean up
+            //                 // yield! toCleanup
+            //                 // yield DeclareIdent("ret", t)
+            //                 if toCleanup.Length > 0 then
+            //                     yield Assignment(["ret"],r, t)
+            //                     //cleanup
+            //                     for (name, t) in toCleanup do
+            //                         yield FunctionCall("Rc_Dispose" |> voidIdent, [Ident {Name = name; Type = t}]) |> Do
+            //                     yield Return (Ident { Name="ret"; Type=t })
+            //                 else
+            //                     yield Return r
+            //             | IfThenElse(guard, thenSt, elseSt) ->
+            //                 yield IfThenElse(guard, thenSt, elseSt) //addCleanupOnExit com t toCleanup thenSt/elseSt
+            //             | _ -> yield s
+            //     ]
 
         let getEntityFieldsAsIdents (ent: Fable.Entity): Fable.Ident list =
             ent.FSharpFields
@@ -369,7 +368,7 @@ module Transforms =
         let singletonStatement outExpr =
             match expr.Type with
             | Fable.Type.Unit -> [Do outExpr]
-            | _ -> [Return outExpr]
+            | _ -> [Return (outExpr, transformType com expr.Type)]
 
         match expr with
         | Fable.Expr.Value(value, _) -> transformValueKind com value |> singletonStatement
@@ -477,7 +476,7 @@ module Transforms =
                 let statements =
                     [   for (ident, value) in List.zip idents boundValues do
                             yield Assignment([ident.Name], transformExpr value, transformType com value.Type)
-                        yield transformExpr target |> Return
+                        yield Return (transformExpr target, transformType com target.Type)
                             ]
                 statements
                 // |> Helpers.maybeIife
@@ -513,7 +512,7 @@ module Transforms =
                     ptr
                     |> Helpers.Out.unwrapRc closureTmpl
                 let tagValExpr = GetFieldThroughPointer(ptrUnwrapped, "fn")
-                let called = FunctionCall(tagValExpr,  ptr::(args |> List.map transformExpr))
+                let called = FunctionCall(tagValExpr,  ptr::(args |> List.map transformExpr) |> List.map CHelpers.clone)
                 [
                     sprintf "%A" i.Type |> Comment |> Do
                 ] @ (singletonStatement called)
@@ -585,16 +584,16 @@ module Transforms =
                 //     ])
                 // ]), transformType com body.Type)
                 let finalizer = finalizer |> Option.map transformExpr
-                let catch = catch |> Option.map (fun (ident, expr) -> ident.Name, transformExpr expr)
+                let catch = catch |> Option.map (fun (ident, expr) -> ident.Name, transformExpr expr, transformType com expr.Type)
                 IfThenElse(Helpers.ident "status" Void, [
                     match finalizer with
                     | Some finalizer -> yield Do finalizer
                     | None -> ()
-                    yield Helpers.ident "resOrErr" Void |> Return
+                    yield Return (Helpers.ident "resOrErr" Void, Void)
                 ], [
                     match catch with
-                    | Some(ident, expr) ->
-                        yield expr |> Return
+                    | Some(ident, expr, t) ->
+                        yield Return (expr, t)
                     | _ -> ()
                 ])
             ]
@@ -646,7 +645,7 @@ module Transforms =
             let isEntryPoint = mr.Attributes |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.entryPoint) |> Option.isSome
             let t = transformType com m.Body.Type
             let args = if isEntryPoint then [] else m.Args |> transformCallIdentsWithTypes com
-            let body = transformExprAsStatements com m.Body |> Helpers.Out.addCleanupOnExit com t args
+            let body = transformExprAsStatements com m.Body// |> Helpers.Out.addCleanupOnExit com t args
             let finalName =
                 if mr.Attributes |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.entryPoint) |> Option.isSome then
                     "main"
@@ -660,14 +659,14 @@ module Transforms =
                 if ent.IsValueType then
                     let idents = Transforms.Helpers.getEntityFieldsAsIdents ent
                     let fields = idents |> List.map (fun i -> i.Name, transformType com i.Type)
-                    let cdIdent = Ident { Name = "item"; Type = Void }
+                    let cdIdent = { Name = "item"; Type = Void }
                     [
                         StructDeclaration(ent.FullName.Replace(".", "_"), fields)
                         FunctionDeclaration(ent.FullName.Replace(".", "_") + "_new", fields, [
                             DeclareIdent("item", ent.FullName.Replace(".", "_") |> CStruct)
                             for (name, ctype) in fields do
                                 Do(SetValue(GetField(Ident {Name = "item"; Type = Void;}, name), Ident {Name = name; Type = Void}))
-                            Return (cdIdent)
+                            Return (Ident cdIdent, cdIdent.Type)
                         ], ent.FullName.Replace(".", "_") |> CStruct)
                     ]
                 else
@@ -692,7 +691,7 @@ module Transforms =
                                 //     ]
                                 // ),
                                 Rc (ent.FullName.Replace(".", "_") |> CStruct))
-                            Return (Ident rcIdent)
+                            Return (Ident rcIdent, rcIdent.Type)
                         ], Rc (ent.FullName.Replace(".", "_") |> CStruct))
                     ]
             elif ent.IsFSharpUnion then
@@ -723,17 +722,97 @@ module Transforms =
                                 // ),
                                 FCalls.newRc (Helpers.voidIdent "item") Void,
                                 Rc (ent.FullName.Replace(".", "_") |> CStruct))
-                            Return (Ident rcIdent)
+                            Return (Ident rcIdent, rcIdent.Type)
                         ], Rc (ent.FullName.Replace(".", "_") |> CStruct))
                 ]
             else
                 []
         | x -> []
 
+let rec sanitizeReturnStatements = function
+    | h::[] ->
+        h::[]
+    | h::t ->
+        let hNext =
+            match h with
+            | Return (expr, t) ->
+                Do expr
+            | h -> h
+        hNext::(sanitizeReturnStatements t)
+    | [] -> []
+
+
 let transformDeclPostprocess = function
     | FunctionDeclaration(name, args, statements, Void) ->
-        let statements = statements |> List.filter(function | Return (Const ConstNull) -> false | _ -> true)
+        let statements =
+            statements
+            |> List.filter(function
+                | Return (Const ConstNull, _) -> false
+                | Do (Const(ConstNull)) -> false
+                | _ -> true)
+        let statements = sanitizeReturnStatements statements
         FunctionDeclaration(name, args, statements, Void)
+    | x -> x
+
+let rec collectNewStatementsWithCleanup (ownedRcIdents, statementsOutRev, hasCleanedUp) statements =
+    // let recurse = findIdentsWithRc
+    match statements with
+    | h::t ->
+        let acc =
+            match h with
+            | DeclareIdent (name, Rc t) ->
+                ((name, t)::ownedRcIdents, h::statementsOutRev, false)
+            | Assignment ([name], _, Rc t) ->
+                ((name, t)::ownedRcIdents, h::statementsOutRev, false)
+            | Return (expr, t) ->
+                let statements = [
+                    let ownedRcIdents =
+                        match expr with
+                        | C.Ident i -> //if we return this, we transfer ownership, so do not clean up
+                            ownedRcIdents |> List.filter(fun (name, _) -> name <> i.Name)
+                        | _ -> ownedRcIdents
+                    if ownedRcIdents.Length > 0 then
+                        yield Assignment(["ret"], expr, t)
+                        //cleanup
+                        for (name, t) in ownedRcIdents do
+                            yield FunctionCall("Rc_Dispose" |> Transforms.Helpers.voidIdent, [Ident {Name = name; Type = t}]) |> Do
+                        yield Return (Ident { Name="ret"; Type= t }, t)
+                    else
+                        yield Return (expr, t)
+                ]
+                (ownedRcIdents, (statements |> List.rev) @ statementsOutRev, true)
+            | IfThenElse (guard, thenSt, elseSt) ->
+                let (_, thenStRev, _) = collectNewStatementsWithCleanup (ownedRcIdents, [], false) thenSt
+                let (_, elseStRev, _) = collectNewStatementsWithCleanup (ownedRcIdents, [], false) elseSt
+                (ownedRcIdents, IfThenElse(guard, thenStRev |> List.rev, elseStRev |> List.rev)::statementsOutRev, true)
+            | _ ->
+                (ownedRcIdents, h::statementsOutRev, false)
+        collectNewStatementsWithCleanup acc t
+    | [] ->
+        if hasCleanedUp then
+            (ownedRcIdents, statementsOutRev, true)
+        else
+            let statements = [
+                for (name, t) in ownedRcIdents do
+                    yield FunctionCall("Rc_Dispose" |> Transforms.Helpers.voidIdent, [Ident {Name = name; Type = t}]) |> Do
+            ]
+            (ownedRcIdents, (statements |> List.rev) @ statementsOutRev, true)
+
+let buildNewStatementsWithGc args statements =
+    let (idents, statementsOutRev, _) = collectNewStatementsWithCleanup (args, [], false) statements
+    List.rev statementsOutRev
+
+let transformDeclGc = function
+    | FunctionDeclaration(name, args, statements, t) ->
+        let argsWithOwnedRc = args |> List.filter(function | name, Rc t -> true | _ -> false)
+        let statements = buildNewStatementsWithGc argsWithOwnedRc statements
+        FunctionDeclaration(name, args, statements, t)
+    | x -> x
+
+let transformSanitizeReturnStatements = function
+    | FunctionDeclaration(name, args, statements, t) ->
+        let statements = sanitizeReturnStatements statements
+        FunctionDeclaration(name, args, statements, t)
     | x -> x
 
 let transformFile com (file: Fable.File): File =
@@ -753,7 +832,7 @@ let transformFile com (file: Fable.File): File =
                             let stdDecs = Transforms.transformDeclarations comp dec
                             let additionalDecs = comp.GetAdditionalDeclarationsAndClear()
                             additionalDecs @ stdDecs)
-        |> List.map transformDeclPostprocess
+        |> List.map (transformDeclPostprocess >> transformDeclGc >> transformSanitizeReturnStatements)
     {
         Filename = com.CurrentFile
         Includes = builtInIncludes @ comp.GetIncludes()

@@ -4,6 +4,9 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 
+module CHelpers =
+    let clone outExpr = C.FunctionCall(C.Ident { Name = "Rc_Clone" ; Type = C.Void }, [outExpr])
+
 type CCompiler(com: Fable.Compiler) =
 
     let mutable types = Map.empty
@@ -51,27 +54,42 @@ type CCompiler(com: Fable.Compiler) =
         let seed =
             let v = scopedArgs.GetHashCode() + body.GetHashCode()
             if v < 0 then -v else v//todo prevent collisions
-        let delegatedName = "fn_with_closed_" + seed.ToString() //todo generate procedurally
+        let hasCaptures = closedOverIdents |> List.isEmpty |> not
+        let delegatedName = "fn_with_closed_" + seed.ToString()
+        let structCapturesNm = "closure_struct_captures_" + seed.ToString()
+        let structClosureNm = "closure_struct_" + seed.ToString()
         let self = C.CStruct "FnClosure1" |> C.Rc
-        let bindClosedValsBody = [
-            for (name, ctype) in closedOverIdents ->
-                let structType = C.CStruct "FnClosure1" // todo need to defer as chicken and egg problem
-                let expr = C.Ident { Name = "self"; Type = C.Rc structType}
-                let unwrappedSelf = C.Brackets(C.GetField(C.Cast(structType |> C.Pointer, expr), "data"))
-                C.Assignment([name], C.GetFieldThroughPointer(unwrappedSelf, name),ctype)
-        ]
-        let functionDeclaration = C.FunctionDeclaration(
+        let functionDeclaration =
+            let bindClosedValsBody = [
+                if hasCaptures then
+                    let structType = C.CStruct "FnClosure1" // todo need to defer as chicken and egg problem
+                    let expr = C.Ident { Name = "self"; Type = C.Rc structType}
+                    let unwrappedSelf = C.Brackets(C.GetField(C.Cast(structClosureNm |> C.CStruct |> C.Pointer, expr), "data"))
+                    C.Assignment(["captures"], C.GetFieldThroughPointer(unwrappedSelf, "captures") |> CHelpers.clone, C.CStruct structCapturesNm |> C.Rc)
+                    for (name, ctype) in closedOverIdents do
+                        let unwrappedCapt = C.Brackets(C.GetField(C.Cast(structCapturesNm |> C.CStruct |> C.Pointer, C.Ident {Name = "captures"; Type = C.CStruct structCapturesNm}), "data"))
+                        C.Assignment([name], C.GetFieldThroughPointer(unwrappedCapt, name) |> CHelpers.clone ,ctype)
+            ]
+            C.FunctionDeclaration(
                 delegatedName,
                 ("self", self)::(scopedArgs |> List.map (fun (s: C.CIdent) -> s.Name, s.Type)),
                 //closedOverIdents,
                 bindClosedValsBody @ body,
                 retType)
-        let structClosureNm = "closure_struct_" + seed.ToString()
+
         let fsParams = (scopedArgs |> List.map (fun s -> s.Type)) @ (closedOverIdents |> List.map snd)
         let identParam = "fn", this.GenFunctionSignatureAlias(self::fsParams, retType) |> C.Pointer
+        let structCapturesDeclaration = C.StructDeclaration(
+            structCapturesNm,
+            closedOverIdents
+        )
         let structClosureDeclaration = C.StructDeclaration(
             structClosureNm,
-            identParam::closedOverIdents
+            [
+                identParam
+                if hasCaptures then
+                    "captures", C.Rc (C.CStruct structCapturesNm)
+            ]
         )
         let newStructClosureDeclaration = C.FunctionDeclaration(
             structClosureNm + "_new",
@@ -79,8 +97,21 @@ type CCompiler(com: Fable.Compiler) =
             [
                 C.DeclareIdent("item", structClosureNm |> C.CStruct)
                 C.Do(C.SetValue(C.GetField(C.Ident {Name = "item"; Type = C.Void;}, "fn"), C.Ident {Name = delegatedName; Type = C.Void}))
-                for (name, ctype) in closedOverIdents do
-                    C.Do(C.SetValue(C.GetField(C.Ident {Name = "item"; Type = C.Void;}, name), C.Ident {Name = name; Type = C.Void}))
+                if hasCaptures then
+                    C.DeclareIdent("captures", structCapturesNm |> C.CStruct)
+                    for (name, ctype) in closedOverIdents do
+                        C.Do(C.SetValue(C.GetField(C.Ident {Name = "captures"; Type = C.Void;}, name), C.Ident {Name = name; Type = C.Void}))
+                    C.Do(C.SetValue(C.GetField(C.Ident {Name = "item"; Type = C.Void;}, "captures"),
+                        C.FunctionCall(C.Ident { Name="Rc_New"; Type= C.Void},
+                            [
+
+                                C.FunctionCall(C.Ident { Name = "sizeof"; Type = C.Void }, [ C.Ident {Name = "captures"; Type = C.Void} ])
+                                C.Unary(C.UnaryOp.RefOf, C.Ident {Name = "captures"; Type = C.Void} )
+                                C.Const C.ConstNull
+                            ]
+                        )))
+                // for (name, ctype) in closedOverIdents do
+                //     C.Do(C.SetValue(C.GetField(C.Ident {Name = "item"; Type = C.Void;}, name), C.Ident {Name = name; Type = C.Void}))
                 C.Assignment(["rc"],
                     C.FunctionCall(C.Ident { Name="Rc_New"; Type= C.Void},
                         [
@@ -91,17 +122,22 @@ type CCompiler(com: Fable.Compiler) =
                         ]
                     ),
                     C.Rc (structClosureNm |> C.CStruct))
-                C.Return (C.Ident { Name = "rc"; Type = structClosureNm |> C.CStruct})
+                C.Return (C.Ident { Name = "rc"; Type = structClosureNm |> C.CStruct |> C.Rc}, structClosureNm |> C.CStruct |> C.Rc)
             ],
             C.Rc C.Void
         )
         additionalDeclarations <-
             additionalDeclarations
-            @ [functionDeclaration; structClosureDeclaration; newStructClosureDeclaration]
+            @ [
+                if hasCaptures then
+                    structCapturesDeclaration
+                structClosureDeclaration
+                functionDeclaration
+                newStructClosureDeclaration ]
 
         //struct with captures
         C.FunctionCall(C.Ident {Name = structClosureNm + "_new"; Type = C.Void },
-            closedOverIdents |> List.map (fun (name, t) -> C.Ident {Name = name; Type = t }))
+            closedOverIdents |> List.map (fun (name, t) -> C.Ident {Name = name; Type = t }) |> List.map CHelpers.clone)
     member this.GetAdditionalDeclarations() =
         additionalDeclarations
         |> List.distinct

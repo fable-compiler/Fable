@@ -82,7 +82,7 @@ type Statement =
     // | FunctionDeclaration of name: string * args: string list * body: Statement list * returnType: CType
     | DeclareIdent of name: string* assignType: CType
     | Assignment of names: string list * Expr * assignType: CType
-    | Return of Expr
+    | Return of Expr * CType
     | Do of Expr
     | SNoOp
     | ForLoop of string * start: Expr* limit: Expr* body: Statement list
