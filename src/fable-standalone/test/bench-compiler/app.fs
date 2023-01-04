@@ -200,7 +200,7 @@ let parseFiles projectFileName options =
             // print F# AST to file
             if options.printAst then
                 let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
-                let astPath = outPath |> Fable.Naming.replaceSuffix fileExt ".fs.ast"
+                let astPath = outPath.Substring(0, outPath.LastIndexOf(fileExt)) + ".fs.ast"
                 writeAllText astPath fsAstStr
 
             // print target language AST to writer
