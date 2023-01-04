@@ -134,7 +134,6 @@ let tests =
     // TODO: temporary diabled until Fable-FCS issue is solved, see #3311
 #if !FABLE_STANDALONE
     testCase "Tailcall works with bindings" <| fun () ->
-        printfn "Tailcall works with bindings"
         Issue3301.binding 100000 1 |> equal 100001
 
     testCase "Tailcall works with tuple deconstruction" <| fun () ->
