@@ -45,6 +45,7 @@ module Compiler =
           IsWatch = false
           Precompile = false
           PrecompiledLib = None
+          PrintAst = false
           SourceMaps = false
           SourceMapsRoot = None
           NoRestore = false

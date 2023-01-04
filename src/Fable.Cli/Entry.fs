@@ -77,6 +77,7 @@ let knownCliArgs() = [
 
   // Hidden args
   ["--precompiledLib"], []
+  ["--printAst"], []
   ["--noReflection"], []
   ["--noParallelTypeCheck"], []
   ["--typescript"], []
@@ -265,6 +266,7 @@ type Runner =
           IsWatch = watch
           Precompile = precompile
           PrecompiledLib = precompiledLib
+          PrintAst = args.FlagEnabled "--printAst"
           SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
           SourceMapsRoot = args.Value "--sourceMapsRoot"
           NoRestore = args.FlagEnabled "--noRestore"
