@@ -131,7 +131,12 @@ let makeCompiler fableLibrary typedArrays language fsharpOptions project fileNam
         if x.StartsWith("--define:") || x.StartsWith("-d:")
         then x[(x.IndexOf(':') + 1)..] |> Some
         else None) |> Array.toList
-    let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
+    let debugMode = define |> List.contains "DEBUG"
+    let options = Fable.CompilerOptionsHelper.Make(
+        language = language,
+        define = define,
+        debugMode = debugMode,
+        ?typedArrays = typedArrays)
     CompilerImpl(fileName, project, options, fableLibrary)
 
 let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpCheckProjectResults) =

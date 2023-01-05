@@ -457,6 +457,12 @@ and FableCompiler(projCracked: ProjectCracked, fableProj: Project, checker: Inte
                 | FSharpFileTypeChecked file ->
                     Log.verbose(lazy $"Type checked: {IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, file.FileName)}")
 
+                    // Print F# AST to file
+                    if projCracked.CliArgs.PrintAst then
+                        let outPath = getOutPath projCracked.CliArgs state.PathResolver file.FileName
+                        let outDir = IO.Path.GetDirectoryName(outPath)
+                        Printers.printAst outDir [file]
+
                     // It seems when there's a pair .fsi/.fs the F# compiler gives the .fsi extension to the implementation file
                     let fileName = file.FileName |> Path.normalizePath |> Path.ensureFsExtension
                     let state =
