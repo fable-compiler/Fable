@@ -555,7 +555,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 |> addErrorAndReturnNull com ctx.InlinePath r
         else
             let v = makeValueFrom com ctx r var
-            if isByRefValue var && com.Options.Language <> Rust then
+            if isByRefValue var &&
+               // The replacement only needs to happen when var.FullType = byref<fsExpr.Type>
+               fsExpr.Type = var.FullType.GenericArguments.[0] &&
+               com.Options.Language <> Rust then
                 // Getting byref value is compiled as FSharpRef op_Dereference
                 return Replacements.Api.getRefCell com r v.Type v
             else
