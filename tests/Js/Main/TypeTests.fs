@@ -463,6 +463,21 @@ type IndexedProps(v: int) =
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
     member _.Item with get (v2: float) = float v + v2 / 2.
 
+type TypeWithByRefMember() =
+  static member DoubleIntByRef (x: byref<int>) : unit = x <- 2 * x
+
+let inline doubleIntByRef (x: ^a) (input: int) : int =
+    let mutable value = input
+    (^a: (static member DoubleIntByRef: byref<int> -> unit) &value)
+    value
+
+let byrefFunc(n: byref<int>) =
+    n <- n + n
+
+let inline callWithByrefCreatedFromByrefInlined(n: byref<int>) =
+    let f = &n
+    byrefFunc &f
+
 let tests =
   testList "Types" [
     // TODO: This test produces different results in Fable and .NET
@@ -1014,4 +1029,23 @@ let tests =
     testCase "Can call the base version of a mangled abstract method that was declared above in the hierarchy" <| fun () ->
         let c = ConcreteClass1()
         c.MyMethod(4) |> equal 58
+
+    // See #3328
+    testCase "SRTP works with byref" <| fun () ->
+      let result = doubleIntByRef (TypeWithByRefMember()) 7
+      result |> equal 14
+
+    // See #3328
+    testCase "inline byref works" <| fun () ->
+        let mutable an_int = 22
+        callWithByrefCreatedFromByrefInlined &an_int
+        an_int |> equal 44
+
+    // See #3328
+    testCase "inline byref works (with separate binding for reference)" <| fun () ->
+        let mutable an_int = 33
+        let intRef = &an_int
+        ignore intRef
+        callWithByrefCreatedFromByrefInlined &intRef
+        an_int |> equal 66
   ]
