@@ -949,6 +949,7 @@ module Util =
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
     let wrapIntExpression typ (e: Expression) =
         match e, typ with
+        | NewExpression(Expression.Identifier (Identifier("FSharpRef", _, _, _, _)), _, _, _), _
         | Literal(NumericLiteral(_)), _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number((Int8 | Int16 | Int32),_) ->
