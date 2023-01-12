@@ -76,7 +76,7 @@ let setRefCell com r (expr: Expr) (value: Expr) =
     setExpr r expr (makeStrConst "contents") value
 
 let makeRefCell com r typ (value: Expr) =
-    Helper.LibCall(com, "Types", "FSharpRef", typ, [value], isConstructor=true, ?loc=r)
+    Helper.FSharpRef(com, typ, [value], ?loc=r)
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter =
@@ -84,7 +84,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    Helper.FSharpRef(com, t, [getter; setter])
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
@@ -92,7 +92,7 @@ let makeRefFromMutableField com ctx r t callee key =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    Helper.FSharpRef(com, t, [getter; setter])
 
 // Mutable and public module values are compiled as functions, because
 // values imported from ES2015 modules cannot be modified (see #986)
@@ -107,7 +107,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         let info = makeCallInfo None args [t; Boolean]
         let value = makeCall r Unit info value
         Delegate([v], value, None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    Helper.FSharpRef(com, t, [getter; setter])
 
 let toChar (arg: Expr) =
     match arg.Type with
