@@ -705,7 +705,12 @@ let getRefCell com r typ (expr: Expr) =
 let setRefCell com r (expr: Expr) (value: Expr) =
     setField r expr "contents" value
 
-let makeRefCell com r typ (value: Expr) =
+let makeRefCell com r genArg args =
+    let typ = makeFSharpCoreType [genArg] Types.refCell
+    Helper.LibCall(com, "Types", "FSharpRef", typ, args, isConstructor=true, ?loc=r)
+
+let makeRefCellFromValue com r (value: Expr) =
+    let typ = makeFSharpCoreType [value.Type] Types.refCell
     let fsharpRef = Helper.LibValue(com, "Types", "FSharpRef", MetaType)
     Helper.InstanceCall(fsharpRef, "ofValue", typ, [value], genArgs=typ.Generics, ?loc=r)
 
@@ -715,7 +720,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    makeRefCell com r t [getter; setter]
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
@@ -723,7 +728,7 @@ let makeRefFromMutableField com ctx r t callee key =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    makeRefCell com r t [getter; setter]
 
 // Not sure if this is needed in Dart, see comment in JS.Replacements.makeRefFromMutableFunc
 let makeRefFromMutableFunc com ctx r t (value: Expr) =
@@ -737,7 +742,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         let info = makeCallInfo None args [t; Boolean]
         let value = makeCall r Unit info value
         Delegate([v], value, None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    makeRefCell com r t [getter; setter]
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -981,7 +986,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Reference
     | "op_Dereference", [arg] -> getRefCell com r t arg  |> Some
     | "op_ColonEquals", [o; v] -> setRefCell com r o v |> Some
-    | "Ref", [arg] -> makeRefCell com r t arg |> Some
+    | "Ref", [arg] -> makeRefCellFromValue com r arg |> Some
     | ("Increment"|"Decrement"), _ ->
         if i.CompiledName = "Increment" then "$0.contents++" else "$0.contents--"
         |> emitExpr r t args |> Some

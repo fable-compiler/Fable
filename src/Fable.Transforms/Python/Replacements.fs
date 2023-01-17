@@ -74,8 +74,13 @@ let getRefCell com r typ (expr: Expr) =
 let setRefCell com r (expr: Expr) (value: Expr) =
     setExpr r expr (makeStrConst "contents") value
 
-let makeRefCell com r typ (value: Expr) =
-    Helper.LibCall(com, "types", "FSharpRef", typ, [ value ], isConstructor = true, ?loc = r)
+let makeRefCell com r genArg args =
+    let typ = makeFSharpCoreType [ genArg ] Types.refCell
+    Helper.LibCall(com, "types", "FSharpRef", typ, args, isConstructor = true, ?loc = r)
+
+let makeRefCellFromValue com r (value: Expr) =
+    let typ = value.Type
+    makeRefCell com r typ [ value ]
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter = Delegate([], value, None, Tags.empty)
@@ -84,7 +89,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
         let v = makeUniqueIdent ctx t "v"
         Delegate([ v ], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
 
-    Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isConstructor = true)
+    makeRefCell com r t [ getter; setter ]
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter = Delegate([], Get(callee, FieldInfo.Create(key, isMutable=true), t, r), None, Tags.empty)
@@ -93,7 +98,7 @@ let makeRefFromMutableField com ctx r t callee key =
         let v = makeUniqueIdent ctx t "v"
         Delegate([ v ], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
 
-    Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isConstructor = true)
+    makeRefCell com r t [ getter; setter ]
 
 // Mutable and public module values are compiled as functions, because
 // values imported from ES2015 modules cannot be modified (see #986)
@@ -110,7 +115,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         let value = makeCall r Unit info value
         Delegate([ v ], value, None, Tags.empty)
 
-    Helper.LibCall(com, "types", "FSharpRef", t, [ getter; setter ], isConstructor = true)
+    makeRefCell com r t [ getter; setter ]
 
 let makeEqOpStrict range left right op =
     Operation(Binary(op, left, right), ["strict"], Boolean, range)
@@ -1249,7 +1254,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Reference
     | "op_Dereference", [ arg ] -> getRefCell com r t arg |> Some
     | "op_ColonEquals", [ o; v ] -> setRefCell com r o v |> Some
-    | "Ref", [ arg ] -> makeRefCell com r t arg |> Some
+    | "Ref", [ arg ] -> makeRefCellFromValue com r arg |> Some
     | ("Increment"
       | "Decrement"),
       _ ->

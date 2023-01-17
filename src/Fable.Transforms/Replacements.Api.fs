@@ -102,12 +102,12 @@ let setRefCell (com: ICompiler) r (expr: Expr) (value: Expr) =
     | Dart -> Dart.Replacements.setRefCell com r expr value
     | _ -> JS.Replacements.setRefCell com r expr value
 
-let makeRefCell (com: ICompiler) r typ (value: Expr) =
+let makeRefCellFromValue (com: ICompiler) r (value: Expr) =
     match com.Options.Language with
-    | Python -> Py.Replacements.makeRefCell com r typ value
-    | Rust -> Rust.Replacements.makeRefCell com r typ value
-    | Dart -> Dart.Replacements.makeRefCell com r typ value
-    | _ -> JS.Replacements.makeRefCell com r typ value
+    | Python -> Py.Replacements.makeRefCellFromValue com r value
+    | Rust -> Rust.Replacements.makeRefCellFromValue com r value
+    | Dart -> Dart.Replacements.makeRefCellFromValue com r value
+    | _ -> JS.Replacements.makeRefCellFromValue com r value
 
 let makeRefFromMutableFunc (com: ICompiler) ctx r t (value: Expr) =
     match com.Options.Language with
