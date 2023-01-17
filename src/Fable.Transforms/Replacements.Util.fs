@@ -48,6 +48,10 @@ type Helper =
             | Some false | None -> None
         let info = CallInfo.Create(?thisArg=thisArg, args=args, ?sigArgTypes=argTypes, ?genArgs=genArgs, ?memberRef=memberRef, ?isCons=isConstructor)
         Call(callee, info, returnType, loc)
+        
+    static member FSharpRef(com, t, args, ?loc) =
+        let byrefType = DeclaredType({ FullName = Types.byref; Path = CoreAssemblyName "System" }, [ t ])
+        Helper.LibCall(com, "Types", "FSharpRef", byrefType, args, isConstructor=true, ?loc=loc)
 
     static member ImportedValue(com, coreModule: string, coreMember: string, returnType: Type) =
         makeImportUserGenerated None Any coreMember coreModule
