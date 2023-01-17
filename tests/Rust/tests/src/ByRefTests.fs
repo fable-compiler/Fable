@@ -122,3 +122,40 @@ let ``pass obj by ref using ByRef attr works`` () =
 // let ``byref as return type works`` () =
 //     let mutable y = 1
 //     retByRef &y |> equal 1
+
+
+// TODO: See #3328
+
+// type TypeWithByRefMember() =
+//   static member DoubleIntByRef (x: byref<int>) : unit = x <- 2 * x
+
+// let inline doubleIntByRef (x: ^a) (input: int) : int =
+//     let mutable value = input
+//     (^a: (static member DoubleIntByRef: byref<int> -> unit) &value)
+//     value
+
+// let byrefFunc(n: byref<int>) =
+//     n <- n + n
+
+// let inline callWithByrefCreatedFromByrefInlined(n: byref<int>) =
+//     let f = &n
+//     byrefFunc &f
+
+// [<Fact>]
+// let ``SRTP works with byref`` () =
+//     let result = doubleIntByRef (TypeWithByRefMember()) 7
+//     result |> equal 14
+
+// [<Fact>]
+// let ``inline byref works`` () =
+//     let mutable an_int = 22
+//     callWithByrefCreatedFromByrefInlined &an_int
+//     an_int |> equal 44
+
+// [<Fact>]
+// let ``inline byref works with separate binding for reference`` () =
+//     let mutable an_int = 33
+//     let intRef = &an_int
+//     ignore intRef
+//     callWithByrefCreatedFromByrefInlined &intRef
+//     an_int |> equal 66
