@@ -109,8 +109,12 @@ let getRefCell com r t (expr: Expr) =
 let setRefCell com r (expr: Expr) (value: Expr) =
     Set(expr, ValueSet, value.Type, value, r)
 
-let makeRefCell com r typ (value: Expr) =
-    Helper.LibCall(com, "Native", "refCell", typ, [value], ?loc=r)
+let makeRefCell com r genArg args =
+    let typ = makeFSharpCoreType [genArg] Types.refCell
+    Helper.LibCall(com, "Native", "refCell", typ, args, isConstructor=true, ?loc=r)
+
+let makeRefCellFromValue com r (value: Expr) =
+    makeRefCell com r value.Type [value]
 
 let makeRefFromMutableValue com ctx r t (value: Expr) =
     Operation(Unary(UnaryAddressOf, value), Tags.empty, t, r)
@@ -1080,7 +1084,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Reference
     | "op_Dereference", [arg] -> getRefCell com r t arg  |> Some
     | "op_ColonEquals", [o; v] -> setRefCell com r o v |> Some
-    | "Ref", [arg] -> makeRefCell com r t arg |> Some
+    | "Ref", [arg] -> makeRefCellFromValue com r arg |> Some
     | "Increment", [arg] ->
         let v = add (getRefCell com r t arg) (getOne com ctx t)
         setRefCell com r arg v |> Some

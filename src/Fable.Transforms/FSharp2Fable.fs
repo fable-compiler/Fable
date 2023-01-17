@@ -1090,7 +1090,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             else
                 if com.Options.Language = Rust
                 then return Replacements.Api.makeRefFromMutableValue com ctx r value.Type value
-                else return Replacements.Api.makeRefCell com r value.Type value
+                else return Replacements.Api.makeRefCellFromValue com r value
         // This matches passing fields by reference
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr

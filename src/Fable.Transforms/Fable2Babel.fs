@@ -503,7 +503,7 @@ module Annotation =
         | Replacements.Util.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Choice" "FSharpResult$2"
         | Replacements.Util.FSharpChoice genArgs ->
             $"FSharpChoice${List.length genArgs}"
-            |> makeImportTypeAnnotation com ctx genArgs "Choicee"
+            |> makeImportTypeAnnotation com ctx genArgs "Choice"
         | Replacements.Util.FSharpReference genArg ->
             if isInRefOrAnyType com typ
             then makeTypeAnnotation com ctx genArg
