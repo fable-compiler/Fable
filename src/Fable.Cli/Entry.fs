@@ -72,8 +72,8 @@ let knownCliArgs() = [
                           "(Intended for plugin development)"]
   [], []
   ["--optimize"],        ["Compile with optimized F# AST (experimental)"]
-  ["--lang"; "--language"], ["Compile to JavaScript (default), TypeScript, Php or Python."
-                             "Support for TypeScript, Php and Python is experimental."]
+  ["--lang"; "--language"], ["Compile to JavaScript (default), TypeScript, Go, Php or Python."
+                             "Support for TypeScript, Php, Go, and Python is experimental."]
 
   // Hidden args
   ["--precompiledLib"], []
@@ -152,6 +152,7 @@ let argLanguage (args: CliArgs) =
     | "php" -> Php
     | "dart" -> Dart
     | "rs" | "rust" -> Rust
+    | "go" -> Go
     | _ -> JavaScript)
 
 type Runner =

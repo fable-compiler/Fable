@@ -10,6 +10,7 @@
     <Compile Include="Global/Fable.Core.fs" />
     <Compile Include="Global/Metadata.fs" />
     <Compile Include="Global/Prelude.fs" />
+    <Compile Include="Go/Prelude.fs" />
     <Compile Include="Python/Prelude.fs" />
     <Compile Include="Global/Compiler.fs" />
     <Compile Include="MonadicTrampoline.fs" />
@@ -18,6 +19,7 @@
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="ReplacementsInject.fs" />
     <Compile Include="Replacements.Util.fs" />
+    <Compile Include="Go/Replacements.fs" />
     <Compile Include="Python/Replacements.fs" />
     <Compile Include="Rust/Replacements.fs" />
     <Compile Include="Dart/Replacements.fs" />
@@ -28,6 +30,9 @@
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="Printer.fs" />
     <Compile Include="BabelPrinter.fs" />
+    <Compile Include="Go/Go.fs" />
+    <Compile Include="Go/Fable2Go.fs" />
+    <Compile Include="Go/GoPrinter.fs" />
     <Compile Include="Python/Python.fs" />
     <Compile Include="Python/Fable2Python.fs" />
     <Compile Include="Python/PythonPrinter.fs" />
