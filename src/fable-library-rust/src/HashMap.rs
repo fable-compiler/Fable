@@ -12,7 +12,7 @@ pub mod HashMap_ {
     use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, MutCell, Vec};
     type MutHashMap<K, V> = MutCell<collections::HashMap<K, V>>;
 
-    use core::fmt::Debug;
+    use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::Hash;
 
     #[repr(transparent)]
@@ -26,8 +26,8 @@ pub mod HashMap_ {
         }
     }
 
-    impl<K: Clone + Debug, V: Clone + Debug> core::fmt::Display for HashMap<K, V> {
-        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    impl<K: Clone + Debug, V: Clone + Debug> Display for HashMap<K, V> {
+        fn fmt(&self, f: &mut Formatter) -> Result {
             write!(f, "{:?}", self.0) //TODO:
         }
     }
