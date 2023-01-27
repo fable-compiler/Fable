@@ -1,5 +1,6 @@
 // Go AST based on https://go.dev/src/go/ast/ast.go.
-// Tools:
+// Tools and information to help with the AST:
+// - https://nakabonne.dev/posts/take-a-walk-the-go-ast/
 // - https://yuroyoro.github.io/goast-viewer/index.html
 // - https://astexplorer.net/
 namespace rec Fable.AST.Go
@@ -170,6 +171,11 @@ type Token =
     | Type
     | Var
 
+type Node =
+    | Expr of Expr
+    | Stmt of Stmt
+    | Decl of Declaration
+    | Type of Type
 
 /// A Comment node represents a single //-style or /*-style comment.
 ///
@@ -340,7 +346,7 @@ type BadExpr =
 /// An Ident node represents an identifier.
 type Ident =
     { /// Identifier position
-      NamePos: SourceLocation
+      NamePos: SourceLocation option
       /// Identifier name
       Name: string
       /// Denoted object; or nil
@@ -349,7 +355,7 @@ type Ident =
 /// A BasicLit node represents a literal of basic type.
 type BasicLit =
     { /// Literal position
-      ValuePos: SourceLocation
+      ValuePos: SourceLocation option
       /// token.INT, token.FLOAT, token.IMAG, token.CHAR, or token.STRING
       Kind: Token
       /// Literal string; e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', '\x7f', "foo" or `\m\n\o`
@@ -367,20 +373,20 @@ type CompositeLit =
     { /// Literal type; or nil
       Type: Type option
       /// Position of "{"
-      Lbrace: SourceLocation
+      Lbrace: SourceLocation option
       /// List of composite elements; or nil
       Elts: Expr list
       /// Position of "}"
-      Rbrace: SourceLocation }
+      Rbrace: SourceLocation option }
 
 /// A ParenExpr node represents a parenthesized expression.
 type ParenExpr =
     { /// Position of "("
-      Lparen: SourceLocation
+      Lparen: SourceLocation option
       /// Parenthesized expression
       X: Expr
       /// Position of ")"
-      Rparen: SourceLocation }
+      Rparen: SourceLocation option }
 
 /// A SelectorExpr node represents an expression followed by a selector.
 type SelectorExpr =
@@ -394,11 +400,11 @@ type IndexExpr =
     { /// expression
       X: Expr
       /// position of "["
-      Lbrack: SourceLocation
+      Lbrack: SourceLocation option
       /// index expression
       Index: Expr
       /// position of "]"
-      Rbrack: SourceLocation }
+      Rbrack: SourceLocation option}
 
 /// An IndexListExpr node represents an expression followed by multiple
 /// indices.
@@ -406,18 +412,18 @@ type IndexListExpr =
     { /// expression
       X: Expr
       /// position of "["
-      Lbrack: SourceLocation
+      Lbrack: SourceLocation option
       /// index expressions
       Indices: Expr list
       /// position of "]"
-      Rbrack: SourceLocation }
+      Rbrack: SourceLocation option }
 
 /// A SliceExpr node represents an expression followed by slice indices.
 type SliceExpr =
     { /// expression
       X: Expr
       /// position of "["
-      Lbrack: SourceLocation
+      Lbrack: SourceLocation option
       /// begin of slice range; or nil
       Low: Expr option
       /// end of slice range; or nil
@@ -427,7 +433,7 @@ type SliceExpr =
       /// true if 3-index slice (2 colons present)
       Slice3: bool
       /// position of "]"
-      Rbrack: SourceLocation }
+      Rbrack: SourceLocation option }
 
 /// A TypeAssertExpr node represents an expression followed by a
 /// type assertion.
@@ -435,30 +441,30 @@ type TypeAssertExpr =
     { /// expression
       X: Expr
       /// position of "("
-      Lparen: SourceLocation
+      Lparen: SourceLocation option
       /// asserted type; nil means type switch X.(type)
       Type: Expr option
       /// position of ")"
-      Rparen: SourceLocation }
+      Rparen: SourceLocation option }
 
 /// A CallExpr node represents an expression followed by an argument list.
 type CallExpr =
     { /// Function expression
       Fun: Expr
       /// Position of "("
-      Lparen: SourceLocation
+      Lparen: SourceLocation option
       /// Function arguments
       Args: Expr list
       /// Position of "..."
-      Ellipsis: SourceLocation
+      Ellipsis: SourceLocation option
       /// Position of ")"
-      Rparen: SourceLocation }
+      Rparen: SourceLocation option }
 
 /// A StarExpr node represents an expression of the form "*" Expression.
 /// Semantically it could be a unary "*" expression, or a pointer type.
 type StarExpr =
     { /// Position of "*"
-      Star: SourceLocation
+      Star: SourceLocation option
       /// Operand
       X: Expr }
 
@@ -466,7 +472,7 @@ type StarExpr =
 /// represented via StarExpr nodes.
 type UnaryExpr =
     { /// Position of Op
-      OpPos: SourceLocation
+      OpPos: SourceLocation option
       /// Operator
       Op: Token
       /// Operand
@@ -477,7 +483,7 @@ type BinaryExpr =
     { /// Left operand
       X: Expr
       /// Position of Op
-      OpPos: SourceLocation
+      OpPos: SourceLocation option
       /// Operator
       Op: Token
       /// Right operand
@@ -487,7 +493,7 @@ type BinaryExpr =
 type KeyValueExpr =
     { Key: Expr
       /// Position of ":"
-      Colon: SourceLocation
+      Colon: SourceLocation option
       Value: Expr }
 
 type Emit =
@@ -543,9 +549,9 @@ type Stmt =
 /// created.
 type BadStmt =
     { /// Position range of bad statement
-      From: SourceLocation
+      From: SourceLocation option
       /// Position range of bad statement
-      To: SourceLocation }
+      To: SourceLocation option }
 
 /// A DeclStmt node represents a declaration in a statement list.
 type DeclStmt =
@@ -557,7 +563,7 @@ type DeclStmt =
 /// of the immediately following (explicit or implicit) semicolon.
 type EmptyStmt =
     { /// Position of ";"
-      Semicolon: SourceLocation
+      Semicolon: SourceLocation option
       /// If set, ";" was omitted in the source
       Implicit: bool }
 
@@ -566,7 +572,7 @@ type LabelStmt =
     { /// Label
       Label: Ident
       /// Position of ":"
-      Colon: SourceLocation
+      Colon: SourceLocation option
       /// Statement
       Stmt: Stmt }
 
@@ -581,7 +587,7 @@ type SendStmt =
     { /// channel expression
       Chan: Expr
       /// position of "<-"
-      Arrow: SourceLocation
+      Arrow: SourceLocation option
       /// value to send
       Value: Expr }
 
@@ -590,7 +596,7 @@ type IncDecStmt =
     { /// expression
       X: Expr
       /// position of Tok
-      TokPos: SourceLocation
+      TokPos: SourceLocation option
       /// INC or DEC
       Tok: Token }
 
@@ -600,7 +606,7 @@ type AssignStmt =
     { /// left-hand side expressions
       Lhs: Expr list
       /// position of Tok
-      TokPos: SourceLocation
+      TokPos: SourceLocation option
       /// assignment token, DEFINE
       Tok: Token
       /// right-hand side expressions
@@ -742,6 +748,10 @@ module GoExtensions =
     [<Literal>]
     let Ellipsis = "..."
 
+    type BasicLit with
+        static member basicLit(kind, value, ?valuePos) =
+            { ValuePos=valuePos; Kind=kind; Value=value }
     // type Stmt with
 
-    // type Expr with
+    type Expr with
+        static member ident(name, ?obj, ?namePos) = Ident { NamePos=namePos; Name=name; Obj=obj }
