@@ -12,7 +12,7 @@ pub mod HashSet_ {
     use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, MutCell, Vec};
     type MutHashSet<T> = MutCell<collections::HashSet<T>>;
 
-    use core::fmt::Debug;
+    use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::Hash;
 
     #[repr(transparent)]
@@ -26,8 +26,8 @@ pub mod HashSet_ {
         }
     }
 
-    impl<T: Clone + Debug> core::fmt::Display for HashSet<T> {
-        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    impl<T: Clone + Debug> Display for HashSet<T> {
+        fn fmt(&self, f: &mut Formatter) -> Result {
             write!(f, "{:?}", self.0) //TODO:
         }
     }

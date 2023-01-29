@@ -846,7 +846,7 @@ module TypeInfo =
 
     let isAddrOfExpr (expr: Fable.Expr) =
         match expr with
-        | Fable.Operation(Fable.Unary (UnaryOperator.UnaryAddressOf, e), _, _, _) -> true
+        | Fable.Operation(Fable.Unary(UnaryOperator.UnaryAddressOf, e), _, _, _) -> true
         | _ -> false
 
     let isByRefOrAnyType (com: IRustCompiler) = function
@@ -1708,8 +1708,8 @@ module Util =
     let formatString (com: IRustCompiler) ctx parts values: Rust.Expr =
         let fmt = makeFormat parts
         let args = transformCallArgs com ctx values [] []
-        let expr = mkMacroExpr "format" ((mkStrLitExpr fmt)::args)
-        expr |> makeStringFrom com ctx
+        let fmtArgs = (mkStrLitExpr fmt)::args
+        makeLibCall com ctx None "String" "sprintf!" fmtArgs
 
     let transformTypeInfo (com: IRustCompiler) ctx r (typ: Fable.Type): Rust.Expr =
         let importName = getLibraryImportName com ctx "Native" "TypeId"
@@ -2329,11 +2329,11 @@ module Util =
             -> true
         | t -> t.Generics |> List.exists hasFuncOrAnyType
 
-    let makeLocalStmt com ctx (ident: Fable.Ident) tyOpt initOpt usages =
+    let makeLocalStmt com ctx (ident: Fable.Ident) tyOpt initOpt isRef usages =
         let local = mkIdentLocal [] ident.Name tyOpt initOpt
         let scopedVarAttrs = {
             IsArm = false
-            IsRef = false
+            IsRef = isRef
             IsBox = false
             IsFunc = false
             // HasMultipleUses = hasMultipleUses ident.Name usages
@@ -2347,19 +2347,29 @@ module Util =
         // TODO: traverse body and follow references to decide if this should be wrapped or not
         // For Box/Rc it's not needed cause the Rust compiler will optimize the allocation away
         let tyOpt =
-            if hasFuncOrAnyType ident.Type then None
-            else transformType com ctx ident.Type |> Some
+            match value with
+            | Fable.Operation(Fable.Unary(UnaryOperator.UnaryAddressOf, Fable.IdentExpr ident2), _, _, _)
+                when isByRefOrAnyType com ident2.Type || ident2.IsMutable -> None
+            | _ ->
+                if hasFuncOrAnyType ident.Type then None
+                else transformType com ctx ident.Type |> Some
         let tyOpt =
             tyOpt |> Option.map (fun ty ->
-                if ident.IsMutable && isCaptured
-                then ty |> makeMutTy com ctx |> makeLrcTy com ctx
-                elif ident.IsMutable
-                then ty |> makeMutTy com ctx
-                else ty)
+                if isByRefOrAnyType com ident.Type then
+                    ty // already wrapped
+                elif ident.IsMutable && isCaptured then
+                    ty |> makeMutTy com ctx |> makeLrcTy com ctx
+                elif ident.IsMutable then
+                    ty |> makeMutTy com ctx
+                else
+                    ty)
         let initOpt =
             match value with
+            | Fable.Operation(Fable.Unary(UnaryOperator.UnaryAddressOf, Fable.IdentExpr ident2), _, _, _)
+                when isByRefOrAnyType com ident2.Type || ident2.IsMutable ->
+                    transformIdent com ctx None ident2 |> Some
             | Fable.Value(Fable.Null _t, _) ->
-                None // just a declaration, to be initialized later
+                None // no init value, just a name declaration, to be initialized later
             | Function(args, body, _name) ->
                 transformLambda com ctx (Some ident.Name) args body
                 |> Some
@@ -2369,12 +2379,16 @@ module Util =
                 |> Some
         let initOpt =
             initOpt |> Option.map (fun init ->
-                if ident.IsMutable && isCaptured
-                then init |> makeMutValue com ctx |> makeLrcValue com ctx
-                elif ident.IsMutable
-                then init |> makeMutValue com ctx
-                else init)
-        makeLocalStmt com ctx ident tyOpt initOpt usages
+                if isByRefOrAnyType com ident.Type then
+                    init // already wrapped
+                elif ident.IsMutable && isCaptured then
+                    init |> makeMutValue com ctx |> makeLrcValue com ctx
+                elif ident.IsMutable then
+                    init |> makeMutValue com ctx
+                else
+                    init)
+        let isRef = isAddrOfExpr value
+        makeLocalStmt com ctx ident tyOpt initOpt isRef usages
 
     let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages =
         // Context will be threaded through all let bindings, appending itself to ScopedSymbols each time

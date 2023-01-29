@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::convert::{AsMut, AsRef};
-use core::fmt::Debug;
+use core::fmt::{Debug, Display, Formatter, Result};
 use core::ops::{Deref, DerefMut, Index};
 use core::hash::{Hash, Hasher};
 
@@ -45,8 +45,14 @@ impl<T> DerefMut for MutCell<T> {
 }
 
 impl<T: Clone + Debug> Debug for MutCell<T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.debug_tuple("MutCell").field(&self.get()).finish()
+    }
+}
+
+impl<T: Clone + Debug> Display for MutCell<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        self.get().fmt(f)
     }
 }
 

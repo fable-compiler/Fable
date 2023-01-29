@@ -821,7 +821,7 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
 let makeRustFormatString interpolated (fmt: string) =
     let pattern1 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(\w)"
-    let pattern2 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(?:(P)\(\)|(\w)(?:%P\(\))?)"
+    let pattern2 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(?:P\(\)|(\w)(?:%P\(\))?)"
     let pattern = if interpolated then pattern2 else pattern1
     let input = fmt.Replace("{", "{{").Replace("}", "}}").Replace("%%", "%")
     let mutable count = 0
@@ -864,25 +864,37 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatToString"|"PrintFormatToStringThen"), None, [StringConst fmt] ->
         let macro = Helper.LibValue(com, "String", "sprintf!", Any)
         macro |> makeRustFormatExpr r t fmt [] |> Some
-    | "PrintFormatToString", None, [format] ->
-        format |> Some
-    | ( "PrintFormatThen"|"PrintFormatToStringThen"), None, [cont; StringConst fmt] ->
+    | ("PrintFormatToString"|"PrintFormatToStringThen"), None, [MaybeCasted(template)] ->
+        template |> Some
+    | ("PrintFormatThen"|"PrintFormatToStringThen"), None, [cont; StringConst fmt] ->
         let macro = Helper.LibValue(com, "String", "kprintf!", Any)
         macro |> makeRustFormatExpr r t fmt [cont] |> Some
-    // | "PrintFormatThen", None, [cont; format] ->
-    //     format |> Some //TODO:
+    // | "PrintFormatThen", None, [cont; MaybeCasted(template)] ->
+    //     template |> Some //TODO:
     | "PrintFormatToError", None, [StringConst fmt] ->
         let macro = makeIdentExpr "eprint!"
         macro |> makeRustFormatExpr r t fmt [] |> Some
-    |"PrintFormatLineToError", None, [StringConst fmt] ->
+    | "PrintFormatToError", None, [MaybeCasted(Value(StringTemplate(None, [rustFmt], templateArgs), _))] ->
+        let formatArgs = (makeStrConst rustFmt) :: templateArgs
+        "eprint!" |> emitFormat com r t formatArgs |> Some
+    | "PrintFormatLineToError", None, [StringConst fmt] ->
         let macro = makeIdentExpr "eprintln!"
         macro |> makeRustFormatExpr r t fmt [] |> Some
+    | "PrintFormatLineToError", None, [MaybeCasted(Value(StringTemplate(None, [rustFmt], templateArgs), _))] ->
+        let formatArgs = (makeStrConst rustFmt) :: templateArgs
+        "eprintln!" |> emitFormat com r t formatArgs |> Some
     | "PrintFormat", None, [StringConst fmt] ->
         let macro = makeIdentExpr "print!"
         macro |> makeRustFormatExpr r t fmt [] |> Some
+    | "PrintFormat", None, [MaybeCasted(Value(StringTemplate(None, [rustFmt], templateArgs), _))] ->
+        let formatArgs = (makeStrConst rustFmt) :: templateArgs
+        "print!" |> emitFormat com r t formatArgs |> Some
     | "PrintFormatLine", None, [StringConst fmt] ->
         let macro = makeIdentExpr "println!"
         macro |> makeRustFormatExpr r t fmt [] |> Some
+    | "PrintFormatLine", None, [MaybeCasted(Value(StringTemplate(None, [rustFmt], templateArgs), _))] ->
+        let formatArgs = (makeStrConst rustFmt) :: templateArgs
+        "println!" |> emitFormat com r t formatArgs |> Some
     // | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
     //     // addWarning com ctx.FileName r "fprintfn will behave as printfn"
     //     Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -893,13 +905,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     //    ), _, _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, (StringConst fmt)::(Value(NewArray(ArrayValues templateArgs, _, _), _))::_ ->
         let rustFmt, _count = makeRustFormatString true fmt
-        let formatArgs = (makeStrConst rustFmt) :: templateArgs
-        "format!" |> emitFormat com r t formatArgs |> Some
-    // | ".ctor", _, str::(Value(NewArray(ArrayValues templateArgs, _, _), _) as values)::_ ->
-    //     let simpleFormats = [|"%b";"%c";"%d";"%f";"%g";"%i";"%s";"%u"|]
-    //     match makeStringTemplateFrom simpleFormats templateArgs str with
-    //     | Some stringTemplate -> stringTemplate |> makeValue r |> Some // Value(StringTemplate)
-    //     | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
+        StringTemplate(None, [rustFmt], templateArgs) |> makeValue r |> Some
     | ".ctor", _, [format] -> format |> Some // just passing along the format
     | _ -> None
 
@@ -965,7 +971,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Strings
     | ("PrintFormatToString"             // sprintf
     |  "PrintFormatToStringThen"         // Printf.ksprintf
-    |  "PrintFormat" | "PrintFormatLine" // printf / printfn
+    |  "PrintFormat"                     // printf
+    |  "PrintFormatLine"                 // printfn
     |  "PrintFormatToError"              // eprintf
     |  "PrintFormatLineToError"          // eprintfn
     |  "PrintFormatThen"                 // Printf.kprintf
