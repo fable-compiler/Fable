@@ -265,15 +265,20 @@ module PrinterExtensions =
 
             printer.Print(op)
 
-        member printer.Print(node: ImportSpec) =
-            printer.Print("ImportSpec")
+        member printer.Print(spec: ImportSpec) =
+            printer.Print("import ")
+            if spec.Name.IsSome then
+                printer.Print(spec.Name.Value)
+                printer.Print(" ")
 
-        member printer.Print(decl: Declaration) =
+            printer.Print(spec.Path)
+
+
+        member printer.Print(decl: Decl) =
             match decl with
-            | ImportDecl decl -> printer.Print(decl)
+            | BadDecl decl -> printer.Print(decl)
             | FuncDecl decl -> printer.Print(decl)
-            | TypeDecl decl -> printer.Print(decl)
-            | VarDecl decl -> printer.Print(decl)
+            | GenDecl decl -> printer.Print(decl)
 
         member printer.Print(node: File) =
             printer.Print("package ")
@@ -411,45 +416,25 @@ module PrinterExtensions =
         //     printer.Print(operator)
         //     printer.ComplexExpressionWithParens(right)
 
-        member printer.Print(decl: ImportDecl) =
-            printer.Print("import ")
-            printer.Print("(")
-            for name in decl.Names do
-                match name with
-                | {Name=Some name} ->
-                    printer.Print(name)
-                | _ -> ()
-
-            printer.Print(")")
-
         member printer.Print(decl: FuncDecl) =
             printer.Print("def ")
             printer.Print(decl.Name)
             printer.Print("(")
-            printer.Print(decl.Args)
+            //printer.Print(decl.Args)
             printer.Print("):")
 
             if decl.Body.IsSome then
                 printer.PrintBlock(decl.Body.Value)
 
-        member printer.Print(decl: TypeDecl) =
-            printer.Print("type ")
-            printer.Print(decl.Name)
-            printer.Print("(")
-            printer.PrintOptional(decl.Type)
-            printer.Print("):")
+        member printer.Print(decl: GenDecl) =
+            printer.Print("GenDecl")
 
-        member printer.Print(decl: VarDecl) =
-            printer.Print("var ")
-            printer.PrintCommaSeparatedList(decl.Names)
-            printer.PrintOptional(decl.Type)
-            printer.Print(" = ")
-            printer.PrintCommaSeparatedList(decl.Values)
-
+        member printer.Print(decl: BadDecl) =
+            printer.Print("BadDecl")
 
 open PrinterExtensions
 
-let printDeclWithExtraLine extraLine (printer: Printer) (decl: Declaration) =
+let printDeclWithExtraLine extraLine (printer: Printer) (decl: Decl) =
     printer.Print(decl)
 
     if printer.Column > 0 then
@@ -470,12 +455,12 @@ let run writer (program: File) : Async<unit> =
 
         let imports = program.Imports
 
-        for decl in imports do
-            match decl with
+        for spec in imports do
+            match spec with
             | { Name=name; Path={Value=path}} as info ->
                 let path = printer.MakeImportPath(path)
-                ImportDecl {decl with ImportDecl.Names=[{ info with Path = BasicLit.basicLit(kind=Token.String, value=path) }]}
-            |> printDeclWithExtraLine false printer
+                {spec with Path= BasicLit.basicLit(kind=Token.String, value=path) }
+            |> printer.Print
 
         printer.PrintNewLine()
         do! printerImpl.Flush()

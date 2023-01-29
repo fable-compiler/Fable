@@ -174,7 +174,7 @@ type Token =
 type Node =
     | Expr of Expr
     | Stmt of Stmt
-    | Decl of Declaration
+    | Decl of Decl
     | Type of Type
 
 /// A Comment node represents a single //-style or /*-style comment.
@@ -209,11 +209,10 @@ type Field =
       Comment: CommentGroup option }
 
 /// A Declaration
-type Declaration =
-    | ImportDecl of ImportDecl
+type Decl =
+    | BadDecl of BadDecl
     | FuncDecl of FuncDecl
-    | TypeDecl of TypeDecl
-    | VarDecl of VarDecl
+    | GenDecl of GenDecl
 
 type FieldList =
     { Opening: SourceLocation
@@ -232,15 +231,33 @@ type TypeDecl =
       Name: Ident
       Type: Type option }
 
-type VarDecl =
-    { Doc: CommentGroup option
-      Names: Ident list
-      Type: Type option
-      Values: Expr list }
+type BadDecl =
+    { From: SourceLocation option
+      To: SourceLocation option }
 
-type ImportDecl =
-    { Doc: CommentGroup option
-      Names: ImportSpec list }
+/// A GenDecl node (generic declaration node) represents an import,
+/// constant, type or variable declaration. A valid Lparen position
+/// (Lparen.IsValid()) indicates a parenthesized declaration.
+///
+/// Relationship between Tok value and Specs element type:
+///
+///    token.IMPORT  *ImportSpec
+///   token.CONST   *ValueSpec
+///  token.TYPE    *TypeSpec
+/// token.VAR     *ValueSpec
+///
+type GenDecl =
+    { /// Associated documentation; or nil
+      Doc: CommentGroup option
+      /// Position of Tok
+      TokPos: SourceLocation option
+      /// IMPORT, CONST, TYPE, or VAR
+      Tok: Token
+      /// Position of '(', if any
+      Lparen: SourceLocation option
+      Specs: Decl list
+      /// Position of ')', if any
+      Rparen: SourceLocation option }
 
 type File =
     { /// Associated documentation; or nil
@@ -250,7 +267,7 @@ type File =
       /// Package name
       Name: Ident
       /// Top-level declarations; or nil
-      Decls: Declaration list
+      Decls: Decl list
       /// Package scope (this file only)
       Scope: Scope option
       /// Imports in this file
@@ -404,7 +421,7 @@ type IndexExpr =
       /// index expression
       Index: Expr
       /// position of "]"
-      Rbrack: SourceLocation option}
+      Rbrack: SourceLocation option }
 
 /// An IndexListExpr node represents an expression followed by multiple
 /// indices.
@@ -556,7 +573,7 @@ type BadStmt =
 /// A DeclStmt node represents a declaration in a statement list.
 type DeclStmt =
     { /// *GenDecl with CONST, TYPE, or VAR token
-      Decl: Declaration }
+      Decl: Decl }
 
 /// An EmptyStmt node represents an empty statement.
 /// The "position" of the empty statement is the position
@@ -750,8 +767,14 @@ module GoExtensions =
 
     type BasicLit with
         static member basicLit(kind, value, ?valuePos) =
-            { ValuePos=valuePos; Kind=kind; Value=value }
+            { ValuePos = valuePos
+              Kind = kind
+              Value = value }
     // type Stmt with
 
     type Expr with
-        static member ident(name, ?obj, ?namePos) = Ident { NamePos=namePos; Name=name; Obj=obj }
+        static member ident(name, ?obj, ?namePos) =
+            Ident
+                { NamePos = namePos
+                  Name = name
+                  Obj = obj }
