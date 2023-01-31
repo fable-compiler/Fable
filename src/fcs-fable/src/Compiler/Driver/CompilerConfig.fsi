@@ -422,6 +422,8 @@ type TcConfigBuilder =
 
         mutable parallelCheckingWithSignatureFiles: bool
 
+        mutable parallelIlxGen: bool
+
         mutable emitMetadataAssembly: MetadataAssemblyGeneration
 
         mutable preferredUiLang: string option
@@ -433,6 +435,8 @@ type TcConfigBuilder =
         mutable showBanner: bool
 
         mutable showTimes: bool
+
+        mutable writeTimesToFile: string option
 
         mutable showLoadedAssemblies: bool
 
@@ -497,6 +501,8 @@ type TcConfigBuilder =
         mutable exiter: Exiter
 
         mutable parallelReferenceResolution: ParallelReferenceResolution
+
+        mutable captureIdentifiersWhenParsing: bool
     }
 
     static member CreateNew:
@@ -746,6 +752,8 @@ type TcConfig =
 
     member parallelCheckingWithSignatureFiles: bool
 
+    member parallelIlxGen: bool
+
     member emitMetadataAssembly: MetadataAssemblyGeneration
 
     member pathMap: PathMap
@@ -759,6 +767,8 @@ type TcConfig =
     member showBanner: bool
 
     member showTimes: bool
+
+    member writeTimesToFile: string option
 
     member showLoadedAssemblies: bool
 
@@ -871,8 +881,11 @@ type TcConfig =
 
     member exiter: Exiter
 
-#if !FABLE_COMPILER
     member parallelReferenceResolution: ParallelReferenceResolution
+
+    member captureIdentifiersWhenParsing: bool
+
+#if !FABLE_COMPILER
 
 /// Represents a computation to return a TcConfig. Normally this is just a constant immutable TcConfig,
 /// but for F# Interactive it may be based on an underlying mutable TcConfigBuilder.
@@ -912,3 +925,6 @@ val FSharpScriptFileSuffixes: string list
 val FSharpIndentationAwareSyntaxFileSuffixes: string list
 
 val FSharpMLCompatFileSuffixes: string list
+
+/// Indicates whether experimental features should be enabled automatically
+val FSharpExperimentalFeaturesEnabledAutomatically: bool

@@ -7,17 +7,23 @@ namespace System
 type Environment() =
     static member ProcessorCount = 1
     static member Exit(_exitcode) = ()
+    static member GetEnvironmentVariable(_variable) = null
 
 module Diagnostics =
     type Trace() =
         static member TraceInformation(_s) = () //TODO: proper implementation
 
-    type ActivitySource(_name: string, ?_version: string) =
-        member _.StartActivity(?_name, ?_kind) = null
-
 module Reflection =
     type AssemblyName(assemblyName: string) =
         member x.Name = assemblyName //TODO: proper implementation
+
+module Threading =
+    type Interlocked() =
+        //TODO: threaded implementation
+        static member Increment(i: int32 byref): int32 = i <- i + 1; i
+        static member Increment(i: int64 byref): int64 = i <- i + 1L; i
+        static member Decrement(i: int32 byref): int32 = i <- i - 1; i
+        static member Decrement(i: int64 byref): int64 = i <- i - 1L; i
 
 type WeakReference<'T>(v: 'T) =
     member x.TryGetTarget () = (true, v)

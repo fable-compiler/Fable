@@ -40,7 +40,5 @@ type internal FSharpSource =
 
     /// Creates a FSharpSource.
     static member Create:
-        filePath: string * getTimeStamp: (unit -> DateTime) * getSourceText: (unit -> ISourceText) -> FSharpSource
-
-    /// Creates a FSharpSource.
-    static member Create : filePath: string * getTimeStamp: (unit -> DateTime) * getSourceText: (unit -> ISourceText) -> FSharpSource
+        filePath: string * getTimeStamp: (unit -> DateTime) * getSourceText: (unit -> ISourceText option) ->
+            FSharpSource

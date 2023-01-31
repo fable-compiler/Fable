@@ -35,6 +35,10 @@ let tests() =
             'A' + 'B' |> int |> equal 131
             'A' + char 7 |> int |> equal 72
 
+      // testCase "Char subtraction works" <| fun _ ->
+      //       'B' - 'A' |> int |> equal 1
+      //       char 9 - char 7 |> int |> equal 2
+
       // TODO: Char module
       // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
       // testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->

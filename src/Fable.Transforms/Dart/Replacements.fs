@@ -9,10 +9,6 @@ open Fable.AST.Fable
 open Fable.Transforms
 open Replacements.Util
 
-type NumberKind with
-    member this.Number =
-        Number(this, NumberInfo.Empty)
-
 let (|DartInt|_|) = function
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Some DartInt
     | _ -> None
@@ -264,11 +260,11 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal,_) ->
-        let n = Helper.LibCall(com, "Decimal", "toNumber", Number(Float64, NumberInfo.Empty), [args.Head])
-        let rounded = Helper.LibCall(com, "Util", "round", Number(Float64, NumberInfo.Empty), [n])
+        let n = Helper.LibCall(com, "Decimal", "toNumber", Float64.Number, [args.Head])
+        let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [n])
         rounded::args.Tail
     | Number((Float32|Float64),_) ->
-        let rounded = Helper.LibCall(com, "Util", "round", Number(Float64, NumberInfo.Empty), [args.Head])
+        let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [args.Head])
         rounded::args.Tail
     | _ -> args
 
@@ -291,24 +287,33 @@ let getSubtractToDateMethodName = function
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
         Operation(Unary(operator, operand), Tags.empty, t, r)
+
     let binOp op left right =
         Operation(Binary(op, left, right), Tags.empty, t, r)
+
+    let binOpChar op left right =
+        let toUInt16 e = toInt com ctx None (Number(UInt16, NumberInfo.Empty)) [e]
+        Operation(Binary(op, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r) |> toChar
+
     let truncateUnsigned operation = // see #1550
         match t with
         | Number(UInt32,_) ->
             Operation(Binary(BinaryShiftRightZeroFill,operation,makeIntConst 0), Tags.empty, t, r)
         | _ -> operation
+
     let logicOp op left right =
         Operation(Logical(op, left, right), Tags.empty, Boolean, r)
+
     let nativeOp opName argTypes args =
         match opName, args with
         | Operators.addition, [left; right] ->
             match argTypes with
-            | Char::_ ->
-                let toUInt16 e = toInt com ctx None UInt16.Number [e]
-                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r) |> toChar
+            | Char::_ -> binOpChar BinaryPlus left right
             | _ -> binOp BinaryPlus left right
-        | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
+        | Operators.subtraction, [left; right] ->
+            match argTypes with
+            | Char::_ -> binOpChar BinaryMinus left right
+            | _ -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
         | (Operators.division | Operators.divideByInt), [left; right] ->
             binOp BinaryDivide left right
@@ -334,6 +339,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             // | Number(Int16,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int16", t, args, ?loc=r)
             // | Number(Int32,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int32", t, args, ?loc=r)
             // | _ -> unOp UnaryMinus operand
+        | Operators.unaryPlus, [operand] -> unOp UnaryPlus operand
         | _ -> $"Operator %s{opName} not found in %A{argTypes}"
                |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = args |> List.map (fun a -> a.Type)
@@ -435,17 +441,18 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 
 // Mirrors Fable2Dart.Util.compare
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
-    let returnType = Int32.Number
+    let t = Int32.Number
     match left.Type with
     | Array(t,_) ->
         let fn = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Util", "compareList", returnType, [left; right; fn], ?loc=r)
+        Helper.LibCall(com, "Util", "compareList", t, [left; right; fn], ?loc=r)
     | Option(t,_) ->
         let fn = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Util", "compareNullable", returnType, [left; right; fn], ?loc=r)
-    | Boolean -> Helper.LibCall(com, "Util", "compareBool", returnType, [left; right], ?loc=r)
-    | Any | GenericParam _ -> Helper.LibCall(com, "Util", "compareDynamic", returnType, [left; right], ?loc=r)
-    | _ -> Helper.InstanceCall(left, "compareTo", returnType, [right], ?loc=r)
+        Helper.LibCall(com, "Util", "compareNullable", t, [left; right; fn], ?loc=r)
+    | Boolean -> Helper.LibCall(com, "Util", "compareBool", t, [left; right], ?loc=r)
+    | Any | GenericParam _ ->
+        Helper.LibCall(com, "Util", "compareDynamic", t, [left; right], ?loc=r)
+    | _ -> Helper.InstanceCall(left, "compareTo", t, [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
 and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =

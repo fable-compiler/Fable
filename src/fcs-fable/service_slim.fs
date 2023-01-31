@@ -148,6 +148,7 @@ module internal ParseAndCheck =
 
     let userOpName = "Unknown"
     let suggestNamesForErrors = true
+    let captureIdentifiersWhenParsing = false
 
     let MakeProjectResults (projectFileName: string, parseResults: FSharpParseFileResults[], tcState: TcState, errors: FSharpDiagnostic[],
                             topAttrsOpt: TopAttribs option, tcImplFilesOpt: CheckedImplFile list option, compilerState) =
@@ -181,7 +182,7 @@ module internal ParseAndCheck =
         compilerState.parseCache.GetOrAdd(parseCacheKey, fun _ ->
             ClearStaleCache(fileName, parsingOptions, compilerState)
             let sourceText = SourceText.ofString source
-            let parseErrors, parseTreeOpt, anyErrors = ParseAndCheckFile.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors)
+            let parseErrors, parseTreeOpt, anyErrors = ParseAndCheckFile.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors, captureIdentifiersWhenParsing)
             let dependencyFiles = [||] // interactions have no dependencies
             FSharpParseFileResults (parseErrors, parseTreeOpt, anyErrors, dependencyFiles) )
 

@@ -160,6 +160,7 @@ module Operators =
     let [<Literal>] booleanOr = "op_BooleanOr"
     let [<Literal>] logicalNot = "op_LogicalNot"
     let [<Literal>] unaryNegation = "op_UnaryNegation"
+    let [<Literal>] unaryPlus = "op_UnaryPlus"
     let [<Literal>] divideByInt = "DivideByInt"
 
     let [<Literal>] equality = "op_Equality"
@@ -183,7 +184,8 @@ module Operators =
               booleanAnd
               booleanOr
               logicalNot
-              unaryNegation ]
+              unaryNegation
+              unaryPlus ]
 
     let compareSet =
         set [ equality; "Eq"

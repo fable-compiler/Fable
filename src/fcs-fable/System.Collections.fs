@@ -22,11 +22,11 @@ module Generic =
 module Immutable =
     open System.Collections.Generic
 
-    // not actually immutable, just a ResizeArray
+    // not immutable, just a ResizeArray // TODO: immutable implementation
     type ImmutableArray<'T> =
         static member CreateBuilder() = ResizeArray<'T>()
 
-    // not actually immutable, just a Dictionary
+    // not immutable, just a Dictionary // TODO: immutable implementation
     type ImmutableDictionary<'Key, 'Value>(comparer: IEqualityComparer<'Key>) =
         inherit Dictionary<'Key, 'Value>(comparer)
         static member Create(comparer) = ImmutableDictionary<'Key, 'Value>(comparer)
@@ -37,7 +37,19 @@ module Immutable =
 module Concurrent =
     open System.Collections.Generic
 
-    // not actually thread safe, just a Dictionary
+    // not thread safe, just a ResizeArray // TODO: threaded implementation
+    type ConcurrentStack<'T> =
+        inherit ResizeArray<'T>
+
+        new () = ConcurrentStack<'T>()
+
+        member x.Push (item: 'T) =
+            x.Add(item)
+
+        member x.PushRange (items: 'T[]) =
+            x.AddRange(items)
+
+    // not thread safe, just a Dictionary // TODO: threaded implementation
     [<AllowNullLiteral>]
     type ConcurrentDictionary<'Key, 'Value>(comparer: IEqualityComparer<'Key>) =
         inherit Dictionary<'Key, 'Value>(comparer)
@@ -61,15 +73,15 @@ module Concurrent =
             | true, v -> (x.Remove(key), v)
             | _ as res -> res
 
-        member x.GetOrAdd (key: 'Key, valueFactory: 'Key -> 'Value): 'Value =
+        member x.GetOrAdd (key: 'Key, value: 'Value): 'Value =
             match x.TryGetValue(key) with
             | true, v -> v
-            | _ -> let v = valueFactory(key) in x.Add(key, v); v
+            | _ -> let v = value in x.Add(key, v); v
 
-        // member x.GetOrAdd (key: 'Key, value: 'Value): 'Value =
-        //     match x.TryGetValue(key) with
-        //     | true, v -> v
-        //     | _ -> let v = value in x.Add(key, v); v
+        member x.GetOrAdd (key: 'Key, valueFactory: System.Func<'Key, 'Value>): 'Value =
+            match x.TryGetValue(key) with
+            | true, v -> v
+            | _ -> let v = valueFactory.Invoke(key) in x.Add(key, v); v
 
         // member x.GetOrAdd<'Arg> (key: 'Key, valueFactory: 'Key * 'Arg -> 'Value, arg: 'Arg): 'Value =
         //     match x.TryGetValue(key) with
@@ -81,10 +93,10 @@ module Concurrent =
         //     | true, v when v = comparisonValue -> x.[key] <- value; true
         //     | _ -> false
 
-        // member x.AddOrUpdate (key: 'Key, value: 'Value, updateFactory: 'Key * 'Value -> 'Value): 'Value =
-        //     match x.TryGetValue(key) with
-        //     | true, v -> let v = updateFactory(key, v) in x.[key] <- v; v
-        //     | _ -> let v = value in x.Add(key, v); v
+        member x.AddOrUpdate (key: 'Key, value: 'Value, updateFactory: System.Func<'Key, 'Value, 'Value>): 'Value =
+            match x.TryGetValue(key) with
+            | true, v -> let v = updateFactory.Invoke(key, v) in x.[key] <- v; v
+            | _ -> let v = value in x.Add(key, v); v
 
         // member x.AddOrUpdate (key: 'Key, valueFactory: 'Key -> 'Value, updateFactory: 'Key * 'Value -> 'Value): 'Value =
         //     match x.TryGetValue(key) with
