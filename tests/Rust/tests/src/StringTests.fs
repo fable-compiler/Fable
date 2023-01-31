@@ -498,6 +498,20 @@ let ``sprintf integers with sign and padding works`` () = // See #1931
 //     x + y |> equal "FooBar"
 
 [<Fact>]
+let ``Strings can be indexed`` () =
+    let s = "bar"
+    let s2 = s.ToCharArray()
+    let s3 = [|'b'; 'a'; 'r'|]
+    s[0] |> equal 'b'
+    s2[1] |> equal 'a'
+    s3[2] |> equal 'r'
+    "おはよう"[2] |> equal 'よ'
+
+// [<Fact>]
+// let ``Strings can be enumerated`` () =
+//     "おはよう" |> Seq.item 2 |> equal 'よ'
+
+[<Fact>]
 let ``String slicing works`` () =
     let s = "cat and dog"
     s[2..8] |> equal "t and d"

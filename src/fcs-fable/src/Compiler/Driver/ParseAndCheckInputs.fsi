@@ -41,7 +41,8 @@ val ParseInput:
     lexbuf: Lexbuf *
     defaultNamespace: string option *
     fileName: string *
-    isLastCompiland: (bool * bool) ->
+    isLastCompiland: (bool * bool) *
+    identCapture: bool ->
         ParsedInput
 
 #if !FABLE_COMPILER

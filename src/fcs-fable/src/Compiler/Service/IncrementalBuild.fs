@@ -114,7 +114,7 @@ module IncrementalBuilderEventTesting =
 
 module Tc = CheckExpressions
 
-// This module is only here to contain the SyntaxTree type as to avoid amiguity with the module FSharp.Compiler.Syntax.
+// This module is only here to contain the SyntaxTree type as to avoid ambiguity with the module FSharp.Compiler.Syntax.
 [<AutoOpen>]
 module IncrementalBuildSyntaxTree =
 
@@ -144,7 +144,7 @@ module IncrementalBuildSyntaxTree =
                 use act =
                     Activity.start "IncrementalBuildSyntaxTree.parse"
                         [|
-                            "fileName", source.FilePath
+                            Activity.Tags.fileName, source.FilePath
                             "buildPhase", BuildPhase.Parse.ToString()
                             "canSkip", canSkip.ToString()
                         |]             
@@ -492,7 +492,7 @@ type BoundModel private (tcConfig: TcConfig,
                 let! res = defaultTypeCheck ()
                 return res
             | Some syntaxTree ->
-                use _ = Activity.start "BoundModel.TypeCheck" [|"fileName", syntaxTree.FileName|]
+                use _ = Activity.start "BoundModel.TypeCheck" [|Activity.Tags.fileName, syntaxTree.FileName|]
                 let sigNameOpt =
                     if partialCheck then
                         this.BackingSignature
@@ -555,7 +555,7 @@ type BoundModel private (tcConfig: TcConfig,
                         // Build symbol keys
                         let itemKeyStore, semanticClassification =
                             if enableBackgroundItemKeyStoreAndSemanticClassification then
-                                use _ = Activity.start "IncrementalBuild.CreateItemKeyStoreAndSemanticClassification" [|"fileName", fileName|]
+                                use _ = Activity.start "IncrementalBuild.CreateItemKeyStoreAndSemanticClassification" [|Activity.Tags.fileName, fileName|]
                                 let sResolutions = sink.GetResolutions()
                                 let builder = ItemKeyStoreBuilder()
                                 let preventDuplicates = HashSet({ new IEqualityComparer<struct(pos * pos)> with
@@ -750,8 +750,9 @@ type RawFSharpAssemblyDataBackedByLanguageService (tcConfig, tcGlobals, generate
 module IncrementalBuilderHelpers =
 
     /// Get the timestamp of the given file name.
-    let StampFileNameTask (cache: TimeStampCache) (_m: range, source: FSharpSource, _isLastCompiland) =
-        cache.GetFileTimeStamp source.FilePath
+    let StampFileNameTask (cache: TimeStampCache) (_m: range, source: FSharpSource, _isLastCompiland) notifiedTime =
+        notifiedTime
+        |> Option.defaultWith (fun () -> cache.GetFileTimeStamp source.FilePath)
 
     /// Timestamps of referenced assemblies are taken from the file's timestamp.
     let StampReferencedAssemblyTask (cache: TimeStampCache) (_ref, timeStamper) =
@@ -983,6 +984,7 @@ type IncrementalBuilderInitialState =
         allDependencies: string []
         defaultTimeStamp: DateTime
         mutable isImportsInvalidated: bool
+        useChangeNotifications: bool
     }
 
     static member Create(
@@ -1001,7 +1003,8 @@ type IncrementalBuilderInitialState =
                             importsInvalidatedByTypeProvider: Event<unit>,
 #endif
                             allDependencies,
-                            defaultTimeStamp: DateTime) =
+                            defaultTimeStamp: DateTime,
+                            useChangeNotifications: bool) =
 
         let initialState =
             {
@@ -1024,6 +1027,7 @@ type IncrementalBuilderInitialState =
                 allDependencies = allDependencies
                 defaultTimeStamp = defaultTimeStamp
                 isImportsInvalidated = false
+                useChangeNotifications = useChangeNotifications
             }
 #if !NO_TYPEPROVIDERS
         importsInvalidatedByTypeProvider.Publish.Add(fun () -> initialState.isImportsInvalidated <- true)
@@ -1034,8 +1038,10 @@ type IncrementalBuilderInitialState =
 type IncrementalBuilderState =
     {
         // stampedFileNames represent the real stamps of the files.
+        // notifiedStampedFileNames represent the stamps of when we got notified about file changes
         // logicalStampedFileNames represent the stamps of the files that are used to calculate the project's logical timestamp.
         stampedFileNames: ImmutableArray<DateTime>
+        notifiedStampedFileNames: ImmutableArray<DateTime>
         logicalStampedFileNames: ImmutableArray<DateTime>
         stampedReferencedAssemblies: ImmutableArray<DateTime>
         initialBoundModel: GraphNode<BoundModel>
@@ -1060,7 +1066,7 @@ module IncrementalBuilderStateHelpers =
 
     let rec createFinalizeBoundModelGraphNode (initialState: IncrementalBuilderInitialState) (boundModels: ImmutableArray<GraphNode<BoundModel>>.Builder) =
         GraphNode(node {
-            use _ = Activity.start "GetCheckResultsAndImplementationsForProject" [|"projectOutFile", initialState.outfile|]
+            use _ = Activity.start "GetCheckResultsAndImplementationsForProject" [|Activity.Tags.project, initialState.outfile|]
             // Compute last bound model then get all the evaluated models.
             let! _ = boundModels[boundModels.Count - 1].GetOrComputeValue()
             let boundModels =
@@ -1081,7 +1087,8 @@ module IncrementalBuilderStateHelpers =
 
     and computeStampedFileName (initialState: IncrementalBuilderInitialState) (state: IncrementalBuilderState) (cache: TimeStampCache) slot fileInfo =
         let currentStamp = state.stampedFileNames[slot]
-        let stamp = StampFileNameTask cache fileInfo
+        let notifiedStamp = if initialState.useChangeNotifications then Some state.notifiedStampedFileNames[slot] else None
+        let stamp = StampFileNameTask cache fileInfo notifiedStamp
 
         if currentStamp <> stamp then
             match state.boundModels[slot].TryPeekValue() with
@@ -1090,7 +1097,7 @@ module IncrementalBuilderStateHelpers =
                 let newBoundModel = boundModel.ClearTcInfoExtras()
                 { state with
                     boundModels = state.boundModels.RemoveAt(slot).Insert(slot, GraphNode(node.Return newBoundModel))
-                    stampedFileNames = state.stampedFileNames.SetItem(slot, StampFileNameTask cache fileInfo)
+                    stampedFileNames = state.stampedFileNames.SetItem(slot, StampFileNameTask cache fileInfo notifiedStamp)
                 }
             | _ ->
 
@@ -1100,7 +1107,8 @@ module IncrementalBuilderStateHelpers =
 
                 // Invalidate the file and all files below it.
                 for j = 0 to stampedFileNames.Count - slot - 1 do
-                    let stamp = StampFileNameTask cache initialState.fileNames[slot + j]
+                    let notifiedStamp = if initialState.useChangeNotifications then Some state.notifiedStampedFileNames.[slot + j] else None
+                    let stamp = StampFileNameTask cache initialState.fileNames[slot + j] notifiedStamp
                     stampedFileNames[slot + j] <- stamp
                     logicalStampedFileNames[slot + j] <- stamp
                     boundModels[slot + j] <- createBoundModelGraphNode initialState state.initialBoundModel boundModels (slot + j)
@@ -1173,6 +1181,7 @@ type IncrementalBuilderState with
         let state =
             {
                 stampedFileNames = ImmutableArray.init fileNames.Length (fun _ -> DateTime.MinValue)
+                notifiedStampedFileNames = ImmutableArray.init fileNames.Length (fun _ -> DateTime.MinValue)
                 logicalStampedFileNames = ImmutableArray.init fileNames.Length (fun _ -> DateTime.MinValue)
                 stampedReferencedAssemblies = ImmutableArray.init referencedAssemblies.Length (fun _ -> DateTime.MinValue)
                 initialBoundModel = initialBoundModel
@@ -1433,6 +1442,15 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
         let syntaxTree = GetSyntaxTree initialState.tcConfig initialState.fileParsed initialState.lexResourceManager fileInfo
         syntaxTree.Parse None
 
+    member builder.NotifyFileChanged(fileName, timeStamp) =
+        node {
+            let slotOfFile = builder.GetSlotOfFileName fileName
+            let newState = { currentState with notifiedStampedFileNames = currentState.notifiedStampedFileNames.SetItem(slotOfFile, timeStamp) }
+            let cache = TimeStampCache defaultTimeStamp
+            let! ct = NodeCode.CancellationToken
+            setCurrentState newState cache ct
+        }
+
     member _.SourceFiles  = fileNames |> Seq.map (fun (_, f, _) -> f.FilePath) |> List.ofSeq
 
     /// CreateIncrementalBuilder (for background type checking). Note that fsc.fs also
@@ -1457,7 +1475,10 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
             enablePartialTypeChecking: bool,
             enableParallelCheckingWithSignatureFiles: bool,
             dependencyProvider,
-            parallelReferenceResolution
+            parallelReferenceResolution,
+            captureIdentifiersWhenParsing,
+            getSource,
+            useChangeNotifications
         ) =
 
       let useSimpleResolutionSwitch = "--simpleresolution"
@@ -1540,7 +1561,8 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
 
                 tcConfigB.parallelCheckingWithSignatureFiles <- enableParallelCheckingWithSignatureFiles
                 tcConfigB.parallelReferenceResolution <- parallelReferenceResolution
-                
+                tcConfigB.captureIdentifiersWhenParsing <- captureIdentifiersWhenParsing
+
                 tcConfigB, sourceFilesNew
 
             // If this is a builder for a script, re-apply the settings inferred from the
@@ -1663,10 +1685,18 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
                     importsInvalidatedByTypeProvider
                 )
 
+            let getFSharpSource fileName =
+                getSource
+                |> Option.map(fun getSource ->
+                    let getTimeStamp() = DateTime.UtcNow
+                    let getSourceText() = getSource fileName
+                    FSharpSource.Create(fileName, getTimeStamp, getSourceText))
+                |> Option.defaultWith(fun () -> FSharpSource.CreateFromFile(fileName))
+
             let sourceFiles =
                 sourceFiles
                 |> List.map (fun (m, fileName, isLastCompiland) ->
-                    (m, FSharpSource.CreateFromFile(fileName), isLastCompiland)
+                    (m, getFSharpSource(fileName), isLastCompiland)
                 )
 
             let initialState =
@@ -1686,7 +1716,8 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
                     importsInvalidatedByTypeProvider,
 #endif
                     allDependencies,
-                    defaultTimeStamp)
+                    defaultTimeStamp,
+                    useChangeNotifications)
 
             let builder = IncrementalBuilder(initialState, IncrementalBuilderState.Create(initialState))
             return Some builder

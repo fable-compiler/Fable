@@ -219,6 +219,10 @@ let tests =
             'A' + 'B' |> int |> equal 131
             'A' + char 7 |> int |> equal 72
 
+        // testCase "Char subtraction works" <| fun _ ->
+        //     'B' - 'A' |> int |> equal 1
+        //     char 9 - char 7 |> int |> equal 2
+
         testCase "Adding char converted to string works" <| fun _ -> // See #2832
             let formatAmountNumber (d:decimal) =
                 let rounded = Math.Round(d,2)
