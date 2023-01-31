@@ -1,6 +1,7 @@
 module Fable.Core.Dart
 
 open System
+open Fable.Core
 
 type IsConstAttribute() =
     inherit Attribute()
@@ -18,15 +19,15 @@ module DartNullable =
     let toNullable (value: DartNullable<'T>): Nullable<'T> = nativeOnly
     let ofNullable (value: 'T Nullable): DartNullable<'T> = nativeOnly
 
-[<Global>]
+[<ImportMember "dart:async">]
 type Future<'T> =
     interface end
 
-[<Global>]
+[<ImportMember "dart:async">]
 type Stream<'T> =
     interface end
 
-[<Global>]
+[<ImportMember "dart:core">]
 let print(item: obj): unit = nativeOnly
 
 /// Destructure a tuple of arguments and apply them to literal code as with EmitAttribute.
