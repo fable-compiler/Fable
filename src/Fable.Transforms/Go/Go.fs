@@ -255,7 +255,7 @@ type GenDecl =
       Tok: Token
       /// Position of '(', if any
       Lparen: SourceLocation option
-      Specs: Decl list
+      Specs: Spec list
       /// Position of ')', if any
       Rparen: SourceLocation option }
 
@@ -288,6 +288,37 @@ type ImportSpec =
       Comment: CommentGroup option
       /// end of spec (overrides Path.Pos if nonzero)
       EndPos: SourceLocation option }
+
+type ValueSpec =
+    { /// Associated documentation; or nil
+      Doc: CommentGroup option
+      /// value names (len(Names) > 0)
+      Names: Ident list
+      /// (optional) type; or nil
+      Type: Type option
+      /// (optional) initialization values; or nil
+      Values: Expr list
+      /// line comments; or nil
+      Comment: CommentGroup option }
+
+type TypeSpec =
+    { /// Associated documentation; or nil
+      Doc: CommentGroup option
+      /// Type name
+      Name: Ident option
+      /// Type parameters; or nil
+      TypeParams: FieldList option
+      /// Position of '=', if any
+      Assign: SourceLocation option
+      /// *Ident, *ParenExpr, *SelectorExpr, StarExpr, or any of the *XxxTypes
+      Type: Expr
+      /// Line comments; or nil
+      Comment: CommentGroup option }
+
+type Spec =
+    | ImportSpec of ImportSpec
+    | ValueSpec of ValueSpec
+    | TypeSpec of TypeSpec
 
 /// A FuncType node represents a function type.
 type FuncType =
@@ -770,9 +801,39 @@ module GoExtensions =
             { ValuePos = valuePos
               Kind = kind
               Value = value }
-    // type Stmt with
+    type Stmt with
+        static member assign (lhs, rhs, ?tokPos, ?tok) =
+            AssignStmt
+                { Lhs = lhs
+                  TokPos = tokPos
+                  Tok = tok |> Option.defaultValue Token.Assign
+                  Rhs = rhs }
 
     type Expr with
+        static member basicLit(value: obj, ?valuePos) =
+            let token =
+                match value with
+                | :? int
+                | :? int8
+                | :? int16
+                | :? int32
+                | :? uint8
+                | :? uint16
+                | :? uint32 -> Token.Int
+                | :? float
+                | :? float32 -> Token.Float
+                | _ -> Token.String
+
+            BasicLit (BasicLit.basicLit (token, string value, ?valuePos=valuePos))
+
+        static member call(func, args, ?ellispis, ?lparen, ?rparen) =
+            CallExpr
+                { Fun = func
+                  Args = args
+                  Ellipsis = ellispis
+                  Lparen = lparen
+                  Rparen = rparen }
+
         static member ident(name, ?obj, ?namePos) =
             Ident
                 { NamePos = namePos
