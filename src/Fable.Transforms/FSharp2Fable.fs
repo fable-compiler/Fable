@@ -214,7 +214,7 @@ let private getImplementedSignatureInfo com ctx r nonMangledNameConflicts (imple
             if sign.AbstractArguments.Count = 1 then
                 sign.AbstractArguments[0] |> Seq.map (fun p -> makeType Map.empty p.Type) |> Seq.toArray |> Some
             else None
-        tryFindAbstractMember ent sign.Name paramTypes
+        tryFindAbstractMember com ent sign.Name paramTypes
         |> Option.map (fun m -> ent, m))
     |> Option.map (fun (ent, memb) ->
         let info = getAbstractMemberInfo com ent memb

@@ -13,7 +13,7 @@ open Fable.Transforms.FSharp2Fable
 open Extensions
 
 module Extensions =
-    let private areParamTypesEqual genArgs (args1: Fable.Type[]) (args2: IList<IList<FSharpParameter>>) =
+    let areParamTypesEqual genArgs (args1: Fable.Type[]) (args2: IList<IList<FSharpParameter>>) =
         // Not entirely sure why, but it seems members with a single unit argument sometimes have this parameter
         // and sometimes none, so just to be sure always remove single unit arguments
         let args2 =
@@ -25,42 +25,42 @@ module Extensions =
             Array.forall2 (typeEquals false) args1 args2
         else false
 
-    type FSharpEntity with
-        member entity.EnumerateMembersFunctionsAndValues(?includeHierarchy: bool): FSharpMemberOrFunctionOrValue seq =
-            let ownMembers = entity.TryGetMembersFunctionsAndValues()
-            match includeHierarchy with
-            | Some true ->
-                match TypeHelpers.tryGetBaseEntity entity with
-                | Some(baseDef, _) ->
-                    Seq.append ownMembers (baseDef.EnumerateMembersFunctionsAndValues(includeHierarchy=true))
-                | _ -> ownMembers
-            | _ -> ownMembers
+    // type FSharpEntity with
+    //     member entity.EnumerateMembersFunctionsAndValues(?includeHierarchy: bool): FSharpMemberOrFunctionOrValue seq =
+    //         let ownMembers = entity.TryGetMembersFunctionsAndValues()
+    //         match includeHierarchy with
+    //         | Some true ->
+    //             match TypeHelpers.tryGetBaseEntity entity with
+    //             | Some(baseDef, _) ->
+    //                 Seq.append ownMembers (baseDef.EnumerateMembersFunctionsAndValues(includeHierarchy=true))
+    //             | _ -> ownMembers
+    //         | _ -> ownMembers
 
-        member entity.TryFindMember(
-            compiledName: string,
-            isInstance: bool,
-            ?argTypes: Fable.Type[],
-            ?genArgs,
-            ?searchHierarchy: bool,
-            ?requireDispatchSlot: bool
-        ) =
-            let doNotRequireDispatchSlot = not(defaultArg requireDispatchSlot false)
-            let genArgs = defaultArg genArgs Map.empty
-            let argTypes =
-                // Remove single unit argument (see note in areParamTypesEqual above)
-                argTypes |> Option.map (function
-                    | [|Fable.Unit|] -> [||]
-                    | argTypes -> argTypes)
+    //     member entity.TryFindMember(
+    //         compiledName: string,
+    //         isInstance: bool,
+    //         ?argTypes: Fable.Type[],
+    //         ?genArgs,
+    //         ?searchHierarchy: bool,
+    //         ?requireDispatchSlot: bool
+    //     ) =
+    //         let doNotRequireDispatchSlot = not(defaultArg requireDispatchSlot false)
+    //         let genArgs = defaultArg genArgs Map.empty
+    //         let argTypes =
+    //             // Remove single unit argument (see note in areParamTypesEqual above)
+    //             argTypes |> Option.map (function
+    //                 | [|Fable.Unit|] -> [||]
+    //                 | argTypes -> argTypes)
 
-            entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
-            |> Seq.tryFind (fun m2 ->
-                if m2.IsInstanceMember = isInstance
-                    && m2.CompiledName = compiledName
-                    && (doNotRequireDispatchSlot || m2.IsDispatchSlot) then
-                    match argTypes with
-                    | Some argTypes -> areParamTypesEqual genArgs argTypes m2.CurriedParameterGroups
-                    | None -> true
-                else false)
+    //         entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
+    //         |> Seq.tryFind (fun m2 ->
+    //             if m2.IsInstanceMember = isInstance
+    //                 && m2.CompiledName = compiledName
+    //                 && (doNotRequireDispatchSlot || m2.IsDispatchSlot) then
+    //                 match argTypes with
+    //                 | Some argTypes -> areParamTypesEqual genArgs argTypes m2.CurriedParameterGroups
+    //                 | None -> true
+    //             else false)
 
 type FsField(fi: FSharpField) =
     let name = FsField.FSharpFieldName fi
@@ -257,6 +257,16 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 type FsEnt(maybeAbbrevEnt: FSharpEntity) =
     let ent = Helpers.nonAbbreviatedDefinition maybeAbbrevEnt
 
+    let memberCache =
+        let dict = Dictionary()
+        ent.TryGetMembersFunctionsAndValues()
+        |> Seq.iter (fun m ->
+            let key = (m.CompiledName, m.IsInstanceMember)
+            let value = (m, m.IsDispatchSlot, m.CurriedParameterGroups)
+            let members = dict.GetOrAdd(key, fun _ -> ResizeArray())
+            members.Add(value))
+        dict
+
     static let tryArrayFullName (ent: FSharpEntity) =
         if ent.IsArrayType then
             let rank =
@@ -313,6 +323,36 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
         { FullName = FsEnt.FullName ent
           Path = path }
 
+    member _.TryFindMember(
+        compiledName: string,
+        isInstance: bool,
+        ?argTypes: Fable.Type[],
+        ?genArgs,
+        // ?searchHierarchy: bool,
+        ?requireDispatchSlot: bool
+    ) =
+        let doNotRequireDispatchSlot = not(defaultArg requireDispatchSlot false)
+        let genArgs = defaultArg genArgs Map.empty
+        let argTypes =
+            // Remove single unit argument (see note in areParamTypesEqual above)
+            argTypes |> Option.map (function
+                | [|Fable.Unit|] -> [||]
+                | argTypes -> argTypes)
+
+        // entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
+        memberCache
+        |> Dictionary.tryFind (compiledName, isInstance)
+        |> Option.bind (fun members ->
+            members
+            |> Seq.tryFind (fun (m, m_IsDispatchSlot, m_CurriedParameterGroups) ->
+                if (doNotRequireDispatchSlot || m_IsDispatchSlot)
+                then
+                    match argTypes with
+                    | Some argTypes -> Extensions.areParamTypesEqual genArgs argTypes m_CurriedParameterGroups
+                    | None -> true
+                else false)
+            |> Option.map (fun (m,_,_) -> m))
+
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
         member _.DisplayName = ent.DisplayName
@@ -330,11 +370,12 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             ent.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
         member _.MembersFunctionsAndValues =
-            ent.EnumerateMembersFunctionsAndValues()
-            |> Seq.map (fun m -> FsMemberFunctionOrValue(m))
+            memberCache.Values
+            |> Seq.concat
+            |> Seq.map (fun (m,_,_) -> FsMemberFunctionOrValue(m))
 
-        member _.TryFindMember(info: Fable.MemberRefInfo) =
-            ent.TryFindMember(info.CompiledName, isInstance=info.IsInstance, ?argTypes=(Option.map List.toArray info.NonCurriedArgTypes))
+        member x.TryFindMember(info: Fable.MemberRefInfo) =
+            x.TryFindMember(info.CompiledName, isInstance=info.IsInstance, ?argTypes=(Option.map List.toArray info.NonCurriedArgTypes))
             |> Option.map (fun m -> FsMemberFunctionOrValue(m))
 
         member _.AllInterfaces =
@@ -1237,14 +1278,22 @@ module TypeHelpers =
             if t.HasTypeDefinition then Some t.TypeDefinition else None
         else None
 
-    let tryFindMember (entity: Fable.Entity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
-        match entity with
+    let tryFindMember (ent: Fable.Entity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
+        match ent with
         | :? FsEnt as entity ->
-            entity.FSharpEntity.TryFindMember(compiledName, isInstance, List.toArray argTypes, genArgs, searchHierarchy=true)
+            entity.TryFindMember(compiledName, isInstance, List.toArray argTypes, genArgs) //, searchHierarchy=true)
         | _ -> None
 
-    let tryFindAbstractMember (ent: FSharpEntity) (compiledName: string) (argTypes: Fable.Type[] option) =
-        ent.TryFindMember(compiledName, isInstance=true, ?argTypes=argTypes, requireDispatchSlot=true)
+    let tryFindAbstractMember (com: IFableCompiler) (ent: FSharpEntity) (compiledName: string) (argTypes: Fable.Type[] option) =
+        let entRef = FsEnt.Ref ent
+        com.TryGetEntity(entRef)
+        |> Option.bind (fun ent ->
+            match ent with
+            | :? FsEnt as entity ->
+                entity.TryFindMember(compiledName, isInstance=true, ?argTypes=argTypes, requireDispatchSlot=true)
+            | _ -> None
+        )
+
 
     let tryFindWitness (ctx: Context) argTypes isInstance traitName =
         ctx.Witnesses |> List.tryFind (fun w ->
@@ -2322,7 +2371,7 @@ module Util =
                             memb.CurriedParameterGroups[0] |> Seq.map (fun p -> makeType Map.empty p.Type) |> Seq.toArray |> Some
                         else None
                     entity |> tryFindBaseEntity (fun ent ->
-                        tryFindAbstractMember ent memb.CompiledName paramTypes |> Option.isSome)
+                        tryFindAbstractMember com ent memb.CompiledName paramTypes |> Option.isSome)
                     |> Option.defaultValue entity
                 | _ -> entity
 
