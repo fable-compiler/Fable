@@ -796,6 +796,12 @@ module GoExtensions =
     [<Literal>]
     let Ellipsis = "..."
 
+    type Ident with
+        static member ident(name, ?obj, ?namePos) =
+            { NamePos = namePos
+              Name = name
+              Obj = obj }
+
     type BasicLit with
         static member basicLit(kind, value, ?valuePos) =
             { ValuePos = valuePos
@@ -808,6 +814,15 @@ module GoExtensions =
                   TokPos = tokPos
                   Tok = tok |> Option.defaultValue Token.Assign
                   Rhs = rhs }
+
+        static member return' (results, ?returnPos) =
+            ReturnStmt
+                { Return = returnPos
+                  Results = results }
+
+        static member expr (expr) =
+            ExprStmt
+                { X = expr }
 
     type Expr with
         static member basicLit(value: obj, ?valuePos) =
@@ -839,3 +854,6 @@ module GoExtensions =
                 { NamePos = namePos
                   Name = name
                   Obj = obj }
+
+        static member ident(name, ?obj, ?namePos) =
+            Ident name
