@@ -1130,35 +1130,29 @@ module Util =
 
     let makeArray (com: IGoCompiler) ctx exprs kind typ : Expr * Stmt list =
         //printfn "makeArray: %A" (exprs, kind, typ)
-        let expr, stmts =
+        let exprs, stmts =
             exprs
             |> List.map (fun e -> com.TransformAsExpr(ctx, e))
             |> Helpers.unzipArgs
 
-        let letter =
+        let typ =
             match kind, typ with
             | Fable.ResizeArray, _ -> None
-            | _, Fable.Type.Number (UInt8, _) -> Some "B"
-            | _, Fable.Type.Number (Int8, _) -> Some "b"
-            | _, Fable.Type.Number (Int16, _) -> Some "h"
-            | _, Fable.Type.Number (UInt16, _) -> Some "H"
-            | _, Fable.Type.Number (Int32, _) -> Some "l"
-            | _, Fable.Type.Number (UInt32, _) -> Some "L"
-            | _, Fable.Type.Number (Int64, _) -> Some "q"
-            | _, Fable.Type.Number (UInt64, _) -> Some "Q"
-            | _, Fable.Type.Number (Float32, _) -> Some "f"
-            | _, Fable.Type.Number (Float64, _) -> Some "d"
-            | _ -> None
+            | _, Fable.Type.Number (UInt8, _) -> Some "uint8"
+            | _, Fable.Type.Number (Int8, _) -> Some "int8"
+            | _, Fable.Type.Number (Int16, _) -> Some "int16"
+            | _, Fable.Type.Number (UInt16, _) -> Some "uint16"
+            | _, Fable.Type.Number (Int32, _) -> Some "int32"
+            | _, Fable.Type.Number (UInt32, _) -> Some "uint32"
+            | _, Fable.Type.Number (Int64, _) -> Some "int64"
+            | _, Fable.Type.Number (UInt64, _) -> Some "uint64"
+            | _, Fable.Type.Number (Float32, _) -> Some "float32"
+            | _, Fable.Type.Number (Float64, _) -> Some "float64"
+            | _ -> Some "int"
+            |> Option.map Expr.ident
 
-        match letter with
-        | Some "B" ->
-            let bytearray = Expression.name "bytearray"
-            Expr.call (bytearray, [ Expression.list expr ]), stmts
-        | Some l ->
-            let array = com.GetImportExpr(ctx, "array", "array")
-
-            Expr.call (array, Expression.constant l :: [ Expression.list expr ]), stmts
-        | _ -> expr |> Expression.list, stmts
+        let expr = Expr.compositeLit(exprs, ?typ=typ)
+        expr, stmts
 
 
     let makeArrayAllocated (com: IGoCompiler) ctx typ kind (size: Fable.Expr) =
@@ -1173,7 +1167,7 @@ module Util =
         | _ ->
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
             let name = Expression.name "list"
-            Expression.call (name, [ expr ]), stmts
+            Expr.call (name, [ expr ]), stmts
 
     let makeList (com: IGoCompiler) ctx exprs =
         let expr, stmts =
@@ -1196,7 +1190,7 @@ module Util =
         |> List.map (fun x -> Expression.constant (x))
         |> Expression.list
 
-    let makePyObject (pairs: seq<string * Expression>) =
+    let makePyObject (pairs: seq<string * Expr>) =
         pairs
         |> Seq.map (fun (name, value) ->
             let prop = Expression.constant name
@@ -1226,7 +1220,6 @@ module Util =
                 | i, _ -> Expression.name (i, Store), Expression.none, i)
             |> List.unzip3
             |> fun (ids, values, ids') ->
-                ctx.BoundVars.Bind(ids')
                 (Expression.tuple ids, Expression.tuple values)
 
         [ Stmt.assign ([ ids ], values) ]
@@ -1237,7 +1230,7 @@ module Util =
           | Some typ -> Stmt.assign (var, annotation = typ, value = value)
           | _ -> Stmt.assign ([ var ], value) ]
 
-    let restElement (var: Identifier) =
+    let restElement (var: Ident) =
         let var = Expression.name var
         Expression.starred var
 
@@ -1368,11 +1361,11 @@ module Util =
         match e, typ with
         | Expr.BasicLit _, _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _,
-          Fable.Number ((Int8
-                        | Int16
-                        | Int32),
-                        _) -> Expression.boolOp (BoolOperator.Or, [ e; Expression.constant 0 ])
+        // | _,
+        //   Fable.Number ((Int8
+        //                 | Int16
+        //                 | Int32),
+        //                 _) -> Expression.boolOp (BoolOperator.Or, [ e; Expression.constant 0 ])
         | _ -> e
 
     let wrapExprInBlockWithReturn (e, stmts) = stmts @ [ Stmt.return' e ]
@@ -1381,13 +1374,13 @@ module Util =
         com
         ctx
         (name: string option)
-        (args: Arguments)
+        (args: FieldList)
         (body: Stmt list)
         returnType
         : Expr * Stmt list =
 
         let args =
-            match args.Args with
+            match args.List with
             | [] ->
                 let ta = com.GetImportExpr(ctx, "typing", "Any")
                 Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
@@ -1411,15 +1404,15 @@ module Util =
 
         match body with
         // Check if we can remove the function
-        | [Stmt.Return { Value=Some (ImmediatelyApplied(callExpr))}] -> callExpr, []
+        | [Stmt.ReturnStmt { Results=[(ImmediatelyApplied(callExpr))]}] -> callExpr, []
         | _ ->
             let ident =
                 name
-                |> Option.map Identifier
+                |> Option.map Ident.ident
                 |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
 
             let func = createFunction ident args body [] returnType
-            Expression.name ident, [ func ]
+            Expr.basicLit ident, [ func ]
 
     let createFunction name args body decoratorList returnType =
         let (|Awaitable|_|) expr =
@@ -1564,13 +1557,13 @@ module Util =
     let makeNumber (com: IGoCompiler) (ctx: Context) r t intName x =
         let cons = libValue com ctx "types" intName
         let value = Expr.basicLit(x, ?loc = r)
-        Expr.call (cons, [ value ], ?loc = r), []
+        Expr.call (cons, [ value ], ?lparen = r), []
 
     let transformValue (com: IGoCompiler) (ctx: Context) r value : Expr * Stmt list =
         match value with
-        | Fable.BaseValue (None, _) -> Expression.identifier "super()", []
+        //| Fable.BaseValue (None, _) -> Expression.identifier "super()", []
         | Fable.BaseValue (Some boundIdent, _) -> identAsExpr com ctx boundIdent, []
-        | Fable.ThisValue _ -> Expression.identifier "self", []
+        //| Fable.ThisValue _ -> Expression.identifier "self", []
         | Fable.TypeInfo (t, _) -> transformTypeInfo com ctx r Map.empty t
         | Fable.Null _t -> Expr.nil, []
         | Fable.UnitConstant -> undefined r, []
@@ -1681,7 +1674,7 @@ module Util =
 
     let enumerator2iterator com ctx =
         let enumerator =
-            Expr.call (get com ctx None (Expression.identifier "self") "GetEnumerator" false, [])
+            Expr.call (get com ctx None (Expr.ident "self") "GetEnumerator" false, [])
 
         [ Stmt.return' (libCall com ctx None "util" "to_iterator" [ enumerator ]) ]
 
@@ -1749,7 +1742,7 @@ module Util =
 
                 com.GetIdentifier(ctx, Naming.toSnakeCase name)
 
-            let self = Arg.arg "self"
+            let self = Field.field "self"
 
             let args =
                 match decorators with
@@ -1814,7 +1807,7 @@ module Util =
 
         let stmt = Statement.classDef (name, body = classBody, bases = interfaces)
 
-        Expr.call (Expression.name name), [ stmt ] @ stmts
+        Expr.call (Expr.ident name), [ stmt ] @ stmts
 
     let transformCallArgs (com: IGoCompiler) ctx r (info: ArgsInfo) : Expr list * Keyword list * Stmt list =
         let paramsInfo, args =

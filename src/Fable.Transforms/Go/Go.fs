@@ -273,7 +273,7 @@ type Field =
       Doc: CommentGroup option
       /// field/method/(type) parameter names; or nil
       Names: Ident list
-      Type: Expr
+      Type: Expr option
       Tag: BasicLit option
       Comment: CommentGroup option }
 
@@ -471,7 +471,7 @@ type FuncLit =
 /// A CompositeLit node represents a composite literal.
 type CompositeLit =
     { /// Literal type; or nil
-      Type: Type option
+      Type: Expr option
       /// Position of "{"
       Lbrace: SourceLocation option
       /// List of composite elements; or nil
@@ -844,6 +844,8 @@ module GoExtensions =
             ReturnStmt
                 { Return = returnPos
                   Results = results }
+        static member return' (result, ?returnPos) =
+            Stmt.return' ([result], ?returnPos=returnPos)
 
         static member expr (expr) =
             ExprStmt
@@ -853,7 +855,7 @@ module GoExtensions =
         static member basicLit(value: obj, ?loc) =
             BasicLit (BasicLit.basicLit (value, ?valuePos=loc))
 
-        static member compositeLit(elts, typ) =
+        static member compositeLit(elts, ?typ) =
             CompositeLit
                 { Type = typ
                   Elts = elts
@@ -908,12 +910,15 @@ module GoExtensions =
             Expr.ident "false"
 
     type Field with
-        static member field (names: string list, typ, ?tag, ?doc, ?comment) =
+        static member field (names: string list, ?typ, ?tag, ?doc, ?comment) =
             { Doc = doc
               Names = names |> List.map Ident.ident
               Type = typ
               Tag = tag
               Comment = comment }
+
+        static member field (name: string, ?typ, ?tag, ?doc, ?comment) =
+            Field.field ([name], ?typ=typ, ?tag=tag, ?doc=doc, ?comment=comment)
 
     type File with
         static member file (name, imports, decls, ?package, ?doc, ?scope, ?comments, ?importsScope) =
