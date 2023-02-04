@@ -207,7 +207,7 @@ let needToCast typeFrom typeTo =
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
-    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, NumberInfo.Empty), [makeIntConst 0])
+    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [makeIntConst 0])
     | String -> Helper.LibCall(com, "Double", "parse", targetType, args)
     | Number(kind,_) ->
         match kind with
@@ -222,7 +222,7 @@ let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
 let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
     | Char ->
-        Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, NumberInfo.Empty), [makeIntConst 0])
+        Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [makeIntConst 0])
         |> makeDecimalFromExpr com r targetType
     | String -> makeDecimalFromExpr com r targetType args.Head
     | Number(kind,_) ->
@@ -230,7 +230,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
         | Decimal -> args.Head
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
         | Int64 | UInt64 ->
-            Helper.LibCall(com, "Long", "toNumber", Number(Float64, NumberInfo.Empty), args)
+            Helper.LibCall(com, "Long", "toNumber", Float64.Number, args)
             |> makeDecimalFromExpr com r targetType
         | _ -> makeDecimalFromExpr com r targetType args.Head
     | _ ->
@@ -240,7 +240,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
 let fastIntFloor expr =
     let inner = makeUnOp None Any expr UnaryNotBitwise
-    makeUnOp None (Number(Int32, NumberInfo.Empty)) inner UnaryNotBitwise
+    makeUnOp None (Int32.Number) inner UnaryNotBitwise
 
 let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
     let kind =
@@ -260,13 +260,13 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
     let sourceType = args.Head.Type
     match sourceType with
     | Char ->
-        Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, NumberInfo.Empty), [makeIntConst 0])
+        Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [makeIntConst 0])
         |> fromInteger UInt16
     | String -> stringToInt com ctx r targetType args
     | Number(kind,_) ->
         match kind with
         | Decimal ->
-            let n = Helper.LibCall(com, "Decimal", "toNumber", Number(Float64, NumberInfo.Empty), args)
+            let n = Helper.LibCall(com, "Decimal", "toNumber", Float64.Number, args)
             Helper.LibCall(com, "Long", "fromNumber", targetType, [n; makeBoolConst unsigned])
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
         | Int64 | UInt64 -> Helper.LibCall(com, "Long", "fromValue", targetType, args @ [makeBoolConst unsigned])
@@ -284,12 +284,12 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     let sourceType = args.Head.Type
     let emitCast typeTo arg =
         match typeTo with
-        | Int8 -> emitExpr None (Number(Int8, NumberInfo.Empty)) [arg] "($0 + 0x80 & 0xFF) - 0x80"
-        | Int16 -> emitExpr None (Number(Int16, NumberInfo.Empty)) [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
+        | Int8 -> emitExpr None Int8.Number [arg] "($0 + 0x80 & 0xFF) - 0x80"
+        | Int16 -> emitExpr None Int16.Number [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
         | Int32 -> fastIntFloor arg
-        | UInt8 -> emitExpr None (Number(UInt8, NumberInfo.Empty)) [arg] "$0 & 0xFF"
-        | UInt16 -> emitExpr None (Number(UInt16, NumberInfo.Empty)) [arg] "$0 & 0xFFFF"
-        | UInt32 -> emitExpr None (Number(UInt32, NumberInfo.Empty)) [arg] "$0 >>> 0"
+        | UInt8 -> emitExpr None UInt8.Number [arg] "$0 & 0xFF"
+        | UInt16 -> emitExpr None UInt16.Number [arg] "$0 & 0xFFFF"
+        | UInt32 -> emitExpr None UInt32.Number [arg] "$0 >>> 0"
         | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
     match sourceType, targetType with
     | Char, _ ->
@@ -313,11 +313,11 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal,_) ->
-        let n = Helper.LibCall(com, "Decimal", "toNumber", Number(Float64, NumberInfo.Empty), [args.Head])
-        let rounded = Helper.LibCall(com, "Util", "round", Number(Float64, NumberInfo.Empty), [n])
+        let n = Helper.LibCall(com, "Decimal", "toNumber", Float64.Number, [args.Head])
+        let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [n])
         rounded::args.Tail
     | Number((Float32|Float64),_) ->
-        let rounded = Helper.LibCall(com, "Util", "round", Number(Float64, NumberInfo.Empty), [args.Head])
+        let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [args.Head])
         rounded::args.Tail
     | _ -> args
 
@@ -330,24 +330,33 @@ let stringToCharArray e =
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
         Operation(Unary(operator, operand), Tags.empty, t, r)
+
     let binOp op left right =
         Operation(Binary(op, left, right), Tags.empty, t, r)
+
+    let binOpChar op left right =
+        let toUInt16 e = toInt com ctx None UInt16.Number [e]
+        Operation(Binary(op, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r) |> toChar
+
     let truncateUnsigned operation = // see #1550
         match t with
         | Number(UInt32,_) ->
             Operation(Binary(BinaryShiftRightZeroFill,operation,makeIntConst 0), Tags.empty, t, r)
         | _ -> operation
+
     let logicOp op left right =
         Operation(Logical(op, left, right), Tags.empty, Boolean, r)
+
     let nativeOp opName argTypes args =
         match opName, args with
         | Operators.addition, [left; right] ->
             match argTypes with
-            | Char::_ ->
-                let toUInt16 e = toInt com ctx None (Number(UInt16, NumberInfo.Empty)) [e]
-                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Tags.empty, Number(UInt16, NumberInfo.Empty), r) |> toChar
+            | Char::_ -> binOpChar BinaryPlus left right
             | _ -> binOp BinaryPlus left right
-        | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
+        | Operators.subtraction, [left; right] ->
+            match argTypes with
+            | Char::_ -> binOpChar BinaryMinus left right
+            | _ -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
         | (Operators.division | Operators.divideByInt), [left; right] ->
             match argTypes with
@@ -372,6 +381,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | Number(Int16,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int16", t, args, ?loc=r)
             | Number(Int32,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int32", t, args, ?loc=r)
             | _ -> unOp UnaryMinus operand
+        | Operators.unaryPlus, [operand] -> unOp UnaryPlus operand
         | _ -> $"Operator %s{opName} not found in %A{argTypes}"
                |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = args |> List.map (fun a -> a.Type)
@@ -424,7 +434,7 @@ let identityHash com r (arg: Expr) =
         // | Builtin (BclDateTime|BclDateTimeOffset) -> "dateHash"
         | DeclaredType _ -> "safeHash"
         | _ -> "identityHash"
-    Helper.LibCall(com, "Util", methodName, Number(Int32, NumberInfo.Empty), [arg], ?loc=r)
+    Helper.LibCall(com, "Util", methodName, Int32.Number, [arg], ?loc=r)
 
 let structuralHash (com: ICompiler) r (arg: Expr) =
     let methodName =
@@ -443,7 +453,7 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
             if not ent.IsInterface then "safeHash"
             else "structuralHash"
         | _ -> "structuralHash"
-    Helper.LibCall(com, "Util", methodName, Number(Int32, NumberInfo.Empty), [arg], ?loc=r)
+    Helper.LibCall(com, "Util", methodName, Int32.Number, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -481,6 +491,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
+    let t = Int32.Number
     match left.Type with
     | Number (Int64|UInt64|BigInt|Decimal as kind,_) ->
         let modName =
@@ -488,24 +499,24 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
             | Decimal -> "Decimal"
             | BigInt -> "BigInt"
             | _ -> "Long"
-        Helper.LibCall(com, modName, "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+        Helper.LibCall(com, modName, "compare", t, [left; right], ?loc=r)
     | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
     | Boolean | Char | String | Number _ ->
-        Helper.LibCall(com, "Util", "comparePrimitives", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "comparePrimitives", t, [left; right], ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
-        Helper.LibCall(com, "Date", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+        Helper.LibCall(com, "Date", "compare", t, [left; right], ?loc=r)
     | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", t, [left; right], ?loc=r)
     | Array(t,_) ->
         let f = makeComparerFunction com ctx t
         // Note Array.compareWith doesn't check the length first, see #2961
-        Helper.LibCall(com, "Array", "compareTo", Number(Int32, NumberInfo.Empty), [f; left; right], ?loc=r)
+        Helper.LibCall(com, "Array", "compareTo", t, [f; left; right], ?loc=r)
     | List _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", t, [left; right], ?loc=r)
     | Tuple _ ->
-        Helper.LibCall(com, "Util", "compareArrays", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compareArrays", t, [left; right], ?loc=r)
     | _ ->
-        Helper.LibCall(com, "Util", "compare", Number(Int32, NumberInfo.Empty), [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", t, [left; right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
 and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
@@ -616,7 +627,7 @@ let makeGenericAdder (com: ICompiler) ctx t =
 let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
         let x = makeUniqueIdent ctx t "x"
-        let i = makeUniqueIdent ctx (Number(Int32, NumberInfo.Empty)) "i"
+        let i = makeUniqueIdent ctx (Int32.Number) "i"
         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
         Delegate([x; i], body, None, Tags.empty)
     objExpr [
@@ -1271,16 +1282,16 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Equals", Some x, [y] | "Equals", None, [x; y] ->
         makeEqOp r x y BinaryEqual |> Some
     | "Equals", Some x, [y; kind] | "Equals", None, [x; y; kind] ->
-        let left = Helper.LibCall(com, "String", "compare", Number(Int32, NumberInfo.Empty), [x; y; kind])
+        let left = Helper.LibCall(com, "String", "compare", Int32.Number, [x; y; kind])
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "GetEnumerator", Some c, _ -> stringToCharArray c |> getEnumerator com r t |> Some
     | "Contains", Some c, arg::_ ->
         if (List.length args) > 1 then
             addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
-        let left = Helper.InstanceCall(c, "indexOf", Number(Int32, NumberInfo.Empty), [arg])
+        let left = Helper.InstanceCall(c, "indexOf", Int32.Number, [arg])
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | "StartsWith", Some c, [_str] ->
-        let left = Helper.InstanceCall(c, "indexOf", Number(Int32, NumberInfo.Empty), args)
+        let left = Helper.InstanceCall(c, "indexOf", Int32.Number, args)
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "StartsWith", Some c, [_str; _comp] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, thisArg=c, ?loc=r) |> Some
@@ -1415,8 +1426,8 @@ let injectIndexOfArgs com ctx r genArgs args =
     let args =
         match args with
         | [ar; item; start; count] -> [ar; item; start; count]
-        | [ar; item; start] -> [ar; item; start; makeNone(Number(Int32, NumberInfo.Empty))]
-        | [ar; item] -> [ar; item; makeNone(Number(Int32, NumberInfo.Empty)); makeNone(Number(Int32, NumberInfo.Empty))]
+        | [ar; item; start] -> [ar; item; start; makeNone(Int32.Number)]
+        | [ar; item] -> [ar; item; makeNone(Int32.Number); makeNone(Int32.Number)]
         | _ -> failwith "Unexpected number of arguments"
     injectArg com ctx r "Array" "indexOf" genArgs args
 
@@ -1462,7 +1473,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
         Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx r t], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
-        let left = Helper.InstanceCall(ar, "findIndex", Number(Int32, NumberInfo.Empty), [arg], ?loc=r)
+        let left = Helper.InstanceCall(ar, "findIndex", Int32.Number, [arg], ?loc=r)
         makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
         let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
@@ -1584,7 +1595,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let t = match t with Array(t, _) -> t | _ -> Any
         newArrayAlloc (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
-        eq (getFieldWith r (Number(Int32, NumberInfo.Empty)) ar "length") (makeIntConst 0) |> Some
+        eq (getFieldWith r (Int32.Number) ar "length") (makeIntConst 0) |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
@@ -1939,7 +1950,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqual |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
-        Helper.LibCall(com, "Util", "physicalHash", Number(Int32, NumberInfo.Empty), [arg], ?loc=r) |> Some
+        Helper.LibCall(com, "Util", "physicalHash", Int32.Number, [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
     |  "GenericEqualityERComparer"
     |  "FastGenericComparer"
@@ -1965,7 +1976,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
         let upper =
             match upper with
-            | Value(NewOption(None,_,_),_) -> getExpr None (Number(Int32, NumberInfo.Empty)) ar (makeStrConst "length")
+            | Value(NewOption(None,_,_),_) -> getExpr None (Int32.Number) ar (makeStrConst "length")
             | _ -> add upper (makeIntConst 1)
         Helper.InstanceCall(ar, "slice", t, [lower; upper], ?loc=r) |> Some
     | "SetArraySlice", None, args ->
@@ -2152,7 +2163,7 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     match thisArg, i.CompiledName, args with
     | Some this, "HasFlag", [arg] ->
         // x.HasFlags(y) => (int x) &&& (int y) <> 0
-        makeBinOp r (Number(Int32, NumberInfo.Empty)) this arg BinaryAndBitwise
+        makeBinOp r (Int32.Number) this arg BinaryAndBitwise
         |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0) BinaryUnequal
         |> Some
     | None, Patterns.DicContains (dict ["Parse", "parseEnum"
@@ -2268,7 +2279,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             match args.Length, last.Type with
             | 7, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
                 let args = (List.take 6 args) @ [makeIntConst 0; last]
-                let argTypes = (List.take 6 i.SignatureArgTypes) @ [Number(Int32, NumberInfo.Empty); last.Type]
+                let argTypes = (List.take 6 i.SignatureArgTypes) @ [Int32.Number; last.Type]
                 Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc=r) |> Some
             | _ ->
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2286,12 +2297,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "Date", "fromDateTimeOffset", t, [thisArg.Value; kind], [thisArg.Value.Type; kind.Type], ?loc=r) |> Some
     | "FromUnixTimeSeconds"
     | "FromUnixTimeMilliseconds" ->
-        let value = Helper.LibCall(com, "Long", "toNumber", Number(Float64, NumberInfo.Empty), args, i.SignatureArgTypes)
+        let value = Helper.LibCall(com, "Long", "toNumber", Float64.Number, args, i.SignatureArgTypes)
         let value =
             if i.CompiledName = "FromUnixTimeSeconds"
             then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
             else value
-        Helper.LibCall(com, "DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Number(Int32, NumberInfo.Empty)], ?loc=r) |> Some
+        Helper.LibCall(com, "DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Int32.Number], ?loc=r) |> Some
     | "ToUnixTimeSeconds"
     | "ToUnixTimeMilliseconds" ->
         let ms = getTime thisArg.Value
@@ -2307,9 +2318,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ticks] ->
-            let ms = Helper.LibCall(com, "Long", "op_Division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Number(Int32, NumberInfo.Empty)])
-            let ms = Helper.LibCall(com, "Long", "toNumber", Number(Float64, NumberInfo.Empty), [ms], [ms.Type])
-            Helper.LibCall(com, moduleName, "addMilliseconds", Number(Float64, NumberInfo.Empty), [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
+            let ms = Helper.LibCall(com, "Long", "op_Division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Int32.Number])
+            let ms = Helper.LibCall(com, "Long", "toNumber", Float64.Number, [ms], [ms.Type])
+            Helper.LibCall(com, moduleName, "addMilliseconds", Float64.Number, [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst

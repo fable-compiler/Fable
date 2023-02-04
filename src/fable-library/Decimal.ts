@@ -72,6 +72,10 @@ export function op_UnaryNegation(x: Decimal) {
   return x2;
 }
 
+export function op_UnaryPlus(x: Decimal) {
+  return x;
+}
+
 export const add = op_Addition;
 export const subtract = op_Subtraction;
 export const multiply = op_Multiply;

@@ -57,6 +57,4 @@ type internal SR private() =
     static member fsiOperationCouldNotBeCompleted() = (sprintf "Operation could not be completed due to earlier error" )
     static member fsiOperationFailed() = (sprintf "Operation failed. The error text has been printed in the error stream. To return the corresponding FSharpDiagnostic use the EvalInteractionNonThrowing, EvalScriptNonThrowing or EvalExpressionNonThrowing" )
     static member fsiMultiAssemblyEmitOption() = (sprintf "Emit multiple assemblies (on by default)" )
-    static member fsiMultiAssemblyEmitOptionOffByDefault() = (sprintf "Emit multiple assemblies (off by default for .NET Framework)" )
-    static member fsiInternalAccess(a0 : System.String) = (2303, sprintf "Accessing the internal type, method or field '%s' from a previous evaluation in F# Interactive is deprecated and may cause subsequent access errors. To enable the legacy generation of a single dynamic assembly that can access internals, use the '--multiemit-' option." a0)
     static member fsiEntryPointWontBeInvoked(a0 : System.String, a1 : System.String, a2 : System.String) = (2304, sprintf "Functions with [<EntryPoint>] are not invoked in FSI. '%s' was not invoked. Execute '%s <args>' in order to invoke '%s' with the appropriate string array of command line arguments." a0 a1 a2)

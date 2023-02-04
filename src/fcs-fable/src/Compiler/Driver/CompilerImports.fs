@@ -120,15 +120,6 @@ let IsReflectedDefinitionsResource (r: ILResource) =
 
 #if !FABLE_COMPILER
 
-let MakeILResource rName bytes =
-    {
-        Name = rName
-        Location = ILResourceLocation.Local(ByteStorage.FromByteArray(bytes))
-        Access = ILResourceAccess.Public
-        CustomAttrsStored = storeILCustomAttrs emptyILCustomAttrs
-        MetadataIndex = NoMetadataIdx
-    }
-
 let PickleToResource inMem file (g: TcGlobals) compress scope rName p x =
     let file = PathMap.apply g.pathMap file
 
@@ -362,7 +353,7 @@ type ImportedAssembly =
         IsProviderGenerated: bool
         mutable TypeProviders: Tainted<ITypeProvider> list
 #endif
-        FSharpOptimizationData: Microsoft.FSharp.Control.Lazy<Option<Optimizer.LazyModuleInfo>>
+        FSharpOptimizationData: Microsoft.FSharp.Control.Lazy<Optimizer.LazyModuleInfo option>
     }
 
 type AvailableImportedAssembly =

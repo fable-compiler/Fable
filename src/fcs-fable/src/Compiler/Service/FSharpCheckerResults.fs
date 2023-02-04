@@ -280,9 +280,7 @@ type FSharpSymbolUse(denv: DisplayEnv, symbol: FSharpSymbol, inst: TyparInstanti
 
                 let fileHasSignatureFile = fileSignatureLocation <> fileDeclarationLocation
 
-                let symbolIsNotInSignatureFile = m.SignatureLocation = Some m.DeclarationLocation
-
-                fileHasSignatureFile && symbolIsNotInSignatureFile
+                fileHasSignatureFile && not m.HasSignatureFile
                 || not m.IsModuleValueOrMember
                 || m.Accessibility.IsPrivate
             | :? FSharpEntity as m -> m.Accessibility.IsPrivate
@@ -844,7 +842,7 @@ type internal TypeCheckInfo
             if p >= 0 then Some p else None
 
     /// Build a CompetionItem
-    let CompletionItem (ty: ValueOption<TyconRef>) (assemblySymbol: ValueOption<AssemblySymbol>) (item: ItemWithInst) =
+    let CompletionItem (ty: TyconRef voption) (assemblySymbol: AssemblySymbol voption) (item: ItemWithInst) =
         let kind =
             match item.Item with
             | Item.FakeInterfaceCtor _
@@ -2355,9 +2353,19 @@ module internal ParseAndCheckFile =
 
         matchingBraces.ToArray()
 
-    let parseFile (sourceText: ISourceText, fileName, options: FSharpParsingOptions, userOpName: string, suggestNamesForErrors: bool) =
+    let parseFile
+        (
+            sourceText: ISourceText,
+            fileName,
+            options: FSharpParsingOptions,
+            userOpName: string,
+            suggestNamesForErrors: bool,
+            identCapture: bool
+        ) =
         Trace.TraceInformation("FCS: {0}.{1} ({2})", userOpName, "parseFile", fileName)
-        use act = Activity.start "ParseAndCheckFile.parseFile" [| "fileName", fileName |]
+
+        use act =
+            Activity.start "ParseAndCheckFile.parseFile" [| Activity.Tags.fileName, fileName |]
 
         let errHandler =
             DiagnosticsHandler(true, fileName, options.DiagnosticOptions, sourceText, suggestNamesForErrors)
@@ -2385,7 +2393,8 @@ module internal ParseAndCheckFile =
                         lexbuf,
                         None,
                         fileName,
-                        (isLastCompiland, isExe)
+                        (isLastCompiland, isExe),
+                        identCapture
                     )
                 with e ->
                     errHandler.DiagnosticsLogger.StopProcessingRecovery e range0 // don't re-raise any exceptions, we must return None.
@@ -2518,7 +2527,12 @@ module internal ParseAndCheckFile =
 
         cancellable {
             use _ =
-                Activity.start "ParseAndCheckFile.CheckOneFile" [| "fileName", mainInputFileName; "length", sourceText.Length.ToString() |]
+                Activity.start
+                    "ParseAndCheckFile.CheckOneFile"
+                    [|
+                        Activity.Tags.fileName, mainInputFileName
+                        Activity.Tags.length, sourceText.Length.ToString()
+                    |]
 
             let parsedMainInput = parseResults.ParseTree
 
@@ -3211,7 +3225,14 @@ type FsiInteractiveChecker(legacyReferenceResolver, tcConfig: TcConfig, tcGlobal
                 FSharpParsingOptions.FromTcConfig(tcConfig, [| fileName |], true)
 
             let parseErrors, parsedInput, anyErrors =
-                ParseAndCheckFile.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors)
+                ParseAndCheckFile.parseFile (
+                    sourceText,
+                    fileName,
+                    parsingOptions,
+                    userOpName,
+                    suggestNamesForErrors,
+                    tcConfig.captureIdentifiersWhenParsing
+                )
 
             let dependencyFiles = [||] // interactions have no dependencies
 

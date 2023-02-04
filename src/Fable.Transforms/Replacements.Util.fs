@@ -76,6 +76,10 @@ type Helper =
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getFieldWith loc typ (makeIdentExpr ident) memb
 
+type NumberKind with
+    member this.Number =
+        Number(this, NumberInfo.Empty)
+
 let makeUniqueIdent ctx t name =
     FSharp2Fable.Helpers.getIdentUniqueName ctx name
     |> makeTypedIdent t

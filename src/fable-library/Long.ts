@@ -16,6 +16,7 @@ export const op_Multiply = LongLib.multiply;
 export const op_Division = LongLib.divide;
 export const op_Modulus = LongLib.modulo;
 export const op_UnaryNegation = LongLib.negate;
+export function op_UnaryPlus(x: Long) { return x; }
 
 export const op_LeftShift = LongLib.shiftLeft;
 export const op_RightShift = LongLib.shiftRight;

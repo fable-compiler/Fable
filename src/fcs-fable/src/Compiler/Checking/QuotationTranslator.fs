@@ -25,7 +25,7 @@ module QP = QuotationPickler
 #if FABLE_COMPILER
 let verboseCReflect = false
 #else
-let verboseCReflect = condition "VERBOSE_CREFLECT"
+let verboseCReflect = isEnvVarSet "VERBOSE_CREFLECT"
 #endif
 
 [<RequireQualifiedAccess>]

@@ -123,7 +123,7 @@ type ImportedAssembly =
       IsProviderGenerated: bool
       mutable TypeProviders: Tainted<ITypeProvider> list
 #endif
-      FSharpOptimizationData: Lazy<Option<LazyModuleInfo>> }
+      FSharpOptimizationData: Lazy<LazyModuleInfo option> }
 
 #if FABLE_COMPILER
 
