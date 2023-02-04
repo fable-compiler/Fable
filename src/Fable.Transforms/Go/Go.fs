@@ -10,6 +10,75 @@ namespace rec Fable.AST.Go
 open Fable.AST
 open Fable.AST.Go
 
+/// A Node is a node in the Go AST.
+type Node =
+    | Expr of Expr
+    | Stmt of Stmt
+    | Decl of Decl
+    | Type of Type
+
+/// A statement is represented by a tree consisting of one
+/// or more of the following concrete statement nodes.
+type Stmt =
+    | ExprStmt of ExprStmt
+    | SendStmt of SendStmt
+    | IncDecStmt of IncDecStmt
+    | AssignStmt of AssignStmt
+    | GoStmt of GoStmt
+    | DefStmt of DefStmt
+    | ReturnStmt of ReturnStmt
+    | BranchStmt of BranchStmt
+    | BlockStmt of BlockStmt
+    | IfStmt of IfStmt
+    | CaseClause of CaseClause
+    | SwitchStmt of SwitchStmt
+    | TypeSwitchStmt of TypeSwitchStmt
+    | CommClause of CommClause
+    | SelectStmt of SelectStmt
+    | ForStmt of ForStmt
+    | RangeStmt of RangeStmt
+
+/// An expression is represented by a tree consisting of one
+/// or more of the following concrete expression nodes.
+type Expr =
+    | EmitExpr of EmitExpr
+    | BadExpr of BadExpr
+    | Ident of Ident
+    | BasicLit of BasicLit
+    | FuncLit of FuncLit
+    | CompositeLit of CompositeLit
+    | ParenExpr of ParenExpr
+    | SelectorExpr of SelectorExpr
+    | IndexExpr of IndexExpr
+    | IndexListExpr of IndexListExpr
+    | SliceExpr of SliceExpr
+    | TypeAssertExpr of TypeAssertExpr
+    | CallExpr of CallExpr
+    | StarExpr of StarExpr
+    | UnaryExpr of UnaryExpr
+    | BinaryExpr of BinaryExpr
+    | KeyValueExpr of KeyValueExpr
+
+/// A declaration is represented by a tree consisting of one or more of the following concrete declaration nodes.
+type Decl =
+    | BadDecl of BadDecl
+    | FuncDecl of FuncDecl
+    | GenDecl of GenDecl
+
+/// A Spec node is a specification in a GenDecl.
+type Spec =
+    | ImportSpec of ImportSpec
+    | ValueSpec of ValueSpec
+    | TypeSpec of TypeSpec
+
+type Type =
+    | ArrayType of ArrayType
+    | StructType of StructType
+    | FuncType of FuncType
+    | InterfaceType of InterfaceType
+    | MapType of MapType
+    | ChanType of ChanType
+
 /// The list of tokens. https://go.dev/src/go/token/token.go
 [<RequireQualifiedAccess>]
 type Token =
@@ -171,12 +240,6 @@ type Token =
     | Type
     | Var
 
-type Node =
-    | Expr of Expr
-    | Stmt of Stmt
-    | Decl of Decl
-    | Type of Type
-
 /// A Comment node represents a single //-style or /*-style comment.
 ///
 /// The Text field contains the comment text without carriage returns (\r) that
@@ -209,11 +272,6 @@ type Field =
       Comment: CommentGroup option }
 
 /// A Declaration
-type Decl =
-    | BadDecl of BadDecl
-    | FuncDecl of FuncDecl
-    | GenDecl of GenDecl
-
 type FieldList =
     { Opening: SourceLocation
       List: Field list
@@ -315,10 +373,6 @@ type TypeSpec =
       /// Line comments; or nil
       Comment: CommentGroup option }
 
-type Spec =
-    | ImportSpec of ImportSpec
-    | ValueSpec of ValueSpec
-    | TypeSpec of TypeSpec
 
 /// A FuncType node represents a function type.
 type FuncType =
@@ -373,14 +427,6 @@ type ChanType =
       Value: Type
       /// Channel direction (ChanSend, ChanRecv, or ChanBoth)
       Dir: int }
-
-type Type =
-    | ArrayType of ArrayType
-    | StructType of StructType
-    | FuncType of FuncType
-    | InterfaceType of InterfaceType
-    | MapType of MapType
-    | ChanType of ChanType
 
 /// A BadExpr node is a placeholder for an expression containing
 /// syntax errors for which a correct expression node cannot be
@@ -544,53 +590,10 @@ type KeyValueExpr =
       Colon: SourceLocation option
       Value: Expr }
 
-type Emit =
+type EmitExpr =
     { Value: string
       Args: Expr list
       Loc: SourceLocation option }
-
-/// An expression is represented by a tree consisting of one
-/// or more of the following concrete expression nodes.
-type Expr =
-    | Emit of Emit
-    | BadExpr of BadExpr
-    | Ident of Ident
-    | BasicLit of BasicLit
-    | FuncLit of FuncLit
-    | CompositeLit of CompositeLit
-    | ParenExpr of ParenExpr
-    | SelectorExpr of SelectorExpr
-    | IndexExpr of IndexExpr
-    | IndexListExpr of IndexListExpr
-    | SliceExpr of SliceExpr
-    | TypeAssertExpr of TypeAssertExpr
-    | CallExpr of CallExpr
-    | StarExpr of StarExpr
-    | UnaryExpr of UnaryExpr
-    | BinaryExpr of BinaryExpr
-    | KeyValueExpr of KeyValueExpr
-
-/// A statement is represented by a tree consisting of one
-/// or more of the following concrete statement nodes.
-type Stmt =
-    | ExprStmt of ExprStmt
-    | SendStmt of SendStmt
-    | IncDecStmt of IncDecStmt
-    | AssignStmt of AssignStmt
-    | GoStmt of GoStmt
-    | DefStmt of DefStmt
-    | ReturnStmt of ReturnStmt
-    | BranchStmt of BranchStmt
-    | BlockStmt of BlockStmt
-    | IfStmt of IfStmt
-    | CaseClause of CaseClause
-    | SwitchStmt of SwitchStmt
-    | TypeSwitchStmt of TypeSwitchStmt
-    | CommClause of CommClause
-    | SelectStmt of SelectStmt
-    | ForStmt of ForStmt
-    | RangeStmt of RangeStmt
-
 
 /// A BadStmt node is a placeholder for statements containing
 /// syntax errors for which no correct statement nodes can be
@@ -825,7 +828,7 @@ module GoExtensions =
                 { X = expr }
 
     type Expr with
-        static member basicLit(value: obj, ?valuePos) =
+        static member basicLit(value: obj, ?loc) =
             let token =
                 match value with
                 | :? int
@@ -839,15 +842,31 @@ module GoExtensions =
                 | :? float32 -> Token.Float
                 | _ -> Token.String
 
-            BasicLit (BasicLit.basicLit (token, string value, ?valuePos=valuePos))
+            BasicLit (BasicLit.basicLit (token, string value, ?valuePos=loc))
 
-        static member call(func, args, ?ellispis, ?lparen, ?rparen) =
+        static member binary (lhs, rhs, ?op, ?loc) =
+            BinaryExpr
+                { X = lhs
+                  OpPos = loc
+                  Op = op |> Option.defaultValue Token.Add
+                  Y = rhs }
+
+        static member binaryEql (lhs, rhs, ?loc) =
+            Expr.binary (lhs, rhs, op=Token.Eql, ?loc=loc)
+
+        static member call(func, ?args, ?ellispis, ?lparen, ?rparen) =
             CallExpr
                 { Fun = func
-                  Args = args
+                  Args = args |> Option.defaultValue []
                   Ellipsis = ellispis
                   Lparen = lparen
                   Rparen = rparen }
+
+        static member emit (value, ?args, ?loc) =
+            EmitExpr
+                { Value = value
+                  Args = args |> Option.defaultValue []
+                  Loc = loc }
 
         static member ident(name, ?obj, ?namePos) =
             Ident
@@ -857,3 +876,23 @@ module GoExtensions =
 
         static member ident(name, ?obj, ?namePos) =
             Ident name
+
+        static member nil =
+            Expr.ident "nil"
+
+        static member true' =
+            Expr.ident "true"
+
+        static member false' =
+            Expr.ident "false"
+
+    type File with
+        static member file (name, imports, decls, ?package, ?doc, ?scope, ?comments, ?importsScope) =
+            { Doc = doc
+              Name = name
+              Package = package
+              Imports = imports
+              Decls = decls
+              Comments = comments |> Option.defaultValue []
+              Scope = scope
+              Unresolved = [] }
