@@ -58,6 +58,12 @@ type Expr =
     | UnaryExpr of UnaryExpr
     | BinaryExpr of BinaryExpr
     | KeyValueExpr of KeyValueExpr
+    | ArrayType of ArrayType
+    | StructType of StructType
+    | FuncType of FuncType
+    | InterfaceType of InterfaceType
+    | MapType of MapType
+    | ChanType of ChanType
 
 /// A declaration is represented by a tree consisting of one or more of the following concrete declaration nodes.
 type Decl =
@@ -267,7 +273,7 @@ type Field =
       Doc: CommentGroup option
       /// field/method/(type) parameter names; or nil
       Names: Ident list
-      Type: Type option
+      Type: Expr
       Tag: BasicLit option
       Comment: CommentGroup option }
 
@@ -810,6 +816,22 @@ module GoExtensions =
             { ValuePos = valuePos
               Kind = kind
               Value = value }
+
+        static member basicLit(value: obj, ?valuePos) =
+            let token =
+                match value with
+                | :? int
+                | :? int8
+                | :? int16
+                | :? int32
+                | :? uint8
+                | :? uint16
+                | :? uint32 -> Token.Int
+                | :? float
+                | :? float32 -> Token.Float
+                | _ -> failwith "Unsupported basic literal type"
+            BasicLit.basicLit(token, string value, ?valuePos=valuePos)
+
     type Stmt with
         static member assign (lhs, rhs, ?tokPos, ?tok) =
             AssignStmt
@@ -829,20 +851,14 @@ module GoExtensions =
 
     type Expr with
         static member basicLit(value: obj, ?loc) =
-            let token =
-                match value with
-                | :? int
-                | :? int8
-                | :? int16
-                | :? int32
-                | :? uint8
-                | :? uint16
-                | :? uint32 -> Token.Int
-                | :? float
-                | :? float32 -> Token.Float
-                | _ -> Token.String
+            BasicLit (BasicLit.basicLit (value, ?valuePos=loc))
 
-            BasicLit (BasicLit.basicLit (token, string value, ?valuePos=loc))
+        static member compositeLit(elts, typ) =
+            CompositeLit
+                { Type = typ
+                  Elts = elts
+                  Lbrace = None
+                  Rbrace = None }
 
         static member binary (lhs, rhs, ?op, ?loc) =
             BinaryExpr
@@ -868,6 +884,11 @@ module GoExtensions =
                   Args = args |> Option.defaultValue []
                   Loc = loc }
 
+        static member funcLit (args, results, body, ?loc) =
+            FuncLit
+                { Type = FuncType.funcType (args, results, ?loc=loc)
+                  Body = body }
+
         static member ident(name, ?obj, ?namePos) =
             Ident
                 { NamePos = namePos
@@ -886,6 +907,14 @@ module GoExtensions =
         static member false' =
             Expr.ident "false"
 
+    type Field with
+        static member field (names: string list, typ, ?tag, ?doc, ?comment) =
+            { Doc = doc
+              Names = names |> List.map Ident.ident
+              Type = typ
+              Tag = tag
+              Comment = comment }
+
     type File with
         static member file (name, imports, decls, ?package, ?doc, ?scope, ?comments, ?importsScope) =
             { Doc = doc
@@ -896,3 +925,16 @@ module GoExtensions =
               Comments = comments |> Option.defaultValue []
               Scope = scope
               Unresolved = [] }
+    type FuncType with
+        static member funcType (args, results, ?typeParams, ?loc) =
+            { Func = loc
+              Params = args
+              Results = results
+              TypeParams = typeParams }
+    type ImportSpec with
+        static member importSpec (path, ?name, ?doc, ?comment, ?endPos) =
+            { Doc = doc
+              Name = name
+              Path = path |> BasicLit.basicLit
+              Comment = comment
+              EndPos = endPos }

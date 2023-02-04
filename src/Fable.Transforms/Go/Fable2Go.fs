@@ -22,11 +22,6 @@ type ArgsInfo =
     | CallInfo of Fable.CallInfo
     | NoCallInfo of args: Fable.Expr list
 
-type Import =
-    { Module: string
-      LocalIdent: Ident option
-      Name: string option }
-
 type ITailCallOpportunity =
     abstract Label: string
     abstract Args: Arg list
@@ -53,8 +48,7 @@ type IGoCompiler =
     abstract AddExport: name: string -> Expr
     abstract GetIdentifier: ctx: Context * name: string -> Go.Ident
     abstract GetIdentifierAsExpr: ctx: Context * name: string -> Expr
-    abstract GetAllImports: unit -> Import list
-    abstract GetAllExports: unit -> HashSet<string>
+    abstract GetAllImports: unit -> ImportSpec list
     abstract GetAllTypeVars: unit -> HashSet<string>
     abstract GetImportExpr: Context * moduleName: string * ?name: string * ?loc: SourceLocation -> Expr
     abstract TransformAsExpr: Context * Fable.Expr -> Expr * Stmt list
@@ -149,7 +143,7 @@ module Reflection =
                 |> Expr.list)
             |> Seq.toList
 
-        let cases = Expr.lambda (Arguments.arguments [], Expression.list cases)
+        let cases = Expr.funcLit(args=Arguments.arguments [], body=Expression.list cases)
 
         let py, stmts = pyConstructor com ctx ent
 
@@ -195,7 +189,7 @@ module Reflection =
         | Fable.Measure _
         | Fable.Any -> primitiveTypeInfo "obj", []
         | Fable.GenericParam (name = name) ->
-            match Map.tryFind name ggenMap with
+            match Map.tryFind name genMap with
             | Some t -> t, []
             | None ->
                 Replacements.Util.genericTypeInfoError name
@@ -354,7 +348,7 @@ module Reflection =
             exprs |> libReflectionCall com ctx r "class", stmts
 
     let private ofString s = Expr.basicLit s
-    let private ofArray exprs = Expression.list (exprs)
+    let private ofArray exprs = Expr.compositeLit (exprs)
 
     let transformTypeTest (com: IGoCompiler) ctx range expr (typ: Fable.Type) : Expr * Stmt list =
         let warnAndEvalToFalse msg =
@@ -507,19 +501,16 @@ module Helpers =
     let isProductiveStatement (stmt: Stmt) =
         let rec hasNoSideEffects (e: Expr) =
             match e with
-            | Constant _ -> true
-            | Dict { Keys = keys } -> keys.IsEmpty // Empty object
-            | Name _ -> true // E.g `void 0` is translated to Name(None)
+            | BasicLit _ -> true
+            //| Map { Keys = keys } -> keys.IsEmpty // Empty object
             | _ -> false
 
         match stmt with
         // Remove `self = self`
-        | Statement.Assign { Targets = [ Name { Id = Identifier x } ]
-                             Value = Name { Id = Identifier y } } when x = y -> None
-        | Statement.AnnAssign { Target = Name { Id = Identifier x }
-                                Value = Some (Name { Id = Identifier (y) }) } when x = y -> None
-        | Expr expr ->
-            if hasNoSideEffects expr.Value then
+        //| Stmt.AssignStmt { Lhs = [ Name { Id = Identifier x } ]
+        //                    Rhs = Name { Id = Identifier y } } when x = y -> None
+        | Stmt.ExprStmt expr ->
+            if hasNoSideEffects expr.X then
                 None
             else
                 Some stmt
@@ -563,8 +554,9 @@ module Annotation =
                     let arg = Util.getUniqueNameInRootScope (ctx: Context) genParam
                     com.AddTypeVar(ctx, genParam))
 
-            let generic = Expression.name "Generic"
-            [ Expression.subscript (generic, Expression.tuple genParams) ]
+            //let generic = Expression.name "Generic"
+            //[ Expression.subscript (generic, Expression.tuple genParams) ]
+            []
 
     let private libReflectionCall (com: IGoCompiler) ctx r memberName args =
         libCall com ctx r "reflection" (memberName + "_type") args
@@ -875,10 +867,10 @@ module Annotation =
         | Types.mailboxProcessor, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
-        | "Fable.Core.Py.Callable", _ ->
-            let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-            let genArgs = [ Expression.ellipsis; any]
-            stdlibModuleAnnotation com ctx "typing" "Callable" genArgs, stmts
+        //| "Fable.Core.Py.Callable", _ ->
+        //    let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+        //    let genArgs = [ Expression.ellipsis; any]
+        //    stdlibModuleAnnotation com ctx "typing" "Callable" genArgs, stmts
         | _ ->
             let ent = com.GetEntity(entRef)
             // printfn "DeclaredType: %A" ent.FullName
@@ -1023,7 +1015,7 @@ module Util =
                 let name = getUniqueNameInDeclarationScope ctx (arg.Name + "_mut")
 
                 let ta, _ = typeAnnotation com ctx None arg.Type
-                Arg.arg (name, ta))
+                Field.field([name], ta))
 
         interface ITailCallOpportunity with
             member _.Label = name
@@ -1096,31 +1088,21 @@ module Util =
 
     let identAsExpr (com: IGoCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifierAsExpr(ctx, id.Name)
 
-    let thisExpr = Expression.name "self"
+    let thisExpr = Expr.ident "this"
 
-    let ofInt (i: int) = Expression.constant (int i)
+    let ofInt (i: int) = Expr.basicLit (int i)
 
-    let ofString (s: string) = Expression.constant s
+    let ofString (s: string) = Expr.basicLit s
 
-    let memberFromName (com: IGoCompiler) (ctx: Context) (memberName: string) : Expression =
+    let memberFromName (com: IGoCompiler) (ctx: Context) (memberName: string) : Expr =
         // printfn "memberFromName: %A" memberName
         match memberName with
-        | "ToString" -> Expression.identifier "__str__"
-        | "Equals" -> Expression.identifier "__eq__"
-        | "CompareTo" -> Expression.identifier "__cmp__"
-        | "set" -> Expression.identifier "__setitem__"
-        | "get" -> Expression.identifier "__getitem__"
-        | "has" -> Expression.identifier "__contains__"
-        | n when n.EndsWith "get_Count" -> Expression.identifier "__len__" // TODO: find a better way
-        | n when n.StartsWith("Symbol.iterator") ->
-            let name = Identifier "__iter__"
-            Expression.name name
         | n ->
             let n = Naming.toSnakeCase n
 
             (n, Naming.NoMemberPart)
             ||> Naming.sanitizeIdent (fun _ -> false)
-            |> Expression.name
+            |> Expr.ident
 
     let get (com: IGoCompiler) ctx r left memberName subscript =
         // printfn "get: %A" (memberName, subscript)
@@ -1171,11 +1153,11 @@ module Util =
         match letter with
         | Some "B" ->
             let bytearray = Expression.name "bytearray"
-            Expression.call (bytearray, [ Expression.list expr ]), stmts
+            Expr.call (bytearray, [ Expression.list expr ]), stmts
         | Some l ->
             let array = com.GetImportExpr(ctx, "array", "array")
 
-            Expression.call (array, Expression.constant l :: [ Expression.list expr ]), stmts
+            Expr.call (array, Expression.constant l :: [ Expression.list expr ]), stmts
         | _ -> expr |> Expression.list, stmts
 
 
@@ -3839,7 +3821,7 @@ module Util =
 
         [ Statement.classDef (classIdent, body = classMembers, bases = bases) ]
 
-    let rec transformDeclaration (com: IGoCompiler) ctx (decl: Fable.Declaration) =
+    let rec transformDeclaration (com: IGoCompiler) ctx (decl: Fable.Declaration) : Decl list =
         // printfn "transformDeclaration: %A" decl
         // printfn "ctx.UsedNames: %A" ctx.UsedNames
 
@@ -3914,17 +3896,7 @@ module Util =
               let value = Expr.call (value, args)
               Stmt.assign (targets, value) ]
 
-    let transformExports (com: IGoCompiler) ctx (exports: HashSet<string>) =
-        let exports = exports |> List.ofSeq
-        match exports with
-        | [] -> []
-        | _ ->
-            let all = Expr.ident "__all__"
-            let names = exports |> List.map Expr.basicLit |>  Expression.list
-
-            [ Stmt.assign([all], names) ]
-
-    let transformImports (com: IGoCompiler) (imports: Import list) : Stmt list =
+    let transformImports (com: IGoCompiler) (imports: ImportSpec list) : ImportSpec list =
         let imports =
             imports
             |> List.map (fun im ->
@@ -3960,11 +3932,11 @@ module Util =
 
         [ for moduleName, aliases in imports do
               match moduleName with
-              | Some name -> Statement.importFrom (Some(Identifier(name)), aliases)
+              | Some name -> ImportSpec.importSpec (Some(Identifier(name)), aliases)
               | None ->
                   // Do not put multiple imports on a single line. flake8(E401)
                   for alias in aliases do
-                      Statement.import [ alias ] ]
+                      ImportSpec.importSpec [ alias ] ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         // printfn "getIdentForImport: %A" (moduleName, name)
@@ -3988,8 +3960,7 @@ module Compiler =
 
     type PythonCompiler(com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
-        let imports = Dictionary<string, Import>()
-        let exports: HashSet<string> = HashSet()
+        let imports = Dictionary<string, ImportSpec>()
         let typeVars: HashSet<string> = HashSet()
 
         interface IGoCompiler with
@@ -4003,7 +3974,7 @@ module Compiler =
 
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
-                    match i.LocalIdent with
+                    match i.Name with
                     | Some localIdent -> Expr.ident localIdent
                     | None -> Expr.nil
                 | false, _ ->
@@ -4011,37 +3982,29 @@ module Compiler =
                     match name with
                     | Some "*"
                     | None ->
-                        let i =
-                            { Name = None
-                              Module = moduleName
-                              LocalIdent = local_id }
-
+                        let i = ImportSpec.importSpec(path=moduleName, ?name=local_id)
                         imports.Add(cachedName, i)
                     | Some name ->
-                        let i =
-                            { Name =
-                                if name = Naming.placeholder then
-                                    "`importMember` must be assigned to a variable"
-                                    |> addError com [] r
+                        let name =
+                            if name = Naming.placeholder then
+                                "`importMember` must be assigned to a variable"
+                                |> addError com [] r
 
-                                    name
-                                else
-                                    name
-                                |> Some
-                              Module = moduleName
-                              LocalIdent = local_id }
-
+                                name
+                            else
+                                name
+                            |> Some
+                        let i = ImportSpec.importSpec(path=moduleName, ?name=local_id)
                         imports.Add(cachedName, i)
 
                     match local_id with
                     | Some localId -> Expr.ident localId
                     | None -> Expr.nil
 
-            member _.GetAllImports() =
-                imports.Values :> Import seq |> List.ofSeq
+            member _.GetAllImports() : ImportSpec list =
+                imports.Values |> List.ofSeq
 
             member _.GetAllTypeVars() = typeVars
-            member _.GetAllExports() = exports
 
             member _.AddTypeVar(ctx, name: string) =
                 // TypeVars should be private and uppercase. For auto-generated (inferred) generics we use a double-undercore.
@@ -4057,10 +4020,6 @@ module Compiler =
                 |> ignore
 
                 Expr.ident name
-            member _.AddExport(name: string) =
-                 exports.Add name |> ignore
-                 Expr.ident name
-
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
 
@@ -4125,8 +4084,7 @@ module Compiler =
 
         //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
-        let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
-        let importDecls = com.GetAllImports() |> transformImports com
-        let exports = com.GetAllExports() |> transformExports com ctx
-        let body = importDecls @ typeVars @ rootDecls @ exports
-        File.file body
+        let importSpecs = com.GetAllImports() |> transformImports com
+        let name = Ident.ident "fable"
+
+        File.file(name=name, decls=rootDecls, imports=importSpecs)
