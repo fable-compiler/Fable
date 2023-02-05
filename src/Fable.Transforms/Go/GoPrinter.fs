@@ -87,7 +87,7 @@ module PrinterExtensions =
 
         member printer.Print(expr: Expr) =
             match expr with
-            | Emit expr -> printer.Print(expr)
+            | EmitExpr expr -> printer.Print(expr)
             | BadExpr expr -> printer.Print(expr)
             | Ident expr -> printer.Print(expr)
             | BasicLit expr -> printer.Print(expr)
@@ -104,6 +104,10 @@ module PrinterExtensions =
             | UnaryExpr expr -> printer.Print(expr)
             | BinaryExpr expr -> printer.Print(expr)
             | KeyValueExpr expr -> printer.Print(expr)
+            | ArrayType expr -> printer.Print(expr)
+            | StructType expr -> printer.Print(expr)
+            | FuncType expr -> printer.Print(expr)
+            | InterfaceType expr -> printer.Print(expr)
 
         member printer.Print(expr: BadExpr) =
             printer.Print("BadExpr")
@@ -167,7 +171,7 @@ module PrinterExtensions =
             printer.Print(expr.Op)
             printer.Print(expr.Y)
 
-        member printer.Print(node: Emit) =
+        member printer.Print(node: EmitExpr) =
             let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
                 System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
 
@@ -345,14 +349,10 @@ module PrinterExtensions =
         member printer.PrintOptional(node: Expr option) =
              printer.PrintOptional(node |> Option.map Expr)
 
-        member printer.PrintOptional(node: Type option) =
-             printer.PrintOptional(node |> Option.map Type)
-
         member printer.PrintOptional(node: Node option) =
             match node with
             | Some(Expr(node)) -> printer.Print(node)
             | Some(Stmt(node)) -> printer.Print(node)
-            | Some(Type(node)) -> printer.Print(node)
             | Some(Decl(node)) -> printer.Print(node)
             | None -> ()
 
@@ -399,16 +399,6 @@ module PrinterExtensions =
             ()
         member printer.Print(arr: ChanType) =
             ()
-
-        member printer.Print(node: Type) =
-            match node with
-            | ArrayType arrayType -> printer.Print(arrayType)
-            | StructType structType -> printer.Print(structType)
-            | FuncType funcType -> printer.Print(funcType)
-            | InterfaceType interfaceType -> printer.Print(interfaceType)
-            | MapType mapType -> printer.Print(mapType)
-            | ChanType chanType -> printer.Print(chanType)
-
 
         // member printer.PrintOperation(left, operator, right, ?loc) =
         //     printer.AddLocation(loc)

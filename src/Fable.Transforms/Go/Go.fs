@@ -15,11 +15,13 @@ type Node =
     | Expr of Expr
     | Stmt of Stmt
     | Decl of Decl
-    | Type of Type
 
 /// A statement is represented by a tree consisting of one
 /// or more of the following concrete statement nodes.
 type Stmt =
+    | DeclStmt of DeclStmt
+    | EmptyStmt of EmptyStmt
+    | LabeledStmt of LabeledStmt
     | ExprStmt of ExprStmt
     | SendStmt of SendStmt
     | IncDecStmt of IncDecStmt
@@ -77,15 +79,9 @@ type Spec =
     | ValueSpec of ValueSpec
     | TypeSpec of TypeSpec
 
-type Type =
-    | ArrayType of ArrayType
-    | StructType of StructType
-    | FuncType of FuncType
-    | InterfaceType of InterfaceType
-    | MapType of MapType
-    | ChanType of ChanType
 
-/// The list of tokens. https://go.dev/src/go/token/token.go
+/// Token is the set of lexical tokens of the Go programming language.
+/// https://go.dev/src/go/token/token.go
 [<RequireQualifiedAccess>]
 type Token =
     // Special tokens
@@ -290,11 +286,6 @@ type FuncDecl =
       Type: FuncType
       Body: BlockStmt option }
 
-type TypeDecl =
-    { Doc: CommentGroup option
-      Name: Ident
-      Type: Type option }
-
 type BadDecl =
     { From: SourceLocation option
       To: SourceLocation option }
@@ -359,7 +350,7 @@ type ValueSpec =
       /// value names (len(Names) > 0)
       Names: Ident list
       /// (optional) type; or nil
-      Type: Type option
+      Type: Expr option
       /// (optional) initialization values; or nil
       Values: Expr list
       /// line comments; or nil
@@ -398,7 +389,7 @@ type ArrayType =
       /// Array length; or nil
       Len: Expr option
       /// Element type
-      Elt: Type }
+      Elt: Expr }
 
 /// A StructType node represents a struct type.
 type StructType =
@@ -419,9 +410,9 @@ type MapType =
     { /// Position of "map" keyword
       Map: SourceLocation option
       /// Key type
-      Key: Type
+      Key: Expr
       /// Value type
-      Value: Type }
+      Expr: Expr }
 
 /// A ChanType node represents a channel type.
 type ChanType =
@@ -430,7 +421,7 @@ type ChanType =
       /// Position of optional "<-" token
       Arrow: SourceLocation option
       /// Value type
-      Value: Type
+      Value: Expr
       /// Channel direction (ChanSend, ChanRecv, or ChanBoth)
       Dir: int }
 
@@ -624,8 +615,8 @@ type EmptyStmt =
       /// If set, ";" was omitted in the source
       Implicit: bool }
 
-// A LabelStmt node represents a label statement.
-type LabelStmt =
+// A LabeledStmt node represents a label statement.
+type LabeledStmt =
     { /// Label
       Label: Ident
       /// Position of ":"
@@ -832,13 +823,53 @@ module GoExtensions =
                 | _ -> failwith "Unsupported basic literal type"
             BasicLit.basicLit(token, string value, ?valuePos=valuePos)
 
+    type BlockStmt with
+        static member block(list, ?lbrace, ?rbrace) =
+            { Lbrace = lbrace
+              List = list
+              Rbrace = rbrace }
+
+    type BranchStmt with
+        static member continue'(?label, ?loc) =
+            { TokPos = loc
+              Tok = Token.Continue
+              Label = label }
+
+    type Decl with
+        static member valueSpec(names, values, ?typ, ?comment, ?doc) =
+            ValueSpec
+                { Doc = doc
+                  Names = names
+                  Type = typ
+                  Values = values
+                  Comment = comment }
+
     type Stmt with
-        static member assign (lhs, rhs, ?tokPos, ?tok) =
+        static member assign(lhs, rhs, ?tokPos, ?tok) =
             AssignStmt
                 { Lhs = lhs
                   TokPos = tokPos
                   Tok = tok |> Option.defaultValue Token.Assign
                   Rhs = rhs }
+
+        static member assign(lhs, rhs, ?tok) =
+            Stmt.assign ([lhs], [rhs], ?tok=tok)
+
+        static member block (list, ?lbrace, ?rbrace) =
+            BlockStmt (BlockStmt.block(list, ?lbrace=lbrace, ?rbrace=rbrace))
+
+        static member continue'(?label, ?loc) =
+            BranchStmt (BranchStmt.continue'(?label=label, ?loc=loc))
+
+        static member decl(decl) =
+            DeclStmt
+                { Decl = decl }
+
+        static member decl(spec, ?declPos) =
+            Stmt.decl (spec, ?declPos=declPos)
+
+        static member valueSpec(names, values, ?typ, ?comment, ?doc) =
+            Stmt.decl(Decl.valueSpec(names, values, ?typ=typ, ?comment=comment, ?doc=doc))
 
         static member return' (results, ?returnPos) =
             ReturnStmt
@@ -847,9 +878,17 @@ module GoExtensions =
         static member return' (result, ?returnPos) =
             Stmt.return' ([result], ?returnPos=returnPos)
 
-        static member expr (expr) =
+        static member expr(expr) =
             ExprStmt
                 { X = expr }
+
+        static member if' (cond, body, ?init, ?else', ?loc) =
+            IfStmt
+                { If = loc
+                  Init = init
+                  Cond = cond
+                  Body = body
+                  Else = else' }
 
     type Expr with
         static member basicLit(value: obj, ?loc) =
@@ -862,15 +901,15 @@ module GoExtensions =
                   Lbrace = None
                   Rbrace = None }
 
-        static member binary (lhs, rhs, ?op, ?loc) =
+        static member binary (lhs, op, rhs, ?loc) =
             BinaryExpr
                 { X = lhs
                   OpPos = loc
-                  Op = op |> Option.defaultValue Token.Add
+                  Op = op
                   Y = rhs }
 
         static member binaryEql (lhs, rhs, ?loc) =
-            Expr.binary (lhs, rhs, op=Token.Eql, ?loc=loc)
+            Expr.binary (lhs, op=Token.Eql, rhs=rhs, ?loc=loc)
 
         static member call(func, ?args, ?ellispis, ?lparen, ?rparen) =
             CallExpr
@@ -899,6 +938,12 @@ module GoExtensions =
 
         static member ident(name, ?obj, ?namePos) =
             Ident name
+
+        static member unary(op, x, ?loc) =
+            UnaryExpr
+                { OpPos = loc
+                  Op = op
+                  X = x }
 
         static member nil =
             Expr.ident "nil"

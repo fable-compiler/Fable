@@ -24,7 +24,7 @@ type ArgsInfo =
 
 type ITailCallOpportunity =
     abstract Label: string
-    abstract Args: Arg list
+    abstract Args: Field list
     abstract IsRecursiveRef: Fable.Expr -> bool
 
 type UsedNames =
@@ -1212,31 +1212,29 @@ module Util =
 
     let multiVarDeclaration (ctx: Context) (variables: (Ident * Expr option) list) =
         // printfn "multiVarDeclaration: %A" (variables)
-        let ids, values =
+        let values, ids =
             variables
-            |> List.distinctBy (fun (Identifier (name = name), _value) -> name)
+            |> List.distinctBy (fun ({ Name = name }, _value) -> name)
             |> List.map (function
-                | i, Some value -> Expression.name (i, Store), value, i
-                | i, _ -> Expression.name (i, Store), Expression.none, i)
-            |> List.unzip3
-            |> fun (ids, values, ids') ->
-                (Expression.tuple ids, Expression.tuple values)
+                | i, Some value -> value, Expr.ident i
+                | i, _ -> Expr.nil, Expr.ident i)
+            |> List.unzip
 
-        [ Stmt.assign ([ ids ], values) ]
+        [ Stmt.assign(ids, values) ]
 
-    let varDeclaration (ctx: Context) (var: Expr) (typ: Expr option) value =
+    let varDeclaration (ctx: Context) (var: Ident) (typ: Expr option) value =
         // printfn "varDeclaration: %A" (var, value, typ)
         [ match typ with
-          | Some typ -> Stmt.assign (var, annotation = typ, value = value)
-          | _ -> Stmt.assign ([ var ], value) ]
+          | Some typ -> Stmt.valueSpec([var], typ = typ, values = [value])
+          | _ -> Stmt.assign(Expr.ident var, value) ]
 
-    let restElement (var: Ident) =
-        let var = Expression.name var
-        Expression.starred var
+    // let restElement (var: Ident) =
+    //     let var = Expression.name var
+    //     Expression.starred var
 
-    let callSuper (args: Expr list) =
-        let super = Expression.name "super().__init__"
-        Expr.call (super, args)
+    // let callSuper (args: Expr list) =
+    //     let super = Expression.name "super().__init__"
+    //     Expr.call (super, args)
 
     let callSuperAsStatement (args: Expr list) = Stmt.expr (callSuper args)
 
@@ -1510,7 +1508,7 @@ module Util =
         [
           // First declare temp variables
           for KeyValue (argId, tempVar) in tempVars do
-              yield! varDeclaration ctx (com.GetIdentifierAsExpr(ctx, tempVar)) None (com.GetIdentifierAsExpr(ctx, argId))
+              yield! varDeclaration ctx (com.GetIdentifier(ctx, tempVar)) None (com.GetIdentifierAsExpr(ctx, argId))
           // Then assign argument expressions to the original argument identifiers
           // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
           for argId, arg in zippedArgs do
@@ -1521,7 +1519,7 @@ module Util =
                   stmts
                   @ (assign None (com.GetIdentifierAsExpr(ctx, argId)) arg
                      |> exprAsStatement ctx)
-          yield Statement.continue' (?loc = range) ]
+          yield Stmt.continue'(?loc = range) ]
 
     let transformImport (com: IGoCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
         let name, parts =
@@ -1900,17 +1898,25 @@ module Util =
         //     Expression.call (func, args), stmts
 
         // Transform `~(~(a/b))` to `a // b`
-        | Fable.Unary (UnaryOperator.UnaryNotBitwise,
-                       Fable.Operation(kind = Fable.Unary (UnaryOperator.UnaryNotBitwise,
-                                                           Fable.Operation(kind = Fable.Binary (BinaryOperator.BinaryDivide,
-                                                                                                TransformExpr com ctx (left, stmts),
-                                                                                                TransformExpr com ctx (right, stmts')))))) ->
-            Expression.binOp (left, FloorDiv, right), stmts @ stmts'
+        // | Fable.Unary (UnaryOperator.UnaryNotBitwise,
+        //                Fable.Operation(kind = Fable.Unary (UnaryOperator.UnaryNotBitwise,
+        //                                                    Fable.Operation(kind = Fable.Binary (BinaryOperator.BinaryDivide,
+        //                                                                                         TransformExpr com ctx (left, stmts),
+        //                                                                                         TransformExpr com ctx (right, stmts')))))) ->
+        //     Expr.binary (left, FloorDiv, right), stmts @ stmts'
         | Fable.Unary (UnaryOperator.UnaryNotBitwise,
                        Fable.Operation(kind = Fable.Unary (UnaryOperator.UnaryNotBitwise, TransformExpr com ctx (left, stmts)))) ->
             let name = Expr.ident "int"
             Expr.call (name, [ left ]), stmts
-        | Fable.Unary (op, TransformExpr com ctx (expr, stmts)) -> Expression.unaryOp (op, expr, ?loc = range), stmts
+        | Fable.Unary (op, TransformExpr com ctx (expr, stmts)) ->
+            let op =
+                match op with
+                | UnaryMinus -> Token.Sub
+                | UnaryPlus -> Token.Add
+                | UnaryNot -> Token.Not
+                | UnaryNotBitwise -> Token.Xor
+                | _ -> failwithf $"Unsupported unary operator: {op}"
+            Expr.unary (op, expr, ?loc = range), stmts
 
         // | Fable.Binary (BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
         //     let func = Expression.name ("isinstance")
@@ -1919,11 +1925,7 @@ module Util =
 
         | Fable.Binary (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
             let compare op =
-                Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
-
-            let (|IsNone|_|) = function
-                | Name { Id = Identifier "None" } -> Some ()
-                | _ -> None
+                Expr.binary (left, op, right, ?loc = range), stmts @ stmts'
 
             let strict =
                 match tags with
@@ -1931,46 +1933,23 @@ module Util =
                 | _ -> false
 
             match op, strict with
-            | BinaryEqual, true ->
-                match left, right with
-                // Use == with literals
-                | Constant _, _ -> compare Eq
-                | _, Constant _ -> compare Eq
-                | _ -> compare Is
-            | BinaryEqual, false ->
-                match left, right with
-                // Use == with literals
-                | Constant _, _ -> compare Eq
-                | _, Constant _ -> compare Eq
-                // Use `is` with None (except literals)
-                | _, IsNone -> compare Is
-                | IsNone, _ -> compare Is
-                // Use == for the rest
-                | _ -> compare Eq
-            | BinaryUnequal, true ->
-                match left, right with
-                // Use == with literals
-                | Constant _, _ -> compare NotEq
-                | _, Constant _ -> compare NotEq
-                | _ -> compare IsNot
-            | BinaryUnequal, false ->
-                match left, right with
-                // Use != with literals
-                | Constant _, _ -> compare NotEq
-                | _, Constant _ -> compare NotEq
-                // Use `is not` with None (except literals)
-                | _, IsNone -> compare IsNot
-                | IsNone, _ -> compare IsNot
-                // Use != for the rest
-                | _ -> compare NotEq
-            | BinaryLess, _ -> compare Lt
-            | BinaryLessOrEqual, _ -> compare LtE
-            | BinaryGreater, _ -> compare Gt
-            | BinaryGreaterOrEqual, _ -> compare GtE
-            | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
+            | BinaryEqual, true -> compare Token.Eql
+            | BinaryEqual, false -> compare Token.Eql
+            | BinaryUnequal, true -> compare Token.Neq
+            | BinaryUnequal, false -> compare Token.Neq
+            | BinaryLess, _ -> compare Token.Lss
+            | BinaryLessOrEqual, _ -> compare Token.Leq
+            | BinaryGreater, _ -> compare Token.Gtr
+            | BinaryGreaterOrEqual, _ -> compare Token.Geq
+            | _ -> Expr.binary (left, op, right, ?loc = range), stmts @ stmts'
 
         | Fable.Logical (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            Expression.boolOp (op, [ left; right ], ?loc = range), stmts @ stmts'
+            let op =
+                match op with
+                | LogicalAnd -> Token.And
+                | LogicalOr -> Token.Or
+                | _ -> failwithf $"Unsupported logical operator: {op}"
+            Expr.binary(left, op, right, ?loc = range), stmts @ stmts'
 
     let transformEmit (com: IGoCompiler) ctx range (info: Fable.EmitInfo) =
         let macro = info.Macro
@@ -2000,21 +1979,21 @@ module Util =
         | Fable.Get (expr, Fable.FieldGet { Name = "Dispose" }, _, _), _ ->
             let expr, stmts'' = com.TransformAsExpr(ctx, expr)
             libCall com ctx range "util" "dispose" [ expr ], stmts @ stmts' @ stmts''
-        | Fable.Get (expr, Fable.FieldGet { Name = "set" }, _, _), _ ->
-            // printfn "Type: %A" expr.Type
-            let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
-
-            let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
-            let value, stmts'' = com.TransformAsExpr(ctx, expr)
-
-            Expr.nil,
-            Stmt.assign ([ Expression.subscript (value, right) ], arg)
-            :: stmts
-            @ stmts' @ stmts''
+        // | Fable.Get (expr, Fable.FieldGet { Name = "set" }, _, _), _ ->
+        //     // printfn "Type: %A" expr.Type
+        //     let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
+        //
+        //     let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
+        //     let value, stmts'' = com.TransformAsExpr(ctx, expr)
+        //
+        //     Expr.nil,
+        //     Stmt.assign ([ Expression.subscript (value, right) ], arg)
+        //     :: stmts
+        //     @ stmts' @ stmts''
         | Fable.Get (_, Fable.FieldGet { Name = "sort" }, _, _), _ -> callFunction range callee' [] kw, stmts @ stmts'
 
         | _, Some (TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg :: args) kw, stmts @ stmts' @ stmts''
-        | _, None when List.contains "new" callInfo.Tags -> Expr.call (callee', args, kw, ?loc = range), stmts @ stmts'
+        | _, None when List.contains "new" callInfo.Tags -> Expr.call(callee', args, kw, ?lparen = range), stmts @ stmts'
         | _, None -> callFunction range callee' args kw, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
@@ -2062,82 +2041,63 @@ module Util =
 
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
-    let transformBody (com: IGoCompiler) ctx ret (body: Stmt list) : Stmt list =
-        match body with
-        | [] -> [ Pass ]
-        | _ ->
-            let nonLocals, body = getNonLocals ctx body
-            nonLocals @ body
-
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
-    let transformBlock (com: IGoCompiler) ctx ret (expr: Fable.Expr) : Stmt list =
-        let block =
-            com.TransformAsStatements(ctx, ret, expr)
-            |> List.choose Helpers.isProductiveStatement
+    let transformBlock (com: IGoCompiler) ctx ret (expr: Fable.Expr) : BlockStmt =
+        com.TransformAsStatements(ctx, ret, expr)
+        |> List.choose Helpers.isProductiveStatement
+        |> BlockStmt.block
 
-        match block with
-        | [] -> [ Pass ]
-        | _ -> block |> transformBody com ctx ret
-
-    let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<Fable.Ident * Fable.Expr>, finalizer) =
-        // try .. catch statements cannot be tail call optimized
-        let ctx = { ctx with TailCallOpportunity = None }
-
-        let handlers =
-            catch
-            |> Option.map (fun (param, body) ->
-                let body = transformBlock com ctx returnStrategy body
-                let exn = Expr.ident "Exception" |> Some
-                let identifier = ident com ctx param
-                [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ])
-
-        let finalizer, stmts =
-            match finalizer with
-            | Some finalizer ->
-                finalizer
-                |> transformBlock com ctx None
-                |> List.partition (function
-                    | Statement.Global _ -> false
-                    | _ -> true)
-            | None -> [], []
-
-        stmts
-        @ [ Statement.try' (transformBlock com ctx returnStrategy body, ?handlers = handlers, finalBody = finalizer, ?loc = r) ]
+    // let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<Fable.Ident * Fable.Expr>, finalizer) =
+    //     // try .. catch statements cannot be tail call optimized
+    //     let ctx = { ctx with TailCallOpportunity = None }
+    //
+    //     let handlers =
+    //         catch
+    //         |> Option.map (fun (param, body) ->
+    //             let body = transformBlock com ctx returnStrategy body
+    //             let exn = Expr.ident "Exception" |> Some
+    //             let identifier = ident com ctx param
+    //             [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ])
+    //
+    //     let finalizer, stmts =
+    //         match finalizer with
+    //         | Some finalizer ->
+    //             finalizer
+    //             |> transformBlock com ctx None
+    //             |> List.partition (function
+    //                 | Statement.Global _ -> false
+    //                 | _ -> true)
+    //         | None -> [], []
+    //
+    //     stmts
+    //     @ [ Statement.try' (transformBlock com ctx returnStrategy body, ?handlers = handlers, finalBody = finalizer, ?loc = r) ]
 
     let rec transformIfStatement (com: IGoCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
         // printfn "transformIfStatement"
         let expr, stmts = com.TransformAsExpr(ctx, guardExpr)
 
         match expr with
-        | Constant (value = value) when (value :? bool) ->
-            match value with
-            | :? bool as value when value ->
+        | Ident { Name = name } when (name = "false" || name = "true") ->
+            match name with
+            | "true" ->
                 stmts
                 @ com.TransformAsStatements(ctx, ret, thenStmnt)
             | _ ->
                 stmts
                 @ com.TransformAsStatements(ctx, ret, elseStmnt)
         | guardExpr ->
-            let thenStmnt, stmts' =
-                transformBlock com ctx ret thenStmnt
-                |> List.partition (function
-                    | Statement.Global _ -> false
-                    | _ -> true)
+            let thenStmnt = transformBlock com ctx ret thenStmnt
 
-            let ifStatement, stmts'' =
-                let block, stmts =
-                    transformBlock com ctx ret elseStmnt
-                    |> List.partition (function
-                        | Statement.Global _ -> false
-                        | _ -> true)
+            let ifStatement, stmts' =
+                let block = transformBlock com ctx ret elseStmnt
 
-                match block with
-                | [] -> Statement.if' (guardExpr, thenStmnt, ?loc = r), stmts
-                | [ elseStmnt ] -> Statement.if' (guardExpr, thenStmnt, [ elseStmnt ], ?loc = r), stmts
-                | statements -> Statement.if' (guardExpr, thenStmnt, statements, ?loc = r), stmts
+                match block.List with
+                | [] -> Stmt.if' (guardExpr, thenStmnt, ?loc = r), stmts
+                | [ elseStmnt ] -> Stmt.if' (guardExpr, thenStmnt, elseStmnt, ?loc = r), stmts
+                | statements -> Stmt.if' (guardExpr, thenStmnt, BlockStmt block, ?loc = r), stmts
 
-            stmts @ stmts' @ stmts'' @ [ ifStatement ]
+            stmts @ stmts' @ [ ifStatement ]
 
     let transformGet (com: IGoCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         // printfn "transformGet: %A" kind
@@ -2153,10 +2113,10 @@ module Util =
             let func = Expr.ident "str"
             let left, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expr.call (func, [ left ]), stmts
-        | Fable.FieldGet { Name = "push" } ->
-            let attr = Ident.ident "append"
-            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        // | Fable.FieldGet { Name = "push" } ->
+        //     let attr = Ident.ident "append"
+        //     let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+        //     Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.ExprGet (TransformExpr com ctx (prop, stmts)) ->
             let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts'' = getExpr com ctx range expr prop
@@ -2263,7 +2223,7 @@ module Util =
             let varName, varExpr = Expr.ident var.Name, identAsExpr com ctx var
 
             let ta, stmts = typeAnnotation com ctx None var.Type
-            let decl = Stmt.assign (varName, ta)
+            let decl = Stmt.assign(varName, ta)
 
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
 
