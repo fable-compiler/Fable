@@ -6,9 +6,11 @@ class Random
 {
     public function __get(string $propName): mixed
     {
-        return match ($propName) {
-            'Next0' => rand(),
-            default => throw new Error("Attempt to read undefined property $propName"),
+        switch($propName) {
+            case "Next0":
+                return rand();
+            default:
+                throw new Error("Attempt to read undefined property $propName");
         };
     }
 }
