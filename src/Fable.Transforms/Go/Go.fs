@@ -796,6 +796,29 @@ module GoExtensions =
     [<Literal>]
     let Ellipsis = "..."
 
+    type ArrayType with
+        static member arrayType(len, elt, ?lbrack) =
+            { Lbrack = lbrack
+              Len = len
+              Elt = elt }
+
+        static member int = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("int"))
+        static member int8 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("int8"))
+        static member int16 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("int16"))
+        static member int32 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("int32"))
+        static member int64 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("int64"))
+        static member uint8 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("uint8"))
+        static member uint16 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("uint16"))
+        static member uint32 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("uint32"))
+        static member uint64 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("uint64"))
+        static member float = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("float"))
+        static member float32 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("float32"))
+        static member float64 = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("float64"))
+        static member bool = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("bool"))
+        static member string = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("string"))
+        static member char = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("char"))
+        static member byte = ArrayType.arrayType(Expr.basicLit(0), Expr.ident("byte"))
+
     type Ident with
         static member ident(name, ?obj, ?namePos) =
             { NamePos = namePos
@@ -844,6 +867,14 @@ module GoExtensions =
                   Values = values
                   Comment = comment }
 
+        static member funcDecl(name, typ, ?body, ?recv, ?doc) =
+            FuncDecl
+                { Doc = doc
+                  Recv = recv
+                  Name = name
+                  Type = typ
+                  Body = body }
+
     type Stmt with
         static member assign(lhs, rhs, ?tokPos, ?tok) =
             AssignStmt
@@ -870,6 +901,9 @@ module GoExtensions =
 
         static member valueSpec(names, values, ?typ, ?comment, ?doc) =
             Stmt.decl(Decl.valueSpec(names, values, ?typ=typ, ?comment=comment, ?doc=doc))
+
+        static member funcDecl(name, typ, body, ?recv, ?doc) =
+            Stmt.decl(Decl.funcDecl(name, typ=typ, ?body=body, ?recv=recv, ?doc=doc))
 
         static member return' (results, ?returnPos) =
             ReturnStmt
@@ -930,14 +964,24 @@ module GoExtensions =
                 { Type = FuncType.funcType (args, results, ?loc=loc)
                   Body = body }
 
-        static member ident(name, ?obj, ?namePos) =
+        static member ident(name, ?obj, ?loc) =
             Ident
-                { NamePos = namePos
+                { NamePos = loc
                   Name = name
                   Obj = obj }
 
-        static member ident(name, ?obj, ?namePos) =
+        static member ident(name, ?obj, ?loc) =
             Ident name
+
+        static member slice (x, ?low, ?high, ?max, ?slice3, ?loc) =
+            SliceExpr
+                { X = x
+                  Low = low
+                  High = high
+                  Max = max
+                  Slice3 = slice3 |> Option.defaultValue false
+                  Lbrack = loc
+                  Rbrack = None }
 
         static member unary(op, x, ?loc) =
             UnaryExpr

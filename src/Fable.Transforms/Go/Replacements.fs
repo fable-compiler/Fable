@@ -938,9 +938,9 @@ let getMangledNames (i: CallInfo) (thisArg: Expr option) =
 
     let entityName =
         i.DeclaringEntityFullName.Substring(pos + 1)
-        |> Naming.cleanNameAsPyIdentifier
+        |> Naming.cleanNameAsGoIdentifier
 
-    let memberName = i.CompiledName |> Naming.cleanNameAsPyIdentifier
+    let memberName = i.CompiledName |> Naming.cleanNameAsGoIdentifier
 
     let mangledName =
         Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix
@@ -3935,7 +3935,7 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
                   makeComparerFromEqualityComparer eqComp ]
             | _ -> FableError "Unexpected dictionary constructor" |> raise
 
-        let entityName = Naming.cleanNameAsPyIdentifier "Dictionary"
+        let entityName = Naming.cleanNameAsGoIdentifier "Dictionary"
         Some(makeImportLib com Any entityName "MutableMap", args)
     | Types.hashset ->
         let args =
@@ -3954,7 +3954,7 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
                   makeComparerFromEqualityComparer eqComp ]
             | _ -> FableError "Unexpected hashset constructor" |> raise
 
-        let entityName = Naming.cleanNameAsPyIdentifier "HashSet"
+        let entityName = Naming.cleanNameAsGoIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
     | _ -> None
 

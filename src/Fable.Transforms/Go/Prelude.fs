@@ -7,9 +7,6 @@ module Naming =
     open Fable.Core
     open System.Text.RegularExpressions
 
-    [<Literal>]
-    let sitePackages = "site-packages"
-
     let lowerFirst (s: string) =
         s.Substring(0, 1).ToLowerInvariant()
         + s.Substring(1)
@@ -46,114 +43,66 @@ module Naming =
         else
             name
 
-    let cleanNameAsPyIdentifier (name: string) =
+    let cleanNameAsGoIdentifier (name: string) =
         if name = ".ctor" then
             "_ctor"
         else
             name.Replace('.', '_').Replace('`', '_')
 
-    let pyKeywords =
-        // https://docs.python.org/3/reference/lexical_analysis.html#keywords
-
-        System.Collections.Generic.HashSet [ "False"
-                                             "await"
+    let goKeywords =
+        // https://go.dev/ref/spec#Keywords
+        System.Collections.Generic.HashSet [ "break"
+                                             "default"
+                                             "func"
+                                             "interface"
+                                             "select"
+                                             "case"
+                                             "defer"
+                                             "go"
+                                             "map"
+                                             "struct"
+                                             "chan"
                                              "else"
-                                             "import"
-                                             "pass"
-                                             "None"
-                                             "break"
-                                             "except"
-                                             "in"
-                                             "raise"
-                                             "True"
-                                             "class"
-                                             "finally"
-                                             "is"
-                                             "return"
-                                             "and"
+                                             "goto"
+                                             "package"
+                                             "switch"
+                                             "const"
+                                             "fallthrough"
+                                             "if"
+                                             "range"
+                                             "type"
                                              "continue"
                                              "for"
-                                             "lambda"
-                                             "try"
-                                             "as"
-                                             "def"
-                                             "from"
-                                             "nonlocal"
-                                             "while"
-                                             "assert"
-                                             "del"
-                                             "global"
-                                             "not"
-                                             "with"
-                                             "async"
-                                             "elif"
-                                             "if"
-                                             "or"
-                                             "yield" ]
+                                             "import"
+                                             "return"
+                                             "var" ]
 
-    // Other global builtins we should avoid https://docs.python.org/3/library/functions.html
-    let pyBuiltins =
-        System.Collections.Generic.HashSet [ "abs"
+
+
+    // Other global builtins we should avoid https://pkg.go.dev/builtin
+    let goBuiltins =
+        System.Collections.Generic.HashSet [ "append"
+                                             "cap"
+                                             "const"
+                                             "close"
+                                             "complex"
+                                             "copy"
+                                             "delete"
+                                             "iota"
+                                             "imag"
                                              "len"
-                                             "str"
-                                             "int"
-                                             "float"
-                                             "set"
-                                             "enumerate"
-                                             "next"
-                                             "super"
-                                             "callable"
-                                             "hash"
-                                             "classmethod"
-                                             "staticmethod"
-                                             "list"
-                                             "dict"
-                                             "bool"
-                                             "isinstance"
-                                             "issubclass"
-                                             "hasattr"
-                                             "getattr"
-
-                                             // Other names
-                                             "self" ]
-
-    let pyStdlib =
-        System.Collections.Generic.HashSet [ "abc"
-                                             "asyncio"
-                                             "array"
-                                             "base64"
-                                             "builtins"
-                                             "collections"
-                                             "dataclasses"
-                                             "datetime"
-                                             "decimal"
-                                             "enum"
-                                             "functools"
-                                             "inspect"
-                                             "itertools"
-                                             "io"
-                                             "locale"
-                                             "math"
-                                             "operator"
-                                             "os"
-                                             "pathlib"
-                                             "platform"
-                                             "queue"
-                                             "random"
-                                             "re"
-                                             "readline"
-                                             "posix"
+                                             "make"
+                                             "new"
+                                             "nil"
+                                             "panic"
+                                             "print"
+                                             "println"
+                                             "real"
+                                             "recover"
                                              "string"
-                                             "struct"
-                                             "sys"
-                                             "tempfile"
-                                             "threading"
-                                             "time"
-                                             "typing"
-                                             "unicodedata"
-                                             "urllib"
-                                             "uuid"
-                                             "warnings" ]
+                                             "true"
+                                             "false"
+                                           ]
 
     let reflectionSuffix = "_reflection"
 
@@ -211,14 +160,8 @@ module Naming =
         else
             ident
 
-    let checkPyKeywords name =
-        if pyKeywords.Contains name then
-            name + "_"
-        else
-            name
-
-    let checkPyStdlib name =
-        if pyStdlib.Contains name then
+    let checkGoKeywords name =
+        if goKeywords.Contains name then
             name + "_"
         else
             name
@@ -248,6 +191,6 @@ module Naming =
                 name
         // Replace Forbidden Chars
         buildName sanitizeIdentForbiddenChars name part
-        |> checkPyKeywords
+        |> checkGoKeywords
         // Check if it already exists
         |> preventConflicts conflicts
