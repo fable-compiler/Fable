@@ -198,6 +198,13 @@ let buildLibraryTsIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-ts")) then
         buildLibraryTs()
 
+let buildLibraryGo() =
+    ()
+
+let buildLibraryGoIfNotExists() =
+    if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-go")) then
+        buildLibraryGo()
+
 let buildLibraryPy() =
     let libraryDir = "src/fable-library-py"
     let projectDir = libraryDir </> "fable_library"
@@ -792,6 +799,9 @@ match BUILD_ARGS_LOWER with
         writeFile outPath ""
     let runCmd = $"npx concurrently \"tsc -w -p {srcDir} --outDir {dirname outPath}\" \"nodemon -w {outPath} {outPath}\""
     watchFableWithArgs srcDir ["--lang ts --watch --exclude Fable.Core --noCache --run"; runCmd]
+| ("quicktest-go"|"quicktest-golang")::_ ->
+    buildLibraryGoIfNotExists()
+    watchFableWithArgs "src/quicktest-go" ["--lang go --watch --exclude Fable.Core --noCache --runScript"]
 | ("quicktest-py"|"quicktest-python")::_ ->
     buildLibraryPyIfNotExists()
     watchFableWithArgs "src/quicktest-py" ["--lang py --watch --exclude Fable.Core --noCache --runScript"]

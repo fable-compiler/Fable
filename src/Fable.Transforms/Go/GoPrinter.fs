@@ -28,7 +28,18 @@ module PrinterExtensions =
             | CommClause comm -> printer.Print(comm)
             | SelectStmt select -> printer.Print(select)
             | RangeStmt range -> printer.Print(range)
+            | EmptyStmt empty -> printer.Print(empty)
+            | DeclStmt decl -> printer.Print(decl)
+            | LabeledStmt label -> printer.Print(label)
 
+        member printer.Print(stmt: LabeledStmt) =
+            printer.Print("LabeledStmt")
+
+        member printer.Print(stmt: EmptyStmt) =
+            printer.Print("EmptyStmt")
+
+        member printer.Print(stmt: DeclStmt) =
+            printer.Print("DeclStmt")
 
         member printer.Print(stmt: ExprStmt) =
             printer.Print("ExprStmt")
@@ -108,6 +119,8 @@ module PrinterExtensions =
             | StructType expr -> printer.Print(expr)
             | FuncType expr -> printer.Print(expr)
             | InterfaceType expr -> printer.Print(expr)
+            | MapType expr -> printer.Print(expr)
+            | ChanType expr -> printer.Print(expr)
 
         member printer.Print(expr: BadExpr) =
             printer.Print("BadExpr")

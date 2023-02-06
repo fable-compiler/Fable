@@ -723,7 +723,7 @@ module Helpers =
     let isModuleValueCompiledAsFunction (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         match com.Options.Language with
         | Python | JavaScript | TypeScript -> memb.IsMutable && isNotPrivate memb
-        | Rust | Php | Dart -> false
+        | Rust | Php | Dart | Go -> false
 
     let isModuleValueForCalls com (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         declaringEntity.IsFSharpModule
