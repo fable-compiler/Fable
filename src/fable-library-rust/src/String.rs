@@ -248,22 +248,6 @@ pub mod String_ {
         stringFrom(o.to_string())
     }
 
-    pub fn toInt8 (s: string) -> i8 { s.parse::<i8>().unwrap() }
-    pub fn toUInt8 (s: string) -> u8 { s.parse::<u8>().unwrap() }
-    pub fn toInt16 (s: string) -> i16 { s.parse::<i16>().unwrap() }
-    pub fn toUInt16 (s: string) -> u16 { s.parse::<u16>().unwrap() }
-    pub fn toInt32 (s: string) -> i32 { s.parse::<i32>().unwrap() }
-    pub fn toUInt32 (s: string) -> u32 { s.parse::<u32>().unwrap() }
-    pub fn toInt64 (s: string) -> i64 { s.parse::<i64>().unwrap() }
-    pub fn toUInt64 (s: string) -> u64 { s.parse::<u64>().unwrap() }
-    pub fn toFloat32 (s: string) -> f32 { s.parse::<f32>().unwrap() }
-    pub fn toFloat64 (s: string) -> f64 { s.parse::<f64>().unwrap() }
-    pub fn toNativeInt (s: string) -> isize { s.parse::<isize>().unwrap() }
-    pub fn toUNativeInt (s: string) -> usize { s.parse::<usize>().unwrap() }
-
-    pub fn toBoolean (s: string) -> bool { s.parse::<bool>().unwrap() }
-    pub fn toChar (s: string) -> char { s.parse::<char>().unwrap() }
-
     pub fn fromCharCode(code: u32) -> char {
         unsafe { core::char::from_u32_unchecked(code) }
     }

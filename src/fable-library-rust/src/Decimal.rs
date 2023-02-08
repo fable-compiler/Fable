@@ -50,45 +50,44 @@ pub mod Decimal_ {
     // pub fn isOddInteger(x: decimal) -> bool { false } //TODO:
     // pub fn isCanonical(x: decimal) -> bool { false } //TODO:
 
-    pub fn toInt8 (x: decimal) -> i8 { x.to_i8().unwrap() }
-    pub fn toUInt8 (x: decimal) -> u8 { x.to_u8().unwrap() }
-    pub fn toInt16 (x: decimal) -> i16 { x.to_i16().unwrap() }
-    pub fn toUInt16 (x: decimal) -> u16 { x.to_u16().unwrap() }
-    pub fn toInt32 (x: decimal) -> i32 { x.to_i32().unwrap() }
-    pub fn toUInt32 (x: decimal) -> u32 { x.to_u32().unwrap() }
-    pub fn toInt64 (x: decimal) -> i64 { x.to_i64().unwrap() }
-    pub fn toUInt64 (x: decimal) -> u64 { x.to_u64().unwrap() }
+    pub fn toInt8(x: decimal) -> i8 { x.to_i8().unwrap() }
+    pub fn toUInt8(x: decimal) -> u8 { x.to_u8().unwrap() }
+    pub fn toInt16(x: decimal) -> i16 { x.to_i16().unwrap() }
+    pub fn toUInt16(x: decimal) -> u16 { x.to_u16().unwrap() }
+    pub fn toInt32(x: decimal) -> i32 { x.to_i32().unwrap() }
+    pub fn toUInt32(x: decimal) -> u32 { x.to_u32().unwrap() }
+    pub fn toInt64(x: decimal) -> i64 { x.to_i64().unwrap() }
+    pub fn toUInt64(x: decimal) -> u64 { x.to_u64().unwrap() }
     pub fn toNativeInt(x: decimal) -> isize { x.to_isize().unwrap() }
     pub fn toUNativeInt(x: decimal) -> usize { x.to_usize().unwrap() }
-    pub fn toFloat32 (x: decimal) -> f32 { x.to_f32().unwrap() }
-    pub fn toFloat64 (x: decimal) -> f64 { x.to_f64().unwrap() }
 
-    pub fn toBoolean (x: decimal) -> bool { !x.is_zero() }
+    pub fn toFloat32(x: decimal) -> f32 { x.to_f32().unwrap() }
+    pub fn toFloat64(x: decimal) -> f64 { x.to_f64().unwrap() }
 
-    pub fn toChar (x: decimal) -> char {
+    pub fn toDecimal(x: decimal) -> decimal { x }
+
+    pub fn toBoolean(x: decimal) -> bool { !x.is_zero() }
+
+    pub fn toChar(x: decimal) -> char {
         core::char::from_u32(x.to_u32().unwrap()).unwrap()
     }
 
-    pub fn toString (x: decimal) -> string {
+    pub fn toString(x: decimal) -> string {
         toString_1(&x)
     }
 
     pub fn tryParse(s: string, res: &MutCell<Decimal>) -> bool {
-        match Decimal::from_str(s.as_ref()) {
+        match Decimal::from_str(s.trim()) {
             Ok(d) => { res.set(d); true },
             Err(e) => false,
         }
     }
 
     pub fn parse(s: string) -> decimal {
-        match Decimal::from_str(s.as_ref()) {
+        match Decimal::from_str(s.trim()) {
             Ok(d) => d,
             Err(e) => panic!("Input string was not in a correct format."),
         }
-    }
-
-    pub fn fromString(s: string) -> decimal {
-        Decimal::from_str(s.as_ref()).unwrap()
     }
 
     pub fn fromInt8(n: i8) -> decimal { Decimal::from_i8(n).unwrap() }
@@ -99,10 +98,25 @@ pub mod Decimal_ {
     pub fn fromUInt32(n: u32) -> decimal { Decimal::from_u32(n).unwrap() }
     pub fn fromInt64(n: i64) -> decimal { Decimal::from_i64(n).unwrap() }
     pub fn fromUInt64(n: u64) -> decimal { Decimal::from_u64(n).unwrap() }
-    pub fn fromFloat32(n: f32) -> decimal { Decimal::from_f32(n).unwrap() }
-    pub fn fromFloat64(n: f64) -> decimal { Decimal::from_f64(n).unwrap() }
     pub fn fromNativeInt(n: isize) -> decimal { Decimal::from_isize(n).unwrap() }
     pub fn fromUNativeInt(n: usize) -> decimal { Decimal::from_usize(n).unwrap() }
+
+    pub fn fromFloat32(n: f32) -> decimal { Decimal::from_f32(n).unwrap() }
+    pub fn fromFloat64(n: f64) -> decimal { Decimal::from_f64(n).unwrap() }
+
+    pub fn fromDecimal(d: decimal) -> decimal { d }
+
+    pub fn fromBoolean(b: bool) -> decimal {
+        Decimal::from_u32(b as u32).unwrap()
+    }
+
+    pub fn fromChar(c: char) -> decimal {
+        Decimal::from_u32(c as u32).unwrap()
+    }
+
+    pub fn fromString(s: string) -> decimal {
+        Decimal::from_str(s.trim()).unwrap()
+    }
 
     pub fn fromParts(low: i32, mid: i32, high: i32, isNegative: bool, scale: u8) -> decimal {
         Decimal::from_parts(low as u32, mid as u32, high as u32, isNegative, scale as u32)
