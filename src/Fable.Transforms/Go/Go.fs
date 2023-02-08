@@ -275,7 +275,7 @@ type Field =
 
 /// A Declaration
 type FieldList =
-    { Opening: SourceLocation
+    { Opening: SourceLocation option
       List: Field list
       Closing: SourceLocation option }
 
@@ -296,10 +296,10 @@ type BadDecl =
 ///
 /// Relationship between Tok value and Specs element type:
 ///
-///    token.IMPORT  *ImportSpec
-///   token.CONST   *ValueSpec
-///  token.TYPE    *TypeSpec
-/// token.VAR     *ValueSpec
+///  - token.IMPORT  *ImportSpec
+///  - token.CONST   *ValueSpec
+///  - token.TYPE    *TypeSpec
+///  - token.VAR     *ValueSpec
 ///
 type GenDecl =
     { /// Associated documentation; or nil
@@ -314,6 +314,7 @@ type GenDecl =
       /// Position of ')', if any
       Rparen: SourceLocation option }
 
+/// A File node represents a single Go source file.
 type File =
     { /// Associated documentation; or nil
       Doc: CommentGroup option
@@ -332,6 +333,7 @@ type File =
       /// List of all comments in the source file
       Comments: CommentGroup list }
 
+/// An ImportSpec node represents an import declaration.
 type ImportSpec =
     { /// Associated documentation; or nil
       Doc: CommentGroup option
@@ -344,6 +346,7 @@ type ImportSpec =
       /// end of spec (overrides Path.Pos if nonzero)
       EndPos: SourceLocation option }
 
+/// A ValueSpec node represents a constant or variable declaration
 type ValueSpec =
     { /// Associated documentation; or nil
       Doc: CommentGroup option
@@ -356,6 +359,7 @@ type ValueSpec =
       /// line comments; or nil
       Comment: CommentGroup option }
 
+/// A TypeSpec node represents a type declaration.
 type TypeSpec =
     { /// Associated documentation; or nil
       Doc: CommentGroup option
@@ -540,7 +544,7 @@ type TypeAssertExpr =
 
 /// A CallExpr node represents an expression followed by an argument list.
 type CallExpr =
-    { /// Function expression
+    { /// Function nexpression
       Fun: Expr
       /// Position of "("
       Lparen: SourceLocation option
@@ -843,7 +847,8 @@ module GoExtensions =
                 | :? uint32 -> Token.Int
                 | :? float
                 | :? float32 -> Token.Float
-                | _ -> failwith "Unsupported basic literal type"
+                | :? string -> Token.String
+                | _ -> failwith $"Unsupported basic literal type: {value}"
             BasicLit.basicLit(token, string value, ?valuePos=valuePos)
 
     type BlockStmt with
@@ -881,6 +886,24 @@ module GoExtensions =
                   Type = typ
                   Body = body }
 
+        static member genDecl(tok, specs, ?doc, ?tokPos, ?lparen, ?rparen) =
+            GenDecl
+                { Doc = doc
+                  TokPos = tokPos
+                  Tok = tok
+                  Lparen = lparen
+                  Specs = specs
+                  Rparen = rparen }
+
+    type Spec with
+        static member value(names, values, ?typ, ?comment, ?doc) =
+            ValueSpec
+                { Doc = doc
+                  Names = names
+                  Type = typ
+                  Values = values
+                  Comment = comment }
+
     type Stmt with
         static member assign(lhs, rhs, ?tokPos, ?tok) =
             AssignStmt
@@ -890,6 +913,7 @@ module GoExtensions =
                   Rhs = rhs }
 
         static member assign(lhs, rhs, ?tok) =
+            printfn $"assign: {lhs} {rhs} {tok}"
             Stmt.assign ([lhs], [rhs], ?tok=tok)
 
         static member block (list, ?lbrace, ?rbrace) =
@@ -905,16 +929,20 @@ module GoExtensions =
             DeclStmt
                 { Decl = decl }
 
-        static member decl(spec, ?declPos) =
-            Stmt.decl (spec, ?declPos=declPos)
+        //static member decl(spec: Spec, ?declPos) =
+        //    Stmt.decl (spec, ?declPos=declPos)
 
         static member empty =
             EmptyStmt
                 { Semicolon = None
                   Implicit = true }
 
-        static member valueSpec(names, values, ?typ, ?comment, ?doc) =
-            Stmt.decl(Decl.valueSpec(names, values, ?typ=typ, ?comment=comment, ?doc=doc))
+        static member genDecl(tok, specs, ?doc, ?tokPos, ?lparen, ?rparen) =
+            Stmt.decl(Decl.genDecl(tok, specs, ?doc=doc, ?tokPos=tokPos, ?lparen=lparen, ?rparen=rparen))
+
+        static member varDecl(names, values, ?typ, ?comment, ?doc, ?tokPos, ?lparen, ?rparen) =
+            let spec = Decl.valueSpec(names, values, ?typ=typ, ?comment=comment, ?doc=doc)
+            Stmt.genDecl(Token.Var, [spec], ?doc=doc, ?tokPos=tokPos, ?lparen=lparen, ?rparen=rparen)
 
         static member funcDecl(name, typ, ?body, ?recv, ?doc) =
             Stmt.decl(Decl.funcDecl(name, typ=typ, ?body=body, ?recv=recv, ?doc=doc))
@@ -923,6 +951,7 @@ module GoExtensions =
             ReturnStmt
                 { Return = returnPos
                   Results = results }
+
         static member return' (result, ?returnPos) =
             Stmt.return' ([result], ?returnPos=returnPos)
 
@@ -1023,6 +1052,12 @@ module GoExtensions =
         static member field (name: string, ?typ, ?tag, ?doc, ?comment) =
             Field.field ([name], ?typ=typ, ?tag=tag, ?doc=doc, ?comment=comment)
 
+    type FieldList with
+        static member fieldList (list, ?lbrace, ?rbrace) =
+            { Opening = lbrace
+              List = list
+              Closing = rbrace }
+
     type File with
         static member file (name, imports, decls, ?package, ?doc, ?scope, ?comments, ?importsScope) =
             { Doc = doc
@@ -1033,12 +1068,14 @@ module GoExtensions =
               Comments = comments |> Option.defaultValue []
               Scope = scope
               Unresolved = [] }
+
     type FuncType with
         static member funcType (args, results, ?typeParams, ?loc) =
             { Func = loc
               Params = args
               Results = results
               TypeParams = typeParams }
+
     type ImportSpec with
         static member importSpec (path, ?name, ?doc, ?comment, ?endPos) =
             { Doc = doc

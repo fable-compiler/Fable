@@ -199,7 +199,8 @@ let buildLibraryTsIfNotExists() =
         buildLibraryTs()
 
 let buildLibraryGo() =
-    ()
+    let buildDirGo = "build/fable-library-go"
+    cleanDirs [buildDirGo]
 
 let buildLibraryGoIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-go")) then
@@ -827,6 +828,7 @@ match BUILD_ARGS_LOWER with
 | ("watch-library")::_ -> watchLibraryJs()
 | ("fable-library"|"library")::_ -> buildLibraryJs()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
+| ("fable-library-go"|"library-go")::_ -> buildLibraryGo()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()
 | ("fable-library-dart" | "library-dart")::_ ->

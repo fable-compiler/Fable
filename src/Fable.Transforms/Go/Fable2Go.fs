@@ -1237,10 +1237,14 @@ module Util =
         [ Stmt.assign(ids, values) ]
 
     let varDeclaration (ctx: Context) (var: Ident) (typ: Expr option) value =
-        // printfn "varDeclaration: %A" (var, value, typ)
+        printfn $"varDeclaration: %A{(var, value, typ)}"
         [ match typ with
-          | Some typ -> Stmt.valueSpec([var], typ = typ, values = [value])
-          | _ -> Stmt.assign(Expr.ident var, value) ]
+          | Some typ ->
+              printfn "valueSpec"
+              Stmt.varDecl([var], typ=typ, values=[value])
+          | _ ->
+              printfn "assign"
+              Stmt.assign(Expr.ident var, value) ]
 
     // let restElement (var: Ident) =
     //     let var = Expression.name var
@@ -3132,7 +3136,7 @@ module Util =
         (args: Fable.Ident list)
         (body: Fable.Expr)
         (repeatedGenerics: Set<string>)
-        : Field list * Stmt list =
+        : FieldList * Stmt list =
         let tailcallChance =
             Option.map (fun name -> NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
 
@@ -3237,7 +3241,7 @@ module Util =
                         let ta, _ = typeAnnotation com ctx (Some repeatedGenerics) id.Type
                         Field.field(id.Name, typ = ta))
 
-                args', defaults, body
+                FieldList.fieldList(args'), defaults, body
 
         let arguments =
             match args, isUnit with
@@ -3280,6 +3284,7 @@ module Util =
     //     Statement.if' (test, main)
 
     let declareModuleMember (com: IGoCompiler) ctx isPublic (membName: Ident) typ (expr: Expr) =
+        printfn $"Declaring module member %s{membName.Name}"
         let name = membName.Name
 
         let name = membName
@@ -3798,7 +3803,7 @@ module Util =
     //     [ Statement.classDef (classIdent, body = classMembers, bases = bases) ]
 
     let rec transformDeclaration (com: IGoCompiler) ctx (decl: Fable.Declaration) : Decl list =
-        // printfn "transformDeclaration: %A" decl
+        printfn $"transformDeclaration: %A{decl}"
         // printfn "ctx.UsedNames: %A" ctx.UsedNames
 
         let withCurrentScope (ctx: Context) (usedNames: Set<string>) f =
@@ -3874,6 +3879,7 @@ module Util =
     //           Stmt.assign (targets, value) ]
 
     let transformImports (com: IGoCompiler) (imports: ImportSpec list) : ImportSpec list =
+        printfn $"transformImports: %A{imports}"
         // let imports =
         //     imports
         //     |> List.map (fun im ->
@@ -3900,7 +3906,7 @@ module Util =
         //
         //         name)
 
-       imports
+        imports
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         // printfn "getIdentForImport: %A" (moduleName, name)
@@ -3988,8 +3994,7 @@ module Compiler =
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
 
             member bcom.TransformFunction(ctx, name, args, body, generics) =
-                // transformFunction bcom ctx name args body generics
-                failwith "TransformFunction not implemented"
+                transformFunction bcom ctx name args body generics
 
             member bcom.TransformImport(ctx, selector, path) =
                 transformImport bcom ctx None selector path
@@ -4024,6 +4029,7 @@ module Compiler =
     let makeCompiler com = PythonCompiler(com)
 
     let transformFile (com: Compiler) (file: Fable.File) =
+        printfn $"transformFile: %A{file}"
         let com = makeCompiler com :> IGoCompiler
 
         let declScopes =
@@ -4052,4 +4058,5 @@ module Compiler =
         let importSpecs = com.GetAllImports() |> transformImports com
         let name = Ident.ident "fable"
 
+        printfn $"transformFile: done"
         File.file(name=name, decls=rootDecls, imports=importSpecs)
