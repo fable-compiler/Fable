@@ -2557,16 +2557,17 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args.Length with
+    match i.CompiledName, thisArg, args with
     | ("get_Unicode" | "get_UTF8"), _, _ ->
         Helper.LibCall(com, "Encoding", i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "GetBytes", Some callee, (1 | 3) ->
+    | ("GetBytes"|"GetByteCount"), Some callee, ExprType(Array(Char,_))::_ ->
+        let meth = Naming.lowerFirst i.CompiledName + "FromChars"
+        let meth = if args.Length = 3 then meth + "2" else meth
+        makeInstanceCall r t i callee meth args |> Some
+    | ("GetBytes"|"GetByteCount"|"GetChars"|"GetCharCount"
+    | "GetMaxByteCount"|"GetMaxCharCount"|"GetString"), Some callee, _ ->
         let meth = Naming.lowerFirst i.CompiledName
-        let expr = makeInstanceCall r t i callee meth args
-        if com.Options.TypedArrays then expr |> Some
-        else toArray com t expr |> Some // convert to dynamic array
-    | "GetString", Some callee, (1 | 3) ->
-        let meth = Naming.lowerFirst i.CompiledName
+        let meth = if args.Length = 3 then meth + "2" else meth
         makeInstanceCall r t i callee meth args |> Some
     | _ -> None
 

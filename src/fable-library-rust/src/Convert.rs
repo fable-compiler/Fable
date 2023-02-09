@@ -1,6 +1,6 @@
 pub mod Convert_ {
     use crate::Native_::{arrayFrom, Array, MutCell};
-    use crate::String_::{string, stringFrom};
+    use crate::String_::{string, fromString};
     use core::fmt::{Display, Binary, Octal, LowerHex};
     use core::str::FromStr;
     use num_traits::*;
@@ -38,7 +38,7 @@ pub mod Convert_ {
 
     fn from_string<N: Num>(s: string) -> N {
         let s =
-            if s.contains("_") { stringFrom(s.replace("_", "")) }
+            if s.contains("_") { fromString(s.replace("_", "")) }
             else { s };
         let (trimmed, radix) = radix_from_string(s.trim());
         match N::from_str_radix(trimmed, radix as u32) {
@@ -205,7 +205,7 @@ pub mod Convert_ {
             16 => format!("{:x}", n),
             _ => panic!("Invalid Base."),
         };
-        stringFrom(s)
+        fromString(s)
     }
 
     pub fn toHexString(bytes: Array<u8>) -> string {
@@ -221,7 +221,7 @@ pub mod Convert_ {
             .flat_map(|b| [b >> 4, b & 0x0F])
             .map(|d| encode(d) as char)
             .collect();
-        stringFrom(s)
+        fromString(s)
     }
 
     pub fn fromHexString(s: string) -> Array<u8> {
@@ -281,7 +281,7 @@ pub mod Convert_ {
             .flat_map(|chunk| split(chunk))
             .map(|d| encode(d) as char)
             .collect();
-        stringFrom(s)
+        fromString(s)
     }
 
     pub fn fromBase64String(s: string) -> Array<u8> {

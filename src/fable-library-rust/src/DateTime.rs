@@ -4,7 +4,7 @@ pub mod DateTime_ {
 
     use crate::{
         DateTimeOffset_::DateTimeOffset,
-        String_::{string, stringFrom},
+        String_::{string, fromString},
         TimeSpan_::{TimeSpan, ticks_per_second},
     };
     use chrono::{
@@ -260,7 +260,7 @@ pub mod DateTime_ {
                 LocalUtcWrap::CLocal(dt) => dt.format(&chronoFriendlyStringFormat),
                 LocalUtcWrap::CUtc(dt) => dt.format(&chronoFriendlyStringFormat),
             };
-            stringFrom(s.to_string())
+            fromString(s.to_string())
         }
 
         pub fn year(&self) -> i32 {
