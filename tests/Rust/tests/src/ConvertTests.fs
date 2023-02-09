@@ -836,6 +836,28 @@ let ``System.Convert.ToString Decimal works`` () =
 // String to number convertions (with base)
 //-------------------------------------
 
+// [<Fact>]
+// let ``Invalid numeric conversions with base will throw`` () =
+// #if FABLE_COMPILER
+//     (fun () -> Convert.ToSByte("255", 2)) |> throwsError "Input string was not in a correct format."
+//     (fun () -> Convert.ToInt16("255", 2)) |> throwsError "Input string was not in a correct format."
+//     (fun () -> Convert.ToInt32("255", 2)) |> throwsError "Input string was not in a correct format."
+//     (fun () -> Convert.ToInt64("255", 2)) |> throwsError "Input string was not in a correct format."
+//     (fun () -> Convert.ToByte("255", 2))  |> throwsError "Input string was not in a correct format."
+//     (fun () -> Convert.ToUInt16("255", 2)) |> throwsError "Input string was not in a correct format."
+//     (fun () -> Convert.ToUInt32("255", 2)) |> throwsError "Input string was not in a correct format."
+//     (fun () -> Convert.ToUInt64("255", 2)) |> throwsError "Input string was not in a correct format."
+// #else
+//     (fun () -> Convert.ToSByte("255", 2)) |> throwsError "Could not find any recognizable digits."
+//     (fun () -> Convert.ToInt16("255", 2)) |> throwsError "Could not find any recognizable digits."
+//     (fun () -> Convert.ToInt32("255", 2)) |> throwsError "Could not find any recognizable digits."
+//     (fun () -> Convert.ToInt64("255", 2)) |> throwsError "Could not find any recognizable digits."
+//     (fun () -> Convert.ToByte("255", 2)) |> throwsError "Could not find any recognizable digits."
+//     (fun () -> Convert.ToUInt16("255", 2)) |> throwsError "Could not find any recognizable digits."
+//     (fun () -> Convert.ToUInt32("255", 2)) |> throwsError "Could not find any recognizable digits."
+//     (fun () -> Convert.ToUInt64("255", 2)) |> throwsError "Could not find any recognizable digits."
+// #endif
+
 [<Fact>]
 let ``System.Convert.ToSByte with base works`` () =
     let x = "101"
@@ -843,11 +865,6 @@ let ``System.Convert.ToSByte with base works`` () =
     Convert.ToSByte(x, 2) |> equal 5y
     Convert.ToSByte(x, 8) |> equal 65y
     Convert.ToSByte(x, 10) |> equal 101y
-    // #if FABLE_COMPILER
-    // (fun () -> Convert.ToSByte("255", 2)) |> throwsError "Input string was not in a correct format."
-    // #else
-    // (fun () -> Convert.ToSByte("255", 2)) |> throwsError "Could not find any recognizable digits."
-    // #endif
 
 [<Fact>]
 let ``System.Convert.ToInt16 with base works`` () =
@@ -857,11 +874,6 @@ let ``System.Convert.ToInt16 with base works`` () =
     Convert.ToInt16(x, 8) |> equal 65s
     Convert.ToInt16(x, 10) |> equal 101s
     Convert.ToInt16(x, 16) |> equal 257s
-    // #if FABLE_COMPILER
-    // (fun () -> Convert.ToInt16("255", 2)) |> throwsError "Input string was not in a correct format."
-    // #else
-    // (fun () -> Convert.ToInt16("255", 2)) |> throwsError "Could not find any recognizable digits."
-    // #endif
 
 [<Fact>]
 let ``System.Convert.ToInt32 with base works`` () =
@@ -871,11 +883,6 @@ let ``System.Convert.ToInt32 with base works`` () =
     Convert.ToInt32(x, 8) |> equal 65
     Convert.ToInt32(x, 10) |> equal 101
     Convert.ToInt32(x, 16) |> equal 257
-    // #if FABLE_COMPILER
-    // (fun () -> Convert.ToInt32("255", 2)) |> throwsError "Input string was not in a correct format."
-    // #else
-    // (fun () -> Convert.ToInt32("255", 2)) |> throwsError "Could not find any recognizable digits."
-    // #endif
 
 [<Fact>]
 let ``System.Convert.ToInt64 with base works`` () =
@@ -885,11 +892,6 @@ let ``System.Convert.ToInt64 with base works`` () =
     Convert.ToInt64(x, 8) |> equal 65L
     Convert.ToInt64(x, 10) |> equal 101L
     Convert.ToInt64(x, 16) |> equal 257L
-    // #if FABLE_COMPILER
-    // (fun () -> Convert.ToInt64("255", 2)) |> throwsError "Input string was not in a correct format."
-    // #else
-    // (fun () -> Convert.ToInt64("255", 2)) |> throwsError "Could not find any recognizable digits."
-    // #endif
 
 [<Fact>]
 let ``System.Convert.ToByte with base works`` () =
@@ -898,11 +900,6 @@ let ``System.Convert.ToByte with base works`` () =
     Convert.ToByte(x, 2) |> equal 5uy
     Convert.ToByte(x, 8) |> equal 65uy
     Convert.ToByte(x, 10) |> equal 101uy
-    // #if FABLE_COMPILER
-    // (fun () -> Convert.ToByte("255", 2)) |> throwsError "Input string was not in a correct format."
-    // #else
-    // (fun () -> Convert.ToByte("255", 2)) |> throwsError "Could not find any recognizable digits."
-    // #endif
 
 [<Fact>]
 let ``System.Convert.ToUInt16 with base works`` () =
@@ -912,11 +909,6 @@ let ``System.Convert.ToUInt16 with base works`` () =
     Convert.ToUInt16(x, 8) |> equal 65us
     Convert.ToUInt16(x, 10) |> equal 101us
     Convert.ToUInt16(x, 16) |> equal 257us
-    // #if FABLE_COMPILER
-    // (fun () -> Convert.ToUInt16("255", 2)) |> throwsError "Input string was not in a correct format."
-    // #else
-    // (fun () -> Convert.ToUInt16("255", 2)) |> throwsError "Could not find any recognizable digits."
-    // #endif
 
 [<Fact>]
 let ``System.Convert.ToUInt32 with base works`` () =
@@ -926,11 +918,6 @@ let ``System.Convert.ToUInt32 with base works`` () =
     Convert.ToUInt32(x, 8) |> equal 65u
     Convert.ToUInt32(x, 10) |> equal 101u
     Convert.ToUInt32(x, 16) |> equal 257u
-    // #if FABLE_COMPILER
-    // (fun () -> Convert.ToUInt32("255", 2)) |> throwsError "Input string was not in a correct format."
-    // #else
-    // (fun () -> Convert.ToUInt32("255", 2)) |> throwsError "Could not find any recognizable digits."
-    // #endif
 
 [<Fact>]
 let ``System.Convert.ToUInt64 with base works`` () =
@@ -940,11 +927,6 @@ let ``System.Convert.ToUInt64 with base works`` () =
     Convert.ToUInt64(x, 8) |> equal 65uL
     Convert.ToUInt64(x, 10) |> equal 101uL
     Convert.ToUInt64(x, 16) |> equal 257uL
-    // #if FABLE_COMPILER
-    // (fun () -> Convert.ToUInt64("255", 2)) |> throwsError "Input string was not in a correct format."
-    // #else
-    // (fun () -> Convert.ToUInt64("255", 2)) |> throwsError "Could not find any recognizable digits."
-    // #endif
 
 //-------------------------------------
 // Number to string convertions (with base)
@@ -1254,49 +1236,133 @@ let ``BigInt ToString works`` () =
     string (bigint value) |> equal "1234567890"
 
 //-------------------------------------
-// System.Text.Encoding
+// System.Text.Encoding.Unicode
 //-------------------------------------
 
-// [<Fact>]
-// let ``Encoding.Unicode.GetBytes works`` () =
-//     System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
-//     |> equal [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+[<Fact>]
+let ``Encoding.Unicode.GetBytes for string works`` () =
+    System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
+    |> equal [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
 
-// [<Fact>]
-// let ``Encoding.Unicode.GetBytes for range works`` () =
-//     System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray(), 4, 3)
-//     |> equal [| 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+[<Fact>]
+let ``Encoding.Unicode.GetBytes for string range works`` () =
+    System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF", 4, 3)
+    |> equal [| 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
 
-// [<Fact>]
-// let ``Encoding.Unicode.GetString works`` () =
-//     let bytes = [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
-//     System.Text.Encoding.Unicode.GetString(bytes)
-//     |> equal "za\u0306\u01FD\u03B2\uD8FF\uDCFF"
+[<Fact>]
+let ``Encoding.Unicode.GetBytes for chars works`` () =
+    System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray())
+    |> equal [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
 
-// [<Fact>]
-// let ``Encoding.Unicode.GetString for range works`` () =
-//     let bytes = [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
-//     System.Text.Encoding.Unicode.GetString(bytes, 8, 6)
-//     |> equal "\u03B2\uD8FF\uDCFF"
+[<Fact>]
+let ``Encoding.Unicode.GetBytes for chars range works`` () =
+    System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray(), 4, 3)
+    |> equal [| 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
 
-// [<Fact>]
-// let ``Encoding.UTF8.GetBytes works`` () =
-//     System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
-//     |> equal [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+[<Fact>]
+let ``Encoding.Unicode.GetByteCount for string works`` () =
+    System.Text.Encoding.Unicode.GetByteCount("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
+    |> equal 14
 
-// [<Fact>]
-// let ``Encoding.UTF8.GetBytes for range works`` () =
-//     System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray(), 4, 3)
-//     |> equal [| 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+[<Fact>]
+let ``Encoding.Unicode.GetByteCount for string range works`` () =
+    System.Text.Encoding.Unicode.GetByteCount("za\u0306\u01FD\u03B2\uD8FF\uDCFF", 4, 3)
+    |> equal 6
 
-// [<Fact>]
-// let ``Encoding.UTF8.GetString works`` () =
-//     let bytes = [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
-//     System.Text.Encoding.UTF8.GetString(bytes)
-//     |> equal "za\u0306\u01FD\u03B2\uD8FF\uDCFF"
+[<Fact>]
+let ``Encoding.Unicode.GetByteCount for chars works`` () =
+    System.Text.Encoding.Unicode.GetByteCount("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray())
+    |> equal 14
 
-// [<Fact>]
-// let ``Encoding.UTF8.GetString for range works`` () =
-//     let bytes = [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
-//     System.Text.Encoding.UTF8.GetString(bytes, 6, 6)
-//     |> equal "\u03B2\uD8FF\uDCFF"
+[<Fact>]
+let ``Encoding.Unicode.GetByteCount for chars range works`` () =
+    System.Text.Encoding.Unicode.GetByteCount("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray(), 4, 3)
+    |> equal 6
+
+[<Fact>]
+let ``Encoding.Unicode.GetMaxByteCount works`` () =
+    [| 0..10 |] |> Array.map System.Text.Encoding.Unicode.GetMaxByteCount
+    |> equal [| 2; 4; 6; 8; 10; 12; 14; 16; 18; 20; 22 |]
+
+[<Fact>]
+let ``Encoding.Unicode.GetMaxCharCount works`` () =
+    [| 0..10 |] |> Array.map System.Text.Encoding.Unicode.GetMaxCharCount
+    |> equal [| 1; 2; 2; 3; 3; 4; 4; 5; 5; 6; 6 |]
+
+[<Fact>]
+let ``Encoding.Unicode.GetString works`` () =
+    let bytes = [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+    System.Text.Encoding.Unicode.GetString(bytes)
+    |> equal "za\u0306\u01FD\u03B2\uD8FF\uDCFF"
+
+[<Fact>]
+let ``Encoding.Unicode.GetString for range works`` () =
+    let bytes = [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+    System.Text.Encoding.Unicode.GetString(bytes, 8, 6)
+    |> equal "\u03B2\uD8FF\uDCFF"
+
+//-------------------------------------
+// System.Text.Encoding.UTF8
+//-------------------------------------
+
+[<Fact>]
+let ``Encoding.UTF8.GetBytes for string works`` () =
+    System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
+    |> equal [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+
+[<Fact>]
+let ``Encoding.UTF8.GetBytes for string range works`` () =
+    System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF", 4, 3)
+    |> equal [| 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+
+[<Fact>]
+let ``Encoding.UTF8.GetBytes for chars works`` () =
+    System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray())
+    |> equal [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+
+[<Fact>]
+let ``Encoding.UTF8.GetBytes for chars range works`` () =
+    System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray(), 4, 3)
+    |> equal [| 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+
+[<Fact>]
+let ``Encoding.UTF8.GetByteCount for string works`` () =
+    System.Text.Encoding.UTF8.GetByteCount("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
+    |> equal 12
+
+[<Fact>]
+let ``Encoding.UTF8.GetByteCount for string range works`` () =
+    System.Text.Encoding.UTF8.GetByteCount("za\u0306\u01FD\u03B2\uD8FF\uDCFF", 4, 3)
+    |> equal 6
+
+[<Fact>]
+let ``Encoding.UTF8.GetByteCount for chars works`` () =
+    System.Text.Encoding.UTF8.GetByteCount("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray())
+    |> equal 12
+
+[<Fact>]
+let ``Encoding.UTF8.GetByteCount for chars range works`` () =
+    System.Text.Encoding.UTF8.GetByteCount("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray(), 4, 3)
+    |> equal 6
+
+[<Fact>]
+let ``Encoding.UTF8.GetMaxByteCount works`` () =
+    [| 0..10 |] |> Array.map System.Text.Encoding.UTF8.GetMaxByteCount
+    |> equal [| 3; 6; 9; 12; 15; 18; 21; 24; 27; 30; 33 |]
+
+[<Fact>]
+let ``Encoding.UTF8.GetMaxCharCount works`` () =
+    [| 0..10 |] |> Array.map System.Text.Encoding.UTF8.GetMaxCharCount
+    |> equal [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11 |]
+
+[<Fact>]
+let ``Encoding.UTF8.GetString works`` () =
+    let bytes = [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+    System.Text.Encoding.UTF8.GetString(bytes)
+    |> equal "za\u0306\u01FD\u03B2\uD8FF\uDCFF"
+
+[<Fact>]
+let ``Encoding.UTF8.GetString for range works`` () =
+    let bytes = [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+    System.Text.Encoding.UTF8.GetString(bytes, 6, 6)
+    |> equal "\u03B2\uD8FF\uDCFF"

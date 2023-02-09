@@ -762,7 +762,7 @@ module TypeInfo =
     let isDeclaredInterface fullName =
         Set.contains fullName declaredInterfaces
 
-    let getInterfaceEntityName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
+    let getInterfaceImportName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
         if isDeclaredInterface entRef.FullName
         then getLibraryImportName com ctx "Interfaces" entRef.FullName
         else
@@ -776,7 +776,20 @@ module TypeInfo =
         ent.AllInterfaces |> Seq.tryFind (fun ifc -> ifc.Entity.FullName = fullName)
 
     let transformInterfaceType (com: IRustCompiler) ctx (entRef: Fable.EntityRef) genArgs: Rust.Ty =
-        let nameParts = getInterfaceEntityName com ctx entRef |> splitNameParts
+        let nameParts = getInterfaceImportName com ctx entRef |> splitNameParts
+        let genArgs = transformGenArgs com ctx genArgs
+        let traitBound = mkTypeTraitGenericBound nameParts genArgs
+        mkDynTraitTy [traitBound]
+
+    let getAbstractClassImportName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
+        match entRef.FullName with
+        | "System.Text.Encoding" ->
+            getLibraryImportName com ctx "Encoding" "Encoding"
+        | _ ->
+            getEntityFullName com ctx entRef
+
+    let transformAbstractClassType (com: IRustCompiler) ctx (entRef: Fable.EntityRef) genArgs: Rust.Ty =
+        let nameParts = getAbstractClassImportName com ctx entRef |> splitNameParts
         let genArgs = transformGenArgs com ctx genArgs
         let traitBound = mkTypeTraitGenericBound nameParts genArgs
         mkDynTraitTy [traitBound]
@@ -824,6 +837,8 @@ module TypeInfo =
             mkEmitTy value genArgs
         | ent when ent.IsInterface ->
             transformInterfaceType com ctx entRef genArgs
+        | ent when ent.IsAbstractClass ->
+            transformAbstractClassType com ctx entRef genArgs
         | ent ->
             let genArgs =
                 genArgs
@@ -1548,7 +1563,7 @@ module Util =
         makeLibCall com ctx None "String" "string" [value]
 
     let makeStringFrom com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "String" "stringFrom" [value]
+        makeLibCall com ctx None "String" "fromString" [value]
 
     let makeDefaultOf com ctx (typ: Fable.Type) =
         let genArgs = transformGenArgs com ctx [typ]
@@ -2158,7 +2173,7 @@ module Util =
         match calleeExpr.Type with
         | IsNonErasedInterface com (entRef, genArgs) when not isNative ->
             // interface instance call
-            let ifcName = getInterfaceEntityName com ctx entRef
+            let ifcName = getInterfaceImportName com ctx entRef
             let parts = (ifcName + "::" + membName) |> splitNameParts
             (callee |> makeAsRef)::args |> makeCall parts None
         | _ ->
@@ -3318,7 +3333,7 @@ module Util =
                 | Fable.DeclaredType(entRef, genArgs) ->
                     let ent = com.GetEntity(entRef)
                     if ent.IsInterface then
-                        let nameParts = getInterfaceEntityName com ctx entRef |> splitNameParts
+                        let nameParts = getInterfaceImportName com ctx entRef |> splitNameParts
                         let genArgs = transformGenArgs com ctx genArgs
                         let traitBound = mkTypeTraitGenericBound nameParts genArgs
                         [traitBound]
@@ -3800,7 +3815,7 @@ module Util =
         let implItem =
             let nameParts =
                 if tEnt.IsInterface
-                then getInterfaceEntityName com ctx tEntRef
+                then getInterfaceImportName com ctx tEntRef
                 else entName + "Methods"
                 |> splitNameParts
             let path =

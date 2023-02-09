@@ -32,7 +32,11 @@ pub mod String_ {
             LrcStr(Lrc::from(s))
         }
 
-        pub fn fromStr(s: &str) -> string {
+        pub fn fromString(s: String) -> string {
+            LrcStr(Lrc::from(s))
+        }
+
+        pub fn fromSlice(s: &str) -> string {
             LrcStr(Lrc::from(s))
         }
 
@@ -77,7 +81,11 @@ pub mod String_ {
             LrcStr::Static(s)
         }
 
-        pub fn fromStr(s: &str) -> string {
+        pub fn fromString(s: String) -> string {
+            LrcStr::Shared(Lrc::from(s))
+        }
+
+        pub fn fromSlice(s: &str) -> string {
             let len = s.len();
             if len <= INLINE_MAX {
                 let mut buf = [0u8; INLINE_MAX];
@@ -118,7 +126,7 @@ pub mod String_ {
     macro_rules! sprintf {
         ($($arg:tt)*) => {{
             let res = format!($($arg)*);
-            $crate::String_::stringFrom(res)
+            $crate::String_::fromString(res)
         }}
     }
 
@@ -126,7 +134,7 @@ pub mod String_ {
     macro_rules! kprintf {
         ($f:expr, $($arg:expr),+) => {{
             let res = format!($($arg),+);
-            $f($crate::String_::stringFrom(res))
+            $f($crate::String_::fromString(res))
         }}
     }
 
@@ -176,7 +184,7 @@ pub mod String_ {
 
     impl From<String> for string {
         fn from(s: String) -> Self {
-            stringFrom(s)
+            fromString(s)
         }
     }
 
@@ -240,12 +248,8 @@ pub mod String_ {
     // string implementation
     // -----------------------------------------------------------
 
-    pub fn stringFrom(s: String) -> string {
-        fromStr(&*s)
-    }
-
     pub fn toString<T: ToString>(o: T) -> string {
-        stringFrom(o.to_string())
+        fromString(o.to_string())
     }
 
     pub fn fromCharCode(code: u32) -> char {
@@ -319,47 +323,47 @@ pub mod String_ {
     }
 
     pub fn trim(s: string) -> string {
-        fromStr(s.trim())
+        fromSlice(s.trim())
     }
 
     pub fn trimChar(s: string, c: char) -> string {
-        fromStr(s.trim_matches(c))
+        fromSlice(s.trim_matches(c))
     }
 
     pub fn trimChars(s: string, a: Array<char>) -> string {
-        fromStr(s.trim_matches(a.as_slice()))
+        fromSlice(s.trim_matches(a.as_slice()))
     }
 
     pub fn trimEnd(s: string) -> string {
-        fromStr(s.trim_end())
+        fromSlice(s.trim_end())
     }
 
     pub fn trimEndChar(s: string, c: char) -> string {
-        fromStr(s.trim_end_matches(c))
+        fromSlice(s.trim_end_matches(c))
     }
 
     pub fn trimEndChars(s: string, a: Array<char>) -> string {
-        fromStr(s.trim_end_matches(a.as_slice()))
+        fromSlice(s.trim_end_matches(a.as_slice()))
     }
 
     pub fn trimStart(s: string) -> string {
-        fromStr(s.trim_start())
+        fromSlice(s.trim_start())
     }
 
     pub fn trimStartChar(s: string, c: char) -> string {
-        fromStr(s.trim_start_matches(c))
+        fromSlice(s.trim_start_matches(c))
     }
 
     pub fn trimStartChars(s: string, a: Array<char>) -> string {
-        fromStr(s.trim_start_matches(a.as_slice()))
+        fromSlice(s.trim_start_matches(a.as_slice()))
     }
 
     pub fn toLower(s: string) -> string {
-        stringFrom(s.to_lowercase())
+        fromString(s.to_lowercase())
     }
 
     pub fn toUpper(s: string) -> string {
-        stringFrom(s.to_uppercase())
+        fromString(s.to_uppercase())
     }
 
     pub fn concat(a: Array<string>) -> string {
@@ -368,11 +372,11 @@ pub mod String_ {
 
     pub fn join(sep: string, a: Array<string>) -> string {
         let v: Vec<&str> = a.iter().map(|s| s.as_str()).collect();
-        stringFrom(v.join(&sep))
+        fromString(v.join(&sep))
     }
 
     pub fn replace(s: string, old: string, new: string) -> string {
-        stringFrom(s.replace(old.as_str(), new.as_str()))
+        fromString(s.replace(old.as_str(), new.as_str()))
     }
 
     pub fn substring(s: string, i: i32) -> string {
@@ -537,7 +541,7 @@ pub mod String_ {
         if (count >= 0) {
             a = a.into_iter().take(count as usize).collect()
         }
-        let a = a.into_iter().map(|s| fromStr(s)).collect();
+        let a = a.into_iter().map(|s| fromSlice(s)).collect();
         arrayFrom(a)
     }
 
@@ -629,7 +633,7 @@ pub mod String_ {
     }
 
     pub fn replicate(count: i32, s: string) -> string {
-        // stringFrom(s.repeat(count as usize))
+        // fromString(s.repeat(count as usize))
         fromIter(core::iter::repeat(&s).take(count as usize).flat_map(|s| s.chars()))
     }
 }
