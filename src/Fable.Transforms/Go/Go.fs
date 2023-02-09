@@ -3,6 +3,10 @@
 // - https://nakabonne.dev/posts/take-a-walk-the-go-ast/
 // - https://yuroyoro.github.io/goast-viewer/index.html
 // - https://astexplorer.net/
+//
+// Currently a bit heavyliy usage of F# record types, but this is to
+// make it closer to the Go AST. At least to begin with.
+
 namespace rec Fable.AST.Go
 
 // fsharplint:disable MemberNames InterfaceNames
@@ -1016,6 +1020,11 @@ module GoExtensions =
         static member ident(name, ?obj, ?loc) =
             Ident name
 
+        static member selector (x, sel, ?loc) =
+            SelectorExpr
+                { X = x
+                  Sel = sel }
+
         static member slice (x, ?low, ?high, ?max, ?slice3, ?loc) =
             SliceExpr
                 { X = x
@@ -1070,7 +1079,7 @@ module GoExtensions =
               Unresolved = [] }
 
     type FuncType with
-        static member funcType (args, results, ?typeParams, ?loc) =
+        static member funcType (args, ?results, ?typeParams, ?loc) =
             { Func = loc
               Params = args
               Results = results

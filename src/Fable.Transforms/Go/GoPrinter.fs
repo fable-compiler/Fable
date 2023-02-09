@@ -126,7 +126,9 @@ module PrinterExtensions =
             printer.Print("BadExpr")
 
         member printer.Print(expr: BasicLit) =
-            printer.Print("BasicLit")
+            match expr.Kind with
+            | Token.String -> printer.Print("\"" + expr.Value + "\"")
+            | _ -> printer.Print(expr.Value)
 
         member printer.Print(expr: FuncLit) =
             printer.Print("FuncLit")
@@ -183,6 +185,23 @@ module PrinterExtensions =
             printer.Print(expr.X)
             printer.Print(expr.Op)
             printer.Print(expr.Y)
+
+        member printer.Print(fields: FieldList ) =
+            printer.Print("(")
+            printer.PrintCommaSeparatedList(fields.List)
+            printer.Print(")")
+
+        member printer.Print(field: Field) =
+            printer.PrintCommaSeparatedList(field.Names)
+            printer.PrintOptional(field.Type)
+            // printer.PrintOptional(field.Tag)
+            // printer.Print(field.Comment)
+
+        member printer.Print(spec: Spec) =
+            match spec with
+            | ValueSpec spec -> printer.Print(spec)
+            | TypeSpec spec -> printer.Print(spec)
+            | ImportSpec spec -> printer.Print(spec)
 
         member printer.Print(node: EmitExpr) =
             let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
@@ -289,7 +308,21 @@ module PrinterExtensions =
                 printer.Print(" ")
 
             printer.Print(spec.Path)
+            printer.PrintNewLine()
 
+        member printer.Print(spec: TypeSpec) =
+            if spec.Name.IsSome then
+                printer.Print(spec.Name.Value)
+                printer.Print(" ")
+            printer.Print(spec.Type)
+
+        member printer.Print(spec: ValueSpec) =
+            printer.PrintCommaSeparatedList(spec.Names)
+            if spec.Type.IsSome then
+                printer.Print(" ")
+                printer.Print(spec.Type.Value)
+            printer.Print(" = ")
+            printer.PrintCommaSeparatedList(spec.Values)
 
         member printer.Print(decl: Decl) =
             match decl with
@@ -379,7 +412,13 @@ module PrinterExtensions =
         member printer.PrintCommaSeparatedList(nodes: Expr list) =
             printer.PrintList(nodes, (fun p x -> printer.Print(x)), (fun p -> p.Print(", ")))
 
+        member printer.PrintCommaSeparatedList(nodes: Field list) =
+            printer.PrintList(nodes, (fun p x -> printer.Print(x)), (fun p -> p.Print(", ")))
+
         member printer.PrintCommaSeparatedList(nodes: Ident list) =
+            printer.PrintList(nodes, (fun p x -> printer.Print(x)), (fun p -> p.Print(", ")))
+
+        member printer.PrintCommaSeparatedList(nodes: Spec list) =
             printer.PrintList(nodes, (fun p x -> printer.Print(x)), (fun p -> p.Print(", ")))
 
         member printer.WithParens(expr: Expr) =
@@ -420,17 +459,28 @@ module PrinterExtensions =
         //     printer.ComplexExpressionWithParens(right)
 
         member printer.Print(decl: FuncDecl) =
-            printer.Print("def ")
+            printer.Print("func ")
             printer.Print(decl.Name)
             printer.Print("(")
-            //printer.Print(decl.Args)
-            printer.Print("):")
+            if decl.Recv.IsSome then
+                printer.Print(decl.Recv.Value)
+            printer.Print(") {")
+            printer.PushIndentation()
 
             if decl.Body.IsSome then
                 printer.PrintBlock(decl.Body.Value)
+            printer.PopIndentation()
+            printer.Print("}")
 
         member printer.Print(decl: GenDecl) =
-            printer.Print("GenDecl")
+            match decl.Tok with
+            | Token.Const -> printer.Print("const")
+            | Token.Var -> printer.Print("var")
+            | Token.Type -> printer.Print("type")
+            | _ -> printer.Print($"GenDecl: unknown token: {decl.Tok}")
+
+            printer.Print(" ")
+            printer.PrintCommaSeparatedList(decl.Specs)
 
         member printer.Print(decl: BadDecl) =
             printer.Print("BadDecl")

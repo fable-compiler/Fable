@@ -199,8 +199,21 @@ let buildLibraryTsIfNotExists() =
         buildLibraryTs()
 
 let buildLibraryGo() =
+    let libraryDir = "src/fable-library-go"
     let buildDirGo = "build/fable-library-go"
+
     cleanDirs [buildDirGo]
+
+    // runFableWithArgsInDir sourceDir [
+    //     "--outDir " + resolveDir outDir
+    //     "--fableLib " + fableLib
+    //     "--lang Rust"
+    //     "--exclude Fable.Core"
+    //     "--define FABLE_LIBRARY"
+    //     "--noCache"
+    // ]
+
+    copyFiles libraryDir "*" buildDirGo
 
 let buildLibraryGoIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-go")) then

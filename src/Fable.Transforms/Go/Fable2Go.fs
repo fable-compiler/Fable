@@ -1114,23 +1114,20 @@ module Util =
             |> Expr.ident
 
     let get (com: IGoCompiler) ctx r left memberName subscript =
-        // printfn "get: %A" (memberName, subscript)
-        // match subscript with
-        // | true ->
-        //     let expr = Expression.constant memberName
-        //     Expression.subscript (value = left, slice = expr, ctx = Load)
-        // | _ ->
-        //     let expr = com.GetIdentifier(ctx, memberName)
-        //     Expression.attribute (value = left, attr = expr, ctx = Load)
-        failwith "get"
+        printfn "get: %A" (memberName, subscript)
+        let expr = Expr.ident memberName
+        match subscript with
+        | true ->
+             failwith "get: subscript"
+        | _ ->
+             let ident = com.GetIdentifier(ctx, memberName)
+             Expr.selector(expr, ident)
 
     let getExpr com ctx r (object: Expr) (expr: Expr) =
-        // match expr with
-        // | Expression.Constant (value = name) when (name :? string) ->
-        //     let name = name :?> string |> Identifier
-        //     Expression.attribute (value = object, attr = name, ctx = Load), []
-        // | e -> Expression.subscript (value = object, slice = e, ctx = Load), []
-        failwith "getExpr"
+        match expr with
+        | Expr.Ident(ident) ->
+             Expr.selector(object, ident), []
+        | e -> failwith $"getExpr: {e}"
 
     let rec getParts com ctx (parts: string list) (expr: Expr) =
         match parts with
@@ -1359,7 +1356,7 @@ module Util =
         //             VarArg = Some { args.Args[len - 1] with Annotation = None }
         //             Args = args.Args[.. len - 2] }
 
-        args, body, returnType
+        args, BlockStmt.block body, returnType
 
     let getUnionCaseName (uci: Fable.UnionCase) =
         match uci.CompiledName with
@@ -1431,7 +1428,7 @@ module Util =
     //         Expr.basicLit ident, [ func ]
         failwith "makeArrowFunctionExpression"
 
-    let createFunction name args (body: BlockStmt) decoratorList returnType =
+    let createFunction name args (body: BlockStmt) decoratorList (returnType: Expr) =
         // let (|Awaitable|_|) expr =
         //     match expr with
         //     | Expression.Call { Func=Expression.Attribute {Value=Expression.Name {Id=Identifier "_builder"}; Attr=Identifier "Run" }} ->
@@ -1468,7 +1465,7 @@ module Util =
         // | true, Subscript {Slice=returnType} ->
         //     let body' = replace body
         //     Statement.asyncFunctionDef (name = name, args = args, body = body', decoratorList = decoratorList, returns = returnType)
-        | _ -> Stmt.funcDecl(name = name, typ=returnType, recv = args, body = body)
+        | _ -> Stmt.empty //funcDecl(name = name, typ=returnType, recv = args, body = body)
 
     let makeFunction name (args: FieldList, body: Expr, decoratorList, returnType) : Stmt =
         printfn "makeFunction: %A" name
@@ -1995,7 +1992,7 @@ module Util =
         emitExpression range macro args, stmts @ stmts'
 
     let transformCall (com: IGoCompiler) ctx range callee (callInfo: Fable.CallInfo) : Expr * Stmt list =
-        // printfn "transformCall: %A" (callee, callInfo)
+        printfn "transformCall: %A" (callee, callInfo)
         let callee', stmts = com.TransformAsExpr(ctx, callee)
 
         let args, kw, stmts' = transformCallArgs com ctx range (CallInfo callInfo)
@@ -2017,10 +2014,9 @@ module Util =
         //     @ stmts' @ stmts''
         //| Fable.Get (_, Fable.FieldGet { Name = "sort" }, _, _), _ -> callFunction range callee' [] kw, stmts @ stmts'
 
-        //| _, Some (TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg :: args) kw, stmts @ stmts' @ stmts''
-        //| _, None when List.contains "new" callInfo.Tags -> Expr.call(callee', args, kw, ?lparen = range), stmts @ stmts'
-        //| _, None -> callFunction range callee' args kw, stmts @ stmts'
-        | _ -> failwithf $"Unsupported call: {callee}"
+        | _, Some (TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg :: args) kw, stmts @ stmts' @ stmts''
+        | _, None when List.contains "new" callInfo.Tags -> Expr.call(callee', args, ?lparen = range), stmts @ stmts'
+        | _, None -> callFunction range callee' args kw, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
         match transformCallArgs com ctx range (NoCallInfo args) with
@@ -3283,12 +3279,16 @@ module Util =
     //
     //     Statement.if' (test, main)
 
-    let declareModuleMember (com: IGoCompiler) ctx isPublic (membName: Ident) typ (expr: Expr) =
+    let declareModuleMember (com: IGoCompiler) ctx isPublic (membName: Ident) typ (expr: Expr) : Decl =
         printfn $"Declaring module member %s{membName.Name}"
         let name = membName.Name
 
         let name = membName
-        varDeclaration ctx name typ expr
+        let stmts = varDeclaration ctx name typ expr
+        printfn "stmts: %A" stmts
+        match stmts with
+        | [ Stmt.DeclStmt { Decl=decl } ] -> decl
+        | _ -> failwith "Unexpected module member declaration"
 
     let makeEntityTypeParamDecl (com: IGoCompiler) ctx (ent: Fable.Entity) =
         getEntityGenParams ent
@@ -3462,23 +3462,27 @@ module Util =
     //     stmts
     //     @ typeDeclaration @ reflectionDeclaration
 
-    let transformModuleFunction (com: IGoCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) args body =
+    let transformModuleFunction (com: IGoCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) args body : Decl =
         printfn "transformModuleFunction: %A" membName
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
         let name = com.GetIdentifier(ctx, membName)
-        let stmt = Stmt.empty // createFunction name args body' [] returnType
-        let expr = Expr.basicLit name
+        //let stmt = createFunction name args body' [] returnType
+        //let expr = Expr.basicLit name.Name
 
-        info.Attributes
-        |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
-        |> function
-            | true ->
-                //[ stmt; declareEntryPoint com ctx expr ]
-                failwith "Entry point not supported"
-            | false ->
-                [ stmt ]
+        // info.Attributes
+        // |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
+        // |> function
+        //     | true ->
+        //         //[ stmt; declareEntryPoint com ctx expr ]
+        //         [ stmt ]
+        //     | false ->
+        //         [ stmt ]
+
+        let results = FieldList.fieldList [ Field.field([], returnType) ]
+        let typ = FuncType.funcType(args, results=results)
+        Decl.funcDecl(name, typ=typ, recv=args, body=body')
 
     // let transformAction (com: IGoCompiler) ctx expr =
     //     let statements = transformAsStatements com ctx None expr
@@ -3828,18 +3832,17 @@ module Util =
             <| fun ctx ->
                 let info = com.GetMember(decl.MemberRef)
 
-                let decls =
+                let decl =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
-                        stmts
-                        @ declareModuleMember com ctx info.IsPublic name (Some ta) value
+                        declareModuleMember com ctx info.IsPublic name (Some ta) value
                     else
                         transformModuleFunction com ctx info decl.Name decl.Args decl.Body
-                printfn "decls: %A" decls
-                [ (* Decl.funcDecl(Ident.ident decl.Name, body=BlockStmt.block decls) *) ]
+                printfn "decls: %A" decl
+                [ decl ]
 
         // | Fable.ClassDeclaration decl ->
         //     // printfn "Class: %A" decl
@@ -4055,6 +4058,7 @@ module Compiler =
 
         //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
+        printfn "rootDecls: %A" rootDecls
         let importSpecs = com.GetAllImports() |> transformImports com
         let name = Ident.ident "fable"
 

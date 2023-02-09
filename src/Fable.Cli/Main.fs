@@ -730,6 +730,9 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
             | (JavaScript | TypeScript), exeFile ->
                 File.tryNodeModulesBin workingDir exeFile
                 |> Option.defaultValue exeFile, runProc.Args
+            | Go, Naming.placeholder ->
+                let lastFilePath = findLastFileRelativePath()
+                "go", "run"::lastFilePath::runProc.Args
             | _, exeFile -> exeFile, runProc.Args
 
         if Option.isSome state.Watcher then
