@@ -1015,157 +1015,187 @@ let ``Convert.FromBase64String works`` () =
 // System.BitConverter
 //-------------------------------------
 
-// [<Fact>]
-// let ``BitConverter.IsLittleEndian works`` () =
-//     BitConverter.IsLittleEndian |> equal true
+[<Fact>]
+let ``BitConverter.IsLittleEndian works`` () =
+    BitConverter.IsLittleEndian |> equal true
 
-// [<Fact>]
-// let ``BitConverter.GetBytes Boolean works`` () =
-//     let value = true
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 1uy |]
+[<Fact>]
+let ``BitConverter.GetBytes Boolean works`` () =
+    let value = true
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 1uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes Char works`` () =
-//     let value = 'A'
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 65uy; 0uy |]
+[<Fact>]
+let ``BitConverter.GetBytes Char works`` () =
+    let value = 'A'
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 65uy; 0uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes Int16 works`` () =
-//     let value = 0x0102s
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 2uy; 1uy |]
+[<Fact>]
+let ``BitConverter.GetBytes Int16 works`` () =
+    let value = 0x0102s
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 2uy; 1uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes Int32 works`` () =
-//     let value = 0x01020304
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 4uy; 3uy; 2uy; 1uy |]
+[<Fact>]
+let ``BitConverter.GetBytes Int32 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 4uy; 3uy; 2uy; 1uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes Int64 works`` () =
-//     let value = 0x0102030405060708L
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 8uy; 7uy; 6uy; 5uy; 4uy; 3uy; 2uy; 1uy |]
+[<Fact>]
+let ``BitConverter.GetBytes Int64 works`` () =
+    let value = 0x0102030405060708L
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 8uy; 7uy; 6uy; 5uy; 4uy; 3uy; 2uy; 1uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes UInt16 works`` () =
-//     let value = 0xFF02us
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 2uy; 255uy |]
+[<Fact>]
+let ``BitConverter.GetBytes UInt16 works`` () =
+    let value = 0xFF02us
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 2uy; 255uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes UInt32 works`` () =
-//     let value = 0xFF020304u
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 4uy; 3uy; 2uy; 255uy |]
+[<Fact>]
+let ``BitConverter.GetBytes UInt32 works`` () =
+    let value = 0xFF020304u
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 4uy; 3uy; 2uy; 255uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes UInt64 works`` () =
-//     let value = 0xFF02030405060708UL
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 8uy; 7uy; 6uy; 5uy; 4uy; 3uy; 2uy; 255uy |]
+[<Fact>]
+let ``BitConverter.GetBytes UInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 8uy; 7uy; 6uy; 5uy; 4uy; 3uy; 2uy; 255uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes Single works`` () =
-//     let value = 1.0f
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 0uy; 0uy; 128uy; 63uy |]
+[<Fact>]
+let ``BitConverter.GetBytes Single works`` () =
+    let value = 1.0f
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 0uy; 0uy; 128uy; 63uy |]
 
-// [<Fact>]
-// let ``BitConverter.GetBytes Double works`` () =
-//     let value = 1.0
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 63uy |]
+[<Fact>]
+let ``BitConverter.GetBytes Double works`` () =
+    let value = 1.0
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 63uy |]
 
-// [<Fact>]
-// let ``BitConverter.Int64BitsToDouble works`` () =
-//     let f = BitConverter.Int64BitsToDouble(1L)
-//     f |> equal 4.9406564584124654E-324
+[<Fact>]
+let ``BitConverter.Int64BitsToDouble works`` () =
+    let f = BitConverter.Int64BitsToDouble(1L)
+    f |> equal 4.9406564584124654E-324
 
-// [<Fact>]
-// let ``BitConverter.DoubleToInt64Bits works`` () =
-//     let i = BitConverter.DoubleToInt64Bits(1.0)
-//     i |> equal 4607182418800017408L
+[<Fact>]
+let ``BitConverter.DoubleToInt64Bits works`` () =
+    let i = BitConverter.DoubleToInt64Bits(1.0)
+    i |> equal 4607182418800017408L
 
-// [<Fact>]
-// let ``BitConverter.ToBoolean works`` () =
-//     let value = true
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToBoolean(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.UInt64BitsToDouble works`` () =
+    let f = BitConverter.UInt64BitsToDouble(1uL)
+    f |> equal 4.9406564584124654E-324
 
-// [<Fact>]
-// let ``BitConverter.ToChar works`` () =
-//     let value = 'A'
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToChar(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.DoubleToUInt64Bits works`` () =
+    let i = BitConverter.DoubleToUInt64Bits(1.0)
+    i |> equal 4607182418800017408uL
 
-// [<Fact>]
-// let ``BitConverter.ToInt16 works`` () =
-//     let value = 0x0102s
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToInt16(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.Int32BitsToSingle works`` () =
+    let f = BitConverter.Int32BitsToSingle(1)
+    f |> equal 1.40129846E-45f
 
-// [<Fact>]
-// let ``BitConverter.ToInt32 works`` () =
-//     let value = 0x01020304
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToInt32(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.SingleToInt32Bits works`` () =
+    let i = BitConverter.SingleToInt32Bits(1.0f)
+    i |> equal 1065353216
 
-// [<Fact>]
-// let ``BitConverter.ToInt64 works`` () =
-//     let value = 0x0102030405060708L
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToInt64(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.UInt32BitsToSingle works`` () =
+    let f = BitConverter.UInt32BitsToSingle(1u)
+    f |> equal 1.40129846E-45f
 
-// [<Fact>]
-// let ``BitConverter.ToUInt16 works`` () =
-//     let value = 0xFF02us
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToUInt16(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.SingleToUInt32Bits works`` () =
+    let i = BitConverter.SingleToUInt32Bits(1.0f)
+    i |> equal 1065353216u
 
-// [<Fact>]
-// let ``BitConverter.ToUInt32 works`` () =
-//     let value = 0xFF020304u
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToUInt32(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.ToBoolean works`` () =
+    let value = true
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToBoolean(bytes, 0) |> equal value
 
-// [<Fact>]
-// let ``BitConverter.ToUInt64 works`` () =
-//     let value = 0xFF02030405060708UL
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToUInt64(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.ToChar works`` () =
+    let value = 'A'
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToChar(bytes, 0) |> equal value
 
-// [<Fact>]
-// let ``BitConverter.ToSingle works`` () =
-//     let value = 1.0f
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToSingle(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.ToInt16 works`` () =
+    let value = 0x0102s
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt16(bytes, 0) |> equal value
 
-// [<Fact>]
-// let ``BitConverter.ToDouble works`` () =
-//     let value = 1.0
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToDouble(bytes, 0) |> equal value
+[<Fact>]
+let ``BitConverter.ToInt32 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt32(bytes, 0) |> equal value
 
-// [<Fact>]
-// let ``BitConverter.ToString works`` () =
-//     let value = 0x01020304
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToString(bytes) |> equal "04-03-02-01"
+[<Fact>]
+let ``BitConverter.ToInt64 works`` () =
+    let value = 0x0102030405060708L
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt64(bytes, 0) |> equal value
 
-// [<Fact>]
-// let ``BitConverter.ToString 2 works`` () =
-//     let value = 0x01020304
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToString(bytes, 1) |> equal "03-02-01"
+[<Fact>]
+let ``BitConverter.ToUInt16 works`` () =
+    let value = 0xFF02us
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt16(bytes, 0) |> equal value
 
-// [<Fact>]
-// let ``BitConverter.ToString 3 works`` () =
-//     let value = 0x01020304
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
+[<Fact>]
+let ``BitConverter.ToUInt32 works`` () =
+    let value = 0xFF020304u
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt32(bytes, 0) |> equal value
+
+[<Fact>]
+let ``BitConverter.ToUInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt64(bytes, 0) |> equal value
+
+[<Fact>]
+let ``BitConverter.ToSingle works`` () =
+    let value = 1.0f
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToSingle(bytes, 0) |> equal value
+
+[<Fact>]
+let ``BitConverter.ToDouble works`` () =
+    let value = 1.0
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToDouble(bytes, 0) |> equal value
+
+[<Fact>]
+let ``BitConverter.ToString works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes) |> equal "04-03-02-01"
+
+[<Fact>]
+let ``BitConverter.ToString 2 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes, 1) |> equal "03-02-01"
+
+[<Fact>]
+let ``BitConverter.ToString 3 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
 //-------------------------------------
 // System.Numerics.BigInteger

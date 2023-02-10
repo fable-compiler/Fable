@@ -2222,19 +2222,15 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
         let memberName =
             match args.Head.Type with
             | Boolean -> "getBytesBoolean"
-            | Char | String -> "getBytesChar"
-            | Number(Int16,_) -> "getBytesInt16"
-            | Number(Int32,_) -> "getBytesInt32"
-            | Number(UInt16,_) -> "getBytesUInt16"
-            | Number(UInt32,_) -> "getBytesUInt32"
-            | Number(Float32,_) -> "getBytesSingle"
-            | Number(Float64,_) -> "getBytesDouble"
-            | Number(Int64,_) -> "getBytesInt64"
-            | Number(UInt64,_) -> "getBytesUInt64"
+            | Char -> "getBytesChar"
+            | Number(kind, _) -> "getBytes" + kind.ToString()
             | x -> FableError $"Unsupported type in BitConverter.GetBytes(): %A{x}" |> raise
         let expr = Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r)
         if com.Options.TypedArrays then expr |> Some
         else toArray com t expr |> Some // convert to dynamic array
+    | "ToString" ->
+        let memberName = "toString" + args.Length.ToString()
+        Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
         Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some

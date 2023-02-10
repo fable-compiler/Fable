@@ -4,13 +4,13 @@ open Fable.Core.Rust
 
 let _imports() =
     importAll "./Async.rs"
+    importAll "./BigInt.rs"
+    importAll "./BitConverter.rs"
     importAll "./Convert.rs"
-    importAll "./Encoding.rs"
     importAll "./DateTime.rs"
     importAll "./DateTimeOffset.rs"
-    importAll "./TimeSpan.rs"
     importAll "./Decimal.rs"
-    importAll "./BigInt.rs"
+    importAll "./Encoding.rs"
     importAll "./Float.rs"
     importAll "./Func.rs"
     importAll "./Guid.rs"
@@ -19,4 +19,5 @@ let _imports() =
     importAll "./Interop.rs"
     importAll "./Native.rs"
     importAll "./String.rs"
+    importAll "./TimeSpan.rs"
     ()
