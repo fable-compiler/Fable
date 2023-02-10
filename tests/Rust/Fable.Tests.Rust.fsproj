@@ -58,7 +58,7 @@
     <!-- <Compile Include="tests/src/RegexTests.fs" /> -->
     <Compile Include="tests/src/ResizeArrayTests.fs" />
     <Compile Include="tests/src/ResultTests.fs" />
-    <!-- <Compile Include="tests/src/SeqExpressionTests.fs" /> -->
+    <Compile Include="tests/src/SeqExpressionTests.fs" />
     <Compile Include="tests/src/SeqTests.fs" />
     <Compile Include="tests/src/SetTests.fs" />
     <Compile Include="tests/src/StackTests.fs" />
