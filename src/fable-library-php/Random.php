@@ -4,7 +4,8 @@ namespace Random;
 
 class Random
 {
-    public function __get(string $propName): mixed
+    #[\ReturnTypeWillChange]
+    public function __get(string $propName)
     {
         switch($propName) {
             case "Next0":
