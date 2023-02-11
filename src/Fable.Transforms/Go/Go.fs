@@ -444,7 +444,9 @@ type BadExpr =
 
 /// An Ident node represents an identifier.
 type Ident =
-    { /// Identifier position
+    { /// import path of the package that defines identifier; or nil (Fable specific)
+      ImportModule: string option
+      /// Identifier position
       NamePos: SourceLocation option
       /// Identifier name
       Name: string
@@ -828,8 +830,9 @@ module GoExtensions =
         static member byte = ArrayType.arrayType(Expr.ident("byte"))
 
     type Ident with
-        static member ident(name, ?obj, ?namePos) =
-            { NamePos = namePos
+        static member ident(name, ?importModule, ?obj, ?namePos) =
+            { ImportModule = importModule
+              NamePos = namePos
               Name = name
               Obj = obj }
 
@@ -1011,14 +1014,15 @@ module GoExtensions =
                 { Type = FuncType.funcType (args, results, ?loc=loc)
                   Body = body }
 
-        static member ident(name, ?obj, ?loc) =
+        static member ident(name, ?importModule, ?obj, ?loc) =
             Ident
-                { NamePos = loc
+                { ImportModule = importModule
+                  NamePos = loc
                   Name = name
                   Obj = obj }
 
-        static member ident(name, ?obj, ?loc) =
-            Ident name
+        static member ident(name, ?importModule, ?obj, ?loc) =
+            Ident { name with ImportModule = importModule; Obj = obj }
 
         static member selector (x, sel, ?loc) =
             SelectorExpr
@@ -1086,9 +1090,13 @@ module GoExtensions =
               TypeParams = typeParams }
 
     type ImportSpec with
-        static member importSpec (path, ?name, ?doc, ?comment, ?endPos) =
+        static member importSpec (path: string, ?name, ?doc, ?comment, ?endPos) =
             { Doc = doc
               Name = name
               Path = path |> BasicLit.basicLit
               Comment = comment
               EndPos = endPos }
+
+        static member importSpec(path: string, ?name, ?doc, ?comment, ?endPos) =
+            let name = name |> Option.map Ident.ident
+            ImportSpec.importSpec (path, ?name=name, ?doc=doc, ?comment=comment, ?endPos=endPos)

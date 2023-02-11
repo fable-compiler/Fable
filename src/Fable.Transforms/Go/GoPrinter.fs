@@ -42,7 +42,7 @@ module PrinterExtensions =
             printer.Print("DeclStmt")
 
         member printer.Print(stmt: ExprStmt) =
-            printer.Print("ExprStmt")
+            printer.Print(stmt.X)
 
         member printer.Print(stmt: SendStmt) =
             printer.Print("SendStmt")
@@ -127,7 +127,8 @@ module PrinterExtensions =
 
         member printer.Print(expr: BasicLit) =
             match expr.Kind with
-            | Token.String -> printer.Print("\"" + expr.Value + "\"")
+            | Token.String ->
+                printer.Print("\"" + expr.Value + "\"")
             | _ -> printer.Print(expr.Value)
 
         member printer.Print(expr: FuncLit) =
@@ -187,12 +188,11 @@ module PrinterExtensions =
             printer.Print(expr.Y)
 
         member printer.Print(fields: FieldList ) =
-            printer.Print("(")
             printer.PrintCommaSeparatedList(fields.List)
-            printer.Print(")")
 
         member printer.Print(field: Field) =
             printer.PrintCommaSeparatedList(field.Names)
+            printer.Print(" ")
             printer.PrintOptional(field.Type)
             // printer.PrintOptional(field.Tag)
             // printer.Print(field.Comment)
@@ -286,8 +286,11 @@ module PrinterExtensions =
             printer.Print(": ")
             printer.Print(expr.Value)
 
-        member printer.Print(node: Ident) =
-            printer.Print(node.Name)
+        member printer.Print(ident: Ident) =
+            match ident.ImportModule with
+            | None -> ()
+            | Some p -> printer.Print(p + ".")
+            printer.Print(ident.Name)
 
         member printer.Print(node: Token) =
             let op =
@@ -303,9 +306,11 @@ module PrinterExtensions =
 
         member printer.Print(spec: ImportSpec) =
             printer.Print("import ")
-            if spec.Name.IsSome then
-                printer.Print(spec.Name.Value)
+            match spec.Name with
+            | Some { Name = name } when name <> spec.Path.Value ->
+                printer.Print(name)
                 printer.Print(" ")
+            | _ -> ()
 
             printer.Print(spec.Path)
             printer.PrintNewLine()
@@ -329,19 +334,6 @@ module PrinterExtensions =
             | BadDecl decl -> printer.Print(decl)
             | FuncDecl decl -> printer.Print(decl)
             | GenDecl decl -> printer.Print(decl)
-
-        member printer.Print(node: File) =
-            printer.Print("package ")
-            printer.Print(node.Name)
-            printer.PrintNewLine()
-
-            for import in node.Imports do
-                printer.Print(import)
-                printer.PrintNewLine()
-
-            for decl in node.Decls do
-                printer.Print(decl)
-                printer.PrintNewLine()
 
         member printer.PrintBlock(nodes: 'a list, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
@@ -501,13 +493,18 @@ let printLine (printer: Printer) (line: string) =
 
 let isEmpty (program: File) : bool = false //TODO: determine if printer will not print anything
 
+
 let run writer (program: File) : Async<unit> =
     async {
-        use printerImpl = new PrinterImpl(writer)
+        use printerImpl = new PrinterImpl(writer, indent="\t")
         let printer = printerImpl :> Printer
 
-        let imports = program.Imports
+        printer.Print("package ")
+        printer.Print(program.Name)
+        printer.PrintNewLine()
+        printer.PrintNewLine()
 
+        let imports = program.Imports
         for spec in imports do
             match spec with
             | { Name=name; Path={Value=path}} as info ->

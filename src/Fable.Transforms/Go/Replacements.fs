@@ -2736,12 +2736,10 @@ let log (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
         match args with
         | [] -> []
         | [ v ] -> [ v ]
-        | (StringConst _) :: _ -> [ Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes) ]
+        | StringConst _ :: _ -> [ Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes) ]
         | _ -> [ args.Head ]
 
-    match com.Options.Language with
-    | Python -> Helper.GlobalCall("print", t, args, ?loc = r)
-    | _ -> Helper.GlobalCall("console", t, args, memb = "log", ?loc = r)
+    Helper.ImportedCall("fmt", "Println", t, args, i.SignatureArgTypes)
 
 let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with

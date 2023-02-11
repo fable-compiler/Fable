@@ -6,7 +6,7 @@ open System.Collections.Generic
 open Fable
 open Fable.AST
 open Fable.AST.Go
-open Fable.Py
+open Fable.Go
 open Fable.Transforms
 
 type ReturnStrategy =
@@ -490,6 +490,7 @@ module Helpers =
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
+        printfn "******* cleaning %s" name
         (name, Naming.NoMemberPart)
         ||> Naming.sanitizeIdent (fun _ -> false)
 
@@ -688,9 +689,9 @@ module Annotation =
                 com.AddTypeVar(ctx, name), []
             | _ -> failwithf "Unknown generic parameter: %s" name
         | Fable.Unit -> Expr.nil, []
-        | Fable.Boolean -> Expr.basicLit "bool", []
-        | Fable.Char -> Expr.basicLit "str", []
-        | Fable.String -> Expr.basicLit "str", []
+        | Fable.Boolean -> Expr.ident "bool", []
+        | Fable.Char -> Expr.ident "char", []
+        | Fable.String -> Expr.ident "string", []
         | Fable.Number (kind, info) -> makeNumberTypeAnnotation com ctx kind info
         // | Fable.LambdaType (argType, returnType) ->
         //     let argTypes, returnType = FableTransforms.uncurryLambdaType [ argType ] returnType
@@ -700,14 +701,17 @@ module Annotation =
         // | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
         | Fable.Array (genArg, _) ->
             match genArg with
-            | Fable.Type.Number (UInt8, _) -> Expr.basicLit "bytearray", []
-            | Fable.Type.Number (Int8, _)
-            | Fable.Type.Number (Int16, _)
-            | Fable.Type.Number (UInt16, _)
-            | Fable.Type.Number (Int32, _)
-            | Fable.Type.Number (UInt32, _)
-            | Fable.Type.Number (Float32, _)
-            | Fable.Type.Number (Float64, _)
+            | Fable.Type.Number (UInt8, _) -> Expr.ident "[]byte", []
+            | Fable.Type.Number (Int8, _) -> Expr.ident "[]int8", []
+            | Fable.Type.Number (Int16, _) -> Expr.ident "[]int16", []
+            | Fable.Type.Number (UInt16, _) -> Expr.ident "[]uint16", []
+            | Fable.Type.Number (Int32, _) -> Expr.ident "[]int32", []
+            | Fable.Type.Number (UInt32, _) -> Expr.ident "[]uint32", []
+            | Fable.Type.Number (Float32, _) -> Expr.ident "[]float32", []
+            | Fable.Type.Number (Float64, _) -> Expr.ident "[]float64", []
+            | Fable.Type.Number (Int64, _) -> Expr.ident "[]int64", []
+            | Fable.Type.Number (UInt64, _) -> Expr.ident "[]uint64", []
+            | Fable.Type.String  -> Expr.ident "[]string", []
             | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
@@ -1115,13 +1119,12 @@ module Util =
 
     let get (com: IGoCompiler) ctx r left memberName subscript =
         printfn "get: %A" (memberName, subscript)
-        let expr = Expr.ident memberName
+        let ident = com.GetIdentifier(ctx, memberName)
         match subscript with
         | true ->
              failwith "get: subscript"
         | _ ->
-             let ident = com.GetIdentifier(ctx, memberName)
-             Expr.selector(expr, ident)
+             Expr.selector(left, ident)
 
     let getExpr com ctx r (object: Expr) (expr: Expr) =
         match expr with
@@ -2719,7 +2722,7 @@ module Util =
         | Fable.IdentExpr id -> identAsExpr com ctx id, []
 
         | Fable.Import ({ Selector = selector; Path = path }, _, r) ->
-            // printfn "Fable.Import: %A" (selector, path)
+            printfn "Fable.Import: %A" (selector, path)
             transformImport com ctx r selector path, []
 
         // | Fable.Test (expr, kind, range) -> transformTest com ctx range kind expr
@@ -3304,7 +3307,7 @@ module Util =
         |> Seq.map (fun field ->
             let name =
                 (Naming.toSnakeCase field.Name, Naming.NoMemberPart)
-                ||> Naming.sanitizeIdent Naming.pyBuiltins.Contains
+                ||> Naming.sanitizeIdent Naming.goBuiltins.Contains
 
             let typ = field.FieldType
 
@@ -3912,11 +3915,11 @@ module Util =
         imports
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
-        // printfn "getIdentForImport: %A" (moduleName, name)
+        printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)
-            |> Ident.ident
+            |> (fun ident -> Ident.ident(ident, importModule=moduleName))
             |> Some
         | Some name ->
             match name with
@@ -3925,7 +3928,7 @@ module Util =
             | _ -> name
             |> Naming.toSnakeCase
             |> getUniqueNameInRootScope ctx
-            |> Ident.ident
+            |> (fun ident -> Ident.ident(ident, importModule=moduleName))
             |> Some
 
 module Compiler =
@@ -3942,20 +3945,21 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
-                // printfn "GetImportExpr: %A" (moduleName, name)
+                printfn "GetImportExpr: %A" (moduleName, name)
+                let moduleFileName = Path.GetFileNameWithoutExtension(moduleName)
                 let cachedName = moduleName + "::" + defaultArg name "module"
 
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
                     match i.Name with
-                    | Some localIdent -> Expr.ident localIdent
+                    | Some localIdent -> Expr.ident(localIdent, moduleName)
                     | None -> Expr.nil
                 | false, _ ->
                     let local_id = getIdentForImport ctx moduleName name
                     match name with
                     | Some "*"
                     | None ->
-                        let i = ImportSpec.importSpec(path=moduleName, ?name=local_id)
+                        let i = ImportSpec.importSpec(path=moduleName, name=moduleFileName)
                         imports.Add(cachedName, i)
                     | Some name ->
                         let name =
@@ -3967,11 +3971,11 @@ module Compiler =
                             else
                                 name
                             |> Some
-                        let i = ImportSpec.importSpec(path=moduleName, ?name=local_id)
+                        let i = ImportSpec.importSpec(path=moduleName, name=moduleFileName)
                         imports.Add(cachedName, i)
 
                     match local_id with
-                    | Some localId -> Expr.ident localId
+                    | Some localId -> Expr.ident(localId, moduleName)
                     | None -> Expr.nil
 
             member _.GetAllImports() : ImportSpec list =
@@ -4032,7 +4036,6 @@ module Compiler =
     let makeCompiler com = PythonCompiler(com)
 
     let transformFile (com: Compiler) (file: Fable.File) =
-        printfn $"transformFile: %A{file}"
         let com = makeCompiler com :> IGoCompiler
 
         let declScopes =
@@ -4056,7 +4059,7 @@ module Compiler =
               ScopedTypeParams = Set.empty
               TypeParamsScope = 0 }
 
-        //printfn "file: %A" file.Declarations
+        printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         printfn "rootDecls: %A" rootDecls
         let importSpecs = com.GetAllImports() |> transformImports com
