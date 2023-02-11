@@ -20,15 +20,21 @@ function convertToSimpleJson($obj)
         return $array;
     } elseif ($obj instanceof \FSharpUnion) {
         $vars = get_object_vars($obj);
+        $case = $obj->get_FSharpCase();
         if (empty($vars)) {
-            return $obj->get_FSharpCase();
+            return $case;
         }
 
-        $props = [$obj->get_FSharpCase()];
+
+        if (count($vars) == 1) {
+            return array($case => convertToSimpleJson($vars[key($vars)]));
+        }
+
+        $props = [];
         foreach ($vars as $prop => $value) {
             $props[] = convertToSimpleJson($value);
         }
-        return $props;
+        return array($case => $props);
     } elseif (is_array($obj)) {
         $array = [];
         foreach ($obj as $key => $value) {
@@ -130,6 +136,7 @@ function convertFromSimpleJson($json, $cls)
                 }
             }
         }
+        throw new \Error("Not sure how to decode this union");
     }
 
     // Record (should be at least iComparable)
