@@ -1305,6 +1305,8 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
     | Fable.Extended(Fable.Throw(expr, _ ),_) ->
         match expr with
         | None -> failwith "TODO: rethrow"
+        | Some (Fable.Call (Fable.IdentExpr expr, args, _, _)) when expr.Name = "Error" -> 
+            [ PhpThrow (PhpNew (ExType { Name="Exception"; Namespace=Some ""; Class=None }, List.map (convertExpr com) args.Args))]
         | Some expr -> [ PhpThrow(convertExpr com expr)]
     | Fable.Extended(Fable.Curry(expr, arrity),_) ->
         failwith "Curry is not implemented"
