@@ -974,7 +974,7 @@ and convertArgs com (args: Fable.Expr list) =
             ()
         | _ ->
             match arg.Type with
-            | Fable.Unit -> () // remove Unit passed by value
+            | Fable.Unit -> PhpConst (PhpConstNull) // remove Unit passed by value
             | _ -> convertExpr com arg
     ]
 
