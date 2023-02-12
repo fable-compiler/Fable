@@ -444,12 +444,6 @@ module PrinterExtensions =
         member printer.Print(arr: ChanType) =
             ()
 
-        // member printer.PrintOperation(left, operator, right, ?loc) =
-        //     printer.AddLocation(loc)
-        //     printer.ComplexExpressionWithParens(left)
-        //     printer.Print(operator)
-        //     printer.ComplexExpressionWithParens(right)
-
         member printer.Print(decl: FuncDecl) =
             printer.Print("func ")
             printer.Print(decl.Name)
@@ -457,11 +451,9 @@ module PrinterExtensions =
             if decl.Recv.IsSome then
                 printer.Print(decl.Recv.Value)
             printer.Print(") {")
-            printer.PushIndentation()
 
             if decl.Body.IsSome then
                 printer.PrintBlock(decl.Body.Value)
-            printer.PopIndentation()
             printer.Print("}")
 
         member printer.Print(decl: GenDecl) =

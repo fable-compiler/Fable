@@ -492,7 +492,7 @@ module Helpers =
     let clean (name: string) =
         printfn "******* cleaning %s" name
         (name, Naming.NoMemberPart)
-        ||> Naming.sanitizeIdent (fun _ -> false)
+        ||> Naming.sanitizeIdent Naming.goBuiltins.Contains //(fun _ -> false)
 
     let unzipArgs (args: (Expr * Stmt list) list) : Expr list * Stmt list =
         let stmts = args |> List.map snd |> List.collect id
@@ -530,6 +530,10 @@ module Helpers =
         let callInfo = Fable.CallInfo.Create(args=[e])
         makeIdentExpr "str"
         |> makeCall None Fable.String callInfo
+
+    let getPackageName (moduleName: string) =
+        Path.GetFileNameWithoutExtension(moduleName).ToLower()
+        |> clean
 
 // https://www.python.org/dev/peps/pep-0484/
 module Annotation =
@@ -1573,9 +1577,7 @@ module Util =
 
 
     let makeNumber (com: IGoCompiler) (ctx: Context) r t intName x =
-        let cons = libValue com ctx "types" intName
-        let value = Expr.basicLit(x, ?loc = r)
-        Expr.call (cons, [ value ], ?lparen = r), []
+        Expr.basicLit(x, ?loc = r), []
 
     let transformValue (com: IGoCompiler) (ctx: Context) r value : Expr * Stmt list =
         match value with
@@ -3916,19 +3918,23 @@ module Util =
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         printfn "getIdentForImport: %A" (moduleName, name)
+
         match name with
         | None ->
-            Path.GetFileNameWithoutExtension(moduleName)
-            |> (fun ident -> Ident.ident(ident, importModule=moduleName))
+            Helpers.getPackageName(moduleName)
+            |> Ident.ident
             |> Some
         | Some name ->
+            let moduleFileName = Path.GetFileNameWithoutExtension(moduleName)
+            printfn "moduleFileName: %A" moduleFileName
+
             match name with
             | "default"
-            | "*" -> Path.GetFileNameWithoutExtension(moduleName)
+            | "*" -> Helpers.getPackageName(moduleName)
             | _ -> name
             |> Naming.toSnakeCase
             |> getUniqueNameInRootScope ctx
-            |> (fun ident -> Ident.ident(ident, importModule=moduleName))
+            |> (fun ident -> Ident.ident(ident, importModule=moduleFileName))
             |> Some
 
 module Compiler =
@@ -3946,36 +3952,35 @@ module Compiler =
 
             member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
                 printfn "GetImportExpr: %A" (moduleName, name)
-                let moduleFileName = Path.GetFileNameWithoutExtension(moduleName)
+                let moduleFileName = Helpers.getPackageName(moduleName)
                 let cachedName = moduleName + "::" + defaultArg name "module"
 
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
-                    match i.Name with
-                    | Some localIdent -> Expr.ident(localIdent, moduleName)
+                    match name with
+                    | Some localIdent -> Expr.ident(localIdent, moduleFileName)
                     | None -> Expr.nil
                 | false, _ ->
                     let local_id = getIdentForImport ctx moduleName name
                     match name with
                     | Some "*"
                     | None ->
-                        let i = ImportSpec.importSpec(path=moduleName, name=moduleFileName)
+                        let i = ImportSpec.importSpec(path="moduleName", name=moduleFileName)
                         imports.Add(cachedName, i)
                     | Some name ->
                         let name =
                             if name = Naming.placeholder then
                                 "`importMember` must be assigned to a variable"
                                 |> addError com [] r
-
                                 name
                             else
                                 name
-                            |> Some
+
                         let i = ImportSpec.importSpec(path=moduleName, name=moduleFileName)
                         imports.Add(cachedName, i)
 
                     match local_id with
-                    | Some localId -> Expr.ident(localId, moduleName)
+                    | Some localId -> Expr.ident(localId, moduleFileName)
                     | None -> Expr.nil
 
             member _.GetAllImports() : ImportSpec list =
