@@ -295,18 +295,17 @@ let ``Interface IDictionary.ContainsKey works`` () =
     dict.ContainsKey("A") |> equal true
     dict.ContainsKey("C") |> equal false
 
-// [<Fact>]
-// let ``Adding 2 items with the same key throws`` () =
-//     let dict = Dictionary<_,_>()
-//     dict.Add("A", 65)
-//     throwsError "An item with the same key has already been added. Key: A" (fun _ -> dict.Add("A", 95))
+[<Fact>]
+let ``Adding 2 items with the same key throws`` () =
+    let dict = Dictionary<_,_>()
+    dict.Add("A", 65)
+    throwsAnyError (fun () -> dict.Add("A", 95))
 
-// [<Fact>]
-// let ``Indexer throws when key not found`` () =
-//     let dict = Dictionary<_,_>()
-//     dict.Add("A", 65)
-//     // throwsError "The given key 'B' was not present in the dictionary." (fun _ -> dict["B"] |> ignore)
-//     throwsAnyError (fun () -> dict["B"])
+[<Fact>]
+let ``Indexer throws when key not found`` () =
+    let dict = Dictionary<_,_>()
+    dict.Add("A", 65)
+    throwsAnyError (fun () -> dict["B"])
 
 [<Fact>]
 let ``conversion from array works`` () =

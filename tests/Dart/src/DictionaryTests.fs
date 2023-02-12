@@ -228,13 +228,11 @@ let tests() =
     testCase "Adding 2 items with the same key throws" <| fun () ->
         let dic = Dictionary<_,_>()
         dic.Add("A", 65)
-//        throwsError "An item with the same key has already been added. Key: A" (fun _ -> dic.Add("A", 95))
-        throwsAnyError (fun _ -> dic.Add("A", 95))
+        throwsAnyError (fun () -> dic.Add("A", 95))
 
     testCase "Indexer throws when key not found" <| fun () ->
         let dic = Dictionary<_,_>()
         dic.Add("A", 65)
-        // throwsError "The given key 'B' was not present in the dictionary." (fun _ -> dic.["B"] |> ignore)
         throwsAnyError (fun () -> dic.["B"])
 
     testCase "conversion from array works" <| fun () ->
