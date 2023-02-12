@@ -600,20 +600,40 @@ module TypeInfo =
         let args = Util.transformCallArgs com ctx args [] []
         makeLibCall com ctx genArgs moduleName memberName args
 
-    let genArgsUnitsFilter = function
-        | Fable.Measure _ | Fable.GenericParam(_, true, _)
-        | Replacements.Util.IsEntity (Types.measureProduct2) _ -> false
-        | _ -> true
+    let isUnitOfMeasure = function
+        | Fable.Measure _
+        | Fable.GenericParam(_, true, _)
+        | Replacements.Util.IsEntity (Types.measureProduct2) _
+            -> true
+        | _ -> false
 
     let transformGenArgs com ctx genArgs: Rust.GenericArgs option =
         genArgs
-        |> List.filter genArgsUnitsFilter
+        |> List.filter (fun t -> not (isUnitOfMeasure t))
         |> List.map (transformType com ctx)
         |> mkGenericTypeArgs
 
+    // // if type cannot be resolved, make it unit type
+    // let resolveType com ctx t =
+    //     match t with
+    //     | Fable.Any when not (ctx.IsParameterType) ->
+    //         Fable.Unit
+    //     | Fable.GenericParam(name, isMeasure, constraints)
+    //         when not (isMeasure || ctx.IsParameterType || Set.contains name ctx.ScopedTypeParams)
+    //          -> Fable.Unit
+    //     | _ -> t
+
+    // let transformTypeResolved com ctx typ: Rust.Ty =
+    //     transformType com ctx (resolveType com ctx typ)
+
+    // let transformGenArgsResolved com ctx genArgs: Rust.GenericArgs option =
+    //     genArgs
+    //     |> List.map (resolveType com ctx)
+    //     |> transformGenArgs com ctx
+
     let transformGenericType com ctx genArgs typeName: Rust.Ty =
         genArgs
-        |> List.filter genArgsUnitsFilter
+        |> List.filter (fun t -> not (isUnitOfMeasure t))
         |> List.map (transformType com ctx)
         |> mkGenericTy (splitNameParts typeName)
 
@@ -883,9 +903,7 @@ module TypeInfo =
         | IsNonErasedInterface com _ -> true
         | _ -> false
 
-    // let inferredType = Fable.GenericParam(rawIdent "_", false, [])
-
-    // let inferIfAny t = match t with | Fable.Any -> inferredType | _ -> t
+    // let inferIfAny t = match t with | Fable.Any -> mkInferTy | _ -> t
 
     let transformAnyType com ctx: Rust.Ty =
         if ctx.IsParameterType then
@@ -893,6 +911,9 @@ module TypeInfo =
             let traitBound = mkTypeTraitGenericBound [importName] None
             mkDynTraitTy [traitBound]
         else mkInferTy ()
+
+    let transformGenericParamType com ctx name isMeasure: Rust.Ty =
+        primitiveType name
 
     let transformMetaType com ctx: Rust.Ty =
         transformImportType com ctx [] "Native" "TypeId"
@@ -937,7 +958,8 @@ module TypeInfo =
                 transformClosureType com ctx argTypes returnType
             | Fable.DelegateType(argTypes, returnType) ->
                 transformClosureType com ctx argTypes returnType
-            | Fable.GenericParam(name, _, _) -> primitiveType name
+            | Fable.GenericParam(name, isMeasure, _constraints) ->
+                transformGenericParamType com ctx name isMeasure
             | Fable.Tuple(genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
             | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
             | Fable.Array(genArg, _kind) -> transformArrayType com ctx genArg
@@ -1165,77 +1187,6 @@ module Util =
                 else dedupSet <- Set.add name dedupSet; true
             | _ -> false)
 
-(*
-    type MemberKind =
-        | ClassConstructor
-        | NonAttached of funcName: string
-        | Attached of isStatic: bool
-
-    let getMemberArgsAndBody (com: IRustCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
-        let funcName, genTypeParams, args, body =
-            match kind, args with
-            | Attached(isStatic=false), (thisArg::args) ->
-                let genTypeParams = Set.difference (getGenericTypeParams [thisArg.Type]) ctx.ScopedTypeParams
-                let body =
-                    // TODO: If ident is not captured maybe we can just replace it with "this"
-                    if isIdentUsed thisArg.Name body then
-                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
-                        Fable.Let(thisArg, thisKeyword, body)
-                    else body
-                None, genTypeParams, args, body
-            | Attached(isStatic=true), _
-            | ClassConstructor, _ -> None, ctx.ScopedTypeParams, args, body
-            | NonAttached funcName, _ -> Some funcName, Set.empty, args, body
-            | _ -> None, Set.empty, args, body
-
-        let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
-        let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx funcName args body
-
-        let typeParamDecl =
-            if com.Options.Typescript then
-                makeTypeParamDecl genTypeParams |> mergeTypeParamDecls typeParamDecl
-            else typeParamDecl
-
-        let args =
-            let len = Array.length args
-            if not hasSpread || len = 0 then args
-            else [|
-                if len > 1 then
-                    yield! args[..len-2]
-                yield restElement args[len-1]
-            |]
-
-        args, body, returnType, typeParamDecl
-
-    let getUnionCaseName (uci: Fable.UnionCase) =
-        // match uci.CompiledName with Some cname -> cname | None -> uci.Name
-        uci.FullName
-
-    let getUnionExprTag (com: IRustCompiler) ctx range (fableExpr: Fable.Expr) =
-        let expr = com.TransformExpr(ctx, fableExpr)
-        // getExpr range expr (Expression.stringLiteral("tag"))
-        expr
-
-    /// Wrap int expressions with '| 0' to help optimization of JS VMs
-    let wrapIntExpression typ (e: Rust.Expr) =
-        match e, typ with
-        | Literal(NumericLiteral(_)), _ -> e
-        // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number(Int8 | Int16 | Int32) ->
-            Expression.binaryExpression(BinaryOrBitwise, e, Expression.numericLiteral(0.))
-        | _ -> e
-
-    let wrapExprInBlockWithReturn e =
-        BlockStatement([| Statement.returnStatement(e)|])
-
-    let makeArrowFunctionExpression _name (args, (body: BlockStatement), returnType, typeParamDecl): Rust.Expr =
-        Expression.arrowFunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
-
-    let makeFunctionExpression name (args, (body: Rust.Expr), returnType, typeParamDecl): Rust.Expr =
-        let id = name |> Option.map Identifier.identifier
-        let body = wrapExprInBlockWithReturn body
-        Expression.functionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl)
-*)
     let getCellType = function
         | Replacements.Util.Builtin (Replacements.Util.FSharpReference t) -> t
         | t -> t
@@ -3003,34 +2954,6 @@ module Util =
 
         | None -> []
 
-(*
-    let makeEntityTypeParamDecl (com: IRustCompiler) _ctx (ent: Fable.Entity) =
-        if com.Options.Typescript then
-            getEntityGenParams ent |> makeTypeParamDecl
-        else
-            None
-
-    let getClassImplements com ctx (ent: Fable.Entity) =
-        let mkNative genArgs typeName =
-            let id = Identifier.identifier(typeName)
-            let typeParamInst = makeGenTypeParamInst com ctx genArgs
-            ClassImplements.classImplements(id, ?typeParameters=typeParamInst) |> Some
-//        let mkImport genArgs moduleName typeName =
-//            let id = makeImportTypeId com ctx moduleName typeName
-//            let typeParamInst = makeGenTypeParamInst com ctx genArgs
-//            ClassImplements(id, ?typeParameters=typeParamInst) |> Some
-        ent.AllInterfaces |> Seq.choose (fun ifc ->
-            match ifc.Entity.FullName with
-            | "Fable.Core.JS.Set`1" -> mkNative ifc.GenericArgs "Set"
-            | "Fable.Core.JS.Map`2" -> mkNative ifc.GenericArgs "Map"
-            | _ -> None
-        )
-
-    let getUnionFieldsAsIdents (_com: IRustCompiler) _ctx (_ent: Fable.Entity) =
-        let tagId = makeTypedIdent (Fable.Number Int32) "tag"
-        let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
-        [| tagId; fieldsId |]
-*)
     let getEntityFieldsAsIdents _com (ent: Fable.Entity): Fable.Ident list =
         ent.FSharpFields
         |> Seq.map (fun field ->
@@ -3369,7 +3292,7 @@ module Util =
             mkLifetimeGenericBound "'static" //TODO: add it only when needed
         ]
         genParams
-        |> List.filter genArgsUnitsFilter
+        |> List.filter (fun t -> not (isUnitOfMeasure t))
         |> List.choose (function
             | Fable.GenericParam(name, _isMeasure, constraints) ->
                 let bounds = makeTypeBounds com ctx name constraints

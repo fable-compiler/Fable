@@ -32,8 +32,8 @@ let ``FromTimeSpan works`` () =
     t2.Minute |> equal 59
     t2.Second |> equal 59
 
-    // Util.throwsAnyError (fun () -> TimeOnly.FromTimeSpan (TimeSpan.FromHours 24.))
-    // Util.throwsAnyError (fun () -> TimeOnly.FromTimeSpan (TimeSpan.FromHours -1.))
+    throwsAnyError (fun () -> TimeOnly.FromTimeSpan (TimeSpan.FromHours 24.))
+    throwsAnyError (fun () -> TimeOnly.FromTimeSpan (TimeSpan.FromHours -1.))
 
 [<Fact>]
 let ``FromDateTime works`` () =

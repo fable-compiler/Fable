@@ -635,10 +635,13 @@ let transpose (lists: 'T list list): 'T list list =
         let tRows = head lists |> map singleton
         let nodes = tRows |> map getRoot |> toArray
         tail lists |> iterate (fun xs ->
+            let mutable len = 0
             xs |> iterateIndexed (fun i x ->
-                if i >= nodes.Length then
-                    invalidArg "lists" SR.listsHadDifferentLengths
-                nodes[i] <- nodes[i] |> appendConsNoTail x))
+                len <- len + 1
+                nodes[i] <- nodes[i] |> appendConsNoTail x)
+            if len <> nodes.Length then
+                invalidArg "lists" SR.listsHadDifferentLengths
+        )
         tRows
 
 let distinct<'T when 'T: equality> (xs: 'T list): 'T list =

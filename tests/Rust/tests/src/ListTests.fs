@@ -1110,12 +1110,11 @@ let ``List.transpose works`` () =
     List.transpose<int> [[]] |> equal []
     List.transpose<int> [[]; []] |> equal []
     // jagged lists throw on transpose
-    // TODO: make it throw on jagged lists
-    // throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
-    // throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
-    // throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
-    // throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
-    // throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
+    throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
+    throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
+    throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
+    throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
+    throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
 
 [<Fact>]
 let ``List.updateAt works`` () =
