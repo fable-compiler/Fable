@@ -179,6 +179,7 @@ impl<T: Clone> MutCell<Option<T>> {
         match self.get() {
             Some(v) => v,
             None => {
+                // TODO: use atomic swap
                 self.set(Some(f()));
                 self.get().unwrap()
             }
@@ -200,3 +201,6 @@ unsafe impl <T> Send for MutCell<T> {}
 
 // #[cfg(feature = "atomic")]
 unsafe impl <T> Sync for MutCell<T> {}
+
+impl<T> core::panic::UnwindSafe for MutCell<T> {}
+impl<T> core::panic::RefUnwindSafe for MutCell<T> {}

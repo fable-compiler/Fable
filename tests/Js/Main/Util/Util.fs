@@ -79,6 +79,7 @@ let private run (f: unit -> 'a) =
         |> Ok
     with e ->
         Error e.Message
+
 let throwsError (expected: string) (f: unit -> 'a): unit =
     run f
     |> RunResult.wasError expected

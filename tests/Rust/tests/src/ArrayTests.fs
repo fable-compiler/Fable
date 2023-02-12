@@ -1193,12 +1193,12 @@ let ``Array.take works`` () =
     xs |> Array.take 2
     |> equal [|1.; 2.|]
 
-// [<Fact>]
-// let ``Array.take works II`` () =
-//     let xs = [|1.; 2.; 3.; 4.; 5.|]
-//     // Array.take should throw an exception if there're not enough elements
-//     try xs |> Array.take 20 |> Array.length with _ -> -1
-//     |> equal -1
+[<Fact>]
+let ``Array.take works II`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    // Array.take should throw an exception if there're not enough elements
+    try xs |> Array.take 20 |> Array.length with _ -> -1
+    |> equal -1
 
 [<Fact>]
 let ``Array.takeWhile works`` () =
@@ -1273,11 +1273,11 @@ let ``Array.tryExactlyOne works`` () =
     [|1.;2.|] |> Array.tryExactlyOne |> equal None
     [||] |> Array.tryExactlyOne<float> |> equal None
 
-// [<Fact>]
-// let ``Array.exactlyOne works II`` () =
-//     [|1.|] |> Array.exactlyOne |> equal 1.
-//     (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
-//     (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
+[<Fact>]
+let ``Array.exactlyOne works II`` () =
+    [|1.|] |> Array.exactlyOne |> equal 1.
+    (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
+    (try Array.exactlyOne<int> [||] |> ignore; false with | _ -> true) |> equal true
 
 [<Fact>]
 let ``Array.transpose works`` () =
@@ -1301,8 +1301,8 @@ let ``Array.transpose works`` () =
     |> equal [| |]
 
     // jagged arrays throw on transpose
-    // throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
-    // throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
+    throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
+    throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
 
 [<Fact>]
 let ``Array.updateAt works`` () =
@@ -1317,9 +1317,9 @@ let ``Array.updateAt works`` () =
     equal [|"1"; "2"; "3"; "4"; "0"|] (Array.updateAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Array.updateAt 0 0 [||] |> ignore)
-    // throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt<int> 0 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
 
 [<Fact>]
 let ``Array.insertAt works`` () =
@@ -1335,8 +1335,8 @@ let ``Array.insertAt works`` () =
 
     // empty list & out of bounds
     equal [|0|] (Array.insertAt 0 0 [||])
-    // throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
 
 [<Fact>]
 let ``Array.insertManyAt works`` () =
@@ -1352,8 +1352,8 @@ let ``Array.insertManyAt works`` () =
 
     // empty list & out of bounds
     equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
-    // throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
 
 [<Fact>]
 let ``Array.removeAt works`` () =
@@ -1368,9 +1368,9 @@ let ``Array.removeAt works`` () =
     equal [|"1"; "2"; "3"; "4"|] (Array.removeAt 4 [|"1"; "2"; "3"; "4"; "5"|])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Array.removeAt 0 [||] |> ignore)
-    // throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt<int> 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
 
 [<Fact>]
 let ``Array.removeManyAt works`` () =
@@ -1385,6 +1385,6 @@ let ``Array.removeManyAt works`` () =
     equal [|"1"; "2"; "3"|] (Array.removeManyAt 3 2 [|"1"; "2"; "3"; "4"; "5"|])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
-    // throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt<int> 0 2 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)

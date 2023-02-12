@@ -723,17 +723,22 @@ module TypeInfo =
 
     let getEntityFullName (com: IRustCompiler) ctx (entRef: Fable.EntityRef) =
         match entRef.SourcePath with
-        | Some path when path <> com.CurrentFile ->
-            // entity is imported from another file
-            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-            let importName = com.GetImportName(ctx, entRef.FullName, importPath, None)
-            importName
-        | _ ->
+        | Some path ->
+            if path <> com.CurrentFile then
+                // entity is imported from another file
+                let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                let importName = com.GetImportName(ctx, entRef.FullName, importPath, None)
+                importName
+            else
+                entRef.FullName
+        | None ->
             match entRef.Path with
             | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ when not (Util.isFableLibrary com) ->
                 //TODO: perhaps only import from library if it's already implemented BCL class
                 let importName = com.GetImportName(ctx, entRef.FullName, "fable_library_rust", None)
                 importName
+            | _  when (Util.isFableLibrary com) ->
+                "crate::" + entRef.FullName
             | _ ->
                 entRef.FullName
 
@@ -1284,6 +1289,9 @@ module Util =
             makeLibCall com ctx None "Seq" "ofArray" [expr]
         | Fable.List _, IEnumerable _ ->
             makeLibCall com ctx None "Seq" "ofList" [expr]
+        | Fable.String, IEnumerable _ ->
+            let chars = makeLibCall com ctx None "String" "toCharArray" [expr]
+            makeLibCall com ctx None "Seq" "ofArray" [chars]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
             let ar = makeLibCall com ctx None "HashSet" "entries" [expr]
@@ -2146,18 +2154,6 @@ module Util =
                     let callee = transformCallee com ctx calleeExpr
                     mkCallExpr callee args
 
-(*
-    let transformTryCatch com ctx r returnStrategy (body, catch, finalizer) =
-        // try .. catch statements cannot be tail call optimized
-        let ctx = { ctx with TailCallOpportunity = None }
-        let handler =
-            catch |> Option.map (fun (param, body) ->
-                CatchClause.catchClause(identAsPattern param, transformBlock com ctx returnStrategy body))
-        let finalizer =
-            finalizer |> Option.map (transformBlock com ctx None)
-        [|Statement.tryStatement(transformBlock com ctx returnStrategy body,
-            ?handler=handler, ?finalizer=finalizer, ?loc=r)|]
-*)
     let mutableGet expr =
         mkMethodCallExpr "get" None expr []
 
@@ -2478,23 +2474,34 @@ module Util =
                 mkMethodCallExpr "rev" None rangeExpr []
         mkForLoopExpr None varPat rangeExpr bodyExpr //?loc=range)
 
-    let transformTryCatch (com: IRustCompiler) ctx range body catch finalizer =
-        // try .. catch statements cannot be tail call optimized
-        let ctx = { ctx with TailCallOpportunity = None }
-        // TODO: use panic::catch_unwind
-        // TODO: transform catch
-        match finalizer with
-        | Some finBody ->
-            // TODO: Temporary, transforms try/finally as sequential
-            let letIdent = getUniqueNameInDeclarationScope ctx "try_result" |> makeIdent
-            let letValue = body
-            let letBody = Fable.Sequential [finBody; Fable.IdentExpr letIdent]
-            let letExpr = Fable.Let(letIdent, letValue, letBody)
-            letExpr
-        | _ ->
-            body // no finalizer
-        |> transformExpr com ctx
-        // |> mkTryBlockExpr // TODO: nightly only, enable when stable
+    let makeLocalLambda com ctx (args: Fable.Ident list) (body: Fable.Expr) =
+        let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
+        let fnBody = transformExpr com ctx body
+        mkClosureExpr false fnDecl fnBody
+
+    let transformTryCatch (com: IRustCompiler) ctx range body catch finalizer: Rust.Expr =
+        // try .. with ..
+        match catch with
+        | Some (catchVar, catchBody) ->
+            // try .. catch statements cannot be tail call optimized
+            let ctx = { ctx with TailCallOpportunity = None }
+            let f = makeLocalLambda com ctx [] body
+            let g = makeLocalLambda com ctx [catchVar] catchBody
+            makeLibCall com ctx None "Exception" "try_catch" [f; g]
+
+        | None ->
+            // try .. finally ..
+            match finalizer with
+            | Some finBody ->
+                let f = makeLocalLambda com ctx [] finBody
+                let finAlloc = makeLibCall com ctx None "Exception" "finally" [f]
+                let bodyExpr = transformExpr com ctx body
+                [finAlloc |> mkSemiStmt; bodyExpr |> mkExprStmt]
+                |> mkStmtBlockExpr
+
+            | _ ->
+                // no catch, no finalizer
+                transformExpr com ctx body
 
     let transformCurry (com: IRustCompiler) (ctx: Context) arity (expr: Fable.Expr): Rust.Expr =
         // match FableTransforms.tryUncurryType expr.Type with
@@ -2978,14 +2985,12 @@ module Util =
         | Some path ->
             // add some imports for main function
             let asArr = getLibraryImportName com ctx "Native" "arrayFrom"
-            let asStr = getLibraryImportName com ctx "String" "toString"
-            let tyStr = getLibraryImportName com ctx "String" "string"
+            let asStr = getLibraryImportName com ctx "String" "fromString"
 
             // main entrypoint
             let mainName = String.concat "::" path
             let strBody = [
-                $"let args: Vec<String> = std::env::args().collect()"
-                $"let args: Vec<{tyStr}> = args[1..].iter().map(|s| {asStr}(s)).collect()"
+                $"let args = std::env::args().skip(1).map({asStr}).collect()"
                 $"{mainName}({asArr}(args))"
             ]
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
@@ -3173,6 +3178,10 @@ module Util =
                 idents |> List.iter (fun ident ->
                     ignoredNames.Add(ident.Name) |> ignore))
             None
+        | Fable.TryCatch (body, catch, finalizer, _) ->
+            catch |> Option.iter (fun (ident, expr) ->
+                ignoredNames.Add(ident.Name) |> ignore)
+            None
         | _ ->
             None
 
@@ -3268,7 +3277,7 @@ module Util =
         let scopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableIdents
         let ctx = { ctx with ScopedSymbols = scopedSymbols; IsInPluralizedExpr = true }
         let fnBody = transformFunctionBody com ctx args body
-        let closureExpr = mkClosureExpr fnDecl fnBody
+        let closureExpr = mkClosureExpr true fnDecl fnBody
         let argCount = args |> discardUnitArg |> List.length |> string
         let closureExpr =
             if isRecursive && not isTailRec then
@@ -3510,7 +3519,7 @@ module Util =
         let callee = com.TransformExpr(ctx, makeIdentExpr name)
         let closureExpr =
             let fnDecl = mkFnDecl [] VOID_RETURN_TY
-            mkClosureExpr fnDecl value
+            mkClosureExpr false fnDecl value
         let valueStmt =
             mkMethodCallExpr "get_or_init" None callee [closureExpr]
             |> mkExprStmt

@@ -70,8 +70,8 @@ let ``System.Boolean.Parse works`` () =
     Boolean.Parse "false" |> equal false
     Boolean.Parse "False" |> equal false
     Boolean.Parse " false " |> equal false
-//     throwsAnyError (fun () -> Boolean.Parse "tru")
-//     throwsAnyError (fun () -> Boolean.Parse "falsee")
+    throwsAnyError (fun () -> Boolean.Parse "tru")
+    throwsAnyError (fun () -> Boolean.Parse "falsee")
 
 [<Fact>]
 let ``System.Boolean.TryParse works`` () =

@@ -307,8 +307,8 @@ let toList com t (expr: Expr) =
     | List _ -> expr
     | Array _ -> Helper.LibCall(com, "List", "ofArray", t, [expr])
     | String ->
-        let a = Helper.LibCall(com, "String", "toCharArray", t, [expr])
-        Helper.LibCall(com, "List", "ofArray", t, [a])
+        let chars = Helper.LibCall(com, "String", "toCharArray", t, [expr])
+        Helper.LibCall(com, "List", "ofArray", t, [chars])
     | IEnumerable -> Helper.LibCall(com, "List", "ofSeq", t, [expr])
     | _ -> TypeCast(expr, t)
 
@@ -318,8 +318,8 @@ let toSeq com t (expr: Expr) =
     | List _ -> Helper.LibCall(com, "Seq", "ofList", t, [expr])
     | Array _ -> Helper.LibCall(com, "Seq", "ofArray", t, [expr])
     | String ->
-        let a = Helper.LibCall(com, "String", "toCharArray", t, [expr])
-        Helper.LibCall(com, "Seq", "ofArray", t, [a])
+        let chars = Helper.LibCall(com, "String", "toCharArray", t, [expr])
+        Helper.LibCall(com, "Seq", "ofArray", t, [chars])
     | _ -> TypeCast(expr, t)
 
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
@@ -807,9 +807,9 @@ let makeRustFormatString interpolated (fmt: string) =
     let pattern2 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(?:P\(\)|(\w)(?:%P\(\))?)"
     let pattern = if interpolated then pattern2 else pattern1
     let input = fmt.Replace("{", "{{").Replace("}", "}}").Replace("%%", "%")
-    let mutable count = 0
+    let mutable argCount = 0
     let rustFmt = Regex.Replace(input, pattern, fun m ->
-        count <- count + 1
+        argCount <- argCount + 1
         let g1 = m.Groups[1].Value
         let g2 = m.Groups[2].Value.Replace(" ", "")  // pad with space
                                   .Replace("-", "<") // left-justified
@@ -831,14 +831,14 @@ let makeRustFormatString interpolated (fmt: string) =
             else g1 + "{:" + g2 + g3 + g4 + g5 + "}"
         argFmt
     )
-    rustFmt, count
+    rustFmt, argCount
 
-let makeRustFormatExpr r t (fmt: string) cont macroExpr =
-    let rustFmt, count = makeRustFormatString false fmt
-    let count = count + 1 + (List.length cont) // arg count + fmt + [cont]
+let makeRustFormatExpr r t (fmt: string) args macroExpr =
+    let rustFmt, argCount = makeRustFormatString false fmt
+    let argCount = argCount + 1 + (List.length args) // +1 is for fmt
     let fmtExpr = $"\"{rustFmt}\"" |> emitExpr None String []
-    let applied = Extended(Curry(macroExpr, count), r)
-    curriedApply r t applied (cont @ [fmtExpr])
+    let applied = Extended(Curry(macroExpr, argCount), r)
+    curriedApply r t applied (args @ [fmtExpr])
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -852,8 +852,8 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatThen"|"PrintFormatToStringThen"), None, [cont; StringConst fmt] ->
         let macro = Helper.LibValue(com, "String", "kprintf!", Any)
         macro |> makeRustFormatExpr r t fmt [cont] |> Some
-    // | "PrintFormatThen", None, [cont; MaybeCasted(template)] ->
-    //     template |> Some //TODO:
+    | ("PrintFormatThen"|"PrintFormatToStringThen"), None, [cont; MaybeCasted(template)] ->
+        Helper.Application(cont, t, [template], ?loc=r) |> Some
     | "PrintFormatToError", None, [StringConst fmt] ->
         let macro = makeIdentExpr "eprint!"
         macro |> makeRustFormatExpr r t fmt [] |> Some
@@ -878,14 +878,26 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "PrintFormatLine", None, [MaybeCasted(Value(StringTemplate(None, [rustFmt], templateArgs), _))] ->
         let formatArgs = (makeStrConst rustFmt) :: templateArgs
         "println!" |> emitFormat com r t formatArgs |> Some
-    // | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
-    //     // addWarning com ctx.FileName r "fprintfn will behave as printfn"
-    //     Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "PrintFormatToStringThenFail", _, _ ->
-    //     Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | ("PrintFormatToStringBuilder"      // bprintf
-    // |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
-    //    ), _, _ -> fsharpModule com ctx r t i thisArg args
+    | "PrintFormatToStringThenFail", None, [StringConst fmt] ->
+        let macro = makeIdentExpr "panic!"
+        macro |> makeRustFormatExpr r t fmt [] |> Some
+    | "PrintFormatToStringThenFail", None, [MaybeCasted(Value(StringTemplate(None, [rustFmt], templateArgs), _))] ->
+        let formatArgs = (makeStrConst rustFmt) :: templateArgs
+        "panic!" |> emitFormat com r t formatArgs |> Some
+    | "PrintFormatToStringBuilder", None, [sb; StringConst fmt] ->
+        let cont = Helper.LibCall(com, "Util", "bprintf", t, [sb])
+        let macro = Helper.LibValue(com, "String", "kprintf!", Any)
+        macro |> makeRustFormatExpr r t fmt [cont] |> Some
+    | "PrintFormatToStringBuilder", None, [sb; MaybeCasted(template)] ->
+        let cont = Helper.LibCall(com, "Util", "bprintf", t, [sb])
+        Helper.Application(cont, t, [template], ?loc=r) |> Some
+    | "PrintFormatToStringBuilderThen", None, [cont; sb; StringConst fmt] ->
+        let cont = Helper.LibCall(com, "Util", "kbprintf", t, [cont; sb])
+        let macro = Helper.LibValue(com, "String", "kprintf!", Any)
+        macro |> makeRustFormatExpr r t fmt [cont] |> Some
+    | "PrintFormatToStringBuilderThen", None, [cont; sb; MaybeCasted(template)] ->
+        let cont = Helper.LibCall(com, "Util", "kbprintf", t, [cont; sb])
+        Helper.Application(cont, t, [template], ?loc=r) |> Some
     | ".ctor", _, (StringConst fmt)::(Value(NewArray(ArrayValues templateArgs, _, _), _))::_ ->
         let rustFmt, _count = makeRustFormatString true fmt
         StringTemplate(None, [rustFmt], templateArgs) |> makeValue r |> Some
@@ -968,7 +980,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     |  "Lock", _ ->
         Helper.LibCall(com, "Monitor", "lock", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     // Exceptions
-    | "FailWith", [msg] | "InvalidOp", [msg] ->
+    | ("FailWith" | "InvalidOp"), [msg] ->
         makeThrow r t (error msg) |> Some
     | "InvalidArg", [argName; msg] ->
         let msg = add (add msg (str "\\nParameter name: ")) argName
@@ -2155,8 +2167,9 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
-    | "get_Message", Some e -> getFieldWith r t e "message" |> Some
-    | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
+    | "get_Message", Some callee ->
+        makeInstanceCall r t i callee i.CompiledName args |> Some
+    // | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None
 
 let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
