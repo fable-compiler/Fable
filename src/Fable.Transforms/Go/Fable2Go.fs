@@ -161,7 +161,7 @@ module Reflection =
             getNumberKindName kind |> primitiveTypeInfo
 
         let nonGenericTypeInfo fullname =
-            [ Expr.basicLit fullname ]
+            [ Expr.ident fullname ]
             |> libReflectionCall com ctx None "class"
 
         let resolveGenerics generics : Expr list * Stmt list =
@@ -757,7 +757,7 @@ module Annotation =
 
             match name with
             | "int"
-            | "float" -> Expr.basicLit name
+            | "float" -> Expr.ident name
             | _ -> fableModuleAnnotation com ctx "types" name []
 
 
@@ -924,7 +924,7 @@ module Annotation =
 
     let makeBuiltinTypeAnnotation com ctx kind repeatedGenerics =
         match kind with
-        | Replacements.Util.BclGuid -> Expr.basicLit "str", []
+        | Replacements.Util.BclGuid -> Expr.ident "str", []
         | Replacements.Util.FSharpReference genArg -> makeImportTypeAnnotation com ctx [ genArg ] "types" "FSharpRef", []
         (*
         | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
@@ -3968,13 +3968,9 @@ module Compiler =
                         let i = ImportSpec.importSpec(path="moduleName", name=moduleFileName)
                         imports.Add(cachedName, i)
                     | Some name ->
-                        let name =
-                            if name = Naming.placeholder then
-                                "`importMember` must be assigned to a variable"
-                                |> addError com [] r
-                                name
-                            else
-                                name
+                        if name = Naming.placeholder then
+                            "`importMember` must be assigned to a variable"
+                            |> addError com [] r
 
                         let i = ImportSpec.importSpec(path=moduleName, name=moduleFileName)
                         imports.Add(cachedName, i)
@@ -4068,7 +4064,7 @@ module Compiler =
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         printfn "rootDecls: %A" rootDecls
         let importSpecs = com.GetAllImports() |> transformImports com
-        let name = Ident.ident "fable"
+        let name = Ident.ident "main"
 
         printfn $"transformFile: done"
         File.file(name=name, decls=rootDecls, imports=importSpecs)

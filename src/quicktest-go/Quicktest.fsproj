@@ -5,7 +5,7 @@
     <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="src/main.fs" />
+    <Compile Include="main.fs" />
   </ItemGroup>
   <!-- <ItemGroup>
     <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />

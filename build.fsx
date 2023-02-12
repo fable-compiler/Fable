@@ -213,7 +213,8 @@ let buildLibraryGo() =
     //     "--noCache"
     // ]
 
-    copyFiles libraryDir "*" buildDirGo
+    copyDirRecursive (libraryDir </> "fable") (buildDirGo </> "fable")
+    //copyFiles libraryDir "*" buildDirGo
 
 let buildLibraryGoIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-go")) then

@@ -1444,6 +1444,7 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
                         let reflectionSuffix =
                             match com.Options.Language with
                             | Python -> Fable.Py.Naming.reflectionSuffix
+                            | Go -> Fable.Go.Naming.reflectionSuffix
                             | _ -> Naming.reflectionSuffix
 
                         addUsedRootName com entName usedNames

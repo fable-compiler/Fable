@@ -529,6 +529,7 @@ module Helpers =
         let sanitizedName =
             match com.Options.Language with
             | Python -> Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
+            | Go -> Fable.Go.Naming.sanitizeIdent Fable.Go.Naming.goBuiltins.Contains name part
             | Rust -> entityName |> cleanNameAsRustIdentifier
             | _ -> Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName

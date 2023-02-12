@@ -598,6 +598,7 @@ module AST =
             com.LibraryDir + "/" + moduleName' + ".py"
         | Rust -> com.LibraryDir + "/" + moduleName + ".rs"
         | Dart -> com.LibraryDir + "/" + moduleName + ".dart"
+        | Go -> "github.com/fable-compiler/fable/" + moduleName
         | _ -> com.LibraryDir + "/" + moduleName + ".js"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =

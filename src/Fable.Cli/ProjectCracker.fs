@@ -603,7 +603,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
             | Dart -> "fable-library-dart", "fable_library"
             | Rust -> "fable-library-rust", "fable-library-rust"
             | TypeScript -> "fable-library-ts", "fable-library-ts"
-            | Go -> "fable-library-go", "fable-library-go"
+            | Go -> "fable-library-go/fable", "fable"
             | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
 
         let fableLibrarySource =
@@ -628,6 +628,16 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
 
     getFableLibraryPath opts, pkgRefs
 
+let copyFableLibraryAndPackageSourcesGo (opts: CrackerOptions) (pkgs: FablePackage list) =
+    let pkgRefs =
+        pkgs |> List.map (fun pkg ->
+            let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
+            let targetDir = IO.Path.Combine(opts.FableModulesDir, pkg.Id + "." + pkg.Version)
+            copyDirIfDoesNotExist true sourceDir targetDir
+            let fsprojFile = IO.Path.GetFileName(pkg.FsprojPath) |> changeFsprojToFableproj
+            { pkg with FsprojPath = IO.Path.Combine(targetDir, fsprojFile) })
+
+    getFableLibraryPath opts, pkgRefs
 // Separate handling for Python. Use plain lowercase package names without dots or version info.
 let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePackage list) =
     let pkgRefs =
@@ -788,6 +798,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
             | Python -> copyFableLibraryAndPackageSourcesPy opts mainProj.PackageReferences
+            | Go -> copyFableLibraryAndPackageSourcesGo opts mainProj.PackageReferences
             | _ -> copyFableLibraryAndPackageSources opts mainProj.PackageReferences
 
         let pkgRefs =

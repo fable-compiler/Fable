@@ -194,8 +194,6 @@ module PrinterExtensions =
             printer.PrintCommaSeparatedList(field.Names)
             printer.Print(" ")
             printer.PrintOptional(field.Type)
-            // printer.PrintOptional(field.Tag)
-            // printer.Print(field.Comment)
 
         member printer.Print(spec: Spec) =
             match spec with
@@ -450,8 +448,10 @@ module PrinterExtensions =
             printer.Print("(")
             if decl.Recv.IsSome then
                 printer.Print(decl.Recv.Value)
-            printer.Print(") {")
-
+            printer.Print(")")
+            if decl.Type.Results.IsSome then
+                printer.Print(decl.Type.Results.Value)
+            printer.Print(" {")
             if decl.Body.IsSome then
                 printer.PrintBlock(decl.Body.Value)
             printer.Print("}")

@@ -2203,7 +2203,6 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
     | "ToString", [ ExprTypeAs (String, format) ] ->
         let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"
-
         Helper.LibCall(com, "string", "format", t, [ format; thisArg.Value ], [ format.Type; thisArg.Value.Type ], ?loc = r)
         |> Some
     | "ToString", _ ->
@@ -2736,7 +2735,7 @@ let log (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
         match args with
         | [] -> []
         | [ v ] -> [ v ]
-        | StringConst _ :: _ -> [ Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes) ]
+        | StringConst _ :: _ -> [ Helper.LibCall(com, "string", "Format", t, args, i.SignatureArgTypes) ]
         | _ -> [ args.Head ]
 
     Helper.ImportedCall("fmt", "Println", t, args, i.SignatureArgTypes)
