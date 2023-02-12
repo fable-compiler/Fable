@@ -89,6 +89,9 @@ macro_rules! func {
         #[cfg(feature = "threaded")]
         unsafe impl<$($i, )*R> Sync for $f<$($i, )*R> {}
 
+        impl<$($i, )*R> core::panic::UnwindSafe for $f<$($i, )*R> {}
+        impl<$($i, )*R> core::panic::RefUnwindSafe for $f<$($i, )*R> {}
+
     };
 }
 

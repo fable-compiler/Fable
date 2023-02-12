@@ -1,7 +1,7 @@
 // import at root level
-mod Mutable;
-mod Lazy;
 mod FuncType;
+mod Lazy;
+mod Mutable;
 
 pub mod Native_ {
     extern crate alloc;
@@ -10,16 +10,15 @@ pub mod Native_ {
     // pub use alloc::borrow::Cow;
     pub use alloc::boxed::Box as Box_;
     pub use alloc::rc::Rc;
-    pub use alloc::sync::Arc;
     pub use alloc::string::{String, ToString};
+    pub use alloc::sync::Arc;
     pub use alloc::vec::Vec;
 
     pub use core::any::{Any, TypeId};
 
-    pub use super::Mutable::*;
-    pub use super::Lazy::*;
     pub use super::FuncType::*;
-    pub use crate::Choice_::*;
+    pub use super::Lazy::*;
+    pub use super::Mutable::*;
 
     mod macros {
         #[macro_export]
@@ -186,5 +185,4 @@ pub mod Native_ {
         let en = crate::Seq_::Enumerable::fromFunction(f);
         crate::Seq_::mkSeq(Func0::new(move || en.clone()))
     }
-
 }

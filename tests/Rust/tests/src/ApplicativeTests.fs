@@ -1261,11 +1261,9 @@ let ``Sequence of functions is uncurried in folding`` () =
 //         | 4 -> succeed 1
 //         | 3 -> succeed 1
 //         | _ -> fail <| "Trying to decode info, but version " + (version.ToString()) + "is not supported"
-
 //     let info : Decoder<int> =
 //         field "version" int
 //         |> andThen infoHelp
-
 //     decodeString info """{ "version": 3, "data": 2 }"""
 //     |> equal (FSharp.Core.Ok 1)
 
@@ -1273,19 +1271,16 @@ let ``Sequence of functions is uncurried in folding`` () =
 // let ``Applying curried lambdas to a module value works`` () =
 //     let expected =
 //         FSharp.Core.Ok(User.Create 67 "user@mail.com" "" 0)
-
 //     let userDecoder =
 //         decode User.Create
 //             |> required "id" int
 //             |> required "email" string
 //             |> optional "name" string ""
 //             |> hardcoded 0 // `hardcoded` is compiled as module value
-
 //     let actual =
 //         decodeString
 //             userDecoder
 //             """{ "id": 67, "email": "user@mail.com" }"""
-
 //     equal expected actual
 // #endif
 
@@ -1299,7 +1294,6 @@ let ``Sequence of functions is uncurried in folding`` () =
 //             fun x -> x + x
 //         else
 //             failwithf "Boom!"
-
 //     let mutable x = ""
 //     try
 //         // It should fail even if `f` is not called

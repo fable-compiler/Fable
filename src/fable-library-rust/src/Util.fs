@@ -21,3 +21,18 @@ let inline divRemOut (x: 'T) (y: 'T) (remainder: 'T outref): 'T =
     let quotient = x / y
     remainder <- x % y
     quotient
+
+let bprintf (sb: System.Text.StringBuilder) =
+    let f (s: string) =
+        let _ = sb.Append(s)
+        ()
+    f
+
+let kbprintf cont (sb: System.Text.StringBuilder) =
+    let f (s: string) =
+        let _ = sb.Append(s)
+        cont()
+    f
+
+let new_exception (msg: string) =
+    System.Exception(msg)

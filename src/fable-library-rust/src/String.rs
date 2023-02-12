@@ -42,7 +42,7 @@ pub mod String_ {
 
         pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
             let s = iter.collect::<String>();
-            LrcStr(Lrc::from(&*s))
+            LrcStr(Lrc::from(s))
         }
     }
 
@@ -72,7 +72,7 @@ pub mod String_ {
                     LrcStr::Shared(rc) => rc.as_ref(),
                     LrcStr::Inline { len, buf } => unsafe {
                         core::str::from_utf8_unchecked(&buf[0..*len as usize])
-                    }
+                    },
                 }
             }
         }
@@ -90,14 +90,21 @@ pub mod String_ {
             if len <= INLINE_MAX {
                 let mut buf = [0u8; INLINE_MAX];
                 buf[0..len].copy_from_slice(s.as_bytes());
-                LrcStr::Inline { len: len as u8, buf: buf }
+                LrcStr::Inline {
+                    len: len as u8,
+                    buf: buf,
+                }
             } else {
                 LrcStr::Shared(Lrc::from(s))
             }
         }
 
         pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
-            let len: usize = iter.clone().take(INLINE_MAX + 1).map(|c| c.len_utf8()).sum();
+            let len: usize = iter
+                .clone()
+                .take(INLINE_MAX + 1)
+                .map(|c| c.len_utf8())
+                .sum();
             if len <= INLINE_MAX {
                 let mut buf = [0u8; INLINE_MAX];
                 let mut pos: usize = 0;
@@ -105,18 +112,21 @@ pub mod String_ {
                     let s = c.encode_utf8(&mut buf[pos..]);
                     pos = pos + s.len();
                 }
-                LrcStr::Inline { len: len as u8, buf: buf }
+                LrcStr::Inline {
+                    len: len as u8,
+                    buf: buf,
+                }
             } else {
                 let s = iter.collect::<String>();
-                LrcStr::Shared(Lrc::from(&*s))
+                LrcStr::Shared(Lrc::from(s))
             }
         }
     }
 
-    #[cfg(not(feature = "small_string"))]
-    pub use HeapString::*;
     #[cfg(feature = "small_string")]
     pub use EnumString::*;
+    #[cfg(not(feature = "small_string"))]
+    pub use HeapString::*;
 
     // -----------------------------------------------------------
     // macros
@@ -138,8 +148,8 @@ pub mod String_ {
         }}
     }
 
-    pub use crate::sprintf;
     pub use crate::kprintf;
+    pub use crate::sprintf;
 
     // -----------------------------------------------------------
     // traits
@@ -380,12 +390,16 @@ pub mod String_ {
     }
 
     pub fn substring(s: string, i: i32) -> string {
-        if (i < 0) { panic!("Argument out of range") }
+        if (i < 0) {
+            panic!("Argument out of range")
+        }
         fromIter(s.chars().skip(i as usize))
     }
 
     pub fn substring2(s: string, i: i32, count: i32) -> string {
-        if (i < 0) || (count < 0) { panic!("Argument out of range") }
+        if (i < 0) || (count < 0) {
+            panic!("Argument out of range")
+        }
         fromIter(s.chars().skip(i as usize).take(count as usize))
     }
 

@@ -115,6 +115,13 @@ let ``kprintf works`` () =
     Printf.kprintf f "%X" 255 |> equal "FFXX"
     Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
 
+[<Fact>]
+let ``ksprintf works`` () =
+    let f (s:string) = s + "XX"
+    Printf.ksprintf f "hello" |> equal "helloXX"
+    Printf.ksprintf f "%X" 255 |> equal "FFXX"
+    Printf.ksprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
+
 // [<Fact>]
 // let ``kprintf works indirectly`` () = // See #1204
 //     let lines = ResizeArray<string>()
@@ -122,36 +129,36 @@ let ``kprintf works`` () =
 //     linef "open %s" "Foo"
 //     lines |> Seq.toList |> equal ["open Foo"]
 
-// [<Fact>]
-// let ``kbprintf works`` () =
-//     let sb = Text.StringBuilder()
-//     let mutable i = 0
-//     let f () = i <- i + 1
-//     Printf.kbprintf f sb "Hello"
-//     Printf.kbprintf f sb " %s!" "world"
-//     i |> equal 2
-//     sb.ToString() |> equal "Hello world!"
+[<Fact>]
+let ``kbprintf works`` () =
+    let sb = Text.StringBuilder()
+    let mutable i = 0
+    let f () = i <- i + 1
+    Printf.kbprintf f sb "Hello"
+    Printf.kbprintf f sb " %s!" "world"
+    i |> equal 2
+    sb.ToString() |> equal "Hello world!"
 
-// [<Fact>]
-// let ``ksprintf curries correctly`` () =
-//     let append (a: string) b = a + b
-//     let step1 = Printf.ksprintf append "%d"
-//     let step2 = step1 42
-//     let result = step2 "The answer is: "
-//     result |> equal "42The answer is: "
+[<Fact>]
+let ``ksprintf curries correctly`` () =
+    let append (a: string) b = b + a
+    let step1 = Printf.ksprintf append "%d"
+    let step2 = step1 42
+    let result = step2 "The answer is: "
+    result |> equal "The answer is: 42"
 
-// [<Fact>]
-// let ``bprintf works`` () =
-//     let sb = Text.StringBuilder(10)
-//     Printf.bprintf sb "Hello"
-//     Printf.bprintf sb " %s!" "world"
-//     sb.ToString() |> equal "Hello world!"
+[<Fact>]
+let ``bprintf works`` () =
+    let sb = Text.StringBuilder(10)
+    Printf.bprintf sb "Hello"
+    Printf.bprintf sb " %s!" "world"
+    sb.ToString() |> equal "Hello world!"
 
 [<Fact>]
 let ``sprintf works`` () =
     // Immediately applied
-    sprintf "%.2f %g" 0.5468989 5.
-    |> equal "0.55 5"
+    let s = sprintf "%.2f %g" 0.5468989 5.
+    s |> equal "0.55 5"
     // Curried
     let printer = sprintf "Hi %s, good %s!"
     let printer = printer "Alfonso"
@@ -491,11 +498,11 @@ let ``sprintf integers with sign and padding works`` () = // See #1931
 //     let f3 = f2 2
 //     f3 2 |> equal "foo 2 2 2"
 
-// [<Fact>]
-// let ``Printf in sequence is not erased`` () =
-//     let x = sprintf "Foo"
-//     let y = sprintf "B%sr" "a"
-//     x + y |> equal "FooBar"
+[<Fact>]
+let ``Printf in sequence is not erased`` () =
+    let x = sprintf "Foo"
+    let y = sprintf "B%sr" "a"
+    x + y |> equal "FooBar"
 
 [<Fact>]
 let ``Strings can be indexed`` () =
@@ -507,9 +514,9 @@ let ``Strings can be indexed`` () =
     s3[2] |> equal 'r'
     "おはよう"[2] |> equal 'よ'
 
-// [<Fact>]
-// let ``Strings can be enumerated`` () =
-//     "おはよう" |> Seq.item 2 |> equal 'よ'
+[<Fact>]
+let ``Strings can be enumerated`` () =
+    "おはよう" |> Seq.item 2 |> equal 'よ'
 
 [<Fact>]
 let ``String slicing works`` () =

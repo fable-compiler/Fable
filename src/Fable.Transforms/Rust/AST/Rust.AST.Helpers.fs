@@ -851,8 +851,9 @@ module Exprs =
         ExprKind.Paren(expr)
         |> mkExpr
 
-    let mkClosureExpr (decl: FnDecl) (body: Expr): Expr =
-        ExprKind.Closure(CaptureBy.Value, Asyncness.No, Movability.Movable, decl, body, DUMMY_SP)
+    let mkClosureExpr captureByValue (decl: FnDecl) (body: Expr): Expr =
+        let captureBy = if captureByValue then CaptureBy.Value else CaptureBy.Ref
+        ExprKind.Closure(captureBy, Asyncness.No, Movability.Movable, decl, body, DUMMY_SP)
         |> mkExpr
 
     let mkCallExpr (callee: Expr) args: Expr =
@@ -899,7 +900,7 @@ module Exprs =
         ExprKind.Index(expr, index)
         |> mkExpr
 
-    let mkEmitExpr value args: Expr =
+    let mkEmitExpr (value: string) args: Expr =
         ExprKind.EmitExpression(value, mkVec args)
         |> mkExpr
 
