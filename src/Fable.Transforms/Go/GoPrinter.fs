@@ -21,7 +21,7 @@ module PrinterExtensions =
             | DefStmt def -> printer.Print(def)
             | ReturnStmt ret -> printer.Print(ret)
             | BranchStmt branch -> printer.Print(branch)
-            | BlockStmt block -> printer.Print(block)
+            | BlockStmt block -> printer.PrintBlock(block)
             | CaseClause case -> printer.Print(case)
             | SwitchStmt switch -> printer.Print(switch)
             | TypeSwitchStmt typeSwitch -> printer.Print(typeSwitch)
@@ -74,9 +74,6 @@ module PrinterExtensions =
 
         member printer.Print(stmt: BranchStmt) =
             printer.Print("BranchStmt")
-
-        member printer.Print(stmt: BlockStmt) =
-            printer.Print("(BlockStmt")
 
         member printer.Print(stmt: CaseClause) =
             printer.Print("CaseClause")
@@ -131,8 +128,17 @@ module PrinterExtensions =
                 printer.Print("\"" + expr.Value + "\"")
             | _ -> printer.Print(expr.Value)
 
-        member printer.Print(expr: FuncLit) =
-            printer.Print("FuncLit")
+        member printer.Print(func: FuncLit) =
+            printer.Print("func(")
+            printer.Print(func.Type.Params)
+            printer.Print(") ")
+            if func.Type.Results.IsSome then
+                printer.Print(func.Type.Results.Value)
+            printer.Print("{")
+            printer.PushIndentation()
+            printer.PrintBlock(func.Body)
+            printer.PopIndentation()
+            printer.Print("}")
 
         member printer.Print(expr: CompositeLit) =
             printer.Print("CompositeLit")
@@ -191,8 +197,9 @@ module PrinterExtensions =
             printer.PrintCommaSeparatedList(fields.List)
 
         member printer.Print(field: Field) =
-            printer.PrintCommaSeparatedList(field.Names)
-            printer.Print(" ")
+            if field.Names.Length > 0 then
+                printer.PrintCommaSeparatedList(field.Names)
+                printer.Print(" ")
             printer.PrintOptional(field.Type)
 
         member printer.Print(spec: Spec) =
@@ -434,7 +441,12 @@ module PrinterExtensions =
             ()
 
         member printer.Print(arr: FuncType) =
-            ()
+            printer.Print("func(")
+            printer.Print(arr.Params)
+            printer.Print(") ")
+            if arr.Results.IsSome then
+                printer.Print(arr.Results.Value)
+
         member printer.Print(arr: InterfaceType) =
             ()
         member printer.Print(arr: MapType) =
@@ -445,10 +457,17 @@ module PrinterExtensions =
         member printer.Print(decl: FuncDecl) =
             printer.Print("func ")
             printer.Print(decl.Name)
+            match decl.Type.TypeParams with
+            | Some typeParams when typeParams.List.Length > 0 ->
+                printer.Print("[")
+                printer.Print(typeParams)
+                printer.Print("]")
+            | _ -> ()
+
             printer.Print("(")
             if decl.Recv.IsSome then
                 printer.Print(decl.Recv.Value)
-            printer.Print(")")
+            printer.Print(") ")
             if decl.Type.Results.IsSome then
                 printer.Print(decl.Type.Results.Value)
             printer.Print(" {")

@@ -1014,6 +1014,18 @@ module GoExtensions =
                 { Type = FuncType.funcType (args, results, ?loc=loc)
                   Body = body }
 
+        static member funcType(args, ?results, ?typeParams, ?loc) =
+            FuncType
+                { Func = loc
+                  TypeParams = typeParams
+                  Params = args
+                  Results = results }
+
+        static member funcType(args, ?results, ?loc) : Expr =
+            let args = args |> List.map (fun typ -> Field.field(typ=typ)) |> FieldList.fieldList
+            let results = results |> Option.defaultValue [] |> List.map (fun typ -> Field.field(typ=typ)) |> FieldList.fieldList
+            Expr.funcType(args, results=results, ?loc=loc)
+
         static member ident(name, ?importModule, ?obj, ?loc) =
             Ident
                 { ImportModule = importModule
@@ -1055,18 +1067,21 @@ module GoExtensions =
             Expr.ident "false"
 
     type Field with
-        static member field (names: string list, ?typ, ?tag, ?doc, ?comment) =
+        static member field(?names: string list, ?typ: Expr, ?tag, ?doc, ?comment) : Field =
             { Doc = doc
-              Names = names |> List.map Ident.ident
+              Names = names |> Option.defaultValue [] |> List.map Ident.ident
               Type = typ
               Tag = tag
               Comment = comment }
 
-        static member field (name: string, ?typ, ?tag, ?doc, ?comment) =
+        static member field(name: string, ?typ, ?tag, ?doc, ?comment) =
             Field.field ([name], ?typ=typ, ?tag=tag, ?doc=doc, ?comment=comment)
 
+        static member field(typ: Expr, ?tag, ?doc, ?comment) =
+            Field.field([], typ=typ, ?tag=tag, ?doc=doc, ?comment=comment)
+
     type FieldList with
-        static member fieldList (list, ?lbrace, ?rbrace) =
+        static member fieldList (list, ?lbrace, ?rbrace) : FieldList =
             { Opening = lbrace
               List = list
               Closing = rbrace }

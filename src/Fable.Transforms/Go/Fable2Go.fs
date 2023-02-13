@@ -490,7 +490,6 @@ module Helpers =
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
-        printfn "******* cleaning %s" name
         (name, Naming.NoMemberPart)
         ||> Naming.sanitizeIdent Naming.goBuiltins.Contains //(fun _ -> false)
 
@@ -543,27 +542,6 @@ module Annotation =
         ent.GenericParameters
         |> Seq.map (fun x -> x.Name)
         |> Set.ofSeq
-
-    let makeTypeParamDecl (com: IGoCompiler) ctx (genParams: Set<string>) =
-        if (Set.isEmpty genParams) then
-            []
-        else
-            com.GetImportExpr(ctx, "typing", "Generic")
-            |> ignore
-
-            com.GetImportExpr(ctx, "typing", "TypeVar")
-            |> ignore
-
-            let genParams =
-                genParams
-                |> Set.toList
-                |> List.map (fun genParam ->
-                    let arg = Util.getUniqueNameInRootScope (ctx: Context) genParam
-                    com.AddTypeVar(ctx, genParam))
-
-            //let generic = Expression.name "Generic"
-            //[ Expression.subscript (generic, Expression.tuple genParams) ]
-            []
 
     let private libReflectionCall (com: IGoCompiler) ctx r memberName args =
         libCall com ctx r "reflection" (memberName + "_type") args
@@ -664,6 +642,16 @@ module Annotation =
     //
     //         Expression.subscript (name, Expression.tuple genArgs)
 
+    let makeGenericTypeParams (generics: Fable.GenericParam list) : FieldList =
+        // TypeVars should be uppercase. For auto-generated (inferred) generics we use a double-undercore.
+        let clean (name: string) =
+            let name = name.ToUpperInvariant() |> Helpers.clean
+            $"{name}"
+
+        generics
+        |> List.map (fun x -> Field.field(clean(x.Name), typ=Expr.ident("any")))
+        |> FieldList.fieldList
+
     let resolveGenerics com ctx generics repeatedGenerics : Expr list * Stmt list =
         generics
         |> List.map (typeAnnotation com ctx repeatedGenerics)
@@ -677,29 +665,20 @@ module Annotation =
         // | Fable.GenericParam (name = name) when name.StartsWith("$$") ->
         //     stdlibModuleTypeHint com ctx "typing" "Any" []
         | Fable.GenericParam (name = name) ->
-            match repeatedGenerics with
-            | Some names when names.Contains name ->
-                com.GetImportExpr(ctx, "typing", "TypeVar")
-                |> ignore
+            com.AddTypeVar(ctx, name), []
 
-                let name = Helpers.clean name
-                com.AddTypeVar(ctx, name), []
-            // | Some _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
-            | None ->
-                com.GetImportExpr(ctx, "typing", "TypeVar")
-                |> ignore
-
-                let name = Helpers.clean name
-                com.AddTypeVar(ctx, name), []
-            | _ -> failwithf "Unknown generic parameter: %s" name
         | Fable.Unit -> Expr.nil, []
         | Fable.Boolean -> Expr.ident "bool", []
         | Fable.Char -> Expr.ident "char", []
         | Fable.String -> Expr.ident "string", []
         | Fable.Number (kind, info) -> makeNumberTypeAnnotation com ctx kind info
-        // | Fable.LambdaType (argType, returnType) ->
-        //     let argTypes, returnType = FableTransforms.uncurryLambdaType [ argType ] returnType
-        //     stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
+        | Fable.LambdaType (argType, returnType) ->
+            let argTypes, returnType = FableTransforms.uncurryLambdaType [ argType ] returnType
+            //let resolved, stmts = resolveGenerics com ctx genArgs None
+            let returnType, stmts' = typeAnnotation com ctx repeatedGenerics returnType
+            let argTypes, stmts'' = resolveGenerics com ctx argTypes repeatedGenerics
+            //stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
+            Expr.funcType(argTypes, [returnType]), stmts' @ stmts''
         // | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         // | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
         // | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
@@ -744,7 +723,7 @@ module Annotation =
                 | UInt32 -> "uint32"
                 | Int64 -> "int64"
                 | UInt64 -> "uint64"
-                | Int32
+                | Int32 -> "int32"
                 | BigInt
                 | Int128
                 | UInt128
@@ -752,13 +731,10 @@ module Annotation =
                 | UNativeInt -> "int"
                 | Float16
                 | Float32 -> "float32"
-                | Float64 -> "float"
+                | Float64 -> "float64"
                 | _ -> failwith $"Unsupported number type: {kind}"
 
-            match name with
-            | "int"
-            | "float" -> Expr.ident name
-            | _ -> fableModuleAnnotation com ctx "types" name []
+            Expr.ident name
 
 
         match kind, info with
@@ -1396,44 +1372,44 @@ module Util =
         (name: string option)
         (args: FieldList)
         (body: Stmt list)
-        returnType
+        (returnType: Expr)
         : Expr * Stmt list =
 
-    //     let args =
-    //         match args.List with
-    //         | [] ->
-    //             let ta = com.GetImportExpr(ctx, "typing", "Any")
-    //             Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
-    //         | _ -> args
-    //
-    //     let allDefaultsAreNone = args.Defaults |> List.forall (function Expression.Name ({Id=Identifier "None"}) -> true | _ -> false)
-    //     let (|ImmediatelyApplied|_|) = function
-    //         | Expr.CallExpr {Func=callee; Args=appliedArgs } when args.Args.Length = appliedArgs.Length && allDefaultsAreNone ->
-    //             // To be sure we're not running side effects when deleting the function check the callee is an identifier
-    //             match callee with
-    //             | Expression.Name(_) ->
-    //                 let parameters = args.Args |> List.map (fun a -> (Expression.name a.Arg))
-    //                 List.zip parameters appliedArgs
-    //                 |> List.forall (function
-    //                     | Expression.Name({Id=Identifier name1}),
-    //                         Expression.Name( { Id=Identifier name2}) -> name1 = name2
-    //                     | _ -> false)
-    //                 |> function true -> Some callee | false -> None
-    //             | _ -> None
-    //         | _ -> None
-    //
-    //     match body with
-    //     // Check if we can remove the function
-    //     | [Stmt.ReturnStmt { Results=[(ImmediatelyApplied(callExpr))]}] -> callExpr, []
-    //     | _ ->
-    //         let ident =
-    //             name
-    //             |> Option.map Ident.ident
-    //             |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
-    //
-    //         let func = createFunction ident args body [] returnType
-    //         Expr.basicLit ident, [ func ]
-        failwith "makeArrowFunctionExpression"
+        // let args =
+        //     match args.List with
+        //     | [] ->
+        //         let ta = com.GetImportExpr(ctx, "typing", "Any")
+        //         Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
+        //     | _ -> args
+
+        // let allDefaultsAreNone = args.Defaults |> List.forall (function Expression.Name ({Id=Identifier "None"}) -> true | _ -> false)
+        // let (|ImmediatelyApplied|_|) = function
+        //     | Expr.CallExpr {Func=callee; Args=appliedArgs } when args.Args.Length = appliedArgs.Length && allDefaultsAreNone ->
+        //         // To be sure we're not running side effects when deleting the function check the callee is an identifier
+        //         match callee with
+        //         | Expression.Name(_) ->
+        //             let parameters = args.Args |> List.map (fun a -> (Expression.name a.Arg))
+        //             List.zip parameters appliedArgs
+        //             |> List.forall (function
+        //                 | Expression.Name({Id=Identifier name1}),
+        //                     Expression.Name( { Id=Identifier name2}) -> name1 = name2
+        //                 | _ -> false)
+        //             |> function true -> Some callee | false -> None
+        //         | _ -> None
+        //     | _ -> None
+
+        match body with
+        // Check if we can remove the function
+        //| [Stmt.ReturnStmt { Results=[(ImmediatelyApplied(callExpr))]}] -> callExpr, []
+        | _ ->
+            let ident =
+                name
+                |> Option.map Ident.ident
+                |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
+
+            let body = BlockStmt.block body
+            let results = FieldList.fieldList [ Field.field(returnType) ]
+            Expr.funcLit(args, results, body), []
 
     let createFunction name args (body: BlockStmt) decoratorList (returnType: Expr) =
         // let (|Awaitable|_|) expr =
@@ -1950,7 +1926,7 @@ module Util =
         //     Expression.call (func, args), stmts' @ stmts
 
         | Fable.Binary (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            let compare op =
+            let binary op =
                 Expr.binary (left, op, right, ?loc = range), stmts @ stmts'
 
             let strict =
@@ -1959,17 +1935,18 @@ module Util =
                 | _ -> false
 
             match op, strict with
-            | BinaryEqual, true -> compare Token.Eql
-            | BinaryEqual, false -> compare Token.Eql
-            | BinaryUnequal, true -> compare Token.Neq
-            | BinaryUnequal, false -> compare Token.Neq
-            | BinaryLess, _ -> compare Token.Lss
-            | BinaryLessOrEqual, _ -> compare Token.Leq
-            | BinaryGreater, _ -> compare Token.Gtr
-            | BinaryGreaterOrEqual, _ -> compare Token.Geq
-            | _ ->
-                // Expr.binary (left, op, right, ?loc = range), stmts @ stmts'
-                failwith $"Unsupported binary operator: {op}"
+            | BinaryEqual, true -> binary Token.Eql
+            | BinaryEqual, false -> binary Token.Eql
+            | BinaryUnequal, true -> binary Token.Neq
+            | BinaryUnequal, false -> binary Token.Neq
+            | BinaryLess, _ -> binary Token.Lss
+            | BinaryLessOrEqual, _ -> binary Token.Leq
+            | BinaryGreater, _ -> binary Token.Gtr
+            | BinaryGreaterOrEqual, _ -> binary Token.Geq
+            | BinaryPlus, _ -> binary Token.Add
+            | BinaryMinus, _ -> binary Token.Sub
+            | BinaryMultiply, _ -> binary Token.Mul
+            | _ -> failwith $"Unsupported binary operator: {op}"
 
         | Fable.Logical (op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
             let op =
@@ -2729,10 +2706,10 @@ module Util =
 
         // | Fable.Test (expr, kind, range) -> transformTest com ctx range kind expr
         //
-        // | Fable.Lambda (arg, body, name) ->
-        //     transformFunctionWithAnnotations com ctx name [ arg ] body
-        //     |||> makeArrowFunctionExpression com ctx name
-        //
+        | Fable.Lambda (arg, body, name) ->
+             transformFunctionWithAnnotations com ctx name [ arg ] body
+             |||> makeArrowFunctionExpression com ctx name
+
         // | Fable.Delegate (args, body, name, _) ->
         //     transformFunctionWithAnnotations com ctx name args body
         //     |||> makeArrowFunctionExpression com ctx name
@@ -3295,10 +3272,6 @@ module Util =
         | [ Stmt.DeclStmt { Decl=decl } ] -> decl
         | _ -> failwith "Unexpected module member declaration"
 
-    let makeEntityTypeParamDecl (com: IGoCompiler) ctx (ent: Fable.Entity) =
-        getEntityGenParams ent
-        |> makeTypeParamDecl com ctx
-
     let getUnionFieldsAsIdents (_com: IGoCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array(Fable.Any, Fable.MutableArray)) "fields"
@@ -3473,7 +3446,7 @@ module Util =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
         let name = com.GetIdentifier(ctx, membName)
-        //let stmt = createFunction name args body' [] returnType
+        //let stmt =  name args body' [] returnType
         //let expr = Expr.basicLit name.Name
 
         // info.Attributes
@@ -3484,9 +3457,10 @@ module Util =
         //         [ stmt ]
         //     | false ->
         //         [ stmt ]
+        let typeParams = makeGenericTypeParams info.GenericParameters
 
         let results = FieldList.fieldList [ Field.field([], returnType) ]
-        let typ = FuncType.funcType(args, results=results)
+        let typ = FuncType.funcType(args, results=results, typeParams=typeParams)
         Decl.funcDecl(name, typ=typ, recv=args, body=body')
 
     // let transformAction (com: IGoCompiler) ctx expr =
@@ -3985,15 +3959,13 @@ module Compiler =
             member _.GetAllTypeVars() = typeVars
 
             member _.AddTypeVar(ctx, name: string) =
-                // TypeVars should be private and uppercase. For auto-generated (inferred) generics we use a double-undercore.
+                // TypeVars should be uppercase. For auto-generated (inferred) generics we use a double-undercore.
                 let name =
                     let name = name.ToUpperInvariant() |> Helpers.clean
-                    $"_{name}"
+                    $"{name}"
 
                 // For object expressions we need to create a new type scope so we make an extra padding to ensure uniqueness
-                let name = name.PadRight(ctx.TypeParamsScope + name.Length, '_')
                 typeVars.Add name |> ignore
-
                 ctx.UsedNames.DeclarationScopes.Add(name)
                 |> ignore
 

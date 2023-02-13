@@ -1215,7 +1215,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         |> Some
     | "Log", _
     | "Sqrt", _ ->
-        Helper.LibCall(com, "double", i.CompiledName.ToLower(), t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.ImportedCall("math", i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "Round", _ ->
         match args with
