@@ -79,3 +79,14 @@ let testGenericMapWithClosure () =
 //     let res = genericMap (fun x -> x + 1) 1
 //     assertTrue(res = 2)
 //     ()
+
+// let papplyfn a b =
+//     a.X + b.X
+
+// let testCurriedApply () =
+//     let f1 = papplyfn { X = 1; Y = 0 }
+//     let res = f1 {X = 2; Y = 0}
+//     let res2 = f1 {X = 3; Y = 0}
+//     assertTrue(res = 3)
+//     assertTrue(res2 = 4)
+//     ()

@@ -12,5 +12,6 @@ let main args = // args
     StringTests.testStringConcatWorks()
     RunTests.testGenericMap()
     RunTests.testGenericMapWithClosure()
+    // RunTests.testCurriedApply()
     // RunTests.testGenericMap2()
     0
