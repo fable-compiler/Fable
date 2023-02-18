@@ -39,7 +39,7 @@ module PrinterExtensions =
             printer.Print("EmptyStmt")
 
         member printer.Print(stmt: DeclStmt) =
-            printer.Print("DeclStmt")
+            printer.Print(stmt.Decl)
 
         member printer.Print(stmt: ExprStmt) =
             printer.Print(stmt.X)
@@ -129,11 +129,11 @@ module PrinterExtensions =
             | _ -> printer.Print(expr.Value)
 
         member printer.Print(func: FuncLit) =
-            printer.Print("func(")
-            printer.Print(func.Type.Params)
-            printer.Print(") ")
-            if func.Type.Results.IsSome then
-                printer.Print(func.Type.Results.Value)
+            //printer.Print("func(")
+            printer.Print(func.Type)
+            //printer.Print(") ")
+            //if func.Type.Results.IsSome then
+            //    printer.Print(func.Type.Results.Value)
             printer.Print("{")
             printer.PushIndentation()
             printer.PrintBlock(func.Body)
@@ -444,8 +444,13 @@ module PrinterExtensions =
             printer.Print("func(")
             printer.Print(arr.Params)
             printer.Print(") ")
-            if arr.Results.IsSome then
-                printer.Print(arr.Results.Value)
+
+            match arr.Results with
+            | Some { List=[ { Type = Some (Expr.Ident { Name="nil" })} ] } -> ()
+            | Some { List=results } ->
+                printfn "************ results: %A" results
+                printer.PrintCommaSeparatedList(results)
+            | None -> ()
 
         member printer.Print(arr: InterfaceType) =
             ()

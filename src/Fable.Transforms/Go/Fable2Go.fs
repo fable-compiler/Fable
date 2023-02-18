@@ -1192,9 +1192,9 @@ module Util =
     //     |> List.unzip
     //     |> Expression.dict
     //
-    let assign range left right =
-        // Expr.namedExpr (left, right, ?loc = range)
-        failwith "assign"
+    let assign range (left: Expr) (right: Expr) =
+        let stmt = Stmt.assign(left, right)
+        Expr.bad(), [ stmt ]
 
     /// Immediately Invoked Function Expression
     let iife (com: IGoCompiler) ctx (expr: Fable.Expr) =
@@ -1518,7 +1518,7 @@ module Util =
               yield!
                   stmts
                   @ (assign None (com.GetIdentifierAsExpr(ctx, argId)) arg
-                     |> exprAsStatement ctx)
+                     ||> exprAsStatement ctx)
           yield Stmt.continue'(?loc = range) ]
 
     let transformImport (com: IGoCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
@@ -1879,17 +1879,17 @@ module Util =
             //let kw = Statement.assign([ name], objArg)
             args, objArg, stmts @ stmts'
 
-    let resolveExpr (ctx: Context) t strategy pyExpr : Stmt list =
+    let resolveExpr (ctx: Context) t strategy goExpr : Stmt list =
         // printfn "resolveExpr: %A" (pyExpr, strategy)
         match strategy with
         | None
-        | Some ReturnUnit -> exprAsStatement ctx pyExpr
+        | Some ReturnUnit -> exprAsStatement ctx goExpr []
         // TODO: Where to put these int wrappings? Add them also for function arguments?
         | Some ResourceManager
-        | Some Return -> [ Stmt.return' pyExpr ]
+        | Some Return -> [ Stmt.return' goExpr ]
         //| Some (Assign left) -> exprAsStatement ctx (assign None left pyExpr)
         //| Some (Target left) -> exprAsStatement ctx (assign None (left |> Expr.ident) pyExpr)
-        | _ -> failwithf $"resolveExpr: %A{(pyExpr, strategy)}"
+        | _ -> failwithf $"resolveExpr: %A{(goExpr, strategy)}"
 
     let transformOperation com ctx range opKind tags : Expr * Stmt list =
         match opKind with
@@ -2202,8 +2202,8 @@ module Util =
             | Fable.FieldSet fieldName ->
                 let fieldName = fieldName |> Naming.toSnakeCase |> Helpers.clean
                 get com ctx None expr fieldName false, []
-
-        assign range ret value, stmts @ stmts' @ stmts''
+        let expr, stmts''' = assign range ret value
+        expr, stmts @ stmts' @ stmts'' @ stmts'''
 
     let transformBindingExprBody (com: IGoCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
         match value with
@@ -2376,8 +2376,8 @@ module Util =
 
             com.TransformAsExpr(ctx, target)
 
-    let exprAsStatement (ctx: Context) (expr: Expr) : Stmt list =
-        // printfn "exprAsStatement: %A" expr
+    let exprAsStatement (ctx: Context) (expr: Expr) (stmts: Stmt list): Stmt list =
+        printfn "exprAsStatement: %A" expr
         match expr with
         // A single None will be removed (i.e transformCall may return None)
         // | Name { Id = Identifier "None" } -> []
@@ -2395,7 +2395,8 @@ module Util =
         //     // printfn "Nonlocals: %A" nonLocals
         //     nonLocals
         //     @ [ Stmt.assign ([ target ], value) ]
-        | _ -> [ Stmt.expr expr ]
+        | Expr.BadExpr _ -> stmts
+        | _ -> [ Stmt.expr expr ] @ stmts
 
     let transformDecisionTreeSuccessAsStatements
         (com: IGoCompiler)
@@ -2413,13 +2414,13 @@ module Util =
                 |> List.collect (fun (id, TransformExpr com ctx (value, stmts)) ->
                     let stmts' =
                         assign None (identAsExpr com ctx id) value
-                        |> exprAsStatement ctx
+                        ||> exprAsStatement ctx
 
                     stmts @ stmts')
 
             let targetAssignment =
                 assign None (targetId |> Expr.basicLit) (ofInt targetIndex)
-                |> exprAsStatement ctx
+                ||> exprAsStatement ctx
 
             targetAssignment @ assignments
         | ret ->

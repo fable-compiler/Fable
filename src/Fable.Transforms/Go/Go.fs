@@ -438,9 +438,9 @@ type ChanType =
 /// created.
 type BadExpr =
     { /// Position range of bad expression
-      From: SourceLocation
+      From: SourceLocation option
       /// Position range of bad expression
-      To: SourceLocation }
+      To: SourceLocation option }
 
 /// An Ident node represents an identifier.
 type Ident =
@@ -975,6 +975,11 @@ module GoExtensions =
                   Else = else' }
 
     type Expr with
+        static member bad(?from', ?to') =
+            BadExpr
+                { From = from'
+                  To = to' }
+
         static member basicLit(value: obj, ?loc) : Expr =
             BasicLit (BasicLit.basicLit (value, ?valuePos=loc))
 
