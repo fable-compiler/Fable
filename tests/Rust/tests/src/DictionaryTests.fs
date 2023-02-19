@@ -59,8 +59,8 @@ let ``IDictionary ctor works`` () =
 //     dict.ContainsKey(y) |> equal false
 //     let comparer =
 //         { new IEqualityComparer<MyRefType> with
-//             member __.Equals(x, y) = x.Value = y.Value
-//             member __.GetHashCode(x) = x.Value }
+//             member _.Equals(x, y) = x.Value = y.Value
+//             member _.GetHashCode(x) = x.Value }
 //     let dic2 = Dictionary<_,_>(comparer)
 //     dic2.Add(x, "bar")
 //     dic2.ContainsKey(x) |> equal true

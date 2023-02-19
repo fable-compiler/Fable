@@ -5,13 +5,13 @@ open Util.Testing
 type ClassWithCLIEvent() =
     let event = new Event<_>()
     [<CLIEvent>]
-    member __.Event = event.Publish
+    member _.Event = event.Publish
     member this.TestEvent(arg) =
         event.Trigger(this, arg)
 
 type ClassWithNonCLIEvent() =
     let event = new Event<_>()
-    member __.Event = event.Publish
+    member _.Event = event.Publish
     member this.TestEvent(arg) =
         event.Trigger(this, arg)
 
@@ -25,7 +25,7 @@ type ClassWithInterfaceWithCLIEvent<'t>() =
         event.Trigger(this, arg)
     interface InterfaceWithCLIEvent<'t> with
         [<CLIEvent>]
-        member __.Event = event.Publish
+        member _.Event = event.Publish
 
 module tests =
 
@@ -235,7 +235,7 @@ module tests =
         let ifaceWIthEvent =
             { new InterfaceWithCLIEvent<_> with
                 [<CLIEvent>]
-                member __.Event = event.Publish }
+                member _.Event = event.Publish }
         ifaceWIthEvent.Event.AddHandler(fun sender arg ->
             actualSender <- string sender
             result <- arg)

@@ -398,13 +398,13 @@ let tests =
 
     testCase "using function disposes the resource when action finishes" <| fun () ->
         let mutable disposed = false
-        let resource = { new IDisposable with member __.Dispose() = disposed <- true }
+        let resource = { new IDisposable with member _.Dispose() = disposed <- true }
         using resource (fun _resource -> ())
         equal true disposed
 
     testCase "using function disposes the resource when action fails" <| fun () ->
         let mutable disposed = false
-        let resource = { new IDisposable with member __.Dispose() = disposed <- true }
+        let resource = { new IDisposable with member _.Dispose() = disposed <- true }
         try
             using resource (fun _resource -> failwith "action failed")
         with

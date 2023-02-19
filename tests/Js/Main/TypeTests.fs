@@ -18,39 +18,39 @@ type ITest4 =
     abstract Add: int * int -> int
 
 type TestType(s: string) =
-    member __.Value = s
+    member _.Value = s
     interface ITest
 
 type TestType2(s: string) =
-    member __.Value = s
+    member _.Value = s
     interface ITest
 
 type TestType3() =
-    member __.Value = "Hi"
+    member _.Value = "Hi"
     interface ITest
 
 type TestType4() =
     inherit TestType3()
-    member __.Value2 = "Bye"
+    member _.Value2 = "Bye"
     interface ITest2
 
 type TestType5(greeting: string) =
-    member __.Value = greeting
-    member __.Overload(x) = x + x
-    member __.Overload(x, y) = x + y
+    member _.Value = greeting
+    member _.Overload(x) = x + x
+    member _.Overload(x, y) = x + y
 
 type TestType8(?greeting) =
-    member __.Value = defaultArg greeting "Hi"
+    member _.Value = defaultArg greeting "Hi"
 
 type TestType9() =
     inherit TestType8()
     let foo = TestType8("Hello")
-    member __.Greet(name) = foo.Value + " " + name
+    member _.Greet(name) = foo.Value + " " + name
 
 type TestType10Base() =
     interface ITest4 with
-        member __.Add2(x, y) = x - y
-        member __.Add(x, y) = x + y
+        member _.Add2(x, y) = x - y
+        member _.Add(x, y) = x + y
 
 type TestType10Child() =
     inherit TestType10Base()
@@ -65,12 +65,12 @@ type T4 = TestType4
 type TestType6(x: int) =
     let mutable i = x
     member val Value1 = i with get, set
-    member __.Value2 = i + i
-    member __.Value3 with get() = i * i and set(v) = i <- v
+    member _.Value2 = i + i
+    member _.Value3 with get() = i * i and set(v) = i <- v
 
 type TestType7(a1, a2, a3) =
     let arr = [|a1; a2; a3|]
-    member __.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v
+    member _.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v
 
 type A  = { thing: int } with
     member x.show() = string x.thing
@@ -100,7 +100,7 @@ type Serializable(?i: int) =
 
 type SecondaryCons(x: int) =
     new () = SecondaryCons(5)
-    member __.Value = x
+    member _.Value = x
 
 // type SecondaryConsChild() =
 //     inherit SecondaryCons()
@@ -108,7 +108,7 @@ type SecondaryCons(x: int) =
 type MultipleCons(x: int, y: int) =
     new () = MultipleCons(2,3)
     new (x:int) = MultipleCons(x,4)
-    member __.Value = x + y
+    member _.Value = x + y
 
 [<AbstractClass>]
 type AbstractClassWithDefaults () =
@@ -202,12 +202,12 @@ type ExtendedClass () =
 
 type BaseClass2() =
     let field = 1
-    member __.A() = field
+    member _.A() = field
 
 type ExtendedClass2() =
     inherit BaseClass2()
-    member __.A() = 2
-    member __.B() = base.A()
+    member _.A() = 2
+    member _.B() = base.A()
 
 type Employee = { name: string; age: float; location: Location }
 and Location = { name: string; mutable employees: Employee list }
@@ -245,16 +245,16 @@ exception MyEx of int*string
 
 type MyEx2(f: float) =
   inherit exn(sprintf "Code: %i" (int f))
-  member __.Code = f
+  member _.Code = f
 
 type ThisContextInConstructor(v) =
     let f () = v
     member val Value = f
 
 type DowncastTest(value: int) =
-    member __.Value = value
+    member _.Value = value
     interface System.IDisposable with
-        member __.Dispose() = ()
+        member _.Dispose() = ()
 
 [<Class>]
 type TypeWithClassAttribute =

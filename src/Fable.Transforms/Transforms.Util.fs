@@ -609,7 +609,7 @@ module AST =
         let selector =
             match com.Options.Language with
             | Rust ->
-                if moduleName.StartsWith("System.")
+                if moduleName = "System" || moduleName.StartsWith("System.")
                 then moduleName + "::" + memberName
                 else moduleName + "_::" + memberName
             | _ -> memberName

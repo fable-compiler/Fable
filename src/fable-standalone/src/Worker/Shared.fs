@@ -58,8 +58,8 @@ type ObservableWorker<'InMsg>(worker: obj, decoder: Decoder<'InMsg>, ?name: stri
                     listener.OnNext(msg)
             | Error err -> JS.console.error("[" + name + "] Cannot decode:", err)
         | _ -> ())
-    member __.Worker = worker
-    member __.HasListeners =
+    member _.Worker = worker
+    member _.HasListeners =
         listeners.Count > 0
     member inline this.Post(msg: 'OutMsg): unit =
         this.Worker?postMessage(Encode.Auto.toString(0, msg))
@@ -74,10 +74,10 @@ type ObservableWorker<'InMsg>(worker: obj, decoder: Decoder<'InMsg>, ?name: stri
                 | None -> ())
             this.Worker?postMessage(Encode.Auto.toString(0, msg))
         )
-    member __.Subscribe obs =
+    member _.Subscribe obs =
         let id = Guid.NewGuid()
         listeners.Add(id, obs)
         { new IDisposable with
-            member __.Dispose() = listeners.Remove(id) |> ignore }
+            member _.Dispose() = listeners.Remove(id) |> ignore }
     interface IObservable<'InMsg> with
         member this.Subscribe obs = this.Subscribe(obs)

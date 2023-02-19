@@ -121,4 +121,4 @@ let [<Emit("this")>] phpThis<'T> : 'T = nativeOnly
 // ///     f.Invoke(5, "bar")
 // type [<AllowNullLiteral>] JsFunc private () =
 //    [<Emit("$0($1...)")>]
-//    member __.Invoke([<ParamArray>]args:obj[]): obj = nativeOnly
+//    member _.Invoke([<ParamArray>]args:obj[]): obj = nativeOnly
