@@ -9,7 +9,7 @@ type 'a Tree =
 
 type DisposableAction(f) =
     interface IDisposable with
-        member __.Dispose() = f()
+        member _.Dispose() = f()
 
 [<Fact>]
 let ``test empty seq expressions work`` () =

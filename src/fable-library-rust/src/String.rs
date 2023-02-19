@@ -32,11 +32,11 @@ pub mod String_ {
             LrcStr(Lrc::from(s))
         }
 
-        pub fn fromString(s: String) -> string {
+        pub fn fromSlice(s: &str) -> string {
             LrcStr(Lrc::from(s))
         }
 
-        pub fn fromSlice(s: &str) -> string {
+        pub fn fromString(s: String) -> string {
             LrcStr(Lrc::from(s))
         }
 
@@ -81,10 +81,6 @@ pub mod String_ {
             LrcStr::Static(s)
         }
 
-        pub fn fromString(s: String) -> string {
-            LrcStr::Shared(Lrc::from(s))
-        }
-
         pub fn fromSlice(s: &str) -> string {
             let len = s.len();
             if len <= INLINE_MAX {
@@ -97,6 +93,10 @@ pub mod String_ {
             } else {
                 LrcStr::Shared(Lrc::from(s))
             }
+        }
+
+        pub fn fromString(s: String) -> string {
+            fromSlice(s.as_str())
         }
 
         pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
@@ -176,7 +176,7 @@ pub mod String_ {
 
     impl core::fmt::Debug for string {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.as_str())
+            write!(f, "\"{}\"", self.as_str())
         }
     }
 
@@ -276,6 +276,11 @@ pub mod String_ {
 
     pub fn ofChar(c: char) -> string {
         fromIter([c].into_iter())
+    }
+
+    pub fn ofBoolean(b: bool) -> string {
+        if b { string("True") }
+        else { string("False") }
     }
 
     // O(n) because Rust strings are UTF-8

@@ -54,7 +54,7 @@ type SourceWriter(sourceMaps: bool, language: string) =
             | _ -> path
         member _.AddSourceMapping(mapping) = ()
         member _.Dispose() = ()
-    member __.Result = sb.ToString()
+    member _.Result = sb.ToString()
 
 let makeFableState (config: FableStateConfig) otherFSharpOptions =
     async {

@@ -424,14 +424,14 @@ let ``nullArg works`` () =
 [<Fact>]
 let ``using function disposes the resource when action finishes`` () =
     let mutable disposed = false
-    let resource = { new System.IDisposable with member __.Dispose() = disposed <- true }
+    let resource = { new System.IDisposable with member _.Dispose() = disposed <- true }
     using resource (fun _resource -> ())
     equal true disposed
 
 [<Fact>]
 let ``using function disposes the resource when action fails`` () =
     let mutable disposed = false
-    let resource = { new System.IDisposable with member __.Dispose() = disposed <- true }
+    let resource = { new System.IDisposable with member _.Dispose() = disposed <- true }
     try
         using resource (fun _resource -> failwith "action failed")
     with

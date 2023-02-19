@@ -50,12 +50,12 @@ open FSharp.Compiler.BuildGraph
 // stub
 type IncrementalBuilder() =
     member x.IncrementUsageCount () =
-        { new System.IDisposable with member __.Dispose() = () }
+        { new System.IDisposable with member _.Dispose() = () }
     member x.IsAlive = false
-    static member KeepBuilderAlive (builderOpt: IncrementalBuilder option) = 
-        match builderOpt with 
-        | Some builder -> builder.IncrementUsageCount() 
-        | None -> { new System.IDisposable with member __.Dispose() = () }
+    static member KeepBuilderAlive (builderOpt: IncrementalBuilder option) =
+        match builderOpt with
+        | Some builder -> builder.IncrementUsageCount()
+        | None -> { new System.IDisposable with member _.Dispose() = () }
 
 #else //!FABLE_COMPILER
 
@@ -147,7 +147,7 @@ module IncrementalBuildSyntaxTree =
                             Activity.Tags.fileName, source.FilePath
                             "buildPhase", BuildPhase.Parse.ToString()
                             "canSkip", canSkip.ToString()
-                        |]             
+                        |]
                 let input =
                     if canSkip then
                         ParsedInput.ImplFile(
@@ -302,7 +302,7 @@ type BoundModel private (tcConfig: TcConfig,
                          syntaxTreeOpt: SyntaxTree option,
                          tcInfoStateOpt: TcInfoState option) as this =
 
-    let tcInfoNode = 
+    let tcInfoNode =
         match tcInfoStateOpt with
         | Some tcInfoState -> TcInfoNode.FromState(tcInfoState)
         | _ ->
@@ -310,11 +310,11 @@ type BoundModel private (tcConfig: TcConfig,
                 GraphNode(node {
                     match! this.TypeCheck(false) with
                     | FullState(tcInfo, tcInfoExtras) -> return tcInfo, tcInfoExtras
-                    | PartialState(tcInfo) -> 
+                    | PartialState(tcInfo) ->
                         return tcInfo, emptyTcInfoExtras
                 })
 
-            let partialGraphNode =              
+            let partialGraphNode =
                 GraphNode(node {
                     if enablePartialTypeChecking then
                         // Optimization so we have less of a chance to duplicate work.
@@ -372,7 +372,7 @@ type BoundModel private (tcConfig: TcConfig,
 
             let newTcInfoStateOpt =
                 match tcInfoNode with
-                | TcInfoNode(_, fullGraphNode) -> 
+                | TcInfoNode(_, fullGraphNode) ->
                     let tcInfo, _ = fullGraphNode.TryPeekValue().Value
                     Some(PartialState tcInfo)
 
@@ -463,7 +463,7 @@ type BoundModel private (tcConfig: TcConfig,
 
     member _.GetOrComputeTcInfo() =
         match tcInfoNode with
-        | TcInfoNode(partialGraphNode, _) -> 
+        | TcInfoNode(partialGraphNode, _) ->
             partialGraphNode.GetOrComputeValue()
 
     member _.GetOrComputeTcInfoExtras() : NodeCode<TcInfoExtras> =
@@ -488,7 +488,7 @@ type BoundModel private (tcConfig: TcConfig,
 
         node {
             match syntaxTreeOpt with
-            | None -> 
+            | None ->
                 let! res = defaultTypeCheck ()
                 return res
             | Some syntaxTree ->
@@ -511,12 +511,12 @@ type BoundModel private (tcConfig: TcConfig,
                     let prevTcState = prevTcInfo.tcState
                     let prevTcDiagnosticsRev = prevTcInfo.tcDiagnosticsRev
                     let prevTcDependencyFiles = prevTcInfo.tcDependencyFiles
-                        
+
                     ApplyMetaCommandsFromInputToTcConfig (tcConfig, input, Path.GetDirectoryName fileName, tcImports.DependencyProvider) |> ignore
                     let sink = TcResultsSinkImpl(tcGlobals)
                     let hadParseErrors = not (Array.isEmpty parseErrors)
                     let input, moduleNamesDict = DeduplicateParsedInputModuleName prevModuleNamesDict input
-                        
+
                     let! (tcEnvAtEndOfFile, topAttribs, implFile, ccuSigForFile), tcState =
                         CheckOneInput
                             ((fun () -> hadParseErrors || diagnosticsLogger.ErrorCount > 0),
@@ -548,7 +548,7 @@ type BoundModel private (tcConfig: TcConfig,
                                 | _ ->
                                     None
                         }
-                        
+
                     if partialCheck then
                         return PartialState tcInfo
                     else
@@ -566,17 +566,17 @@ type BoundModel private (tcConfig: TcConfig,
                                     let r = cnr.Range
                                     if preventDuplicates.Add struct(r.Start, r.End) then
                                         builder.Write(cnr.Range, cnr.Item))
-                        
+
                                 let semanticClassification = sResolutions.GetSemanticClassification(tcGlobals, tcImports.GetImportMap(), sink.GetFormatSpecifierLocations(), None)
-                        
+
                                 let sckBuilder = SemanticClassificationKeyStoreBuilder()
                                 sckBuilder.WriteAll semanticClassification
-                        
+
                                 let res = builder.TryBuildAndReset(), sckBuilder.TryBuildAndReset()
                                 res
                             else
                                 None, None
-                        
+
                         let tcInfoExtras =
                             {
                                 // Only keep the typed interface files when doing a "full" build for fsc.exe, otherwise just throw them away
@@ -587,7 +587,7 @@ type BoundModel private (tcConfig: TcConfig,
                                 itemKeyStore = itemKeyStore
                                 semanticClassificationKeyStore = semanticClassification
                             }
-                        
+
                         return FullState(tcInfo, tcInfoExtras)
             }
 
@@ -760,15 +760,15 @@ module IncrementalBuilderHelpers =
 
     // Link all the assemblies together and produce the input typecheck accumulator
     let CombineImportedAssembliesTask (
-        assemblyName, 
-        tcConfig: TcConfig, 
-        tcConfigP, 
-        tcGlobals, 
-        frameworkTcImports, 
-        nonFrameworkResolutions, 
-        unresolvedReferences, 
-        dependencyProvider, 
-        loadClosureOpt: LoadClosure option, 
+        assemblyName,
+        tcConfig: TcConfig,
+        tcConfigP,
+        tcGlobals,
+        frameworkTcImports,
+        nonFrameworkResolutions,
+        unresolvedReferences,
+        dependencyProvider,
+        loadClosureOpt: LoadClosure option,
         basicDependencies,
         keepAssemblyContents,
         keepAllBackgroundResolutions,
@@ -877,8 +877,8 @@ module IncrementalBuilderHelpers =
         use _ = new CompilationGlobalsScope(diagnosticsLogger, BuildPhase.TypeCheck)
 
         let! results =
-            boundModels 
-            |> ImmutableArray.map (fun boundModel -> node { 
+            boundModels
+            |> ImmutableArray.map (fun boundModel -> node {
                 if enablePartialTypeChecking then
                     let! tcInfo = boundModel.GetOrComputeTcInfo()
                     return tcInfo, None
@@ -1073,13 +1073,13 @@ module IncrementalBuilderStateHelpers =
                 boundModels.ToImmutable()
                 |> ImmutableArray.map (fun x -> x.TryPeekValue().Value)
 
-            let! result = 
-                FinalizeTypeCheckTask 
-                    initialState.tcConfig 
-                    initialState.tcGlobals 
-                    initialState.enablePartialTypeChecking 
-                    initialState.assemblyName 
-                    initialState.outfile 
+            let! result =
+                FinalizeTypeCheckTask
+                    initialState.tcConfig
+                    initialState.tcGlobals
+                    initialState.enablePartialTypeChecking
+                    initialState.assemblyName
+                    initialState.outfile
                     boundModels
             let result = (result, DateTime.UtcNow)
             return result
@@ -1253,7 +1253,7 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
             max t1 t2
 
     let gate = obj()
-    let mutable currentState = state 
+    let mutable currentState = state
 
     let setCurrentState state cache (ct: CancellationToken) =
         lock gate (fun () ->
@@ -1283,10 +1283,10 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
     member _.ImportsInvalidatedByTypeProvider = importsInvalidatedByTypeProvider.Publish
 #endif
 
-    member _.IsReferencesInvalidated = 
+    member _.IsReferencesInvalidated =
         // fast path
         if initialState.isImportsInvalidated then true
-        else 
+        else
             computeStampedReferencedAssemblies initialState currentState true (TimeStampCache(defaultTimeStamp)) |> ignore
             initialState.isImportsInvalidated
 
@@ -1352,7 +1352,7 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
         do! checkFileTimeStamps cache
         let! result = evalUpToTargetSlot currentState (slotOfFile - 1)
         match result with
-        | Some (boundModel, timestamp) -> 
+        | Some (boundModel, timestamp) ->
             let! _ = boundModel.GetOrComputeTcInfoExtras()
             let projectTimeStamp = builder.GetLogicalTimeStampForFileInProject(slotOfFile)
             return PartialCheckResults(boundModel, timestamp, projectTimeStamp)
@@ -1663,7 +1663,7 @@ type IncrementalBuilder(initialState: IncrementalBuilderInitialState, state: Inc
 
             let defaultTimeStamp = DateTime.UtcNow
 
-            let! initialBoundModel = 
+            let! initialBoundModel =
                 CombineImportedAssembliesTask(
                     assemblyName,
                     tcConfig,

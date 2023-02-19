@@ -91,7 +91,7 @@ module Two =
 type Base() =
     let mutable x = 5
     member this.Mutate i = x <- x + i
-    member __.Value = x
+    member _.Value = x
 
 type Test(i) as myself =
     inherit Base()
@@ -99,21 +99,21 @@ type Test(i) as myself =
     do myself.Mutate(i+2)
     do myself.Mutate2(i)
     member this.Mutate2 i = y <- y + i
-    member __.Value2 = y
-    member __.Foo() = myself.Value * 2
+    member _.Value2 = y
+    member _.Foo() = myself.Value * 2
 
 let log2 (a: string) (b: string) = String.Format("a = {0}, b = {1}", a, b)
 let logItem1 = log2 "item1"
 let logItem2 = log2 "item2"
 
 type PartialFunctions() =
-    member __.logItem1 = log2 "item1"
-    member __.logItem2 = log2 "item2"
+    member _.logItem1 = log2 "item1"
+    member _.logItem2 = log2 "item2"
 
 type MaybeBuilder() =
-  member __.Bind(x,f) = Option.bind f x
-  member __.Return v = Some v
-  member __.ReturnFrom o = o
+  member _.Bind(x,f) = Option.bind f x
+  member _.Return v = Some v
+  member _.ReturnFrom o = o
 let maybe = MaybeBuilder()
 
 let riskyOp x y =
@@ -170,7 +170,7 @@ module FooModule =
     let add x y = x + y
 
     type FooInline() =
-        member __.Bar = "Bar"
+        member _.Bar = "Bar"
         member val Value = 0uy with get, set
         member inline self.Foo = "Foo" + self.Bar
         member inline self.Foofy(i) = String.replicate i self.Bar
@@ -224,14 +224,14 @@ let f6 i j = myMutableField <- i * j
 let f7 i () = myMutableField <- i * 3
 
 type DisposableFoo() =
-    member __.Foo() = 5
+    member _.Foo() = 5
     interface IDisposable with
-        member __.Dispose () = ()
+        member _.Dispose () = ()
 
 type DisposableBar(v) =
     do v := 10
     interface IDisposable with
-        member __.Dispose () = v := 20
+        member _.Dispose () = v := 20
 
 let createCellDiposable cell =
   cell := 10
@@ -270,16 +270,16 @@ type IRenderer =
 
 type MyComponent(name) as self =
   let work i = sprintf "%s-%i" name i
-  let create2 () = { new IRenderer with member __.doWork () = work 2 }
-  let create3 = { new IRenderer with member __.doWork () = work 3 }
-  let create4 = { new IRenderer with member __.doWork () = self.Work 4 }
-  let create5() = { new IRenderer with member __.doWork () = self.Work 5 }
-  member __.Work i = work i
-  member __.works1 () = { new IRenderer with member __.doWork () = work 1 }
-  member __.works2 () = create2()
-  member __.works3 () = create3
-  member __.works4 () = create4
-  member __.works5 () = create5()
+  let create2 () = { new IRenderer with member _.doWork () = work 2 }
+  let create3 = { new IRenderer with member _.doWork () = work 3 }
+  let create4 = { new IRenderer with member _.doWork () = self.Work 4 }
+  let create5() = { new IRenderer with member _.doWork () = self.Work 5 }
+  member _.Work i = work i
+  member _.works1 () = { new IRenderer with member _.doWork () = work 1 }
+  member _.works2 () = create2()
+  member _.works3 () = create3
+  member _.works4 () = create4
+  member _.works5 () = create5()
 
 type IFoo3 =
    abstract Bar: int with get, set
@@ -295,19 +295,19 @@ module NestedModule =
         member x.Value = value + 5
 
 type INum = abstract member Num: int
-let inline makeNum f = { new INum with member __.Num = f() }
+let inline makeNum f = { new INum with member _.Num = f() }
 
 type TestClass(n) =
     let addOne x = x + 4
     let inner = makeNum (fun () -> addOne n)
-    member __.GetNum() = inner.Num
+    member _.GetNum() = inner.Num
 
 type RecursiveType(subscribe) as self =
     let foo = 3
     let getNumber() = 3
     do subscribe (getNumber >> self.Add2)
-    member __.Add2(i) = self.MultiplyFoo(i) + 2
-    member __.MultiplyFoo(i) = i * foo
+    member _.Add2(i) = self.MultiplyFoo(i) + 2
+    member _.MultiplyFoo(i) = i * foo
 
 type InliningMutationTest(l: int, r: int) =
         let mutable left = 0
@@ -324,7 +324,7 @@ module Extensions =
     type IDisposable with
         static member Create(f) =
             { new IDisposable with
-                member __.Dispose() = f() }
+                member _.Dispose() = f() }
 
     type SomeClass with
         member x.FullName = sprintf "%s Smith" x.Name
@@ -916,11 +916,11 @@ module tests =
     let ``Object expressions don't optimize members away`` () = // See #1434
         let o =
             { new Taster with
-                member __.Starter = 5.5
+                member _.Starter = 5.5
                 member this.Taste(quality, quantity) =
                     taste this quality quantity
               interface Eater with
-                member __.Bite() = 25
+                member _.Bite() = 25
             }
         o.Taste(4., 6.) |> equal 28
 

@@ -9,7 +9,7 @@ open Fable.Core
 
 type DisposableAction(f) =
     interface IDisposable with
-        member __.Dispose() = f()
+        member _.Dispose() = f()
 
 let successWork: Async<string> = Async.FromContinuations(fun (onSuccess,_,_) -> onSuccess "success")
 let errorWork: Async<string> = Async.FromContinuations(fun (_,onError,_) -> onError (exn "error"))

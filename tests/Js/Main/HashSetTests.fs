@@ -18,8 +18,8 @@ type R = { i: int; s: string }
 
 type Apa<'t when 't : equality>() =
     let state = HashSet<'t>()
-    member __.Add t = state.Add t |> ignore
-    member __.Contains t = state.Contains t
+    member _.Add t = state.Add t |> ignore
+    member _.Contains t = state.Contains t
 
 let tests =
   testList "HashSets" [
@@ -45,8 +45,8 @@ let tests =
 
         let comparer =
             { new IEqualityComparer<MyRefType> with
-                member __.Equals(x, y) = x.Value = y.Value
-                member __.GetHashCode(x) = x.Value }
+                member _.Equals(x, y) = x.Value = y.Value
+                member _.GetHashCode(x) = x.Value }
         let set2 = HashSet<_>(comparer)
         set2.Add(x) |> equal true
         set2.Contains(x) |> equal true
@@ -90,9 +90,9 @@ let tests =
     testCase "IntersectWith works with custom comparison" <| fun () -> // See #2566
         let ignoreCase =
             { new IEqualityComparer<string> with
-                member __.Equals(s1: string, s2: string) =
+                member _.Equals(s1: string, s2: string) =
                     s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-                member __.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
+                member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
         let set = new HashSet<string>(["Foo"; "bar"], ignoreCase)
         set.Contains("foo") |> equal true
         set.Contains("Foo") |> equal true
