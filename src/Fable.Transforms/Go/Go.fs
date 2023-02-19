@@ -893,6 +893,9 @@ module GoExtensions =
                   Type = typ
                   Body = body }
 
+        static member funcDecl(name: string, typ: FuncType, ?body, ?recv, ?doc) =
+            Decl.funcDecl(Ident.ident(name), typ, ?body=body, ?recv=recv, ?doc=doc)
+
         static member genDecl(tok, specs, ?doc, ?tokPos, ?lparen, ?rparen) =
             GenDecl
                 { Doc = doc
@@ -1110,13 +1113,13 @@ module GoExtensions =
               TypeParams = typeParams }
 
     type ImportSpec with
-        static member importSpec (path: string, ?name, ?doc, ?comment, ?endPos) =
+        static member importSpec(path: string, ?name, ?doc, ?comment, ?endPos) =
             { Doc = doc
               Name = name
               Path = path |> BasicLit.basicLit
               Comment = comment
               EndPos = endPos }
 
-        static member importSpec(path: string, ?name, ?doc, ?comment, ?endPos) =
-            let name = name |> Option.map Ident.ident
-            ImportSpec.importSpec (path, ?name=name, ?doc=doc, ?comment=comment, ?endPos=endPos)
+        static member importSpec(path: string, name, ?doc, ?comment, ?endPos) =
+            let name = Ident.ident(name)
+            ImportSpec.importSpec (path, name=name, ?doc=doc, ?comment=comment, ?endPos=endPos)

@@ -1,6 +1,6 @@
 module quicktest-go
 
-go 1.20
+go 1.19
 
 replace github.com/fable-compiler/fable => ./fable_modules/fable
 

@@ -3247,30 +3247,31 @@ module Util =
 
         args, body.List
 
-    // Declares a Python entry point, i.e `if __name__ == "__main__"`
-    // let declareEntryPoint (com: IGoCompiler) (ctx: Context) (funcExpr: Expr) =
-    //     com.GetImportExpr(ctx, "sys") |> ignore
-    //     let args = emitExpression None "sys.argv[1:]" []
-    //
-    //     let test =
-    //         Expression.compare (Expression.name ("__name__"), [ ComparisonOperator.Eq ], [ Expression.constant ("__main__") ])
-    //
-    //     let main =
-    //         Expression.call (funcExpr, [ args ])
-    //         |> Statement.expr
-    //         |> List.singleton
-    //
-    //     Statement.if' (test, main)
+    // Declares a Go entry point, i.e main function
+    let declareEntryPoint (com: IGoCompiler) (ctx: Context) (funcExpr: Ident) (returnType: Expr) : Decl =
+        let os = com.GetImportExpr(ctx, "os")
+        let args = emitExpression None "os.Args[1:]" []
 
-    let declareModuleMember (com: IGoCompiler) ctx isPublic (membName: Ident) typ (expr: Expr) : Decl =
+        let body : BlockStmt =
+            let name = Ident.ident "exitCode"
+            let result = varDeclaration ctx name (Some returnType) (Expr.call (Expr.ident funcExpr, [ args ]))
+            let exitCode = Expr.call(Expr.ident("int"), [Expr.ident name])
+            let osExit = Stmt.expr(Expr.call(Expr.selector(os, Ident.ident "Exit"), [ exitCode ]))
+            BlockStmt.block (result @ [ osExit ])
+
+        let args = FieldList.fieldList []
+        let results = FieldList.fieldList []
+        let typ = FuncType.funcType(args, results=results)
+        Decl.funcDecl("main", typ=typ, recv=args, body=body)
+
+    let declareModuleMember (com: IGoCompiler) ctx isPublic (membName: Ident) typ (expr: Expr) : Decl list =
         printfn $"Declaring module member %s{membName.Name}"
         let name = membName.Name
 
         let name = membName
         let stmts = varDeclaration ctx name typ expr
-        printfn "stmts: %A" stmts
         match stmts with
-        | [ Stmt.DeclStmt { Decl=decl } ] -> decl
+        | [ Stmt.DeclStmt { Decl=decl } ] -> [ decl ]
         | _ -> failwith "Unexpected module member declaration"
 
     let getUnionFieldsAsIdents (_com: IGoCompiler) _ctx (_ent: Fable.Entity) =
@@ -3441,28 +3442,30 @@ module Util =
     //     stmts
     //     @ typeDeclaration @ reflectionDeclaration
 
-    let transformModuleFunction (com: IGoCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) args body : Decl =
+    let transformModuleFunction (com: IGoCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) args body : Decl list =
         printfn "transformModuleFunction: %A" membName
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
-        let name = com.GetIdentifier(ctx, membName)
-        //let stmt =  name args body' [] returnType
-        //let expr = Expr.basicLit name.Name
+        let isEntryPoint = info.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
+        let name =
+            match membName, isEntryPoint with
+            | "main", true -> com.GetIdentifier(ctx, "mainWithArgs")
+            | _ -> com.GetIdentifier(ctx, membName)
 
-        // info.Attributes
-        // |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
-        // |> function
-        //     | true ->
-        //         //[ stmt; declareEntryPoint com ctx expr ]
-        //         [ stmt ]
-        //     | false ->
-        //         [ stmt ]
-        let typeParams = makeGenericTypeParams info.GenericParameters
+        let decl =
+            let typeParams = makeGenericTypeParams info.GenericParameters
+            let results = FieldList.fieldList [ Field.field([], returnType) ]
+            let typ = FuncType.funcType(args, results=results, typeParams=typeParams)
+            Decl.funcDecl(name, typ=typ, recv=args, body=body')
 
-        let results = FieldList.fieldList [ Field.field([], returnType) ]
-        let typ = FuncType.funcType(args, results=results, typeParams=typeParams)
-        Decl.funcDecl(name, typ=typ, recv=args, body=body')
+        info.Attributes
+        |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
+        |> function
+             | true ->
+                 [ decl; declareEntryPoint com ctx name returnType ]
+             | false ->
+                 [ decl ]
 
     // let transformAction (com: IGoCompiler) ctx expr =
     //     let statements = transformAsStatements com ctx None expr
@@ -3812,7 +3815,7 @@ module Util =
             <| fun ctx ->
                 let info = com.GetMember(decl.MemberRef)
 
-                let decl =
+                let decls =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
@@ -3821,8 +3824,8 @@ module Util =
                         declareModuleMember com ctx info.IsPublic name (Some ta) value
                     else
                         transformModuleFunction com ctx info decl.Name decl.Args decl.Body
-                printfn "decls: %A" decl
-                [ decl ]
+                printfn "decls: %A" decls
+                decls
 
         // | Fable.ClassDeclaration decl ->
         //     // printfn "Class: %A" decl
@@ -3940,7 +3943,7 @@ module Compiler =
                     match name with
                     | Some "*"
                     | None ->
-                        let i = ImportSpec.importSpec(path="moduleName", name=moduleFileName)
+                        let i = ImportSpec.importSpec(moduleFileName)
                         imports.Add(cachedName, i)
                     | Some name ->
                         if name = Naming.placeholder then
@@ -3950,9 +3953,10 @@ module Compiler =
                         let i = ImportSpec.importSpec(path=moduleName, name=moduleFileName)
                         imports.Add(cachedName, i)
 
-                    match local_id with
-                    | Some localId -> Expr.ident(localId, moduleFileName)
-                    | None -> Expr.nil
+                    match local_id, name with
+                    | Some localId, Some _ -> Expr.ident(localId, moduleFileName)
+                    | Some localId, None -> Expr.ident(localId)
+                    | _ -> Expr.nil
 
             member _.GetAllImports() : ImportSpec list =
                 imports.Values |> List.ofSeq

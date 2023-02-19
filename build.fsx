@@ -816,7 +816,7 @@ match BUILD_ARGS_LOWER with
     watchFableWithArgs srcDir ["--lang ts --watch --exclude Fable.Core --noCache --run"; runCmd]
 | ("quicktest-go"|"quicktest-golang")::_ ->
     buildLibraryGoIfNotExists()
-    watchFableWithArgs "src/quicktest-go" ["--lang go --watch --exclude Fable.Core --noCache --runScript"]
+    runFableWithArgsInDir "src/quicktest-go" ["--lang go --watch --exclude Fable.Core --noCache --runScript"]
 | ("quicktest-py"|"quicktest-python")::_ ->
     buildLibraryPyIfNotExists()
     watchFableWithArgs "src/quicktest-py" ["--lang py --watch --exclude Fable.Core --noCache --runScript"]
