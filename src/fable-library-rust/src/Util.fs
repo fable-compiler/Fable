@@ -34,5 +34,5 @@ let kbprintf cont (sb: System.Text.StringBuilder) =
         cont()
     f
 
-let new_exception (msg: string) =
+let new_Exception (msg: string) =
     System.Exception(msg)

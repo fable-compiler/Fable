@@ -79,14 +79,16 @@ let nativeCall expr =
     expr |> withTag "native"
 
 let makeInstanceCall r t (i: CallInfo) callee memberName args =
-    Helper.InstanceCall(callee, memberName, t, args, i.SignatureArgTypes, ?loc=r)
+    Helper.InstanceCall(callee, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc=r)
     |> nativeCall
 
 let makeStaticLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
-    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, isModuleMember=false, ?loc=r)
+    let isConstructor = (i.CompiledName = ".ctor" || i.CompiledName = ".cctor")
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs,
+        isModuleMember=false, isConstructor=isConstructor, ?loc=r)
 
-let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
-    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc=r)
+// let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
+//     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc=r)
 
 let makeGlobalIdent (ident: string, memb: string, typ: Type) =
     makeTypedIdentExpr typ (ident + "::" + memb)
@@ -148,6 +150,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | String -> head
         | Char -> Helper.LibCall(com, "String", "ofChar", String, [head])
+        | Boolean -> Helper.LibCall(com, "String", "ofBoolean", String, [head])
         | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
         | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toString", String, args)
         // | Array _ | List _ ->
@@ -760,11 +763,11 @@ let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let getMemberName isStatic (i: CallInfo) =
     let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
-    if i.OverloadSuffix = ""
-    then memberName
-    elif isStatic
-    then memberName + "__" + i.OverloadSuffix
-    else memberName + "_" + i.OverloadSuffix
+    if i.OverloadSuffix = "" then
+        memberName
+    else
+        let sep = if isStatic then "__" else "_"
+        memberName + sep + i.OverloadSuffix
 
 let getModuleAndMemberName (i: CallInfo) (thisArg: Expr option) =
     let isStatic = Option.isNone thisArg
@@ -983,7 +986,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("FailWith" | "InvalidOp"), [msg] ->
         makeThrow r t (error msg) |> Some
     | "InvalidArg", [argName; msg] ->
-        let msg = add (add msg (str "\\nParameter name: ")) argName
+        let msg = add msg (add (add (str " (Parameter '") argName) (str "')"))
         makeThrow r t (error msg) |> Some
     | "Raise", [arg] -> makeThrow r t arg |> Some
     | "Reraise", _ ->
@@ -2166,7 +2169,8 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
+    | ".ctor", None ->
+        bclType com ctx r t i thisArg args
     | "get_Message", Some callee ->
         makeInstanceCall r t i callee i.CompiledName args |> Some
     // | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
