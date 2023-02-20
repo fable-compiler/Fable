@@ -776,7 +776,11 @@ let (|ConstNeedsDefaultCase|_|) c =
 ///     switches, string switches and floating point switches are treated in the
 ///     same way as DecisionTreeTest.IsInst.
 let rec BuildSwitch inpExprOpt g expr edges dflt m =
+#if FABLE_COMPILER
+    if verbose then dprintf "--> BuildSwitch@%s, #edges = %A, dflt.IsSome = %A\n" (stringOfRange m) (List.length edges) (Option.isSome dflt)
+#else
     if verbose then dprintf "--> BuildSwitch@%a, #edges = %A, dflt.IsSome = %A\n" outputRange m (List.length edges) (Option.isSome dflt)
+#endif
     match edges, dflt with
     | [], None      -> failwith "internal error: no edges and no default"
     | [], Some dflt -> dflt
