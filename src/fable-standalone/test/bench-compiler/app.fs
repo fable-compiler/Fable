@@ -87,7 +87,7 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     let printError (e: Fable.Standalone.Error) =
         let errorType = (if e.IsWarning then "Warning" else "Error")
-        printfn "%s (%d,%d): %s: %s" e.FileName e.StartLine e.StartColumn errorType e.Message
+        printfn "%s" $"{e.FileName} ({e.StartLine},{e.StartColumn}): {errorType}: {e.Message}"
     let warnings, errors = errors |> Array.partition (fun e -> e.IsWarning)
     let hasErrors = not (Array.isEmpty errors)
     if showWarnings then
