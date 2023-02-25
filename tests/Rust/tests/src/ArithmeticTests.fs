@@ -508,13 +508,43 @@ let ``sqrt works`` () =
 
 // As per https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L217
 [<Fact>]
-let ``sqrt matches .net core implementation`` () =
+let ``sqrt matches .NET core implementation`` () =
     checkTo3dp 1732. (sqrt 3.0)
     sqrt 0.0  |> equal 0.0
     Double.IsNaN (sqrt -3.0) |> equal true
     Double.IsNaN (sqrt Double.NaN) |> equal true
     Double.IsNaN (sqrt Double.NegativeInfinity) |> equal true
     sqrt Double.PositiveInfinity |> equal Double.PositiveInfinity
+
+[<Fact>]
+let ``Single comparison works`` () =
+    let x = 5.0f
+    let y = 5.0f
+    let z = 6.0f
+    let n = Single.NaN
+    compare x y |> equal 0
+    compare y z |> equal -1
+    compare y x |> equal 0
+    compare z x |> equal 1
+    compare x n |> equal 1
+    compare n y |> equal -1
+    compare n n |> equal 0
+    n = n |> equal false
+
+[<Fact>]
+let ``Double comparison works`` () =
+    let x = 5.0
+    let y = 5.0
+    let z = 6.0
+    let n = Double.NaN
+    compare x y |> equal 0
+    compare y z |> equal -1
+    compare y x |> equal 0
+    compare z x |> equal 1
+    compare x n |> equal 1
+    compare n y |> equal -1
+    compare n n |> equal 0
+    n = n |> equal false
 
 // [<Fact>]
 // let ``Double.Parse works with IFormatProvider`` () =

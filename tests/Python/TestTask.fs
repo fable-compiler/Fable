@@ -6,7 +6,7 @@ open System.Threading.Tasks
 
 type DisposableAction(f) =
     interface IDisposable with
-        member __.Dispose() = f ()
+        member _.Dispose() = f ()
 
 [<Fact>]
 let ``test Simple task translates without exception`` () =

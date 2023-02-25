@@ -500,9 +500,10 @@ let finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> 'T seq) =
         try
             let e = restf() |> ofSeq
             Enumerable.enumerateThenFinally compensation e
-        with _ ->
+        with ex ->
             compensation()
-            reraise()
+            // reraise()
+            failwith ex.Message
     )
 
 let enumerateThenFinally (source: 'T seq) (compensation: unit -> unit) =

@@ -32,13 +32,17 @@ pub mod String_ {
             LrcStr(Lrc::from(s))
         }
 
-        pub fn fromStr(s: &str) -> string {
+        pub fn fromSlice(s: &str) -> string {
+            LrcStr(Lrc::from(s))
+        }
+
+        pub fn fromString(s: String) -> string {
             LrcStr(Lrc::from(s))
         }
 
         pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
             let s = iter.collect::<String>();
-            LrcStr(Lrc::from(&*s))
+            LrcStr(Lrc::from(s))
         }
     }
 
@@ -68,7 +72,7 @@ pub mod String_ {
                     LrcStr::Shared(rc) => rc.as_ref(),
                     LrcStr::Inline { len, buf } => unsafe {
                         core::str::from_utf8_unchecked(&buf[0..*len as usize])
-                    }
+                    },
                 }
             }
         }
@@ -77,19 +81,30 @@ pub mod String_ {
             LrcStr::Static(s)
         }
 
-        pub fn fromStr(s: &str) -> string {
+        pub fn fromSlice(s: &str) -> string {
             let len = s.len();
             if len <= INLINE_MAX {
                 let mut buf = [0u8; INLINE_MAX];
                 buf[0..len].copy_from_slice(s.as_bytes());
-                LrcStr::Inline { len: len as u8, buf: buf }
+                LrcStr::Inline {
+                    len: len as u8,
+                    buf: buf,
+                }
             } else {
                 LrcStr::Shared(Lrc::from(s))
             }
         }
 
+        pub fn fromString(s: String) -> string {
+            fromSlice(s.as_str())
+        }
+
         pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
-            let len: usize = iter.clone().take(INLINE_MAX + 1).map(|c| c.len_utf8()).sum();
+            let len: usize = iter
+                .clone()
+                .take(INLINE_MAX + 1)
+                .map(|c| c.len_utf8())
+                .sum();
             if len <= INLINE_MAX {
                 let mut buf = [0u8; INLINE_MAX];
                 let mut pos: usize = 0;
@@ -97,18 +112,21 @@ pub mod String_ {
                     let s = c.encode_utf8(&mut buf[pos..]);
                     pos = pos + s.len();
                 }
-                LrcStr::Inline { len: len as u8, buf: buf }
+                LrcStr::Inline {
+                    len: len as u8,
+                    buf: buf,
+                }
             } else {
                 let s = iter.collect::<String>();
-                LrcStr::Shared(Lrc::from(&*s))
+                LrcStr::Shared(Lrc::from(s))
             }
         }
     }
 
-    #[cfg(not(feature = "small_string"))]
-    pub use HeapString::*;
     #[cfg(feature = "small_string")]
     pub use EnumString::*;
+    #[cfg(not(feature = "small_string"))]
+    pub use HeapString::*;
 
     // -----------------------------------------------------------
     // macros
@@ -118,7 +136,7 @@ pub mod String_ {
     macro_rules! sprintf {
         ($($arg:tt)*) => {{
             let res = format!($($arg)*);
-            $crate::String_::stringFrom(res)
+            $crate::String_::fromString(res)
         }}
     }
 
@@ -126,12 +144,12 @@ pub mod String_ {
     macro_rules! kprintf {
         ($f:expr, $($arg:expr),+) => {{
             let res = format!($($arg),+);
-            $f($crate::String_::stringFrom(res))
+            $f($crate::String_::fromString(res))
         }}
     }
 
-    pub use crate::sprintf;
     pub use crate::kprintf;
+    pub use crate::sprintf;
 
     // -----------------------------------------------------------
     // traits
@@ -158,7 +176,7 @@ pub mod String_ {
 
     impl core::fmt::Debug for string {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.as_str())
+            write!(f, "\"{}\"", self.as_str())
         }
     }
 
@@ -176,7 +194,7 @@ pub mod String_ {
 
     impl From<String> for string {
         fn from(s: String) -> Self {
-            stringFrom(s)
+            fromString(s)
         }
     }
 
@@ -240,29 +258,9 @@ pub mod String_ {
     // string implementation
     // -----------------------------------------------------------
 
-    pub fn stringFrom(s: String) -> string {
-        fromStr(&*s)
-    }
-
     pub fn toString<T: ToString>(o: T) -> string {
-        stringFrom(o.to_string())
+        fromString(o.to_string())
     }
-
-    pub fn toInt8 (s: string) -> i8 { s.parse::<i8>().unwrap() }
-    pub fn toUInt8 (s: string) -> u8 { s.parse::<u8>().unwrap() }
-    pub fn toInt16 (s: string) -> i16 { s.parse::<i16>().unwrap() }
-    pub fn toUInt16 (s: string) -> u16 { s.parse::<u16>().unwrap() }
-    pub fn toInt32 (s: string) -> i32 { s.parse::<i32>().unwrap() }
-    pub fn toUInt32 (s: string) -> u32 { s.parse::<u32>().unwrap() }
-    pub fn toInt64 (s: string) -> i64 { s.parse::<i64>().unwrap() }
-    pub fn toUInt64 (s: string) -> u64 { s.parse::<u64>().unwrap() }
-    pub fn toFloat32 (s: string) -> f32 { s.parse::<f32>().unwrap() }
-    pub fn toFloat64 (s: string) -> f64 { s.parse::<f64>().unwrap() }
-    pub fn toNativeInt (s: string) -> isize { s.parse::<isize>().unwrap() }
-    pub fn toUNativeInt (s: string) -> usize { s.parse::<usize>().unwrap() }
-
-    pub fn toBoolean (s: string) -> bool { s.parse::<bool>().unwrap() }
-    pub fn toChar (s: string) -> char { s.parse::<char>().unwrap() }
 
     pub fn fromCharCode(code: u32) -> char {
         unsafe { core::char::from_u32_unchecked(code) }
@@ -278,6 +276,11 @@ pub mod String_ {
 
     pub fn ofChar(c: char) -> string {
         fromIter([c].into_iter())
+    }
+
+    pub fn ofBoolean(b: bool) -> string {
+        if b { string("True") }
+        else { string("False") }
     }
 
     // O(n) because Rust strings are UTF-8
@@ -335,47 +338,47 @@ pub mod String_ {
     }
 
     pub fn trim(s: string) -> string {
-        fromStr(s.trim())
+        fromSlice(s.trim())
     }
 
     pub fn trimChar(s: string, c: char) -> string {
-        fromStr(s.trim_matches(c))
+        fromSlice(s.trim_matches(c))
     }
 
     pub fn trimChars(s: string, a: Array<char>) -> string {
-        fromStr(s.trim_matches(a.as_slice()))
+        fromSlice(s.trim_matches(a.as_slice()))
     }
 
     pub fn trimEnd(s: string) -> string {
-        fromStr(s.trim_end())
+        fromSlice(s.trim_end())
     }
 
     pub fn trimEndChar(s: string, c: char) -> string {
-        fromStr(s.trim_end_matches(c))
+        fromSlice(s.trim_end_matches(c))
     }
 
     pub fn trimEndChars(s: string, a: Array<char>) -> string {
-        fromStr(s.trim_end_matches(a.as_slice()))
+        fromSlice(s.trim_end_matches(a.as_slice()))
     }
 
     pub fn trimStart(s: string) -> string {
-        fromStr(s.trim_start())
+        fromSlice(s.trim_start())
     }
 
     pub fn trimStartChar(s: string, c: char) -> string {
-        fromStr(s.trim_start_matches(c))
+        fromSlice(s.trim_start_matches(c))
     }
 
     pub fn trimStartChars(s: string, a: Array<char>) -> string {
-        fromStr(s.trim_start_matches(a.as_slice()))
+        fromSlice(s.trim_start_matches(a.as_slice()))
     }
 
     pub fn toLower(s: string) -> string {
-        stringFrom(s.to_lowercase())
+        fromString(s.to_lowercase())
     }
 
     pub fn toUpper(s: string) -> string {
-        stringFrom(s.to_uppercase())
+        fromString(s.to_uppercase())
     }
 
     pub fn concat(a: Array<string>) -> string {
@@ -384,20 +387,24 @@ pub mod String_ {
 
     pub fn join(sep: string, a: Array<string>) -> string {
         let v: Vec<&str> = a.iter().map(|s| s.as_str()).collect();
-        stringFrom(v.join(&sep))
+        fromString(v.join(&sep))
     }
 
     pub fn replace(s: string, old: string, new: string) -> string {
-        stringFrom(s.replace(old.as_str(), new.as_str()))
+        fromString(s.replace(old.as_str(), new.as_str()))
     }
 
     pub fn substring(s: string, i: i32) -> string {
-        if (i < 0) { panic!("Argument out of range") }
+        if (i < 0) {
+            panic!("Argument out of range")
+        }
         fromIter(s.chars().skip(i as usize))
     }
 
     pub fn substring2(s: string, i: i32, count: i32) -> string {
-        if (i < 0) || (count < 0) { panic!("Argument out of range") }
+        if (i < 0) || (count < 0) {
+            panic!("Argument out of range")
+        }
         fromIter(s.chars().skip(i as usize).take(count as usize))
     }
 
@@ -553,7 +560,7 @@ pub mod String_ {
         if (count >= 0) {
             a = a.into_iter().take(count as usize).collect()
         }
-        let a = a.into_iter().map(|s| fromStr(s)).collect();
+        let a = a.into_iter().map(|s| fromSlice(s)).collect();
         arrayFrom(a)
     }
 
@@ -645,7 +652,7 @@ pub mod String_ {
     }
 
     pub fn replicate(count: i32, s: string) -> string {
-        // stringFrom(s.repeat(count as usize))
+        // fromString(s.repeat(count as usize))
         fromIter(core::iter::repeat(&s).take(count as usize).flat_map(|s| s.chars()))
     }
 }

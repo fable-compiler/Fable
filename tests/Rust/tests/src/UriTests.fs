@@ -36,21 +36,21 @@ let ``Uri from relative uri string works`` () =
 [<Fact>]
 let ``AbsoluteUri from relative uri should throw`` () =
     let uri = Uri("/hello.html", UriKind.Relative)
-    Util.throwsError "This operation is not supported for a relative URI." (fun () -> uri.AbsoluteUri)
+    throwsError "This operation is not supported for a relative URI." (fun () -> uri.AbsoluteUri)
 
 [<Fact>]
 let ``Uri from relative uri string without uri kind should throws`` () =
     let createInvalidUri () =
         Uri("hello.html")
 
-    Util.throwsError "Invalid URI: The format of the URI could not be determined." createInvalidUri
+    throwsError "Invalid URI: The format of the URI could not be determined." createInvalidUri
 
 [<Fact>]
 let ``Uri from relative uri with kind Absolute fails`` () =
     let createInvalidUri () =
         Uri("hello.html")
 
-    Util.throwsError "Invalid URI: The format of the URI could not be determined." createInvalidUri
+    throwsError "Invalid URI: The format of the URI could not be determined." createInvalidUri
 
 [<Fact>]
 let ``Uri from baseUri with relative string works`` () =

@@ -79,14 +79,16 @@ let nativeCall expr =
     expr |> withTag "native"
 
 let makeInstanceCall r t (i: CallInfo) callee memberName args =
-    Helper.InstanceCall(callee, memberName, t, args, i.SignatureArgTypes, ?loc=r)
+    Helper.InstanceCall(callee, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc=r)
     |> nativeCall
 
 let makeStaticLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
-    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, isModuleMember=false, ?loc=r)
+    let isConstructor = (i.CompiledName = ".ctor" || i.CompiledName = ".cctor")
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs,
+        isModuleMember=false, isConstructor=isConstructor, ?loc=r)
 
-let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
-    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc=r)
+// let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
+//     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc=r)
 
 let makeGlobalIdent (ident: string, memb: string, typ: Type) =
     makeTypedIdentExpr typ (ident + "::" + memb)
@@ -148,6 +150,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | String -> head
         | Char -> Helper.LibCall(com, "String", "ofChar", String, [head])
+        | Boolean -> Helper.LibCall(com, "String", "ofBoolean", String, [head])
         | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
         | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toString", String, args)
         // | Array _ | List _ ->
@@ -158,180 +161,141 @@ let toString com (ctx: Context) r (args: Expr list) =
         | _ ->
             Helper.LibCall(com, "String", "toString", String, [makeRef head])
 
-let getParseParams (kind: NumberKind) =
-    let isFloatOrDecimal, numberModule, unsigned, bitsize =
-        match kind with
-        | Int8 -> false, "Int32", false, 8
-        | UInt8 -> false, "Int32", true, 8
-        | Int16 -> false, "Int32", false, 16
-        | UInt16 -> false, "Int32", true, 16
-        | Int32 -> false, "Int32", false, 32
-        | UInt32 -> false, "Int32", true, 32
-        | Int64 -> false, "Long", false, 64
-        | UInt64 -> false, "Long", true, 64
-        | Float32 -> true, "Double", false, 32
-        | Float64 -> true, "Double", false, 64
-        | Decimal -> true, "Decimal", false, 128
-        | x -> FableError $"Unexpected kind in getParseParams: %A{x}" |> raise
-    isFloatOrDecimal, numberModule, unsigned, bitsize
+// let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10  11
+//     match t with            //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+//     | Int8 -> 0    //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
+//     | Int16 -> 1   //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
+//     | Int32 -> 2   //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
+//     | Int64 -> 3   //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
+//     | UInt8 -> 4   //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
+//     | UInt16 -> 5  //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
+//     | UInt32 -> 6  //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
+//     | UInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
+//     | Float32 -> 8 //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
+//     | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
+//     | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+//     | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+//     | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
+//     | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
+//     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
-// let castBigIntMethod typeTo =
-//     match typeTo with
-//     | Number(kind,_) ->
-//         match kind with
-//         | Int8 -> "toSByte"
-//         | UInt8 -> "toByte"
-//         | Int16 -> "toInt16"
-//         | UInt16 -> "toUInt16"
-//         | Int32 -> "toInt32"
-//         | UInt32 -> "toUInt32"
-//         | Int64 -> "toInt64"
-//         | UInt64 -> "toUInt64"
-//         | Float32 -> "toSingle"
-//         | Float64 -> "toDouble"
-//         | Decimal -> "toDecimal"
-//         | Int128 | UInt128 | Float16
-//         | BigInt | NativeInt | UNativeInt ->
-//             FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
-//     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
+// let needToCast typeFrom typeTo =
+//     let v = kindIndex typeFrom // argument type (vertical)
+//     let h = kindIndex typeTo   // return type (horizontal)
+//     ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
 
-let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10  11
-    match t with            //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
-    | Int8 -> 0    //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
-    | Int16 -> 1   //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
-    | Int32 -> 2   //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
-    | Int64 -> 3   //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
-    | UInt8 -> 4   //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
-    | UInt16 -> 5  //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
-    | UInt32 -> 6  //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
-    | UInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
-    | Float32 -> 8 //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
-    | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
-    | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
-    | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
-    | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
-    | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
-    | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
-
-let needToCast typeFrom typeTo =
-    let v = kindIndex typeFrom // argument type (vertical)
-    let h = kindIndex typeTo   // return type (horizontal)
-    ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
-
-/// Conversions to floating point
-let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
-    let meth =
-        match targetType with
-        | Number(kind, _) -> "to" + kind.ToString()
-        | x -> FableError $"Unexpected type in toFloat: %A{x}" |> raise
-    match args.Head.Type with
-    | Char ->
-        let code = TypeCast(args.Head, UInt32.Number)
-        TypeCast(code, targetType)
-    | String -> Helper.LibCall(com, "String", meth, targetType, args)
-    | Number(kind, _) ->
-        match kind with
-        | BigInt -> Helper.LibCall(com, "BigInt", meth, targetType, args)
-        | Decimal -> Helper.LibCall(com, "Decimal", meth, targetType, args)
-        | _ -> TypeCast(args.Head, targetType)
-    | _ ->
-        addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType)
-
-let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
-    match args.Head.Type with
-    // | Char ->
-    //     let code = TypeCast(args.Head, UInt32.Number)
-    //     Helper.LibCall(com, "Decimal", "fromChar", targetType, args)
-    | Array(Number(Int32, NumberInfo.Empty), _) ->
-        Helper.LibCall(com, "Decimal", "fromIntArray", targetType, args)
-    | String ->
-        Helper.LibCall(com, "Decimal", "fromString", targetType, args)
-    | Number(kind, _) ->
-        match kind with
-        | Decimal -> args.Head
-        | BigInt -> Helper.LibCall(com, "BigInt", "toDecimal", targetType, args)
-        | kind ->
-            let meth = "from" + kind.ToString()
-            Helper.LibCall(com, "Decimal", meth, targetType, args)
-    | _ ->
-        addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType)
-
-// // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
-// let fastIntFloor expr =
-//     let inner = makeUnOp None Any expr UnaryNotBitwise
-//     makeUnOp None (Int32.Number) inner UnaryNotBitwise
-
-let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
-    let kind =
-        match targetType with
-        | Number(kind, _) -> kind
-        | x -> FableError $"Unexpected type in stringToInt: %A{x}" |> raise
-    let style = int System.Globalization.NumberStyles.Any
-    // let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
-    // let parseArgs = [makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize]
-    // TODO: NumberStyles
-    let meth = "to" + kind.ToString()
-    Helper.LibCall(com, "String", meth, targetType, [args.Head], ?loc=r)
-
-// let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): Expr =
-//     let sourceType = args.Head.Type
-//     match sourceType with
-//     | Char ->
-//         let code = TypeCast(args.Head, UInt32.Number)
-//         TypeCast(code, targetType)
-//     | String -> stringToInt com ctx r targetType args
-//     | Number(kind,_) ->
-//         match kind with
-//         | Decimal ->
-//             let n = Helper.LibCall(com, "Decimal", "toNumber", Float64.Number, args)
-//             Helper.LibCall(com, "Long", "fromNumber", targetType, [n; makeBoolConst unsigned])
-//         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
-//         | _ -> TypeCast(args.Head, targetType)
-//     | _ ->
-//         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-//         TypeCast(args.Head, targetType)
-
-// let round com (args: Expr list) =
-//     match args.Head.Type with
-//     | Number(Decimal, _) ->
-//         let n = Helper.LibCall(com, "Decimal", "round", Float64.Number, [args.Head])
-//         let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [n])
-//         rounded::args.Tail
-//     | Number((Float32|Float64), _) ->
-//         let rounded = Helper.InstanceCall(args.Head, "round", Float64.Number, [])
-//         rounded::args.Tail
-//     | _ -> args
-
-/// Conversion to integers (excluding bigints)
-let toInt com (ctx: Context) r targetType (args: Expr list) =
+let convertTo com (ctx: Context) r t (args: Expr list) =
     let sourceType = args.Head.Type
-    match sourceType, targetType with
-    | Char, _ ->
-        let code = TypeCast(args.Head, UInt32.Number)
-        TypeCast(code, targetType)
-    | String, _ -> stringToInt com ctx r targetType args
-    | Number(BigInt, _), Number(kind, _) ->
-        let meth = "to" + kind.ToString()
-        Helper.LibCall(com, "BigInt", meth, targetType, [args.Head])
-    | Number(Decimal, _), Number(kind, _) ->
-        let meth = "to" + kind.ToString()
-        Helper.LibCall(com, "Decimal", meth, targetType, [args.Head])
-    | Number _, Number _ -> TypeCast(args.Head, targetType)
-    | _ ->
-        addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType)
+    match t with
 
-let toRoundInt com (ctx: Context) r targetType i (args: Expr list) =
+    | Boolean ->
+        match sourceType with
+        | Number(Decimal, _) ->
+            Helper.LibCall(com, "Decimal", "toBoolean", t, args, ?loc=r)
+        | Number(BigInt, _) ->
+            Helper.LibCall(com, "BigInt", "toBoolean", t, args, ?loc=r)
+        | Number(_kind, _) ->
+            Helper.LibCall(com, "Convert", "toBoolean", t, args, ?loc=r)
+        | Char ->
+            Helper.LibCall(com, "Convert", "toBoolean", t, args, ?loc=r)
+        | String ->
+            Helper.LibCall(com, "Convert", "parseBoolean", t, args, ?loc=r)
+        | _ ->
+            addWarning com ctx.InlinePath r "Unsupported conversion"
+            TypeCast(args.Head, t)
+
+    | Char ->
+        match sourceType with
+        | String ->
+            Helper.LibCall(com, "Convert", "parseChar", t, args, ?loc=r)
+        | Number(Decimal, _) ->
+            Helper.LibCall(com, "Decimal", "fromChar", t, args, ?loc=r)
+        | Number(BigInt, _) ->
+            Helper.LibCall(com, "BigInt", "fromChar", t, args, ?loc=r)
+        | Number(_kind, _) ->
+            let code = TypeCast(args.Head, UInt32.Number)
+            TypeCast(code, t)
+        | _ ->
+            addWarning com ctx.InlinePath r "Unsupported conversion"
+            TypeCast(args.Head, t)
+
+    | Number(Decimal, _) ->
+        match sourceType with
+        | Array(Number(Int32, _), _) ->
+            Helper.LibCall(com, "Decimal", "fromIntArray", t, args, ?loc=r)
+        | Boolean ->
+            Helper.LibCall(com, "Decimal", "fromBoolean", t, args, ?loc=r)
+        | Char ->
+            Helper.LibCall(com, "Decimal", "fromChar", t, args, ?loc=r)
+        | String ->
+            Helper.LibCall(com, "Decimal", "fromString", t, args, ?loc=r)
+        | Number(BigInt, _) ->
+            Helper.LibCall(com, "BigInt", "toDecimal", t, args, ?loc=r)
+        | Number(kind, _) ->
+            let meth = "from" + kind.ToString()
+            Helper.LibCall(com, "Decimal", meth, t, args, ?loc=r)
+        | _ ->
+            addWarning com ctx.InlinePath r "Unsupported conversion"
+            TypeCast(args.Head, t)
+
+    | Number(BigInt, _) ->
+        match sourceType with
+        | Array(Number(UInt8, _), _) ->
+            Helper.LibCall(com, "BigInt", "fromByteArray", t, args, ?loc=r)
+        | Boolean ->
+            Helper.LibCall(com, "BigInt", "fromBoolean", t, args, ?loc=r)
+        | Char ->
+            Helper.LibCall(com, "BigInt", "fromChar", t, args, ?loc=r)
+        | String ->
+            Helper.LibCall(com, "BigInt", "fromString", t, args, ?loc=r)
+        | Number(kind, _) ->
+            let meth = "from" + kind.ToString()
+            Helper.LibCall(com, "BigInt", meth, t, args, ?loc=r)
+        | _ ->
+            addWarning com ctx.InlinePath r "Unsupported conversion"
+            TypeCast(args.Head, t)
+
+    | Number(kind, _) ->
+        match sourceType with
+        | Char ->
+            let code = TypeCast(args.Head, UInt32.Number)
+            TypeCast(code, t)
+        | String ->
+            let meth = "to" + kind.ToString()
+            Helper.LibCall(com, "Convert", meth, t, args, ?loc=r)
+        | Number(Decimal, _) ->
+            let meth = "to" + kind.ToString()
+            Helper.LibCall(com, "Decimal", meth, t, args, ?loc=r)
+        | Number(BigInt, _) ->
+            let meth = "to" + kind.ToString()
+            Helper.LibCall(com, "BigInt", meth, t, args, ?loc=r)
+        | Number _ ->
+            TypeCast(args.Head, t)
+        | _ ->
+            addWarning com ctx.InlinePath r "Unsupported conversion"
+            TypeCast(args.Head, t)
+
+    | _ ->
+        addWarning com ctx.InlinePath r "Unsupported conversion"
+        TypeCast(args.Head, t)
+
+let toRoundInt com (ctx: Context) r t i (args: Expr list) =
     let sourceType = args.Head.Type
     let args =
-        match sourceType, targetType with
-        | Number((Float32|Float64|Decimal), _), _ ->
+        match sourceType with
+        | Number((Float16|Float32|Float64|Decimal), _) ->
             let rounded = makeInstanceCall r sourceType i args.Head "round" []
             rounded :: args.Tail
         | _ -> args
-    toInt com ctx r targetType args
+    convertTo com ctx r t args
+
+let toRadixInt com (ctx: Context) r t i (args: Expr list) =
+    match t with
+    | Number(kind, _) ->
+        let meth = "to" + kind.ToString() + "_radix"
+        Helper.LibCall(com, "Convert", meth, t, args, ?loc=r)
+    | _ ->
+        FableError $"Unexpected conversion %s{i.CompiledName}" |> raise
 
 let toArray com t (expr: Expr) =
     match expr.Type with
@@ -346,8 +310,8 @@ let toList com t (expr: Expr) =
     | List _ -> expr
     | Array _ -> Helper.LibCall(com, "List", "ofArray", t, [expr])
     | String ->
-        let a = Helper.LibCall(com, "String", "toCharArray", t, [expr])
-        Helper.LibCall(com, "List", "ofArray", t, [a])
+        let chars = Helper.LibCall(com, "String", "toCharArray", t, [expr])
+        Helper.LibCall(com, "List", "ofArray", t, [chars])
     | IEnumerable -> Helper.LibCall(com, "List", "ofSeq", t, [expr])
     | _ -> TypeCast(expr, t)
 
@@ -357,8 +321,8 @@ let toSeq com t (expr: Expr) =
     | List _ -> Helper.LibCall(com, "Seq", "ofList", t, [expr])
     | Array _ -> Helper.LibCall(com, "Seq", "ofArray", t, [expr])
     | String ->
-        let a = Helper.LibCall(com, "String", "toCharArray", t, [expr])
-        Helper.LibCall(com, "Seq", "ofArray", t, [a])
+        let chars = Helper.LibCall(com, "String", "toCharArray", t, [expr])
+        Helper.LibCall(com, "Seq", "ofArray", t, [chars])
     | _ -> TypeCast(expr, t)
 
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
@@ -389,7 +353,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         Operation(Binary(op, left, right), Tags.empty, t, r)
 
     let binOpChar op left right =
-        let toUInt32 e = toInt com ctx None UInt32.Number [e]
+        let toUInt32 e = convertTo com ctx None UInt32.Number [e]
         Operation(Binary(op, toUInt32 left, toUInt32 right), Tags.empty, UInt32.Number, r) |> toChar com
 
     let truncateUnsigned operation = // see #1550
@@ -540,6 +504,8 @@ let structEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
 let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     let t = Int32.Number
     match left.Type with
+    | Number ((Float16|Float32|Float64), _) ->
+        Helper.LibCall(com, "Float", "compare", t, [left; right], ?loc = r)
     | Number (Decimal,_) ->
         Helper.LibCall(com, "Decimal", "compare", t, [left; right], ?loc = r)
     | Number (BigInt,_) ->
@@ -588,8 +554,12 @@ let applyCompareOp (com: ICompiler) (ctx: Context) r t opName (left: Expr) (righ
     | BinaryEqual ->
         equals com ctx r left right
     | BinaryUnequal ->
-        let expr = equals com ctx r left right
-        makeUnOp None Boolean expr UnaryNot
+        match left.Type with
+        | Boolean | Char | String | Number _ ->
+            makeEqOp r left right BinaryUnequal
+        | _ ->
+            let expr = equals com ctx r left right
+            makeUnOp None Boolean expr UnaryNot
     | _ ->
         booleanCompare com ctx r left right op
 
@@ -793,11 +763,11 @@ let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let getMemberName isStatic (i: CallInfo) =
     let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
-    if i.OverloadSuffix = ""
-    then memberName
-    elif isStatic
-    then memberName + "__" + i.OverloadSuffix
-    else memberName + "_" + i.OverloadSuffix
+    if i.OverloadSuffix = "" then
+        memberName
+    else
+        let sep = if isStatic then "__" else "_"
+        memberName + sep + i.OverloadSuffix
 
 let getModuleAndMemberName (i: CallInfo) (thisArg: Expr option) =
     let isStatic = Option.isNone thisArg
@@ -840,9 +810,9 @@ let makeRustFormatString interpolated (fmt: string) =
     let pattern2 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(?:P\(\)|(\w)(?:%P\(\))?)"
     let pattern = if interpolated then pattern2 else pattern1
     let input = fmt.Replace("{", "{{").Replace("}", "}}").Replace("%%", "%")
-    let mutable count = 0
+    let mutable argCount = 0
     let rustFmt = Regex.Replace(input, pattern, fun m ->
-        count <- count + 1
+        argCount <- argCount + 1
         let g1 = m.Groups[1].Value
         let g2 = m.Groups[2].Value.Replace(" ", "")  // pad with space
                                   .Replace("-", "<") // left-justified
@@ -864,14 +834,14 @@ let makeRustFormatString interpolated (fmt: string) =
             else g1 + "{:" + g2 + g3 + g4 + g5 + "}"
         argFmt
     )
-    rustFmt, count
+    rustFmt, argCount
 
-let makeRustFormatExpr r t (fmt: string) cont macroExpr =
-    let rustFmt, count = makeRustFormatString false fmt
-    let count = count + 1 + (List.length cont) // arg count + fmt + [cont]
+let makeRustFormatExpr r t (fmt: string) args macroExpr =
+    let rustFmt, argCount = makeRustFormatString false fmt
+    let argCount = argCount + 1 + (List.length args) // +1 is for fmt
     let fmtExpr = $"\"{rustFmt}\"" |> emitExpr None String []
-    let applied = Extended(Curry(macroExpr, count), r)
-    curriedApply r t applied (cont @ [fmtExpr])
+    let applied = Extended(Curry(macroExpr, argCount), r)
+    curriedApply r t applied (args @ [fmtExpr])
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -885,8 +855,8 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatThen"|"PrintFormatToStringThen"), None, [cont; StringConst fmt] ->
         let macro = Helper.LibValue(com, "String", "kprintf!", Any)
         macro |> makeRustFormatExpr r t fmt [cont] |> Some
-    // | "PrintFormatThen", None, [cont; MaybeCasted(template)] ->
-    //     template |> Some //TODO:
+    | ("PrintFormatThen"|"PrintFormatToStringThen"), None, [cont; MaybeCasted(template)] ->
+        Helper.Application(cont, t, [template], ?loc=r) |> Some
     | "PrintFormatToError", None, [StringConst fmt] ->
         let macro = makeIdentExpr "eprint!"
         macro |> makeRustFormatExpr r t fmt [] |> Some
@@ -911,14 +881,26 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "PrintFormatLine", None, [MaybeCasted(Value(StringTemplate(None, [rustFmt], templateArgs), _))] ->
         let formatArgs = (makeStrConst rustFmt) :: templateArgs
         "println!" |> emitFormat com r t formatArgs |> Some
-    // | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
-    //     // addWarning com ctx.FileName r "fprintfn will behave as printfn"
-    //     Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "PrintFormatToStringThenFail", _, _ ->
-    //     Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | ("PrintFormatToStringBuilder"      // bprintf
-    // |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
-    //    ), _, _ -> fsharpModule com ctx r t i thisArg args
+    | "PrintFormatToStringThenFail", None, [StringConst fmt] ->
+        let macro = makeIdentExpr "panic!"
+        macro |> makeRustFormatExpr r t fmt [] |> Some
+    | "PrintFormatToStringThenFail", None, [MaybeCasted(Value(StringTemplate(None, [rustFmt], templateArgs), _))] ->
+        let formatArgs = (makeStrConst rustFmt) :: templateArgs
+        "panic!" |> emitFormat com r t formatArgs |> Some
+    | "PrintFormatToStringBuilder", None, [sb; StringConst fmt] ->
+        let cont = Helper.LibCall(com, "Util", "bprintf", t, [sb])
+        let macro = Helper.LibValue(com, "String", "kprintf!", Any)
+        macro |> makeRustFormatExpr r t fmt [cont] |> Some
+    | "PrintFormatToStringBuilder", None, [sb; MaybeCasted(template)] ->
+        let cont = Helper.LibCall(com, "Util", "bprintf", t, [sb])
+        Helper.Application(cont, t, [template], ?loc=r) |> Some
+    | "PrintFormatToStringBuilderThen", None, [cont; sb; StringConst fmt] ->
+        let cont = Helper.LibCall(com, "Util", "kbprintf", t, [cont; sb])
+        let macro = Helper.LibValue(com, "String", "kprintf!", Any)
+        macro |> makeRustFormatExpr r t fmt [cont] |> Some
+    | "PrintFormatToStringBuilderThen", None, [cont; sb; MaybeCasted(template)] ->
+        let cont = Helper.LibCall(com, "Util", "kbprintf", t, [cont; sb])
+        Helper.Application(cont, t, [template], ?loc=r) |> Some
     | ".ctor", _, (StringConst fmt)::(Value(NewArray(ArrayValues templateArgs, _, _), _))::_ ->
         let rustFmt, _count = makeRustFormatString true fmt
         StringTemplate(None, [rustFmt], templateArgs) |> makeValue r |> Some
@@ -949,14 +931,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Ignore", _ ->
         Helper.LibCall(com, "Util", "ignore", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Number and String conversions
-    | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
-        toInt com ctx r t args |> Some
-    | "ToInt64", _ -> toInt com ctx r t args |> Some
-    | "ToUInt64", _ -> toInt com ctx r t args |> Some
-    | "ToIntPtr", _ -> toInt com ctx r t args |> Some
-    | "ToUIntPtr", _ -> toInt com ctx r t args |> Some
-    | ("ToSingle"|"ToDouble"), _ -> toFloat com ctx r t args |> Some
-    | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
+    | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"
+        |"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"
+        |"ToIntPtr"|"ToUIntPtr"|"ToSingle"|"ToDouble"|"ToDecimal"), [arg] ->
+            convertTo com ctx r t args |> Some
     | "ToChar", _ -> toChar com args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> toSeq com t xs |> Some
@@ -1005,10 +983,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     |  "Lock", _ ->
         Helper.LibCall(com, "Monitor", "lock", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     // Exceptions
-    | "FailWith", [msg] | "InvalidOp", [msg] ->
+    | ("FailWith" | "InvalidOp"), [msg] ->
         makeThrow r t (error msg) |> Some
     | "InvalidArg", [argName; msg] ->
-        let msg = add (add msg (str "\\nParameter name: ")) argName
+        let msg = add msg (add (add (str " (Parameter '") argName) (str "')"))
         makeThrow r t (error msg) |> Some
     | "Raise", [arg] -> makeThrow r t arg |> Some
     | "Reraise", _ ->
@@ -1081,8 +1059,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.LibCall(com, "Decimal", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | ExprType(Number(BigInt,_))::_ ->
             Helper.LibCall(com, "BigInt", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-        | ExprType(Number((Float32|Float64),_))::_ ->
-            Helper.LibCall(com, "Util", "compare", t, [arg; getZero com ctx arg.Type], i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | ExprType(Number((Float16|Float32|Float64),_))::_ ->
+            Helper.LibCall(com, "Float", "compare", t, [arg; getZero com ctx arg.Type], i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             let sign = makeInstanceCall r arg.Type i arg "signum" []
             TypeCast(sign, Int32.Number) |> Some
@@ -1771,24 +1749,32 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | ("Parse" | "TryParse" as method), args ->
-        let func = Naming.lowerFirst method
-        Helper.LibCall(com, "Boolean", func, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        let meth = Naming.lowerFirst method + "Boolean"
+        Helper.LibCall(com, "Convert", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseCall meth str args style =
-        let kind =
-            match i.DeclaringEntityFullName with
-            | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> kind
-            | x -> FableError $"Unexpected type in parse: %A{x}" |> raise
-        let isFloatOrDecimal, numberModule, unsigned, bitsize =
-            getParseParams kind
+        // let kind =
+        //     match i.DeclaringEntityFullName with
+        //     | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> kind
+        //     | x -> FableError $"Unexpected type in parse: %A{x}" |> raise
         let outValue =
             if meth = "TryParse" then [List.last args] else []
+        let moduleName, meth, withStyleArg =
+            match t with
+            | Number(Decimal, _) ->
+                "Decimal", Naming.lowerFirst meth, false
+            | Number(BigInt, _) ->
+                "BigInt", Naming.lowerFirst meth, false
+            | Number(kind, _) when meth = "Parse" ->
+                "Convert", Naming.lowerFirst meth + kind.ToString(), true
+            | _ ->
+                "Convert", Naming.lowerFirst meth, true
         let args =
-            if isFloatOrDecimal then [str] @ outValue
-            else [str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize] @ outValue
-        Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc=r) |> Some
+            if not withStyleArg then [str] @ outValue
+            else [str; makeIntConst style] @ outValue
+        Helper.LibCall(com, moduleName, meth, t, args, ?loc=r)
 
     let isFloat =
         match i.SignatureArgTypes with
@@ -1820,7 +1806,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             // e.g. Double.Parse(string, style, IFormatProvider) etc.
             $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
             |> addWarning com ctx.InlinePath r
-        parseCall meth str args style
+        parseCall meth str args style |> Some
     | ("Parse" | "TryParse") as meth, str::_ ->
         let acceptedArgs = if meth = "Parse" then 1 else 2
         if List.length args > acceptedArgs then
@@ -1828,7 +1814,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
             |> addWarning com ctx.InlinePath r
         let style = int System.Globalization.NumberStyles.Any
-        parseCall meth str args style
+        parseCall meth str args style |> Some
     | "Pow", (thisArg::restArgs) ->
         makeInstanceCall r t i thisArg "powf" restArgs |> Some
     | "ToString", [ExprTypeAs(String, format)] ->
@@ -1845,7 +1831,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         Helper.LibCall(com, "Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", [Value(NewArray(ArrayValues ([low; mid; high; signExp] as args),_,_),_)] ->
         Helper.LibCall(com, "Decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ".ctor", [arg] -> toDecimal com ctx r t args |> Some
+    | ".ctor", [arg] -> convertTo com ctx r t args |> Some
     | "GetBits", _ ->
         Helper.LibCall(com, "Decimal", "getBits", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Parse", _ ->
@@ -1856,9 +1842,10 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         applyCompareOp com ctx r t i.CompiledName left right |> Some
     | Patterns.SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i.CompiledName args |> Some
-    | "op_Explicit", _ -> toDecimal com ctx r t args |> Some
+    | "op_Explicit", _ -> convertTo com ctx r t args |> Some
     | ("Ceiling" | "Floor" | "Truncate" |
-        "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth), _ ->
+        "Add" | "Subtract" | "Multiply" |
+        "Divide" | "Remainder" | "Negate" as meth), _ ->
         let meth = Naming.lowerFirst meth
         Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("get_Zero" | "get_One" | "get_MinusOne" | "get_MinValue" | "get_MaxValue"), _ ->
@@ -1888,17 +1875,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
 
 let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", None, _ ->
-        match i.SignatureArgTypes with
-        | [Array(Number(UInt8, _), _)] ->
-            Helper.LibCall(com, "BigInt", "fromByteArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | [Number(kind, _)] ->
-            match kind with
-            | BigInt -> args.Head |> Some
-            | kind ->
-                let meth = "from" + kind.ToString()
-                Helper.LibCall(com, "BigInt", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | _ -> None
+    | ".ctor", None, [arg] -> convertTo com ctx r t args |> Some
     | Patterns.SetContains Operators.compareSet, _, [left; right] ->
         applyCompareOp com ctx r t i.CompiledName left right |> Some
     | Patterns.SetContains Operators.standardSet, _, _ ->
@@ -1910,15 +1887,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         | [x; y; rem] ->
             Helper.LibCall(com, "BigInt", "divRemOut", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> None
-    | "op_Explicit", None, _ ->
-        match t with
-        | Number(kind, _) ->
-            match kind with
-            | BigInt -> None
-            | kind ->
-                let meth = "to" + kind.ToString()
-                Helper.LibCall(com, "BigInt", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | _ -> None
+    | "op_Explicit", None, _ -> convertTo com ctx r t args |> Some
     | meth, None, _ when meth.StartsWith("get_") ->
         let meth = meth |> Naming.removeGetSetPrefix |> Naming.lowerFirst
         Helper.LibCall(com, "BigInt", meth, t, []) |> Some
@@ -1950,49 +1919,74 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "Int64WithMeasure"
     | "Float32WithMeasure"
     | "FloatWithMeasure"
-    | "DecimalWithMeasure"), [arg] -> arg |> Some
+    | "DecimalWithMeasure"), [arg] ->
+        arg |> Some
     | "EnumOfValue", [arg] -> TypeCast(arg, t) |> Some
     | "EnumToValue", [arg] -> TypeCast(arg, t) |> Some
-    | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
+    | ("GenericHash"
+    | "GenericHashIntrinsic"), [arg] ->
         structuralHash com r arg |> Some
-    | ("FastHashTuple2" | "FastHashTuple3" | "FastHashTuple4" | "FastHashTuple5"
-    | "GenericHashWithComparer" | "GenericHashWithComparerIntrinsic"), [comp; arg] ->
+    | ("FastHashTuple2"
+    | "FastHashTuple3"
+    | "FastHashTuple4"
+    | "FastHashTuple5"
+    | "GenericHashWithComparer"
+    | "GenericHashWithComparerIntrinsic"), [comp; arg] ->
         makeInstanceCall r t i comp "GetHashCode" [arg] |> Some
-    | ("GenericComparison" | "GenericComparisonIntrinsic"), [left; right] ->
+    | ("GenericComparison"
+    | "GenericComparisonIntrinsic"), [left; right] ->
         compare com ctx r left right |> Some
-    | ("FastCompareTuple2" | "FastCompareTuple3" | "FastCompareTuple4" | "FastCompareTuple5"
-    | "GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"), [comp; left; right] ->
+    | ("FastCompareTuple2"
+    | "FastCompareTuple3"
+    | "FastCompareTuple4"
+    | "FastCompareTuple5"
+    | "GenericComparisonWithComparer"
+    | "GenericComparisonWithComparerIntrinsic"), [comp; left; right] ->
         makeInstanceCall r t i comp "Compare" [left; right] |> Some
-    | ("GenericLessThan" | "GenericLessThanIntrinsic"), [left; right] ->
+    | ("GenericLessThan"
+    | "GenericLessThanIntrinsic"), [left; right] ->
         booleanCompare com ctx r left right BinaryLess |> Some
-    | ("GenericLessOrEqual" | "GenericLessOrEqualIntrinsic"), [left; right] ->
+    | ("GenericLessOrEqual"
+    | "GenericLessOrEqualIntrinsic"), [left; right] ->
         booleanCompare com ctx r left right BinaryLessOrEqual |> Some
-    | ("GenericGreaterThan" | "GenericGreaterThanIntrinsic"), [left; right] ->
+    | ("GenericGreaterThan"
+    | "GenericGreaterThanIntrinsic"), [left; right] ->
         booleanCompare com ctx r left right BinaryGreater |> Some
-    | ("GenericGreaterOrEqual" | "GenericGreaterOrEqualIntrinsic"), [left; right] ->
+    | ("GenericGreaterOrEqual"
+    | "GenericGreaterOrEqualIntrinsic"), [left; right] ->
         booleanCompare com ctx r left right BinaryGreaterOrEqual |> Some
-    | ("GenericEquality" | "GenericEqualityIntrinsic"), [left; right] ->
+    | ("GenericEquality"
+    | "GenericEqualityIntrinsic"), [left; right] ->
         equals com ctx r left right |> Some
-    | ("GenericEqualityER" | "GenericEqualityERIntrinsic"), [left; right] ->
+    | ("GenericEqualityER"
+    | "GenericEqualityERIntrinsic"), [left; right] ->
         // TODO: In ER mode, equality on two NaNs returns "true".
         equals com ctx r left right |> Some
-    | ("FastEqualsTuple2" | "FastEqualsTuple3" | "FastEqualsTuple4" | "FastEqualsTuple5"
-    | "GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
+    | ("FastEqualsTuple2"
+    | "FastEqualsTuple3"
+    | "FastEqualsTuple4"
+    | "FastEqualsTuple5"
+    | "GenericEqualityWithComparer"
+    | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
         makeInstanceCall r t i comp "Equals" [left; right] |> Some
-    | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
+    | ("PhysicalEquality"
+    | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqual |> Some
-    | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
+    | ("PhysicalHash"
+    | "PhysicalHashIntrinsic"), [arg] ->
         Helper.LibCall(com, "Util", "physicalHash", Int32.Number, [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
-    |  "GenericEqualityERComparer"
-    |  "FastGenericComparer"
-    |  "FastGenericComparerFromTable"
-    |  "FastGenericEqualityComparer"
-    |  "FastGenericEqualityComparerFromTable"
-        ), _ -> fsharpModule com ctx r t i thisArg args
-    | ("ParseInt32"|"ParseUInt32"), [arg] -> toInt com ctx r t [arg] |> Some
-    | "ParseInt64", [arg] -> toInt com ctx r t [arg] |> Some
-    | "ParseUInt64", [arg] -> toInt com ctx r t [arg] |> Some
+    | "GenericEqualityERComparer"
+    | "FastGenericComparer"
+    | "FastGenericComparerFromTable"
+    | "FastGenericEqualityComparer"
+    | "FastGenericEqualityComparerFromTable"), _ ->
+        fsharpModule com ctx r t i thisArg args
+    | ("ParseInt32"
+    | "ParseUInt32"
+    | "ParseInt64"
+    | "ParseUInt64"), [arg] ->
+        convertTo com ctx r t args |> Some
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2175,9 +2169,11 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
-    | "get_Message", Some e -> getFieldWith r t e "message" |> Some
-    | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
+    | ".ctor", None ->
+        bclType com ctx r t i thisArg args
+    | "get_Message", Some callee ->
+        makeInstanceCall r t i callee i.CompiledName args |> Some
+    // | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None
 
 let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2243,38 +2239,36 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
         let memberName =
             match args.Head.Type with
             | Boolean -> "getBytesBoolean"
-            | Char | String -> "getBytesChar"
-            | Number(Int16,_) -> "getBytesInt16"
-            | Number(Int32,_) -> "getBytesInt32"
-            | Number(UInt16,_) -> "getBytesUInt16"
-            | Number(UInt32,_) -> "getBytesUInt32"
-            | Number(Float32,_) -> "getBytesSingle"
-            | Number(Float64,_) -> "getBytesDouble"
-            | Number(Int64,_) -> "getBytesInt64"
-            | Number(UInt64,_) -> "getBytesUInt64"
+            | Char -> "getBytesChar"
+            | Number(kind, _) -> "getBytes" + kind.ToString()
             | x -> FableError $"Unsupported type in BitConverter.GetBytes(): %A{x}" |> raise
         let expr = Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r)
         if com.Options.TypedArrays then expr |> Some
         else toArray com t expr |> Some // convert to dynamic array
+    | "ToString" ->
+        let memberName = "toString" + args.Length.ToString()
+        Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
         Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | "ToSByte" | "ToByte"
-    | "ToInt16" | "ToUInt16"
-    | "ToInt32" | "ToUInt32"
-    | "ToInt64" | "ToUInt64" -> toRoundInt com ctx r t i args |> Some
-    | "ToSingle" | "ToDouble" -> toFloat com ctx r t args |> Some
-    | "ToDecimal" -> toDecimal com ctx r t args |> Some
-    | "ToChar" -> toChar com args.Head |> Some
-    | "ToString" -> toString com ctx r args |> Some
-    | "ToBase64String" | "FromBase64String" ->
-        if not(List.isSingle args) then
-            $"Convert.%s{Naming.upperFirst i.CompiledName} only accepts one single argument"
-            |> addWarning com ctx.InlinePath r
-        Helper.LibCall(com, "String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match i.CompiledName, args with
+    | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16"
+    | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" as meth), [ExprType(String); ExprType(Number(Int32,_))] ->
+        toRadixInt com ctx r t i args |> Some
+    | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16"
+    | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64"), [arg] ->
+        toRoundInt com ctx r t i args |> Some
+    | ("ToSingle" | "ToDouble" | "ToDecimal"), [arg] ->
+        convertTo com ctx r t args |> Some
+    | "ToChar", [arg] -> toChar com args.Head |> Some
+    | "ToString", [arg] -> toString com ctx r args |> Some
+    | "ToString", [arg; ExprType(Number(Int32,_))] ->
+        Helper.LibCall(com, "Convert", "toStringRadix", t, args, ?loc=r) |> Some
+    | ("ToHexString" | "FromHexString"
+    | "ToBase64String" | "FromBase64String"), [arg] ->
+        Helper.LibCall(com, "Convert", (Naming.lowerFirst i.CompiledName), t, args, ?loc=r) |> Some
     | _ -> None
 
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2576,16 +2570,17 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args.Length with
+    match i.CompiledName, thisArg, args with
     | ("get_Unicode" | "get_UTF8"), _, _ ->
         Helper.LibCall(com, "Encoding", i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "GetBytes", Some callee, (1 | 3) ->
+    | ("GetBytes"|"GetByteCount"), Some callee, ExprType(Array(Char,_))::_ ->
+        let meth = Naming.lowerFirst i.CompiledName + "FromChars"
+        let meth = if args.Length = 3 then meth + "2" else meth
+        makeInstanceCall r t i callee meth args |> Some
+    | ("GetBytes"|"GetByteCount"|"GetChars"|"GetCharCount"
+    | "GetMaxByteCount"|"GetMaxCharCount"|"GetString"), Some callee, _ ->
         let meth = Naming.lowerFirst i.CompiledName
-        let expr = makeInstanceCall r t i callee meth args
-        if com.Options.TypedArrays then expr |> Some
-        else toArray com t expr |> Some // convert to dynamic array
-    | "GetString", Some callee, (1 | 3) ->
-        let meth = Naming.lowerFirst i.CompiledName
+        let meth = if args.Length = 3 then meth + "2" else meth
         makeInstanceCall r t i callee meth args |> Some
     | _ -> None
 

@@ -852,12 +852,12 @@ let ``test Currying/uncurrying works`` () =
     f4 1 2 3 |> equal 10
 
 type Node(parent: HTMLElement option) =
-  member __.parentElement: HTMLElement = parent.Value
+  member _.parentElement: HTMLElement = parent.Value
 
 and Element(w, h, parent) =
   inherit Node(parent)
-  member __.clientWidth: int = w
-  member __.clientHeight: int = h
+  member _.clientWidth: int = w
+  member _.clientHeight: int = h
 
 and HTMLElement(w, h, ?parent) =
   inherit Element(w, h, parent = parent)
@@ -887,9 +887,9 @@ let ADD = adder ()
 
 type Foo3() =
     let mutable z = 5
-    member __.GetLambda() =
+    member _.GetLambda() =
         fun x y -> x + y + z
-    member __.GetCurriedLambda() =
+    member _.GetCurriedLambda() =
         fun x ->
             z <- z + 3
             fun y -> x + y + z
@@ -966,13 +966,13 @@ type PrimaryConstructorUncurrying(f) =
 type Fun = Fun of (int -> int -> int list)
 
 type BaseClass (f: string -> string -> string) =
-  member __.MakeString a b = f a b
+  member _.MakeString a b = f a b
 
 type AddString () =
   inherit BaseClass (fun a b -> a + b)
 
 type BaseClass2 (f: string -> string -> string) =
-  member __.MakeString a b = f a b
+  member _.MakeString a b = f a b
 
 type AddString2 (f: string -> string -> string) =
   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)

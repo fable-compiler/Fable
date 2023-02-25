@@ -1,67 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
 <Directives>
-    <Application>
-        <Assembly Name="FSharp.Core" Dynamic="Required All">
-            <Type Name="Microsoft.FSharp.Core.PrintfImpl+Specializations`3[[System.Object,System.Private.CoreLib],[System.Object,System.Private.CoreLib],[System.Object,System.Private.CoreLib]]" Dynamic="Required All">
-                <Method Name="Final1" Dynamic="Required">
-                    <GenericArgument Name="System.Int64, System.Private.CoreLib" />
-                </Method>
-                <Method Name="Final1" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="Final2" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="Final2" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.Int64, System.Private.CoreLib" />
-                </Method>
-                <Method Name="Final3" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="FinalFast1" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="FinalFast2" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="FinalFast3" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="FinalFastStart2" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="FinalFastEnd1" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="FinalFastEnd2" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="FinalFastEnd3" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="FinalFastEnd5" Dynamic="Required">
-                    <GenericArgument Name="System.Int32, System.Private.CoreLib" />
-                    <GenericArgument Name="System.Int32, System.Private.CoreLib" />
-                    <GenericArgument Name="System.Int32, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                </Method>
-                <Method Name="ChainedFastStart2" Dynamic="Required">
-                    <GenericArgument Name="System.String, System.Private.CoreLib" />
-                    <GenericArgument Name="System.Int32, System.Private.CoreLib" />
-                    <GenericArgument Name="System.Object, System.Private.CoreLib" />
-                </Method>
-            </Type>
-        </Assembly>
-    </Application>
+  <Application>
+    <Assembly Name="FSharp.Core">
+      <Type Name="Microsoft.FSharp.Core.PrintfImpl+Specializations`3[[System.IO.TextWriter,System.Private.CoreLib],[Microsoft.FSharp.Core.Unit,FSharp.Core],[Microsoft.FSharp.Core.Unit,FSharp.Core]]" Dynamic="Required All">
+
+        <Method Name="CaptureFinal1" Dynamic="Required">
+          <GenericArgument Name="System.String, System.Private.CoreLib" />
+        </Method>
+        <Method Name="CaptureFinal1" Dynamic="Required">
+          <GenericArgument Name="System.Int64, System.Private.CoreLib" />
+        </Method>
+        <Method Name="CaptureFinal2" Dynamic="Required">
+          <GenericArgument Name="System.String, System.Private.CoreLib" />
+          <GenericArgument Name="System.Int64, System.Private.CoreLib" />
+        </Method>
+        <Method Name="CaptureFinal3" Dynamic="Required">
+          <GenericArgument Name="System.Int32, System.Private.CoreLib" />
+          <GenericArgument Name="System.String, System.Private.CoreLib" />
+          <GenericArgument Name="System.String, System.Private.CoreLib" />
+        </Method>
+
+        <Method Name="OneStepWithArg" Dynamic="Required">
+          <GenericArgument Name="System.Int64, System.Private.CoreLib" />
+        </Method>
+        <Method Name="TwoStepWithArg" Dynamic="Required">
+          <GenericArgument Name="System.String, System.Private.CoreLib" />
+          <GenericArgument Name="System.Int64, System.Private.CoreLib" />
+        </Method>
+
+      </Type>
+    </Assembly>
+  </Application>
 </Directives>

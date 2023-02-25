@@ -500,7 +500,11 @@ let ShowAllTokensAndExit (shortFilename, tokenizer: Tokenizer, lexbuf: LexBuffer
     while true do
         printf "tokenize - getting one token from %s\n" shortFilename
         let t = tokenizer ()
+#if FABLE_COMPILER
+        printf "tokenize - got %s @ %s\n" (Parser.token_to_string t) (stringOfRange lexbuf.LexemeRange)
+#else
         printf "tokenize - got %s @ %a\n" (Parser.token_to_string t) outputRange lexbuf.LexemeRange
+#endif
 
         match t with
         | Parser.EOF _ -> exiter.Exit 0
@@ -513,7 +517,11 @@ let ShowAllTokensAndExit (shortFilename, tokenizer: Tokenizer, lexbuf: LexBuffer
 let TestInteractionParserAndExit (tokenizer: Tokenizer, lexbuf: LexBuffer<LexBufferChar>, exiter: Exiter) =
     while true do
         match (Parser.interaction (fun _ -> tokenizer ()) lexbuf) with
+#if FABLE_COMPILER
+        | ParsedScriptInteraction.Definitions (l, m) -> printfn "Parsed OK, got %d defs @ %s" l.Length (stringOfRange m)
+#else
         | ParsedScriptInteraction.Definitions (l, m) -> printfn "Parsed OK, got %d defs @ %a" l.Length outputRange m
+#endif
 
     exiter.Exit 0
 
