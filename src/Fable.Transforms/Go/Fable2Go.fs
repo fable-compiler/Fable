@@ -53,7 +53,7 @@ type IGoCompiler =
     abstract TransformAsExpr: Context * Fable.Expr -> Expr * Stmt list
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Stmt list
     abstract TransformImport: Context * selector: string * path: string -> Expr
-    abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr * Set<string> -> FieldList * Stmt list
+    abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> FieldList * Stmt list
 
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
@@ -66,7 +66,7 @@ module Lib =
     let libConsCall (com: IGoCompiler) ctx r moduleName memberName args =
         Expr.call (com.TransformImport(ctx, memberName, getLibPath com moduleName), args, ?lparen = r)
 
-    let libValue (com: IGoCompiler) ctx moduleName memberName =
+    let libValue (com: IGoCompiler) ctx t moduleName memberName =
         com.TransformImport(ctx, memberName, getLibPath com moduleName)
 
     let tryPyConstructor (com: IGoCompiler) ctx ent =
@@ -153,9 +153,15 @@ module Reflection =
     //     |> libReflectionCall com ctx None "union",
     //     stmts
 
+    let getTupleTypeIdent (com: IGoCompiler) ctx itemsLength =
+        libValue com ctx Fable.MetaType "Types" $"Tuple%i{itemsLength}"
+
+//    let getExceptionTypeIdent (com: IDartCompiler) ctx: Ident =
+//        transformIdentWith com ctx false Fable.MetaType "Exception"
+
     let transformTypeInfo (com: IGoCompiler) ctx r (genMap: Map<string, Expr>) t : Expr * Stmt list =
         let primitiveTypeInfo name =
-            libValue com ctx "Reflection" (name + "_type")
+            libValue com ctx  Fable.MetaType "Reflection" (name + "_type")
 
         let numberInfo kind =
             getNumberKindName kind |> primitiveTypeInfo
@@ -577,8 +583,8 @@ module Annotation =
     //     | _, [ arg ] -> Expression.subscript (expr, arg)
     //     | _, args -> Expression.subscript (expr, Expression.tuple (args))
 
-    let fableModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics =
-        let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+    let fableModuleTypeHint com ctx moduleName memberName genArgs =
+        let resolved, stmts = resolveGenerics com ctx genArgs
 
         fableModuleAnnotation com ctx moduleName memberName resolved, stmts
 
@@ -591,7 +597,7 @@ module Annotation =
         | [] -> []
         | _ ->
             genArgs
-            |> List.map (typeAnnotation com ctx repeatedGenerics)
+            |> List.map (typeAnnotation com ctx)
             |> List.map fst
 
     // let makeGenericTypeAnnotation
@@ -642,6 +648,19 @@ module Annotation =
     //
     //         Expression.subscript (name, Expression.tuple genArgs)
 
+    /// Discards Measure generic arguments
+    let transformGenArgs com ctx (genArgs: Fable.Type list): Expr list * Stmt list =
+        genArgs
+        |> List.choose (function
+            | Fable.GenericParam(isMeasure=true) -> None
+            //| Fable.DeclaredType(entRef, genArgs) -> transformDeclaredTypeIgnoreMeasure true com ctx entRef genArgs
+            | t -> typeAnnotation com ctx t |> Some)
+        |> Helpers.unzipArgs
+
+    let transformTupleType com ctx genArgs =
+        let tup = List.length genArgs |> Util.getTupleTypeIdent com ctx
+        Expr.indexList(tup, (transformGenArgs com ctx genArgs |> fst))
+
     let makeGenericTypeParams (generics: Fable.GenericParam list) : FieldList =
         // TypeVars should be uppercase. For auto-generated (inferred) generics we use a double-undercore.
         let clean (name: string) =
@@ -652,12 +671,12 @@ module Annotation =
         |> List.map (fun x -> Field.field(clean(x.Name), typ=Expr.ident("any")))
         |> FieldList.fieldList
 
-    let resolveGenerics com ctx generics repeatedGenerics : Expr list * Stmt list =
+    let resolveGenerics com ctx generics : Expr list * Stmt list =
         generics
-        |> List.map (typeAnnotation com ctx repeatedGenerics)
+        |> List.map (typeAnnotation com ctx)
         |> Helpers.unzipArgs
 
-    let typeAnnotation (com: IGoCompiler) ctx (repeatedGenerics: Set<string> option) t : Expr * Stmt list =
+    let typeAnnotation (com: IGoCompiler) ctx t : Expr * Stmt list =
         // printfn "typeAnnotation: %A" t
         match t with
         // | Fable.Measure _
@@ -675,13 +694,13 @@ module Annotation =
         | Fable.LambdaType (argType, returnType) ->
             let argTypes, returnType = FableTransforms.uncurryLambdaType [ argType ] returnType
             //let resolved, stmts = resolveGenerics com ctx genArgs None
-            let returnType, stmts' = typeAnnotation com ctx repeatedGenerics returnType
-            let argTypes, stmts'' = resolveGenerics com ctx argTypes repeatedGenerics
+            let returnType, stmts' = typeAnnotation com ctx returnType
+            let argTypes, stmts'' = resolveGenerics com ctx argTypes
             //stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
             Expr.funcType(argTypes, [returnType]), stmts' @ stmts''
         // | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         // | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
-        // | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
+        | Fable.Tuple (genArgs, _) -> genArgs |> transformTupleType com ctx, []
         | Fable.Array (genArg, _) ->
             match genArg with
             | Fable.Type.Number (UInt8, _) -> Expr.ident "[]byte", []
@@ -695,9 +714,9 @@ module Annotation =
             | Fable.Type.Number (Int64, _) -> Expr.ident "[]int64", []
             | Fable.Type.Number (UInt64, _) -> Expr.ident "[]uint64", []
             | Fable.Type.String  -> Expr.ident "[]string", []
-            | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
-        | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
-        | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
+            | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ]
+        | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ]
+        | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         // | Fable.AnonymousRecordType (_, genArgs, _) ->
         //     let value = Expr.basicLit "dict"
         //     let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
@@ -708,7 +727,7 @@ module Annotation =
         //                            any ]
         //     ),
         //     stmts
-        | Fable.DeclaredType (entRef, genArgs) -> makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics
+        | Fable.DeclaredType (entRef, genArgs) -> makeEntityTypeAnnotation com ctx entRef genArgs
         //| _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
         | _ -> failwithf "Unsupported type: %A" t
 
@@ -778,11 +797,11 @@ module Annotation =
         //makeGenericTypeAnnotation com ctx id genArgs None
         failwith "makeImportTypeAnnotation"
 
-    let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedGenerics =
+    let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs =
         // printfn "DeclaredType: %A" entRef.FullName
         match entRef.FullName, genArgs with
         | Types.result, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
 
             fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
         //| Replacements.Util.BuiltinEntity _kind -> stdlibModuleTypeHint com ctx "typing" "Any" []
@@ -803,18 +822,18 @@ module Annotation =
             makeUnionTypeAnnotation com ctx genArgs
             *)
         | Types.fsharpAsyncGeneric, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
 
             fableModuleAnnotation com ctx "async_builder" "Async" resolved, stmts
         //| Types.taskGeneric, _ -> stdlibModuleTypeHint com ctx "typing" "Awaitable" genArgs
-        | Types.icomparable, _ -> libValue com ctx "util" "IComparable", []
-        | Types.iStructuralEquatable, _ -> libValue com ctx "util" "IStructuralEquatable", []
-        | Types.iStructuralComparable, _ -> libValue com ctx "util" "IStructuralComparable", []
+        | Types.icomparable, _ -> libValue com ctx Fable.MetaType "util" "IComparable", []
+        | Types.iStructuralEquatable, _ -> libValue com ctx Fable.MetaType "util" "IStructuralEquatable", []
+        | Types.iStructuralComparable, _ -> libValue com ctx Fable.MetaType "util" "IStructuralComparable", []
         | Types.icomparerGeneric, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "util" "IComparer_1" resolved, stmts
         | Types.iequalityComparer, _ ->
-            libValue com ctx "util" "IEqualityComparer", []
+            libValue com ctx Fable.MetaType "util" "IEqualityComparer", []
         // | Types.iequalityComparerGeneric, _ ->
         //     let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
         //     fableModuleAnnotation com ctx "util" "IEqualityComparer_1" [ resolved ], stmts
@@ -822,40 +841,40 @@ module Annotation =
         //     let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
         //     fableModuleAnnotation com ctx "util" "IEnumerator" [ resolved ], stmts
         | Types.ienumeratorGeneric, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "util" "IEnumerator" resolved, stmts
         // | Types.ienumerable, _ ->
         //     let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
         //     fableModuleAnnotation com ctx "util" "IEnumerable" [ resolved ], stmts
         | Types.ienumerableGeneric, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "util" "IEnumerable_1" resolved, stmts
         // | Types.iequatableGeneric, _ ->
         //     let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
         //     fableModuleAnnotation com ctx "util" "IEquatable" [ resolved ], stmts
         | Types.icomparableGeneric, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "util" "IComparable_1" resolved, stmts
         | Types.icollection, _
         | Types.icollectionGeneric, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "util" "ICollection" resolved, stmts
-        | Types.idisposable, _ -> libValue com ctx "util" "IDisposable", []
+        | Types.idisposable, _ -> libValue com ctx  Fable.MetaType "util" "IDisposable", []
         | Types.iobserverGeneric, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "observable" "IObserver" resolved, stmts
         | Types.iobservableGeneric, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "observable" "IObservable" resolved, stmts
         | Types.idictionary, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "util" "IDictionary" resolved, stmts
         | Types.ievent, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "event" "IEvent_2" resolved, stmts
-        | Types.cancellationToken, _ -> libValue com ctx "async_builder" "CancellationToken", []
+        | Types.cancellationToken, _ -> libValue com ctx  Fable.MetaType "async_builder" "CancellationToken", []
         | Types.mailboxProcessor, _ ->
-            let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx genArgs
             fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
         //| "Fable.Core.Py.Callable", _ ->
         //    let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
@@ -898,7 +917,7 @@ module Annotation =
                 //| None -> stdlibModuleTypeHint com ctx "typing" "Any" []
                 | _ -> failwithf "DeclaredType: %A" ent.FullName
 
-    let makeBuiltinTypeAnnotation com ctx kind repeatedGenerics =
+    let makeBuiltinTypeAnnotation com ctx kind =
         match kind with
         | Replacements.Util.BclGuid -> Expr.ident "str", []
         | Replacements.Util.FSharpReference genArg -> makeImportTypeAnnotation com ctx [ genArg ] "types" "FSharpRef", []
@@ -921,7 +940,7 @@ module Annotation =
             |> makeImportTypeAnnotation com ctx genArgs "Fable.Core"
         *)
         | Replacements.Util.FSharpResult (ok, err) ->
-            let resolved, stmts = resolveGenerics com ctx [ ok; err ] repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx [ ok; err ]
 
             fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
         // | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
@@ -930,13 +949,8 @@ module Annotation =
     let transformFunctionWithAnnotations (com: IGoCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         let argTypes = args |> List.map (fun id -> id.Type)
 
-        // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
-        let repeatedGenerics =
-            Util.getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])
-        // printfn "repeatedGenerics: %A" (name, repeatedGenerics, argTypes, body.Type)
-
-        let args', body' = com.TransformFunction(ctx, name, args, body, repeatedGenerics)
-        let returnType, stmts = typeAnnotation com ctx (Some repeatedGenerics) body.Type
+        let args', body' = com.TransformFunction(ctx, name, args, body)
+        let returnType, stmts = typeAnnotation com ctx body.Type
 
         // If the only argument is generic, then we make the return type optional as well
         let returnType' =
@@ -1007,7 +1021,7 @@ module Util =
             |> List.map (fun arg ->
                 let name = getUniqueNameInDeclarationScope ctx (arg.Name + "_mut")
 
-                let ta, _ = typeAnnotation com ctx None arg.Type
+                let ta, _ = typeAnnotation com ctx arg.Type
                 Field.field([name], ta))
 
         interface ITailCallOpportunity with
@@ -1108,8 +1122,8 @@ module Util =
 
     let getExpr com ctx r (object: Expr) (expr: Expr) =
         match expr with
-        | Expr.Ident(ident) ->
-             Expr.selector(object, ident), []
+        | Expr.Ident(ident) -> Expr.selector(object, ident), []
+        | Expr.BasicLit(lit) -> Expr.selector(object, Ident.ident $"Item{lit.Value}"), []
         | e -> failwith $"getExpr: {e}"
 
     let rec getParts com ctx (parts: string list) (expr: Expr) =
@@ -1170,13 +1184,17 @@ module Util =
     //     let _ = com.GetImportExpr(ctx, "container/list")
     //     expr |> Expression.list, stmts
 
-    // let makeTuple (com: IGoCompiler) ctx exprs =
-    //     let expr, stmts =
-    //         exprs
-    //         |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-    //         |> Helpers.unzipArgs
-    //
-    //     expr |> Expression.tuple, stmts
+    let makeTuple (com: IGoCompiler) ctx args =
+        let exprs, stmts =
+            args
+            |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+            |> Helpers.unzipArgs
+
+        let genArgs, stmts' = resolveGenerics com ctx (args |> List.map (fun e -> e.Type))
+
+        let tup = List.length args |> getTupleTypeIdent com ctx
+        let typ = Expr.indexList(tup, genArgs)
+        Expr.compositeLit(exprs, typ), stmts @ stmts'
 
     // let makeStringArray strings =
     //     strings
@@ -1521,6 +1539,9 @@ module Util =
                      ||> exprAsStatement ctx)
           yield Stmt.continue'(?loc = range) ]
 
+    let getTupleTypeIdent (com: IGoCompiler) ctx itemsLength : Expr =
+        libValue com ctx Fable.MetaType "Types" $"Tuple%i{itemsLength}"
+
     let transformImport (com: IGoCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
         let name, parts =
             let parts = Array.toList (name.Split('.'))
@@ -1551,9 +1572,15 @@ module Util =
     let transformCurry (com: IGoCompiler) (ctx: Context) expr arity : Expr * Stmt list =
         com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
-
     let makeNumber (com: IGoCompiler) (ctx: Context) r t intName x =
         Expr.basicLit(x, ?loc = r), []
+
+    let transformTuple (com: IGoCompiler) ctx (args: Expr list) =
+        let tup = List.length args |> getTupleTypeIdent com ctx
+        //let genArgs = args |> List.map (fun a -> a.Type)
+        //let t = Type.reference(tup, genArgs)
+        // Generic arguments can be omitted from invocation expression
+        Expr.call(tup, args)
 
     let transformValue (com: IGoCompiler) (ctx: Context) r value : Expr * Stmt list =
         match value with
@@ -1609,7 +1636,7 @@ module Util =
             | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ kind size
             | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ kind expr
 
-        //| Fable.NewTuple (vals, _) -> makeTuple com ctx vals
+        | Fable.NewTuple (vals, _) -> makeTuple com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
         | Fable.NewList (headAndTail, _) ->
             let rec getItems acc =
@@ -2226,7 +2253,7 @@ module Util =
         if isPyStatement ctx false value then
             let varName, varExpr = Expr.ident var.Name, identAsExpr com ctx var
 
-            let ta, stmts = typeAnnotation com ctx None var.Type
+            let ta, stmts = typeAnnotation com ctx var.Type
             let decl = Stmt.assign(varName, ta)
 
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
@@ -2235,7 +2262,7 @@ module Util =
         else
             let value, stmts = transformBindingExprBody com ctx var value
             let varName = com.GetIdentifier(ctx, var.Name)
-            let ta, stmts' = typeAnnotation com ctx None var.Type
+            let ta, stmts' = typeAnnotation com ctx var.Type
             let decl = varDeclaration ctx varName (Some ta) value
             stmts @ stmts' @ decl
 
@@ -3114,7 +3141,6 @@ module Util =
         name
         (args: Fable.Ident list)
         (body: Fable.Expr)
-        (repeatedGenerics: Set<string>)
         : FieldList * Stmt list =
         let tailcallChance =
             Option.map (fun name -> NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
@@ -3217,7 +3243,7 @@ module Util =
                 let args' =
                     args
                     |> List.map (fun id ->
-                        let ta, _ = typeAnnotation com ctx (Some repeatedGenerics) id.Type
+                        let ta, _ = typeAnnotation com ctx id.Type
                         Field.field(id.Name, typ = ta))
 
                 FieldList.fieldList(args'), defaults, body
@@ -3819,7 +3845,7 @@ module Util =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
-                        let ta, _ = typeAnnotation com ctx None decl.Body.Type
+                        let ta, _ = typeAnnotation com ctx decl.Body.Type
 
                         declareModuleMember com ctx info.IsPublic name (Some ta) value
                     else
@@ -3978,8 +4004,8 @@ module Compiler =
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
 
-            member bcom.TransformFunction(ctx, name, args, body, generics) =
-                transformFunction bcom ctx name args body generics
+            member bcom.TransformFunction(ctx, name, args, body) =
+                transformFunction bcom ctx name args body
 
             member bcom.TransformImport(ctx, selector, path) =
                 transformImport bcom ctx None selector path

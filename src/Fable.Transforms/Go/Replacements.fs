@@ -1062,7 +1062,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
       [ arg ] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", _ ->
-        Helper.LibCall(com, "util", "ignore", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "util", "Ignore", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
     // Number and String conversions

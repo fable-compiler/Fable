@@ -141,7 +141,10 @@ module PrinterExtensions =
             printer.Print("}")
 
         member printer.Print(expr: CompositeLit) =
-            printer.Print("CompositeLit")
+            printer.PrintOptional(expr.Type)
+            printer.Print("{")
+            printer.PrintCommaSeparatedList(expr.Elts)
+            printer.Print("}")
 
         member printer.Print(expr: ParenExpr) =
             printer.WithParens(expr.X)

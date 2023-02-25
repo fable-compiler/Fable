@@ -1044,6 +1044,20 @@ module GoExtensions =
         static member ident(name, ?importModule, ?obj, ?loc) =
             Ident { name with ImportModule = importModule; Obj = obj }
 
+        static member index(x, index, ?loc) =
+            IndexExpr
+                { X = x
+                  Index = index
+                  Lbrack = loc
+                  Rbrack = None }
+
+        static member indexList(x, indices, ?loc) =
+            IndexListExpr
+                { X = x
+                  Indices = indices
+                  Lbrack = loc
+                  Rbrack = None }
+
         static member selector (x, sel, ?loc) =
             SelectorExpr
                 { X = x
