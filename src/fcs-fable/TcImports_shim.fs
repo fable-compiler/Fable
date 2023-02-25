@@ -219,27 +219,34 @@ module TcImports =
         let ccuMap = ccuInfos |> List.map (fun ccuInfo -> ccuInfo.FSharpViewOfMetadata.AssemblyName, ccuInfo) |> Map.ofList
 
         // search over all imported CCUs for each cached type
-        let ccuHasType (ccu: CcuThunk) (nsname: string list) (tname: string) =
-            let findEntity (entityOpt: Entity option) n =
+        let ccuHasType (ccu: CcuThunk) (nsname: string list) (tname: string) (publicOnly: bool) =
+            let matchNameSpace (entityOpt: Entity option) n =
                 match entityOpt with
                 | None -> None
                 | Some entity -> entity.ModuleOrNamespaceType.AllEntitiesByCompiledAndLogicalMangledNames.TryFind n
-            let entityOpt = (Some ccu.Contents, nsname) ||> List.fold findEntity
-            match entityOpt with
+
+            match (Some ccu.Contents, nsname) ||> List.fold matchNameSpace with
             | Some ns ->
                 match Map.tryFind tname ns.ModuleOrNamespaceType.TypesByMangledName with
-                | Some _ -> true
+                | Some e ->
+                    if publicOnly then
+                        match e.TypeReprInfo with
+                        | TILObjectRepr data ->
+                            let (TILObjectReprData(_, _, tyDef)) = data
+                            tyDef.Access = ILTypeDefAccess.Public
+                        | _ -> false
+                    else  true
                 | None -> false
             | None -> false
 
         // Search for a type
-        let tryFindSysTypeCcu nsname typeName =
-            let search = sysCcuInfos |> List.tryFind (fun ccuInfo -> ccuHasType ccuInfo.FSharpViewOfMetadata nsname typeName)
+        let tryFindSysTypeCcu path typeName publicOnly =
+            let search = sysCcuInfos |> List.tryFind (fun ccuInfo -> ccuHasType ccuInfo.FSharpViewOfMetadata path typeName publicOnly)
             match search with
             | Some x -> Some x.FSharpViewOfMetadata
             | None ->
 #if DEBUG
-                printfn "Cannot find type %s.%s" (String.concat "." nsname) typeName
+                printfn "Cannot find type %s.%s" (String.concat "." path) typeName
 #endif
                 None
 

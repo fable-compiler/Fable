@@ -938,7 +938,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToChar", _ -> toChar com args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> toSeq com t xs |> Some
-    | "CreateDictionary", [arg] ->
+    | ("CreateDictionary"|"CreateReadOnlyDictionary"), [arg] ->
         Helper.LibCall(com, "HashMap", "fromArray", t, [toArray com t arg]) |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t args |> Some
     // Ranges

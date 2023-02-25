@@ -875,7 +875,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> TypeCast(xs, t) |> Some
-    | "CreateDictionary", [arg] ->
+    | ("CreateDictionary"|"CreateReadOnlyDictionary"), [arg] ->
         Helper.LibCall(com, "Types", "mapFromTuples", t, [arg], genArgs=i.GenericArgs, ?loc=r)
         |> withTag "const-map" |> Some
     | "CreateSet", _ -> makeSet com ctx r t "OfSeq" args i.GenericArgs |> Some
