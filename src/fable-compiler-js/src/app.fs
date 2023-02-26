@@ -149,6 +149,8 @@ let parseFiles projectFileName options =
     let parseRes, ms1 = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
+
+    // print warnings and errors
     let showWarnings = not options.benchmark
     parseRes.Errors |> printErrors showWarnings
 

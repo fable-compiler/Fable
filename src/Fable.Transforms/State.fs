@@ -12,6 +12,7 @@ type PluginRef =
 type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
     let assemblies = Dictionary()
     let coreAssemblies = Dictionary()
+    let entities = Dictionary()
 
     let plugins =
         let plugins = Dictionary<Fable.EntityRef, System.Type>()
@@ -44,9 +45,16 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
             else acc)
 
     let tryFindEntityByPath (entityFullName: string) (asm: FSharpAssembly) =
-        let entPath = List.ofArray (entityFullName.Split('.'))
-        asm.Contents.FindEntityByPath(entPath)
-        |> Option.map(fun e -> FSharp2Fable.FsEnt e :> Fable.Entity)
+        let key = asm.SimpleName + "|" + entityFullName
+        entities
+        |> Dictionary.tryFind key
+        |> Option.orElseWith (fun () ->
+            let entPath = List.ofArray (entityFullName.Split('.'))
+            asm.Contents.FindEntityByPath(entPath)
+            |> Option.map (fun e ->
+                let fableEnt = FSharp2Fable.FsEnt e :> Fable.Entity
+                entities[key] <- fableEnt
+                fableEnt))
 
     member _.TryGetEntityByAssemblyPath(asmPath, entityFullName) =
         assemblies
@@ -67,19 +75,23 @@ type ImplFile =
         Entities: IReadOnlyDictionary<string, Fable.Entity>
         InlineExprs: (string * InlineExprLazy) list
     }
-    static member From(file: FSharpImplementationFileContents) =
-        let declarations = file.Declarations
-        let entities = Dictionary()
-        let rec loop (ents: FSharpEntity seq) =
-            for e in ents do
-                let fableEnt = FSharp2Fable.FsEnt e :> Fable.Entity
-                if not e.IsFSharpAbbreviation || not (entities.ContainsKey(fableEnt.FullName)) then
-                    entities[fableEnt.FullName] <- fableEnt
-                loop e.NestedEntities
 
-        FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop
+    static member From(file: FSharpImplementationFileContents) =
+        let rec loop (entities: IDictionary<_, _>) (ents: FSharpEntity seq) =
+            for e in ents do
+                let fullName = FSharp2Fable.FsEnt.FullName e
+                if not e.IsFSharpAbbreviation || not (entities.ContainsKey(fullName)) then
+                    entities[fullName] <- FSharp2Fable.FsEnt e :> Fable.Entity
+                loop entities e.NestedEntities
+
+        // add all entities to the entity cache
+        let entities = Dictionary()
+        let declarations = file.Declarations
+        FSharp2Fable.Compiler.getRootFSharpEntities declarations
+        |> loop entities
+
         {
-            Declarations = file.Declarations
+            Declarations = declarations
             Entities = entities
             RootModule = FSharp2Fable.Compiler.getRootModule declarations
             InlineExprs = FSharp2Fable.Compiler.getInlineExprs file.FileName declarations
