@@ -3300,6 +3300,9 @@ let destILArrTy ty =
 // --------------------------------------------------------------------
 
 [<Literal>]
+let tname_Attribute = "System.Attribute"
+
+[<Literal>]
 let tname_Object = "System.Object"
 
 [<Literal>]
@@ -3371,6 +3374,8 @@ type ILGlobals(primaryScopeRef: ILScopeRef, equivPrimaryAssemblyRefs: ILAssembly
         | _ -> failwith "Invalid primary assembly"
 
     member x.primaryAssemblyName = x.primaryAssemblyRef.Name
+
+    member val typ_Attribute = mkILBoxedType (mkILNonGenericTySpec (mkSysILTypeRef tname_Attribute))
 
     member val typ_Object = mkILBoxedType (mkILNonGenericTySpec (mkSysILTypeRef tname_Object))
 
