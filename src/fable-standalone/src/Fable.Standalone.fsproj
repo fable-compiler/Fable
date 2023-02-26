@@ -23,6 +23,7 @@
     <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Python/Prelude.fs" />
+    <Compile Include="../../Fable.Transforms/Go/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Global/Compiler.fs" />
     <Compile Include="../../Fable.Transforms/MonadicTrampoline.fs" />
     <Compile Include="../../Fable.Transforms/Transforms.Util.fs" />
@@ -33,6 +34,7 @@
     <Compile Include="../../Fable.Transforms/Python/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Dart/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Go/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.Api.fs" />
     <Compile Include="../../Fable.Transforms/FSharp2Fable.fs" />
@@ -43,6 +45,9 @@
     <Compile Include="../../Fable.Transforms/Python/Python.fs" />
     <Compile Include="../../Fable.Transforms/Python/Fable2Python.fs" />
     <Compile Include="../../Fable.Transforms/Python/PythonPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/Go/Go.fs" />
+    <Compile Include="../../Fable.Transforms/Go/Fable2Go.fs" />
+    <Compile Include="../../Fable.Transforms/Go/GoPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Php/Php.fs" />
     <Compile Include="../../Fable.Transforms/Php/Fable2Php.fs" />
     <Compile Include="../../Fable.Transforms/Php/PhpPrinter.fs" />
