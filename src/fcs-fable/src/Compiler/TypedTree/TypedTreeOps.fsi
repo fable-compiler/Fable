@@ -2132,6 +2132,8 @@ val mkCallSeqAppend: TcGlobals -> range -> TType -> Expr -> Expr -> Expr
 
 val mkCallSeqFinally: TcGlobals -> range -> TType -> Expr -> Expr -> Expr
 
+val mkCallSeqTryWith: TcGlobals -> range -> TType -> Expr -> Expr -> Expr -> Expr
+
 val mkCallSeqGenerated: TcGlobals -> range -> TType -> Expr -> Expr -> Expr
 
 val mkCallSeqOfFunctions: TcGlobals -> range -> TType -> TType -> Expr -> Expr -> Expr -> Expr
@@ -2697,3 +2699,10 @@ val (|EmptyModuleOrNamespaces|_|):
 /// Add an System.Runtime.CompilerServices.ExtensionAttribute to the Entity if found via predicate and not already present.
 val tryAddExtensionAttributeIfNotAlreadyPresent:
     tryFindExtensionAttributeIn: ((Attrib list -> Attrib option) -> Attrib option) -> entity: Entity -> Entity
+
+#if !FABLE_COMPILER
+
+/// Serialize an entity to a very basic json structure.
+val serializeEntity: path: string -> entity: Entity -> unit
+
+#endif //!FABLE_COMPILER

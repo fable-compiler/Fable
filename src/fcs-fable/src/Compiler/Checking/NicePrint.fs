@@ -2112,7 +2112,6 @@ module TastDefinitionPrinting =
 
             | _ when isNil allDecls ->
                 lhsL
-
 #if !NO_TYPEPROVIDERS
             | TProvidedNamespaceRepr _
             | TProvidedTypeRepr _

@@ -85,6 +85,9 @@
     "flamegraph": "perf script | ../../../../../FlameGraph/stackcollapse-perf.pl | ../../../../../FlameGraph/flamegraph.pl > perf.svg",
     "trace-node": "node --trace-deopt out-node/app.js bench-compiler.fsproj out-node2 > deopt.log",
     "trace-rust": "dotnet trace collect --duration 00:00:01:00 --format speedscope -- dotnet bin/Release/net7.0/bench-compiler.dll ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir out-tests-rust --fableLib out-lib --lang Rust",
+    "heaptrack-native": "heaptrack ./bin/Release/net7.0/linux-x64/native/bench-compiler bench-compiler.fsproj out-node2 --benchmark",
+    "heaptrack-print": "heaptrack_print heaptrack.*.gz -F heap_alloc.log",
+    "heaptrack-flamegraph": "../../../../../FlameGraph/flamegraph.pl --title \"heaptrack: allocations\" --colors mem --countname allocations < heap_alloc.log > heap_alloc.svg",
     "coz": "coz run --- ./bin/Release/net7.0/linux-x64/native/bench-compiler bench-compiler.fsproj out-node2 --benchmark"
   }
 }

@@ -1098,7 +1098,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [ xs ] -> toSeq t xs |> Some
-    | "CreateDictionary", [ arg ] -> makeDictionary com ctx r t arg |> Some
+    | ("CreateDictionary"|"CreateReadOnlyDictionary"), [ arg ] -> makeDictionary com ctx r t arg |> Some
     | "CreateSet", _ ->
         (genArg com ctx r 0 i.GenericArgs)
         |> makeSet com ctx r t "OfSeq" args

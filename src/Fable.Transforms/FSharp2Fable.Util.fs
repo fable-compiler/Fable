@@ -257,15 +257,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 type FsEnt(maybeAbbrevEnt: FSharpEntity) =
     let ent = Helpers.nonAbbreviatedDefinition maybeAbbrevEnt
 
-    let memberCache =
-        let dict = Dictionary()
-        ent.TryGetMembersFunctionsAndValues()
-        |> Seq.iter (fun m ->
-            let key = (m.CompiledName, m.IsInstanceMember)
-            let value = (m, m.IsDispatchSlot, m.CurriedParameterGroups)
-            let members = dict.GetOrAdd(key, fun _ -> ResizeArray())
-            members.Add(value))
-        dict
+    let members = lazy (ent.TryGetMembersFunctionsAndValues())
 
     static let tryArrayFullName (ent: FSharpEntity) =
         if ent.IsArrayType then
@@ -340,18 +332,16 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
                 | argTypes -> argTypes)
 
         // entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
-        memberCache
-        |> Dictionary.tryFind (compiledName, isInstance)
-        |> Option.bind (fun members ->
-            members
-            |> Seq.tryFind (fun (m, m_IsDispatchSlot, m_CurriedParameterGroups) ->
-                if (doNotRequireDispatchSlot || m_IsDispatchSlot)
-                then
-                    match argTypes with
-                    | Some argTypes -> Extensions.areParamTypesEqual genArgs argTypes m_CurriedParameterGroups
-                    | None -> true
-                else false)
-            |> Option.map (fun (m,_,_) -> m))
+        members.Force()
+        |> Seq.tryFind (fun m ->
+            if m.CompiledName = compiledName &&
+                m.IsInstanceMember = isInstance &&
+                (doNotRequireDispatchSlot || m.IsDispatchSlot)
+            then
+                match argTypes with
+                | Some argTypes -> Extensions.areParamTypesEqual genArgs argTypes m.CurriedParameterGroups
+                | None -> true
+            else false)
 
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
@@ -370,9 +360,8 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             ent.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
         member _.MembersFunctionsAndValues =
-            memberCache.Values
-            |> Seq.concat
-            |> Seq.map (fun (m,_,_) -> FsMemberFunctionOrValue(m))
+            members.Force()
+            |> Seq.map (fun m -> FsMemberFunctionOrValue(m))
 
         member x.TryFindMember(info: Fable.MemberRefInfo) =
             x.TryFindMember(info.CompiledName, isInstance=info.IsInstance, ?argTypes=(Option.map List.toArray info.NonCurriedArgTypes))
