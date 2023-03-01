@@ -87,8 +87,8 @@ let makeStaticLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName a
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs,
         isModuleMember=false, isConstructor=isConstructor, ?loc=r)
 
-// let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
-//     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc=r)
+let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc=r)
 
 let makeGlobalIdent (ident: string, memb: string, typ: Type) =
     makeTypedIdentExpr typ (ident + "::" + memb)
@@ -466,8 +466,6 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
 
 let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
-    // | Builtin (BclDecimal|BclBigInt as bt) ->
-    //     Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r)
     // | Builtin (BclGuid|BclTimeSpan)
     // | Boolean | Char | String | Number _ ->
     //     makeEqOp r left right BinaryEqual
@@ -490,12 +488,18 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     // | Tuple _ ->
     //     Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r)
     | _ ->
-        // Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r)
+        // may use reference equality where needed (see Fable2Rust.transformOperation)
         makeEqOp r left right BinaryEqual
 
+let referenceEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
+    Helper.LibCall(com, "Native", "referenceEquals", Boolean, [makeRef left; makeRef right], ?loc=r)
+
 let objectEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
-    // reference equality actually happens in Fable2Rust.transformOperation
-    TypeCast(right, left.Type) |> equals com ctx r left
+    match left.Type with
+    | Array _ -> referenceEquals com ctx r left right
+    | _ ->
+        // can be reference or structural equality based on type
+        TypeCast(right, left.Type) |> equals com ctx r left
 
 let structEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     TypeCast(right, left.Type) |> equals com ctx r left
@@ -929,7 +933,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", _ ->
-        Helper.LibCall(com, "Util", "ignore", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        makeLibCall com r t i "Util" "ignore" args |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"
         |"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"
@@ -1636,8 +1640,8 @@ let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
     | "get_IsEmpty", Some c, _ -> Test(c, ListTest false, r) |> Some
     | "get_Empty", None, _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     | "Cons", None, [h;t] -> NewList(Some(h,t), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
-    | ("GetHashCode" | "Equals" | "CompareTo"), Some c, _ ->
-        makeInstanceCall r t i c i.CompiledName args |> Some
+    // | ("GetHashCode" | "Equals" | "CompareTo"), Some c, _ ->
+    //     makeInstanceCall r t i c i.CompiledName args |> Some
     | "GetEnumerator", Some c, _ ->
         Helper.LibCall(com, "Seq", "Enumerable::ofList", t, [c], ?loc=r) |> Some
     | _ -> None
@@ -2180,7 +2184,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
-    | "ReferenceEquals", None, [arg1; arg2]
+    | "ReferenceEquals", None, [arg1; arg2] -> referenceEquals com ctx r arg1 arg2 |> Some
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> objectEquals com ctx r arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some

@@ -69,7 +69,7 @@ let ``Array.Equals works`` () =
     let a3 = [|1; 2; 4|]
     let a4 = [|1; 2; 3; 4|]
     a1.Equals(a1) |> equal true
-    // a1.Equals(a2) |> equal false //TODO: reference equality
+    a1.Equals(a2) |> equal false // reference equality
     a1.Equals(a3) |> equal false
     a1.Equals(a4) |> equal false
 
