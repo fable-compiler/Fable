@@ -1027,6 +1027,17 @@ module TypeHelpers =
             Fable.GenericParam(name, genParam.IsMeasure, constraints)
         | Some typ -> typ
 
+    let resolveTypeLambdaGenArgs (ctx: Context) genArgs lambda =
+        match lambda with
+        | FSharpExprPatterns.Lambda(arg, body) ->
+            ctx // leave lambda context as is
+        | _ ->
+            // if not a lambda, resolve the type args not alredy in context to Fable.Any
+            let newGenArgs = genArgs |> List.map (fun arg -> genParamName arg, Fable.Any)
+            let newCtxGenArgs = (ctx.GenericArgs, newGenArgs) ||> List.fold (fun map (k, v) ->
+                if Map.containsKey k map then map else Map.add k v map)
+            { ctx with GenericArgs = newCtxGenArgs }
+
     // Filter measure generic arguments here? (for that we need to pass the compiler, which needs a bigger refactoring)
     // Currently for Dart we're doing it in the Fable2Dart step
     let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) =
@@ -1282,7 +1293,6 @@ module TypeHelpers =
                 entity.TryFindMember(compiledName, isInstance=true, ?argTypes=argTypes, requireDispatchSlot=true)
             | _ -> None
         )
-
 
     let tryFindWitness (ctx: Context) argTypes isInstance traitName =
         ctx.Witnesses |> List.tryFind (fun w ->

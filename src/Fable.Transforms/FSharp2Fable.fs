@@ -501,7 +501,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
     // Sometimes these must be inlined, but that's resolved in FSharpExprPatterns.Let (see below)
-    | FSharpExprPatterns.TypeLambda (_genArgs, lambda) ->
+    | FSharpExprPatterns.TypeLambda(genArgs, lambda) ->
+        let ctx = resolveTypeLambdaGenArgs ctx genArgs lambda
         let! lambda = transformExpr com ctx lambda
         return lambda
 
@@ -575,6 +576,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | FSharpExprPatterns.Let((var, value, _), body) ->
         match value with
+
         | CreateEvent(value, event) as createEvent ->
             let! value = transformExpr com ctx value
             let typ = makeType ctx.GenericArgs createEvent.Type
@@ -629,6 +631,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return! transformExpr com ctx body
 
         | _ ->
+            let ctx, value =
+                match value with
+                | FSharpExprPatterns.TypeLambda(genArgs, lambda) ->
+                    let ctx = resolveTypeLambdaGenArgs ctx genArgs lambda
+                    ctx, lambda
+                | _ -> ctx, value
+
             let! value = transformExpr com ctx value
             let ctx, ident = putIdentInScope com ctx var (Some value)
             let! body = transformExpr com ctx body
