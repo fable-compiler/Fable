@@ -262,12 +262,14 @@ let copyDirRecursive (source: string) (target: string): unit =
 let copyFile (source: string) (target: string): unit =
     if IO.Directory.Exists source then
         failwith "Source is a directory, use copyDirRecursive"
+    if not (IO.File.Exists(source)) then
+        failwith "Source file does not exist"
     let target =
         if IO.Directory.Exists target then
             target </> filename source
-        else target
-    if not (IO.File.Exists(source)) then
-        failwith "Source file does not exist"
+        else
+            IO.Directory.CreateDirectory(IO.Path.GetDirectoryName(target))
+            target
     IO.File.Copy(source, target, true)
 
 let writeFile (filePath: string) (txt: string): unit =
