@@ -7,6 +7,7 @@ let allTests =
   [|
     Arithmetic.tests
     Arrays.tests
+    Lists.tests
   |]
 
 #if FABLE_COMPILER
