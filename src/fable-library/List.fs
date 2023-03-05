@@ -5,7 +5,7 @@ open Native
 
 [<CustomEquality; CustomComparison>]
 [<CompiledName("FSharpList")>]
-type LinkedList<'T when 'T: comparison> =
+type LinkedList<'T> =
     { head: 'T; mutable tail: LinkedList<'T> option }
 
     static member Empty: 'T list = { head = Unchecked.defaultof<'T>; tail = None }
@@ -60,7 +60,7 @@ type LinkedList<'T when 'T: comparison> =
                 | None, Some _ -> false
                 | Some _, None -> false
                 | Some xt, Some yt ->
-                    if xs.head = ys.head
+                    if Unchecked.equals xs.head ys.head
                     then loop xt yt
                     else false
             loop xs ys
@@ -73,7 +73,7 @@ type LinkedList<'T when 'T: comparison> =
             | None -> h
             | Some t ->
                 if i > iMax then h
-                else loop (i + 1) (combineHash i h (hash xs.head)) t
+                else loop (i + 1) (combineHash i h (Unchecked.hash xs.head)) t
         loop 0 0 xs
 
     interface IJsonSerializable with
@@ -89,7 +89,7 @@ type LinkedList<'T when 'T: comparison> =
                 | None, Some _ -> -1
                 | Some _, None -> 1
                 | Some xt, Some yt ->
-                    let c = compare xs.head ys.head
+                    let c = Unchecked.compare xs.head ys.head
                     if c = 0 then loop xt yt else c
             loop xs ys
 
@@ -101,7 +101,7 @@ type LinkedList<'T when 'T: comparison> =
         member xs.GetEnumerator(): System.Collections.IEnumerator =
             ((xs :> System.Collections.Generic.IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
 
-and ListEnumerator<'T when 'T: comparison>(xs: 'T list) =
+and ListEnumerator<'T>(xs: 'T list) =
     let mutable it = xs
     let mutable current = Unchecked.defaultof<'T>
     interface System.Collections.Generic.IEnumerator<'T> with
@@ -121,8 +121,8 @@ and ListEnumerator<'T when 'T: comparison>(xs: 'T list) =
     interface System.IDisposable with
         member _.Dispose() = ()
 
-and 'T list when 'T: comparison = LinkedList<'T>
-and List<'T> when 'T: comparison = LinkedList<'T>
+and 'T list = LinkedList<'T>
+and List<'T> = LinkedList<'T>
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]
@@ -185,11 +185,11 @@ let toArray (xs: 'T list) =
 //     if xs.IsEmpty then state
 //     else fold folder (folder state xs.Head) xs.Tail
 
-let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     let mutable acc = state
     let mutable xs = xs
     while not xs.IsEmpty do
-        acc <- folder acc xs.Head
+        acc <- folder acc (head xs)
         xs <- xs.Tail
     acc
 

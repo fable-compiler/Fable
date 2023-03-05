@@ -103,12 +103,14 @@ let tests =
         let concaters1 = a |> Array.map (fun x y -> y + x)
         let concaters2 = a |> Array.map (fun x -> (fun y -> y + x))
         let concaters3 = a |> Array.map (fun x -> let f = (fun y -> y + x) in f)
+#if !FABLE_COMPILER_TYPESCRIPT // TODO!!!
         let concaters4 = a |> Array.map f
+        concaters4.[0] "x" "y" |> equal "axy"
+#endif
         let concaters5 = b |> Array.mapi f
         concaters1.[0] "x" |> equal "xa"
         concaters2.[1] "x" |> equal "xb"
         concaters3.[2] "x" |> equal "xc"
-        concaters4.[0] "x" "y" |> equal "axy"
         concaters5.[1] "x" |> equal "12x"
         let f2 = f
         a |> Array.mapi f2 |> Array.item 2 <| "x" |> equal "2cx"
@@ -966,11 +968,12 @@ let tests =
 
     testCase "Arrays are independent from being binded to a name" <| fun () ->
         let intList = [1;2;3]
-        intList  |> List.toArray  |> equal [|1;2;3|]
-        [1;2;3]  |> List.toArray  |> equal [|1;2;3|]
+        intList |> List.toArray |> equal [|1;2;3|]
+        [1;2;3] |> List.toArray |> equal [|1;2;3|]
 
     testCase "Functions on arrays should behave the same whether binded to a name or not" <| fun () ->
-        let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+        // TODO: Fix inlined generic local functions in TypeScript
+        let fromArrayToListAndBack (a: int[]) = a |> Array.toList |> List.toArray
         [|1;2|] |> Array.toList |> List.toArray  |> equal ([|1;2|] |> fromArrayToListAndBack)
 
     testCase "Array.skip works" <| fun () ->

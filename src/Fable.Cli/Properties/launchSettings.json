@@ -2,8 +2,8 @@
   "profiles": {
     "Fable.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "src/quicktest-dart --lang dart --noCache --exclude Fable.Core",
-      "workingDirectory": "../../../../.."
+      "commandLineArgs": "src/fable-library --outDir build/fable-library-ts --fableLib build/fable-library-ts --lang TypeScript --typedArrays false --exclude Fable.Core --define FX_NO_BIGINT --define FABLE_LIBRARY",
+      "workingDirectory": "../.."
     }
   }
 }
