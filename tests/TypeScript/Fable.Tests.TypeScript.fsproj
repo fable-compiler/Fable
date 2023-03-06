@@ -13,6 +13,8 @@
     <Compile Include="../Js/Main/ArithmeticTests.fs" />
     <Compile Include="../Js/Main/ArrayTests.fs" />
     <Compile Include="../Js/Main/ListTests.fs" />
+    <Compile Include="../Js/Main/SeqExpressionTests.fs" />
+    <Compile Include="../Js/Main/SeqTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

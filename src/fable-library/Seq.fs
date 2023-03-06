@@ -101,8 +101,8 @@ module Enumerator =
             | _ -> ()
         fromFunctions current next dispose
 
-    let concat<'T> (sources: seq<seq<'T>>) =
-        let mutable outerOpt: IEnumerator<seq<'T>> option = None
+    let concat<'T,'U when 'U :> seq<'T>> (sources: seq<'U>) =
+        let mutable outerOpt: IEnumerator<'U> option = None
         let mutable innerOpt: IEnumerator<'T> option = None
         let mutable started = false
         let mutable finished = false
@@ -222,7 +222,7 @@ let ofSeq (xs: seq<'T>): IEnumerator<'T> =
 let delay (generator: unit -> seq<'T>) =
     mkSeq (fun () -> generator().GetEnumerator())
 
-let concat (sources: seq<seq<'T>>) =
+let concat<'Collection, 'T when 'Collection :> seq<'T>> (sources: seq<'Collection>): seq<'T> =
     mkSeq (fun () -> Enumerator.concat sources)
 
 let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
@@ -326,7 +326,7 @@ let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> seq
 let enumerateThenFinally (source: seq<'T>) (compensation: unit -> unit) =
     finallyEnumerable(compensation, (fun () -> source))
 
-let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> seq<'U>) =
+let enumerateUsing (resource: 'T :> System.IDisposable) (source: 'T -> #seq<'U>): seq<'U> =
     finallyEnumerable(
         (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
         (fun () -> source resource :> seq<_>))
@@ -784,7 +784,7 @@ let zip (xs: seq<'T1>) (ys: seq<'T2>) =
 let zip3 (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) =
     map3 (fun x y z -> (x, y, z)) xs ys zs
 
-let collect (mapping: 'T -> 'U seq) (xs: seq<'T>) =
+let collect<'T, 'Collection, 'U when 'Collection :> 'U seq> (mapping: 'T -> 'Collection) (xs: seq<'T>): seq<'U> =
     delay (fun () ->
         xs
         |> map mapping
@@ -802,25 +802,23 @@ let pairwise (xs: seq<'T>) =
         |> ofArray
     )
 
-let splitInto (chunks: int) (xs: seq<'T>): 'T seq seq =
+let splitInto (chunks: int) (xs: seq<'T>): 'T[] seq =
     delay (fun () ->
         xs
         |> toArray
         |> Array.splitInto chunks
-        |> Array.map ofArray
         |> ofArray
     )
 
-let windowed windowSize (xs: seq<'T>): 'T seq seq =
+let windowed (windowSize: int) (xs: seq<'T>): 'T[] seq =
     delay (fun () ->
         xs
         |> toArray
         |> Array.windowed windowSize
-        |> Array.map ofArray
         |> ofArray
     )
 
-let transpose (xss: seq<seq<'T>>) =
+let transpose (xss: seq<#seq<'T>>): seq<seq<'T>> =
     delay (fun () ->
         xss
         |> toArray
@@ -891,12 +889,11 @@ let permute f (xs: seq<'T>) =
         |> ofArray
     )
 
-let chunkBySize (chunkSize: int) (xs: seq<'T>): seq<seq<'T>> =
+let chunkBySize (chunkSize: int) (xs: seq<'T>): seq<'T[]> =
     delay (fun () ->
         xs
         |> toArray
         |> Array.chunkBySize chunkSize
-        |> Array.map ofArray
         |> ofArray
     )
 
