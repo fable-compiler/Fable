@@ -224,6 +224,7 @@ let tests =
         let total = xs |> Seq.fold (+) 0.
         total |> equal 10.
 
+#if !FABLE_COMPILER_TYPESCRIPT // TODO!!!
     testCase "Seq.fold with tupled arguments works" <| fun () ->
         let a, b =
             ((1, 5), [1;2;3;4])
@@ -231,6 +232,7 @@ let tests =
                 a * i, b + i)
         equal 24 a
         equal 15 b
+#endif
 
     testCase "Seq.forall works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]

@@ -103,17 +103,17 @@ let tests =
         let concaters1 = a |> Array.map (fun x y -> y + x)
         let concaters2 = a |> Array.map (fun x -> (fun y -> y + x))
         let concaters3 = a |> Array.map (fun x -> let f = (fun y -> y + x) in f)
-#if !FABLE_COMPILER_TYPESCRIPT // TODO!!!
-        let concaters4 = a |> Array.map f
-        concaters4.[0] "x" "y" |> equal "axy"
-#endif
         let concaters5 = b |> Array.mapi f
         concaters1.[0] "x" |> equal "xa"
         concaters2.[1] "x" |> equal "xb"
         concaters3.[2] "x" |> equal "xc"
         concaters5.[1] "x" |> equal "12x"
+#if !FABLE_COMPILER_TYPESCRIPT // TODO!!!
+        let concaters4 = a |> Array.map f
+        concaters4.[0] "x" "y" |> equal "axy"
         let f2 = f
         a |> Array.mapi f2 |> Array.item 2 <| "x" |> equal "2cx"
+#endif
 
     testCase "Mapping from typed arrays to non-numeric arrays doesn't coerce values" <| fun () -> // See #120, #171
         let xs = map string [|1;2|]

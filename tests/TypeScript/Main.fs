@@ -8,6 +8,8 @@ let allTests =
     Arithmetic.tests
     Arrays.tests
     Lists.tests
+    SeqExpressions.tests
+    Seqs.tests
   |]
 
 #if FABLE_COMPILER
