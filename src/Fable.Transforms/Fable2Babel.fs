@@ -373,12 +373,20 @@ module Annotation =
         | Fable.Any -> true
         | _ -> false
 
-    let makeTypeParamDecl (_com: IBabelCompiler) (ctx: Context) genArgs =
-        // TODO: Keep inheritance constraint
+    let makeTypeParamDecl (com: IBabelCompiler) (ctx: Context) genArgs =
         // Maybe there's a way to represent measurements in TypeScript
         genArgs |> List.chooseToArray (function
-            | Fable.GenericParam(name, isMeasure, _constraints) when not isMeasure ->
-                TypeParameter.typeParameter(name) |> Some
+            | Fable.GenericParam(name, isMeasure, constraints) when not isMeasure ->
+                // TODO: Other constraints? comparison, nullable
+                let bound =
+                    constraints |> List.choose (function
+                        | Fable.Constraint.CoercesTo t -> makeTypeAnnotation com ctx t |> Some
+                        | _ -> None)
+                    |> function
+                        | [] -> None
+                        | [t] -> Some t
+                        | ts -> ts |> List.toArray |> IntersectionTypeAnnotation |> Some
+                TypeParameter.typeParameter(name, ?bound=bound) |> Some
             | _ -> None)
 
     let makeTypeParamInstantiation (com: IBabelCompiler) ctx genArgs =
