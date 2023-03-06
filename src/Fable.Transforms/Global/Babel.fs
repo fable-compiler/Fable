@@ -434,6 +434,7 @@ type TypeAnnotation =
     | NumberTypeAnnotation
     | BooleanTypeAnnotation
     | UnionTypeAnnotation of types: TypeAnnotation array
+    | IntersectionTypeAnnotation of types: TypeAnnotation array
     | ObjectTypeAnnotation of ObjectTypeAnnotation
     | FunctionTypeAnnotation of
         parameters: FunctionTypeParam array *

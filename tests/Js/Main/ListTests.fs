@@ -8,11 +8,9 @@ type List(x: int) =
 
 type ExceptFoo = { Bar:string }
 
-#if !FABLE_COMPILER_TYPESCRIPT // TODO!!! Constrains in type parameters (a extends Iterable<b>)
 let testListChoose (xss: 'a option list): 'b list =
     let f xss: 'a list = xss |> List.choose (function Some a -> Some a | _ -> None)
     xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
-#endif
 
 let rec sumFirstList (zs: float list) (n: int): float =
     match n with
@@ -560,11 +558,9 @@ let tests =
             [] = (List.truncate 0 []) |> equal true
             [] = (List.truncate 1 []) |> equal true
 
-#if !FABLE_COMPILER_TYPESCRIPT // TODO!!!
     testCase "List.choose works with generic arguments" <| fun () ->
         let res = testListChoose [ Some [ "a" ] ]
         equal ["a"] res
-#endif
 
     testCase "List.collect works" <| fun () ->
             let xs = [[1]; [2]; [3]; [4]]

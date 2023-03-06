@@ -1013,6 +1013,8 @@ module PrinterExtensions =
                 printer.Print("]")
             | UnionTypeAnnotation(types) ->
                 printer.PrintArray(types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))
+            | IntersectionTypeAnnotation(types) ->
+                printer.PrintArray(types, (fun p x -> p.Print(x)), (fun p -> p.Print(" & ")))
             | FunctionTypeAnnotation(parameters, returnType, spread) ->
                 printer.PrintFunctionTypeAnnotation(parameters, returnType, ?spread=spread)
             | NullableTypeAnnotation(typeAnnotation) ->
