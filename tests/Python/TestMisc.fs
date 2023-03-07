@@ -1040,7 +1040,7 @@ let ``test Unchecked.defaultof works with tuples`` () = // See #2491
     // let y: (int*int) = Unchecked.defaultof<_>
     // equal null (box y)
     let x: struct (int*int) = Unchecked.defaultof<_>
-    equal (struct(0, 0)) x
+    equal (struct (0, 0)) x
 
 # nowarn "26" //  This rule will never be matched (code 26)
 

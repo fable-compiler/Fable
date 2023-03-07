@@ -156,34 +156,52 @@ let ``Array.empty works`` () =
 //     xs.Length |> equal 0
 
 [<Fact>]
-let ``Array.create works`` () =
+let ``Array.create with integer works`` () =
     let xs = Array.create 3 2
     xs.Length |> equal 3
     xs |> equal [|2;2;2|]
 
 [<Fact>]
-let ``Array.create works II`` () =
+let ``Array.create with string works`` () =
     let xs = Array.create 3 "a"
     xs.Length |> equal 3
     xs |> equal [|"a";"a";"a"|]
 
 [<Fact>]
-let ``Array.zeroCreate works`` () =
+let ``Array.create with struct tuple works`` () =
+    let xs = Array.create 3 struct (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|struct (2, "a"); struct (2, "a"); struct (2, "a")|]
+
+[<Fact>]
+let ``Array.create with object tuple works`` () =
+    let xs = Array.create 3 (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|(2, "a"); (2, "a"); (2, "a")|]
+
+[<Fact>]
+let ``Array.zeroCreate with integer works`` () =
     let xs = Array.zeroCreate<int> 3
     xs.Length |> equal 3
     xs |> equal [|0;0;0|]
 
-// // this errors with "cannot infer type for type parameter `T`""
-// [<Fact>]
-// let ``Array.zeroCreate works II`` () =
-//     let xs = Array.zeroCreate<int * int> 3
-//     xs.Length |> equal 3
+[<Fact>]
+let ``Array.zeroCreate with string works`` () =
+    let xs = Array.zeroCreate<string> 3
+    xs.Length |> equal 3
+    //xs |> equal [|null; null; null|]
 
-// // this panics with "attempted to zero-initialize type `std::rc::Rc<str>`, which is invalid"
+[<Fact>]
+let ``Array.zeroCreate with struct tuple works`` () =
+    let xs = Array.zeroCreate<struct (int * string)> 3
+    xs.Length |> equal 3
+    //xs |> equal [|(0, null); (0, null); (0, null)|]
+
 // [<Fact>]
-// let ``Array.zeroCreate works III`` () =
-//     let xs = Array.zeroCreate<string> 3
+// let ``Array.zeroCreate with object tuple works`` () =
+//     let xs = Array.zeroCreate<int * string> 3
 //     xs.Length |> equal 3
+//     //xs |> equal [|null; null; null|]
 
 [<Fact>]
 let ``Array.length works`` () =
@@ -1246,19 +1264,19 @@ let ``Array.allPairs works`` () =
 //     ys :? System.Array |> equal true
 //     zs :? System.Array |> equal false
 
-// [<Fact>]
-// let ``Array.Copy works with numeric arrays`` () =
-//     let source = [| 99 |]
-//     let destination = [| 1; 2; 3 |]
-//     System.Array.Copy(source, 0, destination, 0, 1)
-//     equal [| 99; 2; 3 |] destination
+[<Fact>]
+let ``Array.Copy works with numeric arrays`` () =
+    let source = [| 99 |]
+    let destination = [| 1; 2; 3 |]
+    System.Array.Copy(source, 0, destination, 0, 1)
+    equal [| 99; 2; 3 |] destination
 
-// [<Fact>]
-// let ``Array.Copy works with non-numeric arrays`` () =
-//     let source = [| "xy"; "xx"; "xyz" |]
-//     let destination = [| "a"; "b"; "c" |]
-//     System.Array.Copy(source, 1, destination, 1, 2)
-//     equal [| "a"; "xx"; "xyz" |] destination
+[<Fact>]
+let ``Array.Copy works with non-numeric arrays`` () =
+    let source = [| "xy"; "xx"; "xyz" |]
+    let destination = [| "a"; "b"; "c" |]
+    System.Array.Copy(source, 1, destination, 1, 2)
+    equal [| "a"; "xx"; "xyz" |] destination
 
 [<Fact>]
 let ``Array.splitInto works`` () =

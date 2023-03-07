@@ -635,8 +635,8 @@ let makeMap (com: ICompiler) ctx r t args genArg =
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
-    | Number (BigInt,_) as t -> Helper.LibCall(com, "BigInt", "zero", t, [])
-    | Number (Decimal,_) as t -> Helper.LibValue(com, "Decimal", "Zero", t)
+    | Number (BigInt,_) -> Helper.LibCall(com, "BigInt", "zero", t, [])
+    | Number (Decimal,_) -> Helper.LibValue(com, "Decimal", "Zero", t)
     | Number (kind, uom) -> NumberConstant (getBoxedZero kind, kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst "" // TODO: Use null for string?
@@ -646,7 +646,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateTimeOffset", "min_value", t, [])
     | Builtin (FSharpSet genArg) -> makeSet com ctx None t [] genArg
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
-    | Builtin (BclKeyValuePair(k,v)) ->
+    | Builtin (BclKeyValuePair(k, v)) ->
         makeTuple None true [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ ->
@@ -667,23 +667,23 @@ let makeAddFunction (com: ICompiler) ctx t =
     let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y]
     Delegate([x; y], body, None, Tags.empty)
 
-let makeGenericAdder (com: ICompiler) ctx t =
-    objExpr [
-        "GetZero", getZero com ctx t |> makeDelegate []
-        "Add", makeAddFunction com ctx t
-    ]
+// let makeGenericAdder (com: ICompiler) ctx t =
+//     objExpr [
+//         "GetZero", getZero com ctx t |> makeDelegate []
+//         "Add", makeAddFunction com ctx t
+//     ]
 
-let makeGenericAverager (com: ICompiler) ctx t =
-    let divideFn =
-        let x = makeUniqueIdent ctx t "x"
-        let i = makeUniqueIdent ctx (Int32.Number) "i"
-        let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
-        Delegate([x; i], body, None, Tags.empty)
-    objExpr [
-        "GetZero", getZero com ctx t |> makeDelegate []
-        "Add", makeAddFunction com ctx t
-        "DivideByInt", divideFn
-    ]
+// let makeGenericAverager (com: ICompiler) ctx t =
+//     let divideFn =
+//         let x = makeUniqueIdent ctx t "x"
+//         let i = makeUniqueIdent ctx (Int32.Number) "i"
+//         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
+//         Delegate([x; i], body, None, Tags.empty)
+//     objExpr [
+//         "GetZero", getZero com ctx t |> makeDelegate []
+//         "Add", makeAddFunction com ctx t
+//         "DivideByInt", divideFn
+//     ]
 
 // let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
 //     let injectArgInner args (injectType, injectGenArgIndex) =
@@ -1552,13 +1552,13 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "ToTuple", _ -> changeKind false args
     | _ -> None
 
-let createArray (com: ICompiler) ctx r t size value =
+let createArray (com: ICompiler) ctx r t i count value =
     match t, value with
     | Array(typ,_), None ->
         let value = getZero com ctx typ
-        Value(NewArray(makeTuple None true [value; size] |> ArrayFrom, typ, MutableArray), r)
+        Value(NewArray(makeTuple None true [value; count] |> ArrayFrom, typ, MutableArray), r)
     | Array(typ,_), Some value ->
-        Value(NewArray(makeTuple None true [value; size] |> ArrayFrom, typ, MutableArray), r)
+        Value(NewArray(makeTuple None true [value; count] |> ArrayFrom, typ, MutableArray), r)
     | _ ->
         $"Expecting an array type but got %A{t}"
         |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1607,10 +1607,10 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
     | "Set", [ar; idx; value] -> setExpr r ar idx value |> Some
-    | "ZeroCreate", [count] -> createArray com ctx r t count None |> Some
-    | "Create", [count; value] -> createArray com ctx r t count (Some value) |> Some
-    | "Empty", [] -> createArray com ctx r t (makeIntConst 0) None |> Some
-    | "Singleton", [value] -> createArray com ctx r t (makeIntConst 1) (Some value) |> Some
+    | "ZeroCreate", [count] -> createArray com ctx r t i count None |> Some
+    | "Create", [count; value] -> createArray com ctx r t i count (Some value) |> Some
+    | "Empty", [] -> createArray com ctx r t i (makeIntConst 0) None |> Some
+    | "Singleton", [value] -> createArray com ctx r t i (makeIntConst 1) (Some value) |> Some
     | "IsEmpty", [ar] ->
         makeInstanceCall r t i ar "is_empty" [] |> Some
     | "Copy", [ar] ->

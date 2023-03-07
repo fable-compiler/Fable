@@ -1431,7 +1431,7 @@ module Items =
     let mkMacroItem attrs name exprs: Item =
         let tokens = exprs |> Seq.map mkExprToken
         let mac = mkParensCommaDelimitedMacCall name tokens
-        mkMacCallItem attrs name mac
+        mkMacCallItem attrs "" mac
 
     let TODO_ITEM (name: string): Item =
         let attrs = []

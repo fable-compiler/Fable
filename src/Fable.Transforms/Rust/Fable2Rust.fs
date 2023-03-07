@@ -638,8 +638,7 @@ module TypeInfo =
 
     let transformGenericType com ctx genArgs typeName: Rust.Ty =
         genArgs
-        |> List.filter (fun t -> not (isUnitOfMeasure t))
-        |> List.map (transformType com ctx)
+        |> transformGenTypes com ctx
         |> mkGenericTy (splitNameParts typeName)
 
     let transformImportType com ctx genArgs moduleName typeName: Rust.Ty =
@@ -1529,7 +1528,8 @@ module Util =
     let makeStringFrom com ctx (value: Rust.Expr) =
         makeLibCall com ctx None "String" "fromString" [value]
 
-    let makeDefaultOf com ctx (typ: Fable.Type) =
+    let makeNull com ctx (typ: Fable.Type) =
+        //TODO: some other representation perhaps?
         let genArgsOpt = transformGenArgs com ctx [typ]
         makeLibCall com ctx genArgsOpt "Native" "defaultOf" []
 
@@ -1562,10 +1562,10 @@ module Util =
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
-        | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
-            let size = transformExpr com ctx sizeExpr |> mkAddrOfExpr
+        | Fable.Value(Fable.NewTuple([valueExpr; countExpr], isStruct), _) ->
             let value = transformExpr com ctx valueExpr |> mkAddrOfExpr
-            makeLibCall com ctx None "Native" "arrayCreate" [size; value]
+            let count = transformExpr com ctx countExpr
+            makeLibCall com ctx None "Native" "arrayCreate" [value; count]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
@@ -1704,9 +1704,7 @@ module Util =
             unimplemented ()
         | Fable.ThisValue typ -> makeThis com ctx r typ
         | Fable.TypeInfo(typ, _tags) -> makeTypeInfo com ctx r typ
-        | Fable.Null t ->
-            //TODO: some other representation perhaps?
-            makeDefaultOf com ctx t
+        | Fable.Null typ -> makeNull com ctx typ
         | Fable.UnitConstant -> mkUnitExpr ()
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
@@ -2072,8 +2070,9 @@ module Util =
                 ]
             let genArgsOpt =
                 if List.isEmpty args && (needGenArgs |> Set.contains info.Selector) then
-                    let genArgs = typ.Generics // callInfo.GenericArgs
-                    transformGenArgs com ctx genArgs
+                    match typ with
+                    | Fable.Tuple _ -> transformGenArgs com ctx [typ]
+                    | _ -> transformGenArgs com ctx typ.Generics // callInfo.GenericArgs
                 else None
 
             match callInfo.ThisArg, info.Kind with
@@ -3745,7 +3744,7 @@ module Util =
             let implItem =
                 id_tokens @ ty_tokens
                 |> mkParensCommaDelimitedMacCall macroName
-                |> mkMacCallItem [] macroName
+                |> mkMacCallItem [] ""
             implItem
         )
 

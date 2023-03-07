@@ -201,8 +201,8 @@ pub mod Native_ {
         arrayFrom(Vec::with_capacity(capacity as usize))
     }
 
-    pub fn arrayCreate<T: Clone>(count: &i32, value: &T) -> Array<T> {
-        arrayFrom(alloc::vec![value.clone(); *count as usize])
+    pub fn arrayCreate<T: Clone>(value: &T, count: i32) -> Array<T> {
+        arrayFrom(alloc::vec![value.clone(); count as usize])
     }
 
     pub fn arrayCopy<T: Clone>(a: Array<T>) -> Array<T> {

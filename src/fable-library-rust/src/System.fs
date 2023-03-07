@@ -3,6 +3,7 @@ module System
 open Global_
 open System.Collections.Generic
 
+type Array() = class end
 type Enum() = class end
 
 type Exception(message: string) =
