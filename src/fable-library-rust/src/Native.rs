@@ -44,8 +44,11 @@ pub mod Native_ {
     pub type Nullable<T> = Option<Lrc<T>>;
 
     use core::cmp::Ordering;
-    use core::fmt::Debug;
     use core::hash::Hash;
+
+    // -----------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------
 
     pub fn ignore<T>(arg: &T) -> () {}
 
@@ -68,6 +71,53 @@ pub mod Native_ {
             _ => Ordering::Equal,
         }
     }
+
+    // -----------------------------------------------------------
+    // Operator trait macros
+    // -----------------------------------------------------------
+
+    #[macro_export]
+    macro_rules! un_op {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
+            impl<$($args),*> core::ops::$op_trait for $obj {
+                type Output = Self;
+
+                fn $op_fn(self) -> Self::Output {
+                    <$obj>::$op(self)
+                }
+            }
+        };
+    }
+
+    #[macro_export]
+    macro_rules! bin_op {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
+            impl<$($args),*> core::ops::$op_trait for $obj {
+                type Output = Self;
+
+                fn $op_fn(self, other: Self) -> Self::Output {
+                    <$obj>::$op(self, other)
+                }
+            }
+        };
+    }
+
+    #[macro_export]
+    macro_rules! shift_op {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
+            impl<$($args),*> core::ops::$op_trait<i32> for $obj {
+                type Output = Self;
+
+                fn $op_fn(self, rhs: i32) -> Self::Output {
+                    <$obj>::$op(self, other)
+                }
+            }
+        };
+    }
+
+    pub use crate::un_op;
+    pub use crate::bin_op;
+    pub use crate::shift_op;
 
     // -----------------------------------------------------------
     // References
@@ -110,9 +160,9 @@ pub mod Native_ {
         }
     }
 
-    impl<T: Clone + Debug> core::fmt::Display for Array<T> {
+    impl<T: Clone + core::fmt::Debug> core::fmt::Display for Array<T> {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{:?}", self.0) //TODO:
+            write!(f, "{:?}", self.0) //TODO: improve
         }
     }
 
@@ -151,8 +201,8 @@ pub mod Native_ {
         arrayFrom(Vec::with_capacity(capacity as usize))
     }
 
-    pub fn arrayCreate<T: Clone>(count: &i32, value: &T) -> Array<T> {
-        arrayFrom(alloc::vec![value.clone(); *count as usize])
+    pub fn arrayCreate<T: Clone>(value: &T, count: i32) -> Array<T> {
+        arrayFrom(alloc::vec![value.clone(); count as usize])
     }
 
     pub fn arrayCopy<T: Clone>(a: Array<T>) -> Array<T> {
@@ -163,7 +213,10 @@ pub mod Native_ {
     // Sequences
     // -----------------------------------------------------------
 
-    pub fn seq_to_iter<T: Clone + 'static>(seq: &seq<T>) -> impl Iterator<Item = T> {
+    pub fn seq_to_iter<T>(seq: &seq<T>) -> impl Iterator<Item = T>
+    where
+        T: Clone + 'static,
+    {
         let en = seq.GetEnumerator();
         let next = move || {
             if en.MoveNext() {

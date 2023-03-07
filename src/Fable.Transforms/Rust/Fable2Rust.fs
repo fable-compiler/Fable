@@ -608,10 +608,14 @@ module TypeInfo =
             -> true
         | _ -> false
 
-    let transformGenArgs com ctx genArgs: Rust.GenericArgs option =
+    let transformGenTypes com ctx genArgs: Rust.Ty list =
         genArgs
         |> List.filter (fun t -> not (isUnitOfMeasure t))
         |> List.map (transformType com ctx)
+
+    let transformGenArgs com ctx genArgs: Rust.GenericArgs option =
+        genArgs
+        |> transformGenTypes com ctx
         |> mkGenericTypeArgs
 
     // // if type cannot be resolved, make it unit type
@@ -634,8 +638,7 @@ module TypeInfo =
 
     let transformGenericType com ctx genArgs typeName: Rust.Ty =
         genArgs
-        |> List.filter (fun t -> not (isUnitOfMeasure t))
-        |> List.map (transformType com ctx)
+        |> transformGenTypes com ctx
         |> mkGenericTy (splitNameParts typeName)
 
     let transformImportType com ctx genArgs moduleName typeName: Rust.Ty =
@@ -1277,18 +1280,25 @@ module Util =
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) ->
             makeCall [name; "from"] None [expr] // e.g. T::from(value)
-        // casts to interface
+
+        // casts to IDictionary, for now does nothing // TODO: fix it
         | Replacements.Util.IsEntity (Types.dictionary) _, Replacements.Util.IsEntity (Types.idictionary) _ ->
             expr
+
+        // casts from object to interface
         | t1, t2 when not (isInterface com t1) && (isInterface com t2) ->
             expr |> makeClone |> makeLrcValue com ctx |> mkCastExpr ty
+
+        // casts from interface to interface
         | _, t when isInterface com t ->
-            expr |> makeClone |> mkCastExpr ty
-        // // casts to object
+            expr |> makeClone |> mkCastExpr ty //TODO: not working, implement
+
+        // // casts to System.Object
         // | _, Fable.Any ->
         //     let ctx = { ctx with IsParameterType = true }
         //     let ty = transformType com ctx toType
         //     expr |> mkCastExpr (ty |> mkRefTy)
+
         // TODO: other casts?
         | _ ->
             //TODO: add warning?
@@ -1304,27 +1314,31 @@ module Util =
         let callee = mkGenericPathExpr pathNames genArgs
         mkCallExpr callee args
 
-    let makeNewValue com ctx moduleName typeName (value: Rust.Expr) =
+    let makeNew com ctx moduleName typeName (value: Rust.Expr) =
         let importName = getLibraryImportName com ctx moduleName typeName
         makeCall [importName; "new"] None [value]
 
+    // let makeFrom com ctx moduleName typeName (value: Rust.Expr) =
+    //     let importName = getLibraryImportName com ctx moduleName typeName
+    //     makeCall [importName; "from"] None [value]
+
     let makeLrcValue com ctx (value: Rust.Expr) =
-        value |> makeNewValue com ctx "Native" "Lrc"
+        value |> makeNew com ctx "Native" "Lrc"
 
     let makeRcValue com ctx (value: Rust.Expr) =
-        value |> makeNewValue com ctx "Native" "Rc"
+        value |> makeNew com ctx "Native" "Rc"
 
     let makeArcValue com ctx (value: Rust.Expr) =
-        value |> makeNewValue com ctx "Native" "Arc"
+        value |> makeNew com ctx "Native" "Arc"
 
     let makeBoxValue com ctx (value: Rust.Expr) =
-        value |> makeNewValue com ctx "Native" "Box"
+        value |> makeNew com ctx "Native" "Box"
 
     let makeMutValue com ctx (value: Rust.Expr) =
-        value |> makeNewValue com ctx "Native" "MutCell"
+        value |> makeNew com ctx "Native" "MutCell"
 
     let makeLazyValue com ctx (value: Rust.Expr) =
-        value |> makeNewValue com ctx "Native" "Lazy"
+        value |> makeNew com ctx "Native" "Lazy"
 
     let makeFuncValue com ctx (ident: Fable.Ident) =
         let argTypes =
@@ -1355,8 +1369,10 @@ module Util =
             | Types.task
             | Types.taskGeneric ->
                 expr |> makeArcValue com ctx
+            | Types.result -> expr
             | _ ->
-                expr |> makeLrcValue com ctx
+                if ent.IsValueType then expr
+                else expr |> makeLrcValue com ctx
 
     let parameterIsByRefPreferred idx (parameters: Fable.Parameter list) =
         parameters
@@ -1512,7 +1528,8 @@ module Util =
     let makeStringFrom com ctx (value: Rust.Expr) =
         makeLibCall com ctx None "String" "fromString" [value]
 
-    let makeDefaultOf com ctx (typ: Fable.Type) =
+    let makeNull com ctx (typ: Fable.Type) =
+        //TODO: some other representation perhaps?
         let genArgsOpt = transformGenArgs com ctx [typ]
         makeLibCall com ctx genArgsOpt "Native" "defaultOf" []
 
@@ -1545,10 +1562,10 @@ module Util =
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
-        | Fable.Value(Fable.NewTuple([valueExpr; sizeExpr], isStruct), _) ->
-            let size = transformExpr com ctx sizeExpr |> mkAddrOfExpr
+        | Fable.Value(Fable.NewTuple([valueExpr; countExpr], isStruct), _) ->
             let value = transformExpr com ctx valueExpr |> mkAddrOfExpr
-            makeLibCall com ctx None "Native" "arrayCreate" [size; value]
+            let count = transformExpr com ctx countExpr
+            makeLibCall com ctx None "Native" "arrayCreate" [value; count]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
@@ -1618,9 +1635,7 @@ module Util =
         let entName = getEntityFullName com ctx entRef
         let path = makeFullNamePath entName genArgsOpt
         let expr = mkStructExpr path fields // TODO: range
-        if ent.IsValueType
-        then expr
-        else expr |> maybeWrapSmartPtr com ctx ent
+        expr |> maybeWrapSmartPtr com ctx ent
 
     let tryUseKnownUnionCaseNames fullName =
         match fullName with
@@ -1642,19 +1657,14 @@ module Util =
     let makeUnion (com: IRustCompiler) ctx r values tag entRef genArgs =
         let ent = com.GetEntity(entRef)
         // let genArgsOpt = transformGenArgs com ctx genArgs
-
         let unionCase = ent.UnionCases |> List.item tag
         let unionCaseName = getUnionCaseName com ctx entRef unionCase
-
         let callee = makeFullNamePathExpr unionCaseName None //genArgsOpt
         let expr =
             if List.isEmpty values
             then callee
             else callFunction com ctx r callee values
-
-        if ent.IsValueType || ent.FullName = Types.result
-        then expr
-        else expr |> maybeWrapSmartPtr com ctx ent
+        expr |> maybeWrapSmartPtr com ctx ent
 
     let makeThis (com: IRustCompiler) ctx r typ =
         mkGenericPathExpr [rawIdent "self"] None
@@ -1694,9 +1704,7 @@ module Util =
             unimplemented ()
         | Fable.ThisValue typ -> makeThis com ctx r typ
         | Fable.TypeInfo(typ, _tags) -> makeTypeInfo com ctx r typ
-        | Fable.Null t ->
-            //TODO: some other representation perhaps?
-            makeDefaultOf com ctx t
+        | Fable.Null typ -> makeNull com ctx typ
         | Fable.UnitConstant -> mkUnitExpr ()
         | Fable.BoolConstant b -> mkBoolLitExpr b //, ?loc=r)
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
@@ -2062,8 +2070,9 @@ module Util =
                 ]
             let genArgsOpt =
                 if List.isEmpty args && (needGenArgs |> Set.contains info.Selector) then
-                    let genArgs = typ.Generics // callInfo.GenericArgs
-                    transformGenArgs com ctx genArgs
+                    match typ with
+                    | Fable.Tuple _ -> transformGenArgs com ctx [typ]
+                    | _ -> transformGenArgs com ctx typ.Generics // callInfo.GenericArgs
                 else None
 
             match callInfo.ThisArg, info.Kind with
@@ -2113,7 +2122,7 @@ module Util =
         let callee = com.TransformExpr(ctx, calleeExpr)
         match calleeExpr.Type with
         | IsNonErasedInterface com (entRef, genArgs) when not isNative ->
-            // interface instance call
+            // interface instance call (using static call syntax)
             let ifcName = getInterfaceImportName com ctx entRef
             let parts = (ifcName + "::" + membName) |> splitNameParts
             (callee |> makeAsRef)::args |> makeCall parts None
@@ -3454,7 +3463,6 @@ module Util =
         let name = splitLast membName
         let fnDecl, fnBody, fnGenParams =
             let parameters = memb.CurriedParameterGroups |> List.concat
-            // let returnType = memb.ReturnParameter.Type
             transformFunc com ctx (Some membName) parameters args body
         let fnBody =
             if body.Type = Fable.Unit
@@ -3707,16 +3715,48 @@ module Util =
             implItemFor "Display"
         ]
 
+    let op_impl_map = Map [
+        Operators.unaryNegation, ("un_op", "Neg", "neg") // The unary negation operator -.
+        Operators.logicalNot, ("un_op", "Not", "not") // The unary logical negation operator !.
+
+        Operators.addition, ("bin_op", "Add", "add") // The addition operator +.
+        Operators.subtraction, ("bin_op", "Sub", "sub") // The subtraction operator -.
+        Operators.multiply, ("bin_op", "Mul", "mul") // The multiplication operator *.
+        Operators.division, ("bin_op", "Div", "div") // The division operator /.
+        Operators.modulus, ("bin_op", "Rem", "rem") // The remainder operator %.
+
+        Operators.bitwiseAnd, ("bin_op", "BitAnd", "bitand") // The bitwise AND operator &.
+        Operators.bitwiseOr, ("bin_op", "BitOr", "bitor") // The bitwise OR operator |.
+        Operators.exclusiveOr, ("bin_op", "BitXor", "bitxor") // The bitwise XOR operator ^.
+
+        Operators.leftShift, ("shift_op", "Shl", "shl") // The left shift operator <<.
+        Operators.rightShift, ("shift_op", "Shr", "shr") // The right shift operator >>.
+    ]
+
+    let makeOpTraitImpls com ctx self_ty genArgTys (decl: Fable.MemberDecl, memb: Fable.MemberFunctionOrValue) =
+        op_impl_map
+        |> Map.tryFind memb.CompiledName
+        |> Option.filter (fun op -> not (memb.IsInstance)) //TODO: add check for memb parameter types
+        |> Option.map (fun (op_macro, op_trait, op_fn) ->
+            let macroName = getLibraryImportName com ctx "Native" op_macro
+            let id_tokens = [op_trait; op_fn; decl.Name] |> List.map mkIdentToken
+            let ty_tokens = (self_ty :: genArgTys) |> List.map mkTyToken
+            let implItem =
+                id_tokens @ ty_tokens
+                |> mkParensCommaDelimitedMacCall macroName
+                |> mkMacCallItem [] ""
+            implItem
+        )
+
     let withCurrentScope ctx (usedNames: Set<string>) f =
         let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
         let result = f ctx
         ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
         result
 
-    let makeMemberItem (com: IRustCompiler) ctx withVis (m: Fable.MemberDecl) =
-        withCurrentScope ctx m.UsedNames <| fun ctx ->
-            let memb = com.GetMember(m.MemberRef)
-            let memberItem = transformAssocMember com ctx memb m.Name m.Args m.Body
+    let makeMemberItem (com: IRustCompiler) ctx withVis (decl: Fable.MemberDecl, memb: Fable.MemberFunctionOrValue) =
+        withCurrentScope ctx decl.UsedNames <| fun ctx ->
+            let memberItem = transformAssocMember com ctx memb decl.Name decl.Args decl.Body
             if withVis
             then memberItem |> memberAssocItemWithVis com ctx memb
             else memberItem
@@ -3735,7 +3775,7 @@ module Util =
                     transformCompilerGeneratedConstructor com ctx ent
             [ctorItem]
 
-    let makeMemberTraitImpls (com: IRustCompiler) ctx entName genArgs tEntRef memberItems =
+    let makeInterfaceTraitImpls (com: IRustCompiler) ctx entName genArgs tEntRef memberItems =
         let tEnt = com.GetEntity(tEntRef)
         let ty =
             let genArgsOpt = transformGenArgs com ctx genArgs
@@ -3764,51 +3804,68 @@ module Util =
     let objectMethodsSet =
         set ["Equals"; "GetHashCode"; "GetType"; "ToString"] //MemberwiseClone, ReferenceEquals
 
-    let transformClassMembers (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
-        let entRef = decl.Entity
+    let transformClassMembers (com: IRustCompiler) ctx (classDecl: Fable.ClassDecl) =
+        let entRef = classDecl.Entity
         let ent = com.GetEntity(entRef)
         let entName =
-            if ent.IsInterface then decl.Name // for interface object expressions
+            if ent.IsInterface then classDecl.Name // for interface object expressions
             else getEntityFullName com ctx entRef
             |> splitLast
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
+        let entType = Fable.DeclaredType(entRef, genArgs)
         let self_ty = transformDeclaredType com ctx entRef genArgs
+        let genArgTys = transformGenTypes com ctx genArgs
+
+        let memberDecls =
+            classDecl.AttachedMembers
+            |> List.map (fun decl -> decl, com.GetMember(decl.MemberRef))
 
         let ctx = { ctx with ScopedTypeParams =
                                 ent.GenericParameters
                                 |> List.map (fun p -> p.Name)
                                 |> Set.ofList }
 
-        let isInterfaceMember (m: Fable.MemberDecl) =
-            let memb = com.GetMember(m.MemberRef)
-            memb.IsOverrideOrExplicitInterfaceImplementation
+        let isInterfaceMember (m: Fable.MemberFunctionOrValue) =
+            m.IsOverrideOrExplicitInterfaceImplementation
 
-        let isStaticOrObjectMember (m: Fable.MemberDecl) =
-            let memb = com.GetMember(m.MemberRef)
-            not (ent.IsInterface) && (memb.IsConstructor
-                || not (memb.IsOverrideOrExplicitInterfaceImplementation)
-                || Set.contains memb.CompiledName objectMethodsSet)
+        let isStaticOrObjectMember (m: Fable.MemberFunctionOrValue) =
+            not (ent.IsInterface) && (m.IsConstructor
+                || not (isInterfaceMember m)
+                || Set.contains m.CompiledName objectMethodsSet)
 
         // to filter out compiler-generated exception equality
-        let isNotExceptionMember (m: Fable.MemberDecl) =
+        let isNotExceptionMember (_m: Fable.MemberFunctionOrValue) =
             not (ent.IsFSharpExceptionDeclaration)
 
         let staticOrObjectImpls =
             // constructors, static or Object members
             let staticOrObjectItems =
-                decl.AttachedMembers
-                |> List.filter isNotExceptionMember
-                |> List.filter isStaticOrObjectMember
+                memberDecls
+                |> List.filter (snd >> isNotExceptionMember)
+                |> List.filter (snd >> isStaticOrObjectMember)
                 |> List.map (makeMemberItem com ctx true)
                 |> List.append (makeFSharpExceptionItems com ctx ent)
-                |> List.append (makePrimaryConstructorItems com ctx ent decl)
-            if List.isEmpty staticOrObjectItems then
-                []
+                |> List.append (makePrimaryConstructorItems com ctx ent classDecl)
+            if List.isEmpty staticOrObjectItems then []
             else
                 let generics = genArgs |> makeGenerics com ctx
-                let implItem =
-                    mkImplItem [] "" self_ty generics staticOrObjectItems None
+                let implItem = mkImplItem [] "" self_ty generics staticOrObjectItems None
                 [implItem]
+
+        let allStaticOrObjectMembersSet =
+            memberDecls
+            |> List.filter (snd >> isStaticOrObjectMember)
+            |> List.map (fun (d, _m) -> d.Name)
+            |> Set.ofList
+
+        let displayTraitImpls =
+            let hasToString = Set.contains "ToString" allStaticOrObjectMembersSet
+            makeDisplayTraitImpls com ctx self_ty genArgs hasToString
+
+        let operatorTraitImpls =
+            memberDecls
+            |> List.filter (fun _ -> ent.IsValueType) //TODO: remove this when non-value types can be supported
+            |> List.choose (makeOpTraitImpls com ctx self_ty genArgTys)
 
         let ignoredInterfaces =
             Set.ofList [
@@ -3826,69 +3883,48 @@ module Util =
             |> Seq.filter (fun (entRef, _) -> not (isIgnoredInterface entRef.FullName))
             |> Seq.toList
 
-        let allInterfaceMembersSet =
+        // let allInterfaceMembersSet =
+        //     interfaces
+        //     |> Seq.map snd
+        //     |> Seq.fold Set.union Set.empty
+
+        // let allOtherMembersSet =
+        //     memberDecls
+        //     |> List.filter (snd >> isStaticOrObjectMember >> not)
+        //     |> List.filter (snd >> isInterfaceMember >> not)
+        //     |> List.map (fun (d, m) -> d.Name)
+        //     |> Set.ofList
+
+        // let nonInterfaceMembersSet =
+        //     Set.difference allOtherMembersSet allInterfaceMembersSet
+
+        // let nonInterfaceImpls =
+        //     let memberItems =
+        //         memberDecls
+        //         |> List.filter (fun (d, _m) -> Set.contains d.Name nonInterfaceMembersSet)
+        //         |> List.map (makeMemberItem com ctx true)
+        //     if List.isEmpty memberItems then []
+        //     else
+        //         let generics = genArgs |> makeGenerics com ctx
+        //         let implItem = mkImplItem [] "" self_ty generics memberItems None
+        //         [implItem]
+
+        let interfaceTraitImpls =
             interfaces
-            |> Seq.map (fun (_, members) -> members)
-            |> Seq.fold Set.union Set.empty
-
-        let allStaticOrObjectMembersSet =
-            decl.AttachedMembers
-            |> List.filter isStaticOrObjectMember
-            |> List.map (fun m -> m.Name)
-            |> Set.ofList
-
-        let allOtherMembersSet =
-            decl.AttachedMembers
-            |> List.filter (fun m -> not (isStaticOrObjectMember m))
-            |> List.filter (fun m -> not (isInterfaceMember m))
-            |> List.map (fun m -> m.Name)
-            |> Set.ofList
-
-        let nonInterfaceMembersSet =
-            Set.difference allOtherMembersSet allInterfaceMembersSet
-
-        let displayTraitImpls =
-            let hasToString = Set.contains "ToString" allStaticOrObjectMembersSet
-            makeDisplayTraitImpls com ctx self_ty genArgs hasToString
-
-        let nonInterfaceMembersTrait =
-            let assocItems =
-                decl.AttachedMembers
-                |> List.filter (fun m -> Set.contains m.Name nonInterfaceMembersSet)
-                |> List.map (fun m ->
-                    let memb = com.GetMember(m.MemberRef)
-                    makeAssocMemberItem com ctx memb m.Name m.Args
-                )
-            if List.isEmpty assocItems then
-                []
-            else
-                let traitItem =
-                    let generics = genArgs |> makeGenerics com ctx
-                    mkTraitItem [] (entName + "Methods") assocItems [] generics
-                [traitItem |> mkPublicItem]
-
-        let traitsToRender =
-            let complTraits =
-                if Set.isEmpty nonInterfaceMembersSet then []
-                else [entRef, nonInterfaceMembersSet]
-            interfaces @ complTraits
-
-        let memberTraitImpls =
-            traitsToRender
             |> List.collect (fun (tEntRef, tMethods) ->
                 let memberItems =
-                    decl.AttachedMembers
-                    |> List.filter (fun m -> Set.contains m.Name tMethods)
+                    memberDecls
+                    |> List.filter (fun (d, _m) -> Set.contains d.Name tMethods)
                     |> List.map (makeMemberItem com ctx false)
-                if List.isEmpty memberItems
-                then []
-                else makeMemberTraitImpls com ctx entName genArgs tEntRef memberItems
+                if List.isEmpty memberItems then []
+                else makeInterfaceTraitImpls com ctx entName genArgs tEntRef memberItems
             )
 
         staticOrObjectImpls
         @ displayTraitImpls
-        @ nonInterfaceMembersTrait
-        @ memberTraitImpls
+        @ operatorTraitImpls
+        // @ nonInterfaceImpls
+        @ interfaceTraitImpls
 
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
         let ent = com.GetEntity(decl.Entity)
@@ -4201,6 +4237,7 @@ module Compiler =
                 mkInnerAttr "allow" ["unreachable_code"]
                 mkInnerAttr "allow" ["unused_attributes"]
                 mkInnerAttr "allow" ["unused_imports"]
+                mkInnerAttr "allow" ["unused_macros"]
                 mkInnerAttr "allow" ["unused_parens"]
                 mkInnerAttr "allow" ["unused_variables"]
 

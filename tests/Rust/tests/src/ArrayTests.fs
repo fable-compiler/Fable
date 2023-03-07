@@ -17,22 +17,23 @@ let inc_elem2 (a: _[]) i =
     a[i] <- a[i] + 1
     a
 
+[<Struct>]
 type Point =
     { x: int; y: int }
     static member Zero = { x=0; y=0 }
     static member Neg(p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y }
 
-// type MyNumber =
-//     | MyNumber of int
-//     static member Zero = MyNumber 0
-//     static member (+) (MyNumber x, MyNumber y) =
-//         MyNumber(x + y)
-//     static member DivideByInt (MyNumber x, i: int) =
-//         MyNumber(x / i)
+type MyNumber =
+    | MyNumber of int
+    static member Zero = MyNumber 0
+    static member (+) (MyNumber x, MyNumber y) =
+        MyNumber(x + y)
+    static member DivideByInt (MyNumber x, i: int) =
+        MyNumber(x / i)
 
-// type MyNumberWrapper =
-//     { MyNumber: MyNumber }
+type MyNumberWrapper =
+    { MyNumber: MyNumber }
 
 type Things =
     { MainThing: int
@@ -155,34 +156,52 @@ let ``Array.empty works`` () =
 //     xs.Length |> equal 0
 
 [<Fact>]
-let ``Array.create works`` () =
+let ``Array.create with integer works`` () =
     let xs = Array.create 3 2
     xs.Length |> equal 3
     xs |> equal [|2;2;2|]
 
 [<Fact>]
-let ``Array.create works II`` () =
+let ``Array.create with string works`` () =
     let xs = Array.create 3 "a"
     xs.Length |> equal 3
     xs |> equal [|"a";"a";"a"|]
 
 [<Fact>]
-let ``Array.zeroCreate works`` () =
+let ``Array.create with struct tuple works`` () =
+    let xs = Array.create 3 struct (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|struct (2, "a"); struct (2, "a"); struct (2, "a")|]
+
+[<Fact>]
+let ``Array.create with object tuple works`` () =
+    let xs = Array.create 3 (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|(2, "a"); (2, "a"); (2, "a")|]
+
+[<Fact>]
+let ``Array.zeroCreate with integer works`` () =
     let xs = Array.zeroCreate<int> 3
     xs.Length |> equal 3
     xs |> equal [|0;0;0|]
 
-// // this errors with "cannot infer type for type parameter `T`""
-// [<Fact>]
-// let ``Array.zeroCreate works II`` () =
-//     let xs = Array.zeroCreate<int * int> 3
-//     xs.Length |> equal 3
+[<Fact>]
+let ``Array.zeroCreate with string works`` () =
+    let xs = Array.zeroCreate<string> 3
+    xs.Length |> equal 3
+    //xs |> equal [|null; null; null|]
 
-// // this panics with "attempted to zero-initialize type `std::rc::Rc<str>`, which is invalid"
+[<Fact>]
+let ``Array.zeroCreate with struct tuple works`` () =
+    let xs = Array.zeroCreate<struct (int * string)> 3
+    xs.Length |> equal 3
+    //xs |> equal [|(0, null); (0, null); (0, null)|]
+
 // [<Fact>]
-// let ``Array.zeroCreate works III`` () =
-//     let xs = Array.zeroCreate<string> 3
+// let ``Array.zeroCreate with object tuple works`` () =
+//     let xs = Array.zeroCreate<int * string> 3
 //     xs.Length |> equal 3
+//     //xs |> equal [|null; null; null|]
 
 [<Fact>]
 let ``Array.length works`` () =
@@ -336,19 +355,19 @@ let ``Array.length works with non-numeric arrays`` () =
 //     equal 0. a[1].Key
 //     equal false a[2].Value
 
-// [<Fact>]
-// let ``Array.blit works`` () =
-//     let xs = [| 1..10 |]
-//     let ys = Array.zeroCreate 20
-//     Array.blit xs 3 ys 5 4
-//     ys[5] + ys[6] + ys[7] + ys[8] |> equal 22
+[<Fact>]
+let ``Array.blit works`` () =
+    let xs = [| 1..10 |]
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys[5] + ys[6] + ys[7] + ys[8] |> equal 22
 
-// [<Fact>]
-// let ``Array.blit works with non typed arrays`` () =
-//     let xs = [| 'a'..'h' |] |> Array.map string
-//     let ys = Array.zeroCreate 20
-//     Array.blit xs 3 ys 5 4
-//     ys[5] + ys[6] + ys[7] + ys[8] |> equal "defg"
+[<Fact>]
+let ``Array.blit works with non typed arrays`` () =
+    let xs = [| 'a'..'h' |] |> Array.map string
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys[5] + ys[6] + ys[7] + ys[8] |> equal "defg"
 
 [<Fact>]
 let ``Array.distinct works`` () =
@@ -503,11 +522,11 @@ let ``Array.filter works`` () =
     let ys = xs |> Array.filter (fun x -> x > 2s)
     ys |> equal [|3s; 4s|]
 
-// [<Fact>]
-// let ``Array.filter with chars works`` () =
-//     let xs = [|'a'; '2'; 'b'; 'c'|]
-//     let ys = xs |> Array.filter System.Char.IsLetter
-//     ys.Length |> equal 3
+[<Fact>]
+let ``Array.filter with chars works`` () =
+    let xs = [|'a'; '2'; 'b'; 'c'|]
+    let ys = xs |> Array.filter System.Char.IsLetter
+    ys.Length |> equal 3
 
 [<Fact>]
 let ``Array.where works`` () =
@@ -898,17 +917,17 @@ let ``Array.sumBy works`` () =
     let xs = [|1.; 2.|]
     xs |> Array.sumBy (fun x -> x * 2.) |> equal 6.
 
-// [<Fact>]
-// let ``Array.sum with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [|p1; p2|] |> Array.sum |> equal {x=3;y=30}
+[<Fact>]
+let ``Array.sum with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sum |> equal {x=3; y=30}
 
-// [<Fact>]
-// let ``Array.sumBy with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
+[<Fact>]
+let ``Array.sumBy with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
 
 [<Fact>]
 let ``Array.sumBy with numeric projection works`` () =
@@ -1245,19 +1264,19 @@ let ``Array.allPairs works`` () =
 //     ys :? System.Array |> equal true
 //     zs :? System.Array |> equal false
 
-// [<Fact>]
-// let ``Array.Copy works with numeric arrays`` () =
-//     let source = [| 99 |]
-//     let destination = [| 1; 2; 3 |]
-//     System.Array.Copy(source, 0, destination, 0, 1)
-//     equal [| 99; 2; 3 |] destination
+[<Fact>]
+let ``Array.Copy works with numeric arrays`` () =
+    let source = [| 99 |]
+    let destination = [| 1; 2; 3 |]
+    System.Array.Copy(source, 0, destination, 0, 1)
+    equal [| 99; 2; 3 |] destination
 
-// [<Fact>]
-// let ``Array.Copy works with non-numeric arrays`` () =
-//     let source = [| "xy"; "xx"; "xyz" |]
-//     let destination = [| "a"; "b"; "c" |]
-//     System.Array.Copy(source, 1, destination, 1, 2)
-//     equal [| "a"; "xx"; "xyz" |] destination
+[<Fact>]
+let ``Array.Copy works with non-numeric arrays`` () =
+    let source = [| "xy"; "xx"; "xyz" |]
+    let destination = [| "a"; "b"; "c" |]
+    System.Array.Copy(source, 1, destination, 1, 2)
+    equal [| "a"; "xx"; "xyz" |] destination
 
 [<Fact>]
 let ``Array.splitInto works`` () =

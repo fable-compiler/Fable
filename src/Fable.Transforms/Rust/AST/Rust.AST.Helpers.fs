@@ -146,6 +146,11 @@ module Tokens =
         mkErrTokenLit symbol
         |> mkLiteralToken
 
+    let mkTyToken ty: token.Token =
+        ty
+        |> token.Nonterminal.NtTy
+        |> mkInterpolatedToken
+
     let mkExprToken expr: token.Token =
         expr
         |> token.Nonterminal.NtExpr
@@ -505,11 +510,11 @@ module MacroArgs =
             |> Seq.mapi (fun i tok ->
                 let ttt = tok |> token.TokenTree.Token
                 let sep = kind |> mkTokenTree
-                if i < count - 1 then
-                    [ (ttt, token.Spacing.Joint);
-                      (sep, token.Spacing.Alone) ]
-                else
-                    [ (ttt, token.Spacing.Alone) ]
+                // if i < count - 1 then
+                [ (ttt, token.Spacing.Joint)
+                ; (sep, token.Spacing.Alone) ]
+                // else
+                //     [ (ttt, token.Spacing.Alone) ]
             )
             |> Seq.concat
             |> mkVec
@@ -1426,7 +1431,7 @@ module Items =
     let mkMacroItem attrs name exprs: Item =
         let tokens = exprs |> Seq.map mkExprToken
         let mac = mkParensCommaDelimitedMacCall name tokens
-        mkMacCallItem attrs name mac
+        mkMacCallItem attrs "" mac
 
     let TODO_ITEM (name: string): Item =
         let attrs = []
