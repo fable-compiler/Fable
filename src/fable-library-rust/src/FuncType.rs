@@ -50,7 +50,7 @@ macro_rules! func {
             fn deref(&self) -> &Self::Target {
                 match self {
                     $f::Static(f) => f,
-                    $f::Shared(f) => f.as_ref(),
+                    $f::Shared(p) => p.as_ref(),
                 }
             }
         }

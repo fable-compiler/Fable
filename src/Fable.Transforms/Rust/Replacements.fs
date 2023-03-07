@@ -159,7 +159,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
         | _ ->
-            Helper.LibCall(com, "String", "toString", String, [makeRef head])
+            Helper.LibCall(com, "String", "toString", String, [head])
 
 // let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10  11
 //     match t with            //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big

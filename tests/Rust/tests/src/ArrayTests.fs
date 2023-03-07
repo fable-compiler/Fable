@@ -17,22 +17,23 @@ let inc_elem2 (a: _[]) i =
     a[i] <- a[i] + 1
     a
 
+[<Struct>]
 type Point =
     { x: int; y: int }
     static member Zero = { x=0; y=0 }
     static member Neg(p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y }
 
-// type MyNumber =
-//     | MyNumber of int
-//     static member Zero = MyNumber 0
-//     static member (+) (MyNumber x, MyNumber y) =
-//         MyNumber(x + y)
-//     static member DivideByInt (MyNumber x, i: int) =
-//         MyNumber(x / i)
+type MyNumber =
+    | MyNumber of int
+    static member Zero = MyNumber 0
+    static member (+) (MyNumber x, MyNumber y) =
+        MyNumber(x + y)
+    static member DivideByInt (MyNumber x, i: int) =
+        MyNumber(x / i)
 
-// type MyNumberWrapper =
-//     { MyNumber: MyNumber }
+type MyNumberWrapper =
+    { MyNumber: MyNumber }
 
 type Things =
     { MainThing: int
@@ -336,19 +337,19 @@ let ``Array.length works with non-numeric arrays`` () =
 //     equal 0. a[1].Key
 //     equal false a[2].Value
 
-// [<Fact>]
-// let ``Array.blit works`` () =
-//     let xs = [| 1..10 |]
-//     let ys = Array.zeroCreate 20
-//     Array.blit xs 3 ys 5 4
-//     ys[5] + ys[6] + ys[7] + ys[8] |> equal 22
+[<Fact>]
+let ``Array.blit works`` () =
+    let xs = [| 1..10 |]
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys[5] + ys[6] + ys[7] + ys[8] |> equal 22
 
-// [<Fact>]
-// let ``Array.blit works with non typed arrays`` () =
-//     let xs = [| 'a'..'h' |] |> Array.map string
-//     let ys = Array.zeroCreate 20
-//     Array.blit xs 3 ys 5 4
-//     ys[5] + ys[6] + ys[7] + ys[8] |> equal "defg"
+[<Fact>]
+let ``Array.blit works with non typed arrays`` () =
+    let xs = [| 'a'..'h' |] |> Array.map string
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys[5] + ys[6] + ys[7] + ys[8] |> equal "defg"
 
 [<Fact>]
 let ``Array.distinct works`` () =
@@ -503,11 +504,11 @@ let ``Array.filter works`` () =
     let ys = xs |> Array.filter (fun x -> x > 2s)
     ys |> equal [|3s; 4s|]
 
-// [<Fact>]
-// let ``Array.filter with chars works`` () =
-//     let xs = [|'a'; '2'; 'b'; 'c'|]
-//     let ys = xs |> Array.filter System.Char.IsLetter
-//     ys.Length |> equal 3
+[<Fact>]
+let ``Array.filter with chars works`` () =
+    let xs = [|'a'; '2'; 'b'; 'c'|]
+    let ys = xs |> Array.filter System.Char.IsLetter
+    ys.Length |> equal 3
 
 [<Fact>]
 let ``Array.where works`` () =
@@ -898,17 +899,17 @@ let ``Array.sumBy works`` () =
     let xs = [|1.; 2.|]
     xs |> Array.sumBy (fun x -> x * 2.) |> equal 6.
 
-// [<Fact>]
-// let ``Array.sum with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [|p1; p2|] |> Array.sum |> equal {x=3;y=30}
+[<Fact>]
+let ``Array.sum with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sum |> equal {x=3; y=30}
 
-// [<Fact>]
-// let ``Array.sumBy with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
+[<Fact>]
+let ``Array.sumBy with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
 
 [<Fact>]
 let ``Array.sumBy with numeric projection works`` () =

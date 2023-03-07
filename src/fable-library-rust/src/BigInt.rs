@@ -20,45 +20,51 @@ pub mod BigInt_ {
     }
 
     impl core::ops::Deref for bigint {
-        type Target = BigInt;
+        type Target = Lrc<BigInt>;
         #[inline]
         fn deref(&self) -> &Self::Target {
-            self.0.as_ref()
+            &self.0
         }
     }
 
     impl core::fmt::Display for bigint {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.0.as_ref()) //TODO:
+            write!(f, "{}", self.as_ref()) //TODO: improve
         }
     }
 
     macro_rules! un_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self) -> Self { ($op self.0.as_ref()).into() }
+                fn $op_fn(self) -> Self::Output {
+                    ($op self.as_ref()).into()
+                }
             }
         };
     }
 
     macro_rules! bin_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self, rhs: Self) -> Self { (self.0.as_ref() $op rhs.0.as_ref()).into() }
+                fn $op_fn(self, rhs: Self) -> Self::Output {
+                    (self.as_ref() $op rhs.as_ref()).into()
+                }
             }
         };
     }
 
     macro_rules! shift_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name<i32> for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait<i32> for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self, rhs: i32) -> Self { (self.0.as_ref() $op rhs).into() }
+                fn $op_fn(self, rhs: i32) -> Self::Output {
+                    (self.as_ref() $op rhs).into()
+                }
             }
         };
     }
