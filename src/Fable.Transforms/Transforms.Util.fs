@@ -329,6 +329,7 @@ module AST =
                 Some(args, body, name)
         | _ -> None
 
+    /// Makes sure to capture the same number of args as the arity of the lambda
     let (|NestedLambdaWithSameArity|_|) expr =
         nestedLambda true expr
 
@@ -1065,3 +1066,85 @@ module AST =
         expr |> deepExists (function
             | IdentExpr i -> i.Name = identName
             | _ -> false)
+
+    let rec resolveInlineType (genArgs: Map<string, Type>) = function
+        | Fable.GenericParam(name=name) as v ->
+            match Map.tryFind name genArgs with
+            | Some v -> v
+            | None -> v
+        | t -> t.MapGenerics(resolveInlineType genArgs)
+
+    let rec resolveInlineIdent (genArgs: Map<string, Type>) (id: Ident) =
+        { id with Type = resolveInlineType genArgs id.Type }
+
+    let replaceGenericArgs (genArgs: Map<string, Type>) expr =
+        expr |> visitFromInsideOut (function
+            | Value(kind, r) as e ->
+                match kind with
+                | ThisValue t -> Value(ThisValue(resolveInlineType genArgs t), r)
+                | BaseValue(i, t) ->
+                    let i = Option.map (resolveInlineIdent genArgs) i
+                    Value(BaseValue(i, resolveInlineType genArgs t), r)
+                | TypeInfo(t, tags) ->
+                    Value(TypeInfo(resolveInlineType genArgs t, tags), r)
+                | Null t ->
+                    Value(Null(resolveInlineType genArgs t), r)
+                | NewOption(v, t, isStruct) ->
+                    Value(NewOption(v, resolveInlineType genArgs t, isStruct), r)
+                | NewArray(k1, t, k2) ->
+                    Value(NewArray(k1, resolveInlineType genArgs t, k2), r)
+                | NewList(v, t) ->
+                    Value(NewList(v, resolveInlineType genArgs t), r)
+                | NewRecord(vs, ent, gen) ->
+                    let gen = List.map (resolveInlineType genArgs) gen
+                    Value(NewRecord(vs, ent, gen), r)
+                | NewAnonymousRecord (vs, fields, gen, isStruct) ->
+                    let gen = List.map (resolveInlineType genArgs) gen
+                    Value(NewAnonymousRecord(vs, fields, gen, isStruct), r)
+                | NewUnion (vs, tag, ent, gen) ->
+                    let gen = List.map (resolveInlineType genArgs) gen
+                    Value(NewUnion(vs, tag, ent, gen), r)
+                | _ -> e
+
+            | IdentExpr id ->
+                resolveInlineIdent genArgs id |> IdentExpr
+
+            | Lambda(arg, b, n) ->
+                let arg = resolveInlineIdent genArgs arg
+                Lambda(arg, b, n)
+
+            | Delegate(args, b, n, t) ->
+                Delegate(List.map (resolveInlineIdent genArgs) args, b, n, t)
+
+            | TypeCast(e, t) -> TypeCast(e, resolveInlineType genArgs t)
+
+            | Test(e, TypeTest t, r) -> Test(e, TypeTest(resolveInlineType genArgs t), r)
+
+            | Call(callee, info, t, r) ->
+                let infoGenArgs = List.map (resolveInlineType genArgs) info.GenericArgs
+                let infoSigTypes = List.map (resolveInlineType genArgs) info.SignatureArgTypes
+                let info = { info with GenericArgs = infoGenArgs; SignatureArgTypes = infoSigTypes }
+                Call(callee, info, resolveInlineType genArgs t, r)
+
+            | CurriedApply(callee, args, typ, r) ->
+                CurriedApply(callee, args, resolveInlineType genArgs typ, r)
+
+            | Operation(kind, tags, typ, r) ->
+                Operation(kind, tags, resolveInlineType genArgs typ, r)
+
+            // Resolve info.CallInfo too?
+            | Emit(info, t, r) -> Emit(info, resolveInlineType genArgs t, r)
+
+            | Get(e, kind, t, r) -> Get(e, kind, resolveInlineType genArgs t, r)
+            | Set(e, kind, t, v, r) -> Set(e, kind, resolveInlineType genArgs t, v, r)
+
+            | Let(i, v, b) ->
+                Let(resolveInlineIdent genArgs i, v, b)
+
+            | LetRec(bindings, b) ->
+                let bindings = bindings |> List.map (fun (i, v) -> resolveInlineIdent genArgs i, v)
+                LetRec(bindings, b)
+
+            | Extended(Throw(e, t), r) -> Extended(Throw(e, resolveInlineType genArgs t), r)
+
+            | e -> e)
