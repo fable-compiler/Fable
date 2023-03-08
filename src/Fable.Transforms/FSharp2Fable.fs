@@ -1536,13 +1536,6 @@ let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
         | _, None -> ""
     getRootModuleInner None declarations
 
-let resolveInlineType (ctx: Context) = function
-    | Fable.GenericParam(name=name) as v ->
-        match Map.tryFind name ctx.GenericArgs with
-        | Some v -> v
-        | None -> v
-    | t -> t.MapGenerics(resolveInlineType ctx)
-
 let resolveFieldType (ctx: Context) (entityType: FSharpType) (fieldType: FSharpType) =
     let entityGenArgs =
         match tryDefinition entityType with
@@ -1553,7 +1546,7 @@ let resolveFieldType (ctx: Context) (entityType: FSharpType) (fieldType: FSharpT
         | _ -> Map.empty
     let fieldType = makeType entityGenArgs fieldType
     if Map.isEmpty ctx.GenericArgs then fieldType
-    else resolveInlineType ctx fieldType
+    else resolveInlineType ctx.GenericArgs fieldType
 
 type InlineExprInfo = {
     FileName: string
@@ -1571,14 +1564,14 @@ let resolveInlineIdent (ctx: Context) (info: InlineExprInfo) (ident: Fable.Ident
                 ctx.UsedNamesInDeclarationScope.Add(resolvedName) |> ignore
                 info.ResolvedIdents.Add(ident.Name, resolvedName)
                 resolvedName
-        { ident with Name = sanitizedName; Type = resolveInlineType ctx ident.Type }
+        { ident with Name = sanitizedName; Type = resolveInlineType ctx.GenericArgs ident.Type }
     else ident
 
-let resolveInlinedCallInfo com ctx info (callInfo: Fable.CallInfo) =
+let resolveInlinedCallInfo com (ctx: Context) info (callInfo: Fable.CallInfo) =
     { callInfo with
           ThisArg = Option.map (resolveInlineExpr com ctx info) callInfo.ThisArg
           Args = List.map (resolveInlineExpr com ctx info) callInfo.Args
-          GenericArgs = List.map (resolveInlineType ctx) callInfo.GenericArgs }
+          GenericArgs = List.map (resolveInlineType ctx.GenericArgs) callInfo.GenericArgs }
 
 let resolveInlineExpr (com: IFableCompiler) ctx info expr =
     match expr with
@@ -1598,18 +1591,18 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
 
     | Fable.Call(callee, callInfo, typ, r) ->
         let callInfo = resolveInlinedCallInfo com ctx info callInfo
-        Fable.Call(resolveInlineExpr com ctx info callee, callInfo, resolveInlineType ctx typ, r)
+        Fable.Call(resolveInlineExpr com ctx info callee, callInfo, resolveInlineType ctx.GenericArgs typ, r)
 
     | Fable.Emit(emitInfo, typ, r) ->
         let emitInfo = { emitInfo with CallInfo = resolveInlinedCallInfo com ctx info emitInfo.CallInfo }
-        Fable.Emit(emitInfo, resolveInlineType ctx typ, r)
+        Fable.Emit(emitInfo, resolveInlineType ctx.GenericArgs typ, r)
 
     | Fable.CurriedApply(callee, args, typ, r) ->
         let args = List.map (resolveInlineExpr com ctx info) args
-        Fable.CurriedApply(resolveInlineExpr com ctx info callee, args, resolveInlineType ctx typ, r)
+        Fable.CurriedApply(resolveInlineExpr com ctx info callee, args, resolveInlineType ctx.GenericArgs typ, r)
 
     | Fable.Operation(kind, tags, t, r) ->
-        let t = resolveInlineType ctx t
+        let t = resolveInlineType ctx.GenericArgs t
         match kind with
         | Fable.Unary(operator, operand) ->
             Fable.Operation(Fable.Unary(operator, resolveInlineExpr com ctx info operand), tags, t, r)
@@ -1624,7 +1617,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             | Fable.ExprGet e2 -> Fable.ExprGet(resolveInlineExpr com ctx info e2)
             | Fable.ListHead | Fable.ListTail | Fable.OptionValue | Fable.TupleIndex _ | Fable.UnionTag
             | Fable.UnionField _ | Fable.FieldGet _ -> kind
-        Fable.Get(resolveInlineExpr com ctx info e, kind, resolveInlineType ctx t, r)
+        Fable.Get(resolveInlineExpr com ctx info e, kind, resolveInlineType ctx.GenericArgs t, r)
 
     | Fable.Set(e, kind, t, v, r) ->
         let kind =
@@ -1632,12 +1625,12 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             | Fable.ExprSet e2 -> Fable.ExprSet(resolveInlineExpr com ctx info e2)
             | Fable.FieldSet _
             | Fable.ValueSet -> kind
-        Fable.Set(resolveInlineExpr com ctx info e, kind, resolveInlineType ctx t, resolveInlineExpr com ctx info v, r)
+        Fable.Set(resolveInlineExpr com ctx info e, kind, resolveInlineType ctx.GenericArgs t, resolveInlineExpr com ctx info v, r)
 
     | Fable.Test(e, kind, r) ->
         let kind =
             match kind with
-            | Fable.TypeTest t -> Fable.TypeTest(resolveInlineType ctx t)
+            | Fable.TypeTest t -> Fable.TypeTest(resolveInlineType ctx.GenericArgs t)
             | Fable.OptionTest _
             | Fable.ListTest _
             | Fable.UnionCaseTest _ -> kind
@@ -1661,7 +1654,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
 
     | Fable.DecisionTreeSuccess(idx, boundValues, t) ->
         let boundValues = List.map (resolveInlineExpr com ctx info) boundValues
-        Fable.DecisionTreeSuccess(idx, boundValues, resolveInlineType ctx t)
+        Fable.DecisionTreeSuccess(idx, boundValues, resolveInlineType ctx.GenericArgs t)
 
     | Fable.ForLoop(i, s, l, b, u, r) -> Fable.ForLoop(resolveInlineIdent ctx info i, resolveInlineExpr com ctx info s, resolveInlineExpr com ctx info l, resolveInlineExpr com ctx info b, u, r)
 
@@ -1669,17 +1662,17 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
 
     | Fable.TryCatch(b, c, d, r) -> Fable.TryCatch(resolveInlineExpr com ctx info b, (c |> Option.map (fun (i, e) -> resolveInlineIdent ctx info i, resolveInlineExpr com ctx info e)), (d |> Option.map (resolveInlineExpr com ctx info)), r)
 
-    | Fable.TypeCast(e, t) -> Fable.TypeCast(resolveInlineExpr com ctx info e, resolveInlineType ctx t)
+    | Fable.TypeCast(e, t) -> Fable.TypeCast(resolveInlineExpr com ctx info e, resolveInlineType ctx.GenericArgs t)
 
     | Fable.ObjectExpr(members, t, baseCall) ->
         let members = members |> List.map (fun m ->
             { m with Args = m.Args |> List.map (resolveInlineIdent ctx info)
                      Body = resolveInlineExpr com ctx info m.Body })
-        Fable.ObjectExpr(members, resolveInlineType ctx t, baseCall |> Option.map (resolveInlineExpr com ctx info))
+        Fable.ObjectExpr(members, resolveInlineType ctx.GenericArgs t, baseCall |> Option.map (resolveInlineExpr com ctx info))
 
     // TODO: add test
     | Fable.Import(importInfo, t, r) as e ->
-        let t = resolveInlineType ctx t
+        let t = resolveInlineType ctx.GenericArgs t
         if Path.isRelativePath importInfo.Path then
             // If it happens we're importing a member in the current file
             // use IdentExpr instead of Import
@@ -1703,46 +1696,46 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
         | Fable.NumberConstant _
         | Fable.RegexConstant _ -> e
         | Fable.StringTemplate(tag, parts, exprs) -> Fable.StringTemplate(tag, parts, List.map (resolveInlineExpr com ctx info) exprs) |> makeValue r
-        | Fable.NewOption(e, t, isStruct) -> Fable.NewOption(Option.map (resolveInlineExpr com ctx info) e, resolveInlineType ctx t, isStruct) |> makeValue r
+        | Fable.NewOption(e, t, isStruct) -> Fable.NewOption(Option.map (resolveInlineExpr com ctx info) e, resolveInlineType ctx.GenericArgs t, isStruct) |> makeValue r
         | Fable.NewTuple(exprs, isStruct) -> Fable.NewTuple(List.map (resolveInlineExpr com ctx info) exprs, isStruct) |> makeValue r
-        | Fable.NewArray(Fable.ArrayValues exprs, t, i) -> Fable.NewArray(List.map (resolveInlineExpr com ctx info) exprs |> Fable.ArrayValues, resolveInlineType ctx t, i) |> makeValue r
-        | Fable.NewArray(Fable.ArrayFrom expr, t, i) -> Fable.NewArray(resolveInlineExpr com ctx info expr |> Fable.ArrayFrom, resolveInlineType ctx t, i) |> makeValue r
-        | Fable.NewArray(Fable.ArrayAlloc expr, t, i) -> Fable.NewArray(resolveInlineExpr com ctx info expr |> Fable.ArrayAlloc, resolveInlineType ctx t, i) |> makeValue r
+        | Fable.NewArray(Fable.ArrayValues exprs, t, i) -> Fable.NewArray(List.map (resolveInlineExpr com ctx info) exprs |> Fable.ArrayValues, resolveInlineType ctx.GenericArgs t, i) |> makeValue r
+        | Fable.NewArray(Fable.ArrayFrom expr, t, i) -> Fable.NewArray(resolveInlineExpr com ctx info expr |> Fable.ArrayFrom, resolveInlineType ctx.GenericArgs t, i) |> makeValue r
+        | Fable.NewArray(Fable.ArrayAlloc expr, t, i) -> Fable.NewArray(resolveInlineExpr com ctx info expr |> Fable.ArrayAlloc, resolveInlineType ctx.GenericArgs t, i) |> makeValue r
         | Fable.NewList(ht, t) ->
             let ht = ht |> Option.map (fun (h,t) -> resolveInlineExpr com ctx info h, resolveInlineExpr com ctx info t)
-            Fable.NewList(ht, resolveInlineType ctx t) |> makeValue r
+            Fable.NewList(ht, resolveInlineType ctx.GenericArgs t) |> makeValue r
         | Fable.NewRecord(exprs, ent, genArgs) ->
-            let genArgs = List.map (resolveInlineType ctx) genArgs
+            let genArgs = List.map (resolveInlineType ctx.GenericArgs) genArgs
             Fable.NewRecord(List.map (resolveInlineExpr com ctx info) exprs, ent, genArgs) |> makeValue r
         | Fable.NewAnonymousRecord(exprs, fields, genArgs, isStruct) ->
-            let genArgs = List.map (resolveInlineType ctx) genArgs
+            let genArgs = List.map (resolveInlineType ctx.GenericArgs) genArgs
             Fable.NewAnonymousRecord(List.map (resolveInlineExpr com ctx info) exprs, fields, genArgs, isStruct) |> makeValue r
         | Fable.NewUnion(exprs, uci, ent, genArgs) ->
-            let genArgs = List.map (resolveInlineType ctx) genArgs
+            let genArgs = List.map (resolveInlineType ctx.GenericArgs) genArgs
             Fable.NewUnion(List.map (resolveInlineExpr com ctx info) exprs, uci, ent, genArgs) |> makeValue r
-        | Fable.ThisValue t -> Fable.ThisValue(resolveInlineType ctx t) |> makeValue r
-        | Fable.Null t -> Fable.Null(resolveInlineType ctx t) |> makeValue r
-        | Fable.BaseValue(i, t) -> Fable.BaseValue(Option.map (resolveInlineIdent ctx info) i, resolveInlineType ctx t) |> makeValue r
-        | Fable.TypeInfo(t, d) -> Fable.TypeInfo(resolveInlineType ctx t, d) |> makeValue r
+        | Fable.ThisValue t -> Fable.ThisValue(resolveInlineType ctx.GenericArgs t) |> makeValue r
+        | Fable.Null t -> Fable.Null(resolveInlineType ctx.GenericArgs t) |> makeValue r
+        | Fable.BaseValue(i, t) -> Fable.BaseValue(Option.map (resolveInlineIdent ctx info) i, resolveInlineType ctx.GenericArgs t) |> makeValue r
+        | Fable.TypeInfo(t, d) -> Fable.TypeInfo(resolveInlineType ctx.GenericArgs t, d) |> makeValue r
 
     | Fable.Extended(kind, r) as e ->
         match kind with
         | Fable.Curry(e, arity) ->
             Fable.Extended(Fable.Curry(resolveInlineExpr com ctx info e, arity), r)
         | Fable.Throw(e, t) ->
-            Fable.Extended(Fable.Throw(Option.map (resolveInlineExpr com ctx info) e, resolveInlineType ctx t), r)
+            Fable.Extended(Fable.Throw(Option.map (resolveInlineExpr com ctx info) e, resolveInlineType ctx.GenericArgs t), r)
         | Fable.Debugger -> e
 
     | Fable.Unresolved(e, t, r) ->
         match e with
         | Fable.UnresolvedTraitCall(sourceTypes, traitName, isInstance, argTypes, argExprs) ->
-            let t = resolveInlineType ctx t
-            let argTypes = argTypes |> List.map (resolveInlineType ctx)
+            let t = resolveInlineType ctx.GenericArgs t
+            let argTypes = argTypes |> List.map (resolveInlineType ctx.GenericArgs)
             let argExprs = argExprs |> List.map (resolveInlineExpr com ctx info)
 
             match tryFindWitness ctx argTypes isInstance traitName with
             | None ->
-               let sourceTypes = sourceTypes |> List.map (resolveInlineType ctx)
+               let sourceTypes = sourceTypes |> List.map (resolveInlineType ctx.GenericArgs)
                transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs
             | Some w ->
                 // As witnesses come from the context, idents may be duplicated, see #2855
@@ -1752,17 +1745,17 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
                 makeCall r t callInfo callee
 
         | Fable.UnresolvedInlineCall(membUniqueName, witnesses, callee, callInfo) ->
-            let t = resolveInlineType ctx t
+            let t = resolveInlineType ctx.GenericArgs t
             let callee = callee |> Option.map (resolveInlineExpr com ctx info)
             let callInfo = resolveInlinedCallInfo com ctx info callInfo
             let ctx = { ctx with Witnesses = witnesses @ ctx.Witnesses }
             inlineExpr com ctx r t callee callInfo membUniqueName
 
         | Fable.UnresolvedReplaceCall(thisArg, args, callInfo, attachedCall) ->
-            let typ = resolveInlineType ctx t
+            let typ = resolveInlineType ctx.GenericArgs t
             let thisArg = thisArg |> Option.map (resolveInlineExpr com ctx info)
             let args = args |> List.map (resolveInlineExpr com ctx info)
-            let callInfo = { callInfo with GenericArgs = callInfo.GenericArgs |> List.map (resolveInlineType ctx) }
+            let callInfo = { callInfo with GenericArgs = callInfo.GenericArgs |> List.map (resolveInlineType ctx.GenericArgs) }
             match com.TryReplace(ctx, r, typ, callInfo, thisArg, args) with
             | Some e -> e
             | None when callInfo.IsInterface ->

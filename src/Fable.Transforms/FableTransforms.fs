@@ -207,51 +207,85 @@ module private Transforms =
         | Delegate(args, body, name, []) -> Some(args, body, name)
         | _ -> None
 
-    let (|ImmediatelyApplicable|_|) = function
-        | Lambda(arg, body, _) -> Some(arg, body)
-        // If the lambda is immediately applied we don't need the closures
-        | NestedRevLets(bindings, Lambda(arg, body, _)) ->
-            let body = List.fold (fun body (i,v) -> Let(i, v, body)) body bindings
-            Some(arg, body)
-        | _ -> None
+    let rec (|ImmediatelyApplicable|_|) appliedArgsLen expr =
+        if appliedArgsLen = 0 then None
+        else
+            match expr with
+            | Lambda(arg, body, _) ->
+                let appliedArgsLen = appliedArgsLen - 1
+                if appliedArgsLen = 0 then Some([arg], body)
+                else
+                    match body with
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg::args, body)
+                    | _ -> Some([arg], body)
+            // If the lambda is immediately applied we don't need the closures
+            | NestedRevLets(bindings, Lambda(arg, body, _)) ->
+                let body = List.fold (fun body (i,v) -> Let(i, v, body)) body bindings
+                let appliedArgsLen = appliedArgsLen - 1
+                if appliedArgsLen = 0 then Some([arg], body)
+                else
+                    match body with
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg::args, body)
+                    | _ -> Some([arg], body)
+            | _ -> None
 
-    let lambdaBetaReduction (com: Compiler) e =
-        let applyArgs (args: Ident list) argExprs body =
-            let bindings, replacements =
-                (([], Map.empty), args, argExprs)
-                |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if canInlineArg com ident.Name expr body
-                    then bindings, Map.add ident.Name expr replacements
-                    else (ident, expr)::bindings, replacements)
-            match bindings with
-            | [] -> replaceValues replacements body
-            | bindings ->
-                let body = replaceValues replacements body
-                bindings |> List.fold (fun body (i, v) -> Let(i, v, body)) body
+    let immediatelyApplyArgs com (args: Ident list) (argExprs: Expr list) body =
+        let rec getGenericArgs genArgs argType argExprType =
+            match argType, argExprType with
+            | GenericParam(name=name1), GenericParam(name=name2) when name1 = name2 -> genArgs
+            | GenericParam(name=name), t -> Map.add name t genArgs
+            | t1, t2 ->
+                match t1.Generics with
+                | [] -> genArgs
+                | gen1 ->
+                    let gen2 = t2.Generics
+                    if List.sameLength gen1 gen2
+                    then List.fold2 getGenericArgs genArgs gen1 gen2
+                    else genArgs
+
+        // If necessary, we can also get applied gen args by comparing
+        // expected type (from Call or CurriedApply) and body type
+        let genArgs =
+            List.fold2 getGenericArgs Map.empty
+                (args |> List.map (fun a -> a.Type))
+                (argExprs |> List.map (fun a -> a.Type))
+
+        let args, body =
+            if Map.isEmpty genArgs then args, body
+            else
+                List.map (resolveInlineIdent genArgs) args,
+                replaceGenericArgs genArgs body
+
+        let bindings, replacements =
+            (([], Map.empty), args, argExprs)
+            |||> List.fold2 (fun (bindings, replacements) ident expr ->
+                if canInlineArg com ident.Name expr body
+                then bindings, Map.add ident.Name expr replacements
+                else (ident, expr)::bindings, replacements)
+
+        let body = replaceValues replacements body
+        match bindings with
+        | [] -> body
+        | bindings -> bindings |> List.fold (fun body (i, v) -> Let(i, v, body)) body
+
+    let rec lambdaBetaReduction (com: Compiler) e =
         match e with
-        // TODO: Other binary operations and numeric types
-        | Operation(Binary(AST.BinaryPlus, v1, v2), _, _, _) ->
-            match v1, v2 with
-            | Value(StringConstant v1, r1), Value(StringConstant v2, r2) ->
-                Value(StringConstant(v1 + v2), addRanges [r1; r2])
-            // Assume NumberKind and NumberInfo are the same
-            | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty), r1), Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty), r2) ->
-                Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [r1; r2])
-            | _ -> e
-        | Call(Delegate(args, body, _, _), info, _, _) when List.sameLength args info.Args ->
-            applyArgs args info.Args body
-        | CurriedApply(applied, argExprs, t, r) ->
-            let rec tryImmediateApplication r t applied argExprs =
-                match argExprs with
-                | [] -> applied
-                | argExpr::restArgs ->
-                    match applied with
-                    | ImmediatelyApplicable(arg, body) ->
-                        let applied = applyArgs [arg] [argExpr] body
-                        tryImmediateApplication r t applied restArgs
-                    | _ -> CurriedApply(applied, argExprs, t, r)
-            tryImmediateApplication r t applied argExprs
-        | e -> e
+        | Call(Delegate(args, body, _, _), info, _t, _r) when List.sameLength args info.Args ->
+            let body = visitFromOutsideIn (lambdaBetaReduction com) body
+            let thisArgExpr = info.ThisArg |> Option.map (visitFromOutsideIn (lambdaBetaReduction com))
+            let argExprs = info.Args |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
+            let info = { info with ThisArg = thisArgExpr; Args = argExprs }
+            immediatelyApplyArgs com args info.Args body |> Some
+
+        | NestedApply(applied, argExprs, _t, _r) ->
+            let argsLen = List.length argExprs
+            match applied with
+            | ImmediatelyApplicable argsLen (args, body) when List.sameLength args argExprs ->
+                let argExprs = argExprs |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
+                let body = visitFromOutsideIn (lambdaBetaReduction com) body
+                immediatelyApplyArgs com args argExprs body |> Some
+            | _ -> None
+        | _ -> None
 
     let bindingBetaReduction (com: Compiler) e =
         // Don't erase user-declared bindings in debug mode for better output
@@ -262,19 +296,13 @@ module private Transforms =
             let canEraseBinding =
                 match value with
                 | Import(i,_,_) -> i.IsCompilerGenerated
-                // TODO: Inlining local functions that define new generics is causing issues.
-                // We need to check either if the function defines new generics (for that we've
-                // to pass the class/member generics in scope) or resolve the generics when inlining
-                // For now, don't move local functions declared by user
-                | Lambda _ ->
-                    ident.IsCompilerGenerated && canInlineArg com ident.Name value letBody
                 // Replace non-recursive lambda bindings
-                // | NestedLambda(args, lambdaBody, name) ->
-                //     match lambdaBody with
-                //     | Import(i,_,_) -> i.IsCompilerGenerated
-                //     // Check the lambda doesn't reference itself recursively
-                //     | _ -> countReferences 0 ident.Name lambdaBody = 0
-                //         && canInlineArg com ident.Name value letBody
+                | NestedLambda(_args, lambdaBody, _name) ->
+                     match lambdaBody with
+                     | Import(i,_,_) -> i.IsCompilerGenerated
+                     // Check the lambda doesn't reference itself recursively
+                     | _ -> countReferences 0 ident.Name lambdaBody = 0
+                         && canInlineArg com ident.Name value letBody
                 | _ -> canInlineArg com ident.Name value letBody
             if canEraseBinding then
                 let value =
@@ -526,7 +554,7 @@ open Transforms
 let getTransformations (_com: Compiler) =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
-      fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
+      fun com e -> visitFromOutsideIn (lambdaBetaReduction com) e
       // Make an extra binding reduction pass after applying lambdas
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (operationReduction com) e
