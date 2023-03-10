@@ -427,9 +427,7 @@ module Annotation =
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
         | Fable.GenericParam(name=name) -> makeAliasTypeAnnotation com ctx name
         | Fable.LambdaType(argType, returnType) ->
-            ([argType], returnType)
-            ||> FableTransforms.uncurryLambdaType
-            ||> makeFunctionTypeAnnotation com ctx typ
+            makeFunctionTypeAnnotation com ctx typ [argType] returnType
         | Fable.DelegateType(argTypes, returnType) ->
             makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->

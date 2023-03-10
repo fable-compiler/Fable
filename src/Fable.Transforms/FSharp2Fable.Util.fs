@@ -10,7 +10,6 @@ open Fable.Core
 open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.FSharp2Fable
-open Extensions
 
 module Extensions =
     let areParamTypesEqual genArgs (args1: Fable.Type[]) (args2: IList<IList<FSharpParameter>>) =
@@ -1671,15 +1670,18 @@ module Identifiers =
             |> Option.filter fsRef.Equals
             |> Option.bind (fun _ -> value))
 
-    let tryGetIdentFromScopeIf (ctx: Context) r predicate =
+    let tryGetIdentFromScopeIf (ctx: Context) r typ predicate =
         ctx.Scope |> List.tryPick (fun (fsRef, ident, _) ->
             fsRef
             |> Option.filter predicate
-            |> Option.map (fun _ -> identWithRange r ident |> Fable.IdentExpr))
+            |> Option.map (fun _ ->
+                let ident = identWithRange r ident
+                let ident = match typ with Some t -> { ident with Type = t } | None -> ident
+                Fable.IdentExpr ident))
 
     /// Get corresponding identifier to F# value in current scope
-    let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
-        tryGetIdentFromScopeIf ctx r fsRef.Equals
+    let tryGetIdentFromScope (ctx: Context) r typ (fsRef: FSharpMemberOrFunctionOrValue) =
+        tryGetIdentFromScopeIf ctx r typ fsRef.Equals
 
 module Util =
     open Helpers
@@ -1734,15 +1736,24 @@ module Util =
             | None -> None
         Fable.TryCatch(body, catchClause, finalizer, r)
 
-    let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type list) =
-        match memb.DeclaringEntity with
-        // It seems that for F# types memb.GenericParameters contains all generics
-        // but for BCL types we need to check the DeclaringEntity generics too
-        | Some ent when genArgs.Length > memb.GenericParameters.Count ->
-            Seq.append ent.GenericParameters memb.GenericParameters
-        | _ -> upcast memb.GenericParameters
-        |> Seq.map genParamName
-        |> fun genParams -> Seq.zip genParams genArgs
+    let addGenArgsToContext (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type list) =
+        if not(List.isEmpty genArgs) then
+            let genParams =
+                match memb.DeclaringEntity with
+                // It seems that for F# types memb.GenericParameters contains all generics
+                // but for BCL types we need to check the DeclaringEntity generics too
+                | Some ent when genArgs.Length > memb.GenericParameters.Count ->
+                    Seq.append ent.GenericParameters memb.GenericParameters |> Seq.toList
+                | _ -> Seq.toList memb.GenericParameters
+                |> List.map genParamName
+
+            if List.sameLength genParams genArgs then
+                let ctxGenArgs =
+                    (ctx.GenericArgs, List.zip genParams genArgs)
+                    ||> List.fold (fun map (k, v) -> Map.add k v map)
+                { ctx with GenericArgs = ctxGenArgs }
+            else ctx
+        else ctx
 
     /// Takes only the first CurriedParameterGroup into account.
     /// If there's only a single unit parameter, returns 0.
@@ -2341,7 +2352,7 @@ module Util =
         | Replaced com ctx r typ callInfo replaced -> replaced
         | Inlined com ctx r typ callee callInfo expr, _ -> expr
 
-        | Try (tryGetIdentFromScope ctx r) funcExpr, Some entity ->
+        | Try (tryGetIdentFromScope ctx r None) funcExpr, Some entity ->
             if isModuleValueForCalls com entity memb then funcExpr
             else makeCall r typ callInfo funcExpr
 
@@ -2395,8 +2406,7 @@ module Util =
             com.ApplyMemberCallPlugin(fableMember, callExpr)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type list) callee args (memb: FSharpMemberOrFunctionOrValue) =
-        let newCtxGenArgs = matchGenericParamsFrom memb genArgs |> Seq.toList
-        let ctx = { ctx with GenericArgs = (ctx.GenericArgs, newCtxGenArgs) ||> Seq.fold (fun map (k, v) -> Map.add k v map) }
+        let ctx = addGenArgsToContext ctx memb genArgs
         let memberRef = getFunctionMemberRef memb
 
         Fable.CallInfo.Create(
@@ -2418,5 +2428,5 @@ module Util =
             Fable.Value(Fable.UnitConstant, r)
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
-        | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
+        | Try (tryGetIdentFromScope ctx r (Some typ)) expr, _ -> expr
         | _ -> getValueMemberRef v |> memberIdent com r typ v
