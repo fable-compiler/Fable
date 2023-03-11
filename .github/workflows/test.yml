@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, fable3 ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, fable3 ]
 
 jobs:
   build:
