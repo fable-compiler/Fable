@@ -420,17 +420,17 @@ let findIndexBack predicate (xs: seq<'T>) =
     | Some x -> x
     | None -> indexNotFound(); -1
 
-let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) =
     use e = ofSeq xs
     let mutable acc = state
     while e.MoveNext() do
         acc <- folder acc e.Current
     acc
 
-let foldBack folder (xs: seq<'T>) state =
+let foldBack<'T, 'State> folder (xs: seq<'T>) state =
     Array.foldBack folder (toArray xs) state
 
-let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: seq<'T1>) (ys: seq<'T2>) =
+let fold2<'T1, 'T2, 'State> (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: seq<'T1>) (ys: seq<'T2>) =
     use e1 = ofSeq xs
     use e2 = ofSeq ys
     let mutable acc = state
