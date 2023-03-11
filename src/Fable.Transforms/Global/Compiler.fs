@@ -34,6 +34,11 @@ type Severity =
     | Error
     | Info
 
+[<RequireQualifiedAccess>]
+type OutputType =
+    | Library
+    | Exe
+
 open FSharp.Compiler.Symbols
 open Fable.AST
 

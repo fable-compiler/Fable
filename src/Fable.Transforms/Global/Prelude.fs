@@ -1,5 +1,19 @@
 namespace Fable
 
+module Dictionary =
+    open System.Collections.Generic
+    let tryFind key (dic: #IDictionary<'Key, 'Value>) =
+        match dic.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ -> None
+
+module ReadOnlyDictionary =
+    open System.Collections.Generic
+    let tryFind key (dic: #IReadOnlyDictionary<'Key, 'Value>) =
+        match dic.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ -> None
+
 [<RequireQualifiedAccess>]
 module Tuple =
     let make2 x y = x, y
@@ -521,6 +535,13 @@ module Path =
         let i = normPath.LastIndexOf("/")
         if i < 0 then "", normPath
         else normPath.Substring(0, i), normPath.Substring(i + 1)
+
+    let IsPathRooted (path: string): bool =
+#if FABLE_COMPILER
+        path.StartsWith("/") || path.StartsWith("\\") || path.IndexOf(":") = 1
+#else
+        IO.Path.IsPathRooted(path)
+#endif
 
     let GetFullPath (path: string): string =
 #if FABLE_COMPILER

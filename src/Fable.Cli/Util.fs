@@ -27,7 +27,7 @@ type CliArgs =
       NoParallelTypeCheck: bool
       SourceMaps: bool
       SourceMapsRoot: string option
-      Exclude: string option
+      Exclude: string list
       Replace: Map<string, string>
       RunProcess: RunProcess option
       CompilerOptions: Fable.CompilerOptions }
@@ -168,6 +168,23 @@ module File =
             return ""
     }
 
+    
+    let rec tryFindNonEmptyDirectoryUpwards (opts: {| matches: string list; exclude: string list |}) dir =
+        let tryParent() =
+            let parent = Directory.GetParent(dir)
+            if isNull parent then None
+            else tryFindNonEmptyDirectoryUpwards opts parent.FullName
+
+        let curDir = Path.GetFileName(dir)
+        if opts.exclude |> List.exists (fun e -> String.Equals(curDir, e, StringComparison.OrdinalIgnoreCase)) then
+            tryParent()
+        else
+            opts.matches
+            |> List.tryPick (fun dirName ->
+                let dirPath = Path.Combine(dir, dirName)
+                if Directory.Exists(dirPath) then Some dirPath else None)
+            |> Option.orElseWith tryParent
+
     let rec tryFindUpwards fileName dir =
         let filePath = Path.Combine(dir, fileName)
         if File.Exists(filePath) then Some filePath
@@ -209,6 +226,12 @@ module File =
     /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
     let isDirectoryEmpty dir =
         not(Directory.Exists(dir)) || Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
+
+
+    let safeDelete path =
+        try
+            File.Delete(path)
+        with _ -> ()
 
     let withLock (dir: string) (action: unit -> 'T) =
         let mutable fileCreated = false
@@ -291,7 +314,7 @@ module Process =
         IO.Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let private startProcess (envVars: (string * string) list) workingDir exePath (args: string list) =
+    let private startProcess redirectOutput (envVars: (string * string) list) workingDir exePath (args: string list) =
         let exePath, args =
             if isWindows() then "cmd", "/C"::exePath::args
             else exePath, args
@@ -308,6 +331,7 @@ module Process =
         psi.WorkingDirectory <- workingDir
         psi.CreateNoWindow <- false
         psi.UseShellExecute <- false
+        psi.RedirectStandardError <- redirectOutput
 
         Process.Start(psi)
 
@@ -333,7 +357,7 @@ module Process =
         fun (workingDir: string) (exePath: string) (args: string list) ->
             try
                 runningProcess |> Option.iter kill
-                let p = startProcess envVars workingDir exePath args
+                let p = startProcess false envVars workingDir exePath args
                 runningProcess <- Some p
             with ex ->
                 Log.always("Cannot run: " + ex.Message)
@@ -343,7 +367,7 @@ module Process =
 
     let runSyncWithEnv envVars (workingDir: string) (exePath: string) (args: string list) =
         try
-            let p = startProcess envVars workingDir exePath args
+            let p = startProcess false envVars workingDir exePath args
             p.WaitForExit()
             p.ExitCode
         with ex ->
@@ -353,6 +377,11 @@ module Process =
 
     let runSync (workingDir: string) (exePath: string) (args: string list) =
         runSyncWithEnv [] workingDir exePath args
+
+    let runSyncWithOutput workingDir exePath args =
+        let p = startProcess true [] workingDir exePath args
+        p.WaitForExit()
+        p.StandardOutput.ReadToEnd()
 
 [<RequireQualifiedAccess>]
 module Async =
