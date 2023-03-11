@@ -8,6 +8,16 @@ let allTests =
     Arithmetic.tests
     Arrays.tests
     Lists.tests
+    Maps.tests
+    // Misc.tests
+    // Observable.tests
+    // Option.tests
+    // Queue.tests
+    RecordTypes.tests
+    // Reflection.tests
+    Regex.tests
+    ResizeArrays.tests
+    Result.tests
     SeqExpressions.tests
     Seqs.tests
   |]
