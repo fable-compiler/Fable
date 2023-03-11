@@ -282,14 +282,17 @@ export function fsFormat(str: string) {
   };
 }
 
-export function format(str: string, ...args: any[]) {
-  if (typeof str === "object" && args.length > 0) {
+export function format(str: string | object, ...args: any[]) {
+  let str2: string;
+  if (typeof str === "object") {
     // Called with culture info
-    str = args[0];
+    str2 = String(args[0]);
     args.shift();
+  } else {
+    str2 = str;
   }
 
-  return str.replace(formatRegExp, (_, idx: number, padLength, format, precision, pattern) => {
+  return str2.replace(formatRegExp, (_, idx: number, padLength, format, precision, pattern) => {
     if (idx < 0 || idx >= args.length) {
       throw new Error("Index must be greater or equal to zero and less than the arguments' length.")
     }

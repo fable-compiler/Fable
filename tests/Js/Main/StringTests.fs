@@ -93,19 +93,18 @@ let tests =
                               .Append(5.2)
                               .Append(34)
             equal "aaabcd/true5.234" (builder.ToString().Replace(",", ".").ToLower())
-
+#if !FABLE_COMPILER_TYPESCRIPT
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
             Printf.kprintf f "hello" |> equal "helloXX"
             Printf.kprintf f "%X" 255 |> equal "FFXX"
             Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
-
+#endif
       testCase "kprintf works indirectly" <| fun () -> // See #1204
             let lines = ResizeArray<string>()
             let linef fmt = Printf.ksprintf lines.Add fmt // broken
             linef "open %s" "Foo"
             lines |> Seq.toList |> equal ["open Foo"]
-
       testCase "kbprintf works" <| fun () ->
             let sb = System.Text.StringBuilder()
             let mutable i = 0
@@ -114,7 +113,7 @@ let tests =
             Printf.kbprintf f sb " %s!" "world"
             i |> equal 2
             sb.ToString() |> equal "Hello world!"
-
+#if !FABLE_COMPILER_TYPESCRIPT
       testCase "ksprintf curries correctly" <| fun () ->
           let append (a: string) b = a + b
 
@@ -122,7 +121,7 @@ let tests =
           let step2 = step1 42
           let result = step2 "The answer is: "
           result |> equal "42The answer is: "
-
+#endif
       testCase "bprintf works" <| fun () ->
             let sb = System.Text.StringBuilder(10)
             Printf.bprintf sb "Hello"
@@ -553,11 +552,13 @@ let tests =
 
       testCase "System.String.Equals works" <| fun () ->
             System.String.Equals("abc", "abc") |> equal true
-            System.String.Equals("ABC", "abc") |> equal false
-            System.String.Equals("abc", "abd") |> equal false
+            // TypeScript will complain if we use equality with two different literals
+            let mutable a = "a" // make it mutable so Fable doesn't inline it
+            System.String.Equals("ABC", a + "bc") |> equal false
+            System.String.Equals("abc", a + "bd") |> equal false
             "abc".Equals("abc") |> equal true
-            "ABC".Equals("abc") |> equal false
-            "abc".Equals("abd") |> equal false
+            "ABC".Equals(a + "bc") |> equal false
+            "abc".Equals(a + "bd") |> equal false
             System.String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
             System.String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
             "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
@@ -1075,7 +1076,7 @@ let tests =
           let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
           s5.Format |> equal "I have {escaped braces} and %percentage%"
 
-#if FABLE_COMPILER
+#if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT
       testCase "Can use FormattableString.GetStrings() extension" <| fun () ->
           let orderAmount = 100
           let convert (s: FormattableString) = s

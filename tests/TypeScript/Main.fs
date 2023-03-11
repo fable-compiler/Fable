@@ -11,7 +11,7 @@ let allTests =
     Maps.tests
     // Misc.tests
     // Observable.tests
-    // Option.tests
+    Option.tests
     // Queue.tests
     RecordTypes.tests
     // Reflection.tests
@@ -20,6 +20,11 @@ let allTests =
     Result.tests
     SeqExpressions.tests
     Seqs.tests
+    Sets.tests
+    // Stack.tests
+    Strings.tests
+    Sudoku.tests
+    TailCalls.tests
   |]
 
 #if FABLE_COMPILER
