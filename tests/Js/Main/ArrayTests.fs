@@ -103,10 +103,8 @@ let tests =
         let concaters1 = a |> Array.map (fun x y -> y + x)
         let concaters2 = a |> Array.map (fun x -> (fun y -> y + x))
         let concaters3 = a |> Array.map (fun x -> let f = (fun y -> y + x) in f)
-#if !FABLE_COMPILER_TYPESCRIPT // TODO!!!
         let concaters4 = a |> Array.map f
         concaters4.[0] "x" "y" |> equal "axy"
-#endif
         let concaters5 = b |> Array.mapi f
         concaters1.[0] "x" |> equal "xa"
         concaters2.[1] "x" |> equal "xb"
