@@ -441,15 +441,16 @@ module Annotation =
 
     let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
         if com.Options.Language = TypeScript then
-            match expr with
+            match typ, expr with
+            | Fable.Option _, _ -> makeTypeAnnotation com ctx typ |> Some
             // Use type annotation for NullLiteral and enum cases
-            | Some(Literal(Literal.StringLiteral _))
-            | Some(Literal(StringTemplate _))
-            | Some(Literal(BooleanLiteral _))
-            | Some(Literal(NumericLiteral _))
-            | Some(Literal(RegExp _))
-            | Some(FunctionExpression _)
-            | Some(ArrowFunctionExpression _) -> None
+            | _, Some(Literal(Literal.StringLiteral _))
+            | _, Some(Literal(StringTemplate _))
+            | _, Some(Literal(BooleanLiteral _))
+            | _, Some(Literal(NumericLiteral _))
+            | _, Some(Literal(RegExp _))
+            | _, Some(FunctionExpression _)
+            | _, Some(ArrowFunctionExpression _) -> None
             | _ -> makeTypeAnnotation com ctx typ |> Some
         else None
 

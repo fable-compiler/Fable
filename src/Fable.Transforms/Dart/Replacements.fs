@@ -811,37 +811,37 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         getFieldWith None t callee "input" |> Some
     | "PrintFormatToStringThen", _, _ ->
         match args with
-        | [_] -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        | [_] -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | [cont; fmt] -> Helper.InstanceCall(fmt, "cont", t, [cont]) |> Some
         | _ -> None
     | "PrintFormatToString", _, _ ->
         match args with
         | [template] when template.Type = String -> Some template
-        | _ -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        | _ -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormatLine", _, _ ->
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("PrintFormatToError"|"PrintFormatLineToError"), _, _ ->
         // addWarning com ctx.FileName r "eprintf will behave as eprintfn"
-        Helper.LibCall(com, "String", "toConsoleError", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toConsoleError", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
         // addWarning com ctx.FileName r "fprintfn will behave as printfn"
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormat", _, _ ->
         // addWarning com ctx.FileName r "Printf will behave as printfn"
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormatThen", _, arg::callee::_ ->
         Helper.InstanceCall(callee, "cont", t, [arg]) |> Some
     | "PrintFormatToStringThenFail", _, _ ->
-        Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("PrintFormatToStringBuilder"      // bprintf
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str::(Value(NewArray(ArrayValues templateArgs, _, MutableArray), _) as values)::_ ->
         match makeStringTemplateFrom [|"%s"; "%i"|] templateArgs str with
         | Some v -> makeValue r v |> Some
-        | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", _, arg::_ ->
-        Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let defaultValue com ctx r t defValue option =
