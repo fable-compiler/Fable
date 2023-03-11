@@ -18,7 +18,7 @@ let tests =
 
         let error = Error 10
         Error 10 |> equal error
-
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "pattern matching works" <| fun () ->
         let ok = Ok "foo"
         match ok with
@@ -31,7 +31,7 @@ let tests =
         | Ok _ -> None
         | Error y -> Some y
         |> equal (Some 10)
-
+#endif
     testCase "map function can be generated" <| fun () ->
         let f = (+) 1
         Ok 9 |> Result.map f |> equal (Ok 10)

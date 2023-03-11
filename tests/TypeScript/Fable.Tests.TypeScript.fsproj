@@ -13,6 +13,13 @@
     <Compile Include="../Js/Main/ArithmeticTests.fs" />
     <Compile Include="../Js/Main/ArrayTests.fs" />
     <Compile Include="../Js/Main/ListTests.fs" />
+    <Compile Include="../Js/Main/MapTests.fs" />
+    <!-- <Compile Include="../Js/Main/MiscTests.fs" /> -->
+    <!-- <Compile Include="../Js/Main/OptionTests.fs" /> -->
+    <Compile Include="../Js/Main/RecordTypeTests.fs" />
+    <Compile Include="../Js/Main/RegexTests.fs" />
+    <Compile Include="../Js/Main/ResizeArrayTests.fs" />
+    <Compile Include="../Js/Main/ResultTests.fs" />
     <Compile Include="../Js/Main/SeqExpressionTests.fs" />
     <Compile Include="../Js/Main/SeqTests.fs" />
     <Compile Include="Main.fs" />
