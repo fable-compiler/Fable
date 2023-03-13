@@ -188,6 +188,7 @@ module Util =
         | "System.Text.RegularExpressions.Group", _ -> Nullable String |> Some
         | "System.Text.RegularExpressions.Match", _ ->
             makeTypeRefFromName "Match" [] |> Some
+        | Types.measureOne, _ when ignoreMeasure -> None
         | Types.measureProduct2, _ when ignoreMeasure -> None
         // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
         | Naming.EndsWith "Exception" _, _ -> Dynamic |> Some
