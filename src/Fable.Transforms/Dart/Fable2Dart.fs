@@ -1622,8 +1622,8 @@ module Util =
 
     let getLocalFunctionGenericParams (_com: IDartCompiler) (ctx: Context) (_range: SourceLocation option) (argTypes: Fable.Type list): string list =
         let rec getGenParams = function
-            // TODO: Discard measure generic params here?
-            | Fable.GenericParam(name, _isMeasure, _constraints) -> [name]
+            | Fable.GenericParam(name, isMeasure, _constraints) ->
+                if isMeasure then [] else [name] // discard measure generic params
             | t -> t.Generics |> List.collect getGenParams
 
         let genParams =
