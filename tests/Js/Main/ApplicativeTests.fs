@@ -219,6 +219,7 @@ let tests2 = [
         withReact() |> equal true
 ]
 
+#if !FABLE_COMPILER_TYPESCRIPT
 open Aether
 open Aether.Operators
 
@@ -653,6 +654,11 @@ let tests5 = [
               (a,b)
           sprintf "%A" mutableValue3 |> equal "349787"
 ]
+#else
+let tests3 = []
+let tests4 = []
+let tests5 = []
+#endif
 
 module Types =
     let inline flip f a b = f b a
@@ -915,7 +921,7 @@ module Results =
         let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
         equal (Ok 6) sum
 
-#if FABLE_COMPILER
+#if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT
 open Thoth.Json.Decode
 #endif
 
@@ -935,6 +941,7 @@ type PrimaryConstructorUncurrying(f) =
 
 type Fun = Fun of (int -> int -> int list)
 
+#if !FABLE_COMPILER_TYPESCRIPT
 type BaseClass (f: string -> string -> string) =
   member _.MakeString a b = f a b
 
@@ -946,6 +953,7 @@ type BaseClass2 (f: string -> string -> string) =
 
 type AddString2 (f: string -> string -> string) =
   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
+#endif
 
 type IAddFn = int -> int -> int
 type IAdder =
@@ -1072,7 +1080,7 @@ let tests7 = [
     testCase "Applying to a function returned by a member works" <| fun () ->
         equal (1,5) baz
         equal (1,5) baz2
-
+#if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT
     testCase "Applying to a function returned by a local function works" <| fun () ->
         let foo a b c d = a , b + c d
         let bar a = foo 1 a
@@ -1194,7 +1202,7 @@ let tests7 = [
         (-5, vals, ops) |||> List.fold2 (fun acc (v1,v2) op -> acc * op v1 v2)
         |> equal 45
 
-    #if FABLE_COMPILER
+    #if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
         let infoHelp version =
             match version with
@@ -1354,7 +1362,7 @@ let tests7 = [
                             | Some f -> f true 1
                             | None -> "nothing"
         test |> equal "fly"
-
+#endif
     testCase "Option uncurrying #2116" <| fun _ ->
         let optionFn = Some (fun x y -> x + y)
 
@@ -1593,6 +1601,7 @@ module Uncurry =
     #endif
 
 module MultipleInlines =
+#if !FABLE_COMPILER_TYPESCRIPT
     open Aether
     open Aether.Operators
 
@@ -1677,6 +1686,9 @@ module MultipleInlines =
         testCase "Identifiers from witnesses don't get duplicated when resolving inline expressions" <| fun () -> // See #2855
             NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
     ]
+#else
+    let tests = []
+#endif
 
 let tests =
     testList "Applicative" (

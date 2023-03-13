@@ -12,10 +12,6 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
-type ArgsInfo =
-    | CallInfo of Fable.CallInfo * Fable.MemberFunctionOrValue option
-    | NoCallInfo of args: Fable.Expr list
-
 type Import =
   { Selector: string
     LocalIdent: string option
@@ -452,6 +448,15 @@ module Annotation =
             | _, Some(FunctionExpression _)
             | _, Some(ArrowFunctionExpression _) -> None
             | _ -> makeTypeAnnotation com ctx typ |> Some
+        else None
+
+    // Fields are uncurried in the AST but not the declaration
+    let makeFieldAnnotation (com: IBabelCompiler) ctx (fieldType: Fable.Type) =
+        FableTransforms.uncurryType fieldType |> makeTypeAnnotation com ctx
+
+    let makeFieldAnnotationIfTypeScript (com: IBabelCompiler) ctx (fieldType: Fable.Type) =
+        if com.Options.Language = TypeScript
+        then makeFieldAnnotation com ctx fieldType |> Some
         else None
 
     let makeTypeAnnotationWithParametersIfTypeScript (com: IBabelCompiler) ctx typ expr =
@@ -1174,7 +1179,7 @@ module Util =
                 | _ ->
                     transformAsExpr com ctx baseRef
                     |> SuperExpression
-            let args = CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember) |> transformCallArgs com ctx
+            let args = info.MemberRef |> Option.bind com.TryGetMember |> transformCallArgs com ctx info
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1258,13 +1263,15 @@ module Util =
             let classExpr = Expression.classExpression(List.toArray classMembers, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
 
-    let transformCallArgs (com: IBabelCompiler) ctx (info: ArgsInfo) =
-        let paramsInfo, args =
-            match info with
-            | NoCallInfo args -> None, args
-            | CallInfo(callInfo, memberInfo) ->
-                let paramsInfo = Option.map getParamsInfo memberInfo
-                paramsInfo, callInfo.Args
+    let transformCallArgs (com: IBabelCompiler) ctx (callInfo: Fable.CallInfo) (memberInfo: Fable.MemberFunctionOrValue option) =
+        let args =
+            match callInfo.Args, callInfo.SignatureArgTypes with
+            // Don't remove unit arg if a generic is expected, TypeScript will complain
+            | [Fable.Value(Fable.UnitConstant,_)], [Fable.GenericParam _] -> callInfo.Args
+            | [Fable.Value(Fable.UnitConstant,_)], _ -> []
+            | _ -> callInfo.Args
+
+        let paramsInfo = Option.map getParamsInfo memberInfo
 
         let args, objArg =
             paramsInfo
@@ -1291,10 +1298,7 @@ module Util =
             |> Option.defaultValue false
 
         let args =
-            match args with
-            | []
-            | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))] -> []
-            | args when hasSpread ->
+            if hasSpread then
                 match List.rev args with
                 | [] -> []
                 | (Replacements.Util.ArrayOrListLiteral(spreadArgs,_))::rest ->
@@ -1303,7 +1307,8 @@ module Util =
                 | last::rest ->
                     let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
                     rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
-            | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args
+            else
+                List.map (fun e -> com.TransformAsExpr(ctx, e)) args
 
         match objArg with
         | None -> args
@@ -1338,8 +1343,9 @@ module Util =
         let macro = stripImports com ctx range info.Macro
         let info = info.CallInfo
         let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-        CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember)
-        |> transformCallArgs com ctx
+        info.MemberRef
+        |> Option.bind com.TryGetMember
+        |> transformCallArgs com ctx info
         |> List.append thisArg
         |> emitExpression range macro
 
@@ -1435,7 +1441,7 @@ module Util =
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | memberInfo ->
                 let callee = com.TransformAsExpr(ctx, callee)
-                let args = CallInfo(callInfo, memberInfo) |> transformCallArgs com ctx
+                let args = transformCallArgs com ctx callInfo memberInfo
                 match callInfo.ThisArg with
                 | None when List.contains "new" callInfo.Tags ->
                     let typeParamInst =
@@ -1447,9 +1453,12 @@ module Util =
                 | Some(TransformExpr com ctx thisArg) -> callFunction com ctx range callee callInfo.GenericArgs (thisArg::args)
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        match transformCallArgs com ctx (NoCallInfo args) with
-        | [] -> callFunction com ctx range applied [] []
-        | args -> (applied, args) ||> List.fold (fun e arg -> callFunction com ctx range e [] [arg])
+        (applied, args)
+        ||> List.fold (fun e arg ->
+            match arg with
+            | Fable.Value(Fable.UnitConstant,_) -> []
+            | TransformExpr com ctx arg -> [arg]
+            |> callFunction com ctx range e [])
 
     let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -2172,7 +2181,7 @@ module Util =
             if com.Options.Language = TypeScript && not ent.IsFSharpUnion then
                 ent.FSharpFields |> List.mapToArray (fun field ->
                     let prop, isComputed = memberFromName field.Name
-                    let ta = makeTypeAnnotation com ctx field.FieldType
+                    let ta = makeFieldAnnotation com ctx field.FieldType
                     // Static fields need to be initialized by static constructor
                     let am = if field.IsMutable || field.IsStatic then None else Some Readonly
                     ClassMember.classProperty(prop, isComputed=isComputed, isStatic=field.IsStatic, typeAnnotation=ta, ?accessModifier=am)
@@ -2295,7 +2304,7 @@ module Util =
                     let case_ta = TypeAnnotation.aliasTypeAnnotation(union_cons, typeParams)
                     let fields_ta =
                         uci.UnionCaseFields |> List.mapToArray (fun fi ->
-                            makeTypeAnnotation com ctx fi.FieldType)
+                            makeFieldAnnotation com ctx fi.FieldType)
                         |> TupleTypeAnnotation
                     case_ta, (uci.Name, ofInt i), fields_ta
                 ) |> Array.unzip3
@@ -2329,7 +2338,7 @@ module Util =
                        |> Statement.returnStatement
                     |]
                     let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
-                        Parameter.parameter(fi.Name, typeAnnotation=makeTypeAnnotation com ctx fi.FieldType))
+                        Parameter.parameter(fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
                     let fnId = entName + "_" + case.Name |> Identifier.identifier
                     Declaration.functionDeclaration(parameters, body, fnId, typeParameters=entParamsDecl)
                     |> asModuleDeclaration isPublic
@@ -2371,7 +2380,7 @@ module Util =
                 |> Seq.toArray
             |])
         let args = fieldIds |> Array.map (fun fi ->
-            Parameter.parameter(fi.Name, ?typeAnnotation=makeTypeAnnotationIfTypeScript com ctx fi.Type None))
+            Parameter.parameter(fi.Name, ?typeAnnotation=makeFieldAnnotationIfTypeScript com ctx fi.Type))
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithPrimaryConstructor (com: IBabelCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =

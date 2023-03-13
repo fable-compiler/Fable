@@ -5,6 +5,7 @@ open Fable.Tests
 
 let allTests =
   [|
+    Applicative.tests
     Arithmetic.tests
     Arrays.tests
     Lists.tests
