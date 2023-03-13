@@ -1,5 +1,5 @@
 pub mod Exception_ {
-    use crate::Native_::{Any, Box_, Lrc};
+    use crate::Native_::{Any, Box_, LrcPtr};
     use crate::String_::{fromSlice, string};
     use crate::System::Exception;
     use crate::Util_::new_Exception;
@@ -8,7 +8,7 @@ pub mod Exception_ {
     pub fn try_catch<F, G, R>(try_f: F, catch_f: G) -> R
     where
         F: FnOnce() -> R + core::panic::UnwindSafe,
-        G: FnOnce(Lrc<Exception>) -> R,
+        G: FnOnce(LrcPtr<Exception>) -> R,
     {
         try_f() // no catching when no_std
     }
@@ -17,14 +17,14 @@ pub mod Exception_ {
     pub fn try_catch<F, G, R>(try_f: F, catch_f: G) -> R
     where
         F: FnOnce() -> R + core::panic::UnwindSafe,
-        G: FnOnce(Lrc<Exception>) -> R,
+        G: FnOnce(LrcPtr<Exception>) -> R,
     {
-        fn get_ex(err: Box<dyn Any>) -> Lrc<Exception> {
+        fn get_ex(err: Box<dyn Any>) -> LrcPtr<Exception> {
             match err.downcast_ref::<&'static str>() {
                 Some(s) => new_Exception(string(*s)),
                 None => match err.downcast_ref::<String>() {
                     Some(s) => new_Exception(fromSlice(s)),
-                    None => match err.downcast_ref::<Lrc<Exception>>() {
+                    None => match err.downcast_ref::<LrcPtr<Exception>>() {
                         Some(ex) => ex.clone(),
                         None => new_Exception(string("Unknown error")),
                     },

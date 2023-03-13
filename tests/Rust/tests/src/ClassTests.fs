@@ -178,7 +178,7 @@ let ``Class methods imported from another file work`` () =
 #if FABLE_COMPILER
 open Fable.Core
 
-[<Emit("$0 as Lrc<NTest>")>]
+[<Emit("$0 as LrcPtr<NTest>")>]
 let ensureMyUnionWrapped s = nativeOnly
 
 [<Emit("$0 as Point")>]

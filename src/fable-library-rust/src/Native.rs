@@ -1,6 +1,8 @@
 // import at root level
 mod FuncType;
 mod Lazy;
+#[cfg(feature = "lrc_ptr")]
+mod LrcPtr;
 mod Mutable;
 
 pub mod Native_ {
@@ -18,13 +20,14 @@ pub mod Native_ {
 
     pub use super::FuncType::*;
     pub use super::Lazy::*;
+    #[cfg(feature = "lrc_ptr")]
+    pub use super::LrcPtr::*;
     pub use super::Mutable::*;
 
-    mod macros {
-        #[macro_export]
-        macro_rules! on_startup {
-            ($($tokens:tt)*) => {}; // does nothing
-        }
+    #[cfg(not(feature = "static_do_bindings"))]
+    #[macro_export]
+    macro_rules! on_startup {
+        ($($tokens:tt)*) => {}; // does nothing
     }
 
     #[cfg(not(feature = "static_do_bindings"))]
@@ -37,10 +40,19 @@ pub mod Native_ {
     #[cfg(feature = "atomic")]
     pub type Lrc<T> = Arc<T>;
 
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub type LrcPtr<T> = Lrc<T>;
+
+    #[cfg(feature = "lrc_ptr")]
+    pub fn fromFluent<T>(value: Lrc<T>) -> LrcPtr<T> { LrcPtr::from(value) }
+
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn fromFluent<T>(value: Lrc<T>) -> LrcPtr<T> { value }
+
     // TODO: use these types in generated code
-    pub type seq<T> = Lrc<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
+    pub type seq<T> = LrcPtr<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
     pub type Seq<T> = crate::Seq_::Enumerable::Seq<T>;
-    pub type RefCell<T> = Lrc<MutCell<T>>;
+    pub type RefCell<T> = LrcPtr<MutCell<T>>;
     pub type Nullable<T> = Option<Lrc<T>>;
 
     use core::cmp::Ordering;
@@ -73,7 +85,29 @@ pub mod Native_ {
     }
 
     // -----------------------------------------------------------
-    // Operator trait macros
+    // Interface casting
+    // -----------------------------------------------------------
+
+    #[cfg(feature = "lrc_ptr")]
+    #[macro_export]
+    macro_rules! interface_cast {
+        ($value:expr, $ifc:ty,) => {
+            LrcPtr::from((*$value).clone() as $ifc)
+        };
+    }
+
+    #[cfg(not(feature = "lrc_ptr"))]
+    #[macro_export]
+    macro_rules! interface_cast {
+        ($value:expr, $ifc:ty,) => {
+            ($value as $ifc)
+        };
+    }
+
+    pub use crate::interface_cast;
+
+    // -----------------------------------------------------------
+    // Operator traits
     // -----------------------------------------------------------
 
     #[macro_export]
@@ -81,7 +115,7 @@ pub mod Native_ {
         ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
             impl<$($args),*> core::ops::$op_trait for $obj {
                 type Output = Self;
-
+                #[inline]
                 fn $op_fn(self) -> Self::Output {
                     <$obj>::$op(self)
                 }
@@ -94,7 +128,7 @@ pub mod Native_ {
         ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
             impl<$($args),*> core::ops::$op_trait for $obj {
                 type Output = Self;
-
+                #[inline]
                 fn $op_fn(self, other: Self) -> Self::Output {
                     <$obj>::$op(self, other)
                 }
@@ -107,7 +141,7 @@ pub mod Native_ {
         ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
             impl<$($args),*> core::ops::$op_trait<i32> for $obj {
                 type Output = Self;
-
+                #[inline]
                 fn $op_fn(self, rhs: i32) -> Self::Output {
                     <$obj>::$op(self, other)
                 }
@@ -115,9 +149,9 @@ pub mod Native_ {
         };
     }
 
-    pub use crate::un_op;
     pub use crate::bin_op;
     pub use crate::shift_op;
+    pub use crate::un_op;
 
     // -----------------------------------------------------------
     // References
@@ -140,7 +174,7 @@ pub mod Native_ {
 
     #[inline]
     pub fn refCell<T>(x: T) -> RefCell<T> {
-        mkRefMut(x)
+        LrcPtr::new(MutCell::from(x))
     }
 
     // -----------------------------------------------------------

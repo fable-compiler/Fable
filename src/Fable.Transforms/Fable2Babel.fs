@@ -594,7 +594,7 @@ module Annotation =
 
     let makeEntityTypeAnnotation com ctx (ent: Fable.Entity) genArgs =
         match ent.FullName, genArgs with
-        | "System.Nullable`1", [genArg] ->
+        | Types.nullable, [genArg] ->
             makeNullableTypeAnnotation com ctx genArg
         | _ ->
             if ent.IsInterface then
