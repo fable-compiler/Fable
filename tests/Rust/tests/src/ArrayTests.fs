@@ -21,8 +21,14 @@ let inc_elem2 (a: _[]) i =
 type Point =
     { x: int; y: int }
     static member Zero = { x=0; y=0 }
-    static member Neg(p: Point) = { x = -p.x; y = -p.y }
+    static member Neg (p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y }
+
+type PointObj =
+    { x: int; y: int; z: int }
+    static member Zero = { x=0; y=0; z=0 }
+    static member Neg (p: PointObj) = { x = -p.x; y = -p.y; z = -p.z }
+    static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y; z = p1.z + p2.z }
 
 type MyNumber =
     | MyNumber of int
@@ -908,40 +914,48 @@ let ``Array.sortInPlaceWith works`` () =
     xs |> equal [|1.; 2.; 3.; 4.; 10.|]
 
 [<Fact>]
-let ``Array.sum works`` () =
+let ``Array.sum with numbers works`` () =
     let xs = [|1.; 2.|]
     xs |> Array.sum |> equal 3.
 
 [<Fact>]
-let ``Array.sumBy works`` () =
+let ``Array.sumBy with numbers works`` () =
     let xs = [|1.; 2.|]
     xs |> Array.sumBy (fun x -> x * 2.) |> equal 6.
 
 [<Fact>]
-let ``Array.sum with non numeric types works`` () =
+let ``Array.sum with structs works`` () =
     let p1 = {x=1; y=10}
     let p2 = {x=2; y=20}
     [|p1; p2|] |> Array.sum |> equal {x=3; y=30}
 
 [<Fact>]
-let ``Array.sumBy with non numeric types works`` () =
-    let p1 = {x=1; y=10}
-    let p2 = {x=2; y=20}
-    [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
-
-[<Fact>]
-let ``Array.sumBy with numeric projection works`` () =
+let ``Array.sumBy with structs works`` () =
     let p1 = {x=1; y=10}
     let p2 = {x=2; y=20}
     [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
+    [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
 
 // [<Fact>]
-// let ``Array.sum with non numeric types works II`` () =
+// let ``Array.sum with objects works`` () =
+//     let p1 = {x=1; y=10; z=2}
+//     let p2 = {x=2; y=20; z=1}
+//     [|p1; p2|] |> Array.sum |> equal {x=3; y=30; z=3}
+
+// [<Fact>]
+// let ``Array.sumBy with objects works`` () =
+//     let p1 = {x=1; y=10; z=2}
+//     let p2 = {x=2; y=20; z=1}
+//     [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
+//     [|p1; p2|] |> Array.sumBy PointObj.Neg |> equal {x = -3; y = -30; z = -3}
+
+// [<Fact>]
+// let ``Array.sum with unions works`` () =
 //     [|MyNumber 1; MyNumber 2; MyNumber 3|]
 //     |> Array.sum |> equal (MyNumber 6)
 
 // [<Fact>]
-// let ``Array.sumBy with non numeric types works II`` () =
+// let ``Array.sumBy with unions works`` () =
 //     [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
 //     |> Array.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 

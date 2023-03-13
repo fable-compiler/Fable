@@ -1040,7 +1040,8 @@ module TypeHelpers =
     // Filter measure generic arguments here? (for that we need to pass the compiler, which needs a bigger refactoring)
     // Currently for Dart we're doing it in the Fable2Dart step
     let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) =
-        genArgs |> Seq.map (fun genArg ->
+        genArgs
+        |> Seq.map (fun genArg ->
             if genArg.IsGenericParameter
             then resolveGenParam withConstraints ctxTypeArgs genArg.GenericParameter
             else makeTypeWithConstraints withConstraints ctxTypeArgs genArg)
@@ -1139,16 +1140,16 @@ module TypeHelpers =
 
     let private makeRuntimeTypeWithMeasure (genArgs: IList<FSharpType>) fullName =
         let genArgs = [getMeasureFullName genArgs |> Fable.Measure]
-        let r: Fable.EntityRef =
+        let entRef: Fable.EntityRef =
             { FullName = fullName
               Path = Fable.CoreAssemblyName "System.Runtime" }
-        Fable.DeclaredType(r, genArgs)
+        Fable.DeclaredType(entRef, genArgs)
 
-    let private makeFSharpCoreType fullName =
-            let r: Fable.EntityRef =
-                { FullName = fullName
-                  Path = Fable.CoreAssemblyName "FSharp.Core" }
-            Fable.DeclaredType(r, [])
+    let private makeFSharpCoreType genArgs fullName =
+        let entRef: Fable.EntityRef =
+            { FullName = fullName
+              Path = Fable.CoreAssemblyName "FSharp.Core" }
+        Fable.DeclaredType(entRef, genArgs)
 
     let makeTypeFromDef withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
@@ -1186,14 +1187,16 @@ module TypeHelpers =
             | DicContains numbersWithMeasure kind ->
                 let info = getMeasureFullName genArgs |> Fable.NumberInfo.IsMeasure
                 Fable.Number(kind, info)
-            | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" as fullName -> makeFSharpCoreType fullName
+            // | Types.measureProduct2 as fullName -> makeFSharpCoreType [] fullName
             | DicContains runtimeTypesWithMeasure choice ->
                 match choice with
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
+            | fullName when tdef.IsMeasure -> Fable.Measure fullName
             | _ ->
                 let mkDeclType () =
-                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs)
+                    let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
+                    Fable.DeclaredType(FsEnt.Ref tdef, genArgs)
                 // Emit attribute
                 if tdef.Attributes |> hasAttribute Atts.emitAttr then
                     mkDeclType ()
@@ -1916,23 +1919,19 @@ module Util =
         let isFromDllRef = Option.isSome ent.Assembly.FileName
         isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
 
-    let getEntityType (ent: Fable.Entity): Fable.Type =
-        let genArgs = ent.GenericParameters |> List.map (fun g ->
-            Fable.Type.GenericParam(g.Name, g.IsMeasure, Seq.toList g.Constraints))
-        Fable.Type.DeclaredType(ent.Ref, genArgs)
-
     let getEntityGenArgs (ent: Fable.Entity) =
         ent.GenericParameters
         |> List.map (fun p ->
             Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
 
+    let getEntityType (ent: Fable.Entity): Fable.Type =
+        let genArgs = getEntityGenArgs ent
+        Fable.Type.DeclaredType(ent.Ref, genArgs)
+
     let getMemberGenArgs (memb: Fable.MemberFunctionOrValue) =
         memb.GenericParameters
-        |> List.choose (fun p ->
-            if not p.IsMeasure then
-                Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints)
-                |> Some
-            else None)
+        |> List.map (fun p ->
+            Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =

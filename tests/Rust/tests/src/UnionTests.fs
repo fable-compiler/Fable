@@ -168,7 +168,7 @@ let ``Union with pointer type works`` () =
 #if FABLE_COMPILER
 open Fable.Core
 
-[<Emit("$0 as Lrc<IntUnion>")>]
+[<Emit("$0 as LrcPtr<IntUnion>")>]
 let ensureMyUnionWrapped s = nativeOnly
 
 [<Emit("$0 as Point2D")>]

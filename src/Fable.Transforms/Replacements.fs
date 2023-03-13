@@ -2922,7 +2922,7 @@ let private replacedModules =
     Types.idisposable, disposables
     Types.option, options false
     Types.valueOption, options true
-    "System.Nullable`1", nullables
+    Types.nullable, nullables
     "Microsoft.FSharp.Core.OptionModule", optionModule false
     "Microsoft.FSharp.Core.ValueOption", optionModule true
     "Microsoft.FSharp.Core.ResultModule", results
@@ -2931,7 +2931,7 @@ let private replacedModules =
     Types.refCell, refCells
     Types.object, objects
     Types.valueType, valueTypes
-    "System.Enum", enums
+    Types.enum_, enums
     "System.BitConverter", bitConvert
     Types.bool, parseBool
     Types.int8, parseNum

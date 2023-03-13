@@ -9,7 +9,7 @@ pub mod HashMap_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, LrcPtr, MutCell, Vec};
     type MutHashMap<K, V> = MutCell<collections::HashMap<K, V>>;
 
     use core::fmt::{Debug, Display, Formatter, Result};
@@ -42,7 +42,7 @@ pub mod HashMap_ {
         )))
     }
 
-    pub fn fromArray<K: Eq + Hash + Clone, V: Clone>(a: Array<Lrc<(K, V)>>) -> HashMap<K, V> {
+    pub fn fromArray<K: Eq + Hash + Clone, V: Clone>(a: Array<LrcPtr<(K, V)>>) -> HashMap<K, V> {
         let it = a.iter().map(|pair| pair.as_ref().clone());
         HashMap(mkRefMut(collections::HashMap::from_iter(it)))
     }

@@ -123,9 +123,9 @@ pub mod String_ {
         }
     }
 
-    #[cfg(feature = "small_string")]
+    #[cfg(feature = "enum_string")]
     pub use EnumString::*;
-    #[cfg(not(feature = "small_string"))]
+    #[cfg(not(feature = "enum_string"))]
     pub use HeapString::*;
 
     // -----------------------------------------------------------

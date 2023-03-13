@@ -178,17 +178,17 @@ module Util =
         let makeMapEntry key value = Type.reference(makeImmutableIdent MetaType "MapEntry", [key; value])
 
         match entRef.FullName, genArgs with
-        | "System.Enum", _ -> Integer |> Some
+        | Types.enum_, _ -> Integer |> Some
         // List without generics is same as List<dynamic>
         | Types.array, _ -> List Dynamic |> Some
         | "System.Tuple`1", _ -> transformTupleType com ctx genArgs |> Some
-        | "System.ValueType", _ -> Some Object
-        | "System.Nullable`1", [genArg]
+        | Types.valueType, _ -> Some Object
+        | Types.nullable, [genArg]
         | "Fable.Core.Dart.DartNullable`1", [genArg] -> Nullable genArg |> Some
         | "System.Text.RegularExpressions.Group", _ -> Nullable String |> Some
         | "System.Text.RegularExpressions.Match", _ ->
             makeTypeRefFromName "Match" [] |> Some
-        | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2", _ when ignoreMeasure -> None
+        | Types.measureProduct2, _ when ignoreMeasure -> None
         // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
         | Naming.EndsWith "Exception" _, _ -> Dynamic |> Some
         | "System.Collections.Generic.Dictionary`2.Enumerator", [key; value] -> makeMapEntry key value |> makeIterator |> Some

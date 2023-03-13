@@ -50,6 +50,8 @@ module Types =
     let [<Literal>] valueType = "System.ValueType"
     let [<Literal>] array = "System.Array"
     let [<Literal>] type_ = "System.Type"
+    let [<Literal>] enum_ = "System.Enum"
+    let [<Literal>] nullable = "System.Nullable`1"
     let [<Literal>] exception_ = "System.Exception"
     let [<Literal>] systemException = "System.SystemException"
     let [<Literal>] timeoutException = "System.TimeoutException"
@@ -136,6 +138,7 @@ module Types =
     let [<Literal>] printfFormat = "Microsoft.FSharp.Core.PrintfFormat"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
     let [<Literal>] measureProduct2 = "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
+    let [<Literal>] measureOne = "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
 
     // Types compatible with Inject attribute (fable library)
     let [<Literal>] icomparerGeneric = "System.Collections.Generic.IComparer`1"
@@ -1083,10 +1086,11 @@ module AST =
         extractGenericArgs Map.empty maybeGenericExpr.Type concreteType
 
     let rec resolveInlineType (genArgs: Map<string, Type>) = function
-        | Fable.GenericParam(name=name) as v ->
+        | Fable.GenericParam(name, isMeasure, _constraints) as t ->
             match Map.tryFind name genArgs with
+            | Some v when isMeasure && v = Fable.Any -> t // avoids resolving measures to Fable.Any
             | Some v -> v
-            | None -> v
+            | None -> t
         | t -> t.MapGenerics(resolveInlineType genArgs)
 
     let rec resolveInlineIdent (genArgs: Map<string, Type>) (id: Ident) =

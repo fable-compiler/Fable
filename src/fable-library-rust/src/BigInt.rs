@@ -77,6 +77,7 @@ pub mod BigInt_ {
     bin_op!(Mul, mul, *);
     bin_op!(Div, div, /);
     bin_op!(Rem, rem, %);
+
     bin_op!(BitAnd, bitand, &);
     bin_op!(BitOr, bitor, |);
     bin_op!(BitXor, bitxor, ^);
