@@ -1,3 +1,7 @@
+### 4.0.0
+
+* Fable JS stable release
+
 ### 4.0.0-theta-018
 
 * When using a .csproj, make sure the project is restored before parsing
