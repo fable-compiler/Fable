@@ -169,7 +169,10 @@ type FsParam(p: FSharpParameter, ?isNamed) =
             |> Helpers.tryFindAtt "System.Runtime.InteropServices.DefaultParameterValueAttribute"
             |> Option.bind (fun att ->
                 Seq.tryHead att.ConstructorArguments
-                |> Option.map (fun (_, v) -> makeConstFromObj v))
+                |> Option.map (fun (t, v) ->
+                    if isNull v
+                    then TypeHelpers.makeType Map.empty t |> makeNullTyped
+                    else makeConstFromObj v))
         else None
 
     interface Fable.Parameter with
