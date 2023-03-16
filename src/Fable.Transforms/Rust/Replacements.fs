@@ -43,11 +43,6 @@ let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
     let body = curriedApply None returnType expr args
     Fable.Delegate(argIdents, body, None, Fable.Tags.empty)
 
-let checkArity (_com: Compiler) t arity expr =
-    //TODO: implement this
-    expr
-    // Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr])
-
 let error (msg: Expr) = msg
 
 let coreModFor = function

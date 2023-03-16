@@ -725,12 +725,6 @@ module TypeInfo =
     let transformOptionType com ctx genArg: Rust.Ty =
         transformGenericType com ctx [genArg] (rawIdent "Option")
 
-    let transformParamType com ctx typ: Rust.Ty =
-        let ty = transformType com ctx typ
-        if isByRefOrAnyType com typ || ctx.IsParamByRefPreferred
-        then ty |> mkRefTy None
-        else ty
-
     let transformClosureType com ctx argTypes returnType: Rust.Ty =
         let argTypes =
             match argTypes with
@@ -1032,12 +1026,18 @@ module TypeInfo =
             | Fable.DeclaredType(entRef, genArgs) ->
                 transformDeclaredType com ctx entRef genArgs
 
-        match shouldBeRefCountWrapped com ctx typ with
-        | Some Lrc -> ty |> makeLrcPtrTy com ctx
-        | Some Rc ->  ty |> makeRcTy com ctx
-        | Some Arc -> ty |> makeArcTy com ctx
-        | Some Box -> ty |> makeBoxTy com ctx
-        | _ -> ty
+        let ty =
+            match shouldBeRefCountWrapped com ctx typ with
+            | Some Lrc -> ty |> makeLrcPtrTy com ctx
+            | Some Rc ->  ty |> makeRcTy com ctx
+            | Some Arc -> ty |> makeArcTy com ctx
+            | Some Box -> ty |> makeBoxTy com ctx
+            | _ -> ty
+
+        if not (typ = Fable.Any && ctx.InferAnyType) &&
+            (isByRefOrAnyType com typ || ctx.IsParamByRefPreferred)
+        then ty |> mkRefTy None
+        else ty
 
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -1634,35 +1634,35 @@ module Util =
             makeLibCall com ctx None "Native" "array" [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
-        // list contruction with cons
-        match headAndTail with
-        | None ->
-            libCall com ctx r [typ] "List" "empty" []
-        | Some(head, Fable.Value(Fable.NewList(None, _), _)) ->
-            libCall com ctx r [] "List" "singleton" [head]
-        | Some(head, tail) ->
-            libCall com ctx r [] "List" "cons" [head; tail]
-
-        // // convert list construction to List.ofArray
-        // let rec getItems acc = function
-        //     | None -> List.rev acc, None
-        //     | Some(head, Fable.Value(Fable.NewList(tail, _),_)) -> getItems (head::acc) tail
-        //     | Some(head, tail) -> List.rev (head::acc), Some tail
-        // let makeNewArray r typ exprs =
-        //     Fable.Value(Fable.NewArray(exprs, typ), r)
-        // match getItems [] headAndTail with
-        // | [], None ->
-        //     libCall com ctx r [] "List" "empty" []
-        // | [expr], None ->
-        //     libCall com ctx r [] "List" "singleton" [expr]
-        // | exprs, None ->
-        //     [makeNewArray r typ exprs]
-        //     |> libCall com ctx r [] "List" "ofArray"
-        // | [head], Some tail ->
+        // // list contruction with cons
+        // match headAndTail with
+        // | None ->
+        //     libCall com ctx r [typ] "List" "empty" []
+        // | Some(head, Fable.Value(Fable.NewList(None, _), _)) ->
+        //     libCall com ctx r [] "List" "singleton" [head]
+        // | Some(head, tail) ->
         //     libCall com ctx r [] "List" "cons" [head; tail]
-        // | exprs, Some tail ->
-        //     [makeNewArray r typ exprs; tail]
-        //     |> libCall com ctx r [] "List" "ofArrayWithTail"
+
+        // list construction with List.ofArray
+        let rec getItems acc = function
+            | None -> List.rev acc, None
+            | Some(head, Fable.Value(Fable.NewList(tail, _), _)) -> getItems (head::acc) tail
+            | Some(head, tail) -> List.rev (head::acc), Some tail
+        let makeNewArray r typ exprs =
+            Fable.Value(Fable.NewArray(Fable.ArrayValues exprs, typ, Fable.MutableArray), r)
+        match getItems [] headAndTail with
+        | [], None ->
+            libCall com ctx r [] "List" "empty" []
+        | [expr], None ->
+            libCall com ctx r [] "List" "singleton" [expr]
+        | exprs, None ->
+            [makeNewArray r typ exprs]
+            |> libCall com ctx r [] "List" "ofArray"
+        | [head], Some tail ->
+            libCall com ctx r [] "List" "cons" [head; tail]
+        | exprs, Some tail ->
+            [makeNewArray r typ exprs; tail]
+            |> libCall com ctx r [] "List" "ofArrayWithTail"
 
     let makeTuple (com: IRustCompiler) ctx r isStruct (exprs: (Fable.Expr) list) =
         let expr =
@@ -2577,7 +2577,7 @@ module Util =
             if isRefExpr com ctx expr
             then callee
             else callee |> mkAddrOfExpr
-        let toAnyExpr = callee |> mkCastExpr (anyTy |> mkRefTy None)
+        let toAnyExpr = callee |> mkCastExpr anyTy
         match expr with
         | Fable.IdentExpr ident when isDowncast ->
             let downcastExpr = mkMethodCallExpr "downcast_ref" genArgsOpt toAnyExpr []
@@ -3054,7 +3054,7 @@ module Util =
             | _ ->
                 mkImplSelfParam false false
         else
-            let ty = transformParamType com ctx ident.Type
+            let ty = transformType com ctx ident.Type
             mkParamFromType ident.Name ty false false
 
     let transformFunctionDecl (com: IRustCompiler) ctx args (parameters: Fable.Parameter list) returnType =
@@ -3068,11 +3068,8 @@ module Util =
             if returnType = Fable.Unit then
                 VOID_RETURN_TY
             else
-                let ty = returnType |> transformType com ctx
-                let ty =
-                    if returnType = Fable.Any
-                    then ty |> mkRefTy (Some "'static")
-                    else ty
+                let ctx = { ctx with IsParamByRefPreferred = false }
+                let ty = transformType com ctx returnType
                 ty |> mkFnRetTy
         mkFnDecl inputs output
 
