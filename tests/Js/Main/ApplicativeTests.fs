@@ -921,7 +921,7 @@ module Results =
         let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
         equal (Ok 6) sum
 
-#if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT
+#if FABLE_COMPILER
 open Thoth.Json.Decode
 #endif
 
@@ -941,7 +941,6 @@ type PrimaryConstructorUncurrying(f) =
 
 type Fun = Fun of (int -> int -> int list)
 
-#if !FABLE_COMPILER_TYPESCRIPT
 type BaseClass (f: string -> string -> string) =
   member _.MakeString a b = f a b
 
@@ -953,7 +952,6 @@ type BaseClass2 (f: string -> string -> string) =
 
 type AddString2 (f: string -> string -> string) =
   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
-#endif
 
 type IAddFn = int -> int -> int
 type IAdder =
@@ -1080,7 +1078,7 @@ let tests7 = [
     testCase "Applying to a function returned by a member works" <| fun () ->
         equal (1,5) baz
         equal (1,5) baz2
-#if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT
+#if FABLE_COMPILER
     testCase "Applying to a function returned by a local function works" <| fun () ->
         let foo a b c d = a , b + c d
         let bar a = foo 1 a
@@ -1202,7 +1200,7 @@ let tests7 = [
         (-5, vals, ops) |||> List.fold2 (fun acc (v1,v2) op -> acc * op v1 v2)
         |> equal 45
 
-    #if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT
+    #if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
         let infoHelp version =
             match version with

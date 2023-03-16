@@ -1456,7 +1456,10 @@ module Util =
         (applied, args)
         ||> List.fold (fun e arg ->
             match arg with
+            // TODO: If arg type is unit but it's an expression with potential
+            // side-effects, we need to extract it and execute it before the call
             | Fable.Value(Fable.UnitConstant,_) -> []
+            | Fable.IdentExpr ident when ident.Type = Fable.Unit -> []
             | TransformExpr com ctx arg -> [arg]
             |> callFunction com ctx range e [])
 
