@@ -283,13 +283,15 @@ module AST =
     let inline (|IdentType|) (id: Ident) = id.Type
     let inline (|EntFullName|) (e: EntityRef) = e.FullName
 
-    let (|NestedLambdaType|_|) t =
-        let rec nestedLambda acc = function
-            | LambdaType(arg, returnType) ->
-                nestedLambda (arg::acc) returnType
-            | returnType -> Some(List.rev acc, returnType)
-        match t with
-        | LambdaType(arg, returnType) -> nestedLambda [arg] returnType
+    let rec uncurryLambdaType maxArity (revArgTypes: Type list) (returnType: Type) =
+        match returnType with
+        | LambdaType(argType, returnType) when maxArity > 0 ->
+            uncurryLambdaType (maxArity - 1) (argType::revArgTypes) returnType
+        | t -> List.rev revArgTypes, t
+
+    let (|NestedLambdaType|_|) = function
+        | LambdaType(argType, returnType) ->
+            Some(uncurryLambdaType System.Int32.MaxValue [argType] returnType)
         | _ -> None
 
     /// In lambdas with tuple arguments, F# compiler deconstructs the tuple before the next nested lambda.

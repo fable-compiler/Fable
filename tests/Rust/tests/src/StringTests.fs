@@ -24,11 +24,12 @@ let notALiteral = "foo"
 
 // let containsInOrder (substrings: string list) (str: string) =
 //     let mutable lastIndex = -1
-//     substrings |> List.forall (fun s ->
-//     let i = str.IndexOf(s)
-//     let success = i >= 0 && i > lastIndex
-//     lastIndex <- i
-//     success)
+//     substrings
+//     |> List.forall (fun s ->
+//         let i = str.IndexOf(s)
+//         let success = i >= 0 && i > lastIndex
+//         lastIndex <- i
+//         success)
 
 [<Fact>]
 let ``Adding strings works`` () =
@@ -92,13 +93,14 @@ let ``StringBuilder.Clear works`` () =
 
 [<Fact>]
 let ``StringBuilder.Append works with various overloads`` () =
-    let sb = Text.StringBuilder()
-                        .Append(Text.StringBuilder("aaa"))
-                        .Append("bcd".ToCharArray())
-                        .Append('/')
-                        .Append(true)
-                        .Append(5.2)
-                        .Append(34)
+    let sb =
+        Text.StringBuilder()
+            .Append(Text.StringBuilder("aaa"))
+            .Append("bcd".ToCharArray())
+            .Append('/')
+            .Append(true)
+            .Append(5.2)
+            .Append(34)
     let actual = sb.ToString().Replace(",", ".").ToLower()
     actual |> equal "aaabcd/true5.234"
 
@@ -129,15 +131,15 @@ let ``ksprintf works`` () =
 //     linef "open %s" "Foo"
 //     lines |> Seq.toList |> equal ["open Foo"]
 
-// [<Fact>]
-// let ``kbprintf works`` () =
-//     let sb = Text.StringBuilder()
-//     let mutable i = 0
-//     let f () = i <- i + 1
-//     Printf.kbprintf f sb "Hello"
-//     Printf.kbprintf f sb " %s!" "world"
-//     i |> equal 2
-//     sb.ToString() |> equal "Hello world!"
+[<Fact>]
+let ``kbprintf works`` () =
+    let sb = Text.StringBuilder()
+    let mutable i = 0
+    let f () = i <- i + 1
+    Printf.kbprintf f sb "Hello"
+    Printf.kbprintf f sb " %s!" "world"
+    i |> equal 2
+    sb.ToString() |> equal "Hello world!"
 
 [<Fact>]
 let ``ksprintf curries correctly`` () =
@@ -147,12 +149,12 @@ let ``ksprintf curries correctly`` () =
     let result = step2 "The answer is: "
     result |> equal "The answer is: 42"
 
-// [<Fact>]
-// let ``bprintf works`` () =
-//     let sb = Text.StringBuilder(10)
-//     Printf.bprintf sb "Hello"
-//     Printf.bprintf sb " %s!" "world"
-//     sb.ToString() |> equal "Hello world!"
+[<Fact>]
+let ``bprintf works`` () =
+    let sb = Text.StringBuilder(10)
+    Printf.bprintf sb "Hello"
+    Printf.bprintf sb " %s!" "world"
+    sb.ToString() |> equal "Hello world!"
 
 [<Fact>]
 let ``sprintf works`` () =
@@ -165,11 +167,11 @@ let ``sprintf works`` () =
     printer "morning" |> equal "Hi Alfonso, good morning!"
     printer "evening" |> equal "Hi Alfonso, good evening!"
 
-// [<Fact>]
-// let ``sprintf works II`` () =
-//     let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
-//     let printer2 = printer2 "afternoon"
-//     printer2 "?" |> equal "Hi Maxime, good afternoon?"
+[<Fact>]
+let ``sprintf works II`` () =
+    let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
+    let printer2 = printer2 "afternoon"
+    printer2 "?" |> equal "Hi Maxime, good afternoon?"
 
 [<Fact>]
 let ``sprintf with different decimal digits works`` () = // See #1932
@@ -207,11 +209,11 @@ let ``sprintf without arguments works`` () =
 //         formatStr
 //     equal "/hello/%s" (pathScan "/hello/%s")
 
-// [<Fact>]
-// let ``sprintf with escaped percent symbols works`` () = // See #195
-//     let r, r1, r2 = "Ratio", 0.213849, 0.799898
-//     sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
-//     |> equal "Ratio1: 21.38% Ratio2: 79.99%"
+[<Fact>]
+let ``sprintf with escaped percent symbols works`` () = // See #195
+    let r, r1, r2 = "Ratio", 0.213849, 0.799898
+    sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
+    |> equal "Ratio1: 21.38% Ratio2: 79.99%"
 
 [<Fact>]
 let ``sprintf with percent symbols in arguments works`` () = // See #329

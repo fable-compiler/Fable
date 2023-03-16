@@ -210,11 +210,6 @@ let uncurryType (typ: Type) =
     | Some(_arity, uncurriedType) -> uncurriedType
     | None -> typ
 
-let rec uncurryLambdaType (revArgTypes: Type list) (returnType: Type) =
-    match returnType with
-    | LambdaType(paramType, returnType) -> uncurryLambdaType (paramType::revArgTypes) returnType
-    | t -> List.rev revArgTypes, t
-
 module private Transforms =
     let rec (|ImmediatelyApplicable|_|) appliedArgsLen expr =
         if appliedArgsLen = 0 then None

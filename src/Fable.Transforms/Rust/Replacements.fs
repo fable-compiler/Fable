@@ -14,42 +14,34 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
-let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (argExprs: Expr list) =
-    // TODO: convert to Fable.AST instead of emit
-    let funcType = Helper.LibValue(com, "Native", "Func1", Any)
-    let argIdents = List.init arity (fun i -> $"arg{i}")
-    let args = argIdents |> String.concat ", "
-    let makeArg a = $"$0::new(move |{a}| "
-    let makeEnd a = $")"
-    let curriedArgs = argIdents |> List.map makeArg |> String.concat ""
-    let curriedEnds = argIdents |> List.map makeEnd |> String.concat ""
-    let appliedArgs = argExprs |> List.mapi (fun i _a -> $"${i + 2}, ") |> String.concat ""
-    let fmt = $"%s{curriedArgs}$1(%s{appliedArgs}%s{args}){curriedEnds}"
-    fmt |> emitExpr None t (funcType::expr::argExprs)
+let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
+    let rec makeNestedLambda body args =
+        match args with
+        | [] -> body
+        | arg::restArgs ->
+            let body = Fable.Lambda(arg, body, None)
+            makeNestedLambda body restArgs
+    let makeArgIdent i typ = makeTypedIdent typ $"arg{i}"
+    let argTypes, returnType = uncurryLambdaType arity [] t
+    let argIdents = argTypes |> List.mapi makeArgIdent
+    let args = argIdents |> List.map Fable.IdentExpr
+    let body = Helper.Application(expr, returnType, partialArgs @ args)
+    makeNestedLambda body (List.rev argIdents)
 
 let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     partialApplyAtRuntime com expr.Type arity expr []
 
 let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
-    let uncurry expr =
-        let funcType = Helper.LibValue(com, "Native", $"Func{arity}", Any)
-        let argIdents = List.init arity (fun i -> $"arg{i}")
-        let args = argIdents |> String.concat ", "
-        let appliedArgs = argIdents |> String.concat ")("
-        let fmt = $"$0::new(move |%s{args}| $1(%s{appliedArgs}))"
-        fmt |> emitExpr None t [funcType; expr]
-    match expr with
-    | Value(Null _, _) -> expr
-    | Value(NewOption(value, t, isStruct), r) ->
-        match value with
-        | None -> expr
-        | Some v -> Value(NewOption(Some(uncurry v), t, isStruct), r)
-    | ExprType(Option(t2,_)) ->
-        let fn =
-            let f = makeTypedIdent t2 "f"
-            Delegate([f], uncurry (IdentExpr f), None, Tags.empty)
-        Helper.LibCall(com, "Option", "map", t, [fn; expr])
-    | expr -> uncurry expr
+    let argTypes, returnType =
+        match t with
+        | Fable.LambdaType(argType, returnType) -> [argType], returnType
+        | Fable.DelegateType(argTypes, returnType) -> argTypes, returnType
+        | _ -> [], expr.Type
+    let makeArgIdent i typ = makeTypedIdent typ $"arg{i}"
+    let argIdents = argTypes |> List.mapi makeArgIdent
+    let args = argIdents |> List.map Fable.IdentExpr
+    let body = curriedApply None returnType expr args
+    Fable.Delegate(argIdents, body, None, Fable.Tags.empty)
 
 let checkArity (_com: Compiler) t arity expr =
     //TODO: implement this
