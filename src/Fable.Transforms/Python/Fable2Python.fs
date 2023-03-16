@@ -734,7 +734,7 @@ module Annotation =
         | Fable.String -> Expression.name "str", []
         | Fable.Number (kind, info) -> makeNumberTypeAnnotation com ctx kind info
         | Fable.LambdaType (argType, returnType) ->
-            let argTypes, returnType = FableTransforms.uncurryLambdaType [ argType ] returnType
+            let argTypes, returnType = uncurryLambdaType System.Int32.MaxValue [ argType ] returnType
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]

@@ -1033,6 +1033,10 @@ module Bounds =
         { path = path
           ref_id = DUMMY_NODE_ID }
 
+    let mkLifetime name: Lifetime =
+        { id = DUMMY_NODE_ID
+          ident = mkUnsanitizedIdent name }
+
     let mkPolyTraitRef path: PolyTraitRef =
         { bound_generic_params = mkVec []
           span = DUMMY_SP
@@ -1043,10 +1047,7 @@ module Bounds =
         GenericBound.Trait(ptref, TraitBoundModifier.None)
 
     let mkLifetimeGenericBound name: GenericBound =
-        let lifetime: Lifetime = {
-            id = DUMMY_NODE_ID
-            ident = mkUnsanitizedIdent name
-        }
+        let lifetime = mkLifetime name
         GenericBound.Outlives(lifetime)
 
     let mkFnTraitGenericBound inputs output: GenericBound =
@@ -1101,12 +1102,14 @@ module Types =
         TyKind.Paren(ty)
         |> mkTy
 
-    let mkRefTy ty: Ty =
-        TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Not })
+    let mkRefTy nameOpt ty: Ty =
+        let lifetimeOpt = nameOpt |> Option.map mkLifetime
+        TyKind.Rptr(lifetimeOpt, { ty = ty; mutbl = Mutability.Not })
         |> mkTy
 
-    let mkMutRefTy ty: Ty =
-        TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Mut })
+    let mkMutRefTy nameOpt ty: Ty =
+        let lifetimeOpt = nameOpt |> Option.map mkLifetime
+        TyKind.Rptr(lifetimeOpt, { ty = ty; mutbl = Mutability.Mut })
         |> mkTy
 
     let mkPathTy path: Ty =
@@ -1173,7 +1176,7 @@ module Params =
         mkParamFromType name ty isRef isMut
 
     let mkImplSelfParam isRef isMut: Param =
-        let ty = mkImplSelfTy () |> mkRefTy
+        let ty = mkImplSelfTy () |> mkRefTy None
         let attrs = []
         let is_placeholder = false
         let pat = mkIdentPat (rawIdent "self") isRef isMut
@@ -1345,9 +1348,9 @@ module Items =
         ItemKind.Use(useTree)
         |> mkItem attrs ident
 
-    let mkSimpleUseItem attrs names (alias: Symbol option): Item =
-        let rename = alias |> Option.map mkIdent
-        UseTreeKind.Simple(rename, DUMMY_NODE_ID, DUMMY_NODE_ID)
+    let mkSimpleUseItem attrs names (aliasOpt: Symbol option): Item =
+        let identOpt = aliasOpt |> Option.map mkIdent
+        UseTreeKind.Simple(identOpt, DUMMY_NODE_ID, DUMMY_NODE_ID)
         |> mkUseItem attrs names
 
     let mkNestedUseItem attrs names useTrees: Item =
