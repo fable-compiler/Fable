@@ -1140,6 +1140,21 @@ let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
         | Some ent -> isGlobalOrImportedFSharpEntity ent
         | None -> false)
 
+let private isCompilerGenerated (memb: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) =
+    memb.IsCompilerGenerated
+    && memb.IsInstanceMember
+    // memb.IsCompilerGenerated is true for local functions in constructors
+    // turned into methods, but we shouldn't ignore them. Example:
+    //     type MyClass(x: int) =
+    //         let f y = x + y
+    //         member _.Add(y) = f y
+    && not (
+        List.tryHead args
+        |> Option.bind List.tryHead
+        |> Option.map (fun x -> x.IsConstructorThisValue)
+        |> Option.defaultValue false
+    )
+
 let private transformPrimaryConstructor (com: FableCompiler) (ctx: Context)
             (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
@@ -1375,21 +1390,6 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
           ImplementedSignatureRef = None
           Tags = Fable.Tags.empty
           XmlDoc = tryGetXmlDoc memb.XmlDoc })
-
-let private isCompilerGenerated (memb: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) =
-    memb.IsCompilerGenerated
-    && not memb.IsValue
-    // memb.IsCompilerGenerated is true for local functions in constructors
-    // turned into methods, but we shouldn't ignore them. Example:
-    //     type MyClass(x: int) =
-    //         let f y = x + y
-    //         member _.Add(y) = f y
-    && not (
-        List.tryHead args
-        |> Option.bind List.tryHead
-        |> Option.map (fun x -> x.IsConstructorThisValue)
-        |> Option.defaultValue false
-    )
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =

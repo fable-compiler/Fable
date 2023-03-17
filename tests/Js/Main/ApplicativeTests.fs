@@ -219,7 +219,6 @@ let tests2 = [
         withReact() |> equal true
 ]
 
-#if !FABLE_COMPILER_TYPESCRIPT
 open Aether
 open Aether.Operators
 
@@ -654,11 +653,6 @@ let tests5 = [
               (a,b)
           sprintf "%A" mutableValue3 |> equal "349787"
 ]
-#else
-let tests3 = []
-let tests4 = []
-let tests5 = []
-#endif
 
 module Types =
     let inline flip f a b = f b a
@@ -1599,7 +1593,6 @@ module Uncurry =
     #endif
 
 module MultipleInlines =
-#if !FABLE_COMPILER_TYPESCRIPT
     open Aether
     open Aether.Operators
 
@@ -1684,9 +1677,6 @@ module MultipleInlines =
         testCase "Identifiers from witnesses don't get duplicated when resolving inline expressions" <| fun () -> // See #2855
             NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
     ]
-#else
-    let tests = []
-#endif
 
 let tests =
     testList "Applicative" (

@@ -8,6 +8,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Js/Main/Util/Thoth.Json.Decode.fs" />
+    <Compile Include="../Js/Main/Util/Aether.fs" />
     <Compile Include="../Js/Main/Util/Util.Testing.fs" />
     <Compile Include="../Js/Main/Util/Util.fs" />
     <Compile Include="../Js/Main/Util/UtilTests.fs" />

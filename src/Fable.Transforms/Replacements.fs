@@ -2324,6 +2324,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, moduleName, "addMilliseconds", Float64.Number, [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
     | meth ->
+        let args =
+            match meth, args with
+            // Ignore IFormatProvider
+            | "Parse", arg::_ -> [arg]
+            | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
+            | _ -> args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
