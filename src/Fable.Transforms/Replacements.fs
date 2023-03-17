@@ -1334,7 +1334,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 match arg1.Type with
                 | Array _ -> arg1
                 | _ -> Value(NewArray(ArrayValues [arg1], String, MutableArray), None)
-            let args = [arg1; emitExpr None Any [] "void 0"; arg2]
+            let args = [arg1; makeNone(Int32.Number); arg2]
             Helper.LibCall(com, "String", "split", t, c::args, ?loc=r) |> Some
         | arg1::args ->
             let arg1 =
@@ -1619,7 +1619,7 @@ let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
         "get_Length", "length"
         "GetSlice",   "getSlice" ] methName, Some x, _ ->
             let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
-            Helper.LibCall(com, "List", methName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+            Helper.LibCall(com, "List", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_IsEmpty", Some x, _ -> Test(x, ListTest false, r) |> Some
     | "get_Empty", None, _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     | "Cons", None, [h;t] -> NewList(Some(h,t), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
@@ -2324,6 +2324,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, moduleName, "addMilliseconds", Float64.Number, [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
     | meth ->
+        let args =
+            match meth, args with
+            // Ignore IFormatProvider
+            | "Parse", arg::_ -> [arg]
+            | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
+            | _ -> args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 

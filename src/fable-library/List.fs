@@ -196,7 +196,7 @@ let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T li
 let reverse (xs: 'T list) =
     fold (fun acc x -> List.Cons(x, acc)) List.Empty xs
 
-let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
+let foldBack<'T, 'State> (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     // fold (fun acc x -> folder x acc) state (reverse xs)
     Array.foldBack folder (toArray xs) state
 
@@ -210,7 +210,7 @@ let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T 
 //     if xs.IsEmpty || ys.IsEmpty then state
 //     else fold2 folder (folder state xs.Head ys.Head) xs.Tail ys.Tail
 
-let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
+let fold2<'T1, 'T2, 'State> (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
     let mutable acc = state
     let mutable xs = xs
     let mutable ys = ys
@@ -220,7 +220,7 @@ let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list
         ys <- ys.Tail
     acc
 
-let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
+let foldBack2<'T1, 'T2, 'State> (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
     // fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
     Array.foldBack2 folder (toArray xs) (toArray ys) state
 

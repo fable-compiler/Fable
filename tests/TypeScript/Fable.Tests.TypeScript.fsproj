@@ -7,9 +7,12 @@
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../Js/Main/Util/Thoth.Json.Decode.fs" />
+    <Compile Include="../Js/Main/Util/Aether.fs" />
     <Compile Include="../Js/Main/Util/Util.Testing.fs" />
     <Compile Include="../Js/Main/Util/Util.fs" />
     <Compile Include="../Js/Main/Util/UtilTests.fs" />
+    <Compile Include="../Js/Main/ApplicativeTests.fs" />
     <Compile Include="../Js/Main/ArithmeticTests.fs" />
     <Compile Include="../Js/Main/ArrayTests.fs" />
     <Compile Include="../Js/Main/ListTests.fs" />

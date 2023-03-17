@@ -12,10 +12,6 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
-type ArgsInfo =
-    | CallInfo of Fable.CallInfo * Fable.MemberFunctionOrValue option
-    | NoCallInfo of args: Fable.Expr list
-
 type Import =
   { Selector: string
     LocalIdent: string option
@@ -39,6 +35,12 @@ type Context =
     TailCallOpportunity: ITailCallOpportunity option
     OptimizeTailCall: unit -> unit
     ScopedTypeParams: Set<string> }
+
+type ModuleDecl(name, ?isPublic, ?isMutable, ?typ) =
+    member _.Name: string = name
+    member _.IsPublic = defaultArg isPublic false
+    member _.IsMutable = defaultArg isMutable false
+    member _.Type = defaultArg typ Fable.Any
 
 type IBabelCompiler =
     inherit Compiler
@@ -452,6 +454,15 @@ module Annotation =
             | _, Some(FunctionExpression _)
             | _, Some(ArrowFunctionExpression _) -> None
             | _ -> makeTypeAnnotation com ctx typ |> Some
+        else None
+
+    // Fields are uncurried in the AST but not the declaration
+    let makeFieldAnnotation (com: IBabelCompiler) ctx (fieldType: Fable.Type) =
+        FableTransforms.uncurryType fieldType |> makeTypeAnnotation com ctx
+
+    let makeFieldAnnotationIfTypeScript (com: IBabelCompiler) ctx (fieldType: Fable.Type) =
+        if com.Options.Language = TypeScript
+        then makeFieldAnnotation com ctx fieldType |> Some
         else None
 
     let makeTypeAnnotationWithParametersIfTypeScript (com: IBabelCompiler) ctx typ expr =
@@ -1174,7 +1185,7 @@ module Util =
                 | _ ->
                     transformAsExpr com ctx baseRef
                     |> SuperExpression
-            let args = CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember) |> transformCallArgs com ctx
+            let args = info.MemberRef |> Option.bind com.TryGetMember |> transformCallArgs com ctx info
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1258,13 +1269,15 @@ module Util =
             let classExpr = Expression.classExpression(List.toArray classMembers, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
 
-    let transformCallArgs (com: IBabelCompiler) ctx (info: ArgsInfo) =
-        let paramsInfo, args =
-            match info with
-            | NoCallInfo args -> None, args
-            | CallInfo(callInfo, memberInfo) ->
-                let paramsInfo = Option.map getParamsInfo memberInfo
-                paramsInfo, callInfo.Args
+    let transformCallArgs (com: IBabelCompiler) ctx (callInfo: Fable.CallInfo) (memberInfo: Fable.MemberFunctionOrValue option) =
+        let args =
+            match callInfo.Args, callInfo.SignatureArgTypes with
+            // Don't remove unit arg if a generic is expected, TypeScript will complain
+            | [Fable.Value(Fable.UnitConstant,_)], [Fable.GenericParam _] -> callInfo.Args
+            | [Fable.Value(Fable.UnitConstant,_)], _ -> []
+            | _ -> callInfo.Args
+
+        let paramsInfo = Option.map getParamsInfo memberInfo
 
         let args, objArg =
             paramsInfo
@@ -1291,10 +1304,7 @@ module Util =
             |> Option.defaultValue false
 
         let args =
-            match args with
-            | []
-            | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))] -> []
-            | args when hasSpread ->
+            if hasSpread then
                 match List.rev args with
                 | [] -> []
                 | (Replacements.Util.ArrayOrListLiteral(spreadArgs,_))::rest ->
@@ -1303,7 +1313,8 @@ module Util =
                 | last::rest ->
                     let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
                     rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
-            | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args
+            else
+                List.map (fun e -> com.TransformAsExpr(ctx, e)) args
 
         match objArg with
         | None -> args
@@ -1338,8 +1349,9 @@ module Util =
         let macro = stripImports com ctx range info.Macro
         let info = info.CallInfo
         let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-        CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember)
-        |> transformCallArgs com ctx
+        info.MemberRef
+        |> Option.bind com.TryGetMember
+        |> transformCallArgs com ctx info
         |> List.append thisArg
         |> emitExpression range macro
 
@@ -1435,7 +1447,7 @@ module Util =
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | memberInfo ->
                 let callee = com.TransformAsExpr(ctx, callee)
-                let args = CallInfo(callInfo, memberInfo) |> transformCallArgs com ctx
+                let args = transformCallArgs com ctx callInfo memberInfo
                 match callInfo.ThisArg with
                 | None when List.contains "new" callInfo.Tags ->
                     let typeParamInst =
@@ -1447,9 +1459,15 @@ module Util =
                 | Some(TransformExpr com ctx thisArg) -> callFunction com ctx range callee callInfo.GenericArgs (thisArg::args)
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        match transformCallArgs com ctx (NoCallInfo args) with
-        | [] -> callFunction com ctx range applied [] []
-        | args -> (applied, args) ||> List.fold (fun e arg -> callFunction com ctx range e [] [arg])
+        (applied, args)
+        ||> List.fold (fun e arg ->
+            match arg with
+            // TODO: If arg type is unit but it's an expression with potential
+            // side-effects, we need to extract it and execute it before the call
+            | Fable.Value(Fable.UnitConstant,_) -> []
+            | Fable.IdentExpr ident when ident.Type = Fable.Unit -> []
+            | TransformExpr com ctx arg -> [arg]
+            |> callFunction com ctx range e [])
 
     let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -2111,12 +2129,12 @@ module Util =
         if not isPublic then PrivateModuleDeclaration(decl |> Declaration)
         else ExportNamedDeclaration(decl)
 
-    let declareModuleMember isPublic membName isMutable (expr: Expression) =
+    let declareModuleMember com ctx (expr: Expression) (info: ModuleDecl) =
         match expr with
         | ClassExpression(body, _id, superClass, implements, typeParameters, _loc) ->
             Declaration.classDeclaration(
                 body,
-                id = Identifier.identifier(membName),
+                id = Identifier.identifier(info.Name),
                 ?superClass = superClass,
                 typeParameters = typeParameters,
                 ?implements = implements)
@@ -2124,14 +2142,18 @@ module Util =
             Declaration.functionDeclaration(
                 parameters,
                 body,
-                id = Identifier.identifier(membName),
+                id = Identifier.identifier(info.Name),
                 ?returnType = returnType,
                 typeParameters = typeParameters)
         | _ ->
-            let kind = if isMutable then Let else Const
-            Declaration.variableDeclaration(kind, membName, init=expr)
+            let kind = if info.IsMutable then Let else Const
+            let annotation =
+                // Public mutable values are compiled as functions so we omit the type in those cases
+                if info.IsMutable && info.IsPublic then None
+                else makeTypeAnnotationIfTypeScript com ctx info.Type (Some expr)
+            Declaration.variableDeclaration(kind, info.Name, init=expr, ?annotation = annotation)
 
-        |> asModuleDeclaration isPublic
+        |> asModuleDeclaration info.IsPublic
 
     let getClassImplements com ctx (ent: Fable.Entity) =
         // let mkNative genArgs typeName =
@@ -2167,23 +2189,30 @@ module Util =
                 let implements = Util.getClassImplements com ctx ent |> Seq.toArray
                 if Array.isEmpty implements then None else Some implements
             else None
-        let classCons = ClassMember.classMethod(ClassPrimaryConstructor consArgsModifiers, consArgs, consBody)
+
+        let classCons =
+            ClassMember.classMethod(ClassPrimaryConstructor consArgsModifiers, consArgs, consBody)
+
         let classFields =
             if com.Options.Language = TypeScript && not ent.IsFSharpUnion then
                 ent.FSharpFields |> List.mapToArray (fun field ->
                     let prop, isComputed = memberFromName field.Name
-                    let ta = makeTypeAnnotation com ctx field.FieldType
+                    let ta = makeFieldAnnotation com ctx field.FieldType
                     // Static fields need to be initialized by static constructor
                     let am = if field.IsMutable || field.IsStatic then None else Some Readonly
                     ClassMember.classProperty(prop, isComputed=isComputed, isStatic=field.IsStatic, typeAnnotation=ta, ?accessModifier=am)
                 )
             else Array.empty
-        Expression.classExpression([|
-            yield! classFields
-            classCons
-            yield! classMembers
-        |], ?superClass=superClass, ?typeParameters=typeParamDecl, ?implements=implements)
-        |> declareModuleMember ent.IsPublic entName false
+
+        let classExpr =
+            Expression.classExpression([|
+                yield! classFields
+                classCons
+                yield! classMembers
+            |], ?superClass=superClass, ?typeParameters=typeParamDecl, ?implements=implements)
+
+        ModuleDecl(entName, isPublic=ent.IsPublic)
+        |> declareModuleMember com ctx classExpr
 
     let declareClass (com: IBabelCompiler) ctx ent entName consArgs consBody superClass classMembers =
         if com.Options.Language = TypeScript
@@ -2201,8 +2230,9 @@ module Util =
         let body = transformReflectionInfo com ctx None ent generics
         let args = genArgs |> Array.map (fun x -> Parameter.parameter(x.Name, ?typeAnnotation=ta))
         let returnType = ta
-        makeFunctionExpression None (args, body, returnType, None)
-        |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
+        let fnExpr = makeFunctionExpression None (args, body, returnType, None)
+        ModuleDecl(entName + Naming.reflectionSuffix, isPublic=ent.IsPublic)
+        |> declareModuleMember com ctx fnExpr
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Parameter[]) (consBody: BlockStatement) baseExpr classMembers: ModuleDeclaration list =
         let typeDeclaration = declareClass com ctx ent entName consArgs consBody baseExpr classMembers
@@ -2295,7 +2325,7 @@ module Util =
                     let case_ta = TypeAnnotation.aliasTypeAnnotation(union_cons, typeParams)
                     let fields_ta =
                         uci.UnionCaseFields |> List.mapToArray (fun fi ->
-                            makeTypeAnnotation com ctx fi.FieldType)
+                            makeFieldAnnotation com ctx fi.FieldType)
                         |> TupleTypeAnnotation
                     case_ta, (uci.Name, ofInt i), fields_ta
                 ) |> Array.unzip3
@@ -2329,7 +2359,7 @@ module Util =
                        |> Statement.returnStatement
                     |]
                     let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
-                        Parameter.parameter(fi.Name, typeAnnotation=makeTypeAnnotation com ctx fi.FieldType))
+                        Parameter.parameter(fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
                     let fnId = entName + "_" + case.Name |> Identifier.identifier
                     Declaration.functionDeclaration(parameters, body, fnId, typeParameters=entParamsDecl)
                     |> asModuleDeclaration isPublic
@@ -2371,7 +2401,7 @@ module Util =
                 |> Seq.toArray
             |])
         let args = fieldIds |> Array.map (fun fi ->
-            Parameter.parameter(fi.Name, ?typeAnnotation=makeTypeAnnotationIfTypeScript com ctx fi.Type None))
+            Parameter.parameter(fi.Name, ?typeAnnotation=makeFieldAnnotationIfTypeScript com ctx fi.Type))
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithPrimaryConstructor (com: IBabelCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
@@ -2412,7 +2442,7 @@ module Util =
 
         [
             yield! declareType com ctx classEnt classDecl.Name consArgs consBody baseExpr classMembers
-            yield declareModuleMember consInfo.IsPublic cons.Name false exposedCons
+            yield ModuleDecl(cons.Name, isPublic=consInfo.IsPublic) |> declareModuleMember com ctx exposedCons
         ]
 
     let rec transformDeclaration (com: IBabelCompiler) ctx decl =
@@ -2448,15 +2478,18 @@ module Util =
                             callFunction com ctx r callee [] (arg::restArgs) |> Some
                         | _ -> None
                     | _ -> None
+
                 let decls =
                     match valueExpr with
                     | Some value ->
-                        [declareModuleMember info.IsPublic decl.Name info.IsMutable value]
+                        ModuleDecl(decl.Name, isPublic=info.IsPublic, isMutable=info.IsMutable, typ=decl.Body.Type)
+                        |> declareModuleMember com ctx value
+                        |> List.singleton
                     | None ->
                         let expr = transformModuleFunction com ctx info decl.Name decl.Args decl.Body
                         if hasAttribute Atts.entryPoint info.Attributes
                         then [declareEntryPoint com ctx expr]
-                        else [declareModuleMember info.IsPublic decl.Name false expr]
+                        else [ModuleDecl(decl.Name, isPublic=info.IsPublic)|> declareModuleMember com ctx expr]
 
                 let isDefaultExport =
                     List.contains "export-default" decl.Tags || (
