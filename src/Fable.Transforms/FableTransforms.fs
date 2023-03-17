@@ -447,9 +447,12 @@ module private Transforms =
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, MaybeOption(DelegateType(_, GenericParam _))), AnonymousRecordType _ when arity > 0 ->
-                let e = Replacements.Api.checkArity com fieldType arity e
-                if arity > 1 then Extended(Curry(e, arity), r)
-                else e
+                if com.Options.Language = Rust then
+                    e // anonymous record fields are not uncurried for Rust, so nothing to do
+                else
+                    let e = Replacements.Api.checkArity com fieldType arity e
+                    if arity > 1 then Extended(Curry(e, arity), r)
+                    else e
             | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
@@ -479,7 +482,9 @@ module private Transforms =
             let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r) ->
-            let args = uncurryArgs com false genArgs args
+            let args =
+                if com.Options.Language = Rust then args
+                else uncurryArgs com false genArgs args
             Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r)
         | Value(NewUnion(args, tag, ent, genArgs), r) ->
             let uci = com.GetEntity(ent).UnionCases[tag]
