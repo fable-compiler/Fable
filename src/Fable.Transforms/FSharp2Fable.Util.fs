@@ -608,16 +608,19 @@ module Helpers =
             typ.TypeDefinition.TryFullName = Some Types.unit
         else false
 
+    let isByRefType (typ: FSharpType) =
+        typ.HasTypeDefinition
+        && typ.TypeDefinition.IsByRef
+        // && ( typ.TypeDefinition.DisplayName = "byref" ||
+        //      typ.TypeDefinition.DisplayName = "inref" ||
+        //      typ.TypeDefinition.DisplayName = "outref")
+
     let isByRefValue (value: FSharpMemberOrFunctionOrValue) =
         // Value type "this" is passed as inref, so it has to be excluded
         // (Note: the non-abbreviated type of inref and outref is byref)
-        let typ = value.FullType
-        value.IsValue && not (value.IsMemberThisValue)
-        && typ.HasTypeDefinition
-        && typ.TypeDefinition.IsByRef
-        // && (typ.TypeDefinition.DisplayName = "byref" ||
-        //     typ.TypeDefinition.DisplayName = "inref" ||
-        //     typ.TypeDefinition.DisplayName = "outref")
+        value.IsValue
+        && not value.IsMemberThisValue
+        && isByRefType value.FullType
 
     let tryFindAtt fullName (atts: FSharpAttribute seq) =
         atts |> Seq.tryPick (fun att ->
