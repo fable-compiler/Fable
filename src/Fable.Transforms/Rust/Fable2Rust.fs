@@ -1616,7 +1616,7 @@ module Util =
         | _ ->
             let arrayExpr =
                 exprs
-                |> List.map (transformExpr com ctx)
+                |> List.map (transformLeaveContext com ctx None)
                 |> mkArrayExpr
                 |> mkAddrOfExpr
             makeLibCall com ctx None "Native" "array" [arrayExpr]
@@ -1652,7 +1652,7 @@ module Util =
             Fable.Value(Fable.NewArray(Fable.ArrayValues exprs, typ, Fable.MutableArray), r)
         match getItems [] headAndTail with
         | [], None ->
-            libCall com ctx r [] "List" "empty" []
+            libCall com ctx r [typ] "List" "empty" []
         | [expr], None ->
             libCall com ctx r [] "List" "singleton" [expr]
         | exprs, None ->
@@ -1772,8 +1772,8 @@ module Util =
         | Fable.RegexConstant(source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)
             unimplemented ()
-        | Fable.NewArray(Fable.ArrayValues values, typ, _isMutable) -> makeArray com ctx r typ values
-        | Fable.NewArray((Fable.ArrayFrom expr | Fable.ArrayAlloc expr), typ, _isMutable) -> makeArrayFrom com ctx r typ expr
+        | Fable.NewArray(Fable.ArrayValues values, typ, _kind) -> makeArray com ctx r typ values
+        | Fable.NewArray((Fable.ArrayFrom expr | Fable.ArrayAlloc expr), typ, _kind) -> makeArrayFrom com ctx r typ expr
         | Fable.NewTuple(values, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewList(headAndTail, typ) -> makeList com ctx r typ headAndTail
         | Fable.NewOption(value, typ, isStruct) -> makeOption com ctx r typ value isStruct
