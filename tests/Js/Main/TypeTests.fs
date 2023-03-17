@@ -234,6 +234,9 @@ type ValueType3 =
 [<Struct>]
 type StructUnion = Value of string
 
+[<Struct>]
+type SimpleRecord = { A: string; B: string }
+
 type Point2D =
    struct
       val X: float
@@ -831,6 +834,14 @@ let tests =
         t1 |> equal t2
 
         (compare t1 t2) |> equal 0
+
+    testCase "copying struct records works" <| fun () -> // See #3371
+        let simple : SimpleRecord = { A = ""; B = "B" }
+        let simpleRecord = { simple with A = "A" }
+        simpleRecord.A |> equal "A"
+        simpleRecord.B |> equal "B"
+        simple.A |> equal ""
+        simple.B |> equal "B"
 
     testCase "Custom F# exceptions work" <| fun () ->
         try

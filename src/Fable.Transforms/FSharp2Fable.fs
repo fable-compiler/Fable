@@ -840,11 +840,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         let fieldType = makeType Map.empty fsExpr.Type
         return Fable.Get(callee, Fable.FieldInfo.Create(fieldName, fieldType=fieldType), typ, r)
 
-    | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
+    | FSharpExprPatterns.FSharpFieldGet(fsCallee, fsCalleeType, field) ->
         let r = makeRangeFrom fsExpr
-        let! callee = transformCallee com ctx callee calleeType
+        let! callee = transformCallee com ctx fsCallee fsCalleeType
 //      let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
-        let typ = resolveFieldType ctx calleeType field.FieldType
+        let typ = resolveFieldType ctx fsCalleeType field.FieldType
+        let callee =
+            match fsCallee with
+            // Don't use fsCalleeType as it doesn't show the reference type
+            | Some fsCallee when isByRefType fsCallee.Type ->
+                Replacements.Api.getRefCell com None callee.Type callee
+            | _ -> callee
         let kind = Fable.FieldInfo.Create(
             FsField.FSharpFieldName field,
             fieldType=makeType Map.empty field.FieldType,
