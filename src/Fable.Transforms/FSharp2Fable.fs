@@ -840,17 +840,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         let fieldType = makeType Map.empty fsExpr.Type
         return Fable.Get(callee, Fable.FieldInfo.Create(fieldName, fieldType=fieldType), typ, r)
 
-    | FSharpExprPatterns.FSharpFieldGet(fsCallee, fsCalleeType, field) ->
+    | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
-        let! callee = transformCallee com ctx fsCallee fsCalleeType
+        let! callee = transformCallee com ctx callee calleeType
 //      let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
-        let typ = resolveFieldType ctx fsCalleeType field.FieldType
-        let callee =
-            match fsCallee with
-            // Don't use fsCalleeType as it doesn't show the reference type
-            | Some fsCallee when isByRefType fsCallee.Type ->
-                Replacements.Api.getRefCell com None callee.Type callee
-            | _ -> callee
+        let typ = resolveFieldType ctx calleeType field.FieldType
         let kind = Fable.FieldInfo.Create(
             FsField.FSharpFieldName field,
             fieldType=makeType Map.empty field.FieldType,
@@ -1105,7 +1099,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             else
                 if com.Options.Language = Rust
                 then return Replacements.Api.makeRefFromMutableValue com ctx r value.Type value
-                else return Replacements.Api.makeRefCellFromValue com r value
+                else return value // Replacements.Api.makeRefCellFromValue com r value
         // This matches passing fields by reference
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr

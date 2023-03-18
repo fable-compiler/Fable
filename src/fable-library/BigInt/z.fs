@@ -17,8 +17,10 @@ namespace BigInt
     // INVARIANT: signInt = 1 or -1
     //            value(z) = signInt * v
     // NOTE: 0 has two repns (+1,0) or (-1,0).
+#if !FABLE_COMPILER
     [<Struct>]
     [<CustomEquality; CustomComparison>]
+#endif
 #if !NETSTANDARD1_6
     [<StructuredFormatDisplay("{StructuredDisplayString}I")>]
 #endif
