@@ -4,9 +4,12 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.0.0</Version>
-    <PackageVersion>4.0.0</PackageVersion>
-    <PackageReleaseNotes>* Fable JS stable release</PackageReleaseNotes>
+    <Version>4.0.1</Version>
+    <PackageVersion>4.0.1</PackageVersion>
+    <PackageReleaseNotes>* Fix #3371: Copying struct records
+* Php: Improve output @entropitor
+* Rust: string improvements
+* TypeScript: Fix applicative tests</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

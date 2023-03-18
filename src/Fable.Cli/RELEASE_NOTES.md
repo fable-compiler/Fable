@@ -1,3 +1,10 @@
+### 4.0.1
+
+* Fix #3371: Copying struct records
+* Php: Improve output @entropitor
+* Rust: string improvements
+* TypeScript: Fix applicative tests
+
 ### 4.0.0
 
 * Fable JS stable release

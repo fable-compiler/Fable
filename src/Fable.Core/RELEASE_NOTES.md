@@ -1,6 +1,10 @@
+### 4.0.0
+
+* Fable 4 stable
+
 ### 4.0.0-theta-007
 
-*Fix #3249 by enabling uncurrying for functions with multiple parameters @inosik
+* Fix #3249 by enabling uncurrying for functions with multiple parameters @inosik
 
 ### 4.0.0-theta-006
 
