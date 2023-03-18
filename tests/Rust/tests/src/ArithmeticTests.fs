@@ -890,33 +890,33 @@ let ``Sign operator works with bigints`` () =
     sign -1I |> equal -1
     sign -2I |> equal -1
 
-// [<Fact>]
-// let ``Formatting of decimal works`` () =
-//     let formatNumber (d:decimal) =
-//         (sprintf "%.2f" d).Replace(",","").Replace(".",",")
-//     formatNumber 0.0M |> equal "0,00"
-//     formatNumber 0.020M |> equal "0,02"
-//     formatNumber 0.20M |> equal "0,20"
-//     formatNumber 2.0M |> equal "2,00"
+[<Fact>]
+let ``Formatting of decimal works`` () =
+    let formatNumber (d:decimal) =
+        (sprintf "%.2f" d).Replace(",","").Replace(".",",")
+    formatNumber 0.0M |> equal "0,00"
+    formatNumber 0.020M |> equal "0,02"
+    formatNumber 0.20M |> equal "0,20"
+    formatNumber 2.0M |> equal "2,00"
 
-// [<Fact>]
-// let ``Formatting of decimal works with inline`` () =
-//     let inline formatNumber (d:decimal) =
-//         (sprintf "%.2f" d).Replace(",","").Replace(".",",")
-//     formatNumber 0.0M |> equal "0,00"
-//     formatNumber 0.020M |> equal "0,02"
-//     formatNumber 0.20M |> equal "0,20"
-//     formatNumber 2.0M |> equal "2,00"
+[<Fact>]
+let ``Formatting of decimal works with inline`` () =
+    let inline formatNumber (d:decimal) =
+        (sprintf "%.2f" d).Replace(",","").Replace(".",",")
+    formatNumber 0.0M |> equal "0,00"
+    formatNumber 0.020M |> equal "0,02"
+    formatNumber 0.20M |> equal "0,20"
+    formatNumber 2.0M |> equal "2,00"
 
-// [<Fact>]
-// let ``Formatting of € works with inline`` () =
-//     let inline formatNumber (d:decimal) =
-//         (sprintf "%.2f" d).Replace(",","").Replace(".",",")
-//     let inline formatEuro (d:decimal) = (formatNumber d) + " €"
-//     formatEuro 0.0M |> equal "0,00 €"
-//     formatEuro 0.020M |> equal "0,02 €"
-//     formatEuro 0.20M |> equal "0,20 €"
-//     formatEuro 2.0M |> equal "2,00 €"
+[<Fact>]
+let ``Formatting of € works with inline`` () =
+    let inline formatNumber (d:decimal) =
+        (sprintf "%.2f" d).Replace(",","").Replace(".",",")
+    let inline formatEuro (d:decimal) = (formatNumber d) + " €"
+    formatEuro 0.0M |> equal "0,00 €"
+    formatEuro 0.020M |> equal "0,02 €"
+    formatEuro 0.20M |> equal "0,20 €"
+    formatEuro 2.0M |> equal "2,00 €"
 
 module UnitTests =
     open Common.Imports.Vectors

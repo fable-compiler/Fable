@@ -4,7 +4,7 @@ pub mod String_ {
     // Strings
     // -----------------------------------------------------------
 
-    use crate::Native_::{arrayFrom, Array, Func1, Func2, Lrc, String, ToString, Vec};
+    use crate::Native_::{arrayFrom, compare, Array, Func1, Func2, Lrc, String, ToString, Vec};
 
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
@@ -313,20 +313,50 @@ pub mod String_ {
         s.contains(p.as_str())
     }
 
+    pub fn equalsOrdinal(s1: string, s2: string, ignoreCase: bool) -> bool {
+        if ignoreCase {
+            s1.to_uppercase().eq(&s2.to_uppercase())
+        } else {
+            s1.eq(&s2)
+        }
+    }
+
+    pub fn compareOrdinal(s1: string, s2: string, ignoreCase: bool) -> i32 {
+        if ignoreCase {
+            compare(&s1.to_uppercase(), &s2.to_uppercase())
+        } else {
+            compare(&s1, &s2)
+        }
+    }
+
+    pub fn compareOrdinal2(s1: string, i1: i32, s2: string, i2: i32, count: i32, ignoreCase: bool) -> i32 {
+        let s1 = substring2(s1, i1, count);
+        let s2 = substring2(s2, i2, count);
+        compareOrdinal(s1, s2, ignoreCase)
+    }
+
     pub fn startsWithChar(s: string, c: char) -> bool {
         s.starts_with(c)
     }
 
-    pub fn startsWith(s: string, p: string) -> bool {
-        s.starts_with(p.as_str())
+    pub fn startsWith(s: string, p: string, ignoreCase: bool) -> bool {
+        if ignoreCase {
+            s.to_uppercase().starts_with(&p.to_uppercase())
+        } else {
+            s.starts_with(p.as_str())
+        }
     }
 
     pub fn endsWithChar(s: string, c: char) -> bool {
         s.ends_with(c)
     }
 
-    pub fn endsWith(s: string, p: string) -> bool {
-        s.ends_with(p.as_str())
+    pub fn endsWith(s: string, p: string, ignoreCase: bool) -> bool {
+        if ignoreCase {
+            s.to_uppercase().ends_with(&p.to_uppercase())
+        } else {
+            s.ends_with(p.as_str())
+        }
     }
 
     pub fn isEmpty(s: string) -> bool {
@@ -629,16 +659,16 @@ pub mod String_ {
         s.chars().all(|c| predicate(c))
     }
 
-    pub fn init(count: i32, initializer: Func1<i32, string>) -> string {
+    pub fn initialize(count: i32, initializer: Func1<i32, string>) -> string {
         let v: Vec<string> = (0..count).map(|i| initializer(i)).collect();
         fromIter(v.iter().flat_map(|s| s.chars()))
     }
 
-    pub fn iter(action: Func1<char, ()>, s: string) -> () {
+    pub fn iterate(action: Func1<char, ()>, s: string) -> () {
         s.chars().for_each(|c| action(c))
     }
 
-    pub fn iteri(action: Func2<i32, char, ()>, s: string) -> () {
+    pub fn iterateIndexed(action: Func2<i32, char, ()>, s: string) -> () {
         let mut i: i32 = -1;
         s.chars().for_each(|c| { i += 1; action(i, c) })
     }
@@ -647,7 +677,7 @@ pub mod String_ {
         fromIter(s.chars().map(|c| mapping(c)))
     }
 
-    pub fn mapi(mapping: Func2<i32, char, char>, s: string) -> string {
+    pub fn mapIndexed(mapping: Func2<i32, char, char>, s: string) -> string {
         fromIter(s.chars().enumerate().map(|(i, c)| mapping(i as i32, c)))
     }
 

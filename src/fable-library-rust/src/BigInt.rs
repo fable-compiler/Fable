@@ -1,9 +1,8 @@
 #[cfg(feature = "bigint")]
 pub mod BigInt_ {
     use crate::Decimal_::{decimal, truncate};
-    use crate::Native_::{arrayFrom, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{arrayFrom, compare, Array, Lrc, MutCell, Vec};
     use crate::String_::{string, toString as toString_1};
-    use core::cmp::Ordering;
 
     use num_bigint::*;
     use num_integer::*;
@@ -91,13 +90,7 @@ pub mod BigInt_ {
 
     // pub fn getHashCode(x: bigint) = x.GetHashCode()
     pub fn equals(x: bigint, y: bigint) -> bool { x.eq(&y) }
-    pub fn compare(x: bigint, y: bigint) -> i32 {
-        match x.cmp(&y) {
-            Ordering::Less => -1,
-            Ordering::Greater => 1,
-            Ordering::Equal => 0,
-        }
-    }
+    pub fn compareTo(x: bigint, y: bigint) -> i32 { compare(&x, &y) }
 
     pub fn abs(x: bigint) -> bigint { x.abs().into() }
     pub fn sign(x: bigint) -> i32 { x.signum().to_i32().unwrap() }

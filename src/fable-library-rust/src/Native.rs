@@ -76,8 +76,27 @@ pub mod Native_ {
         core::ptr::eq(left, right)
     }
 
-    pub fn comparer<T: Clone + 'static>(comp: Func2<T, T, i32>) -> impl Fn(&T, &T) -> Ordering {
-        move |x, y| match comp(x.clone(), y.clone()) {
+    // pub fn compare<T: Ord>(x: T, y: T) -> i32 {
+    //     match x.cmp(&y) {
+    //         Ordering::Less => -1,
+    //         Ordering::Greater => 1,
+    //         Ordering::Equal => 0,
+    //     }
+    // }
+
+    pub fn compare<T: PartialOrd>(x: T, y: T) -> i32 {
+        match x.partial_cmp(&y) {
+            Some(Ordering::Less) => -1,
+            Some(Ordering::Greater) => 1,
+            Some(Ordering::Equal) => 0,
+            None if y == y => -1, // y is not NaN
+            None if x == x => 1,  // x is not NaN
+            None => 0,
+        }
+    }
+
+    pub fn makeCompare<T: Clone + 'static>(comparer: Func2<T, T, i32>) -> impl Fn(&T, &T) -> Ordering {
+        move |x, y| match comparer(x.clone(), y.clone()) {
             i if i < 0 => Ordering::Less,
             i if i > 0 => Ordering::Greater,
             _ => Ordering::Equal,
