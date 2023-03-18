@@ -4,6 +4,7 @@ pub mod DateTime_ {
 
     use crate::{
         DateTimeOffset_::DateTimeOffset,
+        Native_::compare,
         String_::{string, fromString},
         TimeSpan_::{TimeSpan, ticks_per_second},
     };
@@ -44,13 +45,7 @@ pub mod DateTime_ {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             let x = self.to_universal_time().get_timestamp();
             let y = other.to_universal_time().get_timestamp();
-            if x > y {
-                Some(core::cmp::Ordering::Greater)
-            } else if x < y {
-                Some(core::cmp::Ordering::Less)
-            } else {
-                Some(core::cmp::Ordering::Equal)
-            }
+            x.partial_cmp(&y)
         }
     }
 
@@ -140,16 +135,8 @@ pub mod DateTime_ {
         DateTime(LocalUtcWrap::CUtc(Utc.timestamp_millis_opt(0).unwrap()))
     }
 
-    pub fn compare(x: DateTime, y: DateTime) -> i32 {
-        if x > y {
-            1i32
-        } else {
-            if x < y {
-                -1i32
-            } else {
-                0i32
-            }
-        }
+    pub fn compareTo(x: DateTime, y: DateTime) -> i32 {
+        compare(&x, &y)
     }
 
     pub fn from_date_time_offset(dto: DateTimeOffset, kind: i32) -> DateTime {

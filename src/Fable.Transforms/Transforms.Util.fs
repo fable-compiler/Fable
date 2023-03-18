@@ -405,7 +405,7 @@ module AST =
         | _ -> None
 
     let (|NumberConst|_|) = function
-        | MaybeCasted(Value(NumberConstant(value, kind, _), _)) -> Some(value, kind)
+        | MaybeCasted(Value(NumberConstant(value, kind, info), _)) -> Some(value, kind, info)
         | _ -> None
 
     let (|NullConst|_|) = function

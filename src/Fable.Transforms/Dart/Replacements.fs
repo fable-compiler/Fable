@@ -1564,7 +1564,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "IsInfinity", [_] when isFloat ->
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,
-            str::NumberConst(:? int as style,_)::_ ->
+            str::NumberConst(:? int as style,_,_)::_ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
         if style <> hexConst && style <> intConst then

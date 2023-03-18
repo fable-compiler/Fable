@@ -233,6 +233,9 @@ type TestType3() =
 // [<Struct>]
 // type StructUnion = Value of string
 
+[<Struct>]
+type SimpleRecord = { A: string; B: string }
+
 // type Point2D =
 //    struct
 //       val X: float
@@ -868,8 +871,16 @@ let ``Type testing with primitive types works`` () =
 //     (compare t1 t2) |> equal 1
 //     t2.X <- 10
 //     t1 |> equal t2
-
 //     (compare t1 t2) |> equal 0
+
+[<Fact>]
+let ``copying struct records works`` () = // See #3371
+    let simple : SimpleRecord = { A = ""; B = "B" }
+    let simpleRecord = { simple with A = "A" }
+    simpleRecord.A |> equal "A"
+    simpleRecord.B |> equal "B"
+    simple.A |> equal ""
+    simple.B |> equal "B"
 
 // [<Fact>]
 // let ``Custom F# exceptions work`` () =

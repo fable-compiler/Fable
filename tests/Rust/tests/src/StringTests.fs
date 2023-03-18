@@ -2,7 +2,7 @@ module Fable.Tests.StringTests
 
 open Util.Testing
 open System
-// open System.Globalization
+open System.Globalization
 
 // module M =
 //     let f x = nameof x
@@ -104,11 +104,17 @@ let ``StringBuilder.Append works with various overloads`` () =
     let actual = sb.ToString().Replace(",", ".").ToLower()
     actual |> equal "aaabcd/true5.234"
 
-// [<Fact>]
-// let ``StringBuilder.AppendFormat works`` () =
-//     let sb = Text.StringBuilder()
-//     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
-//     sb.ToString() |> equal "Hello World!"
+[<Fact>]
+let ``StringBuilder.AppendFormat works`` () =
+    let sb = Text.StringBuilder()
+    sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
+    sb.ToString() |> equal "Hello World!"
+
+[<Fact>]
+let ``StringBuilder.AppendFormat with provider works`` () =
+    let sb = Text.StringBuilder()
+    sb.AppendFormat(CultureInfo.InvariantCulture, "Hello{0}World{1}", " ", "!") |> ignore
+    sb.ToString() |> equal "Hello World!"
 
 [<Fact>]
 let ``kprintf works`` () =
@@ -398,9 +404,6 @@ let ``sprintf with double % should be unescaped`` () =
 
 [<Fact>]
 let ``sprintf \"%X\" works`` () =
-    //These should all be the Native JS Versions (except int64 / uint64)
-    //See #1530 for more information.
-
     sprintf "255: %X" 255 |> equal "255: FF"
     sprintf "255: %x" 255 |> equal "255: ff"
     sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
@@ -432,20 +435,20 @@ let ``sprintf integers with sign and padding works`` () = // See #1931
 //     String.Format(CultureInfo.InvariantCulture, "{0:000.00}foo", 5) |> equal "005.00foo"
 //     String.Format(CultureInfo.InvariantCulture, "{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
 
-// [<Fact>]
-// let ``String.Format {0:x} works`` () =
-//     //See above comment on expected values
-//     String.Format(CultureInfo.InvariantCulture, "255: {0:X}", 255) |> equal "255: FF"
-//     String.Format(CultureInfo.InvariantCulture, "255: {0:x}", 255) |> equal "255: ff"
-//     String.Format(CultureInfo.InvariantCulture, "-255: {0:X}", -255) |> equal "-255: FFFFFF01"
-//     String.Format(CultureInfo.InvariantCulture, "4095L: {0:X}", 4095L) |> equal "4095L: FFF"
-//     String.Format(CultureInfo.InvariantCulture, "-4095L: {0:X}", -4095L) |> equal "-4095L: FFFFFFFFFFFFF001"
-//     String.Format(CultureInfo.InvariantCulture, "1 <<< 31: {0:x}", (1 <<< 31)) |> equal "1 <<< 31: 80000000"
-//     String.Format(CultureInfo.InvariantCulture, "1u <<< 31: {0:x}", (1u <<< 31)) |> equal "1u <<< 31: 80000000"
-//     String.Format(CultureInfo.InvariantCulture, "2147483649L: {0:x}", 2147483649L) |> equal "2147483649L: 80000001"
-//     String.Format(CultureInfo.InvariantCulture, "2147483650uL: {0:x}", 2147483650uL) |> equal "2147483650uL: 80000002"
-//     String.Format(CultureInfo.InvariantCulture, "1L <<< 63: {0:x}", (1L <<< 63)) |> equal "1L <<< 63: 8000000000000000"
-//     String.Format(CultureInfo.InvariantCulture, "1uL <<< 63: {0:x}", (1uL <<< 63)) |> equal "1uL <<< 63: 8000000000000000"
+[<Fact>]
+let ``String.Format {0:x} works`` () =
+    //See above comment on expected values
+    String.Format(CultureInfo.InvariantCulture, "255: {0:X}", 255) |> equal "255: FF"
+    String.Format(CultureInfo.InvariantCulture, "255: {0:x}", 255) |> equal "255: ff"
+    String.Format(CultureInfo.InvariantCulture, "-255: {0:X}", -255) |> equal "-255: FFFFFF01"
+    String.Format(CultureInfo.InvariantCulture, "4095L: {0:X}", 4095L) |> equal "4095L: FFF"
+    String.Format(CultureInfo.InvariantCulture, "-4095L: {0:X}", -4095L) |> equal "-4095L: FFFFFFFFFFFFF001"
+    String.Format(CultureInfo.InvariantCulture, "1 <<< 31: {0:x}", (1 <<< 31)) |> equal "1 <<< 31: 80000000"
+    String.Format(CultureInfo.InvariantCulture, "1u <<< 31: {0:x}", (1u <<< 31)) |> equal "1u <<< 31: 80000000"
+    String.Format(CultureInfo.InvariantCulture, "2147483649L: {0:x}", 2147483649L) |> equal "2147483649L: 80000001"
+    String.Format(CultureInfo.InvariantCulture, "2147483650uL: {0:x}", 2147483650uL) |> equal "2147483650uL: 80000002"
+    String.Format(CultureInfo.InvariantCulture, "1L <<< 63: {0:x}", (1L <<< 63)) |> equal "1L <<< 63: 8000000000000000"
+    String.Format(CultureInfo.InvariantCulture, "1uL <<< 63: {0:x}", (1uL <<< 63)) |> equal "1uL <<< 63: 8000000000000000"
 
 // [<Fact>]
 // let ``String.Format {0:x} with precision works`` () =
@@ -540,11 +543,11 @@ let ``String.Format works`` () =
     String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
     |> equal "Babel is to Fable what Fable is to F#"
 
-// [<Fact>]
-// let ``String.Format works II`` () =
-//     let arg1, arg2, arg3 = "F#", "Fable", "Babel"
-//     String.Format(CultureInfo.InvariantCulture, "{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
-//     |> equal "Babel is to Fable what Fable is to F#"
+[<Fact>]
+let ``String.Format works II`` () =
+    let arg1, arg2, arg3 = "F#", "Fable", "Babel"
+    String.Format(CultureInfo.InvariantCulture, "{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
+    |> equal "Babel is to Fable what Fable is to F#"
 
 // [<Fact>]
 // let ``String.Format with extra formatting works`` () =
@@ -554,21 +557,37 @@ let ``String.Format works`` () =
 //         .Replace(",", ".").Replace(" %", "%")
 //     |> equal "0.55 54.67% 2014-09-26 00:19"
 
-// [<Fact>]
-// let ``Padding with sprintf works`` () =
-//     sprintf "%10.1f" 3.14  |> equal "     3.1"
-//     sprintf "%-10.1f" 3.14 |> equal "3.1     "
-//     sprintf "%+010i" 22    |> equal "+000000022"
-//     sprintf "%+0-10i" -22  |> equal "-22     "
+[<Fact>]
+let ``Padding with sprintf works`` () =
+    sprintf "%10.1f" 3.14   |> equal "       3.1"
+    sprintf "%10.1f" -3.14  |> equal "      -3.1"
+    sprintf "%-10.1f" 3.14  |> equal "3.1       "
+    sprintf "%-10.1f" -3.14 |> equal "-3.1      "
+    sprintf "%10i" 22       |> equal "        22"
+    sprintf "%10i" -22      |> equal "       -22"
+    sprintf "%-10i" 22      |> equal "22        "
+    sprintf "%-10i" -22     |> equal "-22       "
+    sprintf "%010i" 22      |> equal "0000000022"
+    sprintf "%010i" -22     |> equal "-000000022"
+    sprintf "%0-10i" 22     |> equal "22        "
+    sprintf "%0-10i" -22    |> equal "-22       "
+    sprintf "%+10i" 22      |> equal "       +22"
+    sprintf "%+10i" -22     |> equal "       -22"
+    sprintf "%+-10i" 22     |> equal "+22       "
+    sprintf "%+-10i" -22    |> equal "-22       "
+    sprintf "%+010i" 22     |> equal "+000000022"
+    sprintf "%+010i" -22    |> equal "-000000022"
+    sprintf "%+0-10i" 22    |> equal "+22       "
+    sprintf "%+0-10i" -22   |> equal "-22       "
 
 // [<Fact>]
 // let ``Padding with String.Format works`` () =
-//     String.Format(CultureInfo.InvariantCulture, "{0,10:F1}", 3.14)  |> equal "     3.1"
-//     String.Format(CultureInfo.InvariantCulture, "{0,-10:F1}", 3.14) |> equal "3.1     "
-//     String.Format(CultureInfo.InvariantCulture, "{0,10}", 22)     |> equal "      22"
-//     String.Format(CultureInfo.InvariantCulture, "{0,-10}", -22)     |> equal "-22     "
+//     String.Format(CultureInfo.InvariantCulture, "{0,10:F1}", 3.14)  |> equal "       3.1"
+//     String.Format(CultureInfo.InvariantCulture, "{0,-10:F1}", 3.14) |> equal "3.1       "
+//     String.Format(CultureInfo.InvariantCulture, "{0,10}", 22)       |> equal "        22"
+//     String.Format(CultureInfo.InvariantCulture, "{0,-10}", -22)     |> equal "-22       "
 
-// // Conversions
+// Conversions
 
 [<Fact>]
 let ``Conversion char to int works`` () =
@@ -580,89 +599,89 @@ let ``Conversion string to char works`` () =
     equal 'a' (char "a")
     equal "a" (string 'a')
 
-// [<Fact>]
-// let ``Conversion string to negative int8 works`` () =
-//     equal -5y (int8 "-5")
-//     equal "-5" (string -5y)
+[<Fact>]
+let ``Conversion string to negative int8 works`` () =
+    equal -5y (int8 "-5")
+    equal "-5" (string -5y)
 
-// [<Fact>]
-// let ``Conversion string to negative int16 works`` () =
-//     equal -5s (int16 "-5")
-//     equal "-5" (string -5s)
+[<Fact>]
+let ``Conversion string to negative int16 works`` () =
+    equal -5s (int16 "-5")
+    equal "-5" (string -5s)
 
-// [<Fact>]
-// let ``Conversion string to negative int32 works`` () =
-//     equal -5 (int32 "-5")
-//     equal "-5" (string -5)
+[<Fact>]
+let ``Conversion string to negative int32 works`` () =
+    equal -5 (int32 "-5")
+    equal "-5" (string -5)
 
-// [<Fact>]
-// let ``Conversion string to negative int64 works`` () =
-//     equal -5L (int64 "-5")
-//     equal "-5" (string -5L)
+[<Fact>]
+let ``Conversion string to negative int64 works`` () =
+    equal -5L (int64 "-5")
+    equal "-5" (string -5L)
 
-// [<Fact>]
-// let ``Conversion string to int8 works`` () =
-//     equal 5y (int8 "5")
-//     equal "5" (string 5y)
+[<Fact>]
+let ``Conversion string to int8 works`` () =
+    equal 5y (int8 "5")
+    equal "5" (string 5y)
 
-// [<Fact>]
-// let ``Conversion string to int16 works`` () =
-//     equal 5s (int16 "5")
-//     equal "5" (string 5s)
+[<Fact>]
+let ``Conversion string to int16 works`` () =
+    equal 5s (int16 "5")
+    equal "5" (string 5s)
 
-// [<Fact>]
-// let ``Conversion string to int32 works`` () =
-//     equal 5 (int32 "5")
-//     equal "5" (string 5)
+[<Fact>]
+let ``Conversion string to int32 works`` () =
+    equal 5 (int32 "5")
+    equal "5" (string 5)
 
-// [<Fact>]
-// let ``Conversion string to int64 works`` () =
-//     equal 5L (int64 "5")
-//     equal "5" (string 5L)
+[<Fact>]
+let ``Conversion string to int64 works`` () =
+    equal 5L (int64 "5")
+    equal "5" (string 5L)
 
-// [<Fact>]
-// let ``Conversion string to uint8 works`` () =
-//     equal 5uy (uint8 "5")
-//     equal "5" (string 5uy)
+[<Fact>]
+let ``Conversion string to uint8 works`` () =
+    equal 5uy (uint8 "5")
+    equal "5" (string 5uy)
 
-// [<Fact>]
-// let ``Conversion string to uint16 works`` () =
-//     equal 5us (uint16 "5")
-//     equal "5" (string 5us)
+[<Fact>]
+let ``Conversion string to uint16 works`` () =
+    equal 5us (uint16 "5")
+    equal "5" (string 5us)
 
-// [<Fact>]
-// let ``Conversion string to uint32 works`` () =
-//     equal 5u (uint32 "5")
-//     equal "5" (string 5u)
+[<Fact>]
+let ``Conversion string to uint32 works`` () =
+    equal 5u (uint32 "5")
+    equal "5" (string 5u)
 
-// [<Fact>]
-// let ``Conversion string to uint64 works`` () =
-//     equal 5uL (uint64 "5")
-//     equal "5" (string 5uL)
+[<Fact>]
+let ``Conversion string to uint64 works`` () =
+    equal 5uL (uint64 "5")
+    equal "5" (string 5uL)
 
-// [<Fact>]
-// let ``Conversion string to single works`` () =
-//     equal 5.f (float32 "5.0")
-//     equal -5.f (float32 "-5.0")
-//     (string 5.f).StartsWith("5") |> equal true
-//     equal 5.25f (float32 "5.25")
-//     (string 5.25f).StartsWith("5.25") |> equal true
+[<Fact>]
+let ``Conversion string to single works`` () =
+    equal 5.f (float32 "5.0")
+    equal -5.f (float32 "-5.0")
+    (string 5.f).StartsWith("5") |> equal true
+    equal 5.25f (float32 "5.25")
+    (string 5.25f).StartsWith("5.25") |> equal true
 
-// [<Fact>]
-// let ``Conversion string to double works`` () =
-//     equal 5. (float "5.0")
-//     equal -5. (float "-5.0")
-//     (string 5.).StartsWith("5") |> equal true
-//     equal 5.25 (float "5.25")
-//     (string 5.25).StartsWith("5.25") |> equal true
+[<Fact>]
+let ``Conversion string to double works`` () =
+    equal 5. (float "5.0")
+    equal -5. (float "-5.0")
+    (string 5.).StartsWith("5") |> equal true
+    equal 5.25 (float "5.25")
+    (string 5.25).StartsWith("5.25") |> equal true
 
-// [<Fact>]
-// let ``Conversion string to decimal works`` () =
-//     equal 5.m (decimal "5.0")
-//     equal -5.m (decimal "-5.0")
-//     (string 5.m).StartsWith("5") |> equal true
-//     equal 5.25m (decimal "5.25")
-//     (string 5.25m).StartsWith("5.25") |> equal true
+[<Fact>]
+let ``Conversion string to decimal works`` () =
+    equal 5.m (decimal "5.0")
+    equal -5.m (decimal "-5.0")
+    (string 5.m).StartsWith("5") |> equal true
+    equal 5.25m (decimal "5.25")
+    (string 5.25m).StartsWith("5.25") |> equal true
 
 // String - constructors
 
@@ -692,12 +711,12 @@ let ``String.Equals works`` () =
     "ABC".Equals("abc") |> equal false
     "abc".Equals("abd") |> equal false
 
-// [<Fact>]
-// let ``String.Equals with comparison works`` () =
-//     String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
-//     String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
-//     "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
-//     "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
+[<Fact>]
+let ``String.Equals with comparison works`` () =
+    String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
+    String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
+    "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
+    "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
 
 [<Fact>]
 let ``String.CompareOrdinal works`` () =
@@ -706,47 +725,49 @@ let ``String.CompareOrdinal works`` () =
     String.CompareOrdinal("abc", "abd") < 0 |> equal true
     String.CompareOrdinal("bbc", "abd") > 0 |> equal true
 
-// [<Fact>]
-// let ``String.CompareOrdinal substring works`` () =
-//     String.CompareOrdinal("abc", 0, "bcd", 0, 3) < 0 |> equal true
-//     String.CompareOrdinal("abc", 1, "bcd", 0, 2) = 0 |> equal true
+[<Fact>]
+let ``String.CompareOrdinal substring works`` () =
+    String.CompareOrdinal("abc", 0, "bcd", 0, 3) < 0 |> equal true
+    String.CompareOrdinal("abc", 1, "bcd", 0, 2) = 0 |> equal true
+    String.CompareOrdinal("bbc", 0, "bcd", 0, 2) < 0 |> equal true
 
-// [<Fact>]
-// let ``String.CompareTo works`` () =
-//     "abc".CompareTo("abc") = 0 |> equal true
-//     "ABC".CompareTo("abc") > 0 |> equal true
-//     "abc".CompareTo("abd") < 0 |> equal true
+[<Fact>]
+let ``String.CompareTo works`` () =
+    // "ABC".CompareTo("abc") > 0 |> equal true // TODO: culture
+    "abc".CompareTo("abc") = 0 |> equal true
+    "abc".CompareTo("abd") < 0 |> equal true
+    "bbc".CompareTo("abd") > 0 |> equal true
 
-// [<Fact>]
-// let ``String.Compare works`` () =
-//     String.Compare("abc", "abc") |> equal 0
-//     String.Compare("ABC", "abc") |> equal 1
-//     String.Compare("abc", "abd") |> equal -1
-//     String.Compare("bbc", "abd") |> equal 1
+[<Fact>]
+let ``String.Compare works`` () =
+    // String.Compare("ABC", "abc") |> equal 1 // TODO: culture
+    String.Compare("abc", "abc") |> equal 0
+    String.Compare("abc", "abd") |> equal -1
+    String.Compare("bbc", "abd") |> equal 1
 
-// [<Fact>]
-// let ``String.Compare case-insensitive works`` () =
-//     String.Compare("ABC", "abc", false) |> equal 1
-//     String.Compare("ABC", "abc", true) |> equal 0
-//     String.Compare("ABC", "abd", true) |> equal -1
-//     String.Compare("BBC", "abd", true) |> equal 1
+[<Fact>]
+let ``String.Compare case-insensitive works`` () =
+    // String.Compare("ABC", "abc", false) |> equal 1 // TODO: culture
+    String.Compare("ABC", "abc", true) |> equal 0
+    String.Compare("ABC", "abd", true) |> equal -1
+    String.Compare("BBC", "abd", true) |> equal 1
 
-// [<Fact>]
-// let ``String.Compare substring works`` () =
-//     String.Compare("abc", 0, "bcd", 0, 3) |> equal -1
-//     String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
+[<Fact>]
+let ``String.Compare substring works`` () =
+    String.Compare("abc", 0, "bcd", 0, 3) |> equal -1
+    String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
 
-// [<Fact>]
-// let ``String.Compare with comparison works`` () =
-//     String.Compare("ABC", "abc", StringComparison.CurrentCulture) > 0 |> equal true
-//     String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
-//     String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
+[<Fact>]
+let ``String.Compare with comparison works`` () =
+    // String.Compare("ABC", "abc", StringComparison.InvariantCulture) > 0 |> equal true
+    String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
+    String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
 
-// [<Fact>]
-// let ``String.Compare substring with comparison works`` () =
-//     String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.CurrentCulture) > 0 |> equal true
-//     String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
-//     String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.OrdinalIgnoreCase) |> equal 0
+[<Fact>]
+let ``String.Compare substring with comparison works`` () =
+    // String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.InvariantCulture) > 0 |> equal true
+    String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
+    String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.OrdinalIgnoreCase) |> equal 0
 
 [<Fact>]
 let ``String.IsNullOrEmpty works`` () =
@@ -986,12 +1007,12 @@ let ``String.StartsWith char works`` () =
     "abcd".StartsWith('a') |> equal true
     "abcd".StartsWith('d') |> equal false
 
-// [<Fact>]
-// let ``String.StartsWith with StringComparison works`` () =
-//     let args = [("ab", true); ("cd", false); ("abcdx", false)]
-//     for arg in args do
-//         "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-//         |> equal (snd arg)
+[<Fact>]
+let ``String.StartsWith with StringComparison works`` () =
+    let args = [("ab", true); ("cd", false); ("abcdx", false)]
+    for arg in args do
+        "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+        |> equal (snd arg)
 
 [<Fact>]
 let ``String.EndsWith works`` () =
@@ -1004,12 +1025,12 @@ let ``String.EndsWith char works`` () =
     "abcd".EndsWith('a') |> equal false
     "abcd".EndsWith('d') |> equal true
 
-// [<Fact>]
-// let ``String.EndsWith with StringComparison works`` () =
-//     let args = [("ab", false); ("cd", true); ("abcdx", false)]
-//     for arg in args do
-//         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-//         |> equal (snd arg)
+[<Fact>]
+let ``String.EndsWith with StringComparison works`` () =
+    let args = [("ab", false); ("cd", true); ("abcdx", false)]
+    for arg in args do
+        "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+        |> equal (snd arg)
 
 [<Fact>]
 let ``String.Trim works`` () =

@@ -542,7 +542,7 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
 
 let (|RegexFlags|_|) e =
     let rec getFlags = function
-        | NumberConst(:? int as value, _) ->
+        | NumberConst(:? int as value, _, _) ->
             match value with
             | 1 -> Some [RegexIgnoreCase]
             | 2 -> Some [RegexMultiline]
