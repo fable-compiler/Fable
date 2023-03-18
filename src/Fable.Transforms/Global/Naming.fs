@@ -48,7 +48,6 @@ module Naming =
         || (index > 0 && 48 <= code && code <= 57) // 0-9
         || match Compiler.Language with
             | Dart -> false
-            | Rust -> false
             | _ -> Char.IsLetter c
 
     let hasIdentForbiddenChars (ident: string) =
