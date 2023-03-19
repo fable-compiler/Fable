@@ -692,7 +692,7 @@ module Annotation =
         | Fable.String -> Expr.ident "string", []
         | Fable.Number (kind, info) -> makeNumberTypeAnnotation com ctx kind info
         | Fable.LambdaType (argType, returnType) ->
-            let argTypes, returnType = FableTransforms.uncurryLambdaType [ argType ] returnType
+            let argTypes, returnType = AST.uncurryLambdaType System.Int32.MaxValue [ argType ] returnType
             //let resolved, stmts = resolveGenerics com ctx genArgs None
             let returnType, stmts' = typeAnnotation com ctx returnType
             let argTypes, stmts'' = resolveGenerics com ctx argTypes
