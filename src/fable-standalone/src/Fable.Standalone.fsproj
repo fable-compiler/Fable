@@ -25,6 +25,8 @@
     <Compile Include="../../Fable.Transforms/Python/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Go/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Global/Compiler.fs" />
+    <Compile Include="../../Fable.Transforms/Global/Naming.fs" />
+    <Compile Include="../../Fable.Transforms/Python/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/MonadicTrampoline.fs" />
     <Compile Include="../../Fable.Transforms/Transforms.Util.fs" />
     <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />

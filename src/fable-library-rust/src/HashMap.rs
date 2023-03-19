@@ -4,12 +4,12 @@ pub mod HashMap_ {
     // HashMaps
     // -----------------------------------------------------------
 
-    #[cfg(not(feature = "no_std"))]
-    use std::collections;
     #[cfg(feature = "no_std")]
     use hashbrown as collections;
+    #[cfg(not(feature = "no_std"))]
+    use std::collections;
 
-    use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, LrcPtr, MutCell, Vec};
     type MutHashMap<K, V> = MutCell<collections::HashMap<K, V>>;
 
     use core::fmt::{Debug, Display, Formatter, Result};
@@ -20,9 +20,9 @@ pub mod HashMap_ {
     pub struct HashMap<K: Clone, V: Clone>(Lrc<MutHashMap<K, V>>);
 
     impl<K: Clone, V: Clone> core::ops::Deref for HashMap<K, V> {
-        type Target = MutHashMap<K, V>;
+        type Target = Lrc<MutHashMap<K, V>>;
         fn deref(&self) -> &Self::Target {
-            &self.0.as_ref()
+            &self.0
         }
     }
 
@@ -37,19 +37,17 @@ pub mod HashMap_ {
     }
 
     pub fn withCapacity<K: Clone, V: Clone>(capacity: i32) -> HashMap<K, V> {
-        HashMap(mkRefMut(collections::HashMap::with_capacity(capacity as usize)))
+        HashMap(mkRefMut(collections::HashMap::with_capacity(
+            capacity as usize,
+        )))
     }
 
-    pub fn fromArray<K: Eq + Hash + Clone, V: Clone>(a: Array<Lrc<(K, V)>>) -> HashMap<K, V> {
+    pub fn fromArray<K: Eq + Hash + Clone, V: Clone>(a: Array<LrcPtr<(K, V)>>) -> HashMap<K, V> {
         let it = a.iter().map(|pair| pair.as_ref().clone());
         HashMap(mkRefMut(collections::HashMap::from_iter(it)))
     }
 
-    pub fn tryAdd<K: Eq + Hash + Clone, V: Clone>(
-        dict: HashMap<K, V>,
-        k: K,
-        v: V,
-    ) -> bool {
+    pub fn tryAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K, v: V) -> bool {
         // dict.get_mut().try_insert(k.clone(), v.clone()).is_ok() // nightly only
         if dict.get_mut().contains_key(&k) {
             false
@@ -107,5 +105,4 @@ pub mod HashMap_ {
             dict.iter().map(|(k, v)| (k.clone(), v.clone())),
         ))
     }
-
 }

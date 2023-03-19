@@ -65,7 +65,7 @@ let tail (xs: 'T list) = //xs.Tail
     | None -> invalidArg "list" SR.inputListWasEmpty
 
 let length (xs: 'T list) = //xs.Length
-    let rec inner_loop i xs =
+    let rec inner_loop i (xs: 'T list) =
         match getRoot xs with
         | None -> i
         | Some node -> inner_loop (i + 1) node.tail

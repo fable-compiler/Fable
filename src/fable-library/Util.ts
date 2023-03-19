@@ -1,5 +1,55 @@
 // tslint:disable:ban-types
 
+export type Nullable<T> = T | undefined;
+
+export type Option<T> = T | Some<T> | undefined;
+
+// Using a class here for better compatibility with TS files importing Some
+export class Some<T> {
+  public value: T;
+
+  constructor(value: T) {
+    this.value = value;
+  }
+
+  public toJSON() {
+    return this.value;
+  }
+
+  // Don't add "Some" for consistency with erased options
+  public toString() {
+    return String(this.value);
+  }
+
+  public GetHashCode() {
+    return structuralHash(this.value);
+  }
+
+  public Equals(other: Option<T>): boolean {
+    if (other == null) {
+      return false;
+    } else {
+      return equals(this.value, other instanceof Some ? other.value : other);
+    }
+  }
+
+  public CompareTo(other: Option<T>) {
+    if (other == null) {
+      return 1;
+    } else {
+      return compare(this.value, other instanceof Some ? other.value : other);
+    }
+  }
+}
+
+export function value<T>(x: Option<T>) {
+  if (x == null) {
+    throw new Error("Option has no value");
+  } else {
+    return x instanceof Some ? x.value : x;
+  }
+}
+
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,
@@ -636,19 +686,23 @@ export function clear<T>(col: Iterable<T>) {
 
 const CURRIED = Symbol("curried");
 
-export function uncurry(arity: number, f: Function) {
+export function uncurry(arity: number, f: Option<Function>): any {
   // f may be a function option with None value
-  if (f == null || f.length > 1) {
+  if (f == null) {
     return f;
   }
+  const f2 = value(f);
+  if (f2.length > 1) {
+    return f2;
+  }
   const uncurried = (...args: any[]) => {
-    let res = f;
+    let res = f2;
     for (let i = 0; i < arity; i++) {
       res = res(args[i]);
     }
     return res;
   }
-  (uncurried as any)[CURRIED] = f;
+  (uncurried as any)[CURRIED] = f2;
   return uncurried;
 }
 
@@ -660,14 +714,18 @@ function _curry(args: any[],  arity: number, f: Function): (x: any) => any {
     : _curry(args.concat([arg]), arity - 1, f);
 }
 
-export function curry(arity: number, f: Function): Function | undefined {
-  if (f == null || f.length === 1) {
+export function curry(arity: number, f: Option<Function>): any {
+  if (f == null) {
     return f;
   }
-  else if (CURRIED in f) {
-    return (f as any)[CURRIED];
+  const f2 = value(f);
+  if (f2.length === 1) {
+    return f2;
+  }
+  else if (CURRIED in f2) {
+    return (f2 as any)[CURRIED];
   } else {
-    return _curry([], arity, f);
+    return _curry([], arity, f2);
   }
 }
 

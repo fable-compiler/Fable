@@ -1072,7 +1072,7 @@ let tests7 = [
     testCase "Applying to a function returned by a member works" <| fun () ->
         equal (1,5) baz
         equal (1,5) baz2
-
+#if FABLE_COMPILER
     testCase "Applying to a function returned by a local function works" <| fun () ->
         let foo a b c d = a , b + c d
         let bar a = foo 1 a
@@ -1354,7 +1354,7 @@ let tests7 = [
                             | Some f -> f true 1
                             | None -> "nothing"
         test |> equal "fly"
-
+#endif
     testCase "Option uncurrying #2116" <| fun _ ->
         let optionFn = Some (fun x y -> x + y)
 

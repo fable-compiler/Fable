@@ -602,7 +602,7 @@ let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
     res |> asArray
 
 let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'State): 'T[] =
-    let rec inner_loop generator state (res: ResizeArray<'T>) =
+    let rec inner_loop generator (state: 'State) (res: ResizeArray<'T>) =
         match generator state with
         | None -> ()
         | Some (x, s) ->

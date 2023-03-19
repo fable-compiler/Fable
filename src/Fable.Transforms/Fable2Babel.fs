@@ -12,10 +12,6 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
-type ArgsInfo =
-    | CallInfo of Fable.CallInfo * Fable.MemberFunctionOrValue option
-    | NoCallInfo of args: Fable.Expr list
-
 type Import =
   { Selector: string
     LocalIdent: string option
@@ -38,8 +34,13 @@ type Context =
     HoistVars: Fable.Ident list -> bool
     TailCallOpportunity: ITailCallOpportunity option
     OptimizeTailCall: unit -> unit
-    IsParamType: bool
     ScopedTypeParams: Set<string> }
+
+type ModuleDecl(name, ?isPublic, ?isMutable, ?typ) =
+    member _.Name: string = name
+    member _.IsPublic = defaultArg isPublic false
+    member _.IsMutable = defaultArg isMutable false
+    member _.Type = defaultArg typ Fable.Any
 
 type IBabelCompiler =
     inherit Compiler
@@ -48,15 +49,15 @@ type IBabelCompiler =
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
     abstract TransformImport: Context * selector:string * path:string -> Expression
-    abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
+    abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Parameter array) * BlockStatement
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 module Lib =
 
     let libCall (com: IBabelCompiler) ctx r moduleName memberName genArgs args =
-        let typeParamInst = Annotation.makeTypeParamInstantiationIfTypeScript com ctx genArgs
+        let typeArguments = Annotation.makeTypeParamInstantiationIfTypeScript com ctx genArgs
         let callee = com.TransformImport(ctx, memberName, getLibPath com moduleName)
-        Expression.callExpression(callee, List.toArray args, ?typeParameters=typeParamInst, ?loc=r)
+        Expression.callExpression(callee, List.toArray args, ?typeArguments=typeArguments, ?loc=r)
 
     let libValue (com: IBabelCompiler) ctx moduleName memberName =
         com.TransformImport(ctx, memberName, getLibPath com moduleName)
@@ -374,15 +375,21 @@ module Annotation =
         | Fable.Any -> true
         | _ -> false
 
-    let makeTypeParamDecl (_com: IBabelCompiler) (ctx: Context) genArgs =
-        if ctx.IsParamType then [||]
-        else
-            // TODO: Keep inheritance constraint
-            // Maybe there's a way to represent measurements in TypeScript
-            genArgs |> List.chooseToArray (function
-                | Fable.GenericParam(name, isMeasure, _constraints) when not isMeasure ->
-                    TypeParameter.typeParameter(name) |> Some
-                | _ -> None)
+    let makeTypeParamDecl (com: IBabelCompiler) (ctx: Context) genArgs =
+        // Maybe there's a way to represent measurements in TypeScript
+        genArgs |> List.chooseToArray (function
+            | Fable.GenericParam(name, isMeasure, constraints) when not isMeasure ->
+                // TODO: Other constraints? comparison, nullable
+                let bound =
+                    constraints |> List.choose (function
+                        | Fable.Constraint.CoercesTo t -> makeTypeAnnotation com ctx t |> Some
+                        | _ -> None)
+                    |> function
+                        | [] -> None
+                        | [t] -> Some t
+                        | ts -> ts |> List.toArray |> IntersectionTypeAnnotation |> Some
+                TypeParameter.typeParameter(name, ?bound=bound) |> Some
+            | _ -> None)
 
     let makeTypeParamInstantiation (com: IBabelCompiler) ctx genArgs =
         genArgs |> List.chooseToArray (function
@@ -399,7 +406,7 @@ module Annotation =
 
     let getGenericTypeAnnotation com ctx name genArgs =
         let typeParamInst = makeTypeParamInstantiation com ctx genArgs
-        TypeAnnotation.aliasTypeAnnotation(Identifier.identifier(name), typeParameters=typeParamInst)
+        TypeAnnotation.aliasTypeAnnotation(Identifier.identifier(name), typeArguments=typeParamInst)
 
     let makeTypeAnnotation com ctx typ: TypeAnnotation =
         match typ with
@@ -410,7 +417,7 @@ module Annotation =
         | Fable.Boolean -> BooleanTypeAnnotation
         | Fable.Char -> StringTypeAnnotation
         | Fable.String -> StringTypeAnnotation
-        | Fable.Regex -> makeSimpleTypeAnnotation com ctx "RegExp"
+        | Fable.Regex -> makeAliasTypeAnnotation com ctx "RegExp"
         | Fable.Number(Int64,_) -> makeImportTypeAnnotation com ctx [] "Long" "int64"
         | Fable.Number(UInt64,_) -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
         | Fable.Number(Decimal,_) -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
@@ -420,11 +427,9 @@ module Annotation =
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
-        | Fable.GenericParam(name=name) -> makeSimpleTypeAnnotation com ctx name
+        | Fable.GenericParam(name=name) -> makeAliasTypeAnnotation com ctx name
         | Fable.LambdaType(argType, returnType) ->
-            ([argType], returnType)
-            ||> FableTransforms.uncurryLambdaType
-            ||> makeFunctionTypeAnnotation com ctx typ
+            makeFunctionTypeAnnotation com ctx typ [argType] returnType
         | Fable.DelegateType(argTypes, returnType) ->
             makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->
@@ -436,12 +441,48 @@ module Annotation =
             let ent = com.GetEntity(entRef)
             makeEntityTypeAnnotation com ctx ent genArgs
 
-    let makeSimpleTypeAnnotation _com _ctx name =
+    let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
+        if com.Options.Language = TypeScript then
+            match typ, expr with
+            | Fable.Option _, _ -> makeTypeAnnotation com ctx typ |> Some
+            // Use type annotation for NullLiteral and enum cases
+            | _, Some(Literal(Literal.StringLiteral _))
+            | _, Some(Literal(StringTemplate _))
+            | _, Some(Literal(BooleanLiteral _))
+            | _, Some(Literal(NumericLiteral _))
+            | _, Some(Literal(RegExp _))
+            | _, Some(FunctionExpression _)
+            | _, Some(ArrowFunctionExpression _) -> None
+            | _ -> makeTypeAnnotation com ctx typ |> Some
+        else None
+
+    // Fields are uncurried in the AST but not the declaration
+    let makeFieldAnnotation (com: IBabelCompiler) ctx (fieldType: Fable.Type) =
+        FableTransforms.uncurryType fieldType |> makeTypeAnnotation com ctx
+
+    let makeFieldAnnotationIfTypeScript (com: IBabelCompiler) ctx (fieldType: Fable.Type) =
+        if com.Options.Language = TypeScript
+        then makeFieldAnnotation com ctx fieldType |> Some
+        else None
+
+    let makeTypeAnnotationWithParametersIfTypeScript (com: IBabelCompiler) ctx typ expr =
+        match makeTypeAnnotationIfTypeScript com ctx typ expr with
+        | Some(FunctionTypeAnnotation _) as annotation ->
+            let _, typeParams =
+                match typ with
+                | Fable.LambdaType(argType, returnType) -> [argType; returnType]
+                | Fable.DelegateType(argTypes, returnType) -> argTypes @ [returnType]
+                | _ -> []
+                |> Util.getTypeParameters ctx
+            annotation, makeTypeParamDecl com ctx typeParams
+        | annotation -> annotation, [||]
+
+    let makeAliasTypeAnnotation _com _ctx name =
         TypeAnnotation.aliasTypeAnnotation(Identifier.identifier(name))
 
     let makeGenericTypeAnnotation com ctx genArgs id =
         let typeParamInst = makeTypeParamInstantiation com ctx genArgs
-        TypeAnnotation.aliasTypeAnnotation(id, typeParameters=typeParamInst)
+        TypeAnnotation.aliasTypeAnnotation(id, typeArguments=typeParamInst)
 
     let makeNativeTypeAnnotation com ctx genArgs typeName =
         Identifier.identifier(typeName)
@@ -474,7 +515,7 @@ module Annotation =
     let makeArrayTypeAnnotation com ctx genArg kind =
         match genArg with
         | JS.Replacements.TypedArrayCompatible com kind name ->
-            makeSimpleTypeAnnotation com ctx name
+            makeAliasTypeAnnotation com ctx name
         | _ ->
             // makeNativeTypeAnnotation com ctx [genArg] "Array"
             makeTypeAnnotation com ctx genArg |> ArrayTypeAnnotation
@@ -490,9 +531,9 @@ module Annotation =
         match kind with
         | Replacements.Util.BclGuid -> StringTypeAnnotation
         | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
-        | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
-        | Replacements.Util.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
-        | Replacements.Util.BclDateOnly -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclDateTime -> makeAliasTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclDateTimeOffset -> makeAliasTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclDateOnly -> makeAliasTypeAnnotation com ctx "Date"
         | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
         | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
         | Replacements.Util.BclHashSet key -> makeImportTypeAnnotation com ctx [key] "Util" "ISet"
@@ -519,11 +560,8 @@ module Annotation =
                     Identifier.identifier("arg" + (string i)),
                     makeTypeAnnotation com ctx argType))
             |> List.toArray
-        let ctx = { ctx with IsParamType = true };
-        let genParams = Util.getGenericTypeParams ctx (argTypes @ [returnType])
         let returnType = makeTypeAnnotation com ctx returnType
-        let typeParamDecl = makeTypeParamDecl com ctx genParams
-        TypeAnnotation.functionTypeAnnotation(funcTypeParams, returnType, typeParameters=typeParamDecl)
+        TypeAnnotation.functionTypeAnnotation(funcTypeParams, returnType)
 
     let makeInterfaceTypeAnnotation com ctx (ent: Fable.Entity) genArgs =
         match ent.FullName with
@@ -567,7 +605,7 @@ module Annotation =
 
     let makeEntityTypeAnnotation com ctx (ent: Fable.Entity) genArgs =
         match ent.FullName, genArgs with
-        | "System.Nullable`1", [genArg] ->
+        | Types.nullable, [genArg] ->
             makeNullableTypeAnnotation com ctx genArg
         | _ ->
             if ent.IsInterface then
@@ -591,21 +629,14 @@ module Annotation =
     let makeAnonymousRecordTypeAnnotation _com _ctx _fieldNames _genArgs =
          AnyTypeAnnotation // TODO:
 
-    let typedIdentWith (com: IBabelCompiler) ctx r typ name =
-        let ta =
-            if com.Options.Language = TypeScript then
-                makeTypeAnnotation com ctx typ |> Some
-            else None
-        Identifier.identifier(name, ?typeAnnotation=ta, ?loc=r)
-
-    let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
-        typedIdentWith com ctx id.Range id.Type id.Name
-
     let transformFunctionWithAnnotations (com: IBabelCompiler) ctx name typeParams (args: Fable.Ident list) (body: Fable.Expr) =
         if com.Options.Language = TypeScript then
             let argTypes = args |> List.map (fun id -> id.Type)
-            let genParams = typeParams |> Option.defaultWith (fun () ->
-                Util.getGenericTypeParams ctx (argTypes @ [body.Type]))
+            let scopedTypeParams, genParams =
+                match typeParams with
+                | Some typeParams -> ctx.ScopedTypeParams, typeParams
+                | None -> Util.getTypeParameters ctx (argTypes @ [body.Type])
+            let ctx = { ctx with ScopedTypeParams = scopedTypeParams }
             let args', body' = com.TransformFunction(ctx, name, args, body)
             let returnType = makeTypeAnnotation com ctx body.Type
             let typeParamDecl = makeTypeParamDecl com ctx genParams
@@ -736,15 +767,6 @@ module Util =
     let identAsExpr (id: Fable.Ident) =
         Expression.identifier(id.Name, ?loc=id.Range)
 
-    let identAsPattern (id: Fable.Ident) =
-        Pattern.identifier(id.Name, ?loc=id.Range)
-
-    let typedIdentAsExpr com ctx (id: Fable.Ident) =
-        typedIdent com ctx id |> Expression.Identifier
-
-    let typedIdentAsPattern com ctx (id: Fable.Ident) =
-        Pattern.Identifier(typedIdent com ctx id, None)
-
     let thisExpr =
         Expression.thisExpression()
 
@@ -767,15 +789,15 @@ module Util =
         memberFromNameComputeStrings false memberName
 
     let get r left memberName =
-        let expr, computed = memberFromNameComputeStrings true memberName
-        Expression.memberExpression(left, expr, computed, ?loc=r)
+        let expr, isComputed = memberFromNameComputeStrings true memberName
+        Expression.memberExpression(left, expr, isComputed, ?loc=r)
 
     let getExpr r (object: Expression) (expr: Expression) =
-        let expr, computed =
+        let expr, isComputed =
             match expr with
             | Literal(Literal.StringLiteral(StringLiteral(value, _))) -> memberFromNameComputeStrings true value
             | e -> e, true
-        Expression.memberExpression(object, expr, computed, ?loc=r)
+        Expression.memberExpression(object, expr, isComputed, ?loc=r)
 
     let rec getParts (parts: string list) (expr: Expression) =
         match parts with
@@ -824,8 +846,8 @@ module Util =
 
     let makeJsObject pairs =
         pairs |> Seq.map (fun (name, value) ->
-            let prop, computed = memberFromName name
-            ObjectMember.objectProperty(prop, value, computed_=computed))
+            let prop, isComputed = memberFromName name
+            ObjectMember.objectProperty(prop, value, isComputed=isComputed))
         |> Seq.toArray
         |> Expression.objectExpression
 
@@ -838,21 +860,16 @@ module Util =
         // Use an arrow function in case we need to capture `this`
         Expression.callExpression(Expression.arrowFunctionExpression([||], body), [||])
 
-    let multiVarDeclaration kind (variables: (Identifier * Expression option) list) =
+    let multiVarDeclaration (com: IBabelCompiler) ctx kind (variables: (Fable.Ident * Expression option) seq) =
         let varDeclarators =
             // TODO: Log error if there're duplicated non-empty var declarations
             variables
-            |> List.distinctBy (fun (Identifier(name=name), _value) -> name)
-            |> List.mapToArray (fun (id, value) ->
-                VariableDeclarator(Pattern.Identifier(id, None), value))
+            |> Seq.distinctBy (fun (id, _) -> id.Name)
+            |> Seq.map (fun (id, value) ->
+                let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx id.Type value
+                VariableDeclarator.variableDeclarator(id.Name, ?annotation=ta, typeParameters=tp, ?init=value))
+            |> Seq.toArray
         Statement.variableDeclaration(kind, varDeclarators)
-
-    let varDeclaration (var: Pattern) (isMutable: bool) value =
-        let kind = if isMutable then Let else Const
-        VariableDeclaration.variableDeclaration(var, value, kind)
-
-    let restElement (var: Pattern) =
-        Pattern.restElement(var)
 
     let callSuper (args: Expression list) =
         Expression.callExpression(Super(None), List.toArray args)
@@ -860,12 +877,9 @@ module Util =
     let callSuperAsStatement (args: Expression list) =
         ExpressionStatement(callSuper args)
 
-    let makeClassConstructor args body =
-        ClassMember.classMethod(ClassPrimaryConstructor, Expression.identifier("constructor"), args, body)
-
     let callFunction com ctx r funcExpr genArgs (args: Expression list) =
         let genArgs = makeTypeParamInstantiationIfTypeScript com ctx genArgs
-        Expression.callExpression(funcExpr, List.toArray args, ?typeParameters=genArgs, ?loc=r)
+        Expression.callExpression(funcExpr, List.toArray args, ?typeArguments=genArgs, ?loc=r)
 
     let callFunctionWithThisContext r funcExpr (args: Expression list) =
         let args = thisExpr::args |> List.toArray
@@ -878,26 +892,27 @@ module Util =
 //        Undefined(?loc=range) :> Expression
         UnaryExpression(Expression.numericLiteral(0.), "void", range)
 
-    // TODO: See Fable2Dart for alternative gen param resolution
-    let getGenericTypeParams (ctx: Context) (types: Fable.Type list) =
+    let getTypeParameters (ctx: Context) (types: Fable.Type list) =
         let rec getGenParams = function
             | Fable.GenericParam (_, false, _) as p -> [p]
             | t -> t.Generics |> List.collect getGenParams
-        let mutable dedupSet = ctx.ScopedTypeParams
-        types
-        |> List.collect getGenParams
-        |> List.filter (function
-            | Fable.GenericParam(name=name) ->
-                if Set.contains name dedupSet then false
-                else dedupSet <- Set.add name dedupSet; true
-            | _ -> false)
+        let mutable scopedTypeParams = ctx.ScopedTypeParams
+        let typeParams =
+            types
+            |> List.collect getGenParams
+            |> List.filter (function
+                | Fable.GenericParam(name=name) ->
+                    if Set.contains name scopedTypeParams then false
+                    else scopedTypeParams <- Set.add name scopedTypeParams; true
+                | _ -> false)
+        scopedTypeParams, typeParams
 
     type MemberKind =
         | ClassConstructor
         | NonAttached of funcName: string
         | Attached of isStatic: bool
 
-    let getMemberArgsAndBody (com: IBabelCompiler) ctx kind (info: Fable.MemberFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
+    let getMemberArgsAndBody (com: IBabelCompiler) ctx kind (classEnt: Fable.Entity option) (info: Fable.MemberFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
         let funcName, args, body =
             match kind, args with
             | Attached(isStatic=false), (thisArg::args) ->
@@ -909,33 +924,52 @@ module Util =
                     else body
                 None, args, body
             | Attached(isStatic=true), _
+            | Attached _, _ -> None, args, body
             | ClassConstructor, _ -> None, args, body
             | NonAttached funcName, _ -> Some funcName, args, body
-            | _ -> None, args, body
 
-        let typeParams =
-            if com.Options.Language = TypeScript then
-                let genParams =
-                    match info.DeclaringEntity with
-                    | Some e ->
-                        let e = com.GetEntity(e)
-                        if not e.IsFSharpModule then e.GenericParameters @ info.GenericParameters
-                        else info.GenericParameters
-                    | None -> info.GenericParameters
-                genParams |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints)) |> Some
-            else None
+        let isTypeScript = com.Options.Language = TypeScript
+        let ctx, typeParams =
+            if isTypeScript then
+                let isAttached, entGenParams =
+                    match classEnt with
+                    | None ->
+                        match info.DeclaringEntity with
+                        | Some e ->
+                            let e = com.GetEntity(e)
+                            false, if e.IsFSharpModule then [] else e.GenericParameters
+                        | None -> false, []
+                    | Some e -> true, e.GenericParameters
+                let scopedTypeParams = List.append entGenParams info.GenericParameters |> List.map (fun g -> g.Name) |> set
+                let declaredTypeParams =
+                    if isAttached then info.GenericParameters else entGenParams @ info.GenericParameters
+                    |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints)) |> Some
+                { ctx with ScopedTypeParams = scopedTypeParams  }, declaredTypeParams
+            else
+                ctx, None
 
         let args, body, returnType, typeParamDecl =
             transformFunctionWithAnnotations com ctx funcName typeParams args body
 
         let args =
-            let len = Array.length args
-            if not info.HasSpread || len = 0 then args
-            else [|
-                if len > 1 then
-                    yield! args[..len-2]
-                yield restElement args[len-1]
-            |]
+            let argsLen = Array.length args
+            if argsLen = 0 then
+                args
+            elif info.HasSpread then
+                [|
+                    if argsLen > 1 then
+                        yield! args[..argsLen-2]
+                    yield args[argsLen-1].AsSpread
+                |]
+            elif isTypeScript then
+                let parameters = List.concat info.CurriedParameterGroups |> List.toArray
+                if argsLen = parameters.Length then
+                    Array.zip args parameters
+                    |> Array.map (fun (a, p) ->
+                        // TODO: IsNamed, DefaultValue (both for JS and TS)
+                        if p.IsOptional then a.AsOptional else a)
+                else args
+            else args
 
         args, body, returnType, typeParamDecl
 
@@ -986,7 +1020,7 @@ module Util =
         [|
             // First declare temp variables
             for (KeyValue(argId, tempVar)) in tempVars do
-                yield varDeclaration (Pattern.identifier(tempVar)) false (Expression.identifier(argId)) |> Declaration.VariableDeclaration |> Declaration
+                yield Statement.variableDeclaration(Const, tempVar, init=Expression.identifier(argId))
             // Then assign argument expressions to the original argument identifiers
             // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
             for (argId, arg) in zippedArgs do
@@ -1111,7 +1145,7 @@ module Util =
                 if com.Options.Language = TypeScript && (ent.FullName = Types.refCell)
                 then makeTypeParamInstantiation com ctx genArgs |> Some
                 else None
-            Expression.newExpression(consRef, values, ?typeParameters=typeParamInst, ?loc=r)
+            Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs, _isStruct) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values |> makeJsObject
@@ -1127,7 +1161,7 @@ module Util =
                 | Some helperRef ->
                     let values = values |> List.mapToArray (transformAsExpr com ctx)
                     let typeParams = makeTypeParamInstantiation com ctx genArgs
-                    Expression.callExpression(helperRef, values, typeParameters=typeParams)
+                    Expression.callExpression(helperRef, values, typeArguments=typeParams)
                 | None -> transformNewUnion com ctx r ent tag values
             else
                 transformNewUnion com ctx r ent tag values
@@ -1136,17 +1170,22 @@ module Util =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
         BlockStatement([| Statement.returnStatement(libCall com ctx None "Util" "toIterator" [] [enumerator])|])
 
-    let extractBaseExprFromBaseCall (com: IBabelCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
+    let extractSuperClassFromBaseCall (com: IBabelCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
         match baseCall, baseType with
         | Some (Fable.Call(baseRef, info, _, _)), _ ->
             let baseExpr =
-                match baseRef, baseType with
-                | Fable.IdentExpr id, Some d ->
-                    let typ = Fable.DeclaredType(d.Entity, d.GenericArgs)
-                    typedIdentAsExpr com ctx { id with Type = typ }
-                | Fable.IdentExpr id, _ -> typedIdentAsExpr com ctx id
-                | _ -> transformAsExpr com ctx baseRef
-            let args = CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember) |> transformCallArgs com ctx
+                match com.Options.Language, baseType, baseRef with
+                | TypeScript, Some d, _ ->
+                    Fable.DeclaredType(d.Entity, d.GenericArgs)
+                    |> makeTypeAnnotation com ctx
+                    |> SuperType
+                | TypeScript, None, Fable.IdentExpr id ->
+                    makeTypeAnnotation com ctx id.Type
+                    |> SuperType
+                | _ ->
+                    transformAsExpr com ctx baseRef
+                    |> SuperExpression
+            let args = info.MemberRef |> Option.bind com.TryGetMember |> transformCallArgs com ctx info
             Some (baseExpr, args)
         | Some (Fable.Value _), Some baseType ->
             // let baseEnt = com.GetEntity(baseType.Entity)
@@ -1167,10 +1206,10 @@ module Util =
 
     let transformObjectExpr (com: IBabelCompiler) ctx (members: Fable.ObjectExprMember list) baseCall: Expression =
 
-        let makeMethod kind prop computed (info: Fable.MemberFunctionOrValue) args body =
+        let makeMethod kind prop isComputed (info: Fable.MemberFunctionOrValue) args body =
             let args, body, returnType, typeParamDecl =
-                getMemberArgsAndBody com ctx (Attached(isStatic=false)) info args body
-            ObjectMember.objectMethod(kind, prop, args, body, computed_=computed,
+                getMemberArgsAndBody com ctx (Attached(isStatic=false)) None info args body
+            ObjectMember.objectMethod(kind, prop, args, body, isComputed=isComputed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl)
 
         let members = members |> List.map (fun memb -> memb, com.GetMember(memb.MemberRef))
@@ -1182,24 +1221,24 @@ module Util =
 
         let members =
             members |> List.collect (fun (memb, info) ->
-                let prop, computed = memberFromName memb.Name
+                let prop, isComputed = memberFromName memb.Name
                 // If compileAsClass is false, it means getters don't have side effects
                 // and can be compiled as object fields (see condition above)
                 if not memb.IsMangled && (info.IsValue || (not compileAsClass && info.IsGetter)) then
-                    [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
+                    [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), isComputed=isComputed)]
                 elif not memb.IsMangled && info.IsGetter then
-                    [makeMethod ObjectGetter prop computed info memb.Args memb.Body]
+                    [makeMethod ObjectGetter prop isComputed info memb.Args memb.Body]
                 elif not memb.IsMangled && info.IsSetter then
-                    [makeMethod ObjectSetter prop computed info memb.Args memb.Body]
+                    [makeMethod ObjectSetter prop isComputed info memb.Args memb.Body]
                 elif info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
-                    let method = makeMethod ObjectMeth prop computed info memb.Args memb.Body
+                    let method = makeMethod ObjectMeth prop isComputed info memb.Args memb.Body
                     let iterator =
-                        let prop, computed = memberFromName "Symbol.iterator"
+                        let prop, isComputed = memberFromName "Symbol.iterator"
                         let body = enumerableThisToIterator com ctx
-                        ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
+                        ObjectMember.objectMethod(ObjectMeth, prop, [||], body, isComputed=isComputed)
                     [method; iterator]
                 else
-                    [makeMethod ObjectMeth prop computed info memb.Args memb.Body]
+                    [makeMethod ObjectMeth prop isComputed info memb.Args memb.Body]
             )
 
         if not compileAsClass then
@@ -1207,23 +1246,22 @@ module Util =
         else
             let classMembers =
                 members |> List.choose (function
-                    | ObjectProperty(key, value, computed) ->
-                        ClassMember.classProperty(key, value, computed_=computed) |> Some
-                    | ObjectMethod(kind, key, parameters, body, computed, returnType, typeParameters, _) ->
+                    | ObjectProperty(key, value, isComputed) ->
+                        ClassMember.classProperty(key, value, isComputed=isComputed) |> Some
+                    | ObjectMethod(kind, key, parameters, body, isComputed, returnType, typeParameters, _) ->
                         let kind =
                             match kind with
-                            | "get" -> ClassGetter
-                            | "set" -> ClassSetter
-                            | _ -> ClassFunction
-                        ClassMember.classMethod(kind, key, parameters, body, computed_=computed,
-                            ?returnType=returnType, ?typeParameters=typeParameters) |> Some)
+                            | ObjectGetter -> ClassGetter(key, isComputed)
+                            | ObjectSetter -> ClassSetter(key, isComputed)
+                            | _ -> ClassFunction(key, isComputed)
+                        ClassMember.classMethod(kind, parameters, body, ?returnType=returnType, typeParameters=typeParameters) |> Some)
 
             let baseExpr, classMembers =
                 baseCall
-                |> extractBaseExprFromBaseCall com ctx None
+                |> extractSuperClassFromBaseCall com ctx None
                 |> Option.map (fun (baseExpr, baseArgs) ->
                     let consBody = BlockStatement([|callSuperAsStatement baseArgs|])
-                    let cons = makeClassConstructor [||]  consBody
+                    let cons = ClassMember.classMethod(ClassPrimaryConstructor [||], [||], consBody)
                     Some baseExpr, cons::classMembers
                 )
                 |> Option.defaultValue (None, classMembers)
@@ -1231,13 +1269,15 @@ module Util =
             let classExpr = Expression.classExpression(List.toArray classMembers, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
 
-    let transformCallArgs (com: IBabelCompiler) ctx (info: ArgsInfo) =
-        let paramsInfo, args =
-            match info with
-            | NoCallInfo args -> None, args
-            | CallInfo(callInfo, memberInfo) ->
-                let paramsInfo = Option.map getParamsInfo memberInfo
-                paramsInfo, callInfo.Args
+    let transformCallArgs (com: IBabelCompiler) ctx (callInfo: Fable.CallInfo) (memberInfo: Fable.MemberFunctionOrValue option) =
+        let args =
+            match callInfo.Args, callInfo.SignatureArgTypes with
+            // Don't remove unit arg if a generic is expected, TypeScript will complain
+            | [Fable.Value(Fable.UnitConstant,_)], [Fable.GenericParam _] -> callInfo.Args
+            | [Fable.Value(Fable.UnitConstant,_)], _ -> []
+            | _ -> callInfo.Args
+
+        let paramsInfo = Option.map getParamsInfo memberInfo
 
         let args, objArg =
             paramsInfo
@@ -1264,10 +1304,7 @@ module Util =
             |> Option.defaultValue false
 
         let args =
-            match args with
-            | []
-            | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))] -> []
-            | args when hasSpread ->
+            if hasSpread then
                 match List.rev args with
                 | [] -> []
                 | (Replacements.Util.ArrayOrListLiteral(spreadArgs,_))::rest ->
@@ -1276,7 +1313,8 @@ module Util =
                 | last::rest ->
                     let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
                     rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
-            | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args
+            else
+                List.map (fun e -> com.TransformAsExpr(ctx, e)) args
 
         match objArg with
         | None -> args
@@ -1311,8 +1349,9 @@ module Util =
         let macro = stripImports com ctx range info.Macro
         let info = info.CallInfo
         let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-        CallInfo(info, info.MemberRef |> Option.bind com.TryGetMember)
-        |> transformCallArgs com ctx
+        info.MemberRef
+        |> Option.bind com.TryGetMember
+        |> transformCallArgs com ctx info
         |> List.append thisArg
         |> emitExpression range macro
 
@@ -1408,21 +1447,27 @@ module Util =
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | memberInfo ->
                 let callee = com.TransformAsExpr(ctx, callee)
-                let args = CallInfo(callInfo, memberInfo) |> transformCallArgs com ctx
+                let args = transformCallArgs com ctx callInfo memberInfo
                 match callInfo.ThisArg with
                 | None when List.contains "new" callInfo.Tags ->
                     let typeParamInst =
                         match typ with
                         | Fable.DeclaredType(_entRef, genArgs) -> makeTypeParamInstantiationIfTypeScript com ctx genArgs
                         | _ -> None
-                    Expression.newExpression(callee, List.toArray args, ?typeParameters=typeParamInst, ?loc=range)
+                    Expression.newExpression(callee, List.toArray args, ?typeArguments=typeParamInst, ?loc=range)
                 | None -> callFunction com ctx range callee callInfo.GenericArgs args
                 | Some(TransformExpr com ctx thisArg) -> callFunction com ctx range callee callInfo.GenericArgs (thisArg::args)
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        match transformCallArgs com ctx (NoCallInfo args) with
-        | [] -> callFunction com ctx range applied [] []
-        | args -> (applied, args) ||> List.fold (fun e arg -> callFunction com ctx range e [] [arg])
+        (applied, args)
+        ||> List.fold (fun e arg ->
+            match arg with
+            // TODO: If arg type is unit but it's an expression with potential
+            // side-effects, we need to extract it and execute it before the call
+            | Fable.Value(Fable.UnitConstant,_) -> []
+            | Fable.IdentExpr ident when ident.Type = Fable.Unit -> []
+            | TransformExpr com ctx arg -> [arg]
+            |> callFunction com ctx range e [])
 
     let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -1457,9 +1502,9 @@ module Util =
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
         let handler =
-            catch |> Option.map (fun (param, body) ->
-                let e: Fable.Ident = { param with Type = Fable.Any } // intentionally set catch type to 'any'
-                CatchClause.catchClause(typedIdentAsPattern com ctx e, transformBlock com ctx returnStrategy body))
+            catch |> Option.map (fun (param: Fable.Ident, body) ->
+                let ta = makeTypeAnnotationIfTypeScript com ctx Fable.Any None // intentionally set catch type to 'any'
+                CatchClause.catchClause(param.Name, ?annotation=ta, body=transformBlock com ctx returnStrategy body))
         let finalizer =
             finalizer |> Option.map (transformBlock com ctx None)
         [|Statement.tryStatement(transformBlock com ctx returnStrategy body,
@@ -1551,14 +1596,15 @@ module Util =
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         if isJsStatement ctx false value then
-            let varPattern, varExpr = typedIdentAsPattern com ctx var, identAsExpr var
-            let decl = Statement.variableDeclaration(varPattern)
-            let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
+            let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx var.Type None
+            let decl = Statement.variableDeclaration(Let, var.Name, ?annotation=ta, typeParameters=tp)
+            let body = com.TransformAsStatements(ctx, Some(Assign(identAsExpr var)), value)
             Array.append [|decl|] body
         else
             let value = transformBindingExprBody com ctx var value
-            let decl = varDeclaration (typedIdentAsPattern com ctx var) var.IsMutable value |> Declaration.VariableDeclaration |> Declaration
-            [|decl|]
+            let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx var.Type (Some value)
+            let kind = if var.IsMutable then Let else Const
+            [| Statement.variableDeclaration(kind, var.Name, ?annotation=ta, typeParameters=tp, init=value) |]
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with
@@ -1751,8 +1797,8 @@ module Util =
         let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeIdent
         let multiVarDecl =
             let boundIdents = targets |> List.collect (fun (idents,_) ->
-                idents |> List.map (fun id -> typedIdent com ctx id, None))
-            multiVarDeclaration Let ((typedIdent com ctx targetId, None)::boundIdents)
+                idents |> List.map (fun id -> id, None))
+            multiVarDeclaration com ctx Let ((targetId, None)::boundIdents)
         // Transform targets as switch
         let switch2 =
             // TODO: Declare the last case as the default case?
@@ -2017,11 +2063,12 @@ module Util =
 
             [|Statement.forStatement(
                 transformBlock com ctx None body,
-                start |> varDeclaration (typedIdentAsPattern com ctx var) true,
+                VariableDeclaration.variableDeclaration(Let, var.Name, init=start,
+                    ?annotation = makeTypeAnnotationIfTypeScript com ctx var.Type (Some start)),
                 Expression.binaryExpression(op1, identAsExpr var, limit),
                 Expression.updateExpression(op2, false, identAsExpr var), ?loc=range)|]
 
-    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Pattern array * BlockStatement =
+    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Parameter array * BlockStatement =
         let tailcallChance =
             Option.map (fun name ->
                 NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
@@ -2031,8 +2078,7 @@ module Util =
         let ctx =
             { ctx with TailCallOpportunity = tailcallChance
                        HoistVars = fun ids -> declaredVars.AddRange(ids); true
-                       OptimizeTailCall = fun () -> isTailCallOptimized <- true
-                       IsParamType = true }
+                       OptimizeTailCall = fun () -> isTailCallOptimized <- true }
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
@@ -2047,12 +2093,12 @@ module Util =
                 let args' =
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) ->
-                        makeTypedIdent id.Type tcArg |> typedIdentAsPattern com ctx)
+                        let ta = makeTypeAnnotationIfTypeScript com ctx id.Type None
+                        Parameter.parameter(tcArg, ?typeAnnotation=ta))
                 let varDecls =
                     List.zip args tc.Args
-                    |> List.map (fun (id, tcArg) ->
-                        id |> typedIdent com ctx, Some (Expression.identifier(tcArg)))
-                    |> multiVarDeclaration Const
+                    |> List.map (fun (id, tcArg) -> id, Some (Expression.identifier(tcArg)))
+                    |> multiVarDeclaration com ctx Const
 
                 let body = Array.append [|varDecls|] body.Body
                 // Make sure we don't get trapped in an infinite loop, see #1624
@@ -2062,11 +2108,13 @@ module Util =
                     |> Array.singleton |> BlockStatement
                 args', body
             | _ ->
-                args |> List.map (typedIdentAsPattern com ctx), body
+                args |> List.map (fun a ->
+                    let ta = makeTypeAnnotationIfTypeScript com ctx a.Type None
+                    Parameter.parameter(a.Name, ?typeAnnotation=ta)), body
         let body =
             if declaredVars.Count = 0 then body
             else
-                let varDeclStatement = multiVarDeclaration Let [for v in declaredVars -> typedIdent com ctx v, None]
+                let varDeclStatement = declaredVars |> Seq.map (fun v -> v, None) |> multiVarDeclaration com ctx Let
                 BlockStatement(Array.append [|varDeclStatement|] body.Body)
         args |> List.toArray, body
 
@@ -2081,38 +2129,41 @@ module Util =
         if not isPublic then PrivateModuleDeclaration(decl |> Declaration)
         else ExportNamedDeclaration(decl)
 
-    let declareModuleMember isPublic membName isMutable (expr: Expression) =
+    let declareModuleMember com ctx (expr: Expression) (info: ModuleDecl) =
         match expr with
         | ClassExpression(body, _id, superClass, implements, typeParameters, _loc) ->
             Declaration.classDeclaration(
                 body,
-                id = Identifier.identifier(membName),
+                id = Identifier.identifier(info.Name),
                 ?superClass = superClass,
-                ?typeParameters = typeParameters,
+                typeParameters = typeParameters,
                 ?implements = implements)
         | FunctionExpression(_, parameters, body, returnType, typeParameters, _) ->
             Declaration.functionDeclaration(
                 parameters,
                 body,
-                id = Identifier.identifier(membName),
+                id = Identifier.identifier(info.Name),
                 ?returnType = returnType,
-                ?typeParameters = typeParameters)
+                typeParameters = typeParameters)
         | _ ->
-            let var = Pattern.identifier(membName)
-            varDeclaration var isMutable expr
-            |> Declaration.VariableDeclaration
+            let kind = if info.IsMutable then Let else Const
+            let annotation =
+                // Public mutable values are compiled as functions so we omit the type in those cases
+                if info.IsMutable && info.IsPublic then None
+                else makeTypeAnnotationIfTypeScript com ctx info.Type (Some expr)
+            Declaration.variableDeclaration(kind, info.Name, init=expr, ?annotation = annotation)
 
-        |> asModuleDeclaration isPublic
+        |> asModuleDeclaration info.IsPublic
 
     let getClassImplements com ctx (ent: Fable.Entity) =
         // let mkNative genArgs typeName =
         //     let id = Identifier.identifier(typeName)
         //     let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
-        //     ClassImplements.classImplements(id, ?typeParameters=typeParamInst) |> Some
+        //     ClassImplements.classImplements(id, ?typeArguments=typeParamInst) |> Some
         let mkImport genArgs moduleName typeName =
             let id = makeImportTypeId com ctx moduleName typeName
             let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
-            ClassImplements.classImplements(id, ?typeParameters=typeParamInst) |> Some
+            ClassImplements.classImplements(id, ?typeArguments=typeParamInst) |> Some
 
         ent.AllInterfaces |> Seq.choose (fun ifc ->
             match ifc.Entity.FullName with
@@ -2132,35 +2183,42 @@ module Util =
             id)
         |> Seq.toArray
 
-    let declareClassWithParams (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) classMembers typeParamDecl =
+    let declareClassWithParams (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Parameter[]) (consArgsModifiers: AccessModifier[]) (consBody: BlockStatement) (superClass: SuperClass option) classMembers typeParamDecl =
         let implements =
             if com.Options.Language = TypeScript then
                 let implements = Util.getClassImplements com ctx ent |> Seq.toArray
                 if Array.isEmpty implements then None else Some implements
             else None
-        let classCons = makeClassConstructor consArgs consBody
+
+        let classCons =
+            ClassMember.classMethod(ClassPrimaryConstructor consArgsModifiers, consArgs, consBody)
+
         let classFields =
             if com.Options.Language = TypeScript && not ent.IsFSharpUnion then
                 ent.FSharpFields |> List.mapToArray (fun field ->
-                    let prop, computed = memberFromName field.Name
-                    let ta = makeTypeAnnotation com ctx field.FieldType
+                    let prop, isComputed = memberFromName field.Name
+                    let ta = makeFieldAnnotation com ctx field.FieldType
                     // Static fields need to be initialized by static constructor
                     let am = if field.IsMutable || field.IsStatic then None else Some Readonly
-                    ClassMember.classProperty(prop, computed_=computed, ``static``=field.IsStatic, typeAnnotation=ta, ?accessModifier=am)
+                    ClassMember.classProperty(prop, isComputed=isComputed, isStatic=field.IsStatic, typeAnnotation=ta, ?accessModifier=am)
                 )
             else Array.empty
-        Expression.classExpression([|
-            yield! classFields
-            classCons
-            yield! classMembers
-        |], ?superClass=baseExpr, ?typeParameters=typeParamDecl, ?implements=implements)
-        |> declareModuleMember ent.IsPublic entName false
 
-    let declareClass (com: IBabelCompiler) ctx ent entName consArgs consBody baseExpr classMembers =
+        let classExpr =
+            Expression.classExpression([|
+                yield! classFields
+                classCons
+                yield! classMembers
+            |], ?superClass=superClass, ?typeParameters=typeParamDecl, ?implements=implements)
+
+        ModuleDecl(entName, isPublic=ent.IsPublic)
+        |> declareModuleMember com ctx classExpr
+
+    let declareClass (com: IBabelCompiler) ctx ent entName consArgs consBody superClass classMembers =
         if com.Options.Language = TypeScript
         then FSharp2Fable.Util.getEntityGenArgs ent |> makeTypeParamDecl com ctx |> Some
         else None
-        |> declareClassWithParams com ctx ent entName consArgs consBody baseExpr classMembers
+        |> declareClassWithParams com ctx ent entName consArgs [||] consBody superClass classMembers
 
     let declareTypeReflection (com: IBabelCompiler) ctx (ent: Fable.Entity) entName: ModuleDeclaration =
         let ta =
@@ -2170,12 +2228,13 @@ module Util =
         let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
         let generics = genArgs |> Array.map identAsExpr
         let body = transformReflectionInfo com ctx None ent generics
-        let args = genArgs |> Array.map (fun x -> Pattern.identifier(x.Name, ?typeAnnotation=ta))
+        let args = genArgs |> Array.map (fun x -> Parameter.parameter(x.Name, ?typeAnnotation=ta))
         let returnType = ta
-        makeFunctionExpression None (args, body, returnType, None)
-        |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
+        let fnExpr = makeFunctionExpression None (args, body, returnType, None)
+        ModuleDecl(entName + Naming.reflectionSuffix, isPublic=ent.IsPublic)
+        |> declareModuleMember com ctx fnExpr
 
-    let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr classMembers: ModuleDeclaration list =
+    let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Parameter[]) (consBody: BlockStatement) baseExpr classMembers: ModuleDeclaration list =
         let typeDeclaration = declareClass com ctx ent entName consArgs consBody baseExpr classMembers
         if com.Options.NoReflection then
             [typeDeclaration]
@@ -2202,7 +2261,7 @@ module Util =
                 [propsArg], FableTransforms.replaceValues replacements body
 
         let args, body, returnType, typeParamDecl =
-            getMemberArgsAndBody com ctx (NonAttached membName) info args body
+            getMemberArgsAndBody com ctx (NonAttached membName) None info args body
 
         Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
@@ -2217,24 +2276,22 @@ module Util =
               |> ExpressionStatement |> PrivateModuleDeclaration ]
         else statements |> Array.mapToList (fun x -> PrivateModuleDeclaration(x))
 
-    let transformAttachedProperty (com: IBabelCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
+    let transformAttachedProperty (com: IBabelCompiler) ctx classEnt (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
         let isStatic = not info.IsInstance
-        let kind = if info.IsGetter then ClassGetter else ClassSetter
+        let key, isComputed = memberFromName memb.Name
+        let kind = if info.IsGetter then ClassGetter(key, isComputed) else ClassSetter(key, isComputed)
         let args, body, returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx (Attached isStatic) info memb.Args memb.Body
-        let key, computed = memberFromName memb.Name
-        ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic,
-            ?returnType=returnType) //, ?typeParameters=typeParamDecl)
+            getMemberArgsAndBody com ctx (Attached isStatic) (Some classEnt) info memb.Args memb.Body
+        ClassMember.classMethod(kind, args, body, isStatic=isStatic, ?returnType=returnType) //, ?typeParameters=typeParamDecl)
         |> Array.singleton
 
-    let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
+    let transformAttachedMethod (com: IBabelCompiler) ctx classEnt (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
         let isStatic = not info.IsInstance
-        let makeMethod name args body returnType _typeParamDecl =
-            let key, computed = memberFromName name
-            ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic,
-                ?returnType=returnType) //, ?typeParameters=typeParamDecl)
+        let makeMethod name args body returnType typeParamDecl =
+            let key, isComputed = memberFromName name
+            ClassMember.classMethod(ClassFunction(key, isComputed), args, body, isStatic=isStatic, ?returnType=returnType, ?typeParameters=typeParamDecl)
         let args, body, returnType, typeParamDecl =
-            getMemberArgsAndBody com ctx (Attached isStatic) info memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) (Some classEnt) info memb.Args memb.Body
         [|
             yield makeMethod memb.Name args body returnType typeParamDecl
             if info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
@@ -2242,7 +2299,7 @@ module Util =
         |]
 
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-        let baseExpr = libValue com ctx "Types" "Union" |> Some
+        let baseExpr = libValue com ctx "Types" "Union" |> SuperExpression |> Some
         let cases =
             let body =
                 ent.UnionCases
@@ -2251,14 +2308,14 @@ module Util =
                 |> Statement.returnStatement
                 |> Array.singleton
                 |> BlockStatement
-            ClassMember.classMethod(ClassFunction, Expression.identifier("cases"), [||], body)
+            ClassMember.classMethod(ClassFunction(Expression.identifier("cases"), false), [||], body)
 
         if com.Options.Language = TypeScript then
             // Merge this with makeTypeParamDecl/makeTypeParamInstantiation?
             let entParams = ent.GenericParameters |> List.chooseToArray (fun p ->
                 if not p.IsMeasure then Some p.Name else None)
             let entParamsDecl = entParams |> Array.map TypeParameter.typeParameter
-            let entParamsInst = entParams |> Array.map (makeSimpleTypeAnnotation com ctx)
+            let entParamsInst = entParams |> Array.map (makeAliasTypeAnnotation com ctx)
             let union_tag = entName + "_Tag" |> Identifier.identifier
             let union_fields = entName + "_Fields" |> Identifier.identifier
             let union_cons = entName + "_Cons" |> Identifier.identifier
@@ -2268,19 +2325,20 @@ module Util =
                     let case_ta = TypeAnnotation.aliasTypeAnnotation(union_cons, typeParams)
                     let fields_ta =
                         uci.UnionCaseFields |> List.mapToArray (fun fi ->
-                            makeTypeAnnotation com ctx fi.FieldType)
+                            makeFieldAnnotation com ctx fi.FieldType)
                         |> TupleTypeAnnotation
                     case_ta, (uci.Name, ofInt i), fields_ta
                 ) |> Array.unzip3
 
             let isPublic = ent.IsPublic
             let union_fields_alias = AliasTypeAnnotation(union_fields, entParamsInst)
-            let tagArgTa = makeSimpleTypeAnnotation com ctx "Tag"
+            let tagArgTa = makeAliasTypeAnnotation com ctx "Tag"
             let fieldsArgTa = IndexedTypeAnnotation(union_fields_alias, tagArgTa)
             let consArgs = [|
-                Pattern.identifier("tag", typeAnnotation=tagArgTa, accessModifier=Readonly)
-                Pattern.identifier("fields", typeAnnotation=fieldsArgTa, accessModifier=Readonly)
+                Parameter.parameter("tag", typeAnnotation=tagArgTa)
+                Parameter.parameter("fields", typeAnnotation=fieldsArgTa)
             |]
+            let consArgsModifiers = [| Readonly; Readonly |]
             let consBody = BlockStatement [| callSuperAsStatement [] |]
             let classMembers = Array.append [|cases|] classMembers
             let unionConsTypeParams = Some(Array.append entParamsDecl [|
@@ -2293,26 +2351,26 @@ module Util =
 
                 // Helpers to instantiate union
                 for case in ent.UnionCases do
-                    let args = case.UnionCaseFields |> List.mapToArray (fun fi -> typedIdentWith com ctx None fi.FieldType fi.Name)
                     let tag = EnumCaseLiteral(union_tag, case.Name)
-                    let passedArgs = args |> Array.map Expression.Identifier |> Expression.arrayExpression
-                    let consTypeParams = Array.append entParamsInst [|LiteralTypeAnnotation tag|]
+                    let passedArgs = case.UnionCaseFields |> List.mapToArray (fun fi -> Expression.identifier(fi.Name)) |> Expression.arrayExpression
+                    let consTypeArgs = Array.append entParamsInst [|LiteralTypeAnnotation tag|]
                     let body = BlockStatement [|
-                       Expression.newExpression(Expression.Identifier union_cons, [|Expression.Literal tag; passedArgs|], typeParameters=consTypeParams)
+                       Expression.newExpression(Expression.Identifier union_cons, [|Expression.Literal tag; passedArgs|], typeArguments=consTypeArgs)
                        |> Statement.returnStatement
                     |]
-                    let args = args |> Array.map (fun a -> Pattern.Identifier(a, None))
+                    let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
+                        Parameter.parameter(fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
                     let fnId = entName + "_" + case.Name |> Identifier.identifier
-                    Declaration.functionDeclaration(args, body, fnId, typeParameters=entParamsDecl)
+                    Declaration.functionDeclaration(parameters, body, fnId, typeParameters=entParamsDecl)
                     |> asModuleDeclaration isPublic
 
                 // Actual class
-                declareClassWithParams com ctx ent union_cons.Name consArgs consBody baseExpr classMembers unionConsTypeParams
+                declareClassWithParams com ctx ent union_cons.Name consArgs consArgsModifiers consBody baseExpr classMembers unionConsTypeParams
                 if not com.Options.NoReflection then
                     declareTypeReflection com ctx ent entName
             ]
         else
-            let args = [| Pattern.identifier("tag"); Pattern.identifier("fields") |]
+            let args = [| Parameter.parameter("tag"); Parameter.parameter("fields") |]
             let body = BlockStatement [|
                 callSuperAsStatement []
                 yield! ["tag"; "fields"] |> List.map (fun name ->
@@ -2328,9 +2386,9 @@ module Util =
         let args = fieldIds |> Array.map identAsExpr
         let baseExpr =
             if ent.IsFSharpExceptionDeclaration
-            then libValue com ctx "Types" "FSharpException" |> Some
+            then libValue com ctx "Types" "FSharpException" |> SuperExpression |> Some
             elif ent.IsFSharpRecord || ent.IsValueType
-            then libValue com ctx "Types" "Record" |> Some
+            then libValue com ctx "Types" "Record" |> SuperExpression |> Some
             else None
         let body =
             BlockStatement([|
@@ -2342,14 +2400,15 @@ module Util =
                     assign None left right |> ExpressionStatement)
                 |> Seq.toArray
             |])
-        let args = fieldIds |> Array.map (typedIdentAsPattern com ctx)
+        let args = fieldIds |> Array.map (fun fi ->
+            Parameter.parameter(fi.Name, ?typeAnnotation=makeFieldAnnotationIfTypeScript com ctx fi.Type))
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithPrimaryConstructor (com: IBabelCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
         let consInfo = com.GetMember(cons.MemberRef)
         let classIdent = Expression.identifier(classDecl.Name)
         let consArgs, consBody, returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx ClassConstructor consInfo cons.Args cons.Body
+            getMemberArgsAndBody com ctx ClassConstructor (Some classEnt) consInfo cons.Args cons.Body
 
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
@@ -2368,9 +2427,10 @@ module Util =
 
         let baseExpr, consBody =
             classDecl.BaseCall
-            |> extractBaseExprFromBaseCall com ctx classEnt.BaseType
+            |> extractSuperClassFromBaseCall com ctx classEnt.BaseType
             |> Option.orElseWith (fun () ->
-                if classEnt.IsValueType then Some(libValue com ctx "Types" "Record", [])
+                if classEnt.IsValueType then
+                    Some(libValue com ctx "Types" "Record" |> SuperExpression, [])
                 else None)
             |> Option.map (fun (baseExpr, baseArgs) ->
                 let consBody =
@@ -2382,7 +2442,7 @@ module Util =
 
         [
             yield! declareType com ctx classEnt classDecl.Name consArgs consBody baseExpr classMembers
-            yield declareModuleMember consInfo.IsPublic cons.Name false exposedCons
+            yield ModuleDecl(cons.Name, isPublic=consInfo.IsPublic) |> declareModuleMember com ctx exposedCons
         ]
 
     let rec transformDeclaration (com: IBabelCompiler) ctx decl =
@@ -2418,15 +2478,18 @@ module Util =
                             callFunction com ctx r callee [] (arg::restArgs) |> Some
                         | _ -> None
                     | _ -> None
+
                 let decls =
                     match valueExpr with
                     | Some value ->
-                        [declareModuleMember info.IsPublic decl.Name info.IsMutable value]
+                        ModuleDecl(decl.Name, isPublic=info.IsPublic, isMutable=info.IsMutable, typ=decl.Body.Type)
+                        |> declareModuleMember com ctx value
+                        |> List.singleton
                     | None ->
                         let expr = transformModuleFunction com ctx info decl.Name decl.Args decl.Body
                         if hasAttribute Atts.entryPoint info.Attributes
                         then [declareEntryPoint com ctx expr]
-                        else [declareModuleMember info.IsPublic decl.Name false expr]
+                        else [ModuleDecl(decl.Name, isPublic=info.IsPublic)|> declareModuleMember com ctx expr]
 
                 let isDefaultExport =
                     List.contains "export-default" decl.Tags || (
@@ -2456,8 +2519,8 @@ module Util =
                                 | None -> [||]
                                 | Some info ->
                                     if not memb.IsMangled && (info.IsGetter || info.IsSetter)
-                                    then transformAttachedProperty com ctx info memb
-                                    else transformAttachedMethod com ctx info memb)
+                                    then transformAttachedProperty com ctx ent info memb
+                                    else transformAttachedMethod com ctx ent info memb)
 
                 match decl.Constructor with
                 | Some cons ->
@@ -2613,7 +2676,6 @@ module Compiler =
             HoistVars = fun _ -> false
             TailCallOpportunity = None
             OptimizeTailCall = fun () -> ()
-            IsParamType = false
             ScopedTypeParams = Set.empty }
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports

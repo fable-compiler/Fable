@@ -194,7 +194,7 @@ let ``Should correctly import record in other file and allow creation`` =
 #if FABLE_COMPILER
 open Fable.Core
 
-[<Emit("$0 as Lrc<MyRecord>")>]
+[<Emit("$0 as LrcPtr<MyRecord>")>]
 let ensureMyRecordWrapped s = nativeOnly
 
 [<Emit("$0 as Arc<ArcRecord>")>]

@@ -27,7 +27,8 @@ type Future<'T> =
 type Stream<'T> =
     interface end
 
-[<ImportMember "dart:core">]
+// [<ImportMember "dart:core">]
+[<Global>]
 let print(item: obj): unit = nativeOnly
 
 /// Destructure a tuple of arguments and apply them to literal code as with EmitAttribute.

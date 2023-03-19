@@ -19,7 +19,7 @@ pub mod ListExt {
 
     // on second thought not sure deref is ideal because it exposes the option api (iter, map etc) which is misleading
     // impl<T: Clone> Deref for List<T> {
-    //     type Target = Option<Lrc<crate::List_::Node_1<T>>>;
+    //     type Target = Option<LrcPtr<crate::List_::Node_1<T>>>;
     //     fn deref(&self) -> &Self::Target {
     //         &self.item
     //     }

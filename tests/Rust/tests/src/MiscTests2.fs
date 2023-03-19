@@ -465,7 +465,7 @@ type Shape =
 
 type StaticClass =
     static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
-
+    static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
     static member inline Add(x: int, ?y: int) =
         x + (defaultArg y 2)
 
@@ -1162,7 +1162,7 @@ module tests =
         // let y: (int*int) = Unchecked.defaultof<_>
         // equal null (box y)
         let x: struct (int*int) = Unchecked.defaultof<_>
-        equal (struct(0, 0)) x
+        equal (struct (0, 0)) x
 
     [<Fact>]
     let ``Pattern matching optimization works (switch statement)`` () =
@@ -1301,6 +1301,11 @@ module tests =
     [<Fact>]
     let ``DefaultParameterValue works`` () =
         StaticClass.DefaultParam() |> equal true
+
+    [<Fact>]
+    let ``DefaultParameterValue works with null`` () =
+        StaticClass.DefaultNullParam() |> isNull |> equal true
+        StaticClass.DefaultNullParam(5) |> isNull |> equal false
 
     [<Fact>]
     let ``Ignore shouldn't return value`` () = // See #1360

@@ -5,7 +5,27 @@ open Fable.Tests
 
 let allTests =
   [|
+    Applicative.tests
     Arithmetic.tests
+    Arrays.tests
+    Lists.tests
+    Maps.tests
+    // Misc.tests
+    // Observable.tests
+    Option.tests
+    // Queue.tests
+    RecordTypes.tests
+    // Reflection.tests
+    Regex.tests
+    ResizeArrays.tests
+    Result.tests
+    SeqExpressions.tests
+    Seqs.tests
+    Sets.tests
+    // Stack.tests
+    Strings.tests
+    Sudoku.tests
+    TailCalls.tests
   |]
 
 #if FABLE_COMPILER

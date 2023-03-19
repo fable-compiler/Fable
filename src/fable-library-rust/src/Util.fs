@@ -34,5 +34,8 @@ let kbprintf cont (sb: System.Text.StringBuilder) =
         cont()
     f
 
+let sb_Append (sb: System.Text.StringBuilder) (s: string) =
+    sb.Append(s)
+
 let new_Exception (msg: string) =
     System.Exception(msg)

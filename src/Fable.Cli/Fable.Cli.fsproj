@@ -4,10 +4,12 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.0.0</Version>
-    <PackageVersion>4.0.0-theta-018</PackageVersion>
-    <PackageReleaseNotes>* When using a .csproj, make sure the project is restored before parsing
-* Rust, added Stack, Queue</PackageReleaseNotes>
+    <Version>4.0.1</Version>
+    <PackageVersion>4.0.1</PackageVersion>
+    <PackageReleaseNotes>* Fix #3371: Copying struct records
+* Php: Improve output @entropitor
+* Rust: string improvements
+* TypeScript: Fix applicative tests</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -23,6 +25,7 @@
     <Content Include="..\..\build\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
     <Content Include="..\..\build\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
     <Content Include="..\..\build\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
+    <Content Include="..\fable-library-php\**\*.*" PackagePath="fable-library-php\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />

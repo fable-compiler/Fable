@@ -5,7 +5,7 @@ open Native
 
 [<CustomEquality; CustomComparison>]
 [<CompiledName("FSharpList")>]
-type LinkedList<'T when 'T: comparison> =
+type LinkedList<'T> =
     { head: 'T; mutable tail: LinkedList<'T> option }
 
     static member Empty: 'T list = { head = Unchecked.defaultof<'T>; tail = None }
@@ -60,7 +60,7 @@ type LinkedList<'T when 'T: comparison> =
                 | None, Some _ -> false
                 | Some _, None -> false
                 | Some xt, Some yt ->
-                    if xs.head = ys.head
+                    if Unchecked.equals xs.head ys.head
                     then loop xt yt
                     else false
             loop xs ys
@@ -73,7 +73,7 @@ type LinkedList<'T when 'T: comparison> =
             | None -> h
             | Some t ->
                 if i > iMax then h
-                else loop (i + 1) (combineHash i h (hash xs.head)) t
+                else loop (i + 1) (combineHash i h (Unchecked.hash xs.head)) t
         loop 0 0 xs
 
     interface IJsonSerializable with
@@ -89,7 +89,7 @@ type LinkedList<'T when 'T: comparison> =
                 | None, Some _ -> -1
                 | Some _, None -> 1
                 | Some xt, Some yt ->
-                    let c = compare xs.head ys.head
+                    let c = Unchecked.compare xs.head ys.head
                     if c = 0 then loop xt yt else c
             loop xs ys
 
@@ -101,7 +101,7 @@ type LinkedList<'T when 'T: comparison> =
         member xs.GetEnumerator(): System.Collections.IEnumerator =
             ((xs :> System.Collections.Generic.IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
 
-and ListEnumerator<'T when 'T: comparison>(xs: 'T list) =
+and ListEnumerator<'T>(xs: 'T list) =
     let mutable it = xs
     let mutable current = Unchecked.defaultof<'T>
     interface System.Collections.Generic.IEnumerator<'T> with
@@ -121,8 +121,8 @@ and ListEnumerator<'T when 'T: comparison>(xs: 'T list) =
     interface System.IDisposable with
         member _.Dispose() = ()
 
-and 'T list when 'T: comparison = LinkedList<'T>
-and List<'T> when 'T: comparison = LinkedList<'T>
+and 'T list = LinkedList<'T>
+and List<'T> = LinkedList<'T>
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]
@@ -185,18 +185,18 @@ let toArray (xs: 'T list) =
 //     if xs.IsEmpty then state
 //     else fold folder (folder state xs.Head) xs.Tail
 
-let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     let mutable acc = state
     let mutable xs = xs
     while not xs.IsEmpty do
-        acc <- folder acc xs.Head
+        acc <- folder acc (head xs)
         xs <- xs.Tail
     acc
 
 let reverse (xs: 'T list) =
     fold (fun acc x -> List.Cons(x, acc)) List.Empty xs
 
-let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
+let foldBack<'T, 'State> (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     // fold (fun acc x -> folder x acc) state (reverse xs)
     Array.foldBack folder (toArray xs) state
 
@@ -210,7 +210,7 @@ let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T 
 //     if xs.IsEmpty || ys.IsEmpty then state
 //     else fold2 folder (folder state xs.Head ys.Head) xs.Tail ys.Tail
 
-let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
+let fold2<'T1, 'T2, 'State> (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
     let mutable acc = state
     let mutable xs = xs
     let mutable ys = ys
@@ -220,7 +220,7 @@ let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list
         ys <- ys.Tail
     acc
 
-let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
+let foldBack2<'T1, 'T2, 'State> (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
     // fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
     Array.foldBack2 folder (toArray xs) (toArray ys) state
 
@@ -452,9 +452,9 @@ let partition f (xs: 'T list) =
     node2.SetConsTail List.Empty
     root1.Tail, root2.Tail
 
-let choose f (xs: 'T list) =
+let choose<'T, 'U> (f: 'T -> 'U option) (xs: 'T list) =
     let root = List.Empty
-    let folder (acc: 'T list) x =
+    let folder (acc: 'U list) x =
         match f x with
         | Some y -> acc.AppendConsNoTail y
         | None -> acc

@@ -180,7 +180,7 @@ let tests =
         Option.flatten o1 |> equal (Some 1)
         Option.flatten o2 |> equal None
         Option.flatten o3 |> equal None
-
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Option.toObj works" <| fun () ->
         let o1: string option = Some "foo"
         let o2: string option = None
@@ -358,5 +358,6 @@ let tests =
         isActualJsUndefined y |> equal true
         isActualJsNull z |> equal false
         isActualJsUndefined z |> equal true
+#endif
 #endif
   ]

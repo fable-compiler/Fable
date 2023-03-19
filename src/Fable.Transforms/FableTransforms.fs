@@ -61,6 +61,20 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
+let replaceValuesAndGenArgs (replacements: Map<string, Expr>) expr =
+    if Map.isEmpty replacements then expr
+    else
+        expr |> visitFromInsideOut (function
+            | IdentExpr id as e ->
+                match Map.tryFind id.Name replacements with
+                | Some e ->
+                    if typeEquals true e.Type id.Type then e
+                    else
+                        extractGenericArgs e id.Type
+                        |> replaceGenericArgs e
+                | None -> e
+            | e -> e)
+
 let replaceNames replacements expr =
     if Map.isEmpty replacements
     then expr
@@ -162,7 +176,7 @@ let noSideEffectBeforeIdent identName expr =
 
     findIdentOrSideEffect expr && not sideEffect
 
-let canInlineArg _com identName value body =
+let canInlineArg identName value body =
     (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)
      || (noSideEffectBeforeIdent identName body
          && isIdentCaptured identName body |> not
@@ -196,62 +210,81 @@ let uncurryType (typ: Type) =
     | Some(_arity, uncurriedType) -> uncurriedType
     | None -> typ
 
-let rec uncurryLambdaType (revArgTypes: Type list) (returnType: Type) =
-    match returnType with
-    | LambdaType(paramType, returnType) -> uncurryLambdaType (paramType::revArgTypes) returnType
-    | t -> List.rev revArgTypes, t
-
 module private Transforms =
-    let (|LambdaOrDelegate|_|) = function
-        | Lambda(arg, body, name) -> Some([arg], body, name)
-        | Delegate(args, body, name, []) -> Some(args, body, name)
-        | _ -> None
+    let rec (|ImmediatelyApplicable|_|) appliedArgsLen expr =
+        if appliedArgsLen = 0 then None
+        else
+            match expr with
+            | Lambda(arg, body, _) ->
+                let appliedArgsLen = appliedArgsLen - 1
+                if appliedArgsLen = 0 then Some([arg], body)
+                else
+                    match body with
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg::args, body)
+                    | _ -> Some([arg], body)
+            // If the lambda is immediately applied we don't need the closures
+            | NestedRevLets(bindings, Lambda(arg, body, _)) ->
+                let body = List.fold (fun body (i,v) -> Let(i, v, body)) body bindings
+                let appliedArgsLen = appliedArgsLen - 1
+                if appliedArgsLen = 0 then Some([arg], body)
+                else
+                    match body with
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg::args, body)
+                    | _ -> Some([arg], body)
+            | _ -> None
 
-    let (|ImmediatelyApplicable|_|) = function
-        | Lambda(arg, body, _) -> Some(arg, body)
-        // If the lambda is immediately applied we don't need the closures
-        | NestedRevLets(bindings, Lambda(arg, body, _)) ->
-            let body = List.fold (fun body (i,v) -> Let(i, v, body)) body bindings
-            Some(arg, body)
-        | _ -> None
+    let tryInlineBinding (ident: Ident) value letBody =
+        let canInlineBinding =
+            match value with
+            | Import(i,_,_) -> i.IsCompilerGenerated
+            // Replace non-recursive lambda bindings
+            | NestedLambda(_args, lambdaBody, _name) ->
+                match lambdaBody with
+                | Import(i,_,_) -> i.IsCompilerGenerated
+                // Check the lambda doesn't reference itself recursively
+                | _ -> countReferences 0 ident.Name lambdaBody = 0
+                    && canInlineArg ident.Name value letBody
+            | _ -> canInlineArg ident.Name value letBody
 
-    let lambdaBetaReduction (com: Compiler) e =
-        let applyArgs (args: Ident list) argExprs body =
-            let bindings, replacements =
-                (([], Map.empty), args, argExprs)
-                |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if canInlineArg com ident.Name expr body
-                    then bindings, Map.add ident.Name expr replacements
-                    else (ident, expr)::bindings, replacements)
-            match bindings with
-            | [] -> replaceValues replacements body
-            | bindings ->
-                let body = replaceValues replacements body
-                bindings |> List.fold (fun body (i, v) -> Let(i, v, body)) body
+        if canInlineBinding then
+            let value =
+                match value with
+                // Ident becomes the name of the function (mainly used for tail call optimizations)
+                | Lambda(arg, funBody, _) -> Lambda(arg, funBody, Some ident.Name)
+                | Delegate(args, funBody, _, tags) -> Delegate(args, funBody, Some ident.Name, tags)
+                | value -> value
+            Some(ident, value)
+        else None
+
+    let applyArgs (args: Ident list) (argExprs: Expr list) body =
+        let bindings, replacements =
+            (([], Map.empty), args, argExprs)
+            |||> List.fold2 (fun (bindings, replacements) ident expr ->
+                match tryInlineBinding ident expr body with
+                | Some(ident, expr) -> bindings, Map.add ident.Name expr replacements
+                | None -> (ident, expr)::bindings, replacements)
+
+        let body = replaceValues replacements body
+        List.fold (fun body (i, v) -> Let(i, v, body)) body bindings
+
+    let rec lambdaBetaReduction (com: Compiler) e =
         match e with
-        // TODO: Other binary operations and numeric types
-        | Operation(Binary(AST.BinaryPlus, v1, v2), _, _, _) ->
-            match v1, v2 with
-            | Value(StringConstant v1, r1), Value(StringConstant v2, r2) ->
-                Value(StringConstant(v1 + v2), addRanges [r1; r2])
-            // Assume NumberKind and NumberInfo are the same
-            | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty), r1), Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty), r2) ->
-                Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [r1; r2])
-            | _ -> e
-        | Call(Delegate(args, body, _, _), info, _, _) when List.sameLength args info.Args ->
-            applyArgs args info.Args body
-        | CurriedApply(applied, argExprs, t, r) ->
-            let rec tryImmediateApplication r t applied argExprs =
-                match argExprs with
-                | [] -> applied
-                | argExpr::restArgs ->
-                    match applied with
-                    | ImmediatelyApplicable(arg, body) ->
-                        let applied = applyArgs [arg] [argExpr] body
-                        tryImmediateApplication r t applied restArgs
-                    | _ -> CurriedApply(applied, argExprs, t, r)
-            tryImmediateApplication r t applied argExprs
-        | e -> e
+        | Call(Delegate(args, body, _, _), info, _t, _r) when List.sameLength args info.Args ->
+            let body = visitFromOutsideIn (lambdaBetaReduction com) body
+            let thisArgExpr = info.ThisArg |> Option.map (visitFromOutsideIn (lambdaBetaReduction com))
+            let argExprs = info.Args |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
+            let info = { info with ThisArg = thisArgExpr; Args = argExprs }
+            applyArgs args info.Args body |> Some
+
+        | NestedApply(applied, argExprs, _t, _r) ->
+            let argsLen = List.length argExprs
+            match applied with
+            | ImmediatelyApplicable argsLen (args, body) when List.sameLength args argExprs ->
+                let argExprs = argExprs |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
+                let body = visitFromOutsideIn (lambdaBetaReduction com) body
+                applyArgs args argExprs body |> Some
+            | _ -> None
+        | _ -> None
 
     let bindingBetaReduction (com: Compiler) e =
         // Don't erase user-declared bindings in debug mode for better output
@@ -259,31 +292,13 @@ module private Transforms =
             (not com.Options.DebugMode) || ident.IsCompilerGenerated
         match e with
         | Let(ident, value, letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
-            let canEraseBinding =
-                match value, com.Options.Language with
-                | Import(i,_,_), _ -> i.IsCompilerGenerated
-                // Don't move local functions declared by user (Dart only)
-                // TODO: remove this for Dart when the next match is fixed
-                | Lambda _, Dart ->
-                    ident.IsCompilerGenerated && canInlineArg com ident.Name value letBody
-                // Replace non-recursive lambda bindings (JS/TS/Rust only)
-                // TODO: fix issues with Dart tests and enable for Dart
-                | NestedLambda(args, lambdaBody, name), (JavaScript|TypeScript|Rust|Python) ->
-                    match lambdaBody with
-                    | Import(i,_,_) -> i.IsCompilerGenerated
-                    // Check the lambda doesn't reference itself recursively
-                    | _ -> countReferences 0 ident.Name lambdaBody = 0
-                        && canInlineArg com ident.Name value letBody
-                | _ -> canInlineArg com ident.Name value letBody
-            if canEraseBinding then
-                let value =
-                    match value with
-                    // Ident becomes the name of the function (mainly used for tail call optimizations)
-                    | Lambda(arg, funBody, _) -> Lambda(arg, funBody, Some ident.Name)
-                    | Delegate(args, funBody, _, tags) -> Delegate(args, funBody, Some ident.Name, tags)
-                    | value -> value
-                replaceValues (Map [ident.Name, value]) letBody
-            else e
+            match tryInlineBinding ident value letBody with
+            | Some(ident, value) ->
+                // Sometimes we inline a local generic function, so we need to check
+                // if the replaced ident has the concrete type. This happens in FSharp2Fable step,
+                // see FSharpExprPatterns.CallWithWitnesses
+                replaceValuesAndGenArgs (Map [ident.Name, value]) letBody
+            | None -> e
         | e -> e
 
     let operationReduction (_com: Compiler) e =
@@ -400,7 +415,7 @@ module private Transforms =
             | None -> Let(ident, value, body)
             | Some arity ->
                 let replacements = Map [ident.Name, arity]
-                Let(ident, value, curryIdentsInBody replacements body)
+                Let({ ident with Type = uncurryType ident.Type }, value, curryIdentsInBody replacements body)
         | e -> e
 
     let uncurryMemberArgs (m: MemberDecl) =
@@ -432,9 +447,12 @@ module private Transforms =
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, MaybeOption(DelegateType(_, GenericParam _))), AnonymousRecordType _ when arity > 0 ->
-                let e = Replacements.Api.checkArity com fieldType arity e
-                if arity > 1 then Extended(Curry(e, arity), r)
-                else e
+                if com.Options.Language = Rust then
+                    e // anonymous record fields are not uncurried for Rust, so nothing to do
+                else
+                    let e = Replacements.Api.checkArity com fieldType arity e
+                    if arity > 1 then Extended(Curry(e, arity), r)
+                    else e
             | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
@@ -464,7 +482,9 @@ module private Transforms =
             let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r) ->
-            let args = uncurryArgs com false genArgs args
+            let args =
+                if com.Options.Language = Rust then args
+                else uncurryArgs com false genArgs args
             Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r)
         | Value(NewUnion(args, tag, ent, genArgs), r) ->
             let uci = com.GetEntity(ent).UnionCases[tag]
@@ -525,9 +545,7 @@ open Transforms
 let getTransformations (_com: Compiler) =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
-      fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
-      // Make an extra binding reduction pass after applying lambdas
-      fun com e -> visitFromInsideOut (bindingBetaReduction com) e
+      fun com e -> visitFromOutsideIn (lambdaBetaReduction com) e
       fun com e -> visitFromInsideOut (operationReduction com) e
       // Then apply uncurry optimizations
       // Functions passed as arguments in calls (but NOT in curried applications) are being uncurried so we have to re-curry them

@@ -3,6 +3,7 @@ module System
 open Global_
 open System.Collections.Generic
 
+type Array() = class end
 type Enum() = class end
 
 type Exception(message: string) =
@@ -285,7 +286,7 @@ module Text =
         member x.Append(o: float) = x.Append(string o)
         member x.Append(s: string, index: int, count: int) = x.Append(s.Substring(index, count))
         member x.Append(cs: char[]) = x.Append(System.String(cs))
-        member x.Append(s: StringBuilder) = x.Append(s.ToString())
+        member x.Append(sb: StringBuilder) = x.Append(sb.ToString())
         // member x.Append(o: obj) = x.Append(string o)
         // member x.AppendFormat(fmt: string, o: obj) = x.Append(System.String.Format(fmt, o))
         // member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o: obj) = x.Append(System.String.Format(provider, fmt, o))

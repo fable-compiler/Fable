@@ -1,6 +1,6 @@
 #[cfg(feature = "decimal")]
 pub mod Decimal_ {
-    use crate::Native_::{array, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{array, compare, Array, Lrc, MutCell, Vec};
     use crate::String_::{string, toString as toString_1};
     use core::cmp::Ordering;
 
@@ -15,13 +15,7 @@ pub mod Decimal_ {
 
     // pub fn getHashCode(x: decimal) = x.GetHashCode()
     pub fn equals(x: decimal, y: decimal) -> bool { x.eq(&y) }
-    pub fn compare(x: decimal, y: decimal) -> i32 {
-        match x.cmp(&y) {
-            Ordering::Less => -1,
-            Ordering::Greater => 1,
-            Ordering::Equal => 0,
-        }
-    }
+    pub fn compareTo(x: decimal, y: decimal) -> i32 { compare(&x, &y) }
 
     pub fn scale(x: decimal) -> u8 { x.scale() as u8 }
 

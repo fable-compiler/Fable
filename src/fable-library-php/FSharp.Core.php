@@ -5,7 +5,7 @@ interface IComparable {
 }
 
 interface FSharpUnion {
-    public function get_FSharpCase();
+    public static function get_FSharpCase();
 }
 
 interface IDisposable {

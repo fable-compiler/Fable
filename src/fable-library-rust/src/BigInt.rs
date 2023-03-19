@@ -1,9 +1,8 @@
 #[cfg(feature = "bigint")]
 pub mod BigInt_ {
     use crate::Decimal_::{decimal, truncate};
-    use crate::Native_::{arrayFrom, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{arrayFrom, compare, Array, Lrc, MutCell, Vec};
     use crate::String_::{string, toString as toString_1};
-    use core::cmp::Ordering;
 
     use num_bigint::*;
     use num_integer::*;
@@ -20,45 +19,51 @@ pub mod BigInt_ {
     }
 
     impl core::ops::Deref for bigint {
-        type Target = BigInt;
+        type Target = Lrc<BigInt>;
         #[inline]
         fn deref(&self) -> &Self::Target {
-            self.0.as_ref()
+            &self.0
         }
     }
 
     impl core::fmt::Display for bigint {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.0.as_ref()) //TODO:
+            write!(f, "{}", self.as_ref()) //TODO: improve
         }
     }
 
     macro_rules! un_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self) -> Self { ($op self.0.as_ref()).into() }
+                fn $op_fn(self) -> Self::Output {
+                    ($op self.as_ref()).into()
+                }
             }
         };
     }
 
     macro_rules! bin_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self, rhs: Self) -> Self { (self.0.as_ref() $op rhs.0.as_ref()).into() }
+                fn $op_fn(self, rhs: Self) -> Self::Output {
+                    (self.as_ref() $op rhs.as_ref()).into()
+                }
             }
         };
     }
 
     macro_rules! shift_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name<i32> for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait<i32> for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self, rhs: i32) -> Self { (self.0.as_ref() $op rhs).into() }
+                fn $op_fn(self, rhs: i32) -> Self::Output {
+                    (self.as_ref() $op rhs).into()
+                }
             }
         };
     }
@@ -71,6 +76,7 @@ pub mod BigInt_ {
     bin_op!(Mul, mul, *);
     bin_op!(Div, div, /);
     bin_op!(Rem, rem, %);
+
     bin_op!(BitAnd, bitand, &);
     bin_op!(BitOr, bitor, |);
     bin_op!(BitXor, bitxor, ^);
@@ -84,13 +90,7 @@ pub mod BigInt_ {
 
     // pub fn getHashCode(x: bigint) = x.GetHashCode()
     pub fn equals(x: bigint, y: bigint) -> bool { x.eq(&y) }
-    pub fn compare(x: bigint, y: bigint) -> i32 {
-        match x.cmp(&y) {
-            Ordering::Less => -1,
-            Ordering::Greater => 1,
-            Ordering::Equal => 0,
-        }
-    }
+    pub fn compareTo(x: bigint, y: bigint) -> i32 { compare(&x, &y) }
 
     pub fn abs(x: bigint) -> bigint { x.abs().into() }
     pub fn sign(x: bigint) -> i32 { x.signum().to_i32().unwrap() }

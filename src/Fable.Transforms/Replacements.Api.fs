@@ -34,7 +34,7 @@ let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (args: Expr list) =
 
 let checkArity (com: Compiler) t arity expr =
     match com.Options.Language with
-    | Rust -> Rust.Replacements.checkArity com t arity expr
+    | Rust -> expr // anonymous record fields are not uncurried for Rust, so nothing to do
     | _ -> Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr])
 
 let tryField (com: ICompiler) returnTyp ownerTyp fieldName =

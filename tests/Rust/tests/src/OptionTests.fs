@@ -2,21 +2,21 @@ module Fable.Tests.OptionTests
 
 open Util.Testing
 
-// type FoldTest =
-// | FoldA of FoldTest option
-// | FoldB of int
+type FoldTest =
+| FoldA of FoldTest option
+| FoldB of int
 
-// let rec folding1 test acc =
-//   let f2 (opt:FoldTest option) acc = Option.fold (fun a b -> folding1 b a) acc opt
-//   match test with
-//   | FoldA d -> f2 d acc
-//   | FoldB i -> i::acc
+let rec folding1 test acc =
+  let f2 (opt:FoldTest option) acc = Option.fold (fun a b -> folding1 b a) acc opt
+  match test with
+  | FoldA d -> f2 d acc
+  | FoldB i -> i::acc
 
-// let rec folding2 test acc =
-//   let f2 (opt:FoldTest option) acc = Option.foldBack folding2 opt acc
-//   match test with
-//   | FoldA d -> f2 d acc
-//   | FoldB i -> i::acc
+let rec folding2 test acc =
+  let f2 (opt:FoldTest option) acc = Option.foldBack folding2 opt acc
+  match test with
+  | FoldA d -> f2 d acc
+  | FoldB i -> i::acc
 
 type OptTest = OptTest of int option
 
@@ -172,26 +172,26 @@ let ``Option.iter works`` () =
     Some 2 |> Option.iter (fun i -> res <- i)
     res |> equal 2
 
-// [<Fact>]
-// let ``Option.iter works II`` () = // See #198
-//     let mutable res = false
-//     let getOnlyOnce =
-//         let mutable value = Some "Hello"
-//         fun () -> match value with Some x -> value <- None; Some x | None -> None
-//     getOnlyOnce() |> Option.iter (fun s -> if s = "Hello" then res <- true)
-//     equal true res
+[<Fact>]
+let ``Option.iter works II`` () = // See #198
+    let mutable res = false
+    let getOnlyOnce =
+        let mutable value = Some "Hello"
+        fun () -> match value with Some x -> value <- None; Some x | None -> None
+    getOnlyOnce() |> Option.iter (fun s -> if s = "Hello" then res <- true)
+    equal true res
 
 [<Fact>]
 let ``Option.map works`` () =
     Some 2 |> Option.map (fun i -> i + 1) |> equal (Some 3)
 
-// [<Fact>]
-// let ``Option.map works II`` () =
-//     let getOnlyOnce =
-//         let mutable value = Some "Alfonso"
-//         fun () -> match value with Some x -> value <- None; Some x | None -> None
-//     getOnlyOnce() |> Option.map ((+) "Hello ") |> equal (Some "Hello Alfonso")
-//     getOnlyOnce() |> Option.map ((+) "Hello ") |> equal None
+[<Fact>]
+let ``Option.map works II`` () =
+    let getOnlyOnce =
+        let mutable value = Some "Alfonso"
+        fun () -> match value with Some x -> value <- None; Some x | None -> None
+    getOnlyOnce() |> Option.map ((+) "Hello ") |> equal (Some "Hello Alfonso")
+    getOnlyOnce() |> Option.map ((+) "Hello ") |> equal None
 
 [<Fact>]
 let ``Option.map2 works`` () =
@@ -224,16 +224,16 @@ let ``Option.filter works`` () =
     Some 7 |> Option.filter (fun x -> x = 7) |> equal (Some 7)
     Some 7 |> Option.filter (fun x -> x = 8) |> equal None
 
-// [<Fact>]
-// let ``Option.filter works II`` () = // See #390
-//     let optionToString opt =
-//         match opt with
-//         | None -> "None"
-//         | Some value -> "Some " + value
-//     Some 7 |> Option.filter (fun _ -> false) |> Option.map string |> optionToString |> equal "None"
-//     Some 7 |> Option.filter (fun _ -> true)  |> Option.map string |> optionToString |> equal "Some 7"
-//     Some "A" |> Option.filter (fun _ -> false) |> optionToString |> equal "None"
-//     Some "A" |> Option.filter (fun _ -> true) |> optionToString |> equal "Some A"
+[<Fact>]
+let ``Option.filter works II`` () = // See #390
+    let optionToString opt =
+        match opt with
+        | None -> "None"
+        | Some value -> "Some " + value
+    Some 7 |> Option.filter (fun _ -> false) |> Option.map string |> optionToString |> equal "None"
+    Some 7 |> Option.filter (fun _ -> true)  |> Option.map string |> optionToString |> equal "Some 7"
+    Some "A" |> Option.filter (fun _ -> false) |> optionToString |> equal "None"
+    Some "A" |> Option.filter (fun _ -> true) |> optionToString |> equal "Some A"
 
 [<Fact>]
 let ``Option.fold works`` () =
@@ -246,32 +246,32 @@ let ``Option.foldBack works`` () =
     (Some 7, 5) ||> Option.foldBack (+) |> equal 12
 
 [<Fact>]
+let ``Option.fold works II`` () = // See #660
+    folding1 (FoldA (Some (FoldB 1))) [] |> equal [1]
+
+[<Fact>]
+let ``Option.foldBack works II`` () =  // See #660
+    folding2 (FoldA (Some (FoldB 1))) [] |> equal [1]
+
+[<Fact>]
 let ``Option.toArray works`` () =
     None |> Option.toArray<int> |> equal [||]
     Some 42 |> Option.toArray |> equal [|42|]
+    Some (Some 7) |> Option.toArray |> equal [|Some 7|]
 
 [<Fact>]
 let ``Option.toList works`` () =
     None |> Option.toList<int> |> equal []
     Some 42 |> Option.toList |> equal [42]
-
-// [<Fact>]
-// let ``Option.fold works II`` () = // See #660
-//     folding1 (FoldA (Some (FoldB 1))) [] |> equal [1]
-
-// [<Fact>]
-// let ``Option.foldBack works II`` () =  // See #660
-//     folding2 (FoldA (Some (FoldB 1))) [] |> equal [1]
+    Some (Some 7) |> Option.toList |> equal [Some 7]
 
 // [<Fact>]
 // let ``Option.toArray works II`` () =
 //     None |> Option.toArray |> equal [||]
-//     Some (Some 7) |> Option.toArray |> equal [|Some 7|]
 
 // [<Fact>]
 // let ``Option.toList works II`` () =
 //     None |> Option.toList |> equal []
-//     Some (Some 7) |> Option.toList |> equal [Some 7]
 
 [<Fact>]
 let ``Option.flatten works`` () =
@@ -296,28 +296,28 @@ let ``Option.flatten works`` () =
 //     Option.ofObj o1 |> equal (Some "foo")
 //     Option.ofObj o2 |> equal None
 
-// // https://github.com/fable-compiler/Fable/issues/1136
-// [<Fact>]
-// let ``Calling Some with side-effects works`` () =
-//     let mutable state = 0
-//     let f x = state <- x
-//     let _fo = f 3 |> Some
-//     state |> equal 3
+// https://github.com/fable-compiler/Fable/issues/1136
+[<Fact>]
+let ``Calling Some with side-effects works`` () =
+    let mutable state = 0
+    let f x = state <- x
+    let _fo = f 3 |> Some
+    state |> equal 3
 
-// [<Fact>]
-// let ``Different ways of providing None to a union case should be equal`` () = // See #231
-//     let value: int option = None
-//     equal true ((OptTest None) = (value |> OptTest))
+[<Fact>]
+let ``Different ways of providing None to a union case should be equal`` () = // See #231
+    let value: int option = None
+    equal true ((OptTest None) = (value |> OptTest))
 
-// [<Fact>]
-// let ``Different ways of providing None to a function should be equal`` () = // See #231
-//     let f x = x
-//     let f2 x = x = None
-//     let value: int option = None
-//     equal true ((f None) = (value |> f))
-//     equal true (f2 None)
-//     equal true (f2 value)
-//     equal false (Some 5 |> f2)
+[<Fact>]
+let ``Different ways of providing None to a function should be equal`` () = // See #231
+    let f x = x
+    let f2 x = x = None
+    let value: int option = None
+    equal true ((f None) = (value |> f))
+    equal true (f2 (None: uint option))
+    equal true (f2 value)
+    equal false (Some 5 |> f2)
 
 [<Fact>]
 let ``Accessing an option value gives correct expression type`` () = // See #285
@@ -327,92 +327,92 @@ let ``Accessing an option value gives correct expression type`` () = // See #285
         | None -> 0.
     test (Some 4.) |> equal 7.
 
-// [<Fact>]
-// let ``Mixing refs and options works`` () = // See #238
-//     let res = ref 0
-//     let setter, getter =
-//         let slot = ref None
-//         (fun f -> slot.Value <- Some f),
-//         // TODO!!! If we change this to `slot.Value.Value` it fails
-//         (fun v -> slot.Value.Value v)
-//     setter (fun i -> res := i + 2)
-//     getter 5
-//     equal 7 !res
+[<Fact>]
+let ``Mixing refs and options works`` () = // See #238
+    let res = ref 0
+    let setter, getter =
+        let slot = ref None
+        (fun f -> slot.Value <- Some f),
+        // TODO!!! If we change this to `slot.Value.Value` it fails
+        (fun v -> slot.Value.Value v)
+    setter (fun i -> res := i + 2)
+    getter 5
+    equal 7 !res
 
-// [<Fact>]
-// let ``Generic options work`` () =
-//     let x1 = makeSome ()
-//     let x2 = makeSome None
-//     let x3 = makeSome null |> makeSome
-//     let x4 = makeSome 5
-//     Option.isSome x1 |> equal true
-//     Option.isNone x1 |> equal false
-//     x1.IsSome |> equal true
-//     x1.IsNone |> equal false
-//     match x1 with Some _ -> true | None -> false
-//     |> equal true
-//     Option.isSome x2 |> equal true
-//     Option.isNone x2 |> equal false
-//     x2.IsSome |> equal true
-//     x2.IsNone |> equal false
-//     match x2 with
-//     | Some(Some _) -> 0
-//     | Some(None) -> 1
-//     | None -> 2
-//     |> equal 1
-//     Option.isSome x3 |> equal true
-//     Option.isNone x3 |> equal false
-//     x3.IsSome |> equal true
-//     x3.IsNone |> equal false
-//     match x3 with
-//     | None -> 0
-//     | Some(None) -> 1
-//     | Some(Some _) -> 2
-//     |> equal 2
-//     match x4 with Some i -> i = 5 | None -> false
-//     |> equal true
-//     x4.Value = 5 |> equal true
-//     Option.get x4 = 5 |> equal true
+[<Fact>]
+let ``Generic options work`` () =
+    let x1 = makeSome ()
+    let x2 = makeSome (None: int option)
+    let x3 = makeSome "null" |> makeSome
+    let x4 = makeSome 5
+    Option.isSome x1 |> equal true
+    Option.isNone x1 |> equal false
+    x1.IsSome |> equal true
+    x1.IsNone |> equal false
+    match x1 with Some _ -> true | None -> false
+    |> equal true
+    Option.isSome x2 |> equal true
+    Option.isNone x2 |> equal false
+    x2.IsSome |> equal true
+    x2.IsNone |> equal false
+    match x2 with
+    | Some(Some _) -> 0
+    | Some(None) -> 1
+    | None -> 2
+    |> equal 1
+    Option.isSome x3 |> equal true
+    Option.isNone x3 |> equal false
+    x3.IsSome |> equal true
+    x3.IsNone |> equal false
+    match x3 with
+    | None -> 0
+    | Some(None) -> 1
+    | Some(Some _) -> 2
+    |> equal 2
+    match x4 with Some i -> i = 5 | None -> false
+    |> equal true
+    x4.Value = 5 |> equal true
+    Option.get x4 = 5 |> equal true
 
-// [<Fact>]
-// let ``Nested options work`` () =
-//     let x1 = Some(Some 5)
-//     let x2 = Some(Some ())
-//     let x3: int option option = Some(None)
-//     Option.isSome x1 |> equal true
-//     Option.isNone x1 |> equal false
-//     x1.IsSome |> equal true
-//     x1.IsNone |> equal false
-//     match x1 with
-//     | Some(Some 5) -> 0
-//     | Some(Some _) -> 1
-//     | Some(None) -> 2
-//     | None -> 3
-//     |> equal 0
-//     Option.isSome x2 |> equal true
-//     Option.isNone x2 |> equal false
-//     x2.IsSome |> equal true
-//     x2.IsNone |> equal false
-//     match x2 with
-//     | Some(None) -> 0
-//     | Some(Some _) -> 1
-//     | None -> 2
-//     |> equal 1
-//     Option.isSome x3 |> equal true
-//     Option.isNone x3 |> equal false
-//     x3.IsSome |> equal true
-//     x3.IsNone |> equal false
-//     match x3 with
-//     | None -> 0
-//     | Some(Some _) -> 1
-//     | Some(None) -> 2
-//     |> equal 2
+[<Fact>]
+let ``Nested options work`` () =
+    let x1 = Some(Some 5)
+    let x2 = Some(Some ())
+    let x3: int option option = Some(None)
+    Option.isSome x1 |> equal true
+    Option.isNone x1 |> equal false
+    x1.IsSome |> equal true
+    x1.IsNone |> equal false
+    match x1 with
+    | Some(Some 5) -> 0
+    | Some(Some _) -> 1
+    | Some(None) -> 2
+    | None -> 3
+    |> equal 0
+    Option.isSome x2 |> equal true
+    Option.isNone x2 |> equal false
+    x2.IsSome |> equal true
+    x2.IsNone |> equal false
+    match x2 with
+    | Some(None) -> 0
+    | Some(Some _) -> 1
+    | None -> 2
+    |> equal 1
+    Option.isSome x3 |> equal true
+    Option.isNone x3 |> equal false
+    x3.IsSome |> equal true
+    x3.IsNone |> equal false
+    match x3 with
+    | None -> 0
+    | Some(Some _) -> 1
+    | Some(None) -> 2
+    |> equal 2
 
-// [<Fact>]
-// let ``Option.map ignore generates Some ()`` () = // See #1923
-//     let mySome = Some ()
-//     let myOtherSome = mySome |> Option.map (ignore)
-//     equal mySome myOtherSome
+[<Fact>]
+let ``Option.map ignore generates Some ()`` () = // See #1923
+    let mySome = Some ()
+    let myOtherSome = mySome |> Option.map ignore
+    equal mySome myOtherSome
 
 // [<Fact>]
 // let ``Some (box null) |> Option.isSome evals to true`` () = // See #1948
