@@ -10,11 +10,10 @@
     <Compile Include="Global/Fable.Core.fs" />
     <Compile Include="Global/Metadata.fs" />
     <Compile Include="Global/Prelude.fs" />
-    <Compile Include="Go/Prelude.fs" />
-    <Compile Include="Python/Prelude.fs" />
     <Compile Include="Global/Compiler.fs" />
     <Compile Include="Global/Naming.fs" />
     <Compile Include="Python/Prelude.fs" />
+    <Compile Include="Go/Prelude.fs" />
     <Compile Include="MonadicTrampoline.fs" />
     <Compile Include="Transforms.Util.fs" />
     <Compile Include="OverloadSuffix.fs" />
