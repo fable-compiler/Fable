@@ -1296,7 +1296,7 @@ let tests7 = [
 
         doMapRunTimes |> equal 1
         setStateAccumulated |> equal "FooBarBaz"
-#endif
+
     testCase "Fix lambda uncurry/curry semantic #1836" <| fun () ->
         let map (mapSetState: int -> (int -> unit))  =
             mapSetState 1

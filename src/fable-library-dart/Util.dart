@@ -1,5 +1,142 @@
 // ignore_for_file: file_names
 
+final _curried = Expando();
+
+TResult Function(T1, T2) uncurry2<T1, T2, TResult>(TResult Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2) => f(a1)(a2);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T2) Function(T1) curry2<T1, T2, TResult>(TResult Function(T1, T2) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => f(a1, a2);
+  } else {
+    return c as TResult Function(T2) Function(T1);
+  }
+}
+
+TResult Function(T1, T2, T3) uncurry3<T1, T2, T3, TResult>(TResult Function(T3) Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2, T3 a3) => f(a1)(a2)(a3);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T3) Function(T2) Function(T1) curry3<T1, T2, T3, TResult>(TResult Function(T1, T2, T3) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => (T3 a3) => f(a1, a2, a3);
+  } else {
+    return c as TResult Function(T3) Function(T2) Function(T1);
+  }
+}
+
+TResult Function(T1, T2, T3, T4) uncurry4<T1, T2, T3, T4, TResult>(TResult Function(T4) Function(T3) Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2, T3 a3, T4 a4) => f(a1)(a2)(a3)(a4);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T4) Function(T3) Function(T2) Function(T1) curry4<T1, T2, T3, T4, TResult>(TResult Function(T1, T2, T3, T4) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => (T3 a3) => (T4 a4) => f(a1, a2, a3, a4);
+  } else {
+    return c as TResult Function(T4) Function(T3) Function(T2) Function(T1);
+  }
+}
+
+TResult Function(T1, T2, T3, T4, T5) uncurry5<T1, T2, T3, T4, T5, TResult>(TResult Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2, T3 a3, T4 a4, T5 a5) => f(a1)(a2)(a3)(a4)(a5);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) curry5<T1, T2, T3, T4, T5, TResult>(TResult Function(T1, T2, T3, T4, T5) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => (T3 a3) => (T4 a4) => (T5 a5) => f(a1, a2, a3, a4, a5);
+  } else {
+    return c as TResult Function(T5) Function(T4) Function(T3) Function(T2) Function(T1);
+  }
+}
+
+TResult Function(T1, T2, T3, T4, T5, T6) uncurry6<T1, T2, T3, T4, T5, T6, TResult>(TResult Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6) => f(a1)(a2)(a3)(a4)(a5)(a6);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) curry6<T1, T2, T3, T4, T5, T6, TResult>(TResult Function(T1, T2, T3, T4, T5, T6) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => (T3 a3) => (T4 a4) => (T5 a5) => (T6 a6) => f(a1, a2, a3, a4, a5, a6);
+  } else {
+    return c as TResult Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1);
+  }
+}
+
+TResult Function(T1, T2, T3, T4, T5, T6, T7) uncurry7<T1, T2, T3, T4, T5, T6, T7, TResult>(TResult Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6, T7 a7) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) curry7<T1, T2, T3, T4, T5, T6, T7, TResult>(TResult Function(T1, T2, T3, T4, T5, T6, T7) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => (T3 a3) => (T4 a4) => (T5 a5) => (T6 a6) => (T7 a7) => f(a1, a2, a3, a4, a5, a6, a7);
+  } else {
+    return c as TResult Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1);
+  }
+}
+
+TResult Function(T1, T2, T3, T4, T5, T6, T7, T8) uncurry8<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(TResult Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6, T7 a7, T8 a8) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) curry8<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(TResult Function(T1, T2, T3, T4, T5, T6, T7, T8) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => (T3 a3) => (T4 a4) => (T5 a5) => (T6 a6) => (T7 a7) => (T8 a8) => f(a1, a2, a3, a4, a5, a6, a7, a8);
+  } else {
+    return c as TResult Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1);
+  }
+}
+
+TResult Function(T1, T2, T3, T4, T5, T6, T7, T8, T9) uncurry9<T1, T2, T3, T4, T5, T6, T7, T8, T9, TResult>(TResult Function(T9) Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6, T7 a7, T8 a8, T9 a9) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T9) Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) curry9<T1, T2, T3, T4, T5, T6, T7, T8, T9, TResult>(TResult Function(T1, T2, T3, T4, T5, T6, T7, T8, T9) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => (T3 a3) => (T4 a4) => (T5 a5) => (T6 a6) => (T7 a7) => (T8 a8) => (T9 a9) => f(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+  } else {
+    return c as TResult Function(T9) Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1);
+  }
+}
+
+TResult Function(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10) uncurry10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, TResult>(TResult Function(T10) Function(T9) Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) f) {
+  f2(T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6, T7 a7, T8 a8, T9 a9, T10 a10) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10);
+  _curried[f2] = f;
+  return f2;
+}
+
+TResult Function(T10) Function(T9) Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1) curry10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, TResult>(TResult Function(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10) f) {
+  var c = _curried[f];
+  if (c == null) {
+    return (T1 a1) => (T2 a2) => (T3 a3) => (T4 a4) => (T5 a5) => (T6 a6) => (T7 a7) => (T8 a8) => (T9 a9) => (T10 a10) => f(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+  } else {
+    return c as TResult Function(T10) Function(T9) Function(T8) Function(T7) Function(T6) Function(T5) Function(T4) Function(T3) Function(T2) Function(T1);
+  }
+}
+
 void ignore([dynamic _]) {}
 
 T value<T>(T? value) => value!;

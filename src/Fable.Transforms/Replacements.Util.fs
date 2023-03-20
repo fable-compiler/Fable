@@ -373,12 +373,21 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
     Let(capturedFun1Var, f1, Let(capturedFun2Var, f2, Lambda(arg, body, None)))
 
 let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
-    // Check if argTypes.Length < arity?
-    let argTypes, returnType = uncurryLambdaType arity [] t
-    let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"x{com.IncrementCounter()}$")
-    let args = argIdents |> List.map Fable.IdentExpr
-    Helper.Application(expr, returnType, partialArgs @ args)
-    |> makeLambda argIdents
+    match com.Options.Language with
+    | JavaScript | TypeScript | Dart ->
+        let argTypes, returnType = uncurryLambdaType System.Int32.MaxValue [] expr.Type
+        let curriedType = makeLambdaType argTypes returnType
+        let curried = Helper.LibCall(com, "Util", $"curry{argTypes.Length}", curriedType, [expr])
+        match partialArgs with
+        | [] -> curried
+        | partialArgs -> curriedApply None t curried partialArgs
+    | _ ->
+        // Check if argTypes.Length < arity?
+        let argTypes, returnType = uncurryLambdaType arity [] t
+        let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"x{com.IncrementCounter()}$")
+        let args = argIdents |> List.map Fable.IdentExpr
+        Helper.Application(expr, returnType, partialArgs @ args)
+        |> makeLambda argIdents
 
 let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     if arity = 1 then expr
@@ -396,7 +405,8 @@ let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
                 let argTypes, returnType = uncurryLambdaType arity [] t
                 DelegateType(argTypes, returnType)
             let f = makeTypedIdent uncurriedType "f"
-            let curried = partialApplyAtRuntime com t arity (IdentExpr f) []
+            let fe = makeTypedIdent t "f" |> IdentExpr
+            let curried = partialApplyAtRuntime com t arity fe []
             let fn = Delegate([f], curried, None, Tags.empty)
             // TODO: This may be different per language
             Helper.LibCall(com, "Option", "map", Option(curried.Type, isStruct), [fn; expr])
@@ -406,10 +416,16 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     let uncurry (expr: Expr) =
         // Check if argTypes.Length < arity?
         let argTypes, returnType = uncurryLambdaType arity [] expr.Type
-        let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"x{com.IncrementCounter()}$")
-        let args = argIdents |> List.map IdentExpr
-        let body = curriedApply None returnType expr args
-        Delegate(argIdents, body, None, Tags.empty)
+
+        match com.Options.Language with
+        | JavaScript | TypeScript | Dart ->
+            let uncurriedType = DelegateType(argTypes, returnType)
+            Helper.LibCall(com, "Util", $"uncurry{arity}", uncurriedType, [expr])
+        | _ ->
+            let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"x{com.IncrementCounter()}$")
+            let args = argIdents |> List.map IdentExpr
+            let body = curriedApply None returnType expr args
+            Delegate(argIdents, body, None, Tags.empty)
 
     match expr with
     | Value(Null _, _) -> expr

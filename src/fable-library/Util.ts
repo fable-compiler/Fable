@@ -684,6 +684,120 @@ export function clear<T>(col: Iterable<T>) {
   }
 }
 
+const curried = new WeakMap<object, object>();
+
+export function uncurry2<T1, T2, TResult>(f: (a1: T1) => (a2: T2) => TResult) {
+  const f2 = (a1: T1, a2: T2) => f(a1)(a2);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry2<T1, T2, TResult>(f: (a1: T1, a2: T2) => TResult) {
+  return curried.get(f) as ((a1: T1) => (a2: T2) => TResult) ?? ((a1: T1) => (a2: T2) => f(a1, a2));
+}
+
+export function uncurry3<T1, T2, T3, TResult>(f: (a1: T1) => (a2: T2) => (a3: T3) => TResult) {
+  const f2 = (a1: T1, a2: T2, a3: T3) => f(a1)(a2)(a3);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry3<T1, T2, T3, TResult>(f: (a1: T1, a2: T2, a3: T3) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => f(a1, a2, a3));
+}
+
+export function uncurry4<T1, T2, T3, T4, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => TResult
+) {
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4) => f(a1)(a2)(a3)(a4);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry4<T1, T2, T3, T4, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => f(a1, a2, a3, a4));
+}
+
+export function uncurry5<T1, T2, T3, T4, T5, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => TResult
+) {
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5) => f(a1)(a2)(a3)(a4)(a5);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry5<T1, T2, T3, T4, T5, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => f(a1, a2, a3, a4, a5));
+}
+
+export function uncurry6<T1, T2, T3, T4, T5, T6, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => TResult
+) {
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6) => f(a1)(a2)(a3)(a4)(a5)(a6);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry6<T1, T2, T3, T4, T5, T6, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => f(a1, a2, a3, a4, a5, a6));
+}
+
+export function uncurry7<T1, T2, T3, T4, T5, T6, T7, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => TResult
+) {
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry7<T1, T2, T3, T4, T5, T6, T7, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => f(a1, a2, a3, a4, a5, a6, a7));
+}
+
+export function uncurry8<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => TResult
+) {
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry8<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => f(a1, a2, a3, a4, a5, a6, a7, a8));
+}
+
+export function uncurry9<T1, T2, T3, T4, T5, T6, T7, T8, T9, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => TResult
+) {
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry9<T1, T2, T3, T4, T5, T6, T7, T8, T9, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => f(a1, a2, a3, a4, a5, a6, a7, a8, a9));
+}
+
+export function uncurry10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => (a10: T10) => TResult
+) {
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9, a10: T10) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9, a10: T10) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => (a10: T10) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => (a10: T10) => f(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
+}
+
 const CURRIED = Symbol("curried");
 
 export function uncurry(arity: number, f: Option<Function>): any {
@@ -749,30 +863,6 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
   }
 }
 
-type CurriedArgMapping = [number, number] | 0; // expected arity, actual arity
-
-export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
-  function mapArg(fn: Function, arg: any, mappings: CurriedArgMapping[], idx: number) {
-    const mapping = mappings[idx];
-    if (mapping !== 0) {
-      const expectedArity = mapping[0];
-      const actualArity = mapping[1];
-      if (expectedArity > 1) {
-        arg = curry(expectedArity, arg);
-      }
-      if (actualArity > 1) {
-        arg = uncurry(actualArity, arg);
-      }
-    }
-    const res = fn(arg);
-    if (idx + 1 === mappings.length) {
-      return res;
-    } else {
-      return (arg: any) => mapArg(res, arg, mappings, idx + 1);
-    }
-  }
-  return (arg: any) => mapArg(fn, arg, mappings, 0);
-}
 
 // More performant method to copy arrays, see #2352
 export function copyToArray<T>(source: T[], sourceIndex: number, target: T[], targetIndex: number, count: number): void {
