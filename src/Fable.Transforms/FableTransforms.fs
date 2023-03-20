@@ -256,33 +256,48 @@ module private Transforms =
             Some(ident, value)
         else None
 
-    let applyArgs (args: Ident list) (argExprs: Expr list) body =
+    let applyArgs r t (args: Ident list) (argExprs: Expr list) body =
+        let argsLen = args.Length
+        let argExprsLen = argExprs.Length
+        let appliedArgs, restArgs, appliedArgExprs, restArgExprs =
+            if argsLen = argExprs.Length then
+                args, [], argExprs, []
+            elif argsLen < argExprsLen then
+                let appliedArgExprs, restArgExprs = List.splitAt argsLen argExprs
+                args, [], appliedArgExprs, restArgExprs
+            else
+                let appliedArgs, restArgs = List.splitAt argsLen args
+                appliedArgs, restArgs, argExprs, []
+
         let bindings, replacements =
-            (([], Map.empty), args, argExprs)
+            (([], Map.empty), appliedArgs, appliedArgExprs)
             |||> List.fold2 (fun (bindings, replacements) ident expr ->
                 match tryInlineBinding ident expr body with
                 | Some(ident, expr) -> bindings, Map.add ident.Name expr replacements
                 | None -> (ident, expr)::bindings, replacements)
 
         let body = replaceValues replacements body
-        List.fold (fun body (i, v) -> Let(i, v, body)) body bindings
+        let body = List.fold (fun body (i, v) -> Let(i, v, body)) body bindings
+        match restArgs, restArgExprs with
+        | [], [] -> body
+        | [], restArgExprs -> CurriedApply(body, restArgExprs, t, r)
+        | restArgs, _ -> makeLambda restArgs body
 
     let rec lambdaBetaReduction (com: Compiler) e =
         match e with
-        | Call(Delegate(args, body, _, _), info, _t, _r) when List.sameLength args info.Args ->
+        | Call(Delegate(args, body, _, _), info, t, r) when List.sameLength args info.Args ->
             let body = visitFromOutsideIn (lambdaBetaReduction com) body
             let thisArgExpr = info.ThisArg |> Option.map (visitFromOutsideIn (lambdaBetaReduction com))
             let argExprs = info.Args |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
             let info = { info with ThisArg = thisArgExpr; Args = argExprs }
-            applyArgs args info.Args body |> Some
+            applyArgs r t args info.Args body |> Some
 
-        | NestedApply(applied, argExprs, _t, _r) ->
-            let argsLen = List.length argExprs
+        | NestedApply(applied, argExprs, t, r) ->
             match applied with
-            | ImmediatelyApplicable argsLen (args, body) when List.sameLength args argExprs ->
+            | ImmediatelyApplicable argExprs.Length (args, body) ->
                 let argExprs = argExprs |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
                 let body = visitFromOutsideIn (lambdaBetaReduction com) body
-                applyArgs args argExprs body |> Some
+                applyArgs r t args argExprs body |> Some
             | _ -> None
         | _ -> None
 
@@ -342,7 +357,7 @@ module private Transforms =
         then List.rev args, body
         else List.rev args, curryIdentsInBody replacements body
 
-    let uncurryExpr com t arity expr =
+    let uncurryExpr com arity expr =
         let matches arity arity2 =
             match arity with
             // TODO: check cases where arity <> arity2
@@ -357,7 +372,7 @@ module private Transforms =
             when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
         | Value(NewOption(Some(Extended(Curry(innerExpr, arity2),_)), t, isStruct), r), _
             when matches arity arity2 -> Value(NewOption(Some(innerExpr), t, isStruct), r)
-        | _, Some arity -> Replacements.Api.uncurryExprAtRuntime com t arity expr
+        | _, Some arity -> Replacements.Api.uncurryExprAtRuntime com arity expr
         | _, None -> expr
 
     let uncurryArgs com autoUncurrying argTypes args =
@@ -375,11 +390,11 @@ module private Transforms =
             mapArgsInner f [] argTypes args
         (argTypes, args) ||> mapArgs (fun expectedType arg ->
             match expectedType with
-            | Any when autoUncurrying -> uncurryExpr com Any None arg
+            | Any when autoUncurrying -> uncurryExpr com None arg
             | _ ->
                 match getLambdaTypeArity expectedType with
-                | arity, uncurriedType when arity > 1 ->
-                    uncurryExpr com uncurriedType (Some arity) arg
+                | arity, _uncurriedType when arity > 1 ->
+                    uncurryExpr com (Some arity) arg
                 | _ -> arg)
 
     let uncurryInnerFunctions (_: Compiler) e =
@@ -447,12 +462,11 @@ module private Transforms =
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, MaybeOption(DelegateType(_, GenericParam _))), AnonymousRecordType _ when arity > 0 ->
-                if com.Options.Language = Rust then
-                    e // anonymous record fields are not uncurried for Rust, so nothing to do
-                else
-                    let e = Replacements.Api.checkArity com fieldType arity e
+                match Replacements.Api.checkArity com fieldType arity e with
+                | Some e ->
                     if arity > 1 then Extended(Curry(e, arity), r)
                     else e
+                | None -> e
             | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
@@ -515,7 +529,7 @@ module private Transforms =
                 // This is already uncurried we don't need the signature arg types anymore,
                 // just make a normal call
                 let info = makeCallInfo None args []
-                makeCall r t info applied |> Some
+                makeCall r t info applied
             elif uncurriedArity < argsLen then
                 let appliedArgs, restArgs = List.splitAt uncurriedArity args
                 let info = makeCallInfo None appliedArgs []
@@ -524,18 +538,21 @@ module private Transforms =
                     | [] -> Any
                     | arg::args -> (LambdaType(arg.Type, t), args) ||> List.fold (fun t a -> LambdaType(a.Type, t))
                 let applied = makeCall None intermediateType info applied
-                CurriedApply(applied, restArgs, t, r) |> Some
+                CurriedApply(applied, restArgs, t, r)
             else
-                Replacements.Api.partialApplyAtRuntime com t (uncurriedArity - argsLen) applied args |> Some
+                Replacements.Api.partialApplyAtRuntime com t (uncurriedArity - argsLen) applied args
         match e with
+        | Test(Extended(Curry(expr, _uncurriedArity),_), OptionTest isSome, r) ->
+            let expr = visitFromOutsideIn (uncurryApplications com) expr
+            Test(expr, OptionTest isSome, r) |> Some
         | NestedApply(applied, args, t, r) ->
             let applied = visitFromOutsideIn (uncurryApplications com) applied
             let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
             match applied with
             | Extended(Curry(applied, uncurriedArity),_) ->
-                uncurryApply r t applied args uncurriedArity
+                uncurryApply r t applied args uncurriedArity |> Some
             | Get(Extended(Curry(applied, uncurriedArity),_), OptionValue, t2, r2) ->
-                uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
+                uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity |> Some
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None
 

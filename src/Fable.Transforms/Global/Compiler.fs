@@ -59,6 +59,7 @@ type Compiler =
     abstract SourceFiles: string[]
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
+    abstract IncrementCounter: unit -> int
     abstract IsPrecompilingInlineFunction: bool
     abstract WillPrecompileInlineFunction: file: string -> Compiler
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list

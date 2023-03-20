@@ -12,30 +12,28 @@ type ICompiler = FSharp2Fable.IFableCompiler
 
 let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     match com.Options.Language with
-    | Dart -> Dart.Replacements.curryExprAtRuntime com arity expr
-    | Rust -> Rust.Replacements.curryExprAtRuntime com arity expr
-    | _ ->
-        Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
+    // | Rust -> Rust.Replacements.curryExprAtRuntime com arity expr
+    | Python -> Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
+    | _ -> Replacements.Util.curryExprAtRuntime com arity expr
 
-let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
+let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     match com.Options.Language with
-    | Dart -> Dart.Replacements.uncurryExprAtRuntime com t arity expr
-    | Rust -> Rust.Replacements.uncurryExprAtRuntime com t arity expr
-    | _ ->
-        Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
+    //| Rust -> Rust.Replacements.uncurryExprAtRuntime com expr.Type arity expr
+    | Python -> Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
+    | _ -> Replacements.Util.uncurryExprAtRuntime com arity expr
 
 let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (args: Expr list) =
     match com.Options.Language with
-    | Dart -> Dart.Replacements.partialApplyAtRuntime com t arity fn args
-    | Rust -> Rust.Replacements.partialApplyAtRuntime com t arity fn args
-    | _ ->
+    //| Rust -> Rust.Replacements.partialApplyAtRuntime com t arity fn args
+    | Python ->
         let args = NewArray(ArrayValues args, Any, MutableArray) |> makeValue None
         Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])
+    | _ -> Replacements.Util.partialApplyAtRuntime com t arity fn args
 
 let checkArity (com: Compiler) t arity expr =
     match com.Options.Language with
-    | Rust -> expr // anonymous record fields are not uncurried for Rust, so nothing to do
-    | _ -> Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr])
+    | JavaScript | TypeScript -> Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr]) |> Some
+    | _ -> None // anonymous record fields are not uncurried for Rust, so nothing to do
 
 let tryField (com: ICompiler) returnTyp ownerTyp fieldName =
     match com.Options.Language with

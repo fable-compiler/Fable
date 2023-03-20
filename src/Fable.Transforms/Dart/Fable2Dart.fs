@@ -1479,7 +1479,7 @@ module Util =
         | Fable.Extended(kind, _range) ->
             match kind with
             | Fable.Curry(e, arity) ->
-                Dart.Replacements.curryExprAtRuntime com arity e
+                Replacements.Api.curryExprAtRuntime com arity e
                 |> transform com ctx returnStrategy
             | Fable.Throw(None, t) ->
                 [Expression.rethrowExpression(transformType com ctx t) |> Statement.ExpressionStatement], None
@@ -2283,6 +2283,7 @@ module Compiler =
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
             member _.SourceFiles = com.SourceFiles
+            member _.IncrementCounter() = com.IncrementCounter()
             member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
             member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)

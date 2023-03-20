@@ -729,7 +729,7 @@ export function curry(arity: number, f: Option<Function>): any {
   }
 }
 
-export function checkArity(arity: number, f: Function): Function {
+export function checkArity(arity: number, f: Function): any {
   return f.length > arity
     ? (...args1: any[]) => (...args2: any[]) => f.apply(undefined, args1.concat(args2))
     : f;
