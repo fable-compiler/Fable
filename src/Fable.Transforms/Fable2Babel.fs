@@ -2497,7 +2497,8 @@ module Util =
                         |> Option.map (fun m -> hasAttribute Atts.exportDefault m.Attributes)
                         |> Option.defaultValue false)
 
-                if not isDefaultExport then decls
+                if List.contains "remove-declaration" decl.Tags then []
+                elif not isDefaultExport then decls
                 else decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
 
         | Fable.ClassDeclaration decl ->
