@@ -550,6 +550,10 @@ module AST =
         (args, body) ||> List.foldBack (fun arg body ->
             Lambda(arg, body, None))
 
+    let makeLambdaType (argTypes: Type list) (returnType: Type) =
+        (argTypes, returnType) ||> List.foldBack (fun arg returnType ->
+            LambdaType(arg, returnType))
+
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
     let makeIntConst (x: int) = NumberConstant (x, Int32, NumberInfo.Empty) |> makeValue None
