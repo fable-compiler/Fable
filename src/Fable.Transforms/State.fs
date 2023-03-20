@@ -192,6 +192,7 @@ type Log =
 type CompilerImpl(currentFile, project: Project, options, fableLibDir: string, ?outType: OutputType, ?outDir: string,
                         ?watchDependencies: HashSet<string>, ?logs: ResizeArray<Log>, ?isPrecompilingInlineFunction: bool) =
 
+    let mutable counter = -1
     let outType = defaultArg outType OutputType.Exe
     let logs = Option.defaultWith ResizeArray logs
     let fableLibraryDir = fableLibDir.TrimEnd('/')
@@ -209,6 +210,10 @@ type CompilerImpl(currentFile, project: Project, options, fableLibDir: string, ?
         member _.OutputType = outType
         member _.ProjectFile = project.ProjectFile
         member _.SourceFiles =  project.SourceFiles
+
+        member _.IncrementCounter() =
+            counter <- counter + 1
+            counter
 
         member _.IsPrecompilingInlineFunction =
             defaultArg isPrecompilingInlineFunction false

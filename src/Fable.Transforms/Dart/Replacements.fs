@@ -17,41 +17,6 @@ let (|DartDouble|_|) = function
     | Float32 | Float64 -> Some DartDouble
     | _ -> None
 
-let curryExprAtRuntime (_com: Compiler) arity (expr: Expr) =
-    // Let's use emit for simplicity
-    let argIdents = List.init arity (fun i -> $"arg{i}$")
-    let args = argIdents |> List.map (fun a -> $"({a}) =>") |> String.concat " "
-    $"""%s{args} $0(%s{String.concat ", " argIdents})"""
-    |> emit None expr.Type [expr] false
-
-let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
-    let uncurry expr =
-        let argIdents = List.init arity (fun i -> $"arg{i}$")
-        let args = argIdents |> String.concat ", "
-        let appliedArgs = argIdents |> String.concat ")("
-        $"""(%s{args}) => $0(%s{appliedArgs})"""
-        |> emit None t [expr] false
-
-    match expr with
-    | Value(Null _, _) -> expr
-    | Value(NewOption(value, t, isStruct), r) ->
-        match value with
-        | None -> expr
-        | Some v -> Value(NewOption(Some(uncurry v), t, isStruct), r)
-    | ExprType(Option(t2,_)) ->
-        let fn =
-            let f = makeTypedIdent t2 "f"
-            Delegate([f], uncurry (IdentExpr f), None, Tags.empty)
-        Helper.LibCall(com, "Option", "map", t, [fn; expr])
-    | expr -> uncurry expr
-
-let partialApplyAtRuntime (_com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
-    let argIdents = List.init arity (fun i -> $"arg{i}$")
-    let args = argIdents |> List.map (fun a -> $"({a}) =>") |> String.concat " "
-    let appliedArgs = List.init argExprs.Length (fun i -> $"${i + 1}") |> String.concat ", "
-    $"""%s{args} $0(%s{appliedArgs}, %s{String.concat ", " argIdents})"""
-    |> emit None t (fn::argExprs) false
-
 let error msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [msg])
 

@@ -1296,7 +1296,7 @@ let tests7 = [
 
         doMapRunTimes |> equal 1
         setStateAccumulated |> equal "FooBarBaz"
-
+#endif
     testCase "Fix lambda uncurry/curry semantic #1836" <| fun () ->
         let map (mapSetState: int -> (int -> unit))  =
             mapSetState 1
@@ -1560,8 +1560,10 @@ module Uncurry =
     let private add2WithLambda (adder: int->int->int) (arg1: int) (arg2: int): int =
         adder arg1 arg2
 
+
     let add_2 =
-        add2WithLambda (JsInterop.import "add2Arguments" "./js/1foo.js")
+        let add2Arguments (x: int) (y: int): int = JsInterop.importMember "./js/1foo.js"
+        add2WithLambda add2Arguments
 
     let private add10WithLambda
         (adder: int->int->int->int->int->int->int->int->int->int->int)
@@ -1580,7 +1582,8 @@ module Uncurry =
         adder arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
 
     let add_10 =
-        add10WithLambda (JsInterop.import "add10Arguments" "./js/1foo.js")
+        let add10Arguments (x1: int) (x2: int) (x3: int) (x4: int) (x5: int) (x6: int) (x7: int) (x8: int) (x9: int) (x10: int): int = JsInterop.importMember "./js/1foo.js"
+        add10WithLambda add10Arguments
 
     let tests =
         [
