@@ -171,6 +171,8 @@ module Result =
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
 
+    let (|Run|) (f: 'a -> 'b) a = f a
+
     let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k,'v>) key =
         let success, value = dic.TryGetValue key
         if success then Some value else None
