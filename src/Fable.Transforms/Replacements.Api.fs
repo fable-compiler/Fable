@@ -30,11 +30,6 @@ let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (args: Expr list) =
         Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])
     | _ -> Replacements.Util.partialApplyAtRuntime com t arity fn args
 
-let checkArity (com: Compiler) t arity expr =
-    match com.Options.Language with
-    | JavaScript | TypeScript -> Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr]) |> Some
-    | _ -> None // anonymous record fields are not uncurried for Rust, so nothing to do
-
 let tryField (com: ICompiler) returnTyp ownerTyp fieldName =
     match com.Options.Language with
     | Rust -> Rust.Replacements.tryField com returnTyp ownerTyp fieldName

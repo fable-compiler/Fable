@@ -1015,7 +1015,8 @@ type RFoo2<'a> = { foo: 'a }
 let applyFooInRecord (f: RFoo<'a,'b>) (a: 'a) = f.foo a
 let applyFooInRecord2 (f: RFoo2<'a -> 'b>) (a: 'a) = f.foo a
 let applyFooInRecord3 (f: RFoo2<'a -> 'b -> 'c>) (a: 'a) (b: 'b) = f.foo a b
-let applyFooInAnonRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
+let applyFooInAnonRecord (f: {| foo: 'a -> 'b |}) (a: 'a) = f.foo a
+let applyFooInAnonRecord3 (f: {| foo: 'a -> 'b -> 'c |}) (a: 'a) (b: 'b) = f.foo a b
 
 type Wrapper() =
     member _.doesNotWorki = wrap
@@ -1354,6 +1355,10 @@ let tests7 = [
         applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5. 2. |> equal 25.
         let f = applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5.
         f 3. |> equal 125.
+
+        applyFooInAnonRecord3 {| foo = fun x y z -> x ** y - z |} 5. 2. 1. |> equal 24.
+        let f = applyFooInAnonRecord3 {| foo = fun x y z -> x ** y - z |} 5.
+        f 3. 3. |> equal 122.
 
     testCase "Curried functions being mangled via DU, List.fold and match combination #2356" <| fun _ ->
         let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]

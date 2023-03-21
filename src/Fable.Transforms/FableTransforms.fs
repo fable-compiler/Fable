@@ -375,7 +375,44 @@ module private Transforms =
         | _, Some arity -> Replacements.Api.uncurryExprAtRuntime com arity expr
         | _, None -> expr
 
-    let uncurryArgs com autoUncurrying argTypes args =
+    let rec uncurryAnonRecord (com: Compiler) expectedFieldNames expectedGenArgs isStruct (expr: Expr) =
+        let needsCurrying =
+            expectedGenArgs |> List.exists (fun expectedGenArg ->
+                match getLambdaTypeArity expectedGenArg with
+                | (_arity, MaybeOption(DelegateType(_, GenericParam _))) -> true
+                | _ -> false)
+
+        match expr.Type with
+        | AnonymousRecordType(actualFieldNames, actualGenArgs, _) as argType when needsCurrying ->
+            let binding, arg =
+                match expr with
+                | IdentExpr _ -> None, expr
+                | arg ->
+                    let ident = makeTypedIdent argType $"anonRec{com.IncrementCounter()}"
+                    Some(ident, arg), IdentExpr ident
+
+            let actualGenArgs = Seq.zip actualFieldNames actualGenArgs |> Map
+
+            let values =
+                expectedFieldNames
+                |> Array.mapToList (fun fieldName ->
+                    let actualType = Map.tryFind fieldName actualGenArgs |> Option.defaultValue Any
+                    let value = getImmutableFieldWith None actualType arg fieldName
+                    match getLambdaTypeArity actualType with
+                    | arity, _ when arity > 1 -> Extended(Curry(value, arity),None)
+                    | _ -> value)
+                |> uncurryArgs com false expectedGenArgs
+
+            let anonRec =
+                NewAnonymousRecord(values, expectedFieldNames, expectedGenArgs, isStruct)
+                |> makeValue None
+
+            match binding with
+            | Some(ident, value) -> Let(ident, value, anonRec)
+            | None -> anonRec
+        | _ -> expr
+
+    and uncurryArgs com autoUncurrying argTypes args =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -388,14 +425,18 @@ module private Transforms =
                 | [], args2 -> (List.rev acc)@args2
                 | _, [] -> List.rev acc
             mapArgsInner f [] argTypes args
+
         (argTypes, args) ||> mapArgs (fun expectedType arg ->
             match expectedType with
             | Any when autoUncurrying -> uncurryExpr com None arg
-            | _ ->
-                match getLambdaTypeArity expectedType with
-                | arity, _uncurriedType when arity > 1 ->
-                    uncurryExpr com (Some arity) arg
-                | _ -> arg)
+
+            | AnonymousRecordType(expectedFieldNames, expectedGenArgs, isStruct) ->
+                uncurryAnonRecord com expectedFieldNames expectedGenArgs isStruct arg
+
+            | Patterns.Run getLambdaTypeArity (arity, _uncurriedType) when arity > 1 ->
+                uncurryExpr com (Some arity) arg
+
+            | _ -> arg)
 
     let uncurryInnerFunctions (_: Compiler) e =
         let curryIdentInBody identName (args: Ident list) body =
@@ -459,14 +500,6 @@ module private Transforms =
         // Uncurry also values received from getters
         | GetField com (callee, fieldType, r) ->
             match getLambdaTypeArity fieldType, callee.Type with
-            // For anonymous records, if the lambda returns a generic the actual
-            // arity may be higher than expected, so we need a runtime partial application
-            | (arity, MaybeOption(DelegateType(_, GenericParam _))), AnonymousRecordType _ when arity > 0 ->
-                match Replacements.Api.checkArity com fieldType arity e with
-                | Some e ->
-                    if arity > 1 then Extended(Curry(e, arity), r)
-                    else e
-                | None -> e
             | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), r)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
@@ -496,9 +529,7 @@ module private Transforms =
             let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r) ->
-            let args =
-                if com.Options.Language = Rust then args
-                else uncurryArgs com false genArgs args
+            let args = uncurryArgs com false genArgs args
             Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r)
         | Value(NewUnion(args, tag, ent, genArgs), r) ->
             let uci = com.GetEntity(ent).UnionCases[tag]
