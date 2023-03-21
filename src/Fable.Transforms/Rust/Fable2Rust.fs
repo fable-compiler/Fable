@@ -284,6 +284,11 @@ module TypeInfo =
     let makeOptionTy (ty: Rust.Ty): Rust.Ty =
         [ty] |> mkGenericTy [rawIdent "Option"]
 
+    let makeAnyTy com ctx: Rust.Ty =
+        let importName = getLibraryImportName com ctx "Native" "Any"
+        let traitBound = mkTypeTraitGenericBound [importName] None
+        mkDynTraitTy [traitBound]
+
     let getEntityGenParamNames (ent: Fable.Entity) =
         ent.GenericParameters
         |> List.filter (fun p -> not p.IsMeasure)
@@ -924,9 +929,7 @@ module TypeInfo =
         if ctx.InferAnyType then
             mkInferTy ()
         else
-            let importName = getLibraryImportName com ctx "Native" "Any"
-            let traitBound = mkTypeTraitGenericBound [importName] None
-            mkDynTraitTy [traitBound]
+            makeAnyTy com ctx
 
     // let inferredParam (com: IRustCompiler) ctx (ident: Fable.Ident) =
     //     mkInferredParam ident.Name false false
@@ -939,7 +942,7 @@ module TypeInfo =
 
     let transformGenericParamType com ctx name isMeasure: Rust.Ty =
         if isInferredGenericParam com ctx name isMeasure
-        then mkInferTy ()
+        then mkInferTy () // makeAnyTy com ctx
         else primitiveType name
 
     let transformMetaType com ctx: Rust.Ty =
