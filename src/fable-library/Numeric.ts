@@ -18,7 +18,7 @@ export function isNumeric(x: any) {
     return typeof x === "number" || x?.[symbol];
 }
 
-export function compare(x: Numeric, y: Numeric) {
+export function compare(x: Numeric, y: number) {
     if (typeof x === "number") {
         return x < y ? -1 : (x > y ? 1 : 0);
     } else {

@@ -1122,6 +1122,7 @@ module Util =
         match genArgs, args with
         | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
         | _, [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
+        | _, [Fable.IdentExpr ident] when ident.Type = Fable.Unit -> []
         | _, args -> args
 
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
@@ -2552,17 +2553,19 @@ module Util =
             optimizeTailCall com ctx r tc args
         | _ ->
             let callee = transformCallee com ctx calleeExpr
-            match args, calleeExpr.Type with
-            | [], _ -> callFunction com ctx r callee args
-            | [arg], Fable.LambdaType(Fable.Unit, _) ->
-                let args = dropUnitCallArg [] args
-                callFunction com ctx r callee args
-            | args, _ ->
+            // match args, calleeExpr.Type with
+            // | [], _ -> callFunction com ctx r callee args
+            // | [arg], Fable.LambdaType(Fable.Unit, _) ->
+            //     let args = dropUnitCallArg [] args
+            //     callFunction com ctx r callee args
+            // | args, _ ->
                 // match FableTransforms.tryUncurryType calleeExpr.Type with
                 // | Some(arity, _) when arity = List.length args ->
                 //     callFunction com ctx r callee args
                 // | _ ->
-                    (callee, args) ||> List.fold (fun c arg -> callFunction com ctx r c [arg])
+            (callee, args) ||> List.fold (fun c arg ->
+                let args = dropUnitCallArg [] [arg]
+                callFunction com ctx r c args)
 
     let makeUnionCasePat unionCaseName fields =
         if List.isEmpty fields then

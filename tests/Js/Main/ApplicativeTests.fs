@@ -845,6 +845,10 @@ let next () =
   counter <- counter + 1
   result
 
+let useAdder adder x y z =
+    let add = adder ()
+    add x + add y + add z
+
 let adder () =
   let add a b = a + b
   add (next())
@@ -1072,7 +1076,7 @@ let tests7 = [
     testCase "Applying to a function returned by a member works" <| fun () ->
         equal (1,5) baz
         equal (1,5) baz2
-#if FABLE_COMPILER
+
     testCase "Applying to a function returned by a local function works" <| fun () ->
         let foo a b c d = a , b + c d
         let bar a = foo 1 a
@@ -1080,7 +1084,9 @@ let tests7 = [
         equal (1,5) baz
 
     testCase "Partially applied functions don't duplicate side effects" <| fun () -> // See #1156
-        ADD 1 + ADD 2 + ADD 3 |> equal 6
+        let result = ADD 1 + ADD 2 + ADD 3
+        result |> equal 6
+        counter |> equal 1
 
     testCase "Partially applied functions don't duplicate side effects locally" <| fun () ->
         let mutable counter = 0
@@ -1092,7 +1098,10 @@ let tests7 = [
           let add a b = a + b
           add (next())
         let add = adder ()
-        add 1 + add 2 + add 3 |> equal 6
+        let result = add 1 + add 2 + add 3
+        // let result = useAdder adder 1 2 3 // TODO: May need a weak ptr to curried func
+        result |> equal 6
+        counter |> equal 1
 
     testCase "Partially applied lambdas capture this" <| fun () ->
         let foo = Foo3()
@@ -1194,7 +1203,7 @@ let tests7 = [
         (-5, vals, ops) |||> List.fold2 (fun acc (v1,v2) op -> acc * op v1 v2)
         |> equal 45
 
-    #if FABLE_COMPILER
+#if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
         let infoHelp version =
             match version with
@@ -1226,7 +1235,7 @@ let tests7 = [
                 """{ "id": 67, "email": "user@mail.com" }"""
 
         equal expected actual
-    #endif
+#endif
 
     testCase "failwithf is not compiled as function" <| fun () ->
         let makeFn value =
@@ -1245,7 +1254,6 @@ let tests7 = [
             ()
         with ex -> x <- ex.Message
         equal "Boom!" x
-
 
     testCase "Partial Applying caches side-effects" <| fun () -> // See #1836
         PseudoElmish.reset()
@@ -1354,7 +1362,7 @@ let tests7 = [
                             | Some f -> f true 1
                             | None -> "nothing"
         test |> equal "fly"
-#endif
+
     testCase "Option uncurrying #2116" <| fun _ ->
         let optionFn = Some (fun x y -> x + y)
 
