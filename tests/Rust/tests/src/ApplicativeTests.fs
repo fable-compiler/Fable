@@ -882,6 +882,10 @@ let next () =
   counter <- counter + 1
   result
 
+let useAdder adder x y z =
+    let add = adder ()
+    add x + add y + add z
+
 let adder () =
   let add a b = a + b
   add (next())
@@ -1121,7 +1125,9 @@ let apply f x =
 
 [<Fact>]
 let ``Partially applied functions don't duplicate side effects`` () = // See #1156
-    ADD 1 + ADD 2 + ADD 3 |> equal 6
+    let result = ADD 1 + ADD 2 + ADD 3
+    result |> equal 6
+    counter |> equal 1
 
 [<Fact>]
 let ``Partially applied functions don't duplicate side effects locally`` () =
@@ -1134,7 +1140,10 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
         let add a b = a + b
         add (next())
     let add = adder ()
-    add 1 + add 2 + add 3 |> equal 6
+    let result = add 1 + add 2 + add 3
+    // let result = useAdder adder 1 2 3 // TODO: May need a weak ptr to curried func
+    result |> equal 6
+    counter |> equal 1
 
 // [<Fact>]
 // let ``Partially applied lambdas capture this`` () =

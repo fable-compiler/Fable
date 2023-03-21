@@ -2,6 +2,7 @@ module Fable.Transforms.State
 
 open Fable
 open Fable.AST
+open System.Collections.Concurrent
 open System.Collections.Generic
 open FSharp.Compiler.Symbols
 
@@ -12,7 +13,7 @@ type PluginRef =
 type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
     let assemblies = Dictionary()
     let coreAssemblies = Dictionary()
-    let entities = Dictionary()
+    let entities = ConcurrentDictionary()
 
     let plugins =
         let plugins = Dictionary<Fable.EntityRef, System.Type>()
