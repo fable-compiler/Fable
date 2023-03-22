@@ -1110,19 +1110,24 @@ module Util =
         | Replacements.Util.IsEntity (Types.ienumerableGeneric) (_, [genArg]) -> Some(genArg)
         | _ -> None
 
+    let isUnitArg (ident: Fable.Ident) =
+        ident.IsCompilerGenerated &&
+        ident.Type = Fable.Unit &&
+        ident.Name.StartsWith("unitVar")
+
     let discardUnitArg (genArgs: Fable.Type list) (args: Fable.Ident list) =
         match genArgs, args with
         | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
         | _, [] -> []
-        | _, [unitArg] when unitArg.Type = Fable.Unit -> []
-        | _, [thisArg; unitArg] when thisArg.IsThisArgument && unitArg.Type = Fable.Unit -> [thisArg]
+        | _, [arg] when isUnitArg arg -> []
+        | _, [thisArg; arg] when thisArg.IsThisArgument && isUnitArg arg -> [thisArg]
         | _, args -> args
 
     let dropUnitCallArg (genArgs: Fable.Type list) (args: Fable.Expr list) =
         match genArgs, args with
         | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
         | _, [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
-        | _, [Fable.IdentExpr ident] when ident.Type = Fable.Unit -> []
+        | _, [Fable.IdentExpr ident] when isUnitArg ident -> []
         | _, args -> args
 
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
@@ -2541,11 +2546,7 @@ module Util =
             mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
 
     let transformCurry (com: IRustCompiler) (ctx: Context) arity (expr: Fable.Expr): Rust.Expr =
-        // match FableTransforms.tryUncurryType expr.Type with
-        // | Some(arity2, uncurriedType) when arity2 = arity ->
-        //     com.TransformExpr(ctx, expr)
-        // | _ ->
-            com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
+        com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
     let transformCurriedApply (com: IRustCompiler) ctx r typ calleeExpr args =
         match ctx.TailCallOpportunity with
@@ -2553,16 +2554,6 @@ module Util =
             optimizeTailCall com ctx r tc args
         | _ ->
             let callee = transformCallee com ctx calleeExpr
-            // match args, calleeExpr.Type with
-            // | [], _ -> callFunction com ctx r callee args
-            // | [arg], Fable.LambdaType(Fable.Unit, _) ->
-            //     let args = dropUnitCallArg [] args
-            //     callFunction com ctx r callee args
-            // | args, _ ->
-                // match FableTransforms.tryUncurryType calleeExpr.Type with
-                // | Some(arity, _) when arity = List.length args ->
-                //     callFunction com ctx r callee args
-                // | _ ->
             (callee, args) ||> List.fold (fun c arg ->
                 let args = dropUnitCallArg [] [arg]
                 callFunction com ctx r c args)
