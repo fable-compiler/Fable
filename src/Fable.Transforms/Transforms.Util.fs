@@ -285,13 +285,13 @@ module AST =
 
     let rec uncurryLambdaType maxArity (revArgTypes: Type list) (returnType: Type) =
         match returnType with
-        | LambdaType(argType, returnType) when maxArity > 0 ->
+        | LambdaType(argType, returnType) when maxArity <> 0 ->
             uncurryLambdaType (maxArity - 1) (argType::revArgTypes) returnType
         | t -> List.rev revArgTypes, t
 
     let (|NestedLambdaType|_|) = function
         | LambdaType(argType, returnType) ->
-            Some(uncurryLambdaType System.Int32.MaxValue [argType] returnType)
+            Some(uncurryLambdaType -1 [argType] returnType)
         | _ -> None
 
     /// In lambdas with tuple arguments, F# compiler deconstructs the tuple before the next nested lambda.

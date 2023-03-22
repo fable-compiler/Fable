@@ -94,6 +94,11 @@ let countReferences limit identName body =
         | _ -> false) |> ignore
     count
 
+let referencesMutableIdent body =
+    body |> deepExists (function
+        | IdentExpr id -> id.IsMutable
+        | _ -> false)
+
 let noSideEffectBeforeIdent identName expr =
     let mutable sideEffect = false
     let orSideEffect found =
@@ -171,8 +176,7 @@ let noSideEffectBeforeIdent identName expr =
             true
 
     and findIdentOrSideEffectInList exprs =
-        (false, exprs) ||> List.fold (fun result e ->
-            result || findIdentOrSideEffect e)
+        List.exists findIdentOrSideEffect exprs
 
     findIdentOrSideEffect expr && not sideEffect
 
@@ -234,7 +238,7 @@ module private Transforms =
                     | _ -> Some([arg], body)
             | _ -> None
 
-    let tryInlineBinding (ident: Ident) value letBody =
+    let tryInlineBinding (com: Compiler) (ident: Ident) value letBody =
         let canInlineBinding =
             match value with
             | Import(i,_,_) -> i.IsCompilerGenerated
@@ -243,8 +247,14 @@ module private Transforms =
                 match lambdaBody with
                 | Import(i,_,_) -> i.IsCompilerGenerated
                 // Check the lambda doesn't reference itself recursively
-                | _ -> countReferences 0 ident.Name lambdaBody = 0
+                | _ ->
+                    countReferences 0 ident.Name lambdaBody = 0
                     && canInlineArg ident.Name value letBody
+                    // If we inline the lambda Fable2Rust doesn't have
+                    // a chance to clone the mutable ident
+                    && (if com.Options.Language = Rust
+                        then referencesMutableIdent lambdaBody |> not
+                        else true)
             | _ -> canInlineArg ident.Name value letBody
 
         if canInlineBinding then
@@ -257,7 +267,7 @@ module private Transforms =
             Some(ident, value)
         else None
 
-    let applyArgs r t (args: Ident list) (argExprs: Expr list) body =
+    let applyArgs com r t (args: Ident list) (argExprs: Expr list) body =
         let argsLen = args.Length
         let argExprsLen = argExprs.Length
         let appliedArgs, restArgs, appliedArgExprs, restArgExprs =
@@ -273,7 +283,7 @@ module private Transforms =
         let bindings, replacements =
             (([], Map.empty), appliedArgs, appliedArgExprs)
             |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                match tryInlineBinding ident expr body with
+                match tryInlineBinding com ident expr body with
                 | Some(ident, expr) -> bindings, Map.add ident.Name expr replacements
                 | None -> (ident, expr)::bindings, replacements)
 
@@ -291,14 +301,14 @@ module private Transforms =
             let thisArgExpr = info.ThisArg |> Option.map (visitFromOutsideIn (lambdaBetaReduction com))
             let argExprs = info.Args |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
             let info = { info with ThisArg = thisArgExpr; Args = argExprs }
-            applyArgs r t args info.Args body |> Some
+            applyArgs com r t args info.Args body |> Some
 
         | NestedApply(applied, argExprs, t, r) ->
             match applied with
             | ImmediatelyApplicable argExprs.Length (args, body) ->
                 let argExprs = argExprs |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
                 let body = visitFromOutsideIn (lambdaBetaReduction com) body
-                applyArgs r t args argExprs body |> Some
+                applyArgs com r t args argExprs body |> Some
             | _ -> None
         | _ -> None
 
@@ -308,7 +318,7 @@ module private Transforms =
             (not com.Options.DebugMode) || ident.IsCompilerGenerated
         match e with
         | Let(ident, value, letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
-            match tryInlineBinding ident value letBody with
+            match tryInlineBinding com ident value letBody with
             | Some(ident, value) ->
                 // Sometimes we inline a local generic function, so we need to check
                 // if the replaced ident has the concrete type. This happens in FSharp2Fable step,
@@ -598,6 +608,8 @@ let getTransformations (_com: Compiler) =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromOutsideIn (lambdaBetaReduction com) e
+      // Make a new binding beta reduction pass after applying lambdas
+      fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (operationReduction com) e
       // Then apply uncurry optimizations
       // Functions passed as arguments in calls (but NOT in curried applications) are being uncurried so we have to re-curry them

@@ -1112,7 +1112,7 @@ let tests7 = [
         let adder () =
           let add a b = a + b
           add (next())
-        let result = useAdder adder 1 2 3 // TODO: May need a weak ptr to curried func
+        let result = useAdder adder 1 2 3
         result |> equal 6
         counter |> equal 1
 

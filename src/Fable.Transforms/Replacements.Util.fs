@@ -375,7 +375,7 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
 let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
     match com.Options.Language with
     | JavaScript | TypeScript | Dart ->
-        let argTypes, returnType = uncurryLambdaType System.Int32.MaxValue [] expr.Type
+        let argTypes, returnType = uncurryLambdaType -1 [] expr.Type
         let curriedType = makeLambdaType argTypes returnType
         let curried = Helper.LibCall(com, "Util", $"curry{argTypes.Length}", curriedType, [expr])
         match partialArgs with
@@ -384,7 +384,7 @@ let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Exp
     | _ ->
         // Check if argTypes.Length < arity?
         let argTypes, returnType = uncurryLambdaType arity [] t
-        let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"x{com.IncrementCounter()}$")
+        let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
         let args = argIdents |> List.map Fable.IdentExpr
         Helper.Application(expr, returnType, partialArgs @ args)
         |> makeLambda argIdents
@@ -422,10 +422,20 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
             let uncurriedType = DelegateType(argTypes, returnType)
             Helper.LibCall(com, "Util", $"uncurry{arity}", uncurriedType, [expr])
         | _ ->
-            let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"x{com.IncrementCounter()}$")
-            let args = argIdents |> List.map IdentExpr
+            let argIdents1 = argTypes |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
+            let expr, argIdents2 =
+                match expr with
+                | Extended(Curry(expr, arity2),_) when arity2 >= arity ->
+                    if arity2 = arity
+                    then expr, []
+                    else
+                        let argTypes2, _returnType = uncurryLambdaType arity2 [] expr.Type
+                        expr, argTypes2 |> List.skip arity |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
+                | _ -> expr, []
+            let args = (argIdents1 @ argIdents2) |> List.map IdentExpr
             let body = curriedApply None returnType expr args
-            Delegate(argIdents, body, None, Tags.empty)
+            let body = makeLambda argIdents2 body
+            Delegate(argIdents1, body, None, Tags.empty)
 
     match expr with
     | Value(Null _, _) -> expr
