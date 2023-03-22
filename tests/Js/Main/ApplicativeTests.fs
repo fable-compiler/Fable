@@ -1092,12 +1092,12 @@ let tests7 = [
     testCase "Partially applied functions don't duplicate side effects locally" <| fun () ->
         let mutable counter = 0
         let next () =
-          let result = counter
-          counter <- counter + 1
-          result
+            let result = counter
+            counter <- counter + 1
+            result
         let adder () =
-          let add a b = a + b
-          add (next())
+            let add a b = a + b
+            add (next())
         let add = adder ()
         let result = add 1 + add 2 + add 3
         result |> equal 6
@@ -1106,12 +1106,12 @@ let tests7 = [
     testCase "Partially applied functions don't duplicate side effects locally II" <| fun () ->
         let mutable counter = 0
         let next () =
-          let result = counter
-          counter <- counter + 1
-          result
+            let result = counter
+            counter <- counter + 1
+            result
         let adder () =
-          let add a b = a + b
-          add (next())
+            let add a b = a + b
+            add (next())
         let result = useAdder adder 1 2 3
         result |> equal 6
         counter |> equal 1
