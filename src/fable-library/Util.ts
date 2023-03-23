@@ -464,7 +464,7 @@ export function fastStructuralHash<T>(x: T): number {
 }
 
 // Intended for declared types that may or may not implement GetHashCode
-export function safeHash(x: IHashable | undefined): number {
+export function safeHash<T>(x: T): number {
   // return x == null ? 0 : isHashable(x) ? x.GetHashCode() : numberHash(ObjectRef.id(x));
   return identityHash(x);
 }
