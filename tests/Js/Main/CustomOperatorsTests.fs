@@ -32,7 +32,7 @@ let typeOperators = [
         let p2 = { x=2.; y=1. }
         equal 10. (p1 * p2).x
 
-    testCase "Overloads of a custom operators work" <| fun () ->
+    testCase "Custom operator overloads work" <| fun () ->
         let x = { value = 5 }
         x + 2 |> equal { value = 7 }
         3 + x |> equal 10
@@ -51,7 +51,7 @@ let (||||) x y = x + y
 let inline (>>) x y = x * y * 2
 
 let moduleOperators = [
-    testCase "Overloads of a custom operators can be inlined" <| fun () ->
+    testCase "Custom operator overloads can be inlined" <| fun () ->
         let x = { value = 5 }
         genericAdd 4 5 |> equal 9
         genericAdd x 2 |> equal { value = 7 }

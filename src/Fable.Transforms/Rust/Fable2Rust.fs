@@ -3798,8 +3798,8 @@ module Util =
         Operators.bitwiseOr, ("bin_op", "BitOr", "bitor") // The bitwise OR operator |.
         Operators.exclusiveOr, ("bin_op", "BitXor", "bitxor") // The bitwise XOR operator ^.
 
-        Operators.leftShift, ("shift_op", "Shl", "shl") // The left shift operator <<.
-        Operators.rightShift, ("shift_op", "Shr", "shr") // The right shift operator >>.
+        Operators.leftShift, ("bin_op", "Shl", "shl") // The left shift operator <<.
+        Operators.rightShift, ("bin_op", "Shr", "shr") // The right shift operator >>.
     ]
 
     let makeOpTraitImpls com ctx (ent: Fable.Entity) entType self_ty genArgTys (decl: Fable.MemberDecl, memb: Fable.MemberFunctionOrValue) =
@@ -3809,11 +3809,15 @@ module Util =
             // TODO: more checks if parameter types match the operator?
             ent.IsValueType &&
             not (memb.IsInstance) // operators are static
-            && decl.Args.Head.Type = entType)
+            && decl.Args.Head.Type = entType
+            && decl.Body.Type = entType)
         |> Option.map (fun (op_macro, op_trait, op_fn) ->
+            let rhs_tys = decl.Args.Tail |> List.map (fun arg ->
+                if arg.Type = entType then mkImplSelfTy()
+                else arg.Type |> transformType com ctx)
             let macroName = getLibraryImportName com ctx "Native" op_macro
             let id_tokens = [op_trait; op_fn; decl.Name] |> List.map mkIdentToken
-            let ty_tokens = (self_ty :: genArgTys) |> List.map mkTyToken
+            let ty_tokens = (self_ty :: rhs_tys) @ genArgTys |> List.map mkTyToken
             let implItem =
                 id_tokens @ ty_tokens
                 |> mkParensCommaDelimitedMacCall macroName
