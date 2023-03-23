@@ -65,6 +65,7 @@ type Expression =
         returnType: TypeAnnotation option *
         typeParameters: TypeParameter array *
         loc: SourceLocation option
+    | AsExpression of expression: Expression * typeAnnotation: TypeAnnotation
 
 type Parameter =
     | Parameter of name: string * isOptional: bool * isNamed: bool * isSpread: bool * typeAnnotation: TypeAnnotation option

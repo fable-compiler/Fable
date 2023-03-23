@@ -2261,6 +2261,13 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
+let ignoreFormatProvider meth args =
+    match meth, args with
+    // Ignore IFormatProvider
+    | "Parse", arg::_ -> [arg]
+    | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
+    | _ -> args
+
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let getTime (e: Expr) =
         Helper.InstanceCall(e, "getTime", t, [])
@@ -2286,8 +2293,10 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToString" ->
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Kind" | "get_Offset" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
+    | "get_Kind" | "get_Offset" as meth ->
+        let moduleName = if meth = "get_Kind" then "Date" else "DateOffset"
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        Helper.LibCall(com, moduleName, meth, t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // DateTimeOffset
     | "get_LocalDateTime" ->
         Helper.LibCall(com, "DateOffset", "toLocalTime", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
@@ -2324,12 +2333,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, moduleName, "addMilliseconds", Float64.Number, [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
     | meth ->
-        let args =
-            match meth, args with
-            // Ignore IFormatProvider
-            | "Parse", arg::_ -> [arg]
-            | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
-            | _ -> args
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -2364,6 +2368,7 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
         Helper.LibCall(com, "Date", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -2390,6 +2395,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> addError com ctx.InlinePath r
             None
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -2427,7 +2433,8 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             Helper.LibCall(com, "TimeOnly", "toString", t, makeStrConst "t" :: args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             None
-    | _ ->
+    | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
         Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 

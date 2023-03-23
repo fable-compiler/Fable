@@ -1108,7 +1108,11 @@ module Util =
             | Fable.ArrayValues values -> makeTypedArray com ctx typ kind values
             | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ kind size
             | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ kind expr
-        | Fable.NewTuple(vals,_) -> makeArray com ctx vals
+        | Fable.NewTuple(vals,_) ->
+            let tup = makeArray com ctx vals
+            if com.Options.Language = TypeScript
+            then AsExpression(tup, makeTypeAnnotation com ctx value.Type)
+            else tup
         // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
         //     makeList com ctx r headAndTail
         // Optimization for bundle size: compile list literals as List.ofArray

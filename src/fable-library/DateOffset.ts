@@ -25,6 +25,10 @@ export default function DateTimeOffset(value: number, offset?: number) {
   return d;
 }
 
+export function offset(value: IDateTimeOffset): number {
+  return value.offset || 0;
+}
+
 function checkOffsetInRange(offset?: number) {
   if (offset != null && offset !== 0) {
     if (offset % 60000 !== 0) {

@@ -15,6 +15,10 @@ import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWith
 export type OffsetInMinutes = number;
 export type Offset = "Z" | OffsetInMinutes | null;
 
+export function kind(value: IDateTime): number {
+  return value.kind || 0;
+}
+
 export function dateOffsetToString(offset: number) {
   const isMinus = offset < 0;
   offset = Math.abs(offset);
@@ -429,10 +433,10 @@ export function addMonths(d: IDateTime, v: number) {
     millisecond(d), d.kind);
 }
 
-export function subtract(d: IDateTime, that: IDateTime | number) {
+export function subtract<Input extends number | IDateTime, Output = Input extends number ? IDateTime : number>(d: IDateTime, that: Input): Output {
   return typeof that === "number"
-    ? add(d, -that)
-    : d.getTime() - that.getTime();
+    ? add(d, -that) as Output
+    : d.getTime() - that.getTime() as Output;
 }
 
 export function toLongDateString(d: IDateTime) {
@@ -462,7 +466,7 @@ export function op_Addition(x: IDateTime, y: number) {
   return add(x, y);
 }
 
-export function op_Subtraction(x: IDateTime, y: number | IDateTime) {
+export function op_Subtraction<Input extends number | IDateTime, Output = Input extends number ? IDateTime : number>(x: IDateTime, y: Input): Output {
   return subtract(x, y);
 }
 
