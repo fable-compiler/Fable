@@ -165,7 +165,7 @@ let tests =
             equal (DateOnly (2000, 12, 1)) (DateOnly.Parse("2000-12", CultureInfo.InvariantCulture))
 
         testCase "TryParse returns false for invalid DateOnly" <| fun () ->
-            let isValid, _ = DateOnly.TryParse("4", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            let isValid, _ = DateOnly.TryParse("4")
             equal false isValid
 
             let isValid, _ = DateOnly.TryParse("0000-2-5", CultureInfo.InvariantCulture, DateTimeStyles.None)

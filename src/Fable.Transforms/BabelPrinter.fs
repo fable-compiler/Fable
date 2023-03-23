@@ -401,6 +401,10 @@ module PrinterExtensions =
                 printer.PrintFunction(id, parameters, body, returnType, typeParameters, loc)
             | ArrowFunctionExpression(parameters, body, returnType, typeParameters, loc) ->
                 printer.PrintArrowFunctionExpression(parameters, body, returnType, typeParameters, loc)
+            | AsExpression(expression, typeAnnotation) ->
+                printer.Print(expression)
+                printer.Print(" as ")
+                printer.Print(typeAnnotation)
 
         member printer.PrintLiteral(literal: Literal) =
             match literal with
