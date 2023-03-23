@@ -755,6 +755,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Error" |> Some
     | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
     | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
+    | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
     | _ -> None
 
 let tryConstructor com (ent: Entity) =
@@ -2628,7 +2629,7 @@ let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 then "startInstance"
                 else Naming.lowerFirst i.CompiledName
             Helper.LibCall(com, "MailboxProcessor", memb, t, args, i.SignatureArgTypes, thisArg=callee, ?loc=r) |> Some
-        | "Reply" -> Helper.InstanceCall(callee, "reply", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        | "Reply" -> Helper.InstanceCall(callee, "reply", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> None
 
 let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

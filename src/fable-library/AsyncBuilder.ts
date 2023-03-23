@@ -1,11 +1,15 @@
-import { Exception, ensureErrorOrException } from './Types.js';
+import { ensureErrorOrException } from './Types.js';
 import { IDisposable } from "./Util.js";
+
+export interface AsyncReplyChannel<Reply> {
+  reply(value: Reply): void
+}
 
 export type Continuation<T> = (x: T) => void;
 
 export type Continuations<T> = [
   Continuation<T>,
-  Continuation<Error | Exception>,
+  Continuation<Error>,
   Continuation<OperationCanceledError>
 ];
 
@@ -75,7 +79,7 @@ export class Trampoline {
 
 export interface IAsyncContext<T> {
   onSuccess: Continuation<T>;
-  onError: Continuation<Error | Exception>;
+  onError: Continuation<Error>;
   onCancel: Continuation<OperationCanceledError>;
 
   cancelToken: CancellationToken;

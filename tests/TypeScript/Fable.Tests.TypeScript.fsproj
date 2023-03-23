@@ -15,6 +15,8 @@
     <Compile Include="../Js/Main/ApplicativeTests.fs" />
     <Compile Include="../Js/Main/ArithmeticTests.fs" />
     <Compile Include="../Js/Main/ArrayTests.fs" />
+    <Compile Include="../Js/Main/AsyncTests.fs" />
+    <Compile Include="../Js/Main/CharTests.fs" />
     <Compile Include="../Js/Main/ListTests.fs" />
     <Compile Include="../Js/Main/MapTests.fs" />
     <!-- <Compile Include="../Js/Main/MiscTests.fs" /> -->

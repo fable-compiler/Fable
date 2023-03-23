@@ -268,10 +268,10 @@ export function addMonths(d: IDateTimeOffset, v: number) {
     d2.getUTCSeconds(), d2.getUTCMilliseconds(), (d.offset ?? 0));
 }
 
-export function subtract(d: IDateTimeOffset, that: IDateTimeOffset | number) {
+export function subtract<Input extends number | IDateTimeOffset, Output = Input extends number ? IDateTimeOffset : number>(d: IDateTimeOffset, that: Input): Output {
   return typeof that === "number"
-    ? DateTimeOffset(d.getTime() - that, (d.offset ?? 0))
-    : d.getTime() - that.getTime();
+    ? DateTimeOffset(d.getTime() - that, (d.offset ?? 0)) as Output
+    : d.getTime() - that.getTime() as Output;
 }
 
 export function equals(d1: IDateTimeOffset, d2: IDateTimeOffset) {
@@ -292,7 +292,7 @@ export function op_Addition(x: IDateTimeOffset, y: number) {
   return add(x, y);
 }
 
-export function op_Subtraction(x: IDateTimeOffset, y: number | IDateTimeOffset) {
+export function op_Subtraction<Input extends number | IDateTimeOffset, Output = Input extends number ? IDateTimeOffset : number>(x: IDateTimeOffset, y: Input): Output {
   return subtract(x, y);
 }
 
