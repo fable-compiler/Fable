@@ -102,11 +102,13 @@ let tests =
         |> equal false
 
     testCase "Union cases matches with one argument can be generated" <| fun () ->
-        let x = Left "abc"
-        match x with
-        | Left data -> data
-        | Right _ -> failwith "unexpected"
-        |> equal "abc"
+        // Prevent inlining so Typescript doesn't complain
+        let mutable f = fun x ->
+            match x with
+            | Left data -> data
+            | Right _ -> failwith "unexpected"
+            |> equal "abc"
+        Left "abc" |> f
 
     // TODO: .ToString() with records and unions
     testCase "Union methods can be generated" <| fun () ->
@@ -132,20 +134,24 @@ let tests =
         |> equal "abc"
 
     testCase "Pattern matching with common targets works" <| fun () ->
-        let x = TestUnion.Case2("a", "b")
-        match x with
-        | TestUnion.Case0 -> failwith "unexpected"
-        | TestUnion.Case1 _
-        | TestUnion.Case2 _ -> "a"
-        | TestUnion.Case3(a, b, c) -> a + b + c
-        |> equal "a"
+        // Prevent inlining so Typescript doesn't complain
+        let mutable f = fun x ->
+            match x with
+            | TestUnion.Case0 -> failwith "unexpected"
+            | TestUnion.Case1 _
+            | TestUnion.Case2 _ -> "a"
+            | TestUnion.Case3(a, b, c) -> a + b + c
+            |> equal "a"
+        TestUnion.Case2("a", "b") |> f
 
     testCase "Union cases called Tag still work (bug due to Tag field)" <| fun () ->
-        let x = Tag "abc"
-        match x with
-        | Tag x -> x
-        | _ -> failwith "unexpected"
-        |> equal "abc"
+        // Prevent inlining so Typescript doesn't complain
+        let mutable f = fun x ->
+            match x with
+            | Tag x -> x
+            | _ -> failwith "unexpected"
+            |> equal "abc"
+        Tag "abc" |> f
 
     testCase "Comprehensive active patterns work" <| fun () ->
         let isFunctional = function

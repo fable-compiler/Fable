@@ -650,9 +650,16 @@ module Util =
     open Reflection
     open Annotation
 
+    module UnionHelpers =
+        let [<Literal>] TAG = "Tag"
+        let [<Literal>] FIELDS = "Fields"
+        let [<Literal>] CONS = "Cons"
+
+        let caseNameClashes name =
+            name = TAG || name = FIELDS || name = CONS
+
     let IMPORT_REGEX = Regex("""^import\b\s*(\{?.*?\}?)\s*\bfrom\s+["'](.*?)["'](?:\s*;)?$""")
     let IMPORT_SELECTOR_REGEX = Regex(@"^(\*|\w+)(?:\s+as\s+(\w+))?$")
-
     let stripImports (com: IBabelCompiler) ctx r (str: string) =
         str.Split('\n')
         |> Array.skipWhile (fun line ->
@@ -1060,6 +1067,21 @@ module Util =
     let transformCurry (com: IBabelCompiler) (ctx: Context) expr arity: Expression =
         com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
+    let transformNewUnion (com: IBabelCompiler) (ctx: Context) r (ent: Fable.Entity) tag values =
+        let consRef = jsConstructor com ctx ent
+        let values = makeArray com ctx values
+        Expression.newExpression(consRef, [|ofInt tag; values|], ?loc=r)
+
+    let transformNewUnionForTypeScript (com: IBabelCompiler) (ctx: Context) r (ent: Fable.Entity) tag values (case: Fable.UnionCase) =
+        match tryJsConstructorWithSuffix com ctx ent "_Tag" with
+        | Some(Expression.Identifier tag) ->
+            let consRef = jsConstructor com ctx ent
+            let values = makeArray com ctx values
+            let tag = EnumCaseLiteral(tag, case.Name) |> Expression.Literal
+            Expression.newExpression(consRef, [|tag; values|], ?loc=r)
+        | _ ->
+            transformNewUnion com ctx r ent tag values
+
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
         match value with
         | Fable.BaseValue(None,_) -> Super(None)
@@ -1154,19 +1176,15 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
-            let transformNewUnion (com: IBabelCompiler) (ctx: Context) r (ent: Fable.Entity) tag values =
-                let consRef = jsConstructor com ctx ent
-                let values = makeArray com ctx values
-                Expression.newExpression(consRef, [|ofInt tag; values|], ?loc=r)
             let ent = com.GetEntity(ent)
             if com.Options.Language = TypeScript then
-                let case = ent.UnionCases[tag].Name
-                match tryJsConstructorWithSuffix com ctx ent ("_" + case) with
-                | Some helperRef ->
+                let case = ent.UnionCases[tag]
+                match tryJsConstructorWithSuffix com ctx ent ("_" + case.Name) with
+                | Some helperRef when not(UnionHelpers.caseNameClashes case.Name)->
                     let values = values |> List.mapToArray (transformAsExpr com ctx)
                     let typeParams = makeTypeParamInstantiation com ctx genArgs
                     Expression.callExpression(helperRef, values, typeArguments=typeParams)
-                | None -> transformNewUnion com ctx r ent tag values
+                | _ -> transformNewUnionForTypeScript com ctx r ent tag values case
             else
                 transformNewUnion com ctx r ent tag values
 
@@ -2320,9 +2338,9 @@ module Util =
                 if not p.IsMeasure then Some p.Name else None)
             let entParamsDecl = entParams |> Array.map TypeParameter.typeParameter
             let entParamsInst = entParams |> Array.map (makeAliasTypeAnnotation com ctx)
-            let union_tag = entName + "_Tag" |> Identifier.identifier
-            let union_fields = entName + "_Fields" |> Identifier.identifier
-            let union_cons = entName + "_Cons" |> Identifier.identifier
+            let union_tag = entName + "_" + UnionHelpers.TAG |> Identifier.identifier
+            let union_fields = entName + "_" + UnionHelpers.FIELDS |> Identifier.identifier
+            let union_cons = entName + "_" + UnionHelpers.CONS |> Identifier.identifier
             let union_ta, union_tag_cases, union_fields_ta =
                 ent.UnionCases |> List.mapiToArray (fun i uci ->
                     let typeParams = Array.append entParamsInst [|LiteralTypeAnnotation(EnumCaseLiteral(union_tag, uci.Name))|]
@@ -2355,18 +2373,19 @@ module Util =
 
                 // Helpers to instantiate union
                 for case in ent.UnionCases do
-                    let tag = EnumCaseLiteral(union_tag, case.Name)
-                    let passedArgs = case.UnionCaseFields |> List.mapToArray (fun fi -> Expression.identifier(fi.Name)) |> Expression.arrayExpression
-                    let consTypeArgs = Array.append entParamsInst [|LiteralTypeAnnotation tag|]
-                    let body = BlockStatement [|
-                       Expression.newExpression(Expression.Identifier union_cons, [|Expression.Literal tag; passedArgs|], typeArguments=consTypeArgs)
-                       |> Statement.returnStatement
-                    |]
-                    let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
-                        Parameter.parameter(fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
-                    let fnId = entName + "_" + case.Name |> Identifier.identifier
-                    Declaration.functionDeclaration(parameters, body, fnId, typeParameters=entParamsDecl)
-                    |> asModuleDeclaration isPublic
+                    if not(UnionHelpers.caseNameClashes case.Name) then
+                        let tag = EnumCaseLiteral(union_tag, case.Name)
+                        let passedArgs = case.UnionCaseFields |> List.mapToArray (fun fi -> Expression.identifier(fi.Name)) |> Expression.arrayExpression
+                        let consTypeArgs = Array.append entParamsInst [|LiteralTypeAnnotation tag|]
+                        let body = BlockStatement [|
+                            Expression.newExpression(Expression.Identifier union_cons, [|Expression.Literal tag; passedArgs|], typeArguments=consTypeArgs)
+                            |> Statement.returnStatement
+                        |]
+                        let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
+                            Parameter.parameter(fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
+                        let fnId = entName + "_" + case.Name |> Identifier.identifier
+                        Declaration.functionDeclaration(parameters, body, fnId, typeParameters=entParamsDecl)
+                        |> asModuleDeclaration isPublic
 
                 // Actual class
                 declareClassWithParams com ctx ent union_cons.Name consArgs consArgsModifiers consBody baseExpr classMembers unionConsTypeParams

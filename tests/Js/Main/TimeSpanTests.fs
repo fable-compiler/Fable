@@ -322,7 +322,7 @@ let tests =
             |> Util.throwsError "String '24:0:0' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 24:0:0 TryParse fails" <| fun () ->
-            let status, _ = TimeSpan.TryParse("24:0:0", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            let status, _ = TimeSpan.TryParse("24:0:0", CultureInfo.InvariantCulture)
             equal status false
 #endif
 
