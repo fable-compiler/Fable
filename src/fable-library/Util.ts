@@ -1,6 +1,6 @@
 // tslint:disable:ban-types
 
-export type Nullable<T> = T | undefined;
+export type Nullable<T> = T | null | undefined;
 
 export type Option<T> = T | Some<T> | undefined;
 

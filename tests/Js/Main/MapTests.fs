@@ -63,12 +63,12 @@ let tests =
             let xs = Map.empty.Add(1, 1)
             xs.Count
             |> equal 1
-#if !FABLE_COMPILER_TYPESCRIPT
+
         testCase "Map.TryGetValue works" <| fun () ->
             let xs = Map.empty.Add(1, 1)
             xs.TryGetValue(1)
             |> equal (true, 1)
-#endif
+
         testCase "Map.containsKey works" <| fun () ->
             let xs = Map.empty |> Map.add 1 1
             xs |> Map.containsKey 1 |> equal true
@@ -247,7 +247,7 @@ let tests =
             let zs = Map.values ys
             zs.Count |> equal xs.Length
             Seq.item 2 zs |> equal (snd xs.[2])
-#if !FABLE_COMPILER_TYPESCRIPT
+
         testCase "Map can be casted to IDictionary" <| fun () -> // See #1729, #1857
             let map = Map [ "a", 1; "b", 2; "c", 3]
             let dic = map :> System.Collections.Generic.IDictionary<_,_>
@@ -255,7 +255,7 @@ let tests =
             dic.TryGetValue("d") |> fst |> equal false
             dic.Keys |> Seq.toList |> equal ["a"; "b"; "c"]
             dic.Values |> Seq.toList |> equal [1; 2; 3]
-#endif
+
         testCase "KeyValuePair can be referenced" <| fun () ->
             let r2 = { kv = new KeyValuePair<_,_>("bar",25) }
             r2.kv.Key |> equal "bar"

@@ -93,13 +93,13 @@ let tests =
                               .Append(5.2)
                               .Append(34)
             equal "aaabcd/true5.234" (builder.ToString().Replace(",", ".").ToLower())
-#if !FABLE_COMPILER_TYPESCRIPT
+
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
             Printf.kprintf f "hello" |> equal "helloXX"
             Printf.kprintf f "%X" 255 |> equal "FFXX"
             Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
-#endif
+
       testCase "kprintf works indirectly" <| fun () -> // See #1204
             let lines = ResizeArray<string>()
             let linef fmt = Printf.ksprintf lines.Add fmt // broken
@@ -113,7 +113,7 @@ let tests =
             Printf.kbprintf f sb " %s!" "world"
             i |> equal 2
             sb.ToString() |> equal "Hello world!"
-#if !FABLE_COMPILER_TYPESCRIPT
+
       testCase "ksprintf curries correctly" <| fun () ->
           let append (a: string) b = a + b
 
@@ -121,7 +121,7 @@ let tests =
           let step2 = step1 42
           let result = step2 "The answer is: "
           result |> equal "42The answer is: "
-#endif
+
       testCase "bprintf works" <| fun () ->
             let sb = System.Text.StringBuilder(10)
             Printf.bprintf sb "Hello"
@@ -1076,15 +1076,15 @@ let tests =
           let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
           s5.Format |> equal "I have {escaped braces} and %percentage%"
 
-#if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT
+#if FABLE_COMPILER
       testCase "Can use FormattableString.GetStrings() extension" <| fun () ->
           let orderAmount = 100
           let convert (s: FormattableString) = s
           let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
           s.GetStrings() |> equal [|"You owe: "; " "; " "; ""|]
           let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
-          s2.GetStrings() |> equal [|""; "This is \""; "\" awesome!"|]
+          s2.GetStrings()|> equal [|""; "This is \""; "\" awesome!"|]
           let s3: FormattableString = $"""I have no holes"""
-          s3.GetStrings() |> equal [|"I have no holes"|]
+          s3.GetStrings()|> equal [|"I have no holes"|]
 #endif
 ]

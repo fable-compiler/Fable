@@ -57,6 +57,7 @@ let tests =
         Fruits.Apple = a |> equal true
         a = a |> equal true
 
+// TypeScript complains if we compare two different constants
 #if !FABLE_COMPILER_TYPESCRIPT
         Fruits.Apple = Fruits.Banana |> equal false
 #endif
@@ -75,6 +76,7 @@ let tests =
         Fruits.Apple <> a |> equal false
         a <> a |> equal false
 
+// TypeScript complains if we compare two different constants
 #if !FABLE_COMPILER_TYPESCRIPT
         Fruits.Apple <> Fruits.Banana |> equal true
 #endif
