@@ -678,11 +678,19 @@ module PrinterExtensions =
 
             printer.Print(":")
 
+            let consequent =
+                match consequent with
+                | [|Statement.BlockStatement block|] -> block.Body
+                | _ -> consequent
+
             match consequent.Length with
             | 0 -> printer.PrintNewLine()
             | 1 ->
-                printer.Print(" ")
+                printer.PrintNewLine()
+                printer.PushIndentation()
                 printer.Print(consequent[0])
+                printer.PrintStatementSeparator()
+                printer.PopIndentation()
             | _ ->
                 printer.Print(" ")
                 printer.PrintBlock(consequent)
