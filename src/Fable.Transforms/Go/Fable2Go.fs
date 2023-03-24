@@ -3892,33 +3892,9 @@ module Util =
 
     let transformImports (com: IGoCompiler) (imports: ImportSpec list) : ImportSpec list =
         printfn $"transformImports: %A{imports}"
-        // let imports =
-        //     imports
-        //     |> List.map (fun im ->
-        //         let { BasicLit.Value = moduleName } = im.Path
-        //
-        //         match im.Name with
-        //         | Some { Name = local } when local = "default" || local = "*" ->
-        //             if moduleName <> local then
-        //                 Some moduleName, im.LocalIdent.Value
-        //             else
-        //                 None, im.LocalIdent.Value
-        //         | Some name ->
-        //             let name = Naming.toSnakeCase name
-        //             Some moduleName, Alias.alias (Identifier(Helpers.clean name), ?asname = im.LocalIdent)
-        //         | None -> None, Alias.alias (Identifier(moduleName), ?asname = im.LocalIdent))
-        //     |> List.groupBy fst
-        //     |> List.map (fun (a, b) -> a, List.map snd b)
-        //     |> List.sortBy (fun name ->
-        //         let name =
-        //             match name with
-        //             | Some moduleName, _ -> moduleName.ToLower()
-        //             | None, { Name = name } :: _ -> name.Name
-        //             | _ -> ""
-        //
-        //         name)
 
-        imports
+        // Make sure imports are sorted and unique
+        imports |> List.sortBy (fun i -> i.Path.Value) |> List.distinctBy (fun i -> i.Path.Value)
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         printfn "getIdentForImport: %A" (moduleName, name)
