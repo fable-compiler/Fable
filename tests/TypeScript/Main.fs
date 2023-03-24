@@ -22,7 +22,7 @@ let allTests =
     // ElmishParser.tests
 #endif
     // Enumerable.tests
-    // Enum.tests
+    Enum.tests
     // Event.tests
     HashSets.tests
     // Import.tests

@@ -453,6 +453,7 @@ module Annotation =
             | _, Some(Literal(RegExp _))
             | _, Some(FunctionExpression _)
             | _, Some(ArrowFunctionExpression _) -> None
+            | _, Some(AsExpression _) -> None
             | _ -> makeTypeAnnotation com ctx typ |> Some
         else None
 
@@ -1726,9 +1727,10 @@ module Util =
 
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
-            | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _, _) ->
-                match expr with
-                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(expr, right)
+            | Fable.Operation(Fable.Binary(BinaryEqual, left, right), _, _, _) ->
+                match left, right with
+                | _, Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(left, right)
+                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _), _ -> Some(right, left)
                 | _ -> None
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
@@ -1813,39 +1815,41 @@ module Util =
 
     /// When several branches share target create first a switch to get the target index and bind value
     /// and another to execute the actual target
-    let transformDecisionTreeWithTwoSwitches (com: IBabelCompiler) ctx returnStrategy
-                    (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
-        // Declare target and bound idents
-        let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeIdent
-        let multiVarDecl =
-            let boundIdents = targets |> List.collect (fun (idents,_) ->
-                idents |> List.map (fun id -> id, None))
-            multiVarDeclaration com ctx Let ((targetId, None)::boundIdents)
-        // Transform targets as switch
-        let switch2 =
-            // TODO: Declare the last case as the default case?
-            let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
-            transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
-        // Transform decision tree
-        let targetAssign = Target(identAsIdent targetId)
-        let ctx = { ctx with DecisionTargets = targets }
-        match transformDecisionTreeAsSwitch treeExpr with
-        | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let cases = groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
-            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
-            let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
-            [|multiVarDecl; switch1; switch2|]
-        | None ->
-            let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
-            [| yield multiVarDecl; yield! decisionTree; yield switch2 |]
+    let transformDecisionTreeWithTwoSwitches (com: IBabelCompiler) ctx returnStrategy (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
+        // Most of the time, TypeScript will complain the variable declared on top are not initialized
+        if com.Options.Language = TypeScript then
+            let ctx = { ctx with DecisionTargets = targets }
+            com.TransformAsStatements(ctx, returnStrategy, treeExpr)
+        else
+            // Declare target and bound idents
+            let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeIdent
+            let multiVarDecl =
+                let boundIdents = targets |> List.collect (fun (idents,_) ->
+                    idents |> List.map (fun id -> id, None))
+                multiVarDeclaration com ctx Let ((targetId, None)::boundIdents)
+            // Transform targets as switch
+            let switch2 =
+                // TODO: Declare the last case as the default case?
+                let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
+                transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
+            // Transform decision tree
+            let targetAssign = Target(identAsIdent targetId)
+            let ctx = { ctx with DecisionTargets = targets }
+            match transformDecisionTreeAsSwitch treeExpr with
+            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                let cases = groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
+                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
+                let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
+                [|multiVarDecl; switch1; switch2|]
+            | None ->
+                let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
+                [| yield multiVarDecl; yield! decisionTree; yield switch2 |]
 
     let transformDecisionTreeAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement[] =
         // If some targets are referenced multiple times, hoist bound idents,
         // resolve the decision index and compile the targets as a switch
-        let targetsWithMultiRefs =
-            if com.Options.Language = TypeScript then [] // no hoisting when compiled with types
-            else getTargetsWithMultipleReferences treeExpr
+        let targetsWithMultiRefs = getTargetsWithMultipleReferences treeExpr
         match targetsWithMultiRefs with
         | [] ->
             let ctx = { ctx with DecisionTargets = targets }
