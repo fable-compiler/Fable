@@ -755,6 +755,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Error" |> Some
     | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
     | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
+    | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
     | _ -> None
 
@@ -2266,6 +2267,7 @@ let ignoreFormatProvider meth args =
     // Ignore IFormatProvider
     | "Parse", arg::_ -> [arg]
     | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
+    | "TryParse", input::_culture::defVal::_ -> [input; defVal]
     | _ -> args
 
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2402,7 +2404,9 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ".ctor" ->
-        Helper.LibCall(com, "TimeOnly", "create", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        match args with
+        | [ExprType(Number(Int64,_))] -> Helper.LibCall(com, "TimeOnly", "fromTicks", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ -> Helper.LibCall(com, "TimeOnly", "create", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_MinValue" ->
         makeIntConst 0 |> Some
     | "ToTimeSpan" ->

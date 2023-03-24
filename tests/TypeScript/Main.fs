@@ -24,7 +24,7 @@ let allTests =
     // Enumerable.tests
     // Enum.tests
     // Event.tests
-    // HashSets.tests
+    HashSets.tests
     // Import.tests
     // JsInterop.tests
     Lists.tests
@@ -32,7 +32,7 @@ let allTests =
     // Misc.tests
     // Observable.tests
     Option.tests
-    // Queue.tests
+    Queue.tests
     RecordTypes.tests
     // Reflection.tests
     Regex.tests
@@ -41,16 +41,16 @@ let allTests =
     SeqExpressions.tests
     Seqs.tests
     Sets.tests
-    // Stack.tests
+    Stack.tests
     Strings.tests
     Sudoku.tests
     TailCalls.tests
-    // TimeOnly.tests
-    // TimeSpan.tests
-    // TupleTypes.tests
+    TimeOnly.tests
+    TimeSpan.tests
+    TupleTypes.tests
     // TypeTests.tests
-    // UnionTypes.tests
-    // Uri.tests
+    UnionTypes.tests
+    Uri.tests
   |]
 
 #if FABLE_COMPILER

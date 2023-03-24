@@ -24,15 +24,20 @@
     <Compile Include="../Js/Main/DateTimeTests.fs" />
     <Compile Include="../Js/Main/DateOnlyTests.fs" />
     <Compile Include="../Js/Main/DictionaryTests.fs" />
-    <!-- <Compile Include="../Js/Main/ElmishParserTests.fs" />
-    <Compile Include="../Js/Main/EnumerableTests.fs" />
-    <Compile Include="../Js/Main/EnumTests.fs" />
-    <Compile Include="../Js/Main/EventTests.fs" />
-    <Compile Include="../Js/Main/HashSetTests.fs" /> -->
+    <!-- <Compile Include="../Js/Main/ElmishParserTests.fs" /> -->
+    <!-- <Compile Include="../Js/Main/EnumerableTests.fs" /> -->
+    <!-- <Compile Include="../Js/Main/EnumTests.fs" /> -->
+    <!-- <Compile Include="../Js/Main/EventTests.fs" /> -->
+    <Compile Include="../Js/Main/HashSetTests.fs" />
+    <!-- <Compile Include="../Js/Main/ImportTests.fs" />
+    <Compile Include="../Js/Main/JsInteropTests.fs" /> -->
     <Compile Include="../Js/Main/ListTests.fs" />
     <Compile Include="../Js/Main/MapTests.fs" />
-    <!-- <Compile Include="../Js/Main/MiscTests.fs" /> -->
+    <!-- <Compile Include="../Js/Main/MiscTestsHelper.fs" />
+    <Compile Include="../Js/Main/MiscTests.fs" /> -->
+    <!-- <Compile Include="../Js/Main/ObservableTests.fs" /> -->
     <Compile Include="../Js/Main/OptionTests.fs" />
+    <Compile Include="../Js/Main/QueueTests.fs" />
     <Compile Include="../Js/Main/RecordTypeTests.fs" />
     <Compile Include="../Js/Main/RegexTests.fs" />
     <Compile Include="../Js/Main/ResizeArrayTests.fs" />
@@ -40,9 +45,16 @@
     <Compile Include="../Js/Main/SeqExpressionTests.fs" />
     <Compile Include="../Js/Main/SeqTests.fs" />
     <Compile Include="../Js/Main/SetTests.fs" />
+    <Compile Include="../Js/Main/StackTests.fs" />
     <Compile Include="../Js/Main/StringTests.fs" />
     <Compile Include="../Js/Main/SudokuTest.fs" />
     <Compile Include="../Js/Main/TailCallTests.fs" />
+    <Compile Include="../Js/Main/TimeOnlyTests.fs" />
+    <Compile Include="../Js/Main/TimeSpanTests.fs" />
+    <Compile Include="../Js/Main/TupleTypeTests.fs" />
+    <!-- <Compile Include="../Js/Main/TypeTests.fs" /> -->
+    <Compile Include="../Js/Main/UnionTypeTests.fs" />
+    <Compile Include="../Js/Main/UriTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
