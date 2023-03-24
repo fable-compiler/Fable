@@ -564,6 +564,7 @@ module Annotation =
         let returnType = makeTypeAnnotation com ctx returnType
         TypeAnnotation.functionTypeAnnotation(funcTypeParams, returnType)
 
+    // Move this to Replacements.tryEntity?
     let makeInterfaceTypeAnnotation com ctx (ent: Fable.Entity) genArgs =
         match ent.FullName with
         | Types.icollection
@@ -600,6 +601,10 @@ module Annotation =
             -> makeImportTypeAnnotation com ctx genArgs "Util" "IComparer"
         | Types.iequalityComparerGeneric
             -> makeImportTypeAnnotation com ctx genArgs "Util" "IEqualityComparer"
+        | Types.iobserverGeneric
+            -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObserver"
+        | Types.iobservableGeneric
+            -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObservable"
         | _ ->
             // TODO: add more interfaces
             AnyTypeAnnotation

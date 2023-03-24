@@ -1,7 +1,7 @@
 
 import { FSharpChoice$2, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
 import { value } from "./Option.js";
-import { IDisposable } from "./Util.js";
+import { IDisposable, Option } from "./Util.js";
 
 export interface IObserver<T> {
   OnNext: (x: T) => void;
@@ -33,7 +33,7 @@ class Observable<T> implements IObservable<T> {
   }
 }
 
-export function protect<T>(f: () => T, succeed: (x: T) => void, fail: (e: any) => void) {
+function protect<T>(f: () => T, succeed: (x: T) => void, fail: (e: any) => void) {
   try {
     return succeed(f());
   } catch (e) {
@@ -41,35 +41,35 @@ export function protect<T>(f: () => T, succeed: (x: T) => void, fail: (e: any) =
   }
 }
 
-export function add<T>(callback: (x: T) => void, source: IObservable<T>) {
+export function add<T>(callback: (x: T) => void, source: IObservable<T>): void {
   source.Subscribe(new Observer(callback));
 }
 
-export function choose<T, U>(chooser: (x: T) => U, source: IObservable<T>) {
+export function choose<T, U>(chooser: (x: T) => Option<U>, source: IObservable<T>): Observable<U> {
   return new Observable<U>((observer) =>
     source.Subscribe(new Observer<T>((t) =>
       protect(
         () => chooser(t),
         (u) => { if (u != null) { observer.OnNext(value(u)); } },
         observer.OnError),
-      observer.OnError, observer.OnCompleted))) as IObservable<U>;
+      observer.OnError, observer.OnCompleted)));
 }
 
-export function filter<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
-  return choose((x) => predicate(x) ? x : null, source);
+export function filter<T>(predicate: (x: T) => boolean, source: IObservable<T>): IObservable<T> {
+  return choose((x) => predicate(x) ? x : void 0, source);
 }
 
-export function map<T, U>(mapping: (x: T) => U, source: IObservable<T>) {
+export function map<T, U>(mapping: (x: T) => U, source: IObservable<T>): IObservable<U> {
   return new Observable<U>((observer) =>
     source.Subscribe(new Observer<T>((t) => {
       protect(
         () => mapping(t),
         observer.OnNext,
         observer.OnError);
-    }, observer.OnError, observer.OnCompleted))) as IObservable<U>;
+    }, observer.OnError, observer.OnCompleted)));
 }
 
-export function merge<T>(source1: IObservable<T>, source2: IObservable<T>) {
+export function merge<T>(source1: IObservable<T>, source2: IObservable<T>): IObservable<T> {
   return new Observable((observer) => {
     let stopped = false;
     let completed1 = false;
@@ -113,11 +113,11 @@ export function merge<T>(source1: IObservable<T>, source2: IObservable<T>) {
         h1.Dispose();
         h2.Dispose();
       },
-    } as IDisposable;
-  }) as IObservable<T>;
+    };
+  });
 }
 
-export function pairwise<T>(source: IObservable<T>) {
+export function pairwise<T>(source: IObservable<T>): IObservable<[T, T]> {
   return new Observable<[T, T]>((observer) => {
     let last: T;
     return source.Subscribe(new Observer<T>((next) => {
@@ -126,14 +126,14 @@ export function pairwise<T>(source: IObservable<T>) {
       }
       last = next;
     }, observer.OnError, observer.OnCompleted));
-  }) as IObservable<[T, T]>;
+  });
 }
 
-export function partition<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
+export function partition<T>(predicate: (x: T) => boolean, source: IObservable<T>): [Observable<T>, Observable<T>] {
   return [filter(predicate, source), filter((x) => !predicate(x), source)];
 }
 
-export function scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObservable<T>) {
+export function scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObservable<T>): IObservable<U> {
   return new Observable<U>((observer) => {
     return source.Subscribe(new Observer<T>((t) => {
       protect(
@@ -141,16 +141,16 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObse
         (u) => { state = u; observer.OnNext(u); },
         observer.OnError);
     }, observer.OnError, observer.OnCompleted));
-  }) as IObservable<U>;
+  });
 }
 
-export function split<T, U1, U2>(splitter: (x: T) => FSharpChoice$2<U1, U2>, source: IObservable<T>) {
+export function split<T, U1, U2>(splitter: (x: T) => FSharpChoice$2<U1, U2>, source: IObservable<T>): [Observable<U1>, Observable<U2>] {
   return [
     choose((v) => Choice_tryValueIfChoice1Of2(splitter(v)), source),
     choose((v) => Choice_tryValueIfChoice2Of2(splitter(v)), source)
   ];
 }
 
-export function subscribe<T>(callback: (x: T) => void, source: IObservable<T>) {
+export function subscribe<T>(callback: (x: T) => void, source: IObservable<T>): IDisposable {
   return source.Subscribe(new Observer(callback));
 }
