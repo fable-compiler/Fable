@@ -30,7 +30,7 @@ let allTests =
     Lists.tests
     Maps.tests
     // Misc.tests
-    // Observable.tests
+    Observable.tests
     Option.tests
     Queue.tests
     RecordTypes.tests
