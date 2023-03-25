@@ -365,6 +365,7 @@ module Reflection =
 
 module Annotation =
 
+    let isTypeScript (com: IBabelCompiler) = com.Options.Language = TypeScript
     let isByRefOrAnyType (com: IBabelCompiler) = function
         | Replacements.Util.IsByRefType com _ -> true
         | Fable.Any -> true
@@ -941,7 +942,7 @@ module Util =
             | ClassConstructor, _ -> None, args, body
             | NonAttached funcName, _ -> Some funcName, args, body
 
-        let isTypeScript = com.Options.Language = TypeScript
+        let isTypeScript = isTypeScript com
         let ctx, typeParams =
             if isTypeScript then
                 let isAttached, entGenParams =
@@ -1195,7 +1196,7 @@ module Util =
                 transformNewUnion com ctx r ent tag values
 
     let enumerableThisToIterator com ctx =
-        let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
+        let enumerator = libCall com ctx None "Util" "getEnumerator" [] [Expression.identifier("this")]
         BlockStatement([| Statement.returnStatement(libCall com ctx None "Util" "toIterator" [] [enumerator])|])
 
     let extractSuperClassFromBaseCall (com: IBabelCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
@@ -1232,7 +1233,7 @@ module Util =
         | None, _ ->
             None
 
-    let transformObjectExpr (com: IBabelCompiler) ctx (members: Fable.ObjectExprMember list) baseCall: Expression =
+    let transformObjectExpr (com: IBabelCompiler) ctx t (members: Fable.ObjectExprMember list) baseCall: Expression =
 
         let makeMethod kind prop isComputed (info: Fable.MemberFunctionOrValue) args body =
             let args, body, returnType, typeParamDecl =
@@ -1270,7 +1271,11 @@ module Util =
             )
 
         if not compileAsClass then
-            Expression.objectExpression(List.toArray  members)
+            let expr = Expression.objectExpression(List.toArray members)
+            match t with
+            | Fable.DeclaredType(ent, _) when isTypeScript com && ent.FullName = Types.ienumerableGeneric ->
+                AsExpression(expr, makeTypeAnnotation com ctx t)
+            | _ -> expr
         else
             let classMembers =
                 members |> List.choose (function
@@ -1922,7 +1927,7 @@ module Util =
                 |> makeArrowFunctionExpression name
 
         | Fable.ObjectExpr (members, _, baseCall) ->
-           transformObjectExpr com ctx members baseCall
+           transformObjectExpr com ctx expr.Type members baseCall
 
         | Fable.Call(callee, info, typ, range) ->
             transformCall com ctx range typ callee info
@@ -2019,7 +2024,7 @@ module Util =
                 |> resolveExpr expr.Type returnStrategy|]
 
         | Fable.ObjectExpr (members, t, baseCall) ->
-            [|transformObjectExpr com ctx members baseCall |> resolveExpr t returnStrategy|]
+            [|transformObjectExpr com ctx expr.Type members baseCall |> resolveExpr t returnStrategy|]
 
         | Fable.Call(callee, info, typ, range) ->
             transformCallAsStatements com ctx range typ returnStrategy callee info
@@ -2326,7 +2331,12 @@ module Util =
         [|
             yield makeMethod memb.Name args body returnType typeParamDecl
             if info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
-                yield makeMethod "Symbol.iterator" [||] (enumerableThisToIterator com ctx) None None
+                let returnType =
+                    match returnType with
+                    | Some(AliasTypeAnnotation(_,typeArguments)) ->
+                        TypeAnnotation.aliasTypeAnnotation(Identifier.identifier("Iterator"), typeArguments=typeArguments) |> Some
+                    | _ -> None
+                yield makeMethod "Symbol.iterator" [||] (enumerableThisToIterator com ctx) returnType None
         |]
 
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =

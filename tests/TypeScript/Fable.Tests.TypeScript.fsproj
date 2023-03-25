@@ -25,7 +25,7 @@
     <Compile Include="../Js/Main/DateOnlyTests.fs" />
     <Compile Include="../Js/Main/DictionaryTests.fs" />
     <!-- <Compile Include="../Js/Main/ElmishParserTests.fs" /> -->
-    <!-- <Compile Include="../Js/Main/EnumerableTests.fs" /> -->
+    <Compile Include="../Js/Main/EnumerableTests.fs" />
     <Compile Include="../Js/Main/EnumTests.fs" />
     <!-- <Compile Include="../Js/Main/EventTests.fs" /> -->
     <Compile Include="../Js/Main/HashSetTests.fs" />
