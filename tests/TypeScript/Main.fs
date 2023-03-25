@@ -21,7 +21,7 @@ let allTests =
 #if FABLE_COMPILER
     // ElmishParser.tests
 #endif
-    // Enumerable.tests
+    Enumerable.tests
     Enum.tests
     // Event.tests
     HashSets.tests
