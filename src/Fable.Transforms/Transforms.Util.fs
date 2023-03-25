@@ -469,6 +469,7 @@ module AST =
           Type = typ
           IsCompilerGenerated = true
           IsThisArgument = false
+          IsModuleValue = false
           IsMutable = false
           Range = None }
 

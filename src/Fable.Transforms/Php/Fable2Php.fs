@@ -233,7 +233,7 @@ let  convertMultiCaseUnion (com: IPhpCompiler) (decl: Fable.ClassDecl) (info: Fa
                     PhpFun.Args = []
                     PhpFun.Matchings = []
                     PhpFun.Static = true
-                    PhpFun.Body = 
+                    PhpFun.Body =
                         [ PhpStatement.PhpReturn(
                             PhpNewArray(
                                 info.UnionCases
@@ -970,7 +970,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
 and convertArgs com (args: Fable.Expr list) =
     [ for arg in args do
         match arg with
-        | Fable.IdentExpr({ Name = "Array"; IsCompilerGenerated = true}) ->
+        | Fable.IdentExpr({ Name = "Array"; IsCompilerGenerated = true }) ->
             ()
         | _ ->
             match arg.Type with

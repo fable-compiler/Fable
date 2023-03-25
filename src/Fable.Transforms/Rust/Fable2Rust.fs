@@ -585,6 +585,15 @@ module TypeInfo =
     let getIdentName expr =
         tryGetIdent expr |> Option.defaultValue ""
 
+    let isModuleValue (com: IRustCompiler) (memb: Fable.MemberFunctionOrValue) =
+        match memb.DeclaringEntity |> Option.bind com.TryGetEntity with
+        | Some ent ->
+            let isModuleValueForDeclarations =
+                List.isEmpty memb.CurriedParameterGroups &&
+                List.isEmpty memb.GenericParameters
+            ent.IsFSharpModule && isModuleValueForDeclarations
+        | None -> false
+
     let transformImport (com: IRustCompiler) ctx r t (info: Fable.ImportInfo) genArgsOpt =
         if info.Selector.Contains("*") || info.Selector.Contains("{") then
             let importName = com.GetImportName(ctx, info.Selector, info.Path, r)
@@ -601,7 +610,10 @@ module TypeInfo =
                     // for constructors or static members, import just the type
                     let selector, membName = splitName "." info.Selector
                     let importName = com.GetImportName(ctx, selector, info.Path, r)
-                    makeFullNamePathExpr (importName + "::" + membName) genArgsOpt
+                    let expr = makeFullNamePathExpr (importName + "::" + membName) genArgsOpt
+                    if isModuleValue com memb
+                    then mkCallExpr expr []
+                    else expr
             | Fable.LibraryImport mi when not (mi.IsInstanceMember) && not (mi.IsModuleMember) ->
                 // for static (non-module and non-instance) members, import just the type
                 let selector, membName = splitName "::" info.Selector
@@ -1174,14 +1186,21 @@ module Util =
             (isInRefOrAnyType com expr.Type)
 
     let transformIdent com ctx r (ident: Fable.Ident) =
-        match ctx.ScopedSymbols |> Map.tryFind ident.Name with
-        | Some varAttrs ->
-            //ident has been seen, subtract 1
-            varAttrs.UsageCount <- varAttrs.UsageCount - 1
-        | None -> ()
-        if ident.IsThisArgument && ctx.IsAssocMember // prevents emitting self on inlined code
-        then makeThis com ctx r ident.Type
-        else mkGenericPathExpr (splitNameParts ident.Name) None
+        if ident.IsThisArgument && ctx.IsAssocMember then
+            // prevents emitting self on inlined code
+            makeThis com ctx r ident.Type
+        else
+            let expr = mkGenericPathExpr (splitNameParts ident.Name) None
+            match ctx.ScopedSymbols |> Map.tryFind ident.Name with
+            | Some varAttrs ->
+                // ident has been seen, subtract 1
+                varAttrs.UsageCount <- varAttrs.UsageCount - 1
+                expr
+            | None ->
+                // if module value, compile as function call
+                if ident.IsModuleValue
+                then mkCallExpr expr []
+                else expr
 
     // let transformExprMaybeIdentExpr (com: IRustCompiler) ctx (expr: Fable.Expr) =
     //     match expr with
@@ -2103,10 +2122,6 @@ module Util =
         let args = transformCallArgs com ctx args callInfo.SignatureArgTypes argParams
 
         match calleeExpr with
-        // mutable module values (transformed as function calls)
-        | Fable.IdentExpr ident when ident.IsMutable && isModuleMember com callInfo ->
-            let expr = transformIdent com ctx range ident
-            mutableGet (mkCallExpr expr [])
 
         | Fable.Get(calleeExpr, (Fable.FieldGet info as kind), t, _r) ->
             // this is an instance call
@@ -2301,7 +2316,7 @@ module Util =
                 // let elseExpr = mkMacroExpr "unreachable" []
                 // mkIfThenElseExpr ifExpr thenExpr elseExpr
 
-    let transformSet (com: IRustCompiler) ctx range fableExpr typ (fableValue: Fable.Expr) kind =
+    let transformSet (com: IRustCompiler) ctx range typ fableExpr (fableValue: Fable.Expr) kind =
         let expr = transformCallee com ctx fableExpr
         let value = transformLeaveContext com ctx None fableValue
         match kind with
@@ -2314,7 +2329,7 @@ module Util =
             | Fable.Call(Fable.IdentExpr ident, info, _, _)
                 when ident.IsMutable && isModuleMember com info ->
                 let expr = transformIdent com ctx range ident
-                mutableSet (mkCallExpr expr []) value
+                mutableSet expr value
             | _ ->
                 match fableExpr.Type with
                 | Replacements.Util.Builtin (Replacements.Util.FSharpReference _)
@@ -2913,7 +2928,7 @@ module Util =
             transformDecisionTreeSuccess com ctx idx boundValues
 
         | Fable.Set(expr, kind, typ, value, range) ->
-            transformSet com ctx range expr typ value kind
+            transformSet com ctx range typ expr value kind
 
         | Fable.Let(ident, value, body) ->
             // flatten nested let binding expressions

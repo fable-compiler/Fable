@@ -724,6 +724,11 @@ module Helpers =
         && isModuleValueForDeclarations memb
         && not(isModuleValueCompiledAsFunction com memb)
 
+    let isModuleValue com (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.DeclaringEntity with
+        | Some ent -> isModuleValueForCalls com ent memb
+        | _ -> false
+
     let rec getAllInterfaceMembers (ent: FSharpEntity) =
         seq {
             yield! ent.MembersFunctionsAndValues
@@ -1659,6 +1664,7 @@ module Identifiers =
           Type = makeType ctx.GenericArgs fsRef.FullType
           IsThisArgument = fsRef.IsMemberThisValue
           IsCompilerGenerated = fsRef.IsCompilerGenerated
+          IsModuleValue = isModuleValue com fsRef
           IsMutable = isMutable
           Range = { makeRange fsRef.DeclarationLocation
                     with identifierName = Some fsRef.DisplayName } |> Some }
@@ -1984,7 +1990,10 @@ module Util =
 
         // If precompiling inline function always reference with Import and not as IdentExpr
         if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
-            { makeTypedIdent typ memberName with Range = r; IsMutable = memb.IsMutable }
+            { makeTypedIdent typ memberName with
+                Range = r
+                IsModuleValue = isModuleValue com memb
+                IsMutable = memb.IsMutable }
             |> Fable.IdentExpr
         else
             // If the overload suffix changes, we need to recompile the files that call this member
@@ -2392,7 +2401,7 @@ module Util =
 
             callAttachedMember com r typ callInfo entity memb
 
-        | _, Some entity when com.Options.Language <> Rust && isModuleValueForCalls com entity memb ->
+        | _, Some entity when isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
             memberIdent com r typ memb membRef
 

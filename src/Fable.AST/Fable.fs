@@ -377,6 +377,7 @@ type Ident =
     { Name: string
       Type: Type
       IsMutable: bool
+      IsModuleValue: bool
       IsThisArgument: bool
       IsCompilerGenerated: bool
       Range: SourceLocation option }
