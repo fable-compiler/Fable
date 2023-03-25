@@ -19,7 +19,7 @@ let allTests =
     DateOnly.tests
     Dictionaries.tests
 #if FABLE_COMPILER
-    // ElmishParser.tests
+    ElmishParser.tests
 #endif
     Enumerable.tests
     Enum.tests
