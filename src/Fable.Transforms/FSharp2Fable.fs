@@ -1587,7 +1587,8 @@ let resolveInlinedCallInfo com (ctx: Context) info (callInfo: Fable.CallInfo) =
     { callInfo with
           ThisArg = Option.map (resolveInlineExpr com ctx info) callInfo.ThisArg
           Args = List.map (resolveInlineExpr com ctx info) callInfo.Args
-          GenericArgs = List.map (resolveInlineType ctx.GenericArgs) callInfo.GenericArgs }
+          GenericArgs = List.map (resolveInlineType ctx.GenericArgs) callInfo.GenericArgs
+          MemberRef = Option.map (resolveInlineMemberRef ctx.GenericArgs) callInfo.MemberRef }
 
 let resolveInlineExpr (com: IFableCompiler) ctx info expr =
     match expr with
@@ -1683,7 +1684,8 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
     | Fable.ObjectExpr(members, t, baseCall) ->
         let members = members |> List.map (fun m ->
             { m with Args = m.Args |> List.map (resolveInlineIdent ctx info)
-                     Body = resolveInlineExpr com ctx info m.Body })
+                     Body = resolveInlineExpr com ctx info m.Body
+                     MemberRef = resolveInlineMemberRef ctx.GenericArgs m.MemberRef })
         Fable.ObjectExpr(members, resolveInlineType ctx.GenericArgs t, baseCall |> Option.map (resolveInlineExpr com ctx info))
 
     // TODO: add test
