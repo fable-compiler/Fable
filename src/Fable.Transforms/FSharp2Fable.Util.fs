@@ -1047,11 +1047,10 @@ module TypeHelpers =
     // Currently for Dart we're doing it in the Fable2Dart step
     let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) =
         genArgs
-        |> Seq.map (fun genArg ->
+        |> Seq.mapToList (fun genArg ->
             if genArg.IsGenericParameter
             then resolveGenParam withConstraints ctxTypeArgs genArg.GenericParameter
             else makeTypeWithConstraints withConstraints ctxTypeArgs genArg)
-        |> Seq.toList
 
     let makeTypeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
         makeTypeGenArgsWithConstraints true ctxTypeArgs genArgs
@@ -1131,8 +1130,10 @@ module TypeHelpers =
             "FSharp.UMX.string`1", Choice1Of2 Fable.String
             "FSharp.UMX.Guid`1", Choice2Of2 Types.guid
             "FSharp.UMX.TimeSpan`1", Choice2Of2 Types.timespan
+            "FSharp.UMX.TimeOnly`1", Choice2Of2 Types.timeOnly
             "FSharp.UMX.DateTime`1", Choice2Of2 Types.datetime
             "FSharp.UMX.DateTimeOffset`1", Choice2Of2 Types.datetimeOffset
+            "FSharp.UMX.DateOnly`1", Choice2Of2 Types.dateOnly
         ]
 
     let private getMeasureFullName (genArgs: IList<FSharpType>) =
@@ -1193,7 +1194,6 @@ module TypeHelpers =
             | DicContains numbersWithMeasure kind ->
                 let info = getMeasureFullName genArgs |> Fable.NumberInfo.IsMeasure
                 Fable.Number(kind, info)
-            // | Types.measureProduct2 as fullName -> makeFSharpCoreType [] fullName
             | DicContains runtimeTypesWithMeasure choice ->
                 match choice with
                 | Choice1Of2 t -> t
@@ -1245,7 +1245,10 @@ module TypeHelpers =
             else
 #endif
                 makeTypeFromDef withConstraints ctxTypeArgs t.GenericArguments t.TypeDefinition
-        else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
+        elif t.IsMeasureType then
+            Fable.Measure ""
+        else
+            Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
     let makeType (ctxTypeArgs: Map<string, Fable.Type>) t =
         makeTypeWithConstraints true ctxTypeArgs t

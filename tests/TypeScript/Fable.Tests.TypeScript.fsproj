@@ -3,14 +3,27 @@
     <TargetFramework>net6.0</TargetFramework>
     <DefineConstants>FABLE_COMPILER;FABLE_COMPILER_TYPESCRIPT;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+ <ItemGroup>
+    <PackageReference Include="Fable.JsonProvider" Version="1.0.1" />
+    <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="../Js/DllRef/Fable.Tests.DllRef.fsproj" />
+    <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
+    <ProjectReference Include="../Js/Project With Spaces/Fable.Tests.Spaces.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Js/Main/Globs/*.fs" />
+    <Compile Include="../Js/Main/DllRef/Lib2.fs" />
+    <Compile Include="../Js/Main/Util/b.fs" />
     <Compile Include="../Js/Main/Util/Thoth.Json.Decode.fs" />
     <Compile Include="../Js/Main/Util/Aether.fs" />
     <Compile Include="../Js/Main/Util/Util.Testing.fs" />
     <Compile Include="../Js/Main/Util/Util.fs" />
+    <Compile Include="../Js/Main/Util/Util2.fs" />
+    <Compile Include="../Js/Main/Util/Util3.fs" />
+    <Compile Include="../../tests_external/Util3.fs" />
     <Compile Include="../Js/Main/Util/UtilTests.fs" />
     <Compile Include="../Js/Main/ApplicativeTests.fs" />
     <Compile Include="../Js/Main/ArithmeticTests.fs" />
@@ -33,8 +46,8 @@
     <Compile Include="../Js/Main/JsInteropTests.fs" /> -->
     <Compile Include="../Js/Main/ListTests.fs" />
     <Compile Include="../Js/Main/MapTests.fs" />
-    <!-- <Compile Include="../Js/Main/MiscTestsHelper.fs" />
-    <Compile Include="../Js/Main/MiscTests.fs" /> -->
+    <Compile Include="../Js/Main/MiscTestsHelper.fs" />
+    <Compile Include="../Js/Main/MiscTests.fs" />
     <Compile Include="../Js/Main/ObservableTests.fs" />
     <Compile Include="../Js/Main/OptionTests.fs" />
     <Compile Include="../Js/Main/QueueTests.fs" />

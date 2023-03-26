@@ -797,10 +797,11 @@ module PrinterExtensions =
         member printer.PrintObjectMethod(kind, key, parameters, body, isComputed, returnType, typeParameters, loc) =
             printer.AddLocation(loc)
 
-            match kind with
-            | ObjectGetter -> printer.Print("get ")
-            | ObjectSetter -> printer.Print("set ")
-            | ObjectMeth -> ()
+            let isSetter =
+                match kind with
+                | ObjectGetter -> printer.Print("get "); false
+                | ObjectSetter -> printer.Print("set "); true
+                | ObjectMeth -> false
 
             if isComputed then
                 printer.Print("[")
@@ -813,7 +814,8 @@ module PrinterExtensions =
             printer.Print("(")
             printer.PrintParameters(parameters)
             printer.Print(")")
-            printer.PrintOptional(returnType, ": ")
+            if not isSetter then
+                printer.PrintOptional(returnType, ": ")
             printer.Print(" ")
 
             printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
@@ -904,10 +906,12 @@ module PrinterExtensions =
 
             if isStatic then printer.Print("static ")
             if isAbstract then printer.Print("abstract ")
-            match kind with
-            | ClassSetter _ -> printer.Print("set ")
-            | ClassGetter _ -> printer.Print("get ")
-            | ClassPrimaryConstructor _ | ClassFunction _ -> ()
+
+            let isSetter =
+                match kind with
+                | ClassGetter _ -> printer.Print("get "); false
+                | ClassSetter _ -> printer.Print("set "); true
+                | ClassPrimaryConstructor _ | ClassFunction _ -> false
 
             let key, isComputed, accessModifiers =
                 match kind with
@@ -928,7 +932,8 @@ module PrinterExtensions =
             printer.Print("(")
             printer.PrintParameters(parameters, accessModifiers)
             printer.Print(")")
-            printer.PrintOptional(returnType, ": ")
+            if not isSetter then
+                printer.PrintOptional(returnType, ": ")
             printer.Print(" ")
 
             printer.Print(body)

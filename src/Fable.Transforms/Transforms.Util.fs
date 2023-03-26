@@ -139,6 +139,7 @@ module Types =
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
     let [<Literal>] measureProduct2 = "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
     let [<Literal>] measureOne = "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
+    let [<Literal>] measureInverse = "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
 
     // Types compatible with Inject attribute (fable library)
     let [<Literal>] icomparerGeneric = "System.Collections.Generic.IComparer`1"
@@ -461,6 +462,18 @@ module AST =
     /// create a runtime wrapper. See fable-library/Option.ts for more info.
     let rec mustWrapOption = function
         | Any | Unit | GenericParam _ | Option _ -> true
+        | _ -> false
+
+    let isUnitOfMeasure t =
+        match t with
+        | Measure _
+        | GenericParam(_, true, _) -> true
+        | Fable.DeclaredType(ent, _) ->
+            match ent.FullName with
+            | Types.measureProduct2
+            | Types.measureOne
+            | Types.measureInverse -> true
+            | _ -> false
         | _ -> false
 
     /// ATTENTION: Make sure the ident name is unique
@@ -803,6 +816,7 @@ module AST =
             && Array.zip fields1 fields2 |> Array.forall (fun (f1, f2) -> f1 = f2)
             && listEquals (typeEquals strict) gen1 gen2
             && isStruct1 = isStruct2
+        | Measure _, Measure _ -> true
         | _ -> false
 
     let rec getEntityFullName prettify (entRef: EntityRef) gen =

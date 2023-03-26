@@ -621,16 +621,9 @@ module TypeInfo =
         let args = Util.transformCallArgs com ctx args [] []
         makeLibCall com ctx genArgsOpt moduleName memberName args
 
-    let isUnitOfMeasure = function
-        | Fable.Measure _
-        | Fable.GenericParam(_, true, _)
-        | Replacements.Util.IsEntity (Types.measureProduct2) _
-            -> true
-        | _ -> false
-
     let transformGenTypes com ctx genArgs: Rust.Ty list =
         genArgs
-        |> List.filter (fun t -> not (isUnitOfMeasure t))
+        |> List.filter (isUnitOfMeasure >> not)
         |> List.map (transformType com ctx)
 
     let transformGenArgs com ctx genArgs: Rust.GenericArgs option =

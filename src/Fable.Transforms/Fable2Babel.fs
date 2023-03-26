@@ -73,8 +73,12 @@ module Lib =
         | consExpr -> consExpr |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
 
     let tryJsConstructorForAnnotation forAnnotation (com: IBabelCompiler) ctx (ent: Fable.Entity) =
-        // TODO: Check this is not an StringEnum or Erase union
-        let suffix = if not forAnnotation && com.Options.Language = TypeScript && ent.IsFSharpUnion then "_Cons" else ""
+        let suffix =
+            if not forAnnotation
+                && Annotation.isTypeScript com
+                && ent.IsFSharpUnion
+            then "_" + Util.UnionHelpers.CONS
+            else ""
         tryJsConstructorWithSuffix com ctx ent suffix
 
     /// Cannot be used for annotations (use `tryJsConstructorForAnnotation true` instead)
@@ -393,16 +397,14 @@ module Annotation =
             | _ -> None)
 
     let makeTypeParamInstantiation (com: IBabelCompiler) ctx genArgs =
-        genArgs |> List.chooseToArray (function
-            | Fable.DeclaredType(entRef, genArgs) ->
-                let ent = com.GetEntity(entRef)
-                if ent.IsMeasure then None
-                else makeEntityTypeAnnotation com ctx ent genArgs |> Some
-            | t -> makeTypeAnnotation com ctx t |> Some)
+        if List.isEmpty genArgs then [||]
+        else
+            genArgs |> List.chooseToArray (fun t ->
+                if isUnitOfMeasure t then None
+                else makeTypeAnnotation com ctx t |> Some)
 
     let makeTypeParamInstantiationIfTypeScript (com: IBabelCompiler) ctx genArgs =
-        if com.Options.Language = TypeScript then
-            makeTypeParamInstantiation com ctx genArgs |> Some
+        if isTypeScript com then makeTypeParamInstantiation com ctx genArgs |> Some
         else None
 
     let getGenericTypeAnnotation com ctx name genArgs =
@@ -443,7 +445,7 @@ module Annotation =
             makeEntityTypeAnnotation com ctx ent genArgs
 
     let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
-        if com.Options.Language = TypeScript then
+        if isTypeScript com then
             match typ, expr with
             | Fable.Option _, _ -> makeTypeAnnotation com ctx typ |> Some
             // Use type annotation for NullLiteral and enum cases
@@ -463,7 +465,7 @@ module Annotation =
         FableTransforms.uncurryType fieldType |> makeTypeAnnotation com ctx
 
     let makeFieldAnnotationIfTypeScript (com: IBabelCompiler) ctx (fieldType: Fable.Type) =
-        if com.Options.Language = TypeScript
+        if isTypeScript com
         then makeFieldAnnotation com ctx fieldType |> Some
         else None
 
@@ -637,7 +639,7 @@ module Annotation =
          AnyTypeAnnotation // TODO:
 
     let transformFunctionWithAnnotations (com: IBabelCompiler) ctx name typeParams (args: Fable.Ident list) (body: Fable.Expr) =
-        if com.Options.Language = TypeScript then
+        if isTypeScript com then
             let argTypes = args |> List.map (fun id -> id.Type)
             let scopedTypeParams, genParams =
                 match typeParams with
@@ -1100,7 +1102,7 @@ module Util =
                 let genMap = if List.contains "allow-generics" tags then None else Some Map.empty
                 transformTypeInfo com ctx r genMap t
         | Fable.Null _t ->
-            // if com.Options.Language = TypeScript
+            // if isTypeScript com
             //     let ta = makeTypeAnnotation com ctx t |> TypeAnnotation |> Some
             //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
             // else
@@ -1139,7 +1141,7 @@ module Util =
             | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ kind expr
         | Fable.NewTuple(vals,_) ->
             let tup = makeArray com ctx vals
-            if com.Options.Language = TypeScript
+            if isTypeScript com
             then AsExpression(tup, makeTypeAnnotation com ctx value.Type)
             else tup
         // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
@@ -1175,7 +1177,7 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = ent |> jsConstructor com ctx
             let typeParamInst =
-                if com.Options.Language = TypeScript && (ent.FullName = Types.refCell)
+                if isTypeScript com && (ent.FullName = Types.refCell)
                 then makeTypeParamInstantiation com ctx genArgs |> Some
                 else None
             Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
@@ -1184,7 +1186,7 @@ module Util =
             Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
-            if com.Options.Language = TypeScript then
+            if isTypeScript com then
                 let case = ent.UnionCases[tag]
                 match tryJsConstructorWithSuffix com ctx ent ("_" + case.Name) with
                 | Some helperRef when not(UnionHelpers.caseNameClashes case.Name)->
@@ -1590,7 +1592,7 @@ module Util =
 
         | Fable.OptionValue ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            if mustWrapOption typ || com.Options.Language = TypeScript
+            if mustWrapOption typ || isTypeScript com
             then libCall com ctx None "Option" "value" [] [expr]
             else expr
 
@@ -1651,7 +1653,7 @@ module Util =
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
             let expected =
-                if com.Options.Language = TypeScript then
+                if isTypeScript com then
                     match expr.Type with
                     | Fable.DeclaredType(ent, _) ->
                         let ent = com.GetEntity(ent)
@@ -1827,7 +1829,7 @@ module Util =
     /// and another to execute the actual target
     let transformDecisionTreeWithTwoSwitches (com: IBabelCompiler) ctx returnStrategy (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
         // Most of the time, TypeScript will complain the variable declared on top are not initialized
-        if com.Options.Language = TypeScript then
+        if isTypeScript com then
             let ctx = { ctx with DecisionTargets = targets }
             com.TransformAsStatements(ctx, returnStrategy, treeExpr)
         else
@@ -2221,7 +2223,7 @@ module Util =
 
     let declareClassWithParams (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Parameter[]) (consArgsModifiers: AccessModifier[]) (consBody: BlockStatement) (superClass: SuperClass option) classMembers typeParamDecl =
         let implements =
-            if com.Options.Language = TypeScript then
+            if isTypeScript com then
                 let implements = Util.getClassImplements com ctx ent |> Seq.toArray
                 if Array.isEmpty implements then None else Some implements
             else None
@@ -2230,7 +2232,7 @@ module Util =
             ClassMember.classMethod(ClassPrimaryConstructor consArgsModifiers, consArgs, consBody)
 
         let classFields =
-            if com.Options.Language = TypeScript && not ent.IsFSharpUnion then
+            if isTypeScript com && not ent.IsFSharpUnion then
                 ent.FSharpFields |> List.mapToArray (fun field ->
                     let prop, isComputed = memberFromName field.Name
                     let ta = makeFieldAnnotation com ctx field.FieldType
@@ -2251,14 +2253,14 @@ module Util =
         |> declareModuleMember com ctx classExpr
 
     let declareClass (com: IBabelCompiler) ctx ent entName consArgs consBody superClass classMembers =
-        if com.Options.Language = TypeScript
+        if isTypeScript com
         then FSharp2Fable.Util.getEntityGenArgs ent |> makeTypeParamDecl com ctx |> Some
         else None
         |> declareClassWithParams com ctx ent entName consArgs [||] consBody superClass classMembers
 
     let declareTypeReflection (com: IBabelCompiler) ctx (ent: Fable.Entity) entName: ModuleDeclaration =
         let ta =
-            if com.Options.Language = TypeScript then
+            if isTypeScript com then
                 makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo" |> Some
             else None
         let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
@@ -2351,7 +2353,8 @@ module Util =
                 |> BlockStatement
             ClassMember.classMethod(ClassFunction(Expression.identifier("cases"), false), [||], body)
 
-        if com.Options.Language = TypeScript then
+        // TODO: Don't emit helpers for unions with just one case
+        if isTypeScript com then
             // Merge this with makeTypeParamDecl/makeTypeParamInstantiation?
             let entParams = ent.GenericParameters |> List.chooseToArray (fun p ->
                 if not p.IsMeasure then Some p.Name else None)
@@ -2454,7 +2457,7 @@ module Util =
 
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
-            if com.Options.Language = TypeScript then
+            if isTypeScript com then
                 let genArgs = FSharp2Fable.Util.getEntityGenArgs classEnt
                 let returnType = getGenericTypeAnnotation com ctx classDecl.Name genArgs
                 let typeParamDecl = makeTypeParamDecl com ctx genArgs |> Some
