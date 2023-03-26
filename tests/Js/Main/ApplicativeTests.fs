@@ -845,6 +845,10 @@ let next () =
   counter <- counter + 1
   result
 
+let useAdder adder x y z =
+    let add = adder ()
+    add x + add y + add z
+
 let adder () =
   let add a b = a + b
   add (next())
@@ -1011,7 +1015,8 @@ type RFoo2<'a> = { foo: 'a }
 let applyFooInRecord (f: RFoo<'a,'b>) (a: 'a) = f.foo a
 let applyFooInRecord2 (f: RFoo2<'a -> 'b>) (a: 'a) = f.foo a
 let applyFooInRecord3 (f: RFoo2<'a -> 'b -> 'c>) (a: 'a) (b: 'b) = f.foo a b
-let applyFooInAnonRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
+let applyFooInAnonRecord (f: {| foo: 'a -> 'b |}) (a: 'a) = f.foo a
+let applyFooInAnonRecord3 (f: {| foo: 'a -> 'b -> 'c |}) (a: 'a) (b: 'b) = f.foo a b
 
 type Wrapper() =
     member _.doesNotWorki = wrap
@@ -1072,7 +1077,7 @@ let tests7 = [
     testCase "Applying to a function returned by a member works" <| fun () ->
         equal (1,5) baz
         equal (1,5) baz2
-#if FABLE_COMPILER
+
     testCase "Applying to a function returned by a local function works" <| fun () ->
         let foo a b c d = a , b + c d
         let bar a = foo 1 a
@@ -1080,19 +1085,36 @@ let tests7 = [
         equal (1,5) baz
 
     testCase "Partially applied functions don't duplicate side effects" <| fun () -> // See #1156
-        ADD 1 + ADD 2 + ADD 3 |> equal 6
+        let result = ADD 1 + ADD 2 + ADD 3
+        result |> equal 6
+        counter |> equal 1
 
     testCase "Partially applied functions don't duplicate side effects locally" <| fun () ->
         let mutable counter = 0
         let next () =
-          let result = counter
-          counter <- counter + 1
-          result
+            let result = counter
+            counter <- counter + 1
+            result
         let adder () =
-          let add a b = a + b
-          add (next())
+            let add a b = a + b
+            add (next())
         let add = adder ()
-        add 1 + add 2 + add 3 |> equal 6
+        let result = add 1 + add 2 + add 3
+        result |> equal 6
+        counter |> equal 1
+
+    testCase "Partially applied functions don't duplicate side effects locally II" <| fun () ->
+        let mutable counter = 0
+        let next () =
+            let result = counter
+            counter <- counter + 1
+            result
+        let adder () =
+            let add a b = a + b
+            add (next())
+        let result = useAdder adder 1 2 3
+        result |> equal 6
+        counter |> equal 1
 
     testCase "Partially applied lambdas capture this" <| fun () ->
         let foo = Foo3()
@@ -1194,7 +1216,7 @@ let tests7 = [
         (-5, vals, ops) |||> List.fold2 (fun acc (v1,v2) op -> acc * op v1 v2)
         |> equal 45
 
-    #if FABLE_COMPILER
+#if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
         let infoHelp version =
             match version with
@@ -1226,7 +1248,7 @@ let tests7 = [
                 """{ "id": 67, "email": "user@mail.com" }"""
 
         equal expected actual
-    #endif
+#endif
 
     testCase "failwithf is not compiled as function" <| fun () ->
         let makeFn value =
@@ -1245,7 +1267,6 @@ let tests7 = [
             ()
         with ex -> x <- ex.Message
         equal "Boom!" x
-
 
     testCase "Partial Applying caches side-effects" <| fun () -> // See #1836
         PseudoElmish.reset()
@@ -1347,6 +1368,10 @@ let tests7 = [
         let f = applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5.
         f 3. |> equal 125.
 
+        applyFooInAnonRecord3 {| foo = fun x y z -> x ** y - z |} 5. 2. 1. |> equal 24.
+        let f = applyFooInAnonRecord3 {| foo = fun x y z -> x ** y - z |} 5.
+        f 3. 3. |> equal 122.
+
     testCase "Curried functions being mangled via DU, List.fold and match combination #2356" <| fun _ ->
         let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]
 
@@ -1354,7 +1379,7 @@ let tests7 = [
                             | Some f -> f true 1
                             | None -> "nothing"
         test |> equal "fly"
-#endif
+
     testCase "Option uncurrying #2116" <| fun _ ->
         let optionFn = Some (fun x y -> x + y)
 
@@ -1552,8 +1577,10 @@ module Uncurry =
     let private add2WithLambda (adder: int->int->int) (arg1: int) (arg2: int): int =
         adder arg1 arg2
 
+
     let add_2 =
-        add2WithLambda (JsInterop.import "add2Arguments" "./js/1foo.js")
+        let add2Arguments (x: int) (y: int): int = JsInterop.importMember "./js/1foo.js"
+        add2WithLambda add2Arguments
 
     let private add10WithLambda
         (adder: int->int->int->int->int->int->int->int->int->int->int)
@@ -1572,7 +1599,8 @@ module Uncurry =
         adder arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
 
     let add_10 =
-        add10WithLambda (JsInterop.import "add10Arguments" "./js/1foo.js")
+        let add10Arguments (x1: int) (x2: int) (x3: int) (x4: int) (x5: int) (x6: int) (x7: int) (x8: int) (x9: int) (x10: int): int = JsInterop.importMember "./js/1foo.js"
+        add10WithLambda add10Arguments
 
     let tests =
         [

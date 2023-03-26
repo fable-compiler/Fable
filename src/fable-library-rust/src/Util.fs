@@ -8,8 +8,6 @@ let compare (x: 'T) (y: 'T): int =
     elif x < y then -1
     else 0
 
-let ignore (x: 'T): unit = ()
-
 [<CompiledName("divRem")>]
 let inline divRem (x: 'T) (y: 'T): struct ('T * 'T) =
     let quotient = x / y

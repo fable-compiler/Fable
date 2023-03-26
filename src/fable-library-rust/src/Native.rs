@@ -144,32 +144,18 @@ pub mod Native_ {
 
     #[macro_export]
     macro_rules! bin_op {
-        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
-            impl<$($args),*> core::ops::$op_trait for $obj {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty, $($args:ty,)*) => {
+            impl<$($args),*> core::ops::$op_trait<$rhs> for $obj {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self, other: Self) -> Self::Output {
-                    <$obj>::$op(self, other)
-                }
-            }
-        };
-    }
-
-    #[macro_export]
-    macro_rules! shift_op {
-        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
-            impl<$($args),*> core::ops::$op_trait<i32> for $obj {
-                type Output = Self;
-                #[inline]
-                fn $op_fn(self, rhs: i32) -> Self::Output {
-                    <$obj>::$op(self, other)
+                fn $op_fn(self, rhs: $rhs) -> Self::Output {
+                    <$obj>::$op(self, rhs)
                 }
             }
         };
     }
 
     pub use crate::bin_op;
-    pub use crate::shift_op;
     pub use crate::un_op;
 
     // -----------------------------------------------------------

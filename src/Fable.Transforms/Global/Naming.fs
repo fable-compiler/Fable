@@ -46,6 +46,9 @@ module Naming =
         || (97 <= code && code <= 122)  // A-Z
         // Digits are not allowed in first position, see #1397
         || (index > 0 && 48 <= code && code <= 57) // 0-9
+        || match Compiler.Language with
+            | Dart -> false
+            | _ -> Char.IsLetter c
 
     let hasIdentForbiddenChars (ident: string) =
         let mutable found = false

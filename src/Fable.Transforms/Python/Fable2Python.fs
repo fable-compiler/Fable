@@ -17,10 +17,6 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
-type ArgsInfo =
-    | CallInfo of Fable.CallInfo
-    | NoCallInfo of args: Fable.Expr list
-
 type Import =
     { Module: string
       LocalIdent: Identifier option
@@ -734,7 +730,7 @@ module Annotation =
         | Fable.String -> Expression.name "str", []
         | Fable.Number (kind, info) -> makeNumberTypeAnnotation com ctx kind info
         | Fable.LambdaType (argType, returnType) ->
-            let argTypes, returnType = uncurryLambdaType System.Int32.MaxValue [ argType ] returnType
+            let argTypes, returnType = uncurryLambdaType -1 [ argType ] returnType
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
@@ -1754,7 +1750,7 @@ module Util =
                 | Fable.IdentExpr id -> com.GetIdentifierAsExpr(ctx, id.Name), []
                 | _ -> transformAsExpr com ctx baseRef
 
-            let expr, keywords, stmts' = transformCallArgs com ctx None (CallInfo info)
+            let expr, keywords, stmts' = transformCallArgs com ctx info
 
             Some(baseExpr, (expr, keywords, stmts @ stmts'))
         | Some (Fable.ObjectExpr ([], Fable.Unit, None)), _ ->
@@ -1876,13 +1872,9 @@ module Util =
 
         Expression.call (Expression.name name), [ stmt ] @ stmts
 
-    let transformCallArgs (com: IPythonCompiler) ctx r (info: ArgsInfo) : Expression list * Keyword list * Statement list =
-        let paramsInfo, args =
-            match info with
-            | NoCallInfo args -> None, args
-            | CallInfo callInfo ->
-                let paramsInfo = callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo
-                paramsInfo, callInfo.Args
+    let transformCallArgs (com: IPythonCompiler) ctx (callInfo: Fable.CallInfo) : Expression list * Keyword list * Statement list =
+        let paramsInfo = callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo
+        let args = callInfo.Args
 
         let args, objArg, stmts =
             paramsInfo
@@ -2049,7 +2041,7 @@ module Util =
             |> Option.toList
             |> Helpers.unzipArgs
 
-        let exprs, _, stmts' = transformCallArgs com ctx range (CallInfo info)
+        let exprs, _, stmts' = transformCallArgs com ctx info
 
         if macro.StartsWith("functools") then
             com.GetImportExpr(ctx, "functools") |> ignore
@@ -2061,7 +2053,7 @@ module Util =
         // printfn "transformCall: %A" (callee, callInfo)
         let callee', stmts = com.TransformAsExpr(ctx, callee)
 
-        let args, kw, stmts' = transformCallArgs com ctx range (CallInfo callInfo)
+        let args, kw, stmts' = transformCallArgs com ctx callInfo
 
         match callee, callInfo.ThisArg with
         | Fable.Get (expr, Fable.FieldGet { Name = "Dispose" }, _, _), _ ->
@@ -2085,12 +2077,15 @@ module Util =
         | _, None -> callFunction range callee' args kw, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
-        match transformCallArgs com ctx range (NoCallInfo args) with
-        | [], kw, stmts' -> callFunction range applied [] kw, stmts @ stmts'
-        | args, kw, stmts' ->
-            (applied, args)
-            ||> List.fold (fun e arg -> callFunction range e [ arg ] kw),
-            stmts @ stmts'
+        ((applied, stmts), args) ||> List.fold (fun (applied, stmts) arg ->
+            let args, stmts' =
+                match arg with
+                // TODO: If arg type is unit but it's an expression with potential
+                // side-effects, we need to extract it and execute it before the call
+                | Fable.Value(Fable.UnitConstant,_) -> [], []
+                | Fable.IdentExpr ident when ident.Type = Fable.Unit -> [], []
+                | TransformExpr com ctx (arg, stmts') -> [arg], stmts'
+            callFunction range applied args [], stmts @ stmts')
 
     let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -4185,9 +4180,8 @@ module Compiler =
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
             member _.SourceFiles = com.SourceFiles
-
+            member _.IncrementCounter() = com.IncrementCounter()
             member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
-
             member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)

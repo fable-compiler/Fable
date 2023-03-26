@@ -284,6 +284,11 @@ module TypeInfo =
     let makeOptionTy (ty: Rust.Ty): Rust.Ty =
         [ty] |> mkGenericTy [rawIdent "Option"]
 
+    let makeAnyTy com ctx: Rust.Ty =
+        let importName = getLibraryImportName com ctx "Native" "Any"
+        let traitBound = mkTypeTraitGenericBound [importName] None
+        mkDynTraitTy [traitBound]
+
     let getEntityGenParamNames (ent: Fable.Entity) =
         ent.GenericParameters
         |> List.filter (fun p -> not p.IsMeasure)
@@ -924,9 +929,7 @@ module TypeInfo =
         if ctx.InferAnyType then
             mkInferTy ()
         else
-            let importName = getLibraryImportName com ctx "Native" "Any"
-            let traitBound = mkTypeTraitGenericBound [importName] None
-            mkDynTraitTy [traitBound]
+            makeAnyTy com ctx
 
     // let inferredParam (com: IRustCompiler) ctx (ident: Fable.Ident) =
     //     mkInferredParam ident.Name false false
@@ -939,7 +942,7 @@ module TypeInfo =
 
     let transformGenericParamType com ctx name isMeasure: Rust.Ty =
         if isInferredGenericParam com ctx name isMeasure
-        then mkInferTy ()
+        then mkInferTy () // makeAnyTy com ctx
         else primitiveType name
 
     let transformMetaType com ctx: Rust.Ty =
@@ -1107,18 +1110,24 @@ module Util =
         | Replacements.Util.IsEntity (Types.ienumerableGeneric) (_, [genArg]) -> Some(genArg)
         | _ -> None
 
+    let isUnitArg (ident: Fable.Ident) =
+        ident.IsCompilerGenerated &&
+        ident.Type = Fable.Unit &&
+        ident.Name.StartsWith("unitVar")
+
     let discardUnitArg (genArgs: Fable.Type list) (args: Fable.Ident list) =
         match genArgs, args with
         | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
         | _, [] -> []
-        | _, [unitArg] when unitArg.Type = Fable.Unit -> []
-        | _, [thisArg; unitArg] when thisArg.IsThisArgument && unitArg.Type = Fable.Unit -> [thisArg]
+        | _, [arg] when isUnitArg arg -> []
+        | _, [thisArg; arg] when thisArg.IsThisArgument && isUnitArg arg -> [thisArg]
         | _, args -> args
 
     let dropUnitCallArg (genArgs: Fable.Type list) (args: Fable.Expr list) =
         match genArgs, args with
         | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
         | _, [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
+        | _, [Fable.IdentExpr ident] when isUnitArg ident -> []
         | _, args -> args
 
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
@@ -2537,11 +2546,7 @@ module Util =
             mkMacroExpr "panic" [mkStrLitExpr "{}"; msg]
 
     let transformCurry (com: IRustCompiler) (ctx: Context) arity (expr: Fable.Expr): Rust.Expr =
-        // match FableTransforms.tryUncurryType expr.Type with
-        // | Some(arity2, uncurriedType) when arity2 = arity ->
-        //     com.TransformExpr(ctx, expr)
-        // | _ ->
-            com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
+        com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
     let transformCurriedApply (com: IRustCompiler) ctx r typ calleeExpr args =
         match ctx.TailCallOpportunity with
@@ -2549,17 +2554,9 @@ module Util =
             optimizeTailCall com ctx r tc args
         | _ ->
             let callee = transformCallee com ctx calleeExpr
-            match args, calleeExpr.Type with
-            | [], _ -> callFunction com ctx r callee args
-            | [arg], Fable.LambdaType(Fable.Unit, _) ->
-                let args = dropUnitCallArg [] args
-                callFunction com ctx r callee args
-            | args, _ ->
-                // match FableTransforms.tryUncurryType calleeExpr.Type with
-                // | Some(arity, _) when arity = List.length args ->
-                //     callFunction com ctx r callee args
-                // | _ ->
-                    (callee, args) ||> List.fold (fun c arg -> callFunction com ctx r c [arg])
+            (callee, args) ||> List.fold (fun c arg ->
+                let args = dropUnitCallArg [] [arg]
+                callFunction com ctx r c args)
 
     let makeUnionCasePat unionCaseName fields =
         if List.isEmpty fields then
@@ -3801,8 +3798,8 @@ module Util =
         Operators.bitwiseOr, ("bin_op", "BitOr", "bitor") // The bitwise OR operator |.
         Operators.exclusiveOr, ("bin_op", "BitXor", "bitxor") // The bitwise XOR operator ^.
 
-        Operators.leftShift, ("shift_op", "Shl", "shl") // The left shift operator <<.
-        Operators.rightShift, ("shift_op", "Shr", "shr") // The right shift operator >>.
+        Operators.leftShift, ("bin_op", "Shl", "shl") // The left shift operator <<.
+        Operators.rightShift, ("bin_op", "Shr", "shr") // The right shift operator >>.
     ]
 
     let makeOpTraitImpls com ctx (ent: Fable.Entity) entType self_ty genArgTys (decl: Fable.MemberDecl, memb: Fable.MemberFunctionOrValue) =
@@ -3812,11 +3809,15 @@ module Util =
             // TODO: more checks if parameter types match the operator?
             ent.IsValueType &&
             not (memb.IsInstance) // operators are static
-            && decl.Args.Head.Type = entType)
+            && decl.Args.Head.Type = entType
+            && decl.Body.Type = entType)
         |> Option.map (fun (op_macro, op_trait, op_fn) ->
+            let rhs_tys = decl.Args.Tail |> List.map (fun arg ->
+                if arg.Type = entType then mkImplSelfTy()
+                else arg.Type |> transformType com ctx)
             let macroName = getLibraryImportName com ctx "Native" op_macro
             let id_tokens = [op_trait; op_fn; decl.Name] |> List.map mkIdentToken
-            let ty_tokens = (self_ty :: genArgTys) |> List.map mkTyToken
+            let ty_tokens = (self_ty :: rhs_tys) @ genArgTys |> List.map mkTyToken
             let implItem =
                 id_tokens @ ty_tokens
                 |> mkParensCommaDelimitedMacCall macroName
@@ -4219,6 +4220,7 @@ module Compiler =
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
             member _.SourceFiles = com.SourceFiles
+            member _.IncrementCounter() = com.IncrementCounter()
             member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
             member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)

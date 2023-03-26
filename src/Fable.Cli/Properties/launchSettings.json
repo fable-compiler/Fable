@@ -2,8 +2,17 @@
   "profiles": {
     "Fable.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "src/fable-library --outDir build/fable-library-ts --fableLib build/fable-library-ts --lang TypeScript --typedArrays false --exclude Fable.Core --define FX_NO_BIGINT --define FABLE_LIBRARY",
-      "workingDirectory": "../.."
+      "workingDirectory": "../..",
+
+      // fable-library-ts
+      // "commandLineArgs": "src/fable-library --outDir build/fable-library-ts --fableLib build/fable-library-ts --lang TypeScript --typedArrays false --exclude Fable.Core --define FX_NO_BIGINT --define FABLE_LIBRARY --noCache"
+
+      // test-ts
+      //"commandLineArgs": "tests/TypeScript --outDir build/tests/TypeScript --lang TypeScript --exclude Fable.Core --noCache",
+
+      // quicktest-ts
+      "commandLineArgs": "src/quicktest --lang TypeScript --exclude Fable.Core --noCache"
+
     }
   }
 }

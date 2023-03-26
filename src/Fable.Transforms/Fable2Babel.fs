@@ -2497,7 +2497,8 @@ module Util =
                         |> Option.map (fun m -> hasAttribute Atts.exportDefault m.Attributes)
                         |> Option.defaultValue false)
 
-                if not isDefaultExport then decls
+                if List.contains "remove-declaration" decl.Tags then []
+                elif not isDefaultExport then decls
                 else decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
 
         | Fable.ClassDeclaration decl ->
@@ -2647,6 +2648,7 @@ module Compiler =
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
             member _.SourceFiles = com.SourceFiles
+            member _.IncrementCounter() = com.IncrementCounter()
             member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
             member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
