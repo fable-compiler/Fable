@@ -30347,6 +30347,11 @@ Get the signature for the value&apos;s XML documentation
  Indicates if the type is a struct tuple type. The GenericArguments property returns the elements of the tuple type.
 </summary>
 </member>
+<member name="P:FSharp.Compiler.Symbols.FSharpType.IsMeasureType">
+<summary>
+ Indicates if the type is a measure type.
+</summary>
+</member>
 <member name="P:FSharp.Compiler.Symbols.FSharpType.IsGenericParameter">
 <summary>
  Indicates if the type is a variable type, whether declared, generalized or an inference type parameter

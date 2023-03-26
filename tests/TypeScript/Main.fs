@@ -29,7 +29,7 @@ let allTests =
     // JsInterop.tests
     Lists.tests
     Maps.tests
-    // Misc.tests
+    Misc.tests
     Observable.tests
     Option.tests
     Queue.tests
