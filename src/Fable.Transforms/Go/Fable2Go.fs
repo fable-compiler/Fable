@@ -4009,6 +4009,7 @@ module Compiler =
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
+            member _.IncrementCounter() = com.IncrementCounter()
 
             member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
                 com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
