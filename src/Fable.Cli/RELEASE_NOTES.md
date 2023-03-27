@@ -1,3 +1,11 @@
+### 4.0.2
+
+* Enable Unicode identifiers @kant2002
+* Add ability for plugins to remove member declaration @Zaid-Ajaj
+* Improve uncurrying mechanism and make it consistent across languages
+* Rust: Enable applicative tests and other fixes
+* TypeScript: Enable 1909 tests
+
 ### 4.0.1
 
 * Fix #3371: Copying struct records

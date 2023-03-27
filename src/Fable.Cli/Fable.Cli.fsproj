@@ -4,12 +4,13 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.0.1</Version>
-    <PackageVersion>4.0.1</PackageVersion>
-    <PackageReleaseNotes>* Fix #3371: Copying struct records
-* Php: Improve output @entropitor
-* Rust: string improvements
-* TypeScript: Fix applicative tests</PackageReleaseNotes>
+    <Version>4.0.2</Version>
+    <PackageVersion>4.0.2</PackageVersion>
+    <PackageReleaseNotes>* Enable Unicode identifiers @kant2002
+* Add ability for plugins to remove member declaration @Zaid-Ajaj
+* Improve uncurrying mechanism and make it consistent across languages
+* Rust: Enable applicative tests and other fixes
+* TypeScript: Enable 1909 tests</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
