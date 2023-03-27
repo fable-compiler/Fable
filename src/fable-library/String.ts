@@ -96,7 +96,7 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
 }
 
 export type IPrintfFormatContinuation =
-  (f: (x: string) => any) => ((x: string) => any);
+  (f: (x: string) => any) => any;
 
 export interface IPrintfFormat {
   input: string;
@@ -586,4 +586,8 @@ export function getFormat(s: FormattableString) {
   return s.fmts
     ? s.strs.reduce((acc, newPart, index) => acc + `{${String(index - 1) + s.fmts![index - 1]}}` + newPart)
     : s.strs.reduce((acc, newPart, index) => acc + `{${index - 1}}` + newPart);
+}
+
+export function getStrings(s: FormattableString) {
+  return Array.from(s.strs);
 }

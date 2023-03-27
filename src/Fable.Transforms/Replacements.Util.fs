@@ -374,7 +374,7 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
 
 let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
     match com.Options.Language with
-    | JavaScript | TypeScript | Dart ->
+    | JavaScript | TypeScript | Dart | Python ->
         let argTypes, returnType = uncurryLambdaType -1 [] expr.Type
         let curriedType = makeLambdaType argTypes returnType
         let curried = Helper.LibCall(com, "Util", $"curry{argTypes.Length}", curriedType, [expr])
@@ -418,7 +418,7 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
         let argTypes, returnType = uncurryLambdaType arity [] expr.Type
 
         match com.Options.Language with
-        | JavaScript | TypeScript | Dart ->
+        | JavaScript | TypeScript | Dart | Python ->
             let uncurriedType = DelegateType(argTypes, returnType)
             Helper.LibCall(com, "Util", $"uncurry{arity}", uncurriedType, [expr])
         | _ ->

@@ -755,6 +755,8 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Error" |> Some
     | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
     | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
+    | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
+    | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
     | _ -> None
 
 let tryConstructor com (ent: Entity) =
@@ -823,7 +825,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
-    | _, "FormattableString.GetStrings" -> getFieldWith r t thisArg.Value "strs" |> Some
+    | _, "FormattableString.GetStrings" -> Helper.LibCall(com, "String", "getStrings", t, [thisArg.Value], ?loc=r) |> Some
 
     | "Fable.Core.Testing.Assert", _ ->
         match i.CompiledName with
@@ -2260,6 +2262,14 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
+let ignoreFormatProvider meth args =
+    match meth, args with
+    // Ignore IFormatProvider
+    | "Parse", arg::_ -> [arg]
+    | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
+    | "TryParse", input::_culture::defVal::_ -> [input; defVal]
+    | _ -> args
+
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let getTime (e: Expr) =
         Helper.InstanceCall(e, "getTime", t, [])
@@ -2285,8 +2295,10 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToString" ->
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Kind" | "get_Offset" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
+    | "get_Kind" | "get_Offset" as meth ->
+        let moduleName = if meth = "get_Kind" then "Date" else "DateOffset"
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        Helper.LibCall(com, moduleName, meth, t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // DateTimeOffset
     | "get_LocalDateTime" ->
         Helper.LibCall(com, "DateOffset", "toLocalTime", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
@@ -2323,12 +2335,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, moduleName, "addMilliseconds", Float64.Number, [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
     | meth ->
-        let args =
-            match meth, args with
-            // Ignore IFormatProvider
-            | "Parse", arg::_ -> [arg]
-            | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
-            | _ -> args
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -2363,6 +2370,7 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
         Helper.LibCall(com, "Date", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -2389,13 +2397,16 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> addError com ctx.InlinePath r
             None
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ".ctor" ->
-        Helper.LibCall(com, "TimeOnly", "create", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        match args with
+        | [ExprType(Number(Int64,_))] -> Helper.LibCall(com, "TimeOnly", "fromTicks", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ -> Helper.LibCall(com, "TimeOnly", "create", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_MinValue" ->
         makeIntConst 0 |> Some
     | "ToTimeSpan" ->
@@ -2426,7 +2437,8 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             Helper.LibCall(com, "TimeOnly", "toString", t, makeStrConst "t" :: args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             None
-    | _ ->
+    | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
         Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -2628,7 +2640,7 @@ let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 then "startInstance"
                 else Naming.lowerFirst i.CompiledName
             Helper.LibCall(com, "MailboxProcessor", memb, t, args, i.SignatureArgTypes, thisArg=callee, ?loc=r) |> Some
-        | "Reply" -> Helper.InstanceCall(callee, "reply", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        | "Reply" -> Helper.InstanceCall(callee, "reply", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> None
 
 let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

@@ -14,12 +14,13 @@ type Vegetables =
 | Lettuce of string
 
 let myRootValue =
-    match 5 with
     // mutable is used to prevent immutable binding optimization
-    | 0 -> let mutable r = 4 in r + 4
-    | 5 -> let mutable r = 3 in r + 7
-    | _ -> -1
-
+    let mutable f = fun x ->
+        match x with
+        | 0 -> let mutable r = 4 in r + 4
+        | 5 -> let mutable r = 3 in r + 7
+        | _ -> -1
+    f 5
 
 module EnumOperations =
     let inline enumOfValue1<'T,'U when 'U: enum<'T>> (value: 'T) : 'U = LanguagePrimitives.EnumOfValue<'T,'U>(value)
@@ -56,10 +57,15 @@ let tests =
         Fruits.Apple = a |> equal true
         a = a |> equal true
 
+// TypeScript complains if we compare two different constants
+#if !FABLE_COMPILER_TYPESCRIPT
         Fruits.Apple = Fruits.Banana |> equal false
-        a = Fruits.Banana |> equal false
-        Fruits.Banana = a |> equal false
-        a = b |> equal false
+#endif
+        let mutable f = fun a b ->
+            a = Fruits.Banana |> equal false
+            Fruits.Banana = a |> equal false
+            a = b |> equal false
+        f a b
 
     testCase "Enum operator <> works" <| fun () ->
         let a = Fruits.Apple
@@ -70,10 +76,15 @@ let tests =
         Fruits.Apple <> a |> equal false
         a <> a |> equal false
 
+// TypeScript complains if we compare two different constants
+#if !FABLE_COMPILER_TYPESCRIPT
         Fruits.Apple <> Fruits.Banana |> equal true
-        a <> Fruits.Banana |> equal true
-        Fruits.Banana <> a |> equal true
-        a <> b |> equal true
+#endif
+        let mutable f = fun a b ->
+            a <> Fruits.Banana |> equal true
+            Fruits.Banana <> a |> equal true
+            a <> b |> equal true
+        f a b
 
     testCase "Enum operator < works" <| fun () ->
         let a = Fruits.Apple
@@ -162,20 +173,23 @@ let tests =
         enum 4 |> equal Fruits.Coconut
 
     testCase "Pattern matching can be nested within a switch statement" <| fun () -> // See #483
+        let mutable f = fun fruit veggie ->
+            match fruit with
+            | Fruits.Apple ->
+                match veggie with
+                | Tomato kind -> kind.Replace("to","")
+                | _ -> "foo"
+            | Fruits.Banana
+            | Fruits.Coconut ->
+                match veggie with
+                | Lettuce kind -> kind
+                | _ -> "bar"
+            | _ -> "invalid choice"
+            |> equal "kuma"
+
         let fruit = Fruits.Apple
         let veggie = Tomato("kumato")
-        match fruit with
-        | Fruits.Apple ->
-            match veggie with
-            | Tomato kind -> kind.Replace("to","")
-            | _ -> "foo"
-        | Fruits.Banana
-        | Fruits.Coconut ->
-            match veggie with
-            | Lettuce kind -> kind
-            | _ -> "bar"
-        | _ -> "invalid choice"
-        |> equal "kuma"
+        f fruit veggie
 
     testCase "Non-scoped (in JS) variables with same name can be used" <| fun () -> // See #700
         equal 10 myRootValue
@@ -200,10 +214,10 @@ let tests =
 
     // See https://github.com/fable-compiler/Fable/issues/1415#issuecomment-396457352
     testCase "Decision targets in nested pattern matching can be found" <| fun () ->
-        let test x =
+        let mutable test = fun x ->
             match x with
             | 1 -> 1
-            | 2 ->
+            | 2 | 3 | 4 | 5 ->
                 match x with
                 | (4 | 5) as r -> r
                 | _ -> 1

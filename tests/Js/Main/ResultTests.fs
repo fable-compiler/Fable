@@ -18,20 +18,23 @@ let tests =
 
         let error = Error 10
         Error 10 |> equal error
-#if !FABLE_COMPILER_TYPESCRIPT
-    testCase "pattern matching works" <| fun () ->
-        let ok = Ok "foo"
-        match ok with
-        | Ok x -> Some x
-        | Error _ -> None
-        |> equal (Some "foo")
 
-        let error = Error 10
-        match Error 10 with
-        | Ok _ -> None
-        | Error y -> Some y
-        |> equal (Some 10)
-#endif
+    testCase "pattern matching works" <| fun () ->
+        let mutable f = fun ok ->
+            match ok with
+            | Ok x -> Some x
+            | Error _ -> None
+            |> equal (Some "foo")
+
+            let error = Error 10
+            match Error 10 with
+            | Ok _ -> None
+            | Error y -> Some y
+            |> equal (Some 10)
+
+        let ok = Ok "foo"
+        f ok
+
     testCase "map function can be generated" <| fun () ->
         let f = (+) 1
         Ok 9 |> Result.map f |> equal (Ok 10)

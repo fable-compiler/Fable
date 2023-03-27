@@ -284,7 +284,7 @@ let tests =
             equal actual expected
 
         testCase "TimeSpan 1:2:3 parse works" <| fun () ->
-            let actual = TimeSpan.Parse("1:2:3")
+            let actual = TimeSpan.Parse("1:2:3", CultureInfo.InvariantCulture)
             let expected = TimeSpan(0, 1, 2, 3, 0)
             equal actual expected
 
@@ -322,7 +322,7 @@ let tests =
             |> Util.throwsError "String '24:0:0' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 24:0:0 TryParse fails" <| fun () ->
-            let status, _ = TimeSpan.TryParse("24:0:0")
+            let status, _ = TimeSpan.TryParse("24:0:0", CultureInfo.InvariantCulture)
             equal status false
 #endif
 

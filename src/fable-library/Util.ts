@@ -1,6 +1,6 @@
 // tslint:disable:ban-types
 
-export type Nullable<T> = T | undefined;
+export type Nullable<T> = T | null | undefined;
 
 export type Option<T> = T | Some<T> | undefined;
 
@@ -90,7 +90,7 @@ export interface IEqualityComparer<T> {
   GetHashCode(x: T): number;
 }
 
-export interface ICollection<T> extends IterableIterator<T> {
+export interface ICollection<T> extends Iterable<T> {
   readonly Count: number;
   readonly IsReadOnly: boolean;
   Add(item: T): void;
@@ -154,13 +154,15 @@ export interface IEnumerator<T> extends IDisposable {
   Dispose(): void;
 }
 
-export interface IEnumerable<T> extends IterableIterator<T> {
+export interface IEnumerable<T> extends Iterable<T> {
   GetEnumerator(): IEnumerator<T>;
+  "System.Collections.IEnumerable.GetEnumerator"(): IEnumerator<any>;
 }
 
 export class Enumerable<T> implements IEnumerable<T> {
   constructor(private en: IEnumerator<T>) {}
   public GetEnumerator(): IEnumerator<T> { return this.en; }
+  public "System.Collections.IEnumerable.GetEnumerator"(): IEnumerator<any> { return this.en; }
   [Symbol.iterator]() {
     return this;
   }
@@ -203,11 +205,8 @@ export function getEnumerator<T>(e: IEnumerable<T> | Iterable<T>): IEnumerator<T
   else { return new Enumerator(e[Symbol.iterator]()); }
 }
 
-export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
   return {
-    [Symbol.iterator]() {
-      return this;
-    },
     next() {
       const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
       const current = hasNext ? en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
@@ -216,7 +215,7 @@ export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
   };
 }
 
-export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): IterableIterator<T> {
+export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): Iterator<T> {
   return toIterator(toEnumerable(e).GetEnumerator());
 }
 
@@ -464,7 +463,7 @@ export function fastStructuralHash<T>(x: T): number {
 }
 
 // Intended for declared types that may or may not implement GetHashCode
-export function safeHash(x: IHashable | undefined): number {
+export function safeHash<T>(x: T): number {
   // return x == null ? 0 : isHashable(x) ? x.GetHashCode() : numberHash(ObjectRef.id(x));
   return identityHash(x);
 }

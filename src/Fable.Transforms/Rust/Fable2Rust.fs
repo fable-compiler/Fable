@@ -621,16 +621,9 @@ module TypeInfo =
         let args = Util.transformCallArgs com ctx args [] []
         makeLibCall com ctx genArgsOpt moduleName memberName args
 
-    let isUnitOfMeasure = function
-        | Fable.Measure _
-        | Fable.GenericParam(_, true, _)
-        | Replacements.Util.IsEntity (Types.measureProduct2) _
-            -> true
-        | _ -> false
-
     let transformGenTypes com ctx genArgs: Rust.Ty list =
         genArgs
-        |> List.filter (fun t -> not (isUnitOfMeasure t))
+        |> List.filter (isUnitOfMeasure >> not)
         |> List.map (transformType com ctx)
 
     let transformGenArgs com ctx genArgs: Rust.GenericArgs option =
@@ -1127,7 +1120,7 @@ module Util =
         match genArgs, args with
         | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
         | _, [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
-        | _, [Fable.IdentExpr ident] when isUnitArg ident -> []
+        | _, [Fable.IdentExpr ident] when ident.Type = Fable.Unit -> []
         | _, args -> args
 
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.

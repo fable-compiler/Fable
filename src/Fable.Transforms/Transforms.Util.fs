@@ -139,6 +139,7 @@ module Types =
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
     let [<Literal>] measureProduct2 = "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
     let [<Literal>] measureOne = "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
+    let [<Literal>] measureInverse = "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
 
     // Types compatible with Inject attribute (fable library)
     let [<Literal>] icomparerGeneric = "System.Collections.Generic.IComparer`1"
@@ -461,6 +462,18 @@ module AST =
     /// create a runtime wrapper. See fable-library/Option.ts for more info.
     let rec mustWrapOption = function
         | Any | Unit | GenericParam _ | Option _ -> true
+        | _ -> false
+
+    let isUnitOfMeasure t =
+        match t with
+        | Measure _
+        | GenericParam(_, true, _) -> true
+        | Fable.DeclaredType(ent, _) ->
+            match ent.FullName with
+            | Types.measureProduct2
+            | Types.measureOne
+            | Types.measureInverse -> true
+            | _ -> false
         | _ -> false
 
     /// ATTENTION: Make sure the ident name is unique
@@ -804,6 +817,7 @@ module AST =
             && Array.zip fields1 fields2 |> Array.forall (fun (f1, f2) -> f1 = f2)
             && listEquals (typeEquals strict) gen1 gen2
             && isStruct1 = isStruct2
+        | Measure _, Measure _ -> true
         | _ -> false
 
     let rec getEntityFullName prettify (entRef: EntityRef) gen =
@@ -1100,8 +1114,31 @@ module AST =
             | None -> t
         | t -> t.MapGenerics(resolveInlineType genArgs)
 
-    let rec resolveInlineIdent (genArgs: Map<string, Type>) (id: Ident) =
+    let resolveInlineIdent (genArgs: Map<string, Type>) (id: Ident) =
         { id with Type = resolveInlineType genArgs id.Type }
+
+    let resolveInlineMemberRef genArgs = function
+    | MemberRef(ent, info) ->
+        let argTypes = Option.map (List.map (resolveInlineType genArgs)) info.NonCurriedArgTypes
+        MemberRef(ent, { info with NonCurriedArgTypes = argTypes })
+
+    | GeneratedMemberRef(gen) ->
+        let mapInfo (i: GeneratedMemberInfo) =
+            let paramTypes = List.map (resolveInlineType genArgs) i.ParamTypes
+            let returnType = resolveInlineType genArgs i.ReturnType
+            { i with ParamTypes = paramTypes; ReturnType = returnType}
+        match gen with
+        | GeneratedFunction i -> GeneratedFunction(mapInfo i)
+        | GeneratedValue i -> GeneratedValue(mapInfo i)
+        | GeneratedGetter i -> GeneratedGetter(mapInfo i)
+        | GeneratedSetter i -> GeneratedSetter(mapInfo i)
+        |> GeneratedMemberRef
+
+    let resolveInlineCallInfo genArgs (info: CallInfo) =
+        let infoGenArgs = List.map (resolveInlineType genArgs) info.GenericArgs
+        let infoSigTypes = List.map (resolveInlineType genArgs) info.SignatureArgTypes
+        let memberRef = Option.map (resolveInlineMemberRef genArgs) info.MemberRef
+        { info with GenericArgs = infoGenArgs; SignatureArgTypes = infoSigTypes; MemberRef = memberRef }
 
     let replaceGenericArgs expr (genArgs: Map<string, Type>) =
         if Map.isEmpty genArgs then expr
@@ -1144,14 +1181,18 @@ module AST =
                 | Delegate(args, b, n, t) ->
                     Delegate(List.map (resolveInlineIdent genArgs) args, b, n, t)
 
+                | ObjectExpr(members, typ, baseCall) ->
+                    let members = members |> List.map (fun m ->
+                        let args = List.map (resolveInlineIdent genArgs) m.Args
+                        { m with Args = args; MemberRef = resolveInlineMemberRef genArgs m.MemberRef })
+                    ObjectExpr(members, resolveInlineType genArgs typ, baseCall)
+
                 | TypeCast(e, t) -> TypeCast(e, resolveInlineType genArgs t)
 
                 | Test(e, TypeTest t, r) -> Test(e, TypeTest(resolveInlineType genArgs t), r)
 
                 | Call(callee, info, t, r) ->
-                    let infoGenArgs = List.map (resolveInlineType genArgs) info.GenericArgs
-                    let infoSigTypes = List.map (resolveInlineType genArgs) info.SignatureArgTypes
-                    let info = { info with GenericArgs = infoGenArgs; SignatureArgTypes = infoSigTypes }
+                    let info = resolveInlineCallInfo genArgs info
                     Call(callee, info, resolveInlineType genArgs t, r)
 
                 | CurriedApply(callee, args, typ, r) ->
@@ -1160,11 +1201,33 @@ module AST =
                 | Operation(kind, tags, typ, r) ->
                     Operation(kind, tags, resolveInlineType genArgs typ, r)
 
-                // Resolve info.CallInfo too?
-                | Emit(info, t, r) -> Emit(info, resolveInlineType genArgs t, r)
+                | Import(info, t, r) ->
+                    let info =
+                        match info.Kind with
+                        | MemberImport m -> { info with Kind = resolveInlineMemberRef genArgs m |> MemberImport }
+                        | UserImport _ | LibraryImport _ | ClassImport _ -> info
+                    Import(info, resolveInlineType genArgs t, r)
 
-                | Get(e, kind, t, r) -> Get(e, kind, resolveInlineType genArgs t, r)
+                | Emit(info, t, r) ->
+                    let info = { info with CallInfo = resolveInlineCallInfo genArgs info.CallInfo }
+                    Emit(info, resolveInlineType genArgs t, r)
+
+                | DecisionTree(expr, targets) ->
+                    let targets = targets |> List.map (fun (bindings, body) ->
+                        List.map (resolveInlineIdent genArgs) bindings, body)
+                    DecisionTree(expr, targets)
+
+                | DecisionTreeSuccess(targetIndex, boundValues, t) ->
+                    DecisionTreeSuccess(targetIndex, boundValues, resolveInlineType genArgs t)
+
                 | Set(e, kind, t, v, r) -> Set(e, kind, resolveInlineType genArgs t, v, r)
+                | Get(e, kind, t, r) ->
+                    let kind =
+                        match kind with
+                        | FieldGet i -> { i with FieldType = Option.map (resolveInlineType genArgs) i.FieldType } |> FieldGet
+                        | UnionField i -> { i with GenericArgs = List.map (resolveInlineType genArgs) i.GenericArgs } |> UnionField
+                        | TupleIndex _ | ExprGet _ | UnionTag | ListHead | ListTail | OptionValue -> kind
+                    Get(e, kind, resolveInlineType genArgs t, r)
 
                 | Let(i, v, b) ->
                     Let(resolveInlineIdent genArgs i, v, b)

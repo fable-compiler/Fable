@@ -9,11 +9,7 @@ export function create(h: number = 0, m: number = 0, s: number = 0, ms: number =
   if (h < 0 || m < 0 || s < 0 || ms < 0)
     throw new Error("The parameters describe an unrepresentable TimeOnly.");
 
-  if (arguments.length === 1)
-    // ticks
-    return fromTicks(arguments[0]);
-  else
-    return h * 3600000 + m * 60000 + s * 1000 + ms;
+  return h * 3600000 + m * 60000 + s * 1000 + ms;
 }
 
 export function fromTicks(ticks: Long) {
