@@ -6,7 +6,7 @@
     "allowJs": true,
     "esModuleInterop": true,
     "strict": true,
-    "skipLibCheck": true,
+    // "skipLibCheck": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noEmitOnError": true,
