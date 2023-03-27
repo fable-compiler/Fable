@@ -101,7 +101,7 @@ export interface BigConstructor {
     PE: number;
 }
 
-export interface Big implements CustomNumeric {
+export interface Big extends CustomNumeric {
     /** Returns a Big number whose value is the absolute value, i.e. the magnitude, of this Big number. */
     abs(): Big;
     /**
