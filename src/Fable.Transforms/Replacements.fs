@@ -825,7 +825,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
-    | _, "FormattableString.GetStrings" -> Helper.LibCall(com, "String", "getStrings", t, [thisArg.Value], ?loc=r) |> Some
+    | _, "FormattableString.GetStrings" -> getFieldWith r t thisArg.Value "strs" |> Some
 
     | "Fable.Core.Testing.Assert", _ ->
         match i.CompiledName with

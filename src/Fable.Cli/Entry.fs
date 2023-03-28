@@ -407,7 +407,11 @@ let main argv =
                 if args.FlagEnabled "--verbose" then
                     Log.makeVerbose()
 
-                Log.always($"Fable: F# to {language} compiler {Literals.VERSION} (status: {getStatus language})")
+                let status =
+                    match getStatus language with
+                    | "stable" | "" -> ""
+                    | status -> $" (status: {status})"
+                Log.always($"Fable: F# to {language} compiler {Literals.VERSION}{status}")
                 Log.always("Thanks to the contributor! @" + Contributors.getRandom())
                 Log.always("Stand with Ukraine! https://standwithukraine.com.ua/" + "\n")
 
