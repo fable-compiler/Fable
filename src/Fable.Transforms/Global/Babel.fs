@@ -137,9 +137,8 @@ type Declaration =
         loc: SourceLocation option
     | InterfaceDeclaration of
         id: Identifier *
-        body: ObjectTypeAnnotation *
-        extends: InterfaceExtends array *
-        implements: ClassImplements array *
+        members: AbstractMember array *
+        extends: TypeAnnotation array *
         typeParameters: TypeParameter array
     | EnumDeclaration of
         name: string *
@@ -315,6 +314,16 @@ type VariableDeclaration =
 //    inherit Node("SpreadProperty", ?loc = loc)
 //    member _.Argument: Expression = argument
 
+type AbstractMember =
+    | AbstractProperty of key: Expression * returnType: TypeAnnotation * isComputed: bool
+    | AbstractMethod of
+        kind: ObjectMethodKind *
+        key: Expression *
+        parameters: Parameter array *
+        returnType: TypeAnnotation *
+        typeParameters: TypeParameter array *
+        isComputed: bool
+
 type ObjectMember =
     | ObjectProperty of key: Expression * value: Expression * isComputed: bool
     | ObjectMethod of
@@ -436,7 +445,7 @@ type TypeAnnotation =
     | BooleanTypeAnnotation
     | UnionTypeAnnotation of types: TypeAnnotation array
     | IntersectionTypeAnnotation of types: TypeAnnotation array
-    | ObjectTypeAnnotation of ObjectTypeAnnotation
+    | ObjectTypeAnnotation of AbstractMember array
     | FunctionTypeAnnotation of
         parameters: FunctionTypeParam array *
         returnType: TypeAnnotation *
@@ -454,39 +463,6 @@ type TypeParameter =
 
 type FunctionTypeParam =
     | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotation * isOptional: bool
-
-type ObjectTypeProperty =
-    | ObjectTypeProperty of
-        key: Expression *
-        value: TypeAnnotation *
-        kind: string option *
-        isComputed: bool *
-        isStatic: bool *
-        isOptional: bool *
-        proto: bool *
-        method: bool
-
-type ObjectTypeIndexer =
-    | ObjectTypeIndexer of id: Identifier option * key: Identifier * value: TypeAnnotation * isStatic: bool
-
-type ObjectTypeCallProperty =
-    | ObjectTypeCallProperty of value: TypeAnnotation * isStatic: bool
-
-type ObjectTypeInternalSlot =
-    | ObjectTypeInternalSlot of id: Identifier * value: TypeAnnotation * isOptional: bool * isStatic: bool * method: bool
-
-type ObjectTypeAnnotation =
-    | ObjectTypeAnnotation of
-        properties: ObjectTypeProperty array *
-        indexers: ObjectTypeIndexer array *
-        callProperties: ObjectTypeCallProperty array *
-        internalSlots: ObjectTypeInternalSlot array *
-        exact: bool
-type InterfaceExtends =
-    | InterfaceExtends of id: Identifier * typeArguments: TypeAnnotation array
-
-//    let mixins = defaultArg mixins_ [||]
-//    member _.Mixins: InterfaceExtends array = mixins
 
 [<AutoOpen>]
 module Helpers =
@@ -661,10 +637,8 @@ module Helpers =
             FunctionDeclaration(parameters, body, id, returnType, defaultArg typeParameters [||], loc)
         static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
             ClassDeclaration(body, id, superClass, implements, defaultArg typeParameters [||], loc)
-        static member interfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_): Declaration = // ?mixins_,
-            let extends = defaultArg extends_ [||]
-            let implements = defaultArg implements_ [||]
-            InterfaceDeclaration(id, body, extends, implements, defaultArg typeParameters [||])
+        static member interfaceDeclaration(id, body, ?extends, ?typeParameters): Declaration = // ?mixins_,
+            InterfaceDeclaration(id, body, defaultArg extends [||], defaultArg typeParameters [||])
         static member enumDeclaration(name, cases, ?isConst) =
             EnumDeclaration(name, cases, defaultArg isConst false)
 
@@ -682,14 +656,6 @@ module Helpers =
     type VariableDeclarator with
         static member variableDeclarator(id, ?annotation, ?typeParameters, ?init) =
             VariableDeclarator(id, annotation, defaultArg typeParameters [||], init)
-
-    type ObjectTypeIndexer with
-        static member objectTypeIndexer(key, value, ?id, ?isStatic) =
-            ObjectTypeIndexer(id, key, value, defaultArg isStatic false)
-
-    type InterfaceExtends with
-        static member interfaceExtends(id, ?typeArguments) =
-            InterfaceExtends(id, defaultArg typeArguments [||])
 
     type FunctionTypeParam with
         static member functionTypeParam(name, typeInfo, ?isOptional) =
@@ -729,14 +695,11 @@ module Helpers =
             let isComputed = defaultArg isComputed false
             ObjectMethod(kind, key, parameters, body, isComputed, returnType, defaultArg typeParameters [||], loc)
 
-    type ObjectTypeProperty with
-        static member objectTypeProperty(key, value, ?isComputed, ?kind, ?isStatic, ?isOptional, ?proto, ?method) =
-            let isComputed = defaultArg isComputed false
-            let isOptional = defaultArg isOptional false
-            let method = defaultArg method false
-            let isStatic = defaultArg isStatic false
-            let proto = defaultArg proto false
-            ObjectTypeProperty(key, value, kind, isComputed, isStatic, isOptional, proto, method)
+    type AbstractMember with
+        static member abstractProperty(key, typ, ?isComputed) =
+            AbstractProperty(key, typ, defaultArg isComputed false)
+        static member abstractMethod(kind, key, parameters, returnType, ?typeParameters, ?isComputed) =
+            AbstractMethod(kind, key, parameters, returnType, defaultArg typeParameters [||], defaultArg isComputed false)
 
     type ModuleDeclaration with
         static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
@@ -748,15 +711,6 @@ module Helpers =
             AliasTypeAnnotation(id, defaultArg typeArguments [||])
         static member functionTypeAnnotation(parameters, returnType, ?spread): TypeAnnotation =
             FunctionTypeAnnotation(parameters, returnType, spread)
-
-    type ObjectTypeAnnotation with
-        static member objectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
-            let exact = defaultArg exact_ false
-            let indexers = defaultArg indexers_ [||]
-            let callProperties = defaultArg callProperties_ [||]
-            let internalSlots = defaultArg internalSlots_ [||]
-
-            ObjectTypeAnnotation(properties, indexers, callProperties, internalSlots, exact)
 
     type TypeParameter with
         static member typeParameter(name, ?bound, ?``default``) =

@@ -474,8 +474,8 @@ module PrinterExtensions =
             | FunctionDeclaration(parameters, body, id, returnType, typeParameters, loc) ->
                 printer.PrintFunction(Some id, parameters, body, typeParameters, returnType, loc, isDeclaration=true)
                 printer.PrintNewLine()
-            | InterfaceDeclaration(id, body, extends, implements, typeParameters) ->
-                printer.PrintInterfaceDeclaration(id, body, extends, implements, typeParameters)
+            | InterfaceDeclaration(id, body, extends, typeParameters) ->
+                printer.PrintInterfaceDeclaration(id, body, extends, typeParameters)
             | EnumDeclaration(name, cases, isConst) ->
                 if isConst then printer.Print("const ")
                 printer.Print("enum " + name + " {")
@@ -820,6 +820,40 @@ module PrinterExtensions =
 
             printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
+        member printer.Print(m: AbstractMember) =
+            match m with
+            | AbstractProperty(key, returnType, isComputed) ->
+                if isComputed then
+                    printer.Print("[")
+                    printer.Print(key)
+                    printer.Print("]")
+                else
+                   printer.Print(key)
+                printer.Print(": ")
+                printer.Print(returnType)
+
+            | AbstractMethod(kind, key, parameters, returnType, typeParameters, isComputed) ->
+                let isSetter =
+                    match kind with
+                    | ObjectGetter -> printer.Print("get "); false
+                    | ObjectSetter -> printer.Print("set "); true
+                    | ObjectMeth -> false
+
+                if isComputed then
+                    printer.Print("[")
+                    printer.Print(key)
+                    printer.Print("]")
+                else
+                   printer.Print(key)
+
+                printer.Print(typeParameters)
+                printer.Print("(")
+                printer.PrintParameters(parameters)
+                printer.Print(")")
+                if not isSetter then
+                    printer.Print(": ")
+                    printer.Print(returnType)
+
         member printer.PrintMemberExpression(object, property, isComputed, loc, ?objectWithParens: bool) =
             printer.AddLocation(loc)
             match objectWithParens, object with
@@ -1041,7 +1075,10 @@ module PrinterExtensions =
             | NullableTypeAnnotation(typeAnnotation) ->
                 printer.Print("?")
                 printer.Print(typeAnnotation)
-            | TypeAnnotation.ObjectTypeAnnotation(an) -> printer.Print(an)
+            | ObjectTypeAnnotation(members) ->
+                printer.Print("{ ")
+                printer.PrintArray(members, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+                printer.Print(" }")
             | KeyofTypeAnnotation typ ->
                 printer.Print("keyof ")
                 printer.Print(typ)
@@ -1095,46 +1132,7 @@ module PrinterExtensions =
             printer.Print(returnType)
             printer.Print(")")
 
-        member printer.Print(node: ObjectTypeProperty) =
-            let (ObjectTypeProperty(key, value, kind, isComputed, isStatic, isOptional, _proto, _method)) = node
-
-            if isStatic then
-                printer.Print("static ")
-            if Option.isSome kind then
-                printer.Print(kind.Value + " ")
-            if isComputed then
-                printer.Print("[")
-                printer.Print(key)
-                printer.Print("]")
-            else
-                printer.Print(key)
-            if isOptional then
-                printer.Print("?")
-            // TODO: proto, method
-            printer.Print(": ")
-            printer.Print(value)
-
-        member printer.Print(node: ObjectTypeAnnotation) =
-            let (ObjectTypeAnnotation(properties, _indexers, _callProperties, _internalSlots, _exact)) = node
-            printer.Print("{")
-            printer.PrintNewLine()
-            printer.PushIndentation()
-            printer.PrintArray(properties, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
-            // TODO: Not implemented
-            // printer.PrintArray(indexers, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
-            // printer.PrintArray(callProperties, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
-            // printer.PrintArray(internalSlots, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
-            printer.PrintNewLine()
-            printer.PopIndentation()
-            printer.Print("}")
-            printer.PrintNewLine()
-
-        member printer.Print(node: InterfaceExtends) =
-            let (InterfaceExtends(id, typeParameters)) = node
-            printer.PrintIdent(id)
-            printer.Print(typeParameters)
-
-        member printer.PrintInterfaceDeclaration(id, body, extends, implements, typeParameters) =
+        member printer.PrintInterfaceDeclaration(id, members, extends, typeParameters) =
             printer.Print("interface ")
             printer.PrintIdent(id)
             printer.Print(typeParameters)
@@ -1143,12 +1141,14 @@ module PrinterExtensions =
                 printer.Print(" extends ")
                 printer.PrintArray(extends, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
-            if not (Array.isEmpty implements) then
-                printer.Print(" implements ")
-                printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-
-            printer.Print(" ")
-            printer.Print(body)
+            printer.Print(" {")
+            printer.PrintNewLine()
+            printer.PushIndentation()
+            printer.PrintArray(members, (fun p x -> p.Print(x)), (fun p -> p.PrintNewLine()))
+            printer.PopIndentation()
+            printer.PrintNewLine()
+            printer.Print("}")
+            printer.PrintNewLine()
 
 open PrinterExtensions
 

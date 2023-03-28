@@ -720,7 +720,7 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
                 // We don't have a module for ResizeArray so let's assume the kind is MutableArray
                 | TypedArrayCompatible com MutableArray consName ->
                     args @ [makeIdentExpr consName]
-                | _ -> args @ [Value(Null Any, None)]
+                | _ -> args
             | Types.adder ->
                 args @ [makeGenericAdder com ctx genArg]
             | Types.averager ->

@@ -7,7 +7,7 @@ open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
 
-[<AllowNullLiteral>]
+[<AllowNullLiteral; Erase>]
 type Cons<'T> =
     [<Emit("new $0($1)")>]
     abstract Allocate: len: int -> 'T[]
