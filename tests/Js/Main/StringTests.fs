@@ -1078,13 +1078,19 @@ let tests =
 
 #if FABLE_COMPILER
       testCase "Can use FormattableString.GetStrings() extension" <| fun () ->
+// TypeScript will complain because TemplateStringsArray is not equivalent to string[]
+#if FABLE_COMPILER_TYPESCRIPT
+          let toArray = Seq.toArray
+#else
+          let toArray = id
+#endif
           let orderAmount = 100
           let convert (s: FormattableString) = s
           let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
-          s.GetStrings() |> equal [|"You owe: "; " "; " "; ""|]
+          s.GetStrings() |> toArray |> equal [|"You owe: "; " "; " "; ""|]
           let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
-          s2.GetStrings()|> equal [|""; "This is \""; "\" awesome!"|]
+          s2.GetStrings() |> toArray |> equal [|""; "This is \""; "\" awesome!"|]
           let s3: FormattableString = $"""I have no holes"""
-          s3.GetStrings()|> equal [|"I have no holes"|]
+          s3.GetStrings() |> toArray |> equal [|"I have no holes"|]
 #endif
 ]

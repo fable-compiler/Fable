@@ -587,7 +587,3 @@ export function getFormat(s: FormattableString) {
     ? s.strs.reduce((acc, newPart, index) => acc + `{${String(index - 1) + s.fmts![index - 1]}}` + newPart)
     : s.strs.reduce((acc, newPart, index) => acc + `{${index - 1}}` + newPart);
 }
-
-export function getStrings(s: FormattableString) {
-  return Array.from(s.strs);
-}
