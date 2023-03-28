@@ -43,10 +43,15 @@ module Map =
 
 [<RequireQualifiedAccess>]
 module Seq =
-    let mapToList (f: 'a -> 'b) (xs: 'a seq) =
+    let mapToList (f: 'a -> 'b) (xs: 'a seq): 'b list =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
 
-    let mapToListIndexed (f: int -> 'a -> 'b) (xs: 'a seq) =
+    let mapToArray (f: 'a -> 'b) (xs: 'a seq): 'b[] =
+        let ar = ResizeArray()
+        xs |> Seq.iter (fun x -> ar.Add(f x))
+        ar.ToArray()
+
+    let mapiToList (f: int -> 'a -> 'b) (xs: 'a seq) =
         let mutable i = -1
         ([], xs) ||> Seq.fold (fun li x ->
             i <- i + 1
