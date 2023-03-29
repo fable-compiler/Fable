@@ -12,7 +12,6 @@ let _imports() =
     importAll "./Decimal.rs"
     importAll "./Encoding.rs"
     importAll "./Exception.rs"
-    importAll "./Func.rs"
     importAll "./Guid.rs"
     importAll "./HashMap.rs"
     importAll "./HashSet.rs"

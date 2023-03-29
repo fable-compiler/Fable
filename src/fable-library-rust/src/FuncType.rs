@@ -1,6 +1,5 @@
 use crate::Native_::Lrc;
 
-// #[macro_export]
 macro_rules! func {
     ($f:ident $(,$i:ident)*) => {
 

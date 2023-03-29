@@ -104,6 +104,32 @@ pub mod Native_ {
     }
 
     // -----------------------------------------------------------
+    // Fixed-point combinators
+    // -----------------------------------------------------------
+
+    macro_rules! func {
+        ($f:ident $(, $i:ident)*) => {
+            pub fn $f<$($i,)*R>(f: &dyn Fn(&dyn Fn($($i,)*) -> R, $($i,)*) -> R, $($i:$i,)*) -> R {
+                f(&|$($i:$i,)*| $f(f, $($i,)*), $($i,)*)
+            }
+        };
+    }
+
+    func!(fix0);
+    func!(fix1, T1);
+    func!(fix2, T1, T2);
+    func!(fix3, T1, T2, T3);
+    func!(fix4, T1, T2, T3, T4);
+    func!(fix5, T1, T2, T3, T4, T5);
+    func!(fix6, T1, T2, T3, T4, T5, T6);
+    func!(fix7, T1, T2, T3, T4, T5, T6, T7);
+    func!(fix8, T1, T2, T3, T4, T5, T6, T7, T8);
+    func!(fix9, T1, T2, T3, T4, T5, T6, T7, T8, T9);
+    func!(fix10, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
+    func!(fix11, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
+    func!(fix12, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
+
+    // -----------------------------------------------------------
     // Interface casting
     // -----------------------------------------------------------
 
