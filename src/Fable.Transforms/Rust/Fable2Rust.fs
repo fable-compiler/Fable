@@ -2562,7 +2562,7 @@ module Util =
         // cast to Fable.Any and type test
         let callee = transformCallee com ctx expr
         let genArgsOpt = transformGenArgs com ctx [typ]
-        let anyTy = transformType com ctx Fable.Any
+        let anyTy = makeAnyTy com ctx |> mkRefTy None
         let callee =
             if isRefExpr com ctx expr
             then callee
@@ -3196,25 +3196,31 @@ module Util =
         fnDecl, fnBody, genArgs
 
     let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ctx = { ctx with IsLambda = true }
+        let ctx = { ctx with IsLambda = true; InferAnyType = true }
         let genArgs, ctx = getNewGenArgsAndCtx ctx args body
         let args = args |> discardUnitArg genArgs
         let isRecursive, isTailRec = isTailRecursive name body
-        let fixedArgs = if isRecursive && not isTailRec then (makeIdent name.Value) :: args else args
-        let fnDecl = transformFunctionDecl com ctx fixedArgs [] Fable.Unit
+        let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
         let ctx = getFunctionBodyCtx com ctx name args body isTailRec
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableIdents = getCapturedIdents com ctx name args body
         let scopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableIdents
         let ctx = { ctx with ScopedSymbols = scopedSymbols; HasMultipleUses = true }
-        let fnBody = transformFunctionBody com ctx args body
-        let closureExpr = mkClosureExpr true fnDecl fnBody
         let argCount = args |> List.length |> string
-        let closureExpr =
+        let fnBody = transformFunctionBody com ctx args body
+        let fnBody =
             if isRecursive && not isTailRec then
-                // make it recursive with fixed-point combinator
-                makeLibCall com ctx None "Func" ("fix" + argCount) [closureExpr]
-            else closureExpr
+                // make the closure recursive with fixed-point combinator
+                let fixedArgs = (makeIdent name.Value) :: args
+                let fixedDecl = transformFunctionDecl com ctx fixedArgs [] Fable.Unit
+                let fixedBody = mkClosureExpr true fixedDecl fnBody
+                let argExprs = args |> List.map Fable.IdentExpr
+                let callArgs = transformCallArgs com ctx argExprs [] []
+                let fixCallArgs = (fixedBody |> mkAddrOfExpr) :: callArgs
+                makeLibCall com ctx None "Native" ("fix" + argCount) fixCallArgs
+            else
+                fnBody
+        let closureExpr = mkClosureExpr true fnDecl fnBody
         let cloneStmts =
             // clone captured idents (in move closures)
             // skip non-local idents (e.g. module let bindings)
