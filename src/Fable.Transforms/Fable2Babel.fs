@@ -1439,6 +1439,13 @@ module Util =
         // Try to optimize some patterns after FableTransforms
         let optimized =
             match callInfo.Tags, callInfo.Args with
+            | Fable.Tags.Contains "downcast", [e] ->
+                let e = transformAsExpr com ctx e
+                if com.IsTypeScript then
+                    let typ = makeTypeAnnotation com ctx typ
+                    AsExpression(e, typ) |> Some
+                else
+                    Some e
             | Fable.Tags.Contains "array", [maybeList] ->
                 match maybeList with
                 | Replacements.Util.ArrayOrListLiteral(vals,_) ->

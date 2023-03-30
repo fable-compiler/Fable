@@ -110,6 +110,7 @@ type MultipleCons(x: int, y: int) =
     new (x:int) = MultipleCons(x,4)
     member _.Value = x + y
 
+#if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type AbstractClassWithDefaults () =
     abstract MethodWithDefault : unit -> string
@@ -128,6 +129,7 @@ type ConcreteClass2 () =
     inherit AbstractClassWithDefaults()
     override x.MethodWithDefault () = "Hi "
     override x.MustImplement () = "World!!"
+#endif
 
 [<AbstractClass>]
 type AbstractClass3() =
@@ -177,6 +179,7 @@ type FooImplementor(i: int) =
 type FooImplementorChild() =
     inherit FooImplementor(3)
 
+#if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type AbstractFoo() =
     abstract member Foo2: unit -> string
@@ -188,6 +191,7 @@ type AbstractFoo() =
 type ChildFoo() =
     inherit AbstractFoo()
     override this.Foo2() = "BAR"
+#endif
 
 type BaseClass (x: int) =
     abstract member Init: unit -> int
@@ -226,10 +230,13 @@ type ValueType1<'T>(value: 'T) =
 type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
+#if !FABLE_COMPILER_TYPESCRIPT
+[<Struct>]
 type ValueType3 =
   struct
     val mutable public X : int
   end
+#endif
 
 [<Struct>]
 type StructUnion = Value of string
@@ -286,11 +293,11 @@ type Test_TestTypeWithParameterizedUnitMeasure = {
 
 // -------------------------------------------------------------
 
-// Tested ported from https://github.com/fable-compiler/Fable/pull/1336/files
-type TestTypeWithDefaultValue() =
-    [<DefaultValue>] val mutable IntValue: int
-    [<DefaultValue>] val mutable StringValue: string
-    [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
+// Test ported from https://github.com/fable-compiler/Fable/pull/1336/files
+// type TestTypeWithDefaultValue() =
+//     [<DefaultValue>] val mutable IntValue: int
+//     [<DefaultValue>] val mutable StringValue: string
+//     [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
 
 type Default1 = int
 
@@ -312,6 +319,7 @@ type InfoB = {
     Bar: string
 }
 
+#if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type InfoAClass(info: InfoA) =
     abstract WithInfo: InfoA -> InfoAClass
@@ -382,6 +390,7 @@ type BarClass(x) =
         member _.Item with get(i) = x.[i] and set i c = x <- FooClass.ChangeChar(x, i + 1, c)
         member _.Item with get(c) = x.ToCharArray() |> Array.exists ((=) c)
         member _.Sum(items) = Array.reduce (fun x y -> x + x + y + y) items
+#endif
 
 type Interface2 =
     abstract Value: int
@@ -715,6 +724,7 @@ let tests =
         equal 9 m2.Value
         equal 14 m3.Value
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Abstract methods with default work" <| fun () -> // See #505
         let x = ConcreteClass()
         x.MethodWithDefault() |> equal "Hello "
@@ -727,6 +737,7 @@ let tests =
         let x = ConcreteClass3() :> AbstractClass3
         x.MyProp <- 2
         equal 7 x.MyProp
+#endif
 
     testCase "Interface setters don't conflict" <| fun () -> // See #505
         let x = XISomeInterface () :> ISomeInterface
@@ -758,12 +769,14 @@ let tests =
         (foo :> IFoo).MySetter <- 7
         (foo :> IFoo).MySetter |> equal 19
 
+#if !FABLE_COMPILER_TYPESCRIPT
     // TODO: Interface and abstract methods with same name clash
     testCase "A type overloading an interface method can be inherited" <| fun () ->
         let foo = ChildFoo() :> AbstractFoo
         foo.Foo2() |> equal "BAR"
         (foo :> IFoo).Foo() |> equal "BARFOO"
         mangleFoo foo |> equal "BARFOO"
+#endif
 
     testCase "Interface casting round-trip" <| fun () -> // See #1452
         let d = new DowncastTest(3) :> System.IDisposable
@@ -823,6 +836,7 @@ let tests =
         let p = Point2D(2.)
         p.Y |> equal 2.
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "struct without explicit ctor works" <| fun () ->
         let t1 = ValueType3(X=10)
         t1.X |> equal 10
@@ -832,8 +846,8 @@ let tests =
         (compare t1 t2) |> equal 1
         t2.X <- 10
         t1 |> equal t2
-
         (compare t1 t2) |> equal 0
+#endif
 
     testCase "copying struct records works" <| fun () -> // See #3371
         let simple : SimpleRecord = { A = ""; B = "B" }
@@ -904,6 +918,7 @@ let tests =
 //        withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
 //        withDefaultValue.ObjValue |> equal null
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Private fields don't conflict with parent classes" <| fun _ -> // See #2070
         let a1 = InfoBClass({ InfoA = { Foo = "foo" }; Bar = "bar" }) :> InfoAClass
         let a2 = a1.WithFoo("foo2")
@@ -966,6 +981,7 @@ let tests =
         bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + bar2.[2].ToString() + (sprintf "%b%b" bar2.['B'] bar2.['x'])
         bar2.Bar <- bar2.Bar + bar2.Sum("a", "bc", "d")
         bar2.Bar |> equal "BZr9536.74rtruefalseaabcbcaabcbcdd"
+#endif
 
     testCase "Multiple `this` references work in nested attached members" <| fun _ ->
         (MixedThese(2) :> Interface1).Create(3).Add() |> equal 5

@@ -755,6 +755,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Error" |> Some
     | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
     | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
+    | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
     | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
     | _ -> None
@@ -1969,8 +1970,8 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     match i.CompiledName, thisArg, args with
     // Erased operators
     | "CheckThis", _, [arg]
-    | "UnboxFast", _, [arg]
-    | "UnboxGeneric", _, [arg] -> Some arg
+    | "UnboxFast", _, [arg] -> TypeCast(arg, t) |> Some
+    | "UnboxGeneric", _, [arg] -> Helper.LibCall(com, "Util", "downcast", t, [arg]) |> withTag "downcast" |> Some
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx]
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
