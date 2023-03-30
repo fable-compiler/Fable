@@ -72,7 +72,7 @@ pub mod Native_ {
         Default::default()
     }
 
-    pub fn referenceEquals<T>(left: &T, right: &T) -> bool {
+    pub fn referenceEquals<T: ?Sized>(left: &T, right: &T) -> bool {
         core::ptr::eq(left, right)
     }
 
