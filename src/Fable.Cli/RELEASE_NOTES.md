@@ -1,3 +1,9 @@
+### 4.0.3
+
+* Fix #3389: Don't wrap TemplateStringArray
+* Rust: Fix recursive closures and some type tests,
+* TypeScript: Emit interfaces and anonymous record annotations
+
 ### 4.0.2
 
 * Enable Unicode identifiers @kant2002
