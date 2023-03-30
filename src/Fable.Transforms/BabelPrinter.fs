@@ -953,7 +953,7 @@ module PrinterExtensions =
                 | ClassGetter(key, isComputed)
                 | ClassFunction(key, isComputed) -> key, isComputed, [||]
                 | ClassPrimaryConstructor accessModifiers ->
-                    Expression.stringLiteral("constructor"), false, accessModifiers
+                    Expression.identifier("constructor"), false, accessModifiers
 
             if isComputed then
                 printer.Print("[")

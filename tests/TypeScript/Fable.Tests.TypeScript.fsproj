@@ -52,6 +52,7 @@
     <Compile Include="../Js/Main/OptionTests.fs" />
     <Compile Include="../Js/Main/QueueTests.fs" />
     <Compile Include="../Js/Main/RecordTypeTests.fs" />
+    <!-- <Compile Include="../Js/Main/ReflectionTests.fs" /> -->
     <Compile Include="../Js/Main/RegexTests.fs" />
     <Compile Include="../Js/Main/ResizeArrayTests.fs" />
     <Compile Include="../Js/Main/ResultTests.fs" />
@@ -65,7 +66,7 @@
     <Compile Include="../Js/Main/TimeOnlyTests.fs" />
     <Compile Include="../Js/Main/TimeSpanTests.fs" />
     <Compile Include="../Js/Main/TupleTypeTests.fs" />
-    <!-- <Compile Include="../Js/Main/TypeTests.fs" /> -->
+    <Compile Include="../Js/Main/TypeTests.fs" />
     <Compile Include="../Js/Main/UnionTypeTests.fs" />
     <Compile Include="../Js/Main/UriTests.fs" />
     <Compile Include="Main.fs" />

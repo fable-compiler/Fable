@@ -48,7 +48,7 @@ let allTests =
     TimeOnly.tests
     TimeSpan.tests
     TupleTypes.tests
-    // TypeTests.tests
+    TypeTests.tests
     UnionTypes.tests
     Uri.tests
   |]

@@ -414,15 +414,15 @@ module AST =
         | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
-    // This is mainly used for inlining so a computation is understood as a side effect too
-    // (because we don't want to duplicate or change the order of execution)
+    // This is mainly used for inlining so a computation or a reference to a mutable value are understood
+    // as a side effects too (because we don't want to duplicate or change the order of execution)
     let rec canHaveSideEffects = function
         | Import _ -> false
         | Lambda _ | Delegate _ -> false
         | TypeCast(e,_) ->
             match Compiler.Language with
-            | Dart -> true
-            | _ -> canHaveSideEffects e
+            | JavaScript | Python -> canHaveSideEffects e
+            | _ -> true
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true
