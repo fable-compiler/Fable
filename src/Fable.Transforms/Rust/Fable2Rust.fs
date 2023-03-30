@@ -318,6 +318,7 @@ module TypeInfo =
 
     let hasReferenceEquality (com: IRustCompiler) typ =
         match typ with
+        | Fable.Any
         | Fable.LambdaType _
         | Fable.DelegateType _
             -> true
@@ -396,6 +397,10 @@ module TypeInfo =
     let isHashableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more unhashable types?
+        | Fable.Any
+        | Fable.Unit
+        | Fable.Measure _
+        | Fable.MetaType
         | Fable.Number((Float32|Float64), _)
         | Fable.LambdaType _
         | Fable.DelegateType _
@@ -405,15 +410,16 @@ module TypeInfo =
 
     let isHashableEntity com entNames (ent: Fable.Entity) =
         not (ent.IsInterface)
+        && (hasStructuralEquality ent)
         && (isEntityOfType com isHashableType entNames ent)
 
     let isCopyableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more uncopyable types?
-        | Fable.Measure _
-        | Fable.MetaType
         | Fable.Any
         | Fable.Unit
+        | Fable.Measure _
+        | Fable.MetaType
         | Fable.LambdaType _
         | Fable.DelegateType _
         | Fable.GenericParam _
@@ -436,10 +442,10 @@ module TypeInfo =
     let isEquatableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more unequatable types?
-        | Fable.Measure _
-        | Fable.MetaType
         | Fable.Any
         | Fable.Unit
+        | Fable.Measure _
+        | Fable.MetaType
         | Fable.LambdaType _
         | Fable.DelegateType _
             -> false
@@ -456,10 +462,10 @@ module TypeInfo =
     let isComparableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more uncomparable types?
-        | Fable.Measure _
-        | Fable.MetaType
         | Fable.Any
         | Fable.Unit
+        | Fable.Measure _
+        | Fable.MetaType
         | Fable.LambdaType _
         | Fable.DelegateType _
         | Fable.Regex
@@ -512,10 +518,10 @@ module TypeInfo =
             -> None
 
         // always not Rc-wrapped
-        | Fable.Measure _
-        | Fable.MetaType
         | Fable.Any
         | Fable.Unit
+        | Fable.Measure _
+        | Fable.MetaType
         | Fable.Boolean
         | Fable.Char
         | Fable.Number _
@@ -1367,6 +1373,11 @@ module Util =
     /// Calling this on an rc guarantees a &T, regardless of if the Rc is a ref or not
     let makeAsRef expr = mkMethodCallExpr "as_ref" None expr []
 
+    let makeAddrOf com ctx fableExpr expr =
+        if isRefExpr com ctx fableExpr
+        then expr
+        else expr |> mkAddrOfExpr
+
     let makeCall pathNames genArgs (args: Rust.Expr list) =
         let callee = mkGenericPathExpr pathNames genArgs
         mkCallExpr callee args
@@ -1843,8 +1854,9 @@ module Util =
             || isAddrOfExpr e
         let isUnreachable =
             match e with
-            | Fable.Emit _ -> true
-            | Fable.Extended _ -> true
+            | Fable.Emit _
+            | Fable.Extended _
+                -> true
             | _ -> false
 
         match implCopy, implClone, sourceIsRef, targetIsRef, isOnlyRef, isUnreachable with
@@ -1852,7 +1864,7 @@ module Util =
         |     true,     _,         false,       false,       _,         false ->           expr
         |     _,        _,         true,        false,       _,         false ->           expr |> makeClone
         //|     _,        _,         true,        false,       true,      false ->           expr |> mkDerefExpr // should be able to just deref but sourceIsRef is not always correct for root union ident
-        |     _,        _,         false,       true,        _,         false ->           expr |> mkAddrOfExpr
+        |     _,        _,         false,       true,        _,         false ->           expr |> makeAddrOf com ctx e
         |     false,    true,      _,           false,       false,     false ->           expr |> makeClone
         | _ ->                                                                             expr
         //|> BLOCK_COMMENT_SUFFIX (sprintf implCopy: %b, "implClone: %b, sourceIsRef; %b, targetIsRef: %b, isOnlyRef: %b (%i), isUnreachable: %b" implCopy implClone sourceIsRef targetIsRef isOnlyRef isUnreachable varAttrs.UsageCount)
@@ -1993,7 +2005,11 @@ module Util =
             | Fable.String, Rust.BinOpKind.Add ->
                 makeLibCall com ctx None "String" "append" [left; right]
             | typ, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) when hasReferenceEquality com typ ->
-                makeLibCall com ctx None "Native" "referenceEquals" [makeAsRef left; makeAsRef right]
+                let left = transformExpr com ctx leftExpr |> maybeAddParens leftExpr
+                let right = transformExpr com ctx rightExpr |> maybeAddParens rightExpr
+                let args = [mkAddrOfExpr left; mkAddrOfExpr right]
+                let expr = makeLibCall com ctx None "Native" "referenceEquals" args
+                if kind = Rust.BinOpKind.Ne then mkNotExpr expr else expr
             | _ ->
                 mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
@@ -2563,10 +2579,7 @@ module Util =
         let callee = transformCallee com ctx expr
         let genArgsOpt = transformGenArgs com ctx [typ]
         let anyTy = makeAnyTy com ctx |> mkRefTy None
-        let callee =
-            if isRefExpr com ctx expr
-            then callee
-            else callee |> mkAddrOfExpr
+        let callee = makeAddrOf com ctx expr callee
         let toAnyExpr = callee |> mkCastExpr anyTy
         match expr with
         | Fable.IdentExpr ident when isDowncast ->
@@ -3022,8 +3035,10 @@ module Util =
         |> Seq.map (fun field ->
             let name = field.Name
             let typ = FableTransforms.uncurryType field.FieldType
-            let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
-            id)
+            let isMutable = field.IsMutable
+            let ident = makeTypedIdent typ name
+            { ident with IsMutable = isMutable }
+        )
         |> Seq.toList
 
     let makeTypedParam (com: IRustCompiler) ctx (ident: Fable.Ident) returnType =
@@ -3623,7 +3638,8 @@ module Util =
         let memberRef = Fable.GeneratedMember.Function(entName, paramTypes, body.Type, entRef = ent.Ref)
         let memb = com.GetMember(memberRef)
         let name = "new"
-        let fnItem = transformAssocMember com ctx memb name idents body
+        let args = idents
+        let fnItem = transformAssocMember com ctx memb name args body
         let fnItem = fnItem |> memberAssocItemWithVis com ctx memb
         fnItem
 

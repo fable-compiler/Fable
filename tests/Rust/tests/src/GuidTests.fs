@@ -42,6 +42,19 @@ let ``Guid.ToString works`` () =
     let g = Guid.Parse("a3cc8928-7148-43e2-a863-a3954aea02df")
     g.ToString() |> equal "a3cc8928-7148-43e2-a863-a3954aea02df"
 
+// [<Fact>]
+// let ``Guid.NewGuid works`` () =
+//     let g1 = Guid.NewGuid()
+//     let g2 = Guid.NewGuid()
+//     g1 = g2 |> equal false
+//     let s1 = string g1
+//     equal 36 s1.Length
+//     Text.RegularExpressions.Regex.IsMatch(
+//         s1, "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
+//     |> equal true
+//     let g3 = Guid.Parse s1
+//     g1 = g3 |> equal true
+
 // // id is prefixed for guid creation as we check at compile time (if able) to create a string const
 // [<Fact>]
 // let ``Guid.Parse works`` () =

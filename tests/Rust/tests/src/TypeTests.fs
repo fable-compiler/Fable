@@ -33,10 +33,10 @@ type TestType3() =
 //     member _.Value2 = "Bye"
 //     interface ITest2
 
-// type TestType5(greeting: string) =
-//     member _.Value = greeting
-//     member _.Overload(x) = x + x
-//     member _.Overload(x, y) = x + y
+type TestType5(greeting: string) =
+    member _.Value = greeting
+    member _.Overload(x) = x + x
+    member _.Overload(x, y) = x + y
 
 // type TestType8(?greeting) =
 //     member _.Value = defaultArg greeting "Hi"
@@ -54,10 +54,10 @@ type TestType3() =
 // type TestType10Child() =
 //     inherit TestType10Base()
 
-// type RenderState =
-//     { Now : int
-//       Players : Map<int, string>
-//       Map : string }
+type RenderState =
+    { Now : int
+      Players : Map<int, string>
+      Map : string }
 
 // type T4 = TestType4
 
@@ -97,17 +97,17 @@ type TestType3() =
 //         sprintf "Public: %i - Private: %i - Deserialized: %b"
 //                 publicValue privateValue deserialized
 
-// type SecondaryCons(x: int) =
-//     new () = SecondaryCons(5)
-//     member _.Value = x
+type SecondaryCons(x: int) =
+    new () = SecondaryCons(5)
+    member _.Value = x
 
 // // type SecondaryConsChild() =
 // //     inherit SecondaryCons()
 
-// type MultipleCons(x: int, y: int) =
-//     new () = MultipleCons(2,3)
-//     new (x:int) = MultipleCons(x,4)
-//     member _.Value = x + y
+type MultipleCons(x: int, y: int) =
+    new () = MultipleCons(2,3)
+    new (x:int) = MultipleCons(x,4)
+    member _.Value = x + y
 
 // [<AbstractClass>]
 // type AbstractClassWithDefaults () =
@@ -208,40 +208,40 @@ type TestType3() =
 //     member _.A() = 2
 //     member _.B() = base.A()
 
-// type Employee = { name: string; age: float; location: Location }
-// and Location = { name: string; mutable employees: Employee list }
+type Employee = { name: string; age: float; location: Location }
+and Location = { name: string; mutable employees: Employee list }
 
-// [<Struct>]
-// type ValueType<'T> =
-//     new (v) = { value = v }
-//     val value : 'T
-//     member x.Value = x.value
+[<Struct>]
+type ValueType<'T> =
+    new (v) = { value = v }
+    val value : 'T
+    member x.Value = x.value
 
-// [<Struct>]
-// type ValueType1<'T>(value: 'T) =
-//     member x.Value = value
+[<Struct>]
+type ValueType1<'T>(value: 'T) =
+    member x.Value = value
 
-// [<Struct>]
-// type ValueType2(i: int, j: int) =
-//     member x.Value = i + j
+[<Struct>]
+type ValueType2(i: int, j: int) =
+    member x.Value = i + j
 
 // type ValueType3 =
 //   struct
 //     val mutable public X : int
 //   end
 
-// [<Struct>]
-// type StructUnion = Value of string
+[<Struct>]
+type StructUnion = Value of string
 
 [<Struct>]
 type SimpleRecord = { A: string; B: string }
 
-// type Point2D =
-//    struct
-//       val X: float
-//       val Y: float
-//       new(xy: float) = { X = xy; Y = xy }
-//    end
+type Point2D =
+   struct
+      val X: float
+      val Y: float
+      new(xy: float) = { X = xy; Y = xy }
+   end
 
 // exception MyEx of int*string
 
@@ -258,10 +258,10 @@ type SimpleRecord = { A: string; B: string }
 //     interface System.IDisposable with
 //         member _.Dispose() = ()
 
-// [<Class>]
-// type TypeWithClassAttribute =
-//     val Pos : int
-//     new (pos) = { Pos=pos }
+[<Class>]
+type TypeWithClassAttribute =
+    val Pos : int
+    new (pos) = { Pos=pos }
 
 // // -------------------------------------------------------------
 // // Issue #1975: https://github.com/fable-compiler/Fable/issues/1975
@@ -397,15 +397,15 @@ type SimpleRecord = { A: string; B: string }
 //                 member _.Value = y
 //                 member this2.Add() = this1.Value + this2.Value }
 
-// let areEqual (x: obj) (y: obj) =
-//     x = y
+let areEqual (x: obj) (y: obj) =
+    x = y
 
-// type MyUnion1 = Foo of int * int | Bar of float | Baz
-// type MyUnion2 = Foo of int * int
-//     with override _.ToString() = "ffff"
+type MyUnion1 = Foo of int * int | Bar of float | Baz
+type MyUnion2 = Foo of int * int
+    with override _.ToString() = "ffff"
 
-// type MyRecord1 = { Foo: int; Bar: string }
-// type MyRecord2 = { Foo: int; Bar: string }
+type MyRecord1 = { Foo: int; Bar: string }
+type MyRecord2 = { Foo: int; Bar: string }
 
 // type SubclassTest1() = class end
 // type SubclassTest2() = inherit SubclassTest1()
@@ -570,14 +570,14 @@ let ``Type testing with primitive types works`` () =
 //     DateTime.Now |> box |> isDate |> equal true
 //     box 5 |> isDate |> equal false
 
-// [<Fact>]
-// let ``Type test with Long`` () =
-//     let isLong (x: obj) =
-//         match x with
-//         | :? int64 -> true
-//         | _ -> false
-//     box 5L |> isLong |> equal true
-//     box 50 |> isLong |> equal false
+[<Fact>]
+let ``Type test with Long`` () =
+    let isLong (x: obj) =
+        match x with
+        | :? int64 -> true
+        | _ -> false
+    box 5L |> isLong |> equal true
+    box 50 |> isLong |> equal false
 
 // [<Fact>]
 // let ``Type test with BigInt`` () =
@@ -588,20 +588,20 @@ let ``Type testing with primitive types works`` () =
 //     box 5I |> isBigInd |> equal true
 //     box 50 |> isBigInd |> equal false
 
-// [<Fact>]
-// let ``Property names don't clash with built-in JS objects`` () = // See #168
-//     let gameState = {
-//         Now = 1
-//         Map = "dungeon"
-//         Players = Map.empty
-//     }
-//     gameState.Players.ContainsKey(1) |> equal false
+[<Fact>]
+let ``Property names don't clash with built-in JS objects`` () = // See #168
+    let gameState = {
+        Now = 1
+        Map = "dungeon"
+        Players = Map.empty
+    }
+    gameState.Players.ContainsKey(1) |> equal false
 
-// [<Fact>]
-// let ``Overloads work`` () =
-//     let t = TestType5("")
-//     t.Overload(2) |> equal 4
-//     t.Overload(2, 3) |> equal 5
+[<Fact>]
+let ``Overloads work`` () =
+    let t = TestType5("")
+    t.Overload(2) |> equal 4
+    t.Overload(2, 3) |> equal 5
 
 // [<Fact>]
 // let ``Type abbreviation works`` () =
@@ -645,29 +645,6 @@ let ``Type testing with primitive types works`` () =
 //     let b = { label = "five" }
 //     showStatic a |> equal "Static: 5"
 //     showStatic b |> equal "Static: five"
-
-// [<Fact>]
-// let ``Guid.NewGuid works`` () =
-//     let g1 = Guid.NewGuid()
-//     let g2 = Guid.NewGuid()
-//     g1 = g2 |> equal false
-//     let s1 = string g1
-//     equal 36 s1.Length
-//     Text.RegularExpressions.Regex.IsMatch(
-//         s1, "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
-//     |> equal true
-//     let g3 = Guid.Parse s1
-//     g1 = g3 |> equal true
-
-// [<Fact>]
-// let ``Guid.Empty works`` () =
-//     let g1 = Guid.Empty
-//     string g1 |> equal "00000000-0000-0000-0000-000000000000"
-
-// [<Fact>]
-// let ``Guid.ToString works`` () =
-//     let g1 = Guid.Parse "dec42487-c02b-42a6-9a10-0263a5a7fdf1"
-//     string g1 |> equal "dec42487-c02b-42a6-9a10-0263a5a7fdf1"
 
 // [<Fact>]
 // let ``lazy works`` () =
@@ -714,26 +691,26 @@ let ``Type testing with primitive types works`` () =
 //     search "b" |> equal (Some "b")
 //     search "d" |> equal None
 
-// [<Fact>]
-// let ``Secondary constructors work`` () =
-//     let s1 = SecondaryCons(3)
-//     let s2 = SecondaryCons()
-//     equal 3 s1.Value
-//     equal 5 s2.Value
-
-// // [<Fact>]
-// // let ``Inheriting from secondary constructors works`` () =
-// //     let s = SecondaryConsChild()
-// //     equal 5 s.Value
+[<Fact>]
+let ``Secondary constructors work`` () =
+    let s1 = SecondaryCons(3)
+    let s2 = SecondaryCons()
+    equal 3 s1.Value
+    equal 5 s2.Value
 
 // [<Fact>]
-// let ``Multiple constructors work`` () =
-//     let m1 = MultipleCons()
-//     let m2 = MultipleCons(5)
-//     let m3 = MultipleCons(7,7)
-//     equal 5 m1.Value
-//     equal 9 m2.Value
-//     equal 14 m3.Value
+// let ``Inheriting from secondary constructors works`` () =
+//     let s = SecondaryConsChild()
+//     equal 5 s.Value
+
+[<Fact>]
+let ``Multiple constructors work`` () =
+    let m1 = MultipleCons()
+    let m2 = MultipleCons(5)
+    let m3 = MultipleCons(7,7)
+    equal 5 m1.Value
+    equal 9 m2.Value
+    equal 14 m3.Value
 
 // [<Fact>]
 // let ``Abstract methods with default work`` () = // See #505
@@ -820,20 +797,20 @@ let ``Type testing with primitive types works`` () =
 //     let bar = ExtendedClass2()
 //     bar.B() |> equal 1
 
-// [<Fact>]
-// let ``Circular dependencies work`` () = // See #569
-//     let location = { name="NY"; employees=[] }
-//     let alice = { name="Alice"; age=20.0; location=location  }
-//     location.name |> equal "NY"
-//     alice.age |> equal 20.
+[<Fact>]
+let ``Circular dependencies work`` () = // See #569
+    let location = { name="NY"; employees=[] }
+    let alice = { name="Alice"; age=20.0; location=location  }
+    location.name |> equal "NY"
+    alice.age |> equal 20.
 
-// [<Fact>]
-// let ``Value Type records work`` () = // See #568
-//     let foo1 = ValueType<_>("foo")
-//     let foo2 = ValueType<_>("foo")
-//     foo1.Value |> equal "foo"
-//     foo1.value |> equal "foo"
-//     foo1 = foo2 |> equal true
+[<Fact>]
+let ``Value Type records work`` () = // See #568
+    let foo1 = ValueType<_>("foo")
+    let foo2 = ValueType<_>("foo")
+    foo1.Value |> equal "foo"
+    foo1.value |> equal "foo"
+    foo1 = foo2 |> equal true
 
 // [<Fact>]
 // let ``Value Type unions work`` () =
@@ -841,25 +818,25 @@ let ``Type testing with primitive types works`` () =
 //     let du2 = StructUnion.Value "du"
 //     du1 = du2 |> equal true
 
-// [<Fact>]
-// let ``Value Type tuples work`` () =
-//     let tu1 = struct ("a","b")
-//     let tu2 = struct ("a","b")
-//     tu1 = tu2 |> equal true
+[<Fact>]
+let ``Value Type tuples work`` () =
+    let tu1 = struct ("a","b")
+    let tu2 = struct ("a","b")
+    tu1 = tu2 |> equal true
 
-// [<Fact>]
-// let ``Value Types work`` () =
-//     let bar1 = ValueType1("bar")
-//     let bar2 = ValueType1("bar")
-//     bar1.Value |> equal "bar"
-//     bar1 = bar2 |> equal true
+[<Fact>]
+let ``Value Types work`` () =
+    let bar1 = ValueType1("bar")
+    let bar2 = ValueType1("bar")
+    bar1.Value |> equal "bar"
+    bar1 = bar2 |> equal true
 
-// [<Fact>]
-// let ``Other Value Types work`` () =
-//     let test2 = ValueType2(3, 4)
-//     test2.Value |> equal 7
-//     let p = Point2D(2.)
-//     p.Y |> equal 2.
+[<Fact>]
+let ``Other Value Types work`` () =
+    let test2 = ValueType2(3, 4)
+    test2.Value |> equal 7
+    let p = Point2D(2.)
+    p.Y |> equal 2.
 
 // [<Fact>]
 // let ``struct without explicit ctor works`` () =
@@ -927,10 +904,10 @@ let ``copying struct records works`` () = // See #3371
 //     f1.Add2(4, 5) |> equal -1
 //     f2.Add2(4, 5) |> equal -1
 
-// [<Fact>]
-// let ``ClassAttribute works`` () = // See #573
-//     let t1 = TypeWithClassAttribute(8)
-//     t1.Pos |> equal 8
+[<Fact>]
+let ``ClassAttribute works`` () = // See #573
+    let t1 = TypeWithClassAttribute(8)
+    t1.Pos |> equal 8
 
 // [<Fact>]
 // let ``Issue #1975: Compile type with parameterized units of measure as generic`` () =
