@@ -1363,6 +1363,7 @@ module TypeHelpers =
                 // This is necessary because: `makeType` reduces Erased Unions (including Ux) to `Any` -> no type info any more
                 //
                 // Note: no handling of nested types: `U2<string, U<int, float>>` -> `int` & `float` don't get extract
+                let ty = ty.AbbreviatedType
                 match ty with
                 | UType tys ->
                     tys
