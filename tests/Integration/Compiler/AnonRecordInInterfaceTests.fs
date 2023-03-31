@@ -587,7 +587,6 @@ let tests =
           |> Assert.Is.strictSuccess
         testCase "no error for field with string & Aliased Value" <| fun _ ->
           [
-
             "type Root = U2<bool, string>"
             "type Value = Root"
             yield! i |> Interface.format
@@ -598,10 +597,33 @@ let tests =
           |> Assert.Is.strictSuccess
         testCase "error for field with int & Aliased Value" <| fun _ ->
           [
-
             "type Root = U2<bool, string>"
             "type Value = Root"
             yield! i |> Interface.format
+            assignAnonRecord i [("Value", "42")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedTypeMulti (interfaceName = i.Name, fieldName = "Value"))
+
+        testCase "no error for option field with string & aliased Value" <| fun _ ->
+          [
+            al
+            yield!
+              { Name = "Field8"; Properties = [ ReadOnly ("Value", "Value option") ] }
+              |> Interface.format
+            assignAnonRecord i [("Value", "\"foo\"")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.strictSuccess
+        testCase "error for option field with int & aliased Value" <| fun _ ->
+          [
+            al
+            yield!
+              { Name = "Field8"; Properties = [ ReadOnly ("Value", "Value option") ] }
+              |> Interface.format
             assignAnonRecord i [("Value", "42")]
           ]
           |> concat

@@ -1380,8 +1380,8 @@ module TypeHelpers =
                 match ty with
                 | TypeDefinition tdef ->
                     match FsEnt.FullName tdef with
-                    | Types.valueOption -> Some(ty.GenericArguments[0], true)
-                    | Types.option -> Some(ty.GenericArguments[0], false)
+                    | Types.valueOption -> Some(ty.GenericArguments[0].AbbreviatedType, true)
+                    | Types.option -> Some(ty.GenericArguments[0].AbbreviatedType, false)
                     | _ -> None
                 | _ -> None
             and (|UType|_|) (ty: FSharpType) =
@@ -1400,6 +1400,7 @@ module TypeHelpers =
                 match ty with
                 | TypeDefinition UName ->
                     ty.GenericArguments
+                    |> Seq.map (fun t -> t.AbbreviatedType)
                     |> Seq.toList
                     |> Some
                 | _ -> None
