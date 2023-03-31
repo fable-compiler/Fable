@@ -900,7 +900,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
               [_; DeclaredType(ent, [])] ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
-                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com r exprs fieldNames ent
+                    AnonRecords.fitsInInterface com r exprs fieldNames ent
                     |> function
                        | Error errors ->
                             errors
