@@ -2525,7 +2525,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     let propStr p callee = getExpr r t callee (makeStrConst p)
     let isGroup =
         match thisArg with
-        | Some(ExprType(EntFullName "System.Text.RegularExpressions.Group")) -> true
+        | Some(ExprType(DeclaredTypeFullName "System.Text.RegularExpressions.Group")) -> true
         | _ -> false
 
     match i.CompiledName with

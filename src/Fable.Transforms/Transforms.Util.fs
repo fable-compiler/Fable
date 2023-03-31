@@ -282,7 +282,12 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|ExprTypeAs|) (e: Expr) = e.Type, e
     let inline (|IdentType|) (id: Ident) = id.Type
-    let inline (|EntFullName|) (e: EntityRef) = e.FullName
+    let inline (|EntFullName|) (e: Entity) = e.FullName
+    let inline (|EntRefFullName|) (e: EntityRef) = e.FullName
+
+    let (|DeclaredTypeFullName|_|) = function
+        | DeclaredType(entRef, _) -> Some entRef.FullName
+        | _ -> None
 
     let rec uncurryLambdaType maxArity (revArgTypes: Type list) (returnType: Type) =
         match returnType with

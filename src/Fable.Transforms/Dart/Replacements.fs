@@ -2254,7 +2254,7 @@ let regexMatchToSeq com t e =
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let isGroup = function
-        | ExprType (EntFullName "System.Text.RegularExpressions.Group") -> true
+        | ExprType(DeclaredTypeFullName "System.Text.RegularExpressions.Group") -> true
         | _ -> false
 
     let createRegex r t args =

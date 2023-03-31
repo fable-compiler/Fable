@@ -440,8 +440,7 @@ module Annotation =
         | Replacements.Util.Builtin kind ->
             makeBuiltinTypeAnnotation com ctx typ kind
         | Fable.DeclaredType(entRef, genArgs) ->
-            let ent = com.GetEntity(entRef)
-            makeEntityTypeAnnotation com ctx ent genArgs
+            com.GetEntity(entRef) |> makeEntityTypeAnnotation com ctx genArgs
 
     let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
         if com.IsTypeScript then
@@ -567,8 +566,9 @@ module Annotation =
         TypeAnnotation.functionTypeAnnotation(funcTypeParams, returnType)
 
     // Move this to Replacements.tryEntity?
-    let tryNativeOrFableLibraryInterface com ctx (ent: Fable.Entity) genArgs =
+    let tryNativeOrFableLibraryInterface com ctx genArgs (ent: Fable.Entity) =
         match ent.FullName with
+        | _ when not ent.IsInterface -> None
         | Types.icollection
             -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
             // -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
@@ -609,29 +609,50 @@ module Annotation =
             -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObservable" |> Some
         | _ -> None
 
-    let makeEntityTypeAnnotation com ctx (ent: Fable.Entity) genArgs =
-        match ent.FullName, genArgs with
-        | Types.nullable, [genArg] ->
+    let makeEntityTypeAnnotation com ctx genArgs (ent: Fable.Entity) =
+        match genArgs, ent with
+        | [genArg], EntFullName Types.nullable ->
             makeNullableTypeAnnotation com ctx genArg
-        | _ ->
-            if ent.IsInterface
-            then tryNativeOrFableLibraryInterface com ctx ent genArgs
-            else None
-            |> Option.defaultWith (fun () ->
-                match Lib.tryJsConstructorForAnnotation true com ctx ent with
-                | Some entRef ->
-                    match entRef with
-                    | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
-                        match str with
-                        | "number" -> NumberTypeAnnotation
-                        | "boolean" -> BooleanTypeAnnotation
-                        | "string" -> StringTypeAnnotation
-                        | _ -> AnyTypeAnnotation
-                    | Expression.Identifier(id) ->
-                        makeGenericTypeAnnotation com ctx genArgs id
-                    // TODO: Resolve references to types in nested modules
-                    | _ -> AnyTypeAnnotation
-                | None -> AnyTypeAnnotation)
+
+        | _, Patterns.Try (Util.tryFindAnyAttribute [Atts.erase; Atts.tsTaggedUnion]) (erasedAtt: Fable.Attribute) ->
+            if erasedAtt.Entity.FullName = Atts.erase && ent.IsFSharpUnion then
+                let genArgs =
+                    List.zip ent.GenericParameters genArgs
+                    |> List.map (fun (p, a) -> p.Name, a)
+                    |> Map
+
+                let transformSingleFieldType (uci: Fable.UnionCase) =                    
+                    List.tryHead uci.UnionCaseFields
+                    |> Option.map (fun fi -> fi.FieldType |> resolveInlineType genArgs |> makeTypeAnnotation com ctx)
+                    |> Option.defaultValue VoidTypeAnnotation
+
+                match ent.UnionCases with
+                | [uci] when List.isMultiple uci.UnionCaseFields ->
+                    uci.UnionCaseFields
+                    |> List.mapToArray (fun fi -> fi.FieldType |> resolveInlineType genArgs |> makeTypeAnnotation com ctx)
+                    |> TupleTypeAnnotation
+                | [uci] -> transformSingleFieldType uci
+                | ucis -> ucis |> List.mapToArray transformSingleFieldType |> UnionTypeAnnotation
+
+            // TODO: tsTaggedUnion
+            else AnyTypeAnnotation
+
+        | _, Patterns.Try (tryNativeOrFableLibraryInterface com ctx genArgs) ta -> ta
+
+        | _, Patterns.Try (Lib.tryJsConstructorForAnnotation true com ctx) entRef ->
+            match entRef with
+            | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
+                match str with
+                | "number" -> NumberTypeAnnotation
+                | "boolean" -> BooleanTypeAnnotation
+                | "string" -> StringTypeAnnotation
+                | _ -> AnyTypeAnnotation
+            | Expression.Identifier(id) ->
+                makeGenericTypeAnnotation com ctx genArgs id
+            // TODO: Resolve references to types in nested modules
+            | _ -> AnyTypeAnnotation
+
+        | _ -> AnyTypeAnnotation
 
     let makeAnonymousRecordTypeAnnotation com ctx fieldNames fieldTypes: TypeAnnotation =
         Seq.zip fieldNames fieldTypes
@@ -2297,6 +2318,10 @@ module Util =
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
+    let tryFindAnyAttribute fullNames (ent: Fable.Entity) =
+        let fullNames = set fullNames
+        ent.Attributes |> Seq.tryFind (fun att -> Set.contains att.Entity.FullName fullNames)
+
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) body =
         let isJsx = hasAttribute Atts.jsxComponent info.Attributes
         let args, body =
@@ -2545,9 +2570,7 @@ module Util =
 
         let extends =
             ent.DeclaredInterfaces
-            |> Seq.map (fun parent ->
-                let ent = com.GetEntity(parent.Entity)
-                makeEntityTypeAnnotation com ctx ent parent.GenericArgs)
+            |> Seq.map (fun parent -> com.GetEntity(parent.Entity) |> makeEntityTypeAnnotation com ctx parent.GenericArgs)
             |> Seq.toArray
 
         let typeParameters =
@@ -2616,7 +2639,10 @@ module Util =
         | Fable.ClassDeclaration decl ->
             let entRef = decl.Entity
             let ent = com.GetEntity(entRef)
-            if ent.IsInterface then
+            let isErased = tryFindAnyAttribute [Atts.erase; Atts.tsTaggedUnion] ent |> Option.isSome
+            if isErased then
+                []
+            elif ent.IsInterface then
                 if com.IsTypeScript
                 then [transformInterfaceDeclaration com ctx decl ent]
                 else []

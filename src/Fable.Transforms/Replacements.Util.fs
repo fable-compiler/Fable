@@ -462,10 +462,6 @@ let (|OrDefault|) (def:'T) = function
     | Some v -> v
     | None -> def
 
-let (|EntFullName|_|) = function
-    | DeclaredType(entRef, _) -> Some entRef.FullName
-    | _ -> None
-
 let (|IsByRefType|_|) (com: Compiler) = function
     | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)

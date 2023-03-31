@@ -557,9 +557,14 @@ module Helpers =
                         moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
                 else
                     let overloadSuffix = getOverloadSuffixFrom ent memb
-                    if memb.IsInstanceMember
-                    then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
-                    else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
+                    if memb.IsInstanceMember then
+                        entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
+                    else
+                        // Special case of non-mangled static classes to easily expose methods with optional args, etc, to native code
+                        // TODO: If entity is not mangled and Erase attribute is not present, raise warning
+                        match Util.tryMangleAttribute ent.Attributes with
+                        | Some false -> memb.CompiledName, Naming.NoMemberPart
+                        | Some true | None -> entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
             | None -> memb.CompiledName, Naming.NoMemberPart
 
     /// Returns the sanitized name for the member declaration and whether it has an overload suffix
@@ -1199,22 +1204,10 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | fullName when tdef.IsMeasure -> Fable.Measure fullName
+            | _ when hasAttribute Atts.stringEnum tdef.Attributes -> Fable.String
             | _ ->
-                let mkDeclType () =
-                    let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
-                    Fable.DeclaredType(FsEnt.Ref tdef, genArgs)
-                // Emit attribute
-                if tdef.Attributes |> hasAttribute Atts.emitAttr then
-                    mkDeclType ()
-                else
-                    // other special attributes
-                    tdef.Attributes |> tryPickAttribute [
-                        Atts.stringEnum, Fable.String
-                        Atts.erase, Fable.Any
-                        Atts.tsTaggedUnion, Fable.Any
-                    ]
-                    // Rest of declared types
-                    |> Option.defaultWith mkDeclType
+                let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
+                Fable.DeclaredType(FsEnt.Ref tdef, genArgs)
 
     let rec makeTypeWithConstraints withConstraints (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
@@ -2077,8 +2070,7 @@ module Util =
             | Types.icomparableGeneric -> com.Options.Language <> Dart
             | _ -> true
         // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.Py namespaces
-        | Some fullName when fullName.StartsWith("Fable.Core.JS.") -> false
-        | Some fullName when fullName.StartsWith("Fable.Core.Py.") -> false
+        | Some fullName when fullName.StartsWithAny("Fable.Core.JS.", "Fable.Core.Py.") -> false
         // Don't mangle interfaces by default (for better interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> tryMangleAttribute ent.Attributes |> Option.defaultValue false
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
