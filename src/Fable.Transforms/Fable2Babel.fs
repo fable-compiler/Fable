@@ -621,7 +621,7 @@ module Annotation =
                     |> List.map (fun (p, a) -> p.Name, a)
                     |> Map
 
-                let transformSingleFieldType (uci: Fable.UnionCase) =                    
+                let transformSingleFieldType (uci: Fable.UnionCase) =
                     List.tryHead uci.UnionCaseFields
                     |> Option.map (fun fi -> fi.FieldType |> resolveInlineType genArgs |> makeTypeAnnotation com ctx)
                     |> Option.defaultValue VoidTypeAnnotation
@@ -1398,9 +1398,17 @@ module Util =
 
         | Fable.Binary(op, left, right) ->
             match op, left, right with
-            | (BinaryEqual | BinaryUnequal), Fable.Value(Fable.Null _, _), e
-            | (BinaryEqual | BinaryUnequal), e,  Fable.Value(Fable.Null _, _) ->
-                com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
+            | (BinaryEqual | BinaryUnequal), e1, e2 ->
+                match e1, e2 with
+                | Fable.Value(Fable.Null _, _), e
+                | e,  Fable.Value(Fable.Null _, _) ->
+                    com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
+                | ExprType(Fable.MetaType), _ ->
+                    let e = Replacements.Util.Helper.LibCall(com, "Reflection", "equals", Fable.Boolean, [e1; e2], ?loc=range)
+                    let e = if op = BinaryEqual then e else makeUnOp None Fable.Boolean e UnaryNot
+                    transformAsExpr com ctx e
+                | TransformExpr com ctx left, TransformExpr com ctx right ->
+                    Expression.binaryExpression(op, left, right, ?loc=range)
 
             | _, TransformExpr com ctx left, TransformExpr com ctx right ->
                 Expression.binaryExpression(op, left, right, ?loc=range)

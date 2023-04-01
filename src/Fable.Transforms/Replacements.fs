@@ -468,9 +468,12 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
             | _ -> "Long"
         Helper.LibCall(com, modName, "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number _ ->
+    | Boolean | Char | String | Number _ | MetaType ->
         let op = if equal then BinaryEqual else BinaryUnequal
         makeBinOp r Boolean left right op
+    // Use BinaryEquals for MetaType to have a change of optimization in FableTransforms.operationReduction
+    // We will call Reflection.equals in the Fable2Babel step
+    //| MetaType -> Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
         Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (FSharpSet _|FSharpMap _) ->
@@ -482,8 +485,6 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
     | List _ ->
         Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | MetaType ->
-        Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Tuple _ ->
         Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     | _ ->
