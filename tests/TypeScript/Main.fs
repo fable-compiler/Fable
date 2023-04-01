@@ -5,14 +5,14 @@ open Fable.Tests
 
 let allTests =
   [|
-    // UtilTests.tests
+    UtilTests.tests
     Applicative.tests
     Arithmetic.tests
     Arrays.tests
     Async.tests
     Chars.tests
     // Comparison.tests
-    // Convert.tests
+    Convert.tests
     CustomOperators.tests
     DateTimeOffset.tests
     DateTime.tests

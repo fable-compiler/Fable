@@ -82,10 +82,10 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   if (length < 0) {
     throw new Error("Length cannot be negative");
   }
-  if (length > str.length - startIndex) {
+  if (startIndex + length > str.length) {
     throw new Error("Invalid startIndex and length");
   }
-  str = str.substr(startIndex, length);
+  str = str.substring(startIndex, startIndex + length);
   for (const c of anyOf) {
     const index = str.indexOf(c);
     if (index > -1) {
@@ -429,7 +429,7 @@ function notSupported(name: string): never {
   throw new Error("The environment doesn't support '" + name + "', please use a polyfill.");
 }
 
-export function toBase64String(inArray: number[]) {
+export function toBase64String(inArray: ArrayLike<number>) {
   let str = "";
   for (let i = 0; i < inArray.length; i++) {
     str += String.fromCharCode(inArray[i]);
@@ -437,13 +437,13 @@ export function toBase64String(inArray: number[]) {
   return typeof btoa === "function" ? btoa(str) : notSupported("btoa");
 }
 
-export function fromBase64String(b64Encoded: string) {
+export function fromBase64String(b64Encoded: string): number[] {
   const binary = typeof atob === "function" ? atob(b64Encoded) : notSupported("atob");
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes;
+  return bytes as any as number[];
 }
 
 function pad(str: string, len: number, ch?: string, isRight?: boolean) {

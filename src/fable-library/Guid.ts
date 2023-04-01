@@ -90,7 +90,7 @@ function initConvertMaps() {
 
 /** Parse a UUID into it's component bytes */
 // Adapted from https://github.com/zefferus/uuid-parse
-export function guidToArray(s: string) {
+export function guidToArray(s: string): number[] {
   if (!_convertMapsInitialized) {
     initConvertMaps();
   }
@@ -119,7 +119,7 @@ export function guidToArray(s: string) {
   while (i < 16) {
     buf[i++] = 0;
   }
-  return buf;
+  return buf as any as number[];
 }
 
 /** Convert UUID byte array into a string */

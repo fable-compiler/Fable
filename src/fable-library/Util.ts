@@ -382,11 +382,14 @@ export function numberHash(x: number) {
 }
 
 // From https://stackoverflow.com/a/37449594
-export function combineHashCodes(hashes: number[]) {
-  if (hashes.length === 0) { return 0; }
-  return hashes.reduce((h1, h2) => {
-    return ((h1 << 5) + h1) ^ h2;
-  });
+export function combineHashCodes(hashes: ArrayLike<number>) {
+  let h1 = 0;
+  const len = hashes.length;
+  for (let i = 0; i < len; i++) {
+    const h2 = hashes[i];
+    h1 = ((h1 << 5) + h1) ^ h2;
+  }
+  return h1;
 }
 
 export function physicalHash<T>(x: T): number {
