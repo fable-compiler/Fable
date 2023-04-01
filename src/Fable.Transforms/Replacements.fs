@@ -1872,10 +1872,11 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         match i.SignatureArgTypes with
         | [Array _] ->
             Helper.LibCall(com, "BigInt", "fromByteArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | [Number ((Int64|UInt64),_)] ->
-            Helper.LibCall(com, "BigInt", "fromInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | [Number (kind, _)] ->
+            let meth = "from" + kind.ToString()
+            Helper.LibCall(com, "BigInt", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
-            Helper.LibCall(com, "BigInt", "fromInt32", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            None
     | None, "op_Explicit" ->
         match t with
         | Number(kind,_) ->
@@ -1888,9 +1889,9 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             | Int128 | UInt128 | Float16 | BigInt | NativeInt | UNativeInt -> None
         | _ -> None
     | None, "DivRem" ->
-        Helper.LibCall(com, "BigInt", "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | None, meth when meth.StartsWith("get_") ->
-        Helper.LibValue(com, "BigInt", meth, t) |> Some
+        Helper.LibCall(com, "BigInt", "divRemOut", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // | None, meth when meth.StartsWith("get_") ->
+    //     Helper.LibValue(com, "BigInt", meth, t) |> Some
     | callee, meth ->
         let args =
             match callee, meth with
