@@ -1363,6 +1363,7 @@ module TypeHelpers =
                 // This is necessary because: `makeType` reduces Erased Unions (including Ux) to `Any` -> no type info any more
                 //
                 // Note: no handling of nested types: `U2<string, U<int, float>>` -> `int` & `float` don't get extract
+                let ty = ty.AbbreviatedType
                 match ty with
                 | UType tys ->
                     tys
@@ -1379,8 +1380,8 @@ module TypeHelpers =
                 match ty with
                 | TypeDefinition tdef ->
                     match FsEnt.FullName tdef with
-                    | Types.valueOption -> Some(ty.GenericArguments[0], true)
-                    | Types.option -> Some(ty.GenericArguments[0], false)
+                    | Types.valueOption -> Some(ty.GenericArguments[0].AbbreviatedType, true)
+                    | Types.option -> Some(ty.GenericArguments[0].AbbreviatedType, false)
                     | _ -> None
                 | _ -> None
             and (|UType|_|) (ty: FSharpType) =
@@ -1399,6 +1400,7 @@ module TypeHelpers =
                 match ty with
                 | TypeDefinition UName ->
                     ty.GenericArguments
+                    |> Seq.map (fun t -> t.AbbreviatedType)
                     |> Seq.toList
                     |> Some
                 | _ -> None
