@@ -6,6 +6,8 @@ export default LongLib.Long;
 export type Long = LongLib.Long;
 export type int64 = Long;
 export type uint64 = Long;
+export type nativeint = Long;
+export type unativeint = Long;
 
 export const get_Zero = LongLib.ZERO;
 export const get_One = LongLib.ONE;
