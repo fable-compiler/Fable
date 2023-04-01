@@ -383,8 +383,8 @@ module private Transforms =
             when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
         | Value(NewOption(Some(Extended(Curry(innerExpr, arity2),_)), t, isStruct), r), _
             when matches arity arity2 -> Value(NewOption(Some(innerExpr), t, isStruct), r)
-        // Imports are uncurried even if they're typed as lambdas, see test "ofImport should inline properly"
-        | Import _, _ -> expr
+        // User imports are uncurried even if they're typed as lambdas, see test "ofImport should inline properly"
+        | Import({ Kind = UserImport _ },_,_), _ -> expr
         | _, Some arity -> Replacements.Api.uncurryExprAtRuntime com arity expr
         | _, None -> expr
 

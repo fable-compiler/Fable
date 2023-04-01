@@ -15,8 +15,18 @@ let foo2 = "foo"
 let apply (f:Func<int,int,int>) (x:int) (y:int): int = f.Invoke(x, y)
 #endif
 
-// Idents starting with a digit doesn't cause an error
+// Idents starting with a digit don't cause an error
 let ``1foo`` = 5
+
+let mutable private curriedAddedCounter = 0
+
+let curriedAdder =
+    fun (x: int) (y: int) (z: int) -> {| result = curriedAddedCounter + x + y + z |}
+
+let curriedAdder2 =
+    // Side effect so F# compiler doesn't uncurry this automatically
+    curriedAddedCounter <- curriedAddedCounter + 1
+    fun (x: int) (y: int) (z: int) -> {| result = curriedAddedCounter + x + y + z |}
 
 open Util.Testing
 
