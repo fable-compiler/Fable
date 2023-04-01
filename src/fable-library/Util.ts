@@ -501,6 +501,10 @@ function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean
   return true;
 }
 
+export function physicalEquality<T>(x: T, y: T): boolean {
+  return x === y;
+}
+
 export function equals<T>(x: T, y: T): boolean {
   if (x === y) {
     return true;
@@ -537,7 +541,7 @@ export function compareDates(x: Date | IDateTime | IDateTimeOffset, y: Date | ID
   return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
 }
 
-export function comparePrimitives(x: any, y: any): number {
+export function comparePrimitives<T>(x: T, y: T): number {
   return x === y ? 0 : (x < y ? -1 : 1);
 }
 
