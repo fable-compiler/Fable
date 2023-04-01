@@ -2387,7 +2387,8 @@ module Util =
                         |> TupleTypeAnnotation
                     case_ta, (uci.Name, ofInt i), fields_ta
                 ) |> Array.unzip3
-
+            let base_ta = makeAliasTypeAnnotation com ctx "Union"
+            let union_ta = Array.append union_ta [| base_ta |]
             let isPublic = ent.IsPublic
             let union_fields_alias = AliasTypeAnnotation(union_fields, entParamsInst)
             let tagArgTa = makeAliasTypeAnnotation com ctx "Tag"
@@ -2420,7 +2421,8 @@ module Util =
                         let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
                             Parameter.parameter(fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
                         let fnId = entName + "_" + case.Name |> Identifier.identifier
-                        Declaration.functionDeclaration(parameters, body, fnId, typeParameters=entParamsDecl)
+                        let returnType = AliasTypeAnnotation(Identifier.identifier(entName), entParamsInst)
+                        Declaration.functionDeclaration(parameters, body, fnId, returnType=returnType, typeParameters=entParamsDecl)
                         |> asModuleDeclaration isPublic
 
                 // Actual class

@@ -11,7 +11,7 @@ let allTests =
     Arrays.tests
     Async.tests
     Chars.tests
-    // Comparison.tests
+    Comparison.tests
     Convert.tests
     CustomOperators.tests
     DateTimeOffset.tests

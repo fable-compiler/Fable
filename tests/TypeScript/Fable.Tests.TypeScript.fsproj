@@ -30,7 +30,7 @@
     <Compile Include="../Js/Main/ArrayTests.fs" />
     <Compile Include="../Js/Main/AsyncTests.fs" />
     <Compile Include="../Js/Main/CharTests.fs" />
-    <!-- <Compile Include="../Js/Main/ComparisonTests.fs" /> -->
+    <Compile Include="../Js/Main/ComparisonTests.fs" />
     <Compile Include="../Js/Main/ConvertTests.fs" />
     <Compile Include="../Js/Main/CustomOperatorsTests.fs" />
     <Compile Include="../Js/Main/DateTimeOffsetTests.fs" />
