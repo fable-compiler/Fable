@@ -158,7 +158,7 @@ function getInt32Bits(hexDigits: Uint8Array, offset: number) {
   return bits;
 }
 
-export function fromIntArray(bits: number[]) {
+export function fromIntArray(bits: ArrayLike<number>) {
   return fromInts(bits[0], bits[1], bits[2], bits[3]);
 }
 
