@@ -749,6 +749,7 @@ module AnonRecords =
         // This is necessary because: `makeType` reduces Erased Unions (including Ux) to `Any` -> no type info any more
         //
         // Note: no handling of nested types: `U2<string, U<int, float>>` -> `int` & `float` don't get extract
+        let ty = Helpers.nonAbbreviatedType ty
         match ty with
         | UType tys ->
             tys
@@ -766,8 +767,8 @@ module AnonRecords =
         match ty with
         | Patterns.TypeDefinition tdef ->
             match FsEnt.FullName tdef with
-            | Types.valueOption -> Some(ty.GenericArguments[0], true)
-            | Types.option -> Some(ty.GenericArguments[0], false)
+            | Types.valueOption -> Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], true)
+            | Types.option -> Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], false)
             | _ -> None
         | _ -> None
 
@@ -787,7 +788,7 @@ module AnonRecords =
         match ty with
         | Patterns.TypeDefinition UName ->
             ty.GenericArguments
-            |> Seq.toList
+            |> Seq.mapToList Helpers.nonAbbreviatedType
             |> Some
         | _ -> None
 
@@ -838,7 +839,7 @@ module AnonRecords =
 
     let private formatMissingFieldError
         (range: SourceLocation option)
-        (interface_: FSharpEntity) 
+        (interface_: FSharpEntity)
         (fieldName: string)
         (expectedTypes: Fable.Type list)
         =
