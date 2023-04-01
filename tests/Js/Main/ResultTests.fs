@@ -20,17 +20,20 @@ let tests =
         Error 10 |> equal error
 
     testCase "pattern matching works" <| fun () ->
-        let ok = Ok "foo"
-        match ok with
-        | Ok x -> Some x
-        | Error _ -> None
-        |> equal (Some "foo")
+        let mutable f = fun ok ->
+            match ok with
+            | Ok x -> Some x
+            | Error _ -> None
+            |> equal (Some "foo")
 
-        let error = Error 10
-        match Error 10 with
-        | Ok _ -> None
-        | Error y -> Some y
-        |> equal (Some 10)
+            let error = Error 10
+            match Error 10 with
+            | Ok _ -> None
+            | Error y -> Some y
+            |> equal (Some 10)
+
+        let ok = Ok "foo"
+        f ok
 
     testCase "map function can be generated" <| fun () ->
         let f = (+) 1

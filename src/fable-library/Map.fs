@@ -652,10 +652,10 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         | Some v -> value <- v; true
         | None -> false
 
-    member __.Keys: ICollection<'Key> =
+    member _.Keys: ICollection<'Key> =
         MapTree.toArray tree |> Array.map (fun kvp -> kvp.Key) :> _
 
-    member __.Values: ICollection<'Value> =
+    member _.Values: ICollection<'Value> =
         MapTree.toArray tree |> Array.map (fun kvp -> kvp.Value) :> _
 
     member m.TryFind key =

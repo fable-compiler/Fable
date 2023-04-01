@@ -2,22 +2,25 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <!-- <RollForward>Major</RollForward> -->
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
   </PropertyGroup>
 
-  <!-- CoreRT optimization settings (https://aka.ms/OptimizeCoreRT) -->
-  <!-- <PropertyGroup>
-    <IlcDisableReflection>false</IlcDisableReflection>
-    <RootAllApplicationAssemblies>false</RootAllApplicationAssemblies>
-    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
-    <IlcGenerateCompleteTypeMetadata>false</IlcGenerateCompleteTypeMetadata>
-    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
-    <IlcInvariantGlobalization>true</IlcInvariantGlobalization>
-    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
-  </PropertyGroup> -->
+  <!-- AOT settings (https://aka.ms/OptimizeCoreRT) -->
+  <PropertyGroup>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- <PublishAot>true</PublishAot> -->
+    <!-- <PublishTrimmed>true</PublishTrimmed> -->
+    <!-- <StripSymbols>true</StripSymbols> -->
+    <!-- <IlcTrimMetadata>true</IlcTrimMetadata> -->
+    <!-- <IlcDisableReflection>true</IlcDisableReflection> -->
+    <!-- <IlcOptimizationPreference>Speed</IlcOptimizationPreference> -->
+    <!-- <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies> -->
+    <!-- <IlcGenerateCompleteTypeMetadata>false</IlcGenerateCompleteTypeMetadata> -->
+    <!-- <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData> -->
+  </PropertyGroup>
 
   <ItemGroup>
     <RdXmlFile Include="rd.xml" />
@@ -25,7 +28,6 @@
 
   <ItemGroup>
     <PackageReference Include="source-map-sharp" Version="1.0.8" />
-    <!-- <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-*" /> -->
   </ItemGroup>
 
   <ItemGroup>

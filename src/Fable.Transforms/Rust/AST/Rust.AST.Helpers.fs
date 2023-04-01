@@ -146,6 +146,11 @@ module Tokens =
         mkErrTokenLit symbol
         |> mkLiteralToken
 
+    let mkTyToken ty: token.Token =
+        ty
+        |> token.Nonterminal.NtTy
+        |> mkInterpolatedToken
+
     let mkExprToken expr: token.Token =
         expr
         |> token.Nonterminal.NtExpr
@@ -505,11 +510,11 @@ module MacroArgs =
             |> Seq.mapi (fun i tok ->
                 let ttt = tok |> token.TokenTree.Token
                 let sep = kind |> mkTokenTree
-                if i < count - 1 then
-                    [ (ttt, token.Spacing.Joint);
-                      (sep, token.Spacing.Alone) ]
-                else
-                    [ (ttt, token.Spacing.Alone) ]
+                // if i < count - 1 then
+                [ (ttt, token.Spacing.Joint)
+                ; (sep, token.Spacing.Alone) ]
+                // else
+                //     [ (ttt, token.Spacing.Alone) ]
             )
             |> Seq.concat
             |> mkVec
@@ -851,8 +856,9 @@ module Exprs =
         ExprKind.Paren(expr)
         |> mkExpr
 
-    let mkClosureExpr (decl: FnDecl) (body: Expr): Expr =
-        ExprKind.Closure(CaptureBy.Value, Asyncness.No, Movability.Movable, decl, body, DUMMY_SP)
+    let mkClosureExpr captureByValue (decl: FnDecl) (body: Expr): Expr =
+        let captureBy = if captureByValue then CaptureBy.Value else CaptureBy.Ref
+        ExprKind.Closure(captureBy, Asyncness.No, Movability.Movable, decl, body, DUMMY_SP)
         |> mkExpr
 
     let mkCallExpr (callee: Expr) args: Expr =
@@ -899,7 +905,7 @@ module Exprs =
         ExprKind.Index(expr, index)
         |> mkExpr
 
-    let mkEmitExpr value args: Expr =
+    let mkEmitExpr (value: string) args: Expr =
         ExprKind.EmitExpression(value, mkVec args)
         |> mkExpr
 
@@ -1027,6 +1033,10 @@ module Bounds =
         { path = path
           ref_id = DUMMY_NODE_ID }
 
+    let mkLifetime name: Lifetime =
+        { id = DUMMY_NODE_ID
+          ident = mkUnsanitizedIdent name }
+
     let mkPolyTraitRef path: PolyTraitRef =
         { bound_generic_params = mkVec []
           span = DUMMY_SP
@@ -1037,10 +1047,7 @@ module Bounds =
         GenericBound.Trait(ptref, TraitBoundModifier.None)
 
     let mkLifetimeGenericBound name: GenericBound =
-        let lifetime: Lifetime = {
-            id = DUMMY_NODE_ID
-            ident = mkUnsanitizedIdent name
-        }
+        let lifetime = mkLifetime name
         GenericBound.Outlives(lifetime)
 
     let mkFnTraitGenericBound inputs output: GenericBound =
@@ -1095,12 +1102,14 @@ module Types =
         TyKind.Paren(ty)
         |> mkTy
 
-    let mkRefTy ty: Ty =
-        TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Not })
+    let mkRefTy nameOpt ty: Ty =
+        let lifetimeOpt = nameOpt |> Option.map mkLifetime
+        TyKind.Rptr(lifetimeOpt, { ty = ty; mutbl = Mutability.Not })
         |> mkTy
 
-    let mkMutRefTy ty: Ty =
-        TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Mut })
+    let mkMutRefTy nameOpt ty: Ty =
+        let lifetimeOpt = nameOpt |> Option.map mkLifetime
+        TyKind.Rptr(lifetimeOpt, { ty = ty; mutbl = Mutability.Mut })
         |> mkTy
 
     let mkPathTy path: Ty =
@@ -1167,7 +1176,7 @@ module Params =
         mkParamFromType name ty isRef isMut
 
     let mkImplSelfParam isRef isMut: Param =
-        let ty = mkImplSelfTy () |> mkRefTy
+        let ty = mkImplSelfTy () |> mkRefTy None
         let attrs = []
         let is_placeholder = false
         let pat = mkIdentPat (rawIdent "self") isRef isMut
@@ -1339,9 +1348,9 @@ module Items =
         ItemKind.Use(useTree)
         |> mkItem attrs ident
 
-    let mkSimpleUseItem attrs names (alias: Symbol option): Item =
-        let rename = alias |> Option.map mkIdent
-        UseTreeKind.Simple(rename, DUMMY_NODE_ID, DUMMY_NODE_ID)
+    let mkSimpleUseItem attrs names (aliasOpt: Symbol option): Item =
+        let identOpt = aliasOpt |> Option.map mkIdent
+        UseTreeKind.Simple(identOpt, DUMMY_NODE_ID, DUMMY_NODE_ID)
         |> mkUseItem attrs names
 
     let mkNestedUseItem attrs names useTrees: Item =
@@ -1425,7 +1434,7 @@ module Items =
     let mkMacroItem attrs name exprs: Item =
         let tokens = exprs |> Seq.map mkExprToken
         let mac = mkParensCommaDelimitedMacCall name tokens
-        mkMacCallItem attrs name mac
+        mkMacCallItem attrs "" mac
 
     let TODO_ITEM (name: string): Item =
         let attrs = []

@@ -96,13 +96,13 @@
 <member name="M:UtilsStrings.SR.fSharpBannerVersion(System.String,System.String)">
 <summary>
  %s for F# %s
- (Originally from /home/dev/Projects/fsharp/src/Compiler/Facilities/UtilsStrings.txt:2)
+ (Originally from /home/alfonso/repos/fsharp_fable/src/Compiler/Facilities/UtilsStrings.txt:2)
 </summary>
 </member>
 <member name="M:UtilsStrings.SR.buildProductName(System.String)">
 <summary>
  Microsoft (R) F# Compiler version %s
- (Originally from /home/dev/Projects/fsharp/src/Compiler/Facilities/UtilsStrings.txt:1)
+ (Originally from /home/alfonso/repos/fsharp_fable/src/Compiler/Facilities/UtilsStrings.txt:1)
 </summary>
 </member>
 <member name="M:UtilsStrings.SR.RunStartupValidation">

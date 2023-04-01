@@ -8,7 +8,7 @@
  <remarks>
   See the <see cref="T:Microsoft.FSharp.Collections.SeqModule"/> module for further operations related to sequences.
 
-  See also <a href="https://docs.microsoft.com/dotnet/fsharp/language-reference/sequences">F# Language Guide - Sequences</a>.
+  See also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/sequences">F# Language Guide - Sequences</a>.
 </remarks>
 </member>
 <member name="T:Microsoft.FSharp.Collections.ResizeArray`1">
@@ -23,7 +23,7 @@
  the notation <c>[1; 2; 3]</c>. Use the values in the <c>List</c> module to manipulate 
  values of this type, or pattern match against the values directly.
 
-  See also <a href="https://docs.microsoft.com/dotnet/fsharp/language-reference/lists">F# Language Guide - Lists</a>.
+  See also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/lists">F# Language Guide - Lists</a>.
  </remarks>
 </member>
 <member name="P:Microsoft.FSharp.Collections.FSharpList`1.Tail">
@@ -898,7 +898,7 @@
  <summary>Contains operations for working with 2-dimensional arrays.</summary>
 
  <remarks>
-  <para>See also <a href="https://docs.microsoft.com/dotnet/fsharp/language-reference/arrays">F# Language Guide - Arrays</a>.</para>
+  <para>See also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/arrays">F# Language Guide - Arrays</a>.</para>
 
  <para>F# and CLI multi-dimensional arrays are typically zero-based.
  However, CLI multi-dimensional arrays used in conjunction with external
@@ -6433,7 +6433,7 @@
  <summary>Contains operations for working with values of type <see cref="T:Microsoft.FSharp.Collections.list`1"/>.</summary>
 
  <namespacedoc><summary>Operations for collections such as lists, arrays, sets, maps and sequences. See also 
-    <a href="https://docs.microsoft.com/dotnet/fsharp/language-reference/fsharp-collection-types">F# Collection Types</a> in the F# Language Guide.
+    <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/fsharp-collection-types">F# Collection Types</a> in the F# Language Guide.
  </summary></namespacedoc>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.InsertManyAt``1(System.Int32,System.Collections.Generic.IEnumerable{``0},``0[])">
@@ -9597,7 +9597,7 @@
  <summary>Contains operations for working with arrays.</summary>
 
  <remarks>
-  See also <a href="https://docs.microsoft.com/dotnet/fsharp/language-reference/arrays">F# Language Guide - Arrays</a>.
+  See also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/arrays">F# Language Guide - Arrays</a>.
  </remarks>
 </member>
 <member name="M:Microsoft.FSharp.Collections.Array4DModule.Set``1(``0[0:, 0:, 0:],System.Int32,System.Int32,System.Int32,System.Int32,``0)">
@@ -10040,7 +10040,7 @@
  <summary>Contains operations for working with rank 3 arrays.</summary>
 
  <remarks>
-  See also <a href="https://docs.microsoft.com/dotnet/fsharp/language-reference/arrays">F# Language Guide - Arrays</a>.
+  See also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/arrays">F# Language Guide - Arrays</a>.
  </remarks>
 </member>
 <member name="M:Microsoft.FSharp.Collections.MapModule.MaxKeyValue``2(Microsoft.FSharp.Collections.FSharpMap{``0,``1})">
@@ -11135,6 +11135,15 @@
 
  <example-tbd></example-tbd>
 </member>
+<member name="M:Microsoft.FSharp.Reflection.FSharpType.MakeStructTupleType(System.Type[])">
+ <summary>Returns a <see cref="T:System.Type"/> representing an F# struct tuple type with the given element types</summary>
+
+ <param name="types">An array of types for the tuple elements.</param>
+
+ <returns>The type representing the struct tuple containing the input elements.</returns>
+
+ <example-tbd></example-tbd>
+</member>
 <member name="M:Microsoft.FSharp.Reflection.FSharpType.MakeStructTupleType(System.Reflection.Assembly,System.Type[])">
  <summary>Returns a <see cref="T:System.Type"/> representing an F# struct tuple type with the given element types</summary>
 
@@ -11765,7 +11774,7 @@
 
  <namespacedoc><summary>
    Library functionality for accessing additional information about F# types and F# values at
-   runtime, augmenting that available through <a href="https://docs.microsoft.com/dotnet/api/system.reflection">System.Reflection</a>.
+   runtime, augmenting that available through <a href="https://learn.microsoft.com/dotnet/api/system.reflection">System.Reflection</a>.
  </summary></namespacedoc>
 </member>
 <member name="M:Microsoft.FSharp.Reflection.FSharpReflectionExtensions.FSharpType.IsExceptionRepresentation.Static(System.Type,Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
@@ -12842,6 +12851,22 @@
  Evaluates to a quotation with the same structure as <c>&lt;@ (1, "a") @&gt;</c>.
  </example>
 </member>
+<member name="M:Microsoft.FSharp.Quotations.FSharpExpr.NewStructTuple(Microsoft.FSharp.Collections.FSharpList{Microsoft.FSharp.Quotations.FSharpExpr})">
+ <summary>Builds an expression that represents the creation of an F# tuple value</summary>
+
+ <param name="elements">The list of elements of the tuple.</param>
+
+ <returns>The resulting expression.</returns>
+
+ <example id="newstructtuple-1">
+ <code lang="fsharp">
+ open FSharp.Quotations
+
+ Expr.NewStructTuple( [ &lt;@ 1 @&gt;; &lt;@ "a" @&gt; ])
+ </code>
+ Evaluates to a quotation with the same structure as <c>&lt;@ struct (1, "a") @&gt;</c>.
+ </example>
+</member>
 <member name="M:Microsoft.FSharp.Quotations.FSharpExpr.NewStructTuple(System.Reflection.Assembly,Microsoft.FSharp.Collections.FSharpList{Microsoft.FSharp.Quotations.FSharpExpr})">
  <summary>Builds an expression that represents the creation of an F# tuple value</summary>
 
@@ -13534,7 +13559,7 @@
 
  <namespacedoc><summary>
    Library functionality for F# quotations.
-    See also <a href="https: //docs.microsoft.com/dotnet/fsharp/language-reference/code-quotations">F# Code Quotations</a> in the F# Language Guide.
+    See also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/code-quotations">F# Code Quotations</a> in the F# Language Guide.
  </summary></namespacedoc>
 </member>
 <member name="M:Microsoft.FSharp.Quotations.ExprShapeModule.RebuildShapeCombination(System.Object,Microsoft.FSharp.Collections.FSharpList{Microsoft.FSharp.Quotations.FSharpExpr})">
@@ -14563,7 +14588,7 @@
 
  <namespacedoc><summary>
    Library functionality for native interopability. See
-   also <a href="https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/functions/external-functions">F# External Functions</a> in
+   also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/functions/external-functions">F# External Functions</a> in
    the F# Language Guide.
  </summary></namespacedoc>
 </member>
@@ -15936,7 +15961,7 @@
  <summary>Holds static members for creating and manipulating asynchronous computations.</summary>
 
  <remarks>
-  See also <a href="https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/asynchronous-workflows">F# Language Guide - Async Workflows</a>.
+  See also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/async-expressions">F# Language Guide - Async Workflows</a>.
  </remarks>
 
  <category index="1">Async Programming</category>
@@ -15950,14 +15975,14 @@
   This type has no members. Asynchronous computations are normally specified either by using an async expression
   or the static methods in the <see cref="T:Microsoft.FSharp.Control.FSharpAsync`1"/> type.
 
-  See also <a href="https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/asynchronous-workflows">F# Language Guide - Async Workflows</a>.
+  See also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/async-expressions">F# Language Guide - Async Workflows</a>.
  </remarks> 
 
  <namespacedoc><summary>
    Library functionality for asynchronous programming, events and agents. See also
-   <a href="https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/asynchronous-workflows">Asynchronous Programming</a>, 
-   <a href="https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/members/events">Events</a> and
-   <a href="https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/lazy-expressions">Lazy Expressions</a> in the
+   <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/async-expressions">Asynchronous Programming</a>, 
+   <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/members/events">Events</a> and
+   <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/lazy-expressions">Lazy Expressions</a> in the
    F# Language Guide.
  </summary></namespacedoc>
 
@@ -17133,7 +17158,6 @@
  let observableNumbers = Observable.ToObservable numbers
 
  let isEvenNumber = fun number -> number % 2 = 0
- let initialState = 2
 
  let leftPartition, rightPartition =
      Observable.partition isEvenNumber observableNumbers
@@ -17562,7 +17586,7 @@
 <member name="T:Microsoft.FSharp.Linq.QueryBuilder">
 <summary>
  The type used to support the F# query syntax. Use &apos;query { ... }&apos; to use the query syntax. See
- also &lt;a href=&quot;https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/query-expressions&quot;&gt;F# Query Expressions&lt;/a&gt; in the F# Language Guide.
+ also &lt;a href=&quot;https://learn.microsoft.com/dotnet/fsharp/language-reference/query-expressions&quot;&gt;F# Query Expressions&lt;/a&gt; in the F# Language Guide.
 </summary>
 </member>
 <member name="P:Microsoft.FSharp.Linq.QuerySource`2.Source">
@@ -17582,7 +17606,7 @@
 
  <namespacedoc><summary>
    Library functionality for F# query syntax and interoperability with .NET LINQ Expressions. See
-   also <a href="https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/query-expressions">F# Query Expressions</a> in the F# Language Guide.
+   also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/query-expressions">F# Query Expressions</a> in the F# Language Guide.
  </summary></namespacedoc>
 </member>
 <member name="M:Microsoft.FSharp.Linq.NullableModule.ToChar``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Char},System.Nullable{``0})">
@@ -26326,8 +26350,8 @@
 <member name="T:Microsoft.FSharp.Core.StringModule">
  <summary>Functional programming operators for string processing.  Further string operations
  are available via the member functions on strings and other functionality in
-  <a href="http://msdn2.microsoft.com/en-us/library/system.string.aspx">System.String</a>
- and <a href="http://msdn2.microsoft.com/library/system.text.regularexpressions.aspx">System.Text.RegularExpressions</a> types.
+  <a href="https://learn.microsoft.com/dotnet/api/system.string">System.String</a>
+ and <a href="https://learn.microsoft.com/dotnet/api/system.text.regularexpressions">System.Text.RegularExpressions</a> types.
  </summary>
 
  <category>Strings and Text</category>
@@ -27209,7 +27233,7 @@
 
  <namespacedoc><summary>
    Library functionality for supporting type providers and code generated by the F# compiler. See
-   also <a href="https://docs.microsoft.com/en-us/dotnet/fsharp/tutorials/type-providers/">F# Type Providers</a> in the F# Language Guide.
+   also <a href="https://learn.microsoft.com/dotnet/fsharp/tutorials/type-providers/">F# Type Providers</a> in the F# Language Guide.
  </summary></namespacedoc>
 </member>
 <member name="M:Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.Unit},Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.Unit},Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.FSharpFunc{System.Object,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.Unit}},``0})">
@@ -27239,6 +27263,16 @@
  <param name="current">A function to retrieve the current element.</param>
 
  <returns>The resulting typed sequence.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.EnumerateTryWith``1(System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Core.FSharpFunc{System.Exception,System.Int32},Microsoft.FSharp.Core.FSharpFunc{System.Exception,System.Collections.Generic.IEnumerable{``0}})">
+ <summary>The F# compiler emits calls to this function to
+ implement the <c>try/with</c> operator for F# sequence expressions.</summary>
+
+ <param name="source">The input sequence.</param>
+ <param name="exceptionFilter">Pattern matches after 'when' converted to return 1</param>
+ <param name="exceptionHandler">Pattern matches after 'when' with their actual execution code</param>
+
+ <returns>The result sequence.</returns>
 </member>
 <member name="M:Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.EnumerateThenFinally``1(System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Microsoft.FSharp.Core.Unit})">
  <summary>The F# compiler emits calls to this function to

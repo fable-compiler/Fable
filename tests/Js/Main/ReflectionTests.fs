@@ -301,9 +301,9 @@ type MyList<'T> =
 
 let inline create<'T when 'T: (new: unit->'T)> () = new 'T()
 
-type A() = member __.Value = 5
+type A() = member _.Value = 5
 
-type B() = member __.Value = 10
+type B() = member _.Value = 10
 
 type AnonRec1 = {| name: string; child: {| name: string |} |}
 type AnonRec2 = {| numbers: int list |}

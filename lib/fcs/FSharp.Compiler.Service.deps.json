@@ -7,11 +7,11 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/43.7.102-dev": {
+      "FSharp.Compiler.Service/43.7.201-dev": {
         "dependencies": {
-          "FSharp.Core": "7.0.0-dev",
-          "FSharp.DependencyManager.Nuget": "7.0.0-dev",
-          "Microsoft.DotNet.XliffTasks": "1.0.0-beta.22555.1",
+          "FSharp.Core": "7.0.201-dev",
+          "FSharp.DependencyManager.Nuget": "7.0.201-dev",
+          "Microsoft.DotNet.XliffTasks": "1.0.0-beta.22513.1",
           "Microsoft.SourceLink.AzureRepos.Git": "1.2.0-beta-22518-02",
           "Microsoft.SourceLink.GitHub": "1.2.0-beta-22518-02",
           "NETStandard.Library": "2.0.3",
@@ -69,7 +69,7 @@
         }
       },
       "Microsoft.Build.Tasks.Git/1.2.0-beta-22518-02": {},
-      "Microsoft.DotNet.XliffTasks/1.0.0-beta.22555.1": {},
+      "Microsoft.DotNet.XliffTasks/1.0.0-beta.22513.1": {},
       "Microsoft.NETCore.Platforms/1.1.0": {},
       "Microsoft.SourceLink.AzureRepos.Git/1.2.0-beta-22518-02": {
         "dependencies": {
@@ -180,7 +180,7 @@
           }
         }
       },
-      "FSharp.Core/7.0.0-dev": {
+      "FSharp.Core/7.0.201-dev": {
         "runtime": {
           "FSharp.Core.dll": {}
         },
@@ -226,9 +226,9 @@
           }
         }
       },
-      "FSharp.DependencyManager.Nuget/7.0.0-dev": {
+      "FSharp.DependencyManager.Nuget/7.0.201-dev": {
         "dependencies": {
-          "FSharp.Core": "7.0.0-dev",
+          "FSharp.Core": "7.0.201-dev",
           "System.Collections.Immutable": "6.0.0",
           "System.Reflection.Emit": "4.7.0",
           "System.Reflection.Metadata": "6.0.0",
@@ -282,7 +282,7 @@
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/43.7.102-dev": {
+    "FSharp.Compiler.Service/43.7.201-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -294,12 +294,12 @@
       "path": "microsoft.build.tasks.git/1.2.0-beta-22518-02",
       "hashPath": "microsoft.build.tasks.git.1.2.0-beta-22518-02.nupkg.sha512"
     },
-    "Microsoft.DotNet.XliffTasks/1.0.0-beta.22555.1": {
+    "Microsoft.DotNet.XliffTasks/1.0.0-beta.22513.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-qeJQ4svCJbfSYfXLMLSkbE781vY6Fi3LkaCjX1dHsY0HmInvQLUk4ptXmXu0aof3q43FA9qSjgGtxS6Lsy1l1Q==",
-      "path": "microsoft.dotnet.xlifftasks/1.0.0-beta.22555.1",
-      "hashPath": "microsoft.dotnet.xlifftasks.1.0.0-beta.22555.1.nupkg.sha512"
+      "sha512": "sha512-7MfwZXG878da4m05oge5Gi9zgTwAUW5NINDDkOBflkZf4rCZXyrPP57BvKpuRW765UzJ/C6gx6J4wVJc3vbvhg==",
+      "path": "microsoft.dotnet.xlifftasks/1.0.0-beta.22513.1",
+      "hashPath": "microsoft.dotnet.xlifftasks.1.0.0-beta.22513.1.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/1.1.0": {
       "type": "package",
@@ -399,12 +399,12 @@
       "path": "system.runtime.compilerservices.unsafe/6.0.0",
       "hashPath": "system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512"
     },
-    "FSharp.Core/7.0.0-dev": {
+    "FSharp.Core/7.0.201-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "FSharp.DependencyManager.Nuget/7.0.0-dev": {
+    "FSharp.DependencyManager.Nuget/7.0.201-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

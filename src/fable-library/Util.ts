@@ -1,5 +1,55 @@
 // tslint:disable:ban-types
 
+export type Nullable<T> = T | null | undefined;
+
+export type Option<T> = T | Some<T> | undefined;
+
+// Using a class here for better compatibility with TS files importing Some
+export class Some<T> {
+  public value: T;
+
+  constructor(value: T) {
+    this.value = value;
+  }
+
+  public toJSON() {
+    return this.value;
+  }
+
+  // Don't add "Some" for consistency with erased options
+  public toString() {
+    return String(this.value);
+  }
+
+  public GetHashCode() {
+    return structuralHash(this.value);
+  }
+
+  public Equals(other: Option<T>): boolean {
+    if (other == null) {
+      return false;
+    } else {
+      return equals(this.value, other instanceof Some ? other.value : other);
+    }
+  }
+
+  public CompareTo(other: Option<T>) {
+    if (other == null) {
+      return 1;
+    } else {
+      return compare(this.value, other instanceof Some ? other.value : other);
+    }
+  }
+}
+
+export function value<T>(x: Option<T>) {
+  if (x == null) {
+    throw new Error("Option has no value");
+  } else {
+    return x instanceof Some ? x.value : x;
+  }
+}
+
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,
@@ -40,7 +90,7 @@ export interface IEqualityComparer<T> {
   GetHashCode(x: T): number;
 }
 
-export interface ICollection<T> extends IterableIterator<T> {
+export interface ICollection<T> extends Iterable<T> {
   readonly Count: number;
   readonly IsReadOnly: boolean;
   Add(item: T): void;
@@ -104,13 +154,15 @@ export interface IEnumerator<T> extends IDisposable {
   Dispose(): void;
 }
 
-export interface IEnumerable<T> extends IterableIterator<T> {
+export interface IEnumerable<T> extends Iterable<T> {
   GetEnumerator(): IEnumerator<T>;
+  "System.Collections.IEnumerable.GetEnumerator"(): IEnumerator<any>;
 }
 
 export class Enumerable<T> implements IEnumerable<T> {
   constructor(private en: IEnumerator<T>) {}
   public GetEnumerator(): IEnumerator<T> { return this.en; }
+  public "System.Collections.IEnumerable.GetEnumerator"(): IEnumerator<any> { return this.en; }
   [Symbol.iterator]() {
     return this;
   }
@@ -153,11 +205,8 @@ export function getEnumerator<T>(e: IEnumerable<T> | Iterable<T>): IEnumerator<T
   else { return new Enumerator(e[Symbol.iterator]()); }
 }
 
-export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
   return {
-    [Symbol.iterator]() {
-      return this;
-    },
     next() {
       const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
       const current = hasNext ? en["System.Collections.Generic.IEnumerator`1.get_Current"]() : undefined;
@@ -166,7 +215,7 @@ export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
   };
 }
 
-export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): IterableIterator<T> {
+export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): Iterator<T> {
   return toIterator(toEnumerable(e).GetEnumerator());
 }
 
@@ -414,7 +463,7 @@ export function fastStructuralHash<T>(x: T): number {
 }
 
 // Intended for declared types that may or may not implement GetHashCode
-export function safeHash(x: IHashable | undefined): number {
+export function safeHash<T>(x: T): number {
   // return x == null ? 0 : isHashable(x) ? x.GetHashCode() : numberHash(ObjectRef.id(x));
   return identityHash(x);
 }
@@ -634,86 +683,127 @@ export function clear<T>(col: Iterable<T>) {
   }
 }
 
-const CURRIED = Symbol("curried");
+const curried = new WeakMap<object, object>();
 
-export function uncurry(arity: number, f: Function) {
-  // f may be a function option with None value
-  if (f == null || f.length > 1) {
-    return f;
-  }
-  const uncurried = (...args: any[]) => {
-    let res = f;
-    for (let i = 0; i < arity; i++) {
-      res = res(args[i]);
-    }
-    return res;
-  }
-  (uncurried as any)[CURRIED] = f;
-  return uncurried;
+export function uncurry2<T1, T2, TResult>(f: (a1: T1) => (a2: T2) => TResult) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2) => TResult }
+  const f2 = (a1: T1, a2: T2) => f(a1)(a2);
+  curried.set(f2, f);
+  return f2;
 }
 
-function _curry(args: any[],  arity: number, f: Function): (x: any) => any {
-  return (arg: any) => arity === 1
-    ? f(...args.concat([arg]))
-    // Note it's important to generate a new args array every time
-    // because a partially applied function can be run multiple times
-    : _curry(args.concat([arg]), arity - 1, f);
+export function curry2<T1, T2, TResult>(f: (a1: T1, a2: T2) => TResult) {
+  return curried.get(f) as ((a1: T1) => (a2: T2) => TResult) ?? ((a1: T1) => (a2: T2) => f(a1, a2));
 }
 
-export function curry(arity: number, f: Function): Function | undefined {
-  if (f == null || f.length === 1) {
-    return f;
-  }
-  else if (CURRIED in f) {
-    return (f as any)[CURRIED];
-  } else {
-    return _curry([], arity, f);
-  }
+export function uncurry3<T1, T2, T3, TResult>(f: (a1: T1) => (a2: T2) => (a3: T3) => TResult) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2, a3: T3) => TResult }
+  const f2 = (a1: T1, a2: T2, a3: T3) => f(a1)(a2)(a3);
+  curried.set(f2, f);
+  return f2;
 }
 
-export function checkArity(arity: number, f: Function): Function {
-  return f.length > arity
-    ? (...args1: any[]) => (...args2: any[]) => f.apply(undefined, args1.concat(args2))
-    : f;
+export function curry3<T1, T2, T3, TResult>(f: (a1: T1, a2: T2, a3: T3) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => f(a1, a2, a3));
 }
 
-export function partialApply(arity: number, f: Function, args: any[]): any {
-  if (f == null) {
-    return undefined;
-  } else if (CURRIED in f) {
-    f = (f as any)[CURRIED];
-    for (let i = 0; i < args.length; i++) {
-      f = f(args[i]);
-    }
-    return f;
-  } else {
-    return _curry(args, arity, f);
-  }
+export function uncurry4<T1, T2, T3, T4, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => TResult
+) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2, a3: T3, a4: T4) => TResult }
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4) => f(a1)(a2)(a3)(a4);
+  curried.set(f2, f);
+  return f2;
 }
 
-type CurriedArgMapping = [number, number] | 0; // expected arity, actual arity
+export function curry4<T1, T2, T3, T4, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => f(a1, a2, a3, a4));
+}
 
-export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
-  function mapArg(fn: Function, arg: any, mappings: CurriedArgMapping[], idx: number) {
-    const mapping = mappings[idx];
-    if (mapping !== 0) {
-      const expectedArity = mapping[0];
-      const actualArity = mapping[1];
-      if (expectedArity > 1) {
-        arg = curry(expectedArity, arg);
-      }
-      if (actualArity > 1) {
-        arg = uncurry(actualArity, arg);
-      }
-    }
-    const res = fn(arg);
-    if (idx + 1 === mappings.length) {
-      return res;
-    } else {
-      return (arg: any) => mapArg(res, arg, mappings, idx + 1);
-    }
-  }
-  return (arg: any) => mapArg(fn, arg, mappings, 0);
+export function uncurry5<T1, T2, T3, T4, T5, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => TResult
+) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5) => TResult }
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5) => f(a1)(a2)(a3)(a4)(a5);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry5<T1, T2, T3, T4, T5, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => f(a1, a2, a3, a4, a5));
+}
+
+export function uncurry6<T1, T2, T3, T4, T5, T6, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => TResult
+) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6) => TResult }
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6) => f(a1)(a2)(a3)(a4)(a5)(a6);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry6<T1, T2, T3, T4, T5, T6, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => f(a1, a2, a3, a4, a5, a6));
+}
+
+export function uncurry7<T1, T2, T3, T4, T5, T6, T7, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => TResult
+) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7) => TResult }
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry7<T1, T2, T3, T4, T5, T6, T7, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => f(a1, a2, a3, a4, a5, a6, a7));
+}
+
+export function uncurry8<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => TResult
+) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8) => TResult }
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry8<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => f(a1, a2, a3, a4, a5, a6, a7, a8));
+}
+
+export function uncurry9<T1, T2, T3, T4, T5, T6, T7, T8, T9, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => TResult
+) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9) => TResult }
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry9<T1, T2, T3, T4, T5, T6, T7, T8, T9, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => f(a1, a2, a3, a4, a5, a6, a7, a8, a9));
+}
+
+export function uncurry10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, TResult>(
+  f: (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => (a10: T10) => TResult
+) {
+  if (f == null) { return null as unknown as (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9, a10: T10) => TResult }
+  const f2 = (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9, a10: T10) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10);
+  curried.set(f2, f);
+  return f2;
+}
+
+export function curry10<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, TResult>(f: (a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9, a10: T10) => TResult) {
+  return curried.get(f) as (a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => (a10: T10) => TResult
+    ?? ((a1: T1) => (a2: T2) => (a3: T3) => (a4: T4) => (a5: T5) => (a6: T6) => (a7: T7) => (a8: T8) => (a9: T9) => (a10: T10) => f(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
 }
 
 // More performant method to copy arrays, see #2352

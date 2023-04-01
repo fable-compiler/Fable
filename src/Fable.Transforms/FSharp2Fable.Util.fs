@@ -10,10 +10,9 @@ open Fable.Core
 open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.FSharp2Fable
-open Extensions
 
 module Extensions =
-    let private areParamTypesEqual genArgs (args1: Fable.Type[]) (args2: IList<IList<FSharpParameter>>) =
+    let areParamTypesEqual genArgs (args1: Fable.Type[]) (args2: IList<IList<FSharpParameter>>) =
         // Not entirely sure why, but it seems members with a single unit argument sometimes have this parameter
         // and sometimes none, so just to be sure always remove single unit arguments
         let args2 =
@@ -25,42 +24,42 @@ module Extensions =
             Array.forall2 (typeEquals false) args1 args2
         else false
 
-    type FSharpEntity with
-        member entity.EnumerateMembersFunctionsAndValues(?includeHierarchy: bool): FSharpMemberOrFunctionOrValue seq =
-            let ownMembers = entity.TryGetMembersFunctionsAndValues()
-            match includeHierarchy with
-            | Some true ->
-                match TypeHelpers.tryGetBaseEntity entity with
-                | Some(baseDef, _) ->
-                    Seq.append ownMembers (baseDef.EnumerateMembersFunctionsAndValues(includeHierarchy=true))
-                | _ -> ownMembers
-            | _ -> ownMembers
+    // type FSharpEntity with
+    //     member entity.EnumerateMembersFunctionsAndValues(?includeHierarchy: bool): FSharpMemberOrFunctionOrValue seq =
+    //         let ownMembers = entity.TryGetMembersFunctionsAndValues()
+    //         match includeHierarchy with
+    //         | Some true ->
+    //             match TypeHelpers.tryGetBaseEntity entity with
+    //             | Some(baseDef, _) ->
+    //                 Seq.append ownMembers (baseDef.EnumerateMembersFunctionsAndValues(includeHierarchy=true))
+    //             | _ -> ownMembers
+    //         | _ -> ownMembers
 
-        member entity.TryFindMember(
-            compiledName: string,
-            isInstance: bool,
-            ?argTypes: Fable.Type[],
-            ?genArgs,
-            ?searchHierarchy: bool,
-            ?requireDispatchSlot: bool
-        ) =
-            let doNotRequireDispatchSlot = not(defaultArg requireDispatchSlot false)
-            let genArgs = defaultArg genArgs Map.empty
-            let argTypes =
-                // Remove single unit argument (see note in areParamTypesEqual above)
-                argTypes |> Option.map (function
-                    | [|Fable.Unit|] -> [||]
-                    | argTypes -> argTypes)
+    //     member entity.TryFindMember(
+    //         compiledName: string,
+    //         isInstance: bool,
+    //         ?argTypes: Fable.Type[],
+    //         ?genArgs,
+    //         ?searchHierarchy: bool,
+    //         ?requireDispatchSlot: bool
+    //     ) =
+    //         let doNotRequireDispatchSlot = not(defaultArg requireDispatchSlot false)
+    //         let genArgs = defaultArg genArgs Map.empty
+    //         let argTypes =
+    //             // Remove single unit argument (see note in areParamTypesEqual above)
+    //             argTypes |> Option.map (function
+    //                 | [|Fable.Unit|] -> [||]
+    //                 | argTypes -> argTypes)
 
-            entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
-            |> Seq.tryFind (fun m2 ->
-                if m2.IsInstanceMember = isInstance
-                    && m2.CompiledName = compiledName
-                    && (doNotRequireDispatchSlot || m2.IsDispatchSlot) then
-                    match argTypes with
-                    | Some argTypes -> areParamTypesEqual genArgs argTypes m2.CurriedParameterGroups
-                    | None -> true
-                else false)
+    //         entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
+    //         |> Seq.tryFind (fun m2 ->
+    //             if m2.IsInstanceMember = isInstance
+    //                 && m2.CompiledName = compiledName
+    //                 && (doNotRequireDispatchSlot || m2.IsDispatchSlot) then
+    //                 match argTypes with
+    //                 | Some argTypes -> areParamTypesEqual genArgs argTypes m2.CurriedParameterGroups
+    //                 | None -> true
+    //             else false)
 
 type FsField(fi: FSharpField) =
     let name = FsField.FSharpFieldName fi
@@ -170,7 +169,10 @@ type FsParam(p: FSharpParameter, ?isNamed) =
             |> Helpers.tryFindAtt "System.Runtime.InteropServices.DefaultParameterValueAttribute"
             |> Option.bind (fun att ->
                 Seq.tryHead att.ConstructorArguments
-                |> Option.map (fun (_, v) -> makeConstFromObj v))
+                |> Option.map (fun (t, v) ->
+                    if isNull v
+                    then TypeHelpers.makeType Map.empty t |> makeNullTyped
+                    else makeConstFromObj v))
         else None
 
     interface Fable.Parameter with
@@ -257,6 +259,8 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 type FsEnt(maybeAbbrevEnt: FSharpEntity) =
     let ent = Helpers.nonAbbreviatedDefinition maybeAbbrevEnt
 
+    let members = lazy (ent.TryGetMembersFunctionsAndValues())
+
     static let tryArrayFullName (ent: FSharpEntity) =
         if ent.IsArrayType then
             let rank =
@@ -315,6 +319,34 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             Path = path
         }
 
+    member _.TryFindMember(
+        compiledName: string,
+        isInstance: bool,
+        ?argTypes: Fable.Type[],
+        ?genArgs,
+        // ?searchHierarchy: bool,
+        ?requireDispatchSlot: bool
+    ) =
+        let doNotRequireDispatchSlot = not(defaultArg requireDispatchSlot false)
+        let genArgs = defaultArg genArgs Map.empty
+        let argTypes =
+            // Remove single unit argument (see note in areParamTypesEqual above)
+            argTypes |> Option.map (function
+                | [|Fable.Unit|] -> [||]
+                | argTypes -> argTypes)
+
+        // entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
+        members.Force()
+        |> Seq.tryFind (fun m ->
+            if m.CompiledName = compiledName &&
+                m.IsInstanceMember = isInstance &&
+                (doNotRequireDispatchSlot || m.IsDispatchSlot)
+            then
+                match argTypes with
+                | Some argTypes -> Extensions.areParamTypesEqual genArgs argTypes m.CurriedParameterGroups
+                | None -> true
+            else false)
+
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
         member _.DisplayName = ent.DisplayName
@@ -332,11 +364,11 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             ent.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
         member _.MembersFunctionsAndValues =
-            ent.EnumerateMembersFunctionsAndValues()
+            members.Force()
             |> Seq.map (fun m -> FsMemberFunctionOrValue(m))
 
-        member _.TryFindMember(info: Fable.MemberRefInfo) =
-            ent.TryFindMember(info.CompiledName, isInstance=info.IsInstance, ?argTypes=(Option.map List.toArray info.NonCurriedArgTypes))
+        member x.TryFindMember(info: Fable.MemberRefInfo) =
+            x.TryFindMember(info.CompiledName, isInstance=info.IsInstance, ?argTypes=(Option.map List.toArray info.NonCurriedArgTypes))
             |> Option.map (fun m -> FsMemberFunctionOrValue(m))
 
         member _.AllInterfaces =
@@ -580,16 +612,19 @@ module Helpers =
             typ.TypeDefinition.TryFullName = Some Types.unit
         else false
 
+    let isByRefType (typ: FSharpType) =
+        typ.HasTypeDefinition
+        && typ.TypeDefinition.IsByRef
+        // && ( typ.TypeDefinition.DisplayName = "byref" ||
+        //      typ.TypeDefinition.DisplayName = "inref" ||
+        //      typ.TypeDefinition.DisplayName = "outref")
+
     let isByRefValue (value: FSharpMemberOrFunctionOrValue) =
         // Value type "this" is passed as inref, so it has to be excluded
         // (Note: the non-abbreviated type of inref and outref is byref)
-        let typ = value.FullType
-        value.IsValue && not (value.IsMemberThisValue)
-        && typ.HasTypeDefinition
-        && typ.TypeDefinition.IsByRef
-        // && (typ.TypeDefinition.DisplayName = "byref" ||
-        //     typ.TypeDefinition.DisplayName = "inref" ||
-        //     typ.TypeDefinition.DisplayName = "outref")
+        value.IsValue
+        && not value.IsMemberThisValue
+        && isByRefType value.FullType
 
     let tryFindAtt fullName (atts: FSharpAttribute seq) =
         atts |> Seq.tryPick (fun att ->
@@ -1003,14 +1038,25 @@ module TypeHelpers =
             Fable.GenericParam(name, genParam.IsMeasure, constraints)
         | Some typ -> typ
 
+    let resolveTypeLambdaGenArgs (ctx: Context) genArgs lambda =
+        match lambda with
+        | FSharpExprPatterns.Lambda(arg, body) ->
+            ctx // leave lambda context as is
+        | _ ->
+            // if not a lambda, resolve the type args not alredy in context to Fable.Any
+            let newGenArgs = genArgs |> List.map (fun arg -> genParamName arg, Fable.Any)
+            let newCtxGenArgs = (ctx.GenericArgs, newGenArgs) ||> List.fold (fun map (k, v) ->
+                if Map.containsKey k map then map else Map.add k v map)
+            { ctx with GenericArgs = newCtxGenArgs }
+
     // Filter measure generic arguments here? (for that we need to pass the compiler, which needs a bigger refactoring)
     // Currently for Dart we're doing it in the Fable2Dart step
     let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) =
-        genArgs |> Seq.map (fun genArg ->
+        genArgs
+        |> Seq.mapToList (fun genArg ->
             if genArg.IsGenericParameter
             then resolveGenParam withConstraints ctxTypeArgs genArg.GenericParameter
             else makeTypeWithConstraints withConstraints ctxTypeArgs genArg)
-        |> Seq.toList
 
     let makeTypeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
         makeTypeGenArgsWithConstraints true ctxTypeArgs genArgs
@@ -1090,8 +1136,10 @@ module TypeHelpers =
             "FSharp.UMX.string`1", Choice1Of2 Fable.String
             "FSharp.UMX.Guid`1", Choice2Of2 Types.guid
             "FSharp.UMX.TimeSpan`1", Choice2Of2 Types.timespan
+            "FSharp.UMX.TimeOnly`1", Choice2Of2 Types.timeOnly
             "FSharp.UMX.DateTime`1", Choice2Of2 Types.datetime
             "FSharp.UMX.DateTimeOffset`1", Choice2Of2 Types.datetimeOffset
+            "FSharp.UMX.DateOnly`1", Choice2Of2 Types.dateOnly
         ]
 
     let private getMeasureFullName (genArgs: IList<FSharpType>) =
@@ -1105,20 +1153,16 @@ module TypeHelpers =
 
     let private makeRuntimeTypeWithMeasure (genArgs: IList<FSharpType>) fullName =
         let genArgs = [getMeasureFullName genArgs |> Fable.Measure]
-        let r: Fable.EntityRef =
-            {
-                FullName = fullName
-                Path = Fable.CoreAssemblyName "System.Runtime"
-            }
-        Fable.DeclaredType(r, genArgs)
+        let entRef: Fable.EntityRef =
+            { FullName = fullName
+              Path = Fable.CoreAssemblyName "System.Runtime" }
+        Fable.DeclaredType(entRef, genArgs)
 
-    let private makeFSharpCoreType fullName =
-            let r: Fable.EntityRef =
-                {
-                    FullName = fullName
-                    Path = Fable.CoreAssemblyName "FSharp.Core"
-                }
-            Fable.DeclaredType(r, [])
+    let private makeFSharpCoreType genArgs fullName =
+        let entRef: Fable.EntityRef =
+            { FullName = fullName
+              Path = Fable.CoreAssemblyName "FSharp.Core" }
+        Fable.DeclaredType(entRef, genArgs)
 
     let makeTypeFromDef withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
@@ -1156,14 +1200,15 @@ module TypeHelpers =
             | DicContains numbersWithMeasure kind ->
                 let info = getMeasureFullName genArgs |> Fable.NumberInfo.IsMeasure
                 Fable.Number(kind, info)
-            | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" as fullName -> makeFSharpCoreType fullName
             | DicContains runtimeTypesWithMeasure choice ->
                 match choice with
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
+            | fullName when tdef.IsMeasure -> Fable.Measure fullName
             | _ ->
                 let mkDeclType () =
-                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs)
+                    let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
+                    Fable.DeclaredType(FsEnt.Ref tdef, genArgs)
                 // Emit attribute
                 if tdef.Attributes |> hasAttribute Atts.emitAttr then
                     mkDeclType ()
@@ -1206,7 +1251,10 @@ module TypeHelpers =
             else
 #endif
                 makeTypeFromDef withConstraints ctxTypeArgs t.GenericArguments t.TypeDefinition
-        else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
+        elif t.IsMeasureType then
+            Fable.Measure ""
+        else
+            Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
     let makeType (ctxTypeArgs: Map<string, Fable.Type>) t =
         makeTypeWithConstraints true ctxTypeArgs t
@@ -1247,14 +1295,21 @@ module TypeHelpers =
             if t.HasTypeDefinition then Some t.TypeDefinition else None
         else None
 
-    let tryFindMember (entity: Fable.Entity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
-        match entity with
+    let tryFindMember (ent: Fable.Entity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
+        match ent with
         | :? FsEnt as entity ->
-            entity.FSharpEntity.TryFindMember(compiledName, isInstance, List.toArray argTypes, genArgs, searchHierarchy=true)
+            entity.TryFindMember(compiledName, isInstance, List.toArray argTypes, genArgs) //, searchHierarchy=true)
         | _ -> None
 
-    let tryFindAbstractMember (ent: FSharpEntity) (compiledName: string) (argTypes: Fable.Type[] option) =
-        ent.TryFindMember(compiledName, isInstance=true, ?argTypes=argTypes, requireDispatchSlot=true)
+    let tryFindAbstractMember (com: IFableCompiler) (ent: FSharpEntity) (compiledName: string) (argTypes: Fable.Type[] option) =
+        let entRef = FsEnt.Ref ent
+        com.TryGetEntity(entRef)
+        |> Option.bind (fun ent ->
+            match ent with
+            | :? FsEnt as entity ->
+                entity.TryFindMember(compiledName, isInstance=true, ?argTypes=argTypes, requireDispatchSlot=true)
+            | _ -> None
+        )
 
     let tryFindWitness (ctx: Context) argTypes isInstance traitName =
         ctx.Witnesses |> List.tryFind (fun w ->
@@ -1314,6 +1369,7 @@ module TypeHelpers =
                 // This is necessary because: `makeType` reduces Erased Unions (including Ux) to `Any` -> no type info any more
                 //
                 // Note: no handling of nested types: `U2<string, U<int, float>>` -> `int` & `float` don't get extract
+                let ty = ty.AbbreviatedType
                 match ty with
                 | UType tys ->
                     tys
@@ -1330,8 +1386,8 @@ module TypeHelpers =
                 match ty with
                 | TypeDefinition tdef ->
                     match FsEnt.FullName tdef with
-                    | Types.valueOption -> Some(ty.GenericArguments[0], true)
-                    | Types.option -> Some(ty.GenericArguments[0], false)
+                    | Types.valueOption -> Some(ty.GenericArguments[0].AbbreviatedType, true)
+                    | Types.option -> Some(ty.GenericArguments[0].AbbreviatedType, false)
                     | _ -> None
                 | _ -> None
             and (|UType|_|) (ty: FSharpType) =
@@ -1350,6 +1406,7 @@ module TypeHelpers =
                 match ty with
                 | TypeDefinition UName ->
                     ty.GenericArguments
+                    |> Seq.map (fun t -> t.AbbreviatedType)
                     |> Seq.toList
                     |> Some
                 | _ -> None
@@ -1635,15 +1692,18 @@ module Identifiers =
             |> Option.filter fsRef.Equals
             |> Option.bind (fun _ -> value))
 
-    let tryGetIdentFromScopeIf (ctx: Context) r predicate =
+    let tryGetIdentFromScopeIf (ctx: Context) r typ predicate =
         ctx.Scope |> List.tryPick (fun (fsRef, ident, _) ->
             fsRef
             |> Option.filter predicate
-            |> Option.map (fun _ -> identWithRange r ident |> Fable.IdentExpr))
+            |> Option.map (fun _ ->
+                let ident = identWithRange r ident
+                let ident = match typ with Some t -> { ident with Type = t } | None -> ident
+                Fable.IdentExpr ident))
 
     /// Get corresponding identifier to F# value in current scope
-    let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
-        tryGetIdentFromScopeIf ctx r fsRef.Equals
+    let tryGetIdentFromScope (ctx: Context) r typ (fsRef: FSharpMemberOrFunctionOrValue) =
+        tryGetIdentFromScopeIf ctx r typ fsRef.Equals
 
 module Util =
     open Helpers
@@ -1698,15 +1758,24 @@ module Util =
             | None -> None
         Fable.TryCatch(body, catchClause, finalizer, r)
 
-    let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type list) =
-        match memb.DeclaringEntity with
-        // It seems that for F# types memb.GenericParameters contains all generics
-        // but for BCL types we need to check the DeclaringEntity generics too
-        | Some ent when genArgs.Length > memb.GenericParameters.Count ->
-            Seq.append ent.GenericParameters memb.GenericParameters
-        | _ -> upcast memb.GenericParameters
-        |> Seq.map genParamName
-        |> fun genParams -> Seq.zip genParams genArgs
+    let addGenArgsToContext (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type list) =
+        if not(List.isEmpty genArgs) then
+            let genParams =
+                match memb.DeclaringEntity with
+                // It seems that for F# types memb.GenericParameters contains all generics
+                // but for BCL types we need to check the DeclaringEntity generics too
+                | Some ent when genArgs.Length > memb.GenericParameters.Count ->
+                    Seq.append ent.GenericParameters memb.GenericParameters |> Seq.toList
+                | _ -> Seq.toList memb.GenericParameters
+                |> List.map genParamName
+
+            if List.sameLength genParams genArgs then
+                let ctxGenArgs =
+                    (ctx.GenericArgs, List.zip genParams genArgs)
+                    ||> List.fold (fun map (k, v) -> Map.add k v map)
+                { ctx with GenericArgs = ctxGenArgs }
+            else ctx
+        else ctx
 
     /// Takes only the first CurriedParameterGroup into account.
     /// If there's only a single unit parameter, returns 0.
@@ -1869,23 +1938,19 @@ module Util =
         let isFromDllRef = Option.isSome ent.Assembly.FileName
         isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
 
-    let getEntityType (ent: Fable.Entity): Fable.Type =
-        let genArgs = ent.GenericParameters |> List.map (fun g ->
-            Fable.Type.GenericParam(g.Name, g.IsMeasure, Seq.toList g.Constraints))
-        Fable.Type.DeclaredType(ent.Ref, genArgs)
-
     let getEntityGenArgs (ent: Fable.Entity) =
         ent.GenericParameters
         |> List.map (fun p ->
             Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
 
+    let getEntityType (ent: Fable.Entity): Fable.Type =
+        let genArgs = getEntityGenArgs ent
+        Fable.Type.DeclaredType(ent.Ref, genArgs)
+
     let getMemberGenArgs (memb: Fable.MemberFunctionOrValue) =
         memb.GenericParameters
-        |> List.choose (fun p ->
-            if not p.IsMeasure then
-                Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints)
-                |> Some
-            else None)
+        |> List.map (fun p ->
+            Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
@@ -2309,7 +2374,7 @@ module Util =
         | Replaced com ctx r typ callInfo replaced -> replaced
         | Inlined com ctx r typ callee callInfo expr, _ -> expr
 
-        | Try (tryGetIdentFromScope ctx r) funcExpr, Some entity ->
+        | Try (tryGetIdentFromScope ctx r None) funcExpr, Some entity ->
             if isModuleValueForCalls com entity memb then funcExpr
             else makeCall r typ callInfo funcExpr
 
@@ -2338,7 +2403,7 @@ module Util =
                             memb.CurriedParameterGroups[0] |> Seq.map (fun p -> makeType Map.empty p.Type) |> Seq.toArray |> Some
                         else None
                     entity |> tryFindBaseEntity (fun ent ->
-                        tryFindAbstractMember ent memb.CompiledName paramTypes |> Option.isSome)
+                        tryFindAbstractMember com ent memb.CompiledName paramTypes |> Option.isSome)
                     |> Option.defaultValue entity
                 | _ -> entity
 
@@ -2363,8 +2428,7 @@ module Util =
             com.ApplyMemberCallPlugin(fableMember, callExpr)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type list) callee args (memb: FSharpMemberOrFunctionOrValue) =
-        let newCtxGenArgs = matchGenericParamsFrom memb genArgs |> Seq.toList
-        let ctx = { ctx with GenericArgs = (ctx.GenericArgs, newCtxGenArgs) ||> Seq.fold (fun map (k, v) -> Map.add k v map) }
+        let ctx = addGenArgsToContext ctx memb genArgs
         let memberRef = getFunctionMemberRef memb
 
         Fable.CallInfo.Create(
@@ -2386,5 +2450,5 @@ module Util =
             Fable.Value(Fable.UnitConstant, r)
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
-        | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
+        | Try (tryGetIdentFromScope ctx r (Some typ)) expr, _ -> expr
         | _ -> getValueMemberRef v |> memberIdent com r typ v

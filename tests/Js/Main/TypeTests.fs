@@ -18,39 +18,39 @@ type ITest4 =
     abstract Add: int * int -> int
 
 type TestType(s: string) =
-    member __.Value = s
+    member _.Value = s
     interface ITest
 
 type TestType2(s: string) =
-    member __.Value = s
+    member _.Value = s
     interface ITest
 
 type TestType3() =
-    member __.Value = "Hi"
+    member _.Value = "Hi"
     interface ITest
 
 type TestType4() =
     inherit TestType3()
-    member __.Value2 = "Bye"
+    member _.Value2 = "Bye"
     interface ITest2
 
 type TestType5(greeting: string) =
-    member __.Value = greeting
-    member __.Overload(x) = x + x
-    member __.Overload(x, y) = x + y
+    member _.Value = greeting
+    member _.Overload(x) = x + x
+    member _.Overload(x, y) = x + y
 
 type TestType8(?greeting) =
-    member __.Value = defaultArg greeting "Hi"
+    member _.Value = defaultArg greeting "Hi"
 
 type TestType9() =
     inherit TestType8()
     let foo = TestType8("Hello")
-    member __.Greet(name) = foo.Value + " " + name
+    member _.Greet(name) = foo.Value + " " + name
 
 type TestType10Base() =
     interface ITest4 with
-        member __.Add2(x, y) = x - y
-        member __.Add(x, y) = x + y
+        member _.Add2(x, y) = x - y
+        member _.Add(x, y) = x + y
 
 type TestType10Child() =
     inherit TestType10Base()
@@ -65,12 +65,12 @@ type T4 = TestType4
 type TestType6(x: int) =
     let mutable i = x
     member val Value1 = i with get, set
-    member __.Value2 = i + i
-    member __.Value3 with get() = i * i and set(v) = i <- v
+    member _.Value2 = i + i
+    member _.Value3 with get() = i * i and set(v) = i <- v
 
 type TestType7(a1, a2, a3) =
     let arr = [|a1; a2; a3|]
-    member __.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v
+    member _.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v
 
 type A  = { thing: int } with
     member x.show() = string x.thing
@@ -100,7 +100,7 @@ type Serializable(?i: int) =
 
 type SecondaryCons(x: int) =
     new () = SecondaryCons(5)
-    member __.Value = x
+    member _.Value = x
 
 // type SecondaryConsChild() =
 //     inherit SecondaryCons()
@@ -108,8 +108,9 @@ type SecondaryCons(x: int) =
 type MultipleCons(x: int, y: int) =
     new () = MultipleCons(2,3)
     new (x:int) = MultipleCons(x,4)
-    member __.Value = x + y
+    member _.Value = x + y
 
+#if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type AbstractClassWithDefaults () =
     abstract MethodWithDefault : unit -> string
@@ -128,6 +129,7 @@ type ConcreteClass2 () =
     inherit AbstractClassWithDefaults()
     override x.MethodWithDefault () = "Hi "
     override x.MustImplement () = "World!!"
+#endif
 
 [<AbstractClass>]
 type AbstractClass3() =
@@ -177,6 +179,7 @@ type FooImplementor(i: int) =
 type FooImplementorChild() =
     inherit FooImplementor(3)
 
+#if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type AbstractFoo() =
     abstract member Foo2: unit -> string
@@ -188,6 +191,7 @@ type AbstractFoo() =
 type ChildFoo() =
     inherit AbstractFoo()
     override this.Foo2() = "BAR"
+#endif
 
 type BaseClass (x: int) =
     abstract member Init: unit -> int
@@ -202,12 +206,12 @@ type ExtendedClass () =
 
 type BaseClass2() =
     let field = 1
-    member __.A() = field
+    member _.A() = field
 
 type ExtendedClass2() =
     inherit BaseClass2()
-    member __.A() = 2
-    member __.B() = base.A()
+    member _.A() = 2
+    member _.B() = base.A()
 
 type Employee = { name: string; age: float; location: Location }
 and Location = { name: string; mutable employees: Employee list }
@@ -226,13 +230,19 @@ type ValueType1<'T>(value: 'T) =
 type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
+#if !FABLE_COMPILER_TYPESCRIPT
+[<Struct>]
 type ValueType3 =
   struct
     val mutable public X : int
   end
+#endif
 
 [<Struct>]
 type StructUnion = Value of string
+
+[<Struct>]
+type SimpleRecord = { A: string; B: string }
 
 type Point2D =
    struct
@@ -245,16 +255,16 @@ exception MyEx of int*string
 
 type MyEx2(f: float) =
   inherit exn(sprintf "Code: %i" (int f))
-  member __.Code = f
+  member _.Code = f
 
 type ThisContextInConstructor(v) =
     let f () = v
     member val Value = f
 
 type DowncastTest(value: int) =
-    member __.Value = value
+    member _.Value = value
     interface System.IDisposable with
-        member __.Dispose() = ()
+        member _.Dispose() = ()
 
 [<Class>]
 type TypeWithClassAttribute =
@@ -283,11 +293,11 @@ type Test_TestTypeWithParameterizedUnitMeasure = {
 
 // -------------------------------------------------------------
 
-// Tested ported from https://github.com/fable-compiler/Fable/pull/1336/files
-type TestTypeWithDefaultValue() =
-    [<DefaultValue>] val mutable IntValue: int
-    [<DefaultValue>] val mutable StringValue: string
-    [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
+// Test ported from https://github.com/fable-compiler/Fable/pull/1336/files
+// type TestTypeWithDefaultValue() =
+//     [<DefaultValue>] val mutable IntValue: int
+//     [<DefaultValue>] val mutable StringValue: string
+//     [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
 
 type Default1 = int
 
@@ -309,6 +319,7 @@ type InfoB = {
     Bar: string
 }
 
+#if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type InfoAClass(info: InfoA) =
     abstract WithInfo: InfoA -> InfoAClass
@@ -379,6 +390,7 @@ type BarClass(x) =
         member _.Item with get(i) = x.[i] and set i c = x <- FooClass.ChangeChar(x, i + 1, c)
         member _.Item with get(c) = x.ToCharArray() |> Array.exists ((=) c)
         member _.Sum(items) = Array.reduce (fun x y -> x + x + y + y) items
+#endif
 
 type Interface2 =
     abstract Value: int
@@ -462,6 +474,21 @@ type IndexedProps(v: int) =
     let mutable v = v
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
     member _.Item with get (v2: float) = float v + v2 / 2.
+
+type TypeWithByRefMember() =
+  static member DoubleIntByRef (x: byref<int>) : unit = x <- 2 * x
+
+let inline doubleIntByRef (x: ^a) (input: int) : int =
+    let mutable value = input
+    (^a: (static member DoubleIntByRef: byref<int> -> unit) &value)
+    value
+
+let byrefFunc(n: byref<int>) =
+    n <- n + n
+
+let inline callWithByrefCreatedFromByrefInlined(n: byref<int>) =
+    let f = &n
+    byrefFunc &f
 
 let tests =
   testList "Types" [
@@ -697,6 +724,7 @@ let tests =
         equal 9 m2.Value
         equal 14 m3.Value
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Abstract methods with default work" <| fun () -> // See #505
         let x = ConcreteClass()
         x.MethodWithDefault() |> equal "Hello "
@@ -709,6 +737,7 @@ let tests =
         let x = ConcreteClass3() :> AbstractClass3
         x.MyProp <- 2
         equal 7 x.MyProp
+#endif
 
     testCase "Interface setters don't conflict" <| fun () -> // See #505
         let x = XISomeInterface () :> ISomeInterface
@@ -740,12 +769,14 @@ let tests =
         (foo :> IFoo).MySetter <- 7
         (foo :> IFoo).MySetter |> equal 19
 
+#if !FABLE_COMPILER_TYPESCRIPT
     // TODO: Interface and abstract methods with same name clash
     testCase "A type overloading an interface method can be inherited" <| fun () ->
         let foo = ChildFoo() :> AbstractFoo
         foo.Foo2() |> equal "BAR"
         (foo :> IFoo).Foo() |> equal "BARFOO"
         mangleFoo foo |> equal "BARFOO"
+#endif
 
     testCase "Interface casting round-trip" <| fun () -> // See #1452
         let d = new DowncastTest(3) :> System.IDisposable
@@ -805,6 +836,7 @@ let tests =
         let p = Point2D(2.)
         p.Y |> equal 2.
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "struct without explicit ctor works" <| fun () ->
         let t1 = ValueType3(X=10)
         t1.X |> equal 10
@@ -814,8 +846,16 @@ let tests =
         (compare t1 t2) |> equal 1
         t2.X <- 10
         t1 |> equal t2
-
         (compare t1 t2) |> equal 0
+#endif
+
+    testCase "copying struct records works" <| fun () -> // See #3371
+        let simple : SimpleRecord = { A = ""; B = "B" }
+        let simpleRecord = { simple with A = "A" }
+        simpleRecord.A |> equal "A"
+        simpleRecord.B |> equal "B"
+        simple.A |> equal ""
+        simple.B |> equal "B"
 
     testCase "Custom F# exceptions work" <| fun () ->
         try
@@ -878,6 +918,7 @@ let tests =
 //        withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
 //        withDefaultValue.ObjValue |> equal null
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Private fields don't conflict with parent classes" <| fun _ -> // See #2070
         let a1 = InfoBClass({ InfoA = { Foo = "foo" }; Bar = "bar" }) :> InfoAClass
         let a2 = a1.WithFoo("foo2")
@@ -940,6 +981,7 @@ let tests =
         bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + bar2.[2].ToString() + (sprintf "%b%b" bar2.['B'] bar2.['x'])
         bar2.Bar <- bar2.Bar + bar2.Sum("a", "bc", "d")
         bar2.Bar |> equal "BZr9536.74rtruefalseaabcbcaabcbcdd"
+#endif
 
     testCase "Multiple `this` references work in nested attached members" <| fun _ ->
         (MixedThese(2) :> Interface1).Create(3).Add() |> equal 5
@@ -1014,4 +1056,23 @@ let tests =
     testCase "Can call the base version of a mangled abstract method that was declared above in the hierarchy" <| fun () ->
         let c = ConcreteClass1()
         c.MyMethod(4) |> equal 58
+
+    // See #3328
+    testCase "SRTP works with byref" <| fun () ->
+      let result = doubleIntByRef (TypeWithByRefMember()) 7
+      result |> equal 14
+
+    // See #3328
+    testCase "inline byref works" <| fun () ->
+        let mutable an_int = 22
+        callWithByrefCreatedFromByrefInlined &an_int
+        an_int |> equal 44
+
+    // See #3328
+    testCase "inline byref works (with separate binding for reference)" <| fun () ->
+        let mutable an_int = 33
+        let intRef = &an_int
+        ignore intRef
+        callWithByrefCreatedFromByrefInlined &intRef
+        an_int |> equal 66
   ]

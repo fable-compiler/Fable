@@ -952,7 +952,7 @@ module internal DescriptionListsImpl =
 
     /// Select the items that participate in a MethodGroup.
     let SelectMethodGroupItems g m item =
-#if FABLE_COMPILER
+#if NO_TYPEPROVIDERS
         ignore m
 #endif
         match item with 

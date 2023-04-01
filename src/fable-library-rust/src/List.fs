@@ -65,7 +65,7 @@ let tail (xs: 'T list) = //xs.Tail
     | None -> invalidArg "list" SR.inputListWasEmpty
 
 let length (xs: 'T list) = //xs.Length
-    let rec inner_loop i xs =
+    let rec inner_loop i (xs: 'T list) =
         match getRoot xs with
         | None -> i
         | Some node -> inner_loop (i + 1) node.tail
@@ -635,10 +635,13 @@ let transpose (lists: 'T list list): 'T list list =
         let tRows = head lists |> map singleton
         let nodes = tRows |> map getRoot |> toArray
         tail lists |> iterate (fun xs ->
+            let mutable len = 0
             xs |> iterateIndexed (fun i x ->
-                if i >= nodes.Length then
-                    invalidArg "lists" SR.listsHadDifferentLengths
-                nodes[i] <- nodes[i] |> appendConsNoTail x))
+                len <- len + 1
+                nodes[i] <- nodes[i] |> appendConsNoTail x)
+            if len <> nodes.Length then
+                invalidArg "lists" SR.listsHadDifferentLengths
+        )
         tRows
 
 let distinct<'T when 'T: equality> (xs: 'T list): 'T list =

@@ -15,7 +15,7 @@ let foo: string = importMember "./js1/lib.js"
 /// Classes from included JS files work
 [<Import("Bar","./js2/lib.js")>]
 type Bar(i: int, s: string) =
-    member __.generator(): string = jsNative
+    member _.generator(): string = jsNative
 
 /// Default imports work
 let bar: string = importDefault "./js2/lib.js"
@@ -28,7 +28,7 @@ let getArgCount: obj = importMember "./js2/lib.js"
 let foo = "foo"
 
 type Bar(i: int, s: string) =
-    member __.generator() =
+    member _.generator() =
         String.replicate i s
 let bar = "bar"
 

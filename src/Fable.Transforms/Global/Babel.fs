@@ -30,9 +30,9 @@ type Expression =
     | ClassExpression of
         members: ClassMember array *
         id: Identifier option *
-        superClass: Expression option *
+        superClass: SuperClass option *
         implements: ClassImplements array option *
-        typeParameters: TypeParameterDeclaration option *
+        typeParameters: TypeParameter array *
         loc: SourceLocation option
     | ClassImplements of ClassImplements
     | Super of loc: SourceLocation option
@@ -43,48 +43,53 @@ type Expression =
     | ObjectExpression of properties: ObjectMember array * loc: SourceLocation option
     | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
-    | CallExpression of callee: Expression * args: Expression array * typeParameters: TypeParameterInstantiation option * loc: SourceLocation option
+    | CallExpression of callee: Expression * args: Expression array * typeArguments: TypeAnnotation array * loc: SourceLocation option
     | UnaryExpression of argument: Expression * operator: string * loc: SourceLocation option
     | UpdateExpression of prefix: bool * argument: Expression * operator: string * loc: SourceLocation option
     | BinaryExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
     | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | ConditionalExpression of test: Expression * consequent: Expression * alternate: Expression * loc: SourceLocation option
-    | MemberExpression of object: Expression * property: Expression * computed: bool * loc: SourceLocation option
-    | NewExpression of callee: Expression * args: Expression array * typeParameters: TypeParameterInstantiation option * loc: SourceLocation option
+    | MemberExpression of object: Expression * property: Expression * isComputed: bool * loc: SourceLocation option
+    | NewExpression of callee: Expression * args: Expression array * typeArguments: TypeAnnotation array * loc: SourceLocation option
     | FunctionExpression of
         id: Identifier option *
-        parameters: Pattern array *
+        parameters: Parameter array *
         body: BlockStatement *
         returnType: TypeAnnotation option *
-        typeParameters: TypeParameterDeclaration option *
+        typeParameters: TypeParameter array *
         loc: SourceLocation option
     | ArrowFunctionExpression of
-        parameters: Pattern array *
+        parameters: Parameter array *
         body: BlockStatement *
         returnType: TypeAnnotation option *
-        typeParameters: TypeParameterDeclaration option *
+        typeParameters: TypeParameter array *
         loc: SourceLocation option
+    | AsExpression of expression: Expression * typeAnnotation: TypeAnnotation
 
-type Pattern =
-    | RestElement of argument: Pattern
-    | Identifier of name: Identifier * accessModifier: AccessModifier option
+type Parameter =
+    | Parameter of name: string * isOptional: bool * isNamed: bool * isSpread: bool * typeAnnotation: TypeAnnotation option
 
     member this.Name =
         match this with
-        | RestElement(argument) -> argument.Name
-        | Identifier(Identifier.Identifier(name=name), _) -> name
+        | Parameter(name=name) -> name
 
     member this.IsNamed =
         match this with
-        | Identifier(Identifier.Identifier(named=named), _) -> named
-        | RestElement _ -> false
+        | Parameter(isNamed=isNamed) -> isNamed
 
     member this.AsNamed =
         match this with
-        | Identifier(Identifier.Identifier(name, optional, _named, typeAnnotation, loc), accessModifier) ->
-            Identifier(Identifier.Identifier(name, optional, true, typeAnnotation, loc), accessModifier)
-        | RestElement argument -> argument.AsNamed // Named arguments cannot be spread
+        | Parameter(id, isOptional, _isNamed, isSpread, typeAnnotation) -> Parameter(id, isOptional, true, isSpread, typeAnnotation)
+
+    member this.AsOptional =
+        match this with
+        | Parameter(id, _isOptional, isNamed, isSpread, typeAnnotation) -> Parameter(id, true, isNamed, isSpread, typeAnnotation)
+
+    member this.AsSpread =
+        match this with
+        | Parameter(id, isOptional, isNamed, _isSpread, typeAnnotation) -> Parameter(id, isOptional, isNamed, true, typeAnnotation)
+
 
 type Literal =
     | StringLiteral of StringLiteral
@@ -117,37 +122,37 @@ type Declaration =
     | ClassDeclaration of
         members: ClassMember array *
         id: Identifier option *
-        superClass: Expression option *
+        superClass: SuperClass option *
         implements: ClassImplements array option *
-        typeParameters: TypeParameterDeclaration option *
+        typeParameters: TypeParameter array *
         loc: SourceLocation option
-    | VariableDeclaration of VariableDeclaration
+    | VariableDeclaration of
+        var: VariableDeclaration
     | FunctionDeclaration of
-        parameters: Pattern array *
+        parameters: Parameter array *
         body: BlockStatement *
         id: Identifier *
         returnType: TypeAnnotation option *
-        typeParameters: TypeParameterDeclaration option *
+        typeParameters: TypeParameter array *
         loc: SourceLocation option
     | InterfaceDeclaration of
         id: Identifier *
-        body: ObjectTypeAnnotation *
-        extends: InterfaceExtends array *
-        implements: ClassImplements array *
-        typeParameters: TypeParameterDeclaration option
+        members: AbstractMember array *
+        extends: TypeAnnotation array *
+        typeParameters: TypeParameter array
     | EnumDeclaration of
         name: string *
         cases: (string * Expression) array *
         isConst: bool
     | TypeAliasDeclaration of
         name: string *
-        typeParameters: TypeParameterDeclaration *
+        typeParameters: TypeParameter array *
         alias: TypeAnnotation
 
 /// A module import or export declaration.
 type ModuleDeclaration =
     | PrivateModuleDeclaration of statement: Statement
-    /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
+    /// An export isNamed declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
     /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
     | ExportNamedDeclaration of declaration: Declaration
     | ExportAllDeclaration of source: Literal * loc: SourceLocation option
@@ -177,8 +182,7 @@ type ModuleDeclaration =
 
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier =
-    // TODO: Move optional, named and typeAnnotation to Pattern.Identifier
-    | Identifier of name: string * optional: bool * named: bool * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
+    | Identifier of name: string * loc: SourceLocation option
 
 type StringLiteral =
     | StringLiteral of value: string * loc: SourceLocation option
@@ -226,11 +230,11 @@ type SwitchCase =
 
 /// A catch clause following a try block.
 type CatchClause =
-    | CatchClause of param: Pattern * body: BlockStatement * loc: SourceLocation option
+    | CatchClause of param: string * annotation: TypeAnnotation option * body: BlockStatement * loc: SourceLocation option
 
 // Declarations
 type VariableDeclarator =
-    | VariableDeclarator of id: Pattern * init: Expression option
+    | VariableDeclarator of name: string * annotation: TypeAnnotation option * typeParameters: TypeParameter array * init: Expression option
 
 type VariableDeclarationKind =
     | Var
@@ -238,7 +242,7 @@ type VariableDeclarationKind =
     | Const
 
 type VariableDeclaration =
-    | VariableDeclaration of declarations: VariableDeclarator array * kind: string * loc: SourceLocation option
+    | VariableDeclaration of declarations: VariableDeclarator array * kind: VariableDeclarationKind * loc: SourceLocation option
 
 // Loops
 
@@ -310,16 +314,26 @@ type VariableDeclaration =
 //    inherit Node("SpreadProperty", ?loc = loc)
 //    member _.Argument: Expression = argument
 
-type ObjectMember =
-    | ObjectProperty of key: Expression * value: Expression * computed: bool
-    | ObjectMethod of
-        kind: string *
+type AbstractMember =
+    | AbstractProperty of key: Expression * returnType: TypeAnnotation * isComputed: bool
+    | AbstractMethod of
+        kind: ObjectMethodKind *
         key: Expression *
-        parameters: Pattern array *
+        parameters: Parameter array *
+        returnType: TypeAnnotation *
+        typeParameters: TypeParameter array *
+        isComputed: bool
+
+type ObjectMember =
+    | ObjectProperty of key: Expression * value: Expression * isComputed: bool
+    | ObjectMethod of
+        kind: ObjectMethodKind *
+        key: Expression *
+        parameters: Parameter array *
         body: BlockStatement *
-        computed: bool *
+        isComputed: bool *
         returnType: TypeAnnotation option *
-        typeParameters: TypeParameterDeclaration option *
+        typeParameters: TypeParameter array *
         loc: SourceLocation option
 
 //    let shorthand = defaultArg shorthand_ false
@@ -356,39 +370,41 @@ type AccessModifier =
     | Protected
     | Readonly
 
+type SuperClass =
+    | SuperType of TypeAnnotation
+    | SuperExpression of Expression
+
 type ClassMember =
     | ClassMethod of
-        kind: string *
-        key: Expression *
-        parameters: Pattern array *
+        kind: ClassMethodKind *
+        parameters: Parameter array *
         body: BlockStatement *
-        computed: bool *
-        ``static``: bool option *
-        ``abstract``: bool option *
+        isStatic: bool *
+        isAbstract: bool *
         returnType: TypeAnnotation option *
-        typeParameters: TypeParameterDeclaration option *
+        typeParameters: TypeParameter array *
         loc: SourceLocation option
     | ClassProperty of
         key: Expression *
         value: Expression option *
-        computed: bool *
-        ``static``: bool *
-        optional: bool *
+        isComputed: bool *
+        isStatic: bool *
+        isOptional: bool *
         typeAnnotation: TypeAnnotation option *
         accessModifier: AccessModifier option *
         loc: SourceLocation option
 
 type ClassMethodKind =
-    | ClassPrimaryConstructor | ClassFunction | ClassGetter | ClassSetter
-
-    // This appears in astexplorer.net but it's not documented
-    // member _.Expression: bool = false
+    | ClassPrimaryConstructor of AccessModifier[]
+    | ClassFunction of key: Expression * isComputed: bool
+    | ClassGetter of key: Expression * isComputed: bool
+    | ClassSetter of key: Expression * isComputed: bool
 
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
 type ClassImplements =
-    | ClassImplements of id: Identifier * typeParameters: TypeParameterInstantiation option
+    | ClassImplements of id: Identifier * typeArguments: TypeAnnotation array
 
 // type MetaProperty(meta, property, ?loc) =
 //     interface Expression with
@@ -421,19 +437,19 @@ type ExportSpecifier =
 
 // Type Annotations
 type TypeAnnotation =
-    | AliasTypeAnnotation of id: Identifier * typeParameters: TypeParameterInstantiation
+    | AliasTypeAnnotation of id: Identifier * typeArguments: TypeAnnotation array
     | AnyTypeAnnotation
     | VoidTypeAnnotation
     | StringTypeAnnotation
     | NumberTypeAnnotation
     | BooleanTypeAnnotation
     | UnionTypeAnnotation of types: TypeAnnotation array
-    | ObjectTypeAnnotation of ObjectTypeAnnotation
+    | IntersectionTypeAnnotation of types: TypeAnnotation array
+    | ObjectTypeAnnotation of AbstractMember array
     | FunctionTypeAnnotation of
         parameters: FunctionTypeParam array *
         returnType: TypeAnnotation *
-        typeParameters: TypeParameterDeclaration *
-        rest: FunctionTypeParam option
+        spread: FunctionTypeParam option
     | NullableTypeAnnotation of typeAnnotation: TypeAnnotation
     | ArrayTypeAnnotation of TypeAnnotation
     | TupleTypeAnnotation of types: TypeAnnotation array
@@ -445,45 +461,8 @@ type TypeAnnotation =
 type TypeParameter =
     | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotation option
 
-type TypeParameterDeclaration = TypeParameter array
-
-type TypeParameterInstantiation = TypeAnnotation array
-
 type FunctionTypeParam =
-    | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotation * optional: bool option
-
-type ObjectTypeProperty =
-    | ObjectTypeProperty of
-        key: Expression *
-        value: TypeAnnotation *
-        kind: string option *
-        computed: bool *
-        ``static``: bool *
-        optional: bool *
-        proto: bool *
-        method: bool
-
-type ObjectTypeIndexer =
-    | ObjectTypeIndexer of id: Identifier option * key: Identifier * value: TypeAnnotation * ``static``: bool option
-
-type ObjectTypeCallProperty =
-    | ObjectTypeCallProperty of value: TypeAnnotation * ``static``: bool option
-
-type ObjectTypeInternalSlot =
-    | ObjectTypeInternalSlot of id: Identifier * value: TypeAnnotation * optional: bool * ``static``: bool * method: bool
-
-type ObjectTypeAnnotation =
-    | ObjectTypeAnnotation of
-        properties: ObjectTypeProperty array *
-        indexers: ObjectTypeIndexer array *
-        callProperties: ObjectTypeCallProperty array *
-        internalSlots: ObjectTypeInternalSlot array *
-        exact: bool
-type InterfaceExtends =
-    | InterfaceExtends of id: Identifier * typeParameters: TypeParameterInstantiation option
-
-//    let mixins = defaultArg mixins_ [||]
-//    member _.Mixins: InterfaceExtends array = mixins
+    | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotation * isOptional: bool
 
 [<AutoOpen>]
 module Helpers =
@@ -498,14 +477,14 @@ module Helpers =
         static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc) |> Literal
         static member stringLiteral(value, ?loc) = Literal.stringLiteral (value, ?loc=loc) |> Literal
         static member arrayExpression(elements, ?loc) = ArrayExpression(elements, ?loc=loc)
-        static member identifier(name, ?typeAnnotation, ?loc) =
-            Identifier.identifier(name, ?typeAnnotation = typeAnnotation, ?loc = loc)
+        static member identifier(name, ?loc) =
+            Identifier.identifier(name, ?loc = loc)
             |> Expression.Identifier
         static member regExpLiteral(pattern, flags_, ?loc) =
             Literal.regExpLiteral(pattern, flags_, ?loc=loc) |> Literal
         /// A function or method call expression.
-        static member callExpression(callee, args, ?typeParameters, ?loc) =
-            CallExpression(callee, args, typeParameters, loc)
+        static member callExpression(callee, args, ?typeArguments, ?loc) =
+            CallExpression(callee, args, defaultArg typeArguments [||], loc)
         static member assignmentExpression(operator_, left, right, ?loc) =
             let operator =
                 match operator_ with
@@ -534,22 +513,22 @@ module Helpers =
 
             LogicalExpression(left, operator, right, loc)
         static member objectExpression(properties, ?loc) = ObjectExpression(properties, loc)
-        static member newExpression(callee, args, ?typeParameters, ?loc) = NewExpression(callee, args, typeParameters, loc)
+        static member newExpression(callee, args, ?typeArguments, ?loc) = NewExpression(callee, args, defaultArg typeArguments [||], loc)
         /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
         static member arrowFunctionExpression(parameters, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
-            ArrowFunctionExpression(parameters, body, returnType, typeParameters, loc)
+            ArrowFunctionExpression(parameters, body, returnType, defaultArg typeParameters [||], loc)
         static member arrowFunctionExpression(parameters, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
             let body = BlockStatement [| Statement.returnStatement(body) |]
             Expression.arrowFunctionExpression(parameters, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
-        /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
-        /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
-        static member memberExpression(object, property, ?computed_, ?loc) =
-            let computed = defaultArg computed_ false
-            MemberExpression(object, property, computed, loc)
+        /// If isComputed is true, the node corresponds to a isComputed (a[b]) member expression and property is an Expression.
+        /// If isComputed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
+        static member memberExpression(object, property, ?isComputed, ?loc) =
+            let isComputed = defaultArg isComputed false
+            MemberExpression(object, property, isComputed, loc)
         static member functionExpression(parameters, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
-            FunctionExpression(id, parameters, body, returnType, typeParameters, loc)
+            FunctionExpression(id, parameters, body, returnType, defaultArg typeParameters [||], loc)
         static member classExpression(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
-            ClassExpression(body, id, superClass, implements, typeParameters, loc)
+            ClassExpression(body, id, superClass, implements, defaultArg typeParameters [||], loc)
         static member spreadElement(argument, ?loc) =
             SpreadElement(argument, ?loc=loc)
         static member conditionalExpression(test, consequent, alternate, ?loc): Expression =
@@ -596,8 +575,8 @@ module Helpers =
         member this.Name =
             let (Identifier(name=name)) = this
             name
-        static member identifier(name, ?typeAnnotation, ?loc) : Identifier =
-            Identifier(name, optional=false, named=false, typeAnnotation=typeAnnotation, loc=loc)
+        static member identifier(name, ?loc) : Identifier =
+            Identifier(name, loc=loc)
 
     type Statement with
         static member blockStatement(body) = BlockStatement body |> Statement.BlockStatement
@@ -605,7 +584,7 @@ module Helpers =
         static member continueStatement(label, ?loc) = ContinueStatement(Some label, loc)
         static member tryStatement(block, ?handler, ?finalizer, ?loc) = TryStatement(block, handler, finalizer, loc)
         static member ifStatement(test, consequent, ?alternate, ?loc): Statement = IfStatement(test, consequent, alternate, loc)
-        /// Break can optionally take a label of a loop to break
+        /// Break can optional take a label of a loop to break
         static member breakStatement(?label, ?loc) = BreakStatement(label, loc)
         /// Statement (typically loop) prefixed with a label (for continue and break)
         static member labeledStatement(label, body): Statement = LabeledStatement (body, label)
@@ -615,8 +594,8 @@ module Helpers =
         static member variableDeclaration(kind, declarations, ?loc): Statement =
             Declaration.variableDeclaration(kind, declarations, ?loc = loc)
             |> Declaration
-        static member variableDeclaration(var, ?init, ?kind, ?loc): Statement =
-            Declaration.variableDeclaration(var, ?init = init, ?kind = kind, ?loc = loc)
+        static member variableDeclaration(kind, var, ?annotation, ?typeParameters, ?init, ?loc): Statement =
+            Declaration.variableDeclaration(kind, var, ?annotation=annotation, ?typeParameters=typeParameters, ?init=init, ?loc=loc)
             |> Declaration
         static member forStatement(body, ?init, ?test, ?update, ?loc) = ForStatement(body, init, test, update, loc)
         static member throwStatement(argument, ?loc) = ThrowStatement(argument, loc)
@@ -632,84 +611,62 @@ module Helpers =
             body
 
     type CatchClause with
-        static member catchClause(param, body, ?loc) =
-            CatchClause(param, body, loc)
+        static member catchClause(param, body, ?annotation, ?loc) =
+            CatchClause(param, annotation, body, loc)
 
     type SwitchCase with
         static member switchCase(?consequent, ?test, ?loc) =
             SwitchCase(test, defaultArg consequent Array.empty, loc)
 
-    type Pattern with
-        static member identifier(name, ?optional, ?named, ?typeAnnotation, ?accessModifier, ?loc) =
-            let ident = Identifier(name, optional = defaultArg optional false, named = defaultArg named false, ?typeAnnotation = typeAnnotation, ?loc = loc)
-            Pattern.Identifier(ident, accessModifier)
-        static member restElement(argument: Pattern) =
-            RestElement(argument)
+    type Parameter with
+        static member parameter(name, ?isOptional, ?isNamed, ?isSpread, ?typeAnnotation) =
+            Parameter(name, isOptional=defaultArg isOptional false, isNamed=defaultArg isNamed false, isSpread=defaultArg isSpread false, typeAnnotation=typeAnnotation)
 
     type ClassImplements with
-        static member classImplements(id, ?typeParameters) =
-            ClassImplements(id, typeParameters)
+        static member classImplements(id, ?typeArguments) =
+            ClassImplements(id, defaultArg typeArguments [||])
 
     type Declaration with
         static member variableDeclaration(kind, declarations, ?loc) : Declaration =
-            VariableDeclaration.variableDeclaration(kind, declarations, ?loc = loc) |> Declaration.VariableDeclaration
-        static member variableDeclaration(var, ?init, ?kind, ?loc) =
-            Declaration.variableDeclaration(
-                defaultArg kind Let,
-                [| VariableDeclarator(var, init) |],
-                ?loc = loc
-            )
+            VariableDeclaration.variableDeclaration(kind, declarations, ?loc = loc)
+            |> Declaration.VariableDeclaration
+        static member variableDeclaration(kind, var, ?annotation, ?typeParameters, ?init, ?loc) =
+            VariableDeclaration.variableDeclaration(kind, var, ?annotation=annotation, ?typeParameters=typeParameters, ?init=init, ?loc=loc)
+            |> Declaration.VariableDeclaration
         static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc) =
-            FunctionDeclaration(parameters, body, id, returnType, typeParameters, loc)
+            FunctionDeclaration(parameters, body, id, returnType, defaultArg typeParameters [||], loc)
         static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
-            ClassDeclaration(body, id, superClass, implements, typeParameters, loc)
-        static member interfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_): Declaration = // ?mixins_,
-            let extends = defaultArg extends_ [||]
-            let implements = defaultArg implements_ [||]
-            InterfaceDeclaration(id, body, extends, implements, typeParameters)
+            ClassDeclaration(body, id, superClass, implements, defaultArg typeParameters [||], loc)
+        static member interfaceDeclaration(id, body, ?extends, ?typeParameters): Declaration = // ?mixins_,
+            InterfaceDeclaration(id, body, defaultArg extends [||], defaultArg typeParameters [||])
         static member enumDeclaration(name, cases, ?isConst) =
             EnumDeclaration(name, cases, defaultArg isConst false)
 
     type VariableDeclaration with
         static member variableDeclaration(kind, declarations, ?loc) : VariableDeclaration =
-            let kind =
-                match kind with
-                | Var -> "var"
-                | Let -> "let"
-                | Const -> "const"
             VariableDeclaration(declarations, kind, loc)
 
-        static member variableDeclaration(var, ?init, ?kind, ?loc) =
-            VariableDeclaration.variableDeclaration(defaultArg kind Let, [| VariableDeclarator(var, init) |], ?loc = loc)
+        static member variableDeclaration(kind, var, ?annotation, ?typeParameters, ?init, ?loc) =
+            VariableDeclaration.variableDeclaration(
+                kind,
+                [| VariableDeclarator.variableDeclarator(var, ?annotation=annotation, ?typeParameters=typeParameters, ?init=init) |],
+                ?loc = loc
+            )
 
     type VariableDeclarator with
-        static member variableDeclarator(id, ?init) = VariableDeclarator(id, init)
-
-    type ObjectTypeIndexer with
-        static member objectTypeIndexer(key, value, ?id, ?``static``) =
-            ObjectTypeIndexer(id, key, value, ``static``)
-
-    type InterfaceExtends with
-        static member interfaceExtends(id, ?typeParameters) =
-            InterfaceExtends(id, typeParameters)
+        static member variableDeclarator(id, ?annotation, ?typeParameters, ?init) =
+            VariableDeclarator(id, annotation, defaultArg typeParameters [||], init)
 
     type FunctionTypeParam with
-        static member functionTypeParam(name, typeInfo, ?optional) =
-            FunctionTypeParam(name, typeInfo, optional)
+        static member functionTypeParam(name, typeInfo, ?isOptional) =
+            FunctionTypeParam(name, typeInfo, defaultArg isOptional false)
 
     type ClassMember with
-        static member classMethod(kind_, key, parameters, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
-            let kind =
-                match kind_ with
-                | ClassPrimaryConstructor -> "constructor"
-                | ClassGetter -> "get"
-                | ClassSetter -> "set"
-                | ClassFunction -> "method"
-            let computed = defaultArg computed_ false
-            ClassMethod(kind, key, parameters, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc)
-        static member classProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?accessModifier, ?loc): ClassMember =
-            let computed = defaultArg computed_ false
-            ClassProperty(key, value, computed, defaultArg ``static`` false, defaultArg optional false, typeAnnotation, accessModifier, loc)
+        static member classMethod(kind, parameters, body, ?isStatic, ?isAbstract, ?returnType, ?typeParameters, ?loc) : ClassMember =
+            ClassMethod(kind, parameters, body, defaultArg isStatic false, defaultArg isAbstract false, returnType, defaultArg typeParameters [||], loc)
+        static member classProperty(key, ?value, ?isComputed, ?isStatic, ?isOptional, ?typeAnnotation, ?accessModifier, ?loc): ClassMember =
+            let isComputed = defaultArg isComputed false
+            ClassProperty(key, value, isComputed, defaultArg isStatic false, defaultArg isOptional false, typeAnnotation, accessModifier, loc)
 
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
@@ -731,26 +688,18 @@ module Helpers =
         static member stringLiteral(value, ?loc) = StringLiteral(value, loc)
 
     type ObjectMember with
-        static member objectProperty(key, value, ?computed_) = // ?shorthand_,
-            let computed = defaultArg computed_ false
-            ObjectProperty(key, value, computed)
-        static member objectMethod(kind_, key, parameters, body, ?computed_, ?returnType, ?typeParameters, ?loc) =
-            let kind =
-                match kind_ with
-                | ObjectGetter -> "get"
-                | ObjectSetter -> "set"
-                | ObjectMeth -> "method"
-            let computed = defaultArg computed_ false
-            ObjectMethod(kind, key, parameters, body, computed, returnType, typeParameters, loc)
+        static member objectProperty(key, value, ?isComputed) = // ?shorthand_,
+            let isComputed = defaultArg isComputed false
+            ObjectProperty(key, value, isComputed)
+        static member objectMethod(kind, key, parameters, body, ?isComputed, ?returnType, ?typeParameters, ?loc) =
+            let isComputed = defaultArg isComputed false
+            ObjectMethod(kind, key, parameters, body, isComputed, returnType, defaultArg typeParameters [||], loc)
 
-    type ObjectTypeProperty with
-        static member objectTypeProperty(key, value, ?computed_, ?kind, ?``static``, ?optional, ?proto, ?method) =
-            let computed = defaultArg computed_ false
-            let optional = defaultArg optional false
-            let method = defaultArg method false
-            let ``static`` = defaultArg ``static`` false
-            let proto = defaultArg proto false
-            ObjectTypeProperty(key, value, kind, computed, ``static``, optional, proto, method)
+    type AbstractMember with
+        static member abstractProperty(key, typ, ?isComputed) =
+            AbstractProperty(key, typ, defaultArg isComputed false)
+        static member abstractMethod(kind, key, parameters, returnType, ?typeParameters, ?isComputed) =
+            AbstractMethod(kind, key, parameters, returnType, defaultArg typeParameters [||], defaultArg isComputed false)
 
     type ModuleDeclaration with
         static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
@@ -758,19 +707,10 @@ module Helpers =
             ExportNamedReferences(specifiers, source)
 
     type TypeAnnotation with
-        static member aliasTypeAnnotation(id, ?typeParameters) =
-            AliasTypeAnnotation(id, defaultArg typeParameters [||])
-        static member functionTypeAnnotation(parameters, returnType, ?typeParameters, ?rest): TypeAnnotation =
-            FunctionTypeAnnotation(parameters,returnType, defaultArg typeParameters [||], rest)
-
-    type ObjectTypeAnnotation with
-        static member objectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
-            let exact = defaultArg exact_ false
-            let indexers = defaultArg indexers_ [||]
-            let callProperties = defaultArg callProperties_ [||]
-            let internalSlots = defaultArg internalSlots_ [||]
-
-            ObjectTypeAnnotation(properties, indexers, callProperties, internalSlots, exact)
+        static member aliasTypeAnnotation(id, ?typeArguments) =
+            AliasTypeAnnotation(id, defaultArg typeArguments [||])
+        static member functionTypeAnnotation(parameters, returnType, ?spread): TypeAnnotation =
+            FunctionTypeAnnotation(parameters, returnType, spread)
 
     type TypeParameter with
         static member typeParameter(name, ?bound, ?``default``) =

@@ -524,7 +524,7 @@ let testJs() =
     if envVarOrNone "CI" |> Option.isSome then
         testStandaloneFast()
 
-let testTypeScript() =
+let testTypeScript isWatch =
     buildLibraryTsIfNotExists()
 
     let projectDir = "tests/TypeScript"
@@ -533,20 +533,19 @@ let testTypeScript() =
 
     cleanDirs [buildDir; buildDir2]
 
-    runFableWithArgs projectDir [
+    copyFile (projectDir </> "tsconfig.json") (buildDir </> "tsconfig.json")
+
+    runFableWithArgsInDirAs (not isWatch) "." [
+        projectDir
         "--lang ts"
         "--outDir " + buildDir
         "--exclude Fable.Core"
+        if isWatch then
+            "--watch"
+            $"--runWatch npm run test-ts"
     ]
 
-    copyFile (projectDir </> "tsconfig.json") buildDir
-
-    runNpmScript "tsc" [
-        $"-p {buildDir}"
-        $"--outDir {buildDir2}"
-    ]
-
-    runMocha (buildDir2 </> "build/tests/TypeScript/")
+    runNpmScript "test-ts" []
 
 let testPython() =
     buildLibraryPyIfNotExists() // NOTE: fable-library-py needs to be built separately.
@@ -817,7 +816,8 @@ match BUILD_ARGS_LOWER with
 | "test-configs"::_ -> testProjectConfigs()
 | "test-integration"::_ -> testIntegration()
 | "test-repos"::_ -> testRepos()
-| ("test-ts"|"test-typescript")::_ -> testTypeScript()
+| ("test-ts"|"test-typescript")::_ -> testTypeScript(false)
+| ("watch-test-ts"|"watch-test-typescript")::_ -> testTypeScript(true)
 | "test-py"::_ -> testPython()
 | "test-lua"::_ -> testLua()
 | "test-rust"::_ -> testRust SingleThreaded

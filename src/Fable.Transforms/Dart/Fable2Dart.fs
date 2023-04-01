@@ -172,43 +172,36 @@ module Util =
         let genArg = transformType com ctx genArg
         Type.reference(libValue com ctx Fable.MetaType "Types" "Some", [genArg]) |> Nullable
 
-    let transformDeclaredTypeIgnoreMeasure ignoreMeasure (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
+    let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
         let genArgs = transformGenArgs com ctx genArgs
         let makeIterator genArg = Type.reference(makeImmutableIdent MetaType "Iterator", [genArg])
         let makeMapEntry key value = Type.reference(makeImmutableIdent MetaType "MapEntry", [key; value])
 
         match entRef.FullName, genArgs with
-        | "System.Enum", _ -> Integer |> Some
+        | Types.enum_, _ -> Integer
         // List without generics is same as List<dynamic>
-        | Types.array, _ -> List Dynamic |> Some
-        | "System.Tuple`1", _ -> transformTupleType com ctx genArgs |> Some
-        | "System.ValueType", _ -> Some Object
-        | "System.Nullable`1", [genArg]
-        | "Fable.Core.Dart.DartNullable`1", [genArg] -> Nullable genArg |> Some
-        | "System.Text.RegularExpressions.Group", _ -> Nullable String |> Some
+        | Types.array, _ -> List Dynamic
+        | "System.Tuple`1", _ -> transformTupleType com ctx genArgs
+        | Types.valueType, _ -> Object
+        | Types.nullable, [genArg]
+        | "Fable.Core.Dart.DartNullable`1", [genArg] -> Nullable genArg
+        | "System.Text.RegularExpressions.Group", _ -> Nullable String
         | "System.Text.RegularExpressions.Match", _ ->
-            makeTypeRefFromName "Match" [] |> Some
-        | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2", _ when ignoreMeasure -> None
+            makeTypeRefFromName "Match" []
         // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
-        | Naming.EndsWith "Exception" _, _ -> Dynamic |> Some
-        | "System.Collections.Generic.Dictionary`2.Enumerator", [key; value] -> makeMapEntry key value |> makeIterator |> Some
-        | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", [key; _] -> makeIterator key |> Some
-        | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", [_; value] -> makeIterator value |> Some
+        | Naming.EndsWith "Exception" _, _ -> Dynamic
+        | "System.Collections.Generic.Dictionary`2.Enumerator", [key; value] -> makeMapEntry key value |> makeIterator
+        | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", [key; _] -> makeIterator key
+        | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", [_; value] -> makeIterator value
         | _ ->
             let ent = com.GetEntity(entRef)
-            if ignoreMeasure && ent.IsMeasure then
-                None
-            else
-                let ident, genArgs =
-                    match getEntityIdent com ctx ent with
-                    // If Iterator has more than one genArg assume we need to use MapEntry
-                    | { Name = "Iterator"; ImportModule = None } as ident when List.isMultiple genArgs ->
-                        ident, [Type.reference(makeImmutableIdent MetaType "MapEntry", genArgs)]
-                    | ident -> ident, genArgs
-                Type.reference(ident, genArgs, isRecord=ent.IsFSharpRecord, isUnion=ent.IsFSharpUnion) |> Some
-
-    let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
-        transformDeclaredTypeIgnoreMeasure false com ctx entRef genArgs |> Option.get
+            let ident, genArgs =
+                match getEntityIdent com ctx ent with
+                // If Iterator has more than one genArg assume we need to use MapEntry
+                | { Name = "Iterator"; ImportModule = None } as ident when List.isMultiple genArgs ->
+                    ident, [Type.reference(makeImmutableIdent MetaType "MapEntry", genArgs)]
+                | ident -> ident, genArgs
+            Type.reference(ident, genArgs, isRecord=ent.IsFSharpRecord, isUnion=ent.IsFSharpUnion)
 
     let get t left memberName =
         PropertyAccess(left, memberName, t, isConst=false)
@@ -487,10 +480,9 @@ module Util =
 
     /// Discards Measure generic arguments
     let transformGenArgs com ctx (genArgs: Fable.Type list) =
-        genArgs |> List.choose (function
-            | Fable.GenericParam(isMeasure=true) -> None
-            | Fable.DeclaredType(entRef, genArgs) -> transformDeclaredTypeIgnoreMeasure true com ctx entRef genArgs
-            | t -> transformType com ctx t |> Some)
+        genArgs |> List.choose (fun t ->
+            if isUnitOfMeasure t then None
+            else transformType com ctx t |> Some)
 
     let transformType (com: IDartCompiler) (ctx: Context) (t: Fable.Type) =
         match t with
@@ -1478,7 +1470,7 @@ module Util =
         | Fable.Extended(kind, _range) ->
             match kind with
             | Fable.Curry(e, arity) ->
-                Dart.Replacements.curryExprAtRuntime com arity e
+                Replacements.Api.curryExprAtRuntime com arity e
                 |> transform com ctx returnStrategy
             | Fable.Throw(None, t) ->
                 [Expression.rethrowExpression(transformType com ctx t) |> Statement.ExpressionStatement], None
@@ -1622,8 +1614,8 @@ module Util =
 
     let getLocalFunctionGenericParams (_com: IDartCompiler) (ctx: Context) (_range: SourceLocation option) (argTypes: Fable.Type list): string list =
         let rec getGenParams = function
-            // TODO: Discard measure generic params here?
-            | Fable.GenericParam(name, _isMeasure, _constraints) -> [name]
+            | Fable.GenericParam(name, isMeasure, _constraints) ->
+                if isMeasure then [] else [name] // discard measure generic params
             | t -> t.Generics |> List.collect getGenParams
 
         let genParams =
@@ -2282,6 +2274,7 @@ module Compiler =
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
             member _.SourceFiles = com.SourceFiles
+            member _.IncrementCounter() = com.IncrementCounter()
             member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
             member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)

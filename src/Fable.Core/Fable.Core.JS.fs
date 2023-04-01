@@ -125,9 +125,10 @@ module JS =
         abstract keys: o: obj -> ResizeArray<string>
         abstract values: o: obj -> ResizeArray<obj>
         abstract entries: o: obj -> ResizeArray<string * obj>
-        abstract assign: target: 'T * source: 'U -> obj
-        abstract assign: target: 'T * source1: 'U * source2: 'V -> obj
-        abstract assign: target: 'T * source1: 'U * source2: 'V * source3: 'W -> obj
+        // These overloads conflict with spread resolution, see #3306
+        // abstract assign: target: 'T * source: 'U -> obj
+        // abstract assign: target: 'T * source1: 'U * source2: 'V -> obj
+        // abstract assign: target: 'T * source1: 'U * source2: 'V * source3: 'W -> obj
         abstract assign: target: obj * [<ParamArray>] sources: obj[] -> obj
         // abstract getOwnPropertySymbols: o: obj -> ResizeArray<Symbol>
         abstract is: value1: obj * value2: obj -> bool

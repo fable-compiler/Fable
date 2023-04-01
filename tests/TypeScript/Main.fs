@@ -5,7 +5,52 @@ open Fable.Tests
 
 let allTests =
   [|
+    // UtilTests.tests
+    Applicative.tests
     Arithmetic.tests
+    Arrays.tests
+    Async.tests
+    Chars.tests
+    // Comparison.tests
+    // Convert.tests
+    CustomOperators.tests
+    DateTimeOffset.tests
+    DateTime.tests
+    DateOnly.tests
+    Dictionaries.tests
+#if FABLE_COMPILER
+    ElmishParser.tests
+#endif
+    Enumerable.tests
+    Enum.tests
+    // Event.tests
+    HashSets.tests
+    // Import.tests
+    // JsInterop.tests
+    Lists.tests
+    Maps.tests
+    Misc.tests
+    Observable.tests
+    Option.tests
+    Queue.tests
+    RecordTypes.tests
+    // Reflection.tests
+    Regex.tests
+    ResizeArrays.tests
+    Result.tests
+    SeqExpressions.tests
+    Seqs.tests
+    Sets.tests
+    Stack.tests
+    Strings.tests
+    Sudoku.tests
+    TailCalls.tests
+    TimeOnly.tests
+    TimeSpan.tests
+    TupleTypes.tests
+    TypeTests.tests
+    UnionTypes.tests
+    Uri.tests
   |]
 
 #if FABLE_COMPILER

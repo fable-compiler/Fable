@@ -213,8 +213,8 @@ let parseProjectFile projectFilePath =
 let makeHashSetIgnoreCase () =
     let equalityComparerIgnoreCase =
         { new IEqualityComparer<string> with
-            member __.Equals(x, y) = x.ToLowerInvariant() = y.ToLowerInvariant()
-            member __.GetHashCode(x) = hash (x.ToLowerInvariant()) }
+            member _.Equals(x, y) = x.ToLowerInvariant() = y.ToLowerInvariant()
+            member _.GetHashCode(x) = hash (x.ToLowerInvariant()) }
     HashSet<string>(equalityComparerIgnoreCase)
 
 let dedupReferences (refSet: HashSet<string>) references =

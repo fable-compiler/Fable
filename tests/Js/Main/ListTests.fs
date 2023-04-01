@@ -8,8 +8,8 @@ type List(x: int) =
 
 type ExceptFoo = { Bar:string }
 
-let testListChoose xss =
-    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
+let testListChoose (xss: 'a option list): 'b list =
+    let f xss: 'a list = xss |> List.choose (function Some a -> Some a | _ -> None)
     xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
 
 let rec sumFirstList (zs: float list) (n: int): float =

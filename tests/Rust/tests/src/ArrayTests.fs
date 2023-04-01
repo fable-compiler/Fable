@@ -17,22 +17,29 @@ let inc_elem2 (a: _[]) i =
     a[i] <- a[i] + 1
     a
 
+[<Struct>]
 type Point =
     { x: int; y: int }
     static member Zero = { x=0; y=0 }
-    static member Neg(p: Point) = { x = -p.x; y = -p.y }
+    static member Neg (p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y }
 
-// type MyNumber =
-//     | MyNumber of int
-//     static member Zero = MyNumber 0
-//     static member (+) (MyNumber x, MyNumber y) =
-//         MyNumber(x + y)
-//     static member DivideByInt (MyNumber x, i: int) =
-//         MyNumber(x / i)
+type PointObj =
+    { x: int; y: int; z: int }
+    static member Zero = { x=0; y=0; z=0 }
+    static member Neg (p: PointObj) = { x = -p.x; y = -p.y; z = -p.z }
+    static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y; z = p1.z + p2.z }
 
-// type MyNumberWrapper =
-//     { MyNumber: MyNumber }
+type MyNumber =
+    | MyNumber of int
+    static member Zero = MyNumber 0
+    static member (+) (MyNumber x, MyNumber y) =
+        MyNumber(x + y)
+    static member DivideByInt (MyNumber x, i: int) =
+        MyNumber(x / i)
+
+type MyNumberWrapper =
+    { MyNumber: MyNumber }
 
 type Things =
     { MainThing: int
@@ -69,7 +76,7 @@ let ``Array.Equals works`` () =
     let a3 = [|1; 2; 4|]
     let a4 = [|1; 2; 3; 4|]
     a1.Equals(a1) |> equal true
-    // a1.Equals(a2) |> equal false //TODO: reference equality
+    a1.Equals(a2) |> equal false // reference equality
     a1.Equals(a3) |> equal false
     a1.Equals(a4) |> equal false
 
@@ -155,34 +162,52 @@ let ``Array.empty works`` () =
 //     xs.Length |> equal 0
 
 [<Fact>]
-let ``Array.create works`` () =
+let ``Array.create with integer works`` () =
     let xs = Array.create 3 2
     xs.Length |> equal 3
     xs |> equal [|2;2;2|]
 
 [<Fact>]
-let ``Array.create works II`` () =
+let ``Array.create with string works`` () =
     let xs = Array.create 3 "a"
     xs.Length |> equal 3
     xs |> equal [|"a";"a";"a"|]
 
 [<Fact>]
-let ``Array.zeroCreate works`` () =
+let ``Array.create with struct tuple works`` () =
+    let xs = Array.create 3 struct (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|struct (2, "a"); struct (2, "a"); struct (2, "a")|]
+
+[<Fact>]
+let ``Array.create with object tuple works`` () =
+    let xs = Array.create 3 (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|(2, "a"); (2, "a"); (2, "a")|]
+
+[<Fact>]
+let ``Array.zeroCreate with integer works`` () =
     let xs = Array.zeroCreate<int> 3
     xs.Length |> equal 3
     xs |> equal [|0;0;0|]
 
-// // this errors with "cannot infer type for type parameter `T`""
-// [<Fact>]
-// let ``Array.zeroCreate works II`` () =
-//     let xs = Array.zeroCreate<int * int> 3
-//     xs.Length |> equal 3
+[<Fact>]
+let ``Array.zeroCreate with string works`` () =
+    let xs = Array.zeroCreate<string> 3
+    xs.Length |> equal 3
+    //xs |> equal [|null; null; null|]
 
-// // this panics with "attempted to zero-initialize type `std::rc::Rc<str>`, which is invalid"
+[<Fact>]
+let ``Array.zeroCreate with struct tuple works`` () =
+    let xs = Array.zeroCreate<struct (int * string)> 3
+    xs.Length |> equal 3
+    //xs |> equal [|(0, null); (0, null); (0, null)|]
+
 // [<Fact>]
-// let ``Array.zeroCreate works III`` () =
-//     let xs = Array.zeroCreate<string> 3
+// let ``Array.zeroCreate with object tuple works`` () =
+//     let xs = Array.zeroCreate<int * string> 3
 //     xs.Length |> equal 3
+//     //xs |> equal [|null; null; null|]
 
 [<Fact>]
 let ``Array.length works`` () =
@@ -336,19 +361,19 @@ let ``Array.length works with non-numeric arrays`` () =
 //     equal 0. a[1].Key
 //     equal false a[2].Value
 
-// [<Fact>]
-// let ``Array.blit works`` () =
-//     let xs = [| 1..10 |]
-//     let ys = Array.zeroCreate 20
-//     Array.blit xs 3 ys 5 4
-//     ys[5] + ys[6] + ys[7] + ys[8] |> equal 22
+[<Fact>]
+let ``Array.blit works`` () =
+    let xs = [| 1..10 |]
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys[5] + ys[6] + ys[7] + ys[8] |> equal 22
 
-// [<Fact>]
-// let ``Array.blit works with non typed arrays`` () =
-//     let xs = [| 'a'..'h' |] |> Array.map string
-//     let ys = Array.zeroCreate 20
-//     Array.blit xs 3 ys 5 4
-//     ys[5] + ys[6] + ys[7] + ys[8] |> equal "defg"
+[<Fact>]
+let ``Array.blit works with non typed arrays`` () =
+    let xs = [| 'a'..'h' |] |> Array.map string
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys[5] + ys[6] + ys[7] + ys[8] |> equal "defg"
 
 [<Fact>]
 let ``Array.distinct works`` () =
@@ -503,11 +528,11 @@ let ``Array.filter works`` () =
     let ys = xs |> Array.filter (fun x -> x > 2s)
     ys |> equal [|3s; 4s|]
 
-// [<Fact>]
-// let ``Array.filter with chars works`` () =
-//     let xs = [|'a'; '2'; 'b'; 'c'|]
-//     let ys = xs |> Array.filter System.Char.IsLetter
-//     ys.Length |> equal 3
+[<Fact>]
+let ``Array.filter with chars works`` () =
+    let xs = [|'a'; '2'; 'b'; 'c'|]
+    let ys = xs |> Array.filter System.Char.IsLetter
+    ys.Length |> equal 3
 
 [<Fact>]
 let ``Array.where works`` () =
@@ -889,40 +914,48 @@ let ``Array.sortInPlaceWith works`` () =
     xs |> equal [|1.; 2.; 3.; 4.; 10.|]
 
 [<Fact>]
-let ``Array.sum works`` () =
+let ``Array.sum with numbers works`` () =
     let xs = [|1.; 2.|]
     xs |> Array.sum |> equal 3.
 
 [<Fact>]
-let ``Array.sumBy works`` () =
+let ``Array.sumBy with numbers works`` () =
     let xs = [|1.; 2.|]
     xs |> Array.sumBy (fun x -> x * 2.) |> equal 6.
 
-// [<Fact>]
-// let ``Array.sum with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [|p1; p2|] |> Array.sum |> equal {x=3;y=30}
-
-// [<Fact>]
-// let ``Array.sumBy with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
+[<Fact>]
+let ``Array.sum with structs works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [|p1; p2|] |> Array.sum |> equal {x=3; y=30}
 
 [<Fact>]
-let ``Array.sumBy with numeric projection works`` () =
+let ``Array.sumBy with structs works`` () =
     let p1 = {x=1; y=10}
     let p2 = {x=2; y=20}
     [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
+    [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
 
 // [<Fact>]
-// let ``Array.sum with non numeric types works II`` () =
+// let ``Array.sum with objects works`` () =
+//     let p1 = {x=1; y=10; z=2}
+//     let p2 = {x=2; y=20; z=1}
+//     [|p1; p2|] |> Array.sum |> equal {x=3; y=30; z=3}
+
+// [<Fact>]
+// let ``Array.sumBy with objects works`` () =
+//     let p1 = {x=1; y=10; z=2}
+//     let p2 = {x=2; y=20; z=1}
+//     [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
+//     [|p1; p2|] |> Array.sumBy PointObj.Neg |> equal {x = -3; y = -30; z = -3}
+
+// [<Fact>]
+// let ``Array.sum with unions works`` () =
 //     [|MyNumber 1; MyNumber 2; MyNumber 3|]
 //     |> Array.sum |> equal (MyNumber 6)
 
 // [<Fact>]
-// let ``Array.sumBy with non numeric types works II`` () =
+// let ``Array.sumBy with unions works`` () =
 //     [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
 //     |> Array.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
@@ -1193,12 +1226,12 @@ let ``Array.take works`` () =
     xs |> Array.take 2
     |> equal [|1.; 2.|]
 
-// [<Fact>]
-// let ``Array.take works II`` () =
-//     let xs = [|1.; 2.; 3.; 4.; 5.|]
-//     // Array.take should throw an exception if there're not enough elements
-//     try xs |> Array.take 20 |> Array.length with _ -> -1
-//     |> equal -1
+[<Fact>]
+let ``Array.take works II`` () =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    // Array.take should throw an exception if there're not enough elements
+    try xs |> Array.take 20 |> Array.length with _ -> -1
+    |> equal -1
 
 [<Fact>]
 let ``Array.takeWhile works`` () =
@@ -1245,19 +1278,19 @@ let ``Array.allPairs works`` () =
 //     ys :? System.Array |> equal true
 //     zs :? System.Array |> equal false
 
-// [<Fact>]
-// let ``Array.Copy works with numeric arrays`` () =
-//     let source = [| 99 |]
-//     let destination = [| 1; 2; 3 |]
-//     System.Array.Copy(source, 0, destination, 0, 1)
-//     equal [| 99; 2; 3 |] destination
+[<Fact>]
+let ``Array.Copy works with numeric arrays`` () =
+    let source = [| 99 |]
+    let destination = [| 1; 2; 3 |]
+    System.Array.Copy(source, 0, destination, 0, 1)
+    equal [| 99; 2; 3 |] destination
 
-// [<Fact>]
-// let ``Array.Copy works with non-numeric arrays`` () =
-//     let source = [| "xy"; "xx"; "xyz" |]
-//     let destination = [| "a"; "b"; "c" |]
-//     System.Array.Copy(source, 1, destination, 1, 2)
-//     equal [| "a"; "xx"; "xyz" |] destination
+[<Fact>]
+let ``Array.Copy works with non-numeric arrays`` () =
+    let source = [| "xy"; "xx"; "xyz" |]
+    let destination = [| "a"; "b"; "c" |]
+    System.Array.Copy(source, 1, destination, 1, 2)
+    equal [| "a"; "xx"; "xyz" |] destination
 
 [<Fact>]
 let ``Array.splitInto works`` () =
@@ -1273,11 +1306,11 @@ let ``Array.tryExactlyOne works`` () =
     [|1.;2.|] |> Array.tryExactlyOne |> equal None
     [||] |> Array.tryExactlyOne<float> |> equal None
 
-// [<Fact>]
-// let ``Array.exactlyOne works II`` () =
-//     [|1.|] |> Array.exactlyOne |> equal 1.
-//     (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
-//     (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
+[<Fact>]
+let ``Array.exactlyOne works II`` () =
+    [|1.|] |> Array.exactlyOne |> equal 1.
+    (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
+    (try Array.exactlyOne<int> [||] |> ignore; false with | _ -> true) |> equal true
 
 [<Fact>]
 let ``Array.transpose works`` () =
@@ -1301,8 +1334,8 @@ let ``Array.transpose works`` () =
     |> equal [| |]
 
     // jagged arrays throw on transpose
-    // throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
-    // throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
+    throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
+    throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
 
 [<Fact>]
 let ``Array.updateAt works`` () =
@@ -1317,9 +1350,9 @@ let ``Array.updateAt works`` () =
     equal [|"1"; "2"; "3"; "4"; "0"|] (Array.updateAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Array.updateAt 0 0 [||] |> ignore)
-    // throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt<int> 0 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
 
 [<Fact>]
 let ``Array.insertAt works`` () =
@@ -1335,8 +1368,8 @@ let ``Array.insertAt works`` () =
 
     // empty list & out of bounds
     equal [|0|] (Array.insertAt 0 0 [||])
-    // throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
 
 [<Fact>]
 let ``Array.insertManyAt works`` () =
@@ -1352,8 +1385,8 @@ let ``Array.insertManyAt works`` () =
 
     // empty list & out of bounds
     equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
-    // throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
 
 [<Fact>]
 let ``Array.removeAt works`` () =
@@ -1368,9 +1401,9 @@ let ``Array.removeAt works`` () =
     equal [|"1"; "2"; "3"; "4"|] (Array.removeAt 4 [|"1"; "2"; "3"; "4"; "5"|])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Array.removeAt 0 [||] |> ignore)
-    // throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt<int> 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
 
 [<Fact>]
 let ``Array.removeManyAt works`` () =
@@ -1385,6 +1418,6 @@ let ``Array.removeManyAt works`` () =
     equal [|"1"; "2"; "3"|] (Array.removeManyAt 3 2 [|"1"; "2"; "3"; "4"; "5"|])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
-    // throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
-    // throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt<int> 0 2 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)

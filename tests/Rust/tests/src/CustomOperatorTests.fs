@@ -11,6 +11,14 @@ type Point =
 
 let inline genericAdd (x: ^a) (y: ^b): ^c = x + y
 
+[<Struct>]
+type MyStruct =
+    { value: float }
+    static member (+) (x: MyStruct, y: float) = { value = x.value + y }
+    static member (+) (x: float, y: MyStruct) = x + y.value + 2.0
+    static member (<<<) (x: MyStruct, n: int) = { value = pown x.value n }
+    static member (~-) (x: MyStruct) = { value = -x.value }
+
 type MyRecord =
     { value: int }
     static member (+) (x: MyRecord, y: int) = { value = x.value + y }
@@ -34,10 +42,18 @@ let ``Inline custom operators with types work`` () = // See #230
     equal 10. (p1 * p2).x
 
 [<Fact>]
-let ``Overloads of a custom operators work`` () =
+let ``Custom operator overloads work`` () =
     let x = { value = 5 }
     x + 2 |> equal { value = 7 }
     3 + x |> equal 10
+
+[<Fact>]
+let ``Custom operator overloads work II`` () =
+    let x = { MyStruct.value = 5.0 }
+    x + 2.0 |> equal { MyStruct.value = 7.0 }
+    3.0 + x |> equal 10.0
+    x <<< 3 |> equal { MyStruct.value = 125.0 }
+    -x |> equal { MyStruct.value = -5.0 }
 
 [<Fact>]
 let ``Custom Pow works`` () = // See #2496
@@ -50,7 +66,7 @@ let (||||) x y = x + y
 let inline (>>) x y = x * y * 2
 
 [<Fact>]
-let ``Overloads of a custom operators can be inlined`` () =
+let ``Custom operator overloads can be inlined`` () =
     let x = { value = 5 }
     genericAdd 4 5 |> equal 9
     genericAdd x 2 |> equal { value = 7 }

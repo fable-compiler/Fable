@@ -12,30 +12,23 @@ type ICompiler = FSharp2Fable.IFableCompiler
 
 let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     match com.Options.Language with
-    | Dart -> Dart.Replacements.curryExprAtRuntime com arity expr
-    | Rust -> Rust.Replacements.curryExprAtRuntime com arity expr
-    | _ ->
-        Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
+    // | Rust -> Rust.Replacements.curryExprAtRuntime com arity expr
+    // | Python -> Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
+    | _ -> Replacements.Util.curryExprAtRuntime com arity expr
 
-let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
+let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     match com.Options.Language with
-    | Dart -> Dart.Replacements.uncurryExprAtRuntime com t arity expr
-    | Rust -> Rust.Replacements.uncurryExprAtRuntime com t arity expr
-    | _ ->
-        Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
+    //| Rust -> Rust.Replacements.uncurryExprAtRuntime com expr.Type arity expr
+    // | Python -> Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
+    | _ -> Replacements.Util.uncurryExprAtRuntime com arity expr
 
 let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (args: Expr list) =
     match com.Options.Language with
-    | Dart -> Dart.Replacements.partialApplyAtRuntime com t arity fn args
-    | Rust -> Rust.Replacements.partialApplyAtRuntime com t arity fn args
-    | _ ->
-        let args = NewArray(ArrayValues args, Any, MutableArray) |> makeValue None
-        Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])
-
-let checkArity (com: Compiler) t arity expr =
-    match com.Options.Language with
-    | Rust -> Rust.Replacements.checkArity com t arity expr
-    | _ -> Helper.LibCall(com, "Util", "checkArity", t, [makeIntConst arity; expr])
+    //| Rust -> Rust.Replacements.partialApplyAtRuntime com t arity fn args
+    // | Python ->
+    //     let args = NewArray(ArrayValues args, Any, MutableArray) |> makeValue None
+    //     Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])
+    | _ -> Replacements.Util.partialApplyAtRuntime com t arity fn args
 
 let tryField (com: ICompiler) returnTyp ownerTyp fieldName =
     match com.Options.Language with
@@ -102,12 +95,12 @@ let setRefCell (com: ICompiler) r (expr: Expr) (value: Expr) =
     | Dart -> Dart.Replacements.setRefCell com r expr value
     | _ -> JS.Replacements.setRefCell com r expr value
 
-let makeRefCell (com: ICompiler) r typ (value: Expr) =
+let makeRefCellFromValue (com: ICompiler) r (value: Expr) =
     match com.Options.Language with
-    | Python -> Py.Replacements.makeRefCell com r typ value
-    | Rust -> Rust.Replacements.makeRefCell com r typ value
-    | Dart -> Dart.Replacements.makeRefCell com r typ value
-    | _ -> JS.Replacements.makeRefCell com r typ value
+    | Python -> Py.Replacements.makeRefCellFromValue com r value
+    | Rust -> Rust.Replacements.makeRefCellFromValue com r value
+    | Dart -> Dart.Replacements.makeRefCellFromValue com r value
+    | _ -> JS.Replacements.makeRefCellFromValue com r value
 
 let makeRefFromMutableFunc (com: ICompiler) ctx r t (value: Expr) =
     match com.Options.Language with

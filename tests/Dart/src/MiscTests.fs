@@ -7,9 +7,9 @@ let increase (x: int ref) =
     x.Value <- x.Value + 1
 
 type MaybeBuilder() =
-  member __.Bind(x,f) = Option.bind f x
-  member __.Return v = Some v
-  member __.ReturnFrom o = o
+  member _.Bind(x,f) = Option.bind f x
+  member _.Return v = Some v
+  member _.ReturnFrom o = o
 let maybe = MaybeBuilder()
 
 let riskyOp x y =

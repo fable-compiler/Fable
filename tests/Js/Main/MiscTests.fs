@@ -6,7 +6,7 @@ open Fable.Core
 open Util.Testing
 open Util2.Extensions
 
-let mutable private fn = id
+let mutable private fn: int -> int = id
 
 let [<Literal>] LITERAL_JSON = """{
     "widget": {
@@ -57,7 +57,7 @@ module Two =
 type Base() =
     let mutable x = 5
     member this.Mutate i = x <- x + i
-    member __.Value = x
+    member _.Value = x
 
 type Test(i) as myself =
     inherit Base()
@@ -65,21 +65,21 @@ type Test(i) as myself =
     do myself.Mutate(i+2)
     do myself.Mutate2(i)
     member this.Mutate2 i = y <- y + i
-    member __.Value2 = y
-    member __.Foo() = myself.Value * 2
+    member _.Value2 = y
+    member _.Foo() = myself.Value * 2
 
 let log2 (a: string) (b: string) = String.Format("a = {0}, b = {1}", a, b)
 let logItem1 = log2 "item1"
 let logItem2 = log2 "item2"
 
 type PartialFunctions() =
-    member __.logItem1 = log2 "item1"
-    member __.logItem2 = log2 "item2"
+    member _.logItem1 = log2 "item1"
+    member _.logItem2 = log2 "item2"
 
 type MaybeBuilder() =
-  member __.Bind(x,f) = Option.bind f x
-  member __.Return v = Some v
-  member __.ReturnFrom o = o
+  member _.Bind(x,f) = Option.bind f x
+  member _.Return v = Some v
+  member _.ReturnFrom o = o
 let maybe = MaybeBuilder()
 
 let riskyOp x y =
@@ -136,7 +136,7 @@ module FooModule =
     let add x y = x + y
 
     type FooInline() =
-        member __.Bar = "Bar"
+        member _.Bar = "Bar"
         member val Value = 0uy with get, set
         member inline self.Foo = "Foo" + self.Bar
         member inline self.Foofy(i) = String.replicate i self.Bar
@@ -190,14 +190,14 @@ let f6 i j = myMutableField <- i * j
 let f7 i () = myMutableField <- i * 3
 
 type DisposableFoo() =
-    member __.Foo() = 5
+    member _.Foo() = 5
     interface IDisposable with
-        member __.Dispose () = ()
+        member _.Dispose () = ()
 
 type DisposableBar(v) =
     do v := 10
     interface IDisposable with
-        member __.Dispose () = v := 20
+        member _.Dispose () = v := 20
 
 let createCellDiposable cell =
   cell := 10
@@ -236,16 +236,16 @@ type IRenderer =
 
 type MyComponent(name) as self =
   let work i = sprintf "%s-%i" name i
-  let create2 () = { new IRenderer with member __.doWork () = work 2 }
-  let create3 = { new IRenderer with member __.doWork () = work 3 }
-  let create4 = { new IRenderer with member __.doWork () = self.Work 4 }
-  let create5() = { new IRenderer with member __.doWork () = self.Work 5 }
-  member __.Work i = work i
-  member __.works1 () = { new IRenderer with member __.doWork () = work 1 }
-  member __.works2 () = create2()
-  member __.works3 () = create3
-  member __.works4 () = create4
-  member __.works5 () = create5()
+  let create2 () = { new IRenderer with member _.doWork () = work 2 }
+  let create3 = { new IRenderer with member _.doWork () = work 3 }
+  let create4 = { new IRenderer with member _.doWork () = self.Work 4 }
+  let create5() = { new IRenderer with member _.doWork () = self.Work 5 }
+  member _.Work i = work i
+  member _.works1 () = { new IRenderer with member _.doWork () = work 1 }
+  member _.works2 () = create2()
+  member _.works3 () = create3
+  member _.works4 () = create4
+  member _.works5 () = create5()
 
 type IFoo3 =
    abstract Bar: int with get, set
@@ -261,19 +261,23 @@ module NestedModule =
         member x.Value = value + 5
 
 type INum = abstract member Num: int
-let inline makeNum f = { new INum with member __.Num = f() }
+let inline makeNum f = { new INum with member _.Num = f() }
 
+// TODO: This test is actually wrong in JS too
+// We need to capture this when an inlined function is creating an object expression
+#if !FABLE_COMPILER_TYPESCRIPT
 type TestClass(n) =
     let addOne x = x + 4
     let inner = makeNum (fun () -> addOne n)
-    member __.GetNum() = inner.Num
+    member _.GetNum() = inner.Num
+#endif
 
 type RecursiveType(subscribe) as self =
     let foo = 3
     let getNumber() = 3
     do subscribe (getNumber >> self.Add2)
-    member __.Add2(i) = self.MultiplyFoo(i) + 2
-    member __.MultiplyFoo(i) = i * foo
+    member _.Add2(i) = self.MultiplyFoo(i) + 2
+    member _.MultiplyFoo(i) = i * foo
 
 type InliningMutationTest(l: int, r: int) =
         let mutable left = 0
@@ -290,7 +294,7 @@ module Extensions =
     type IDisposable with
         static member Create(f) =
             { new IDisposable with
-                member __.Dispose() = f() }
+                member _.Dispose() = f() }
 
     type SomeClass with
         member x.FullName = sprintf "%s Smith" x.Name
@@ -305,10 +309,16 @@ module Extensions =
     type NestedModule.AnotherClass with
         member x.Value2 = x.Value * 4
 
+// TODO: Abstract classes in TypeScript
+// - Add abstract modifier to class
+// - Declare abstract methods
+// - Skip reflection helper and constructor wrapper
+#if !FABLE_COMPILER_TYPESCRIPT
     [<AbstractClass>]
     type ObjectExprBase (x: int ref) as this =
         do x := this.dup x.contents
         abstract member dup: int -> int
+#endif
 
 open Extensions
 
@@ -430,8 +440,11 @@ type Shape =
     | Rectangle of int * int
 
 type StaticClass =
+// TODO: Print the default value as we do with Dart
+#if !FABLE_COMPILER_TYPESCRIPT
     static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
-
+#endif
+    static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
     static member inline Add(x: int, ?y: int) =
         x + (defaultArg y 2)
 
@@ -444,7 +457,10 @@ type MutableFoo =
     { mutable x: int }
 
 let incByRef (a: int) (b: byref<int>) = b <- a + b
+// TODO: inref types in TypeScript (compile as FSharpRef)
+#if !FABLE_COMPILER_TYPESCRIPT
 let addInRef (a: int) (b: inref<int>) = a + b
+#endif
 let setOutRef (a: int) (b: outref<int>) = b <- a
 
 let mutable mutX = 3
@@ -516,7 +532,13 @@ let tests =
         equal true canAccessOpts
 
     testCase "Can access extension for generated files" <| fun _ ->
-        Compiler.extension.EndsWith(".js") |> equal true
+        let ext =
+#if FABLE_COMPILER_TYPESCRIPT
+            ".ts"
+#else
+            ".js"
+#endif
+        Compiler.extension.EndsWith(ext) |> equal true
 #endif
 
     testCase "Values of autogenerated functions are not replaced by optimizations" <| fun () -> // See #1583
@@ -821,6 +843,7 @@ let tests =
         o.Bar <- 10
         o.Bar |> equal 10
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Object expression from class works" <| fun () ->
         let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
         // TODO: Type testing for object expressions?
@@ -837,11 +860,11 @@ let tests =
     testCase "Object expressions don't optimize members away" <| fun () -> // See #1434
         let o =
             { new Taster with
-                member __.Starter = 5.5
+                member _.Starter = 5.5
                 member this.Taste(quality, quantity) =
                     taste this quality quantity
               interface Eater with
-                member __.Bite() = 25
+                member _.Bite() = 25
             }
         o.Taste(4., 6.) |> equal 28
 
@@ -1046,7 +1069,7 @@ let tests =
         // let y: (int*int) = Unchecked.defaultof<_>
         // equal null (box y)
         let x: struct (int*int) = Unchecked.defaultof<_>
-        equal (struct(0, 0)) x
+        equal (struct (0, 0)) x
 
     testCase "Pattern matching optimization works (switch statement)" <| fun () ->
         let mutable x = ""
@@ -1171,6 +1194,10 @@ let tests =
     testCase "DefaultParameterValue works" <| fun () ->
         StaticClass.DefaultParam() |> equal true
 
+    testCase "DefaultParameterValue works with null" <| fun () -> // See #3326
+        StaticClass.DefaultNullParam() |> isNull |> equal true
+        StaticClass.DefaultNullParam(5) |> isNull |> equal false
+
     testCase "Ignore shouldn't return value" <| fun () -> // See #1360
         let producer () = 7
         equal (box ()) (box(ignore(producer())))
@@ -1254,4 +1281,5 @@ let tests =
         let times2 x = x * 2
         fn <- fn >> times2
         fn 5 |> equal 10
+#endif
   ]

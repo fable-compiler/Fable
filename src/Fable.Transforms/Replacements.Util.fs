@@ -76,6 +76,10 @@ type Helper =
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getFieldWith loc typ (makeIdentExpr ident) memb
 
+type NumberKind with
+    member this.Number =
+        Number(this, NumberInfo.Empty)
+
 let makeUniqueIdent ctx t name =
     FSharp2Fable.Helpers.getIdentUniqueName ctx name
     |> makeTypedIdent t
@@ -368,6 +372,85 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
         |> curriedApply r retType (IdentExpr capturedFun2Var)
     Let(capturedFun1Var, f1, Let(capturedFun2Var, f2, Lambda(arg, body, None)))
 
+let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
+    match com.Options.Language with
+    | JavaScript | TypeScript | Dart | Python ->
+        let argTypes, returnType = uncurryLambdaType -1 [] expr.Type
+        let curriedType = makeLambdaType argTypes returnType
+        let curried = Helper.LibCall(com, "Util", $"curry{argTypes.Length}", curriedType, [expr])
+        match partialArgs with
+        | [] -> curried
+        | partialArgs -> curriedApply None t curried partialArgs
+    | _ ->
+        // Check if argTypes.Length < arity?
+        let argTypes, returnType = uncurryLambdaType arity [] t
+        let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
+        let args = argIdents |> List.map Fable.IdentExpr
+        Helper.Application(expr, returnType, partialArgs @ args)
+        |> makeLambda argIdents
+
+let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
+    if arity = 1 then expr
+    else
+        match expr with
+        | Value(Null _, _) -> expr
+        | Value(NewOption(value, t, isStruct), r) ->
+            match value with
+            | None -> expr
+            | Some v ->
+                let curried = partialApplyAtRuntime com t arity v []
+                Value(NewOption(Some curried, t, isStruct), r)
+        | ExprType(Option(t, isStruct)) ->
+            let uncurriedType =
+                let argTypes, returnType = uncurryLambdaType arity [] t
+                DelegateType(argTypes, returnType)
+            let f = makeTypedIdent uncurriedType "f"
+            let fe = makeTypedIdent t "f" |> IdentExpr
+            let curried = partialApplyAtRuntime com t arity fe []
+            let fn = Delegate([f], curried, None, Tags.empty)
+            // TODO: This may be different per language
+            Helper.LibCall(com, "Option", "map", Option(curried.Type, isStruct), [fn; expr])
+        | _ -> partialApplyAtRuntime com expr.Type arity expr []
+
+let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
+    let uncurry (expr: Expr) =
+        // Check if argTypes.Length < arity?
+        let argTypes, returnType = uncurryLambdaType arity [] expr.Type
+
+        match com.Options.Language with
+        | JavaScript | TypeScript | Dart | Python ->
+            let uncurriedType = DelegateType(argTypes, returnType)
+            Helper.LibCall(com, "Util", $"uncurry{arity}", uncurriedType, [expr])
+        | _ ->
+            let argIdents1 = argTypes |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
+            let expr, argIdents2 =
+                match expr with
+                | Extended(Curry(expr, arity2),_) when arity2 >= arity ->
+                    if arity2 = arity
+                    then expr, []
+                    else
+                        let argTypes2, _returnType = uncurryLambdaType arity2 [] expr.Type
+                        expr, argTypes2 |> List.skip arity |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
+                | _ -> expr, []
+            let args = (argIdents1 @ argIdents2) |> List.map IdentExpr
+            let body = curriedApply None returnType expr args
+            let body = makeLambda argIdents2 body
+            Delegate(argIdents1, body, None, Tags.empty)
+
+    match expr with
+    | Value(Null _, _) -> expr
+    | Value(NewOption(value, t, isStruct), r) ->
+        match value with
+        | None -> expr
+        | Some v -> Value(NewOption(Some(uncurry v), t, isStruct), r)
+    | ExprType(Option(t, isStruct)) ->
+        let f = makeTypedIdent t "f"
+        let uncurried = uncurry (IdentExpr f)
+        let fn = Delegate([f], uncurried, None, Tags.empty)
+        // TODO: This may be different per language
+        Helper.LibCall(com, "Option", "map", Option(uncurried.Type, isStruct), [fn; expr])
+    | expr -> uncurry expr
+
 let (|Namesof|_|) com ctx e = namesof com ctx [] e
 let (|Nameof|_|) com ctx e = namesof com ctx [] e |> Option.bind List.tryLast
 
@@ -538,7 +621,7 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
 
 let (|RegexFlags|_|) e =
     let rec getFlags = function
-        | NumberConst(:? int as value, _) ->
+        | NumberConst(:? int as value, _, _) ->
             match value with
             | 1 -> Some [RegexIgnoreCase]
             | 2 -> Some [RegexMultiline]

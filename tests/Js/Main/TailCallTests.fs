@@ -131,13 +131,11 @@ let tests =
     testCase "Tailcall works in tail position" <| fun () ->
         Issue3301.simple 100000 1 |> equal 100001
 
-    // TODO: temporary diabled until Fable-FCS issue is solved, see #3311
+    testCase "Tailcall works with bindings" <| fun () ->
+        Issue3301.binding 100000 1 |> equal 100001
 
-    // testCase "Tailcall works with bindings" <| fun () ->
-    //     Issue3301.binding 100000 1 |> equal 100001
-
-    // testCase "Tailcall works with tuple deconstruction" <| fun () ->
-    //     Issue3301.tupleDeconstruction 100000 1 |> equal 100001
+    testCase "Tailcall works with tuple deconstruction" <| fun () ->
+        Issue3301.tupleDeconstruction 100000 1 |> equal 100001
 
     testCase "Recursive functions can be tailcall optimized" <| fun () ->
         factorial1 1 10 |> equal 3628800

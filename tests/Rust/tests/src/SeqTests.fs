@@ -1241,9 +1241,9 @@ let ``Seq.updateAt works`` () =
     equal ["1"; "2"; "3"; "4"; "0"] (Seq.updateAt 4 "0" ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Seq.updateAt 0 0 [] |> Seq.toList |> ignore)
-    // throwsAnyError (fun () -> Seq.updateAt -1 0 [1] |> Seq.toList |> ignore)
-    // throwsAnyError (fun () -> Seq.updateAt 2 0 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.updateAt 0 0 [] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.updateAt -1 0 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.updateAt 2 0 [1] |> Seq.toList |> ignore)
 
 [<Fact>]
 let ``Seq.insertAt works`` () =
@@ -1259,8 +1259,8 @@ let ``Seq.insertAt works`` () =
 
     // empty list & out of bounds
     equal [0] (Seq.insertAt 0 0 [] |> Seq.toList)
-    // throwsAnyError (fun () -> Seq.insertAt -1 0 [1] |> Seq.toList |> ignore)
-    // throwsAnyError (fun () -> Seq.insertAt 2 0 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.insertAt -1 0 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.insertAt 2 0 [1] |> Seq.toList |> ignore)
 
 [<Fact>]
 let ``Seq.insertManyAt works`` () =
@@ -1276,8 +1276,8 @@ let ``Seq.insertManyAt works`` () =
 
     // empty list & out of bounds
     equal [0; 0] (Seq.insertManyAt 0 [0; 0] [] |> Seq.toList)
-    // throwsAnyError (fun () -> Seq.insertManyAt -1 [0; 0] [1] |> Seq.toList |> ignore)
-    // throwsAnyError (fun () -> Seq.insertManyAt 2 [0; 0] [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.insertManyAt -1 [0; 0] [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.insertManyAt 2 [0; 0] [1] |> Seq.toList |> ignore)
 
 [<Fact>]
 let ``Seq.removeAt works`` () =
@@ -1292,9 +1292,9 @@ let ``Seq.removeAt works`` () =
     equal ["1"; "2"; "3"; "4"] (Seq.removeAt 4 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Seq.removeAt 0 [] |> Seq.toList |> ignore)
-    // throwsAnyError (fun () -> Seq.removeAt -1 [1] |> Seq.toList |> ignore)
-    // throwsAnyError (fun () -> Seq.removeAt 2 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeAt<int> 0 [] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeAt -1 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeAt 2 [1] |> Seq.toList |> ignore)
 
 [<Fact>]
 let ``Seq.removeManyAt works`` () =
@@ -1309,6 +1309,6 @@ let ``Seq.removeManyAt works`` () =
     equal ["1"; "2"; "3"] (Seq.removeManyAt 3 2 ["1"; "2"; "3"; "4"; "5"] |> Seq.toList)
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> Seq.removeManyAt 0 2 [] |> Seq.toList |> ignore)
-    // throwsAnyError (fun () -> Seq.removeManyAt -1 2 [1] |> Seq.toList |> ignore)
-    // throwsAnyError (fun () -> Seq.removeManyAt 2 2 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeManyAt<int> 0 2 [] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeManyAt -1 2 [1] |> Seq.toList |> ignore)
+    throwsAnyError (fun () -> Seq.removeManyAt 2 2 [1] |> Seq.toList |> ignore)

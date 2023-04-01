@@ -852,12 +852,12 @@ let ``test Currying/uncurrying works`` () =
     f4 1 2 3 |> equal 10
 
 type Node(parent: HTMLElement option) =
-  member __.parentElement: HTMLElement = parent.Value
+  member _.parentElement: HTMLElement = parent.Value
 
 and Element(w, h, parent) =
   inherit Node(parent)
-  member __.clientWidth: int = w
-  member __.clientHeight: int = h
+  member _.clientWidth: int = w
+  member _.clientHeight: int = h
 
 and HTMLElement(w, h, ?parent) =
   inherit Element(w, h, parent = parent)
@@ -879,6 +879,10 @@ let next () =
   counter <- counter + 1
   result
 
+let useAdder adder x y z =
+    let add = adder ()
+    add x + add y + add z
+
 let adder () =
   let add a b = a + b
   add (next())
@@ -887,9 +891,9 @@ let ADD = adder ()
 
 type Foo3() =
     let mutable z = 5
-    member __.GetLambda() =
+    member _.GetLambda() =
         fun x y -> x + y + z
-    member __.GetCurriedLambda() =
+    member _.GetCurriedLambda() =
         fun x ->
             z <- z + 3
             fun y -> x + y + z
@@ -966,13 +970,13 @@ type PrimaryConstructorUncurrying(f) =
 type Fun = Fun of (int -> int -> int list)
 
 type BaseClass (f: string -> string -> string) =
-  member __.MakeString a b = f a b
+  member _.MakeString a b = f a b
 
 type AddString () =
   inherit BaseClass (fun a b -> a + b)
 
 type BaseClass2 (f: string -> string -> string) =
-  member __.MakeString a b = f a b
+  member _.MakeString a b = f a b
 
 type AddString2 (f: string -> string -> string) =
   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
@@ -1115,20 +1119,38 @@ let ``test Applying to a function returned by a local function works`` () =
 
 [<Fact>]
 let ``test Partially applied functions don't duplicate side effects`` () = // See #1156
-    ADD 1 + ADD 2 + ADD 3 |> equal 6
+    let result = ADD 1 + ADD 2 + ADD 3
+    result |> equal 6
+    counter |> equal 1
 
 [<Fact>]
 let ``test Partially applied functions don't duplicate side effects locally`` () =
     let mutable counter = 0
     let next () =
-      let result = counter
-      counter <- counter + 1
-      result
+        let result = counter
+        counter <- counter + 1
+        result
     let adder () =
-      let add a b = a + b
-      add (next())
+        let add a b = a + b
+        add (next())
     let add = adder ()
-    add 1 + add 2 + add 3 |> equal 6
+    let result = add 1 + add 2 + add 3
+    result |> equal 6
+    counter |> equal 1
+
+// [<Fact>]
+// let ``test Partially applied functions don't duplicate side effects locally II`` () =
+//     let mutable counter = 0
+//     let next () =
+//         let result = counter
+//         counter <- counter + 1
+//         result
+//     let adder () =
+//         let add a b = a + b
+//         add (next())
+//     let result = useAdder adder 1 2 3 // TODO: May need a weak ptr to curried func
+//     result |> equal 6
+//     counter |> equal 1
 
 [<Fact>]
 let ``test Partially applied lambdas capture this`` () =

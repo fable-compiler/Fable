@@ -1,15 +1,14 @@
 use crate::Native_::Lrc;
 
-// #[macro_export]
 macro_rules! func {
     ($f:ident $(,$i:ident)*) => {
 
-        #[cfg(not(feature = "func_type_enum"))]
+        #[cfg(not(feature = "enum_func"))]
         #[derive(Clone)]
         #[repr(transparent)]
         pub struct $f<$($i, )*R>(Lrc<dyn Fn($($i), *) -> R>);
 
-        #[cfg(feature = "func_type_enum")]
+        #[cfg(feature = "enum_func")]
         #[derive(Clone)]
         pub enum $f<$($i, )*R> {
             Static(fn($($i), *) -> R),
@@ -28,7 +27,7 @@ macro_rules! func {
             }
         }
 
-        #[cfg(not(feature = "func_type_enum"))]
+        #[cfg(not(feature = "enum_func"))]
         impl<$($i, )*R> core::ops::Deref for $f<$($i, )*R>
         where
             $($i: 'static, )*
@@ -36,11 +35,11 @@ macro_rules! func {
         {
             type Target = dyn Fn($($i), *) -> R;
             fn deref(&self) -> &Self::Target {
-                self.0.as_ref()
+                self.0.deref()
             }
         }
 
-        #[cfg(feature = "func_type_enum")]
+        #[cfg(feature = "enum_func")]
         impl<$($i, )*R> core::ops::Deref for $f<$($i, )*R>
         where
             $($i: 'static, )*
@@ -50,12 +49,12 @@ macro_rules! func {
             fn deref(&self) -> &Self::Target {
                 match self {
                     $f::Static(f) => f,
-                    $f::Shared(f) => f.as_ref(),
+                    $f::Shared(p) => p.as_ref(),
                 }
             }
         }
 
-        #[cfg(not(feature = "func_type_enum"))]
+        #[cfg(not(feature = "enum_func"))]
         impl<$($i, )*R> $f<$($i, )*R>
         where
             $($i: 'static, )*
@@ -69,7 +68,7 @@ macro_rules! func {
             }
         }
 
-        #[cfg(feature = "func_type_enum")]
+        #[cfg(feature = "enum_func")]
         impl<$($i, )*R> $f<$($i, )*R>
         where
             $($i: 'static, )*
@@ -88,6 +87,9 @@ macro_rules! func {
 
         #[cfg(feature = "threaded")]
         unsafe impl<$($i, )*R> Sync for $f<$($i, )*R> {}
+
+        impl<$($i, )*R> core::panic::UnwindSafe for $f<$($i, )*R> {}
+        impl<$($i, )*R> core::panic::RefUnwindSafe for $f<$($i, )*R> {}
 
     };
 }

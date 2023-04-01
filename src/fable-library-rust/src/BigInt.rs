@@ -1,9 +1,8 @@
 #[cfg(feature = "bigint")]
 pub mod BigInt_ {
     use crate::Decimal_::{decimal, truncate};
-    use crate::Native_::{arrayFrom, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{arrayFrom, compare, Array, Lrc, MutCell, Vec};
     use crate::String_::{string, toString as toString_1};
-    use core::cmp::Ordering;
 
     use num_bigint::*;
     use num_integer::*;
@@ -20,45 +19,51 @@ pub mod BigInt_ {
     }
 
     impl core::ops::Deref for bigint {
-        type Target = BigInt;
+        type Target = Lrc<BigInt>;
         #[inline]
         fn deref(&self) -> &Self::Target {
-            self.0.as_ref()
+            &self.0
         }
     }
 
     impl core::fmt::Display for bigint {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.0.as_ref()) //TODO:
+            write!(f, "{}", self.as_ref()) //TODO: improve
         }
     }
 
     macro_rules! un_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self) -> Self { ($op self.0.as_ref()).into() }
+                fn $op_fn(self) -> Self::Output {
+                    ($op self.as_ref()).into()
+                }
             }
         };
     }
 
     macro_rules! bin_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self, rhs: Self) -> Self { (self.0.as_ref() $op rhs.0.as_ref()).into() }
+                fn $op_fn(self, rhs: Self) -> Self::Output {
+                    (self.as_ref() $op rhs.as_ref()).into()
+                }
             }
         };
     }
 
     macro_rules! shift_op {
-        ($op_name:ident, $op_fn:ident, $op:tt) => {
-            impl core::ops::$op_name<i32> for bigint {
+        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+            impl core::ops::$op_trait<i32> for bigint {
                 type Output = Self;
                 #[inline]
-                fn $op_fn(self, rhs: i32) -> Self { (self.0.as_ref() $op rhs).into() }
+                fn $op_fn(self, rhs: i32) -> Self::Output {
+                    (self.as_ref() $op rhs).into()
+                }
             }
         };
     }
@@ -71,6 +76,7 @@ pub mod BigInt_ {
     bin_op!(Mul, mul, *);
     bin_op!(Div, div, /);
     bin_op!(Rem, rem, %);
+
     bin_op!(BitAnd, bitand, &);
     bin_op!(BitOr, bitor, |);
     bin_op!(BitXor, bitxor, ^);
@@ -84,13 +90,7 @@ pub mod BigInt_ {
 
     // pub fn getHashCode(x: bigint) = x.GetHashCode()
     pub fn equals(x: bigint, y: bigint) -> bool { x.eq(&y) }
-    pub fn compare(x: bigint, y: bigint) -> i32 {
-        match x.cmp(&y) {
-            Ordering::Less => -1,
-            Ordering::Greater => 1,
-            Ordering::Equal => 0,
-        }
-    }
+    pub fn compareTo(x: bigint, y: bigint) -> i32 { compare(&x, &y) }
 
     pub fn abs(x: bigint) -> bigint { x.abs().into() }
     pub fn sign(x: bigint) -> i32 { x.signum().to_i32().unwrap() }
@@ -117,29 +117,32 @@ pub mod BigInt_ {
     pub fn isOddInteger(x: bigint) -> bool { x.is_odd() } //TODO:
     // pub fn isPow2(x: bigint) -> bool { false } //TODO:
 
-    pub fn toInt8 (x: bigint) -> i8 { x.to_i8().unwrap() }
-    pub fn toUInt8 (x: bigint) -> u8 { x.to_u8().unwrap() }
-    pub fn toInt16 (x: bigint) -> i16 { x.to_i16().unwrap() }
-    pub fn toUInt16 (x: bigint) -> u16 { x.to_u16().unwrap() }
-    pub fn toInt32 (x: bigint) -> i32 { x.to_i32().unwrap() }
-    pub fn toUInt32 (x: bigint) -> u32 { x.to_u32().unwrap() }
-    pub fn toInt64 (x: bigint) -> i64 { x.to_i64().unwrap() }
-    pub fn toUInt64 (x: bigint) -> u64 { x.to_u64().unwrap() }
+    pub fn toInt8(x: bigint) -> i8 { x.to_i8().unwrap() }
+    pub fn toUInt8(x: bigint) -> u8 { x.to_u8().unwrap() }
+    pub fn toInt16(x: bigint) -> i16 { x.to_i16().unwrap() }
+    pub fn toUInt16(x: bigint) -> u16 { x.to_u16().unwrap() }
+    pub fn toInt32(x: bigint) -> i32 { x.to_i32().unwrap() }
+    pub fn toUInt32(x: bigint) -> u32 { x.to_u32().unwrap() }
+    pub fn toInt64(x: bigint) -> i64 { x.to_i64().unwrap() }
+    pub fn toUInt64(x: bigint) -> u64 { x.to_u64().unwrap() }
     pub fn toNativeInt(x: bigint) -> isize { x.to_isize().unwrap() }
     pub fn toUNativeInt(x: bigint) -> usize { x.to_usize().unwrap() }
-    pub fn toFloat32 (x: bigint) -> f32 { x.to_f32().unwrap() }
-    pub fn toFloat64 (x: bigint) -> f64 { x.to_f64().unwrap() }
+    pub fn toFloat32(x: bigint) -> f32 { x.to_f32().unwrap() }
+    pub fn toFloat64(x: bigint) -> f64 { x.to_f64().unwrap() }
 
-    pub fn toDecimal (x: bigint) -> decimal {
+    pub fn toDecimal(x: bigint) -> decimal {
         decimal::from_str_radix(x.to_string().as_str(), 10).unwrap()
     }
-    pub fn toBoolean (x: bigint) -> bool { !x.is_zero() }
 
-    pub fn toChar (x: bigint) -> char {
+    pub fn toBigInt(x: bigint) -> bigint { x }
+
+    pub fn toBoolean(x: bigint) -> bool { !x.is_zero() }
+
+    pub fn toChar(x: bigint) -> char {
         core::char::from_u32(x.to_u32().unwrap()).unwrap()
     }
 
-    pub fn toString (x: bigint) -> string {
+    pub fn toString(x: bigint) -> string {
         toString_1(&x)
     }
 
@@ -148,14 +151,14 @@ pub mod BigInt_ {
     }
 
     pub fn tryParse(s: string, res: &MutCell<bigint>) -> bool {
-        match BigInt::from_str_radix(s.as_ref(), 10) {
+        match BigInt::from_str_radix(s.trim(), 10) {
             Ok(d) => { res.set(d.into()); true },
             Err(e) => false,
         }
     }
 
     pub fn parse(s: string) -> bigint {
-        match BigInt::from_str_radix(s.as_ref(), 10) {
+        match BigInt::from_str_radix(s.trim(), 10) {
             Ok(d) => d.into(),
             Err(e) => panic!("Input string was not in a correct format."),
         }
@@ -163,10 +166,6 @@ pub mod BigInt_ {
 
     pub fn fromZero() -> bigint { BigInt::zero().into() }
     pub fn fromOne() -> bigint { BigInt::one().into() }
-
-    pub fn fromString(s: string) -> bigint {
-        BigInt::from_str_radix(s.as_ref(), 10).unwrap().into()
-    }
 
     pub fn fromByteArray(bytes: Array<u8>) -> bigint {
         BigInt::from_signed_bytes_le(bytes.as_ref()).into()
@@ -180,13 +179,30 @@ pub mod BigInt_ {
     pub fn fromUInt32(n: u32) -> bigint { BigInt::from_u32(n).unwrap().into() }
     pub fn fromInt64(n: i64) -> bigint { BigInt::from_i64(n).unwrap().into() }
     pub fn fromUInt64(n: u64) -> bigint { BigInt::from_u64(n).unwrap().into() }
-    pub fn fromFloat32(n: f32) -> bigint { BigInt::from_f32(n).unwrap().into() }
-    pub fn fromFloat64(n: f64) -> bigint { BigInt::from_f64(n).unwrap().into() }
     pub fn fromNativeInt(n: isize) -> bigint { BigInt::from_isize(n).unwrap().into() }
     pub fn fromUNativeInt(n: usize) -> bigint { BigInt::from_usize(n).unwrap().into() }
 
+    pub fn fromFloat32(n: f32) -> bigint { BigInt::from_f32(n).unwrap().into() }
+    pub fn fromFloat64(n: f64) -> bigint { BigInt::from_f64(n).unwrap().into() }
+
     pub fn fromDecimal(d: decimal) -> bigint {
         BigInt::from_str_radix(truncate(d).to_string().as_str(), 10).unwrap().into()
+    }
+
+    pub fn fromBigInt(x: bigint) -> bigint {
+        x
+    }
+
+    pub fn fromBoolean(b: bool) -> bigint {
+        BigInt::from_u32(b as u32).unwrap().into()
+    }
+
+    pub fn fromChar(c: char) -> bigint {
+        BigInt::from_u32(c as u32).unwrap().into()
+    }
+
+    pub fn fromString(s: string) -> bigint {
+        BigInt::from_str_radix(s.trim(), 10).unwrap().into()
     }
 
     pub fn pow(x: bigint, n: i32) -> bigint {

@@ -181,6 +181,8 @@ let tests =
         Option.flatten o2 |> equal None
         Option.flatten o3 |> equal None
 
+// TODO: We haven't implemented yet explicitly nullable reference types with TypeScript
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Option.toObj works" <| fun () ->
         let o1: string option = Some "foo"
         let o2: string option = None
@@ -192,6 +194,7 @@ let tests =
         let o2: string = null
         Option.ofObj o1 |> equal (Some "foo")
         Option.ofObj o2 |> equal None
+#endif
 
     // https://github.com/fable-compiler/Fable/issues/1136
     testCase "Calling Some with side-effects works" <| fun () ->
@@ -329,6 +332,8 @@ let tests =
         isActualJsNull y |> equal false
         isActualJsUndefined y |> equal true
 
+// TODO: We haven't implemented yet explicitly nullable reference types with TypeScript
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Option.toObj/toNullable converts to null" <| fun () ->
         let isActualJsNull (x: obj) = emitJsExpr<bool> x "$0 === null"
         let isActualJsUndefined (x: obj) = emitJsExpr<bool> x "$0 === void 0"
@@ -358,5 +363,6 @@ let tests =
         isActualJsUndefined y |> equal true
         isActualJsNull z |> equal false
         isActualJsUndefined z |> equal true
+#endif
 #endif
   ]

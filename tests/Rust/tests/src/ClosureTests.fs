@@ -193,3 +193,47 @@ let incrementWith i =
 let ``Closure that captures value-type args works`` () =
     let inc3 = incrementWith 3
     inc3 2 |> equal 5
+
+let fib_tail n =
+    let rec fib n a b =
+        if n <= 1 then a
+        else fib (n - 1) (a + b) a
+    fib n 1UL 0UL
+
+let fib_tail_clo m n =
+    let rec fib n a b =
+        if n <= m then a
+        else fib (n - 1) (a + b) a
+    fib n 1UL 0UL
+
+let fib_rec n =
+    let rec fib n =
+        if n <= 2 then 1UL
+        else fib (n - 1) + fib (n - 2)
+    fib n
+
+let fib_rec_clo m n =
+    let rec fib n =
+        if n <= m then 1UL
+        else fib (n - 1) + fib (n - 2)
+    fib n
+
+[<Fact>]
+let ``Tail recursive non-capturing closures work`` () =
+    let n = fib_tail 30
+    n |> equal 832040UL
+
+[<Fact>]
+let ``Tail recursive capturing closures also work`` () =
+    let n = fib_tail_clo 1 30
+    n |> equal 832040UL
+
+[<Fact>]
+let ``Non-tail recursive non-capturing closures work`` () =
+    let n = fib_rec 30
+    n |> equal 832040UL
+
+[<Fact>]
+let ``Non-tail recursive capturing closures also work`` () =
+    let n = fib_rec_clo 2 30
+    n |> equal 832040UL

@@ -50,6 +50,8 @@ module Types =
     let [<Literal>] valueType = "System.ValueType"
     let [<Literal>] array = "System.Array"
     let [<Literal>] type_ = "System.Type"
+    let [<Literal>] enum_ = "System.Enum"
+    let [<Literal>] nullable = "System.Nullable`1"
     let [<Literal>] exception_ = "System.Exception"
     let [<Literal>] systemException = "System.SystemException"
     let [<Literal>] timeoutException = "System.TimeoutException"
@@ -136,6 +138,8 @@ module Types =
     let [<Literal>] printfFormat = "Microsoft.FSharp.Core.PrintfFormat"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
     let [<Literal>] measureProduct2 = "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
+    let [<Literal>] measureOne = "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
+    let [<Literal>] measureInverse = "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
 
     // Types compatible with Inject attribute (fable library)
     let [<Literal>] icomparerGeneric = "System.Collections.Generic.IComparer`1"
@@ -160,6 +164,7 @@ module Operators =
     let [<Literal>] booleanOr = "op_BooleanOr"
     let [<Literal>] logicalNot = "op_LogicalNot"
     let [<Literal>] unaryNegation = "op_UnaryNegation"
+    let [<Literal>] unaryPlus = "op_UnaryPlus"
     let [<Literal>] divideByInt = "DivideByInt"
 
     let [<Literal>] equality = "op_Equality"
@@ -183,7 +188,8 @@ module Operators =
               booleanAnd
               booleanOr
               logicalNot
-              unaryNegation ]
+              unaryNegation
+              unaryPlus ]
 
     let compareSet =
         set [ equality; "Eq"
@@ -278,13 +284,15 @@ module AST =
     let inline (|IdentType|) (id: Ident) = id.Type
     let inline (|EntFullName|) (e: EntityRef) = e.FullName
 
-    let (|NestedLambdaType|_|) t =
-        let rec nestedLambda acc = function
-            | LambdaType(arg, returnType) ->
-                nestedLambda (arg::acc) returnType
-            | returnType -> Some(List.rev acc, returnType)
-        match t with
-        | LambdaType(arg, returnType) -> nestedLambda [arg] returnType
+    let rec uncurryLambdaType maxArity (revArgTypes: Type list) (returnType: Type) =
+        match returnType with
+        | LambdaType(argType, returnType) when maxArity <> 0 ->
+            uncurryLambdaType (maxArity - 1) (argType::revArgTypes) returnType
+        | t -> List.rev revArgTypes, t
+
+    let (|NestedLambdaType|_|) = function
+        | LambdaType(argType, returnType) ->
+            Some(uncurryLambdaType -1 [argType] returnType)
         | _ -> None
 
     /// In lambdas with tuple arguments, F# compiler deconstructs the tuple before the next nested lambda.
@@ -327,6 +335,7 @@ module AST =
                 Some(args, body, name)
         | _ -> None
 
+    /// Makes sure to capture the same number of args as the arity of the lambda
     let (|NestedLambdaWithSameArity|_|) expr =
         nestedLambda true expr
 
@@ -397,7 +406,7 @@ module AST =
         | _ -> None
 
     let (|NumberConst|_|) = function
-        | MaybeCasted(Value(NumberConstant(value, kind, _), _)) -> Some(value, kind)
+        | MaybeCasted(Value(NumberConstant(value, kind, info), _)) -> Some(value, kind, info)
         | _ -> None
 
     let (|NullConst|_|) = function
@@ -405,15 +414,15 @@ module AST =
         | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
-    // This is mainly used for inlining so a computation is understood as a side effect too
-    // (because we don't want to duplicate or change the order of execution)
+    // This is mainly used for inlining so a computation or a reference to a mutable value are understood
+    // as a side effects too (because we don't want to duplicate or change the order of execution)
     let rec canHaveSideEffects = function
         | Import _ -> false
         | Lambda _ | Delegate _ -> false
         | TypeCast(e,_) ->
             match Compiler.Language with
-            | Dart -> true
-            | _ -> canHaveSideEffects e
+            | JavaScript | Python -> canHaveSideEffects e
+            | _ -> true
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true
@@ -453,6 +462,18 @@ module AST =
     /// create a runtime wrapper. See fable-library/Option.ts for more info.
     let rec mustWrapOption = function
         | Any | Unit | GenericParam _ | Option _ -> true
+        | _ -> false
+
+    let isUnitOfMeasure t =
+        match t with
+        | Measure _
+        | GenericParam(_, true, _) -> true
+        | Fable.DeclaredType(ent, _) ->
+            match ent.FullName with
+            | Types.measureProduct2
+            | Types.measureOne
+            | Types.measureInverse -> true
+            | _ -> false
         | _ -> false
 
     /// ATTENTION: Make sure the ident name is unique
@@ -542,6 +563,10 @@ module AST =
         (args, body) ||> List.foldBack (fun arg body ->
             Lambda(arg, body, None))
 
+    let makeLambdaType (argTypes: Type list) (returnType: Type) =
+        (argTypes, returnType) ||> List.foldBack (fun arg returnType ->
+            LambdaType(arg, returnType))
+
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
     let makeIntConst (x: int) = NumberConstant (x, Int32, NumberInfo.Empty) |> makeValue None
@@ -607,7 +632,7 @@ module AST =
         let selector =
             match com.Options.Language with
             | Rust ->
-                if moduleName.StartsWith("System.")
+                if moduleName = "System" || moduleName.StartsWith("System.")
                 then moduleName + "::" + memberName
                 else moduleName + "_::" + memberName
             | _ -> memberName
@@ -791,6 +816,7 @@ module AST =
             && Array.zip fields1 fields2 |> Array.forall (fun (f1, f2) -> f1 = f2)
             && listEquals (typeEquals strict) gen1 gen2
             && isStruct1 = isStruct2
+        | Measure _, Measure _ -> true
         | _ -> false
 
     let rec getEntityFullName prettify (entRef: EntityRef) gen =
@@ -1063,3 +1089,152 @@ module AST =
         expr |> deepExists (function
             | IdentExpr i -> i.Name = identName
             | _ -> false)
+
+    let extractGenericArgs (maybeGenericExpr: Expr) concreteType =
+        let rec extractGenericArgs genArgs maybeGenericType concreteType =
+            match maybeGenericType, concreteType with
+            | Fable.GenericParam(name=name1), Fable.GenericParam(name=name2) when name1 = name2 -> genArgs
+            | Fable.GenericParam(name=name), t -> Map.add name t genArgs
+            | t1, t2 ->
+                match t1.Generics with
+                | [] -> genArgs
+                | gen1 ->
+                    let gen2 = t2.Generics
+                    if List.sameLength gen1 gen2
+                    then List.fold2 extractGenericArgs genArgs gen1 gen2
+                    else genArgs
+        extractGenericArgs Map.empty maybeGenericExpr.Type concreteType
+
+    let rec resolveInlineType (genArgs: Map<string, Type>) = function
+        | Fable.GenericParam(name, isMeasure, _constraints) as t ->
+            match Map.tryFind name genArgs with
+            | Some v when isMeasure && v = Fable.Any -> t // avoids resolving measures to Fable.Any
+            | Some v -> v
+            | None -> t
+        | t -> t.MapGenerics(resolveInlineType genArgs)
+
+    let resolveInlineIdent (genArgs: Map<string, Type>) (id: Ident) =
+        { id with Type = resolveInlineType genArgs id.Type }
+
+    let resolveInlineMemberRef genArgs = function
+    | MemberRef(ent, info) ->
+        let argTypes = Option.map (List.map (resolveInlineType genArgs)) info.NonCurriedArgTypes
+        MemberRef(ent, { info with NonCurriedArgTypes = argTypes })
+
+    | GeneratedMemberRef(gen) ->
+        let mapInfo (i: GeneratedMemberInfo) =
+            let paramTypes = List.map (resolveInlineType genArgs) i.ParamTypes
+            let returnType = resolveInlineType genArgs i.ReturnType
+            { i with ParamTypes = paramTypes; ReturnType = returnType}
+        match gen with
+        | GeneratedFunction i -> GeneratedFunction(mapInfo i)
+        | GeneratedValue i -> GeneratedValue(mapInfo i)
+        | GeneratedGetter i -> GeneratedGetter(mapInfo i)
+        | GeneratedSetter i -> GeneratedSetter(mapInfo i)
+        |> GeneratedMemberRef
+
+    let resolveInlineCallInfo genArgs (info: CallInfo) =
+        let infoGenArgs = List.map (resolveInlineType genArgs) info.GenericArgs
+        let infoSigTypes = List.map (resolveInlineType genArgs) info.SignatureArgTypes
+        let memberRef = Option.map (resolveInlineMemberRef genArgs) info.MemberRef
+        { info with GenericArgs = infoGenArgs; SignatureArgTypes = infoSigTypes; MemberRef = memberRef }
+
+    let replaceGenericArgs expr (genArgs: Map<string, Type>) =
+        if Map.isEmpty genArgs then expr
+        else
+            expr |> visitFromInsideOut (function
+                | Value(kind, r) as e ->
+                    match kind with
+                    | ThisValue t -> Value(ThisValue(resolveInlineType genArgs t), r)
+                    | BaseValue(i, t) ->
+                        let i = Option.map (resolveInlineIdent genArgs) i
+                        Value(BaseValue(i, resolveInlineType genArgs t), r)
+                    | TypeInfo(t, tags) ->
+                        Value(TypeInfo(resolveInlineType genArgs t, tags), r)
+                    | Null t ->
+                        Value(Null(resolveInlineType genArgs t), r)
+                    | NewOption(v, t, isStruct) ->
+                        Value(NewOption(v, resolveInlineType genArgs t, isStruct), r)
+                    | NewArray(k1, t, k2) ->
+                        Value(NewArray(k1, resolveInlineType genArgs t, k2), r)
+                    | NewList(v, t) ->
+                        Value(NewList(v, resolveInlineType genArgs t), r)
+                    | NewRecord(vs, ent, gen) ->
+                        let gen = List.map (resolveInlineType genArgs) gen
+                        Value(NewRecord(vs, ent, gen), r)
+                    | NewAnonymousRecord (vs, fields, gen, isStruct) ->
+                        let gen = List.map (resolveInlineType genArgs) gen
+                        Value(NewAnonymousRecord(vs, fields, gen, isStruct), r)
+                    | NewUnion (vs, tag, ent, gen) ->
+                        let gen = List.map (resolveInlineType genArgs) gen
+                        Value(NewUnion(vs, tag, ent, gen), r)
+                    | _ -> e
+
+                | IdentExpr id ->
+                    resolveInlineIdent genArgs id |> IdentExpr
+
+                | Lambda(arg, b, n) ->
+                    let arg = resolveInlineIdent genArgs arg
+                    Lambda(arg, b, n)
+
+                | Delegate(args, b, n, t) ->
+                    Delegate(List.map (resolveInlineIdent genArgs) args, b, n, t)
+
+                | ObjectExpr(members, typ, baseCall) ->
+                    let members = members |> List.map (fun m ->
+                        let args = List.map (resolveInlineIdent genArgs) m.Args
+                        { m with Args = args; MemberRef = resolveInlineMemberRef genArgs m.MemberRef })
+                    ObjectExpr(members, resolveInlineType genArgs typ, baseCall)
+
+                | TypeCast(e, t) -> TypeCast(e, resolveInlineType genArgs t)
+
+                | Test(e, TypeTest t, r) -> Test(e, TypeTest(resolveInlineType genArgs t), r)
+
+                | Call(callee, info, t, r) ->
+                    let info = resolveInlineCallInfo genArgs info
+                    Call(callee, info, resolveInlineType genArgs t, r)
+
+                | CurriedApply(callee, args, typ, r) ->
+                    CurriedApply(callee, args, resolveInlineType genArgs typ, r)
+
+                | Operation(kind, tags, typ, r) ->
+                    Operation(kind, tags, resolveInlineType genArgs typ, r)
+
+                | Import(info, t, r) ->
+                    let info =
+                        match info.Kind with
+                        | MemberImport m -> { info with Kind = resolveInlineMemberRef genArgs m |> MemberImport }
+                        | UserImport _ | LibraryImport _ | ClassImport _ -> info
+                    Import(info, resolveInlineType genArgs t, r)
+
+                | Emit(info, t, r) ->
+                    let info = { info with CallInfo = resolveInlineCallInfo genArgs info.CallInfo }
+                    Emit(info, resolveInlineType genArgs t, r)
+
+                | DecisionTree(expr, targets) ->
+                    let targets = targets |> List.map (fun (bindings, body) ->
+                        List.map (resolveInlineIdent genArgs) bindings, body)
+                    DecisionTree(expr, targets)
+
+                | DecisionTreeSuccess(targetIndex, boundValues, t) ->
+                    DecisionTreeSuccess(targetIndex, boundValues, resolveInlineType genArgs t)
+
+                | Set(e, kind, t, v, r) -> Set(e, kind, resolveInlineType genArgs t, v, r)
+                | Get(e, kind, t, r) ->
+                    let kind =
+                        match kind with
+                        | FieldGet i -> { i with FieldType = Option.map (resolveInlineType genArgs) i.FieldType } |> FieldGet
+                        | UnionField i -> { i with GenericArgs = List.map (resolveInlineType genArgs) i.GenericArgs } |> UnionField
+                        | TupleIndex _ | ExprGet _ | UnionTag | ListHead | ListTail | OptionValue -> kind
+                    Get(e, kind, resolveInlineType genArgs t, r)
+
+                | Let(i, v, b) ->
+                    Let(resolveInlineIdent genArgs i, v, b)
+
+                | LetRec(bindings, b) ->
+                    let bindings = bindings |> List.map (fun (i, v) -> resolveInlineIdent genArgs i, v)
+                    LetRec(bindings, b)
+
+                | Extended(Throw(e, t), r) -> Extended(Throw(e, resolveInlineType genArgs t), r)
+
+                | e -> e)

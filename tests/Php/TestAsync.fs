@@ -5,7 +5,7 @@ open Util.Testing
 
 type DisposableAction(f) =
     interface IDisposable with
-        member __.Dispose() = f()
+        member _.Dispose() = f()
 
 let sleepAndAssign token res =
     Async.StartImmediate(async {

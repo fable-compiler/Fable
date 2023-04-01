@@ -5,10 +5,27 @@ namespace FSharp.Compiler.Diagnostics
 open System
 
 /// For activities following the dotnet distributed tracing concept
-/// https://learn.microsoft.com/en-us/dotnet/core/diagnostics/distributed-tracing-concepts?source=recommendations
+/// https://learn.microsoft.com/dotnet/core/diagnostics/distributed-tracing-concepts?source=recommendations
 [<RequireQualifiedAccess>]
 module internal Activity =
+
+    module Tags =
+        val fileName: string
+        val qualifiedNameOfFile: string
+        val project: string
+        val userOpName: string
+        val length: string
+        val cache: string
 
     val startNoTags: name: string -> IDisposable
 
     val start: name: string -> tags: (string * string) seq -> IDisposable
+
+#if !FABLE_COMPILER
+    module Profiling =
+        val startAndMeasureEnvironmentStats: name: string -> IDisposable
+        val addConsoleListener: unit -> IDisposable
+
+    module CsvExport =
+        val addCsvFileListener: pathToFile: string -> IDisposable
+#endif

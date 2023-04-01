@@ -33,6 +33,7 @@ from typing import (
     cast,
 )
 from urllib.parse import quote, unquote
+import weakref
 
 
 class SupportsLessThan(Protocol):
@@ -633,87 +634,127 @@ def get_enumerator(o: Iterable[Any]) -> Enumerator[Any]:
     else:
         return Enumerator(iter(o))
 
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
+_T3 = TypeVar("_T3")
+_T4 = TypeVar("_T4")
+_T5 = TypeVar("_T5")
+_T6 = TypeVar("_T6")
+_T7 = TypeVar("_T7")
+_T8 = TypeVar("_T8")
+_T9 = TypeVar("_T9")
+_T10 = TypeVar("_T10")
+_TResult = TypeVar("_TResult")
 
-CURRIED_KEY = "__CURRIED__"
+_curried = weakref.WeakKeyDictionary[Any, Any]()
 
+def uncurry10(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], Callable [[_T9], Callable [[_T10], _TResult]]]]]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]:
+  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult] = lambda a1, a2, a3, a4, a5, a6, a7, a8, a9, a10: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)
+  _curried[f2] = f
+  return f2
 
-def num_args(fn: Callable[..., Any]) -> int:
-    return len(
-        [
-            param
-            for param in signature(fn).parameters.values()
-            if param.kind == Parameter.POSITIONAL_ONLY
-        ]
-    )
+def curry10(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], Callable [[_T9], Callable [[_T10], _TResult]]]]]]]]]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: f(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
+  else:
+    return f2
 
+def uncurry9(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], Callable [[_T9], _TResult]]]]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]:
+  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult] = lambda a1, a2, a3, a4, a5, a6, a7, a8, a9: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)
+  _curried[f2] = f
+  return f2
 
-def uncurry(arity: int, fn: Callable[..., Callable[..., Any]]) -> Callable[..., Any]:
-    # Check if function is option with None value
-    if fn is None or num_args(fn) == 1:
-        return fn
+def curry9(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], Callable [[_T9], _TResult]]]]]]]]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: f(a1, a2, a3, a4, a5, a6, a7, a8, a9)
+  else:
+    return f2
 
-    def uncurried(*args: Any):
-        res = fn
-        for i in range(arity):
-            res = res(args[i])
+def uncurry8(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], _TResult]]]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]:
+  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult] = lambda a1, a2, a3, a4, a5, a6, a7, a8: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)
+  _curried[f2] = f
+  return f2
 
-        return res
+def curry8(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], _TResult]]]]]]]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: f(a1, a2, a3, a4, a5, a6, a7, a8)
+  else:
+    return f2
 
-    setattr(uncurried, CURRIED_KEY, fn)
-    return uncurried
+def uncurry7(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], _TResult]]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]:
+  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult] = lambda a1, a2, a3, a4, a5, a6, a7: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)
+  _curried[f2] = f
+  return f2
 
+def curry7(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], _TResult]]]]]]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: f(a1, a2, a3, a4, a5, a6, a7)
+  else:
+    return f2
 
-def _curry(*args: Any, arity: int, fn: Callable[..., Any]) -> Callable[..., Any]:
-    def curried(arg: Any = None) -> Callable[..., Any]:
-        if arity == 1:
-            return fn(*args, arg)
+def uncurry6(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], _TResult]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]:
+  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult] = lambda a1, a2, a3, a4, a5, a6: f(a1)(a2)(a3)(a4)(a5)(a6)
+  _curried[f2] = f
+  return f2
 
-        # Note it's important to generate a new args array every time
-        # because a partially applied function can be run multiple times
-        return _curry(*args, arg, arity=arity - 1, fn=fn)
+def curry6(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], _TResult]]]]]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: f(a1, a2, a3, a4, a5, a6)
+  else:
+    return f2
 
-    return curried
+def uncurry5(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], _TResult]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]:
+  f2: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult] = lambda a1, a2, a3, a4, a5: f(a1)(a2)(a3)(a4)(a5)
+  _curried[f2] = f
+  return f2
 
+def curry5(f: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], _TResult]]]]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(a1, a2, a3, a4, a5)
+  else:
+    return f2
 
-def curry(arity: int, fn: Callable[..., Any]) -> Callable[..., Callable[..., Any]]:
-    if fn is None or num_args(fn) == 1:
-        return fn
+def uncurry4(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], _TResult]]]]) -> Callable[[_T1, _T2, _T3, _T4], _TResult]:
+  f2: Callable[[_T1, _T2, _T3, _T4], _TResult] = lambda a1, a2, a3, a4: f(a1)(a2)(a3)(a4)
+  _curried[f2] = f
+  return f2
 
-    if hasattr(fn, CURRIED_KEY):
-        return getattr(fn, CURRIED_KEY)
+def curry4(f: Callable[[_T1, _T2, _T3, _T4], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], _TResult]]]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: lambda a3: lambda a4: f(a1, a2, a3, a4)
+  else:
+    return f2
 
-    return _curry(arity=arity, fn=fn)
+def uncurry3(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], _TResult]]]) -> Callable[[_T1, _T2, _T3], _TResult]:
+  f2: Callable[[_T1, _T2, _T3], _TResult] = lambda a1, a2, a3: f(a1)(a2)(a3)
+  _curried[f2] = f
+  return f2
 
+def curry3(f: Callable[[_T1, _T2, _T3], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], _TResult]]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: lambda a3: f(a1, a2, a3)
+  else:
+    return f2
 
-def check_arity(arity: int, fn: Callable[..., Any]) -> Callable[..., Any]:
-    sig = signature(fn)
-    num_args = len(sig.parameters)
+def uncurry2(f: Callable[[_T1], Callable [[_T2], _TResult]]) -> Callable[[_T1, _T2], _TResult]:
+  f2: Callable[[_T1, _T2], _TResult] = lambda a1, a2: f(a1)(a2)
+  _curried[f2] = f
+  return f2
 
-    def gn(*args1: Any) -> Callable[..., Any]:
-        def hn(*args2: Any) -> Any:
-            return fn(*args1, *args2)
-
-        return hn
-
-    if num_args > arity:
-        return gn
-    return fn
-
-
-def partial_apply(
-    arity: int, fn: Callable[..., Any], args: List[Any]
-) -> Callable[..., Any]:
-    if fn is None:
-        raise ValueError("partially_apply: Missing function")
-
-    if hasattr(fn, CURRIED_KEY):
-        fn = getattr(fn, CURRIED_KEY)
-
-        for arg in args:
-            fn = fn(arg)
-        return fn
-    else:
-        return _curry(*args, arity=arity, fn=fn)
+def curry2(f: Callable[[_T1, _T2], _TResult]) -> Callable[[_T1], Callable [[_T2], _TResult]]:
+  f2 = _curried.get(f)
+  if f2 is None:
+    return lambda a1: lambda a2: f(a1, a2)
+  else:
+    return f2
 
 
 def is_array_like(x: Any) -> bool:

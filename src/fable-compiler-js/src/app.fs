@@ -103,7 +103,7 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     let printError (e: Fable.Standalone.Error) =
         let errorType = (if e.IsWarning then "Warning" else "Error")
-        printfn "%s (%d,%d): %s: %s" e.FileName e.StartLine e.StartColumn errorType e.Message
+        printfn "%s" $"{e.FileName} ({e.StartLine},{e.StartColumn}): {errorType}: {e.Message}"
     let warnings, errors = errors |> Array.partition (fun e -> e.IsWarning)
     let hasErrors = not (Array.isEmpty errors)
     if showWarnings then
@@ -149,6 +149,8 @@ let parseFiles projectFileName options =
     let parseRes, ms1 = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
+
+    // print warnings and errors
     let showWarnings = not options.benchmark
     parseRes.Errors |> printErrors showWarnings
 
@@ -199,11 +201,6 @@ let parseFiles projectFileName options =
     async {
         for fileName in fileNames do
 
-            // print F# AST
-            if options.printAst then
-                let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
-                printfn "%s Typed AST: %s" fileName fsAstStr
-
             // transform F# AST to target language AST
             let res, ms2 = measureTime parseFable (parseRes, fileName)
             printfn "File: %s, Fable time: %d ms" fileName ms2
@@ -217,6 +214,12 @@ let parseFiles projectFileName options =
                 | Some outDir ->
                     let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
                     Path.ChangeExtension(absPath, fileExt)
+
+            // print F# AST to file
+            if options.printAst then
+                let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
+                let astPath = outPath.Substring(0, outPath.LastIndexOf(fileExt)) + ".fs.ast"
+                writeAllText astPath fsAstStr
 
             // print target language AST to writer
             let writer = new SourceWriter(fileName, outPath, projDir, options, fileExt, getOrAddDeduplicateTargetDir)

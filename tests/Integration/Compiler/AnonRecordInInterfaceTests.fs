@@ -529,6 +529,108 @@ let tests =
           |> Assert.Is.errorOrWarning
           |> Assert.Exists.errorOrWarningMatching (Error.Regex.MissingField (interfaceName = i.Name, fieldName = "Required"))
       ]
+      testList "interface with field with aliased U2 type" [
+        let al = "type Value = U2<bool, string>"
+        let i = { Name = "Field8"; Properties = [ ReadOnly ("Value", "Value") ] }
+        let tys = [
+          al
+          yield! i |> Interface.format
+        ]
+        let aliasAndInterfaceAndAnonRecordAssignment value =
+          [
+            yield! tys
+            assignAnonRecord i [("Value", value)]
+          ]
+
+        testCase "no error for field with string" <| fun _ ->
+          aliasAndInterfaceAndAnonRecordAssignment "\"foo\""
+          |> concat
+          |> compile
+          |> Assert.Is.strictSuccess
+        testCase "no error for field with bool" <| fun _ ->
+          aliasAndInterfaceAndAnonRecordAssignment "true"
+          |> concat
+          |> compile
+          |> Assert.Is.strictSuccess
+        testCase "error for field with int" <| fun _ ->
+          aliasAndInterfaceAndAnonRecordAssignment "42"
+          |> concat
+          |> compile
+          |> Assert.Is.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedTypeMulti (interfaceName = i.Name, fieldName = "Value"))
+        testCase "no error for field with Value" <| fun _ ->
+          [
+            yield! tys
+            assign "value" "Value" "U2.Case1 true"
+            assignAnonRecord i [("Value", "value")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.strictSuccess
+        testCase "no error for field with U2<bool, string>" <| fun _ ->
+          [
+            yield! tys
+            assign "value" "U2<bool, string>" "U2.Case1 true"
+            assignAnonRecord i [("Value", "value")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.strictSuccess
+        testCase "no error for field with U2<int, string>" <| fun _ ->
+          [
+            yield! tys
+            assign "value" "U2<int, string>" "U2.Case1 42"
+            assignAnonRecord i [("Value", "value")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.strictSuccess
+        testCase "no error for field with string & Aliased Value" <| fun _ ->
+          [
+            "type Root = U2<bool, string>"
+            "type Value = Root"
+            yield! i |> Interface.format
+            assignAnonRecord i [("Value", "\"foo\"")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.strictSuccess
+        testCase "error for field with int & Aliased Value" <| fun _ ->
+          [
+            "type Root = U2<bool, string>"
+            "type Value = Root"
+            yield! i |> Interface.format
+            assignAnonRecord i [("Value", "42")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedTypeMulti (interfaceName = i.Name, fieldName = "Value"))
+
+        testCase "no error for option field with string & aliased Value" <| fun _ ->
+          [
+            al
+            yield!
+              { Name = "Field8"; Properties = [ ReadOnly ("Value", "Value option") ] }
+              |> Interface.format
+            assignAnonRecord i [("Value", "\"foo\"")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.strictSuccess
+        testCase "error for option field with int & aliased Value" <| fun _ ->
+          [
+            al
+            yield!
+              { Name = "Field8"; Properties = [ ReadOnly ("Value", "Value option") ] }
+              |> Interface.format
+            assignAnonRecord i [("Value", "42")]
+          ]
+          |> concat
+          |> compile
+          |> Assert.Is.errorOrWarning
+          |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedTypeMulti (interfaceName = i.Name, fieldName = "Value"))
+      ]
     ]
 
     testList "Interface with EmitIndexer" [

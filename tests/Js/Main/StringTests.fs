@@ -105,7 +105,6 @@ let tests =
             let linef fmt = Printf.ksprintf lines.Add fmt // broken
             linef "open %s" "Foo"
             lines |> Seq.toList |> equal ["open Foo"]
-
       testCase "kbprintf works" <| fun () ->
             let sb = System.Text.StringBuilder()
             let mutable i = 0
@@ -553,11 +552,13 @@ let tests =
 
       testCase "System.String.Equals works" <| fun () ->
             System.String.Equals("abc", "abc") |> equal true
-            System.String.Equals("ABC", "abc") |> equal false
-            System.String.Equals("abc", "abd") |> equal false
+            // TypeScript will complain if we use equality with two different literals
+            let mutable a = "a" // make it mutable so Fable doesn't inline it
+            System.String.Equals("ABC", a + "bc") |> equal false
+            System.String.Equals("abc", a + "bd") |> equal false
             "abc".Equals("abc") |> equal true
-            "ABC".Equals("abc") |> equal false
-            "abc".Equals("abd") |> equal false
+            "ABC".Equals(a + "bc") |> equal false
+            "abc".Equals(a + "bd") |> equal false
             System.String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
             System.String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
             "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
@@ -1077,13 +1078,19 @@ let tests =
 
 #if FABLE_COMPILER
       testCase "Can use FormattableString.GetStrings() extension" <| fun () ->
+// TypeScript will complain because TemplateStringsArray is not equivalent to string[]
+#if FABLE_COMPILER_TYPESCRIPT
+          let toArray = Seq.toArray
+#else
+          let toArray = id
+#endif
           let orderAmount = 100
           let convert (s: FormattableString) = s
           let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
-          s.GetStrings() |> equal [|"You owe: "; " "; " "; ""|]
+          s.GetStrings() |> toArray |> equal [|"You owe: "; " "; " "; ""|]
           let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
-          s2.GetStrings() |> equal [|""; "This is \""; "\" awesome!"|]
+          s2.GetStrings() |> toArray |> equal [|""; "This is \""; "\" awesome!"|]
           let s3: FormattableString = $"""I have no holes"""
-          s3.GetStrings() |> equal [|"I have no holes"|]
+          s3.GetStrings() |> toArray |> equal [|"I have no holes"|]
 #endif
 ]

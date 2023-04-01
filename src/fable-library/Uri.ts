@@ -96,8 +96,6 @@ export class Uri {
       : Uri.tryCreateWithBase(value, kindOrUri);
   }
 
-  public static create(baseUri: Uri, relativeUri: string | Uri): Uri;
-  public static create(uriString: string, uriKind: UriKind): Uri;
   public static create(
     value: string | Uri,
     kindOrUri: UriKind | string | Uri = UriKind.Absolute

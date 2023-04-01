@@ -1110,12 +1110,11 @@ let ``List.transpose works`` () =
     List.transpose<int> [[]] |> equal []
     List.transpose<int> [[]; []] |> equal []
     // jagged lists throw on transpose
-    // TODO:
-    // throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
-    // throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
-    // throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
-    // throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
-    // throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
+    throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
+    throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
+    throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
+    throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
+    throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
 
 [<Fact>]
 let ``List.updateAt works`` () =
@@ -1130,9 +1129,9 @@ let ``List.updateAt works`` () =
     equal ["1"; "2"; "3"; "4"; "0"] (List.updateAt 4 "0" ["1"; "2"; "3"; "4"; "5"])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> List.updateAt 0 0 [] |> ignore)
-    // throwsAnyError (fun () -> List.updateAt -1 0 [1] |> ignore)
-    // throwsAnyError (fun () -> List.updateAt 2 0 [1] |> ignore)
+    throwsAnyError (fun () -> List.updateAt<int> 0 0 [] |> ignore)
+    throwsAnyError (fun () -> List.updateAt -1 0 [1] |> ignore)
+    throwsAnyError (fun () -> List.updateAt 2 0 [1] |> ignore)
 
 [<Fact>]
 let ``List.insertAt works`` () =
@@ -1148,8 +1147,8 @@ let ``List.insertAt works`` () =
 
     // empty list & out of bounds
     equal [0] (List.insertAt 0 0 [])
-    // throwsAnyError (fun () -> List.insertAt -1 0 [1] |> ignore)
-    // throwsAnyError (fun () -> List.insertAt 2 0 [1] |> ignore)
+    throwsAnyError (fun () -> List.insertAt -1 0 [1] |> ignore)
+    throwsAnyError (fun () -> List.insertAt 2 0 [1] |> ignore)
 
 [<Fact>]
 let ``List.insertManyAt works`` () =
@@ -1165,8 +1164,8 @@ let ``List.insertManyAt works`` () =
 
     // empty list & out of bounds
     equal [0; 0] (List.insertManyAt 0 [0; 0] [])
-    // throwsAnyError (fun () -> List.insertManyAt -1 [0; 0] [1] |> ignore)
-    // throwsAnyError (fun () -> List.insertManyAt 2 [0; 0] [1] |> ignore)
+    throwsAnyError (fun () -> List.insertManyAt -1 [0; 0] [1] |> ignore)
+    throwsAnyError (fun () -> List.insertManyAt 2 [0; 0] [1] |> ignore)
 
 [<Fact>]
 let ``List.removeAt works`` () =
@@ -1181,9 +1180,9 @@ let ``List.removeAt works`` () =
     equal ["1"; "2"; "3"; "4"] (List.removeAt 4 ["1"; "2"; "3"; "4"; "5"])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> List.removeAt 0 [] |> ignore)
-    // throwsAnyError (fun () -> List.removeAt -1 [1] |> ignore)
-    // throwsAnyError (fun () -> List.removeAt 2 [1] |> ignore)
+    throwsAnyError (fun () -> List.removeAt<int> 0 [] |> ignore)
+    throwsAnyError (fun () -> List.removeAt -1 [1] |> ignore)
+    throwsAnyError (fun () -> List.removeAt 2 [1] |> ignore)
 
 [<Fact>]
 let ``List.removeManyAt works`` () =
@@ -1198,6 +1197,6 @@ let ``List.removeManyAt works`` () =
     equal ["1"; "2"; "3"] (List.removeManyAt 3 2 ["1"; "2"; "3"; "4"; "5"])
 
     // empty list & out of bounds
-    // throwsAnyError (fun () -> List.removeManyAt 0 2 [] |> ignore)
-    // throwsAnyError (fun () -> List.removeManyAt -1 2 [1] |> ignore)
-    // throwsAnyError (fun () -> List.removeManyAt 2 2 [1] |> ignore)
+    throwsAnyError (fun () -> List.removeManyAt<int> 0 2 [] |> ignore)
+    throwsAnyError (fun () -> List.removeManyAt -1 2 [1] |> ignore)
+    throwsAnyError (fun () -> List.removeManyAt 2 2 [1] |> ignore)

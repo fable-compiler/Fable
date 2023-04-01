@@ -9,10 +9,6 @@ open Fable.AST.Fable
 open Fable.Transforms
 open Replacements.Util
 
-type NumberKind with
-    member this.Number =
-        Number(this, NumberInfo.Empty)
-
 let (|DartInt|_|) = function
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Some DartInt
     | _ -> None
@@ -20,41 +16,6 @@ let (|DartInt|_|) = function
 let (|DartDouble|_|) = function
     | Float32 | Float64 -> Some DartDouble
     | _ -> None
-
-let curryExprAtRuntime (_com: Compiler) arity (expr: Expr) =
-    // Let's use emit for simplicity
-    let argIdents = List.init arity (fun i -> $"arg{i}$")
-    let args = argIdents |> List.map (fun a -> $"({a}) =>") |> String.concat " "
-    $"""%s{args} $0(%s{String.concat ", " argIdents})"""
-    |> emit None expr.Type [expr] false
-
-let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
-    let uncurry expr =
-        let argIdents = List.init arity (fun i -> $"arg{i}$")
-        let args = argIdents |> String.concat ", "
-        let appliedArgs = argIdents |> String.concat ")("
-        $"""(%s{args}) => $0(%s{appliedArgs})"""
-        |> emit None t [expr] false
-
-    match expr with
-    | Value(Null _, _) -> expr
-    | Value(NewOption(value, t, isStruct), r) ->
-        match value with
-        | None -> expr
-        | Some v -> Value(NewOption(Some(uncurry v), t, isStruct), r)
-    | ExprType(Option(t2,_)) ->
-        let fn =
-            let f = makeTypedIdent t2 "f"
-            Delegate([f], uncurry (IdentExpr f), None, Tags.empty)
-        Helper.LibCall(com, "Option", "map", t, [fn; expr])
-    | expr -> uncurry expr
-
-let partialApplyAtRuntime (_com: Compiler) t arity (fn: Expr) (argExprs: Expr list) =
-    let argIdents = List.init arity (fun i -> $"arg{i}$")
-    let args = argIdents |> List.map (fun a -> $"({a}) =>") |> String.concat " "
-    let appliedArgs = List.init argExprs.Length (fun i -> $"${i + 1}") |> String.concat ", "
-    $"""%s{args} $0(%s{appliedArgs}, %s{String.concat ", " argIdents})"""
-    |> emit None t (fn::argExprs) false
 
 let error msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [msg])
@@ -264,11 +225,11 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal,_) ->
-        let n = Helper.LibCall(com, "Decimal", "toNumber", Number(Float64, NumberInfo.Empty), [args.Head])
-        let rounded = Helper.LibCall(com, "Util", "round", Number(Float64, NumberInfo.Empty), [n])
+        let n = Helper.LibCall(com, "Decimal", "toNumber", Float64.Number, [args.Head])
+        let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [n])
         rounded::args.Tail
     | Number((Float32|Float64),_) ->
-        let rounded = Helper.LibCall(com, "Util", "round", Number(Float64, NumberInfo.Empty), [args.Head])
+        let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [args.Head])
         rounded::args.Tail
     | _ -> args
 
@@ -291,24 +252,33 @@ let getSubtractToDateMethodName = function
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
         Operation(Unary(operator, operand), Tags.empty, t, r)
+
     let binOp op left right =
         Operation(Binary(op, left, right), Tags.empty, t, r)
+
+    let binOpChar op left right =
+        let toUInt16 e = toInt com ctx None (Number(UInt16, NumberInfo.Empty)) [e]
+        Operation(Binary(op, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r) |> toChar
+
     let truncateUnsigned operation = // see #1550
         match t with
         | Number(UInt32,_) ->
             Operation(Binary(BinaryShiftRightZeroFill,operation,makeIntConst 0), Tags.empty, t, r)
         | _ -> operation
+
     let logicOp op left right =
         Operation(Logical(op, left, right), Tags.empty, Boolean, r)
+
     let nativeOp opName argTypes args =
         match opName, args with
         | Operators.addition, [left; right] ->
             match argTypes with
-            | Char::_ ->
-                let toUInt16 e = toInt com ctx None UInt16.Number [e]
-                Operation(Binary(BinaryPlus, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r) |> toChar
+            | Char::_ -> binOpChar BinaryPlus left right
             | _ -> binOp BinaryPlus left right
-        | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
+        | Operators.subtraction, [left; right] ->
+            match argTypes with
+            | Char::_ -> binOpChar BinaryMinus left right
+            | _ -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
         | (Operators.division | Operators.divideByInt), [left; right] ->
             binOp BinaryDivide left right
@@ -334,6 +304,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             // | Number(Int16,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int16", t, args, ?loc=r)
             // | Number(Int32,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int32", t, args, ?loc=r)
             // | _ -> unOp UnaryMinus operand
+        | Operators.unaryPlus, [operand] -> unOp UnaryPlus operand
         | _ -> $"Operator %s{opName} not found in %A{argTypes}"
                |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = args |> List.map (fun a -> a.Type)
@@ -435,17 +406,18 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 
 // Mirrors Fable2Dart.Util.compare
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
-    let returnType = Int32.Number
+    let t = Int32.Number
     match left.Type with
     | Array(t,_) ->
         let fn = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Util", "compareList", returnType, [left; right; fn], ?loc=r)
+        Helper.LibCall(com, "Util", "compareList", t, [left; right; fn], ?loc=r)
     | Option(t,_) ->
         let fn = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Util", "compareNullable", returnType, [left; right; fn], ?loc=r)
-    | Boolean -> Helper.LibCall(com, "Util", "compareBool", returnType, [left; right], ?loc=r)
-    | Any | GenericParam _ -> Helper.LibCall(com, "Util", "compareDynamic", returnType, [left; right], ?loc=r)
-    | _ -> Helper.InstanceCall(left, "compareTo", returnType, [right], ?loc=r)
+        Helper.LibCall(com, "Util", "compareNullable", t, [left; right; fn], ?loc=r)
+    | Boolean -> Helper.LibCall(com, "Util", "compareBool", t, [left; right], ?loc=r)
+    | Any | GenericParam _ ->
+        Helper.LibCall(com, "Util", "compareDynamic", t, [left; right], ?loc=r)
+    | _ -> Helper.InstanceCall(left, "compareTo", t, [right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
 and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
@@ -705,7 +677,12 @@ let getRefCell com r typ (expr: Expr) =
 let setRefCell com r (expr: Expr) (value: Expr) =
     setField r expr "contents" value
 
-let makeRefCell com r typ (value: Expr) =
+let makeRefCell com r genArg args =
+    let typ = makeFSharpCoreType [genArg] Types.refCell
+    Helper.LibCall(com, "Types", "FSharpRef", typ, args, isConstructor=true, ?loc=r)
+
+let makeRefCellFromValue com r (value: Expr) =
+    let typ = makeFSharpCoreType [value.Type] Types.refCell
     let fsharpRef = Helper.LibValue(com, "Types", "FSharpRef", MetaType)
     Helper.InstanceCall(fsharpRef, "ofValue", typ, [value], genArgs=typ.Generics, ?loc=r)
 
@@ -715,7 +692,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    makeRefCell com r t [getter; setter]
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
@@ -723,7 +700,7 @@ let makeRefFromMutableField com ctx r t callee key =
     let setter =
         let v = makeUniqueIdent ctx t "v"
         Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    makeRefCell com r t [getter; setter]
 
 // Not sure if this is needed in Dart, see comment in JS.Replacements.makeRefFromMutableFunc
 let makeRefFromMutableFunc com ctx r t (value: Expr) =
@@ -737,7 +714,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         let info = makeCallInfo None args [t; Boolean]
         let value = makeCall r Unit info value
         Delegate([v], value, None, Tags.empty)
-    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isConstructor=true)
+    makeRefCell com r t [getter; setter]
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -799,37 +776,37 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         getFieldWith None t callee "input" |> Some
     | "PrintFormatToStringThen", _, _ ->
         match args with
-        | [_] -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        | [_] -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | [cont; fmt] -> Helper.InstanceCall(fmt, "cont", t, [cont]) |> Some
         | _ -> None
     | "PrintFormatToString", _, _ ->
         match args with
         | [template] when template.Type = String -> Some template
-        | _ -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        | _ -> Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormatLine", _, _ ->
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("PrintFormatToError"|"PrintFormatLineToError"), _, _ ->
         // addWarning com ctx.FileName r "eprintf will behave as eprintfn"
-        Helper.LibCall(com, "String", "toConsoleError", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toConsoleError", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
         // addWarning com ctx.FileName r "fprintfn will behave as printfn"
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormat", _, _ ->
         // addWarning com ctx.FileName r "Printf will behave as printfn"
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormatThen", _, arg::callee::_ ->
         Helper.InstanceCall(callee, "cont", t, [arg]) |> Some
     | "PrintFormatToStringThenFail", _, _ ->
-        Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("PrintFormatToStringBuilder"      // bprintf
     |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
        ), _, _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str::(Value(NewArray(ArrayValues templateArgs, _, MutableArray), _) as values)::_ ->
         match makeStringTemplateFrom [|"%s"; "%i"|] templateArgs str with
         | Some v -> makeValue r v |> Some
-        | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        | None -> Helper.LibCall(com, "String", "interpolate", t, [str; values], i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", _, arg::_ ->
-        Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "String", "printf", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let defaultValue com ctx r t defValue option =
@@ -863,7 +840,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> TypeCast(xs, t) |> Some
-    | "CreateDictionary", [arg] ->
+    | ("CreateDictionary"|"CreateReadOnlyDictionary"), [arg] ->
         Helper.LibCall(com, "Types", "mapFromTuples", t, [arg], genArgs=i.GenericArgs, ?loc=r)
         |> withTag "const-map" |> Some
     | "CreateSet", _ -> makeSet com ctx r t "OfSeq" args i.GenericArgs |> Some
@@ -981,7 +958,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Reference
     | "op_Dereference", [arg] -> getRefCell com r t arg  |> Some
     | "op_ColonEquals", [o; v] -> setRefCell com r o v |> Some
-    | "Ref", [arg] -> makeRefCell com r t arg |> Some
+    | "Ref", [arg] -> makeRefCellFromValue com r arg |> Some
     | ("Increment"|"Decrement"), _ ->
         if i.CompiledName = "Increment" then "$0.contents++" else "$0.contents--"
         |> emitExpr r t args |> Some
@@ -1552,7 +1529,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "IsInfinity", [_] when isFloat ->
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,
-            str::NumberConst(:? int as style,_)::_ ->
+            str::NumberConst(:? int as style,_,_)::_ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
         if style <> hexConst && style <> intConst then
@@ -2717,7 +2694,7 @@ let private replacedModules =
     Types.idisposable, disposables
     Types.option, options false
     Types.valueOption, options true
-    "System.Nullable`1", nullables
+    Types.nullable, nullables
     "Microsoft.FSharp.Core.OptionModule", optionModule false
     "Microsoft.FSharp.Core.ValueOption", optionModule true
     "Microsoft.FSharp.Core.ResultModule", results
@@ -2726,7 +2703,7 @@ let private replacedModules =
     Types.refCell, refCells
     Types.object, objects
     Types.valueType, valueTypes
-    "System.Enum", enums
+    Types.enum_, enums
     "System.BitConverter", bitConvert
     Types.bool, parseBool
     Types.int8, parseNum

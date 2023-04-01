@@ -10,7 +10,8 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--noCache", "--runScript"],
+            // "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--noCache", "--runScript"],
+            "args": ["src/fable-library", "--outDir", "build/fable-library-ts", "--fableLib", "build/fable-library-ts", "--lang", "TypeScript", "--typedArrays", "false", "--exclude", "Fable.Core", "--define", "FX_NO_BIGINT", "--define", "FABLE_LIBRARY"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": true,
             "console": "internalConsole"

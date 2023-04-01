@@ -27,3 +27,10 @@ module SR =
 // so can be casted to array instead of using .ToArray() which makes a copy
 let inline internal asArray (a: ResizeArray<'T>): 'T[] =
     (a :> obj) :?> 'T[] // cast will go away
+
+// type IObject =
+//     abstract to_any: unit -> obj
+
+// type IException =
+//     inherit IObject
+//     abstract Message: string

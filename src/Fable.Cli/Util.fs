@@ -18,6 +18,7 @@ type CliArgs =
       IsWatch: bool
       Precompile: bool
       PrecompiledLib: string option
+      PrintAst: bool
       FableLibraryPath: string option
       Configuration: string
       NoRestore: bool

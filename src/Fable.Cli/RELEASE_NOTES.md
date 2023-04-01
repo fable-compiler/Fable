@@ -1,3 +1,28 @@
+### 4.0.3
+
+* Fix #3389: Don't wrap TemplateStringArray
+* Rust: Fix recursive closures and some type tests,
+* TypeScript: Emit interfaces and anonymous record annotations
+
+### 4.0.2
+
+* Enable Unicode identifiers @kant2002
+* Add ability for plugins to remove member declaration @Zaid-Ajaj
+* Improve uncurrying mechanism and make it consistent across languages
+* Rust: Enable applicative tests and other fixes
+* TypeScript: Enable 1909 tests
+
+### 4.0.1
+
+* Fix #3371: Copying struct records
+* Php: Improve output @entropitor
+* Rust: string improvements
+* TypeScript: Fix applicative tests
+
+### 4.0.0
+
+* Fable JS stable release
+
 ### 4.0.0-theta-018
 
 * When using a .csproj, make sure the project is restored before parsing

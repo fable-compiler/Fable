@@ -1821,6 +1821,7 @@ type internal ILGlobals =
     member primaryAssemblyScopeRef: ILScopeRef
     member primaryAssemblyRef: ILAssemblyRef
     member primaryAssemblyName: string
+    member typ_Attribute: ILType
     member typ_Object: ILType
     member typ_String: ILType
     member typ_Type: ILType
