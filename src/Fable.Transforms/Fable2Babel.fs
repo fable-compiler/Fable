@@ -607,6 +607,9 @@ module Annotation =
             -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObserver" |> Some
         | Types.iobservableGeneric
             -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObservable" |> Some
+        | "Microsoft.FSharp.Control.IEvent`2" ->
+            let genArgs = List.tryLast genArgs |> Option.toList
+            makeImportTypeAnnotation com ctx genArgs "Event" "IEvent" |> Some
         | _ -> None
 
     let makeEntityTypeAnnotation com ctx genArgs (ent: Fable.Entity) =
@@ -648,6 +651,10 @@ module Annotation =
                 | "string" -> StringTypeAnnotation
                 | _ -> AnyTypeAnnotation
             | Expression.Identifier(id) ->
+                let genArgs =
+                    match ent.FullName with
+                    | "Microsoft.FSharp.Control.FSharpEvent`2" -> List.tryLast genArgs |> Option.toList
+                    | _ -> genArgs
                 makeGenericTypeAnnotation com ctx genArgs id
             // TODO: Resolve references to types in nested modules
             | _ -> AnyTypeAnnotation
@@ -1530,7 +1537,12 @@ module Util =
                 | None when List.contains "new" callInfo.Tags ->
                     let typeParamInst =
                         match typ with
-                        | Fable.DeclaredType(_entRef, genArgs) -> makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                        | Fable.DeclaredType(entRef, genArgs) ->
+                            let genArgs =
+                                if entRef.FullName = "Microsoft.FSharp.Control.FSharpEvent`2" then
+                                    List.tryLast genArgs |> Option.toList
+                                else genArgs
+                            makeTypeParamInstantiationIfTypeScript com ctx genArgs
                         | _ -> None
                     Expression.newExpression(callee, List.toArray args, ?typeArguments=typeParamInst, ?loc=range)
                 | None -> callFunction com ctx range callee callInfo.GenericArgs args

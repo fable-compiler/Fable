@@ -759,6 +759,8 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
     | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
+    | "Microsoft.FSharp.Control.FSharpEvent`1"
+    | "Microsoft.FSharp.Control.FSharpEvent`2" -> makeImportLib com Any "default" "Event" |> Some
     | _ -> None
 
 let tryConstructor com (ent: Entity) =
@@ -1416,7 +1418,7 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
     | "CreateEvent", [addHandler; removeHandler; createHandler] ->
-        Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+        Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
@@ -2620,8 +2622,8 @@ let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r) |> Some
     | "get_Publish", Some x -> getFieldWith r t x "Publish" |> Some
-    | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
-    | meth, None -> Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+    | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, None -> Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let observable (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     Helper.LibCall(com, "Observable", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some

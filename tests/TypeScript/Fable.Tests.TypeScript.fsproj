@@ -40,7 +40,7 @@
     <Compile Include="../Js/Main/ElmishParserTests.fs" />
     <Compile Include="../Js/Main/EnumerableTests.fs" />
     <Compile Include="../Js/Main/EnumTests.fs" />
-    <!-- <Compile Include="../Js/Main/EventTests.fs" /> -->
+    <Compile Include="../Js/Main/EventTests.fs" />
     <Compile Include="../Js/Main/HashSetTests.fs" />
     <!-- <Compile Include="../Js/Main/ImportTests.fs" />
     <Compile Include="../Js/Main/JsInteropTests.fs" /> -->

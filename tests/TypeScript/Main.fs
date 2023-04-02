@@ -23,7 +23,7 @@ let allTests =
 #endif
     Enumerable.tests
     Enum.tests
-    // Event.tests
+    Event.tests
     HashSets.tests
     // Import.tests
     // JsInterop.tests
