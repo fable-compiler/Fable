@@ -294,9 +294,6 @@ module Reflection =
             ]
             |> libReflectionCall com ctx r "class"
 
-    let private ofString s = Expression.stringLiteral(s)
-    let private ofArray babelExprs = Expression.arrayExpression(List.toArray babelExprs)
-
     let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type): Expression =
         let warnAndEvalToFalse msg =
             "Cannot type test (evals to false): " + msg
@@ -1688,6 +1685,18 @@ module Util =
             let kind = if var.IsMutable then Let else Const
             [| Statement.variableDeclaration(kind, var.Name, ?annotation=ta, typeParameters=tp, init=value) |]
 
+    let transformUnionCaseTag (com: IBabelCompiler) ctx typ tag =
+        if com.IsTypeScript then
+            match typ with
+            | Fable.DeclaredType(ent, _) ->
+                let ent = com.GetEntity(ent)
+                match tryJsConstructorWithSuffix com ctx ent "_Tag" with
+                | Some(Expression.Identifier(tagIdent)) -> EnumCaseLiteral(tagIdent, ent.UnionCases[tag].Name) |> Literal
+                | _ -> ofInt tag
+            | _ -> ofInt tag
+        else
+            ofInt tag
+
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with
         | Fable.TypeTest t ->
@@ -1699,23 +1708,19 @@ module Util =
             let expr = libCall com ctx range "List" "isEmpty" [] [expr]
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
-            let expected =
-                if com.IsTypeScript then
-                    match expr.Type with
-                    | Fable.DeclaredType(ent, _) ->
-                        let ent = com.GetEntity(ent)
-                        match tryJsConstructorWithSuffix com ctx ent "_Tag" with
-                        | Some(Expression.Identifier(tagIdent)) -> EnumCaseLiteral(tagIdent, ent.UnionCases[tag].Name) |> Literal
-                        | _ -> ofInt tag
-                    | _ -> ofInt tag
-                else
-                    ofInt tag
+            let expected = transformUnionCaseTag com ctx expr.Type tag
             let actual = getUnionExprTag com ctx None expr
             Expression.binaryExpression(BinaryEqual, actual, expected, ?loc=range)
 
-    let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
+    let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy (evalExpr: Fable.Expr) cases defaultCase: Statement =
         let consequent caseBody =
             if useBlocks then [|Statement.blockStatement(caseBody)|] else caseBody
+
+        let transformGuard = function
+            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
+                transformUnionCaseTag com ctx expr.Type tag
+            | TransformExpr com ctx e -> e
+
         let cases =
             cases |> List.collect (fun (guards, expr) ->
                 // Remove empty branches
@@ -1724,20 +1729,22 @@ module Util =
                 | _, _, [] -> []
                 | _, _, guards ->
                     let guards, lastGuard = List.splitLast guards
-                    let guards = guards |> List.map (fun e -> SwitchCase.switchCase([||], com.TransformAsExpr(ctx, e)))
+                    let guards = guards |> List.map (fun e -> SwitchCase.switchCase(transformGuard e))
                     let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
                     let caseBody =
                         match returnStrategy with
                         | Some Return -> caseBody
                         | _ -> Array.append caseBody [|Statement.breakStatement()|]
-                    guards @ [SwitchCase.switchCase(consequent caseBody, com.TransformAsExpr(ctx, lastGuard))]
+                    guards @ [SwitchCase.switchCase(transformGuard lastGuard, consequent caseBody)]
                 )
+
         let cases =
             match defaultCase with
             | Some expr ->
                 let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-                cases @ [SwitchCase.switchCase(consequent defaultCaseBody)]
+                cases @ [SwitchCase.switchCase(body=consequent defaultCaseBody)]
             | None -> cases
+
         Statement.switchStatement(com.TransformAsExpr(ctx, evalExpr), List.toArray cases)
 
     let matchTargetIdentAndValues idents values =
@@ -1791,9 +1798,8 @@ module Util =
                 | _, Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(left, right)
                 | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _), _ -> Some(right, left)
                 | _ -> None
-            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
+            | Fable.Test(expr, Fable.UnionCaseTest _, _) as right ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
-                let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
         let sameEvalExprs evalExpr1 evalExpr2 =
