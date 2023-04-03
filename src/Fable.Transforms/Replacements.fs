@@ -759,8 +759,8 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
     | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
-    | "Microsoft.FSharp.Control.FSharpEvent`1"
-    | "Microsoft.FSharp.Control.FSharpEvent`2" -> makeImportLib com Any "default" "Event" |> Some
+    | "Microsoft.FSharp.Control.FSharpEvent`1" -> makeImportLib com Any "Event" "Event" |> Some
+    | "Microsoft.FSharp.Control.FSharpEvent`2" -> makeImportLib com Any "Event$2" "Event" |> Some
     | _ -> None
 
 let tryConstructor com (ent: Entity) =
@@ -1417,7 +1417,7 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
-    | "CreateEvent", [addHandler; removeHandler; createHandler] ->
+    | "CreateEvent", [addHandler; removeHandler; _createHandler] ->
         Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
@@ -2618,9 +2618,14 @@ let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
     | Some callee, "GetEnumerator" -> getEnumerator com r t callee |> Some
     | _ -> None
 
-let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let events (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r) |> Some
+    | ".ctor", _ ->
+        let className =
+            match i.GenericArgs with
+            | [_] -> "Event"
+            | _ -> "Event$2"
+        Helper.LibCall(com, "Event", className, t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r) |> Some
     | "get_Publish", Some x -> getFieldWith r t x "Publish" |> Some
     | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, None -> Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some

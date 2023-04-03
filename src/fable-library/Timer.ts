@@ -1,4 +1,4 @@
-import Event from "./Event.js";
+import { Event } from "./Event.js";
 import { IDisposable } from "./Util.js";
 
 export class Timer implements IDisposable {
@@ -18,7 +18,7 @@ export class Timer implements IDisposable {
   }
 
   Elapsed() {
-    return this._elapsed;
+    return this._elapsed.Publish;
   }
 
   get Enabled() {
