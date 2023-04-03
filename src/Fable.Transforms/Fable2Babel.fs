@@ -314,7 +314,7 @@ module Reflection =
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
         | Fable.Number(Decimal,_) -> jsInstanceof (libValue com ctx "Decimal" "default") expr
-        | Fable.Number(BigInt,_) -> jsInstanceof (libValue com ctx "BigInt/z" "BigInteger") expr
+        | Fable.Number(BigInt,_) -> jsTypeof "bigint" expr // jsInstanceof (libValue com ctx "BigInt/z" "BigInteger") expr
         | Fable.Number((Int64|UInt64),_) -> jsInstanceof (libValue com ctx "Long" "default") expr
         | Fable.Number _ -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Expression.identifier("RegExp")) expr
@@ -420,7 +420,7 @@ module Annotation =
         | Fable.Number(Int64,_) -> makeImportTypeAnnotation com ctx [] "Long" "int64"
         | Fable.Number(UInt64,_) -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
         | Fable.Number(Decimal,_) -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
-        | Fable.Number(BigInt,_) -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
+        | Fable.Number(BigInt,_) -> makeAliasTypeAnnotation com ctx "bigint" // makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
@@ -2430,7 +2430,8 @@ module Util =
                         |> TupleTypeAnnotation
                     case_ta, (uci.Name, ofInt i), fields_ta
                 ) |> Array.unzip3
-
+            let base_ta = makeAliasTypeAnnotation com ctx "Union"
+            let union_ta = Array.append union_ta [| base_ta |]
             let isPublic = ent.IsPublic
             let union_fields_alias = AliasTypeAnnotation(union_fields, entParamsInst)
             let tagArgTa = makeAliasTypeAnnotation com ctx "Tag"
@@ -2463,7 +2464,8 @@ module Util =
                         let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
                             Parameter.parameter(fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
                         let fnId = entName + "_" + case.Name |> Identifier.identifier
-                        Declaration.functionDeclaration(parameters, body, fnId, typeParameters=entParamsDecl)
+                        let returnType = AliasTypeAnnotation(Identifier.identifier(entName), entParamsInst)
+                        Declaration.functionDeclaration(parameters, body, fnId, returnType=returnType, typeParameters=entParamsDecl)
                         |> asModuleDeclaration isPublic
 
                 // Actual class

@@ -804,7 +804,6 @@ module CurriedApplicative =
             let r = Some f <*> Some 2 <*> Some 3
             r |> equal (Some 5)
 
-        // TODO: Add tests with side-effects
         testCase "Currying/uncurrying works" <| fun () ->
             let addLocal x y z u v = x + y + z + u + v
             let f1 = changeArity addModule5 2
@@ -1047,6 +1046,16 @@ type Const<'t,'u> = Const of 't with
     static member run (Const a) = a
 
 let tests7 = [
+    testCase "Currying/uncurrying works with imported functions" <| fun () -> // See #3397
+        let r1 = apply3 Util.curriedAdder 4 5 6
+        let r2 = apply3 Util.curriedAdder 5 6 7
+        r1.result |> equal 16
+        r2.result |> equal 19
+        let r1 = apply3 Util.curriedAdder2 4 5 6
+        let r2 = apply3 Util.curriedAdder2 5 6 7
+        r1.result |> equal 16
+        r2.result |> equal 19
+
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
         (lengthWrapper [1;2;3;4]) |> equal 4

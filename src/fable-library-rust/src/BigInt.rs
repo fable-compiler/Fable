@@ -95,6 +95,9 @@ pub mod BigInt_ {
     pub fn abs(x: bigint) -> bigint { x.abs().into() }
     pub fn sign(x: bigint) -> i32 { x.signum().to_i32().unwrap() }
 
+    pub fn max(x: bigint, y: bigint) -> bigint { x.max(y).into() }
+    pub fn min(x: bigint, y: bigint) -> bigint { x.min(y).into() }
+
     pub fn add(x: bigint, y: bigint) -> bigint { x + y }
     pub fn subtract(x: bigint, y: bigint) -> bigint { x - y }
     pub fn multiply(x: bigint, y: bigint) -> bigint { x * y }
@@ -102,20 +105,59 @@ pub mod BigInt_ {
     pub fn remainder(x: bigint, y: bigint) -> bigint { x % y }
     pub fn negate(x: bigint) -> bigint { -x }
 
-    pub fn max(x: bigint, y: bigint) -> bigint { x.max(y).into() }
-    pub fn min(x: bigint, y: bigint) -> bigint { x.min(y).into() }
-
     pub fn isZero(x: bigint) -> bool { x.is_zero() }
     pub fn isOne(x: bigint) -> bool { x.is_one() }
     pub fn isEven(x: bigint) -> bool { x.is_even() }
-    pub fn isOdd(x: bigint) -> bool { x.is_odd() }
-    // pub fn IsPowerOfTwo(x: bigint) -> bool { false } //TODO:
+    pub fn isPowerOfTwo(x: bigint) -> bool { isPow2(x) }
 
     pub fn isNegative(x: bigint) -> bool { x.is_negative() }
     pub fn isPositive(x: bigint) -> bool { x.is_positive() }
-    pub fn isEvenInteger(x: bigint) -> bool { x.is_even() } //TODO:
-    pub fn isOddInteger(x: bigint) -> bool { x.is_odd() } //TODO:
-    // pub fn isPow2(x: bigint) -> bool { false } //TODO:
+    pub fn isEvenInteger(x: bigint) -> bool { x.is_even() }
+    pub fn isOddInteger(x: bigint) -> bool { x.is_odd() }
+    pub fn isPow2(x: bigint) -> bool { (x.clone() & (x - one())).is_zero() }
+
+    pub fn fromZero() -> bigint { BigInt::zero().into() }
+    pub fn fromOne() -> bigint { BigInt::one().into() }
+
+    pub fn fromInt8(n: i8) -> bigint { BigInt::from_i8(n).unwrap().into() }
+    pub fn fromUInt8(n: u8) -> bigint { BigInt::from_u8(n).unwrap().into() }
+    pub fn fromInt16(n: i16) -> bigint { BigInt::from_i16(n).unwrap().into() }
+    pub fn fromUInt16(n: u16) -> bigint { BigInt::from_u16(n).unwrap().into() }
+    pub fn fromInt32(n: i32) -> bigint { BigInt::from_i32(n).unwrap().into() }
+    pub fn fromUInt32(n: u32) -> bigint { BigInt::from_u32(n).unwrap().into() }
+    pub fn fromInt64(n: i64) -> bigint { BigInt::from_i64(n).unwrap().into() }
+    pub fn fromUInt64(n: u64) -> bigint { BigInt::from_u64(n).unwrap().into() }
+    pub fn fromNativeInt(n: isize) -> bigint { BigInt::from_isize(n).unwrap().into() }
+    pub fn fromUNativeInt(n: usize) -> bigint { BigInt::from_usize(n).unwrap().into() }
+
+    pub fn fromFloat32(n: f32) -> bigint { BigInt::from_f32(n).unwrap().into() }
+    pub fn fromFloat64(n: f64) -> bigint { BigInt::from_f64(n).unwrap().into() }
+
+    pub fn fromDecimal(d: decimal) -> bigint {
+        BigInt::from_str_radix(truncate(d).to_string().as_str(), 10).unwrap().into()
+    }
+
+    pub fn fromBigInt(x: bigint) -> bigint { x }
+
+    pub fn fromBoolean(b: bool) -> bigint {
+        BigInt::from_u32(b as u32).unwrap().into()
+    }
+
+    pub fn fromChar(c: char) -> bigint {
+        BigInt::from_u32(c as u32).unwrap().into()
+    }
+
+    pub fn fromString(s: string) -> bigint {
+        BigInt::from_str_radix(s.trim(), 10).unwrap().into()
+    }
+
+    pub fn fromByteArray(bytes: Array<u8>) -> bigint {
+        BigInt::from_signed_bytes_le(bytes.as_ref()).into()
+    }
+
+    pub fn toByteArray(x: bigint) -> Array<u8> {
+        arrayFrom(x.to_signed_bytes_le())
+    }
 
     pub fn toInt8(x: bigint) -> i8 { x.to_i8().unwrap() }
     pub fn toUInt8(x: bigint) -> u8 { x.to_u8().unwrap() }
@@ -146,10 +188,6 @@ pub mod BigInt_ {
         toString_1(&x)
     }
 
-    pub fn toByteArray(x: bigint) -> Array<u8> {
-        arrayFrom(x.to_signed_bytes_le())
-    }
-
     pub fn tryParse(s: string, res: &MutCell<bigint>) -> bool {
         match BigInt::from_str_radix(s.trim(), 10) {
             Ok(d) => { res.set(d.into()); true },
@@ -162,47 +200,6 @@ pub mod BigInt_ {
             Ok(d) => d.into(),
             Err(e) => panic!("Input string was not in a correct format."),
         }
-    }
-
-    pub fn fromZero() -> bigint { BigInt::zero().into() }
-    pub fn fromOne() -> bigint { BigInt::one().into() }
-
-    pub fn fromByteArray(bytes: Array<u8>) -> bigint {
-        BigInt::from_signed_bytes_le(bytes.as_ref()).into()
-    }
-
-    pub fn fromInt8(n: i8) -> bigint { BigInt::from_i8(n).unwrap().into() }
-    pub fn fromUInt8(n: u8) -> bigint { BigInt::from_u8(n).unwrap().into() }
-    pub fn fromInt16(n: i16) -> bigint { BigInt::from_i16(n).unwrap().into() }
-    pub fn fromUInt16(n: u16) -> bigint { BigInt::from_u16(n).unwrap().into() }
-    pub fn fromInt32(n: i32) -> bigint { BigInt::from_i32(n).unwrap().into() }
-    pub fn fromUInt32(n: u32) -> bigint { BigInt::from_u32(n).unwrap().into() }
-    pub fn fromInt64(n: i64) -> bigint { BigInt::from_i64(n).unwrap().into() }
-    pub fn fromUInt64(n: u64) -> bigint { BigInt::from_u64(n).unwrap().into() }
-    pub fn fromNativeInt(n: isize) -> bigint { BigInt::from_isize(n).unwrap().into() }
-    pub fn fromUNativeInt(n: usize) -> bigint { BigInt::from_usize(n).unwrap().into() }
-
-    pub fn fromFloat32(n: f32) -> bigint { BigInt::from_f32(n).unwrap().into() }
-    pub fn fromFloat64(n: f64) -> bigint { BigInt::from_f64(n).unwrap().into() }
-
-    pub fn fromDecimal(d: decimal) -> bigint {
-        BigInt::from_str_radix(truncate(d).to_string().as_str(), 10).unwrap().into()
-    }
-
-    pub fn fromBigInt(x: bigint) -> bigint {
-        x
-    }
-
-    pub fn fromBoolean(b: bool) -> bigint {
-        BigInt::from_u32(b as u32).unwrap().into()
-    }
-
-    pub fn fromChar(c: char) -> bigint {
-        BigInt::from_u32(c as u32).unwrap().into()
-    }
-
-    pub fn fromString(s: string) -> bigint {
-        BigInt::from_str_radix(s.trim(), 10).unwrap().into()
     }
 
     pub fn pow(x: bigint, n: i32) -> bigint {
