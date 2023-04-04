@@ -1274,11 +1274,12 @@ module Util =
 
         let members =
             members |> List.collect (fun (memb, info) ->
+                let ent = info.DeclaringEntity |> Option.bind (fun e -> com.TryGetEntity(e))
                 let prop, isComputed = memberFromName memb.Name
 
                 let makeMethod kind =
                     let args, body, returnType, typeParams =
-                        getMemberArgsAndBody com ctx (Attached(isStatic=false)) None info memb.Args memb.Body
+                        getMemberArgsAndBody com ctx (Attached(isStatic=false)) ent info memb.Args memb.Body
 
                     ObjectMember.objectMethod(kind, prop, args, body, isComputed=isComputed, ?returnType=returnType, ?typeParameters=typeParams)
 
@@ -2580,7 +2581,7 @@ module Util =
                     args
                     |> Array.mapi (fun i a ->
                         let name = defaultArg a.Name $"arg{i}"
-                        let ta = makeTypeAnnotation com ctx a.Type
+                        let ta = FableTransforms.uncurryType a.Type |> makeTypeAnnotation com ctx
                         // TODO: check a.IsNamed
                         let isSpread = i = argsLen - 1 && info.HasSpread
                         Parameter.parameter(name, isOptional=a.IsOptional, isSpread=isSpread, typeAnnotation=ta))
