@@ -96,22 +96,27 @@ let tests =
 
     testCase "Bitwise OR on large unsigned integer works" <| fun () ->
         0x80000000u ||| 0u |> equal (0x80000000u ||| 0u >>> 0)
+        0x80000000UL||| 0UL|> equal (0x80000000UL||| 0UL>>> 0)
 
     testCase "Bitwise AND on large unsigned integer works" <| fun () ->
         0x80000000u &&& 0xffffffffu |> equal (0x80000000u &&& 0xffffffffu >>> 0)
+        0x80000000UL&&& 0xffffffffUL|> equal (0x80000000UL&&& 0xffffffffUL>>> 0)
 
     testCase "Bitwise XOR on large unsigned integer works" <| fun () ->
         0x80000000u ^^^ 0u |> equal (0x80000000u ^^^ 0u >>> 0)
+        0x80000000UL^^^ 0UL|> equal (0x80000000UL^^^ 0UL>>> 0)
 
-    testCase "Bitwise Invert on large unsigned integer works" <| fun () ->
+    testCase "Bitwise NOT on large unsigned integer works" <| fun () ->
         (~~~0x80000000u >>> 0) |> equal ~~~0x80000000u
+        (~~~0x80000000UL>>> 0) |> equal ~~~0x80000000UL
 
     testCase "Bitwise shift right can be generated" <| fun () -> // See #1530
         4 >>> 2 |> equal 1
 
-    testCase "Zero fill shift right (>>>) for uint32" <| fun () -> // See #646
+    testCase "Zero fill shift right for unsigned" <| fun () -> // See #646
         0x80000000 >>> 1 |> equal -1073741824
         0x80000000u >>> 1 |> equal 1073741824u
+        0x80000000UL >>> 1 |> equal 1073741824UL
 
     testCase "UInt64 multiplication with 0 returns uint" <| fun () -> // See #1480
         0x0UL * 0x1UL |> equal 0x0UL

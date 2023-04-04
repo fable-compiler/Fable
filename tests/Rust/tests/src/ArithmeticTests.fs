@@ -111,27 +111,32 @@ let ``Bitwise shift left with unsigned integer works`` () =
 [<Fact>]
 let ``Bitwise OR on large unsigned integer works`` () =
     0x80000000u ||| 0u |> equal (0x80000000u ||| 0u >>> 0)
+    0x80000000UL||| 0UL|> equal (0x80000000UL||| 0UL>>> 0)
 
 [<Fact>]
 let ``Bitwise AND on large unsigned integer works`` () =
     0x80000000u &&& 0xffffffffu |> equal (0x80000000u &&& 0xffffffffu >>> 0)
+    0x80000000UL&&& 0xffffffffUL|> equal (0x80000000UL&&& 0xffffffffUL>>> 0)
 
 [<Fact>]
 let ``Bitwise XOR on large unsigned integer works`` () =
     0x80000000u ^^^ 0u |> equal (0x80000000u ^^^ 0u >>> 0)
+    0x80000000UL^^^ 0UL|> equal (0x80000000UL^^^ 0UL>>> 0)
 
 [<Fact>]
-let ``Bitwise Invert on large unsigned integer works`` () =
+let ``Bitwise NOT on large unsigned integer works`` () =
     (~~~0x80000000u >>> 0) |> equal ~~~0x80000000u
+    (~~~0x80000000UL>>> 0) |> equal ~~~0x80000000UL
 
 [<Fact>]
 let ``Bitwise shift right can be generated`` () = // See #1530
     4 >>> 2 |> equal 1
 
 [<Fact>]
-let ``Zero fill shift right (>>>) for uint32`` () = // See #646
+let ``Zero fill shift right for unsigned`` () = // See #646
     0x80000000 >>> 1 |> equal -1073741824
     0x80000000u >>> 1 |> equal 1073741824u
+    0x80000000UL>>> 1 |> equal 1073741824UL
 
 [<Fact>]
 let ``UInt64 multiplication with 0 returns uint`` () = // See #1480

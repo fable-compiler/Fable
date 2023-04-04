@@ -86,27 +86,32 @@ let ``test Bitwise shift left with unsigned integer works`` () =
 [<Fact>]
 let ``test Bitwise OR on large unsigned integer works`` () =
     0x80000000u ||| 0u |> equal (0x80000000u ||| 0u >>> 0)
+    0x80000000UL||| 0UL|> equal (0x80000000UL||| 0UL>>> 0)
 
 [<Fact>]
 let ``test Bitwise AND on large unsigned integer works`` () =
     0x80000000u &&& 0xffffffffu |> equal (0x80000000u &&& 0xffffffffu >>> 0)
+    0x80000000UL&&& 0xffffffffUL|> equal (0x80000000UL&&& 0xffffffffUL>>> 0)
 
 [<Fact>]
 let ``test Bitwise XOR on large unsigned integer works`` () =
     0x80000000u ^^^ 0u |> equal (0x80000000u ^^^ 0u >>> 0)
+    0x80000000UL^^^ 0UL|> equal (0x80000000UL^^^ 0UL>>> 0)
 
 [<Fact>]
-let ``test Bitwise Invert on large unsigned integer works`` () =
+let ``test Bitwise NOT on large unsigned integer works`` () =
     (~~~0x80000000u >>> 0) |> equal ~~~0x80000000u
+    (~~~0x80000000UL>>> 0) |> equal ~~~0x80000000UL
 
 [<Fact>]
 let ``test Bitwise shift right can be generated`` () =
     4 >>> 2 |> equal 1
 
 [<Fact>]
-let ``test Zero fill shift right (>>>) for uint32`` () =
+let ``test Zero fill shift right for unsigned`` () =
     0x80000000 >>> 1 |> equal -1073741824
     0x80000000u >>> 1 |> equal 1073741824u
+    0x80000000UL>>> 1 |> equal 1073741824UL
 
 [<Fact>]
 let ``test UInt64 multiplication with 0 returns uint``() =
@@ -163,7 +168,7 @@ let ``test Decimal max precision is kept`` () =
 [<Fact>]
 let ``test Decimal division precision is kept`` () =
     string (8M / 3M) |> equal "2.6666666666666666666666666667"
-    
+
 
 //[<Fact>]
 //let ``test Decimal division works`` () =

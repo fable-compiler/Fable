@@ -56,6 +56,7 @@ export function op_Multiply(x: bigint, y: bigint): bigint { return x * y; }
 export function op_Division(x: bigint, y: bigint): bigint { return x / y; }
 export function op_Modulus(x: bigint, y: bigint): bigint { return x % y; }
 export function op_UnaryNegation(x: bigint): bigint { return -x; }
+export function op_LogicalNot(x: bigint): bigint { return ~x; }
 export function op_UnaryPlus(x: bigint): bigint { return x; }
 export function op_RightShift(x: bigint, n: int32): bigint { return x >> BigInt(n); }
 export function op_LeftShift(x: bigint, n: int32): bigint { return x << BigInt(n); }
