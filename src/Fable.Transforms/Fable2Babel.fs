@@ -294,9 +294,6 @@ module Reflection =
             ]
             |> libReflectionCall com ctx r "class"
 
-    let private ofString s = Expression.stringLiteral(s)
-    let private ofArray babelExprs = Expression.arrayExpression(List.toArray babelExprs)
-
     let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type): Expression =
         let warnAndEvalToFalse msg =
             "Cannot type test (evals to false): " + msg
@@ -440,8 +437,7 @@ module Annotation =
         | Replacements.Util.Builtin kind ->
             makeBuiltinTypeAnnotation com ctx typ kind
         | Fable.DeclaredType(entRef, genArgs) ->
-            let ent = com.GetEntity(entRef)
-            makeEntityTypeAnnotation com ctx ent genArgs
+            com.GetEntity(entRef) |> makeEntityTypeAnnotation com ctx genArgs
 
     let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
         if com.IsTypeScript then
@@ -567,8 +563,9 @@ module Annotation =
         TypeAnnotation.functionTypeAnnotation(funcTypeParams, returnType)
 
     // Move this to Replacements.tryEntity?
-    let tryNativeOrFableLibraryInterface com ctx (ent: Fable.Entity) genArgs =
+    let tryNativeOrFableLibraryInterface com ctx genArgs (ent: Fable.Entity) =
         match ent.FullName with
+        | _ when not ent.IsInterface -> None
         | Types.icollection
             -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
             // -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
@@ -607,31 +604,56 @@ module Annotation =
             -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObserver" |> Some
         | Types.iobservableGeneric
             -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObservable" |> Some
+        | "Microsoft.FSharp.Control.IEvent`1"
+            -> makeImportTypeAnnotation com ctx genArgs "Event" "IEvent" |> Some
+        | Types.ievent2
+            -> makeImportTypeAnnotation com ctx genArgs "Event" "IEvent$2" |> Some
         | _ -> None
 
-    let makeEntityTypeAnnotation com ctx (ent: Fable.Entity) genArgs =
-        match ent.FullName, genArgs with
-        | Types.nullable, [genArg] ->
+    let makeEntityTypeAnnotation com ctx genArgs (ent: Fable.Entity) =
+        match genArgs, ent with
+        | [genArg], EntFullName Types.nullable ->
             makeNullableTypeAnnotation com ctx genArg
-        | _ ->
-            if ent.IsInterface
-            then tryNativeOrFableLibraryInterface com ctx ent genArgs
-            else None
-            |> Option.defaultWith (fun () ->
-                match Lib.tryJsConstructorForAnnotation true com ctx ent with
-                | Some entRef ->
-                    match entRef with
-                    | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
-                        match str with
-                        | "number" -> NumberTypeAnnotation
-                        | "boolean" -> BooleanTypeAnnotation
-                        | "string" -> StringTypeAnnotation
-                        | _ -> AnyTypeAnnotation
-                    | Expression.Identifier(id) ->
-                        makeGenericTypeAnnotation com ctx genArgs id
-                    // TODO: Resolve references to types in nested modules
-                    | _ -> AnyTypeAnnotation
-                | None -> AnyTypeAnnotation)
+
+        | _, Patterns.Try (Util.tryFindAnyAttribute [Atts.erase; Atts.tsTaggedUnion]) (erasedAtt: Fable.Attribute) ->
+            if erasedAtt.Entity.FullName = Atts.erase && ent.IsFSharpUnion then
+                let genArgs =
+                    List.zip ent.GenericParameters genArgs
+                    |> List.map (fun (p, a) -> p.Name, a)
+                    |> Map
+
+                let transformSingleFieldType (uci: Fable.UnionCase) =
+                    List.tryHead uci.UnionCaseFields
+                    |> Option.map (fun fi -> fi.FieldType |> resolveInlineType genArgs |> makeTypeAnnotation com ctx)
+                    |> Option.defaultValue VoidTypeAnnotation
+
+                match ent.UnionCases with
+                | [uci] when List.isMultiple uci.UnionCaseFields ->
+                    uci.UnionCaseFields
+                    |> List.mapToArray (fun fi -> fi.FieldType |> resolveInlineType genArgs |> makeTypeAnnotation com ctx)
+                    |> TupleTypeAnnotation
+                | [uci] -> transformSingleFieldType uci
+                | ucis -> ucis |> List.mapToArray transformSingleFieldType |> UnionTypeAnnotation
+
+            // TODO: tsTaggedUnion
+            else AnyTypeAnnotation
+
+        | _, Patterns.Try (tryNativeOrFableLibraryInterface com ctx genArgs) ta -> ta
+
+        | _, Patterns.Try (Lib.tryJsConstructorForAnnotation true com ctx) entRef ->
+            match entRef with
+            | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
+                match str with
+                | "number" -> NumberTypeAnnotation
+                | "boolean" -> BooleanTypeAnnotation
+                | "string" -> StringTypeAnnotation
+                | _ -> AnyTypeAnnotation
+            | Expression.Identifier(id) ->
+                makeGenericTypeAnnotation com ctx genArgs id
+            // TODO: Resolve references to types in nested modules
+            | _ -> AnyTypeAnnotation
+
+        | _ -> AnyTypeAnnotation
 
     let makeAnonymousRecordTypeAnnotation com ctx fieldNames fieldTypes: TypeAnnotation =
         Seq.zip fieldNames fieldTypes
@@ -1377,9 +1399,17 @@ module Util =
 
         | Fable.Binary(op, left, right) ->
             match op, left, right with
-            | (BinaryEqual | BinaryUnequal), Fable.Value(Fable.Null _, _), e
-            | (BinaryEqual | BinaryUnequal), e,  Fable.Value(Fable.Null _, _) ->
-                com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
+            | (BinaryEqual | BinaryUnequal), e1, e2 ->
+                match e1, e2 with
+                | Fable.Value(Fable.Null _, _), e
+                | e,  Fable.Value(Fable.Null _, _) ->
+                    com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
+                | ExprType(Fable.MetaType), _ ->
+                    let e = Replacements.Util.Helper.LibCall(com, "Reflection", "equals", Fable.Boolean, [e1; e2], ?loc=range)
+                    let e = if op = BinaryEqual then e else makeUnOp None Fable.Boolean e UnaryNot
+                    transformAsExpr com ctx e
+                | TransformExpr com ctx left, TransformExpr com ctx right ->
+                    Expression.binaryExpression(op, left, right, ?loc=range)
 
             | _, TransformExpr com ctx left, TransformExpr com ctx right ->
                 Expression.binaryExpression(op, left, right, ?loc=range)
@@ -1655,6 +1685,18 @@ module Util =
             let kind = if var.IsMutable then Let else Const
             [| Statement.variableDeclaration(kind, var.Name, ?annotation=ta, typeParameters=tp, init=value) |]
 
+    let transformUnionCaseTag (com: IBabelCompiler) ctx typ tag =
+        if com.IsTypeScript then
+            match typ with
+            | Fable.DeclaredType(ent, _) ->
+                let ent = com.GetEntity(ent)
+                match tryJsConstructorWithSuffix com ctx ent "_Tag" with
+                | Some(Expression.Identifier(tagIdent)) -> EnumCaseLiteral(tagIdent, ent.UnionCases[tag].Name) |> Literal
+                | _ -> ofInt tag
+            | _ -> ofInt tag
+        else
+            ofInt tag
+
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with
         | Fable.TypeTest t ->
@@ -1666,23 +1708,19 @@ module Util =
             let expr = libCall com ctx range "List" "isEmpty" [] [expr]
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
-            let expected =
-                if com.IsTypeScript then
-                    match expr.Type with
-                    | Fable.DeclaredType(ent, _) ->
-                        let ent = com.GetEntity(ent)
-                        match tryJsConstructorWithSuffix com ctx ent "_Tag" with
-                        | Some(Expression.Identifier(tagIdent)) -> EnumCaseLiteral(tagIdent, ent.UnionCases[tag].Name) |> Literal
-                        | _ -> ofInt tag
-                    | _ -> ofInt tag
-                else
-                    ofInt tag
+            let expected = transformUnionCaseTag com ctx expr.Type tag
             let actual = getUnionExprTag com ctx None expr
             Expression.binaryExpression(BinaryEqual, actual, expected, ?loc=range)
 
-    let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
+    let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy (evalExpr: Fable.Expr) cases defaultCase: Statement =
         let consequent caseBody =
             if useBlocks then [|Statement.blockStatement(caseBody)|] else caseBody
+
+        let transformGuard = function
+            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
+                transformUnionCaseTag com ctx expr.Type tag
+            | TransformExpr com ctx e -> e
+
         let cases =
             cases |> List.collect (fun (guards, expr) ->
                 // Remove empty branches
@@ -1691,20 +1729,22 @@ module Util =
                 | _, _, [] -> []
                 | _, _, guards ->
                     let guards, lastGuard = List.splitLast guards
-                    let guards = guards |> List.map (fun e -> SwitchCase.switchCase([||], com.TransformAsExpr(ctx, e)))
+                    let guards = guards |> List.map (fun e -> SwitchCase.switchCase(transformGuard e))
                     let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
                     let caseBody =
                         match returnStrategy with
                         | Some Return -> caseBody
                         | _ -> Array.append caseBody [|Statement.breakStatement()|]
-                    guards @ [SwitchCase.switchCase(consequent caseBody, com.TransformAsExpr(ctx, lastGuard))]
+                    guards @ [SwitchCase.switchCase(transformGuard lastGuard, consequent caseBody)]
                 )
+
         let cases =
             match defaultCase with
             | Some expr ->
                 let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-                cases @ [SwitchCase.switchCase(consequent defaultCaseBody)]
+                cases @ [SwitchCase.switchCase(body=consequent defaultCaseBody)]
             | None -> cases
+
         Statement.switchStatement(com.TransformAsExpr(ctx, evalExpr), List.toArray cases)
 
     let matchTargetIdentAndValues idents values =
@@ -1758,9 +1798,8 @@ module Util =
                 | _, Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) -> Some(left, right)
                 | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _), _ -> Some(right, left)
                 | _ -> None
-            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
+            | Fable.Test(expr, Fable.UnionCaseTest _, _) as right ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
-                let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
         let sameEvalExprs evalExpr1 evalExpr2 =
@@ -2297,6 +2336,10 @@ module Util =
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
+    let tryFindAnyAttribute fullNames (ent: Fable.Entity) =
+        let fullNames = set fullNames
+        ent.Attributes |> Seq.tryFind (fun att -> Set.contains att.Entity.FullName fullNames)
+
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) body =
         let isJsx = hasAttribute Atts.jsxComponent info.Attributes
         let args, body =
@@ -2547,9 +2590,7 @@ module Util =
 
         let extends =
             ent.DeclaredInterfaces
-            |> Seq.map (fun parent ->
-                let ent = com.GetEntity(parent.Entity)
-                makeEntityTypeAnnotation com ctx ent parent.GenericArgs)
+            |> Seq.map (fun parent -> com.GetEntity(parent.Entity) |> makeEntityTypeAnnotation com ctx parent.GenericArgs)
             |> Seq.toArray
 
         let typeParameters =
@@ -2618,7 +2659,10 @@ module Util =
         | Fable.ClassDeclaration decl ->
             let entRef = decl.Entity
             let ent = com.GetEntity(entRef)
-            if ent.IsInterface then
+            let isErased = tryFindAnyAttribute [Atts.erase; Atts.tsTaggedUnion] ent |> Option.isSome
+            if isErased then
+                []
+            elif ent.IsInterface then
                 if com.IsTypeScript
                 then [transformInterfaceDeclaration com ctx decl ent]
                 else []

@@ -4,6 +4,12 @@ open System
 open System.Globalization
 open System.Text
 
+[<AutoOpen>]
+module Extensions =
+    type String with
+        member str.StartsWithAny([<ParamArray>] patterns: string[]) =
+            patterns |> Array.exists (fun p -> str.StartsWith(p))
+
 module Dictionary =
     open System.Collections.Generic
     let tryFind key (dic: #IDictionary<'Key, 'Value>) =

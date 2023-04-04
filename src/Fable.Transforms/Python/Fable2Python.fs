@@ -901,7 +901,7 @@ module Annotation =
         | Types.idictionary, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "util" "IDictionary" resolved, stmts
-        | Types.ievent, _ ->
+        | Types.ievent2, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "event" "IEvent_2" resolved, stmts
         | Types.cancellationToken, _ -> libValue com ctx "async_builder" "CancellationToken", []

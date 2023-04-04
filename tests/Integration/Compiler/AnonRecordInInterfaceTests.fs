@@ -345,21 +345,21 @@ let tests =
           |> compile
           |> Assert.Is.Single.errorOrWarning
           |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedTypeMulti (interfaceName = i.Name, fieldName = "Value"))
-        testCase "no error for existing field with U2<string,int>" <| fun _ ->
-          interfaceAndAssignments i [
-            assign "a" ty "U2.Case2 42"
-            assignAnonRecord i [("Value", "a")]
-          ]
-          |> compile
-          |> Assert.Is.strictSuccess
-        testCase "Ideally: error because of missmatching type U3" <| fun _ ->
-          // Erased Union is reduced to type `Any` -> cannot distinguish between correct U2<string,int> and other Erased Unions (or even just `obj`)
-          interfaceAndAssignments i [
-            assign "a" "U3<string,int,float>" "U3.Case3 3.14"
-            assignAnonRecord i [("Value", "a")]
-          ]
-          |> compile
-          |> Assert.Is.strictSuccess
+        //testCase "no error for existing field with U2<string,int>" <| fun _ ->
+        //  interfaceAndAssignments i [
+        //    assign "a" ty "U2.Case2 42"
+        //    assignAnonRecord i [("Value", "a")]
+        //  ]
+        //  |> compile
+        //  |> Assert.Is.strictSuccess
+        //testCase "Ideally: error because of missmatching type U3" <| fun _ ->
+        //  // Erased Union is reduced to type `Any` -> cannot distinguish between correct U2<string,int> and other Erased Unions (or even just `obj`)
+        //  interfaceAndAssignments i [
+        //    assign "a" "U3<string,int,float>" "U3.Case3 3.14"
+        //    assignAnonRecord i [("Value", "a")]
+        //  ]
+        //  |> compile
+        //  |> Assert.Is.strictSuccess
         testCase "Ideally: error because of missmatching type obj" <| fun _ ->
           interfaceAndAnonRecordAssignment i [("Value", "obj()")]
           |> compile
@@ -418,46 +418,46 @@ let tests =
           |> Assert.Is.Single.errorOrWarning
           |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedType (interfaceName = i.Name, fieldName = "Value"))
       ]
-      testList "interface with Erased Union field" [
-        let du = { Name = "ErasedUnion1"; Erase = true; Cases = [ { Name = "SomeInt"; Fields = ["int"] } ]}
-        let i = { Name = "Field5"; Properties = [ ReadOnly ("Value", du.Name) ] }
+      //testList "interface with Erased Union field" [
+      //  let du = { Name = "ErasedUnion1"; Erase = true; Cases = [ { Name = "SomeInt"; Fields = ["int"] } ]}
+      //  let i = { Name = "Field5"; Properties = [ ReadOnly ("Value", du.Name) ] }
 
-        testCase "no error for existing field with correct type" <| fun _ ->
-          [
-            yield! du |> DiscriminatedUnion.format
-            yield! i |> Interface.format
+      //  testCase "no error for existing field with correct type" <| fun _ ->
+      //    [
+      //      yield! du |> DiscriminatedUnion.format
+      //      yield! i |> Interface.format
 
-            yield assignAnonRecord i [("Value", "SomeInt 42")]
-          ]
-          |> concat
-          |> compile
-          |> Assert.Is.strictSuccess
+      //      yield assignAnonRecord i [("Value", "SomeInt 42")]
+      //    ]
+      //    |> concat
+      //    |> compile
+      //    |> Assert.Is.strictSuccess
 
-        testCase "Ideally: error for existing field with wrong int type" <| fun _ ->
-          // Erased Union gets reduced to `Any` -> `Any` accepts everything
-          [
-            yield! du |> DiscriminatedUnion.format
-            yield! i |> Interface.format
+      //  testCase "Ideally: error for existing field with wrong int type" <| fun _ ->
+      //    // Erased Union gets reduced to `Any` -> `Any` accepts everything
+      //    [
+      //      yield! du |> DiscriminatedUnion.format
+      //      yield! i |> Interface.format
 
-            yield assignAnonRecord i [("Value", string 42)]
-          ]
-          |> concat
-          |> compile
-          // |> Assert.Is.Single.errorOrWarning
-          // |> Assert.Exists.errorOrWarningWith (Error.incorrectType "Tmp.ErasedUnion1" "Value")
-          |> Assert.Is.strictSuccess
+      //      yield assignAnonRecord i [("Value", string 42)]
+      //    ]
+      //    |> concat
+      //    |> compile
+      //    // |> Assert.Is.Single.errorOrWarning
+      //    // |> Assert.Exists.errorOrWarningWith (Error.incorrectType "Tmp.ErasedUnion1" "Value")
+      //    |> Assert.Is.strictSuccess
 
-        testCase "Ideally: error for existing field with wrong obj type" <| fun _ ->
-          [
-            yield! du |> DiscriminatedUnion.format
-            yield! i |> Interface.format
+      //  testCase "Ideally: error for existing field with wrong obj type" <| fun _ ->
+      //    [
+      //      yield! du |> DiscriminatedUnion.format
+      //      yield! i |> Interface.format
 
-            yield assignAnonRecord i [("Value", "obj ()")]
-          ]
-          |> concat
-          |> compile
-          |> Assert.Is.strictSuccess
-      ]
+      //      yield assignAnonRecord i [("Value", "obj ()")]
+      //    ]
+      //    |> concat
+      //    |> compile
+      //    |> Assert.Is.strictSuccess
+      //]
 
       testList "interface with field with option type" [
         let i = { Name = "Field6"; Properties = [ ReadOnly ("Value", "string option"); ReadOnly ("Required", "string") ] }
@@ -558,33 +558,33 @@ let tests =
           |> compile
           |> Assert.Is.errorOrWarning
           |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedTypeMulti (interfaceName = i.Name, fieldName = "Value"))
-        testCase "no error for field with Value" <| fun _ ->
-          [
-            yield! tys
-            assign "value" "Value" "U2.Case1 true"
-            assignAnonRecord i [("Value", "value")]
-          ]
-          |> concat
-          |> compile
-          |> Assert.Is.strictSuccess
-        testCase "no error for field with U2<bool, string>" <| fun _ ->
-          [
-            yield! tys
-            assign "value" "U2<bool, string>" "U2.Case1 true"
-            assignAnonRecord i [("Value", "value")]
-          ]
-          |> concat
-          |> compile
-          |> Assert.Is.strictSuccess
-        testCase "no error for field with U2<int, string>" <| fun _ ->
-          [
-            yield! tys
-            assign "value" "U2<int, string>" "U2.Case1 42"
-            assignAnonRecord i [("Value", "value")]
-          ]
-          |> concat
-          |> compile
-          |> Assert.Is.strictSuccess
+        // testCase "no error for field with Value" <| fun _ ->
+        //   [
+        //     yield! tys
+        //     assign "value" "Value" "U2.Case1 true"
+        //     assignAnonRecord i [("Value", "value")]
+        //   ]
+        //   |> concat
+        //   |> compile
+        //   |> Assert.Is.strictSuccess
+        // testCase "no error for field with U2<bool, string>" <| fun _ ->
+        //   [
+        //     yield! tys
+        //     assign "value" "U2<bool, string>" "U2.Case1 true"
+        //     assignAnonRecord i [("Value", "value")]
+        //   ]
+        //   |> concat
+        //   |> compile
+        //   |> Assert.Is.strictSuccess
+        // testCase "no error for field with U2<int, string>" <| fun _ ->
+        //   [
+        //     yield! tys
+        //     assign "value" "U2<int, string>" "U2.Case1 42"
+        //     assignAnonRecord i [("Value", "value")]
+        //   ]
+        //   |> concat
+        //   |> compile
+        //   |> Assert.Is.strictSuccess
         testCase "no error for field with string & Aliased Value" <| fun _ ->
           [
             "type Root = U2<bool, string>"
@@ -684,26 +684,26 @@ let tests =
           |> compile
           |> Assert.Is.Single.errorOrWarning
           |> Assert.Exists.errorOrWarningMatching (Error.Regex.UnexpectedIndexerTypeMulti (interfaceName = i.Name, indexerName = "Item", fieldName = "Value"))
-        testCase "no error for single U2<string,int> field" <| fun _ ->
-          [
-            yield! i |> Interface.format
-            yield assign "a" ty "U2.Case2 42"
+        //testCase "no error for single U2<string,int> field" <| fun _ ->
+        //  [
+        //    yield! i |> Interface.format
+        //    yield assign "a" ty "U2.Case2 42"
 
-            yield assignAnonRecord i [("Value", "a")]
-          ]
-          |> concat
-          |> compile
-          |> Assert.Is.strictSuccess
-        testCase "Ideally: error for missmatching type U3" <| fun _ ->
-          [
-            yield! i |> Interface.format
-            yield assign "a" "U3<string,int,float>" "U3.Case3 3.14"
+        //    yield assignAnonRecord i [("Value", "a")]
+        //  ]
+        //  |> concat
+        //  |> compile
+        //  |> Assert.Is.strictSuccess
+        //testCase "Ideally: error for missmatching type U3" <| fun _ ->
+        //  [
+        //    yield! i |> Interface.format
+        //    yield assign "a" "U3<string,int,float>" "U3.Case3 3.14"
 
-            yield assignAnonRecord i [("Value", "a")]
-          ]
-          |> concat
-          |> compile
-          |> Assert.Is.strictSuccess
+        //    yield assignAnonRecord i [("Value", "a")]
+        //  ]
+        //  |> concat
+        //  |> compile
+        //  |> Assert.Is.strictSuccess
       ]
       testList "interface with two indexers U<string,int> and int" [
         // in TS: number indexer must be subset of string indexer

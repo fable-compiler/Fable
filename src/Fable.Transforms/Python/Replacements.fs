@@ -886,7 +886,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 let ent = com.GetEntity(ent)
 
                 if ent.IsInterface then
-                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com r exprs fieldNames ent
+                    AnonRecords.fitsInInterface com r exprs fieldNames ent
                     |> function
                         | Error errors ->
                             errors
@@ -3148,7 +3148,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 
     let isGroup =
         match thisArg with
-        | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
+        | Some(ExprType(DeclaredTypeFullName "System.Text.RegularExpressions.Group")) -> true
         | _ -> false
 
     match i.CompiledName with

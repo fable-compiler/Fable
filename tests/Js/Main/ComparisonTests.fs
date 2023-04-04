@@ -566,6 +566,17 @@ let tests =
         Unchecked.equals "2" "3" |> equal false
         Unchecked.equals [1] [1] |> equal true
         Unchecked.equals [2] [3] |> equal false
+        // Use mutable values to prevent inlining
+        let mutable ones = 111
+        let mutable twos = 222
+        let mutable threes = 333
+        let mutable oneStr = "1"
+        let mutable twoStr = "2"
+        let mutable threeStr = "3"
+        Unchecked.equals ones ones |> equal true
+        Unchecked.equals twos threes |> equal false
+        Unchecked.equals oneStr oneStr |> equal true
+        Unchecked.equals twoStr threeStr |> equal false
 
     testCase "Unchecked.compare works" <| fun () ->
         Unchecked.compare 111 111 |> equal 0
@@ -638,12 +649,29 @@ let tests =
         LanguagePrimitives.GenericEquality "2" "3" |> equal false
         LanguagePrimitives.GenericEquality [1] [1] |> equal true
         LanguagePrimitives.GenericEquality [2] [3] |> equal false
+        // Use mutable values to prevent inlining
+        let mutable ones = 111
+        let mutable twos = 222
+        let mutable threes = 333
+        let mutable oneStr = "1"
+        let mutable twoStr = "2"
+        let mutable threeStr = "3"
+        LanguagePrimitives.GenericEquality ones ones |> equal true
+        LanguagePrimitives.GenericEquality twos threes |> equal false
+        LanguagePrimitives.GenericEquality oneStr oneStr |> equal true
+        LanguagePrimitives.GenericEquality twoStr threeStr |> equal false
 
     testCase "LanguagePrimitives.PhysicalEquality works" <| fun () ->
         LanguagePrimitives.PhysicalEquality "1" "1" |> equal true
         LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
         LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
         LanguagePrimitives.PhysicalEquality [2] [3] |> equal false
+        // Use mutable values to prevent inlining
+        let mutable oneStr = "1"
+        let mutable twoStr = "2"
+        let mutable threeStr = "3"
+        LanguagePrimitives.PhysicalEquality oneStr oneStr |> equal true
+        LanguagePrimitives.PhysicalEquality twoStr threeStr |> equal false
 
     testCase "LanguagePrimitives.SByteWithMeasure works" <| fun () ->
         let distance: sbyte<m> = LanguagePrimitives.SByteWithMeasure 1y

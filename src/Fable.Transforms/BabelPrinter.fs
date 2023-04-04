@@ -259,7 +259,8 @@ module PrinterExtensions =
             | ArrayExpression _
             | ObjectExpression _
             | JsxTemplate _
-            | JsxElement _ -> printer.Print(expr)
+            | JsxElement _
+            | UnaryExpression _ -> printer.Print(expr)
             | _ -> printer.WithParens(expr)
 
         member printer.PrintOperation(left, operator, right, loc) =

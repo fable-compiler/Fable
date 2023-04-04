@@ -615,8 +615,8 @@ module Helpers =
             CatchClause(param, annotation, body, loc)
 
     type SwitchCase with
-        static member switchCase(?consequent, ?test, ?loc) =
-            SwitchCase(test, defaultArg consequent Array.empty, loc)
+        static member switchCase(?test, ?body, ?loc) =
+            SwitchCase(test, defaultArg body Array.empty, loc)
 
     type Parameter with
         static member parameter(name, ?isOptional, ?isNamed, ?isSpread, ?typeAnnotation) =

@@ -89,7 +89,7 @@ module Types =
     let [<Literal>] matchFail = "Microsoft.FSharp.Core.MatchFailureException"
     let [<Literal>] byref = "Microsoft.FSharp.Core.byref`1"
     let [<Literal>] byref2 = "Microsoft.FSharp.Core.byref`2"
-    let [<Literal>] ievent = "Microsoft.FSharp.Control.IEvent`2"
+    let [<Literal>] ievent2 = "Microsoft.FSharp.Control.IEvent`2"
     let [<Literal>] byrefKindIn = "Microsoft.FSharp.Core.ByRefKinds.In"
     let [<Literal>] byrefKindInOut = "Microsoft.FSharp.Core.ByRefKinds.InOut"
     let [<Literal>] byrefKindOut = "Microsoft.FSharp.Core.ByRefKinds.Out"
@@ -282,7 +282,12 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|ExprTypeAs|) (e: Expr) = e.Type, e
     let inline (|IdentType|) (id: Ident) = id.Type
-    let inline (|EntFullName|) (e: EntityRef) = e.FullName
+    let inline (|EntFullName|) (e: Entity) = e.FullName
+    let inline (|EntRefFullName|) (e: EntityRef) = e.FullName
+
+    let (|DeclaredTypeFullName|_|) = function
+        | DeclaredType(entRef, _) -> Some entRef.FullName
+        | _ -> None
 
     let rec uncurryLambdaType maxArity (revArgTypes: Type list) (returnType: Type) =
         match returnType with

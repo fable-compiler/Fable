@@ -468,8 +468,12 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
             | _ -> "Long"
         Helper.LibCall(com, modName, "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
-    | Boolean | Char | String | Number _ ->
-        Helper.LibCall(com, "Util", "physicalEquality", Boolean, [left; right], ?loc=r) |> is equal
+    | Boolean | Char | String | Number _ | MetaType ->
+        let op = if equal then BinaryEqual else BinaryUnequal
+        makeBinOp r Boolean left right op
+    // Use BinaryEquals for MetaType to have a change of optimization in FableTransforms.operationReduction
+    // We will call Reflection.equals in the Fable2Babel step
+    //| MetaType -> Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (BclDateTime|BclDateTimeOffset|BclDateOnly) ->
         Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (FSharpSet _|FSharpMap _) ->
@@ -481,8 +485,6 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
     | List _ ->
         Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | MetaType ->
-        Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Tuple _ ->
         Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     | _ ->
@@ -757,6 +759,8 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
     | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
+    | "Microsoft.FSharp.Control.FSharpEvent`1" -> makeImportLib com Any "Event" "Event" |> Some
+    | "Microsoft.FSharp.Control.FSharpEvent`2" -> makeImportLib com Any "Event$2" "Event" |> Some
     | _ -> None
 
 let tryConstructor com (ent: Entity) =
@@ -899,7 +903,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
               [_; DeclaredType(ent, [])] ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
-                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com r exprs fieldNames ent
+                    AnonRecords.fitsInInterface com r exprs fieldNames ent
                     |> function
                        | Error errors ->
                             errors
@@ -1413,8 +1417,8 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
-    | "CreateEvent", [addHandler; removeHandler; createHandler] ->
-        Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+    | "CreateEvent", [addHandler; removeHandler; _createHandler] ->
+        Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
@@ -1951,7 +1955,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
         Helper.InstanceCall(comp, "Equals", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
-        Helper.LibCall(com, "Util", "physicalEquality", Boolean, [left; right], ?loc=r) |> Some
+        makeEqOp r left right BinaryEqual |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
         Helper.LibCall(com, "Util", "physicalHash", Int32.Number, [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
@@ -2508,7 +2512,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     let propStr p callee = getExpr r t callee (makeStrConst p)
     let isGroup =
         match thisArg with
-        | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
+        | Some(ExprType(DeclaredTypeFullName "System.Text.RegularExpressions.Group")) -> true
         | _ -> false
 
     let createRegex r t args =
@@ -2615,12 +2619,17 @@ let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
     | Some callee, "GetEnumerator" -> getEnumerator com r t callee |> Some
     | _ -> None
 
-let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let events (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r) |> Some
+    | ".ctor", _ ->
+        let className =
+            match i.GenericArgs with
+            | [_] -> "Event"
+            | _ -> "Event$2"
+        Helper.LibCall(com, "Event", className, t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r) |> Some
     | "get_Publish", Some x -> getFieldWith r t x "Publish" |> Some
-    | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
-    | meth, None -> Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
+    | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, None -> Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let observable (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     Helper.LibCall(com, "Observable", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?loc=r) |> Some
