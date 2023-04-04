@@ -331,13 +331,16 @@ module private Transforms =
             | None -> e
         | e -> e
 
-    let rec areEqualAtCompileTime a b =
+    let typeEqualsAtCompileTime t1 t2 =
+        let stripMeasure = function
+            | Number(kind, NumberInfo.IsMeasure _) -> Number(kind, NumberInfo.Empty)
+            | t -> t
+        typeEquals true (stripMeasure t1) (stripMeasure t2)
+
+    let rec tryEqualsAtCompileTime a b =
         match a, b with
         | Value(TypeInfo(a, []),_), Value(TypeInfo(b, []),_) ->
-            let stripMeasure = function
-                | Number(kind, NumberInfo.IsMeasure _) -> Number(kind, NumberInfo.Empty)
-                | t -> t
-            Some(typeEquals true (stripMeasure a) (stripMeasure b))
+            typeEqualsAtCompileTime a b |> Some
         | Value(Null _,_), Value(Null _,_)
         | Value(UnitConstant,_), Value(UnitConstant,_) -> Some true
         | Value(BoolConstant a,_), Value(BoolConstant b,_) -> Some(a = b)
@@ -345,7 +348,7 @@ module private Transforms =
         | Value(StringConstant a,_), Value(StringConstant b,_) -> Some(a = b)
         | Value(NumberConstant(a,_,_),_), Value(NumberConstant(b,_,_),_) -> Some(a = b)
         | Value(NewOption(None,_,_)  ,_), Value(NewOption(None,_,_),_) -> Some true
-        | Value(NewOption(Some a,_,_),_), Value(NewOption(Some b,_,_),_) -> areEqualAtCompileTime a b
+        | Value(NewOption(Some a,_,_),_), Value(NewOption(Some b,_,_),_) -> tryEqualsAtCompileTime a b
         | _ -> None
 
     let operationReduction (_com: Compiler) e =
@@ -369,9 +372,22 @@ module private Transforms =
 
         | Operation(Binary((AST.BinaryEqual | AST.BinaryUnequal as op), v1, v2), [], _, _) ->
             let isNot = op = AST.BinaryUnequal
-            areEqualAtCompileTime v1 v2
+            tryEqualsAtCompileTime v1 v2
             |> Option.map (fun b -> (if isNot then not b else b) |> makeBoolConst)
             |> Option.defaultValue e
+
+        | Test(expr, kind, _) ->
+            match kind, expr with
+            // This optimization doesn't work well with erased unions
+            // | TypeTest typ, expr ->
+            //     typeEqualsAtCompileTime typ expr.Type |> makeBoolConst
+            | OptionTest isSome, Value(NewOption(expr,_,_),_)->
+                isSome = Option.isSome expr |> makeBoolConst
+            | ListTest isCons, Value(NewList(headAndTail,_),_) ->
+                isCons = Option.isSome headAndTail |> makeBoolConst
+            | UnionCaseTest tag1, Value(NewUnion(_,tag2,_,_),_) ->
+                tag1 = tag2 |> makeBoolConst
+            | _ -> e
 
         | IfThenElse(Value(BoolConstant b, _), thenExpr, elseExpr, _) -> if b then thenExpr else elseExpr
 

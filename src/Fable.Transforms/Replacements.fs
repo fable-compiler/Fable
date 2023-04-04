@@ -469,7 +469,6 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.LibCall(com, modName, "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
     | Boolean | Char | String | Number _ | MetaType ->
-        // Helper.LibCall(com, "Util", "physicalEquality", Boolean, [left; right], ?loc=r) |> is equal
         let op = if equal then BinaryEqual else BinaryUnequal
         makeBinOp r Boolean left right op
     // Use BinaryEquals for MetaType to have a change of optimization in FableTransforms.operationReduction
@@ -1956,7 +1955,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
         Helper.InstanceCall(comp, "Equals", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
-        Helper.LibCall(com, "Util", "physicalEquality", Boolean, [left; right], ?loc=r) |> Some
+        makeEqOp r left right BinaryEqual |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
         Helper.LibCall(com, "Util", "physicalHash", Int32.Number, [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
