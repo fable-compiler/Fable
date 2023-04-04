@@ -4,11 +4,14 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.0.3</Version>
-    <PackageVersion>4.0.3</PackageVersion>
-    <PackageReleaseNotes>* Fix #3389: Don't wrap TemplateStringArray
-* Rust: Fix recursive closures and some type tests,
-* TypeScript: Emit interfaces and anonymous record annotations</PackageReleaseNotes>
+    <Version>4.0.4</Version>
+    <PackageVersion>4.0.4</PackageVersion>
+    <PackageReleaseNotes>* Fix #3397: Curry only user imports
+* Fix: Compiler Exception when `!!`, Anon Record, and aliased `Ux` (also behind option) @Booksbaum
+* Use native bigint type @ncave
+* Emit Fable erased unions as TS union types
+* Optimize compile time equality and testing (union, list, options)
+* TypeScript: enable Comparison, Convert and Event tests</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

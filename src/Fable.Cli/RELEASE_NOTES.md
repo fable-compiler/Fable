@@ -1,3 +1,12 @@
+### 4.0.4
+
+* Fix #3397: Curry only user imports
+* Fix: Compiler Exception when `!!`, Anon Record, and aliased `Ux` (also behind option) @Booksbaum
+* Use native bigint type @ncave
+* Emit Fable erased unions as TS union types
+* Optimize compile time equality and testing (union, list, options)
+* TypeScript: enable Comparison, Convert and Event tests
+
 ### 4.0.3
 
 * Fix #3389: Don't wrap TemplateStringArray
