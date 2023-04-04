@@ -1,5 +1,7 @@
 import * as Unicode from "./Unicode.13.0.0.js";
 
+export type char = string;
+
 function getCategoryFunc() {
   // unpack Unicode codepoint ranges (delta encoded) and general categories
   const offset = 35; // offsets unprintable characters

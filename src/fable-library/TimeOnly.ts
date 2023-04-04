@@ -1,4 +1,3 @@
-import Long, { op_Division as Long_op_Division, toNumber as Long_toNumber } from "./Long.js";
 import { FSharpRef } from "./Types.js";
 import { hours, minutes, seconds, milliseconds } from "./TimeSpan.js";
 import { DateKind, IDateTime, padWithZeros } from "./Util.js";
@@ -12,8 +11,8 @@ export function create(h: number = 0, m: number = 0, s: number = 0, ms: number =
   return h * 3600000 + m * 60000 + s * 1000 + ms;
 }
 
-export function fromTicks(ticks: Long) {
-  return Long_toNumber(Long_op_Division(ticks, 10000));
+export function fromTicks(ticks: number | bigint) {
+  return Number(BigInt(ticks) / 10000n);
 }
 
 export function fromTimeSpan(timeSpan: number) {

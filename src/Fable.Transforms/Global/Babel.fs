@@ -97,6 +97,7 @@ type Literal =
     | DirectiveLiteral of value: string
     | NullLiteral of loc: SourceLocation option
     | BooleanLiteral of value: bool * loc: SourceLocation option
+    | BigIntLiteral of value: string * loc: SourceLocation option
     | NumericLiteral of value: float * loc: SourceLocation option
     | RegExp of pattern: string * flags: string * loc: SourceLocation option
     | EnumCaseLiteral of id: Identifier * caseName: string
@@ -473,6 +474,7 @@ module Helpers =
         static member super(?loc) = Super loc
         static member emitExpression(value, args, ?loc) = EmitExpression(value, args, loc)
         static member nullLiteral(?loc) = NullLiteral loc |> Literal
+        static member bigintLiteral(value, ?loc) = BigIntLiteral (value, loc) |> Literal
         static member numericLiteral(value, ?loc) = NumericLiteral (value, loc) |> Literal
         static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc) |> Literal
         static member stringLiteral(value, ?loc) = Literal.stringLiteral (value, ?loc=loc) |> Literal

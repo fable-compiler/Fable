@@ -356,6 +356,11 @@ export function int32ToString(i: number, radix?: number) {
   return i.toString(radix);
 }
 
+export function int64ToString(i: bigint, radix?: number) {
+  i = i < 0 && radix != null && radix !== 10 ? 0xFFFFFFFFFFFFFFFFn + i + 1n : i;
+  return i.toString(radix);
+}
+
 export abstract class ObjectRef {
   public static id(o: any) {
     if (!ObjectRef.idMap.has(o)) {
@@ -381,6 +386,10 @@ export function numberHash(x: number) {
   return x * 2654435761 | 0;
 }
 
+export function bigintHash(x: bigint) {
+  return stringHash(x.toString(32));
+}
+
 // From https://stackoverflow.com/a/37449594
 export function combineHashCodes(hashes: ArrayLike<number>) {
   let h1 = 0;
@@ -401,6 +410,8 @@ export function physicalHash<T>(x: T): number {
       return x ? 1 : 0;
     case "number":
       return numberHash(x);
+    case "bigint":
+      return bigintHash(x);
     case "string":
       return stringHash(x);
     default:
@@ -438,6 +449,8 @@ export function structuralHash<T>(x: T): number {
       return x ? 1 : 0;
     case "number":
       return numberHash(x);
+    case "bigint":
+      return bigintHash(x);
     case "string":
       return stringHash(x);
     default: {

@@ -314,8 +314,7 @@ module Reflection =
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
         | Fable.Number(Decimal,_) -> jsInstanceof (libValue com ctx "Decimal" "default") expr
-        | Fable.Number(BigInt,_) -> jsTypeof "bigint" expr // jsInstanceof (libValue com ctx "BigInt/z" "BigInteger") expr
-        | Fable.Number((Int64|UInt64),_) -> jsInstanceof (libValue com ctx "Long" "default") expr
+        | Fable.Number(JS.Replacements.BigIntegers _, _) -> jsTypeof "bigint" expr
         | Fable.Number _ -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Expression.identifier("RegExp")) expr
         | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
@@ -417,10 +416,7 @@ module Annotation =
         | Fable.Char -> StringTypeAnnotation
         | Fable.String -> StringTypeAnnotation
         | Fable.Regex -> makeAliasTypeAnnotation com ctx "RegExp"
-        | Fable.Number(Int64,_) -> makeImportTypeAnnotation com ctx [] "Long" "int64"
-        | Fable.Number(UInt64,_) -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
-        | Fable.Number(Decimal,_) -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
-        | Fable.Number(BigInt,_) -> makeAliasTypeAnnotation com ctx "bigint" // makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
+        | Fable.Number(BigInt,_) -> makeAliasTypeAnnotation com ctx "bigint"
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
@@ -498,8 +494,13 @@ module Annotation =
         makeGenericTypeAnnotation com ctx genArgs id
 
     let makeNumericTypeAnnotation com ctx kind =
+        let moduleName =
+            match kind with
+            | Decimal -> "Decimal"
+            | JS.Replacements.BigIntegers _ -> "BigInt"
+            | _ -> "Int32"
         let typeName = getNumberKindName kind
-        makeImportTypeAnnotation com ctx [] "Int32" typeName
+        makeImportTypeAnnotation com ctx [] moduleName typeName
 
     let makeNullableTypeAnnotation com ctx genArg =
         makeImportTypeAnnotation com ctx [genArg] "Option" "Nullable"
@@ -1142,20 +1143,23 @@ module Util =
         | Fable.NumberConstant (x, kind, _) ->
             match kind, x with
             | Decimal, (:? decimal as x) -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
-            | Int64, (:? int64 as x) -> JS.Replacements.makeLongInt com r value.Type true (uint64 x) |> transformAsExpr com ctx
-            | UInt64, (:? uint64 as x) -> JS.Replacements.makeLongInt com r value.Type false x |> transformAsExpr com ctx
-            | _, (:? int8 as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? uint8 as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? char as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? int16 as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? uint16 as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? int32 as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? uint32 as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? float32 as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? float as x) -> Expression.numericLiteral(x, ?loc=r)
-            // We don't really support pointers for JS compilation, but compile them as numbers for standalone self-compilation
-            | _, (:? nativeint as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | _, (:? unativeint as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | BigInt,  (:? bigint as x) -> Expression.bigintLiteral(string x, ?loc=r)
+            | Int64,   (:? int64 as x) -> Expression.bigintLiteral(string x, ?loc=r)
+            | UInt64,  (:? uint64 as x) -> Expression.bigintLiteral(string x, ?loc=r)
+            // | Int128,  (:? System.Int128 as x) -> Expression.bigintLiteral(string x, ?loc=r)
+            // | UInt128, (:? System.UInt128 as x) -> Expression.bigintLiteral(string x, ?loc=r)
+            | NativeInt,  (:? nativeint as x) -> Expression.bigintLiteral(string x, ?loc=r)
+            | UNativeInt, (:? unativeint as x) -> Expression.bigintLiteral(string x, ?loc=r)
+            | Int8,    (:? int8 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | UInt8,   (:? uint8 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | Int16,   (:? int16 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | UInt16,  (:? uint16 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | Int32,   (:? int32 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | UInt32,  (:? uint32 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            // | Float16, (:? System.Half as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | Float32, (:? float32 as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | Float64, (:? float as x) -> Expression.numericLiteral(float x, ?loc=r)
+            | _,       (:? char as x) -> Expression.numericLiteral(float x, ?loc=r)
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (newKind, typ, kind) ->

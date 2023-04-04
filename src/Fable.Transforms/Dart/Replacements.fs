@@ -121,27 +121,27 @@ let castBigIntMethod typeTo =
         | BigInt | NativeInt | UNativeInt -> FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
 
-let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10  11
-    match t with            //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
-    | Int8 -> 0    //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
-    | Int16 -> 1   //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
-    | Int32 -> 2   //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
-    | Int64 -> 3   //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
-    | UInt8 -> 4   //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
-    | UInt16 -> 5  //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
-    | UInt32 -> 6  //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
-    | UInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
-    | Float32 -> 8 //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
-    | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
-    | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
-    | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+let kindIndex kind = //         0   1   2   3   4   5   6   7   8   9  10  11
+    match kind with  //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+    | Int8 -> 0      //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
+    | Int16 -> 1     //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
+    | Int32 -> 2     //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
+    | Int64 -> 3     //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
+    | UInt8 -> 4     //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
+    | UInt16 -> 5    //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
+    | UInt32 -> 6    //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
+    | UInt64 -> 7    //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
+    | Float32 -> 8   //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
+    | Float64 -> 9   //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
+    | Decimal -> 10  // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+    | BigInt -> 11   // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
     | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
     | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
-let needToCast typeFrom typeTo =
-    let v = kindIndex typeFrom // argument type (vertical)
-    let h = kindIndex typeTo   // return type (horizontal)
+let needToCast fromKind toKind =
+    let v = kindIndex fromKind // argument type (vertical)
+    let h = kindIndex toKind   // return type (horizontal)
     ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
 
 let stringToDouble (_com: ICompiler) (_ctx: Context) r targetType (args: Expr list): Expr =

@@ -1,7 +1,6 @@
 import { FSharpRef, Record, Union } from "./Types.js";
 import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
 import Decimal from "./Decimal.js";
-import { fromInt as int64FromInt } from "./Long.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -238,8 +237,21 @@ function isErasedToNumber(t: TypeInfo) {
     uint16_type.fullname,
     int32_type.fullname,
     uint32_type.fullname,
+    float16_type.fullname,
     float32_type.fullname,
     float64_type.fullname,
+  ].includes(t.fullname);
+}
+
+function isErasedToBigInt(t: TypeInfo) {
+  return isEnum(t) || [
+    int64_type.fullname,
+    uint64_type.fullname,
+    int128_type.fullname,
+    uint128_type.fullname,
+    nativeint_type.fullname,
+    unativeint_type.fullname,
+    bigint_type.fullname,
   ].includes(t.fullname);
 }
 
@@ -255,6 +267,8 @@ export function isInstanceOfType(t: TypeInfo, o: any) {
       return isFunction(t);
     case "number":
       return isErasedToNumber(t);
+    case "bigint":
+      return isErasedToBigInt(t);
     default:
       return t.construct != null && o instanceof t.construct;
   }
@@ -470,17 +484,14 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
     return new t.construct(...(consArgs ?? []));
   } else if (isErasedToNumber(t)) {
     return 0;
+  } else if (isErasedToBigInt(t)) {
+    return 0n;
   } else {
     switch (t.fullname) {
       case obj_type.fullname:
         return {};
       case bool_type.fullname:
         return false;
-      case "System.Int64":
-      case "System.UInt64":
-        // typeof<int64> and typeof<uint64> get transformed to class_type("System.Int64")
-        // and class_type("System.UInt64") respectively. Test for the name of the primitive type.
-        return int64FromInt(0);
       case decimal_type.fullname:
         return new Decimal(0);
       case char_type.fullname:
