@@ -440,10 +440,7 @@ type Shape =
     | Rectangle of int * int
 
 type StaticClass =
-// TODO: Print the default value as we do with Dart
-#if !FABLE_COMPILER_TYPESCRIPT
     static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
-#endif
     static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
     static member inline Add(x: int, ?y: int) =
         x + (defaultArg y 2)
@@ -843,6 +840,13 @@ let tests =
         o.Bar <- 10
         o.Bar |> equal 10
 
+    testCase "DefaultParameterValue works" <| fun () ->
+        StaticClass.DefaultParam() |> equal true
+
+    testCase "DefaultParameterValue works with null" <| fun () -> // See #3326
+        StaticClass.DefaultNullParam() |> isNull |> equal true
+        StaticClass.DefaultNullParam(5) |> isNull |> equal false
+
 #if !FABLE_COMPILER_TYPESCRIPT
     testCase "Object expression from class works" <| fun () ->
         let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
@@ -1190,13 +1194,6 @@ let tests =
     testCase "Inlined methods can have optional arguments" <| fun () ->
         StaticClass.Add(2, 3) |> equal 5
         StaticClass.Add(5) |> equal 7
-
-    testCase "DefaultParameterValue works" <| fun () ->
-        StaticClass.DefaultParam() |> equal true
-
-    testCase "DefaultParameterValue works with null" <| fun () -> // See #3326
-        StaticClass.DefaultNullParam() |> isNull |> equal true
-        StaticClass.DefaultNullParam(5) |> isNull |> equal false
 
     testCase "Ignore shouldn't return value" <| fun () -> // See #1360
         let producer () = 7

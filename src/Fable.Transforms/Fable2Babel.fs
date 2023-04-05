@@ -656,12 +656,22 @@ module Annotation =
 
         | _ -> AnyTypeAnnotation
 
+    // In TypeScript we don't need to type optional properties or arguments as Option (e.g. `{ foo?: string }` so we try to unwrap the option.
+    // But in some situations this may conflict with TS type cheking, usually when we assing an Option ident directly to the field (e.g. `fun (i: int option) -> {| foo = i |})
+    // If we find problems we may need to disable this, or make sure somehow the values assigned to the fields are not `Some`.
+    let makeAbstractPropertyAnnotation com ctx typ =
+        let isOptional, typ =
+            match typ with
+            | Fable.Option(t, _) when not(mustWrapOption t) -> true, t
+            | t -> false, t
+        isOptional, FableTransforms.uncurryType typ |> makeTypeAnnotation com ctx
+
     let makeAnonymousRecordTypeAnnotation com ctx fieldNames fieldTypes: TypeAnnotation =
         Seq.zip fieldNames fieldTypes
         |> Seq.mapToArray (fun (name, typ) ->
             let prop, isComputed = Util.memberFromName name
-            let typ = FableTransforms.uncurryType typ |> makeTypeAnnotation com ctx
-            AbstractMember.abstractProperty(prop, typ, isComputed=isComputed))
+            let isOptional, typ = makeAbstractPropertyAnnotation com ctx typ
+            AbstractMember.abstractProperty(prop, typ, isComputed=isComputed, isOptional=isOptional))
         |> ObjectTypeAnnotation
 
     let transformFunctionWithAnnotations (com: IBabelCompiler) ctx name typeParams (args: Fable.Ident list) (body: Fable.Expr) =
@@ -1000,17 +1010,18 @@ module Util =
                 [|
                     if argsLen > 1 then
                         yield! args[..argsLen-2]
-                    yield args[argsLen-1].AsSpread
+                    yield args[argsLen-1].WithFlags(ParameterFlags(isSpread=true))
                 |]
-            elif com.IsTypeScript then
+            else
                 let parameters = List.concat info.CurriedParameterGroups |> List.toArray
                 if argsLen = parameters.Length then
                     Array.zip args parameters
                     |> Array.map (fun (a, p) ->
-                        // TODO: IsNamed, DefaultValue (both for JS and TS)
-                        if p.IsOptional then a.AsOptional else a)
+                        a.WithFlags(ParameterFlags(
+                            ?defVal = (p.DefaultValue |> Option.map (transformAsExpr com ctx)),
+                            isNamed = p.IsNamed,
+                            isOptional = (com.IsTypeScript && p.IsOptional))))
                 else args
-            else args
 
         args, body, returnType, typeParamDecl
 
@@ -2555,20 +2566,25 @@ module Util =
         ]
 
     let transformInterfaceDeclaration (com: IBabelCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
-        let members =
+        let getters, methods =
             ent.MembersFunctionsAndValues
-            |> Seq.filter (fun info -> not info.IsProperty)
-            |> Seq.mapToArray (fun info ->
-                let prop, isComputed = memberFromName info.DisplayName
+            // It's not usual to have getters/setters in TS interfaces, so let's ignore setters
+            // and compile getters as fields
+            |> Seq.filter (fun info -> not(info.IsProperty || info.IsSetter))
+            |> Seq.toArray
+            |> Array.partition (fun info -> info.IsGetter)
 
-                let kind, returnType =
-                    if info.IsGetter then
-                        ObjectGetter,
-                        FableTransforms.uncurryType info.ReturnParameter.Type |> makeTypeAnnotation com ctx
-                    elif info.IsSetter then
-                        ObjectSetter, VoidTypeAnnotation
-                    else
-                        ObjectMeth, makeTypeAnnotation com ctx info.ReturnParameter.Type
+        let getters =
+            getters
+            |> Array.map (fun info ->
+                let prop, isComputed = memberFromName info.DisplayName
+                let isOptional, typ = makeAbstractPropertyAnnotation com ctx info.ReturnParameter.Type
+                AbstractMember.abstractProperty(prop, typ, isComputed=isComputed, isOptional=isOptional))
+
+        let methods =
+            methods
+            |> Array.map (fun info ->
+                let prop, isComputed = memberFromName info.DisplayName
 
                 let args =
                     info.CurriedParameterGroups
@@ -2582,16 +2598,24 @@ module Util =
                     |> Array.mapi (fun i a ->
                         let name = defaultArg a.Name $"arg{i}"
                         let ta = FableTransforms.uncurryType a.Type |> makeTypeAnnotation com ctx
-                        // TODO: check a.IsNamed
-                        let isSpread = i = argsLen - 1 && info.HasSpread
-                        Parameter.parameter(name, isOptional=a.IsOptional, isSpread=isSpread, typeAnnotation=ta))
+                        Parameter.parameter(name, ta)
+                            .WithFlags(ParameterFlags(
+                                isOptional=a.IsOptional,
+                                isSpread=(i = argsLen - 1 && info.HasSpread),
+                                // TODO: Unwrap option types for Named & Optional arguments? (as they're mainly used for exposition to native code)
+                                // See also interface declaration and `makeAbstractPropertyAnnotation`
+                                isNamed=a.IsNamed)))
 
                 let typeParams =
                     info.GenericParameters
                     |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
                     |> makeTypeParamDecl com ctx
 
-                AbstractMember.abstractMethod(kind, prop, args, returnType=returnType, typeParameters=typeParams, isComputed=isComputed))
+                let returnType = makeTypeAnnotation com ctx info.ReturnParameter.Type
+                
+                AbstractMember.abstractMethod(ObjectMeth, prop, args, returnType=returnType, typeParameters=typeParams, isComputed=isComputed))
+
+        let members = Array.append getters methods
 
         let extends =
             ent.DeclaredInterfaces
