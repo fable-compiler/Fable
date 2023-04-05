@@ -1112,7 +1112,7 @@ module Util =
     let isUnitArg (ident: Fable.Ident) =
         ident.IsCompilerGenerated &&
         ident.Type = Fable.Unit &&
-        ident.Name.StartsWith("unitVar")
+        (ident.DisplayName.StartsWith("unitVar") || ident.DisplayName.Contains("@"))
 
     let discardUnitArg (genArgs: Fable.Type list) (args: Fable.Ident list) =
         match genArgs, args with
@@ -1126,7 +1126,7 @@ module Util =
         match genArgs, args with
         | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
         | _, [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
-        | _, [Fable.IdentExpr ident] when ident.Type = Fable.Unit -> []
+        | _, [Fable.IdentExpr ident] when isUnitArg ident -> []
         | _, args -> args
 
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
