@@ -1,10 +1,16 @@
 import { FSharpRef } from "./Types.js";
-import { int8, int16, int32, uint8, uint16, uint32, float32, float64 } from "./Int32.js";
-import { fromBits, fromNumber, int64, uint64, nativeint, unativeint } from "./Long.js";
-import { decimal, fromParts } from "./Decimal.js";
-import { stringHash } from "./Util.js";
+import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.js";
+import { decimal, fromParts, truncate } from "./Decimal.js";
+import { bigintHash } from "./Util.js";
 
 const isBigEndian = false;
+
+export type int64 = bigint;
+export type uint64 = bigint;
+export type int128 = bigint;
+export type uint128 = bigint;
+export type nativeint = bigint;
+export type unativeint = bigint;
 
 (BigInt.prototype as any).toJSON = function () {
     return `${this.toString()}`;
@@ -20,7 +26,7 @@ export function isBigInt(x: any): boolean {
 }
 
 export function hash(x: bigint): int32 {
-    return stringHash(x.toString(32));
+    return bigintHash(x);
 }
 
 export function equals(x: bigint, y: bigint): boolean {
@@ -44,18 +50,22 @@ export function divide(x: bigint, y: bigint): bigint { return x / y }
 export function remainder(x: bigint, y: bigint): bigint { return x % y }
 export function negate(x: bigint): bigint { return -x }
 
+export function op_UnaryNegation(x: bigint): bigint { return -x; }
+export function op_LogicalNot(x: bigint): bigint { return ~x; }
+export function op_UnaryPlus(x: bigint): bigint { return x; }
+
 export function op_Addition(x: bigint, y: bigint): bigint { return x + y; }
 export function op_Subtraction(x: bigint, y: bigint): bigint { return x - y; }
 export function op_Multiply(x: bigint, y: bigint): bigint { return x * y; }
 export function op_Division(x: bigint, y: bigint): bigint { return x / y; }
 export function op_Modulus(x: bigint, y: bigint): bigint { return x % y; }
-export function op_UnaryNegation(x: bigint): bigint { return -x; }
-export function op_UnaryPlus(x: bigint): bigint { return x; }
+
 export function op_RightShift(x: bigint, n: int32): bigint { return x >> BigInt(n); }
 export function op_LeftShift(x: bigint, n: int32): bigint { return x << BigInt(n); }
 export function op_BitwiseAnd(x: bigint, y: bigint): bigint { return x & y; }
 export function op_BitwiseOr(x: bigint, y: bigint): bigint { return x | y; }
 export function op_ExclusiveOr(x: bigint, y: bigint): bigint { return x ^ y; }
+
 export function op_LessThan(x: bigint, y: bigint): boolean { return x < y; }
 export function op_LessThanOrEqual(x: bigint, y: bigint): boolean { return x <= y; }
 export function op_GreaterThan(x: bigint, y: bigint): boolean { return x > y; }
@@ -87,18 +97,18 @@ export function fromInt16(n: int16): bigint { return BigInt(n); }
 export function fromUInt16(n: uint16): bigint { return BigInt(n); }
 export function fromInt32(n: int32): bigint { return BigInt(n); }
 export function fromUInt32(n: uint32): bigint { return BigInt(n); }
-export function fromInt64(n: int64): bigint { return BigInt(n.toString()); }
-export function fromUInt64(n: uint64): bigint { return BigInt(n.toString()); }
-export function fromNativeInt(n: nativeint): bigint { return BigInt(n.toString()); }
-export function fromUNativeInt(n: unativeint): bigint { return BigInt(n.toString()); }
+export function fromInt64(n: int64): bigint { return n; }
+export function fromUInt64(n: uint64): bigint { return n; }
+export function fromInt128(n: int128): bigint { return n; }
+export function fromUInt128(n: uint128): bigint { return n; }
+export function fromNativeInt(n: nativeint): bigint { return n; }
+export function fromUNativeInt(n: unativeint): bigint { return n; }
 
-export function fromFloat32(n: float32): bigint { return BigInt(n); }
-export function fromFloat64(n: float64): bigint { return BigInt(n); }
+export function fromFloat16(n: float16): bigint { return BigInt(Math.trunc(n)); }
+export function fromFloat32(n: float32): bigint { return BigInt(Math.trunc(n)); }
+export function fromFloat64(n: float64): bigint { return BigInt(Math.trunc(n)); }
 
-export function fromDecimal(d: decimal): bigint {
-    const s = d.toString();
-    return BigInt(s.substring(0, s.indexOf(".")));
-}
+export function fromDecimal(d: decimal): bigint { return BigInt(truncate(d).toString()); }
 
 export function fromBigInt(x: bigint): bigint { return x }
 export function fromBoolean(b: boolean): bigint { return BigInt(b); }
@@ -113,27 +123,22 @@ export function toByteArray(value: bigint): number[] {
     return toSignedBytes(value, isBigEndian) as any as number[];
 }
 
-export function toSByte(x: bigint): int8 { return Number(BigInt.asIntN(8, x)); }
-export function toByte(x: bigint): uint8 { return Number(BigInt.asUintN(8, x)); }
+export function toInt8(x: bigint): int8 { return Number(BigInt.asIntN(8, x)); }
+export function toUInt8(x: bigint): uint8 { return Number(BigInt.asUintN(8, x)); }
 export function toInt16(x: bigint): int16 { return Number(BigInt.asIntN(16, x)); }
 export function toUInt16(x: bigint): uint16 { return Number(BigInt.asUintN(16, x)); }
 export function toInt32(x: bigint): int32 { return Number(BigInt.asIntN(32, x)); }
 export function toUInt32(x: bigint): uint32 { return Number(BigInt.asUintN(32, x)); }
+export function toInt64(x: bigint): int64 { return BigInt.asIntN(64, x); }
+export function toUInt64(x: bigint): uint64 { return BigInt.asUintN(64, x); }
+export function toInt128(x: bigint): int128 { return BigInt.asIntN(128, x); }
+export function toUInt128(x: bigint): uint128 { return BigInt.asUintN(128, x); }
+export function toNativeInt(x: bigint): nativeint { return BigInt.asIntN(64, x); }
+export function toUNativeInt(x: bigint): unativeint { return BigInt.asUintN(64, x); }
 
-export function toInt64(x: bigint): int64 {
-    const lowBits = Number(BigInt.asUintN(32, x))
-    const highBits = Number(BigInt.asUintN(32, x >> 32n))
-    return fromBits(lowBits, highBits, false);
-}
-
-export function toUInt64(x: bigint): uint64 {
-    const lowBits = Number(BigInt.asUintN(32, x))
-    const highBits = Number(BigInt.asUintN(32, x >> 32n))
-    return fromBits(lowBits, highBits, true);
-}
-
-export function toSingle(x: bigint): float32 { return Number(x); }
-export function toDouble(x: bigint): float64 { return Number(x); }
+export function toFloat16(x: bigint): float32 { return Number(x); }
+export function toFloat32(x: bigint): float32 { return Number(x); }
+export function toFloat64(x: bigint): float64 { return Number(x); }
 
 export function toDecimal(x: bigint): decimal {
     const low = Number(BigInt.asUintN(32, x))
@@ -175,13 +180,17 @@ export function modPow(x: bigint, e: bigint, m: bigint): bigint {
     return (x ** e) % m;
 }
 
-export function divRem(x: bigint, y: bigint): [bigint, bigint] {
-    return [x / y, x % y]
-}
-
-export function divRemOut(x: bigint, y: bigint, remainder: FSharpRef<bigint>): bigint {
-    remainder.contents = x % y;
-    return x / y;
+export function divRem(x: bigint, y: bigint): [bigint, bigint];
+export function divRem(x: bigint, y: bigint, out: FSharpRef<bigint>): bigint;
+export function divRem(x: bigint, y: bigint, out?: FSharpRef<bigint>): bigint | [bigint, bigint] {
+  const div = x / y;
+  const rem = x % y;
+  if (out === void 0) {
+    return [div, rem];
+  } else {
+    out.contents = rem;
+    return div;
+  }
 }
 
 export function greatestCommonDivisor(x: bigint, y: bigint): bigint {
@@ -199,7 +208,7 @@ export function clamp(x: bigint, min: bigint, max: bigint): bigint {
 }
 
 export function getBitLength(x: bigint): int64 {
-    return fromNumber(x.toString(2).length);
+    return fromFloat64(x.toString(2).length);
 }
 
 // export function copySign

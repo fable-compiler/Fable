@@ -413,6 +413,7 @@ module PrinterExtensions =
             | NullLiteral(loc) -> printer.Print("null", ?loc=loc)
             | Literal.StringLiteral(l) -> printer.Print(l)
             | BooleanLiteral(value, loc) -> printer.Print((if value then "true" else "false"), ?loc=loc)
+            | BigIntLiteral(value, loc) -> printer.PrintBigInt(value, loc)
             | NumericLiteral(value, loc) -> printer.PrintNumeric(value, loc)
             | Literal.DirectiveLiteral(literal) -> printer.Print(literal)
             | StringTemplate(tag, parts, values, loc) ->
@@ -616,6 +617,9 @@ module PrinterExtensions =
             printer.Print("\"", ?loc=loc)
             printer.Print(Naming.escapeString (fun _ -> false) value)
             printer.Print("\"")
+
+        member printer.PrintBigInt(value, loc) =
+            printer.Print(value + "n", ?loc=loc)
 
         member printer.PrintNumeric(value, loc) =
             let value =

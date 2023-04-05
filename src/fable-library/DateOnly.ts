@@ -1,7 +1,6 @@
 import { FSharpRef } from "./Types.js";
-import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth } from "./Date.js";
+import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth, ticksToUnixEpochMilliseconds } from "./Date.js";
 import { IDateTime, DateKind, padWithZeros } from "./Util.js";
-import { toInt, fromNumber, op_Division as Long_op_Division, op_Multiply as Long_op_Multiply, ticksToUnixEpochMilliseconds } from "./Long.js";
 
 export function fromUnixMilliseconds(value: number) {
   return DateTime(value, DateKind.UTC);
@@ -26,11 +25,11 @@ export function minValue() {
 }
 
 export function dayNumber(d: IDateTime) {
-   return toInt(Long_op_Division(getTicks(d), 864000000000));
+   return Number((getTicks(d) / 864000000000n));
 }
 
 export function fromDayNumber(dayNumber: number) {
-  const ticks = Long_op_Multiply(fromNumber(864000000000), dayNumber);
+  const ticks = 864000000000n * BigInt(dayNumber);
   return fromUnixMilliseconds(ticksToUnixEpochMilliseconds(ticks));
 }
 

@@ -43,6 +43,23 @@
             "type": "node"
         },
         {
+            "args": [
+                "${workspaceFolder}/build/tests/TypeScriptCompiled/build/tests/TypeScript",
+                "--reporter",
+                "dot",
+                "--timeout",
+                "10000"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            "name": "Run Mocha TS tests",
+            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "node"
+        },
+        {
             "name": "Run Fable.Cli",
             "type": "coreclr",
             "request": "launch",

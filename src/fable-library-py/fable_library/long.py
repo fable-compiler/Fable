@@ -45,25 +45,32 @@ def from_integer(
     return value
 
 
-def op_left_shift(self: int, num_bits: int):
-    return self << num_bits
-
-
-def op_addition(a: int, b: int) -> int:
-    return a + b
-
-
-def op_subtraction(a: int, b: int) -> int:
-    return a - b
-
-
-def op_multiply(a: int, b: int) -> int:
-    return a * b
-
-
 def op_unary_negation(value: int) -> int:
     # Note that we cannot negate the smallest negative number
     return -value if value != -0x8000000000000000 else -0x8000000000000000
+
+# def op_unary_negation(a: int) -> int: return -a
+def op_unary_plus(a: int) -> int: return +a
+def op_logical_not(a: int) -> int: return ~a
+
+def op_addition(a: int, b: int) -> int: return a + b
+def op_subtraction(a: int, b: int) -> int: return a - b
+def op_multiply(a: int, b: int) -> int: return a * b
+def op_division(a: int, b: int) -> int: return a // b
+def op_modulus(a: int, b: int) -> int: return a % b
+
+def op_right_shift(a: int, b: int) -> int: return a >> b
+def op_left_shift(a: int, b: int) -> int: return a << b
+def op_bitwise_and(a: int, b: int) -> int: return a & b
+def op_bitwise_or(a: int, b: int) -> int: return a | b
+def op_exclusive_or(a: int, b: int) -> int: return a ^ b
+
+def op_less_than(a: int, b: int) -> bool: return a < b
+def op_less_than_or_equal(a: int, b: int) -> bool: return a <= b
+def op_greater_than(a: int, b: int) -> bool: return a > b
+def op_greater_than_or_equal(a: int, b: int) -> bool: return a >= b
+def op_equality(a: int, b: int) -> bool: return a == b
+def op_inequality(a: int, b: int) -> bool: return a != b
 
 
 def get_range(unsigned: bool) -> Tuple[int, int]:
@@ -143,10 +150,30 @@ __all__ = [
     "from_number",
     "to_number",
     "from_integer",
-    "op_left_shift",
-    "op_addition",
-    "op_multiply",
+
     "op_unary_negation",
+    "op_unary_plus",
+    "op_logical_not",
+
+    "op_addition",
+    "op_subtraction",
+    "op_multiply",
+    "op_division",
+    "op_modulus",
+
+    "op_right_shift",
+    "op_left_shift",
+    "op_bitwise_and",
+    "op_bitwise_or",
+    "op_exclusive_or",
+
+    "op_less_than",
+    "op_less_than_or_equal",
+    "op_greater_than",
+    "op_greater_than_or_equal",
+    "op_equality",
+    "op_inequality",
+
     "get_range",
     "parse",
     "try_parse",

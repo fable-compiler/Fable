@@ -189,8 +189,8 @@ let castBigIntMethod typeTo =
         | BigInt | NativeInt | UNativeInt -> FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
 
-let kindIndex t = //         0   1   2   3   4   5   6   7   8   9  10  11
-    match t with //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+let kindIndex kind = //         0   1   2   3   4   5   6   7   8   9  10  11
+    match kind with //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
     | Int8 -> 0 //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
     | Int16 -> 1 //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
     | Int32 -> 2 //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
@@ -207,9 +207,9 @@ let kindIndex t = //         0   1   2   3   4   5   6   7   8   9  10  11
     | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
-let needToCast typeFrom typeTo =
-    let v = kindIndex typeFrom // argument type (vertical)
-    let h = kindIndex typeTo // return type (horizontal)
+let needToCast fromKind toKind =
+    let v = kindIndex fromKind // argument type (vertical)
+    let h = kindIndex toKind // return type (horizontal)
 
     ((v > h) || (v < 4 && h > 3)) && (h < 8)
     || (h <> v && (h = 11 || v = 11))
@@ -437,7 +437,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     | Number(Int64|UInt64|BigInt|Decimal as kind,_)::_ ->
         let modName, opName =
             match kind, opName with
-            | UInt64, Operators.rightShift -> "long", "op_RightShiftUnsigned" // See #1482
+            // | UInt64, Operators.rightShift -> "long", "op_RightShiftUnsigned" // See #1482
             | Decimal, Operators.divideByInt -> "decimal", Operators.division
             | Decimal, _ -> "decimal", opName
             | BigInt, _ -> "big_int", opName
