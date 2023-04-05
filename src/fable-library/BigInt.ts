@@ -50,19 +50,22 @@ export function divide(x: bigint, y: bigint): bigint { return x / y }
 export function remainder(x: bigint, y: bigint): bigint { return x % y }
 export function negate(x: bigint): bigint { return -x }
 
+export function op_UnaryNegation(x: bigint): bigint { return -x; }
+export function op_LogicalNot(x: bigint): bigint { return ~x; }
+export function op_UnaryPlus(x: bigint): bigint { return x; }
+
 export function op_Addition(x: bigint, y: bigint): bigint { return x + y; }
 export function op_Subtraction(x: bigint, y: bigint): bigint { return x - y; }
 export function op_Multiply(x: bigint, y: bigint): bigint { return x * y; }
 export function op_Division(x: bigint, y: bigint): bigint { return x / y; }
 export function op_Modulus(x: bigint, y: bigint): bigint { return x % y; }
-export function op_UnaryNegation(x: bigint): bigint { return -x; }
-export function op_LogicalNot(x: bigint): bigint { return ~x; }
-export function op_UnaryPlus(x: bigint): bigint { return x; }
+
 export function op_RightShift(x: bigint, n: int32): bigint { return x >> BigInt(n); }
 export function op_LeftShift(x: bigint, n: int32): bigint { return x << BigInt(n); }
 export function op_BitwiseAnd(x: bigint, y: bigint): bigint { return x & y; }
 export function op_BitwiseOr(x: bigint, y: bigint): bigint { return x | y; }
 export function op_ExclusiveOr(x: bigint, y: bigint): bigint { return x ^ y; }
+
 export function op_LessThan(x: bigint, y: bigint): boolean { return x < y; }
 export function op_LessThanOrEqual(x: bigint, y: bigint): boolean { return x <= y; }
 export function op_GreaterThan(x: bigint, y: bigint): boolean { return x > y; }
