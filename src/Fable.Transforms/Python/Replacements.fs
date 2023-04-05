@@ -437,7 +437,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     | Number(Int64|UInt64|BigInt|Decimal as kind,_)::_ ->
         let modName, opName =
             match kind, opName with
-            | UInt64, Operators.rightShift -> "long", "op_RightShiftUnsigned" // See #1482
+            // | UInt64, Operators.rightShift -> "long", "op_RightShiftUnsigned" // See #1482
             | Decimal, Operators.divideByInt -> "decimal", Operators.division
             | Decimal, _ -> "decimal", opName
             | BigInt, _ -> "big_int", opName
