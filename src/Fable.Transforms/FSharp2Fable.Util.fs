@@ -722,7 +722,8 @@ module Helpers =
     let isModuleValueCompiledAsFunction (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         match com.Options.Language with
         | Python | JavaScript | TypeScript -> memb.IsMutable && isNotPrivate memb
-        | Rust | Php | Dart -> false
+        | Rust -> true // always
+        | Php | Dart -> false
 
     let isModuleValueForCalls com (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         declaringEntity.IsFSharpModule
@@ -2067,7 +2068,7 @@ module Util =
 
             callAttachedMember com r typ callInfo entity memb
 
-        | _, Some entity when com.Options.Language <> Rust && isModuleValueForCalls com entity memb ->
+        | _, Some entity when isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
             memberIdent com r typ memb membRef
 
@@ -2080,7 +2081,7 @@ module Util =
             let typ = makeType ctx.GenericArgs memb.ReturnParameter.Type
             let callExpr =
                 memberIdent com r Fable.Any memb membRef
-                |> makeCall r typ callInfo
+                |> makeCall r typ { callInfo with Tags = "value"::callInfo.Tags }
             let fableMember = FsMemberFunctionOrValue(memb)
             // TODO: Move plugin application to FableTransforms
             com.ApplyMemberCallPlugin(fableMember, callExpr)
