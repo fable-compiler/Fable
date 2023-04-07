@@ -1,7 +1,6 @@
 module Fable.Tests.Misc
 
 open System
-open System.Runtime.InteropServices
 open Fable.Core
 open Util.Testing
 open Util2.Extensions
@@ -439,12 +438,6 @@ type Shape =
     | Square of int
     | Rectangle of int * int
 
-type StaticClass =
-    static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
-    static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
-    static member inline Add(x: int, ?y: int) =
-        x + (defaultArg y 2)
-
 type ValueType =
   struct
     val public X : int
@@ -840,13 +833,6 @@ let tests =
         o.Bar <- 10
         o.Bar |> equal 10
 
-    testCase "DefaultParameterValue works" <| fun () ->
-        StaticClass.DefaultParam() |> equal true
-
-    testCase "DefaultParameterValue works with null" <| fun () -> // See #3326
-        StaticClass.DefaultNullParam() |> isNull |> equal true
-        StaticClass.DefaultNullParam(5) |> isNull |> equal false
-
 #if !FABLE_COMPILER_TYPESCRIPT
     testCase "Object expression from class works" <| fun () ->
         let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
@@ -1190,10 +1176,6 @@ let tests =
 
     testCase "Removing optional arguments not in tail position works" <| fun () ->
         Internal.MyType.Add(y=6) |> equal 26
-
-    testCase "Inlined methods can have optional arguments" <| fun () ->
-        StaticClass.Add(2, 3) |> equal 5
-        StaticClass.Add(5) |> equal 7
 
     testCase "Ignore shouldn't return value" <| fun () -> // See #1360
         let producer () = 7

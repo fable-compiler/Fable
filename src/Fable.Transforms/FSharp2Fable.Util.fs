@@ -162,7 +162,7 @@ type FsGenParam(gen: FSharpGenericParameter) =
         gen.Constraints |> Seq.chooseToList FsGenParam.Constraint
 
 type FsParam(p: FSharpParameter, ?isNamed) =
-    let isOptional = Helpers.isOptionalParam p
+    let isOptional = p.IsOptionalArg
     let defValue =
         if isOptional then
             p.Attributes
@@ -747,13 +747,6 @@ module Helpers =
             else e.DeclaredInterfaces
                  |> Seq.exists (testInterfaceHierarchy interfaceFullname)
         | _ -> false
-
-    let isOptionalParam (p: FSharpParameter) =
-        p.IsOptionalArg || (
-            // Dart resolves [<Optional>] args also on the declaration site
-            Compiler.Language = Dart
-            && hasAttribute "System.Runtime.InteropServices.OptionalAttribute" p.Attributes
-        )
 
     let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
 

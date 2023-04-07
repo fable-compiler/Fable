@@ -483,14 +483,14 @@ module Annotation =
         Identifier.identifier(typeName)
         |> makeGenericTypeAnnotation com ctx genArgs
 
-    let makeImportTypeId (com: IBabelCompiler) ctx moduleName typeName =
+    let makeFableLibImportTypeId (com: IBabelCompiler) ctx moduleName typeName =
         let expr = com.GetImportExpr(ctx, typeName, getLibPath com moduleName, None)
         match expr with
         | Expression.Identifier(id) -> id
         | _ -> Identifier.identifier(typeName)
 
-    let makeImportTypeAnnotation com ctx genArgs moduleName typeName =
-        let id = makeImportTypeId com ctx moduleName typeName
+    let makeFableLibImportTypeAnnotation com ctx genArgs moduleName typeName =
+        let id = makeFableLibImportTypeId com ctx moduleName typeName
         makeGenericTypeAnnotation com ctx genArgs id
 
     let makeNumericTypeAnnotation com ctx kind =
@@ -500,13 +500,13 @@ module Annotation =
             | JS.Replacements.BigIntegers _ -> "BigInt"
             | _ -> "Int32"
         let typeName = getNumberKindName kind
-        makeImportTypeAnnotation com ctx [] moduleName typeName
+        makeFableLibImportTypeAnnotation com ctx [] moduleName typeName
 
     let makeNullableTypeAnnotation com ctx genArg =
-        makeImportTypeAnnotation com ctx [genArg] "Option" "Nullable"
+        makeFableLibImportTypeAnnotation com ctx [genArg] "Option" "Nullable"
 
     let makeOptionTypeAnnotation com ctx genArg =
-        makeImportTypeAnnotation com ctx [genArg] "Option" "Option"
+        makeFableLibImportTypeAnnotation com ctx [genArg] "Option" "Option"
 
     let makeTupleTypeAnnotation com ctx genArgs =
         List.map (makeTypeAnnotation com ctx) genArgs
@@ -521,7 +521,7 @@ module Annotation =
             makeTypeAnnotation com ctx genArg |> ArrayTypeAnnotation
 
     let makeListTypeAnnotation com ctx genArg =
-        makeImportTypeAnnotation com ctx [genArg] "List" "FSharpList"
+        makeFableLibImportTypeAnnotation com ctx [genArg] "List" "FSharpList"
 
     let makeUnionTypeAnnotation com ctx genArgs =
         List.map (makeTypeAnnotation com ctx) genArgs
@@ -535,20 +535,20 @@ module Annotation =
         | Replacements.Util.BclDateTimeOffset -> makeAliasTypeAnnotation com ctx "Date"
         | Replacements.Util.BclDateOnly -> makeAliasTypeAnnotation com ctx "Date"
         | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
-        | Replacements.Util.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
-        | Replacements.Util.BclHashSet key -> makeImportTypeAnnotation com ctx [key] "Util" "ISet"
-        | Replacements.Util.BclDictionary (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Util" "IMap"
+        | Replacements.Util.BclTimer -> makeFableLibImportTypeAnnotation com ctx [] "Timer" "Timer"
+        | Replacements.Util.BclHashSet key -> makeFableLibImportTypeAnnotation com ctx [key] "Util" "ISet"
+        | Replacements.Util.BclDictionary (key, value) -> makeFableLibImportTypeAnnotation com ctx [key; value] "Util" "IMap"
         | Replacements.Util.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
-        | Replacements.Util.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
-        | Replacements.Util.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
-        | Replacements.Util.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Choice" "FSharpResult$2"
+        | Replacements.Util.FSharpSet key -> makeFableLibImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
+        | Replacements.Util.FSharpMap (key, value) -> makeFableLibImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
+        | Replacements.Util.FSharpResult (ok, err) -> makeFableLibImportTypeAnnotation com ctx [ok; err] "Choice" "FSharpResult$2"
         | Replacements.Util.FSharpChoice genArgs ->
             $"FSharpChoice${List.length genArgs}"
-            |> makeImportTypeAnnotation com ctx genArgs "Choice"
+            |> makeFableLibImportTypeAnnotation com ctx genArgs "Choice"
         | Replacements.Util.FSharpReference genArg ->
             if isInRefOrAnyType com typ
             then makeTypeAnnotation com ctx genArg
-            else makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
+            else makeFableLibImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
 
     let makeFunctionTypeAnnotation com ctx _typ argTypes returnType =
         let funcTypeParams =
@@ -569,46 +569,50 @@ module Annotation =
         | _ when not ent.IsInterface -> None
         | Types.icollection
             -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
-            // -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
+            // -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
         | Types.icollectionGeneric
             -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
-            // -> makeImportTypeAnnotation com ctx genArgs "Util" "ICollection"
+            // -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "ICollection"
         // | Types.idictionary
         // | Types.ireadonlydictionary
         | Types.idisposable
-            -> makeImportTypeAnnotation com ctx genArgs "Util" "IDisposable" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IDisposable" |> Some
         | Types.ienumerable
             -> makeNativeTypeAnnotation com ctx [Fable.Any] "Iterable" |> Some
-            // -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "IEnumerable" |> Some
+            // -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "IEnumerable" |> Some
         | Types.ienumerableGeneric
             -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
-            // -> makeImportTypeAnnotation com ctx genArgs "Util" "IEnumerable" |> Some
+            // -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IEnumerable" |> Some
         | Types.ienumerator
-            -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "IEnumerator" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "IEnumerator" |> Some
         | Types.ienumeratorGeneric
-            -> makeImportTypeAnnotation com ctx genArgs "Util" "IEnumerator" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IEnumerator" |> Some
         | Types.icomparable
-            -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "IComparable" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "IComparable" |> Some
         | Types.icomparableGeneric
         | Types.iStructuralComparable
-            -> makeImportTypeAnnotation com ctx genArgs "Util" "IComparable" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IComparable" |> Some
         | Types.iequatableGeneric
         | Types.iStructuralEquatable
-            -> makeImportTypeAnnotation com ctx genArgs "Util" "IEquatable" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IEquatable" |> Some
         | Types.icomparer
-            -> makeImportTypeAnnotation com ctx [Fable.Any] "Util" "IComparer" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "IComparer" |> Some
         | Types.icomparerGeneric
-            -> makeImportTypeAnnotation com ctx genArgs "Util" "IComparer" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IComparer" |> Some
         | Types.iequalityComparerGeneric
-            -> makeImportTypeAnnotation com ctx genArgs "Util" "IEqualityComparer" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IEqualityComparer" |> Some
         | Types.iobserverGeneric
-            -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObserver" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Observable" "IObserver" |> Some
         | Types.iobservableGeneric
-            -> makeImportTypeAnnotation com ctx genArgs "Observable" "IObservable" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Observable" "IObservable" |> Some
         | "Microsoft.FSharp.Control.IEvent`1"
-            -> makeImportTypeAnnotation com ctx genArgs "Event" "IEvent" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent" |> Some
         | Types.ievent2
-            -> makeImportTypeAnnotation com ctx genArgs "Event" "IEvent$2" |> Some
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent$2" |> Some
+        | "Fable.Core.JS.Set`1"
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "ISet" |> Some
+        | "Fable.Core.JS.Map`2"
+            -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IMap" |> Some
         | _ -> None
 
     let makeEntityTypeAnnotation com ctx genArgs (ent: Fable.Entity) =
@@ -616,7 +620,7 @@ module Annotation =
         | [genArg], EntFullName Types.nullable ->
             makeNullableTypeAnnotation com ctx genArg
 
-        | _, Patterns.Try (Util.tryFindAnyAttribute [Atts.erase; Atts.tsTaggedUnion]) (erasedAtt: Fable.Attribute) ->
+        | _, Patterns.Try (Util.tryFindAnyEntAttribute [Atts.erase; Atts.tsTaggedUnion]) (erasedAtt: Fable.Attribute) ->
             if erasedAtt.Entity.FullName = Atts.erase && ent.IsFSharpUnion then
                 let genArgs =
                     List.zip ent.GenericParameters genArgs
@@ -656,14 +660,30 @@ module Annotation =
 
         | _ -> AnyTypeAnnotation
 
+    let unwrapOptionalType t =
+        match t with
+        | Fable.Option(t, _) when not(mustWrapOption t) -> t
+        | _ -> t
+
+    let unwrapOptionalArg com (arg: Fable.Expr) =
+        match arg.Type with
+        | Fable.Option(t, _) when not(mustWrapOption t) ->
+            match arg with
+            | Fable.Value(Fable.NewOption(Some arg,_,_),_) -> true, arg
+            | Fable.Value(Fable.NewOption(None,_,_),_) -> true, Fable.TypeCast(arg, t)
+            | _ -> true, Replacements.Util.Helper.LibCall(com, "Option", "unwrap", t, [arg])
+        | _ -> false, arg
+
     // In TypeScript we don't need to type optional properties or arguments as Option (e.g. `{ foo?: string }` so we try to unwrap the option.
     // But in some situations this may conflict with TS type cheking, usually when we assing an Option ident directly to the field (e.g. `fun (i: int option) -> {| foo = i |})
     // If we find problems we may need to disable this, or make sure somehow the values assigned to the fields are not `Some`.
     let makeAbstractPropertyAnnotation com ctx typ =
         let isOptional, typ =
             match typ with
-            | Fable.Option(t, _) when not(mustWrapOption t) -> true, t
-            | t -> false, t
+            | Fable.Option(genArg, _) ->
+                if mustWrapOption genArg then true, typ
+                else true, genArg
+            | typ -> false, typ
         isOptional, FableTransforms.uncurryType typ |> makeTypeAnnotation com ctx
 
     let makeAnonymousRecordTypeAnnotation com ctx fieldNames fieldTypes: TypeAnnotation =
@@ -999,29 +1019,42 @@ module Util =
             else
                 ctx, None
 
+        let parameters = List.concat info.CurriedParameterGroups
+
+        let argsWithFlags =
+            match args with
+            | [] -> []
+
+            | args when info.HasSpread ->
+                let args, lastArg = List.splitLast args
+                let args = args |> List.map (fun a -> a, ParameterFlags())
+                args @ [ lastArg, ParameterFlags(isSpread=true) ]
+
+            | args when List.sameLength args parameters ->
+                List.zip args parameters
+                |> List.map (fun (a, p) ->
+                    match p.Name with
+                    | Some name when p.IsNamed && a.Name <> name ->
+                        $"Argument {name} is marked as named but conflicts with another name in scope"
+                        |> addWarning com [] a.Range
+                    | _ -> ()
+                    let a =
+                        if p.IsOptional
+                        then { a with Type = unwrapOptionalType a.Type }
+                        else a
+                    a, ParameterFlags(
+                        isNamed = p.IsNamed,
+                        isOptional = (p.IsOptional && com.IsTypeScript),
+                        ?defVal = (p.DefaultValue |> Option.map (transformAsExpr com ctx))))
+
+            | _ -> args |> List.map (fun a -> a, ParameterFlags())
+
         let args, body, returnType, typeParamDecl =
-            transformFunctionWithAnnotations com ctx funcName typeParams args body
+            transformFunctionWithAnnotations com ctx funcName typeParams (List.map fst argsWithFlags) body
 
         let args =
-            let argsLen = Array.length args
-            if argsLen = 0 then
-                args
-            elif info.HasSpread then
-                [|
-                    if argsLen > 1 then
-                        yield! args[..argsLen-2]
-                    yield args[argsLen-1].WithFlags(ParameterFlags(isSpread=true))
-                |]
-            else
-                let parameters = List.concat info.CurriedParameterGroups |> List.toArray
-                if argsLen = parameters.Length then
-                    Array.zip args parameters
-                    |> Array.map (fun (a, p) ->
-                        a.WithFlags(ParameterFlags(
-                            ?defVal = (p.DefaultValue |> Option.map (transformAsExpr com ctx)),
-                            isNamed = p.IsNamed,
-                            isOptional = (com.IsTypeScript && p.IsOptional))))
-                else args
+            if Array.isEmpty args then args
+            else Seq.zip args argsWithFlags |> Seq.mapToArray (fun (a, (_, flags)) -> a.WithFlags(flags))
 
         args, body, returnType, typeParamDecl
 
@@ -1221,7 +1254,7 @@ module Util =
                 else None
             Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs, _isStruct) ->
-            let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
+            let values = List.mapToArray (unwrapOptionalArg com >> snd >> transformAsExpr com ctx) values
             Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
@@ -1289,15 +1322,27 @@ module Util =
                 let prop, isComputed = memberFromName memb.Name
 
                 let makeMethod kind =
+                    let args = memb.Args
+                    let isOptional, body =
+                        match kind with
+                        | ObjectGetter -> unwrapOptionalArg com memb.Body
+                        | _ -> false, memb.Body
+
                     let args, body, returnType, typeParams =
-                        getMemberArgsAndBody com ctx (Attached(isStatic=false)) ent info memb.Args memb.Body
+                        getMemberArgsAndBody com ctx (Attached(isStatic=false)) ent info args body
+
+                    let returnType =
+                        if isOptional
+                        then returnType |> Option.map (fun t -> UnionTypeAnnotation [| t; UndefinedTypeAnnotation |])
+                        else returnType
 
                     ObjectMember.objectMethod(kind, prop, args, body, isComputed=isComputed, ?returnType=returnType, ?typeParameters=typeParams)
 
                 // If compileAsClass is false, it means getters don't have side effects
                 // and can be compiled as object fields (see condition above)
                 if not memb.IsMangled && (info.IsValue || (not compileAsClass && info.IsGetter)) then
-                    [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), isComputed=isComputed)]
+                    let _, body = unwrapOptionalArg com memb.Body
+                    [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, body), isComputed=isComputed)]
 
                 elif not memb.IsMangled && info.IsGetter then
                     [makeMethod ObjectGetter]
@@ -1358,6 +1403,13 @@ module Util =
             | _ -> callInfo.Args
 
         let paramsInfo = Option.map getParamsInfo memberInfo
+
+        let args =
+            match paramsInfo with
+            | Some i when List.sameLength args i.Parameters ->
+                List.zip args i.Parameters
+                |> List.map (fun (a, i) -> if i.IsOptional then unwrapOptionalArg com a |> snd else a)
+            | _ -> args
 
         let args, objArg =
             paramsInfo
@@ -2244,7 +2296,7 @@ module Util =
                 id = Identifier.identifier(info.Name),
                 ?superClass = superClass,
                 typeParameters = typeParameters,
-                ?implements = implements)
+                implements = implements)
         | FunctionExpression(_, parameters, body, returnType, typeParameters, _) ->
             Declaration.functionDeclaration(
                 parameters,
@@ -2262,25 +2314,6 @@ module Util =
 
         |> asModuleDeclaration info.IsPublic
 
-    let getClassImplements com ctx (ent: Fable.Entity) =
-        // let mkNative genArgs typeName =
-        //     let id = Identifier.identifier(typeName)
-        //     let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
-        //     ClassImplements.classImplements(id, ?typeArguments=typeParamInst) |> Some
-        let mkImport genArgs moduleName typeName =
-            let id = makeImportTypeId com ctx moduleName typeName
-            let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
-            ClassImplements.classImplements(id, ?typeArguments=typeParamInst) |> Some
-
-        ent.AllInterfaces |> Seq.choose (fun ifc ->
-            match ifc.Entity.FullName with
-            // | "Fable.Core.JS.Set`1" -> mkNative ifc.GenericArgs "Set"
-            // | "Fable.Core.JS.Map`2" -> mkNative ifc.GenericArgs "Map"
-            | "Fable.Core.JS.Set`1" -> mkImport ifc.GenericArgs "Util" "ISet"
-            | "Fable.Core.JS.Map`2" -> mkImport ifc.GenericArgs "Util" "IMap"
-            | _ -> None
-        )
-
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
@@ -2293,8 +2326,20 @@ module Util =
     let declareClassWithParams (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Parameter[]) (consArgsModifiers: AccessModifier[]) (consBody: BlockStatement) (superClass: SuperClass option) classMembers typeParamDecl =
         let implements =
             if com.IsTypeScript then
-                let implements = Util.getClassImplements com ctx ent |> Seq.toArray
-                if Array.isEmpty implements then None else Some implements
+                ent.AllInterfaces
+                |> Seq.choose (fun ifc ->
+                    match ifc.Entity.FullName with
+                    // Discard non-generic versions of IEquatable & IComparable
+                    | "System.IEquatable" | Types.iStructuralEquatable | Types.iequalityComparer
+                    | "System.IComparable" | Types.iStructuralComparable
+                    | Types.ienumerable | Types.ienumerator -> None
+                    | Types.ienumerableGeneric -> makeNativeTypeAnnotation com ctx ifc.GenericArgs "Iterable" |> Some
+                    | Types.ienumeratorGeneric -> makeFableLibImportTypeAnnotation com ctx ifc.GenericArgs "Util" "IEnumerator" |> Some
+                    | _ ->
+                        com.GetEntity(ifc.Entity)
+                        |> makeEntityTypeAnnotation com ctx ifc.GenericArgs |> Some)
+                |> Seq.toArray
+                |> Some
             else None
 
         let classCons =
@@ -2330,7 +2375,7 @@ module Util =
     let declareTypeReflection (com: IBabelCompiler) ctx (ent: Fable.Entity) entName: ModuleDeclaration =
         let ta =
             if com.IsTypeScript then
-                makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo" |> Some
+                makeFableLibImportTypeAnnotation com ctx [] "Reflection" "TypeInfo" |> Some
             else None
         let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
         let generics = genArgs |> Array.map identAsExpr
@@ -2352,7 +2397,7 @@ module Util =
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
-    let tryFindAnyAttribute fullNames (ent: Fable.Entity) =
+    let tryFindAnyEntAttribute fullNames (ent: Fable.Entity) =
         let fullNames = set fullNames
         ent.Attributes |> Seq.tryFind (fun att -> Set.contains att.Entity.FullName fullNames)
 
@@ -2390,9 +2435,21 @@ module Util =
     let transformAttachedProperty (com: IBabelCompiler) ctx classEnt (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
         let isStatic = not info.IsInstance
         let key, isComputed = memberFromName memb.Name
-        let kind = if info.IsGetter then ClassGetter(key, isComputed) else ClassSetter(key, isComputed)
+
+        let args = memb.Args
+        let kind, (isOptional, body) =
+            if info.IsGetter
+            then ClassGetter(key, isComputed), unwrapOptionalArg com memb.Body
+            else ClassSetter(key, isComputed), (false, memb.Body)
+
         let args, body, returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx (Attached isStatic) (Some classEnt) info memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) (Some classEnt) info args body
+
+        let returnType =
+            if isOptional
+            then returnType |> Option.map (fun t -> UnionTypeAnnotation [| t; UndefinedTypeAnnotation |])
+            else returnType
+
         ClassMember.classMethod(kind, args, body, isStatic=isStatic, ?returnType=returnType) //, ?typeParameters=typeParamDecl)
         |> Array.singleton
 
@@ -2597,13 +2654,14 @@ module Util =
                     args
                     |> Array.mapi (fun i a ->
                         let name = defaultArg a.Name $"arg{i}"
-                        let ta = FableTransforms.uncurryType a.Type |> makeTypeAnnotation com ctx
+                        let ta =
+                            if a.IsOptional then unwrapOptionalType a.Type else a.Type
+                            |> FableTransforms.uncurryType
+                            |> makeTypeAnnotation com ctx
                         Parameter.parameter(name, ta)
                             .WithFlags(ParameterFlags(
                                 isOptional=a.IsOptional,
                                 isSpread=(i = argsLen - 1 && info.HasSpread),
-                                // TODO: Unwrap option types for Named & Optional arguments? (as they're mainly used for exposition to native code)
-                                // See also interface declaration and `makeAbstractPropertyAnnotation`
                                 isNamed=a.IsNamed)))
 
                 let typeParams =
@@ -2612,7 +2670,7 @@ module Util =
                     |> makeTypeParamDecl com ctx
 
                 let returnType = makeTypeAnnotation com ctx info.ReturnParameter.Type
-                
+
                 AbstractMember.abstractMethod(ObjectMeth, prop, args, returnType=returnType, typeParameters=typeParams, isComputed=isComputed))
 
         let members = Array.append getters methods
@@ -2688,7 +2746,7 @@ module Util =
         | Fable.ClassDeclaration decl ->
             let entRef = decl.Entity
             let ent = com.GetEntity(entRef)
-            let isErased = tryFindAnyAttribute [Atts.erase; Atts.tsTaggedUnion] ent |> Option.isSome
+            let isErased = ent |> tryFindAnyEntAttribute [Atts.erase; Atts.tsTaggedUnion] |> Option.isSome
             if isErased then
                 []
             elif ent.IsInterface then

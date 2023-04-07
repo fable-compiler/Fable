@@ -220,7 +220,7 @@ export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): Iterat
 }
 
 export interface ISet<T> {
-  add(value: T): this;
+  add(value: T): ISet<T>;
   clear(): void;
   delete(value: T): boolean;
   forEach(callbackfn: (value: T, value2: T, set: ISet<T>) => void, thisArg?: any): void;
@@ -239,7 +239,7 @@ export interface IMap<K, V> {
   forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
   get(key: K): V | undefined;
   has(key: K): boolean;
-  set(key: K, value: V): this;
+  set(key: K, value: V): IMap<K, V>;
   readonly size: number;
 
   [Symbol.iterator](): Iterator<[K, V]>;

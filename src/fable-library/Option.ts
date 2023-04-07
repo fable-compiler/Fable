@@ -13,6 +13,9 @@ export { Nullable, Option, Some, value };
 // Note: We use non-strict null check for backwards compatibility with
 // code that use F# options to represent values that could be null in JS
 
+export function unwrap<T>(opt: Option<T>): T | undefined {
+  return opt instanceof Some ? opt.value : opt;
+}
 
 export function some<T>(x: T): Option<T> {
   return x == null || x instanceof Some ? new Some(x) : x;

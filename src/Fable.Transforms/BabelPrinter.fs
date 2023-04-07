@@ -195,7 +195,7 @@ module PrinterExtensions =
         member printer.PrintClass(id: Identifier option,
                                   superClass: SuperClass option,
                                   typeParameters: TypeParameter[],
-                                  implements: ClassImplements array option,
+                                  implements: TypeAnnotation array,
                                   members: ClassMember array,
                                   loc) =
             printer.Print("class", ?loc=loc)
@@ -207,11 +207,13 @@ module PrinterExtensions =
                 | SuperExpression item -> p.Print(item)
             ), " extends ")
             // printer.PrintOptional(superTypeParameters)
-            match implements with
-            | Some implements when not (Array.isEmpty implements) ->
-                printer.Print(" implements ")
-                printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-            | _ -> ()
+            implements
+            |> Array.filter (function AliasTypeAnnotation _ -> true | _ -> false)
+            |> function
+                | [||] -> ()
+                | implements ->
+                    printer.Print(" implements ")
+                    printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
             printer.Print(" ")
             printer.PrintBlock(members, (fun p x -> p.PrintClassMember(x)), (fun p -> p.PrintStatementSeparator()))
 
@@ -418,7 +420,6 @@ module PrinterExtensions =
                 printer.Print("]")
             | ClassExpression(body, id, superClass, implements, typeArguments, loc) ->
                 printer.PrintClass(id, superClass, typeArguments, implements, body, loc)
-            | Expression.ClassImplements(n) -> printer.Print(n)
             | UnaryExpression(argument, operator, loc) -> printer.PrintUnaryExpression(argument, operator, loc)
             | UpdateExpression(prefix, argument, operator, loc) -> printer.PrintUpdateExpression(prefix, argument, operator, loc)
             | ObjectExpression(properties, loc) -> printer.PrintObjectExpression(properties, loc)
@@ -1056,11 +1057,6 @@ module PrinterExtensions =
             printer.PrintOptional(typeAnnotation, ": ")
             printer.PrintOptional(value, " = ")
 
-        member printer.Print(node: ClassImplements) =
-            let (ClassImplements(id, typeParameters)) = node
-            printer.PrintIdent(id)
-            printer.Print(typeParameters)
-
         member printer.PrintImportMemberSpecific(local, imported) =
             // Don't print the braces, node will be done in the import declaration
             printer.PrintIdent(imported)
@@ -1120,6 +1116,7 @@ module PrinterExtensions =
             | BooleanTypeAnnotation -> printer.Print("boolean")
             | AnyTypeAnnotation -> printer.Print("any")
             | VoidTypeAnnotation -> printer.Print("void")
+            | UndefinedTypeAnnotation -> printer.Print("undefined")
             | ArrayTypeAnnotation(t) ->
                 printer.ComplexTypeWithParens(t)
                 printer.Print("[]")

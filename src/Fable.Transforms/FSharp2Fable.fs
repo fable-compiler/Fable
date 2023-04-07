@@ -1438,14 +1438,13 @@ let private addUsedRootName (com: Compiler) name (usedRootNames: Set<string>) =
     Set.add name usedRootNames
 
 // Entities that are not output to other languages
-// Interfaces should be part of the AST, see #2673
 let private isIgnoredLeafEntity (ent: FSharpEntity) =
-    // ent.IsInterface
     ent.IsEnum
     || ent.IsMeasure
-    || ent.IsFSharpAbbreviation //&& com.Options.Language <> Rust
+    || ent.IsFSharpAbbreviation
     || ent.IsDelegate
     || ent.IsNamespace // Ignore empty namespaces
+    || ent.Attributes |> hasAttribute "Microsoft.FSharp.Core.MeasureAnnotatedAbbreviationAttribute"
 
 // In case this is a recursive module, do a first pass to get all entity and member names
 let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls =

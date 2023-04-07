@@ -31,10 +31,9 @@ type Expression =
         members: ClassMember array *
         id: Identifier option *
         superClass: SuperClass option *
-        implements: ClassImplements array option *
+        implements: TypeAnnotation array *
         typeParameters: TypeParameter array *
         loc: SourceLocation option
-    | ClassImplements of ClassImplements
     | Super of loc: SourceLocation option
     | Undefined of Loc: SourceLocation option
     | ThisExpression of loc: SourceLocation option
@@ -117,7 +116,7 @@ type Declaration =
         members: ClassMember array *
         id: Identifier option *
         superClass: SuperClass option *
-        implements: ClassImplements array option *
+        implements: TypeAnnotation array *
         typeParameters: TypeParameter array *
         loc: SourceLocation option
     | VariableDeclaration of
@@ -394,17 +393,6 @@ type ClassMethodKind =
     | ClassGetter of key: Expression * isComputed: bool
     | ClassSetter of key: Expression * isComputed: bool
 
-/// ES Class Fields & Static Properties
-/// https://github.com/jeffmo/es-class-fields-and-static-properties
-/// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassImplements =
-    | ClassImplements of id: Identifier * typeArguments: TypeAnnotation array
-
-// type MetaProperty(meta, property, ?loc) =
-//     interface Expression with
-//     member _.Meta: Identifier = meta
-//     member _.Property: Expression = property
-
 // Modules
 
 /// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod".
@@ -434,6 +422,7 @@ type TypeAnnotation =
     | AliasTypeAnnotation of id: Identifier * typeArguments: TypeAnnotation array
     | AnyTypeAnnotation
     | VoidTypeAnnotation
+    | UndefinedTypeAnnotation
     | StringTypeAnnotation
     | NumberTypeAnnotation
     | BooleanTypeAnnotation
@@ -522,7 +511,7 @@ module Helpers =
         static member functionExpression(parameters, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
             FunctionExpression(id, parameters, body, returnType, defaultArg typeParameters [||], loc)
         static member classExpression(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
-            ClassExpression(body, id, superClass, implements, defaultArg typeParameters [||], loc)
+            ClassExpression(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc)
         static member spreadElement(argument, ?loc) =
             SpreadElement(argument, ?loc=loc)
         static member conditionalExpression(test, consequent, alternate, ?loc): Expression =
@@ -616,10 +605,6 @@ module Helpers =
         static member parameter(name, ?typeAnnotation) =
             Parameter(name, typeAnnotation=typeAnnotation, flags=ParameterFlags())
 
-    type ClassImplements with
-        static member classImplements(id, ?typeArguments) =
-            ClassImplements(id, defaultArg typeArguments [||])
-
     type Declaration with
         static member variableDeclaration(kind, declarations, ?loc) : Declaration =
             VariableDeclaration.variableDeclaration(kind, declarations, ?loc = loc)
@@ -630,7 +615,7 @@ module Helpers =
         static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc) =
             FunctionDeclaration(parameters, body, id, returnType, defaultArg typeParameters [||], loc)
         static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
-            ClassDeclaration(body, id, superClass, implements, defaultArg typeParameters [||], loc)
+            ClassDeclaration(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc)
         static member interfaceDeclaration(id, body, ?extends, ?typeParameters): Declaration = // ?mixins_,
             InterfaceDeclaration(id, body, defaultArg extends [||], defaultArg typeParameters [||])
         static member enumDeclaration(name, cases, ?isConst) =
