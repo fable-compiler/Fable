@@ -246,6 +246,8 @@ module private Transforms =
         let canInlineBinding =
             match value with
             | Import(i,_,_) -> i.IsCompilerGenerated
+            | Call(callee, info, _, _) when List.isEmpty info.Args && List.contains "value" info.Tags ->
+                canInlineArg ident.Name callee letBody
             // Replace non-recursive lambda bindings
             | NestedLambda(_args, lambdaBody, _name) ->
                 match lambdaBody with
