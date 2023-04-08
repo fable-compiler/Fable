@@ -1409,21 +1409,22 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     elif isCompilerGenerated memb args then
         []
     elif memb.IsOverrideOrExplicitInterfaceImplementation then
-        match memb.DeclaringEntity with
-        | Some ent ->
-            if isGlobalOrImportedFSharpEntity ent then ()
-            elif isErasedOrStringEnumFSharpEntity ent then
-                // Ignore abstract members for classes, see #2295
-                if ent.IsFSharpUnion || ent.IsFSharpRecord then
-                    let r = makeRange memb.DeclarationLocation |> Some
-                    "Erased unions/records cannot implement abstract members"
-                    |> addError com ctx.InlinePath r
-            else
-                // Not sure when it's possible that a member implements multiple abstract signatures
-                memb.ImplementedAbstractSignatures
-                |> Seq.tryHead
-                |> Option.iter (fun s -> transformImplementedSignature com ctx ent s memb args body)
-        | None -> ()
+        if not memb.IsCompilerGenerated then
+            match memb.DeclaringEntity with
+            | Some ent ->
+                if isGlobalOrImportedFSharpEntity ent then ()
+                elif isErasedOrStringEnumFSharpEntity ent then
+                    // Ignore abstract members for classes, see #2295
+                    if ent.IsFSharpUnion || ent.IsFSharpRecord then
+                        let r = makeRange memb.DeclarationLocation |> Some
+                        "Erased unions/records cannot implement abstract members"
+                        |> addError com ctx.InlinePath r
+                else
+                    // Not sure when it's possible that a member implements multiple abstract signatures
+                    memb.ImplementedAbstractSignatures
+                    |> Seq.tryHead
+                    |> Option.iter (fun s -> transformImplementedSignature com ctx ent s memb args body)
+            | None -> ()
         []
     else
         match memb.DeclaringEntity with
