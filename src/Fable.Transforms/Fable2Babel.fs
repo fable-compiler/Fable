@@ -1756,13 +1756,20 @@ module Util =
             let kind = if var.IsMutable then Let else Const
             [| Statement.variableDeclaration(kind, var.Name, ?annotation=ta, typeParameters=tp, init=value) |]
 
-    let transformUnionCaseTag (com: IBabelCompiler) ctx typ tag =
+    let transformUnionCaseTag (com: IBabelCompiler) ctx range typ tag =
         if com.IsTypeScript then
             match typ with
-            | Fable.DeclaredType(ent, _) ->
-                let ent = com.GetEntity(ent)
+            | Fable.DeclaredType(entRef, _) ->
+                let ent = com.GetEntity(entRef)
                 match tryJsConstructorWithSuffix com ctx ent "_Tag" with
-                | Some(Expression.Identifier(tagIdent)) -> EnumCaseLiteral(tagIdent, ent.UnionCases[tag].Name) |> Literal
+                | Some(Expression.Identifier(tagIdent)) ->
+                    match List.tryItem tag ent.UnionCases with
+                    | Some uc ->
+                        EnumCaseLiteral(tagIdent, uc.Name) |> Literal
+                    | None ->
+                        $"Unmatched union case tag: {tag} for {ent.FullName}"
+                        |> addWarning com [] range
+                        ofInt tag
                 | _ -> ofInt tag
             | _ -> ofInt tag
         else
@@ -1779,7 +1786,7 @@ module Util =
             let expr = libCall com ctx range "List" "isEmpty" [] [expr]
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
-            let expected = transformUnionCaseTag com ctx expr.Type tag
+            let expected = transformUnionCaseTag com ctx range expr.Type tag
             let actual = getUnionExprTag com ctx None expr
             Expression.binaryExpression(BinaryEqual, actual, expected, ?loc=range)
 
@@ -1788,8 +1795,8 @@ module Util =
             if useBlocks then [|Statement.blockStatement(caseBody)|] else caseBody
 
         let transformGuard = function
-            | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                transformUnionCaseTag com ctx expr.Type tag
+            | Fable.Test(expr, Fable.UnionCaseTest tag, range) ->
+                transformUnionCaseTag com ctx range expr.Type tag
             | TransformExpr com ctx e -> e
 
         let cases =
