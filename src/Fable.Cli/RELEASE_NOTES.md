@@ -1,3 +1,10 @@
+### 4.0.5
+
+* Use native JS BigInt for int64/uint64
+* Fix #3402: Rust type mismatch error when compiling F# closure code
+* Improve optional field and argument typing in TypeScript
+* Fix fable-library-ts when used with Vite
+
 ### 4.0.4
 
 * Fix #3397: Curry only user imports

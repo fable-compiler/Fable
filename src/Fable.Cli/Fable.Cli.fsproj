@@ -4,14 +4,12 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.0.4</Version>
-    <PackageVersion>4.0.4</PackageVersion>
-    <PackageReleaseNotes>* Fix #3397: Curry only user imports
-* Fix: Compiler Exception when `!!`, Anon Record, and aliased `Ux` (also behind option) @Booksbaum
-* Use native bigint type @ncave
-* Emit Fable erased unions as TS union types
-* Optimize compile time equality and testing (union, list, options)
-* TypeScript: enable Comparison, Convert and Event tests</PackageReleaseNotes>
+    <Version>4.0.5</Version>
+    <PackageVersion>4.0.5</PackageVersion>
+    <PackageReleaseNotes>* Use native JS BigInt for int64/uint64
+* Fix #3402: Rust type mismatch error when compiling F# closure code
+* Improve optional field and argument typing in TypeScript
+* Fix fable-library-ts when used with Vite</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
