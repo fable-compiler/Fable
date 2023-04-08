@@ -1,7 +1,7 @@
 
 import { FSharpChoice$2, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
-import { value } from "./Option.js";
-import { IDisposable, Option } from "./Util.js";
+import { Option, value } from "./Option.js";
+import { IDisposable } from "./Util.js";
 
 export interface IObserver<T> {
   OnNext: (x: T) => void;

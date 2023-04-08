@@ -1,5 +1,30 @@
-import Decimal from "./lib/big.js";
+import Decimal, { BigSource } from "./lib/big.js";
+import { Numeric, symbol } from "./Numeric.js";
 import { FSharpRef } from "./Types.js";
+import { combineHashCodes } from "./Util.js";
+
+Decimal.prototype.GetHashCode = function () {
+  return combineHashCodes([this.s, this.e].concat(this.c))
+}
+
+Decimal.prototype.Equals = function (x: Decimal) {
+  return !this.cmp(x)
+}
+
+Decimal.prototype.CompareTo = function (x: Decimal) {
+  return this.cmp(x)
+}
+
+Decimal.prototype[symbol] = function() {
+  const _this = this;
+  return {
+    multiply: (y: Numeric) => _this.mul(y as BigSource),
+    toPrecision: (sd?: number) => _this.toPrecision(sd),
+    toExponential: (dp?: number) => _this.toExponential(dp),
+    toFixed: (dp?: number) => _this.toFixed(dp),
+    toHex: () => (Number(_this) >>> 0).toString(16),
+  }
+}
 
 export default Decimal;
 export type decimal = Decimal;

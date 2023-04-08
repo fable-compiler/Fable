@@ -74,13 +74,23 @@ module Lib =
         | consExpr -> consExpr |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
 
     let tryJsConstructorForAnnotation forAnnotation (com: IBabelCompiler) ctx (ent: Fable.Entity) =
-        let suffix =
-            if not forAnnotation
-                && com.IsTypeScript
-                && ent.IsFSharpUnion
-            then "_" + Util.UnionHelpers.CONS
-            else ""
-        tryJsConstructorWithSuffix com ctx ent suffix
+        if not forAnnotation && (
+            // For backwards compatibility, we allow Global attribute on interfaces (as in Fable.Browser bindings)
+            // However for imported entities we do need to specify it's a class. This is an asymmetry, but in
+            // TypeScript we may want to import interfaces that should not be used in reflection or type testing.
+            (ent.IsInterface && not(Util.hasAttribute Atts.global_ ent.Attributes))
+            || ent.IsMeasure
+            || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+        ) then
+            None
+        else
+            let suffix =
+                if not forAnnotation
+                    && com.IsTypeScript
+                    && ent.IsFSharpUnion
+                then "_" + Util.UnionHelpers.CONS
+                else ""
+            tryJsConstructorWithSuffix com ctx ent suffix
 
     /// Cannot be used for annotations (use `tryJsConstructorForAnnotation true` instead)
     let jsConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) =
@@ -349,20 +359,13 @@ module Reflection =
                 |> libCall com ctx None "Types" "isException" []
             | _ ->
                 let ent = com.GetEntity(ent)
-                if ent.IsInterface then
-                    match FSharp2Fable.Util.tryGlobalOrImportedEntity com ent with
-                    | Some typeExpr ->
-                        let typeExpr = com.TransformAsExpr(ctx, typeExpr)
-                        jsInstanceof typeExpr expr
-                    | None -> warnAndEvalToFalse "interfaces"
-                else
-                    match tryJsConstructorForAnnotation false com ctx ent with
-                    | Some cons ->
-                        if not(List.isEmpty genArgs) then
-                            com.WarnOnlyOnce("Generic args are ignored in type testing", ?range=range)
-                        jsInstanceof cons expr
-                    | None ->
-                        warnAndEvalToFalse ent.FullName
+                match tryJsConstructorForAnnotation false com ctx ent with
+                | Some cons ->
+                    if not(List.isEmpty genArgs) then
+                        com.WarnOnlyOnce("Generic args are ignored in type testing", ?range=range)
+                    jsInstanceof cons expr
+                | None ->
+                    warnAndEvalToFalse ent.FullName
 
 module Annotation =
     let isByRefOrAnyType (com: IBabelCompiler) = function
@@ -2746,8 +2749,7 @@ module Util =
         | Fable.ClassDeclaration decl ->
             let entRef = decl.Entity
             let ent = com.GetEntity(entRef)
-            let isErased = ent |> tryFindAnyEntAttribute [Atts.erase; Atts.tsTaggedUnion] |> Option.isSome
-            if isErased then
+            if FSharp2Fable.Util.isErasedOrStringEnumEntity ent then
                 []
             elif ent.IsInterface then
                 if com.IsTypeScript
