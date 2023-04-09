@@ -570,6 +570,9 @@ module private Transforms =
 
         | e -> e
 
+    let isGetterOrValueWithoutGenerics (mRef: MemberFunctionOrValue) =
+        mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
+
     let uncurrySendingArgs (com: Compiler) e =
         let uncurryConsArgs args (fields: seq<Field>) =
             let argTypes =
@@ -602,15 +605,17 @@ module private Transforms =
         | ObjectExpr(members, t, baseCall) ->
             let members =
                 members |> List.map (fun m ->
-                    match com.TryGetMember(m.MemberRef) with
-                    | Some mRef ->
-                        let isGetterOrValueWithoutGenerics =
-                            mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
-                        if isGetterOrValueWithoutGenerics then
-                            let value = uncurryArgs com false [mRef.ReturnParameter.Type] [m.Body]
-                            { m with Body = List.head value }
-                        else m
-                    | None -> m)
+                    match m.Body.Type with
+                    | Arity arity when arity > 1 ->
+                        match com.TryGetMember(m.MemberRef) with
+                        | Some mRef when isGetterOrValueWithoutGenerics mRef ->
+                            match mRef.ReturnParameter.Type with
+                            // It may happen the arity of the abstract signature is smaller than actual arity
+                            | Arity arity when arity > 1 ->
+                                { m with Body = uncurryExpr com (Some arity) m.Body }
+                            | _ -> m
+                        | _ -> m
+                    | _ -> m)
             ObjectExpr(members, t, baseCall)
         | e -> e
 
@@ -699,7 +704,30 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
         // (ent, ident, cons, baseCall, attachedMembers)
         let attachedMembers =
             decl.AttachedMembers
-            |> List.map (uncurryMemberArgs >> transformMemberBody com)
+            |> List.map (fun m ->
+                let uncurriedMember =
+                    if m.IsMangled then None
+                    else
+                        match m.Body.Type with
+                        | Arity arity when arity > 1 ->
+                            m.ImplementedSignatureRef
+                            |> Option.bind (com.TryGetMember)
+                            |> Option.bind (fun mRef ->
+                                if isGetterOrValueWithoutGenerics mRef then
+                                    match mRef.ReturnParameter.Type with
+                                    // It may happen the arity of the abstract signature is smaller than actual arity
+                                    | Arity arity when arity > 1 ->
+                                        Some { m with Body = uncurryExpr com (Some arity) m.Body }
+                                    | _ -> None
+                                else None)
+                        | _ -> None
+
+                let m =
+                    match uncurriedMember with
+                    | Some m -> m
+                    | None -> uncurryMemberArgs m
+
+                transformMemberBody com m)
 
         let cons, baseCall =
             match decl.Constructor, decl.BaseCall with

@@ -41,6 +41,8 @@ type VeryOptionalInterface =
     abstract Bax: float option
     abstract Wrapped: unit option
     abstract Foo: string option with get, set
+    abstract Fn: (int -> int -> int) option
+    abstract Fn2: (int -> int -> int)
 
 type VeryOptionalClass () =
     let mutable foo = "ab"
@@ -54,6 +56,8 @@ type VeryOptionalClass () =
         member _.Foo
             with get() = Some foo
             and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+        member _.Fn = Some (+)
+        member _.Fn2 = (*)
 
 type StaticClass =
     [<NamedParams>]
@@ -79,6 +83,16 @@ let tests =
         {| bar = None; zas = None; foo = None |} |> add |> equal "-x"
         {| foo = Some None; bar = None; zas = None |} |> add |> equal "-xx"
 
+    testCase "Anonymous records can have optional function fields" <| fun () ->
+        let add (o: {| bar: (int -> int -> int) option; foo: int -> int -> int |}) =
+            let fn = o.bar
+            let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+            let f2 = match fn with Some f -> f 1 8 | None -> -5
+            o.foo 3 4 + f1 + f2
+
+        {| bar = Some (+); foo = (*) |} |> add |> equal 36
+        {| bar = None; foo = (+) |} |> add |> equal -1
+
     testCase "Can implement interface optional properties" <| fun () ->
         let veryOptionalValue = VeryOptionalClass() :> VeryOptionalInterface
         veryOptionalValue.Bar |> equal (Some 3)
@@ -89,6 +103,11 @@ let tests =
         veryOptionalValue.Foo |> equal (Some "abz")
         veryOptionalValue.Foo <- None
         veryOptionalValue.Foo |> equal (Some "abz")
+        let fn = veryOptionalValue.Fn
+        let fn2 = veryOptionalValue.Fn2
+        let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+        let f2 = match fn with Some f -> f 1 8 | None -> -5
+        f1 + f2 - fn2 9 3 |> equal -3
 
     testCase "Can implement interface optional properties with object expression" <| fun () ->
         let veryOptionalValue =
@@ -101,6 +120,8 @@ let tests =
                 member _.Foo
                     with get() = Some foo
                     and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+                member _.Fn = Some (+)
+                member _.Fn2 = (*)
             }
 
         veryOptionalValue.Bar |> equal (Some 3)
@@ -111,6 +132,11 @@ let tests =
         veryOptionalValue.Foo |> equal (Some "abz")
         veryOptionalValue.Foo <- None
         veryOptionalValue.Foo |> equal (Some "abz")
+        let fn = veryOptionalValue.Fn
+        let fn2 = veryOptionalValue.Fn2
+        let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+        let f2 = match fn with Some f -> f 1 8 | None -> -5
+        f1 + f2 - fn2 9 3 |> equal -3
 
     testCase "Optional named params work" <| fun () ->
         StaticClass.NamedParams(foo="5", bar=4) |> equal 9
