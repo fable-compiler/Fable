@@ -34,7 +34,8 @@ type Context =
     HoistVars: Fable.Ident list -> bool
     TailCallOpportunity: ITailCallOpportunity option
     OptimizeTailCall: unit -> unit
-    ScopedTypeParams: Set<string> }
+    ScopedTypeParams: Set<string>
+    ForcedIdents: Set<string> }
 
 type ModuleDecl(name, ?isPublic, ?isMutable, ?typ) =
     member _.Name: string = name
@@ -165,7 +166,7 @@ module Reflection =
             libReflectionCall com ctx None "class" [
                 yield Expression.stringLiteral(ent.FullName)
                 match generics with
-                | [||] -> yield Util.undefined None
+                | [||] -> yield Util.undefined None None
                 | generics -> yield Expression.arrayExpression(generics)
                 match tryJsConstructorForAnnotation false com ctx ent with
                 | Some cons -> yield cons
@@ -286,7 +287,7 @@ module Reflection =
             [
                 yield Expression.stringLiteral(fullname)
                 match generics with
-                | [||] -> yield Util.undefined None
+                | [||] -> yield Util.undefined None None
                 | generics -> yield Expression.arrayExpression(generics)
                 match tryJsConstructorForAnnotation false com ctx ent with
                 | Some cons -> yield cons
@@ -311,7 +312,7 @@ module Reflection =
             Expression.booleanLiteral(false)
 
         let jsTypeof (primitiveType: string) (Util.TransformExpr com ctx expr): Expression =
-            let typeof = UnaryExpression(expr, "typeof", None)
+            let typeof = Expression.unaryExpression("typeof", expr)
             Expression.binaryExpression(BinaryEqual, typeof, Expression.stringLiteral(primitiveType), ?loc=range)
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx expr): Expression =
@@ -963,9 +964,10 @@ module Util =
     let emitExpression range (txt: string) args =
         EmitExpression (txt, List.toArray args, ?loc=range)
 
-    let undefined range =
+    let undefined range e =
 //        Undefined(?loc=range) :> Expression
-        UnaryExpression(Expression.numericLiteral(0.), "void", range)
+        let e = defaultArg e (Expression.numericLiteral(0.))
+        Expression.unaryExpression("void", e, ?loc=range)
 
     let getTypeParameters (ctx: Context) (types: Fable.Type list) =
         let rec getGenParams = function
@@ -1142,7 +1144,7 @@ module Util =
                     makeArray com ctx exprs
                 | _ -> com.TransformAsExpr(ctx, e)
             | _ -> com.TransformAsExpr(ctx, e)
-        | Fable.Unit -> UnaryExpression(com.TransformAsExpr(ctx, e), "void", e.Range)
+        | Fable.Unit -> com.TransformAsExpr(ctx, e) |> Some |> undefined e.Range
         | _ -> com.TransformAsExpr(ctx, e)
 
     let transformCurry (com: IBabelCompiler) (ctx: Context) expr arity: Expression =
@@ -1179,7 +1181,7 @@ module Util =
             //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
             // else
                 Expression.nullLiteral(?loc=r)
-        | Fable.UnitConstant -> undefined r
+        | Fable.UnitConstant -> undefined r None
         | Fable.BoolConstant x -> Expression.booleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> Expression.stringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> Expression.stringLiteral(x, ?loc=r)
@@ -1246,7 +1248,7 @@ module Util =
                 if mustWrapOption t
                 then libCall com ctx r "Option" "some" [] [e]
                 else e
-            | None -> undefined r
+            | None -> undefined r None
         | Fable.NewRecord(values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
@@ -1959,34 +1961,33 @@ module Util =
     /// When several branches share target create first a switch to get the target index and bind value
     /// and another to execute the actual target
     let transformDecisionTreeWithTwoSwitches (com: IBabelCompiler) ctx returnStrategy (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
-        // Most of the time, TypeScript will complain the variable declared on top are not initialized
-        if com.IsTypeScript then
-            let ctx = { ctx with DecisionTargets = targets }
-            com.TransformAsStatements(ctx, returnStrategy, treeExpr)
-        else
-            // Declare target and bound idents
-            let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeIdent
-            let multiVarDecl =
-                let boundIdents = targets |> List.collect (fun (idents,_) ->
-                    idents |> List.map (fun id -> id, None))
-                multiVarDeclaration com ctx Let ((targetId, None)::boundIdents)
-            // Transform targets as switch
-            let switch2 =
-                // TODO: Declare the last case as the default case?
-                let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
-                transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
-            // Transform decision tree
-            let targetAssign = Target(identAsIdent targetId)
-            let ctx = { ctx with DecisionTargets = targets }
-            match transformDecisionTreeAsSwitch treeExpr with
-            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-                let cases = groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
-                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
-                let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
-                [|multiVarDecl; switch1; switch2|]
-            | None ->
-                let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
-                [| yield multiVarDecl; yield! decisionTree; yield switch2 |]
+        // Declare target and bound idents
+        let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty))
+        let boundIdents = targets |> List.collect (fun (idents,_) ->
+            idents |> List.map (fun id -> id, None))
+        let multiVarDecl =
+            multiVarDeclaration com ctx Let ((targetId, None)::boundIdents)
+        // Transform targets as switch
+        let switch2 =
+            let ctx = { ctx with ForcedIdents = boundIdents |> List.map (fun (id,_) -> id.Name) |> set }
+            let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
+            match cases with
+            | [(_, caseBody)] -> transformAsStatements com ctx returnStrategy caseBody
+            | cases ->
+                let cases, (_, defaultCase) = List.splitLast cases
+                [|transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases (Some defaultCase)|]
+        // Transform decision tree
+        let targetAssign = Target(identAsIdent targetId)
+        let ctx = { ctx with DecisionTargets = targets }
+        match transformDecisionTreeAsSwitch treeExpr with
+        | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+            let cases = groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
+            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
+            let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
+            [|multiVarDecl; switch1; yield! switch2|]
+        | None ->
+            let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
+            [| yield multiVarDecl; yield! decisionTree; yield! switch2 |]
 
     let transformDecisionTreeAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement[] =
@@ -2030,6 +2031,12 @@ module Util =
             else
                 transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
 
+    let transformIdent (com: IBabelCompiler) ctx id =
+        let e = identAsExpr id
+        if com.IsTypeScript && ctx.ForcedIdents.Contains id.Name then
+            Expression.unaryExpression(UnaryNot, e, isSuffix=true)
+        else e
+
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
         | Fable.Unresolved(_,_,r) -> addErrorAndReturnNull com r "Unexpected unresolved expression"
@@ -2038,7 +2045,7 @@ module Util =
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
-        | Fable.IdentExpr id -> identAsExpr id
+        | Fable.IdentExpr id -> transformIdent com ctx id
 
         | Fable.Import({ Selector = selector; Path = path }, _, r) ->
             transformImport com ctx r selector path
@@ -2138,7 +2145,7 @@ module Util =
             [|transformValue com ctx r kind |> resolveExpr kind.Type returnStrategy|]
 
         | Fable.IdentExpr id ->
-            [|identAsExpr id |> resolveExpr id.Type returnStrategy|]
+            [|transformIdent com ctx id |> resolveExpr id.Type returnStrategy|]
 
         | Fable.Import({ Selector = selector; Path = path }, t, r) ->
             [|transformImport com ctx r selector path |> resolveExpr t returnStrategy|]
@@ -2936,7 +2943,8 @@ module Compiler =
             HoistVars = fun _ -> false
             TailCallOpportunity = None
             OptimizeTailCall = fun () -> ()
-            ScopedTypeParams = Set.empty }
+            ScopedTypeParams = Set.empty
+            ForcedIdents = Set.empty }
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports
         let body = importDecls @ rootDecls |> List.toArray

@@ -43,7 +43,7 @@ type Expression =
     | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
     | CallExpression of callee: Expression * args: Expression array * typeArguments: TypeAnnotation array * loc: SourceLocation option
-    | UnaryExpression of argument: Expression * operator: string * loc: SourceLocation option
+    | UnaryExpression of argument: Expression * operator: string * isSuffix: bool * loc: SourceLocation option
     | UpdateExpression of prefix: bool * argument: Expression * operator: string * loc: SourceLocation option
     | BinaryExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
@@ -468,9 +468,9 @@ module Helpers =
         /// A function or method call expression.
         static member callExpression(callee, args, ?typeArguments, ?loc) =
             CallExpression(callee, args, defaultArg typeArguments [||], loc)
-        static member assignmentExpression(operator_, left, right, ?loc) =
+        static member assignmentExpression(operator, left, right, ?loc) =
             let operator =
-                match operator_ with
+                match operator with
                 | AssignEqual -> "="
                 | AssignMinus -> "-="
                 | AssignPlus -> "+="
@@ -516,9 +516,9 @@ module Helpers =
             SpreadElement(argument, ?loc=loc)
         static member conditionalExpression(test, consequent, alternate, ?loc): Expression =
             ConditionalExpression(test, consequent, alternate, loc)
-        static member binaryExpression(operator_, left, right, ?loc) =
+        static member binaryExpression(operator, left, right, ?loc) =
             let operator =
-                match operator_ with
+                match operator with
                 | BinaryEqual -> "==="
                 | BinaryUnequal -> "!=="
                 | BinaryLess -> "<"
@@ -538,18 +538,22 @@ module Helpers =
                 | BinaryXorBitwise -> "^"
                 | BinaryAndBitwise -> "&"
             BinaryExpression(left, right, operator, loc)
-        static member unaryExpression(operator_, argument, ?loc) =
+
+        static member unaryExpression(operator: string, argument, ?isSuffix, ?loc) =
+            UnaryExpression(argument, operator, defaultArg isSuffix false, loc)
+
+        static member unaryExpression(operator, argument, ?isSuffix, ?loc) =
             let operator =
-                match operator_ with
+                match operator with
                 | UnaryMinus -> "-"
                 | UnaryPlus -> "+"
                 | UnaryNot -> "!"
                 | UnaryNotBitwise -> "~"
                 | UnaryAddressOf -> "" //"&"
-            UnaryExpression(argument, operator, loc)
-        static member updateExpression(operator_, prefix, argument, ?loc) : Expression =
+            UnaryExpression(argument, operator, defaultArg isSuffix false, loc)
+        static member updateExpression(operator, prefix, argument, ?loc) : Expression =
             let operator =
-                match operator_ with
+                match operator with
                 | UpdateMinus -> "--"
                 | UpdatePlus -> "++"
             UpdateExpression(prefix, argument, operator, loc)
