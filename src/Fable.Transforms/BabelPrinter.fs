@@ -16,7 +16,7 @@ module PrinterExtensions =
         | Literal(NumericLiteral(_)) -> false
         // Constructors of classes deriving from System.Object add an empty object at the end
         | ObjectExpression(properties, _loc) -> properties.Length > 0
-        | UnaryExpression(argument, operator, _loc) when operator = "void" -> hasSideEffects(argument)
+        | UnaryExpression(argument, "void", false, _loc) -> hasSideEffects(argument)
         // Some identifiers may be stranded as the result of imports
         // intended only for side effects, see #2228
         | Expression.Identifier(_) -> false
@@ -32,8 +32,7 @@ module PrinterExtensions =
 
     let (|UndefinedOrVoid|_|) = function
         | Undefined _ -> Some ()
-        | UnaryExpression(argument, operator, _loc)
-            when operator = "void" && not(hasSideEffects(argument)) -> Some()
+        | UnaryExpression(argument, "void", false, _loc) when not(hasSideEffects(argument)) -> Some()
         | _-> None
 
     let (|NullOrUndefinedOrVoid|_|) = function
@@ -420,7 +419,7 @@ module PrinterExtensions =
                 printer.Print("]")
             | ClassExpression(body, id, superClass, implements, typeArguments, loc) ->
                 printer.PrintClass(id, superClass, typeArguments, implements, body, loc)
-            | UnaryExpression(argument, operator, loc) -> printer.PrintUnaryExpression(argument, operator, loc)
+            | UnaryExpression(argument, operator, isSuffix, loc) -> printer.PrintUnaryExpression(argument, operator, isSuffix, loc)
             | UpdateExpression(prefix, argument, operator, loc) -> printer.PrintUpdateExpression(prefix, argument, operator, loc)
             | ObjectExpression(properties, loc) -> printer.PrintObjectExpression(properties, loc)
             | BinaryExpression(left, right, operator, loc) ->  printer.PrintOperation(left, operator, right, loc)
@@ -511,7 +510,7 @@ module PrinterExtensions =
 
             | ExpressionStatement(expr) ->
                 match expr with
-                | UnaryExpression(argument, operator, _loc) when operator = "void" -> printer.Print(argument)
+                | UnaryExpression(argument, "void", false, _loc) -> printer.Print(argument)
                 | _ -> printer.Print(expr)
 
         member printer.PrintDeclaration(decl: Declaration) =
@@ -948,7 +947,7 @@ module PrinterExtensions =
             | test, Literal(BooleanLiteral(true,_)), Literal(BooleanLiteral(false,_)) ->
                 printer.Print(test)
             | test, Literal(BooleanLiteral(false,_)), Literal(BooleanLiteral(true,_)) ->
-                printer.PrintUnaryExpression(test, "!", loc)
+                printer.PrintUnaryExpression(test, "!", false, loc)
             | test, _, Literal(BooleanLiteral(false,_)) ->
                 printer.PrintOperation(test, "&&", consequent, loc)
             | _ ->
@@ -974,12 +973,19 @@ module PrinterExtensions =
             printer.PrintCommaSeparatedArray(args)
             printer.Print(")")
 
-        member printer.PrintUnaryExpression(argument, operator, loc) =
+        member printer.PrintUnaryExpression(argument, operator, isSuffix, loc) =
+            let printOp() =
+                match operator with
+                | "-" | "+" | "!" | "~" -> printer.Print(operator)
+                | _ -> printer.Print(if isSuffix then " " + operator else operator + " ")
+
             printer.AddLocation(loc)
-            match operator with
-            | "-" | "+" | "!" | "~" -> printer.Print(operator)
-            | _ -> printer.Print(operator + " ")
-            printer.ComplexExpressionWithParens(argument)
+            if isSuffix then
+                printer.ComplexExpressionWithParens(argument)
+                printOp()
+            else
+                printOp()
+                printer.ComplexExpressionWithParens(argument)
 
         member printer.PrintUpdateExpression(prefix, argument, operator, loc) =
             printer.AddLocation(loc)
