@@ -1181,8 +1181,9 @@ module PrinterExtensions =
 
         member printer.PrintFunctionTypeAnnotation(parameters, returnType, ?typeParameters, ?spread) =
             let typeParameters = defaultArg typeParameters [||]
+            printer.Print("(")
             printer.Print(typeParameters)
-            printer.Print("((")
+            printer.Print("(")
             printer.PrintCommaSeparatedArray(parameters)
             match spread with
             | Some spread ->
