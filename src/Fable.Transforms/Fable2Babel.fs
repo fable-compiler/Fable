@@ -115,7 +115,7 @@ module Reflection =
             let genParamNames = ent.GenericParameters |> List.mapToArray (fun x -> x.Name) |> Seq.toArray
             Array.zip genParamNames generics |> Map |> Some
         let fields =
-            ent.FSharpFields |> Seq.map (fun fi ->
+            ent.FSharpFields |> List.map (fun fi ->
                 let typeInfo = transformTypeInfo com ctx r genMap fi.FieldType
                 (Expression.arrayExpression([|Expression.stringLiteral(fi.Name); typeInfo|])))
             |> Seq.toArray
@@ -193,7 +193,7 @@ module Reflection =
             | Fable.NumberInfo.IsEnum entRef ->
                 let ent = com.GetEntity(entRef)
                 let cases =
-                    ent.FSharpFields |> Seq.choose (fun fi ->
+                    ent.FSharpFields |> List.choose (fun fi ->
                         match fi.Name with
                         | "value__" -> None
                         | name ->
@@ -1261,16 +1261,20 @@ module Util =
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs, _isStruct) ->
             let values = List.mapToArray (unwrapOptionalArg com >> snd >> transformAsExpr com ctx) values
             Array.zip fieldNames values |> makeJsObject
-        | Fable.NewUnion(values, tag, ent, genArgs) ->
-            let ent = com.GetEntity(ent)
+        | Fable.NewUnion(values, tag, entRef, genArgs) ->
+            let ent = com.GetEntity(entRef)
             if com.IsTypeScript then
-                let case = ent.UnionCases[tag]
-                match tryJsConstructorWithSuffix com ctx ent ("_" + case.Name) with
-                | Some helperRef when not(UnionHelpers.caseNameClashes case.Name)->
-                    let values = values |> List.mapToArray (transformAsExpr com ctx)
-                    let typeParams = makeTypeParamInstantiation com ctx genArgs
-                    Expression.callExpression(helperRef, values, typeArguments=typeParams)
-                | _ -> transformNewUnionForTypeScript com ctx r ent tag values case
+                match List.tryItem tag ent.UnionCases with
+                | Some case ->
+                    match tryJsConstructorWithSuffix com ctx ent ("_" + case.Name) with
+                    | Some helperRef when not(UnionHelpers.caseNameClashes case.Name)->
+                        let values = values |> List.mapToArray (transformAsExpr com ctx)
+                        let typeParams = makeTypeParamInstantiation com ctx genArgs
+                        Expression.callExpression(helperRef, values, typeArguments=typeParams)
+                    | _ -> transformNewUnionForTypeScript com ctx r ent tag values case
+                | None ->
+                    $"Unmatched union case tag: {tag} for {ent.FullName}" |> addWarning com [] r
+                    transformNewUnion com ctx r ent tag values
             else
                 transformNewUnion com ctx r ent tag values
 
@@ -1538,63 +1542,62 @@ module Util =
                 Fable.Value(Fable.NewTuple([Fable.Value(Fable.StringConstant key, None); value], false), None))
         transformJsxEl com ctx callee props
 
+    let optimizeCall (com: IBabelCompiler) ctx range typ callee (callInfo: Fable.CallInfo) =
+        // Try to optimize some patterns after FableTransforms
+        match callInfo.Tags, callInfo.Args with
+        | Fable.Tags.Contains "downcast", [e] ->
+            let e = transformAsExpr com ctx e
+            if com.IsTypeScript then
+                let typ = makeTypeAnnotation com ctx typ
+                AsExpression(e, typ) |> Some
+            else
+                Some e
+        | Fable.Tags.Contains "array", [maybeList] ->
+            match maybeList with
+            | Replacements.Util.ArrayOrListLiteral(vals,_) ->
+                Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range)
+                |> transformAsExpr com ctx
+                |> Some
+            | Fable.Call(Fable.Import({Selector = "toList"; Path = Naming.EndsWith "/Seq.js" _; Kind = Fable.LibraryImport _},_,_), callInfo, _,_) ->
+                List.head callInfo.Args
+                |> Replacements.Util.toArray range typ
+                |> transformAsExpr com ctx
+                |> Some
+            | _ -> None
+        | Fable.Tags.Contains "pojo", keyValueList::caseRule::_ ->
+            JS.Replacements.makePojo com (Some caseRule) keyValueList
+            |> Option.map (transformAsExpr com ctx)
+        | Fable.Tags.Contains "pojo", keyValueList::_ ->
+            JS.Replacements.makePojo com None keyValueList
+            |> Option.map (transformAsExpr com ctx)
+        | Fable.Tags.Contains "jsx", componentOrTag::Replacements.Util.ArrayOrListLiteral(props, _)::_ ->
+            transformJsxEl com ctx componentOrTag props |> Some
+        | Fable.Tags.Contains "jsx", _ ->
+            "Expecting a static list or array literal (no generator) for JSX props"
+            |> addErrorAndReturnNull com range |> Some
+        | Fable.Tags.Contains "jsx-template", args ->
+            match args with
+            | StringConst template ::_ ->
+                let template = stripImports com ctx range template
+                Expression.jsxTemplate(template) |> Some
+            | MaybeCasted(Fable.Value(Fable.StringTemplate(_, parts, values), _))::_ ->
+                let parts =
+                    match parts with
+                    | head::parts -> (stripImports com ctx range head)::parts
+                    | parts -> parts
+                let values = values |> List.mapToArray (transformAsExpr com ctx)
+                Expression.jsxTemplate(List.toArray parts, values) |> Some
+            | _ ->
+                "Expecting a string literal or interpolation without formatting"
+                |> addErrorAndReturnNull com range |> Some
+        | _ -> None
+
     let transformCall (com: IBabelCompiler) ctx range typ callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
-        let optimized =
-            match callInfo.Tags, callInfo.Args with
-            | Fable.Tags.Contains "downcast", [e] ->
-                let e = transformAsExpr com ctx e
-                if com.IsTypeScript then
-                    let typ = makeTypeAnnotation com ctx typ
-                    AsExpression(e, typ) |> Some
-                else
-                    Some e
-            | Fable.Tags.Contains "array", [maybeList] ->
-                match maybeList with
-                | Replacements.Util.ArrayOrListLiteral(vals,_) ->
-                    Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range)
-                    |> transformAsExpr com ctx
-                    |> Some
-                | Fable.Call(Fable.Import({Selector = "toList"; Path = Naming.EndsWith "/Seq.js" _; Kind = Fable.LibraryImport _},_,_), callInfo, _,_) ->
-                    List.head callInfo.Args
-                    |> Replacements.Util.toArray range typ
-                    |> transformAsExpr com ctx
-                    |> Some
-                | _ -> None
-            | Fable.Tags.Contains "pojo", keyValueList::caseRule::_ ->
-                JS.Replacements.makePojo com (Some caseRule) keyValueList
-                |> Option.map (transformAsExpr com ctx)
-            | Fable.Tags.Contains "pojo", keyValueList::_ ->
-                JS.Replacements.makePojo com None keyValueList
-                |> Option.map (transformAsExpr com ctx)
-            | Fable.Tags.Contains "jsx", componentOrTag::Replacements.Util.ArrayOrListLiteral(props, _)::_ ->
-                transformJsxEl com ctx componentOrTag props |> Some
-            | Fable.Tags.Contains "jsx", _ ->
-                "Expecting a static list or array literal (no generator) for JSX props"
-                |> addErrorAndReturnNull com range |> Some
-            | Fable.Tags.Contains "jsx-template", args ->
-                match args with
-                | StringConst template ::_ ->
-                    let template = stripImports com ctx range template
-                    Expression.jsxTemplate(template) |> Some
-                | MaybeCasted(Fable.Value(Fable.StringTemplate(_, parts, values), _))::_ ->
-                    let parts =
-                        match parts with
-                        | head::parts -> (stripImports com ctx range head)::parts
-                        | parts -> parts
-                    let values = values |> List.mapToArray (transformAsExpr com ctx)
-                    Expression.jsxTemplate(List.toArray parts, values) |> Some
-                | _ ->
-                    "Expecting a string literal or interpolation without formatting"
-                    |> addErrorAndReturnNull com range |> Some
-            | _ -> None
-
-        match optimized with
+        match optimizeCall com ctx range typ callee callInfo with
         | Some e -> e
         | None ->
-            callInfo.MemberRef
-            |> Option.bind com.TryGetMember
-            |> function
+            match callInfo.MemberRef |> Option.bind com.TryGetMember with
             | Some memberInfo when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | memberInfo ->
@@ -1766,8 +1769,8 @@ module Util =
                 match tryJsConstructorWithSuffix com ctx ent "_Tag" with
                 | Some(Expression.Identifier(tagIdent)) ->
                     match List.tryItem tag ent.UnionCases with
-                    | Some uc ->
-                        EnumCaseLiteral(tagIdent, uc.Name) |> Literal
+                    | Some case ->
+                        EnumCaseLiteral(tagIdent, case.Name) |> Literal
                     | None ->
                         $"Unmatched union case tag: {tag} for {ent.FullName}"
                         |> addWarning com [] range
@@ -2331,14 +2334,16 @@ module Util =
 
         |> asModuleDeclaration info.IsPublic
 
-    let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
+    let sanitizeName fieldName =
+        fieldName |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+
+    let getEntityFieldsAsIdents (ent: Fable.Entity) =
         ent.FSharpFields
-        |> Seq.map (fun field ->
-            let name = field.Name |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+        |> List.map (fun field ->
+            let name = sanitizeName field.Name
             let typ = field.FieldType
-            let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
-            id)
-        |> Seq.toArray
+            { makeTypedIdent typ name with IsMutable = field.IsMutable }
+        )
 
     let declareClassWithParams (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Parameter[]) (consArgsModifiers: AccessModifier[]) (consBody: BlockStatement) (superClass: SuperClass option) classMembers typeParamDecl =
         let implements =
@@ -2545,14 +2550,14 @@ module Util =
                 for case in ent.UnionCases do
                     if not(UnionHelpers.caseNameClashes case.Name) then
                         let tag = EnumCaseLiteral(union_tag, case.Name)
-                        let passedArgs = case.UnionCaseFields |> List.mapToArray (fun fi -> Expression.identifier(fi.Name)) |> Expression.arrayExpression
+                        let passedArgs = case.UnionCaseFields |> List.mapToArray (fun fi -> Expression.identifier(sanitizeName fi.Name)) |> Expression.arrayExpression
                         let consTypeArgs = Array.append entParamsInst [|LiteralTypeAnnotation tag|]
                         let body = BlockStatement [|
                             Expression.newExpression(Expression.Identifier union_cons, [|Expression.Literal tag; passedArgs|], typeArguments=consTypeArgs)
                             |> Statement.returnStatement
                         |]
                         let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
-                            Parameter.parameter(fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
+                            Parameter.parameter(sanitizeName fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
                         let fnId = entName + "_" + case.Name |> Identifier.identifier
                         let returnType = AliasTypeAnnotation(Identifier.identifier(entName), entParamsInst)
                         Declaration.functionDeclaration(parameters, body, fnId, returnType=returnType, typeParameters=entParamsDecl)
@@ -2576,7 +2581,7 @@ module Util =
             declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-        let fieldIds = getEntityFieldsAsIdents com ent
+        let fieldIds = getEntityFieldsAsIdents ent |> List.toArray
         let args = fieldIds |> Array.map identAsExpr
         let baseExpr =
             if ent.IsFSharpExceptionDeclaration
@@ -2588,11 +2593,11 @@ module Util =
             BlockStatement([|
                 if Option.isSome baseExpr then
                     yield callSuperAsStatement []
-                yield! ent.FSharpFields |> Seq.mapi (fun i field ->
+                yield! ent.FSharpFields |> List.mapi (fun i field ->
                     let left = get None thisExpr field.Name
                     let right = wrapIntExpression field.FieldType args[i]
                     assign None left right |> ExpressionStatement)
-                |> Seq.toArray
+                |> List.toArray
             |])
         let args = fieldIds |> Array.map (fun fi ->
             Parameter.parameter(fi.Name, ?typeAnnotation=makeFieldAnnotationIfTypeScript com ctx fi.Type))

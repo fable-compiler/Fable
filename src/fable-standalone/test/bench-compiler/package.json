@@ -23,7 +23,7 @@
     "build-rust": "dotnet run -c Release bench-compiler.fsproj out-rust --fableLib out-lib --lang Rust",
     "build-opt": "npm run build --optimize",
     "postbuild": "npm run rollup-bundle",
-    "postbuild-ts": "cp tsconfig.json out-ts && npm run tsc -- -p out-ts",
+    "postbuild-ts": "cp tsconfig.json out-ts && npm run tsc -- -p out-ts --outDir out-js",
 
     "build-node": "node --stack_size=1200 dist/bundle.js bench-compiler.fsproj out-node2 --fableLib out-lib",
     "build-node-es": "node --stack_size=1200 out-node/app.js bench-compiler.fsproj out-node2 --fableLib out-lib",
@@ -57,7 +57,7 @@
     "build-test-opt": "npm run build-test -- --optimize",
     "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib --sourceMaps",
     "build-test-node-ts": "npm run build-test-node --typescript",
-    "postbuild-test-ts": "cp tsconfig.json out-test-ts && npm run tsc -- -p out-test-ts",
+    "postbuild-test-ts": "cp tsconfig.json out-test-ts && npm run tsc -- -p out-test-ts --outDir out-test-js",
     "test": "node ./out-test/src/test.js",
 
     "prebuild-tests": "npm run clean && npm run build-lib",
