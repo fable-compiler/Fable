@@ -102,6 +102,11 @@ module Lib =
             |> addError com [] None
             Expression.nullLiteral())
 
+    let sanitizeMemberName memberName =
+        if memberName = "constructor"
+        then memberName + "$"
+        else memberName
+
 module Reflection =
     open Lib
 
@@ -117,9 +122,10 @@ module Reflection =
             Array.zip genParamNames generics |> Map |> Some
         let fields =
             ent.FSharpFields |> List.map (fun fi ->
+                let fieldName = sanitizeMemberName fi.Name |> Expression.stringLiteral
                 let typeInfo = transformTypeInfo com ctx r genMap fi.FieldType
-                (Expression.arrayExpression([|Expression.stringLiteral(fi.Name); typeInfo|])))
-            |> Seq.toArray
+                Expression.arrayExpression([|fieldName; typeInfo|]))
+            |> List.toArray
         let fields = Expression.arrowFunctionExpression([||], Expression.arrayExpression(fields))
         [fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; fields]
         |> libReflectionCall com ctx None "record"
@@ -860,7 +866,7 @@ module Util =
             Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n[7..]), false), true
         | n when Naming.hasIdentForbiddenChars n ->
             Expression.stringLiteral(n), computeStrings
-        | n -> Expression.identifier(n), false
+        | n -> Expression.identifier(n |> sanitizeMemberName), false
 
     let memberFromName (memberName: string): Expression * bool =
         memberFromNameComputeStrings false memberName
