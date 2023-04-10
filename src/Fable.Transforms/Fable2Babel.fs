@@ -1974,8 +1974,13 @@ module Util =
             match cases with
             | [(_, caseBody)] -> transformAsStatements com ctx returnStrategy caseBody
             | cases ->
-                let cases, (_, defaultCase) = List.splitLast cases
-                [|transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases (Some defaultCase)|]
+                let cases, defaultCase =
+                    match returnStrategy with
+                    | None | Some ReturnUnit -> cases, None
+                    | _ ->
+                        let cases, (_, defaultCase) = List.splitLast cases
+                        cases, Some defaultCase
+                [|transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases defaultCase|]
         // Transform decision tree
         let targetAssign = Target(identAsIdent targetId)
         let ctx = { ctx with DecisionTargets = targets }
