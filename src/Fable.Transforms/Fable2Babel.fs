@@ -1133,18 +1133,29 @@ module Util =
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
-        | Fable.DeclaredType(ent, [_]) ->
+        | Fable.DeclaredType(ent, _) ->
             match ent.FullName with
             | Types.ienumerableGeneric | Types.ienumerable ->
                 match e with
                 | ExprType Fable.String ->
                     // Convert to array to get 16-bit code units, see #1279
                     let e = JS.Replacements.stringToCharArray e
-                    com.TransformAsExpr(ctx, e)
+                    com.TransformAsExpr(ctx, e) |> Some
                 | Replacements.Util.ArrayOrListLiteral(exprs, _) ->
-                    makeArray com ctx exprs
-                | _ -> com.TransformAsExpr(ctx, e)
-            | _ -> com.TransformAsExpr(ctx, e)
+                    makeArray com ctx exprs |> Some
+                | _ -> None
+            | _ -> None
+            |> Option.defaultWith (fun () ->
+                let jsExpr = com.TransformAsExpr(ctx, e)
+                match e.Type with
+                | Fable.DeclaredType(sourceEnt, _) when com.IsTypeScript ->
+                    let sourceEnt = com.GetEntity(sourceEnt)
+                    // Because we use a wrapper type for multi-case unions, TypeScript
+                    // won't automatically cast them to implementing interfaces
+                    if sourceEnt.IsFSharpUnion && List.isMultiple sourceEnt.UnionCases
+                    then AsExpression(jsExpr, makeTypeAnnotation com ctx t)
+                    else jsExpr
+                | _ -> jsExpr)
         | Fable.Unit -> com.TransformAsExpr(ctx, e) |> Some |> undefined e.Range
         | _ -> com.TransformAsExpr(ctx, e)
 
