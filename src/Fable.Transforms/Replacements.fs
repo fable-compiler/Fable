@@ -1394,7 +1394,7 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "Cast", [arg] -> Some arg // Erase
+    | "Cast", _ -> Helper.LibCall(com, "Util", "downcast", t, args) |> withTag "downcast" |> Some
     | "CreateEvent", [addHandler; removeHandler; _createHandler] ->
         Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
