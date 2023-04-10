@@ -109,7 +109,7 @@ module List =
         | [_] -> true
         | _ -> false
 
-    /// Same as List.length xs > 1
+    /// Same as List.length xs > 1 but doesn't calculate the whole length
     let isMultiple = function
         | [] | [_] -> false
         | _ -> true
