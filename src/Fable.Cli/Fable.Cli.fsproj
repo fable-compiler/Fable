@@ -4,12 +4,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.0.5</Version>
-    <PackageVersion>4.0.5</PackageVersion>
-    <PackageReleaseNotes>* Use native JS BigInt for int64/uint64
-* Fix #3402: Rust type mismatch error when compiling F# closure code
-* Improve optional field and argument typing in TypeScript
-* Fix fable-library-ts when used with Vite</PackageReleaseNotes>
+    <Version>4.0.6</Version>
+    <PackageVersion>4.0.6</PackageVersion>
+    <PackageReleaseNotes>* JS Hotfix: Skip compiler generated decls
+* TS: Fixes for unions, pattern matching and interface function getters</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

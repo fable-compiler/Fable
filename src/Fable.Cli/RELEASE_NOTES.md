@@ -1,3 +1,8 @@
+### 4.0.6
+
+* JS Hotfix: Skip compiler generated decls
+* TS: Fixes for unions, pattern matching and interface function getters
+
 ### 4.0.5
 
 * Use native JS BigInt for int64/uint64
