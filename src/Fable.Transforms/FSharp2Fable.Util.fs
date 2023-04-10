@@ -1011,8 +1011,11 @@ module TypeHelpers =
     open Patterns
 
     let genParamName (genParam: FSharpGenericParameter) =
+        // NOTE: This workaround seems not to be necessary with F# 7
         // Sometimes the names of user-declared and compiler-generated clash, see #1900 and https://github.com/dotnet/fsharp/issues/13062
-        let name = if genParam.IsCompilerGenerated then "$" + genParam.Name.Replace("?", "$") else genParam.Name
+        // let name = if genParam.IsCompilerGenerated then "$" + genParam.Name.Replace("?", "$") else genParam.Name
+
+        let name = genParam.Name
         match Compiler.Language with
         // In Dart we cannot have the same generic name as a variable or argument, so we add $ to reduce the probabilities of conflict
         // Other solutions would be to add generic names to the name deduplication context or enforce Dart case conventions:

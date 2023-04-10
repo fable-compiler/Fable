@@ -62,7 +62,18 @@ type ElmishWidget<'Model, 'View, 'Msg>(view: 'Model -> ('Msg -> unit) -> 'View) 
     let _view = view
     member _.Render(model, dispatch) = _view model dispatch
 
+type MyRecord<'a> =
+    { Value: 'a }
+    // Check that F# is not automatically assigning 'a name to the argument's generic parameter
+
+    static member Stringify v = string v
+
+
 let tests() =
+    testCase "automatically generated generic names don't conflict" <| fun () ->
+        MyRecord<string>.Stringify 456
+        |> equal "456"
+
     testCase "ref works" <| fun () ->
         let x = ref 5
         increase x
