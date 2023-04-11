@@ -787,8 +787,12 @@ module PrinterExtensions =
                 // compiler from complaining we replace `void` type with `any`.
                 let annotation = annotation |> Option.map (function VoidTypeAnnotation -> AnyTypeAnnotation | t -> t)
                 printer.PrintOptional(annotation, (fun p a ->
-                    p.Print(typeParams)
-                    p.Print(a)
+                    match a with
+                    | FunctionTypeAnnotation(parameters, returnType, spread) ->
+                        p.PrintFunctionTypeAnnotation(parameters, returnType, typeParams, ?spread=spread)
+                    | _ ->
+                        p.Print(typeParams)
+                        p.Print(a)
                 ), ": ")
 
                 match init with
@@ -1135,7 +1139,7 @@ module PrinterExtensions =
             | IntersectionTypeAnnotation(types) ->
                 printer.PrintArray(types, (fun p x -> p.ComplexTypeWithParens(x)), (fun p -> p.Print(" & ")))
             | FunctionTypeAnnotation(parameters, returnType, spread) ->
-                printer.PrintFunctionTypeAnnotation(parameters, returnType, ?spread=spread)
+                printer.PrintFunctionTypeAnnotation(parameters, returnType, [||], ?spread=spread)
             | ObjectTypeAnnotation(members) ->
                 printer.Print("{ ")
                 printer.PrintArray(members, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
@@ -1179,8 +1183,7 @@ module PrinterExtensions =
             printer.Print(": ")
             printer.Print(typeAnnotation)
 
-        member printer.PrintFunctionTypeAnnotation(parameters, returnType, ?typeParameters, ?spread) =
-            let typeParameters = defaultArg typeParameters [||]
+        member printer.PrintFunctionTypeAnnotation(parameters, returnType, typeParameters, ?spread) =
             printer.Print("(")
             printer.Print(typeParameters)
             printer.Print("(")
