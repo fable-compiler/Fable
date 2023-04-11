@@ -185,11 +185,12 @@ let canInlineArg identName value body =
     | Value((Null _|UnitConstant|TypeInfo _|BoolConstant _|NumberConstant _|CharConstant _),_) -> true
     | Value(StringConstant s,_) -> s.Length < 100
     | _ ->
-        (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)
+        let refCount = countReferences 1 identName body
+        (not (canHaveSideEffects value) && refCount <= 1)
         || (noSideEffectBeforeIdent identName body
-            && isIdentCaptured identName body |> not
+            && not (isIdentCaptured identName body)
             // Make sure is at least referenced once so the expression is not erased
-            && countReferences 1 identName body = 1)
+            && refCount = 1)
 
 /// Returns arity of lambda (or lambda option) types
 let (|Arity|) typ =

@@ -1018,11 +1018,11 @@ module Util =
                     match classEnt with
                     | None ->
                         match info.DeclaringEntity with
-                        | Some e ->
-                            let e = com.GetEntity(e)
-                            false, if e.IsFSharpModule then [] else e.GenericParameters
+                        | Some entRef ->
+                            let ent = com.GetEntity(entRef)
+                            false, if ent.IsFSharpModule then [] else ent.GenericParameters
                         | None -> false, []
-                    | Some e -> true, e.GenericParameters
+                    | Some ent -> true, ent.GenericParameters
                 let scopedTypeParams = List.append entGenParams info.GenericParameters |> List.map (fun g -> g.Name) |> set
                 let declaredTypeParams =
                     if isAttached then info.GenericParameters else entGenParams @ info.GenericParameters
