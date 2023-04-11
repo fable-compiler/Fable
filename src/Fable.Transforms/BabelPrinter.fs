@@ -789,7 +789,8 @@ module PrinterExtensions =
                 printer.PrintOptional(annotation, (fun p a ->
                     match a with
                     | FunctionTypeAnnotation(parameters, returnType, spread) ->
-                        p.PrintFunctionTypeAnnotation(parameters, returnType, typeParams, ?spread=spread)
+                        // p.PrintFunctionTypeAnnotation(parameters, returnType, typeParams, ?spread=spread)
+                        p.Print(AnyTypeAnnotation) // temp workaround for uncurried func types (see #3415)
                     | _ ->
                         p.Print(typeParams)
                         p.Print(a)
