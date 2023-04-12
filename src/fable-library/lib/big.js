@@ -1045,6 +1045,9 @@ P.valueOf = function () {
 // Export
 
 
+/**
+ * @type object
+ */
 export var Big = _Big_();
 
 /// <reference types="https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/big.js/index.d.ts" />

@@ -1,6 +1,6 @@
 import { IObservable, subscribe } from "./Observable.js";
 import { Option, some, value } from "./Option.js";
-import { FSharpChoice$2, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
+import { FSharpChoice$2_$union, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
 
 export type Handler<T> = (sender: any, x: T) => void;
 
@@ -97,7 +97,7 @@ export function scan<Del extends Function, U, T>(collector: (u: U, t: T) => U, s
   return map((t) => state = collector(state, t), sourceEvent);
 }
 
-export function split<Del extends Function, T, U1, U2>(splitter: (x: T) => FSharpChoice$2<U1, U2>, sourceEvent: IEvent$2<Del, T>): [IEvent<U1>, IEvent<U2>] {
+export function split<Del extends Function, T, U1, U2>(splitter: (x: T) => FSharpChoice$2_$union<U1, U2>, sourceEvent: IEvent$2<Del, T>): [IEvent<U1>, IEvent<U2>] {
   return [
     choose((v) => Choice_tryValueIfChoice1Of2(splitter(v)), sourceEvent),
     choose((v) => Choice_tryValueIfChoice2Of2(splitter(v)), sourceEvent),

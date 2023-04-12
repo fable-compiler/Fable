@@ -57,6 +57,9 @@ module Util =
     let runTypeScript projectDir =
         run ("npm run tsc -- --project " + projectDir)
 
+    let runTypeScriptWithArgs projectDir args =
+        run ("npm run tsc -- --project " + projectDir + " " + String.concat " " args)
+
     let runFableWithArgs projectDir args =
         run ("dotnet run -c Release --project src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
@@ -123,52 +126,51 @@ module Unused =
 
 // TARGETS ---------------------------
 
-let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
-    let baseDir = __SOURCE_DIRECTORY__
+// let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
+//     let baseDir = __SOURCE_DIRECTORY__
 
-    let projectDir = baseDir </> "src/fable-library"
-    let buildDir = baseDir </> "build/fable-library"
-    let fableOpts = [
-        "--outDir " + buildDir
-        "--fableLib " + buildDir
-        "--exclude Fable.Core"
-        "--define FX_NO_BIGINT"
-        "--define FABLE_LIBRARY"
-        if opts.watch then "--watch"
-    ]
+//     let projectDir = baseDir </> "src/fable-library"
+//     let buildDir = baseDir </> "build/fable-library"
+//     let fableOpts = [
+//         "--outDir " + buildDir
+//         "--fableLib " + buildDir
+//         "--exclude Fable.Core"
+//         "--define FX_NO_BIGINT"
+//         "--define FABLE_LIBRARY"
+//         if opts.watch then "--watch"
+//     ]
 
-    cleanDirs [buildDir]
-    runInDir baseDir "npm install"
-    makeDirRecursive buildDir
+//     cleanDirs [buildDir]
+//     runInDir baseDir "npm install"
+//     makeDirRecursive buildDir
 
-    copyFile (projectDir </> "package.json") buildDir
+//     copyFile (projectDir </> "package.json") buildDir
 
-    if opts.watch then
-        Async.Parallel [
-            runNpmScriptAsync "tsc" [
-                "--project " + projectDir
-                "--watch"
-            ]
-            runFableWithArgsAsync projectDir fableOpts
-        ] |> runAsyncWorkflow
-    else
-        runTSLint projectDir
-        runTypeScript projectDir
-        runFableWithArgs projectDir fableOpts
-        removeDirRecursive (buildDir </> ".fable")
+//     if opts.watch then
+//         Async.Parallel [
+//             runNpmScriptAsync "tsc" [
+//                 "--project " + projectDir
+//                 "--watch"
+//             ]
+//             runFableWithArgsAsync projectDir fableOpts
+//         ] |> runAsyncWorkflow
+//     else
+//         runTSLint projectDir
+//         runTypeScript projectDir
+//         runFableWithArgs projectDir fableOpts
+//         removeDirRecursive (buildDir </> ".fable")
 
-let buildLibraryJs() = buildLibraryJsWithOptions {| watch = false |}
-let watchLibraryJs() = buildLibraryJsWithOptions {| watch = true |}
+// let buildLibraryJs() = buildLibraryJsWithOptions {| watch = false |}
 
-let buildLibraryJsIfNotExists() =
-    if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library")) then
-        buildLibraryJs()
+// let buildLibraryJsIfNotExists() =
+//     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library")) then
+//         buildLibraryJs()
 
 let buildLibraryTs() =
     let baseDir = __SOURCE_DIRECTORY__
-    let sourceDir = "src/fable-library"
-    let buildDirTs = "build/fable-library-ts"
-    let buildDirJs = "build/temp/fable-library-js"
+    let sourceDir = "./src/fable-library"
+    let buildDirTs = "./build/fable-library-ts"
+    let buildDirJs = "./build/fable-library"
 
     cleanDirs [buildDirTs; buildDirJs]
     runInDir baseDir "npm install"
@@ -187,21 +189,18 @@ let buildLibraryTs() =
     copyFiles (sourceDir </> "ts") "*.json" buildDirTs
     copyDirRecursive (sourceDir </> "lib") (buildDirTs </> "lib")
 
-    // Remove extra d.ts files (like Choice.d.s)
-    for file in IO.Directory.GetFiles buildDirTs do
-        if file.EndsWith(".d.ts") then removeFile file
-
     // runTSLint buildDirTs
-    runInDir baseDir ("npm run tsc -- --project " + buildDirTs + " --outDir " + buildDirJs)
+    runTypeScriptWithArgs  buildDirTs ["--outDir " + buildDirJs]
+    copyFile (buildDirTs </> "lib/big.d.ts") (buildDirJs </> "lib/big.d.ts")
 
 let buildLibraryTsIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-ts")) then
         buildLibraryTs()
 
 let buildLibraryPy() =
-    let libraryDir = "src/fable-library-py"
+    let libraryDir = "./src/fable-library-py"
     let projectDir = libraryDir </> "fable_library"
-    let buildDirPy = "build/fable-library-py"
+    let buildDirPy = "./build/fable-library-py"
 
     cleanDirs [buildDirPy]
 
@@ -323,13 +322,13 @@ let buildWorker (opts: {| minify: bool; watch: bool |}) =
 
     // Put fable-library files next to bundle
     printfn "Copying fable-library..."
-    buildLibraryJsIfNotExists()
+    buildLibraryTsIfNotExists()
     let libraryDir = "build/fable-library"
     let libraryTarget = distDir </> "fable-library"
     copyDirRecursive libraryDir libraryTarget
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
-    buildLibraryJs()
+    buildLibraryTs()
 
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
@@ -477,12 +476,12 @@ let testProjectConfigs() =
 let testIntegration() =
     runInDir "tests/Integration/Integration" "dotnet run -c Release"
 
-    buildLibraryJsIfNotExists()
+    buildLibraryTsIfNotExists()
     runInDir "tests/Integration/Compiler" "dotnet run -c Release"
     testProjectConfigs()
 
 let testJs() =
-    buildLibraryJsIfNotExists()
+    buildLibraryTsIfNotExists()
 
     compileAndRunTestsWithMocha true "Main"
 
@@ -627,7 +626,7 @@ let buildLocalPackage pkgDir =
     buildLocalPackageWith pkgDir
         "tool install fable"
         (resolveDir "src/Fable.Cli/Fable.Cli.fsproj") (fun version ->
-            buildLibraryJs()
+            buildLibraryTs()
             updateVersionInFableTransforms version)
 
 let testRepos() =
@@ -726,7 +725,6 @@ let packages =
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
-        buildLibraryJs()
         buildLibraryTs()
         buildLibraryPy()
         buildLibraryRust()
@@ -780,7 +778,7 @@ match BUILD_ARGS_LOWER with
 | "watch-test-dart"::_ -> testDart(true)
 
 | "quicktest"::_ ->
-    buildLibraryJsIfNotExists()
+    buildLibraryTsIfNotExists()
     watchFableWithArgs "src/quicktest" ["--watch --exclude Fable.Core --noCache --runScript"]
 | "quicktest-ts"::_ ->
     buildLibraryTsIfNotExists()
@@ -802,7 +800,7 @@ match BUILD_ARGS_LOWER with
     buildLibraryRustIfNotExists()
     watchFableWithArgs "src/quicktest-rust" ["--lang rs -e .rs --watch --exclude Fable.Core --noCache --runScript"]
 | "run"::_ ->
-    buildLibraryJsIfNotExists()
+    buildLibraryTsIfNotExists()
     // Don't take args from pattern matching because they're lowered
     let restArgs = BUILD_ARGS |> List.skip 1 |> String.concat " "
     run $"""dotnet run -c Release --project {resolveDir "src/Fable.Cli"} -- {restArgs}"""
@@ -814,8 +812,7 @@ match BUILD_ARGS_LOWER with
     let pkgInstallCmd = buildLocalPackageWith (resolveDir "temp/pkg") "add package Fable.Core" (resolveDir "src/Fable.Core/Fable.Core.fsproj") ignore
     printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
-| ("watch-library")::_ -> watchLibraryJs()
-| ("fable-library"|"library")::_ -> buildLibraryJs()
+| ("fable-library"|"library")::_
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()

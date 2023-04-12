@@ -325,7 +325,7 @@ module Naming =
             | StaticMemberPart(_,o) -> o
             | NoMemberPart -> ""
 
-    let reflectionSuffix = "$reflection"
+    let reflectionSuffix = "_$reflection"
 
     let private printPart sanitize separator part overloadSuffix =
         (if part = "" then "" else separator + (sanitize part)) +
