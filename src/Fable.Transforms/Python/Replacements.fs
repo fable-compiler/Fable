@@ -62,7 +62,15 @@ let makeDecimal com r t (x: decimal) =
     Helper.LibCall(com, "decimal", "Decimal", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
 
 let makeDecimalFromExpr com r t (e: Expr) =
-    Helper.LibCall(com, "decimal", "Decimal", t, [ e ], isConstructor = true, ?loc = r)
+    match e with
+    | Value(Fable.NumberConstant(:? float32 as x, Float32, _), _)  ->
+        makeDecimal com r t (decimal x)
+    | Value(Fable.NumberConstant(:? float as x, Float64, _), _) ->
+        makeDecimal com r t (decimal x)
+    | Value(Fable.NumberConstant(:? decimal as x, Decimal, _), _) ->
+        makeDecimal com r t x
+    | _ ->
+        Helper.LibCall(com, "decimal", "Decimal", t, [ e ], isConstructor = true, ?loc = r)
 
 let createAtom com (value: Expr) =
     let typ = value.Type
@@ -1246,10 +1254,16 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.ImportedCall("math", "trunc", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
     | "Sign", _ ->
-        let args = toFloat com ctx r t args |> List.singleton
-
-        Helper.LibCall(com, "util", "sign", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        match args with
+        | ExprType(Number(Decimal,_))::_ ->
+            Helper.LibCall(com, "decimal", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | ExprType(Number(BigInt,_))::_ ->
+            Helper.LibCall(com, "big_int", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | ExprType(Number((Float16|Float32|Float64),_))::_ ->
+            Helper.LibCall(com, "double", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | ExprType(Number(_,_))::_ ->
+            Helper.LibCall(com, "long", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ -> None
     // Numbers
     | ("Infinity"
       | "InfinitySingle"),
