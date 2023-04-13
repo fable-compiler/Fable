@@ -288,6 +288,7 @@ __all__ = [
     "op_left_shift",
     "op_bitwise_and",
     "op_bitwise_or",
+    "op_exclusive_or",
     "op_less_than",
     "op_less_than_or_equal",
     "op_greater_than",
