@@ -251,6 +251,35 @@ let buildLibraryRust() =
     runInDir buildDir ("cargo fmt")
     runInDir buildDir ("cargo build")
 
+let buildLibraryC() =
+    let libraryDir = "src/fable-library-c"
+    let sourceDir = libraryDir </> "src"
+    let buildDir = "build/fable-library-c"
+    let fableLib = "."
+
+    let outDir = buildDir </> "src"
+
+    cleanDirs [buildDir]
+
+    runFableWithArgs sourceDir [
+        "--outDir " + resolveDir outDir
+        "--fableLib " + fableLib
+        "--lang C"
+        "--exclude Fable.Core"
+        "--define FABLE_LIBRARY"
+    ]
+    // Copy *.lua from projectDir to buildDir
+    copyFiles sourceDir "*.c" outDir
+    copyDirRecursive libraryDir buildDir
+
+    runInDir buildDir ("gcc -v")
+    //runInDir buildDirLua ("lua ./setup.lua develop")
+
+let buildCLibraryIfNotExists() =
+    let baseDir = __SOURCE_DIRECTORY__
+    if not (pathExists (baseDir </> "build/fable-library-c")) then
+        buildLibraryC()
+
 let buildLibraryRustIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-rust")) then
         buildLibraryRust()
@@ -553,7 +582,7 @@ let testRust testMode =
     // limited cleanup to reduce IO churn, speed up rebuilds,
     // and save the ssd (target folder can get huge)
     cleanDirs [buildDir </> "src"]
-    cleanDirs [buildDir </> "tests"]
+    cleanDirs [buildDir </> "/"]
     cleanDirs [buildDir </> ".fable"]
 
     // copy rust only tests files (these must be present when running dotnet test as import expr tests for file presence)
@@ -588,6 +617,28 @@ let testRust testMode =
     | Everything ->
         runInDir buildDir "cargo test"
         runInDir buildDir "cargo test --features threaded"
+
+let testC() =
+    buildCLibraryIfNotExists() // NOTE: fable-library-c needs to be built separately.
+
+    let projectDir = "tests/C"
+    let buildDir = "build/tests/C"
+
+    cleanDirs [buildDir </> "tests"]
+    copyDirRecursive ("build" </> "fable-library-c" </> "src") (buildDir </> "fable-lib")
+    // runInDir projectDir "dotnet test"
+    runFableWithArgs projectDir [
+        "--outDir " + buildDir
+        "--exclude Fable.Core"
+        "--lang C"
+        "--fableLib " + projectDir </> "fable-lib"
+        "--noCache"
+    ]
+
+    // copyFile (projectDir </> "cunit.c") (buildDir </> "cunit.c")
+    // copyFile (projectDir </> "runtests.c") (buildDir </> "runtests.c")
+    runInDir buildDir "gcc ./tests/src/main.c -g" // -g gives debug symbols
+    runInDir buildDir "a.exe"
 
 let testDart isWatch =
     if not (pathExists "build/fable-library-dart") then
@@ -776,6 +827,7 @@ match BUILD_ARGS_LOWER with
 | "test-rust-default"::_ -> testRust SingleThreaded
 | "test-rust-threaded"::_ -> testRust MultiThreaded
 | "test-rust-all"::_ -> testRust Everything
+| "test-c"::_ -> testC()
 | "test-dart"::_ -> testDart(false)
 | "watch-test-dart"::_ -> testDart(true)
 
@@ -819,6 +871,7 @@ match BUILD_ARGS_LOWER with
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()
+| ("fable-library-c" | "library-c")::_ -> buildLibraryC()
 | ("fable-library-dart" | "library-dart")::_ ->
     let clean = hasFlag "--no-clean" |> not
     buildLibraryDart(clean)

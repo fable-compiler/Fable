@@ -342,6 +342,24 @@ module Rust =
             do! RustPrinter.run writer crate
     }
 
+module C =
+    open Fable.Transforms
+
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
+        //com.LibraryDir <- cliArgs.FableLibraryPath todo
+        let program =
+            FSharp2Fable.Compiler.transformFile com
+            |> FableTransforms.transformFile com
+            |> Fable2C.transformFile com
+
+        use headerWriter = new IO.StreamWriter(outPath.TrimEnd(".c".ToCharArray()) + ".h")
+        let ctxHeader = CPrinter.Output.Writer.create headerWriter
+        use fileWriter = new IO.StreamWriter(outPath)
+        let ctxFile = CPrinter.Output.Writer.create fileWriter
+        CPrinter.Output.writeHeaderFile ctxHeader program
+        CPrinter.Output.writeFile ctxFile program
+    }
+
 let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
     match com.Options.Language with
     | JavaScript | TypeScript -> Js.compileFile com cliArgs pathResolver isSilent outPath
@@ -349,3 +367,4 @@ let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPat
     | Php -> Php.compileFile com cliArgs pathResolver isSilent outPath
     | Dart -> Dart.compileFile com cliArgs pathResolver isSilent outPath
     | Rust -> Rust.compileFile com cliArgs pathResolver isSilent outPath
+    | C -> C.compileFile com cliArgs pathResolver isSilent outPath

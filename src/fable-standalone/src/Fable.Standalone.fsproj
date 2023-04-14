@@ -52,6 +52,10 @@
     <Compile Include="../../Fable.Transforms/Dart/DartPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Rust/RustPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Fable2Rust.fs" />
+    <Compile Include="../../Fable.Transforms/C/C.fs" />
+    <Compile Include="../../Fable.Transforms/C/CPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/C/Fable2C.fs" />
+    <Compile Include="../../Fable.Transforms/C/Compiler.fs" />
     <Compile Include="../../Fable.Transforms/State.fs" />
 
     <!-- Fable.Standalone -->
