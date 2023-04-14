@@ -23,6 +23,7 @@ type AssignmentOperator =
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 type Expression =
+    | CommentedExpression of comment: string * expr: Expression
     | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
     | JsxTemplate of parts: string[] * values: Expression[]
     | Literal of Literal

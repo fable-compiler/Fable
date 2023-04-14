@@ -48,6 +48,7 @@
     <Compile Include="../Js/Main/MapTests.fs" />
     <Compile Include="../Js/Main/MiscTestsHelper.fs" />
     <Compile Include="../Js/Main/MiscTests.fs" />
+    <Compile Include="../Js/Main/NestedAndRecursivePatternTests.fs" />
     <Compile Include="../Js/Main/ObservableTests.fs" />
     <Compile Include="../Js/Main/OptionTests.fs" />
     <Compile Include="../Js/Main/QueueTests.fs" />

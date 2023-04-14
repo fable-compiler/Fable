@@ -85,12 +85,12 @@ let replaceNames replacements expr =
             | None -> e
         | e -> e)
 
-let countReferences limit identName body =
+let countReferencesUntil limit identName body =
     let mutable count = 0
     body |> deepExists (function
         | IdentExpr id2 when id2.Name = identName ->
             count <- count + 1
-            count > limit
+            count >= limit
         | _ -> false) |> ignore
     count
 
@@ -185,12 +185,12 @@ let canInlineArg identName value body =
     | Value((Null _|UnitConstant|TypeInfo _|BoolConstant _|NumberConstant _|CharConstant _),_) -> true
     | Value(StringConstant s,_) -> s.Length < 100
     | _ ->
-        let refCount = countReferences 1 identName body
-        (not (canHaveSideEffects value) && refCount <= 1)
-        || (noSideEffectBeforeIdent identName body
-            && not (isIdentCaptured identName body)
-            // Make sure is at least referenced once so the expression is not erased
-            && refCount = 1)
+        let refCount = countReferencesUntil 2 identName body
+        (refCount <= 1 && not (canHaveSideEffects value))
+        // If it can have side effects, make sure is at least referenced once so the expression is not erased
+        || (refCount = 1
+            && noSideEffectBeforeIdent identName body
+            && not (isIdentCaptured identName body))
 
 /// Returns arity of lambda (or lambda option) types
 let (|Arity|) typ =
@@ -255,7 +255,7 @@ module private Transforms =
                 | Import(i,_,_) -> i.IsCompilerGenerated
                 // Check the lambda doesn't reference itself recursively
                 | _ ->
-                    countReferences 0 ident.Name lambdaBody = 0
+                    countReferencesUntil 1 ident.Name lambdaBody = 0
                     && canInlineArg ident.Name value letBody
                     // If we inline the lambda Fable2Rust doesn't have
                     // a chance to clone the mutable ident
