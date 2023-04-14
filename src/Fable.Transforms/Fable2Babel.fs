@@ -1002,8 +1002,16 @@ module Util =
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
                     if isIdentUsed thisArg.Name body then
-                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
-                        Fable.Let(thisArg, thisKeyword, body)
+                        let thisIdent = Fable.IdentExpr { thisArg with Name = "this" }
+                        let thisIdent =
+                            if com.IsTypeScript then
+                                match classEnt with
+                                | Some ent when ent.IsFSharpUnion && List.isMultiple ent.UnionCases ->
+                                    Replacements.Util.Helper.LibCall(com, "Util", "downcast", thisArg.Type, [thisIdent])
+                                    |> Replacements.Util.withTag "downcast"
+                                | _ -> thisIdent
+                            else thisIdent
+                        Fable.Let(thisArg, thisIdent, body)
                     else body
                 None, args, body
             | Attached(isStatic=true), _
