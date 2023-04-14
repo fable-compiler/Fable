@@ -508,7 +508,7 @@ module private Transforms =
                                                                           && not ident.IsMutable ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
-            Let(ident, Delegate(args, fnBody, None, Tags.empty), letBody)
+            Let({ ident with Type = uncurryType ident.Type }, Delegate(args, fnBody, None, Tags.empty), letBody)
         // Anonymous lambda immediately applied
         | CurriedApply(NestedLambdaWithSameArity(args, fnBody, Some name), argExprs, t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
