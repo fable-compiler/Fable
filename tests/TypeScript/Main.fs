@@ -35,7 +35,7 @@ let allTests =
     Option.tests
     Queue.tests
     RecordTypes.tests
-    // Reflection.tests
+    Reflection.tests
     Regex.tests
     ResizeArrays.tests
     Result.tests
