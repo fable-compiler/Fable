@@ -7,10 +7,10 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/43.7.201-dev": {
+      "FSharp.Compiler.Service/43.7.300-dev": {
         "dependencies": {
-          "FSharp.Core": "7.0.201-dev",
-          "FSharp.DependencyManager.Nuget": "7.0.201-dev",
+          "FSharp.Core": "7.0.300-dev",
+          "FSharp.DependencyManager.Nuget": "7.0.300-dev",
           "Microsoft.DotNet.XliffTasks": "1.0.0-beta.22513.1",
           "Microsoft.SourceLink.AzureRepos.Git": "1.2.0-beta-22518-02",
           "Microsoft.SourceLink.GitHub": "1.2.0-beta-22518-02",
@@ -20,7 +20,7 @@
           "System.Diagnostics.DiagnosticSource": "6.0.0",
           "System.Memory": "4.5.5",
           "System.Reflection.Emit": "4.7.0",
-          "System.Reflection.Metadata": "6.0.0",
+          "System.Reflection.Metadata": "6.0.1",
           "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         },
         "runtime": {
@@ -161,14 +161,14 @@
           }
         }
       },
-      "System.Reflection.Metadata/6.0.0": {
+      "System.Reflection.Metadata/6.0.1": {
         "dependencies": {
           "System.Collections.Immutable": "6.0.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Reflection.Metadata.dll": {
             "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
+            "fileVersion": "6.0.322.12309"
           }
         }
       },
@@ -180,7 +180,7 @@
           }
         }
       },
-      "FSharp.Core/7.0.201-dev": {
+      "FSharp.Core/7.0.300-dev": {
         "runtime": {
           "FSharp.Core.dll": {}
         },
@@ -226,12 +226,11 @@
           }
         }
       },
-      "FSharp.DependencyManager.Nuget/7.0.201-dev": {
+      "FSharp.DependencyManager.Nuget/7.0.300-dev": {
         "dependencies": {
-          "FSharp.Core": "7.0.201-dev",
-          "System.Collections.Immutable": "6.0.0",
+          "FSharp.Core": "7.0.300-dev",
           "System.Reflection.Emit": "4.7.0",
-          "System.Reflection.Metadata": "6.0.0",
+          "System.Reflection.Metadata": "6.0.1",
           "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         },
         "runtime": {
@@ -282,7 +281,7 @@
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/43.7.201-dev": {
+    "FSharp.Compiler.Service/43.7.300-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -385,12 +384,12 @@
       "path": "system.reflection.emit.ilgeneration/4.7.0",
       "hashPath": "system.reflection.emit.ilgeneration.4.7.0.nupkg.sha512"
     },
-    "System.Reflection.Metadata/6.0.0": {
+    "System.Reflection.Metadata/6.0.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-sffDOcex1C3HO5kDolOYcWXTwRpZY/LvJujM6SMjn63fWMJWchYAAmkoAJXlbpZ5yf4d+KMgxd+LeETa4gD9sQ==",
-      "path": "system.reflection.metadata/6.0.0",
-      "hashPath": "system.reflection.metadata.6.0.0.nupkg.sha512"
+      "sha512": "sha512-III/lNMSn0ZRBuM9m5Cgbiho5j81u0FAEagFX5ta2DKbljZ3T0IpD8j+BIiHQPeKqJppWS9bGEp6JnKnWKze0g==",
+      "path": "system.reflection.metadata/6.0.1",
+      "hashPath": "system.reflection.metadata.6.0.1.nupkg.sha512"
     },
     "System.Runtime.CompilerServices.Unsafe/6.0.0": {
       "type": "package",
@@ -399,12 +398,12 @@
       "path": "system.runtime.compilerservices.unsafe/6.0.0",
       "hashPath": "system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512"
     },
-    "FSharp.Core/7.0.201-dev": {
+    "FSharp.Core/7.0.300-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "FSharp.DependencyManager.Nuget/7.0.201-dev": {
+    "FSharp.DependencyManager.Nuget/7.0.300-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
