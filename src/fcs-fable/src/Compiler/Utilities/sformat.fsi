@@ -12,7 +12,7 @@
 //
 // Note no layout objects are ever transferred between the above implementations.
 
-#if COMPILER || FABLE_COMPILER
+#if COMPILER
 namespace FSharp.Compiler.Text
 #else
 namespace Microsoft.FSharp.Text.StructuredPrintfImpl
@@ -23,7 +23,7 @@ open System.IO
 open Microsoft.FSharp.Core
 open Microsoft.FSharp.Collections
 
-#if COMPILER || FABLE_COMPILER
+#if COMPILER
 
 /// Data representing joints in structured layouts of terms.  The representation
 /// of this data type is only for the consumption of formatting engines.
@@ -124,7 +124,7 @@ module internal TaggedText =
 
     val comma: TaggedText
 
-#if COMPILER || FABLE_COMPILER
+#if COMPILER
     val tagNamespace: string -> TaggedText
     val tagParameter: string -> TaggedText
     val tagSpace: string -> TaggedText
@@ -239,7 +239,7 @@ module internal Layout =
     /// Is it the empty layout?
     val isEmptyL: layout: Layout -> bool
 
-#if COMPILER || FABLE_COMPILER
+#if COMPILER
     /// Check if the last character in the layout is the given character
     val endsWithL: text: string -> layout: Layout -> bool
 #endif

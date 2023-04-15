@@ -1430,7 +1430,7 @@ module MapAutoOpens =
 
         static member Empty: Map<'Key, 'Value> = Map.empty
 
-#if FSHARPCORE_USE_PACKAGE || FABLE_COMPILER
+#if FSHARPCORE_USE_PACKAGE
         member x.Values = [ for KeyValue (_, v) in x -> v ]
 #endif
 
