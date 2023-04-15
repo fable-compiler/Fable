@@ -10,7 +10,7 @@
 
 #nowarn "52" // The value has been copied to ensure the original is not mutated by this operation
 
-#if COMPILER || FABLE_COMPILER
+#if COMPILER
 namespace FSharp.Compiler.Text
 #else
 // FSharp.Core.dll:
@@ -145,7 +145,7 @@ module TaggedText =
     let rightBrace = tagPunctuation "}"
     let equals = tagOperator "="
 
-#if COMPILER || FABLE_COMPILER
+#if COMPILER
     let tagAlias t = mkTag TextTag.Alias t
 
     let keywordFunctions =
@@ -278,7 +278,7 @@ module Layout =
         | Leaf (true, s, true) -> s.Text = ""
         | _ -> false
 
-#if COMPILER || FABLE_COMPILER
+#if COMPILER
     let rec endsWithL (text: string) layout =
         match layout with
         | Leaf (_, s, _) -> s.Text.EndsWith(text)
