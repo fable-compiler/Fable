@@ -159,17 +159,20 @@ let tests =
         equal true (xs1 = xs4)
 
     testCase "Union equality works" <| fun () ->
+        // Prevents Fable from inlining so TypeScript doesn't complain
+        let mutable run = fun u1 u2 u3 u4 ->
+            equal true (u1 = u2)
+            equal false (u1 = u3)
+            equal true (u1 <> u3)
+            equal false (u1 <> u2)
+            equal false (u1 = u4)
+            Object.ReferenceEquals(u1, u1) |> equal true
+            Object.ReferenceEquals(u1, u2) |> equal false
         let u1 = A 2
         let u2 = A 2
         let u3 = A 4
         let u4 = B 2
-        equal true (u1 = u2)
-        equal false (u1 = u3)
-        equal true (u1 <> u3)
-        equal false (u1 <> u2)
-        equal false (u1 = u4)
-        Object.ReferenceEquals(u1, u1) |> equal true
-        Object.ReferenceEquals(u1, u2) |> equal false
+        run u1 u2 u3 u4
 
     testCase "Union custom equality works" <| fun () ->
         let u1 = String "A"
@@ -320,17 +323,19 @@ let tests =
         equal false (xs1 > xs6)
 
     testCase "Union comparison works" <| fun () ->
+        let mutable run = fun u1 u2 u3 u4 u5 ->
+            equal 0 (compare u1 u2)
+            equal -1 (compare u1 u3)
+            equal true (u1 < u3)
+            equal 1 (compare u1 u4)
+            equal false (u1 < u4)
+            (compare u1 u5) = 0 |> equal false
         let u1 = A 2
         let u2 = A 2
         let u3 = A 4
         let u4 = A 1
         let u5 = B 2
-        equal 0 (compare u1 u2)
-        equal -1 (compare u1 u3)
-        equal true (u1 < u3)
-        equal 1 (compare u1 u4)
-        equal false (u1 < u4)
-        (compare u1 u5) = 0 |> equal false
+        run u1 u2 u3 u4 u5
 
     testCase "Union custom comparison works" <| fun () ->
         let u1 = String "A"
@@ -592,10 +597,10 @@ let tests =
     testCase "DU comparison works" <| fun () ->
         let hasStatusReached expectedStatus status =
             status >= expectedStatus
-        Status.CreateNewMeterReadingPicture >= Status.SelectingNewDevice
-        |> equal true
-        hasStatusReached Status.SelectingNewDevice Status.CreateNewMeterReadingPicture
-        |> equal true
+        let mutable run = fun x y ->
+            x >= y |> equal true
+            hasStatusReached y x |> equal true
+        run Status.CreateNewMeterReadingPicture Status.SelectingNewDevice
 
     testCase "LanguagePrimitives.GenericHash with primitives works" <| fun () ->
         (LanguagePrimitives.GenericHash 111, LanguagePrimitives.GenericHash 111) ||> equal

@@ -30,11 +30,12 @@ let allTests =
     Lists.tests
     Maps.tests
     Misc.tests
+    NestedAndRecursivePatternTests.tests
     Observable.tests
     Option.tests
     Queue.tests
     RecordTypes.tests
-    // Reflection.tests
+    Reflection.tests
     Regex.tests
     ResizeArrays.tests
     Result.tests

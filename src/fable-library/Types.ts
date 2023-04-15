@@ -54,13 +54,13 @@ export function unionToString(name: string, fields: any[]) {
   }
 }
 
-export abstract class Union implements IEquatable<Union>, IComparable<Union> {
-  public tag!: any;
-  public fields!: any;
+export abstract class Union<Tag extends number, Name extends string> implements IEquatable<Union<Tag, Name>>, IComparable<Union<Tag, Name>> {
+  abstract readonly tag: Tag;
+  abstract readonly fields: any[];
   abstract cases(): string[];
 
-  public get name() {
-    return this.cases()[this.tag];
+  public get name(): Name {
+    return this.cases()[this.tag] as Name;
   }
 
   public toJSON() {
@@ -77,7 +77,7 @@ export abstract class Union implements IEquatable<Union>, IComparable<Union> {
     return combineHashCodes(hashes);
   }
 
-  public Equals(other: Union) {
+  public Equals(other: Union<Tag, Name>) {
     if (this === other) {
       return true;
     } else if (!sameConstructor(this, other)) {
@@ -89,7 +89,7 @@ export abstract class Union implements IEquatable<Union>, IComparable<Union> {
     }
   }
 
-  public CompareTo(other: Union) {
+  public CompareTo(other: Union<Tag, Name>) {
     if (this === other) {
       return 0;
     } else if (!sameConstructor(this, other)) {

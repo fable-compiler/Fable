@@ -12,6 +12,11 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
+type ConstructorRef =
+    | Annotation
+    | ActualConsRef
+    | Reflection
+
 type Import =
   { Selector: string
     LocalIdent: string option
@@ -74,29 +79,29 @@ module Lib =
             com.TransformAsExpr(ctx, consExpr) |> Some
         | consExpr -> consExpr |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
 
-    let tryJsConstructorForAnnotation forAnnotation (com: IBabelCompiler) ctx (ent: Fable.Entity) =
-        if not forAnnotation && (
-            // For backwards compatibility, we allow Global attribute on interfaces (as in Fable.Browser bindings)
-            // However for imported entities we do need to specify it's a class. This is an asymmetry, but in
-            // TypeScript we may want to import interfaces that should not be used in reflection or type testing.
-            (ent.IsInterface && not(Util.hasAttribute Atts.global_ ent.Attributes))
-            || ent.IsMeasure
-            || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-        ) then
-            None
+    let tryJsConstructorFor purpose (com: IBabelCompiler) ctx (ent: Fable.Entity) =
+        let isErased =
+            match purpose with
+            | Annotation -> ent.IsMeasure
+            // Historically we have used interfaces to represent JS classes in bindings,
+            // so it may happen that an F# interface corresponds to an actual type in JS.
+            // But just in case we avoid referencing interfaces for reflection.
+            | ActualConsRef -> ent.IsMeasure || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+            | Reflection -> ent.IsInterface || ent.IsMeasure || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+
+        if isErased then None
         else
             let suffix =
-                if not forAnnotation
-                    && com.IsTypeScript
-                    && ent.IsFSharpUnion
-                    && List.isMultiple ent.UnionCases
-                then "_" + Util.UnionHelpers.CONS
-                else ""
+                match purpose with
+                | Reflection | ActualConsRef -> ""
+                | Annotation when com.IsTypeScript && ent.IsFSharpUnion && List.isMultiple ent.UnionCases ->
+                    Util.UnionHelpers.UNION_SUFFIX
+                | Annotation -> ""
             tryJsConstructorWithSuffix com ctx ent suffix
 
-    /// Cannot be used for annotations (use `tryJsConstructorForAnnotation true` instead)
+    /// Cannot be used for annotations (use `tryJsConstructorFor Annotation` instead)
     let jsConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) =
-        tryJsConstructorForAnnotation false com ctx ent
+        tryJsConstructorFor ActualConsRef com ctx ent
         |> Option.defaultWith (fun () ->
             $"Cannot find %s{ent.FullName} constructor"
             |> addError com [] None
@@ -123,7 +128,7 @@ module Reflection =
         let fields =
             ent.FSharpFields |> List.map (fun fi ->
                 let fieldName = sanitizeMemberName fi.Name |> Expression.stringLiteral
-                let typeInfo = transformTypeInfo com ctx r genMap fi.FieldType
+                let typeInfo = transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
                 Expression.arrayExpression([|fieldName; typeInfo|]))
             |> List.toArray
         let fields = Expression.arrowFunctionExpression([||], Expression.arrayExpression(fields))
@@ -141,7 +146,7 @@ module Reflection =
                 uci.UnionCaseFields |> List.mapToArray (fun fi ->
                     Expression.arrayExpression([|
                         fi.Name |> Expression.stringLiteral
-                        transformTypeInfo com ctx r genMap fi.FieldType
+                        transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
                     |]))
                 |> Expression.arrayExpression
             ) |> Seq.toArray
@@ -149,7 +154,7 @@ module Reflection =
         [fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; cases]
         |> libReflectionCall com ctx None "union"
 
-    let transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression> option) t: Expression =
+    let transformTypeInfoFor purpose (com: IBabelCompiler) ctx r (genMap: Map<string, Expression> option) t: Expression =
         let primitiveTypeInfo name =
            libValue com ctx "Reflection" (name + "_type")
         let numberInfo kind =
@@ -159,7 +164,7 @@ module Reflection =
             [Expression.stringLiteral(fullname)]
             |> libReflectionCall com ctx None "class"
         let resolveGenerics generics: Expression list =
-            generics |> List.map (transformTypeInfo com ctx r genMap)
+            generics |> List.map (transformTypeInfoFor purpose com ctx r genMap)
         let genericTypeInfo name genArgs =
             let resolved = resolveGenerics genArgs
             libReflectionCall com ctx None name resolved
@@ -175,7 +180,7 @@ module Reflection =
                 match generics with
                 | [||] -> yield Util.undefined None None
                 | generics -> yield Expression.arrayExpression(generics)
-                match tryJsConstructorForAnnotation false com ctx ent with
+                match tryJsConstructorFor purpose com ctx ent with
                 | Some cons -> yield cons
                 | None -> ()
             ]
@@ -241,41 +246,38 @@ module Reflection =
                 | Replacements.Util.BclTimer -> genericEntity fullName [||]
                 | Replacements.Util.BclHashSet gen
                 | Replacements.Util.FSharpSet gen ->
-                    genericEntity fullName [|transformTypeInfo com ctx r genMap gen|]
+                    genericEntity fullName [|transformTypeInfoFor purpose com ctx r genMap gen|]
                 | Replacements.Util.BclDictionary(key, value)
                 | Replacements.Util.BclKeyValuePair(key, value)
                 | Replacements.Util.FSharpMap(key, value) ->
                     genericEntity fullName [|
-                        transformTypeInfo com ctx r genMap key
-                        transformTypeInfo com ctx r genMap value
+                        transformTypeInfoFor purpose com ctx r genMap key
+                        transformTypeInfoFor purpose com ctx r genMap value
                     |]
                 | Replacements.Util.FSharpResult(ok, err) ->
                     let ent = com.GetEntity(entRef)
                     transformUnionReflectionInfo com ctx r ent [|
-                        transformTypeInfo com ctx r genMap ok
-                        transformTypeInfo com ctx r genMap err
+                        transformTypeInfoFor purpose com ctx r genMap ok
+                        transformTypeInfoFor purpose com ctx r genMap err
                     |]
                 | Replacements.Util.FSharpChoice gen ->
                     let ent = com.GetEntity(entRef)
-                    let gen = List.map (transformTypeInfo com ctx r genMap) gen
+                    let gen = List.map (transformTypeInfoFor purpose com ctx r genMap) gen
                     List.toArray gen |> transformUnionReflectionInfo com ctx r ent
                 | Replacements.Util.FSharpReference gen ->
                     let ent = com.GetEntity(entRef)
-                    [|transformTypeInfo com ctx r genMap gen|]
+                    [|transformTypeInfoFor purpose com ctx r genMap gen|]
                     |> transformRecordReflectionInfo com ctx r ent
             | _ ->
                 let ent = com.GetEntity(entRef)
-                let generics = genArgs |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
+                let generics = genArgs |> List.map (transformTypeInfoFor purpose com ctx r genMap) |> List.toArray
                 // Check if the entity is actually declared in JS code
-                // TODO: Interfaces should be declared when generating Typescript
                 if FSharp2Fable.Util.isGlobalOrImportedEntity ent then
                     genericGlobalOrImportedEntity generics ent
                 elif ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                     || FSharp2Fable.Util.isReplacementCandidate entRef then
                     genericEntity ent.FullName generics
-                // TODO: Strictly measure types shouldn't appear in the runtime, but we support it for now
-                // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
                 elif ent.IsMeasure then
                     [Expression.stringLiteral(ent.FullName)]
                     |> libReflectionCall com ctx None "measure"
@@ -296,7 +298,7 @@ module Reflection =
                 match generics with
                 | [||] -> yield Util.undefined None None
                 | generics -> yield Expression.arrayExpression(generics)
-                match tryJsConstructorForAnnotation false com ctx ent with
+                match tryJsConstructorFor Reflection com ctx ent with
                 | Some cons -> yield cons
                 | None -> ()
                 match ent.BaseType with
@@ -307,7 +309,7 @@ module Reflection =
                         |> Map
                         |> Some
                     yield Fable.DeclaredType(d.Entity, d.GenericArgs)
-                          |> transformTypeInfo com ctx r genMap
+                          |> transformTypeInfoFor Reflection com ctx r genMap
                 | None -> ()
             ]
             |> libReflectionCall com ctx r "class"
@@ -367,7 +369,7 @@ module Reflection =
                 |> libCall com ctx None "Types" "isException" []
             | _ ->
                 let ent = com.GetEntity(ent)
-                match tryJsConstructorForAnnotation false com ctx ent with
+                match tryJsConstructorFor ActualConsRef com ctx ent with
                 | Some cons ->
                     if not(List.isEmpty genArgs) then
                         com.WarnOnlyOnce("Generic args are ignored in type testing", ?range=range)
@@ -440,7 +442,6 @@ module Annotation =
             makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.AnonymousRecordType(fieldNames, fieldTypes, _isStruct) ->
             makeAnonymousRecordTypeAnnotation com ctx fieldNames fieldTypes
-        // TODO: Maybe we don't need this as makeEntityTypeAnnotation also checks for built-ins through JS.Replacements.tryJsConstructor
         | Replacements.Util.Builtin kind ->
             makeBuiltinTypeAnnotation com ctx typ kind
         | Fable.DeclaredType(entRef, genArgs) ->
@@ -552,9 +553,11 @@ module Annotation =
         | Replacements.Util.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
         | Replacements.Util.FSharpSet key -> makeFableLibImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
         | Replacements.Util.FSharpMap (key, value) -> makeFableLibImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
-        | Replacements.Util.FSharpResult (ok, err) -> makeFableLibImportTypeAnnotation com ctx [ok; err] "Choice" "FSharpResult$2"
+        | Replacements.Util.FSharpResult (ok, err) ->
+            $"FSharpResult$2{Util.UnionHelpers.UNION_SUFFIX}"
+            |> makeFableLibImportTypeAnnotation com ctx [ok; err] "Choice"
         | Replacements.Util.FSharpChoice genArgs ->
-            $"FSharpChoice${List.length genArgs}"
+            $"FSharpChoice${List.length genArgs}{Util.UnionHelpers.UNION_SUFFIX}"
             |> makeFableLibImportTypeAnnotation com ctx genArgs "Choice"
         | Replacements.Util.FSharpReference genArg ->
             if isInRefOrAnyType com typ
@@ -656,7 +659,7 @@ module Annotation =
 
         | _, Patterns.Try (tryNativeOrFableLibraryInterface com ctx genArgs) ta -> ta
 
-        | _, Patterns.Try (Lib.tryJsConstructorForAnnotation true com ctx) entRef ->
+        | _, Patterns.Try (Lib.tryJsConstructorFor Annotation com ctx) entRef ->
             match entRef with
             | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
                 match str with
@@ -727,12 +730,8 @@ module Util =
     open Annotation
 
     module UnionHelpers =
-        let [<Literal>] TAG = "Tag"
-        let [<Literal>] FIELDS = "Fields"
-        let [<Literal>] CONS = "Cons"
-
-        let caseNameClashes name =
-            name = TAG || name = FIELDS || name = CONS
+        let [<Literal>] CASES_SUFFIX = "_$cases"
+        let [<Literal>] UNION_SUFFIX = "_$union"
 
     let IMPORT_REGEX = Regex("""^import\b\s*(\{?.*?\}?)\s*\bfrom\s+["'](.*?)["'](?:\s*;)?$""")
     let IMPORT_SELECTOR_REGEX = Regex(@"^(\*|\w+)(?:\s+as\s+(\w+))?$")
@@ -1003,8 +1002,16 @@ module Util =
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
                     if isIdentUsed thisArg.Name body then
-                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
-                        Fable.Let(thisArg, thisKeyword, body)
+                        let thisIdent = Fable.IdentExpr { thisArg with Name = "this" }
+                        let thisIdent =
+                            if com.IsTypeScript then
+                                match classEnt with
+                                | Some ent when ent.IsFSharpUnion && List.isMultiple ent.UnionCases ->
+                                    Replacements.Util.Helper.LibCall(com, "Util", "downcast", thisArg.Type, [thisIdent])
+                                    |> Replacements.Util.withTag "downcast"
+                                | _ -> thisIdent
+                            else thisIdent
+                        Fable.Let(thisArg, thisIdent, body)
                     else body
                 None, args, body
             | Attached(isStatic=true), _
@@ -1168,28 +1175,26 @@ module Util =
     let transformCurry (com: IBabelCompiler) (ctx: Context) expr arity: Expression =
         com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
-    let transformNewUnion (com: IBabelCompiler) (ctx: Context) r (ent: Fable.Entity) genArgs tag values =
+    let transformNewUnion (com: IBabelCompiler) (ctx: Context) r (ent: Fable.Entity) genArgs (tag: int) values =
         let values = values |> List.mapToArray (transformAsExpr com ctx)
 
         if List.isSingle ent.UnionCases then
-            Expression.newExpression(jsConstructor com ctx ent, values, ?loc=r)
+            let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
+            Expression.newExpression(jsConstructor com ctx ent, values, ?typeArguments=typeParamInst, ?loc=r)
         else
             let callConstructor (case: Fable.UnionCase option) =
-                let tag =
+                let tagExpr =
                     match case with
-                    | Some case ->
-                        match tryJsConstructorWithSuffix com ctx ent ("_" + UnionHelpers.TAG) with
-                        | Some(Expression.Identifier tag) ->
-                            EnumCaseLiteral(tag, case.Name) |> Expression.Literal
-                        | _ -> ofInt tag
+                    | Some case -> CommentedExpression(case.Name, ofInt tag)
                     | None -> ofInt tag
                 let consRef = jsConstructor com ctx ent
-                Expression.newExpression(consRef, [|tag; Expression.arrayExpression values|], ?loc=r)
+                let typeParamInst =
+                    makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                    |> Option.map (fun typeParams -> Array.append typeParams [|LiteralTypeAnnotation(Literal.numericLiteral(tag))|])
+                Expression.newExpression(consRef, [|tagExpr; Expression.arrayExpression values|], ?typeArguments=typeParamInst, ?loc=r)
 
             if com.IsTypeScript then
                 match List.tryItem tag ent.UnionCases with
-                | Some case when UnionHelpers.caseNameClashes case.Name ->
-                    callConstructor (Some case)
                 | Some case ->
                     match tryJsConstructorWithSuffix com ctx ent ("_" + case.Name) with
                     | Some helperRef ->
@@ -1212,7 +1217,7 @@ module Util =
             if com.Options.NoReflection then addErrorAndReturnNull com r "Reflection is disabled"
             else
                 let genMap = if List.contains "allow-generics" tags then None else Some Map.empty
-                transformTypeInfo com ctx r genMap t
+                transformTypeInfoFor ActualConsRef com ctx r genMap t
         | Fable.Null _t ->
             // if com.IsTypeScript
             //     let ta = makeTypeAnnotation com ctx t |> TypeAnnotation |> Some
@@ -1746,6 +1751,23 @@ module Util =
 
         | Fable.UnionField info ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
+            let expr =
+                if com.IsTypeScript then
+                    match fableExpr with
+                    | Fable.IdentExpr _ -> expr
+                    | _ ->
+                        // If this is not an ident, chances are TypeScript cannot infer
+                        // the actual case, so we use a cast to prevent errors
+                        let ent = com.GetEntity(info.Entity)
+                        if List.isSingle ent.UnionCases then expr
+                        else
+                            match Lib.tryJsConstructorFor ActualConsRef com ctx ent with
+                            | Some(Expression.Identifier(id)) ->
+                                let typeParams = makeTypeParamInstantiation com ctx info.GenericArgs
+                                let typeParams = Array.append typeParams [|LiteralTypeAnnotation(Literal.numericLiteral(info.CaseIndex))|]
+                                AsExpression(expr, AliasTypeAnnotation(id, typeParams))
+                            | _ -> expr
+                else expr
             getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt info.FieldIndex)
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
@@ -1786,23 +1808,18 @@ module Util =
             let kind = if var.IsMutable then Let else Const
             [| Statement.variableDeclaration(kind, var.Name, ?annotation=ta, typeParameters=tp, init=value) |]
 
-    let transformUnionCaseTag (com: IBabelCompiler) ctx range typ tag =
-        match typ with
-        | Fable.DeclaredType(entRef, _) when com.IsTypeScript ->
-            let ent = com.GetEntity(entRef)
-            match List.tryItem tag ent.UnionCases with
-            | Some case when List.isMultiple ent.UnionCases ->
-                match tryJsConstructorWithSuffix com ctx ent ("_" + UnionHelpers.TAG) with
-                | Some(Expression.Identifier(tagIdent)) ->
-                    EnumCaseLiteral(tagIdent, case.Name) |> Literal
-                | _ -> ofInt tag
-            // Single-case unions don't emit helper for tag
-            | Some _case -> ofInt tag
-            | None ->
-                $"Unmatched union case tag: {tag} for {ent.FullName}"
-                |> addWarning com [] range
-                ofInt tag
-        | _ -> ofInt tag
+    let transformUnionCaseTag (com: IBabelCompiler) typ tag =
+        let caseName =
+            match typ with
+            | Fable.DeclaredType(entRef, _) when com.IsTypeScript ->
+                let ent = com.GetEntity(entRef)
+                match List.tryItem tag ent.UnionCases with
+                | Some case -> Some case.Name
+                | None -> None
+            | _ -> None
+        match caseName with
+        | Some name -> CommentedExpression(name, ofInt tag)
+        | None -> ofInt tag
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with
@@ -1815,7 +1832,7 @@ module Util =
             let expr = libCall com ctx range "List" "isEmpty" [] [expr]
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
-            let expected = transformUnionCaseTag com ctx range expr.Type tag
+            let expected = transformUnionCaseTag com expr.Type tag
             let actual = getUnionExprTag com ctx None expr
             Expression.binaryExpression(BinaryEqual, actual, expected, ?loc=range)
 
@@ -1825,7 +1842,7 @@ module Util =
 
         let transformGuard = function
             | Fable.Test(expr, Fable.UnionCaseTest tag, range) ->
-                transformUnionCaseTag com ctx range expr.Type tag
+                transformUnionCaseTag com expr.Type tag
             | TransformExpr com ctx e -> e
 
         let cases =
@@ -1891,8 +1908,11 @@ module Util =
                 matchTargetIdentAndValues idents boundValues
                 |> List.mapToArray (fun (id, TransformExpr com ctx value) ->
                     assign None (identAsExpr id) value |> ExpressionStatement)
-            let targetAssignment = assign None (targetId |> Expression.Identifier) (ofInt targetIndex) |> ExpressionStatement
-            Array.append [|targetAssignment|] assignments
+            if System.String.IsNullOrEmpty targetId.Name
+            then assignments
+            else
+                let targetAssignment = assign None (targetId |> Expression.Identifier) (ofInt targetIndex) |> ExpressionStatement
+                Array.append [|targetAssignment|] assignments
         | ret ->
             let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
@@ -1992,14 +2012,13 @@ module Util =
         let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty))
         let boundIdents = targets |> List.collect (fun (idents,_) ->
             idents |> List.map (fun id -> id, None))
-        let multiVarDecl =
-            multiVarDeclaration com ctx Let ((targetId, None)::boundIdents)
+
         // Transform targets as switch
-        let switch2 =
+        let singleCase, switch2 =
             let ctx = { ctx with ForcedIdents = boundIdents |> List.map (fun (id,_) -> id.Name) |> set }
             let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
             match cases with
-            | [(_, caseBody)] -> transformAsStatements com ctx returnStrategy caseBody
+            | [(_, caseBody)] -> true, transformAsStatements com ctx returnStrategy caseBody
             | cases ->
                 let cases, defaultCase =
                     match returnStrategy with
@@ -2007,7 +2026,13 @@ module Util =
                     | _ ->
                         let cases, (_, defaultCase) = List.splitLast cases
                         cases, Some defaultCase
-                [|transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases defaultCase|]
+                false, [|transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases defaultCase|]
+
+        let targetId, multiVarDecl =
+            if singleCase
+            then { targetId with Name = "" }, multiVarDeclaration com ctx Let boundIdents
+            else targetId, multiVarDeclaration com ctx Let ((targetId, None)::boundIdents)
+
         // Transform decision tree
         let targetAssign = Target(identAsIdent targetId)
         let ctx = { ctx with DecisionTargets = targets }
@@ -2377,6 +2402,7 @@ module Util =
     let declareClassWithParams (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Parameter[]) (consArgsModifiers: AccessModifier[]) (consBody: BlockStatement) (superClass: SuperClass option) classMembers typeParamDecl =
         let implements =
             if com.IsTypeScript then
+                let isUnion = ent.IsFSharpUnion
                 ent.AllInterfaces
                 |> Seq.choose (fun ifc ->
                     match ifc.Entity.FullName with
@@ -2386,6 +2412,7 @@ module Util =
                     | Types.ienumerable | Types.ienumerator -> None
                     | Types.ienumerableGeneric -> makeNativeTypeAnnotation com ctx ifc.GenericArgs "Iterable" |> Some
                     | Types.ienumeratorGeneric -> makeFableLibImportTypeAnnotation com ctx ifc.GenericArgs "Util" "IEnumerator" |> Some
+                    | Types.iequatableGeneric | Types.icomparableGeneric when isUnion -> None
                     | _ ->
                         com.GetEntity(ifc.Entity)
                         |> makeEntityTypeAnnotation com ctx ifc.GenericArgs |> Some)
@@ -2523,7 +2550,31 @@ module Util =
         |]
 
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-        let baseExpr = libValue com ctx "Types" "Union" |> SuperExpression |> Some
+        let isPublic = ent.IsPublic
+        let tagArgName = "Tag"
+        let tagArgTa = makeAliasTypeAnnotation com ctx tagArgName
+        let union_cases = entName + UnionHelpers.CASES_SUFFIX |> Identifier.identifier
+        let entParams = ent.GenericParameters |> List.chooseToArray (fun p ->
+            if not p.IsMeasure then Some p.Name else None)
+        let entParamsDecl = entParams |> Array.map TypeParameter.typeParameter
+        let entParamsInst = entParams |> Array.map (makeAliasTypeAnnotation com ctx)
+        let union_cases_alias = AliasTypeAnnotation(union_cases, entParamsInst)
+
+        let baseExpr =
+            let id = makeFableLibImportTypeId com ctx "Types" "Union"
+            let typeParamInst =
+                match ent.UnionCases with
+                | _ when not com.IsTypeScript -> [||]
+                | [singleCase] -> [| LiteralTypeAnnotation(Literal.numericLiteral(0))
+                                     LiteralTypeAnnotation(Literal.stringLiteral(singleCase.Name)) |]
+                | _ -> [| tagArgTa
+                          IndexedTypeAnnotation(
+                            IndexedTypeAnnotation(union_cases_alias, tagArgTa),
+                            LiteralTypeAnnotation(Literal.numericLiteral(0))) |]
+            TypeAnnotation.aliasTypeAnnotation(id, typeArguments=typeParamInst)
+            |> SuperType
+            |> Some
+
         let cases =
             let body =
                 ent.UnionCases
@@ -2534,47 +2585,55 @@ module Util =
                 |> BlockStatement
             ClassMember.classMethod(ClassFunction(Expression.identifier("cases"), false), [||], body)
 
-        // Don't emit helpers for single-case unions
-        if List.isSingle ent.UnionCases then
-            let singleCase = List.head ent.UnionCases
-            let args = singleCase.UnionCaseFields |> List.mapToArray (fun fi ->
-                let ta = if com.IsTypeScript then makeFieldAnnotation com ctx fi.FieldType |> Some else None
-                Parameter.parameter(sanitizeName fi.Name, ?typeAnnotation=ta)
-            )
-            let fieldsExpr = args |> Array.map (fun a -> Expression.identifier(a.Name)) |> Expression.arrayExpression
-            let body = BlockStatement [|
+        // Don't emit helpers for single-case unions but make constructor with typed arguments
+        match ent.UnionCases with
+        | [singleCase] ->
+            let fieldAnnotations =
+                if com.IsTypeScript then
+                    singleCase.UnionCaseFields
+                    |> List.mapToArray(fun fi -> makeFieldAnnotation com ctx fi.FieldType)
+                else [||]
+            let args =
+                if com.IsTypeScript then
+                    Seq.zip singleCase.UnionCaseFields fieldAnnotations
+                    |> Seq.mapToArray (fun (fi, ta) -> Parameter.parameter(sanitizeName fi.Name, typeAnnotation=ta))
+                else
+                    singleCase.UnionCaseFields
+                    |> List.mapToArray (fun fi -> Parameter.parameter(sanitizeName fi.Name))
+            let fieldsExpr =
+                args
+                |> Array.map (fun a -> Expression.identifier(a.Name))
+                |> Expression.arrayExpression
+            let consBody = BlockStatement [|
                 callSuperAsStatement []
                 assign None (get None thisExpr "tag") (Expression.numericLiteral(0.)) |> ExpressionStatement
                 assign None (get None thisExpr "fields") fieldsExpr |> ExpressionStatement
             |]
-            let classMembers = Array.append [|cases|] classMembers
-            declareType com ctx ent entName args body baseExpr classMembers
+            declareType com ctx ent entName args consBody baseExpr [|
+                if com.IsTypeScript then
+                    ClassMember.classProperty(Expression.identifier "tag", typeAnnotation=LiteralTypeAnnotation(Literal.numericLiteral(0)), accessModifier=Readonly)
+                    ClassMember.classProperty(Expression.identifier "fields", typeAnnotation=TupleTypeAnnotation fieldAnnotations, accessModifier=Readonly)
+                cases
+                yield! classMembers
+            |]
 
-        elif com.IsTypeScript then
-            // Merge this with makeTypeParamDecl/makeTypeParamInstantiation?
-            let entParams = ent.GenericParameters |> List.chooseToArray (fun p ->
-                if not p.IsMeasure then Some p.Name else None)
-            let entParamsDecl = entParams |> Array.map TypeParameter.typeParameter
-            let entParamsInst = entParams |> Array.map (makeAliasTypeAnnotation com ctx)
-            let union_tag = entName + "_" + UnionHelpers.TAG |> Identifier.identifier
-            let union_fields = entName + "_" + UnionHelpers.FIELDS |> Identifier.identifier
-            let union_cons = entName + "_" + UnionHelpers.CONS |> Identifier.identifier
-            let union_ta, union_tag_cases, union_fields_ta =
+        | _ when com.IsTypeScript ->
+            let union_cons = entName |> Identifier.identifier
+            let union_ta, union_cases_ta =
                 ent.UnionCases |> List.mapiToArray (fun i uci ->
-                    let typeParams = Array.append entParamsInst [|LiteralTypeAnnotation(EnumCaseLiteral(union_tag, uci.Name))|]
+                    let typeParams = Array.append entParamsInst [|LiteralTypeAnnotation(Literal.numericLiteral(i))|]
                     let case_ta = TypeAnnotation.aliasTypeAnnotation(union_cons, typeParams)
                     let fields_ta =
                         uci.UnionCaseFields |> List.mapToArray (fun fi ->
                             makeFieldAnnotation com ctx fi.FieldType)
                         |> TupleTypeAnnotation
-                    case_ta, (uci.Name, ofInt i), fields_ta
-                ) |> Array.unzip3
-            let base_ta = makeAliasTypeAnnotation com ctx "Union"
-            let union_ta = Array.append union_ta [| base_ta |]
-            let isPublic = ent.IsPublic
-            let union_fields_alias = AliasTypeAnnotation(union_fields, entParamsInst)
-            let tagArgTa = makeAliasTypeAnnotation com ctx UnionHelpers.TAG
-            let fieldsArgTa = IndexedTypeAnnotation(union_fields_alias, tagArgTa)
+                    case_ta, AbstractMember.abstractProperty(
+                        Expression.numericLiteral(i),
+                        TupleTypeAnnotation [| LiteralTypeAnnotation(Literal.stringLiteral(uci.Name)); fields_ta |])
+                ) |> Array.unzip
+            let fieldsArgTa = IndexedTypeAnnotation(
+                IndexedTypeAnnotation(union_cases_alias, tagArgTa),
+                LiteralTypeAnnotation(Literal.numericLiteral(1)))
             let consArgs = [|
                 Parameter.parameter("tag", typeAnnotation=tagArgTa)
                 Parameter.parameter("fields", typeAnnotation=fieldsArgTa)
@@ -2583,29 +2642,29 @@ module Util =
             let consBody = BlockStatement [| callSuperAsStatement [] |]
             let classMembers = Array.append [|cases|] classMembers
             let unionConsTypeParams = Some(Array.append entParamsDecl [|
-                TypeParameter.typeParameter(UnionHelpers.TAG, bound=KeyofTypeAnnotation(union_fields_alias))
+                TypeParameter.typeParameter(tagArgName, bound=KeyofTypeAnnotation(union_cases_alias))
             |])
             [
-                EnumDeclaration(union_tag.Name, union_tag_cases, isConst=true) |> asModuleDeclaration isPublic
-                TypeAliasDeclaration(union_fields.Name, entParamsDecl, TupleTypeAnnotation union_fields_ta) |> asModuleDeclaration isPublic
-                TypeAliasDeclaration(entName, entParamsDecl, UnionTypeAnnotation union_ta) |> asModuleDeclaration isPublic
+                TypeAliasDeclaration(entName + UnionHelpers.UNION_SUFFIX, entParamsDecl, UnionTypeAnnotation union_ta) |> asModuleDeclaration isPublic
+                TypeAliasDeclaration(union_cases.Name, entParamsDecl, ObjectTypeAnnotation union_cases_ta) |> asModuleDeclaration isPublic
 
                 // Helpers to instantiate union
-                for case in ent.UnionCases do
-                    if not(UnionHelpers.caseNameClashes case.Name) then
-                        let tag = EnumCaseLiteral(union_tag, case.Name)
-                        let passedArgs = case.UnionCaseFields |> List.mapToArray (fun fi -> Expression.identifier(sanitizeName fi.Name)) |> Expression.arrayExpression
-                        let consTypeArgs = Array.append entParamsInst [|LiteralTypeAnnotation tag|]
-                        let body = BlockStatement [|
-                            Expression.newExpression(Expression.Identifier union_cons, [|Expression.Literal tag; passedArgs|], typeArguments=consTypeArgs)
-                            |> Statement.returnStatement
-                        |]
-                        let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
-                            Parameter.parameter(sanitizeName fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
-                        let fnId = entName + "_" + case.Name |> Identifier.identifier
-                        let returnType = AliasTypeAnnotation(Identifier.identifier(entName), entParamsInst)
-                        Declaration.functionDeclaration(parameters, body, fnId, returnType=returnType, typeParameters=entParamsDecl)
-                        |> asModuleDeclaration isPublic
+                yield! ent.UnionCases |> List.mapi (fun i case ->
+                    let tag = Literal.numericLiteral(i)
+                    let passedArgs = case.UnionCaseFields |> List.mapToArray (fun fi -> Expression.identifier(sanitizeName fi.Name)) |> Expression.arrayExpression
+                    let consTypeArgs = Array.append entParamsInst [|LiteralTypeAnnotation tag|]
+                    let body = BlockStatement [|
+                        Expression.newExpression(Expression.Identifier union_cons, [|Expression.Literal tag; passedArgs|], typeArguments=consTypeArgs)
+                        |> Statement.returnStatement
+                    |]
+                    let parameters = case.UnionCaseFields |> List.mapToArray (fun fi ->
+                        Parameter.parameter(sanitizeName fi.Name, typeAnnotation=makeFieldAnnotation com ctx fi.FieldType))
+                    let fnId = entName + "_" + case.Name |> Identifier.identifier
+                    // Don't use return type, TypeScript will infer it and sometimes we want to use
+                    // the actual constructor type in case it implements an interface
+                    // let returnType = AliasTypeAnnotation(Identifier.identifier(entName + UnionHelpers.UNION_SUFFIX), entParamsInst)
+                    Declaration.functionDeclaration(parameters, body, fnId, typeParameters=entParamsDecl)
+                    |> asModuleDeclaration isPublic)
 
                 // Actual class
                 declareClassWithParams com ctx ent union_cons.Name consArgs consArgsModifiers consBody baseExpr classMembers unionConsTypeParams
@@ -2614,7 +2673,7 @@ module Util =
             ]
 
         // Multiple cases, no-TypeScript
-        else
+        | _ ->
             let args = [| Parameter.parameter("tag"); Parameter.parameter("fields") |]
             let body = BlockStatement [|
                 callSuperAsStatement []

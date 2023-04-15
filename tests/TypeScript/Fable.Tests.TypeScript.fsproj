@@ -48,11 +48,12 @@
     <Compile Include="../Js/Main/MapTests.fs" />
     <Compile Include="../Js/Main/MiscTestsHelper.fs" />
     <Compile Include="../Js/Main/MiscTests.fs" />
+    <Compile Include="../Js/Main/NestedAndRecursivePatternTests.fs" />
     <Compile Include="../Js/Main/ObservableTests.fs" />
     <Compile Include="../Js/Main/OptionTests.fs" />
     <Compile Include="../Js/Main/QueueTests.fs" />
     <Compile Include="../Js/Main/RecordTypeTests.fs" />
-    <!-- <Compile Include="../Js/Main/ReflectionTests.fs" /> -->
+    <Compile Include="../Js/Main/ReflectionTests.fs" />
     <Compile Include="../Js/Main/RegexTests.fs" />
     <Compile Include="../Js/Main/ResizeArrayTests.fs" />
     <Compile Include="../Js/Main/ResultTests.fs" />

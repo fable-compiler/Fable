@@ -23,6 +23,7 @@ module PrinterExtensions =
         // Sometimes empty IIFE remain in the AST
         | CallExpression(ArrowFunctionExpression(_,(BlockStatement body),_,_,_),_,_,_) ->
             body |> Array.exists isProductiveStatement
+        | CommentedExpression(_,e) -> hasSideEffects e
         | _ -> true
 
     and isProductiveStatement(s: Statement) =
@@ -274,9 +275,10 @@ module PrinterExtensions =
             printer.Print(expr)
             printer.Print(")")
 
-        /// Surround with parens anything that can potentially conflict with operator precedence
-        member printer.ComplexExpressionWithParens(expr: Expression) =
+        /// Should the expression be printed with parens when nested?
+        member printer.IsComplex(expr: Expression) =
             match expr with
+            | CommentedExpression(_, e) -> printer.IsComplex(e)
             | Undefined _
             | Literal(NullLiteral _)
             | Literal(Literal.StringLiteral _)
@@ -293,8 +295,13 @@ module PrinterExtensions =
             | ObjectExpression _
             | JsxTemplate _
             | JsxElement _
-            | UnaryExpression _ -> printer.Print(expr)
-            | _ -> printer.WithParens(expr)
+            | UnaryExpression _ -> false
+            | _ -> true
+
+        /// Surround with parens anything that can potentially conflict with operator precedence
+        member printer.ComplexExpressionWithParens(expr: Expression) =
+            if printer.IsComplex(expr) then printer.WithParens(expr)
+            else printer.Print(expr)
 
         member printer.ComplexTypeWithParens(t: TypeAnnotation) =
             match t with
@@ -397,6 +404,9 @@ module PrinterExtensions =
 
         member printer.Print(expr: Expression) =
             match expr with
+            | CommentedExpression(comment, expr) ->
+                printer.Print("/* " + comment + " */ ")
+                printer.Print(expr)
             | JsxElement(componentOrTag, props, children) -> printer.PrintJsxElement(componentOrTag, props, children)
             | JsxTemplate(parts, values) -> printer.PrintJsxTemplate(parts, values)
             | Super(loc) ->  printer.Print("super", ?loc = loc)

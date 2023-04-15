@@ -591,21 +591,22 @@ let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
         copyDir replaceFsprojExt source target
 
 let getFableLibraryPath (opts: CrackerOptions) =
-    match opts.FableLib with
-    | Some path -> Path.normalizeFullPath path
-    | None ->
-        let buildDir, libDir =
-            match opts.FableOptions.Language with
-            | Python ->
-                match opts.FableLib with
-                | Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
-                | _ -> "fable-library-py/fable_library", "fable_library"
-            | Dart -> "fable-library-dart", "fable_library"
-            | Rust -> "fable-library-rust", "fable-library-rust"
-            | TypeScript -> "fable-library-ts", "fable-library-ts"
-            | Php -> "fable-library-php", "fable-library-php"
-            | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
+    let buildDir, libDir =
+        match opts.FableOptions.Language, opts.FableLib with
+        | Dart, None -> "fable-library-dart", "fable_library"
+        | Rust, None -> "fable-library-rust", "fable-library-rust"
+        | TypeScript, None -> "fable-library-ts", "fable-library-ts"
+        | Php, None -> "fable-library-php", "fable-library-php"
+        | JavaScript, None -> "fable-library", "fable-library" + "." + Literals.VERSION
+        | Python, None -> "fable-library-py/fable_library", "fable_library"
+        | Python, Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
+        | _, Some path ->
+            if path.StartsWith("./") then "", Path.normalizeFullPath path
+            elif IO.Path.IsPathRooted(path) then "", Path.normalizePath path
+            else "", path
 
+    if String.IsNullOrEmpty(buildDir) then libDir
+    else
         let fableLibrarySource =
             let baseDir = AppContext.BaseDirectory
             baseDir

@@ -1056,6 +1056,23 @@ let tests7 = [
         r1.result |> equal 16
         r2.result |> equal 19
 
+    testCase "Ident of uncurried inner lambdas is uncurried too" <| fun () -> // See #3415
+        let copy1 xs =
+            let copySnd x y = x + y
+            ignore copySnd // just to prevent inlining
+            copySnd 3 xs |> id
+
+        // copySnd is hoisted in release mode
+        let copy2 xs =
+            let copy x =
+                let copySnd x y = x + y
+                ignore copySnd // just to prevent inlining
+                copySnd 3 x
+            copy xs |> id
+
+        copy1 5 |> equal 8
+        copy2 5 |> equal 8
+
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
         (lengthWrapper [1;2;3;4]) |> equal 4
