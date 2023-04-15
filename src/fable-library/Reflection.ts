@@ -445,9 +445,17 @@ export function makeUnion(uci: CaseInfo, values: any[]): any {
   if (values.length !== expectedLength) {
     throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
   }
-  return uci.declaringType.construct != null
-    ? new uci.declaringType.construct(uci.tag, values)
-    : {};
+  const construct = uci.declaringType.construct;
+  if (construct == null) {
+    return {};
+  }
+  const isSingleCase = uci.declaringType.cases ? uci.declaringType.cases().length == 1 : false;
+  if (isSingleCase) {
+    return new construct(...values);
+  }
+  else {
+    return new construct(uci.tag, values);
+  }
 }
 
 export function makeRecord(t: TypeInfo, values: any[]): any {

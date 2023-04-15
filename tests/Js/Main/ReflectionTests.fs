@@ -289,6 +289,9 @@ type TestUnion =
     | StringCase of SomeString: string * string
     | IntCase of SomeInt: int
 
+type SingleCaseUnion =
+  SingleCaseUnion of string * anotherString: string
+
 type RecordF = { F : int -> string }
 
 type AsyncRecord = {
@@ -522,6 +525,36 @@ let reflectionTests = [
     FSharpType.IsUnion typ |> equal true
     unionFields |> equal expectedUnionFields
     canMakeSameUnionCases |> equal true
+
+  testCase "FSharp.Reflection: Single-Case Union" <| fun () ->
+    let typ = typeof<SingleCaseUnion>
+    let unionCase1 = SingleCaseUnion("a", "b")
+    let unionTypeFields = FSharpType.GetUnionCases typ
+    unionTypeFields |> Array.map (fun x -> x.Name) |> equal [| "SingleCaseUnion" |]
+    let unionCase1Info, unionCase1ValueFields = FSharpValue.GetUnionFields(unionCase1, typ)
+    let unionCaseInfos = [| unionCase1Info |]
+    let unionCaseValueFields = [| unionCase1ValueFields |]
+
+    let expectedUnionCase1Fields = 0, "SingleCaseUnion", [| typeof<string>; typeof<string> |], [| "Item1"; "anotherString" |], [| box "a"; box "b" |]
+    let expectedUnionFields = [| expectedUnionCase1Fields |]
+
+    let unionFields =
+        Array.zip unionCaseInfos unionCaseValueFields
+        |> Array.map (fun (info, values) ->
+            let types =
+                info.GetFields()
+                |> Array.map (fun field -> field.PropertyType)
+            let names =
+                info.GetFields()
+                |> Array.map (fun field -> field.Name)
+            info.Tag, info.Name, types, names, values)
+
+    let builtUnion = FSharpValue.MakeUnion(unionCase1Info, unionCase1ValueFields) :?> SingleCaseUnion
+
+    FSharpType.IsUnion typ |> equal true
+    unionFields |> equal expectedUnionFields
+    builtUnion = unionCase1 |> equal true
+    builtUnion = SingleCaseUnion("c", "d") |> equal false
 
   testCase "FSharp.Reflection: Result" <| fun () ->
     let typ = typeof<Result<int,string>>
