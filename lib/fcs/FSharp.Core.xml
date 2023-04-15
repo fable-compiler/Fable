@@ -2,6 +2,14 @@
 <doc>
 <assembly><name>FSharp.Core</name></assembly>
 <members>
+<member name="T:System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes">
+ <summary>
+ Specifies the types of members that are dynamically accessed.
+
+ This enumeration has a <see cref="FlagsAttribute"/> attribute that allows a
+ bitwise combination of its member values.
+ </summary>
+</member>
 <member name="T:Microsoft.FSharp.Collections.seq`1">
  <summary>An abbreviation for the CLI type <see cref="T:System.Collections.Generic.IEnumerable`1"/></summary>
 
@@ -1211,7 +1219,7 @@
  <returns>The result sequence.</returns>
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
  <exception cref="T:System.ArgumentException">Thrown when windowSize is not positive.</exception>
- 
+
  <example id="windowed-1">
  <code lang="fsharp">
  let inputs = [1; 2; 3; 4; 5]
@@ -1620,7 +1628,7 @@
  <param name="source">The input sequence.</param>
 
  <returns>The computed sum.</returns>
- 
+
  <example id="sumby-1">
  <code lang="fsharp">
  let input = [ "aa"; "bbb"; "cc" ]
@@ -1638,7 +1646,7 @@
  <param name="source">The input sequence.</param>
 
  <returns>The computed sum.</returns>
- 
+
  <example id="sum-1">
  <code lang="fsharp">
  let input = [ 1; 5; 3; 2 ]
@@ -1665,7 +1673,7 @@
  <returns>The result sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="sortbydescending-1">
  <code lang="fsharp">
  let input = ["a"; "bbb"; "cccc"; "dd"]
@@ -1690,7 +1698,7 @@
  <returns>The result sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="sortdescending-1">
  <code lang="fsharp">
  let input = seq { 8; 4; 3; 1; 6; 1 }
@@ -1717,7 +1725,7 @@
  <returns>The result sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="sortby-1">
  <code lang="fsharp">
  let input = [ "a"; "bbb"; "cccc"; "dd" ]
@@ -1771,7 +1779,7 @@
  <returns>The result sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="sort-1">
  <code lang="fsharp">
  let input = seq { 8; 4; 3; 1; 6; 1 }
@@ -1847,7 +1855,7 @@
  <param name="value">The input item.</param>
 
  <returns>The result sequence of one item.</returns>
- 
+
  <example id="singleton-1">
  <code lang="fsharp">
  Seq.singleton 7
@@ -1869,7 +1877,7 @@
  <returns>The resulting sequence of computed states.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="scanback-1">Apply a list charges from back to front, and collect the running balances as each is applied:
  <code lang="fsharp">
  type Charge =
@@ -1898,7 +1906,7 @@
  <returns>The resulting sequence of computed states.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="scan-1">Apply a list charges and collect the running balances as each is applied:
  <code lang="fsharp">
  type Charge =
@@ -1926,7 +1934,7 @@
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
 
  <remarks>This function consumes the whole input sequence before yielding the first element of the reversed sequence.</remarks>
- 
+
  <example id="rev-1">
  <code lang="fsharp">
  let input = seq { 0; 1; 2 }
@@ -1951,7 +1959,7 @@
  <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
 
  <remarks>This function consumes the whole input sequence before returning the result.</remarks>
- 
+
  <example id="reduceback-1">
  <code lang="fsharp">
  let inputs = [1; 3; 4; 2]
@@ -1968,7 +1976,7 @@
  <param name="initial">The value to replicate</param>
 
  <returns>The generated sequence.</returns>
- 
+
  <example id="replicate-1">
  <code lang="fsharp">
  Seq.replicate 3 "a"
@@ -1990,7 +1998,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
  <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
- 
+
  <example id="reduce-1">
  <code lang="fsharp">
  let inputs = [1; 3; 4; 2]
@@ -2077,7 +2085,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
  <exception cref="T:System.ArgumentException">Thrown when indexMap does not produce a valid permutation.</exception>
- 
+
  <example id="permute-1">
  <code lang="fsharp">
  let inputs = [1; 2; 3; 4]
@@ -2096,7 +2104,7 @@
  <returns>The result sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="pairwise-1">
  <code lang="fsharp">
  let inputs = seq { 1; 2; 3; 4 }
@@ -2334,7 +2342,7 @@
  </code>
  Evaluates to a sequence yielding the same results as <c>seq { "all"; "the"; "time" } </c>
  </example>
- 
+
 </member>
 <member name="M:Microsoft.FSharp.Collections.SeqModule.MapFoldBack``3(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,System.Tuple{``2,``1}}},System.Collections.Generic.IEnumerable{``0},``1)">
  <summary>Combines map and foldBack. Builds a new collection whose elements are the results of applying the given function
@@ -3828,7 +3836,7 @@
  <summary>Wraps the two given enumerations as a single concatenated
  enumeration.</summary>
 
- <remarks>The returned sequence may be passed between threads safely. However, 
+ <remarks>The returned sequence may be passed between threads safely. However,
  individual IEnumerator values generated from the returned sequence should not be accessed
  concurrently.</remarks>
 
@@ -5743,6 +5751,8 @@
  <code lang="fsharp">
  let input = [1, "Luke"; 2, "Kirk"; 3, "Kenobi"; 4, "Spock"]
 
+ let isEven x = 0 = x % 2
+
  let isComingFromStarTrek (x,_) = isEven x
  
  input |> List.filter isComingFromStarTrek
@@ -6442,7 +6452,7 @@
  <param name="index">The index where the items should be inserted.</param>
  <param name="values">The values to insert.</param>
  <param name="source">The input array.</param>
- 
+
  <returns>The result array.</returns>
 
  <exception cref="T:System.ArgumentException">Thrown when index is below 0 or greater than source.Length.</exception>
@@ -6462,7 +6472,7 @@
  <param name="index">The index where the item should be inserted.</param>
  <param name="value">The value to insert.</param>
  <param name="source">The input array.</param>
- 
+
  <returns>The result array.</returns>
 
  <exception cref="T:System.ArgumentException">Thrown when index is below 0 or greater than source.Length.</exception>
@@ -6482,7 +6492,7 @@
  <param name="index">The index of the item to be replaced.</param>
  <param name="value">The new value.</param>
  <param name="source">The input array.</param>
- 
+
  <returns>The result array.</returns>
 
  <exception cref="T:System.ArgumentException">Thrown when index is outside 0..source.Length - 1</exception>
@@ -6502,7 +6512,7 @@
  <param name="index">The index of the item to be removed.</param>
  <param name="count">The number of items to remove.</param>
  <param name="source">The input array.</param>
- 
+
  <returns>The result array.</returns>
 
  <exception cref="T:System.ArgumentException">Thrown when index is outside 0..source.Length - count</exception>
@@ -6521,11 +6531,11 @@
 
  <param name="index">The index of the item to be removed.</param>
  <param name="source">The input array.</param>
- 
+
  <returns>The result array.</returns>
- 
+
  <exception cref="T:System.ArgumentException">Thrown when index is outside 0..source.Length - 1</exception>
- 
+
  <example id="removeAt-1">
  <code>
  let inputs = [| 0; 1; 2 |]
@@ -6592,7 +6602,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
  <exception cref="T:System.ArgumentException">Thrown when windowSize is not positive.</exception>
- 
+
  <example id="windowed-1">
  <code lang="fsharp">
  let inputs = [| 1; 2; 3; 4; 5 |]
@@ -6632,7 +6642,7 @@
  <returns>The tuple of three arrays.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="unzip3-1">
  <code lang="fsharp">
  let inputs = [| (1, "one", "I"); (2, "two", "II") |]
@@ -6938,7 +6948,7 @@
 
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.TakeWhile``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
- <summary>Returns an array that contains all elements of the original array while the 
+ <summary>Returns an array that contains all elements of the original array while the
  given predicate returns True, and then returns no further elements.</summary>
 
  <param name="predicate">A function that evaluates to false when no more items should be returned.</param>
@@ -7010,7 +7020,7 @@
  <returns>The resulting sum.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="sumby-1">
  <code lang="fsharp">
  let input = [| "aa"; "bbb"; "cc" |]
@@ -7028,7 +7038,7 @@
  <returns>The resulting sum.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="sum-1">
  <code lang="fsharp">
  let input = [| 1; 5; 3; 2 |]
@@ -7039,17 +7049,17 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.SortByDescending``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
- <summary>Sorts the elements of an array, in descending order, using the given projection for the keys and returning a new array. 
+ <summary>Sorts the elements of an array, in descending order, using the given projection for the keys and returning a new array.
  Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>.</summary>
 
- <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved. 
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
  For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
 
  <param name="projection">The function to transform array elements into the type that is compared.</param>
  <param name="array">The input array.</param>
 
  <returns>The sorted array.</returns>
- 
+
  <example id="sortbydescending-1">
  <code lang="fsharp">
  let input = [| "a"; "bbb"; "cccc"; "dd" |]
@@ -7062,13 +7072,13 @@
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.SortDescending``1(``0[])">
  <summary>Sorts the elements of an array, in descending order, returning a new array. Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>. </summary>
 
- <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved. 
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
  For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
 
  <param name="array">The input array.</param>
 
  <returns>The sorted array.</returns>
- 
+
  <example id="sortdescending-1">
  <code lang="fsharp">
  let input = [| 8; 4; 3; 1; 6; 1 |]
@@ -7089,7 +7099,7 @@
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
  <exception cref="T:System.InvalidOperationException">Thrown when split index exceeds the number of elements
  in the array.</exception>
- 
+
  <example id="splitat-1">
  <code lang="fsharp">
  let input = [| 8; 4; 3; 1; 6; 1 |]
@@ -7100,13 +7110,13 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.SortInPlace``1(``0[])">
- <summary>Sorts the elements of an array by mutating the array in-place, using the given comparison function. 
+ <summary>Sorts the elements of an array by mutating the array in-place, using the given comparison function.
  Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>.</summary>
 
  <param name="array">The input array.</param>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="sortinplace-1">
  <code lang="fsharp">
  let array = [| 8; 4; 3; 1; 6; 1 |]
@@ -7123,7 +7133,7 @@
  <param name="array">The input array.</param>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="sortinplacewith-1"> The following sorts entries using a comparison function that compares string lengths then index numbers:
  <code lang="fsharp">
  let compareEntries (n1: int, s1: string) (n2: int, s2: string) =
@@ -7139,17 +7149,17 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.SortInPlaceBy``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
- <summary>Sorts the elements of an array by mutating the array in-place, using the given projection for the keys. 
+ <summary>Sorts the elements of an array by mutating the array in-place, using the given projection for the keys.
  Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>.</summary>
 
- <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved. 
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
  For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
 
  <param name="projection">The function to transform array elements into the type that is compared.</param>
  <param name="array">The input array.</param>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="sortinplaceby-1">
  <code lang="fsharp">
  let array = [| "a"; "bbb"; "cccc"; "dd" |]
@@ -7162,7 +7172,7 @@
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.SortWith``1(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``0,System.Int32}},``0[])">
  <summary>Sorts the elements of an array, using the given comparison function as the order, returning a new array.</summary>
 
- <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved. 
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
  For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
 
  <param name="comparer">The function to compare pairs of array elements.</param>
@@ -7171,7 +7181,7 @@
  <returns>The sorted array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="sortwith-1">Sort an array of pairs using a comparison function that compares string lengths then index numbers:
  <code lang="fsharp">
  let compareEntries (n1: int, s1: string) (n2: int, s2: string) =
@@ -7187,10 +7197,10 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.SortBy``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
- <summary>Sorts the elements of an array, using the given projection for the keys and returning a new array. 
+ <summary>Sorts the elements of an array, using the given projection for the keys and returning a new array.
  Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>.</summary>
 
- <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved. 
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
  For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
 
  <param name="projection">The function to transform array elements into the type that is compared.</param>
@@ -7199,7 +7209,7 @@
  <returns>The sorted array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="sortby-1">
  <code lang="fsharp">
  let input = [| "a"; "bbb"; "cccc"; "dd" |]
@@ -7212,7 +7222,7 @@
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Sort``1(``0[])">
  <summary>Sorts the elements of an array, returning a new array. Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>. </summary>
 
- <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved. 
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
  For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
 
  <param name="array">The input array.</param>
@@ -7220,7 +7230,7 @@
  <returns>The sorted array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="sort-1">
  <code lang="fsharp">
  let input = [| 8; 4; 3; 1; 6; 1 |]
@@ -7292,7 +7302,7 @@
  <returns>A copy of the input array, after removing the first N elements.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when count exceeds the number of 
+ <exception cref="T:System.ArgumentException">Thrown when count exceeds the number of
  elements in the array.</exception>
 
  <example id="skip-1">
@@ -7356,7 +7366,7 @@
  <param name="value">The input item.</param>
 
  <returns>The result array of one item.</returns>
- 
+
  <example id="singleton-1">
  <code lang="fsharp">
  Array.singleton 7
@@ -7374,7 +7384,7 @@
  <returns>The array of state values.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="scan-1">Apply a list charges from back to front, and collect the running balances as each is applied:
  <code lang="fsharp">
  type Charge =
@@ -7402,7 +7412,7 @@
  <returns>The array of state values.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="scan-1">Apply a list charges and collect the running balances as each is applied:
  <code lang="fsharp">
  type Charge =
@@ -7428,7 +7438,7 @@
  <returns>The reversed array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="rev-1">
  <code lang="fsharp">
  Array.rev [| 0; 1; 2 |]
@@ -7445,7 +7455,7 @@
  <returns>The generated array.</returns>
 
  <exception cref="T:System.ArgumentException">Thrown when count is negative.</exception>
- 
+
  <example id="replicate-1">
  <code lang="fsharp">
  Array.replicate 3 "a"
@@ -7455,7 +7465,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.ReduceBack``1(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``0,``0}},``0[])">
  <summary>Applies a function to each element of the array, starting from the end, threading an accumulator argument
- through the computation. If the input function is <c>f</c> and the elements are <c>i0...iN</c> 
+ through the computation. If the input function is <c>f</c> and the elements are <c>i0...iN</c>
  then computes <c>f i0 (...(f iN-1 iN))</c>.</summary>
 
  <param name="reduction">A function that takes in the next-to-last element of the list and the
@@ -7466,7 +7476,7 @@
  <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
 
  <returns>The final result of the reductions.</returns>
- 
+
  <example id="reduceback-1">
  <code lang="fsharp">
  let inputs = [| 1; 3; 4; 2 |]
@@ -7478,7 +7488,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Reduce``1(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``0,``0}},``0[])">
  <summary>Applies a function to each element of the array, threading an accumulator argument
- through the computation. If the input function is <c>f</c> and the elements are <c>i0...iN</c> 
+ through the computation. If the input function is <c>f</c> and the elements are <c>i0...iN</c>
  then computes <c>f (... (f i0 i1)...) iN</c>.
  Raises ArgumentException if the array has size zero.</summary>
 
@@ -7489,7 +7499,7 @@
  <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
 
  <returns>The final result of the reductions.</returns>
- 
+
  <example id="reduce-1">
  <code lang="fsharp">
  let inputs = [| 1; 3; 4; 2 |]
@@ -7510,7 +7520,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
  <exception cref="T:System.ArgumentException">Thrown when indexMap does not produce a valid permutation.</exception>
- 
+
  <example id="permute-1">
  <code lang="fsharp">
  let inputs = [| 1; 2; 3; 4 |]
@@ -7521,7 +7531,7 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Partition``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
- <summary>Splits the collection into two collections, containing the 
+ <summary>Splits the collection into two collections, containing the
  elements for which the given predicate returns "true" and "false"
  respectively.</summary>
 
@@ -7532,7 +7542,7 @@
  and the second containing those evaluated to false.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="partition-1">
  <code lang="fsharp">
  let inputs = [| 1; 2; 3; 4 |]
@@ -7551,7 +7561,7 @@
  <returns>The result array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="pairwise-1">
  <code lang="fsharp">
  let inputs = [| 1; 2; 3; 4 |]
@@ -7569,7 +7579,7 @@
  <returns>The array of elements from the sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- 
+
  <example id="ofseq-1">
  <code lang="fsharp">
  let inputs = seq { 1; 2; 5 }
@@ -7585,7 +7595,7 @@
  <param name="list">The input list.</param>
 
  <returns>The array of elements from the list.</returns>
- 
+
  <example id="oflist-1">
  <code lang="fsharp">
  let inputs = [ 1; 2; 5 ]
@@ -7740,7 +7750,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.MapIndexed2``3(Microsoft.FSharp.Core.FSharpFunc{System.Int32,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,``2}}},``0[],``1[])">
  <summary>Builds a new collection whose elements are the results of applying the given function
- to the corresponding elements of the two collections pairwise, also passing the index of 
+ to the corresponding elements of the two collections pairwise, also passing the index of
  the elements. The two input arrays must have the same lengths, otherwise an <c>ArgumentException</c> is
  raised.</summary>
 
@@ -7789,7 +7799,7 @@
  </code>
  Evaluates to <c>[| "all"; "the"; "time" |]</c>
  </example>
- 
+
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.MapFoldBack``3(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,System.Tuple{``2,``1}}},``0[],``1)">
  <summary>Combines map and foldBack. Builds a new array whose elements are the results of applying the given function
@@ -7902,7 +7912,7 @@
 
  <returns>The last element of the array or None.</returns>
 
- <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception> 
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
 
  <example id="trylast-1">
  <code lang="fsharp">
@@ -7995,7 +8005,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.IterateIndexed2``2(Microsoft.FSharp.Core.FSharpFunc{System.Int32,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.Unit}}},``0[],``1[])">
  <summary>Applies the given function to pair of elements drawn from matching indices in two arrays,
- also passing the index of the elements. The two arrays must have the same lengths, 
+ also passing the index of the elements. The two arrays must have the same lengths,
  otherwise an <c>ArgumentException</c> is raised.</summary>
 
  <param name="action">The function to apply to each index and pair of elements.</param>
@@ -8179,8 +8189,8 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.GroupBy``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
- <summary>Applies a key-generating function to each element of an array and yields an array of 
- unique keys. Each unique key contains an array of all elements that match 
+ <summary>Applies a key-generating function to each element of an array and yields an array of
+ unique keys. Each unique key contains an array of all elements that match
  to this key.</summary>
 
  <param name="projection">A function that transforms an element of the array into a comparable key.</param>
@@ -8257,7 +8267,7 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.FoldBack2``3(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``2,``2}}},``0[],``1[],``2)">
- <summary>Apply a function to pairs of elements drawn from the two collections, right-to-left, 
+ <summary>Apply a function to pairs of elements drawn from the two collections, right-to-left,
  threading an accumulator argument through the computation. The two input
  arrays must have the same lengths, otherwise an <c>ArgumentException</c> is
  raised.</summary>
@@ -8304,7 +8314,7 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Fold2``3(Microsoft.FSharp.Core.FSharpFunc{``2,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,``2}}},``2,``0[],``1[])">
- <summary>Applies a function to pairs of elements drawn from the two collections, 
+ <summary>Applies a function to pairs of elements drawn from the two collections,
  left-to-right, threading an accumulator argument
  through the computation. The two input
  arrays must have the same lengths, otherwise an <c>ArgumentException</c> is
@@ -8338,7 +8348,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.FoldBack``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,``1}},``0[],``1)">
  <summary>Applies a function to each element of the array, starting from the end, threading an accumulator argument
- through the computation. If the input function is <c>f</c> and the elements are <c>i0...iN</c> then computes 
+ through the computation. If the input function is <c>f</c> and the elements are <c>i0...iN</c> then computes
  <c>f i0 (...(f iN s))</c></summary>
 
  <param name="folder">The function to update the state given the input elements.</param>
@@ -8380,7 +8390,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Fold``2(Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``0,``1}},``1,``0[])">
  <summary>Applies a function to each element of the collection, threading an accumulator argument
- through the computation. If the input function is <c>f</c> and the elements are <c>i0...iN</c> then computes 
+ through the computation. If the input function is <c>f</c> and the elements are <c>i0...iN</c> then computes
  <c>f (... (f s i0)...) iN</c></summary>
 
  <param name="folder">The function to update the state given the input elements.</param>
@@ -8410,10 +8420,10 @@
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.ForAll2``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,System.Boolean}},``0[],``1[])">
  <summary>Tests if all corresponding elements of the array satisfy the given predicate pairwise.</summary>
 
- <remarks>The predicate is applied to matching elements in the two collections up to the lesser of the 
- two lengths of the collections. If any application returns false then the overall result is 
- false and no further elements are tested. Otherwise, if one collection is longer 
- than the other then the <c>ArgumentException</c> exception is raised. 
+ <remarks>The predicate is applied to matching elements in the two collections up to the lesser of the
+ two lengths of the collections. If any application returns false then the overall result is
+ false and no further elements are tested. Otherwise, if one collection is longer
+ than the other then the <c>ArgumentException</c> exception is raised.
  Otherwise, true is returned.</remarks>
 
  <param name="predicate">The function to test the input elements.</param>
@@ -8458,8 +8468,8 @@
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.ForAll``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
  <summary>Tests if all elements of the array satisfy the given predicate.</summary>
 
- <remarks>The predicate is applied to the elements of the input collection. If any application 
- returns false then the overall result is false and no further elements are tested. 
+ <remarks>The predicate is applied to the elements of the input collection. If any application
+ returns false then the overall result is false and no further elements are tested.
  Otherwise, true is returned.</remarks>
 
  <param name="predicate">The function to test the input elements.</param>
@@ -8513,7 +8523,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.FindIndex``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
  <summary>Returns the index of the first element in the array
- that satisfies the given predicate. Raise <see cref="T:System.Collections.Generic.KeyNotFoundException"/> if 
+ that satisfies the given predicate. Raise <see cref="T:System.Collections.Generic.KeyNotFoundException"/> if
  none of the elements satisfy the predicate.</summary>
 
  <param name="predicate">The function to test the input elements.</param>
@@ -8627,10 +8637,10 @@
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Exists2``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,System.Boolean}},``0[],``1[])">
  <summary>Tests if any pair of corresponding elements of the arrays satisfies the given predicate.</summary>
 
- <remarks>The predicate is applied to matching elements in the two collections up to the lesser of the 
- two lengths of the collections. If any application returns true then the overall result is 
- true and no further elements are tested. Otherwise, if one collections is longer 
- than the other then the <c>ArgumentException</c> exception is raised. 
+ <remarks>The predicate is applied to matching elements in the two collections up to the lesser of the
+ two lengths of the collections. If any application returns true then the overall result is
+ true and no further elements are tested. Otherwise, if one collections is longer
+ than the other then the <c>ArgumentException</c> exception is raised.
  Otherwise, false is returned.</remarks>
 
  <param name="predicate">The function to test the input elements.</param>
@@ -8665,8 +8675,8 @@
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Exists``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
  <summary>Tests if any element of the array satisfies the given predicate.</summary>
 
- <remarks>The predicate is applied to the elements of the input array. If any application 
- returns true then the overall result is true and no further elements are tested. 
+ <remarks>The predicate is applied to the elements of the input array. If any application
+ returns true then the overall result is true and no further elements are tested.
  Otherwise, false is returned.</remarks>
 
  <param name="predicate">The function to test the input elements.</param>
@@ -8829,7 +8839,7 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.DistinctBy``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
- <summary>Returns an array that contains no duplicate entries according to the 
+ <summary>Returns an array that contains no duplicate entries according to the
  generic hash and equality comparisons on the keys returned by the given key-generating function.
  If an element occurs multiple times in the array then the later occurrences are discarded.</summary>
 
@@ -8930,7 +8940,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Pick``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpOption{``1}},``0[])">
  <summary>Applies the given function to successive elements, returning the first
- result where the function returns <c>Some(x)</c> for some <c>x</c>. If the function 
+ result where the function returns <c>Some(x)</c> for some <c>x</c>. If the function
  never returns <c>Some(x)</c> then <see cref="T:System.Collections.Generic.KeyNotFoundException"/> is raised.</summary>
 
  <param name="chooser">The function to generate options from the elements.</param>
@@ -8983,7 +8993,7 @@
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.TryPick``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpOption{``1}},``0[])">
  <summary>Applies the given function to successive elements, returning the first
- result where the function returns <c>Some(x)</c> for some <c>x</c>. If the function 
+ result where the function returns <c>Some(x)</c> for some <c>x</c>. If the function
  never returns <c>Some(x)</c> then <c>None</c> is returned.</summary>
 
  <param name="chooser">The function to transform the array elements into options.</param>
@@ -9153,10 +9163,10 @@
  <param name="array1">The first input array.</param>
  <param name="array2">The second input array.</param>
 
- <returns>Returns the first non-zero result from the comparison function. If the first array has 
- a larger element, the return value is always positive. If the second array has a larger 
- element, the return value is always negative. When the elements are equal in the two 
- arrays, 1 is returned if the first array is longer, 0 is returned if they are equal in 
+ <returns>Returns the first non-zero result from the comparison function. If the first array has
+ a larger element, the return value is always positive. If the second array has a larger
+ element, the return value is always negative. When the elements are equal in the two
+ arrays, 1 is returned if the first array is longer, 0 is returned if they are equal in
  length, and -1 is returned when the second array is longer.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when either of the input arrays
@@ -9384,8 +9394,221 @@
  </code>
  </example>
 </member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.Filter``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
+ <summary>Returns a new collection containing only the elements of the collection
+ for which the given predicate returns <c>true</c>.</summary>
+
+ <param name="predicate">The function to test the input elements.</param>
+ <param name="array">The input array.</param>
+
+ <returns>An array containing the elements for which the given predicate returns true.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is <c>null</c>.</exception>
+
+ <example id="para-filter-1">
+ <code lang="fsharp">
+ let inputs = [| 1; 2; 3; 4 |]
+
+ inputs |> Array.Parallel.filter (fun elm -> elm % 2 = 0)
+ </code>
+ Evaluates to <c>[| 2; 4 |]</c>
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.Zip``2(``0[],``1[])">
+ <summary>Combines the two arrays into an array of pairs. The two arrays must have equal lengths, otherwise an <c>ArgumentException</c> is
+ raised.</summary>
+
+ <param name="array1">The first input array.</param>
+ <param name="array2">The second input array.</param>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when either of the input arrays is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input arrays differ in length.</exception>
+
+ <returns>The array of tupled elements.</returns>
+
+ <example id="para-zip-1">
+ <code lang="fsharp">
+ let numbers = [|1; 2|]
+ let names = [|"one"; "two"|]
+
+ Array.Parallel.zip numbers names
+ </code>
+ Evaluates to <c>[| (1, "one"); (2, "two") |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.SortByDescending``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
+ <summary>Sorts the elements of an array in parallel, in descending order, using the given projection for the keys and returning a new array.
+ Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>.</summary>
+
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
+ For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
+
+ <param name="projection">The function to transform array elements into the type that is compared.</param>
+ <param name="array">The input array.</param>
+
+ <returns>The sorted array.</returns>
+
+ <example id="para-sortbydescending-1">
+ <code lang="fsharp">
+ let input = [| "a"; "bbb"; "cccc"; "dd" |]
+
+ input |> Array.Parallel.sortByDescending (fun s -> s.Length)
+ </code>
+ Evaluates to <c>[|"cccc"; "bbb"; "dd"; "a"|]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.SortDescending``1(``0[])">
+ <summary>Sorts the elements of an array in parallel, in descending order, returning a new array. Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>. </summary>
+
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
+ For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
+
+ <param name="array">The input array.</param>
+
+ <returns>The sorted array.</returns>
+
+ <example id="para-sortdescending-1">
+ <code lang="fsharp">
+ let input = [| 8; 4; 3; 1; 6; 1 |]
+
+ input |> Array.Parallel.sortDescending
+ </code>
+ Evaluates to <c>[| 8; 6; 4; 3; 1; 1 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.SortInPlace``1(``0[])">
+ <summary>Sorts the elements of an array by mutating the array in-place in parallel, using the given comparison function.
+ Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>.</summary>
+
+ <param name="array">The input array.</param>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-sortinplace-1">
+ <code lang="fsharp">
+ let array = [| 8; 4; 3; 1; 6; 1 |]
+
+ Array.sortInPlace array
+ </code>
+ After evaluation <c>array</c> contains <c>[| 1; 1; 3; 4; 6; 8 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.SortInPlaceWith``1(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``0,System.Int32}},``0[])">
+ <summary>Sorts the elements of an array by mutating the array in-place in parallel, using the given comparison function as the order.</summary>
+
+ <param name="comparer">The function to compare pairs of array elements.</param>
+ <param name="array">The input array.</param>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-sortinplacewith-1"> The following sorts entries using a comparison function that compares string lengths then index numbers:
+ <code lang="fsharp">
+ let compareEntries (n1: int, s1: string) (n2: int, s2: string) =
+     let c = compare s1.Length s2.Length
+     if c &lt;> 0 then c else
+     compare n1 n2
+
+ let array = [| (0,"aa"); (1,"bbb"); (2,"cc"); (3,"dd") |]
+
+ array |> Array.Parallel.sortInPlaceWith compareEntries
+ </code>
+ After evaluation <c>array</c> contains <c>[|(0, "aa"); (2, "cc"); (3, "dd"); (1, "bbb")|]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.SortInPlaceBy``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
+ <summary>Sorts the elements of an array by mutating the array in-place in parallel, using the given projection for the keys.
+ Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>.</summary>
+
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
+ For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
+
+ <param name="projection">The function to transform array elements into the type that is compared.</param>
+ <param name="array">The input array.</param>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-sortinplaceby-1">
+ <code lang="fsharp">
+ let array = [| "a"; "bbb"; "cccc"; "dd" |]
+
+ array |> Array.Parallel.sortInPlaceBy (fun s -> s.Length)
+ </code>
+ After evaluation <c>array</c> contains <c>[|"a"; "dd"; "bbb"; "cccc"|]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.SortWith``1(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``0,System.Int32}},``0[])">
+ <summary>Sorts the elements of an array in parallel, using the given comparison function as the order, returning a new array.</summary>
+
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
+ For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
+
+ <param name="comparer">The function to compare pairs of array elements.</param>
+ <param name="array">The input array.</param>
+
+ <returns>The sorted array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-sortwith-1">Sort an array of pairs using a comparison function that compares string lengths then index numbers:
+ <code lang="fsharp">
+ let compareEntries (n1: int, s1: string) (n2: int, s2: string) =
+     let c = compare s1.Length s2.Length
+     if c &lt;> 0 then c else
+     compare n1 n2
+
+ let input = [| (0,"aa"); (1,"bbb"); (2,"cc"); (3,"dd") |]
+
+ input |> Array.Parallel.sortWith compareEntries
+ </code>
+ Evaluates to <c>[|(0, "aa"); (2, "cc"); (3, "dd"); (1, "bbb")|]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.SortBy``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
+ <summary>Sorts the elements of an array in parallel, using the given projection for the keys and returning a new array.
+ Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>.</summary>
+
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
+ For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
+
+ <param name="projection">The function to transform array elements into the type that is compared.</param>
+ <param name="array">The input array.</param>
+
+ <returns>The sorted array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-sortby-1">
+ <code lang="fsharp">
+ let input = [| "a"; "bbb"; "cccc"; "dd" |]
+
+ input |> Array.Parallel.sortBy (fun s -> s.Length)
+ </code>
+ Evaluates to <c>[|"a"; "dd"; "bbb"; "cccc"|]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.Sort``1(``0[])">
+ <summary>Sorts the elements of an array in parallel, returning a new array. Elements are compared using <see cref="M:Microsoft.FSharp.Core.Operators.compare"/>. </summary>
+
+ <remarks>This is not a stable sort, i.e. the original order of equal elements is not necessarily preserved.
+ For a stable sort, consider using <see cref="M:Microsoft.FSharp.Collections.SeqModule.Sort"/>.</remarks>
+
+ <param name="array">The input array.</param>
+
+ <returns>The sorted array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-sort-1">
+ <code lang="fsharp">
+ let input = [| 8; 4; 3; 1; 6; 1 |]
+
+ Array.Parallel.sort input
+ </code>
+ Evaluates to <c>[| 1; 1 3; 4; 6; 8 |]</c>.
+ </example>
+</member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.Partition``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
- <summary>Split the collection into two collections, containing the 
+ <summary>Split the collection into two collections, containing the
  elements for which the given predicate returns "true" and "false"
  respectively </summary>
 
@@ -9398,7 +9621,7 @@
  <returns>The two arrays of results.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- 
+
  <example id="partition-1">
  <code lang="fsharp">
  let inputs = [| 1; 2; 3; 4 |]
@@ -9475,6 +9698,30 @@
  c
  b
  </code>
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.GroupBy``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},``0[])">
+ <summary>Applies a key-generating function to each element of an array in parallel and yields an array of
+ unique keys. Each unique key contains an array of all elements that match
+ to this key.</summary>
+
+ <remarks>Performs the operation in parallel using <see cref="M:System.Threading.Tasks.Parallel.For" />.
+ The order in which the given function is applied to elements of the input array is not specified.
+ The order of the keys and values in the result is also not specified</remarks>
+ <param name="projection">A function that transforms an element of the array into a comparable key.</param>
+ <param name="array">The input array.</param>
+
+ <returns>The result array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="group-by-para-1">
+ <code lang="fsharp">
+ let inputs = [| 1; 2; 3; 4; 5 |]
+
+ inputs |> Array.Parallel.groupBy (fun n -> n % 2)
+ </code>
+ Evaluates to <c>[| (1, [| 1; 3; 5 |]); (0, [| 2; 4 |]) |]</c>
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.MapIndexed``2(Microsoft.FSharp.Core.FSharpFunc{System.Int32,Microsoft.FSharp.Core.FSharpFunc{``0,``1}},``0[])">
@@ -9588,6 +9835,151 @@
  input |> Array.Parallel.choose (fun n -> if n % 2 = 0 then Some n else None)
  </code>
  Evaluates to <c>[| 2 |]</c>
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.TryPick``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpOption{``1}},``0[])">
+ <summary>Applies the given function to successive elements, returning the first
+ result where the function returns <c>Some(x)</c> for some <c>x</c>. If the function
+ never returns <c>Some(x)</c> then <c>None</c> is returned.</summary>
+
+ <param name="chooser">The function to transform the array elements into options.</param>
+ <param name="array">The input array.</param>
+
+ <returns>The first transformed element that is <c>Some(x)</c>.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-trypick-1">
+ <code lang="fsharp">
+ let input = [| 1; 2; 3 |]
+
+ input |> Array.Parallel.tryPick (fun n -> if n % 2 = 0 then Some (string n) else None)
+ </code>
+ Evaluates to <c>Some 2</c>.
+ </example>
+
+ <example id="para-trypick-2">
+ <code lang="fsharp">
+ let input = [| 1; 2; 3 |]
+
+ input |> Array.Parallel.tryPick (fun n -> if n > 3 = 0 then Some (string n) else None)
+ </code>
+ Evaluates to <c>None</c>.
+ </example>
+
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.TryFindIndex``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
+ <summary>Returns the index of the first element in the array
+ that satisfies the given predicate.
+ Returns <c>None</c> if no such element exists.</summary>
+ <param name="predicate">The function to test the input elements.</param>
+ <param name="array">The input array.</param>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <returns>The index of the first element that satisfies the predicate, or None.</returns>
+
+ <example id="para-tryfindindex-1">Try to find the index of the first even number:
+ <code lang="fsharp">
+ let inputs = [| 1; 2; 3; 4; 5 |]
+
+ inputs |> Array.Parallel.tryFindIndex (fun elm -> elm % 2 = 0)
+ </code>
+ Evaluates to <c>Some 1</c>
+ </example>
+
+ <example id="para-tryfindindex-2">Try to find the index of the first even number:
+ <code lang="fsharp">
+ let inputs = [| 1; 3; 5; 7 |]
+
+ inputs |> Array.Parallel.tryFindIndex (fun elm -> elm % 2 = 0)
+ </code>
+ Evaluates to <c>None</c>
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.TryFind``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
+ <summary>Returns the first element for which the given function returns <c>True</c>.
+ Returns None if no such element exists.</summary>
+
+ <param name="predicate">The function to test the input elements.</param>
+ <param name="array">The input array.</param>
+
+ <returns>The first element that satisfies the predicate, or None.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-tryfind-1">Try to find the first even number:
+ <code lang="fsharp">
+ let inputs = [| 1; 2; 3 |]
+
+ inputs |> Array.Parallel.tryFind (fun elm -> elm % 2 = 0)
+ </code>
+ Evaluates to <c>Some 2</c>.
+ </example>
+
+ <example id="para-tryfind-2">Try to find the first even number:
+ <code lang="fsharp">
+ let inputs = [| 1; 5; 3 |]
+
+ inputs |> Array.Parallel.tryFind (fun elm -> elm % 2 = 0)
+ </code>
+ Evaluates to <c>None</c>
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.Exists``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
+ <summary>Tests if any element of the array satisfies the given predicate.</summary>
+
+ <remarks>The predicate is applied to the elements of the input array in parallel. If any application
+ returns true then the overall result is true and testing of other elements in all threads is stopped at system's earliest convenience.
+ Otherwise, <c>false</c> is returned.</remarks>
+
+ <param name="predicate">The function to test the input elements.</param>
+ <param name="array">The input array.</param>
+
+ <returns>True if any result from <c>predicate</c> is true.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-exists-1">
+ <code lang="fsharp">
+ let input = [| 1; 2; 3; 4; 5 |]
+
+ input |> Array.Parallel.exists (fun elm -> elm % 4 = 0)
+ </code>
+ Evaluates to <c>true</c>
+ </example>
+
+ <example id="para-exists-2">
+ <code lang="fsharp">
+ let input = [| 1; 2; 3; 4; 5 |]
+
+ input |> Array.Parallel.exists (fun elm -> elm % 6 = 0)
+ </code>
+ Evaluates to <c>false</c>
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.Parallel.ForAll``1(Microsoft.FSharp.Core.FSharpFunc{``0,System.Boolean},``0[])">
+ <summary>Tests if all elements of the array satisfy the given predicate.</summary>
+
+ <remarks>The predicate is applied to the elements of the input collection in parallel. If any application
+ returns false then the overall result is false and testing of other elements in all threads is stopped at system's earliest convenience.
+ Otherwise, true is returned.</remarks>
+
+ <param name="predicate">The function to test the input elements.</param>
+ <param name="array">The input array.</param>
+
+ <returns>True if all of the array elements satisfy the predicate.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="para-forall-1">
+ <code lang="fsharp">
+ let isEven a = a % 2 = 0
+
+ [2; 42] |> Array.Parallel.forall isEven // evaluates to true
+
+ [1; 2] |> Array.Parallel.forall isEven // evaluates to false
+ </code>
  </example>
 </member>
 <member name="T:Microsoft.FSharp.Collections.ArrayModule.Parallel">
@@ -16277,6 +16669,11 @@
 
  <example-tbd></example-tbd>
 </member>
+<member name="M:Microsoft.FSharp.Control.FSharpMailboxProcessor`1.Dispose">
+ <summary>Disposes the agent's internal resources.</summary>
+
+ <example-tbd></example-tbd>
+</member>
 <member name="M:Microsoft.FSharp.Control.FSharpMailboxProcessor`1.#ctor(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Control.FSharpMailboxProcessor{`0},Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
  <summary>Creates an agent. The <c>body</c> function is used to generate the asynchronous
  computation executed by the agent. This function is not executed until
@@ -16602,14 +16999,14 @@
  If created on a background thread (where <see cref="P:System.Threading.SynchronizationContext.Current"/> is null) it is executed immeidately
  immediately on that thread.
  </remarks>
- 
+
  <example-tbd></example-tbd>
 </member>
 <member name="P:Microsoft.FSharp.Control.TaskBuilderModule.task">
  <summary>
  Builds a task using computation expression syntax.
  </summary>
- 
+
  <example-tbd></example-tbd>
 </member>
 <member name="T:Microsoft.FSharp.Control.TaskBuilderModule">
