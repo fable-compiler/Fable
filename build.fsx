@@ -188,10 +188,12 @@ let buildLibraryTs() =
     copyFiles sourceDir "*.ts" buildDirTs
     copyFiles (sourceDir </> "ts") "*.json" buildDirTs
     copyDirRecursive (sourceDir </> "lib") (buildDirTs </> "lib")
+    copyFile (sourceDir </> "package.json") buildDirTs
 
     // runTSLint buildDirTs
     runTypeScriptWithArgs  buildDirTs ["--outDir " + buildDirJs]
     copyFile (buildDirTs </> "lib/big.d.ts") (buildDirJs </> "lib/big.d.ts")
+    copyFile (buildDirTs </> "package.json") buildDirJs
 
 let buildLibraryTsIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-ts")) then

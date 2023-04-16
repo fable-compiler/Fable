@@ -130,7 +130,7 @@ open Util.Testing
 
 let tests =
   testList "Nested and Recursive Patterns" [
-    testCase "Nested and Recursive Patterns works" <| fun () ->
+    testCase "Nested and Recursive Patterns works" <| fun () -> // See #3411
         let ctx1 = Position (5, 8) |> CtxtWhile
         let ctx2 = Position (78, 2) |> CtxtWhile
         undentationLimit true [ctx1; ctx2] |> string |> equal "L5-C18-C28"

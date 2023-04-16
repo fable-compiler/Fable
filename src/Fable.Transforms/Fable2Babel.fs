@@ -1808,14 +1808,17 @@ module Util =
             let kind = if var.IsMutable then Let else Const
             [| Statement.variableDeclaration(kind, var.Name, ?annotation=ta, typeParameters=tp, init=value) |]
 
-    let transformUnionCaseTag (com: IBabelCompiler) typ tag =
+    let transformUnionCaseTag (com: IBabelCompiler) range typ tag =
         let caseName =
             match typ with
             | Fable.DeclaredType(entRef, _) when com.IsTypeScript ->
                 let ent = com.GetEntity(entRef)
                 match List.tryItem tag ent.UnionCases with
                 | Some case -> Some case.Name
-                | None -> None
+                | None ->
+                    $"Unmatched union case tag: {tag} for {ent.FullName}"
+                    |> addWarning com [] range
+                    None
             | _ -> None
         match caseName with
         | Some name -> CommentedExpression(name, ofInt tag)
@@ -1832,7 +1835,7 @@ module Util =
             let expr = libCall com ctx range "List" "isEmpty" [] [expr]
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
-            let expected = transformUnionCaseTag com expr.Type tag
+            let expected = transformUnionCaseTag com range expr.Type tag
             let actual = getUnionExprTag com ctx None expr
             Expression.binaryExpression(BinaryEqual, actual, expected, ?loc=range)
 
@@ -1842,7 +1845,7 @@ module Util =
 
         let transformGuard = function
             | Fable.Test(expr, Fable.UnionCaseTest tag, range) ->
-                transformUnionCaseTag com expr.Type tag
+                transformUnionCaseTag com range expr.Type tag
             | TransformExpr com ctx e -> e
 
         let cases =

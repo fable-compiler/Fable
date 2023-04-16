@@ -1,3 +1,15 @@
+### 4.1.0-beta-001
+
+* Fix #3418: Single-Case Union Reflection
+* Include declaration .d.ts files in fable-library
+* Update FCS
+* Python: Implement missing bigint functions @johannesmols
+* TS: Fix #3415: ident type of uncurried lambdas
+* TS: Don't use const enums to represent union tags
+* TS: Fix function type annotation
+* TS: Get generic types of generated members
+* TS/JS: Sanitize class fields
+
 ### 4.0.6
 
 * JS Hotfix: Skip compiler generated decls
