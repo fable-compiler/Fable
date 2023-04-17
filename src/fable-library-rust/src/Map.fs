@@ -485,25 +485,19 @@ let rec minKeyValue (m: Map<'K, 'V>) =
     match getRoot m with
     | None -> throwKeyNotFound ()
     | Some t ->
-        if t.Height = 1 then
+        if t.Height = 1 || isEmpty t.Left then
             (t.Key, t.Value)
         else
-            if isEmpty t.Left then
-                (t.Key, t.Value)
-            else
-                minKeyValue t.Left
+            minKeyValue t.Left
 
 let rec maxKeyValue (m: Map<'K, 'V>) =
     match getRoot m with
     | None -> throwKeyNotFound ()
     | Some t ->
-        if t.Height = 1 then
+        if t.Height = 1 || isEmpty t.Right then
             (t.Key, t.Value)
         else
-            if isEmpty t.Right then
-                (t.Key, t.Value)
-            else
-                maxKeyValue t.Right
+            maxKeyValue t.Right
 
 // type MapEnumerator<'K, 'V when 'K : comparison>(m) =
 //     let mutable i = mkIterator m
