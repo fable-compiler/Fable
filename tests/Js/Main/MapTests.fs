@@ -248,6 +248,18 @@ let tests =
             zs.Count |> equal xs.Length
             Seq.item 2 zs |> equal (snd xs.[2])
 
+        testCase "Map.minKeyValue works" <| fun () ->
+            let xs = [(5, "e"); (2, "b"); (3, "c"); (4, "d")]
+            let ys = [("e", 5); ("b", 2); ("c", 3); ("d", 4)]
+            xs |> Map.ofList |> Map.minKeyValue |> equal (2, "b")
+            ys |> Map.ofList |> Map.minKeyValue |> equal ("b", 2)
+
+        testCase "Map.maxKeyValue works" <| fun () ->
+            let xs = [(2, "b"); (5, "e"); (3, "c"); (4, "d")]
+            let ys = [("b", 2); ("e", 5); ("c", 3); ("d", 4)]
+            xs |> Map.ofList|> Map.maxKeyValue |> equal (5, "e")
+            ys |> Map.ofList|> Map.maxKeyValue |> equal ("e", 5)
+
         testCase "Map can be casted to IDictionary" <| fun () -> // See #1729, #1857
             let map = Map [ "a", 1; "b", 2; "c", 3]
             let dic = map :> System.Collections.Generic.IDictionary<_,_>
