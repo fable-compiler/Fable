@@ -481,6 +481,24 @@ let equals (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
     // LanguagePrimitives.GenericEquality m1 m2
     compareTo m1 m2 = 0
 
+let rec minKeyValue (m: Map<'K, 'V>) =
+    match getRoot m with
+    | None -> throwKeyNotFound ()
+    | Some t ->
+        if t.Height = 1 || isEmpty t.Left then
+            (t.Key, t.Value)
+        else
+            minKeyValue t.Left
+
+let rec maxKeyValue (m: Map<'K, 'V>) =
+    match getRoot m with
+    | None -> throwKeyNotFound ()
+    | Some t ->
+        if t.Height = 1 || isEmpty t.Right then
+            (t.Key, t.Value)
+        else
+            maxKeyValue t.Right
+
 // type MapEnumerator<'K, 'V when 'K : comparison>(m) =
 //     let mutable i = mkIterator m
 //     interface System.Collections.Generic.IEnumerator<'K * 'V> with
