@@ -456,7 +456,9 @@ module AST =
                 // Other languages include a runtime check for options
                 | _ -> true
             | ListHead | ListTail | TupleIndex _
-            | UnionTag | UnionField _ -> canHaveSideEffects e
+            | UnionTag -> canHaveSideEffects e
+            // Don't move union field getters after union case test in case TypeScript complains
+            | UnionField _ -> Compiler.Language = TypeScript || canHaveSideEffects e
             | FieldGet info ->
                 if info.CanHaveSideEffects then true
                 else canHaveSideEffects e

@@ -1,3 +1,8 @@
+### 4.1.0
+
+* Set TypeScript compilation as stable
+* Added Map.minKeyValue and maxKeyValue
+
 ### 4.1.0-beta-001
 
 * Fix #3418: Single-Case Union Reflection

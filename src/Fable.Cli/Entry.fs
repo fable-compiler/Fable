@@ -359,11 +359,11 @@ let clean (args: CliArgs) language rootDir =
         Log.always("Clean completed! Files deleted: " + string fileCount)
 
 let getStatus = function
-    | JavaScript -> "stable"
+    | JavaScript
+    | TypeScript -> "stable"
     | Python -> "beta"
     | Rust -> "alpha"
     | Dart -> "beta"
-    | TypeScript -> "beta"
     | Php -> "experimental"
 
 [<EntryPoint>]

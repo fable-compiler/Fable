@@ -191,7 +191,7 @@ let buildLibraryTs() =
     copyFile (sourceDir </> "package.json") buildDirTs
 
     // runTSLint buildDirTs
-    runTypeScriptWithArgs  buildDirTs ["--outDir " + buildDirJs]
+    runTypeScriptWithArgs buildDirTs ["--outDir " + buildDirJs]
     copyFile (buildDirTs </> "lib/big.d.ts") (buildDirJs </> "lib/big.d.ts")
     copyFile (buildDirTs </> "package.json") buildDirJs
 
