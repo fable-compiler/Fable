@@ -1,4 +1,6 @@
 {
+  "sideEffects": false,
+  "type": "module",
   "name": "fable-library",
   "version": "0.1.0",
   "description": "Core library used by F# projects compiled with fable.io",
