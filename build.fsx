@@ -36,14 +36,35 @@ module Util =
     let resolveDir dir =
         __SOURCE_DIRECTORY__ </> dir
 
-    let updateVersionInFableTransforms version =
+    let updateVersionsInFableTransforms compilerVersion (libraryVersions: (string * string) list) =
+        let mutable updated = Set.empty
+
+        let replaceVersion (lang: string option) version fileContent =
+            let prefix =
+                match lang with
+                | None -> ""
+                | Some lang -> $"{lang.ToUpperInvariant()}_LIBRARY_"
+
+            Regex.Replace(
+                fileContent,
+                $@"^(\s*)let \[<Literal>] {prefix}VERSION = ""(.*?)""",
+                (fun (m: Match) ->
+                    match lang with
+                    | Some lang when m.Groups[2].Value <> version ->
+                        updated <- Set.add lang updated
+                    | _ -> ()
+                    m.Groups[1].Value + $"let [<Literal>] {prefix}VERSION = \"{version}\""
+                ),
+                RegexOptions.Multiline)
+
         let filePath = "src/Fable.Transforms/Global/Compiler.fs"
-        // printfn "VERSION %s" version
-        Regex.Replace(
-            readFile filePath,
-            @"let \[<Literal>] VERSION = "".*?""",
-            $"let [<Literal>] VERSION = \"{version}\"")
+        readFile filePath
+        |> replaceVersion None compilerVersion
+        |> List.foldBack (fun (lang, version) fileContent ->
+            replaceVersion (Some lang) version fileContent) libraryVersions
         |> writeFile filePath
+
+        updated
 
     let updatePkgVersionInFsproj projFile version =
         readFile projFile
@@ -194,6 +215,8 @@ let buildLibraryTs() =
     runTypeScriptWithArgs buildDirTs ["--outDir " + buildDirJs]
     copyFile (buildDirTs </> "lib/big.d.ts") (buildDirJs </> "lib/big.d.ts")
     copyFile (buildDirTs </> "package.json") buildDirJs
+
+    copyFile (sourceDir </> "README.md") buildDirJs
 
 let buildLibraryTsIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-ts")) then
@@ -628,8 +651,8 @@ let buildLocalPackage pkgDir =
     buildLocalPackageWith pkgDir
         "tool install fable"
         (resolveDir "src/Fable.Cli/Fable.Cli.fsproj") (fun version ->
-            buildLibraryTs()
-            updateVersionInFableTransforms version)
+            updateVersionsInFableTransforms version [] |> ignore
+            buildLibraryTs())
 
 let testRepos() =
     let repos = [
@@ -722,15 +745,22 @@ let syncFcsRepo() =
         runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
     copyFcsRepo FCS_REPO_LOCAL
 
-let packages =
+let packages() =
     ["Fable.AST", doNothing
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
-        Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
+        // TODO: Add library versions for other languages
+        let compilerVersion = Publish.loadReleaseVersion "src/Fable.Cli"
+        let updatedLibs = updateVersionsInFableTransforms compilerVersion [
+            "js", getNpmVersion "src/fable-library"
+        ]
         buildLibraryTs()
         buildLibraryPy()
         buildLibraryRust()
-        buildLibraryDart true)
+        buildLibraryDart true
+        if updatedLibs.Contains("js") then
+            pushNpmWithoutReleaseNotesCheck "build/fable-library"
+     )
      "Fable.PublishUtils", doNothing
      "fable-metadata", doNothing
      "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
@@ -740,8 +770,8 @@ let packages =
 let publishPackages restArgs =
     let packages =
         match List.tryHead restArgs with
-        | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
-        | None -> packages
+        | Some pkg -> packages() |> List.filter (fun (name,_) -> name = pkg)
+        | None -> packages()
     for (pkg, buildAction) in packages do
         if Char.IsUpper pkg[0] then
             let projFile = "src" </> pkg </> pkg + ".fsproj"
