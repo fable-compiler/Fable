@@ -488,11 +488,11 @@ module Publish =
                 reraise()
 
     let pushNpmWithoutReleaseNotesCheck projDir (tag: string option) =
-        let _npmToken =
-            match envVarOrNone "NPM_TOKEN" with
-            | Some npmToken -> npmToken
-            | None -> failwith "The npm token key must be set in a NPM_TOKEN environmental variable"
-        runInDir projDir @"npm config set '//registry.npmjs.org/:_authToken' ""${NPM_TOKEN}"""
+        // let _npmToken =
+        //     match envVarOrNone "NPM_TOKEN" with
+        //     | Some npmToken -> npmToken
+        //     | None -> failwith "The npm token key must be set in a NPM_TOKEN environmental variable"
+        // runInDir projDir @"npm config set '//registry.npmjs.org/:_authToken' ""${NPM_TOKEN}"""
         try
             let publishCmd =
                 match tag with

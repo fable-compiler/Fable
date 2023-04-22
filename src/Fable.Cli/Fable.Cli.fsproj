@@ -4,9 +4,9 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.1.1</Version>
-    <PackageVersion>4.1.1</PackageVersion>
-    <PackageReleaseNotes>* Fix fable-library package.json</PackageReleaseNotes>
+    <Version>4.1.2</Version>
+    <PackageVersion>4.1.2</PackageVersion>
+    <PackageReleaseNotes>* Print minimum fable-library version from npm</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

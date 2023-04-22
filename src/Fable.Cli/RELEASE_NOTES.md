@@ -1,3 +1,7 @@
+### 4.1.2
+
+* Print minimum fable-library version from npm
+
 ### 4.1.1
 
 * Fix fable-library package.json
