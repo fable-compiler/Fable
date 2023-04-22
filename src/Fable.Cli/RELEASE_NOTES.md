@@ -1,3 +1,7 @@
+### 4.1.1
+
+* Fix fable-library package.json
+
 ### 4.1.0
 
 * Set TypeScript compilation as stable
