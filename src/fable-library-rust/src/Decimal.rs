@@ -22,6 +22,16 @@ pub mod Decimal_ {
     pub fn abs(x: decimal) -> decimal { x.abs() }
     pub fn sign(x: decimal) -> i32 { x.signum().to_i32().unwrap() }
 
+    pub fn max(x: decimal, y: decimal) -> decimal { x.max(y) }
+    pub fn min(x: decimal, y: decimal) -> decimal { x.min(y) }
+
+    pub fn maxMagnitude(x: decimal, y: decimal) -> decimal { if abs(x) > abs(y) {x} else {y} }
+    pub fn minMagnitude(x: decimal, y: decimal) -> decimal { if abs(x) < abs(y) {x} else {y} }
+
+    pub fn clamp(x: decimal, min: decimal, max: decimal) -> decimal {
+        x.clamp(min, max).into()
+    }
+
     pub fn floor(x: decimal) -> decimal { x.floor() }
     pub fn ceiling(x: decimal) -> decimal { x.ceil() }
     pub fn truncate(x: decimal) -> decimal { x.trunc() }
@@ -33,9 +43,6 @@ pub mod Decimal_ {
     pub fn divide(x: decimal, y: decimal) -> decimal { x / y }
     pub fn remainder(x: decimal, y: decimal) -> decimal { x % y }
     pub fn negate(x: decimal) -> decimal { -x }
-
-    pub fn max(x: decimal, y: decimal) -> decimal { x.max(y) }
-    pub fn min(x: decimal, y: decimal) -> decimal { x.min(y) }
 
     pub fn isNegative(x: decimal) -> bool { x.is_sign_negative() }
     pub fn isPositive(x: decimal) -> bool { x.is_sign_positive() }
@@ -167,15 +174,12 @@ pub mod Decimal_ {
         roundToMode(x, 0, mode)
     }
 
-    // pub fn clamp
     // pub fn copySign
     // pub fn createChecked
     // pub fn createSaturating
     // pub fn createTruncating
     // pub fn fromOACurrency
     // pub fn getTypeCode
-    // pub fn maxMagnitude
-    // pub fn minMagnitude
     // pub fn toOACurrency
     // pub fn tryFormat
     // pub fn tryGetBits

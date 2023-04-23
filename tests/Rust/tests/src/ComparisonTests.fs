@@ -407,11 +407,6 @@ let ``min with objects implementing IComparable works`` () =
     let c2 = Test(5)
     System.Object.ReferenceEquals(min c1 c2, c2) |> equal true
 
-// TODO: More tests, also with longs and decimals
-[<Fact>]
-let ``clamp works`` () =
-    System.Math.Clamp(14, 0, 12) |> equal 12
-
 [<Fact>]
 let ``nullArg works`` () =
     try

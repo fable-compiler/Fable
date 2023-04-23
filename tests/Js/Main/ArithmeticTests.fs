@@ -492,7 +492,7 @@ let tests =
         log positiveInfinity |> equal positiveInfinity
 
     // https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L239
-    testCase "Math.Log(double, double) works" <| fun () ->
+    testCase "Math.log with base works" <| fun () ->
         Math.Log(8.0, 2.0) |> equal 3.0
         Math.Log(3.0, 3.0) |> equal 1.0
         Math.Log(14., 3.0) |> checkTo3dp 2402.
@@ -505,16 +505,16 @@ let tests =
     testCase "log10 works" <| fun () ->
         log10 232.12 |> checkTo3dp 2365.
 
-    testCase "PI works" <| fun () ->
+    testCase "Math.PI works" <| fun () ->
         checkTo3dp 3141. Math.PI
 
-    testCase "E works" <| fun () ->
+    testCase "Math.E works" <| fun () ->
         checkTo3dp 2718. Math.E
 
     testCase "Math.abs works" <| fun () ->
         Math.Abs -4 |> equal 4
 
-    testCase "Math.pown works" <| fun () ->
+    testCase "Math.pow works" <| fun () ->
         Math.Pow(2.2, 3.0) |> checkTo3dp 10648.
 
     testCase "Math.sqrt works" <| fun () ->
@@ -573,8 +573,130 @@ let tests =
     testCase "Math.log works" <| fun () ->
         Math.Log 232.12 |> checkTo3dp 5447.
 
+    testCase "Math.log2 works" <| fun () ->
+        Math.Log2 8.0 |> checkTo3dp 3000.
+
     testCase "Math.log10 works" <| fun () ->
         Math.Log10 232.12 |> checkTo3dp 2365.
+
+    testCase "BigInt.Log works" <| fun () ->
+        bigint.Log 123I |> checkTo3dp 4812.
+
+    testCase "BigInt.Log with base works" <| fun () ->
+        bigint.Log(123I, 10.0) |> checkTo3dp 2089.
+
+    testCase "BigInt.Log10 works" <| fun () ->
+        bigint.Log10 123I |> checkTo3dp 2089.
+
+    // // TODO: enable for .NET 7.0/8.0
+    // testCase "Numeric Log2 works" <| fun () ->
+    //     System.SByte.Log2 8y |> equal 3y
+    //     System.Int16.Log2 8s |> equal 3s
+    //     System.Int32.Log2 8  |> equal 3
+    //     System.Int64.Log2 8L |> equal 3L
+    //     System.Byte.Log2 8uy |> equal 3uy
+    //     System.UInt16.Log2 8us |> equal 3us
+    //     System.UInt32.Log2 8u  |> equal 3u
+    //     System.UInt64.Log2 8UL |> equal 3UL
+    //     System.Double.Log2 8.0 |> equal 3.0
+    //     System.Single.Log2 8.0f |> equal 3.0f
+    //     bigint.Log2 8I |> equal 3I
+
+    // // TODO: enable for .NET 7.0/8.0
+    // testCase "Numeric Min works" <| fun () ->
+    //     System.SByte.Min(-4y, 3y) |> equal -4y
+    //     System.Int16.Min(-4s, 3s) |> equal -4s
+    //     System.Int32.Min(-4, 3)  |> equal -4
+    //     System.Int64.Min(-4L, 3L) |> equal -4L
+    //     System.Byte.Min(4uy, 3uy) |> equal 3uy
+    //     System.UInt16.Min(4us, 3us) |> equal 3us
+    //     System.UInt32.Min(4u, 3u)  |> equal 3u
+    //     System.UInt64.Min(4UL, 3UL) |> equal 3UL
+    //     System.Double.Min(-4.0, 3.0) |> equal -4.0
+    //     System.Single.Min(-4.0f, 3.0f) |> equal -4.0f
+    //     System.Decimal.Min(-4.0M, 3.0M) |> equal -4.0M
+    //     bigint.Min(-4I, 3I) |> equal -4I
+
+    // // TODO: enable for .NET 7.0/8.0
+    // testCase "Numeric Max works" <| fun () ->
+    //     System.SByte.Max(-4y, 3y) |> equal 3y
+    //     System.Int16.Max(-4s, 3s) |> equal 3s
+    //     System.Int32.Max(-4, 3)  |> equal 3
+    //     System.Int64.Max(-4L, 3L) |> equal 3L
+    //     System.Byte.Max(4uy, 3uy) |> equal 4uy
+    //     System.UInt16.Max(4us, 3us) |> equal 4us
+    //     System.UInt32.Max(4u, 3u)  |> equal 4u
+    //     System.UInt64.Max(4UL, 3UL) |> equal 4UL
+    //     System.Double.Max(-4.0, 3.0) |> equal 3.0
+    //     System.Single.Max(-4.0f, 3.0f) |> equal 3.0f
+    //     System.Decimal.Max(-4.0M, 3.0M) |> equal 3.0M
+    //     bigint.Max(-4I, 3I) |> equal 3I
+
+    // // TODO: enable for .NET 7.0/8.0
+    // testCase "Numeric MinMagnitude works" <| fun () ->
+    //     System.SByte.MinMagnitude(-4y, 3y) |> equal 3y
+    //     System.Int16.MinMagnitude(-4s, 3s) |> equal 3s
+    //     System.Int32.MinMagnitude(-4, 3)  |> equal 3
+    //     System.Int64.MinMagnitude(-4L, 3L) |> equal 3L
+    //     System.Double.MinMagnitude(-4.0, 3.0) |> equal 3.0
+    //     System.Single.MinMagnitude(-4.0f, 3.0f) |> equal 3.0f
+    //     System.Decimal.MinMagnitude(-4.0M, 3.0M) |> equal 3.0M
+    //     bigint.MinMagnitude(-4I, 3I) |> equal 3I
+
+    // // TODO: enable for .NET 7.0/8.0
+    // testCase "Numeric MaxMagnitude works" <| fun () ->
+    //     System.SByte.MaxMagnitude(-4y, 3y) |> equal -4y
+    //     System.Int16.MaxMagnitude(-4s, 3s) |> equal -4s
+    //     System.Int32.MaxMagnitude(-4, 3)  |> equal -4
+    //     System.Int64.MaxMagnitude(-4L, 3L) |> equal -4L
+    //     System.Double.MaxMagnitude(-4.0, 3.0) |> equal -4.0
+    //     System.Single.MaxMagnitude(-4.0f, 3.0f) |> equal -4.0f
+    //     System.Decimal.MaxMagnitude(-4.0M, 3.0M) |> equal -4.0M
+    //     bigint.MaxMagnitude(-4I, 3I) |> equal -4I
+
+    // // TODO: enable for .NET 7.0/8.0
+    // testCase "Numeric Clamp works" <| fun () ->
+    //     System.SByte.Clamp(5y, -4y, 3y) |> equal 3y
+    //     System.Int16.Clamp(5s, -4s, 3s) |> equal 3s
+    //     System.Int32.Clamp(5, -4, 3)  |> equal 3
+    //     System.Int64.Clamp(5L, -4L, 3L) |> equal 3L
+    //     System.Byte.Clamp(5uy, 3uy, 4uy) |> equal 4uy
+    //     System.UInt16.Clamp(5us, 3us, 4us) |> equal 4us
+    //     System.UInt32.Clamp(5u, 3u, 4u)  |> equal 4u
+    //     System.UInt64.Clamp(5UL, 3UL, 4UL) |> equal 4UL
+    //     System.Double.Clamp(5.0, -4.0, 3.0) |> equal 3.0
+    //     System.Single.Clamp(5.0f, -4.0f, 3.0f) |> equal 3.0f
+    //     System.Decimal.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
+    //     bigint.Clamp(5I, -4I, 3I) |> equal 3I
+
+    testCase "Math.Clamp works" <| fun () ->
+        System.Math.Clamp(5y, -4y, 3y) |> equal 3y
+        System.Math.Clamp(5s, -4s, 3s) |> equal 3s
+        System.Math.Clamp(5, -4, 3)  |> equal 3
+        System.Math.Clamp(5L, -4L, 3L) |> equal 3L
+        System.Math.Clamp(5uy, 3uy, 4uy) |> equal 4uy
+        System.Math.Clamp(5us, 3us, 4us) |> equal 4us
+        System.Math.Clamp(5u, 3u, 4u)  |> equal 4u
+        System.Math.Clamp(5UL, 3UL, 4UL) |> equal 4UL
+        System.Math.Clamp(5.0, -4.0, 3.0) |> equal 3.0
+        System.Math.Clamp(5.0f, -4.0f, 3.0f) |> equal 3.0f
+        System.Math.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
+
+    testCase "Math.Min works" <| fun () ->
+        Math.Min(-4.0, 3.0) |> equal -4.0
+        MathF.Min(-4.0f, 3.0f) |> equal -4.0f
+
+    testCase "Math.Max works" <| fun () ->
+        Math.Max(-4.0, 3.0) |> equal 3.0
+        MathF.Max(-4.0f, 3.0f) |> equal 3.0f
+
+    testCase "Math.MinMagnitude works" <| fun () ->
+        Math.MinMagnitude(-4.0, 3.0) |> equal 3.0
+        MathF.MinMagnitude(-4.0f, 3.0f) |> equal 3.0f
+
+    testCase "Math.MaxMagnitude works" <| fun () ->
+        Math.MaxMagnitude(-4.0, 3.0) |> equal -4.0
+        MathF.MaxMagnitude(-4.0f, 3.0f) |> equal -4.0f
 
     testCase "incr works" <| fun () ->
         let i = ref 5

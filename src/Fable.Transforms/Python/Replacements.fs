@@ -3748,6 +3748,7 @@ let tryField com returnTyp ownerTyp fieldName =
 
 let private replacedModules =
     dict [ "System.Math", operators
+           "System.MathF", operators
            "Microsoft.FSharp.Core.Operators", operators
            "Microsoft.FSharp.Core.Operators.Checked", operators
            "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
