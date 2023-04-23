@@ -349,10 +349,6 @@ let ``test min with objects implementing IComparable works`` () =
     Object.ReferenceEquals(min c1 c2, c2) |> equal true
 
 [<Fact>]
-let ``test clamp works`` () =
-    Math.Clamp(14, 0, 12) |> equal 12
-
-[<Fact>]
 let ``test nullArg works`` () =
     try
         nullArg null

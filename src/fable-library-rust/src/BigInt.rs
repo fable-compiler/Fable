@@ -98,6 +98,18 @@ pub mod BigInt_ {
     pub fn max(x: bigint, y: bigint) -> bigint { x.max(y).into() }
     pub fn min(x: bigint, y: bigint) -> bigint { x.min(y).into() }
 
+    pub fn maxMagnitude(x: bigint, y: bigint) -> bigint {
+        if abs(x.clone()) > abs(y.clone()) { x } else { y }
+    }
+
+    pub fn minMagnitude(x: bigint, y: bigint) -> bigint {
+        if abs(x.clone()) < abs(y.clone()) { x } else { y }
+    }
+
+    pub fn clamp(x: bigint, min: bigint, max: bigint) -> bigint {
+        x.clamp(min, max).into()
+    }
+
     pub fn add(x: bigint, y: bigint) -> bigint { x + y }
     pub fn subtract(x: bigint, y: bigint) -> bigint { x - y }
     pub fn multiply(x: bigint, y: bigint) -> bigint { x * y }
@@ -229,12 +241,37 @@ pub mod BigInt_ {
         x.gcd(&y).into()
     }
 
-    pub fn clamp(x: bigint, min: bigint, max: bigint) -> bigint {
-        x.clamp(min, max).into()
-    }
-
     pub fn getBitLength(x: bigint) -> i64 {
         x.bits() as i64
+    }
+
+    pub fn log2(x: bigint) -> f64 {
+        if x.is_negative() {
+            f64::NAN
+        } else {
+            let bits = x.bits();
+            if bits < 1024 {
+                x.to_f64().unwrap().log2()
+            } else {
+                (bits - 1) as f64
+            }
+        }
+    }
+
+    pub fn log10(x: bigint) -> f64 {
+        log2(x) * 2_f64.log10()
+    }
+
+    pub fn ln(x: bigint) -> f64 {
+        log2(x) * 2_f64.ln()
+    }
+
+    pub fn log(x: bigint, base: f64) -> f64 {
+        log2(x) / base.log2()
+    }
+
+    pub fn ilog2(x: bigint) -> bigint {
+        fromFloat64(log2(x))
     }
 
     // pub fn copySign
@@ -243,11 +280,6 @@ pub mod BigInt_ {
     // pub fn createTruncating
     // pub fn getByteCount
     // pub fn leadingZeroCount
-    // pub fn log
-    // pub fn log10
-    // pub fn log2
-    // pub fn maxMagnitude
-    // pub fn minMagnitude
     // pub fn popCount
     // pub fn rotateLeft
     // pub fn rotateRight

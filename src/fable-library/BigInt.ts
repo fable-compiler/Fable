@@ -43,6 +43,13 @@ export function sign(x: bigint): int32 { return x < zero ? -1 : x > zero ? 1 : 0
 export function max(x: bigint, y: bigint): bigint { return x > y ? x : y; }
 export function min(x: bigint, y: bigint): bigint { return x < y ? x : y; }
 
+export function maxMagnitude(x: bigint, y: bigint): bigint { return abs(x) > abs(y) ? x : y; }
+export function minMagnitude(x: bigint, y: bigint): bigint { return abs(x) < abs(y) ? x : y; }
+
+export function clamp(x: bigint, min: bigint, max: bigint): bigint {
+    return x < min ? min : x > max ? max : x;
+}
+
 export function add(x: bigint, y: bigint): bigint { return x + y }
 export function subtract(x: bigint, y: bigint): bigint { return x - y }
 export function multiply(x: bigint, y: bigint): bigint { return x * y }
@@ -158,9 +165,9 @@ export function toChar(x: bigint): string {
 
 export function toString(x: bigint): string { return x.toString(); }
 
-export function tryParse(str: string, res: FSharpRef<bigint>): boolean {
+export function tryParse(s: string, res: FSharpRef<bigint>): boolean {
     try {
-        res.contents = BigInt(str);
+        res.contents = BigInt(s);
         return true;
     }
     catch (err: any) {
@@ -168,8 +175,8 @@ export function tryParse(str: string, res: FSharpRef<bigint>): boolean {
     }
 }
 
-export function parse(arg: string): bigint {
-    return BigInt(arg);
+export function parse(s: string): bigint {
+    return BigInt(s);
 }
 
 export function pow(x: bigint, n: int32): bigint {
@@ -203,12 +210,44 @@ export function greatestCommonDivisor(x: bigint, y: bigint): bigint {
     return x;
 }
 
-export function clamp(x: bigint, min: bigint, max: bigint): bigint {
-    return x < min ? min : x > max ? max : x;
+export function getBitLength(x: bigint): int64 {
+    return fromFloat64(x === zero ? 1 : log2(abs(x)) + 1);
 }
 
-export function getBitLength(x: bigint): int64 {
-    return fromFloat64(x.toString(2).length);
+export function log2(x: bigint): float64 {
+    const n = Number(x);
+    if (Number.isFinite(n))
+        return Math.log2(n); // fast path
+    if (x < zero) return Number.NaN;
+    let shift = one;
+    while (x >= (one << shift)) {
+        shift = shift << one;
+    }
+    let log = zero;
+    while (shift > one) {
+        shift = shift >> one;
+        if (x >= (one << shift)) {
+            log = log + shift;
+            x = x >> shift;
+        }
+    }
+    return Number(log);
+}
+
+export function log10(x: bigint): float64 {
+    return log2(x) * Math.log10(2);
+}
+
+export function ln(x: bigint): float64 {
+    return log2(x) * Math.log(2);
+}
+
+export function log(x: bigint, base: float64): float64 {
+    return log2(x) / Math.log2(base);
+}
+
+export function ilog2(x: bigint): bigint {
+    return BigInt(log2(x));
 }
 
 // export function copySign
@@ -217,11 +256,6 @@ export function getBitLength(x: bigint): int64 {
 // export function createTruncating
 // export function getByteCount
 // export function leadingZeroCount
-// export function log
-// export function log10
-// export function log2
-// export function maxMagnitude
-// export function minMagnitude
 // export function popCount
 // export function rotateLeft
 // export function rotateRight
@@ -245,8 +279,8 @@ function fromHexCode(code: number): number {
 function toSignedBytes(x: bigint, isBigEndian: boolean): Uint8Array {
     const isNeg = x < 0n;
     if (isNeg) {
-        const len = (-x).toString(16).length;
-        const bits = (len + len % 2) * 4;
+        const len = log2(-x);
+        const bits = len + (8 - len % 8);
         const pow2 = (1n << BigInt(bits));
         x = x + pow2; // two's complement
     }

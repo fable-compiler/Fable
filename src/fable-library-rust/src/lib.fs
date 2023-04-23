@@ -17,6 +17,7 @@ let _imports() =
     importAll "./HashSet.rs"
     importAll "./Interop.rs"
     importAll "./Native.rs"
+    importAll "./Numeric.rs"
     importAll "./String.rs"
     importAll "./TimeSpan.rs"
     ()

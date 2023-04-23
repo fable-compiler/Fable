@@ -43,8 +43,17 @@ export function equals(x: Decimal, y: Decimal) {
   return !x.cmp(y);
 }
 
-export function abs(x: Decimal) {
-  return x.abs();
+export function abs(x: Decimal) { return x.abs(); }
+export function sign(x: Decimal): number { return x < get_Zero ? -1 : x > get_Zero ? 1 : 0; }
+
+export function max(x: Decimal, y: Decimal): Decimal { return x > y ? x : y; }
+export function min(x: Decimal, y: Decimal): Decimal { return x < y ? x : y; }
+
+export function maxMagnitude(x: Decimal, y: Decimal): Decimal { return abs(x) > abs(y) ? x : y; }
+export function minMagnitude(x: Decimal, y: Decimal): Decimal { return abs(x) < abs(y) ? x : y; }
+
+export function clamp(x: Decimal, min: Decimal, max: Decimal): Decimal {
+  return x < min ? min : x > max ? max : x;
 }
 
 export function round(x: Decimal, digits: number = 0) {
