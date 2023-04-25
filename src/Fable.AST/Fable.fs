@@ -121,6 +121,7 @@ type MemberFunctionOrValue =
     abstract DeclaringEntity: EntityRef option
     abstract ApparentEnclosingEntity: EntityRef option
     abstract ImplementedAbstractSignatures: AbstractSignature seq
+    abstract XmlDoc: string option
 
 type Entity =
     abstract Ref: EntityRef
@@ -321,6 +322,7 @@ type GeneratedMember =
         member _.Attributes = []
         member _.ApparentEnclosingEntity = None
         member _.ImplementedAbstractSignatures = []
+        member _.XmlDoc = None
 
 type ObjectExprMember = {
     Name: string

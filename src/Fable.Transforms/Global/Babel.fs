@@ -119,7 +119,8 @@ type Declaration =
         superClass: SuperClass option *
         implements: TypeAnnotation array *
         typeParameters: TypeParameter array *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
     | VariableDeclaration of
         var: VariableDeclaration
     | FunctionDeclaration of
@@ -128,7 +129,8 @@ type Declaration =
         id: Identifier *
         returnType: TypeAnnotation option *
         typeParameters: TypeParameter array *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
     | InterfaceDeclaration of
         id: Identifier *
         members: AbstractMember array *
@@ -142,6 +144,12 @@ type Declaration =
         name: string *
         typeParameters: TypeParameter array *
         alias: TypeAnnotation
+
+    member this.JsDoc =
+        match this with
+        | ClassDeclaration(_, _, _, _, _, _, doc)
+        | FunctionDeclaration(_, _, _, _, _, _, doc) -> doc
+        | _ -> None
 
 /// A module import or export declaration.
 type ModuleDeclaration =
@@ -309,17 +317,18 @@ type VariableDeclaration =
 //    member _.Argument: Expression = argument
 
 type AbstractMember =
-    | AbstractProperty of key: Expression * returnType: TypeAnnotation * isComputed: bool * isOptional: bool
+    | AbstractProperty of key: Expression * returnType: TypeAnnotation * isComputed: bool * isOptional: bool * doc: string option
     | AbstractMethod of
         kind: ObjectMethodKind *
         key: Expression *
         parameters: Parameter array *
         returnType: TypeAnnotation *
         typeParameters: TypeParameter array *
-        isComputed: bool
+        isComputed: bool *
+        doc: string option
 
 type ObjectMember =
-    | ObjectProperty of key: Expression * value: Expression * isComputed: bool
+    | ObjectProperty of key: Expression * value: Expression * isComputed: bool * doc: string option
     | ObjectMethod of
         kind: ObjectMethodKind *
         key: Expression *
@@ -328,7 +337,8 @@ type ObjectMember =
         isComputed: bool *
         returnType: TypeAnnotation option *
         typeParameters: TypeParameter array *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
 
 //    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
@@ -377,7 +387,8 @@ type ClassMember =
         isAbstract: bool *
         returnType: TypeAnnotation option *
         typeParameters: TypeParameter array *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
     | ClassProperty of
         key: Expression *
         value: Expression option *
@@ -386,7 +397,9 @@ type ClassMember =
         isOptional: bool *
         typeAnnotation: TypeAnnotation option *
         accessModifier: AccessModifier option *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
+
 
 type ClassMethodKind =
     | ClassPrimaryConstructor of AccessModifier[]
@@ -498,7 +511,7 @@ module Helpers =
             LogicalExpression(left, operator, right, loc)
         static member objectExpression(properties, ?loc) = ObjectExpression(properties, loc)
         static member newExpression(callee, args, ?typeArguments, ?loc) = NewExpression(callee, args, defaultArg typeArguments [||], loc)
-        /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
+        /// A fat arrow function expression, e.g., let foo = (bar) => { body }
         static member arrowFunctionExpression(parameters, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
             ArrowFunctionExpression(parameters, body, returnType, defaultArg typeParameters [||], loc)
         static member arrowFunctionExpression(parameters, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
@@ -617,10 +630,10 @@ module Helpers =
         static member variableDeclaration(kind, var, ?annotation, ?typeParameters, ?init, ?loc) =
             VariableDeclaration.variableDeclaration(kind, var, ?annotation=annotation, ?typeParameters=typeParameters, ?init=init, ?loc=loc)
             |> Declaration.VariableDeclaration
-        static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc) =
-            FunctionDeclaration(parameters, body, id, returnType, defaultArg typeParameters [||], loc)
-        static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
-            ClassDeclaration(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc)
+        static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc, ?doc) =
+            FunctionDeclaration(parameters, body, id, returnType, defaultArg typeParameters [||], loc, doc)
+        static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc, ?doc) =
+            ClassDeclaration(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc, doc)
         static member interfaceDeclaration(id, body, ?extends, ?typeParameters): Declaration = // ?mixins_,
             InterfaceDeclaration(id, body, defaultArg extends [||], defaultArg typeParameters [||])
         static member enumDeclaration(name, cases, ?isConst) =
@@ -646,11 +659,11 @@ module Helpers =
             FunctionTypeParam(name, typeInfo, defaultArg isOptional false)
 
     type ClassMember with
-        static member classMethod(kind, parameters, body, ?isStatic, ?isAbstract, ?returnType, ?typeParameters, ?loc) : ClassMember =
-            ClassMethod(kind, parameters, body, defaultArg isStatic false, defaultArg isAbstract false, returnType, defaultArg typeParameters [||], loc)
-        static member classProperty(key, ?value, ?isComputed, ?isStatic, ?isOptional, ?typeAnnotation, ?accessModifier, ?loc): ClassMember =
+        static member classMethod(kind, parameters, body, ?isStatic, ?isAbstract, ?returnType, ?typeParameters, ?loc, ?doc) : ClassMember =
+            ClassMethod(kind, parameters, body, defaultArg isStatic false, defaultArg isAbstract false, returnType, defaultArg typeParameters [||], loc, doc)
+        static member classProperty(key, ?value, ?isComputed, ?isStatic, ?isOptional, ?typeAnnotation, ?accessModifier, ?loc, ?doc): ClassMember =
             let isComputed = defaultArg isComputed false
-            ClassProperty(key, value, isComputed, defaultArg isStatic false, defaultArg isOptional false, typeAnnotation, accessModifier, loc)
+            ClassProperty(key, value, isComputed, defaultArg isStatic false, defaultArg isOptional false, typeAnnotation, accessModifier, loc, doc)
 
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
@@ -672,18 +685,18 @@ module Helpers =
         static member stringLiteral(value, ?loc) = StringLiteral(value, loc)
 
     type ObjectMember with
-        static member objectProperty(key, value, ?isComputed) = // ?shorthand_,
+        static member objectProperty(key, value, ?isComputed, ?doc) = // ?shorthand_,
             let isComputed = defaultArg isComputed false
-            ObjectProperty(key, value, isComputed)
-        static member objectMethod(kind, key, parameters, body, ?isComputed, ?returnType, ?typeParameters, ?loc) =
+            ObjectProperty(key, value, isComputed, doc)
+        static member objectMethod(kind, key, parameters, body, ?isComputed, ?returnType, ?typeParameters, ?loc, ?doc) =
             let isComputed = defaultArg isComputed false
-            ObjectMethod(kind, key, parameters, body, isComputed, returnType, defaultArg typeParameters [||], loc)
+            ObjectMethod(kind, key, parameters, body, isComputed, returnType, defaultArg typeParameters [||], loc, doc)
 
     type AbstractMember with
-        static member abstractProperty(key, typ, ?isComputed, ?isOptional) =
-            AbstractProperty(key, typ, defaultArg isComputed false, defaultArg isOptional false)
-        static member abstractMethod(kind, key, parameters, returnType, ?typeParameters, ?isComputed) =
-            AbstractMethod(kind, key, parameters, returnType, defaultArg typeParameters [||], defaultArg isComputed false)
+        static member abstractProperty(key, typ, ?isComputed, ?isOptional, ?doc) =
+            AbstractProperty(key, typ, defaultArg isComputed false, defaultArg isOptional false, doc)
+        static member abstractMethod(kind, key, parameters, returnType, ?typeParameters, ?isComputed, ?doc) =
+            AbstractMethod(kind, key, parameters, returnType, defaultArg typeParameters [||], defaultArg isComputed false, doc)
 
     type ModuleDeclaration with
         static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)

@@ -255,6 +255,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.ImplementedAbstractSignatures = m.ImplementedAbstractSignatures |> Seq.map (fun s -> FsAbstractSignature(s))
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity |> Some
         member _.DeclaringEntity = m.DeclaringEntity |> Option.map FsEnt.Ref
+        member _.XmlDoc = TypeHelpers.tryGetXmlDoc m.XmlDoc
 
 type FsEnt(maybeAbbrevEnt: FSharpEntity) =
     let ent = Helpers.nonAbbreviatedDefinition maybeAbbrevEnt
@@ -1199,7 +1200,7 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | fullName when tdef.IsMeasure -> Fable.Measure fullName
-            | _ when hasAttribute Atts.stringEnum tdef.Attributes -> Fable.String
+            | _ when hasAttribute Atts.stringEnum tdef.Attributes && Compiler.Language <> TypeScript -> Fable.String
             | _ ->
                 let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
                 Fable.DeclaredType(FsEnt.Ref tdef, genArgs)

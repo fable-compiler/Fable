@@ -42,11 +42,12 @@ type Context =
     ScopedTypeParams: Set<string>
     ForcedIdents: Set<string> }
 
-type ModuleDecl(name, ?isPublic, ?isMutable, ?typ) =
+type ModuleDecl(name, ?isPublic, ?isMutable, ?typ, ?doc) =
     member _.Name: string = name
     member _.IsPublic = defaultArg isPublic false
     member _.IsMutable = defaultArg isMutable false
     member _.Type = defaultArg typ Fable.Any
+    member _.JsDoc: string option = doc
 
 type IBabelCompiler =
     inherit Compiler
@@ -634,8 +635,9 @@ module Annotation =
         | [genArg], EntFullName Types.nullable ->
             makeNullableTypeAnnotation com ctx genArg
 
-        | _, Patterns.Try (Util.tryFindAnyEntAttribute [Atts.erase; Atts.tsTaggedUnion]) (erasedAtt: Fable.Attribute) ->
-            if erasedAtt.Entity.FullName = Atts.erase && ent.IsFSharpUnion then
+        | _, Patterns.Try (Util.tryFindAnyEntAttribute [Atts.erase; Atts.stringEnum; Atts.tsTaggedUnion]) (attFullName, attArgs) ->
+            match attFullName with
+            | Atts.erase when ent.IsFSharpUnion ->
                 let genArgs =
                     List.zip ent.GenericParameters genArgs
                     |> List.map (fun (p, a) -> p.Name, a)
@@ -654,8 +656,22 @@ module Annotation =
                 | [uci] -> transformSingleFieldType uci
                 | ucis -> ucis |> List.mapToArray transformSingleFieldType |> UnionTypeAnnotation
 
+            | Atts.stringEnum when ent.IsFSharpUnion ->
+                let rule =
+                    match List.tryHead attArgs with
+                    | Some (:? int as rule ) -> enum<Core.CaseRules>(rule)
+                    | _ -> Core.CaseRules.LowerFirst
+                ent.UnionCases
+                |> List.mapToArray (fun uci ->
+                    match uci.CompiledName with
+                    | Some name -> name
+                    | None -> Naming.applyCaseRule rule uci.Name
+                    |> Literal.stringLiteral
+                    |> LiteralTypeAnnotation)
+                |> UnionTypeAnnotation
+
             // TODO: tsTaggedUnion
-            else AnyTypeAnnotation
+            | _ -> AnyTypeAnnotation
 
         | _, Patterns.Try (tryNativeOrFableLibraryInterface com ctx genArgs) ta -> ta
 
@@ -1410,15 +1426,15 @@ module Util =
         else
             let classMembers =
                 members |> List.choose (function
-                    | ObjectProperty(key, value, isComputed) ->
-                        ClassMember.classProperty(key, value, isComputed=isComputed) |> Some
-                    | ObjectMethod(kind, key, parameters, body, isComputed, returnType, typeParameters, _) ->
+                    | ObjectProperty(key, value, isComputed, doc) ->
+                        ClassMember.classProperty(key, value, isComputed=isComputed, ?doc=doc) |> Some
+                    | ObjectMethod(kind, key, parameters, body, isComputed, returnType, typeParameters, _, doc) ->
                         let kind =
                             match kind with
                             | ObjectGetter -> ClassGetter(key, isComputed)
                             | ObjectSetter -> ClassSetter(key, isComputed)
                             | _ -> ClassFunction(key, isComputed)
-                        ClassMember.classMethod(kind, parameters, body, ?returnType=returnType, typeParameters=typeParameters) |> Some)
+                        ClassMember.classMethod(kind, parameters, body, ?returnType=returnType, typeParameters=typeParameters, ?doc=doc) |> Some)
 
             let baseExpr, classMembers =
                 baseCall
@@ -1697,17 +1713,22 @@ module Util =
 
     let rec transformIfStatement (com: IBabelCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
         match com.TransformAsExpr(ctx, guardExpr) with
-        | Literal(BooleanLiteral(value=value)) when value ->
-            com.TransformAsStatements(ctx, ret, thenStmnt)
-        | Literal(BooleanLiteral(value=value)) when not value ->
-            com.TransformAsStatements(ctx, ret, elseStmnt)
-        | guardExpr ->
-            let thenStmnt = transformBlock com ctx ret thenStmnt
-            match com.TransformAsStatements(ctx, ret, elseStmnt) with
-            | [||] -> Statement.ifStatement(guardExpr, thenStmnt, ?loc=r)
-            | [|elseStmnt|] -> Statement.ifStatement(guardExpr, thenStmnt, elseStmnt, ?loc=r)
-            | statements -> Statement.ifStatement(guardExpr, thenStmnt, Statement.blockStatement(statements), ?loc=r)
-            |> Array.singleton
+        // This optimization is already in FableTransforms so we can remove it
+        // or try to check if the value is JS truthy or falsy
+        | Literal(BooleanLiteral(value=value)) ->
+            let e = if value then thenStmnt else elseStmnt
+            com.TransformAsStatements(ctx, ret, e)
+        | jsGuardExpr ->
+            match tryTransformIfThenElseAsSwitch guardExpr thenStmnt elseStmnt with
+            | Some(evalExpr, cases, defaultCase) ->
+                [|transformSwitch com ctx ret evalExpr cases (Some defaultCase)|]
+            | _ ->
+                let thenStmnt = transformBlock com ctx ret thenStmnt
+                match com.TransformAsStatements(ctx, ret, elseStmnt) with
+                | [||] -> Statement.ifStatement(jsGuardExpr, thenStmnt, ?loc=r)
+                | [|elseStmnt|] -> Statement.ifStatement(jsGuardExpr, thenStmnt, elseStmnt, ?loc=r)
+                | statements -> Statement.ifStatement(jsGuardExpr, thenStmnt, Statement.blockStatement(statements), ?loc=r)
+                |> Array.singleton
 
     let transformGet (com: IBabelCompiler) ctx range typ fableExpr kind =
         match kind with
@@ -1839,10 +1860,7 @@ module Util =
             let actual = getUnionExprTag com ctx None expr
             Expression.binaryExpression(BinaryEqual, actual, expected, ?loc=range)
 
-    let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy (evalExpr: Fable.Expr) cases defaultCase: Statement =
-        let consequent caseBody =
-            if useBlocks then [|Statement.blockStatement(caseBody)|] else caseBody
-
+    let transformSwitch (com: IBabelCompiler) ctx returnStrategy (evalExpr: Fable.Expr) cases defaultCase: Statement =
         let transformGuard = function
             | Fable.Test(expr, Fable.UnionCaseTest tag, range) ->
                 transformUnionCaseTag com range expr.Type tag
@@ -1862,14 +1880,14 @@ module Util =
                         match returnStrategy with
                         | Some Return -> caseBody
                         | _ -> Array.append caseBody [|Statement.breakStatement()|]
-                    guards @ [SwitchCase.switchCase(transformGuard lastGuard, consequent caseBody)]
+                    guards @ [SwitchCase.switchCase(transformGuard lastGuard, [|Statement.blockStatement(caseBody)|])]
                 )
 
         let cases =
             match defaultCase with
             | Some expr ->
                 let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-                cases @ [SwitchCase.switchCase(body=consequent defaultCaseBody)]
+                cases @ [SwitchCase.switchCase(body=[|Statement.blockStatement(defaultCaseBody)|])]
             | None -> cases
 
         Statement.switchStatement(com.TransformAsExpr(ctx, evalExpr), List.toArray cases)
@@ -1921,7 +1939,7 @@ module Util =
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
             Array.append bindings (com.TransformAsStatements(ctx, ret, target))
 
-    let transformDecisionTreeAsSwitch expr =
+    let tryTransformIfThenElseAsSwitch guardExpr thenExpr elseExpr: (Fable.Expr * (Fable.Expr list * Fable.Expr) list * Fable.Expr) option =
         let (|Equals|_|) = function
             | Fable.Operation(Fable.Binary(BinaryEqual, left, right), _, _, _) ->
                 match left, right with
@@ -1932,31 +1950,41 @@ module Util =
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
                 Some(evalExpr, right)
             | _ -> None
-        let sameEvalExprs evalExpr1 evalExpr2 =
+
+        let rec sameEvalExprs evalExpr1 evalExpr2 =
             match evalExpr1, evalExpr2 with
-            | Fable.IdentExpr i1, Fable.IdentExpr i2
-            | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
-                i1.Name = i2.Name
-            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet fieldInfo1,_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet fieldInfo2,_,_) ->
-                i1.Name = i2.Name && fieldInfo1.Name = fieldInfo2.Name
+            | Fable.IdentExpr i1, Fable.IdentExpr i2 -> i1.Name = i2.Name
+            | Fable.Get(e1, Fable.UnionTag,_,_), Fable.Get(e2, Fable.UnionTag,_,_)
+            | Fable.Get(e1, Fable.ListHead,_,_), Fable.Get(e2, Fable.ListHead,_,_)
+            | Fable.Get(e1, Fable.ListTail,_,_), Fable.Get(e2, Fable.ListTail,_,_)
+            | Fable.Get(e1, Fable.OptionValue,_,_), Fable.Get(e2, Fable.OptionValue,_,_) ->
+                sameEvalExprs e1 e2
+            | Fable.Get(e1, Fable.FieldGet f1,_,_), Fable.Get(e2, Fable.FieldGet f2,_,_) ->
+                f1.Name = f2.Name && sameEvalExprs e1 e2
+            | Fable.Get(e1, Fable.UnionField f1,_,_), Fable.Get(e2, Fable.UnionField f2,_,_) ->
+                f1.CaseIndex = f2.CaseIndex && f1.FieldIndex = f2.FieldIndex && sameEvalExprs e1 e2
             | _ -> false
+
         let rec checkInner cases evalExpr = function
-            | Fable.IfThenElse(Equals(evalExpr2, caseExpr),
-                               Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr, _)
-                                    when sameEvalExprs evalExpr evalExpr2 ->
-                match treeExpr with
-                | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
-                    let cases = (caseExpr, targetIndex, boundValues)::cases |> List.rev
-                    Some(evalExpr, cases, (defaultTargetIndex, defaultBoundValues))
-                | treeExpr -> checkInner ((caseExpr, targetIndex, boundValues)::cases) evalExpr treeExpr
+            | Fable.IfThenElse(Equals(evalExpr2, caseExpr), thenExpr, elseExpr, _) when sameEvalExprs evalExpr evalExpr2 ->
+                checkInner ((caseExpr, thenExpr)::cases) evalExpr elseExpr
+            | defaultCase when List.isMultiple cases ->
+                Some(evalExpr, List.rev cases, defaultCase)
             | _ -> None
-        match expr with
-        | Fable.IfThenElse(Equals(evalExpr, caseExpr),
-                           Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr, _) ->
-            match checkInner [caseExpr, targetIndex, boundValues] evalExpr treeExpr with
+
+        match guardExpr with
+        | Equals(evalExpr, caseExpr) ->
+            match checkInner [caseExpr, thenExpr] evalExpr elseExpr with
             | Some(evalExpr, cases, defaultCase) ->
+                let cases = groupSwitchCases cases defaultCase
                 Some(evalExpr, cases, defaultCase)
             | None -> None
+        | _ -> None
+
+    let tryTransformAsSwitch expr =
+        match expr with
+        | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, _) ->
+            tryTransformIfThenElseAsSwitch guardExpr thenExpr elseExpr
         | _ -> None
 
     let transformDecisionTreeAsExpr (com: IBabelCompiler) (ctx: Context) targets expr: Expression =
@@ -1964,53 +1992,57 @@ module Util =
         let ctx = { ctx with DecisionTargets = targets }
         com.TransformAsExpr(ctx, expr)
 
-    let groupSwitchCases t (cases: (Fable.Expr * int * Fable.Expr list) list) (defaultIndex, defaultBoundValues) =
-        cases
-        |> List.groupBy (fun (_,idx,boundValues) ->
-            // Try to group cases with some target index and empty bound values
-            // If bound values are non-empty use also a non-empty Guid to prevent grouping
-            if List.isEmpty boundValues
-            then idx, System.Guid.Empty
-            else idx, System.Guid.NewGuid())
-        |> List.map (fun ((idx,_), cases) ->
-            let caseExprs = cases |> List.map Tuple3.item1
-            // If there are multiple cases, it means boundValues are empty
-            // (see `groupBy` above), so it doesn't mind which one we take as reference
-            let boundValues = cases |> List.head |> Tuple3.item3
-            caseExprs, Fable.DecisionTreeSuccess(idx, boundValues, t))
-        |> function
-            | [] -> []
-            // Check if the last case can also be grouped with the default branch, see #2357
-            | cases when List.isEmpty defaultBoundValues ->
-                match List.splitLast cases with
-                | cases, (_, Fable.DecisionTreeSuccess(idx, [], _))
-                    when idx = defaultIndex -> cases
-                | _ -> cases
-            | cases -> cases
+    let groupSwitchCases (cases: (Fable.Expr * Fable.Expr) list) defaultCase =
+        let canBeGrouped, cannotBeGrouped =
+            cases |> List.partition (function _, Fable.DecisionTreeSuccess(_,[], _) -> true | _ -> false)
+
+        let grouped =
+            canBeGrouped
+            |> List.groupBy (function
+                | _, Fable.DecisionTreeSuccess(idx,_,_) -> idx
+                | _ -> failwith "unexpected group candidate")
+            |> List.map (fun (_, cases) ->
+                let caseExprs = cases |> List.map fst
+                caseExprs, List.head cases |> snd)
+
+        let cases =
+            if grouped |> List.exists (fst >> List.isMultiple)
+            then grouped @ List.map (fun (e, b) -> [e], b) cannotBeGrouped
+            else List.map (fun (e, b) -> [e], b) cases
+
+        match defaultCase with
+        // Remove cases that can be grouped with the default branch, see #2357
+        | Fable.DecisionTreeSuccess(defaultIndex, [], _) ->
+            cases |> List.filter (function
+                | _, Fable.DecisionTreeSuccess(idx, [], _) -> idx <> defaultIndex
+                | _ -> true)
+        | _ -> cases
 
     let getTargetsWithMultipleReferences expr =
-        let rec findSuccess (targetRefs: Map<int,int>) = function
-            | [] -> targetRefs
-            | expr::exprs ->
-                match expr with
-                // We shouldn't actually see this, but shortcircuit just in case
-                | Fable.DecisionTree _ ->
-                    findSuccess targetRefs exprs
-                | Fable.DecisionTreeSuccess(idx,_,_) ->
-                    let count =
-                        Map.tryFind idx targetRefs
-                        |> Option.defaultValue 0
-                    let targetRefs = Map.add idx (count + 1) targetRefs
-                    findSuccess targetRefs exprs
-                | expr ->
-                    let exprs2 = getSubExpressions expr
-                    findSuccess targetRefs (exprs @ exprs2)
-        findSuccess Map.empty [expr] |> Seq.choose (fun kv ->
-            if kv.Value > 1 then Some kv.Key else None) |> Seq.toList
+        let rec mergeSuccess targetRefs exprs =
+            (targetRefs, exprs) ||> List.fold findSuccess
+
+        and findSuccess (targetRefs: Map<int,int>) = function
+            | Fable.DecisionTreeSuccess(idx,_,_) ->
+                let count =
+                    Map.tryFind idx targetRefs
+                    |> Option.defaultValue 0
+                Map.add idx (count + 1) targetRefs
+
+            | Fable.Let(_, _, body) -> [body] |> mergeSuccess targetRefs
+            | Fable.IfThenElse(_cond, thenExpr, elseExpr, _) -> [thenExpr; elseExpr] |> mergeSuccess targetRefs
+            //| Fable.LetRec(_, body) -> [body] |> mergeSuccess targetRefs
+            //| Fable.Sequential exprs -> exprs |> List.tryLast |> Option.toList |> mergeSuccess targetRefs
+            //| Fable.TryCatch(body, catch, _finalizer, _) -> body::(catch |> Option.map snd |> Option.toList) |> mergeSuccess targetRefs
+            | _ -> targetRefs
+
+        findSuccess Map.empty expr
+        |> Seq.chooseToList (fun kv ->
+            if kv.Value > 1 then Some kv.Key else None)
 
     /// When several branches share target create first a switch to get the target index and bind value
     /// and another to execute the actual target
-    let transformDecisionTreeWithTwoSwitches (com: IBabelCompiler) ctx returnStrategy (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
+    let transformDecisionTreeWithExtraSwitch (com: IBabelCompiler) ctx returnStrategy (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
         // Declare target and bound idents
         let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty))
         let boundIdents = targets |> List.collect (fun (idents,_) ->
@@ -2029,7 +2061,7 @@ module Util =
                     | _ ->
                         let cases, (_, defaultCase) = List.splitLast cases
                         cases, Some defaultCase
-                false, [|transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases defaultCase|]
+                false, [|transformSwitch com ctx returnStrategy (targetId |> Fable.IdentExpr) cases defaultCase|]
 
         let targetId, multiVarDecl =
             if singleCase
@@ -2039,33 +2071,19 @@ module Util =
         // Transform decision tree
         let targetAssign = Target(identAsIdent targetId)
         let ctx = { ctx with DecisionTargets = targets }
-        match transformDecisionTreeAsSwitch treeExpr with
-        | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let cases = groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
-            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
-            let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
-            [|multiVarDecl; switch1; yield! switch2|]
-        | None ->
-            let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
-            [| yield multiVarDecl; yield! decisionTree; yield! switch2 |]
+        let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
+        [| yield multiVarDecl; yield! decisionTree; yield! switch2 |]
 
     let transformDecisionTreeAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement[] =
-        // If some targets are referenced multiple times, hoist bound idents,
-        // resolve the decision index and compile the targets as a switch
-        let targetsWithMultiRefs = getTargetsWithMultipleReferences treeExpr
-        match targetsWithMultiRefs with
+
+        match getTargetsWithMultipleReferences treeExpr with
         | [] ->
             let ctx = { ctx with DecisionTargets = targets }
-            match transformDecisionTreeAsSwitch treeExpr with
-            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-                let t = treeExpr.Type
-                let cases = cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
-                    [caseExpr], Fable.DecisionTreeSuccess(targetIndex, boundValues, t))
-                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
-                [|transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)|]
-            | None ->
-                com.TransformAsStatements(ctx, returnStrategy, treeExpr)
+            com.TransformAsStatements(ctx, returnStrategy, treeExpr)
+
+        // If some targets are referenced multiple times, hoist bound idents,
+        // resolve the decision index and compile the targets as a switch
         | targetsWithMultiRefs ->
             // If the bound idents are not referenced in the target, remove them
             let targets =
@@ -2075,21 +2093,17 @@ module Util =
                     |> function
                         | true -> idents, expr
                         | false -> [], expr)
+
             let hasAnyTargetWithMultiRefsBoundValues =
                 targetsWithMultiRefs |> List.exists (fun idx ->
                     targets[idx] |> fst |> List.isEmpty |> not)
-            if not hasAnyTargetWithMultiRefsBoundValues then
-                match transformDecisionTreeAsSwitch treeExpr with
-                | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-                    let t = treeExpr.Type
-                    let cases = groupSwitchCases t cases (defaultIndex, defaultBoundValues)
-                    let ctx = { ctx with DecisionTargets = targets }
-                    let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
-                    [|transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)|]
-                | None ->
-                    transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
-            else
-                transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
+
+            match tryTransformAsSwitch treeExpr with
+            | Some (evalExpr, cases, defaultCase) when not hasAnyTargetWithMultiRefsBoundValues ->
+                let ctx = { ctx with DecisionTargets = targets }
+                [|transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)|]
+            | _ ->
+                transformDecisionTreeWithExtraSwitch com ctx returnStrategy targets treeExpr
 
     let transformIdent (com: IBabelCompiler) ctx id =
         let e = identAsExpr id
@@ -2380,7 +2394,8 @@ module Util =
                 body,
                 id = Identifier.identifier(info.Name),
                 ?returnType = returnType,
-                typeParameters = typeParameters)
+                typeParameters = typeParameters,
+                ?doc = info.JsDoc)
         | _ ->
             let kind = if info.IsMutable then Let else Const
             let annotation =
@@ -2478,9 +2493,13 @@ module Util =
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
-    let tryFindAnyEntAttribute fullNames (ent: Fable.Entity) =
+    let tryFindAnyEntAttribute fullNames (ent: Fable.Entity): (string * obj list) option =
         let fullNames = set fullNames
-        ent.Attributes |> Seq.tryFind (fun att -> Set.contains att.Entity.FullName fullNames)
+        ent.Attributes |> Seq.tryPick (fun att ->
+            let fullName = att.Entity.FullName
+            if Set.contains fullName fullNames
+            then Some(fullName, att.ConstructorArgs)
+            else None)
 
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberFunctionOrValue) (membName: string) (args: Fable.Ident list) body =
         let isJsx = hasAttribute Atts.jsxComponent info.Attributes
@@ -2766,7 +2785,7 @@ module Util =
             |> Array.map (fun info ->
                 let prop, isComputed = memberFromName info.DisplayName
                 let isOptional, typ = makeAbstractPropertyAnnotation com ctx info.ReturnParameter.Type
-                AbstractMember.abstractProperty(prop, typ, isComputed=isComputed, isOptional=isOptional))
+                AbstractMember.abstractProperty(prop, typ, isComputed=isComputed, isOptional=isOptional, ?doc=info.XmlDoc))
 
         let methods =
             methods
@@ -2801,7 +2820,8 @@ module Util =
 
                 let returnType = makeTypeAnnotation com ctx info.ReturnParameter.Type
 
-                AbstractMember.abstractMethod(ObjectMeth, prop, args, returnType=returnType, typeParameters=typeParams, isComputed=isComputed))
+                AbstractMember.abstractMethod(ObjectMeth, prop, args,
+                    returnType=returnType, typeParameters=typeParams, isComputed=isComputed, ?doc=info.XmlDoc))
 
         let members = Array.append getters methods
 
@@ -2854,14 +2874,14 @@ module Util =
                 let decls =
                     match valueExpr with
                     | Some value ->
-                        ModuleDecl(decl.Name, isPublic=info.IsPublic, isMutable=info.IsMutable, typ=decl.Body.Type)
+                        ModuleDecl(decl.Name, isPublic=info.IsPublic, isMutable=info.IsMutable, typ=decl.Body.Type, ?doc=decl.XmlDoc)
                         |> declareModuleMember com ctx value
                         |> List.singleton
                     | None ->
                         let expr = transformModuleFunction com ctx info decl.Name decl.Args decl.Body
                         if hasAttribute Atts.entryPoint info.Attributes
                         then [declareEntryPoint com ctx expr]
-                        else [ModuleDecl(decl.Name, isPublic=info.IsPublic)|> declareModuleMember com ctx expr]
+                        else [ModuleDecl(decl.Name, isPublic=info.IsPublic, ?doc=decl.XmlDoc)|> declareModuleMember com ctx expr]
 
                 let isDefaultExport =
                     List.contains "export-default" decl.Tags || (
