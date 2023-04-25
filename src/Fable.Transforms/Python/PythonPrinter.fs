@@ -295,13 +295,7 @@ module PrinterExtensions =
 
         member printer.Print(node: UnaryOp) =
             printer.AddLocation(node.Loc)
-
-            match node.Op with
-            | USub
-            | UAdd
-            | Not
-            | Invert -> printer.Print(node.Op)
-
+            printer.Print(node.Op)
             printer.ComplexExpressionWithParens(node.Operand)
 
         member printer.Print(node: FormattedValue) = printer.Print("(FormattedValue)")
