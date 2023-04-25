@@ -1987,6 +1987,11 @@ module Util =
             | None -> None
         | _ -> None
 
+    let tryTransformAsSwitch = function
+        | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, _) ->
+            tryTransformIfThenElseAsSwitch guardExpr thenExpr elseExpr
+        | _ -> None
+
     let transformDecisionTreeAsExpr (com: IBabelCompiler) (ctx: Context) targets expr: Expression =
         // TODO: Check if some targets are referenced multiple times
         let ctx = { ctx with DecisionTargets = targets }
@@ -2036,8 +2041,8 @@ module Util =
         |> Seq.chooseToList (fun kv ->
             if kv.Value > 1 then Some kv.Key else None)
 
-    /// When several branches share target create first a switch to get the target index and bind value
-    /// and another to execute the actual target
+    /// When several branches share target, first get the target index and bound values
+    /// and then add a switch to execute the actual targets
     let transformDecisionTreeWithExtraSwitch (com: IBabelCompiler) ctx returnStrategy (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
         // Declare target and bound idents
         let targetId = getUniqueNameInDeclarationScope ctx "matchResult" |> makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty))
@@ -2073,14 +2078,19 @@ module Util =
     let transformDecisionTreeAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement[] =
 
-        match getTargetsWithMultipleReferences treeExpr with
-        | [] ->
+        match getTargetsWithMultipleReferences treeExpr, treeExpr with
+        | [], _ ->
             let ctx = { ctx with DecisionTargets = targets }
             com.TransformAsStatements(ctx, returnStrategy, treeExpr)
 
-        // If some targets are referenced multiple times, hoist bound idents,
-        // resolve the decision index and put the targets in an extra switch
-        | _ -> transformDecisionTreeWithExtraSwitch com ctx returnStrategy targets treeExpr
+        // If we can compile as switch and there are no bound values, we don't need an extra switch
+        | _, Patterns.Try tryTransformAsSwitch (evalExpr, cases, defaultCase)
+                when cases |> List.forall (function _, Fable.DecisionTreeSuccess(_,[],_) -> true | _ -> false) ->
+            let ctx = { ctx with DecisionTargets = targets }
+            transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)
+
+        | _ ->
+            transformDecisionTreeWithExtraSwitch com ctx returnStrategy targets treeExpr
 
     let transformIdent (com: IBabelCompiler) ctx id =
         let e = identAsExpr id
