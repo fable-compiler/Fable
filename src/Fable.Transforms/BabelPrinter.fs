@@ -523,12 +523,33 @@ module PrinterExtensions =
                 | UnaryExpression(argument, "void", false, _loc) -> printer.Print(argument)
                 | _ -> printer.Print(expr)
 
+        member printer.PrintJsDoc(doc: string option) =
+            match doc with
+            | None -> ()
+            | Some doc ->
+                // TODO: Check docs with params, etc
+                let regex = Regex(@"<summary>([\s\S]*?)</summary>", RegexOptions.Compiled)
+                let m = regex.Match(doc)
+                if m.Success then
+                    let lines = m.Groups[1].Value.Trim().Split('\n')
+                    printer.Print("/**")
+                    printer.PrintNewLine()
+                    for line in lines do
+#if !FABLE_COMPILER
+                        let line = System.Web.HttpUtility.HtmlDecode(line)
+#endif
+                        printer.Print(" * ")
+                        printer.Print(line.Trim())
+                        printer.PrintNewLine()
+                    printer.Print(" */")
+                    printer.PrintNewLine()
+
         member printer.PrintDeclaration(decl: Declaration) =
             match decl with
-            | ClassDeclaration(body, id, superClass, implements, typeParameters, loc) ->
+            | ClassDeclaration(body, id, superClass, implements, typeParameters, loc, _doc) ->
                 printer.PrintClass(id, superClass, typeParameters, implements, body, loc)
             | Declaration.VariableDeclaration(d) -> printer.Print(d)
-            | FunctionDeclaration(parameters, body, id, returnType, typeParameters, loc) ->
+            | FunctionDeclaration(parameters, body, id, returnType, typeParameters, loc, _doc) ->
                 printer.PrintFunction(Some id, parameters, body, typeParameters, returnType, loc, isDeclaration=true)
                 printer.PrintNewLine()
             | InterfaceDeclaration(id, body, extends, typeParameters) ->
@@ -568,6 +589,7 @@ module PrinterExtensions =
                 printer.Print(" }")
                 printer.PrintOptional(source, " from ")
             | ExportNamedDeclaration(declaration) ->
+                printer.PrintJsDoc(declaration.JsDoc)
                 printer.Print("export ")
                 printer.PrintDeclaration(declaration)
             | ExportAllDeclaration(source, loc) ->
@@ -577,6 +599,9 @@ module PrinterExtensions =
                 if isProductiveStatement(statement) then
                     printer.Print(statement)
             | ExportDefaultDeclaration(declaration) ->
+                match declaration with
+                | Choice1Of2 d -> printer.PrintJsDoc(d.JsDoc)
+                | Choice2Of2 _ -> ()
                 printer.Print("export default ")
                 match declaration with
                 | Choice1Of2 x -> printer.PrintDeclaration(x)
@@ -830,7 +855,7 @@ module PrinterExtensions =
             printer.Print(") ")
             printer.Print(body)
 
-        /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
+        /// A fat arrow function expression, e.g., let foo = (bar) => { body }
         member printer.PrintArrowFunctionExpression(parameters, body, returnType, typeParameters, loc) =
             printer.PrintFunction(
                 None,
@@ -844,12 +869,15 @@ module PrinterExtensions =
 
         member printer.Print(node: ObjectMember) =
             match node with
-            | ObjectProperty(key, value, isComputed) ->
+            | ObjectProperty(key, value, isComputed, doc) ->
                 match value with
                 | UndefinedOrVoid -> ()
-                | value -> printer.PrintObjectProperty(key, value, isComputed)
+                | value ->
+                    printer.PrintJsDoc(doc)
+                    printer.PrintObjectProperty(key, value, isComputed)
 
-            | ObjectMethod(kind, key, parameters, body, isComputed, returnType, typeParameters, loc) ->
+            | ObjectMethod(kind, key, parameters, body, isComputed, returnType, typeParameters, loc, doc) ->
+                printer.PrintJsDoc(doc)
                 printer.PrintObjectMethod(kind, key, parameters, body, isComputed, returnType, typeParameters, loc)
 
         member printer.PrintObjectProperty(key, value, isComputed) =
@@ -890,7 +918,8 @@ module PrinterExtensions =
 
         member printer.Print(m: AbstractMember) =
             match m with
-            | AbstractProperty(key, returnType, isComputed, isOptional) ->
+            | AbstractProperty(key, returnType, isComputed, isOptional, doc) ->
+                printer.PrintJsDoc(doc)
                 if isComputed then
                     printer.Print("[")
                     printer.Print(key)
@@ -902,13 +931,14 @@ module PrinterExtensions =
                 printer.Print(": ")
                 printer.Print(returnType)
 
-            | AbstractMethod(kind, key, parameters, returnType, typeParameters, isComputed) ->
+            | AbstractMethod(kind, key, parameters, returnType, typeParameters, isComputed, doc) ->
                 let isSetter =
                     match kind with
                     | ObjectGetter -> printer.Print("get "); false
                     | ObjectSetter -> printer.Print("set "); true
                     | ObjectMeth -> false
 
+                printer.PrintJsDoc(doc)
                 if isComputed then
                     printer.Print("[")
                     printer.Print(key)
@@ -945,7 +975,7 @@ module PrinterExtensions =
             printer.AddLocation(loc)
             properties
             |> Array.filter (function
-                | ObjectProperty(_,UndefinedOrVoid,_) -> false
+                | ObjectProperty(_,UndefinedOrVoid,_,_) -> false
                 | _ -> true)
             |> function
                 | [||] -> printer.Print("{}")
@@ -1012,9 +1042,11 @@ module PrinterExtensions =
 
         member printer.PrintClassMember(memb: ClassMember) =
             match memb with
-            | ClassMethod(kind, parameters, body, isStatic, isAbstract, returnType, typeParameters, loc) ->
+            | ClassMethod(kind, parameters, body, isStatic, isAbstract, returnType, typeParameters, loc, doc) ->
+                printer.PrintJsDoc(doc)
                 printer.PrintClassMethod(kind, parameters, body, isStatic=isStatic, isAbstract=isAbstract, returnType=returnType, typeParameters=typeParameters, loc=loc)
-            | ClassProperty(key, value, isComputed, isStatic, isOptional, typeAnnotation, accessModifier, loc) ->
+            | ClassProperty(key, value, isComputed, isStatic, isOptional, typeAnnotation, accessModifier, loc, doc) ->
+                printer.PrintJsDoc(doc)
                 printer.PrintClassProperty(key, value, isComputed, isStatic=isStatic, isOptional=isOptional, typeAnnotation=typeAnnotation, accessModifier=accessModifier, loc=loc)
 
         member printer.PrintClassMethod(kind, parameters, body, isStatic, isAbstract, returnType, typeParameters, loc) =
