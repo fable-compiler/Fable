@@ -804,40 +804,40 @@ module PrinterExtensions =
 
 // Declarations
 
-        member printer.Print(node: VariableDeclaration) =
-            let (VariableDeclaration(declarations, kind, loc)) = node
-            let kind =
-                match kind with
-                | Var -> "var"
-                | Let -> "let"
-                | Const -> "const"
-            printer.Print(kind + " ", ?loc = loc)
-            let canConflict = declarations.Length > 1
+        member printer.Print(VariableDeclaration(declarations, kind, loc)) =
+            if declarations.Length > 0 then
+                let kind =
+                    match kind with
+                    | Var -> "var"
+                    | Let -> "let"
+                    | Const -> "const"
+                printer.Print(kind + " ", ?loc = loc)
+                let canConflict = declarations.Length > 1
 
-            for i = 0 to declarations.Length - 1 do
-                let (VariableDeclarator(name, annotation, typeParams, init)) = declarations[i]
-                printer.Print(name)
-                // In some situations when inlining functions it may happen that a unit argument is assigned a value
-                // (see "Unit expression arguments are not removed" in ApplicativeTests). To prevent the TypeScript
-                // compiler from complaining we replace `void` type with `any`.
-                let annotation = annotation |> Option.map (function VoidTypeAnnotation -> AnyTypeAnnotation | t -> t)
-                printer.PrintOptional(annotation, (fun p a ->
-                    match a with
-                    | FunctionTypeAnnotation(parameters, returnType, spread) ->
-                        p.PrintFunctionTypeAnnotation(parameters, returnType, typeParams, ?spread=spread)
-                    | _ ->
-                        p.Print(typeParams)
-                        p.Print(a)
-                ), ": ")
+                for i = 0 to declarations.Length - 1 do
+                    let (VariableDeclarator(name, annotation, typeParams, init)) = declarations[i]
+                    printer.Print(name)
+                    // In some situations when inlining functions it may happen that a unit argument is assigned a value
+                    // (see "Unit expression arguments are not removed" in ApplicativeTests). To prevent the TypeScript
+                    // compiler from complaining we replace `void` type with `any`.
+                    let annotation = annotation |> Option.map (function VoidTypeAnnotation -> AnyTypeAnnotation | t -> t)
+                    printer.PrintOptional(annotation, (fun p a ->
+                        match a with
+                        | FunctionTypeAnnotation(parameters, returnType, spread) ->
+                            p.PrintFunctionTypeAnnotation(parameters, returnType, typeParams, ?spread=spread)
+                        | _ ->
+                            p.Print(typeParams)
+                            p.Print(a)
+                    ), ": ")
 
-                match init with
-                | None -> ()
-                | Some e ->
-                    printer.Print(" = ")
-                    if canConflict then printer.ComplexExpressionWithParens(e)
-                    else printer.Print(e)
-                if i < declarations.Length - 1 then
-                    printer.Print(", ")
+                    match init with
+                    | None -> ()
+                    | Some e ->
+                        printer.Print(" = ")
+                        if canConflict then printer.ComplexExpressionWithParens(e)
+                        else printer.Print(e)
+                    if i < declarations.Length - 1 then
+                        printer.Print(", ")
 
         member printer.PrintWhileStatement(test, body, loc) =
             printer.Print("while (", ?loc = loc)
