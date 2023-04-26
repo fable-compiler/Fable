@@ -1203,8 +1203,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | Patterns.SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i.CompiledName args |> Some
     // Type info
-    | "TypeOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeInfo r |> Some
-    | "TypeDefOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeDefinitionInfo r |> Some
+    | "TypeOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeInfo (fixInlineRange ctx.InlinePath r) |> Some
+    | "TypeDefOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeDefinitionInfo (fixInlineRange ctx.InlinePath r) |> Some
     | _ -> None
 
 let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2147,7 +2147,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         if arg.Type = Any then
             "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
             |> addWarning com ctx.InlinePath r
-        makeTypeInfo r arg.Type |> Some
+        makeTypeInfo (fixInlineRange ctx.InlinePath r) arg.Type |> Some
     | _ -> None
 
 let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2758,7 +2758,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                             Some(ifc.Entity, genArgs)
                         else None)
                     |> function
-                        | Some(ifcEnt, genArgs) -> DeclaredType(ifcEnt, genArgs) |> makeTypeInfo r
+                        | Some(ifcEnt, genArgs) -> DeclaredType(ifcEnt, genArgs) |> makeTypeInfo (fixInlineRange ctx.InlinePath r)
                         | None -> Value(Null t, r))
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
             | "get_Namespace" -> getTypeFullName false exprType |> splitFullName |> fst |> returnString r
@@ -2771,12 +2771,12 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 |> BoolConstant |> makeValue r |> Some
             | "GetElementType" ->
                 match exprType with
-                | Array(t,_) -> makeTypeInfo r t |> Some
+                | Array(t,_) -> makeTypeInfo (fixInlineRange ctx.InlinePath r) t |> Some
                 | _ -> Null t |> makeValue r |> Some
             | "get_IsGenericType" ->
                 List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
             | "get_GenericTypeArguments" | "GetGenericArguments" ->
-                let arVals = exprType.Generics |> List.map (makeTypeInfo r)
+                let arVals = exprType.Generics |> List.map (makeTypeInfo (fixInlineRange ctx.InlinePath r))
                 NewArray(ArrayValues arVals, Any, MutableArray) |> makeValue r |> Some
             | "GetGenericTypeDefinition" ->
                 let newGen = exprType.Generics |> List.map (fun _ -> Any)
@@ -2794,7 +2794,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                     | Tuple (_, isStruct) -> Tuple(newGen, isStruct)
                     | DeclaredType (ent, _) -> DeclaredType(ent, newGen)
                     | t -> t
-                makeTypeInfo exprRange exprType |> Some
+                makeTypeInfo (fixInlineRange ctx.InlinePath exprRange) exprType |> Some
             | _ -> None
         |  _ -> None
     match resolved, thisArg with
