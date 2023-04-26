@@ -2078,14 +2078,22 @@ module Util =
     let transformDecisionTreeAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement[] =
 
+        let doesNotNeedExtraSwitch cases defaultCase =
+            (Some Map.empty, defaultCase::(cases |> List.map snd))
+            ||> List.fold (fun map case ->
+                match map, case with
+                | Some map, Fable.DecisionTreeSuccess(_,[],_) -> Some map
+                | Some map, Fable.DecisionTreeSuccess(idx,_,_) -> map |> Map.change idx (fun i -> (defaultArg i 0) + 1 |> Some) |> Some
+                | _ -> None)
+            |> function Some map -> Map.forall (fun _ count -> count = 1) map | _ -> false
+
         match getTargetsWithMultipleReferences treeExpr, treeExpr with
         | [], _ ->
             let ctx = { ctx with DecisionTargets = targets }
             com.TransformAsStatements(ctx, returnStrategy, treeExpr)
 
         // If we can compile as switch and there are no bound values, we don't need an extra switch
-        | _, Patterns.Try tryTransformAsSwitch (evalExpr, cases, defaultCase)
-                when cases |> List.forall (function _, Fable.DecisionTreeSuccess(_,[],_) -> true | _ -> false) ->
+        | _, Patterns.Try tryTransformAsSwitch (evalExpr, cases, defaultCase) when doesNotNeedExtraSwitch cases defaultCase ->
             let ctx = { ctx with DecisionTargets = targets }
             transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)
 
