@@ -252,6 +252,9 @@ let getElementType = function
 let genericTypeInfoError (name: string) =
     $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
+let fixInlineRange (inlinePath: InlinePath list) (range: SourceLocation option) =
+    List.tryLast inlinePath |> Option.bind (fun i -> i.FromRange) |> Option.orElse range
+
 let splitFullName (fullname: string) =
     let fullname =
         match fullname.IndexOf("[") with
