@@ -6,7 +6,7 @@ edition = "2021"
 [features]
 atomic = []
 bigint = ["dep:num-bigint", "dep:num-integer", "dep:num-traits"]
-date = ["dep:chrono"]
+datetime = ["dep:chrono"]
 decimal = ["dep:rust_decimal"]
 enum_func = []
 enum_string = []
@@ -15,7 +15,7 @@ lrc_ptr = []
 no_std = ["dep:hashbrown"]
 static_do_bindings = ["dep:startup"]
 threaded = ["atomic", "dep:futures"]
-default = ["bigint", "date", "decimal", "enum_func", "enum_string", "guid"]
+default = ["bigint", "datetime", "decimal", "enum_func", "enum_string", "guid"]
 
 [dependencies]
 startup = { version = "0.1", path = "vendored/startup", optional = true }

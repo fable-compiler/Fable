@@ -49,6 +49,8 @@ let coreModFor = function
     | BclGuid -> "Guid"
     | BclDateTime -> "DateTime"
     | BclDateTimeOffset -> "DateTimeOffset"
+    | BclDateOnly -> "DateOnly"
+    | BclTimeOnly -> "TimeOnly"
     | BclTimer -> "Timer"
     | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
@@ -58,9 +60,7 @@ let coreModFor = function
     | FSharpReference _ -> "Native"
     | BclHashSet _ -> "MutableSet"
     | BclDictionary _ -> "MutableMap"
-    | BclKeyValuePair _
-    | BclDateOnly
-    | BclTimeOnly -> FableError "Cannot decide core module" |> raise
+    | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
 
 let nativeCall expr =
     expr |> withTag "native"
@@ -390,8 +390,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     match argTypes with
     // | Number(BigInt as kind,_)::_ ->
     //     Helper.LibCall(com, "BigInt", opName, t, args, argTypes, ?loc=r)
-    | Builtin (BclDateTime|BclDateTimeOffset as bt)::_ ->
-        Helper.LibCall(com, coreModFor bt, opName, t, args, argTypes, ?loc=r)
+    | Builtin (BclDateTime|BclDateTimeOffset|BclTimeSpan)::_ ->
+        nativeOp opName argTypes args
     | Builtin (FSharpSet _)::_ ->
         let methName =
             match opName with
@@ -402,8 +402,6 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     // | Builtin (FSharpMap _)::_ ->
     //     let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName overloadSuffix.Value
     //     Helper.LibCall(com, "Map", mangledName, t, args, argTypes, ?loc=r)
-    | Builtin BclTimeSpan::_ ->
-        nativeOp opName argTypes args
     | CustomOp com ctx r t opName args e -> e
     | _ -> nativeOp opName argTypes args
 
@@ -2330,20 +2328,14 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
-let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let getTime (e: Expr) =
-        makeInstanceCall r t i e "get_time" []
-    let moduleName =
-        if i.DeclaringEntityFullName = Types.datetime
-        then "DateTime" else "DateTimeOffset"
+let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ".ctor" ->
         match args with
-        | [] -> Helper.LibCall(com, moduleName, "min_value", t, [], [], ?loc=r) |> Some
+        | [] ->
+            Helper.LibCall(com, "DateTime", "new", t, [], [], ?loc=r) |> Some
         | ExprType(Number(Int64,_))::_ ->
-            Helper.LibCall(com, moduleName, "from_ticks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
-            Helper.LibCall(com, "DateTimeOffset", "from_date", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            Helper.LibCall(com, "DateTime", "new_ticks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
             Helper.LibCall(com, "DateTime", "new_ymd", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
@@ -2353,9 +2345,14 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, "DateTime", "new_ymdhms_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
             ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
-            Helper.LibCall(com, "DateTime", "new_ymdhmsms_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            Helper.LibCall(com, "DateTime", "new_ymdhms_milli_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
+            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
+            Helper.LibCall(com, "DateTime", "new_ymdhms_micro_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-            Helper.LibCall(com, "DateTime", "new_ymdhmsms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            Helper.LibCall(com, "DateTime", "new_ymdhms_milli", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            Helper.LibCall(com, "DateTime", "new_ymdhms_micro", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             let last = List.last args
             match args.Length, last.Type with
@@ -2364,48 +2361,53 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 let argTypes = (List.take 6 i.SignatureArgTypes) @ [Int32.Number; last.Type]
                 Helper.LibCall(com, "DateTime", "new", t, args, argTypes, ?loc=r) |> Some
             | _ ->
-                Helper.LibCall(com, moduleName, "new", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "ToString" ->
-        match thisArg with
-        | Some thisArg -> makeInstanceCall r t i thisArg "to_string" args |> Some
-        | None -> None
-    | "get_Offset" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> getFieldWith r t thisArg.Value |> Some
-    // DateTimeOffset
-    | "get_LocalDateTime" ->
-        Helper.LibCall(com, "DateTimeOffset", "to_local_time", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-    | "get_UtcDateTime" ->
-        Helper.LibCall(com, "DateTimeOffset", "to_universal_time", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-    | "get_DateTime" ->
-        let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
-        Helper.LibCall(com, "DateTime", "from_date_time_offset", t, [thisArg.Value; kind], [thisArg.Value.Type; kind.Type], ?loc=r) |> Some
-    | "FromUnixTimeSeconds"
-    | "FromUnixTimeMilliseconds" ->
-        let value = Helper.LibCall(com, "Long", "to_number", Float64.Number, args, i.SignatureArgTypes)
-        let value =
-            if i.CompiledName = "FromUnixTimeSeconds"
-            then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
-            else value
-        Helper.LibCall(com, "DateTimeOffset", "default", t, [value; makeIntConst 0], [value.Type; Int32.Number], ?loc=r) |> Some
-    | "ToLocalTime" ->
-        makeInstanceCall r t i thisArg.Value "to_local_time" args |> Some
-    | "ToUnixTimeSeconds"
-    | "ToUnixTimeMilliseconds" ->
-        let ms = getTime thisArg.Value
-        let args =
-            if i.CompiledName = "ToUnixTimeSeconds"
-            then [makeBinOp r t ms (makeIntConst 1000) BinaryDivide]
-            else [ms]
-        Helper.LibCall(com, "Long", "from_number", t, args, ?loc=r) |> Some
-    | "get_Ticks" ->
-        Helper.LibCall(com, "DateTime", "get_ticks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-    | "get_UtcTicks" ->
-        Helper.LibCall(com, "DateTimeOffset", "get_utc_ticks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+                Helper.LibCall(com, "DateTime", "new", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
+    | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | meth ->
-        let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
-        | None -> Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | None -> Helper.LibCall(com, "DateTime", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+
+let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" ->
+        match args with
+        | [] ->
+            Helper.LibCall(com, "DateTimeOffset", "new", t, [], [], ?loc=r) |> Some
+        | ExprType(Number(Int64,_))::_ ->
+            Helper.LibCall(com, "DateTimeOffset", "new_ticks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
+            Helper.LibCall(com, "DateTimeOffset", "fromDateTime", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            Helper.LibCall(com, "DateTimeOffset", "new_ymd", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            Helper.LibCall(com, "DateTimeOffset", "new_ymdhms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
+            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
+            Helper.LibCall(com, "DateTimeOffset", "new_ymdhms_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
+            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
+            Helper.LibCall(com, "DateTimeOffset", "new_ymdhms_milli_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            Helper.LibCall(com, "DateTimeOffset", "new_ymdhms_milli", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> None
+            // let last = List.last args
+            // match args.Length, last.Type with
+            // | 7, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
+            //     let args = (List.take 6 args) @ [makeIntConst 0; last]
+            //     let argTypes = (List.take 6 i.SignatureArgTypes) @ [Int32.Number; last.Type]
+            //     Helper.LibCall(com, "DateTime", "new", t, args, argTypes, ?loc=r) |> Some
+            // | _ ->
+            //     Helper.LibCall(com, "DateTimeOffset", "new", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
+    | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
+    | meth ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        match thisArg with
+        | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
+        | None -> Helper.LibCall(com, "DateTimeOffset", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
@@ -2420,7 +2422,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
                 "new_dhms"
             | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-                "new_dhmsms"
+                "new_dhms_milli"
             | _ -> "new"
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToString" when (args.Length = 1) ->
@@ -2439,9 +2441,9 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             None
     // | "Zero" etc. -> // for static fields, see tryField
     | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
-    | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value,  args.Head), Tags.empty, t, r) |> Some
-    | "Multiply" -> Operation(Binary(BinaryOperator.BinaryMultiply, thisArg.Value,  args.Head), Tags.empty, t, r) |> Some
-    | "Divide" -> Operation(Binary(BinaryOperator.BinaryDivide, thisArg.Value,  args.Head), Tags.empty, t, r) |> Some
+    | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
+    | "Multiply" -> Operation(Binary(BinaryOperator.BinaryMultiply, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
+    | "Divide" -> Operation(Binary(BinaryOperator.BinaryDivide, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         match thisArg with
@@ -2901,10 +2903,10 @@ let tryField com returnTyp ownerTyp fieldName =
         let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         Helper.LibValue(com, "TimeSpan", meth, returnTyp) |> Some
     | Builtin BclDateTime, _->
-        let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        let meth = fieldName |> Naming.lowerFirst
         Helper.LibCall(com, "DateTime", meth, returnTyp, []) |> Some
     | Builtin BclDateTimeOffset, _ ->
-        let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        let meth = fieldName |> Naming.lowerFirst
         Helper.LibCall(com, "DateTimeOffset", meth, returnTyp, []) |> Some
     | DeclaredType(ent, genArgs), fieldName ->
         match ent.FullName with
@@ -3001,8 +3003,8 @@ let private replacedModules =
     "System.Console", console
     "System.Diagnostics.Debug", debug
     "System.Diagnostics.Debugger", debug
-    Types.datetime, dates
-    Types.datetimeOffset, dates
+    Types.datetime, dateTimes
+    Types.datetimeOffset, dateTimeOffsets
     Types.timespan, timeSpans
     "System.Timers.Timer", timers
     "System.Environment", systemEnv
@@ -3124,8 +3126,8 @@ let tryType typ =
         match kind with
         | BclGuid -> Some(Types.guid, guids, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
-        | BclDateTime -> Some(Types.datetime, dates, [])
-        | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
+        | BclDateTime -> Some(Types.datetime, dateTimes, [])
+        | BclDateTimeOffset -> Some(Types.datetimeOffset, dateTimeOffsets, [])
         | BclTimer -> Some("System.Timers.Timer", timers, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [genArg])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [key; value])

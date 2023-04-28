@@ -7,6 +7,7 @@ let _imports() =
     importAll "./BigInt.rs"
     importAll "./BitConverter.rs"
     importAll "./Convert.rs"
+    importAll "./DateOnly.rs"
     importAll "./DateTime.rs"
     importAll "./DateTimeOffset.rs"
     importAll "./Decimal.rs"
@@ -19,5 +20,6 @@ let _imports() =
     importAll "./Native.rs"
     importAll "./Numeric.rs"
     importAll "./String.rs"
+    importAll "./TimeOnly.rs"
     importAll "./TimeSpan.rs"
     ()
