@@ -327,7 +327,8 @@ let makeWriter (writer: IWriter) =
         member _.Dispose() = writer.Dispose()
         member _.MakeImportPath(path) = writer.MakeImportPath(path)
         member _.AddLog(msg, severity, ?range) = ()
-        member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
+        member _.AddSourceMapping(srcLine, srcCol, genLine, genCol, _file, displayName) =
+            writer.AddSourceMapping(srcLine, srcCol, genLine, genCol, displayName)
         member _.Write(str) = writer.Write(str) }
 
 let getLanguage (language: string) =

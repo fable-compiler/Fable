@@ -8,17 +8,40 @@ type Position =
 type SourceLocation =
     { start: Position
       ``end``: Position
-      /// Used to pass the display name of the identifier, but also the name of the file
-      /// as a hack in order not to break the API
+      /// DO NOT USE, use DisplayName instead and Create for instantiation
       identifierName: string option }
+
+    member this.DisplayName =
+        this.identifierName
+        |> Option.bind (fun name ->
+            match name.IndexOf(";file:") with
+            | -1 -> Some name
+            | 0 -> None
+            | i -> name.Substring(0, i) |> Some)
+
+    member this.File =
+        this.identifierName
+        |> Option.bind (fun name ->
+            match name.IndexOf(";file:") with
+            | -1 -> None
+            | i -> name.Substring(";file:".Length) |> Some)
+
+    static member Create(start: Position, ``end``: Position, ?file: string, ?displayName: string) =
+        let identifierName =
+            match displayName, file with
+            | None, None -> None
+            | displayName, None -> displayName
+            | displayName, Some file -> (defaultArg displayName "") + ";file:" + file |> Some
+        { start = start
+          ``end`` = ``end``
+          identifierName = identifierName }
+
     static member (+)(r1, r2) =
-        { start = r1.start
-          ``end`` = r2.start
-          identifierName = None }
+        SourceLocation.Create(start=r1.start, ``end``=r2.``end``, ?file=r1.File)
+
     static member Empty =
-        { start = Position.Empty
-          ``end`` = Position.Empty
-          identifierName = None }
+        SourceLocation.Create(start=Position.Empty, ``end``=Position.Empty)
+
     override x.ToString() =
         sprintf $"(L%i{x.start.line},%i{x.start.column}-L%i{x.``end``.line},%i{x.``end``.column})"
 

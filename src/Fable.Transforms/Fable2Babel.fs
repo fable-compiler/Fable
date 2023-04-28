@@ -83,7 +83,7 @@ module Lib =
     let tryJsConstructorFor purpose (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         let isErased =
             match purpose with
-            | Annotation -> ent.IsMeasure
+            | Annotation -> ent.IsMeasure || (FSharp2Fable.Util.isErasedOrStringEnumEntity ent && not ent.IsFSharpUnion)
             // Historically we have used interfaces to represent JS classes in bindings,
             // so it may happen that an F# interface corresponds to an actual type in JS.
             // But just in case we avoid referencing interfaces for reflection.
@@ -2837,7 +2837,10 @@ module Util =
             ent.MembersFunctionsAndValues
             // It's not usual to have getters/setters in TS interfaces, so let's ignore setters
             // and compile getters as fields
-            |> Seq.filter (fun info -> not(info.IsProperty || info.IsSetter))
+            |> Seq.filter (fun info ->
+                not(info.IsProperty || info.IsSetter)
+                // TODO: Deal with other emit attributes like EmitMethod or EmitConstructor
+                && not(hasAttribute Atts.emitAttr info.Attributes))
             |> Seq.toArray
             |> Array.partition (fun info -> info.IsGetter)
 

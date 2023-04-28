@@ -395,7 +395,7 @@ type Ident =
       Range: SourceLocation option }
     member x.DisplayName =
         x.Range
-        |> Option.bind (fun r -> r.identifierName)
+        |> Option.bind (fun r -> r.DisplayName)
         |> Option.defaultValue x.Name
 
 type NewArrayKind =
