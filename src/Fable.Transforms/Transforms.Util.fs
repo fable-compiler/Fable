@@ -1114,9 +1114,9 @@ module AST =
         extractGenericArgs Map.empty maybeGenericExpr.Type concreteType
 
     let rec resolveInlineType (genArgs: Map<string, Type>) = function
-        | Fable.GenericParam(name, isMeasure, _constraints) as t ->
+        | GenericParam(name, isMeasure, _constraints) as t ->
             match Map.tryFind name genArgs with
-            | Some v when isMeasure && v = Fable.Any -> t // avoids resolving measures to Fable.Any
+            | Some v when isMeasure && v = Any -> t // avoids resolving measures to Fable.Any
             | Some v -> v
             | None -> t
         | t -> t.MapGenerics(resolveInlineType genArgs)

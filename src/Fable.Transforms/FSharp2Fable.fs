@@ -1520,7 +1520,8 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
             | [] ->
                 let entRef = FsEnt.Ref fsEnt
                 let ent = (com :> Compiler).GetEntity(entRef)
-                if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
+                if (isErasedOrStringEnumEntity ent && Compiler.Language <> TypeScript)
+                    || isGlobalOrImportedEntity ent then
                     []
                 else
                     // If the file is empty F# creates a class for the module, but Fable clears the name
