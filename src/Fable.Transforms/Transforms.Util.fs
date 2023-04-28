@@ -231,22 +231,21 @@ module Log =
         FromRange: SourceLocation option
     }
 
-    let private addLog (com: Compiler) (inlinePath: InlinePath list) range msg severity =
+    let private addLog (com: Compiler) (inlinePath: InlinePath list) (range: SourceLocation option) msg severity =
         let printInlineSource fromPath (p: InlinePath) =
             let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
             match p.FromRange with
             | Some r -> $"%s{path}(%i{r.start.line},%i{r.start.column})"
             | None -> path
         let actualFile, msg =
-            match inlinePath, range with
-            | { ToFile = file }::_, _ ->
+            match inlinePath with
+            | { ToFile = file }::_ ->
                 let inlinePath =
                     inlinePath
                     |> List.map (printInlineSource file)
                     |> String.concat " < "
                 file, msg + " - Inline call from " + inlinePath
-            | [], Some { identifierName = Some(Naming.SplitBy Naming.fileRangeSeparator (_,file)) } -> file, msg
-            | [], _ -> com.CurrentFile, msg
+            | [] -> range |> Option.bind (fun r -> r.File) |> Option.defaultValue com.CurrentFile, msg
         com.AddLog(msg, severity, ?range=range, fileName=actualFile)
 
     let addWarning (com: Compiler) inlinePath range warning =

@@ -689,9 +689,10 @@ module Helpers =
         else memb.Accessibility.IsPublic
 
     let makeRange (r: Range) =
-        { start = { line = r.StartLine; column = r.StartColumn }
-          ``end``= { line = r.EndLine; column = r.EndColumn }
-          identifierName = Some(Naming.fileRangeSeparator + r.FileName) }
+        SourceLocation.Create(
+            start = { line = r.StartLine; column = r.StartColumn },
+            ``end``= { line = r.EndLine; column = r.EndColumn },
+            file = r.FileName)
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
@@ -1336,15 +1337,15 @@ module Identifiers =
             | _ -> fsRef.IsMutable
 
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
-        let range = makeRange fsRef.DeclarationLocation
-        let range = { range with identifierName = range.identifierName |> Option.map (fun i -> fsRef.DisplayName + i)}
+        let r = makeRange fsRef.DeclarationLocation
+        let r = SourceLocation.Create(start=r.start, ``end``=r.``end``, ?file=r.File, displayName=fsRef.DisplayName)
 
         { Name = sanitizedName
           Type = makeType ctx.GenericArgs fsRef.FullType
           IsThisArgument = fsRef.IsMemberThisValue
           IsCompilerGenerated = fsRef.IsCompilerGenerated
           IsMutable = isMutable
-          Range = Some range }
+          Range = Some r }
 
     let putIdentInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
@@ -1601,9 +1602,9 @@ module Util =
 
     let private isReplacementCandidatePrivate isFromDll (entFullName: string) =
         if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDll()
-        // When compiling Fable itself, Fable.Core entities will be part of the code base,
-        // but still need to be replaced
-        else Regex.IsMatch(entFullName, @"^Fable\.Core\.(?!JS\.)")
+        // When compiling Fable itself, Fable.Core entities will be part of the code base, but still need to be replaced
+        else entFullName.StartsWith("Fable.Core.")
+            && (not(entFullName.StartsWith("Fable.Core.JS.")) || entFullName.EndsWith("Attribute"))
 
     let isReplacementCandidate (ent: Fable.EntityRef) =
         let isFromDll() = isFromDllNotPrecompiled ent

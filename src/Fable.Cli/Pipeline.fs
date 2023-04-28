@@ -110,18 +110,13 @@ module Js =
                 else path
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
-            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
+            member _.AddSourceMapping(srcLine, srcCol, genLine, genCol, file, displayName) =
                 if cliArgs.SourceMaps then
-                    let name, sourcePath =
-                        match name with
-                        | Some(Naming.SplitBy Naming.fileRangeSeparator (name, file)) ->
-                            (if name = "" then None else Some name), file
-                        | _ -> name, sourcePath
                     let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
                     let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
                     let targetPath = Path.normalizeFullPath targetPath
-                    let sourcePath = Path.getRelativeFileOrDirPath false targetPath false sourcePath
-                    mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
+                    let sourcePath = defaultArg file sourcePath |> Path.getRelativeFileOrDirPath false targetPath false
+                    mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=displayName)
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let babel =
@@ -175,7 +170,7 @@ module Python =
 
             member _.Dispose() = stream.Dispose()
 
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
 
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
@@ -274,7 +269,7 @@ module Php =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
@@ -302,7 +297,7 @@ module Dart =
             member _.MakeImportPath(path) =
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
@@ -332,7 +327,7 @@ module Rust =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()

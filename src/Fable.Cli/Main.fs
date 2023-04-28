@@ -107,10 +107,9 @@ module private Util =
                 | FSharpDiagnosticSeverity.Warning -> Severity.Warning
                 | FSharpDiagnosticSeverity.Error -> Severity.Error
 
-            let range =
-                { start={ line=er.StartLine; column=er.StartColumn+1}
-                  ``end``={ line=er.EndLine; column=er.EndColumn+1}
-                  identifierName = None }
+            let range = SourceLocation.Create(
+                start = { line=er.StartLine; column=er.StartColumn+1 },
+                ``end`` = { line=er.EndLine; column=er.EndColumn+1 })
 
             let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
 
