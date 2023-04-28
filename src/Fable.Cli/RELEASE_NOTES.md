@@ -1,3 +1,11 @@
+### 4.1.3
+
+* JS/TS/Rust: Added bigint log, log2, log10, minMag, maxMag
+* TS: Fix extension of files in fable_modules with out dir
+* TS: Support annotations of StringEnum and TypeScriptTaggedUnion types
+* JS/TS: Output JS docs
+* Fix range of inlined functions
+
 ### 4.1.2
 
 * Print minimum fable-library version from npm
