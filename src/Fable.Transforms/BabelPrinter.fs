@@ -577,7 +577,18 @@ module PrinterExtensions =
                 printer.Print(id)
                 printer.Print(paramsDecl)
                 printer.Print(" = ")
-                printer.Print(typ)
+                match typ with
+                | UnionTypeAnnotation(types) ->
+                    printer.PrintNewLine()
+                    printer.PushIndentation()
+                    for typ in types do
+                        printer.Print("| ")
+                        printer.Print(typ)
+                        printer.PrintNewLine()
+                    printer.PopIndentation()
+                | ObjectTypeAnnotation(members) ->
+                    printer.PrintAbstractMembers(members, singleLine=false)
+                | typ -> printer.Print(typ)
 
         member printer.Print(md: ModuleDeclaration) =
             match md with
@@ -954,6 +965,24 @@ module PrinterExtensions =
                     printer.Print(": ")
                     printer.Print(returnType)
 
+        member printer.PrintAbstractMembers(members: AbstractMember[], ?singleLine: bool) =
+            let singleLine = defaultArg singleLine false
+            if singleLine then
+                printer.Print("{ ")
+                printer.PrintArray(members, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+                printer.Print(" }")
+            else
+                printer.Print("{")
+                printer.PrintNewLine()
+                printer.PushIndentation()
+                printer.PrintArray(members, (fun p x -> p.Print(x)), (fun p ->
+                    p.Print(",")
+                    p.PrintNewLine()))
+                printer.PopIndentation()
+                printer.PrintNewLine()
+                printer.Print("}")
+                printer.PrintNewLine()
+
         member printer.PrintMemberExpression(object, property, isComputed, loc, ?objectWithParens: bool) =
             printer.AddLocation(loc)
             match objectWithParens, object with
@@ -1183,9 +1212,7 @@ module PrinterExtensions =
             | FunctionTypeAnnotation(parameters, returnType, spread) ->
                 printer.PrintFunctionTypeAnnotation(parameters, returnType, [||], ?spread=spread)
             | ObjectTypeAnnotation(members) ->
-                printer.Print("{ ")
-                printer.PrintArray(members, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-                printer.Print(" }")
+                printer.PrintAbstractMembers(members, singleLine=true)
             | KeyofTypeAnnotation typ ->
                 printer.Print("keyof ")
                 printer.ComplexTypeWithParens(typ)
@@ -1248,14 +1275,8 @@ module PrinterExtensions =
                 printer.Print(" extends ")
                 printer.PrintArray(extends, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
-            printer.Print(" {")
-            printer.PrintNewLine()
-            printer.PushIndentation()
-            printer.PrintArray(members, (fun p x -> p.Print(x)), (fun p -> p.PrintNewLine()))
-            printer.PopIndentation()
-            printer.PrintNewLine()
-            printer.Print("}")
-            printer.PrintNewLine()
+            printer.Print(" ")
+            printer.PrintAbstractMembers(members)
 
 open PrinterExtensions
 
