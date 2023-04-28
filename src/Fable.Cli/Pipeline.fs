@@ -65,7 +65,7 @@ type Stream =
         }
 
 module Js =
-    type BabelWriter(cliArgs: CliArgs, pathResolver: PathResolver, sourcePath: string, targetPath: string) =
+    type BabelWriter(com: Compiler, cliArgs: CliArgs, pathResolver: PathResolver, sourcePath: string, targetPath: string) =
         // In imports *.ts extensions have to be converted to *.js extensions instead
         let fileExt =
             let fileExt = cliArgs.CompilerOptions.FileExtension
@@ -108,9 +108,15 @@ module Js =
                     let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
                     File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
                 else path
-            member _.AddLog(msg, severity, ?range) = () // TODO
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
                 if cliArgs.SourceMaps then
+                    let name, sourcePath =
+                        match name with
+                        | Some(Naming.SplitBy Naming.fileRangeSeparator (name, file)) ->
+                            (if name = "" then None else Some name), file
+                        | _ -> name, sourcePath
                     let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
                     let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
                     let targetPath = Path.normalizeFullPath targetPath
@@ -124,7 +130,7 @@ module Js =
             |> Fable2Babel.Compiler.transformFile com
 
         if not(isSilent || babel.IsEmpty) then
-            use writer = new BabelWriter(cliArgs, pathResolver, com.CurrentFile, outPath)
+            use writer = new BabelWriter(com, cliArgs, pathResolver, com.CurrentFile, outPath)
             do! BabelPrinter.run writer babel
             // TODO: Check also if file has actually changed with other printers
             do! writer.WriteToFileIfChanged()

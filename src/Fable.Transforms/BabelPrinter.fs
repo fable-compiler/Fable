@@ -815,8 +815,8 @@ module PrinterExtensions =
                 let canConflict = declarations.Length > 1
 
                 for i = 0 to declarations.Length - 1 do
-                    let (VariableDeclarator(name, annotation, typeParams, init)) = declarations[i]
-                    printer.Print(name)
+                    let (VariableDeclarator(name, annotation, typeParams, init, loc)) = declarations[i]
+                    printer.Print(name, ?loc = loc)
                     // In some situations when inlining functions it may happen that a unit argument is assigned a value
                     // (see "Unit expression arguments are not removed" in ApplicativeTests). To prevent the TypeScript
                     // compiler from complaining we replace `void` type with `any`.
