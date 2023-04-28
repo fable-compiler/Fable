@@ -1,14 +1,15 @@
 pub mod TimeSpan_ {
 
-    use core::ops::{Add, Sub, Mul, Div};
-
     use crate::String_::string;
+    use core::ops::{Add, Div, Mul, Sub};
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     pub struct TimeSpan {
         ticks: i64,
     }
 
+    pub const nanoseconds_per_tick: i64 = 100;
+    pub const ticks_per_microsecond: i64 = 10;
     pub const ticks_per_millisecond: i64 = 10_000;
     pub const ticks_per_second: i64 = 10_000_000;
     pub const ticks_per_minute: i64 = ticks_per_second * 60;
@@ -18,6 +19,12 @@ pub mod TimeSpan_ {
     pub const zero: TimeSpan = TimeSpan { ticks: 0 };
     pub const min_value: TimeSpan = TimeSpan { ticks: i64::MIN };
     pub const max_value: TimeSpan = TimeSpan { ticks: i64::MAX };
+
+    // impl core::fmt::Display for TimeSpan {
+    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    //         write!(f, "{}", self.0.to_string())
+    //     }
+    // }
 
     pub fn new_ticks(ticks: i64) -> TimeSpan {
         TimeSpan { ticks: ticks }
@@ -35,7 +42,7 @@ pub mod TimeSpan_ {
         new_hms(hours, m, s)
     }
 
-    pub fn new_dhmsms(d: i32, h: i32, m: i32, s: i32, ms: i32) -> TimeSpan {
+    pub fn new_dhms_milli(d: i32, h: i32, m: i32, s: i32, ms: i32) -> TimeSpan {
         let hours = (d * 24 + h) as i64;
         let hoursTicks = hours * ticks_per_hour;
         let minsTicks = (m as i64) * ticks_per_minute;
@@ -52,35 +59,33 @@ pub mod TimeSpan_ {
         from_hours(days * 24.)
     }
 
-    pub fn from_hours(h: f64) -> TimeSpan {
-        from_minutes(h * 60.)
+    pub fn from_hours(hours: f64) -> TimeSpan {
+        from_minutes(hours * 60.)
     }
 
-    pub fn from_minutes(m: f64) -> TimeSpan {
-        from_seconds(m * 60.)
+    pub fn from_minutes(minutes: f64) -> TimeSpan {
+        from_seconds(minutes * 60.)
     }
 
-    pub fn from_seconds(s: f64) -> TimeSpan {
+    pub fn from_seconds(seconds: f64) -> TimeSpan {
         TimeSpan {
-            ticks: (s * (ticks_per_second as f64)) as i64,
+            ticks: (seconds * (ticks_per_second as f64)) as i64,
         }
     }
 
-    pub fn from_milliseconds(ms: f64) -> TimeSpan {
+    pub fn from_milliseconds(millis: f64) -> TimeSpan {
         TimeSpan {
-            ticks: (ms * (ticks_per_millisecond as f64)) as i64,
+            ticks: (millis * (ticks_per_millisecond as f64)) as i64,
+        }
+    }
+
+    pub fn from_microseconds(micros: f64) -> TimeSpan {
+        TimeSpan {
+            ticks: (micros * (ticks_per_microsecond as f64)) as i64,
         }
     }
 
     impl TimeSpan {
-        pub fn total_seconds(&self) -> f64 {
-            (self.ticks / ticks_per_second) as f64
-        }
-
-        pub fn total_milliseconds(&self) -> f64 {
-            (self.ticks / ticks_per_millisecond) as f64
-        }
-
         pub fn total_days(&self) -> f64 {
             let days = self.ticks as f64 / ticks_per_day as f64;
             days
@@ -94,6 +99,22 @@ pub mod TimeSpan_ {
         pub fn total_minutes(&self) -> f64 {
             let minutes = self.ticks as f64 / ticks_per_minute as f64;
             minutes
+        }
+
+        pub fn total_seconds(&self) -> f64 {
+            (self.ticks / ticks_per_second) as f64
+        }
+
+        pub fn total_milliseconds(&self) -> f64 {
+            (self.ticks / ticks_per_millisecond) as f64
+        }
+
+        pub fn total_microseconds(&self) -> f64 {
+            (self.ticks / ticks_per_microsecond) as f64
+        }
+
+        pub fn total_nanoseconds(&self) -> f64 {
+            (self.ticks * nanoseconds_per_tick) as f64
         }
 
         pub fn ticks(&self) -> i64 {
@@ -115,13 +136,27 @@ pub mod TimeSpan_ {
         }
 
         pub fn seconds(&self) -> i32 {
-            let leftover_seconds = self.total_seconds().floor() - self.total_minutes().floor() * 60.0;
+            let leftover_seconds =
+                self.total_seconds().floor() - self.total_minutes().floor() * 60.0;
             leftover_seconds.floor() as i32
         }
 
         pub fn milliseconds(&self) -> i32 {
-            let leftover_milliseconds = self.total_milliseconds().floor() - self.total_seconds().floor() * 1000.0;
+            let leftover_milliseconds =
+                self.total_milliseconds().floor() - self.total_seconds().floor() * 1000.0;
             leftover_milliseconds.floor() as i32
+        }
+
+        pub fn microseconds(&self) -> i32 {
+            let leftover_microseconds =
+                self.total_microseconds().floor() - self.total_milliseconds().floor() * 1000.0;
+            leftover_microseconds.floor() as i32
+        }
+
+        pub fn nanoseconds(&self) -> i32 {
+            let leftover_nanoseconds =
+                self.total_nanoseconds().floor() - self.total_microseconds().floor() * 1000.0;
+            leftover_nanoseconds.floor() as i32
         }
     }
 
@@ -129,7 +164,9 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn add(self, rhs: TimeSpan) -> Self::Output {
-            TimeSpan { ticks: self.ticks + rhs.ticks }
+            TimeSpan {
+                ticks: self.ticks + rhs.ticks,
+            }
         }
     }
 
@@ -137,7 +174,9 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn sub(self, rhs: TimeSpan) -> Self::Output {
-            TimeSpan { ticks: self.ticks - rhs.ticks }
+            TimeSpan {
+                ticks: self.ticks - rhs.ticks,
+            }
         }
     }
 
@@ -145,7 +184,9 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn mul(self, rhs: TimeSpan) -> Self::Output {
-            TimeSpan { ticks: self.ticks * rhs.ticks }
+            TimeSpan {
+                ticks: self.ticks * rhs.ticks,
+            }
         }
     }
 
@@ -161,7 +202,9 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn mul(self, rhs: f64) -> Self::Output {
-            TimeSpan { ticks: ((self.ticks as f64) * rhs) as i64 }
+            TimeSpan {
+                ticks: ((self.ticks as f64) * rhs) as i64,
+            }
         }
     }
 
@@ -169,14 +212,9 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn div(self, rhs: f64) -> Self::Output {
-            TimeSpan { ticks: ((self.ticks as f64) / rhs) as i64  }
+            TimeSpan {
+                ticks: ((self.ticks as f64) / rhs) as i64,
+            }
         }
     }
-
-
-    // impl core::fmt::Display for TimeSpan {
-    //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-    //         write!(f, "{}", self.0.to_string())
-    //     }
-    // }
 }
