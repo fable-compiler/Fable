@@ -157,10 +157,11 @@ module private Util =
             Path.ChangeExtension(absPath, fileExt)
         | lang ->
             let changeExtension path fileExt =
-                if lang = JavaScript then
+                match lang with
+                | JavaScript | TypeScript ->
                     let isInFableModules = Naming.isInFableModules file
-                    File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
-                else
+                    File.changeExtensionButUseDefaultExtensionInFableModules lang isInFableModules path fileExt
+                | _ ->
                     Path.ChangeExtension(path, fileExt)
             let fileExt = cliArgs.CompilerOptions.FileExtension
             match cliArgs.OutDir with

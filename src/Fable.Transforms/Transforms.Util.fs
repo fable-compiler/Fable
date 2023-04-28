@@ -238,14 +238,15 @@ module Log =
             | Some r -> $"%s{path}(%i{r.start.line},%i{r.start.column})"
             | None -> path
         let actualFile, msg =
-            match inlinePath with
-            | [] -> com.CurrentFile, msg
-            | { ToFile = file }::_ ->
+            match inlinePath, range with
+            | { ToFile = file }::_, _ ->
                 let inlinePath =
                     inlinePath
                     |> List.map (printInlineSource file)
                     |> String.concat " < "
                 file, msg + " - Inline call from " + inlinePath
+            | [], Some { identifierName = Some(Naming.SplitBy Naming.fileRangeSeparator (_,file)) } -> file, msg
+            | [], _ -> com.CurrentFile, msg
         com.AddLog(msg, severity, ?range=range, fileName=actualFile)
 
     let addWarning (com: Compiler) inlinePath range warning =

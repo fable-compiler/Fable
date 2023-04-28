@@ -124,6 +124,9 @@ type FsUnionCase(uci: FSharpUnionCase) =
             | _ -> None
         )
 
+    static member HasNamedFields (uci: FSharpUnionCase) =
+        not(uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
+
     interface Fable.UnionCase with
         member _.Name = uci.Name
         member _.FullName = FsUnionCase.FullName uci
@@ -688,7 +691,7 @@ module Helpers =
     let makeRange (r: Range) =
         { start = { line = r.StartLine; column = r.StartColumn }
           ``end``= { line = r.EndLine; column = r.EndColumn }
-          identifierName = None }
+          identifierName = Some(Naming.fileRangeSeparator + r.FileName) }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
@@ -1046,14 +1049,14 @@ module TypeHelpers =
 
     // Filter measure generic arguments here? (for that we need to pass the compiler, which needs a bigger refactoring)
     // Currently for Dart we're doing it in the Fable2Dart step
-    let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) =
+    let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: seq<FSharpType>) =
         genArgs
         |> Seq.mapToList (fun genArg ->
             if genArg.IsGenericParameter
             then resolveGenParam withConstraints ctxTypeArgs genArg.GenericParameter
             else makeTypeWithConstraints withConstraints ctxTypeArgs genArg)
 
-    let makeTypeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
+    let makeTypeGenArgs ctxTypeArgs (genArgs: seq<FSharpType>) =
         makeTypeGenArgsWithConstraints true ctxTypeArgs genArgs
 
     let makeTypeFromDelegate withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
@@ -1333,14 +1336,15 @@ module Identifiers =
             | _ -> fsRef.IsMutable
 
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
+        let range = makeRange fsRef.DeclarationLocation
+        let range = { range with identifierName = range.identifierName |> Option.map (fun i -> fsRef.DisplayName + i)}
 
         { Name = sanitizedName
           Type = makeType ctx.GenericArgs fsRef.FullType
           IsThisArgument = fsRef.IsMemberThisValue
           IsCompilerGenerated = fsRef.IsCompilerGenerated
           IsMutable = isMutable
-          Range = { makeRange fsRef.DeclarationLocation
-                    with identifierName = Some fsRef.DisplayName } |> Some }
+          Range = Some range }
 
     let putIdentInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
@@ -1517,11 +1521,15 @@ module Util =
         | _ -> None
 
     let tryGlobalOrImportedAttributes (com: Compiler) (entRef: Fable.EntityRef) (attributes: Fable.Attribute seq) =
+        let globalRef customName =
+            defaultArg customName entRef.DisplayName
+            |> makeTypedIdent Fable.Any
+            |> Fable.IdentExpr
+            |> Some
+
         match attributes with
-        | GlobalAtt(Some customName) ->
-            makeTypedIdent Fable.Any customName |> Fable.IdentExpr |> Some
-        | GlobalAtt None ->
-            entRef.DisplayName |> makeTypedIdent Fable.Any |> Fable.IdentExpr |> Some
+        | _  when entRef.FullName.StartsWith("Fable.Core.JS.") -> globalRef None
+        | GlobalAtt customName -> globalRef customName
         | ImportAtt(selector, path) ->
             let selector =
                 if selector = Naming.placeholder then entRef.DisplayName
@@ -1592,17 +1600,18 @@ module Util =
         | Fable.PrecompiledLib _ -> false
 
     let private isReplacementCandidatePrivate isFromDll (entFullName: string) =
-        if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDll
+        if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDll()
         // When compiling Fable itself, Fable.Core entities will be part of the code base,
         // but still need to be replaced
-        else entFullName.StartsWith("Fable.Core.")
+        else Regex.IsMatch(entFullName, @"^Fable\.Core\.(?!JS\.)")
 
     let isReplacementCandidate (ent: Fable.EntityRef) =
-        isReplacementCandidatePrivate (isFromDllNotPrecompiled ent) ent.FullName
+        let isFromDll() = isFromDllNotPrecompiled ent
+        isReplacementCandidatePrivate isFromDll ent.FullName
 
     let isReplacementCandidateFrom (ent: FSharpEntity) =
-        let isFromDllRef = Option.isSome ent.Assembly.FileName
-        isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
+        let isFromDll() = Option.isSome ent.Assembly.FileName
+        isReplacementCandidatePrivate isFromDll (FsEnt.FullName ent)
 
     let getEntityGenArgs (ent: Fable.Entity) =
         ent.GenericParameters

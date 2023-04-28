@@ -18,6 +18,11 @@ module Naming =
         then txt.Substring(0, txt.Length - pattern.Length) |> Some
         else None
 
+    let (|SplitBy|_|) (pattern: string) (txt: string) =
+        match txt.IndexOf(pattern) with
+        | -1 -> None
+        | i -> Some(txt.Substring(0, i), txt.Substring(i + pattern.Length))
+
     let (|Regex|_|) (reg: Regex) (str: string) =
         let m = reg.Match(str)
         if m.Success then
@@ -28,6 +33,7 @@ module Naming =
             |> Some
         else None
 
+    let [<Literal>] fileRangeSeparator = ";file:"
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] fableModules = "fable_modules"

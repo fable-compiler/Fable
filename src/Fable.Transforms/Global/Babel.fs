@@ -36,7 +36,7 @@ type Expression =
         typeParameters: TypeParameter array *
         loc: SourceLocation option
     | Super of loc: SourceLocation option
-    | Undefined of Loc: SourceLocation option
+    | Undefined of loc: SourceLocation option
     | ThisExpression of loc: SourceLocation option
     | SpreadElement of argument: Expression * loc: SourceLocation option
     | ArrayExpression of elements: Expression array * loc: SourceLocation option
@@ -66,6 +66,29 @@ type Expression =
         typeParameters: TypeParameter array *
         loc: SourceLocation option
     | AsExpression of expression: Expression * typeAnnotation: TypeAnnotation
+    member this.Location =
+        match this with
+        | ClassExpression(loc=loc) -> loc
+        | Super(loc=loc) -> loc
+        | Undefined(loc=loc) -> loc
+        | ThisExpression(loc=loc) -> loc
+        | SpreadElement(loc=loc) -> loc
+        | ArrayExpression(loc=loc) -> loc
+        | ObjectExpression(loc=loc) -> loc
+        | SequenceExpression(loc=loc) -> loc
+        | EmitExpression(loc=loc) -> loc
+        | CallExpression(loc=loc) -> loc
+        | UnaryExpression(loc=loc) -> loc
+        | UpdateExpression(loc=loc) -> loc
+        | BinaryExpression(loc=loc) -> loc
+        | LogicalExpression(loc=loc) -> loc
+        | AssignmentExpression(loc=loc) -> loc
+        | ConditionalExpression(loc=loc) -> loc
+        | MemberExpression(loc=loc) -> loc
+        | NewExpression(loc=loc) -> loc
+        | FunctionExpression(loc=loc) -> loc
+        | ArrowFunctionExpression(loc=loc) -> loc
+        | _ -> None
 
 type ParameterFlags(?defVal: Expression, ?isOptional, ?isSpread, ?isNamed) =
     member _.DefVal = defVal
@@ -236,7 +259,7 @@ type CatchClause =
 
 // Declarations
 type VariableDeclarator =
-    | VariableDeclarator of name: string * annotation: TypeAnnotation option * typeParameters: TypeParameter array * init: Expression option
+    | VariableDeclarator of name: string * annotation: TypeAnnotation option * typeParameters: TypeParameter array * init: Expression option * loc: SourceLocation option
 
 type VariableDeclarationKind =
     | Var
@@ -651,8 +674,8 @@ module Helpers =
             )
 
     type VariableDeclarator with
-        static member variableDeclarator(id, ?annotation, ?typeParameters, ?init) =
-            VariableDeclarator(id, annotation, defaultArg typeParameters [||], init)
+        static member variableDeclarator(id, ?annotation, ?typeParameters, ?init, ?loc) =
+            VariableDeclarator(id, annotation, defaultArg typeParameters [||], init, loc)
 
     type FunctionTypeParam with
         static member functionTypeParam(name, typeInfo, ?isOptional) =

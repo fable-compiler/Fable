@@ -8,7 +8,8 @@ type Position =
 type SourceLocation =
     { start: Position
       ``end``: Position
-      /// We added the display name here because it seemed to be used by Babel source map generation
+      /// Used to pass the display name of the identifier, but also the name of the file
+      /// as a hack in order not to break the API
       identifierName: string option }
     static member (+)(r1, r2) =
         { start = r1.start
