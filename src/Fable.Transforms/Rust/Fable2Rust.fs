@@ -786,6 +786,8 @@ module TypeInfo =
             Types.idictionary
             Types.ireadonlydictionary
             Types.idisposable
+            Types.iformattable
+            Types.iformatProvider
             Types.icomparer
             Types.icomparerGeneric
             Types.iequalityComparer

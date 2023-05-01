@@ -424,18 +424,27 @@ pub mod String_ {
         fromString(s.replace(old.as_str(), new.as_str()))
     }
 
+    fn get_nth_pos(s: &string, i: i32) -> usize {
+        s.chars().take(i as usize).map(|c| c.len_utf8()).sum()
+    }
+
     pub fn substring(s: string, i: i32) -> string {
         if (i < 0) {
             panic!("Argument out of range")
         }
-        fromIter(s.chars().skip(i as usize))
+        // fromIter(s.chars().skip(i as usize))
+        let pos = get_nth_pos(&s, i);
+        fromSlice(&s[pos..])
     }
 
     pub fn substring2(s: string, i: i32, count: i32) -> string {
         if (i < 0) || (count < 0) {
             panic!("Argument out of range")
         }
-        fromIter(s.chars().skip(i as usize).take(count as usize))
+        // fromIter(s.chars().skip(index as usize).take(count as usize))
+        let pos = get_nth_pos(&s, i);
+        let end = get_nth_pos(&s, i + count);
+        fromSlice(&s[pos..end])
     }
 
     pub fn getSlice(s: string, lower: Option<i32>, upper: Option<i32>) -> string {
@@ -480,7 +489,7 @@ pub mod String_ {
         fromIter([left, right].iter().flat_map(|s| s.chars()))
     }
 
-    fn toIndex(offset: i32, opt: Option<(&str, &str)>) -> i32 {
+    fn to_index(offset: i32, opt: Option<(&str, &str)>) -> i32 {
         match opt {
             Some((s, _)) => offset + s.chars().count() as i32,
             None => -1,
@@ -488,75 +497,75 @@ pub mod String_ {
     }
 
     pub fn indexOf(s: string, p: string) -> i32 {
-        toIndex(0, s.split_once(p.as_str()))
+        to_index(0, s.split_once(p.as_str()))
     }
 
     pub fn indexOf2(s: string, p: string, i: i32) -> i32 {
-        toIndex(i, substring(s, i).split_once(p.as_str()))
+        to_index(i, substring(s, i).split_once(p.as_str()))
     }
 
     pub fn indexOf3(s: string, p: string, i: i32, count: i32) -> i32 {
-        toIndex(i, substring2(s, i, count).split_once(p.as_str()))
+        to_index(i, substring2(s, i, count).split_once(p.as_str()))
     }
 
     pub fn indexOfChar(s: string, c: char) -> i32 {
-        toIndex(0, s.split_once(c))
+        to_index(0, s.split_once(c))
     }
 
     pub fn indexOfChar2(s: string, c: char, i: i32) -> i32 {
-        toIndex(i, substring(s, i).split_once(c))
+        to_index(i, substring(s, i).split_once(c))
     }
 
     pub fn indexOfChar3(s: string, c: char, i: i32, count: i32) -> i32 {
-        toIndex(i, substring2(s, i, count).split_once(c))
+        to_index(i, substring2(s, i, count).split_once(c))
     }
 
     pub fn indexOfAny(s: string, a: Array<char>) -> i32 {
-        toIndex(0, s.split_once(a.as_slice()))
+        to_index(0, s.split_once(a.as_slice()))
     }
 
     pub fn indexOfAny2(s: string, a: Array<char>, i: i32) -> i32 {
-        toIndex(i, substring(s, i).split_once(a.as_slice()))
+        to_index(i, substring(s, i).split_once(a.as_slice()))
     }
 
     pub fn indexOfAny3(s: string, a: Array<char>, i: i32, count: i32) -> i32 {
-        toIndex(i, substring2(s, i, count).split_once(a.as_slice()))
+        to_index(i, substring2(s, i, count).split_once(a.as_slice()))
     }
 
     pub fn lastIndexOf(s: string, p: string) -> i32 {
-        toIndex(0, s.rsplit_once(p.as_str()))
+        to_index(0, s.rsplit_once(p.as_str()))
     }
 
     pub fn lastIndexOf2(s: string, p: string, i: i32) -> i32 {
-        toIndex(0, substring2(s, 0, (i + 1)).rsplit_once(p.as_str()))
+        to_index(0, substring2(s, 0, (i + 1)).rsplit_once(p.as_str()))
     }
 
     pub fn lastIndexOf3(s: string, p: string, i: i32, count: i32) -> i32 {
-        toIndex((i - count), substring2(s, (i-count+1), count).rsplit_once(p.as_str()))
+        to_index((i - count), substring2(s, (i-count+1), count).rsplit_once(p.as_str()))
     }
 
     pub fn lastIndexOfChar(s: string, c: char) -> i32 {
-        toIndex(0, s.rsplit_once(c))
+        to_index(0, s.rsplit_once(c))
     }
 
     pub fn lastIndexOfChar2(s: string, c: char, i: i32) -> i32 {
-        toIndex(0, substring2(s, 0, i + 1).rsplit_once(c))
+        to_index(0, substring2(s, 0, i + 1).rsplit_once(c))
     }
 
     pub fn lastIndexOfChar3(s: string, c: char, i: i32, count: i32) -> i32 {
-        toIndex(i - count, substring2(s, i-count+1, count).rsplit_once(c))
+        to_index(i - count, substring2(s, i-count+1, count).rsplit_once(c))
     }
 
     pub fn lastIndexOfAny(s: string, a: Array<char>) -> i32 {
-        toIndex(0, s.rsplit_once(a.as_slice()))
+        to_index(0, s.rsplit_once(a.as_slice()))
     }
 
     pub fn lastIndexOfAny2(s: string, a: Array<char>, i: i32) -> i32 {
-        toIndex(0, substring2(s, 0, i + 1).rsplit_once(a.as_slice()))
+        to_index(0, substring2(s, 0, i + 1).rsplit_once(a.as_slice()))
     }
 
     pub fn lastIndexOfAny3(s: string, a: Array<char>, i: i32, count: i32) -> i32 {
-        toIndex(i - count, substring2(s, i-count+1, count).rsplit_once(a.as_slice()))
+        to_index(i - count, substring2(s, i-count+1, count).rsplit_once(a.as_slice()))
     }
 
     pub fn padLeft(s: string, count: i32, c: char) -> string {

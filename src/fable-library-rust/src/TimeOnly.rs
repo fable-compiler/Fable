@@ -1,12 +1,14 @@
 #[cfg(feature = "datetime")]
 pub mod TimeOnly_ {
     use crate::{
-        DateTime_::DateTime,
+        DateTime_::{duration_to_ticks, ticks_to_duration, DateTime},
+        Native_::{compare, MutCell},
         String_::{fromString, string},
-        TimeSpan_::{from_hours, from_minutes, from_ticks, nanoseconds_per_tick, TimeSpan},
+        TimeSpan_::{nanoseconds_per_tick, TimeSpan},
     };
-    use chrono::{DateTime as CDateTime, Duration, NaiveTime, Timelike};
+    use chrono::{DateTime as CDateTime, NaiveTime, Timelike};
 
+    #[repr(transparent)]
     #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
     pub struct TimeOnly(NaiveTime);
 
@@ -16,36 +18,75 @@ pub mod TimeOnly_ {
         }
     }
 
-    pub fn new_ticks(ticks: i64) -> TimeOnly {
-        let ns = Duration::nanoseconds(ticks * nanoseconds_per_tick);
-        TimeOnly(NaiveTime::MIN + ns)
+    pub fn compareTo(x: TimeOnly, y: TimeOnly) -> i32 {
+        compare(&x, &y)
     }
 
-    pub fn new_hms_milli(h: i32, min: i32, s: i32, ms: i32) -> TimeOnly {
-        let t = NaiveTime::from_hms_milli_opt(h as u32, min as u32, s as u32, ms as u32).unwrap();
-        TimeOnly(t)
+    pub fn equals(x: TimeOnly, y: TimeOnly) -> bool {
+        x == y
     }
 
-    pub fn minValue() -> TimeOnly {
-        let t = NaiveTime::MIN;
-        TimeOnly(t)
-    }
-
-    pub fn maxValue() -> TimeOnly {
-        let t = NaiveTime::from_hms_nano_opt(23, 59, 59, 999_999_999).unwrap();
-        TimeOnly(t)
-    }
-
-    pub fn fromDateTime(dt: DateTime) -> TimeOnly {
-        let t = dt.get_cdt_with_offset().time();
-        TimeOnly(t)
-    }
-
-    pub fn fromTimeSpan(ts: TimeSpan) -> TimeOnly {
-        minValue().add(ts)
+    pub fn zero() -> TimeOnly {
+        TimeOnly::minValue()
     }
 
     impl TimeOnly {
+        pub(crate) fn naive_time(&self) -> NaiveTime {
+            self.0
+        }
+
+        pub fn new1(ticks: i64) -> TimeOnly {
+            let d = ticks_to_duration(ticks);
+            TimeOnly(NaiveTime::MIN + d)
+        }
+
+        pub fn new2(hours: i32, mins: i32) -> TimeOnly {
+            let t = NaiveTime::from_hms_opt(hours as u32, mins as u32, 0).unwrap();
+            TimeOnly(t)
+        }
+
+        pub fn new3(hours: i32, mins: i32, secs: i32) -> TimeOnly {
+            let t = NaiveTime::from_hms_opt(hours as u32, mins as u32, secs as u32).unwrap();
+            TimeOnly(t)
+        }
+
+        pub fn new4(hours: i32, mins: i32, secs: i32, millis: i32) -> TimeOnly {
+            let t =
+                NaiveTime::from_hms_milli_opt(hours as u32, mins as u32, secs as u32, millis as u32)
+                    .unwrap();
+            TimeOnly(t)
+        }
+
+        pub fn new5(hours: i32, mins: i32, secs: i32, millis: i32, micros: i32) -> TimeOnly {
+            let t = NaiveTime::from_hms_micro_opt(
+                hours as u32,
+                mins as u32,
+                secs as u32,
+                (millis * 100 + micros) as u32,
+            )
+            .unwrap();
+            TimeOnly(t)
+        }
+
+        pub fn minValue() -> TimeOnly {
+            let t = NaiveTime::MIN;
+            TimeOnly(t)
+        }
+
+        pub fn maxValue() -> TimeOnly {
+            let t = NaiveTime::from_hms_nano_opt(23, 59, 59, 999_999_999).unwrap();
+            TimeOnly(t)
+        }
+
+        pub fn fromDateTime(dt: DateTime) -> TimeOnly {
+            let t = dt.get_cdt_with_offset().time();
+            TimeOnly(t)
+        }
+
+        pub fn fromTimeSpan(ts: TimeSpan) -> TimeOnly {
+            Self::minValue().add(ts)
+        }
+
         pub fn hour(&self) -> i32 {
             self.0.hour() as i32
         }
@@ -71,25 +112,56 @@ pub mod TimeOnly_ {
         }
 
         pub fn ticks(&self) -> i64 {
-            let ns = (self.0 - NaiveTime::MIN).num_nanoseconds().unwrap();
-            ns / nanoseconds_per_tick
+            duration_to_ticks(self.0 - NaiveTime::MIN)
         }
 
         pub fn toTimeSpan(&self) -> TimeSpan {
-            from_ticks(self.ticks())
+            TimeSpan::from_ticks(self.ticks())
         }
 
         pub fn add(&self, ts: TimeSpan) -> TimeOnly {
-            let ns = Duration::nanoseconds(ts.ticks() * nanoseconds_per_tick);
-            TimeOnly(self.0 + ns)
+            let d = ticks_to_duration(ts.ticks());
+            TimeOnly(self.0 + d)
         }
 
         pub fn addHours(&self, hours: f64) -> TimeOnly {
-            self.add(from_hours(hours))
+            self.add(TimeSpan::from_hours(hours))
         }
 
         pub fn addMinutes(&self, minutes: f64) -> TimeOnly {
-            self.add(from_minutes(minutes))
+            self.add(TimeSpan::from_minutes(minutes))
+        }
+
+        pub fn toString(&self, format: string) -> string {
+            let fmt = format
+                .replace("hh", "%H")
+                .replace("mm", "%M")
+                .replace("ss", "%S")
+                .replace("ffffff", "%6f")
+                .replace("fff", "%3f");
+            let df = self.0.format(&fmt);
+            fromString(df.to_string())
+        }
+
+        pub fn tryParse(s: string, res: &MutCell<TimeOnly>) -> bool {
+            match CDateTime::parse_from_rfc3339(s.trim())
+                .or(CDateTime::parse_from_rfc2822(s.trim()))
+            {
+                Ok(dt) => {
+                    res.set(TimeOnly(dt.naive_utc().time()));
+                    true
+                }
+                Err(e) => false,
+            }
+        }
+
+        pub fn parse(s: string) -> TimeOnly {
+            match CDateTime::parse_from_rfc3339(s.trim())
+                .or(CDateTime::parse_from_rfc2822(s.trim()))
+            {
+                Ok(dt) => TimeOnly(dt.naive_utc().time()),
+                Err(e) => panic!("Input string was not in a correct format."),
+            }
         }
     }
 }
