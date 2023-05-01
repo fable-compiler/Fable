@@ -1,6 +1,6 @@
 #[cfg(feature = "guid")]
 pub mod Guid_ {
-    use crate::Native_::{Lrc};
+    use crate::Native_::compare;
     use crate::String_::{string, toString};
     use uuid::{Uuid};
 
@@ -13,6 +13,14 @@ pub mod Guid_ {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", toString(&self.0))
         }
+    }
+
+    pub fn compareTo(x: Guid, y: Guid) -> i32 {
+        compare(&x, &y)
+    }
+
+    pub fn equals(x: Guid, y: Guid) -> bool {
+        x == y
     }
 
     pub fn new_guid() -> Guid {

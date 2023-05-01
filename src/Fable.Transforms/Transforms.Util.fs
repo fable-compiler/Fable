@@ -131,6 +131,7 @@ module Types =
     let [<Literal>] iStructuralComparable = "System.Collections.IStructuralComparable"
     let [<Literal>] idisposable = "System.IDisposable"
     let [<Literal>] iformattable = "System.IFormattable"
+    let [<Literal>] iformatProvider = "System.IFormatProvider"
     let [<Literal>] iobserverGeneric = "System.IObserver`1"
     let [<Literal>] iobservableGeneric = "System.IObservable`1"
     let [<Literal>] refCell = "Microsoft.FSharp.Core.FSharpRef`1"

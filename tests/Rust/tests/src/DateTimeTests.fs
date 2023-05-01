@@ -5,12 +5,12 @@ open Util.Testing
 open Fable.Tests
 open System.Globalization
 
-// let toSigFigs nSigFigs x =
-//     let absX = abs x
-//     let digitsToStartOfNumber = floor(log10 absX) + 1. // x > 0 => +ve | x < 0 => -ve
-//     let digitsToAdjustNumberBy = int digitsToStartOfNumber - nSigFigs
-//     let scale = pown 10. digitsToAdjustNumberBy
-//     round(x / scale) * scale
+let toSigFigs nSigFigs x =
+    let absX = abs x
+    let digitsToStartOfNumber = floor(log10 absX) + 1. // x > 0 => +ve | x < 0 => -ve
+    let digitsToAdjustNumberBy = int digitsToStartOfNumber - nSigFigs
+    let scale = pown 10. digitsToAdjustNumberBy
+    round(x / scale) * scale
 
 let thatYearSeconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds
@@ -239,22 +239,22 @@ let ``DateTime.Hour works`` () =
 // //     d1.IsDaylightSavingTime() |> equal true
 // //     d2.IsDaylightSavingTime() |> equal false
 
-// [<Fact>]
-// let ``DateTime.DaysInMonth works`` () =
-//     DateTime.DaysInMonth(2014, 1) |> equal 31
-//     DateTime.DaysInMonth(2014, 2) |> equal 28
-//     DateTime.DaysInMonth(2014, 4) |> equal 30
-//     DateTime.DaysInMonth(2016, 2) |> equal 29
+[<Fact>]
+let ``DateTime.DaysInMonth works`` () =
+    DateTime.DaysInMonth(2014, 1) |> equal 31
+    DateTime.DaysInMonth(2014, 2) |> equal 28
+    DateTime.DaysInMonth(2014, 4) |> equal 30
+    DateTime.DaysInMonth(2016, 2) |> equal 29
 
-// [<Fact>]
-// let ``DateTime.Now works`` () =
-//     let d = DateTime.Now
-//     d > DateTime.MinValue |> equal true
+[<Fact>]
+let ``DateTime.Now works`` () =
+    let d = DateTime.Now
+    d > DateTime.MinValue |> equal true
 
-// [<Fact>]
-// let ``DateTime.UtcNow works`` () =
-//     let d = DateTime.UtcNow
-//     d > DateTime.MinValue |> equal true
+[<Fact>]
+let ``DateTime.UtcNow works`` () =
+    let d = DateTime.UtcNow
+    d > DateTime.MinValue |> equal true
 
 // [<Fact>]
 // let ``DateTime.Parse works`` () =
@@ -371,39 +371,38 @@ let ``DateTime.Year works`` () =
     d.Year + d'.Year
     |> equal 4028
 
-// todo : api exists but output not correct
-// [<Fact>]
-// let ``DateTime.AddYears works`` () =
-//     let test v (expected: int) =
-//         let dt = DateTime(2016,2,29,0,0,0,DateTimeKind.Utc).AddYears(v)
-//         equal expected (dt.Month + dt.Day)
-//     test 100 31
-//     test 1 30
-//     test -1 30
-//     test -100 31
-//     test 0 31
+[<Fact>]
+let ``DateTime.AddYears works`` () =
+    let test v expected =
+        let dt = DateTime(2016,2,29,0,0,0,DateTimeKind.Utc).AddYears(v)
+        dt.Month + dt.Day
+        |> equal expected
+    test 100 31
+    test 1 30
+    test -1 30
+    test -100 31
+    test 0 31
 
-// todo : api exists but output not correct
-// [<Fact>]
-// let ``DateTime.AddMonths works`` () =
-//     let test v (expected: int) =
-//         let dt = DateTime(2016,1,31,0,0,0,DateTimeKind.Utc).AddMonths(v)
-//         dt.Year + dt.Month + dt.Day
-//         |> equal expected
-//     test 100 2060
-//     test 20 2056
-//     test 6 2054
-//     test 5 2052
-//     test 1 2047
-//     test 0 2048
-//     test -1 2058
-//     test -5 2054
-//     test -20 2050
-//     test -100 2046
+[<Fact>]
+let ``DateTime.AddMonths works`` () =
+    let test v expected =
+        let dt = DateTime(2016,1,31,0,0,0,DateTimeKind.Utc).AddMonths(v)
+        dt.Year + dt.Month + dt.Day
+        |> equal expected
+    test 100 2060
+    test 20 2056
+    test 6 2054
+    test 5 2052
+    test 1 2047
+    test 0 2048
+    test -1 2058
+    test -5 2054
+    test -20 2050
+    test -100 2046
 
 [<Fact>]
 let ``DateTime.AddDays works`` () =
-    let test v (expected: float) =
+    let test v expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddDays(v)
         thatYearSeconds dt
         |> equal expected
@@ -413,7 +412,7 @@ let ``DateTime.AddDays works`` () =
 
 [<Fact>]
 let ``DateTime.AddHours works`` () =
-    let test v (expected: float) =
+    let test v expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddHours(v)
         thatYearSeconds dt
         |> equal expected
@@ -423,7 +422,7 @@ let ``DateTime.AddHours works`` () =
 
 [<Fact>]
 let ``DateTime.AddMinutes works`` () =
-    let test v (expected: float) =
+    let test v expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddMinutes(v)
         thatYearSeconds dt
         |> equal expected
@@ -433,7 +432,7 @@ let ``DateTime.AddMinutes works`` () =
 
 [<Fact>]
 let ``DateTime.AddSeconds works`` () =
-    let test v (expected: float) =
+    let test v expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddSeconds(v)
         thatYearSeconds dt
         |> equal expected
@@ -443,7 +442,7 @@ let ``DateTime.AddSeconds works`` () =
 
 [<Fact>]
 let ``DateTime.AddMilliseconds works`` () =
-    let test v (expected: float) =
+    let test v expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddMilliseconds(v)
         thatYearMilliseconds dt
         |> equal expected
@@ -453,7 +452,7 @@ let ``DateTime.AddMilliseconds works`` () =
 
 [<Fact>]
 let ``DateTime.AddTicks works`` () =
-    let test v (expected: int64) =
+    let test v expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddTicks(v)
         dt.Ticks
         |> equal expected
@@ -462,104 +461,104 @@ let ``DateTime.AddTicks works`` () =
     test -100000L (ticks - 100000L)
     test 0L ticks
 
-// [<Fact>]
-// let ``DateTime Addition works`` () =
-//     let test ms expected =
-//         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
-//         let ts = TimeSpan.FromMilliseconds(ms)
-//         let res1 = dt.Add(ts) |> thatYearSeconds
-//         let res2 = (dt + ts) |> thatYearSeconds
-//         equal true (res1 = res2)
-//         equal expected res1
-//     test 1000. 21945601.0
-//     test -1000. 21945599.0
-//     test 0. 21945600.0
+[<Fact>]
+let ``DateTime Addition works`` () =
+    let test ms expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
+        let ts = TimeSpan.FromMilliseconds(ms)
+        let res1 = dt.Add(ts) |> thatYearSeconds
+        let res2 = (dt + ts) |> thatYearSeconds
+        (res1 = res2) |> equal true
+        res1 |> equal expected
+    test 1000. 21945601.0
+    test -1000. 21945599.0
+    test 0. 21945600.0
 
-// [<Fact>]
-// let ``DateTime Subtraction with TimeSpan works`` () =
-//     let test ms expected =
-//         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
-//         let ts = TimeSpan.FromMilliseconds(ms)
-//         let res1 = dt.Subtract(ts) |> thatYearSeconds
-//         let res2 = (dt - ts) |> thatYearSeconds
-//         equal true (res1 = res2)
-//         equal expected res1
-//     test 1000. 21945599.0
-//     test -1000. 21945601.0
-//     test 0. 21945600.0
+[<Fact>]
+let ``DateTime Subtraction with TimeSpan works`` () =
+    let test ms expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
+        let ts = TimeSpan.FromMilliseconds(ms)
+        let res1 = dt.Subtract(ts) |> thatYearSeconds
+        let res2 = (dt - ts) |> thatYearSeconds
+        (res1 = res2) |> equal true
+        res1 |> equal expected
+    test 1000. 21945599.0
+    test -1000. 21945601.0
+    test 0. 21945600.0
 
-// [<Fact>]
-// let ``DateTime Subtraction with DateTime works`` () =
-//     let test ms expected =
-//         let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-//         let dt2 = dt1.AddMilliseconds(ms)
-//         let res1 = dt1.Subtract(dt2).TotalSeconds
-//         let res2 = (dt1 - dt2).TotalSeconds
-//         equal true (res1 = res2)
-//         equal expected res1
-//     test 1000. -1.0
-//     test -1000. 1.0
-//     test 0. 0.0
+[<Fact>]
+let ``DateTime Subtraction with DateTime works`` () =
+    let test ms expected =
+        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+        let dt2 = dt1.AddMilliseconds(ms)
+        let res1 = dt1.Subtract(dt2).TotalSeconds
+        let res2 = (dt1 - dt2).TotalSeconds
+        (res1 = res2) |> equal true
+        res1 |> equal expected
+    test 1000. -1.0
+    test -1000. 1.0
+    test 0. 0.0
 
-// [<Fact>]
-// let ``DateTime Comparison works`` () =
-//     let test ms expected =
-//         let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-//         let dt2 = dt1.AddMilliseconds(ms)
-//         let res1 = compare dt1 dt2
-//         let res2 = dt1.CompareTo(dt2)
-//         let res3 = DateTime.Compare(dt1, dt2)
-//         equal true (res1 = res2 && res2 = res3)
-//         equal expected res1
-//     test 1000. -1
-//     test -1000. 1
-//     test 0. 0
+[<Fact>]
+let ``DateTime Comparison works`` () =
+    let test ms expected =
+        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+        let dt2 = dt1.AddMilliseconds(ms)
+        let res1 = compare dt1 dt2
+        let res2 = dt1.CompareTo(dt2)
+        let res3 = DateTime.Compare(dt1, dt2)
+        (res1 = res2 && res2 = res3) |> equal true
+        res1 |> equal expected
+    test 1000. -1
+    test -1000. 1
+    test 0. 0
 
-// [<Fact>]
-// let ``DateTime GreaterThan works`` () =
-//     let test ms expected =
-//         let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-//         let dt2 = dt1.AddMilliseconds(ms)
-//         dt1 > dt2 |> equal expected
-//     test 1000. false
-//     test -1000. true
-//     test 0. false
+[<Fact>]
+let ``DateTime GreaterThan works`` () =
+    let test ms expected =
+        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+        let dt2 = dt1.AddMilliseconds(ms)
+        dt1 > dt2 |> equal expected
+    test 1000. false
+    test -1000. true
+    test 0. false
 
-// [<Fact>]
-// let ``DateTime LessThan works`` () =
-//     let test ms expected =
-//         let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-//         let dt2 = dt1.AddMilliseconds(ms)
-//         dt1 < dt2 |> equal expected
-//     test 1000. true
-//     test -1000. false
-//     test 0. false
+[<Fact>]
+let ``DateTime LessThan works`` () =
+    let test ms expected =
+        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+        let dt2 = dt1.AddMilliseconds(ms)
+        dt1 < dt2 |> equal expected
+    test 1000. true
+    test -1000. false
+    test 0. false
 
-// [<Fact>]
-// let ``DateTime Equality works`` () =
-//     let test ms expected =
-//         let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-//         let dt2 = dt1.AddMilliseconds(ms)
-//         dt1 = dt2 |> equal expected
-//     test 1000. false
-//     test -1000. false
-//     test 0. true
+[<Fact>]
+let ``DateTime Equality works`` () =
+    let test ms expected =
+        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+        let dt2 = dt1.AddMilliseconds(ms)
+        dt1 = dt2 |> equal expected
+    test 1000. false
+    test -1000. false
+    test 0. true
 
-// [<Fact>]
-// let ``DateTime Inequality works`` () =
-//     let test ms expected =
-//         let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-//         let dt2 = dt1.AddMilliseconds(ms)
-//         dt1 <> dt2 |> equal expected
-//     test 1000. true
-//     test -1000. true
-//     test 0. false
+[<Fact>]
+let ``DateTime Inequality works`` () =
+    let test ms expected =
+        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+        let dt2 = dt1.AddMilliseconds(ms)
+        dt1 <> dt2 |> equal expected
+    test 1000. true
+    test -1000. true
+    test 0. false
 
-// [<Fact>]
-// let ``DateTime TimeOfDay works`` () =
-//     let d = System.DateTime(2014, 10, 9, 13, 23, 30, 1, System.DateTimeKind.Utc)
-//     let t = d.TimeOfDay
-//     t |> equal (TimeSpan(0, 13, 23, 30, 1))
+[<Fact>]
+let ``DateTime TimeOfDay works`` () =
+    let d = System.DateTime(2014, 10, 9, 13, 23, 30, 1, System.DateTimeKind.Utc)
+    let t = d.TimeOfDay
+    t |> equal (TimeSpan(0, 13, 23, 30, 1))
 
 // [<Fable.Core.Rust.OuterAttr("cfg", [|"feature = \"threaded\""|])>]
 // module AsyncTests =

@@ -60,7 +60,7 @@ let coreModFor = function
     | FSharpReference _ -> "Native"
     | BclHashSet _ -> "MutableSet"
     | BclDictionary _ -> "MutableMap"
-    | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
+    | BclKeyValuePair _ -> "Util"
 
 let nativeCall expr =
     expr |> withTag "native"
@@ -73,6 +73,14 @@ let makeStaticLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName a
     let isConstructor = (i.CompiledName = ".ctor" || i.CompiledName = ".cctor")
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs,
         isModuleMember=false, isConstructor=isConstructor, ?loc=r)
+
+let makeStaticMemberCall (com: ICompiler) r t i moduleName memberName args =
+    let memberName = moduleName + "::" + memberName
+    makeStaticLibCall com r t i moduleName memberName args
+
+let makeStaticFieldCall (com: ICompiler) r t moduleName memberName =
+    let memberName = moduleName + "::" + memberName
+    Helper.LibCall(com, moduleName, memberName, t, [], ?isModuleMember=Some(false), ?loc=r)
 
 let makeLibCall (com: ICompiler) r t (i: CallInfo) moduleName memberName args =
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc=r)
@@ -453,28 +461,22 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
     Helper.LibCall(com, "Util", methodName, Int32.Number, [arg], ?loc=r)
 
 let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
+    let t = Boolean
     match left.Type with
-    // | Builtin (BclGuid|BclTimeSpan)
-    // | Boolean | Char | String | Number _ ->
-    //     makeEqOp r left right BinaryEqual
-    | Builtin (BclDateTime|BclDateTimeOffset) ->
-        Helper.LibCall(com, "DateTime", "equals", Boolean, [left; right], ?loc=r)
+    | Boolean | Char | String | Number _ ->
+        makeEqOp r left right BinaryEqual
+    | Builtin kind ->
+        Helper.LibCall(com, coreModFor kind, "equals", t, [left; right], ?loc=r)
     | Array _ ->
-        Helper.LibCall(com, "Array", "equals", Boolean, [left; right], ?loc=r)
+        Helper.LibCall(com, "Array", "equals", t, [left; right], ?loc=r)
     | List _ ->
-        Helper.LibCall(com, "List", "equals", Boolean, [left; right], ?loc=r)
+        Helper.LibCall(com, "List", "equals", t, [left; right], ?loc=r)
     | IEnumerable ->
-        Helper.LibCall(com, "Seq", "equals", Boolean, [left; right], ?loc=r)
-    | Builtin (FSharpSet _) ->
-        Helper.LibCall(com, "Set", "equals", Boolean, [left; right], ?loc=r)
-    | Builtin (FSharpMap _) ->
-        Helper.LibCall(com, "Map", "equals", Boolean, [left; right], ?loc=r)
+        Helper.LibCall(com, "Seq", "equals", t, [left; right], ?loc=r)
     // | DeclaredType _ ->
-    //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r)
+    //     Helper.LibCall(com, "Util", "equals", t, [left; right], ?loc=r)
     // | MetaType ->
-    //     Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r)
-    // | Tuple _ ->
-    //     Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r)
+    //     Helper.LibCall(com, "Reflection", "equals", t, [left; right], ?loc=r)
     | _ ->
         // may use reference equality where needed (see Fable2Rust.transformOperation)
         makeEqOp r left right BinaryEqual
@@ -496,33 +498,20 @@ let structEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
 let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     let t = Int32.Number
     match left.Type with
-    // | Number ((Float16|Float32|Float64), _) ->
-    //     Helper.LibCall(com, "Native", "compare", t, [left; right], ?loc = r)
-    // | Number (Decimal,_) ->
-    //     Helper.LibCall(com, "Decimal", "compareTo", t, [left; right], ?loc = r)
-    // | Number (BigInt,_) ->
-    //     Helper.LibCall(com, "BigInt", "compareTo", t, [left; right], ?loc = r)
     | Boolean | Char | String | Number _ ->
         Helper.LibCall(com, "Native", "compare", t, [makeRef left; makeRef right], ?loc=r)
-    // | Builtin (BclGuid|BclTimeSpan)
-    | Builtin (BclDateTime|BclDateTimeOffset) ->
-        Helper.LibCall(com, "DateTime", "compareTo", t, [left; right], ?loc=r)
+    | Builtin kind ->
+        Helper.LibCall(com, coreModFor kind, "compareTo", t, [left; right], ?loc=r)
     | Array _ ->
         Helper.LibCall(com, "Array", "compareTo", t, [left; right], ?loc=r)
     | List _ ->
         Helper.LibCall(com, "List", "compareTo", t, [left; right], ?loc=r)
     | IEnumerable ->
         Helper.LibCall(com, "Seq", "compareTo", t, [left; right], ?loc=r)
-    | Builtin (FSharpSet _) ->
-        Helper.LibCall(com, "Set", "compareTo", t, [left; right], ?loc=r)
-    | Builtin (FSharpMap _) ->
-        Helper.LibCall(com, "Map", "compareTo", t, [left; right], ?loc=r)
-    | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "compare", t, [left; right], ?loc=r)
-    // | Tuple _ ->
-    //     Helper.LibCall(com, "Util", "compareArrays", t, [left; right], ?loc=r)
+    // | DeclaredType _ ->
+    //     Helper.LibCall(com, "Util", "compareTo", t, [left; right], ?loc=r)
     | _ ->
-        Helper.LibCall(com, "Util", "compare", t, [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compareTo", t, [left; right], ?loc=r)
 
 /// Boolean comparison operators like <, >, <=, >=
 let booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
@@ -629,9 +618,11 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst "" // TODO: Use null for string?
     | Array(typ,_) -> makeArray typ []
+    | Builtin BclDateTime -> Helper.LibCall(com, "DateTime", "zero", t, [])
+    | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateTimeOffset", "zero", t, [])
+    | Builtin BclDateOnly -> Helper.LibCall(com, "DateOnly", "zero", t, [])
+    | Builtin BclTimeOnly -> Helper.LibCall(com, "TimeOnly", "zero", t, [])
     | Builtin BclTimeSpan -> Helper.LibValue(com, "TimeSpan", "zero", t)
-    | Builtin BclDateTime -> Helper.LibCall(com, "DateTime", "min_value", t, [])
-    | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateTimeOffset", "min_value", t, [])
     | Builtin (FSharpSet genArg) -> makeSet com ctx None t [] genArg
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
     | Builtin (BclKeyValuePair(k, v)) ->
@@ -1052,7 +1043,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | ExprType(Number(BigInt,_))::_ ->
             Helper.LibCall(com, "BigInt", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | ExprType(Number((Float16|Float32|Float64),_))::_ ->
-            Helper.LibCall(com, "Native", "compare", t, [arg; getZero com ctx arg.Type], i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+            compare com ctx r arg (getZero com ctx arg.Type) |> Some
         | _ ->
             let sign = makeInstanceCall r arg.Type i arg "signum" []
             TypeCast(sign, Int32.Number) |> Some
@@ -2232,7 +2223,8 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> structEquals com ctx r arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> structuralHash com r arg |> Some
-    | "CompareTo", Some arg1, [arg2] -> compare com ctx r arg1 arg2 |> Some
+    | "CompareTo", Some arg1, [arg2]
+    | "Compare", None, [arg1; arg2] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2333,112 +2325,174 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ".ctor" ->
         match args with
         | [] ->
-            Helper.LibCall(com, "DateTime", "new", t, [], [], ?loc=r) |> Some
-        | ExprType(Number(Int64,_))::_ ->
-            Helper.LibCall(com, "DateTime", "new_ticks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            "new_empty" |> Some
+        | ExprType(Number(Int64,_))::[] ->
+            "new_ticks" |> Some
+        | ExprType(Number(Int64,_))::_kind::[] ->
+            "new_ticks_kind" |> Some
+        | ExprType(DeclaredType(ent,[]))::_timeOnly::[] when ent.FullName = Types.dateOnly ->
+            "new_date_time" |> Some
+        | ExprType(DeclaredType(ent,[]))::_timeOnly::_kind::[] when ent.FullName = Types.dateOnly ->
+            "new_date_time_kind" |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-            Helper.LibCall(com, "DateTime", "new_ymd", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-            Helper.LibCall(com, "DateTime", "new_ymdhms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            "new_ymd" |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
-            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
-            Helper.LibCall(com, "DateTime", "new_ymdhms_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[] when ent.FullName = "System.DateTimeKind" ->
+            "new_ymdhms_kind" |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
-            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
-            Helper.LibCall(com, "DateTime", "new_ymdhms_milli_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[] when ent.FullName = "System.DateTimeKind" ->
+            "new_ymdhms_milli_kind" |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
-            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
-            Helper.LibCall(com, "DateTime", "new_ymdhms_micro_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[] when ent.FullName = "System.DateTimeKind" ->
+            "new_ymdhms_micro_kind" |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            "new_ymdhms" |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-            Helper.LibCall(com, "DateTime", "new_ymdhms_milli", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            "new_ymdhms_milli" |> Some
         | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-            Helper.LibCall(com, "DateTime", "new_ymdhms_micro", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | _ ->
-            let last = List.last args
-            match args.Length, last.Type with
-            | 7, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
-                let args = (List.take 6 args) @ [makeIntConst 0; last]
-                let argTypes = (List.take 6 i.SignatureArgTypes) @ [Int32.Number; last.Type]
-                Helper.LibCall(com, "DateTime", "new", t, args, argTypes, ?loc=r) |> Some
-            | _ ->
-                Helper.LibCall(com, "DateTime", "new", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            "new_ymdhms_micro" |> Some
+        | _ -> None
+        |> Option.map (fun meth ->
+            makeStaticMemberCall com r t i "DateTime" meth args)
+    | "Compare" | "CompareTo" | "Equals" | "GetHashCode" ->
+        valueTypes com ctx r t i thisArg args
     | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
-        | None -> Helper.LibCall(com, "DateTime", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | None -> makeStaticMemberCall com r t i "DateTime" meth args |> Some
 
 let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ".ctor" ->
         match args with
         | [] ->
-            Helper.LibCall(com, "DateTimeOffset", "new", t, [], [], ?loc=r) |> Some
+            "new_empty" |> Some
         | ExprType(Number(Int64,_))::_ ->
-            Helper.LibCall(com, "DateTimeOffset", "new_ticks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
-            Helper.LibCall(com, "DateTimeOffset", "fromDateTime", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-            Helper.LibCall(com, "DateTimeOffset", "new_ymd", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-            Helper.LibCall(com, "DateTimeOffset", "new_ymdhms", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
-            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
-            Helper.LibCall(com, "DateTimeOffset", "new_ymdhms_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))
-            ::ExprType(Number(_, NumberInfo.IsEnum ent))::[]  when ent.FullName = "System.DateTimeKind"->
-            Helper.LibCall(com, "DateTimeOffset", "new_ymdhms_milli_withkind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-            Helper.LibCall(com, "DateTimeOffset", "new_ymdhms_milli", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            "new_ticks" |> Some
+        | ExprType(DeclaredType(ent,[]))::[] when ent.FullName = Types.datetime ->
+            "new_datetime" |> Some
+        | ExprType(DeclaredType(ent,[]))::_ when ent.FullName = Types.datetime ->
+            "new_datetime2" |> Some
+        | ExprType(DeclaredType(ent,[]))::_ when ent.FullName = Types.dateOnly ->
+            "new_date_time" |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::_offset::[] ->
+            "new_ymdhms" |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::_offset::[] ->
+            "new_ymdhms_milli" |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::_offset::[] ->
+            "new_ymdhms_micro" |> Some
         | _ -> None
-            // let last = List.last args
-            // match args.Length, last.Type with
-            // | 7, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
-            //     let args = (List.take 6 args) @ [makeIntConst 0; last]
-            //     let argTypes = (List.take 6 i.SignatureArgTypes) @ [Int32.Number; last.Type]
-            //     Helper.LibCall(com, "DateTime", "new", t, args, argTypes, ?loc=r) |> Some
-            // | _ ->
-            //     Helper.LibCall(com, "DateTimeOffset", "new", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        |> Option.map (fun meth ->
+            makeStaticMemberCall com r t i "DateTimeOffset" meth args)
+    | "Compare" | "CompareTo" | "Equals" | "GetHashCode" ->
+        valueTypes com ctx r t i thisArg args
     | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
-        | None -> Helper.LibCall(com, "DateTimeOffset", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | None -> makeStaticMemberCall com r t i "DateTimeOffset" meth args |> Some
+
+let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" ->
+        match args with
+        | [ExprType(Number(Int32,_)); ExprType(Number(Int32,_)); ExprType(Number(Int32,_))] ->
+            "new_ymd" |> Some
+        | _ -> None
+        |> Option.map (fun meth ->
+            makeStaticMemberCall com r t i "DateOnly" meth args)
+    | "Compare" | "CompareTo" | "Equals" | "GetHashCode" ->
+        valueTypes com ctx r t i thisArg args
+    // | "ToString" ->
+    //     match args with
+    //     | [ ExprType String ]
+    //     | [ StringConst _ ] ->
+    //         "DateOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
+    //         |> addError com ctx.InlinePath r
+    //         None
+    //     | [ StringConst ("d" | "o" | "O"); _ ] ->
+    //         Helper.LibCall(com, "DateOnly", "toString", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+    //     | [ StringConst _; _] ->
+    //         "DateOnly.ToString doesn't support custom format. It only handles \"d\", \"o\", \"O\" format, with CultureInfo.InvariantCulture."
+    //         |> addError com ctx.InlinePath r
+    //         None
+    //     | [ _ ] ->
+    //         Helper.LibCall(com, "DateOnly", "toString", t, makeStrConst "d" :: args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+    //     | _ ->
+    //         None
+    | meth ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        match thisArg with
+        | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
+        | None -> makeStaticMemberCall com r t i "DateOnly" meth args |> Some
+
+let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" ->
+        let meth = $"new{List.length args}"
+        makeStaticMemberCall com r t i "TimeOnly" meth args |> Some
+    | "Compare" | "CompareTo" | "Equals" | "GetHashCode" ->
+        valueTypes com ctx r t i thisArg args
+    // | "ToString" ->
+    //     match args with
+    //     | [ ExprType String ]
+    //     | [ StringConst _ ] ->
+    //         "TimeOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
+    //         |> addError com ctx.InlinePath r
+    //         None
+    //     | [ StringConst ("r" | "R" | "o" | "O" | "t" | "T"); _ ] ->
+    //         Helper.LibCall(com, "TimeOnly", "toString", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+    //     | [ StringConst _; _] ->
+    //         "TimeOnly.ToString doesn't support custom format. It only handles \"r\", \"R\", \"o\", \"O\", \"t\", \"T\" format, with CultureInfo.InvariantCulture."
+    //         |> addError com ctx.InlinePath r
+    //         None
+    //     | [ _ ] ->
+    //         Helper.LibCall(com, "TimeOnly", "toString", t, makeStrConst "t" :: args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
+    //     | _ ->
+    //         None
+    | meth ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        match thisArg with
+        | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
+        | None -> makeStaticMemberCall com r t i "TimeOnly" meth args |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" ->
-        let meth =
-            match args with
-            | ExprType(Number(Int64,_))::[] ->
-                "new_ticks"
-            | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-                "new_hms"
-            | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-                "new_dhms"
-            | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
-                "new_dhms_milli"
-            | _ -> "new"
-        Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "ToString" when (args.Length = 1) ->
-        "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
-        |> addError com ctx.InlinePath r
-        None
-    | "ToString" when (args.Length = 2) ->
-        match args.Head with
-        | StringConst "c"
-        | StringConst "g"
-        | StringConst "G" ->
-            Helper.LibCall(com, "TimeSpan", "to_string", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-        | _ ->
-            "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
-            |> addError com ctx.InlinePath r
-            None
+        match args with
+        | ExprType(Number(Int64,_))::[] ->
+            "new_ticks" |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            "new_hms" |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            "new_dhms" |> Some
+        | ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::ExprType(Number(Int32,_))::[] ->
+            "new_dhms_milli" |> Some
+        | _ -> None
+        |> Option.map (fun meth ->
+            makeStaticMemberCall com r t i "TimeSpan" meth args)
+    | "Compare" | "CompareTo" | "Equals" | "GetHashCode" ->
+        valueTypes com ctx r t i thisArg args
+    // | "ToString" when (args.Length = 1) ->
+    //     "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
+    //     |> addError com ctx.InlinePath r
+    //     None
+    // | "ToString" when (args.Length = 2) ->
+    //     match args.Head with
+    //     | StringConst "c"
+    //     | StringConst "g"
+    //     | StringConst "G" ->
+    //         Helper.LibCall(com, "TimeSpan", "to_string", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    //     | _ ->
+    //         "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
+    //         |> addError com ctx.InlinePath r
+    //         None
     // | "Zero" etc. -> // for static fields, see tryField
     | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
@@ -2448,7 +2502,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
-        | None -> Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | None -> makeStaticMemberCall com r t i "TimeSpan" meth args |> Some
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -2892,26 +2946,27 @@ let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: E
     | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
 
-let tryField com returnTyp ownerTyp fieldName =
+let tryField com t ownerTyp fieldName =
     match ownerTyp, fieldName with
     | Number(Decimal,_), _ ->
-        Helper.LibValue(com, "Decimal", fieldName, returnTyp) |> Some
+        Helper.LibValue(com, "Decimal", fieldName, t) |> Some
     | String, "Empty" -> makeStrConst "" |> Some
     | Builtin BclGuid, "Empty" ->
-        Helper.LibValue(com, "Guid", "empty", returnTyp) |> Some
+        Helper.LibValue(com, "Guid", "empty", t) |> Some
     | Builtin BclTimeSpan, _ ->
         let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
-        Helper.LibValue(com, "TimeSpan", meth, returnTyp) |> Some
+        Helper.LibValue(com, "TimeSpan", meth, t) |> Some
     | Builtin BclDateTime, _->
         let meth = fieldName |> Naming.lowerFirst
-        Helper.LibCall(com, "DateTime", meth, returnTyp, []) |> Some
+        makeStaticFieldCall com None t "DateTime" meth |> Some
     | Builtin BclDateTimeOffset, _ ->
         let meth = fieldName |> Naming.lowerFirst
-        Helper.LibCall(com, "DateTimeOffset", meth, returnTyp, []) |> Some
+        makeStaticFieldCall com None t "DateTimeOffset" meth |> Some
     | DeclaredType(ent, genArgs), fieldName ->
+        let meth = fieldName |> Naming.lowerFirst
         match ent.FullName with
         | "System.BitConverter" ->
-            Helper.LibCall(com, "BitConverter", Naming.lowerFirst fieldName, returnTyp, []) |> Some
+            Helper.LibCall(com, "BitConverter", meth, t, []) |> Some
         | _ -> None
     | _ -> None
 
@@ -3005,6 +3060,8 @@ let private replacedModules =
     "System.Diagnostics.Debugger", debug
     Types.datetime, dateTimes
     Types.datetimeOffset, dateTimeOffsets
+    Types.dateOnly, dateOnly
+    Types.timeOnly, timeOnly
     Types.timespan, timeSpans
     "System.Timers.Timer", timers
     "System.Environment", systemEnv
@@ -3125,10 +3182,12 @@ let tryType typ =
     | Builtin kind ->
         match kind with
         | BclGuid -> Some(Types.guid, guids, [])
-        | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclDateTime -> Some(Types.datetime, dateTimes, [])
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dateTimeOffsets, [])
+        | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
+        | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
         | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [genArg])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [key; value])
         | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [key; value])
@@ -3137,6 +3196,4 @@ let tryType typ =
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
         | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [genArg])
-        | BclDateOnly -> None
-        | BclTimeOnly -> None
     | _ -> None

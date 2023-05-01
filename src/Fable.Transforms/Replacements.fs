@@ -3123,12 +3123,12 @@ let tryType = function
     | Builtin kind ->
         match kind with
         | BclGuid -> Some(Types.guid, guids, [])
-        | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclDateTime -> Some(Types.datetime, dates, [])
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
         | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
         | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
         | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [genArg])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [key; value])
         | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [key; value])
