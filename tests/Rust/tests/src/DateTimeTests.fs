@@ -258,6 +258,12 @@ let ``DateTime.UtcNow works`` () =
 
 // [<Fact>]
 // let ``DateTime.Parse works`` () =
+//     let d = DateTime.Now
+//     let d2 = DateTime.Parse(d.ToString(), CultureInfo.InvariantCulture)
+//     d2 |> equal d
+
+// [<Fact>]
+// let ``DateTime.Parse with provider works`` () =
 //     let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
 //     d.Year + d.Month + d.Day + d.Hour + d.Minute
 //     |> equal 2096

@@ -228,7 +228,7 @@ pub mod TimeSpan_ {
         }
 
         pub fn try_parse(s: string, res: &MutCell<TimeSpan>) -> bool {
-            match Self::try_parse_str(s.as_str()) {
+            match Self::try_parse_str(s.trim()) {
                 Ok(ts) => {
                     res.set(ts);
                     true
@@ -238,7 +238,7 @@ pub mod TimeSpan_ {
         }
 
         pub fn parse(s: string) -> TimeSpan {
-            match Self::try_parse_str(s.as_str()) {
+            match Self::try_parse_str(s.trim()) {
                 Ok(ts) => ts,
                 Err(e) => panic!("String '{}' was not recognized as a valid TimeSpan.", s),
             }
