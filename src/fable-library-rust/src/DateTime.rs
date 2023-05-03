@@ -10,7 +10,7 @@ pub mod DateTime_ {
     };
     use chrono::{
         DateTime as CDateTime, Datelike, Duration, FixedOffset, Local, Months, NaiveDate,
-        NaiveDateTime, NaiveTime, Offset, TimeZone, Timelike, Utc, Weekday,
+        NaiveDateTime, NaiveTime, Offset, ParseResult, TimeZone, Timelike, Utc, Weekday,
     };
     use core::ops::{Add, Sub};
 
@@ -35,39 +35,27 @@ pub mod DateTime_ {
 
     impl PartialEq for DateTime {
         fn eq(&self, other: &Self) -> bool {
-            let x = self.get_cdt_with_offset();
-            let y = other.get_cdt_with_offset();
-            x == y
+            self.ticks() == other.ticks()
         }
     }
 
     impl PartialOrd for DateTime {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-            let x = self.get_cdt_with_offset();
-            let y = other.get_cdt_with_offset();
-            x.partial_cmp(&y)
+            self.ticks().partial_cmp(&other.ticks())
         }
     }
 
     pub fn compareTo(x: DateTime, y: DateTime) -> i32 {
-        compare(&x, &y)
+        compare(&x.ticks(), &y.ticks())
     }
 
     pub fn equals(x: DateTime, y: DateTime) -> bool {
-        x == y
+        x.ticks() == y.ticks()
     }
 
     pub fn zero() -> DateTime {
         DateTime::minValue()
     }
-
-    // // https://docs.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-6.0
-    // pub(crate) fn ndt_to_ticks(ndt: NaiveDateTime) -> i64 {
-    //     let dayTicks = ((ndt.num_days_from_ce() - 1) as i64) * 24 * 60 * 60 * ticks_per_second;
-    //     let secondsTicks = (ndt.num_seconds_from_midnight() as i64) * ticks_per_second;
-    //     let subsecondTicks = (ndt.timestamp_subsec_nanos() as i64) / 100;
-    //     dayTicks + secondsTicks + subsecondTicks
-    // }
 
     pub(crate) fn ticks_to_duration(ticks: i64) -> Duration {
         let seconds = ticks / ticks_per_second;
@@ -86,6 +74,9 @@ pub mod DateTime_ {
 
     impl DateTime {
         pub fn new(ndt: NaiveDateTime, kind: DateTimeKind) -> DateTime {
+            if ndt < Self::minValue().ndt || ndt > Self::maxValue().ndt {
+                panic!("Invalid datetime range");
+            }
             DateTime { ndt, kind }
         }
 
@@ -96,7 +87,7 @@ pub mod DateTime_ {
                 2 => DateTimeKind::Local,
                 _ => panic!("Unsupported date kind. Only valid values are: 0 - Unspecified, 1 - Utc, 2 -> Local")
             };
-            DateTime::new(ndt, dtKind)
+            Self::new(ndt, dtKind)
         }
 
         pub fn new_empty() -> DateTime {
@@ -107,30 +98,32 @@ pub mod DateTime_ {
             Self::minValue().add(TimeSpan::from_ticks(ticks))
         }
 
-        pub fn new_ticks_kind(ticks: i64) -> DateTime {
-            Self::minValue().add(TimeSpan::from_ticks(ticks))
+        pub fn new_ticks_kind(ticks: i64, kind: i32) -> DateTime {
+            let d = ticks_to_duration(ticks);
+            let ndt = Self::minValue().ndt + d;
+            Self::new_kind(ndt, kind)
         }
 
         pub fn new_date_time(d: DateOnly, t: TimeOnly) -> DateTime {
             let ndt = d.naive_date().and_time(t.naive_time());
-            DateTime::new(ndt, DateTimeKind::Unspecified)
+            Self::new(ndt, DateTimeKind::Unspecified)
         }
 
         pub fn new_date_time_kind(d: DateOnly, t: TimeOnly, kind: i32) -> DateTime {
             let ndt = d.naive_date().and_time(t.naive_time());
-            DateTime::new_kind(ndt, kind)
+            Self::new_kind(ndt, kind)
         }
 
         pub fn new_ymd(y: i32, m: i32, d: i32) -> DateTime {
             let nd = NaiveDate::from_ymd_opt(y, m as u32, d as u32).unwrap();
             let ndt = nd.and_hms_opt(0, 0, 0).unwrap();
-            DateTime::new(ndt, DateTimeKind::Unspecified)
+            Self::new(ndt, DateTimeKind::Unspecified)
         }
 
         pub fn new_ymdhms(y: i32, m: i32, d: i32, h: i32, mins: i32, secs: i32) -> DateTime {
             let nd = NaiveDate::from_ymd_opt(y, m as u32, d as u32).unwrap();
             let ndt = nd.and_hms_opt(h as u32, mins as u32, secs as u32).unwrap();
-            DateTime::new(ndt, DateTimeKind::Unspecified)
+            Self::new(ndt, DateTimeKind::Unspecified)
         }
 
         pub fn new_ymdhms_kind(
@@ -143,7 +136,7 @@ pub mod DateTime_ {
             kind: i32,
         ) -> DateTime {
             let dt = Self::new_ymdhms(y, m, d, h, mins, secs);
-            Self::specifyKind(dt, kind)
+            Self::new_kind(dt.ndt, kind)
         }
 
         pub fn new_ymdhms_milli(
@@ -159,7 +152,7 @@ pub mod DateTime_ {
             let ndt = nd
                 .and_hms_milli_opt(h as u32, mins as u32, secs as u32, millis as u32)
                 .unwrap();
-            DateTime::new(ndt, DateTimeKind::Unspecified)
+            Self::new(ndt, DateTimeKind::Unspecified)
         }
 
         pub fn new_ymdhms_milli_kind(
@@ -173,7 +166,7 @@ pub mod DateTime_ {
             kind: i32,
         ) -> DateTime {
             let dt = Self::new_ymdhms_milli(y, m, d, h, mins, secs, millis);
-            Self::specifyKind(dt, kind)
+            Self::new_kind(dt.ndt, kind)
         }
 
         pub fn new_ymdhms_micro(
@@ -195,7 +188,7 @@ pub mod DateTime_ {
                     (millis * 1000 + micros) as u32,
                 )
                 .unwrap();
-            DateTime::new(ndt, DateTimeKind::Unspecified)
+            Self::new(ndt, DateTimeKind::Unspecified)
         }
 
         pub fn new_ymdhms_micro_kind(
@@ -210,33 +203,45 @@ pub mod DateTime_ {
             kind: i32,
         ) -> DateTime {
             let dt = Self::new_ymdhms_micro(y, m, d, h, mins, secs, millis, micros);
-            Self::specifyKind(dt, kind)
+            Self::new_kind(dt.ndt, kind)
         }
 
         pub fn now() -> DateTime {
-            DateTime::new(Local::now().naive_local(), DateTimeKind::Local)
+            DateTime {
+                ndt: Local::now().naive_local(),
+                kind: DateTimeKind::Local,
+            }
         }
 
         pub fn utcNow() -> DateTime {
-            DateTime::new(Utc::now().naive_utc(), DateTimeKind::Utc)
+            DateTime {
+                ndt: Utc::now().naive_utc(),
+                kind: DateTimeKind::Utc,
+            }
         }
 
         pub fn minValue() -> DateTime {
             let nd = NaiveDate::from_ymd_opt(1, 1, 1).unwrap();
             let ndt = nd.and_hms_opt(0, 0, 0).unwrap();
-            DateTime::new(ndt, DateTimeKind::Utc)
+            DateTime {
+                ndt,
+                kind: DateTimeKind::Utc,
+            }
         }
 
         pub fn maxValue() -> DateTime {
             let d = ticks_to_duration(1);
             let nd = NaiveDate::from_ymd_opt(10000, 1, 1).unwrap();
             let ndt = nd.and_hms_opt(0, 0, 0).unwrap() - d; // one tick before year 10000
-            DateTime::new(ndt, DateTimeKind::Utc)
+            DateTime {
+                ndt,
+                kind: DateTimeKind::Utc,
+            }
         }
 
         pub fn unixEpoch() -> DateTime {
             let ndt = Utc.timestamp_millis_opt(0).unwrap().naive_utc();
-            DateTime::new(ndt, DateTimeKind::Utc)
+            Self::new(ndt, DateTimeKind::Utc)
         }
 
         pub fn daysInMonth(year: i32, month: i32) -> i32 {
@@ -261,23 +266,22 @@ pub mod DateTime_ {
         }
 
         pub fn specifyKind(dt: DateTime, kind: i32) -> DateTime {
-            DateTime::new_kind(dt.ndt, kind)
+            Self::new_ticks_kind(dt.ticks(), kind)
         }
 
         pub fn add(&self, ts: TimeSpan) -> DateTime {
             let d = ticks_to_duration(ts.ticks());
-            DateTime::new(self.ndt + d, self.kind)
+            Self::new(self.ndt + d, self.kind)
         }
 
         pub fn subtract(&self, ts: TimeSpan) -> DateTime {
             let d = ticks_to_duration(ts.ticks());
-            DateTime::new(self.ndt - d, self.kind)
+            Self::new(self.ndt - d, self.kind)
         }
 
         pub fn subtract2(&self, other: DateTime) -> TimeSpan {
-            let x = self.get_cdt_with_offset();
-            let y = other.get_cdt_with_offset();
-            TimeSpan::from_ticks(duration_to_ticks(x - y))
+            let ticks = duration_to_ticks(self.ndt - other.ndt);
+            TimeSpan::from_ticks(ticks)
         }
 
         pub fn kind(&self) -> i32 {
@@ -288,11 +292,12 @@ pub mod DateTime_ {
             }
         }
 
+        pub(crate) fn kind_enum(&self) -> DateTimeKind {
+            self.kind
+        }
+
         pub fn ticks(&self) -> i64 {
-            // ndt_to_ticks(self.ndt)
-            let x = self.toUniversalTime();
-            let y = Self::minValue();
-            duration_to_ticks(x.ndt - y.ndt)
+            duration_to_ticks(self.ndt - Self::minValue().ndt)
         }
 
         pub fn date(&self) -> DateTime {
@@ -313,18 +318,18 @@ pub mod DateTime_ {
                 DateTimeKind::Local => self.ndt,
                 DateTimeKind::Unspecified => Local.from_utc_datetime(&self.ndt).naive_local(),
             };
-            DateTime::new(ndt, DateTimeKind::Local)
+            Self::new(ndt, DateTimeKind::Local)
         }
 
         pub fn toUniversalTime(&self) -> DateTime {
             let ndt = match self.kind {
                 DateTimeKind::Utc => self.ndt,
-                DateTimeKind::Local => Utc.from_local_datetime(&self.ndt).unwrap().naive_utc(),
+                DateTimeKind::Local => Local.from_local_datetime(&self.ndt).unwrap().naive_utc(),
                 DateTimeKind::Unspecified => {
-                    Utc.from_local_datetime(&self.ndt).unwrap().naive_utc()
+                    Local.from_local_datetime(&self.ndt).unwrap().naive_utc()
                 }
             };
-            DateTime::new(ndt, DateTimeKind::Utc)
+            Self::new(ndt, DateTimeKind::Utc)
         }
 
         pub fn localDateTime(&self) -> DateTime {
@@ -412,7 +417,7 @@ pub mod DateTime_ {
                     .checked_add_months(Months::new(months as u32))
                     .unwrap()
             };
-            DateTime::new(ndt, self.kind)
+            Self::new(ndt, self.kind)
         }
 
         pub fn addDays(&self, days: f64) -> DateTime {
@@ -457,12 +462,16 @@ pub mod DateTime_ {
             fromString(df.to_string())
         }
 
+        fn try_parse_str(s: &str) -> ParseResult<NaiveDateTime> {
+            s.parse::<NaiveDateTime>()
+                .or(NaiveDateTime::parse_from_str(s, "%m/%d/%Y %H:%M:%S%.f"))
+                .or(NaiveDateTime::parse_from_str(s, "%m/%d/%Y %I:%M:%S %P"))
+        }
+
         pub fn tryParse(s: string, res: &MutCell<DateTime>) -> bool {
-            match CDateTime::parse_from_rfc3339(s.trim())
-                .or(CDateTime::parse_from_rfc2822(s.trim()))
-            {
-                Ok(dt) => {
-                    res.set(DateTime::new(dt.naive_utc(), DateTimeKind::Unspecified));
+            match Self::try_parse_str(s.trim()) {
+                Ok(ndt) => {
+                    res.set(Self::new(ndt, DateTimeKind::Unspecified));
                     true
                 }
                 Err(e) => false,
@@ -470,19 +479,27 @@ pub mod DateTime_ {
         }
 
         pub fn parse(s: string) -> DateTime {
-            match CDateTime::parse_from_rfc3339(s.trim())
-                .or(CDateTime::parse_from_rfc2822(s.trim()))
-            {
-                Ok(dt) => DateTime::new(dt.naive_utc(), DateTimeKind::Unspecified),
+            match Self::try_parse_str(s.trim()) {
+                Ok(ndt) => Self::new(ndt, DateTimeKind::Unspecified),
                 Err(e) => panic!("Input string was not in a correct format."),
             }
         }
 
-        pub(crate) fn get_cdt_with_offset(&self) -> CDateTime<FixedOffset> {
+        pub(crate) fn to_cdt_fixed(&self) -> CDateTime<FixedOffset> {
+            let now = Local::now();
+            let localTz = now.offset();
+            match self.kind {
+                DateTimeKind::Utc => Utc.from_utc_datetime(&self.ndt).into(),
+                DateTimeKind::Local => localTz.from_local_datetime(&self.ndt).unwrap(),
+                DateTimeKind::Unspecified => localTz.from_local_datetime(&self.ndt).unwrap(),
+            }
+        }
+
+        pub(crate) fn to_cdt_with_offset(&self) -> CDateTime<FixedOffset> {
             match self.kind {
                 DateTimeKind::Utc => Utc.from_utc_datetime(&self.ndt).into(),
                 DateTimeKind::Local => Local.from_local_datetime(&self.ndt).unwrap().into(),
-                DateTimeKind::Unspecified => Utc.from_utc_datetime(&self.ndt).into(),
+                DateTimeKind::Unspecified => Local.from_local_datetime(&self.ndt).unwrap().into(),
             }
         }
     }
@@ -491,7 +508,7 @@ pub mod DateTime_ {
         type Output = DateTime;
 
         fn add(self, rhs: TimeSpan) -> Self::Output {
-            DateTime::add(&self, rhs)
+            Self::add(&self, rhs)
         }
     }
 

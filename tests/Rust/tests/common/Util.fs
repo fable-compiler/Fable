@@ -30,49 +30,34 @@ module Testing =
     //    | 1 -> Seq.head zs
     //    | _ -> (Seq.head zs) + sumFirstSeq (Seq.skip 1 zs) (n-1)
 
-    module private RunResult =
-
-        let inline wasSuccess actual =
-            match actual with
-            | Ok _ -> ()
-            | Error actual ->
-                equal (Ok 0) (Error actual)
-
-        let inline wasAnyError actual =
-            match actual with
-            | Error _ -> ()
-            | Ok value ->
-                equal (Error 0) (Ok value)
-
-        let inline wasError expected actual =
-            match actual with
-            | Error _ when System.String.IsNullOrEmpty expected -> ()
-            | Error actual -> equal (Error expected) (Error actual)
-            | Ok value  -> equal (Error expected) (Ok value)
-
-        let inline wasErrorContaining expected actual =
-            match actual with
-            | Error _ when System.String.IsNullOrEmpty expected -> ()
-            | Error (actual: string) when actual.Contains expected -> ()
-            | Error actual -> equal (Error expected) (Error actual)
-            | Ok value  -> equal (Error expected) (Ok value)
-
-    let inline private run (f: unit -> 'a) =
+    let doesntThrow f =
         try
-            Ok (f())
+            f() |> ignore
+            true
         with e ->
-            Error (e.Message)
+            false
+        |> equal true
 
-    let inline throwsError (expected: string) (f: unit -> 'a): unit =
-        run f |> RunResult.wasError expected
+    let throwsAnyError f =
+        try
+            f() |> ignore
+            false
+        with e ->
+            true
+        |> equal true
 
-    /// While `throwsError` tests exception message for equality,
-    /// this checks if error message CONTAINS passed message
-    let inline throwsErrorContaining (expected: string) (f: unit -> 'a): unit =
-        run f |> RunResult.wasErrorContaining expected
+    let throwsError (expected: string) f =
+        try
+            f() |> ignore
+            false
+        with e ->
+            e.Message = expected
+        |> equal true
 
-    let inline throwsAnyError (f: unit -> 'a): unit =
-        run f |> RunResult.wasAnyError
-
-    let inline doesntThrow (f: unit -> 'a): unit =
-        run f |> RunResult.wasSuccess
+    let throwsErrorContaining (expected: string) f =
+        try
+            f() |> ignore
+            false
+        with e ->
+            e.Message.Contains(expected)
+        |> equal true

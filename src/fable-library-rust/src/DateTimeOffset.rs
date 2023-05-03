@@ -6,30 +6,42 @@ pub mod DateTimeOffset_ {
         Native_::{compare, MutCell},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
-        TimeSpan_::{nanoseconds_per_tick, TimeSpan},
+        TimeSpan_::{nanoseconds_per_tick, ticks_per_hour, ticks_per_minute, ticks_per_second, TimeSpan},
     };
     use chrono::{
-        DateTime as CDateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime,
-        NaiveTime, TimeZone, Timelike, Utc,
+        DateTime as CDateTime, Datelike, FixedOffset, Local, Months, NaiveDate, NaiveDateTime,
+        NaiveTime, ParseResult, TimeZone, Timelike, Utc,
     };
     use core::ops::{Add, Sub};
 
     #[repr(transparent)]
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    #[derive(Clone, Copy, Debug)]
     pub struct DateTimeOffset(CDateTime<FixedOffset>);
 
     impl core::fmt::Display for DateTimeOffset {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.0.to_string())
+            write!(f, "{}", self.to_string())
+        }
+    }
+
+    impl PartialEq for DateTimeOffset {
+        fn eq(&self, other: &Self) -> bool {
+            self.utcDateTime() == other.utcDateTime()
+        }
+    }
+
+    impl PartialOrd for DateTimeOffset {
+        fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+            self.utcDateTime().partial_cmp(&other.utcDateTime())
         }
     }
 
     pub fn compareTo(x: DateTimeOffset, y: DateTimeOffset) -> i32 {
-        compare(&x, &y)
+        compare(&x.utcDateTime(), &y.utcDateTime())
     }
 
     pub fn equals(x: DateTimeOffset, y: DateTimeOffset) -> bool {
-        x == y
+        x.utcDateTime() == y.utcDateTime()
     }
 
     pub fn zero() -> DateTimeOffset {
@@ -37,11 +49,36 @@ pub mod DateTimeOffset_ {
     }
 
     impl DateTimeOffset {
-        pub fn new(ndt: NaiveDateTime, offset: TimeSpan) -> DateTimeOffset {
-            // TODO: offset validation (in whole minutes, pos or neg, up to 24h)
-            let ofs = FixedOffset::west_opt(offset.total_seconds() as i32).unwrap();
+        fn validate(ndt: NaiveDateTime, offset: TimeSpan) {
+            let min_ndt = Self::minValue().0.naive_utc();
+            let max_ndt = Self::maxValue().0.naive_utc();
+            if offset.ticks() % ticks_per_minute != 0 {
+                panic!("Offset must be specified in whole minutes.");
+            }
+            if offset.ticks().abs() > 14 * ticks_per_hour {
+                panic!("Offset must be within plus or minus 14 hours.");
+            }
+            if ndt < min_ndt || ndt > max_ndt {
+                panic!("Invalid datetime range.");
+            }
+        }
+
+        pub fn new_utc(ndt: NaiveDateTime, offset: TimeSpan) -> DateTimeOffset {
+            Self::validate(ndt, offset);
+            let ofs = FixedOffset::east_opt(offset.total_seconds() as i32).unwrap();
             let cdt = ofs.from_utc_datetime(&ndt);
             DateTimeOffset(cdt.into())
+        }
+
+        pub fn new_local(ndt: NaiveDateTime, offset: TimeSpan) -> DateTimeOffset {
+            Self::validate(ndt, offset);
+            let ofs = FixedOffset::east_opt(offset.total_seconds() as i32).unwrap();
+            let cdt = ofs.from_local_datetime(&ndt).unwrap();
+            DateTimeOffset(cdt.into())
+        }
+
+        pub fn toOffset(&self, offset: TimeSpan) -> DateTimeOffset {
+            Self::new_utc(self.0.naive_utc(), offset)
         }
 
         pub fn new_empty() -> DateTimeOffset {
@@ -50,23 +87,31 @@ pub mod DateTimeOffset_ {
 
         pub fn new_ticks(ticks: i64, offset: TimeSpan) -> DateTimeOffset {
             let ts = TimeSpan::from_ticks(ticks);
-            let ndt = Self::minValue().add(ts).0.naive_utc();
-            DateTimeOffset::new(ndt, offset)
+            let ndt = Self::minValue().add(ts).0.naive_local();
+            Self::new_local(ndt, offset)
         }
 
         pub fn new_datetime(dt: DateTime) -> DateTimeOffset {
-            let cdt = dt.get_cdt_with_offset();
+            let cdt = dt.to_cdt_fixed();
             DateTimeOffset(cdt.into())
         }
 
         pub fn new_datetime2(dt: DateTime, offset: TimeSpan) -> DateTimeOffset {
-            let cdt = dt.get_cdt_with_offset();
-            DateTimeOffset(cdt.into())
+            let cdt = dt.to_cdt_fixed();
+            let offsetSeconds = offset.ticks() / ticks_per_second;
+            let dtOffsetSeconds = cdt.offset().local_minus_utc() as i64;
+            if dt.kind_enum() == DateTimeKind::Utc && offsetSeconds != 0 {
+                panic!("The UTC Offset for Utc DateTime instances must be 0.");
+            }
+            if dt.kind_enum() == DateTimeKind::Local && offsetSeconds != dtOffsetSeconds {
+                panic!("The UTC Offset of the local dateTime parameter does not match the offset argument.");
+            }
+            Self::new_local(cdt.naive_local(), offset)
         }
 
         pub fn new_date_time(d: DateOnly, t: TimeOnly, offset: TimeSpan) -> DateTimeOffset {
             let ndt = d.naive_date().and_time(t.naive_time());
-            DateTimeOffset::new(ndt, offset)
+            Self::new_local(ndt, offset)
         }
 
         pub fn new_ymdhms(
@@ -80,7 +125,7 @@ pub mod DateTimeOffset_ {
         ) -> DateTimeOffset {
             let nd = NaiveDate::from_ymd_opt(y, m as u32, d as u32).unwrap();
             let ndt = nd.and_hms_opt(h as u32, mins as u32, secs as u32).unwrap();
-            DateTimeOffset::new(ndt, offset)
+            Self::new_local(ndt, offset)
         }
 
         pub fn new_ymdhms_milli(
@@ -97,7 +142,7 @@ pub mod DateTimeOffset_ {
             let ndt = nd
                 .and_hms_milli_opt(h as u32, mins as u32, secs as u32, millis as u32)
                 .unwrap();
-            DateTimeOffset::new(ndt, offset)
+            Self::new_local(ndt, offset)
         }
 
         pub fn new_ymdhms_micro(
@@ -120,7 +165,7 @@ pub mod DateTimeOffset_ {
                     (millis * 1000 + micros) as u32,
                 )
                 .unwrap();
-            DateTimeOffset::new(ndt, offset)
+            Self::new_local(ndt, offset)
         }
 
         pub fn fromUnixTimeSeconds(seconds: i64) -> DateTimeOffset {
@@ -134,7 +179,9 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn now() -> DateTimeOffset {
-            DateTimeOffset(Local::now().into())
+            let now = Local::now();
+            let localTz = now.offset();
+            DateTimeOffset(now.with_timezone(localTz).into())
         }
 
         pub fn utcNow() -> DateTimeOffset {
@@ -175,13 +222,21 @@ pub mod DateTimeOffset_ {
             TimeSpan::from_ticks(duration_to_ticks((self.0 - other.0)))
         }
 
+        pub fn equalsExact(&self, other: DateTimeOffset) -> bool {
+            self.utcDateTime() == other.utcDateTime() && self.0.offset() == other.0.offset()
+        }
+
         pub fn offset(&self) -> TimeSpan {
             let seconds = self.0.offset().local_minus_utc();
             TimeSpan::from_seconds(seconds as f64)
         }
 
         pub fn ticks(&self) -> i64 {
-            duration_to_ticks(self.0 - Self::minValue().0)
+            duration_to_ticks(self.0.naive_local() - Self::minValue().0.naive_utc())
+        }
+
+        pub fn utcTicks(&self) -> i64 {
+            duration_to_ticks(self.0.naive_utc() - Self::minValue().0.naive_utc())
         }
 
         pub fn date(&self) -> DateTime {
@@ -189,11 +244,13 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn dateTime(&self) -> DateTime {
-            DateTime::new(self.0.naive_utc(), DateTimeKind::Unspecified)
+            DateTime::new(self.0.naive_local(), DateTimeKind::Unspecified)
         }
 
         pub fn toLocalTime(&self) -> DateTimeOffset {
-            DateTimeOffset(self.0.with_timezone(&Local).into())
+            let now = Local::now();
+            let localTz = now.offset();
+            DateTimeOffset(self.0.with_timezone(localTz).into())
         }
 
         pub fn toUniversalTime(&self) -> DateTimeOffset {
@@ -208,11 +265,11 @@ pub mod DateTimeOffset_ {
             DateTime::new(self.0.naive_utc(), DateTimeKind::Utc)
         }
 
-        fn toUnixTimeMilliseconds(&self) -> i64 {
+        pub fn toUnixTimeMilliseconds(&self) -> i64 {
             self.0.timestamp_millis()
         }
 
-        fn toUnixTimeSeconds(&self) -> i64 {
+        pub fn toUnixTimeSeconds(&self) -> i64 {
             self.0.timestamp()
         }
 
@@ -281,6 +338,23 @@ pub mod DateTimeOffset_ {
             self.0.ordinal() as i32
         }
 
+        pub fn addYears(&self, years: i32) -> DateTimeOffset {
+            self.addMonths(years * 12)
+        }
+
+        pub fn addMonths(&self, months: i32) -> DateTimeOffset {
+            let cdt = if months < 0 {
+                self.0
+                    .checked_sub_months(Months::new(-months as u32))
+                    .unwrap()
+            } else {
+                self.0
+                    .checked_add_months(Months::new(months as u32))
+                    .unwrap()
+            };
+            DateTimeOffset(cdt)
+        }
+
         pub fn addDays(&self, days: f64) -> DateTimeOffset {
             self.add(TimeSpan::from_days(days))
         }
@@ -309,6 +383,10 @@ pub mod DateTimeOffset_ {
             self.add(TimeSpan::from_ticks(ticks))
         }
 
+        pub fn to_string(&self) -> string {
+            fromString(self.0.to_string())
+        }
+
         pub fn toString(&self, format: string) -> string {
             let fmt = format
                 .replace("yyyy", "%Y")
@@ -323,10 +401,17 @@ pub mod DateTimeOffset_ {
             fromString(df.to_string())
         }
 
+        fn try_parse_str(s: &str) -> ParseResult<CDateTime<FixedOffset>> {
+            let now = Local::now();
+            let localTz = now.offset();
+            s.parse::<CDateTime<FixedOffset>>()
+                .or(CDateTime::parse_from_str(s, "%m/%d/%Y %H:%M:%S%.f %#z"))
+                .or(localTz.datetime_from_str(s, "%m/%d/%Y %H:%M:%S%.f"))
+                .or(localTz.datetime_from_str(s, "%m/%d/%Y %I:%M:%S %P"))
+        }
+
         pub fn tryParse(s: string, res: &MutCell<DateTimeOffset>) -> bool {
-            match CDateTime::parse_from_rfc3339(s.trim())
-                .or(CDateTime::parse_from_rfc2822(s.trim()))
-            {
+            match Self::try_parse_str(s.trim()) {
                 Ok(dt) => {
                     res.set(DateTimeOffset(dt.into()));
                     true
@@ -336,9 +421,7 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn parse(s: string) -> DateTimeOffset {
-            match CDateTime::parse_from_rfc3339(s.trim())
-                .or(CDateTime::parse_from_rfc2822(s.trim()))
-            {
+            match Self::try_parse_str(s.trim()) {
                 Ok(dt) => DateTimeOffset(dt.into()),
                 Err(e) => panic!("Input string was not in a correct format."),
             }
@@ -349,7 +432,7 @@ pub mod DateTimeOffset_ {
         type Output = DateTimeOffset;
 
         fn add(self, rhs: TimeSpan) -> Self::Output {
-            DateTimeOffset::add(&self, rhs)
+            Self::add(&self, rhs)
         }
     }
 

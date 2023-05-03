@@ -662,7 +662,7 @@ let tests =
                     |> testSucceeds fromLocalDateTime
         ]
 
-        // all execpt zero offset must fail
+        // all except zero offset must fail
         testList "(DateTime(UTC), offset)" (
             offsets
             |> List.map (fun (offset, _) -> (offset, if offset = TimeSpan.Zero then shouldSucceed else shouldThrowUTCOffsetForUTCDateTimeMustBeZero))

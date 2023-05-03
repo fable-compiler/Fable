@@ -51,9 +51,13 @@ pub mod TimeOnly_ {
         }
 
         pub fn new4(hours: i32, mins: i32, secs: i32, millis: i32) -> TimeOnly {
-            let t =
-                NaiveTime::from_hms_milli_opt(hours as u32, mins as u32, secs as u32, millis as u32)
-                    .unwrap();
+            let t = NaiveTime::from_hms_milli_opt(
+                hours as u32,
+                mins as u32,
+                secs as u32,
+                millis as u32,
+            )
+            .unwrap();
             TimeOnly(t)
         }
 
@@ -79,7 +83,7 @@ pub mod TimeOnly_ {
         }
 
         pub fn fromDateTime(dt: DateTime) -> TimeOnly {
-            let t = dt.get_cdt_with_offset().time();
+            let t = dt.to_cdt_with_offset().time();
             TimeOnly(t)
         }
 
@@ -144,11 +148,9 @@ pub mod TimeOnly_ {
         }
 
         pub fn tryParse(s: string, res: &MutCell<TimeOnly>) -> bool {
-            match CDateTime::parse_from_rfc3339(s.trim())
-                .or(CDateTime::parse_from_rfc2822(s.trim()))
-            {
-                Ok(dt) => {
-                    res.set(TimeOnly(dt.naive_utc().time()));
+            match s.parse::<NaiveTime>() {
+                Ok(nt) => {
+                    res.set(TimeOnly(nt));
                     true
                 }
                 Err(e) => false,
@@ -156,10 +158,8 @@ pub mod TimeOnly_ {
         }
 
         pub fn parse(s: string) -> TimeOnly {
-            match CDateTime::parse_from_rfc3339(s.trim())
-                .or(CDateTime::parse_from_rfc2822(s.trim()))
-            {
-                Ok(dt) => TimeOnly(dt.naive_utc().time()),
+            match s.parse::<NaiveTime>() {
+                Ok(nt) => TimeOnly(nt),
                 Err(e) => panic!("Input string was not in a correct format."),
             }
         }

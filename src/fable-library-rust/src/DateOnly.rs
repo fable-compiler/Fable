@@ -50,7 +50,7 @@ pub mod DateOnly_ {
         }
 
         pub fn fromDateTime(dt: DateTime) -> DateOnly {
-            let d = dt.get_cdt_with_offset().date_naive();
+            let d = dt.to_cdt_with_offset().date_naive();
             DateOnly(d)
         }
 
@@ -96,11 +96,9 @@ pub mod DateOnly_ {
         }
 
         pub fn tryParse(s: string, res: &MutCell<DateOnly>) -> bool {
-            match CDateTime::parse_from_rfc3339(s.trim())
-                .or(CDateTime::parse_from_rfc2822(s.trim()))
-            {
-                Ok(dt) => {
-                    res.set(DateOnly(dt.naive_utc().date()));
+            match s.parse::<NaiveDate>() {
+                Ok(nd) => {
+                    res.set(DateOnly(nd));
                     true
                 }
                 Err(e) => false,
@@ -108,10 +106,8 @@ pub mod DateOnly_ {
         }
 
         pub fn parse(s: string) -> DateOnly {
-            match CDateTime::parse_from_rfc3339(s.trim())
-                .or(CDateTime::parse_from_rfc2822(s.trim()))
-            {
-                Ok(dt) => DateOnly(dt.naive_utc().date()),
+            match s.parse::<NaiveDate>() {
+                Ok(nd) => DateOnly(nd),
                 Err(e) => panic!("Input string was not in a correct format."),
             }
         }
