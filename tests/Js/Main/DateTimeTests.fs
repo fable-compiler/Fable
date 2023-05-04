@@ -20,7 +20,7 @@ let thatYearMilliseconds (dt: DateTime) =
 
 let tests =
   testList "DateTime" [
-    testCase "DateTime.ToString with format works" <| fun () ->
+    testCase "DateTime.ToString with custom format works" <| fun () ->
         DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
         |> equal "16:37"
 
@@ -95,13 +95,11 @@ let tests =
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
         let dto = DateTimeOffset(d)
         let d' = dto.DateTime
-
         d' |> equal d
 
     testCase "Formatting DateTimeOffset works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
         let dto = DateTimeOffset(d)
-
         // dto.ToString() |> equal "2014-10-09 13:23:30 +00:00"
         dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 

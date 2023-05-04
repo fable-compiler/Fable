@@ -6,7 +6,9 @@ pub mod DateTimeOffset_ {
         Native_::{compare, MutCell},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
-        TimeSpan_::{nanoseconds_per_tick, ticks_per_hour, ticks_per_minute, ticks_per_second, TimeSpan},
+        TimeSpan_::{
+            nanoseconds_per_tick, ticks_per_hour, ticks_per_minute, ticks_per_second, TimeSpan,
+        },
     };
     use chrono::{
         DateTime as CDateTime, Datelike, FixedOffset, Local, Months, NaiveDate, NaiveDateTime,
@@ -20,7 +22,7 @@ pub mod DateTimeOffset_ {
 
     impl core::fmt::Display for DateTimeOffset {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.to_string())
+            write!(f, "{}", self.toString(string("")))
         }
     }
 
@@ -338,10 +340,6 @@ pub mod DateTimeOffset_ {
             self.0.ordinal() as i32
         }
 
-        pub fn addYears(&self, years: i32) -> DateTimeOffset {
-            self.addMonths(years * 12)
-        }
-
         pub fn addMonths(&self, months: i32) -> DateTimeOffset {
             let cdt = if months < 0 {
                 self.0
@@ -353,6 +351,10 @@ pub mod DateTimeOffset_ {
                     .unwrap()
             };
             DateTimeOffset(cdt)
+        }
+
+        pub fn addYears(&self, years: i32) -> DateTimeOffset {
+            self.addMonths(years * 12)
         }
 
         pub fn addDays(&self, days: f64) -> DateTimeOffset {
@@ -383,20 +385,23 @@ pub mod DateTimeOffset_ {
             self.add(TimeSpan::from_ticks(ticks))
         }
 
-        pub fn to_string(&self) -> string {
-            fromString(self.0.to_string())
-        }
-
         pub fn toString(&self, format: string) -> string {
-            let fmt = format
-                .replace("yyyy", "%Y")
-                .replace("MM", "%m")
-                .replace("dd", "%d")
-                .replace("hh", "%H")
-                .replace("mm", "%M")
-                .replace("ss", "%S")
-                .replace("ffffff", "%6f")
-                .replace("fff", "%3f");
+            let fmt = match format.as_str() {
+                "" => "%m/%d/%Y %H:%M:%S %:z".to_owned(),
+                "g" => "%m/%d/%Y %H:%M".to_owned(),
+                "G" => "%m/%d/%Y %H:%M:%S".to_owned(),
+                "o" | "O" => "%Y-%m-%dT%H:%M:%S%.f%:z".to_owned(),
+                //TODO: support more formats, custom formats, etc.
+                _ => format
+                    .replace("yyyy", "%Y")
+                    .replace("MM", "%m")
+                    .replace("dd", "%d")
+                    .replace("hh", "%H")
+                    .replace("mm", "%M")
+                    .replace("ss", "%S")
+                    .replace("ffffff", "%6f")
+                    .replace("fff", "%3f"),
+            };
             let df = self.0.format(&fmt);
             fromString(df.to_string())
         }

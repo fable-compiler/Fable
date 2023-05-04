@@ -1,6 +1,7 @@
 module Fable.Tests.DateTimeOffsetTests
 
 open System
+open System.Globalization
 open Util.Testing
 
 let toSigFigs nSigFigs x =
@@ -17,20 +18,14 @@ let thatYearMilliseconds (dt: DateTimeOffset) =
     (dt - DateTimeOffset(dt.Year, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalMilliseconds
 
 // [<Fact>]
-// let ``DateTimeOffset.ToString with format works`` () =
-//     DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+// let ``DateTimeOffset.ToString with custom format works`` () =
+//     DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", CultureInfo.InvariantCulture)
 //     |> equal "16:37"
 
 [<Fact>]
 let ``DateTimeOffset.ToString without separator works`` () = // See #1131
     DateTimeOffset(2017, 9, 5, 0, 0, 0, TimeSpan.Zero).ToString("yyyyMM")
     |> equal "201709"
-
-// TODO
-// [<Fact>]
-// let ``TimeSpan.ToString with format works`` () =
-//     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
-//     |> equal "03:54:00"
 
 // [<Fact>]
 // let ``DateTimeOffset.ToString with Roundtrip format works for Utc`` () =
@@ -232,15 +227,15 @@ let ``DateTimeOffset.UtcNow works`` () =
     d > DateTimeOffset.MinValue |> equal true
 
 // [<Fact>]
-// let ``DateTimeOffset.Parse Local works`` () =
+// let ``DateTimeOffset.Parse Now works`` () =
 //     let d = DateTimeOffset.Now
-//     let d2 = DateTimeOffset.Parse(d.ToString(), CultureInfo.InvariantCulture)
+//     let d2 = DateTimeOffset.Parse(d.ToString("o"))
 //     d2 |> equal d
 
 // [<Fact>]
-// let ``DateTimeOffset.Parse Utc works`` () =
+// let ``DateTimeOffset.Parse UtcNow works`` () =
 //     let d = DateTimeOffset.UtcNow
-//     let d2 = DateTimeOffset.Parse(d.ToString(), CultureInfo.InvariantCulture)
+//     let d2 = DateTimeOffset.Parse(d.ToString("o"))
 //     d2 |> equal d
 
 [<Fact>]

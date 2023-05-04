@@ -19,7 +19,7 @@ let thatYearMilliseconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds
 
 // [<Fact>]
-// let ``DateTime.ToString with format works`` () =
+// let ``DateTime.ToString with custom format works`` () =
 //     DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
 //     |> equal "16:37"
 
@@ -96,14 +96,12 @@ let ``Creating DateTimeOffset from DateTime and back works`` () =
     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
     let dto = DateTimeOffset(d)
     let d' = dto.DateTime
-
     d' |> equal d
 
 // [<Fact>]
 // let ``Formatting DateTimeOffset works`` () =
 //     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
 //     let dto = DateTimeOffset(d)
-
 //     // dto.ToString() |> equal "2014-10-09 13:23:30 +00:00"
 //     dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 
@@ -154,82 +152,82 @@ let ``DateTime.Hour works`` () =
 //     d1.Day + d2.Second + d3.Second + d4.Millisecond + d5.Millisecond
 //     |> equal 1069
 
-// [<Fact>]
-// let ``DateTime constructor from Ticks works`` () =
-//     let d = DateTime(624059424000000000L, DateTimeKind.Utc)
-//     equal 1978 d.Year
-//     equal 7 d.Month
-//     equal 27 d.Day
-//     equal 0 d.Hour
-//     equal 0 d.Minute
+[<Fact>]
+let ``DateTime constructor from Ticks works`` () =
+    let d = DateTime(624059424000000000L, DateTimeKind.Utc)
+    equal 1978 d.Year
+    equal 7 d.Month
+    equal 27 d.Day
+    equal 0 d.Hour
+    equal 0 d.Minute
 
-//     let d = DateTime(624059424000000000L, DateTimeKind.Local)
-//     equal 1978 d.Year
-//     equal 7 d.Month
-//     equal 27 d.Day
-//     equal 0 d.Hour
-//     equal 0 d.Minute
+    let d = DateTime(624059424000000000L, DateTimeKind.Local)
+    equal 1978 d.Year
+    equal 7 d.Month
+    equal 27 d.Day
+    equal 0 d.Hour
+    equal 0 d.Minute
 
-//     let d = DateTime(624059424000000000L)
-//     equal 1978 d.Year
-//     equal 7 d.Month
-//     equal 27 d.Day
-//     equal 0 d.Hour
-//     equal 0 d.Minute
+    let d = DateTime(624059424000000000L)
+    equal 1978 d.Year
+    equal 7 d.Month
+    equal 27 d.Day
+    equal 0 d.Hour
+    equal 0 d.Minute
 
-// [<Fact>]
-// let ``DateTime.Ticks does not care about kind`` () =
-//     let d1 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Local)
-//     let d2 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
-//     let d3 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
-//     equal d1.Ticks d2.Ticks
-//     equal d1.Ticks d3.Ticks
-//     equal d2.Ticks d3.Ticks
+[<Fact>]
+let ``DateTime.Ticks does not care about kind`` () =
+    let d1 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Local)
+    let d2 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+    let d3 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
+    equal d1.Ticks d2.Ticks
+    equal d1.Ticks d3.Ticks
+    equal d2.Ticks d3.Ticks
 
-//     let t = DateTime.UtcNow.Ticks
-//     let d1 = DateTime(t, DateTimeKind.Local)
-//     let d2 = DateTime(t, DateTimeKind.Utc)
-//     let d3 = DateTime(t, DateTimeKind.Unspecified)
-//     equal d1.Ticks d2.Ticks
-//     equal d1.Ticks d3.Ticks
-//     equal d2.Ticks d3.Ticks
+    let t = DateTime.UtcNow.Ticks
+    let d1 = DateTime(t, DateTimeKind.Local)
+    let d2 = DateTime(t, DateTimeKind.Utc)
+    let d3 = DateTime(t, DateTimeKind.Unspecified)
+    equal d1.Ticks d2.Ticks
+    equal d1.Ticks d3.Ticks
+    equal d2.Ticks d3.Ticks
 
-// [<Fact>]
-// let ``DateTime <-> Ticks isomorphism`` () =
-//     let checkIsomorphism (d: DateTime) =
-//         try
-//             let ticks = d.Ticks
-//             let kind = d.Kind
-//             let fromTicks = DateTime ticks
-//             let fromTicksWithKind = DateTime (ticks, kind)
+[<Fact>]
+let ``DateTime <-> Ticks isomorphism`` () =
+    let checkIsomorphism (d: DateTime) =
+        try
+            let ticks = d.Ticks
+            let kind = d.Kind
+            let fromTicks = DateTime ticks
+            let fromTicksWithKind = DateTime (ticks, kind)
 
-//             equal d fromTicks
-//             equal ticks fromTicks.Ticks
-//             equal d fromTicksWithKind
-//             equal ticks fromTicksWithKind.Ticks
-//             equal kind fromTicksWithKind.Kind
-//         with e ->
-//             failwithf "%A: %O" d e
+            equal d fromTicks
+            equal ticks fromTicks.Ticks
+            equal d fromTicksWithKind
+            equal ticks fromTicksWithKind.Ticks
+            equal kind fromTicksWithKind.Kind
+        with e ->
+            failwithf "%A: %O" d e
 
-//         try
-//             equal d.Ticks (DateTime d.Ticks).Ticks
-//         with e ->
-//             failwithf "%s%O" "replacement bug. " e
+        try
+            equal d.Ticks (DateTime d.Ticks).Ticks
+        with e ->
+            failwithf "%s%O" "replacement bug. " e
 
-//     checkIsomorphism DateTime.MinValue
-//     checkIsomorphism DateTime.MaxValue
-//     checkIsomorphism DateTime.Now
-//     checkIsomorphism DateTime.UtcNow
-//     checkIsomorphism <| DateTime(2014, 10, 9)
-//     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30)
-//     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500)
-//     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+    checkIsomorphism DateTime.MinValue
+    checkIsomorphism DateTime.MaxValue
+    checkIsomorphism DateTime.Now
+    checkIsomorphism DateTime.UtcNow
+    checkIsomorphism <| DateTime(2014, 10, 9)
+    checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30)
+    checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500)
+    checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
 
-// [<Fact>]
-// let ``DateTime.IsLeapYear works`` () =
-//     DateTime.IsLeapYear(2014) |> equal false
-//     DateTime.IsLeapYear(2016) |> equal true
+[<Fact>]
+let ``DateTime.IsLeapYear works`` () =
+    DateTime.IsLeapYear(2014) |> equal false
+    DateTime.IsLeapYear(2016) |> equal true
 
 // // TODO: Re-enable this test when we can fix it in the CI servers
 // // [<Fact>]
@@ -257,16 +255,22 @@ let ``DateTime.UtcNow works`` () =
     d > DateTime.MinValue |> equal true
 
 // [<Fact>]
-// let ``DateTime.Parse works`` () =
+// let ``DateTime.Parse Now works`` () =
 //     let d = DateTime.Now
-//     let d2 = DateTime.Parse(d.ToString(), CultureInfo.InvariantCulture)
+//     let d2 = DateTime.Parse(d.ToString("o"))
 //     d2 |> equal d
 
 // [<Fact>]
-// let ``DateTime.Parse with provider works`` () =
-//     let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
-//     d.Year + d.Month + d.Day + d.Hour + d.Minute
-//     |> equal 2096
+// let ``DateTime.Parse UtcNow works`` () =
+//     let d = DateTime.UtcNow
+//     let d2 = DateTime.Parse(d.ToString("o")).ToUniversalTime()
+//     d2 |> equal d
+
+[<Fact>]
+let ``DateTime.Parse with provider works`` () =
+    let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
+    d.Year + d.Month + d.Day + d.Hour + d.Minute
+    |> equal 2096
 
 // [<Fact>]
 // let ``DateTime.Parse with time-only string works`` () = // See #1045
@@ -277,15 +281,15 @@ let ``DateTime.UtcNow works`` () =
 //     let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
 //     d.Hour + d.Minute + d.Second |> equal 52
 
-// [<Fact>]
-// let ``DateTime.TryParse works`` () =
-//     let f (d: string) =
-//         match DateTime.TryParse(d, CultureInfo.InvariantCulture, DateTimeStyles.None) with
-//         | true, _ -> true
-//         | false, _ -> false
-//     f "foo" |> equal false
-//     f "9/10/2014 1:50:34 PM" |> equal true
-//     f "1:50:34" |> equal true
+[<Fact>]
+let ``DateTime.TryParse works`` () =
+    let f (d: string) =
+        match DateTime.TryParse(d, CultureInfo.InvariantCulture, DateTimeStyles.None) with
+        | true, _ -> true
+        | false, _ -> false
+    f "foo" |> equal false
+    f "9/10/2014 1:50:34 PM" |> equal true
+    // f "1:50:34" |> equal true //TODO:
 
 // [<Fact>]
 // let ``Parsing doesn't succeed for invalid dates`` () =
@@ -643,9 +647,9 @@ let ``DateTime TimeOfDay works`` () =
 //         }
 //         |> Async.StartImmediate
 
-// // In regions with daylight saving time, 20/10/2019 will have different timezone
-// // offset than 29/10/2019
-// [<Fact>]
-// let ``Adding days to a local date works even if daylight saving time changes`` () =
-//     let dt = DateTime(2019, 10, 20, 0, 0, 0, DateTimeKind.Local)
-//     dt.AddDays(9.).Day |> equal 29
+// In regions with daylight saving time, 20/10/2019 will have different timezone
+// offset than 29/10/2019
+[<Fact>]
+let ``Adding days to a local date works even if daylight saving time changes`` () =
+    let dt = DateTime(2019, 10, 20, 0, 0, 0, DateTimeKind.Local)
+    dt.AddDays(9.).Day |> equal 29
