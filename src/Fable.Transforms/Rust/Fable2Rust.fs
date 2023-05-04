@@ -701,10 +701,10 @@ module TypeInfo =
         transformImportType com ctx [] "DateTimeOffset" "DateTimeOffset"
 
     let transformDateOnlyType com ctx: Rust.Ty =
-        transformImportType com ctx [] "DateTime" "DateOnly"
+        transformImportType com ctx [] "DateOnly" "DateOnly"
 
     let transformTimeOnlyType com ctx: Rust.Ty =
-        transformImportType com ctx [] "DateTime" "TimeOnly"
+        transformImportType com ctx [] "TimeOnly" "TimeOnly"
 
     let transformTimerType com ctx: Rust.Ty =
         transformImportType com ctx [] "DateTime" "Timer"

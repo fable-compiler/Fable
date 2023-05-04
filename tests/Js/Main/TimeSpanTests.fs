@@ -37,7 +37,7 @@ let tests =
             TimeSpan.FromMilliseconds(25.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0250000"
 
         // TODO
-        // testCase "TimeSpan.ToString with format works" <| fun () ->
+        // testCase "TimeSpan.ToString with custom format works" <| fun () ->
         //     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
         //     |> equal "03:54:00"
 

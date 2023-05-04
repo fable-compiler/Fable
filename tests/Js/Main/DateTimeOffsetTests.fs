@@ -19,7 +19,7 @@ let thatYearMilliseconds (dt: DateTimeOffset) =
 
 let tests =
   testList "DateTimeOffset" [
-    testCase "DateTimeOffset.ToString with format works" <| fun () ->
+    testCase "DateTimeOffset.ToString with custom format works" <| fun () ->
         DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", Globalization.CultureInfo.InvariantCulture)
         |> equal "16:37"
 

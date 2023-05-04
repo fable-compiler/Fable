@@ -22,7 +22,7 @@ pub mod TimeSpan_ {
 
     impl core::fmt::Display for TimeSpan {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.to_string())
+            write!(f, "{}", self.to_string(string("")))
         }
     }
 
@@ -162,7 +162,7 @@ pub mod TimeSpan_ {
             Self::new_ticks(-self.ticks)
         }
 
-        pub fn to_string(&self) -> string {
+        pub fn to_string(&self, format: string) -> string {
             let sign = if self.ticks < 0 { "-" } else { "" };
             let days = self.days().abs();
             let days = if days == 0 {
@@ -179,11 +179,18 @@ pub mod TimeSpan_ {
             } else {
                 format!(".{:07}", frac)
             };
-            let s = format!(
-                "{}{}{:02}:{:02}:{:02}{}",
-                sign, days, hours, mins, secs, frac
-            );
-            fromString(s)
+            let str = match format.as_str() {
+                "" | "c" => format!(
+                    "{}{}{:02}:{:02}:{:02}{}",
+                    sign, days, hours, mins, secs, frac
+                ),
+                //TODO: support more formats, custom formats, etc.
+                _ => format!(
+                    "{}{}{:02}:{:02}:{:02}{}",
+                    sign, days, hours, mins, secs, frac
+                ),
+            };
+            fromString(str)
         }
 
         fn try_parse_str(s: &str) -> Result<TimeSpan, ()> {

@@ -398,7 +398,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     match argTypes with
     // | Number(BigInt as kind,_)::_ ->
     //     Helper.LibCall(com, "BigInt", opName, t, args, argTypes, ?loc=r)
-    | Builtin (BclDateTime|BclDateTimeOffset|BclTimeSpan)::_ ->
+    | Builtin (BclDateTime|BclDateTimeOffset|BclTimeOnly|BclTimeSpan)::_ ->
         nativeOp opName argTypes args
     | Builtin (FSharpSet _)::_ ->
         let methName =
@@ -2320,6 +2320,16 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
+let ignoreFormatProvider meth args =
+    match meth, args with
+    // Ignore IFormatProvider
+    | "ToString", ExprTypeAs(String, arg)::_ -> [arg]
+    | "ToString", _ -> [makeStrConst ""] // default (no format string)
+    | "Parse", arg::_ -> [arg]
+    | "TryParse", input::_culture::_styles::defVal::_ -> [input; defVal]
+    | "TryParse", input::_culture::defVal::_ -> [input; defVal]
+    | _ -> args
+
 let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ".ctor" ->
@@ -2359,6 +2369,7 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
@@ -2392,6 +2403,7 @@ let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: 
     | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
@@ -2408,24 +2420,10 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             makeStaticMemberCall com r t i "DateOnly" meth args)
     | "Compare" | "CompareTo" | "Equals" | "GetHashCode" ->
         valueTypes com ctx r t i thisArg args
-    // | "ToString" ->
-    //     match args with
-    //     | [ ExprType String ]
-    //     | [ StringConst _ ] ->
-    //         "DateOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
-    //         |> addError com ctx.InlinePath r
-    //         None
-    //     | [ StringConst ("d" | "o" | "O"); _ ] ->
-    //         Helper.LibCall(com, "DateOnly", "toString", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-    //     | [ StringConst _; _] ->
-    //         "DateOnly.ToString doesn't support custom format. It only handles \"d\", \"o\", \"O\" format, with CultureInfo.InvariantCulture."
-    //         |> addError com ctx.InlinePath r
-    //         None
-    //     | [ _ ] ->
-    //         Helper.LibCall(com, "DateOnly", "toString", t, makeStrConst "d" :: args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-    //     | _ ->
-    //         None
+    | "ToDateTime" when args.Length = 2 ->
+        makeInstanceCall r t i thisArg.Value "toDateTime2" args |> Some
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
@@ -2434,28 +2432,26 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ".ctor" ->
-        let meth = $"new{List.length args}"
-        makeStaticMemberCall com r t i "TimeOnly" meth args |> Some
+        match args with
+        | [ExprType(Number(Int64,_))] ->
+            "new_ticks" |> Some
+        | [ExprType(Number(Int32,_)); ExprType(Number(Int32,_))] ->
+            "new_hm" |> Some
+        | [ExprType(Number(Int32,_)); ExprType(Number(Int32,_)); ExprType(Number(Int32,_))] ->
+            "new_hms" |> Some
+        | [ExprType(Number(Int32,_)); ExprType(Number(Int32,_)); ExprType(Number(Int32,_)); ExprType(Number(Int32,_))] ->
+            "new_hms_milli" |> Some
+        | [ExprType(Number(Int32,_)); ExprType(Number(Int32,_)); ExprType(Number(Int32,_)); ExprType(Number(Int32,_)); ExprType(Number(Int32,_))] ->
+            "new_hms_micro" |> Some
+        | _ -> None
+        |> Option.map (fun meth ->
+            makeStaticMemberCall com r t i "TimeOnly" meth args)
     | "Compare" | "CompareTo" | "Equals" | "GetHashCode" ->
         valueTypes com ctx r t i thisArg args
-    // | "ToString" ->
-    //     match args with
-    //     | [ ExprType String ]
-    //     | [ StringConst _ ] ->
-    //         "TimeOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
-    //         |> addError com ctx.InlinePath r
-    //         None
-    //     | [ StringConst ("r" | "R" | "o" | "O" | "t" | "T"); _ ] ->
-    //         Helper.LibCall(com, "TimeOnly", "toString", t, args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-    //     | [ StringConst _; _] ->
-    //         "TimeOnly.ToString doesn't support custom format. It only handles \"r\", \"R\", \"o\", \"O\", \"t\", \"T\" format, with CultureInfo.InvariantCulture."
-    //         |> addError com ctx.InlinePath r
-    //         None
-    //     | [ _ ] ->
-    //         Helper.LibCall(com, "TimeOnly", "toString", t, makeStrConst "t" :: args, i.SignatureArgTypes, genArgs=i.GenericArgs, ?thisArg=thisArg, ?loc=r) |> Some
-    //     | _ ->
-    //         None
+    | "Add" when args.Length = 2 ->
+        makeInstanceCall r t i thisArg.Value "add2" args |> Some
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some
@@ -2479,26 +2475,13 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             makeStaticMemberCall com r t i "TimeSpan" meth args)
     | "Compare" | "CompareTo" | "Equals" | "GetHashCode" ->
         valueTypes com ctx r t i thisArg args
-    // | "ToString" when (args.Length = 1) ->
-    //     "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
-    //     |> addError com ctx.InlinePath r
-    //     None
-    // | "ToString" when (args.Length = 2) ->
-    //     match args.Head with
-    //     | StringConst "c"
-    //     | StringConst "g"
-    //     | StringConst "G" ->
-    //         Helper.LibCall(com, "TimeSpan", "to_string", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    //     | _ ->
-    //         "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
-    //         |> addError com ctx.InlinePath r
-    //         None
     // | "Zero" etc. -> // for static fields, see tryField
     | "Add" -> Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | "Subtract" -> Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | "Multiply" -> Operation(Binary(BinaryOperator.BinaryMultiply, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | "Divide" -> Operation(Binary(BinaryOperator.BinaryDivide, thisArg.Value, args.Head), Tags.empty, t, r) |> Some
     | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
         match thisArg with
         | Some thisArg -> makeInstanceCall r t i thisArg meth args |> Some

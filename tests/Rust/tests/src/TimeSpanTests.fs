@@ -27,12 +27,12 @@ let ``TimeSpan.ToString() works for negative TimeSpan`` () =
     TimeSpan.FromSeconds(-5.).ToString() |> equal "-00:00:05"
     TimeSpan.FromDays(-5.23).ToString() |> equal "-5.05:31:12"
 
-// [<Fact>]
-// let ``TimeSpan.ToString(\"c\", CultureInfo.InvariantCulture) works`` () =
-//     TimeSpan(0L).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00"
-//     TimeSpan.FromSeconds(12345.).ToString("c", CultureInfo.InvariantCulture) |> equal "03:25:45"
-//     TimeSpan.FromDays(18.).ToString("c", CultureInfo.InvariantCulture) |> equal "18.00:00:00"
-//     TimeSpan.FromMilliseconds(25.).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00.0250000"
+[<Fact>]
+let ``TimeSpan.ToString(\"c\", CultureInfo.InvariantCulture) works`` () =
+    TimeSpan(0L).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00"
+    TimeSpan.FromSeconds(12345.).ToString("c", CultureInfo.InvariantCulture) |> equal "03:25:45"
+    TimeSpan.FromDays(18.).ToString("c", CultureInfo.InvariantCulture) |> equal "18.00:00:00"
+    TimeSpan.FromMilliseconds(25.).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00.0250000"
 
 // [<Fact>]
 // let ``TimeSpan.ToString(\"g\", CultureInfo.InvariantCulture) works`` () =
@@ -48,11 +48,10 @@ let ``TimeSpan.ToString() works for negative TimeSpan`` () =
 //     TimeSpan.FromDays(18.).ToString("G", CultureInfo.InvariantCulture) |> equal "18:00:00:00.0000000"
 //     TimeSpan.FromMilliseconds(25.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0250000"
 
-// // TODO
-// // [<Fact>]
-// // let ``TimeSpan.ToString with format works`` () =
-// //     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
-// //     |> equal "03:54:00"
+// [<Fact>]
+// let ``TimeSpan.ToString with custom format works`` () =
+//     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
+//     |> equal "03:54:00"
 
 [<Fact>]
 let ``TimeSpan constructors work`` () =

@@ -29,7 +29,7 @@ pub mod DateTime_ {
 
     impl core::fmt::Display for DateTime {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.ndt.to_string())
+            write!(f, "{}", self.toString(string("")))
         }
     }
 
@@ -403,10 +403,6 @@ pub mod DateTime_ {
             self.ndt.ordinal() as i32
         }
 
-        pub fn addYears(&self, years: i32) -> DateTime {
-            self.addMonths(years * 12)
-        }
-
         pub fn addMonths(&self, months: i32) -> DateTime {
             let ndt = if months < 0 {
                 self.ndt
@@ -418,6 +414,10 @@ pub mod DateTime_ {
                     .unwrap()
             };
             Self::new(ndt, self.kind)
+        }
+
+        pub fn addYears(&self, years: i32) -> DateTime {
+            self.addMonths(years * 12)
         }
 
         pub fn addDays(&self, days: f64) -> DateTime {
@@ -449,15 +449,22 @@ pub mod DateTime_ {
         }
 
         pub fn toString(&self, format: string) -> string {
-            let fmt = format
-                .replace("yyyy", "%Y")
-                .replace("MM", "%m")
-                .replace("dd", "%d")
-                .replace("hh", "%H")
-                .replace("mm", "%M")
-                .replace("ss", "%S")
-                .replace("ffffff", "%6f")
-                .replace("fff", "%3f");
+            let fmt = match format.as_str() {
+                "" => "%m/%d/%Y %H:%M:%S".to_owned(),
+                "g" => "%m/%d/%Y %H:%M".to_owned(),
+                "G" => "%m/%d/%Y %H:%M:%S".to_owned(),
+                "o" | "O" => "%Y-%m-%dT%H:%M:%S%.f%:z".to_owned(),
+                //TODO: support more formats, custom formats, etc.
+                _ => format
+                    .replace("yyyy", "%Y")
+                    .replace("MM", "%m")
+                    .replace("dd", "%d")
+                    .replace("hh", "%H")
+                    .replace("mm", "%M")
+                    .replace("ss", "%S")
+                    .replace("ffffff", "%6f")
+                    .replace("fff", "%3f"),
+            };
             let df = self.ndt.format(&fmt);
             fromString(df.to_string())
         }
@@ -492,14 +499,6 @@ pub mod DateTime_ {
                 DateTimeKind::Utc => Utc.from_utc_datetime(&self.ndt).into(),
                 DateTimeKind::Local => localTz.from_local_datetime(&self.ndt).unwrap(),
                 DateTimeKind::Unspecified => localTz.from_local_datetime(&self.ndt).unwrap(),
-            }
-        }
-
-        pub(crate) fn to_cdt_with_offset(&self) -> CDateTime<FixedOffset> {
-            match self.kind {
-                DateTimeKind::Utc => Utc.from_utc_datetime(&self.ndt).into(),
-                DateTimeKind::Local => Local.from_local_datetime(&self.ndt).unwrap().into(),
-                DateTimeKind::Unspecified => Local.from_local_datetime(&self.ndt).unwrap().into(),
             }
         }
     }
