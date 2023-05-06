@@ -5,8 +5,8 @@ use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::convert::{AsMut, AsRef};
 use core::fmt::{Debug, Display, Formatter, Result};
-use core::ops::{Deref, DerefMut, Index};
 use core::hash::{Hash, Hasher};
+use core::ops::{Deref, DerefMut, Index};
 
 #[repr(transparent)]
 pub struct MutCell<T: ?Sized> {
@@ -33,7 +33,7 @@ impl<T> Deref for MutCell<T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.get_mut()
+        self.as_ref()
     }
 }
 
@@ -81,7 +81,7 @@ impl<T> Index<i32> for MutCell<Vec<T>> {
 
     #[inline]
     fn index(&self, idx: i32) -> &Self::Output {
-        &self.get_mut()[idx as usize]
+        &self.as_ref()[idx as usize]
     }
 }
 
@@ -137,11 +137,16 @@ impl<T> From<T> for MutCell<T> {
 impl<T> MutCell<T> {
     #[inline]
     pub const fn new(value: T) -> MutCell<T> {
-        MutCell { value: UnsafeCell::new(value) }
+        MutCell {
+            value: UnsafeCell::new(value),
+        }
     }
 
     #[inline]
-    pub fn get(&self) -> T where T: Clone {
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
         // SAFETY: This can cause data races if called from a separate thread.
         unsafe { (*self.value.get()).clone() }
     }
@@ -175,7 +180,9 @@ impl<T: Default> MutCell<T> {
 impl<T: Clone> MutCell<Option<T>> {
     #[inline]
     pub fn get_or_init<F>(&self, f: F) -> T
-    where F: FnOnce() -> T {
+    where
+        F: FnOnce() -> T,
+    {
         match self.get() {
             Some(v) => v,
             None => {
@@ -197,10 +204,10 @@ impl<T: Clone> MutCell<Option<T>> {
 // TODO: a proper Send + Sync (atomic) implementation.
 
 // #[cfg(feature = "atomic")]
-unsafe impl <T> Send for MutCell<T> {}
+unsafe impl<T> Send for MutCell<T> {}
 
 // #[cfg(feature = "atomic")]
-unsafe impl <T> Sync for MutCell<T> {}
+unsafe impl<T> Sync for MutCell<T> {}
 
 impl<T> core::panic::UnwindSafe for MutCell<T> {}
 impl<T> core::panic::RefUnwindSafe for MutCell<T> {}

@@ -1,7 +1,8 @@
 #[cfg(feature = "bigint")]
 pub mod BigInt_ {
     use crate::Decimal_::{decimal, truncate};
-    use crate::Native_::{arrayFrom, compare, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{compare, Lrc, MutCell, Vec};
+    use crate::NativeArray_::{array_from, Array};
     use crate::String_::{string, toString as toString_1};
 
     use num_bigint::*;
@@ -168,7 +169,7 @@ pub mod BigInt_ {
     }
 
     pub fn toByteArray(x: bigint) -> Array<u8> {
-        arrayFrom(x.to_signed_bytes_le())
+        array_from(x.to_signed_bytes_le())
     }
 
     pub fn toInt8(x: bigint) -> i8 { x.to_i8().unwrap() }

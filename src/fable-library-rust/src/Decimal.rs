@@ -1,6 +1,7 @@
 #[cfg(feature = "decimal")]
 pub mod Decimal_ {
-    use crate::Native_::{array, compare, Array, Lrc, MutCell, Vec};
+    use crate::Native_::{compare, Lrc, MutCell, Vec};
+    use crate::NativeArray_::{new_array, Array};
     use crate::String_::{string, toString as toString_1};
     use core::cmp::Ordering;
 
@@ -141,7 +142,7 @@ pub mod Decimal_ {
         let scale = du.scale as i32;
         let signExp =
             if du.negative { -(scale << 16) } else { scale << 16 };
-        array(&[low, mid, high, signExp])
+        new_array(&[low, mid, high, signExp])
     }
 
     pub fn round(x: decimal) -> decimal { x.round() }

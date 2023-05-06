@@ -68,14 +68,16 @@ let tryHead (source: 'T[]): 'T option =
     else Some source[0]
 
 let last (source: 'T[]): 'T =
+    let len = source.Length
     if isEmpty source
     then invalidArg "array" SR.arrayWasEmpty
-    else source[source.Length - 1]
+    else source[len - 1]
 
 let tryLast (source: 'T[]): 'T option =
+    let len = source.Length
     if isEmpty source
     then None
-    else Some source[source.Length - 1]
+    else Some source[len - 1]
 
 let tail (source: 'T[]) =
     if isEmpty source then

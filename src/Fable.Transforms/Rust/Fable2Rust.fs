@@ -565,6 +565,7 @@ module TypeInfo =
         | Fable.Array _
             -> true
         | Fable.Number(BigInt, _) -> true
+        | Fable.Tuple(_, isStruct) -> true
         | Fable.AnonymousRecordType _ -> true
         | Fable.DeclaredType(entRef, _) -> true
         | Fable.GenericParam(name, isMeasure, _) ->
@@ -680,7 +681,7 @@ module TypeInfo =
         transformImportType com ctx genArgs "Map" "Map"
 
     let transformArrayType com ctx genArg: Rust.Ty =
-        transformImportType com ctx [genArg] "Native" "Array"
+        transformImportType com ctx [genArg] "NativeArray" "Array"
 
     let transformHashSetType com ctx genArg: Rust.Ty =
         transformImportType com ctx [genArg] "HashSet" "HashSet"
@@ -1627,26 +1628,26 @@ module Util =
         match exprs with
         | [] ->
             let genArgsOpt = transformGenArgs com ctx [typ]
-            makeLibCall com ctx genArgsOpt "Native" "arrayEmpty" []
+            makeLibCall com ctx genArgsOpt "NativeArray" "new_empty" []
         | _ ->
             let arrayExpr =
                 exprs
                 |> List.map (transformLeaveContext com ctx None)
                 |> mkArrayExpr
                 |> mkAddrOfExpr
-            makeLibCall com ctx None "Native" "array" [arrayExpr]
+            makeLibCall com ctx None "NativeArray" "new_array" [arrayExpr]
 
     let makeArrayFrom (com: IRustCompiler) ctx r typ fableExpr =
         match fableExpr with
         | Fable.Value(Fable.NewTuple([valueExpr; countExpr], isStruct), _) ->
             let value = transformExpr com ctx valueExpr |> mkAddrOfExpr
             let count = transformExpr com ctx countExpr
-            makeLibCall com ctx None "Native" "arrayCreate" [value; count]
+            makeLibCall com ctx None "NativeArray" "new_init" [value; count]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
             let sequence = transformExpr com ctx expr |> mkAddrOfExpr
-            makeLibCall com ctx None "Native" "array" [sequence]
+            makeLibCall com ctx None "NativeArray" "new_array" [sequence]
 
     let makeList (com: IRustCompiler) ctx r typ headAndTail =
         // // list contruction with cons
@@ -1827,9 +1828,8 @@ module Util =
             | Fable.DecisionTree _
             | Fable.DecisionTreeSuccess _
             | Fable.Sequential _
-            | Fable.ForLoop _ ->
-                true //All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
-            //| Fable.Sequential _ -> true    //this is just a wrapper, so do not need to clone, passthrough only. (currently breaks some stuff, needs looking at)
+            | Fable.ForLoop _
+                -> true // All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
             | _ ->
                 if ctx.HasMultipleUses then
                     false
@@ -2076,9 +2076,6 @@ module Util =
     let isModuleMember (com: IRustCompiler) (callInfo: Fable.CallInfo) =
         isDeclEntityKindOf com (fun ent -> ent.IsFSharpModule) callInfo
 
-    let isNativeCall (callInfo: Fable.CallInfo) =
-        callInfo.Tags |> List.contains "native"
-
     let transformCall (com: IRustCompiler) ctx range (typ: Fable.Type) calleeExpr (callInfo: Fable.CallInfo) =
         let isByRefPreferred =
             callInfo.MemberRef
@@ -2128,27 +2125,27 @@ module Util =
                 let callee = transformGet com ctx None t calleeExpr kind
                 mkCallExpr (callee |> mkParenExpr) args
             | _ ->
-                makeInstanceCall com ctx (isNativeCall callInfo) info.Name calleeExpr args
+                makeInstanceCall com ctx info.Name calleeExpr args
 
         | Fable.Import(info, t, r) ->
             // library imports without args need explicit genArgs
             // this is for imports like Array.empty, Seq.empty etc.
             let needGenArgs =
                 Set.ofList [
-                    "Native_::arrayEmpty"
-                    "Native_::arrayWithCapacity"
                     "Native_::defaultOf"
                     "Native_::getZero"
+                    "NativeArray_::new_empty"
+                    "NativeArray_::new_with_capacity"
+                    "HashSet_::new_empty"
+                    "HashSet_::new_with_capacity"
+                    "HashMap_::new_empty"
+                    "HashMap_::new_with_capacity"
                     "Set_::empty"
                     "Map_::empty"
                     "Seq_::empty"
-                    "HashSet_::empty"
-                    "HashSet_::withCapacity"
-                    "HashMap_::empty"
-                    "HashMap_::withCapacity"
                 ]
             let genArgsOpt =
-                if List.isEmpty args && (needGenArgs |> Set.contains info.Selector) then
+                if needGenArgs |> Set.contains info.Selector then
                     match typ with
                     | Fable.Tuple _ -> transformGenArgs com ctx [typ]
                     | _ -> transformGenArgs com ctx typ.Generics // callInfo.GenericArgs
@@ -2196,11 +2193,11 @@ module Util =
     let mutableSet expr value =
         mkMethodCallExpr "set" None expr [value]
 
-    let makeInstanceCall com ctx isNative memberName calleeExpr args =
+    let makeInstanceCall com ctx memberName calleeExpr args =
         let membName = splitLast memberName
         let callee = com.TransformExpr(ctx, calleeExpr)
         match calleeExpr.Type with
-        | IsNonErasedInterface com (entRef, genArgs) when not isNative ->
+        | IsNonErasedInterface com (entRef, genArgs) ->
             // interface instance call (using fully qualified syntax)
             let ifcName = getInterfaceImportName com ctx entRef
             let parts = (ifcName + "::" + membName) |> splitNameParts
@@ -2233,7 +2230,7 @@ module Util =
                 |> transformGet com ctx range typ fableExpr
             | t when isInterface com t ->
                 // for interfaces, transpile property_get as instance call
-                makeInstanceCall com ctx false info.Name fableExpr []
+                makeInstanceCall com ctx info.Name fableExpr []
             | _ ->
                 let expr = transformCallee com ctx fableExpr
                 let field = getField range expr fieldName
@@ -3013,7 +3010,7 @@ module Util =
         match entryPoint with
         | Some path ->
             // add some imports for main function
-            let asArr = getLibraryImportName com ctx "Native" "arrayFrom"
+            let asArr = getLibraryImportName com ctx "NativeArray" "array_from"
             let asStr = getLibraryImportName com ctx "String" "fromString"
 
             // main entrypoint

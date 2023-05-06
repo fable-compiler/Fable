@@ -40,7 +40,7 @@ pub mod ExtInteropTests {
 
     pub mod ArrayTests {
         //Work in progress - Array needs a built in wrapper as first class citizen before this can be fleshed out
-        use fable_library_rust::Native_::Array;
+        use fable_library_rust::NativeArray_::Array;
 
         #[test]
         pub fn can_interop_between_array_and_vec() {

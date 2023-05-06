@@ -453,7 +453,11 @@ pub mod DateTime_ {
                 "" => "%m/%d/%Y %H:%M:%S".to_owned(),
                 "g" => "%m/%d/%Y %H:%M".to_owned(),
                 "G" => "%m/%d/%Y %H:%M:%S".to_owned(),
-                "o" | "O" => "%Y-%m-%dT%H:%M:%S%.f%:z".to_owned(),
+                "o" | "O" => match self.kind {
+                    DateTimeKind::Utc => "%Y-%m-%dT%H:%M:%S%.fZ".to_owned(),
+                    DateTimeKind::Local => "%Y-%m-%dT%H:%M:%S%.f%:z".to_owned(),
+                    DateTimeKind::Unspecified => "%Y-%m-%dT%H:%M:%S%.f".to_owned(),
+                },
                 //TODO: support more formats, custom formats, etc.
                 _ => format
                     .replace("yyyy", "%Y")
