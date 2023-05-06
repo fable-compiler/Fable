@@ -1974,12 +1974,6 @@ module Util =
             match leftExpr.Type, kind with
             | Fable.String, Rust.BinOpKind.Add ->
                 makeLibCall com ctx None "String" "append" [left; right]
-            // | Replacements.Util.HasReferenceEquality com _, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) ->
-            //     let left = transformExpr com ctx leftExpr |> maybeAddParens leftExpr
-            //     let right = transformExpr com ctx rightExpr |> maybeAddParens rightExpr
-            //     let args = [mkAddrOfExpr left; mkAddrOfExpr right]
-            //     let expr = makeLibCall com ctx None "Native" "referenceEquals" args
-            //     if kind = Rust.BinOpKind.Ne then mkNotExpr expr else expr
             | _ ->
                 mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 

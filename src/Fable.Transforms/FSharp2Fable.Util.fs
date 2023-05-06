@@ -2045,20 +2045,20 @@ module Util =
 
     let hasStructuralEquality (ent: Fable.Entity) =
         (ent |> hasAttribute Atts.structuralEquality) ||
-        not (ent |> hasAttribute Atts.noEquality) &&
-        not (ent |> hasAttribute Atts.referenceEquality) &&
-            (ent.IsFSharpRecord
-            || ent.IsFSharpUnion
-            || ent.IsValueType
-            || (ent |> hasInterface Types.iStructuralEquatable))
+            not (ent |> hasAttribute Atts.noEquality) &&
+            not (ent |> hasAttribute Atts.referenceEquality) && (
+                ent.IsFSharpRecord ||
+                ent.IsFSharpUnion ||
+                ent.IsValueType ||
+                (ent |> hasInterface Types.iStructuralEquatable))
 
     let hasStructuralComparison (ent: Fable.Entity) =
         (ent |> hasAttribute Atts.structuralComparison) ||
-        not (ent |> hasAttribute Atts.noComparison)
-            && (ent.IsFSharpRecord
-            || (ent.IsFSharpUnion)
-            || (ent.IsValueType)
-            || (ent |> hasInterface Types.iStructuralComparable))
+            not (ent |> hasAttribute Atts.noComparison) && (
+                ent.IsFSharpRecord ||
+                ent.IsFSharpUnion ||
+                ent.IsValueType ||
+                (ent |> hasInterface Types.iStructuralComparable))
 
     let makeCallWithArgInfo com (ctx: Context) r typ callee (memb: FSharpMemberOrFunctionOrValue) membRef (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
