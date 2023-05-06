@@ -295,38 +295,6 @@ module TypeInfo =
         |> List.map (fun p -> p.Name)
         |> Set.ofList
 
-    let hasAttribute fullName (ent: Fable.Entity) =
-        ent.Attributes
-        |> Seq.exists (fun att -> att.Entity.FullName = fullName)
-
-    let hasInterface fullName (ent: Fable.Entity) =
-        ent |> FSharp2Fable.Util.hasInterface fullName
-
-    let hasStructuralEquality (ent: Fable.Entity) =
-        not (ent |> hasAttribute Atts.noEquality)
-            && (ent.IsFSharpRecord
-            || (ent.IsFSharpUnion)
-            || (ent.IsValueType)
-            || (ent |> hasInterface Types.iStructuralEquatable))
-
-    let hasStructuralComparison (ent: Fable.Entity) =
-        not (ent |> hasAttribute Atts.noComparison)
-            && (ent.IsFSharpRecord
-            || (ent.IsFSharpUnion)
-            || (ent.IsValueType)
-            || (ent |> hasInterface Types.iStructuralComparable))
-
-    let hasReferenceEquality (com: IRustCompiler) typ =
-        match typ with
-        | Fable.Any
-        | Fable.LambdaType _
-        | Fable.DelegateType _
-            -> true
-        | Fable.DeclaredType(entRef, _) ->
-            let ent = com.GetEntity(entRef)
-            not (ent |> hasStructuralEquality)
-        | _ -> false
-
     let hasMutableFields (com: IRustCompiler) (ent: Fable.Entity) =
         if ent.IsFSharpUnion then
             ent.UnionCases |> Seq.exists (fun uci ->
@@ -410,7 +378,7 @@ module TypeInfo =
 
     let isHashableEntity com entNames (ent: Fable.Entity) =
         not (ent.IsInterface)
-        && (hasStructuralEquality ent)
+        && (FSharp2Fable.Util.hasStructuralEquality ent)
         && (isEntityOfType com isHashableType entNames ent)
 
     let isCopyableType (com: IRustCompiler) entNames typ =
@@ -456,7 +424,7 @@ module TypeInfo =
 
     let isEquatableEntity com entNames (ent: Fable.Entity) =
         not (ent.IsInterface)
-        && (hasStructuralEquality ent)
+        && (FSharp2Fable.Util.hasStructuralEquality ent)
         && (isEntityOfType com isEquatableType entNames ent)
 
     let isComparableType (com: IRustCompiler) entNames typ =
@@ -477,7 +445,7 @@ module TypeInfo =
 
     let isComparableEntity com entNames (ent: Fable.Entity) =
         not (ent.IsInterface)
-        && (hasStructuralComparison ent)
+        && (FSharp2Fable.Util.hasStructuralComparison ent)
         && (isEntityOfType com isComparableType entNames ent)
 
     let isWrappedType com typ =
@@ -870,7 +838,7 @@ module TypeInfo =
     let (|IsNonErasedInterface|_|) (com: Compiler) = function
         | Fable.DeclaredType(entRef, genArgs) ->
             let ent = com.GetEntity(entRef)
-            if ent.IsInterface && not (ent |> hasAttribute Atts.erase)
+            if ent.IsInterface && not (ent |> FSharp2Fable.Util.hasAttribute Atts.erase)
             then Some(entRef, genArgs)
             else None
         | _ -> None
@@ -2006,12 +1974,12 @@ module Util =
             match leftExpr.Type, kind with
             | Fable.String, Rust.BinOpKind.Add ->
                 makeLibCall com ctx None "String" "append" [left; right]
-            | typ, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) when hasReferenceEquality com typ ->
-                let left = transformExpr com ctx leftExpr |> maybeAddParens leftExpr
-                let right = transformExpr com ctx rightExpr |> maybeAddParens rightExpr
-                let args = [mkAddrOfExpr left; mkAddrOfExpr right]
-                let expr = makeLibCall com ctx None "Native" "referenceEquals" args
-                if kind = Rust.BinOpKind.Ne then mkNotExpr expr else expr
+            // | Replacements.Util.HasReferenceEquality com _, (Rust.BinOpKind.Eq | Rust.BinOpKind.Ne) ->
+            //     let left = transformExpr com ctx leftExpr |> maybeAddParens leftExpr
+            //     let right = transformExpr com ctx rightExpr |> maybeAddParens rightExpr
+            //     let args = [mkAddrOfExpr left; mkAddrOfExpr right]
+            //     let expr = makeLibCall com ctx None "Native" "referenceEquals" args
+            //     if kind = Rust.BinOpKind.Ne then mkNotExpr expr else expr
             | _ ->
                 mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
@@ -3629,9 +3597,9 @@ module Util =
         // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
         // ctor |> Option.map (fun ctor -> ctor.CurriedParameterGroups)
         let idents = getEntityFieldsAsIdents com ent
-        let fields = idents |> List.map Fable.IdentExpr
+        let values = idents |> List.map (fun ident -> { ident with IsMutable = false}) |> List.map Fable.IdentExpr
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
-        let body = Fable.Value(Fable.NewRecord(fields, ent.Ref, genArgs), None)
+        let body = Fable.Value(Fable.NewRecord(values, ent.Ref, genArgs), None)
         let entName = getEntityFullName com ctx ent.Ref
         let paramTypes = idents |> List.map (fun ident -> ident.Type)
         let memberRef = Fable.GeneratedMember.Function(entName, paramTypes, body.Type, entRef = ent.Ref)

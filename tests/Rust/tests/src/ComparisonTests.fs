@@ -6,7 +6,7 @@ open FSharp.Data.UnitSystems.SI.UnitSymbols
 type UTest = A of int | B of int
 type RTest = { a: int; b: int }
 type STest = struct val A: int; new(a: int) = { A = a }; end
-// type OTest(a) = member val A = a with get, set
+type OTest(a) = member val A = a with get, set
 
 // [<CustomEquality; CustomComparison>]
 // type UTest2 =
@@ -496,23 +496,23 @@ let ``GetHashCode with structs works`` () =
     (STest(1).GetHashCode(), STest(1).GetHashCode()) ||> equal
     (STest(2).GetHashCode(), STest(1).GetHashCode()) ||> notEqual
 
-// [<Fact>]
-// let ``GetHashCode with objects works`` () =
-//     (OTest(1).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
-//     (OTest(2).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
+[<Fact>]
+let ``GetHashCode with objects works`` () =
+    (OTest(1).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
+    (OTest(2).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
 
 // [<Fact>]
 // let ``GetHashCode with objects that overwrite it works`` () =
 //     (Test(1).GetHashCode(), Test(1).GetHashCode()) ||> equal
 //     (Test(2).GetHashCode(), Test(1).GetHashCode()) ||> notEqual
 
-// [<Fact>]
-// let ``GetHashCode with same object works`` () =
-//     let o = OTest(1)
-//     let h1 = o.GetHashCode()
-//     o.A <- 2
-//     let h2 = o.GetHashCode()
-//     (h1, h2) ||> equal
+[<Fact>]
+let ``GetHashCode with same object works`` () =
+    let o = OTest(1)
+    let h1 = o.GetHashCode()
+    o.A <- 2
+    let h2 = o.GetHashCode()
+    (h1, h2) ||> equal
 
 [<Fact>]
 let ``GetHashCode with primitives works`` () =
@@ -564,18 +564,18 @@ let ``hash with structs works`` () =
     (hash (STest(1)), hash (STest(1))) ||> equal
     (hash (STest(2)), hash (STest(1))) ||> notEqual
 
-// [<Fact>]
-// let ``hash with objects works`` () =
-//     (hash (OTest(1)), hash (OTest(1))) ||> notEqual
-//     (hash (OTest(2)), hash (OTest(1))) ||> notEqual
+[<Fact>]
+let ``hash with objects works`` () =
+    (hash (OTest(1)), hash (OTest(1))) ||> notEqual
+    (hash (OTest(2)), hash (OTest(1))) ||> notEqual
 
-// [<Fact>]
-// let ``hash with same object works`` () =
-//     let o = OTest(1)
-//     let h1 = hash o
-//     o.A <- 2
-//     let h2 = hash o
-//     (h1, h2) ||> equal
+[<Fact>]
+let ``hash with same object works`` () =
+    let o = OTest(1)
+    let h1 = hash o
+    o.A <- 2
+    let h2 = hash o
+    (h1, h2) ||> equal
 
 [<Fact>]
 let ``hash with longs works`` () =

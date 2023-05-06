@@ -421,20 +421,31 @@ let isCompatibleWithNativeComparison = function
 // * `.GetHashCode` called directly defaults to identity hash (for reference types except string) if not implemented.
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 
-let structuralHash (com: ICompiler) ctx r (arg: Expr) =
-    Helper.LibCall(com, "Native", "getHashCode", Int32.Number, [arg], ?loc=r)
-
-let referenceHash com ctx r (arg: Expr) =
+let referenceHash (com: ICompiler) ctx r (arg: Expr) =
     match arg.Type with
     | Boolean | Char | String | Number _ ->
-        structuralHash com ctx r arg
+        Helper.LibCall(com, "Native", "getHashCode", Int32.Number, [arg], ?loc=r)
     | _ ->
         Helper.LibCall(com, "Native", "referenceHash", Int32.Number, [makeRef arg], ?loc=r)
 
 let getHashCode (com: ICompiler) ctx r (arg: Expr) =
     match arg.Type with
+    | HasReferenceEquality com _ ->
+        referenceHash com ctx r arg
+    | _ ->
+        Helper.LibCall(com, "Native", "getHashCode", Int32.Number, [arg], ?loc=r)
+
+let objectHash (com: ICompiler) ctx r (arg: Expr) =
+    match arg.Type with
     | Array _ -> referenceHash com ctx r arg
-    | _ -> structuralHash com ctx r arg
+    | _ -> getHashCode com ctx r arg
+
+let referenceEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
+    match left.Type with
+    | Boolean | Char | String | Number _ ->
+        makeEqOp r left right BinaryEqual
+    | _ ->
+        Helper.LibCall(com, "Native", "referenceEquals", Boolean, [makeRef left; makeRef right], ?loc=r)
 
 let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     let t = Boolean
@@ -449,29 +460,18 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "List", "equals", t, [left; right], ?loc=r)
     | IEnumerable ->
         Helper.LibCall(com, "Seq", "equals", t, [left; right], ?loc=r)
-    // | DeclaredType _ ->
-    //     Helper.LibCall(com, "Util", "equals", t, [left; right], ?loc=r)
     // | MetaType ->
     //     Helper.LibCall(com, "Reflection", "equals", t, [left; right], ?loc=r)
+    | HasReferenceEquality com _ ->
+        referenceEquals com ctx r left right
     | _ ->
-        // may use reference equality where needed (see Fable2Rust.transformOperation)
+        // Helper.LibCall(com, "Native", "equals", t, [left; right], ?loc=r)
         makeEqOp r left right BinaryEqual
-
-let referenceEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
-    match left.Type with
-    | Boolean | Char | String | Number _ ->
-        equals com ctx r left right
-    | _ ->
-        Helper.LibCall(com, "Native", "referenceEquals", Boolean, [makeRef left; makeRef right], ?loc=r)
-
-let structEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
-    // can be reference or structural equality based on type
-    TypeCast(right, left.Type) |> equals com ctx r left
 
 let objectEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Array _ -> referenceEquals com ctx r left right
-    | _ -> structEquals com ctx r left right: Expr
+    | _ -> TypeCast(right, left.Type) |> equals com ctx r left
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
@@ -487,8 +487,6 @@ let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "List", "compareTo", t, [left; right], ?loc=r)
     | IEnumerable ->
         Helper.LibCall(com, "Seq", "compareTo", t, [left; right], ?loc=r)
-    // | DeclaredType _ ->
-    //     Helper.LibCall(com, "Util", "compareTo", t, [left; right], ?loc=r)
     | _ ->
         Helper.LibCall(com, "Native", "compare", t, [left; right], ?loc=r)
 
@@ -1057,7 +1055,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Concatenates two lists
     | "op_Append", _ -> Helper.LibCall(com, "List", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "IsNull", [arg] -> nullCheck r true arg |> Some
-    | "Hash", [arg] -> structuralHash com ctx r arg |> Some
+    | "Hash", [arg] -> getHashCode com ctx r arg |> Some
     // Comparison
     | Patterns.SetContains Operators.compareSet, [left; right] ->
         applyCompareOp com ctx r t i.CompiledName left right |> Some
@@ -1938,7 +1936,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "EnumToValue", [arg] -> TypeCast(arg, t) |> Some
     | ("GenericHash"
     | "GenericHashIntrinsic"), [arg] ->
-        structuralHash com ctx r arg |> Some
+        getHashCode com ctx r arg |> Some
     | ("FastHashTuple2"
     | "FastHashTuple3"
     | "FastHashTuple4"
@@ -2191,7 +2189,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "ReferenceEquals", None, [arg1; arg2] -> referenceEquals com ctx r arg1 arg2 |> Some
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] -> objectEquals com ctx r arg1 arg2 |> Some
-    | "GetHashCode", Some arg, _ -> getHashCode com ctx r arg |> Some
+    | "GetHashCode", Some arg, _ -> objectHash com ctx r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
             "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
@@ -2204,8 +2202,8 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
     | "Equals", Some arg1, [arg2]
-    | "Equals", None, [arg1; arg2] -> structEquals com ctx r arg1 arg2 |> Some
-    | "GetHashCode", Some arg, _ -> structuralHash com ctx r arg |> Some
+    | "Equals", None, [arg1; arg2] -> equals com ctx r arg1 arg2 |> Some
+    | "GetHashCode", Some arg, _ -> getHashCode com ctx r arg |> Some
     | "CompareTo", Some arg1, [arg2]
     | "Compare", None, [arg1; arg2] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None
@@ -2213,7 +2211,7 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "DefaultOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> getZero com ctx |> Some
-    | "Hash", [arg] -> structuralHash com ctx r arg |> Some
+    | "Hash", [arg] -> getHashCode com ctx r arg |> Some
     | "Equals", [arg1; arg2] -> equals com ctx r arg1 arg2 |> Some
     | "Compare", [arg1; arg2] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None
