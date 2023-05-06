@@ -103,7 +103,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
     /// We must check the attributes explicitly
     static member CompiledName (uci: FSharpUnionCase) =
         uci.Attributes
-        |> Helpers.tryFindAtt Atts.compiledName
+        |> Helpers.tryFindAttrib Atts.compiledName
         |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments[0] |> snd |> string)
 
     static member FullName (uci: FSharpUnionCase) =
@@ -114,7 +114,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
 
     static member CompiledValue (uci: FSharpUnionCase) =
         uci.Attributes
-        |> Helpers.tryFindAtt Atts.compiledValue
+        |> Helpers.tryFindAttrib Atts.compiledValue
         |> Option.bind (fun (att: FSharpAttribute) ->
             match snd att.ConstructorArguments[0] with
             | :? int as value -> Some (CompiledValue.Integer value)
@@ -169,7 +169,7 @@ type FsParam(p: FSharpParameter, ?isNamed) =
     let defValue =
         if isOptional then
             p.Attributes
-            |> Helpers.tryFindAtt "System.Runtime.InteropServices.DefaultParameterValueAttribute"
+            |> Helpers.tryFindAttrib "System.Runtime.InteropServices.DefaultParameterValueAttribute"
             |> Option.bind (fun att ->
                 Seq.tryHead att.ConstructorArguments
                 |> Option.map (fun (t, v) ->
@@ -217,7 +217,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
             let mutable i = -1
             let namedParamsIndex =
                 m.Attributes
-                |> Helpers.tryFindAtt Atts.paramObject
+                |> Helpers.tryFindAttrib Atts.paramObject
                 |> Option.map (fun (att: FSharpAttribute) ->
                     match Seq.tryItem 0 att.ConstructorArguments with
                     | Some(_, (:?int as index)) -> index
@@ -584,7 +584,7 @@ module Helpers =
             | Python ->
                 let name =
                     // Don't snake_case if member has compiled name attribute
-                    match memb.Attributes |> Helpers.tryFindAtt Atts.compiledName with
+                    match memb.Attributes |> Helpers.tryFindAttrib Atts.compiledName with
                     | Some _ -> name
                     | _ -> Fable.Py.Naming.toSnakeCase name
                 Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
@@ -631,27 +631,27 @@ module Helpers =
         && not value.IsMemberThisValue
         && isByRefType value.FullType
 
-    let tryFindAtt fullName (atts: FSharpAttribute seq) =
+    let tryFindAttrib fullName (atts: FSharpAttribute seq) =
         atts |> Seq.tryPick (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
             | Some fullName' ->
                 if fullName = fullName' then Some att else None
             | None -> None)
 
-    let hasAttribute attFullName (attributes: FSharpAttribute seq) =
+    let hasAttrib attFullName (attributes: FSharpAttribute seq) =
         attributes |> Seq.exists (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
             | Some attFullName2 -> attFullName = attFullName2
             | None -> false)
 
-    let tryPickAttribute attFullNames (attributes: FSharpAttribute seq) =
+    let tryPickAttrib attFullNames (attributes: FSharpAttribute seq) =
         let attFullNames = Map attFullNames
         attributes |> Seq.tryPick (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
             | Some fullName -> Map.tryFind fullName attFullNames
             | None -> None)
 
-    let tryAttributeConsArg (att: FSharpAttribute) index (defValue: 'T) (f: obj -> 'T option) =
+    let tryAttribConsArg (att: FSharpAttribute) index (defValue: 'T) (f: obj -> 'T option) =
         let consArgs = att.ConstructorArguments
         if consArgs.Count <= index then defValue
         else
@@ -764,7 +764,7 @@ module Helpers =
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
             |> Option.bind Seq.tryLast
-            |> Option.map (fun lastParam -> hasAttribute Atts.paramList lastParam.Attributes)
+            |> Option.map (fun lastParam -> hasAttrib Atts.paramList lastParam.Attributes)
             |> Option.defaultValue false
 
         hasParamArray memb || hasParamSeq memb
@@ -814,7 +814,7 @@ module Helpers =
         )
 
     let tryGetFieldTag (memb: FSharpMemberOrFunctionOrValue) =
-        if Compiler.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes
+        if Compiler.Language = Dart && hasAttrib Atts.dartIsConst memb.Attributes
         then Some "const"
         else None
 
@@ -1204,7 +1204,7 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | fullName when tdef.IsMeasure -> Fable.Measure fullName
-            | _ when hasAttribute Atts.stringEnum tdef.Attributes && Compiler.Language <> TypeScript -> Fable.String
+            | _ when hasAttrib Atts.stringEnum tdef.Attributes && Compiler.Language <> TypeScript -> Fable.String
             | _ ->
                 let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
                 Fable.DeclaredType(FsEnt.Ref tdef, genArgs)
@@ -1265,7 +1265,7 @@ module TypeHelpers =
         |> Seq.toList
 
     let isAbstract (ent: FSharpEntity) =
-       hasAttribute Atts.abstractClass ent.Attributes
+       hasAttrib Atts.abstractClass ent.Attributes
 
     let tryGetXmlDoc = function
         | FSharpXmlDoc.FromXmlText(xmlDoc) -> xmlDoc.GetXmlText() |> Some
@@ -1739,7 +1739,7 @@ module Util =
 
     let tryMangleAttribute (attributes: FSharpAttribute seq) =
         attributes
-        |> tryFindAtt Atts.mangle
+        |> tryFindAttrib Atts.mangle
         |> Option.map (fun att ->
             match Seq.tryHead att.ConstructorArguments with
             | Some(_, (:?bool as value)) -> value
@@ -1888,8 +1888,8 @@ module Util =
                     match tryGlobalOrImportedMember com Fable.Any memb with
                     | Some importExpr -> { callInfo with Fable.ThisArg = Some importExpr }
                     | _ -> callInfo
-                let isStatement = tryAttributeConsArg att 1 false tryBoolean
-                let macro = tryAttributeConsArg att 0  "" tryString
+                let isStatement = tryAttribConsArg att 1 false tryBoolean
+                let macro = tryAttribConsArg att 0  "" tryString
                 let macro =
                     match attFullName with
                     | Atts.emitMethod -> "$0." + macro + "($1...)"
@@ -2035,8 +2035,30 @@ module Util =
                 else false, arg::acc)
             |> snd
 
-    let hasInterface interfaceFullname (ent: Fable.Entity) =
-        ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
+    let hasInterface fullName (ent: Fable.Entity) =
+        ent.AllInterfaces
+        |> Seq.exists (fun ifc -> ifc.Entity.FullName = fullName)
+
+    let hasAttribute fullName (ent: Fable.Entity) =
+        ent.Attributes
+        |> Seq.exists (fun att -> att.Entity.FullName = fullName)
+
+    let hasStructuralEquality (ent: Fable.Entity) =
+        (ent |> hasAttribute Atts.structuralEquality) ||
+            not (ent |> hasAttribute Atts.noEquality) &&
+            not (ent |> hasAttribute Atts.referenceEquality) && (
+                ent.IsFSharpRecord ||
+                ent.IsFSharpUnion ||
+                ent.IsValueType ||
+                (ent |> hasInterface Types.iStructuralEquatable))
+
+    let hasStructuralComparison (ent: Fable.Entity) =
+        (ent |> hasAttribute Atts.structuralComparison) ||
+            not (ent |> hasAttribute Atts.noComparison) && (
+                ent.IsFSharpRecord ||
+                ent.IsFSharpUnion ||
+                ent.IsValueType ||
+                (ent |> hasInterface Types.iStructuralComparable))
 
     let makeCallWithArgInfo com (ctx: Context) r typ callee (memb: FSharpMemberOrFunctionOrValue) membRef (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with

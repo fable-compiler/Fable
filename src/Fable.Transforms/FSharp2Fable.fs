@@ -1422,12 +1422,12 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     let ctx = { ctx with EnclosingMember = Some memb
                          UsedNamesInDeclarationScope = HashSet() }
     if isIgnoredNonAttachedMember memb then
-        if memb.IsMutable && isNotPrivate memb && hasAttribute Atts.global_ memb.Attributes then
+        if memb.IsMutable && isNotPrivate memb && hasAttrib Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
             |> addError com [] None
         []
     // for Rust, retain inlined functions that have [<CompiledName("...")>] attribute
-    elif isInline memb && (Compiler.Language <> Rust || not (hasAttribute Atts.compiledName memb.Attributes)) then
+    elif isInline memb && (Compiler.Language <> Rust || not (hasAttrib Atts.compiledName memb.Attributes)) then
         []
     elif memb.IsImplicitConstructor then
         transformPrimaryConstructor com ctx memb args body
@@ -1471,7 +1471,7 @@ let private isIgnoredLeafEntity (ent: FSharpEntity) =
     || ent.IsFSharpAbbreviation
     || ent.IsDelegate
     || ent.IsNamespace // Ignore empty namespaces
-    || ent.Attributes |> hasAttribute "Microsoft.FSharp.Core.MeasureAnnotatedAbbreviationAttribute"
+    || ent.Attributes |> hasAttrib "Microsoft.FSharp.Core.MeasureAnnotatedAbbreviationAttribute"
 
 // In case this is a recursive module, do a first pass to get all entity and member names
 let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls =

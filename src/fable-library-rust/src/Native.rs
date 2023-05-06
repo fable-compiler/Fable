@@ -106,8 +106,8 @@ pub mod Native_ {
         ((h >> 32) ^ h) as i32
     }
 
-    pub fn referenceHash<T: Hash>(x: &T) -> i32 {
-        getHashCode(x as *const T)
+    pub fn referenceHash<T>(p: &T) -> i32 {
+        getHashCode(p as *const T)
     }
 
     pub fn compare<T: PartialOrd>(x: T, y: T) -> i32 {

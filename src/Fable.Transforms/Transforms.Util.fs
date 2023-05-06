@@ -3,9 +3,12 @@ namespace Fable.Transforms
 [<RequireQualifiedAccess>]
 module Atts =
     let [<Literal>] noEquality = "Microsoft.FSharp.Core.NoEqualityAttribute" // typeof<NoEqualityAttribute>.FullName
-    let [<Literal>] noComparison = "Microsoft.FSharp.Core.NoComparisonAttribute" // typeof<NoComparisonAttribute>.FullName
     let [<Literal>] customEquality = "Microsoft.FSharp.Core.CustomEqualityAttribute" // typeof<CustomEqualityAttribute>.FullName
+    let [<Literal>] referenceEquality = "Microsoft.FSharp.Core.ReferenceEqualityAttribute" // typeof<ReferenceEqualityAttribute>.FullName
+    let [<Literal>] structuralEquality = "Microsoft.FSharp.Core.StructuralEqualityAttribute" // typeof<StructuralEqualityAttribute>.FullName
+    let [<Literal>] noComparison = "Microsoft.FSharp.Core.NoComparisonAttribute" // typeof<NoComparisonAttribute>.FullName
     let [<Literal>] customComparison = "Microsoft.FSharp.Core.CustomComparisonAttribute" // typeof<CustomComparisonAttribute>.FullName
+    let [<Literal>] structuralComparison = "Microsoft.FSharp.Core.StructuralComparisonAttribute" // typeof<StructuralComparisonAttribute>.FullName
     let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
     let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
     let [<Literal>] compiledValue = "Fable.Core.CompiledValueAttribute" // typeof<CompiledValueAttribute>.FullName
@@ -32,7 +35,6 @@ module Atts =
     let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
     let [<Literal>] paramList = "Fable.Core.ParamListAttribute"// typeof<Fable.Core.ParamListAttribute>.FullName
     let [<Literal>] paramObject = "Fable.Core.ParamObjectAttribute"// typeof<Fable.Core.ParamObjectAttribute>.FullName
-    let [<Literal>] referenceType = "Fable.Core.Rust.ReferenceTypeAttribute" // typeof<Fable.Core.PointerTypeAttribute>.FullName
     let [<Literal>] jsDecorator = "Fable.Core.JS.DecoratorAttribute" // typeof<Fable.Core.JS.DecoratorAttribute>.FullName
     let [<Literal>] jsReflectedDecorator = "Fable.Core.JS.ReflectedDecoratorAttribute" // typeof<Fable.Core.JS.ReflectedDecoratorAttribute>.FullName
     let [<Literal>] jsxComponent = "Fable.Core.JSX.ComponentAttribute" // typeof<Fable.Core.JSX.ComponentAttribute>.FullName
@@ -42,6 +44,7 @@ module Atts =
     let [<Literal>] rustByRef = "Fable.Core.Rust.ByRefAttribute"// typeof<Fable.Core.Rust.ByRefAttribute>.FullName
     let [<Literal>] rustOuterAttr = "Fable.Core.Rust.OuterAttrAttribute"// typeof<Fable.Core.Rust.OuterAttrAttribute>.FullName
     let [<Literal>] rustInnerAttr = "Fable.Core.Rust.InnerAttrAttribute"// typeof<Fable.Core.Rust.InnerAttrAttribute>.FullName
+    let [<Literal>] referenceType = "Fable.Core.Rust.ReferenceTypeAttribute" // typeof<Fable.Core.ReferenceTypeAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =

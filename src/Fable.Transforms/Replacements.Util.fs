@@ -484,12 +484,24 @@ let (|IsInRefType|_|) (com: Compiler) = function
         | _ -> None
     | _ -> None
 
-let (|ListLiteral|_|) e =
+let (|HasReferenceEquality|_|) (com: Compiler) = function
+    | Any
+    | LambdaType _
+    | DelegateType _
+        -> Some true
+    | DeclaredType(entRef, _) ->
+        let ent = com.GetEntity(entRef)
+        if ent |> FSharp2Fable.Util.hasStructuralEquality
+        then None
+        else Some true
+    | _ -> None
+
+let (|ListLiteral|_|) expr =
     let rec untail t acc = function
         | Value(NewList(None, _),_) -> Some(List.rev acc, t)
         | Value(NewList(Some(head, tail), _),_) -> untail t (head::acc) tail
         | _ -> None
-    match e with
+    match expr with
     | NewList(None, t) -> Some([], t)
     | NewList(Some(head, tail), t) -> untail t [head] tail
     | _ -> None
@@ -506,16 +518,16 @@ let (|IsEntity|_|) fullName = function
     | _ -> None
 
 let (|IDictionary|IEqualityComparer|Other|) = function
-    | DeclaredType(ent,_) ->
-        match ent.FullName with
+    | DeclaredType(entRef, _) ->
+        match entRef.FullName with
         | Types.idictionary -> IDictionary
         | Types.iequalityComparerGeneric -> IEqualityComparer
         | _ -> Other
     | _ -> Other
 
 let (|IEnumerable|IEqualityComparer|Other|) = function
-    | DeclaredType(ent,_) ->
-        match ent.FullName with
+    | DeclaredType(entRef, _) ->
+        match entRef.FullName with
         | Types.ienumerableGeneric -> IEnumerable
         | Types.iequalityComparerGeneric -> IEqualityComparer
         | _ -> Other
@@ -940,7 +952,7 @@ module AnonRecords =
                 (interfaceMembers: FSharpMemberOrFunctionOrValue list) =
 
         interfaceMembers
-        |> List.filter (fun m -> not (m.Attributes |> Helpers.hasAttribute Atts.emitIndexer))
+        |> List.filter (fun m -> not (m.Attributes |> Helpers.hasAttrib Atts.emitIndexer))
         |> List.filter (fun m -> m.IsPropertyGetterMethod)
         |> List.choose (fun m ->
             if fieldsToIgnore |> Set.contains m.DisplayName then
@@ -978,7 +990,7 @@ module AnonRecords =
         // Note: Indexers are assumed to be "valid" index properties (like `string` and/or `int` input (TS rules))
         let indexers =
             interfaceMembers
-            |> List.filter (fun m -> m.Attributes |> Helpers.hasAttribute Atts.emitIndexer)
+            |> List.filter (fun m -> m.Attributes |> Helpers.hasAttrib Atts.emitIndexer)
                 // Indexer:
                 // * with explicit get: IsPropertyGetterMethod
                 // * with explicit set: IsPropertySetterMetod
