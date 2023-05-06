@@ -30,7 +30,7 @@
     <Compile Include="tests/src/CharTests.fs" />
     <Compile Include="tests/src/ClassTests.fs" />
     <Compile Include="tests/src/ClosureTests.fs" />
-    <!-- <Compile Include="tests/src/ComparisonTests.fs" /> -->
+    <Compile Include="tests/src/ComparisonTests.fs" />
     <Compile Include="tests/src/ControlFlowTests.fs" />
     <Compile Include="tests/src/ConvertTests.fs" />
     <Compile Include="tests/src/CustomOperatorTests.fs" />

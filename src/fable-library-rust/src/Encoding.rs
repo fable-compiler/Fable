@@ -1,5 +1,6 @@
 pub mod Encoding_ {
-    use crate::Native_::{arrayFrom, Array, Lrc, LrcPtr, MutCell};
+    use crate::Native_::{Lrc, LrcPtr, MutCell};
+    use crate::NativeArray_::{array_from, Array};
     use crate::String_::{fromChars2, fromSlice, fromString, string, substring2};
 
     pub trait Encoding {
@@ -60,7 +61,7 @@ pub mod Encoding_ {
                 .encode_utf16()
                 .flat_map(|c| [(c & 0xFF) as u8, (c >> 8) as u8])
                 .collect();
-            arrayFrom(bytes)
+            array_from(bytes)
         }
 
         fn getBytes2(&self, s: string, index: i32, count: i32) -> Array<u8> {
@@ -93,12 +94,12 @@ pub mod Encoding_ {
 
         fn getChars(&self, bytes: Array<u8>) -> Array<char> {
             let s = self.get_string(&bytes);
-            arrayFrom(s.chars().collect())
+            array_from(s.chars().collect())
         }
 
         fn getChars2(&self, bytes: Array<u8>, index: i32, count: i32) -> Array<char> {
             let s = self.get_string(get_slice(&bytes, index, count));
-            arrayFrom(s.chars().collect())
+            array_from(s.chars().collect())
         }
 
         fn getCharCount(&self, bytes: Array<u8>) -> i32 {
@@ -148,7 +149,7 @@ pub mod Encoding_ {
 
     impl Encoding for UTF8 {
         fn getBytes(&self, s: string) -> Array<u8> {
-            arrayFrom(s.as_bytes().to_vec())
+            array_from(s.as_bytes().to_vec())
         }
 
         fn getBytes2(&self, s: string, index: i32, count: i32) -> Array<u8> {
@@ -181,12 +182,12 @@ pub mod Encoding_ {
 
         fn getChars(&self, bytes: Array<u8>) -> Array<char> {
             let s = UTF8::get_string(&bytes);
-            arrayFrom(s.chars().collect())
+            array_from(s.chars().collect())
         }
 
         fn getChars2(&self, bytes: Array<u8>, index: i32, count: i32) -> Array<char> {
             let s = UTF8::get_string(get_slice(&bytes, index, count));
-            arrayFrom(s.chars().collect())
+            array_from(s.chars().collect())
         }
 
         fn getCharCount(&self, bytes: Array<u8>) -> i32 {

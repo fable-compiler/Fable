@@ -10,19 +10,19 @@ let inline length (HasLength f) = f()
 let lengthWrapper (xs:'a list) = length xs
 let lengthFixed = length [|1; 2; 3|]
 
-let zipUnsorted (arr1:_[]) (arr2:_[]) =
-  let d1 = dict arr1
-  let d2 = dict arr2
-  let res = ResizeArray<_>()
-  for kv1 in d1 do
-    let v2 =
-      if d2.ContainsKey(kv1.Key) then Some(d2[kv1.Key])
-      else None
-    res.Add(kv1.Key, (Some kv1.Value, v2))
-  for kv2 in d2 do
-    if not (d1.ContainsKey(kv2.Key)) then
-      res.Add(kv2.Key, (None, Some kv2.Value))
-  Array.ofSeq res
+// let zipUnsorted (arr1:_[]) (arr2:_[]) =
+//   let d1 = dict arr1
+//   let d2 = dict arr2
+//   let res = ResizeArray<_>()
+//   for kv1 in d1 do
+//     let v2 =
+//       if d2.ContainsKey(kv1.Key) then Some(d2[kv1.Key])
+//       else None
+//     res.Add(kv1.Key, (Some kv1.Value, v2))
+//   for kv2 in d2 do
+//     if not (d1.ContainsKey(kv2.Key)) then
+//       res.Add(kv2.Key, (None, Some kv2.Value))
+//   Array.ofSeq res
 
 let isSortedUsing test proj (arr:_[]) =
   let rec loop i =

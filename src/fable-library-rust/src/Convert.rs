@@ -1,5 +1,6 @@
 pub mod Convert_ {
-    use crate::Native_::{arrayFrom, Array, MutCell};
+    use crate::Native_::{MutCell};
+    use crate::NativeArray_::{array_from, Array};
     use crate::String_::{string, fromString};
     use core::fmt::{Display, Binary, Octal, LowerHex};
     use core::str::FromStr;
@@ -238,7 +239,7 @@ pub mod Convert_ {
             .chunks_exact(2)
             .map(|x| decode(x[0]) << 4 | decode(x[1]))
             .collect();
-        arrayFrom(bytes)
+        array_from(bytes)
     }
 
     pub fn toBase64String(bytes: Array<u8>) -> string {
@@ -336,7 +337,7 @@ pub mod Convert_ {
                 else { 1 }
             } else { 0 };
         bytes.truncate(3 * (chars.len() - padding_len) / 4);
-        arrayFrom(bytes)
+        array_from(bytes)
     }
 
 }

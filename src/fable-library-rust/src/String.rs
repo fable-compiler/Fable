@@ -4,7 +4,8 @@ pub mod String_ {
     // Strings
     // -----------------------------------------------------------
 
-    use crate::Native_::{arrayFrom, compare, Array, Func1, Func2, Lrc, String, ToString, Vec};
+    use crate::Native_::{compare, Func1, Func2, Lrc, String, ToString, Vec};
+    use crate::NativeArray_::{array_from, Array};
 
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
@@ -600,7 +601,7 @@ pub mod String_ {
             a = a.into_iter().take(count as usize).collect()
         }
         let a = a.into_iter().map(|s| fromSlice(s)).collect();
-        arrayFrom(a)
+        array_from(a)
     }
 
     pub fn split(s: string, p: string, count: i32, options: i32) -> Array<string> {
@@ -640,11 +641,11 @@ pub mod String_ {
     }
 
     pub fn toCharArray(s: string) -> Array<char> {
-        arrayFrom(s.chars().collect())
+        array_from(s.chars().collect())
     }
 
     pub fn toCharArray2(s: string, i: i32, count: i32) -> Array<char> {
-        arrayFrom(s.chars().skip(i as usize).take(count as usize).collect())
+        array_from(s.chars().skip(i as usize).take(count as usize).collect())
     }
 
     // -----------------------------------------------------------

@@ -9,7 +9,8 @@ pub mod HashMap_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::Native_::{arrayFrom, mkRefMut, Array, Lrc, LrcPtr, MutCell, Vec};
+    use crate::Native_::{mkRefMut, Lrc, LrcPtr, MutCell, Vec};
+    use crate::NativeArray_::{array_from, Array};
     type MutHashMap<K, V> = MutCell<collections::HashMap<K, V>>;
 
     use core::fmt::{Debug, Display, Formatter, Result};
@@ -32,37 +33,61 @@ pub mod HashMap_ {
         }
     }
 
-    pub fn empty<K: Clone, V: Clone>() -> HashMap<K, V> {
+    pub fn new_empty<K: Clone, V: Clone>() -> HashMap<K, V> {
         HashMap(mkRefMut(collections::HashMap::new()))
     }
 
-    pub fn withCapacity<K: Clone, V: Clone>(capacity: i32) -> HashMap<K, V> {
+    pub fn new_with_capacity<K: Clone, V: Clone>(capacity: i32) -> HashMap<K, V> {
         HashMap(mkRefMut(collections::HashMap::with_capacity(
             capacity as usize,
         )))
     }
 
-    pub fn fromArray<K: Eq + Hash + Clone, V: Clone>(a: Array<LrcPtr<(K, V)>>) -> HashMap<K, V> {
+    pub fn new_from_array<K: Eq + Hash + Clone, V: Clone>(a: Array<LrcPtr<(K, V)>>) -> HashMap<K, V> {
         let it = a.iter().map(|pair| pair.as_ref().clone());
         HashMap(mkRefMut(collections::HashMap::from_iter(it)))
     }
 
+    pub fn isReadOnly<K: Clone, V: Clone>(dict: HashMap<K, V>) -> bool {
+        false
+    }
+
+    pub fn count<K: Clone, V: Clone>(dict: HashMap<K, V>) -> i32 {
+        dict.len() as i32
+    }
+
+    pub fn containsKey<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K) -> bool {
+        dict.contains_key(&k)
+    }
+
+    pub fn containsValue<K: Eq + Hash + Clone, V: Clone + PartialEq>(dict: HashMap<K, V>, v: V) -> bool {
+        dict.values().any(|x| x.eq(&v))
+    }
+
     pub fn tryAdd<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K, v: V) -> bool {
-        // dict.get_mut().try_insert(k.clone(), v.clone()).is_ok() // nightly only
-        if dict.get_mut().contains_key(&k) {
+        // dict.get_mut().try_insert(k, v).is_ok() // nightly only
+        if dict.contains_key(&k) {
             false
         } else {
-            dict.get_mut().insert(k.clone(), v.clone()).is_none()
+            dict.get_mut().insert(k, v).is_none()
         }
     }
 
     pub fn add<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K, v: V) {
-        match dict.get_mut().insert(k.clone(), v.clone()) {
+        match dict.get_mut().insert(k, v) {
             Some(v) => {
                 panic!("An item with the same key has already been added.")
             }
             None => (),
         }
+    }
+
+    pub fn remove<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K) -> bool {
+        dict.get_mut().remove(&k).is_some()
+    }
+
+    pub fn clear<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>) {
+        dict.get_mut().clear();
     }
 
     pub fn get<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K) -> V {
@@ -75,7 +100,7 @@ pub mod HashMap_ {
     }
 
     pub fn set<K: Eq + Hash + Clone, V: Clone>(dict: HashMap<K, V>, k: K, v: V) {
-        dict.get_mut().insert(k.clone(), v.clone()); // ignore return value
+        dict.get_mut().insert(k, v); // ignore return value
     }
 
     pub fn tryGetValue<K: Eq + Hash + Clone, V: Clone>(
@@ -93,15 +118,15 @@ pub mod HashMap_ {
     }
 
     pub fn keys<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<K> {
-        arrayFrom(Vec::from_iter(dict.keys().cloned()))
+        array_from(Vec::from_iter(dict.keys().cloned()))
     }
 
     pub fn values<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<V> {
-        arrayFrom(Vec::from_iter(dict.values().cloned()))
+        array_from(Vec::from_iter(dict.values().cloned()))
     }
 
     pub fn entries<K: Clone, V: Clone>(dict: HashMap<K, V>) -> Array<(K, V)> {
-        arrayFrom(Vec::from_iter(
+        array_from(Vec::from_iter(
             dict.iter().map(|(k, v)| (k.clone(), v.clone())),
         ))
     }
