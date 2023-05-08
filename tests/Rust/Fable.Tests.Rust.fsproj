@@ -21,6 +21,8 @@
     <Compile Include="tests/common/Aether.fs" />
     <Compile Include="tests/common/Imports.fs" />
     <Compile Include="tests/common/Util.fs" />
+    <Compile Include="tests/common/Util2.fs" />
+    <Compile Include="tests/common/Util3.fs" />
     <Compile Include="tests/src/AnonRecordTests.fs" />
     <Compile Include="tests/src/ApplicativeTests.fs" />
     <Compile Include="tests/src/ArithmeticTests.fs" />
@@ -50,7 +52,7 @@
     <Compile Include="tests/src/ListTests.fs" />
     <Compile Include="tests/src/MapTests.fs" />
     <Compile Include="tests/src/MiscTests.fs" />
-    <!-- <Compile Include="tests/src/MiscTests2.fs" /> -->
+    <Compile Include="tests/src/MiscTests2.fs" />
     <Compile Include="tests/src/NBodyTests.fs" />
     <!-- <Compile Include="tests/src/ObservableTests.fs" /> -->
     <Compile Include="tests/src/OptionTests.fs" />

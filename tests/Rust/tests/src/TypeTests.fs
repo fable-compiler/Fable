@@ -137,27 +137,27 @@ type MultipleCons(x: int, y: int) =
 //     let mutable v = 5
 //     override __.MyProp with get() = v and set(v2) = v <- v + v2
 
-// type ISomeInterface =
-//     abstract OnlyGetProp: int with get
-//     abstract OnlyProp: int
-//     abstract Sender : int with get, set
+type ISomeInterface =
+    abstract OnlyGetProp: int with get
+    abstract OnlyProp: int
+    abstract Sender : int with get, set
 
-// type XISomeInterface () =
-//     let mutable i = 0
-//     interface ISomeInterface with
-//         member x.OnlyGetProp
-//             with get () = 0
-//         member x.OnlyProp = 3
-//         member x.Sender
-//             with get () = i
-//             and set i' = i <- i'
+type XISomeInterface () =
+    let mutable i = 0
+    interface ISomeInterface with
+        member x.OnlyGetProp
+            with get () = 0
+        member x.OnlyProp = 3
+        member x.Sender
+            with get () = i
+            and set i' = i <- i'
 
-// type IFoo =
-//     abstract Foo: unit -> string
-//     abstract Bar: string
-//     abstract MySetter: int with get, set
+type IFoo =
+    abstract Foo: unit -> string
+    abstract Bar: string
+    abstract MySetter: int with get, set
 
-// let mangleFoo(x: IFoo) = x.Foo()
+let mangleFoo(x: IFoo) = x.Foo()
 
 // type FooImplementor(i: int) =
 //     let mutable mut1 = 0
@@ -253,10 +253,10 @@ type Point2D =
 //     let f () = v
 //     member val Value = f
 
-// type DowncastTest(value: int) =
-//     member _.Value = value
-//     interface System.IDisposable with
-//         member _.Dispose() = ()
+type DowncastTest(value: int) =
+    member _.Value = value
+    interface System.IDisposable with
+        member _.Dispose() = ()
 
 [<Class>]
 type TypeWithClassAttribute =
@@ -460,10 +460,10 @@ type MyRecord2 = { Foo: int; Bar: string }
 // type ConcreteClass1() =
 //     inherit MangledAbstractClass5(2)
 
-// type IndexedProps(v: int) =
-//     let mutable v = v
-//     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
-//     member _.Item with get (v2: float) = float v + v2 / 2.
+type IndexedProps(v: int) =
+    let mutable v = v
+    member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
+    member _.Item with get (v2: float) = float v + v2 / 2.
 
 // // TODO: This test produces different results in Fable and .NET
 // // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
@@ -474,13 +474,13 @@ type MyRecord2 = { Foo: int; Bar: string }
 // //     |> fun fi -> fi.PropertyType.GetGenericArguments().Length
 // //     |> equal 1
 
-// [<Fact>]
-// let ``Indexed properties work`` () =
-//     let f = IndexedProps(5)
-//     f[4] |> equal 9
-//     f[3] <- "6"
-//     f[4] |> equal 13
-//     f[4.] |> equal 11
+[<Fact>]
+let ``Indexed properties work`` () =
+    let f = IndexedProps(5)
+    f[4] |> equal 9
+    f[3] <- "6"
+    f[4] |> equal 13
+    f[4.] |> equal 11
 
 // [<Fact>]
 // let ``Types can instantiate their parent in the constructor`` () =
@@ -727,12 +727,12 @@ let ``Multiple constructors work`` () =
 //     x.MyProp <- 2
 //     equal 7 x.MyProp
 
-// [<Fact>]
-// let ``Interface setters don't conflict`` () = // See #505
-//     let x = XISomeInterface () :> ISomeInterface
-//     x.Sender |> equal 0
-//     x.Sender <- 5
-//     x.Sender |> equal 5
+[<Fact>]
+let ``Interface setters don't conflict`` () = // See #505
+    let x = XISomeInterface () :> ISomeInterface
+    x.Sender |> equal 0
+    x.Sender <- 5
+    x.Sender |> equal 5
 
 // [<Fact>]
 // let ``A type can overload an interface method`` () =

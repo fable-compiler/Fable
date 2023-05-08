@@ -2638,7 +2638,7 @@ let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
         // let isGenericCurrent = i.CompiledName = "get_Current" && i.DeclaringEntityFullName <> Types.ienumerator
         // let entityName = if isGenericCurrent then Types.ienumeratorGeneric else Types.ienumerator
         // let methName = entityName + "." + i.CompiledName
-        makeInstanceCall r t i callee (Naming.removeGetSetPrefix meth) args |> Some
+        makeInstanceCall r t i callee meth args |> Some
     | _ -> None
 
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
