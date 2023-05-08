@@ -2772,6 +2772,13 @@ module Util =
 
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
+            | Fable.Operation(Fable.Binary(BinaryEqual, left, right), _, _, _) ->
+                match left, right with
+                | _, Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) ->
+                    Some(left, right)
+                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _), _ ->
+                    Some(right, left)
+                | _ -> None
             | Fable.Test(expr, Fable.OptionTest isSome, r) ->
                 let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
                 let right = makeIntConst (if isSome then 0 else 1)
@@ -2781,13 +2788,20 @@ module Util =
                 let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
-        let sameEvalExprs evalExpr1 evalExpr2 =
+        let rec sameEvalExprs evalExpr1 evalExpr2 =
             match evalExpr1, evalExpr2 with
-            | Fable.IdentExpr i1, Fable.IdentExpr i2
-            | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
-                i1.Name = i2.Name
-            | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet fieldInfo1,_,_), Fable.Get(Fable.IdentExpr i2, Fable.FieldGet fieldInfo2,_,_) ->
-                i1.Name = i2.Name && fieldInfo1.Name = fieldInfo2.Name
+            | Fable.IdentExpr i1, Fable.IdentExpr i2 -> i1.Name = i2.Name
+            | Fable.Get(e1, Fable.UnionTag,_,_), Fable.Get(e2, Fable.UnionTag,_,_)
+            | Fable.Get(e1, Fable.ListHead,_,_), Fable.Get(e2, Fable.ListHead,_,_)
+            | Fable.Get(e1, Fable.ListTail,_,_), Fable.Get(e2, Fable.ListTail,_,_)
+            | Fable.Get(e1, Fable.OptionValue,_,_), Fable.Get(e2, Fable.OptionValue,_,_) ->
+                sameEvalExprs e1 e2
+            | Fable.Get(e1, Fable.TupleIndex i1,_,_), Fable.Get(e2, Fable.TupleIndex i2,_,_) ->
+                i1 = i2 && sameEvalExprs e1 e2
+            | Fable.Get(e1, Fable.FieldGet f1,_,_), Fable.Get(e2, Fable.FieldGet f2,_,_) ->
+                f1.Name = f2.Name && sameEvalExprs e1 e2
+            | Fable.Get(e1, Fable.UnionField f1,_,_), Fable.Get(e2, Fable.UnionField f2,_,_) ->
+                f1.CaseIndex = f2.CaseIndex && f1.FieldIndex = f2.FieldIndex && sameEvalExprs e1 e2
             | _ -> false
         let rec checkInner cases evalExpr treeExpr =
             match treeExpr with
