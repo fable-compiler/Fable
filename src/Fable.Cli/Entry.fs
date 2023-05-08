@@ -338,6 +338,69 @@ let clean (args: CliArgs) rootDir =
     else
         Log.always("Clean completed! Files deleted: " + string fileCount)
 
+
+let private checkDotnetVersion (workingDir: string) =
+    let psi = Diagnostics.ProcessStartInfo()
+    psi.FileName <- "dotnet"
+    psi.WorkingDirectory <- workingDir
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
+    psi.Arguments <- "--version"
+    psi.CreateNoWindow <- true
+    psi.UseShellExecute <- false
+
+    use p = new Diagnostics.Process()
+    p.StartInfo <- psi
+
+    let sbOut = Text.StringBuilder()
+    p.OutputDataReceived.Add(fun ea -> sbOut.AppendLine(ea.Data) |> ignore)
+
+    let sbErr = Text.StringBuilder()
+    p.ErrorDataReceived.Add(fun ea -> sbErr.AppendLine(ea.Data) |> ignore)
+
+    p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+    p.WaitForExit()
+
+    if p.ExitCode <> 0 then
+        Log.error "Error while checking dotnet version"
+        Log.error (sbErr.ToString())
+        Environment.Exit 1
+    else
+        let version = sbOut.ToString().Trim()
+        let versionParts = version.Split('.')
+        let major = int versionParts.[0]
+
+        // Really simple version check, the main case we are trying to catch
+        // at the time of writing is when user try to use Fable 3 with .NET 7
+        if major > 6 then
+            // We use string concatanation because F# doesn't really like
+            // string interpolation on multi-line strings
+            // Also, performance is not a concern here
+            let message =
+                [
+                    $"Fable 3 only supports .NET 6 and lower, but we detected usage via .NET {version}."
+                    ""
+                    "You can upgrade to Fable 4, to use with .NET 7 or higher."
+                    ""
+                    "If you prefer to stay on Fable 3 for now, please use a global.json file to select .NET 6 or lower."
+                    "Suggested location:"
+                    $"{workingDir}/global.json"
+                    ""
+                    "Example global.json file:"
+                    ""
+                    "{"
+                    "    \"sdk\": {"
+                    "        \"version\": \"6.0.0\","
+                    "        \"rollForward\": \"minor\""
+                    "    }"
+                    "}"
+                ] |> String.concat "\n"
+
+            Log.error message
+            Environment.Exit 1
+
 [<EntryPoint>]
 let main argv =
     result {
@@ -369,6 +432,9 @@ let main argv =
             match args.Value "--cwd" with
             | Some rootDir -> File.getExactFullPath rootDir
             | None -> IO.Directory.GetCurrentDirectory()
+
+
+        checkDotnetVersion rootDir
 
         do
             match commands with
