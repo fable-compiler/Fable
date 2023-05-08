@@ -29,7 +29,7 @@ module Naming =
         else ident
 
     let sanitizeIdent (ident: string) =
-        // raw idents can be used to bypass the sanitization
+        // Note: raw idents can be used to bypass the sanitization
         let ident = ident.Replace("$", "_").Replace("`", "_")
         if topKeywords.Contains(ident) then ident + "_"
         elif allKeywords.Contains(ident) then rawIdent ident

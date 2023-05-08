@@ -506,6 +506,7 @@ module Helpers =
     let cleanNameAsRustIdentifier (name: string) =
         // name |> Naming.sanitizeIdentForbiddenChars
         let name = Regex.Replace(name, @"[\s`'"".]", "_")
+        let name = if Char.IsDigit(name, 0) then "_" + name else name
         let name = Regex.Replace(name, @"[^\w]",
             fun c -> String.Format(@"_{0:x4}", int c.Value[0]))
         name
@@ -1785,7 +1786,9 @@ module Util =
                     else getOverloadSuffixFrom ent memb
                 getMangledAbstractMemberName ent memb.CompiledName overloadHash
             else
-                if isGetter || isSetter then getMemberDisplayName memb
+                // use compiled member name for Rust
+                if (isGetter || isSetter) && com.Options.Language <> Rust
+                then getMemberDisplayName memb
                 else memb.CompiledName
         {|
             name = name

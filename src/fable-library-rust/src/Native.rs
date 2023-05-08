@@ -247,7 +247,7 @@ pub mod Native_ {
         let en = seq.GetEnumerator();
         let next = move || {
             if en.MoveNext() {
-                Some(en.Current().clone())
+                Some(en.get_Current().clone())
             } else {
                 None
             }

@@ -2303,8 +2303,13 @@ module Util =
                 let left = getExpr range expr prop
                 mkAssignExpr left value //?loc=range)
         | Fable.FieldSet(fieldName) ->
-            let field = getField None expr fieldName
-            mutableSet field value
+            match fableExpr.Type with
+            | t when isInterface com t ->
+                // for interfaces, transpile property_set as instance call
+                makeInstanceCall com ctx fieldName fableExpr [value]
+            | _ ->
+                let field = getField None expr fieldName
+                mutableSet field value
 
     let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Stmt =
         let expr = transformLeaveContext com ctx None e
@@ -3466,7 +3471,7 @@ module Util =
 
     let makeAssocMemberItem (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (args: Fable.Ident list) (bodyOpt: Rust.Block option) =
         let ctx = { ctx with IsAssocMember = true }
-        let name = memb.DisplayName
+        let name = memb.CompiledName
         let args = args |> discardUnitArg []
         let parameters = memb.CurriedParameterGroups |> List.concat
         let returnType = memb.ReturnParameter.Type
@@ -3484,7 +3489,7 @@ module Util =
         let name = splitLast membName
         let fnDecl, fnBody, genArgs =
             let parameters = memb.CurriedParameterGroups |> List.concat
-            transformFunc com ctx (Some membName) parameters args body
+            transformFunc com ctx (Some name) parameters args body
         let fnBody =
             if isFluentMemberBody body
             then fnBody |> makeFluentValue com ctx
@@ -3506,7 +3511,7 @@ module Util =
         |> Seq.collect (fun i ->
             let e = com.GetEntity(i.Entity)
             e.MembersFunctionsAndValues)
-        |> Seq.map (fun m -> m.DisplayName)
+        |> Seq.map (fun m -> m.CompiledName)
         |> Set.ofSeq
 
     let makeDerivedFrom com (ent: Fable.Entity) =
@@ -3590,16 +3595,18 @@ module Util =
     let transformCompilerGeneratedConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) =
         // let ctor = ent.MembersFunctionsAndValues |> Seq.tryFind (fun q -> q.CompiledName = ".ctor")
         // ctor |> Option.map (fun ctor -> ctor.CurriedParameterGroups)
+        let makeIdentValue (ident: Fable.Ident) =
+            { ident with Name = ident.Name |> sanitizeMember; IsMutable = false }
         let idents = getEntityFieldsAsIdents com ent
-        let values = idents |> List.map (fun ident -> { ident with IsMutable = false}) |> List.map Fable.IdentExpr
+        let args = idents |> List.map makeIdentValue
+        let values = args |> List.map Fable.IdentExpr
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let body = Fable.Value(Fable.NewRecord(values, ent.Ref, genArgs), None)
         let entName = getEntityFullName com ctx ent.Ref
-        let paramTypes = idents |> List.map (fun ident -> ident.Type)
+        let paramTypes = args |> List.map (fun ident -> ident.Type)
         let memberRef = Fable.GeneratedMember.Function(entName, paramTypes, body.Type, entRef = ent.Ref)
         let memb = com.GetMember(memberRef)
         let name = "new"
-        let args = idents
         let fnItem = transformAssocMember com ctx memb name args body
         let fnItem = fnItem |> memberAssocItemWithVis com ctx memb
         fnItem
@@ -3652,10 +3659,10 @@ module Util =
             let ifcTyp = Fable.DeclaredType(ifc.Entity, ifc.GenericArgs)
             let ifcEnt = com.GetEntity(ifc.Entity)
             ifcEnt.MembersFunctionsAndValues
-            |> Seq.filter (fun memb -> not memb.IsProperty)
+            |> Seq.distinctBy (fun memb -> memb.CompiledName)
             |> Seq.map (fun memb ->
                 let thisArg = { makeTypedIdent ifcTyp "this" with IsThisArgument = true }
-                let membName = memb.DisplayName
+                let membName = memb.CompiledName
                 let memberArgs =
                     memb.CurriedParameterGroups
                     |> List.collect id
@@ -3668,7 +3675,8 @@ module Util =
                         let thisExpr = makeThis com ctx None ifcTyp
                         let callee = thisExpr |> mkDerefExpr |> mkDerefExpr
                         let args = memberArgs |> List.map (transformIdent com ctx None)
-                        let body = mkMethodCallExpr memb.DisplayName None callee args
+                        let name = memb.CompiledName
+                        let body = mkMethodCallExpr name None callee args
                         [mkExprStmt body] |> mkBlock |> Some
                     else None
                 makeAssocMemberItem com ctx memb args bodyOpt))
@@ -3883,14 +3891,14 @@ module Util =
             || m.IsConstructor
             || (Set.contains m.CompiledName objectMemberNames)
 
-        let nonInterfaceDecls, interfaceDecls =
+        let nonInterfaceMembers, interfaceMembers =
             classDecl.AttachedMembers
             |> List.map (fun decl -> decl, com.GetMember(decl.MemberRef))
             |> List.partition (snd >> isNonInterfaceMember)
 
         let nonInterfaceImpls =
             let memberItems =
-                nonInterfaceDecls
+                nonInterfaceMembers
                 |> List.filter (snd >> isNotExceptionMember)
                 |> List.map (makeMemberItem com ctx true)
                 |> List.append (makeFSharpExceptionItems com ctx ent)
@@ -3902,8 +3910,8 @@ module Util =
                 [implItem]
 
         let nonInterfaceMemberNames =
-            nonInterfaceDecls
-            |> List.map (fun (d, _m) -> d.Name)
+            nonInterfaceMembers
+            |> List.map (fun (d, m) -> d.Name)
             |> Set.ofList
 
         let displayTraitImpls =
@@ -3911,7 +3919,7 @@ module Util =
             makeDisplayTraitImpls com ctx self_ty genArgs hasToString
 
         let operatorTraitImpls =
-            nonInterfaceDecls
+            nonInterfaceMembers
             |> List.choose (makeOpTraitImpls com ctx ent entType self_ty genArgTys)
 
         let interfaces =
@@ -3926,8 +3934,10 @@ module Util =
             interfaces
             |> List.collect (fun (ifcEntRef, ifcMemberNames) ->
                 let memberItems =
-                    interfaceDecls
-                    |> List.filter (fun (d, _m) -> Set.contains d.Name ifcMemberNames)
+                    interfaceMembers
+                    |> List.filter (fun (d, m) ->
+                        //TODO: match the interface entity too, not just the member name
+                        Set.contains d.Name ifcMemberNames)
                     |> List.map (makeMemberItem com ctx false)
                 if List.isEmpty memberItems then []
                 else makeInterfaceTraitImpls com ctx entName genArgs ifcEntRef memberItems
