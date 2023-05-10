@@ -901,14 +901,11 @@ module TypeInfo =
         else
             makeAnyTy com ctx
 
-    // let inferredParam (com: IRustCompiler) ctx (ident: Fable.Ident) =
-    //     mkInferredParam ident.Name false false
-
     let isInferredGenericParam com ctx name isMeasure =
-        isMeasure ||
-        ctx.IsLambda
-        && not (Set.contains name ctx.ScopedEntityGenArgs)
-        && not (Set.contains name ctx.ScopedMemberGenArgs)
+        isMeasure
+        || ctx.IsLambda
+            && not (Set.contains name ctx.ScopedEntityGenArgs)
+            && not (Set.contains name ctx.ScopedMemberGenArgs)
 
     let transformGenericParamType com ctx name isMeasure: Rust.Ty =
         if isInferredGenericParam com ctx name isMeasure
@@ -1206,13 +1203,13 @@ module Util =
             | t -> t.Generics |> List.collect getGenParams
 
         let isLambdaOrGenArgNotInScope name =
-            ctx.IsLambda ||
-            not (Set.contains name ctx.ScopedEntityGenArgs)
+            ctx.IsLambda
+            || not (Set.contains name ctx.ScopedEntityGenArgs)
 
         let isNotLambdaOrGenArgInScope name =
-            not (ctx.IsLambda) ||
-            (Set.contains name ctx.ScopedEntityGenArgs) ||
-            (Set.contains name ctx.ScopedMemberGenArgs)
+            not (ctx.IsLambda)
+            || (Set.contains name ctx.ScopedEntityGenArgs)
+            || (Set.contains name ctx.ScopedMemberGenArgs)
 
         match body with
         | Fable.Call(callee, info, t, r) when ctx.IsLambda ->
@@ -1732,7 +1729,6 @@ module Util =
         makeFullNamePathExpr importName genArgsOpt
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
-        let ctx = { ctx with InferAnyType = true }
         let unimplemented () =
             $"Value %A{value} is not implemented yet"
             |> addWarning com [] None
@@ -3038,6 +3034,8 @@ module Util =
                 mkParamFromType (rawIdent "self") ty false false
             | _ ->
                 mkImplSelfParam false false
+        elif ctx.IsLambda && ident.Type = Fable.Any then
+            mkInferredParam ident.Name false false
         else
             let ty = transformType com ctx ident.Type
             mkParamFromType ident.Name ty false false
@@ -3191,7 +3189,7 @@ module Util =
         fnDecl, fnBody, genArgs
 
     let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ctx = { ctx with IsLambda = true; InferAnyType = true }
+        let ctx = { ctx with IsLambda = true }
         let genArgs, ctx = getNewGenArgsAndCtx ctx args body
         let args = args |> discardUnitArg genArgs
         let isRecursive, isTailRec = isTailRecursive name body

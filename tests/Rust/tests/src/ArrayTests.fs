@@ -156,10 +156,10 @@ let ``Array.empty works`` () =
     let xs = Array.empty<int>
     xs.Length |> equal 0
 
-// [<Fact>]
-// let ``Array.empty generic works`` () =
-//     let xs = [||]
-//     xs.Length |> equal 0
+[<Fact>]
+let ``Array.empty generic works`` () =
+    let xs = [||]
+    xs.Length |> equal 0
 
 [<Fact>]
 let ``Array.create with integer works`` () =
