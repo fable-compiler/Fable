@@ -12,19 +12,19 @@ type ICompiler = FSharp2Fable.IFableCompiler
 
 let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     match com.Options.Language with
-    | Rust -> Rust.Replacements.curryExprAtRuntime com arity expr
+    // | Rust -> Rust.Replacements.curryExprAtRuntime com arity expr
     // | Python -> Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
     | _ -> Replacements.Util.curryExprAtRuntime com arity expr
 
 let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     match com.Options.Language with
-    | Rust -> Rust.Replacements.uncurryExprAtRuntime com expr.Type arity expr
+    // | Rust -> Rust.Replacements.uncurryExprAtRuntime com expr.Type arity expr
     // | Python -> Helper.LibCall(com, "Util", "uncurry", expr.Type, [makeIntConst arity; expr])
     | _ -> Replacements.Util.uncurryExprAtRuntime com arity expr
 
 let partialApplyAtRuntime (com: Compiler) t arity (fn: Expr) (args: Expr list) =
     match com.Options.Language with
-    | Rust -> Rust.Replacements.partialApplyAtRuntime com t arity fn args
+    // | Rust -> Rust.Replacements.partialApplyAtRuntime com t arity fn args
     // | Python ->
     //     let args = NewArray(ArrayValues args, Any, MutableArray) |> makeValue None
     //     Helper.LibCall(com, "Util", "partialApply", t, [makeIntConst arity; fn; args])

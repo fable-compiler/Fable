@@ -1175,7 +1175,7 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 [<Fact>]
 let ``Curried function options work`` () =
     maybeApply (Some (*)) 5 6 |> equal 30
-    // maybeApply None 5 6 |> equal 6 // TODO: make this work
+    maybeApply None 5 6 |> equal 6
 
 // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
 [<Fact>]
