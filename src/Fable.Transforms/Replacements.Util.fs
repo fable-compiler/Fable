@@ -387,14 +387,16 @@ let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Exp
         | partialArgs -> curriedApply None t curried partialArgs
     | _ ->
         // Check if argTypes.Length < arity?
+        let makeArgIdent i typ = makeTypedIdent typ $"a{i}" // $"a{com.IncrementCounter()}$"
         let argTypes, returnType = uncurryLambdaType arity [] t
-        let argIdents = argTypes |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
+        let argIdents = argTypes |> List.mapi makeArgIdent
         let args = argIdents |> List.map Fable.IdentExpr
-        Helper.Application(expr, returnType, partialArgs @ args)
-        |> makeLambda argIdents
+        let body = Helper.Application(expr, returnType, partialArgs @ args)
+        makeLambda argIdents body
 
 let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
-    if arity = 1 then expr
+    if arity = 1 then
+        expr
     else
         match expr with
         | Value(Null _, _) -> expr
@@ -414,7 +416,8 @@ let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
             let fn = Delegate([f], curried, None, Tags.empty)
             // TODO: This may be different per language
             Helper.LibCall(com, "Option", "map", Option(curried.Type, isStruct), [fn; expr])
-        | _ -> partialApplyAtRuntime com expr.Type arity expr []
+        | _ ->
+            partialApplyAtRuntime com expr.Type arity expr []
 
 let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     let uncurry (expr: Expr) =
@@ -426,20 +429,31 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
             let uncurriedType = DelegateType(argTypes, returnType)
             Helper.LibCall(com, "Util", $"uncurry{arity}", uncurriedType, [expr])
         | _ ->
-            let argIdents1 = argTypes |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
-            let expr, argIdents2 =
-                match expr with
-                | Extended(Curry(expr, arity2),_) when arity2 >= arity ->
-                    if arity2 = arity
-                    then expr, []
-                    else
-                        let argTypes2, _returnType = uncurryLambdaType arity2 [] expr.Type
-                        expr, argTypes2 |> List.skip arity |> List.map (fun t -> makeTypedIdent t $"a{com.IncrementCounter()}$")
-                | _ -> expr, []
-            let args = (argIdents1 @ argIdents2) |> List.map IdentExpr
-            let body = curriedApply None returnType expr args
-            let body = makeLambda argIdents2 body
-            Delegate(argIdents1, body, None, Tags.empty)
+            // let makeArgIdent typ = makeTypedIdent typ $"a{com.IncrementCounter()}$"
+            // let argIdents = argTypes |> List.map makeArgIdent
+            // let expr, argIdents2 =
+            //     match expr with
+            //     | Extended(Curry(expr, arity2),_) when arity2 >= arity ->
+            //         if arity2 = arity
+            //         then expr, []
+            //         else
+            //             let argTypes2, _returnType = uncurryLambdaType arity2 [] expr.Type
+            //             expr, argTypes2 |> List.skip arity |> List.map makeArgIdent
+            //     | _ -> expr, []
+            // let args = (argIdents1 @ argIdents2) |> List.map IdentExpr
+            // let body = curriedApply None returnType expr args
+            // let body = makeLambda argIdents2 body
+            // Delegate(argIdents1, body, None, Tags.empty)
+        let argTypes, returnType =
+            match expr.Type with
+            | Fable.LambdaType(argType, returnType) -> uncurryLambdaType arity [] expr.Type
+            | Fable.DelegateType(argTypes, returnType) -> argTypes, returnType
+            | _ -> [], expr.Type
+        let makeArgIdent i typ = makeTypedIdent typ $"b{i}" // $"a{com.IncrementCounter()}$"
+        let argIdents = argTypes |> List.mapi makeArgIdent
+        let args = argIdents |> List.map Fable.IdentExpr
+        let body = curriedApply None returnType expr args
+        Fable.Delegate(argIdents, body, None, Fable.Tags.empty)
 
     match expr with
     | Value(Null _, _) -> expr

@@ -224,48 +224,48 @@ let ``Local inline typed lambdas work`` () =
 //         setState()
 //     withReact() |> equal true
 
-// open Aether
-// open Aether.Operators
+open Aether
+open Aether.Operators
 
-// let Lens_get (g, _) = fun o -> g o
-// let Lens_set (_, s) = fun i o -> s i o
-// let Lens_map (g, s) = fun f o -> s (f (g o)) o
+let Lens_get (g, _) = fun o -> g o
+let Lens_set (_, s) = fun i o -> s i o
+let Lens_map (g, s) = fun f o -> s (f (g o)) o
 
-// let chars : Isomorphism<string, char[]> =
-//     (fun x -> x.ToCharArray ()), (fun x -> System.String (x))
+let chars : Isomorphism<string, char[]> =
+    (fun x -> x.ToCharArray ()), (fun x -> System.String (x))
 
-// let rev : Isomorphism<char[], char[]> =
-//     Array.rev, Array.rev
+let rev : Isomorphism<char[], char[]> =
+    Array.rev, Array.rev
 
-// let inline (=!) x y = equal y x
+let inline (=!) x y = equal y x
 
-// [<Fact>]
-// let ``Lens.get returns correct values`` () =
-//     Lens_get fst_ ("Good","Bad") =! "Good"
+[<Fact>]
+let ``Lens.get returns correct values`` () =
+    Lens_get fst_ ("Good","Bad") =! "Good"
 
-// [<Fact>]
-// let ``Lens.set sets value correctly`` () =
-//     Lens_set fst_ "Good" ("Bad",()) =! ("Good",())
+[<Fact>]
+let ``Lens.set sets value correctly`` () =
+    Lens_set fst_ "Good" ("Bad",()) =! ("Good",())
 
-// [<Fact>]
-// let ``Lens.map modifies values correctly`` () =
-//     Lens_map fst_ (fun x -> x + x) ("Good",()) =! ("GoodGood",())
+[<Fact>]
+let ``Lens.map modifies values correctly`` () =
+    Lens_map fst_ (fun x -> x + x) ("Good",()) =! ("GoodGood",())
 
-// [<Fact>]
-// let ``Ismorphism composition over a lens gets value`` () =
-//     Lens_get (fst_ >-> chars) ("Good",()) =! [| 'G'; 'o'; 'o'; 'd' |]
+[<Fact>]
+let ``Ismorphism composition over a lens gets value`` () =
+    Lens_get (fst_ >-> chars) ("Good",()) =! [| 'G'; 'o'; 'o'; 'd' |]
 
-// [<Fact>]
-// let ``Ismorphism composition over a lens sets value`` () =
-//     Lens_set (fst_ >-> chars) [| 'G'; 'o'; 'o'; 'd' |] ("Bad",()) =! ("Good",())
+[<Fact>]
+let ``Ismorphism composition over a lens sets value`` () =
+    Lens_set (fst_ >-> chars) [| 'G'; 'o'; 'o'; 'd' |] ("Bad",()) =! ("Good",())
 
-// [<Fact>]
-// let ``Ismorphism composition over a lens gets value over multiple isomorphisms`` () =
-//     Lens_get (fst_ >-> chars >-> rev) ("dooG",()) =! [| 'G'; 'o'; 'o'; 'd' |]
+[<Fact>]
+let ``Ismorphism composition over a lens gets value over multiple isomorphisms`` () =
+    Lens_get (fst_ >-> chars >-> rev) ("dooG",()) =! [| 'G'; 'o'; 'o'; 'd' |]
 
-// [<Fact>]
-// let ``Ismorphism composition over a lens sets value over multiple isomorphisms`` () =
-//     Lens_set (fst_ >-> chars >-> rev) [| 'd'; 'o'; 'o'; 'G' |] ("Bad",()) =! ("Good",())
+[<Fact>]
+let ``Ismorphism composition over a lens sets value over multiple isomorphisms`` () =
+    Lens_set (fst_ >-> chars >-> rev) [| 'd'; 'o'; 'o'; 'G' |] ("Bad",()) =! ("Good",())
 
 let mutable mutableValue = 0
 
@@ -371,32 +371,32 @@ let ``Flattened lambdas can be composed`` () = // See #704
 //     | ImplicitType.Case1 _ -> 1
 //     | ImplicitType.Case2 _ -> 2
 
-// type ArityRecord = { arity2: int->int->string }
+type ArityRecord = { arity2: int->int->string }
 
-// type RecordB = {
-//     A: string
-//     B: bool
-// }
-// with
-//     static member New = {
-//         A = ""
-//         B = false
-//     }
+type RecordB = {
+    A: string
+    B: bool
+}
+with
+    static member New = {
+        A = ""
+        B = false
+    }
 
-//     // Aether
-//     static member A_ : Lens<RecordB, string> = (fun x -> x.A), (fun value x -> { x with A = value })
-//     static member B_ : Lens<RecordB, bool> = (fun x -> x.B), (fun value x -> { x with B = value })
+    // Aether
+    static member A_ : Lens<RecordB, string> = (fun x -> x.A), (fun value x -> { x with A = value })
+    static member B_ : Lens<RecordB, bool> = (fun x -> x.B), (fun value x -> { x with B = value })
 
-// type RecordA = {
-//     RecordB: RecordB
-// }
-// with
-//     static member New = {
-//         RecordB = RecordB.New
-//     }
+type RecordA = {
+    RecordB: RecordB
+}
+with
+    static member New = {
+        RecordB = RecordB.New
+    }
 
-//     // Aether
-//     static member RecordB_ : Lens<RecordA, RecordB> = (fun x -> x.RecordB), (fun value x -> { x with RecordB = value })
+    // Aether
+    static member RecordB_ : Lens<RecordA, RecordB> = (fun x -> x.RecordB), (fun value x -> { x with RecordB = value })
 
 // type Action<'model> =
 //     | InputChanged of Id: string * Value: string * Lens<'model, string>
@@ -594,11 +594,11 @@ let ``No errors because references to missing unit args`` () =
     let f1 = foofy "bar"
     f1 () |> equal "foobar"
 
-// [<Fact>]
-// let ``Arity is checked also when constructing records`` () =
-//     let f i j = (i * 2) + (j * 3)
-//     let r = { arity2 = fun x -> f x >> fun y -> $"foo{y}" }
-//     r.arity2 4 5 |> equal "foo23"
+[<Fact>]
+let ``Arity is checked also when constructing records`` () =
+    let f i j = (i * 2) + (j * 3)
+    let r = { arity2 = fun x -> f x >> fun y -> $"foo{y}" }
+    r.arity2 4 5 |> equal "foo23"
 
 // [<Fact>]
 // let ``Aether with generics works`` () = // See #750
@@ -781,78 +781,78 @@ let ``Basic currying works`` () =
 //     let functionC = f |> getFunctionAlias 2
 //     functionC "functionC" "works?" |> equal "functionC works?"
 
-// module CurriedApplicative =
-//     type Option2<'T> =
-//         | Some2 of 'T
-//         | None2
+module CurriedApplicative =
+    type Option2<'T> =
+        | Some2 of 'T
+        | None2
 
-//     module Option =
-//         let apply x f =
-//             match (x, f) with
-//             | Some x, Some f -> Some (f x)
-//             | _ -> None
+    module Option =
+        let apply x f =
+            match (x, f) with
+            | Some x, Some f -> Some (f x)
+            | _ -> None
 
-//         let apply2 x f =
-//             match (x, f) with
-//             | Some2 x, Some2 f -> Some2 (f x)
-//             | _ -> None2
+        let apply2 x f =
+            match (x, f) with
+            | Some2 x, Some2 f -> Some2 (f x)
+            | _ -> None2
 
-//         module Operators =
-//             let inline (<*>) m x = apply x m
-//             let inline (<**>) m x = apply2 x m
+        module Operators =
+            let inline (<*>) m x = apply x m
+            let inline (<**>) m x = apply2 x m
 
-//     let apply3 (f: 'a->'a->'b->'c) (a: 'a) =
-//         f a a
+    let apply3 (f: 'a->'a->'b->'c) (a: 'a) =
+        f a a
 
-//     let changeArity (f: 'a->'a->'a->'b) (a: 'a) =
-//         apply3 f a
+    let changeArity (f: 'a->'a->'a->'b) (a: 'a) =
+        apply3 f a
 
-//     let inline changeArityInlined (f: 'a->'a->'a->'b) (a: 'a) =
-//         apply3 f a
+    let inline changeArityInlined (f: 'a->'a->'a->'b) (a: 'a) =
+        apply3 f a
 
-//     let addModule5 h i j k l = h + i + j + k + l
+    let addModule5 h i j k l = h + i + j + k + l
 
-// open CurriedApplicative
-// open Option.Operators
+open CurriedApplicative
+open Option.Operators
 
-// [<Fact>]
-// let ``Option.apply (<*>) non-curried`` () =
-//     let f x = x + 1
-//     let r = Some f <*> Some 2
-//     r |> equal (Some 3)
+[<Fact>]
+let ``Option.apply (<*>) non-curried`` () =
+    let f x = x + 1
+    let r = Some f <*> Some 2
+    r |> equal (Some 3)
 
-// [<Fact>]
-// let ``Option.apply (<*>) auto curried`` () =
-//     let f x y = x + y
-//     let r = Some f <*> Some 2 <*> Some 3
-//     r |> equal (Some 5)
+[<Fact>]
+let ``Option.apply (<*>) auto curried`` () =
+    let f x y = x + y
+    let r = Some f <*> Some 2 <*> Some 3
+    r |> equal (Some 5)
 
-// [<Fact>]
-// let ``Option.apply (<**>) auto curried`` () =
-//     let f x y = x + y
-//     let r = Some2 f <**> Some2 2 <**> Some2 3
-//     r |> equal (Some2 5)
+[<Fact>]
+let ``Option.apply (<**>) auto curried`` () =
+    let f x y = x + y
+    let r = Some2 f <**> Some2 2 <**> Some2 3
+    r |> equal (Some2 5)
 
-// [<Fact>]
-// let ``Option.apply (<*>) manually curried workaround`` () =
-//     let f x =
-//         let f' = fun y -> x + y
-//         f'
-//     let r = Some f <*> Some 2 <*> Some 3
-//     r |> equal (Some 5)
+[<Fact>]
+let ``Option.apply (<*>) manually curried workaround`` () =
+    let f x =
+        let f' = fun y -> x + y
+        f'
+    let r = Some f <*> Some 2 <*> Some 3
+    r |> equal (Some 5)
 
-// // TODO: Add tests with side-effects
-// [<Fact>]
-// let ``Currying/uncurrying works`` () =
-//     let addLocal x y z u v = x + y + z + u + v
-//     let f1 = changeArity addModule5 2
-//     let f2 = changeArity addLocal 2
-//     let f3 = changeArityInlined addModule5 2
-//     let f4 = changeArityInlined addLocal 2
-//     f1 1 2 3 |> equal 10
-//     f2 1 2 3 |> equal 10
-//     f3 1 2 3 |> equal 10
-//     f4 1 2 3 |> equal 10
+// TODO: Add tests with side-effects
+[<Fact>]
+let ``Currying/uncurrying works`` () =
+    let addLocal x y z u v = x + y + z + u + v
+    let f1 = changeArity addModule5 2
+    let f2 = changeArity addLocal 2
+    let f3 = changeArityInlined addModule5 2
+    let f4 = changeArityInlined addLocal 2
+    f1 1 2 3 |> equal 10
+    f2 1 2 3 |> equal 10
+    f3 1 2 3 |> equal 10
+    f4 1 2 3 |> equal 10
 
 // type Node(parent: HTMLElement option) =
 //   member _.parentElement: HTMLElement = parent.Value
@@ -906,75 +906,75 @@ let apply f x =
     | Some f, Some x -> Some (f x)
     | _ -> None
 
-// let maybeApply f a b =
-//     match f with
-//     | Some f -> f a b
-//     | None -> b
+let maybeApply f a b =
+    match f with
+    | Some f -> f a b
+    | None -> b
 
-// type FooRec = { myFunction: int->int->int->int }
+type FooRec = { myFunction: int->int->int->int }
 
-// type BarRec = { fn : unit -> string -> int  }
-// let getStrLen (x: unit) (y: string) = y.Length
+type BarRec = { fn : unit -> string -> int  }
+let getStrLen (x: unit) (y: string) = y.Length
 
-// let apply3 f x y z = f x y z
+let apply3 f x y z = f x y z
 
-// let add2 a b = a + b
-// let add3 a b c = a + b + c
-// let add4 a b c d = a+b+c+d
+let add2 a b = a + b
+let add3 a b c = a + b + c
+let add4 a b c d = a+b+c+d
 
-// module Pointfree =
-//     let (<!>) = Option.map
-//     let (<*>) = apply
-//     let y = add2 <!> Some 1 <*> Some 2
+module Pointfree =
+    let (<!>) = Option.map
+    let (<*>) = apply
+    let y = add2 <!> Some 1 <*> Some 2
 
-//     let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
+    let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
 
-// module Pointful =
-//     let (<!>) f x = Option.map f x
-//     let (<*>) f x = apply f x
-//     let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
+module Pointful =
+    let (<!>) f x = Option.map f x
+    let (<*>) f x = apply f x
+    let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
 
-//     let testFunctionOptions () =
-//         let add1 = add4 <!> Some 1
-//         let thenAdd2 = add1 <*> Some 2
-//         let thenAdd3 = thenAdd2 <*> Some 3
-//         let sum = thenAdd3 <*> Some 4
-//         equal (Some 10) sum
+    let testFunctionOptions () =
+        let add1 = add4 <!> Some 1
+        let thenAdd2 = add1 <*> Some 2
+        let thenAdd3 = thenAdd2 <*> Some 3
+        let sum = thenAdd3 <*> Some 4
+        equal (Some 10) sum
 
-// module Results =
-//     open FSharp.Core
+module Results =
+    // open FSharp.Core
 
-//     let applyResults (f : Result<_, unit>) (x : Result<_, unit>) =
-//         match f, x with
-//         | Ok f, Ok x -> Ok (f x)
-//         | _ -> Result.Error ()
+    let applyResults (f: Result<_, unit>) (x: Result<_, unit>) =
+        match f, x with
+        | Ok f, Ok x -> Ok (f x)
+        | _ -> Result.Error ()
 
-//     let (<!>) f x = Result.map f x
-//     let (<*>) f x = applyResults f x
+    let (<!>) f x = Result.map f x
+    let (<*>) f x = applyResults f x
 
-//     let testOperatorsWith3Args () =
-//         let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
-//         equal (Ok 6) sum
+    let testOperatorsWith3Args () =
+        let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
+        equal (Ok 6) sum
 
-// // #if FABLE_COMPILER
-// // open Thoth.Json.Decode
-// // #endif
+// #if FABLE_COMPILER
+// open Thoth.Json.Decode
+// #endif
 
-// type User =
-//     { Id : int
-//       Name : string
-//       Email : string
-//       Followers : int }
-//     static member Create id email name followers =
-//         { Id = id
-//           Name = name
-//           Email = email
-//           Followers = followers }
+type User =
+    { Id : int
+      Name : string
+      Email : string
+      Followers : int }
+    static member Create id email name followers =
+        { Id = id
+          Name = name
+          Email = email
+          Followers = followers }
 
-// type PrimaryConstructorUncurrying(f) =
-//     member val Value = f "a" "b"
+type PrimaryConstructorUncurrying(f) =
+    member val Value = f "a" "b"
 
-// type Fun = Fun of (int -> int -> int list)
+type Fun = Fun of (int -> int -> int list)
 
 // type BaseClass (f: string -> string -> string) =
 //   member _.MakeString a b = f a b
@@ -988,91 +988,91 @@ let apply f x =
 // type AddString2 (f: string -> string -> string) =
 //   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
 
-// type IAddFn = int -> int -> int
-// type IAdder =
-//     abstract Add: IAddFn
+type IAddFn = int -> int -> int
+type IAdder =
+    abstract Add: IAddFn
 
-// module private PseudoElmish =
-//     let justReturn2 (f: 'a->'b->'c) = f
-//     let justReturn3 (f: 'a->'b->'c->'d) = f
+module private PseudoElmish =
+    let justReturn2 (f: 'a->'b->'c) = f
+    let justReturn3 (f: 'a->'b->'c->'d) = f
 
-//     type Dispatch<'msg> = 'msg -> unit
-//     type SetState<'model, 'msg> = 'model -> Dispatch<'msg> -> unit
-//     type Program<'model, 'msg> = { setState: SetState<'model, 'msg> }
+    type Dispatch<'msg> = 'msg -> unit
+    type SetState<'model, 'msg> = 'model -> Dispatch<'msg> -> unit
+    type Program<'model, 'msg> = { setState: SetState<'model, 'msg> }
 
-//     let mutable doMapRunTimes = 0
-//     let mutable setStateAccumulated = ""
+    let mutable doMapRunTimes = 0
+    let mutable setStateAccumulated = ""
 
-//     let reset() =
-//         doMapRunTimes <- 0
-//         setStateAccumulated <- ""
+    let reset() =
+        doMapRunTimes <- 0
+        setStateAccumulated <- ""
 
-//     let map (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
-//         { setState = mapSetState (program.setState) }
+    let map (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
+        { setState = mapSetState (program.setState) }
 
-//     let doMap (setState: SetState<'model, 'msg>): SetState<'model, 'msg> =
-//         doMapRunTimes <- doMapRunTimes + 1
-//         setState
+    let doMap (setState: SetState<'model, 'msg>): SetState<'model, 'msg> =
+        doMapRunTimes <- doMapRunTimes + 1
+        setState
 
-//     let withChanges (program: Program<'model,'msg>) =
-//         program |> map doMap
+    let withChanges (program: Program<'model,'msg>) =
+        program |> map doMap
 
-//     let mapWithPreviousCurrying2 (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
-//         let mapSetState = justReturn2 mapSetState
-//         { setState = mapSetState (program.setState) }
+    let mapWithPreviousCurrying2 (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
+        let mapSetState = justReturn2 mapSetState
+        { setState = mapSetState (program.setState) }
 
-//     let withChangesAndCurrying2 (program: Program<'model,'msg>) =
-//         program |> mapWithPreviousCurrying2 doMap
+    let withChangesAndCurrying2 (program: Program<'model,'msg>) =
+        program |> mapWithPreviousCurrying2 doMap
 
-//     let mapWithPreviousCurrying3 (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
-//         let mapSetState = justReturn3 mapSetState
-//         // let mapSetState = justReturn3 (fun x y z -> mapSetState x y z)
-//         { setState = mapSetState (program.setState) }
+    let mapWithPreviousCurrying3 (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
+        let mapSetState = justReturn3 mapSetState
+        // let mapSetState = justReturn3 (fun x y z -> mapSetState x y z)
+        { setState = mapSetState (program.setState) }
 
-//     let withChangesAndCurrying3 (program: Program<'model,'msg>) =
-//         program |> mapWithPreviousCurrying3 doMap
+    let withChangesAndCurrying3 (program: Program<'model,'msg>) =
+        program |> mapWithPreviousCurrying3 doMap
 
-//     let testProgram: Program<string, string> = {
-//         setState = (fun m d -> setStateAccumulated <- setStateAccumulated + m)
-//     }
+    let testProgram: Program<string, string> = {
+        setState = (fun m d -> setStateAccumulated <- setStateAccumulated + m)
+    }
 
-// let mul x y = x * y
+let mul x y = x * y
 
-// let addOne (add: int->int->int) x = add 1 x
-// let pointFree_addOne = addOne
-// let fortyTwo x y = x + "42" + y
-// let fortyTwo2 x y () z = 42 + (FSharp.Core.Operators.int x) + (FSharp.Core.Operators.int y) + z
-// let wrap someFun () () = someFun "4" "6"
-// let doesWork someFun = wrap someFun
-// let doesNotWork = wrap
+let addOne (add: int->int->int) x = add 1 x
+let pointFree_addOne = addOne
+let fortyTwo x y = x + "42" + y
+let fortyTwo2 x y () z = 42 + (FSharp.Core.Operators.int x) + (FSharp.Core.Operators.int y) + z
+let wrap someFun () () = someFun "4" "6"
+let doesWork someFun = wrap someFun
+let doesNotWork = wrap
 
-// type RFoo<'a,'b> = { foo: 'a -> 'b }
-// type RFoo2<'a> = { foo: 'a }
+type RFoo<'a,'b> = { foo: 'a -> 'b }
+type RFoo2<'a> = { foo: 'a }
 
-// let applyFooInRecord (f: RFoo<'a,'b>) (a: 'a) = f.foo a
-// let applyFooInRecord2 (f: RFoo2<'a -> 'b>) (a: 'a) = f.foo a
-// let applyFooInRecord3 (f: RFoo2<'a -> 'b -> 'c>) (a: 'a) (b: 'b) = f.foo a b
-// let applyFooInAnonRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
+let applyFooInRecord (f: RFoo<'a,'b>) (a: 'a) = f.foo a
+let applyFooInRecord2 (f: RFoo2<'a -> 'b>) (a: 'a) = f.foo a
+let applyFooInRecord3 (f: RFoo2<'a -> 'b -> 'c>) (a: 'a) (b: 'b) = f.foo a b
+let applyFooInAnonRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
 
-// type Wrapper() =
-//     member _.doesNotWorki = wrap
-//     static member doesNotWork = wrap
-//     member _.doesNotWorki2 = wrap
-//     static member doesNotWork2 = wrap
+type Wrapper() =
+    member _.doesNotWorki = wrap
+    static member doesNotWork = wrap
+    member _.doesNotWorki2 = wrap
+    static member doesNotWork2 = wrap
 
-// type Fn = bool -> int -> string
+type Fn = bool -> int -> string
 
-// type Thing =
-//     | In of Fn
-//     | Out of Fn
+type Thing =
+    | In of Fn
+    | Out of Fn
 
-// let findThing (things:Thing list) =
-//     let folder (a : Fn option) t =
-//         match t with
-//         | In x -> Some x // Found an In, set accumulator
-//         | _ -> a // pass accumulator through unchanged
+let findThing (things:Thing list) =
+    let folder (a : Fn option) t =
+        match t with
+        | In x -> Some x // Found an In, set accumulator
+        | _ -> a // pass accumulator through unchanged
 
-//     things |> List.fold folder None  // Searching for an "In x"
+    things |> List.fold folder None  // Searching for an "In x"
 
 // type First<'t> = First of Option<'t> with
 //     static member get_Zero () = First None : First<'t>
@@ -1172,90 +1172,90 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 //     let f2 = f 2
 //     f2 4 |> equal 14
 
-// [<Fact>]
-// let ``Curried function options work`` () =
-//     maybeApply (Some (*)) 5 6 |> equal 30
-//     maybeApply None 5 6 |> equal 6
+[<Fact>]
+let ``Curried function options work`` () =
+    maybeApply (Some (*)) 5 6 |> equal 30
+    // maybeApply None 5 6 |> equal 6 // TODO: make this work
 
-// // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
-// [<Fact>]
-// let ``Applying function options works`` () =
-//     Pointful.testFunctionOptions ()
+// See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
+[<Fact>]
+let ``Applying function options works`` () =
+    Pointful.testFunctionOptions ()
 
-// [<Fact>]
-// let ``Point-free and partial application work`` () = // See #1199
-//     equal Pointfree.x Pointful.x
+[<Fact>]
+let ``Point-free and partial application work`` () = // See #1199
+    equal Pointfree.x Pointful.x
 
-// // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-345958891
-// [<Fact>]
-// let ``Point-free works when passing a 2-arg function`` () =
-//     Pointfree.y |> equal (Some 3)
+// See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-345958891
+[<Fact>]
+let ``Point-free works when passing a 2-arg function`` () =
+    Pointfree.y |> equal (Some 3)
 
-// [<Fact>]
-// let ``Functions in record fields are uncurried`` () =
-//     let r = { myFunction = fun x y z -> x + y - z }
-//     r.myFunction 4 4 2 |> equal 6
-//     // If the function record field is assigned
-//     // to a variable, just curry it
-//     let mutable f = r.myFunction
-//     f 4 4 2 |> equal 6
-//     apply3 r.myFunction 5 7 4 |> equal 8
-//     apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
+[<Fact>]
+let ``Functions in record fields are uncurried`` () =
+    let r = { myFunction = fun x y z -> x + y - z }
+    r.myFunction 4 4 2 |> equal 6
+    // If the function record field is assigned
+    // to a variable, just curry it
+    let mutable f = r.myFunction
+    f 4 4 2 |> equal 6
+    apply3 r.myFunction 5 7 4 |> equal 8
+    apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
 
-// [<Fact>]
-// let ``Uncurried functions in record fields can be partially applied`` () =
-//     // Test also non-record functions just in case
-//     let result = getStrLen () "hello"
-//     let partiallyApplied = getStrLen ()
-//     let secondResult = partiallyApplied "hello"
-//     equal 5 result
-//     equal 5 secondResult
+[<Fact>]
+let ``Uncurried functions in record fields can be partially applied`` () =
+    // Test also non-record functions just in case
+    let result = getStrLen () "hello"
+    let partiallyApplied = getStrLen ()
+    let secondResult = partiallyApplied "hello"
+    equal 5 result
+    equal 5 secondResult
 
-//     let record = { fn = getStrLen }
-//     let recordResult = record.fn () "hello"
-//     let recordPartiallyApplied = record.fn ()
-//     let recordSecondResult = recordPartiallyApplied "hello"
-//     equal 5 recordResult
-//     equal 5 recordSecondResult
+    let record = { fn = getStrLen }
+    let recordResult = record.fn () "hello"
+    let recordPartiallyApplied = record.fn ()
+    let recordSecondResult = recordPartiallyApplied "hello"
+    equal 5 recordResult
+    equal 5 recordSecondResult
 
-// // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
-// [<Fact>]
-// let ``Applicative operators work with three-argument functions``() =
-//     Results.testOperatorsWith3Args ()
+// See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
+[<Fact>]
+let ``Applicative operators work with three-argument functions``() =
+    Results.testOperatorsWith3Args ()
 
-// [<Fact>]
-// let ``partialApply works with tuples`` () =
-//     let sum x (y,z) =
-//         x + y + z
-//     let li =
-//         [1,2; 3,4; 5,6]
-//         |> List.map (sum 10)
-//     List.sum li |> equal 51
+[<Fact>]
+let ``partialApply works with tuples`` () =
+    let sum x (y,z) =
+        x + y + z
+    let li =
+        [1,2; 3,4; 5,6]
+        |> List.map (sum 10)
+    List.sum li |> equal 51
 
-// [<Fact>]
-// let ``Arguments of implicit constructors are uncurried too`` () = // See #1441
-//     let f1 x y = if x = y then 0 else 1
-//     let f2 x y = if x = y then 1 else 0
-//     PrimaryConstructorUncurrying(f1).Value |> equal 1
-//     PrimaryConstructorUncurrying(f2).Value |> equal 0
+[<Fact>]
+let ``Arguments of implicit constructors are uncurried too`` () = // See #1441
+    let f1 x y = if x = y then 0 else 1
+    let f2 x y = if x = y then 1 else 0
+    PrimaryConstructorUncurrying(f1).Value |> equal 1
+    PrimaryConstructorUncurrying(f2).Value |> equal 0
 
-// [<Fact>]
-// let ``Union case function fields are properly uncurried/curried`` () = // See #1445
-//     let (Fun f) = Fun (fun x y -> [x; y])
-//     let xs = f 3 4
-//     List.sum xs |> equal 7
+[<Fact>]
+let ``Union case function fields are properly uncurried/curried`` () = // See #1445
+    let (Fun f) = Fun (fun x y -> [x; y])
+    let xs = f 3 4
+    List.sum xs |> equal 7
 
-// [<Fact>]
-// let ``Lambdas with tuple arguments don't conflict with uncurrying`` () = // See #1448
-//     let revert xs =
-//         let rec rev ls (a,b) acc =
-//             match ls with
-//             | [] -> acc
-//             | h::t -> rev t (a,b) (h::acc)
-//         rev xs (0, 0) []
-//     let res = revert [2;3;4]
-//     equal 3 res.Length
-//     equal 4 res.Head
+[<Fact>]
+let ``Lambdas with tuple arguments don't conflict with uncurrying`` () = // See #1448
+    let revert xs =
+        let rec rev ls (a,b) acc =
+            match ls with
+            | [] -> acc
+            | h::t -> rev t (a,b) (h::acc)
+        rev xs (0, 0) []
+    let res = revert [2;3;4]
+    equal 3 res.Length
+    equal 4 res.Head
 
 // [<Fact>]
 // let ``Uncurrying works for base constructors`` () = // See #1458
@@ -1267,12 +1267,12 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 //     let str = AddString2 (fun a b -> "Prefix: " + a + b)
 //     str.MakeString "a" "b" |> equal "Prefix: ab - Prefix: ba"
 
-// [<Fact>]
-// let ``Sequence of functions is uncurried in folding`` () =
-//     let vals = [(4,5); (6,7)]
-//     let ops  = [(+); (-)]
-//     (-5, vals, ops) |||> List.fold2 (fun acc (v1,v2) op -> acc * op v1 v2)
-//     |> equal 45
+[<Fact>]
+let ``Sequence of functions is uncurried in folding`` () =
+    let vals = [(4,5); (6,7)]
+    let ops  = [(+); (-)]
+    (-5, vals, ops) |||> List.fold2 (fun acc (v1,v2) op -> acc * op v1 v2)
+    |> equal 45
 
 // // #if FABLE_COMPILER
 // // [<Fact>]
@@ -1367,22 +1367,22 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 //     doMapRunTimes |> equal 1
 //     setStateAccumulated |> equal "FooBarBaz"
 
-// [<Fact>]
-// let ``Fix lambda uncurry/curry semantic #1836`` () =
-//     let map (mapSetState: int -> (int -> unit))  =
-//         mapSetState 1
+[<Fact>]
+let ``Fix lambda uncurry/curry semantic #1836`` () =
+    let map (mapSetState: int -> (int -> unit))  =
+        mapSetState 1
 
-//     let mutable doMapCalled = 0
-//     let mutable doMapResultCalled = 0
-//     let doMap (i:int) : (int -> unit) =
-//         doMapCalled <- doMapCalled + 1
-//         (fun j -> doMapResultCalled <- doMapResultCalled + 1)
+    let mutable doMapCalled = 0
+    let mutable doMapResultCalled = 0
+    let doMap (i:int) : (int -> unit) =
+        doMapCalled <- doMapCalled + 1
+        (fun j -> doMapResultCalled <- doMapResultCalled + 1)
 
-//     let setState = map (doMap)
-//     setState 1
-//     setState 2
-//     doMapCalled |> equal 1
-//     doMapResultCalled |> equal 2
+    let setState = map (doMap)
+    setState 1
+    setState 2
+    doMapCalled |> equal 1
+    doMapResultCalled |> equal 2
 
 // [<Fact>]
 // let ``OptimizedClosures.FSharpFunc<_,_,_>.Adapt works`` () = // See #1904
@@ -1391,46 +1391,46 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 //     let f2 = OptimizedClosures.FSharpFunc<_,_,_>.Adapt mul
 //     f2.Invoke(3, 4) |> equal 12
 
-// [<Fact>]
-// let ``Arguments passed to point-free function are uncurried`` () = // See #1959
-//     let x = pointFree_addOne (+) 2
-//     let y = addOne (+) 2
-//     equal 3 x
-//     equal 3 y
+[<Fact>]
+let ``Arguments passed to point-free function are uncurried`` () = // See #1959
+    let x = pointFree_addOne (+) 2
+    let y = addOne (+) 2
+    equal 3 x
+    equal 3 y
 
-// [<Fact>]
-// let ``fold produces incorrect output when state is a function with arity > 1`` () = // See #2035
-//     let folder state value x y = value :: state x y
-//     let state x y = [x; y]
-//     let d = List.fold folder state [0..3]
-//     d 42 42 |> equal [3; 2; 1; 0; 42; 42]
-//     let s = Seq.fold folder state [0..3]
-//     s 15 20 |> equal [3; 2; 1; 0; 15; 20]
+[<Fact>]
+let ``fold produces incorrect output when state is a function with arity > 1`` () = // See #2035
+    let folder state value x y = value :: state x y
+    let state x y = [x; y]
+    let d = List.fold folder state [0..3]
+    d 42 42 |> equal [3; 2; 1; 0; 42; 42]
+    let s = Seq.fold folder state [0..3]
+    s 15 20 |> equal [3; 2; 1; 0; 15; 20]
 
-// [<Fact>]
-// let ``Assigning a function with arity > 1 to a scoped mutable variable #2046`` () =
-//     let mutable state = fortyTwo
-//     state "a" "b" |> equal "a42b"
-//     state <- fun x y -> x + "32" + y
-//     state "a" "b" |> equal "a32b"
+[<Fact>]
+let ``Assigning a function with arity > 1 to a scoped mutable variable #2046`` () =
+    let mutable state = fortyTwo
+    state "a" "b" |> equal "a42b"
+    state <- fun x y -> x + "32" + y
+    state "a" "b" |> equal "a32b"
 
-// [<Fact>]
-// let ``Uncurrying works with generic records returning lambdas`` () =
-//     applyFooInRecord { foo = fun x y -> x ** y } 5. 2. |> equal 25.
-//     let f = applyFooInRecord { foo = fun x y z -> x ** y + z } 5.
-//     f 3. 2. |> equal 127.
-//     applyFooInRecord2 { foo = fun x y -> x ** y } 5. 2. |> equal 25.
-//     let f = applyFooInRecord2 { foo = fun x y z -> x ** y + z } 5.
-//     f 3. 2. |> equal 127.
-//     applyFooInRecord3 { foo = fun x y z -> x ** y - z } 5. 2. 1. |> equal 24.
-//     let f = applyFooInRecord3 { foo = fun x y z -> x ** y - z } 5.
-//     f 3. 3. |> equal 122.
+[<Fact>]
+let ``Uncurrying works with generic records returning lambdas`` () =
+    applyFooInRecord { foo = fun x y -> x ** y } 5. 2. |> equal 25.
+    let f = applyFooInRecord { foo = fun x y z -> x ** y + z } 5.
+    f 3. 2. |> equal 127.
+    applyFooInRecord2 { foo = fun x y -> x ** y } 5. 2. |> equal 25.
+    let f = applyFooInRecord2 { foo = fun x y z -> x ** y + z } 5.
+    f 3. 2. |> equal 127.
+    applyFooInRecord3 { foo = fun x y z -> x ** y - z } 5. 2. 1. |> equal 24.
+    let f = applyFooInRecord3 { foo = fun x y z -> x ** y - z } 5.
+    f 3. 3. |> equal 122.
 
-// [<Fact>]
-// let ``Uncurrying works with generic anonymous records returning lambdas`` () =
-//     applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5. 2. |> equal 25.
-//     let f = applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5.
-//     f 3. |> equal 125.
+[<Fact>]
+let ``Uncurrying works with generic anonymous records returning lambdas`` () =
+    applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5. 2. |> equal 25.
+    let f = applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5.
+    f 3. |> equal 125.
 
 // [<Fact>]
 // let ``Curried functions being mangled via DU, List.fold and match combination #2356`` () =
@@ -1441,17 +1441,17 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 //                         | None -> "nothing"
 //     test |> equal "fly"
 
-// [<Fact>]
-// let ``Option uncurrying #2116`` () =
-//     let optionFn = Some (fun x y -> x + y)
+[<Fact>]
+let ``Option uncurrying #2116`` () =
+    let optionFn = Some (fun x y -> x + y)
 
-//     let list = List.choose id [optionFn]
-//     List.length list |> equal 1
-//     let x =
-//         match list with
-//         | [f] -> f 3 4
-//         | _ -> -1
-//     equal 7 x
+    let list = List.choose id [optionFn]
+    List.length list |> equal 1
+    let x =
+        match list with
+        | [f] -> f 3 4
+        | _ -> -1
+    equal 7 x
 
 // // See https://github.com/fable-compiler/Fable/issues/2436#issuecomment-919165092
 // [<Fact>]
@@ -1466,75 +1466,75 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 //     d |> equal 2
 //     adder.Add 3 4 |> equal 11
 
-// [<Fact>]
-// let ``Iterating list of functions #2047`` () =
-//     let mutable s = "X"
-//     for someFun in [fortyTwo] do
-//         s <- s + someFun "y" "z" + s
-//     equal "Xy42zX" s
+[<Fact>]
+let ``Iterating list of functions #2047`` () =
+    let mutable s = "X"
+    for someFun in [fortyTwo] do
+        s <- s + someFun "y" "z" + s
+    equal "Xy42zX" s
 
-// [<Fact>]
-// let ``Aliasing a function wrapping a multi-arity function in point-free style #2045`` () =
-//     equal "4426" <| doesWork fortyTwo () ()
-//     equal "4426" <| doesNotWork fortyTwo () ()
-//     equal "4426" <| Wrapper().doesNotWorki fortyTwo () ()
-//     equal "4426" <| Wrapper.doesNotWork fortyTwo () ()
-//     equal 56 <| doesWork fortyTwo2 () () () 4
-//     equal 56 <| doesNotWork fortyTwo2 () () () 4
-//     equal 56 <| Wrapper().doesNotWorki2 fortyTwo2 () () () 4
-//     equal 56 <| Wrapper.doesNotWork2 fortyTwo2 () () () 4
+[<Fact>]
+let ``Aliasing a function wrapping a multi-arity function in point-free style #2045`` () =
+    equal "4426" <| doesWork fortyTwo () ()
+    equal "4426" <| doesNotWork fortyTwo () ()
+    equal "4426" <| Wrapper().doesNotWorki fortyTwo () ()
+    equal "4426" <| Wrapper.doesNotWork fortyTwo () ()
+    equal 56 <| doesWork fortyTwo2 () () () 4
+    equal 56 <| doesNotWork fortyTwo2 () () () 4
+    equal 56 <| Wrapper().doesNotWorki2 fortyTwo2 () () () 4
+    equal 56 <| Wrapper.doesNotWork2 fortyTwo2 () () () 4
 
-// module FSharpPlus =
-//     module Option =
-//         let apply f (x: option<'T>) : option<'U> =
-//             match f, x with
-//             | Some f, Some x -> Some (f x)
-//             | _              -> None
+module FSharpPlus =
+    module Option =
+        let apply f (x: option<'T>) : option<'U> =
+            match f, x with
+            | Some f, Some x -> Some (f x)
+            | _              -> None
 
-//     module Array_ =
-//         let apply f x =
-//             let lenf, lenx = Array.length f, Array.length x
-//             Array.init (lenf * lenx) (fun i -> f[i / lenx] x[i % lenx])
+    module Array_ =
+        let apply f x =
+            let lenf, lenx = Array.length f, Array.length x
+            Array.init (lenf * lenx) (fun i -> f[i / lenx] x[i % lenx])
 
-//     type Map =
-//         static member Map ((x: option<_>, f: 'T->'U), _mthd: Map) = Option.map  f x
-//         static member Map ((x: _ []     , f: 'T->'U), _mthd: Map) = Array.map   f x
+    type Map =
+        static member Map ((x: option<_>, f: 'T->'U), _mthd: Map) = Option.map  f x
+        static member Map ((x: _ []     , f: 'T->'U), _mthd: Map) = Array.map   f x
 
-//         static member inline Invoke (mapping: 'T->'U) (source: '``Functor<'T>``) : '``Functor<'U>`` =
-//             let inline call (mthd: ^M, source: ^I, _output: ^R) = ((^M or ^I or ^R) : (static member Map : (_*_)*_ -> _) (source, mapping), mthd)
-//             call (Unchecked.defaultof<Map>, source, Unchecked.defaultof<'``Functor<'U>``>)
+        static member inline Invoke (mapping: 'T->'U) (source: '``Functor<'T>``) : '``Functor<'U>`` =
+            let inline call (mthd: ^M, source: ^I, _output: ^R) = ((^M or ^I or ^R) : (static member Map : (_*_)*_ -> _) (source, mapping), mthd)
+            call (Unchecked.defaultof<Map>, source, Unchecked.defaultof<'``Functor<'U>``>)
 
-//     type Return =
-//         static member Return (_: option<'a>, _: Return) = fun x -> Some x : option<'a>
-//         static member Return (_: 'a []     , _: Return) = fun x -> [|x|]  : 'a []
+    type Return =
+        static member Return (_: option<'a>, _: Return) = fun x -> Some x : option<'a>
+        static member Return (_: 'a []     , _: Return) = fun x -> [|x|]  : 'a []
 
-//         static member inline Invoke (x: 'T) : '``Applicative<'T>`` =
-//             let inline call (mthd: ^M, output: ^R) = ((^M or ^R) : (static member Return : _*_ -> _) output, mthd)
-//             call (Unchecked.defaultof<Return>, Unchecked.defaultof<'``Applicative<'T>``>) x
+        static member inline Invoke (x: 'T) : '``Applicative<'T>`` =
+            let inline call (mthd: ^M, output: ^R) = ((^M or ^R) : (static member Return : _*_ -> _) output, mthd)
+            call (Unchecked.defaultof<Return>, Unchecked.defaultof<'``Applicative<'T>``>) x
 
-//     type Apply =
-//         static member ``<*>`` (f: option<_>, x: option<'T>, _output: option<'U>, _mthd: Apply) = Option.apply f x : option<'U>
-//         static member ``<*>`` (f: _ []     , x: 'T []     , _output: 'U []     , _mthd: Apply) = Array_.apply f x  : 'U []
+    type Apply =
+        static member ``<*>`` (f: option<_>, x: option<'T>, _output: option<'U>, _mthd: Apply) = Option.apply f x : option<'U>
+        static member ``<*>`` (f: _ []     , x: 'T []     , _output: 'U []     , _mthd: Apply) = Array_.apply f x  : 'U []
 
-//         static member inline Invoke (f: '``Applicative<'T -> 'U>``) (x: '``Applicative<'T>``) : '``Applicative<'U>`` =
-//             let inline call (mthd : ^M, input1: ^I1, input2: ^I2, output: ^R) =
-//                 ((^M or ^I1 or ^I2 or ^R) : (static member ``<*>`` : _*_*_*_ -> _) input1, input2, output, mthd)
-//             call(Unchecked.defaultof<Apply>, f, x, Unchecked.defaultof<'``Applicative<'U>``>)
+        static member inline Invoke (f: '``Applicative<'T -> 'U>``) (x: '``Applicative<'T>``) : '``Applicative<'U>`` =
+            let inline call (mthd : ^M, input1: ^I1, input2: ^I2, output: ^R) =
+                ((^M or ^I1 or ^I2 or ^R) : (static member ``<*>`` : _*_*_*_ -> _) input1, input2, output, mthd)
+            call(Unchecked.defaultof<Apply>, f, x, Unchecked.defaultof<'``Applicative<'U>``>)
 
-//     let inline forInfiniteSeqs (t: seq<_>, isFailure, conversion) =
-//             let add x y = y :: x
-//             let mutable go = true
-//             let mutable r = Return.Invoke []
-//             use e = t.GetEnumerator ()
-//             while go && e.MoveNext () do
-//                 if isFailure e.Current then go <- false
-//                 r <- Apply.Invoke (Map.Invoke add r) e.Current
-//             Map.Invoke (List.rev >> conversion) r
+    // let inline forInfiniteSeqs (t: seq<_>, isFailure, conversion) =
+    //         let add x y = y :: x
+    //         let mutable go = true
+    //         let mutable r = Return.Invoke []
+    //         use e = t.GetEnumerator ()
+    //         while go && e.MoveNext () do
+    //             if isFailure e.Current then go <- false
+    //             r <- Apply.Invoke (Map.Invoke add r) e.Current
+    //         Map.Invoke (List.rev >> conversion) r
 
-//     let sequence (t: seq<option<'t>>) =
-//         forInfiniteSeqs (t, Option.isNone, List.toSeq) : option<seq<'t>>
+    // let sequence (t: seq<option<'t>>) =
+    //     forInfiniteSeqs (t, Option.isNone, List.toSeq) : option<seq<'t>>
 
-// open FSharpPlus
+open FSharpPlus
 
 // [<Fact>]
 // let ``FSharpPlus regression`` () = // See #2471
@@ -1634,137 +1634,133 @@ let ``curried function of arity 10 works`` () =
 
     equal expected actual
 
-// // module Uncurry =
-// //     // Wrap everything into a compiler directives because we are using JS interop
-// //     // to provoke the behavior we want
-// //     #if FABLE_COMPILER
-// //     open Fable.Core
+// module Uncurry =
+//     // Wrap everything into a compiler directives because we are using JS interop
+//     // to provoke the behavior we want
+//     #if FABLE_COMPILER
+//     open Fable.Core
 
-// //     let private add2WithLambda (adder: int->int->int) (arg1: int) (arg2: int): int =
-// //         adder arg1 arg2
+//     let private add2WithLambda (adder: int->int->int) (arg1: int) (arg2: int): int =
+//         adder arg1 arg2
 
-// //     let add_2 =
-// //         add2WithLambda (JsInterop.import "add2Arguments" "./js/1foo.js")
+//     let add_2 =
+//         add2WithLambda (JsInterop.import "add2Arguments" "./js/1foo.js")
 
-// //     let private add10WithLambda
-// //         (adder: int->int->int->int->int->int->int->int->int->int->int)
-// //         (arg1: int)
-// //         (arg2: int)
-// //         (arg3: int)
-// //         (arg4: int)
-// //         (arg5: int)
-// //         (arg6: int)
-// //         (arg7: int)
-// //         (arg8: int)
-// //         (arg9: int)
-// //         (arg10: int)
-// //             : int =
+//     let private add10WithLambda
+//         (adder: int->int->int->int->int->int->int->int->int->int->int)
+//         (arg1: int)
+//         (arg2: int)
+//         (arg3: int)
+//         (arg4: int)
+//         (arg5: int)
+//         (arg6: int)
+//         (arg7: int)
+//         (arg8: int)
+//         (arg9: int)
+//         (arg10: int)
+//             : int =
 
-// //         adder arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+//         adder arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
 
-// //     let add_10 =
-// //         add10WithLambda (JsInterop.import "add10Arguments" "./js/1foo.js")
+//     let add_10 =
+//         add10WithLambda (JsInterop.import "add10Arguments" "./js/1foo.js")
 
-// //     module tests =
+//     [<Fact>]
+//     let ``uncurry function of arity 2 works`` () =
+//         let actual =
+//             add_2 10 5
+//         equal 15 actual
 
-// //             [<Fact>]
-// //             let ``uncurry function of arity 2 works`` () =
-// //                 let actual =
-// //                     add_2 10 5
+//     [<Fact>]
+//     let ``uncurry function of arity 10 works`` () =
+//         let actual =
+//             add_10 1 2 3 4 5 6 7 8 9 10
+//         equal 55 actual
 
-// //                 equal 15 actual
+//     #endif
 
-// //             [<Fact>]
-// //             let ``uncurry function of arity 10 works`` () =
-// //                 let actual =
-// //                     add_10 1 2 3 4 5 6 7 8 9 10
+module MultipleInlines =
+    //
+    // Types with required nesting and optics to reproduce error
+    //
+    type Result<'T> =
+        | Ok of 'T
+        | Error of string
 
-// //                 equal 55 actual
+    type PaymentFrequencyDto =
+        | Weekly = 1
+        | Fortnightly = 2
+        | Monthly = 3
+        | Quarterly = 4
+        | Annual = 5
 
-// //     #endif
+    type InsurancePolicyDetailsDto = {
+        PaymentFrequency : PaymentFrequencyDto
+        Discount : decimal option
+    } with
+        static member discount_ : Prism<InsurancePolicyDetailsDto, decimal> =
+            (fun p -> p.Discount),
+            (fun x p ->
+                match p with
+                | p when p.Discount.IsSome -> {p with Discount = Some x}
+                | p -> p)
+        static member paymentFrequency_ : Lens<InsurancePolicyDetailsDto, PaymentFrequencyDto> =
+            (fun p -> p.PaymentFrequency), (fun x p -> { p with PaymentFrequency = x })
 
-// module MultipleInlines =
-//     //
-//     // Types with required nesting and optics to reproduce error
-//     //
-//     type Result<'T> =
-//         | Ok of 'T
-//         | Error of string
-
-//     type PaymentFrequencyDto =
-//         | Weekly = 1
-//         | Fortnightly = 2
-//         | Monthly = 3
-//         | Quarterly = 4
-//         | Annual = 5
-
-//     type InsurancePolicyDetailsDto = {
-//         PaymentFrequency : PaymentFrequencyDto
-//         Discount : decimal option
-//     } with
-//         static member discount_ : Prism<InsurancePolicyDetailsDto, decimal> =
-//             (fun p -> p.Discount),
-//             (fun x p ->
-//                 match p with
-//                 | p when p.Discount.IsSome -> {p with Discount = Some x}
-//                 | p -> p)
-//         static member paymentFrequency_ : Lens<InsurancePolicyDetailsDto, PaymentFrequencyDto> =
-//             (fun p -> p.PaymentFrequency), (fun x p -> { p with PaymentFrequency = x })
-
-//     type AccountDetailsDto = {
-//         Tag : string
-//         InsurancePolicyData : InsurancePolicyDetailsDto option
-//     } with
-//         static member insurancePolicyData_ : Prism<AccountDetailsDto, InsurancePolicyDetailsDto> =
-//             (fun p -> p.InsurancePolicyData),
-//             (fun x p ->
-//                 match p with
-//                 | p when p.InsurancePolicyData.IsSome -> {p with InsurancePolicyData = Some x}
-//                 | p -> p)
+    type AccountDetailsDto = {
+        Tag : string
+        InsurancePolicyData : InsurancePolicyDetailsDto option
+    } with
+        static member insurancePolicyData_ : Prism<AccountDetailsDto, InsurancePolicyDetailsDto> =
+            (fun p -> p.InsurancePolicyData),
+            (fun x p ->
+                match p with
+                | p when p.InsurancePolicyData.IsSome -> {p with InsurancePolicyData = Some x}
+                | p -> p)
 
 
-//     type AccountDto = {
-//         Details : AccountDetailsDto
-//     } with
-//         static member details_ : Lens<AccountDto, AccountDetailsDto> =
-//             (fun p -> p.Details), (fun x p -> {p with Details = x})
+    type AccountDto = {
+        Details : AccountDetailsDto
+    } with
+        static member details_ : Lens<AccountDto, AccountDetailsDto> =
+            (fun p -> p.Details), (fun x p -> {p with Details = x})
 
-//     type Functor = Functor with
-//       static member inline map (Functor, f: 'a -> 'b, x: array<'a>) = Array.map f x
-//       static member inline map (Functor, f: 'a -> 'b, x: List<'a>) = List.map f x
+    type Functor = Functor with
+      static member inline map (Functor, f: 'a -> 'b, x: array<'a>) = Array.map f x
+      static member inline map (Functor, f: 'a -> 'b, x: List<'a>) = List.map f x
 
-//     let inline map (f: ^a -> ^b) (x: ^x) =
-//       ((^x or ^Functor): (static member map: ^Functor * (^a -> ^b) * ^x -> ^r) (Functor, f, x))
+    let inline map (f: ^a -> ^b) (x: ^x) =
+      ((^x or ^Functor): (static member map: ^Functor * (^a -> ^b) * ^x -> ^r) (Functor, f, x))
 
-//     type NonEmptyList<'T> = NonEmptyList of 'T * List<'T> with
-//       static member inline map (Functor, f: 'a -> 'b, NonEmptyList(h, t): NonEmptyList<'a>) =
-//         NonEmptyList (f h, map f t)
+    type NonEmptyList<'T> = NonEmptyList of 'T * List<'T> with
+      static member inline map (Functor, f: 'a -> 'b, NonEmptyList(h, t): NonEmptyList<'a>) =
+        NonEmptyList (f h, map f t)
 
-//     let mapMyList (xs: NonEmptyList<string>) : NonEmptyList<string> =
-//       map (fun s -> s + "_") xs
+    let mapMyList (xs: NonEmptyList<string>) : NonEmptyList<string> =
+      map (fun s -> s + "_") xs
 
-// open MultipleInlines
+open MultipleInlines
 
-// [<Fact>]
-// let ``Trait call works with multiple inlined functions I`` () = // See #2809
-//     let account = Some { Details = { Tag = "Test"; InsurancePolicyData = None }}
-//     let details_ = Option.value_ >?> AccountDto.details_ >?> AccountDetailsDto.insurancePolicyData_
+[<Fact>]
+let ``Trait call works with multiple inlined functions I`` () = // See #2809
+    let account = Some { Details = { Tag = "Test"; InsurancePolicyData = None }}
+    let details_ = Option.value_ >?> AccountDto.details_ >?> AccountDetailsDto.insurancePolicyData_
 
-//     let inline getP (optic : Prism<InsurancePolicyDetailsDto,'a>) = Optic.get (details_ >?> optic) account
+    let inline getP (optic : Prism<InsurancePolicyDetailsDto,'a>) = Optic.get (details_ >?> optic) account
 
-//     getP InsurancePolicyDetailsDto.discount_
-//     |> equal None
+    getP InsurancePolicyDetailsDto.discount_
+    |> equal None
 
-// [<Fact>]
-// let ``Trait call works with multiple inlined functions II`` () = // See #2809
-//     let account = Some { Details = { Tag = "Test"; InsurancePolicyData = None }}
-//     let details_ = Option.value_ >?> AccountDto.details_ >?> AccountDetailsDto.insurancePolicyData_
+[<Fact>]
+let ``Trait call works with multiple inlined functions II`` () = // See #2809
+    let account = Some { Details = { Tag = "Test"; InsurancePolicyData = None }}
+    let details_ = Option.value_ >?> AccountDto.details_ >?> AccountDetailsDto.insurancePolicyData_
 
-//     let inline getP (optic : Prism<InsurancePolicyDetailsDto,'a>) = account^.(details_ >?> optic)
+    let inline getP (optic : Prism<InsurancePolicyDetailsDto,'a>) = account^.(details_ >?> optic)
 
-//     getP InsurancePolicyDetailsDto.discount_
-//     |> equal None
+    getP InsurancePolicyDetailsDto.discount_
+    |> equal None
 
-// [<Fact>]
-// let ``Identifiers from witnesses don't get duplicated when resolving inline expressions`` () = // See #2855
-//     NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
+[<Fact>]
+let ``Identifiers from witnesses don't get duplicated when resolving inline expressions`` () = // See #2855
+    NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))

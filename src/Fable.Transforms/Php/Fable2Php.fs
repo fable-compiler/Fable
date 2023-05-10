@@ -233,7 +233,7 @@ let  convertMultiCaseUnion (com: IPhpCompiler) (decl: Fable.ClassDecl) (info: Fa
                     PhpFun.Args = []
                     PhpFun.Matchings = []
                     PhpFun.Static = true
-                    PhpFun.Body = 
+                    PhpFun.Body =
                         [ PhpStatement.PhpReturn(
                             PhpNewArray(
                                 info.UnionCases
