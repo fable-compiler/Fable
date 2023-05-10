@@ -14,34 +14,34 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
-let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
-    let rec makeNestedLambda body args =
-        match args with
-        | [] -> body
-        | arg::restArgs ->
-            let body = Fable.Lambda(arg, body, None)
-            makeNestedLambda body restArgs
-    let makeArgIdent i typ = makeTypedIdent typ $"a{i}"
-    let argTypes, returnType = uncurryLambdaType arity [] t
-    let argIdents = argTypes |> List.mapi makeArgIdent
-    let args = argIdents |> List.map Fable.IdentExpr
-    let body = Helper.Application(expr, returnType, partialArgs @ args)
-    makeNestedLambda body (List.rev argIdents)
+// let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
+//     let rec makeNestedLambda body args =
+//         match args with
+//         | [] -> body
+//         | arg::restArgs ->
+//             let body = Fable.Lambda(arg, body, None)
+//             makeNestedLambda body restArgs
+//     let makeArgIdent i typ = makeTypedIdent typ $"a{i}"
+//     let argTypes, returnType = uncurryLambdaType arity [] t
+//     let argIdents = argTypes |> List.mapi makeArgIdent
+//     let args = argIdents |> List.map Fable.IdentExpr
+//     let body = Helper.Application(expr, returnType, partialArgs @ args)
+//     makeNestedLambda body (List.rev argIdents)
 
-let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
-    partialApplyAtRuntime com expr.Type arity expr []
+// let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
+//     partialApplyAtRuntime com expr.Type arity expr []
 
-let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
-    let argTypes, returnType =
-        match t with
-        | Fable.LambdaType(argType, returnType) -> uncurryLambdaType arity [] t
-        | Fable.DelegateType(argTypes, returnType) -> argTypes, returnType
-        | _ -> [], expr.Type
-    let makeArgIdent i typ = makeTypedIdent typ $"b{i}$"
-    let argIdents = argTypes |> List.mapi makeArgIdent
-    let args = argIdents |> List.map Fable.IdentExpr
-    let body = curriedApply None returnType expr args
-    Fable.Delegate(argIdents, body, None, Fable.Tags.empty)
+// let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
+//     let argTypes, returnType =
+//         match t with
+//         | Fable.LambdaType(argType, returnType) -> uncurryLambdaType arity [] t
+//         | Fable.DelegateType(argTypes, returnType) -> argTypes, returnType
+//         | _ -> [], expr.Type
+//     let makeArgIdent i typ = makeTypedIdent typ $"b{i}$"
+//     let argIdents = argTypes |> List.mapi makeArgIdent
+//     let args = argIdents |> List.map Fable.IdentExpr
+//     let body = curriedApply None returnType expr args
+//     Fable.Delegate(argIdents, body, None, Fable.Tags.empty)
 
 let error (msg: Expr) = msg
 

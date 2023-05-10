@@ -458,8 +458,9 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
     match expr with
     | Value(Null _, _) -> expr
     | Value(NewOption(value, t, isStruct), r) ->
+        let t = Fable.DelegateType(uncurryLambdaType arity [] t)
         match value with
-        | None -> expr
+        | None -> Value(NewOption(None, t, isStruct), r)
         | Some v -> Value(NewOption(Some(uncurry v), t, isStruct), r)
     | ExprType(Option(t, isStruct)) ->
         let f = makeTypedIdent t "f"
