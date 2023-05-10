@@ -21,7 +21,7 @@ let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Exp
         | arg::restArgs ->
             let body = Fable.Lambda(arg, body, None)
             makeNestedLambda body restArgs
-    let makeArgIdent i typ = makeTypedIdent typ $"arg{i}"
+    let makeArgIdent i typ = makeTypedIdent typ $"a{i}"
     let argTypes, returnType = uncurryLambdaType arity [] t
     let argIdents = argTypes |> List.mapi makeArgIdent
     let args = argIdents |> List.map Fable.IdentExpr
@@ -34,10 +34,10 @@ let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
 let uncurryExprAtRuntime (com: Compiler) t arity (expr: Expr) =
     let argTypes, returnType =
         match t with
-        | Fable.LambdaType(argType, returnType) -> [argType], returnType
+        | Fable.LambdaType(argType, returnType) -> uncurryLambdaType arity [] t
         | Fable.DelegateType(argTypes, returnType) -> argTypes, returnType
         | _ -> [], expr.Type
-    let makeArgIdent i typ = makeTypedIdent typ $"arg{i}"
+    let makeArgIdent i typ = makeTypedIdent typ $"b{i}$"
     let argIdents = argTypes |> List.mapi makeArgIdent
     let args = argIdents |> List.map Fable.IdentExpr
     let body = curriedApply None returnType expr args
