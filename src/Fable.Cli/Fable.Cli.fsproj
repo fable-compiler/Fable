@@ -4,11 +4,9 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>3.7.21</Version>
-    <PackageVersion>3.7.21</PackageVersion>
-    <PackageReleaseNotes>* Fix #3441: Don't ignore error when loading plugin
-* PR #3448: Prevent Fable 3 to hang if called from .NET 7
-* Move Fable 3 to .NET 6</PackageReleaseNotes>
+    <Version>3.7.22</Version>
+    <PackageVersion>3.7.22</PackageVersion>
+    <PackageReleaseNotes>* Fix typo in error message when using Fable 3 from .NET 7 @MangelMaxime</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

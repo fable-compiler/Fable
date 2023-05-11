@@ -1,8 +1,12 @@
+### 3.7.22
+
+* Fix typo in error message when using Fable 3 from .NET 7 @MangelMaxime
+
 ### 3.7.21
 
-* Fix #3441: Don't ignore error when loading plugin
-* PR #3448: Prevent Fable 3 to hang if called from .NET 7
-* Move Fable 3 to .NET 6
+* Fix #3441: Don't ignore error when loading plugin @MangelMaxime
+* PR #3448: Prevent Fable 3 to hang if called from .NET 7 @MangelMaxime
+* Move Fable 3 to .NET 6 @MangelMaxime
 
 ### 3.7.20
 
