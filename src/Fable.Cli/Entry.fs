@@ -386,7 +386,7 @@ let private checkDotnetVersion (workingDir: string) =
                     ""
                     "If you prefer to stay on Fable 3 for now, please use a global.json file to select .NET 6 or lower."
                     ""
-                    "That file can placed at the root of your repository enforcing the .NET version for all projects."
+                    "That file can be placed at the root of your repository enforcing the .NET version for all projects."
                     "Or you can place it at the suggested location below to only enforce it for the current project and below (sub-folders)."
                     ""
                     $"Suggested location: {workingDir}/global.json"
