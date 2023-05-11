@@ -1,3 +1,9 @@
+### 3.7.21
+
+* Fix #3441: Don't ignore error when loading plugin
+* PR #3448: Prevent Fable 3 to hang if called from .NET 7
+* Move Fable 3 to .NET 6
+
 ### 3.7.20
 
 * Ignore missing files when checking outdated compilation
