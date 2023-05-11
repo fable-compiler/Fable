@@ -4,6 +4,7 @@ open Fable
 open Fable.AST
 open System.Collections.Generic
 open FSharp.Compiler.Symbols
+open System
 
 type IDictionary<'Key, 'Value> with
     member this.TryValue(key: 'Key) =
@@ -36,16 +37,29 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                 if Compiler.CoreAssemblyNames.Contains(asmName) then
                     coreAssemblies.Add(asmName, asm)
                 else
-                    try
-                        let scanForPlugins =
-                            asm.Contents.Attributes |> Seq.exists (fun attr ->
-                                attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
-                        if scanForPlugins then
-                           for e in asm.Contents.Entities do
-                                   if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
-                                       let plugin = getPlugin { DllPath = path; TypeFullName = e.FullName }
-                                       plugins.Add(FSharp2Fable.FsEnt.Ref e, plugin)
-                    with _ -> ()
+                    let scanForPlugins =
+                        asm.Contents.Attributes |> Seq.exists (fun attr ->
+                            attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
+                    if scanForPlugins then
+                        for e in asm.Contents.Entities do
+                            if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
+                                try
+                                    let plugin = getPlugin { DllPath = path; TypeFullName = e.FullName }
+                                    plugins.Add(FSharp2Fable.FsEnt.Ref e, plugin)
+                                with ex ->
+                                    let errorMessage =
+                                        [
+                                            $"Error while loading plugin: {e.FullName}"
+                                            ""
+                                            "This error often happens if you are trying to use a plugin that is not compatible with the current version of Fable."
+                                        ]
+                                        |> String.concat "\n"
+
+                                    Console.ForegroundColor <- ConsoleColor.DarkRed
+                                    Console.Error.WriteLine(errorMessage)
+                                    Console.ResetColor()
+                                    raise ex
+
                     assemblies.Add(path, asm)
             | None -> ()
 
