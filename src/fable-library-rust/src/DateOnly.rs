@@ -2,7 +2,7 @@
 pub mod DateOnly_ {
     use crate::{
         DateTime_::{ticks_to_duration, DateTime, DateTimeKind},
-        Native_::{compare, MutCell},
+        Native_::{compare, MutCell, ToString},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::ticks_per_day,
@@ -127,8 +127,8 @@ pub mod DateOnly_ {
 
         pub fn toString(&self, format: string) -> string {
             let fmt = match format.as_str() {
-                "" | "d" => "%m/%d/%Y".to_owned(),
-                "o" | "O" => "%Y-%m-%d".to_owned(),
+                "" | "d" => "%m/%d/%Y".to_string(),
+                "o" | "O" => "%Y-%m-%d".to_string(),
                 //TODO: support more formats, custom formats, etc.
                 _ => format
                     .replace("yyyy", "%Y")

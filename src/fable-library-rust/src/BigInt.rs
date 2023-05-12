@@ -1,8 +1,8 @@
 #[cfg(feature = "bigint")]
 pub mod BigInt_ {
     use crate::Decimal_::{decimal, truncate};
-    use crate::Native_::{compare, Lrc, MutCell, Vec};
     use crate::NativeArray_::{array_from, Array};
+    use crate::Native_::{compare, Lrc, MutCell, ToString, Vec};
     use crate::String_::{string, toString as toString_1};
 
     use num_bigint::*;

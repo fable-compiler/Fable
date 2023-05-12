@@ -1,4 +1,5 @@
 pub mod BitConverter_ {
+    use crate::Native_::{String};
     use crate::NativeArray_::{new_array, Array};
     use crate::String_::{string, fromString};
 

@@ -1,3 +1,5 @@
+#[cfg_attr(rustfmt, rustfmt::skip)]
+
 // import at root level
 mod FuncType;
 mod Lazy;
@@ -62,12 +64,7 @@ pub mod Native_ {
     pub type Nullable<T> = Option<Lrc<T>>;
 
     use core::cmp::Ordering;
-    use core::hash::{Hash, Hasher};
-
-    #[cfg(feature = "no_std")]
-    use hashbrown::hash_map::DefaultHasher;
-    #[cfg(not(feature = "no_std"))]
-    use std::collections::hash_map::DefaultHasher;
+    use core::hash::{Hash, Hasher, BuildHasher};
 
     // -----------------------------------------------------------
     // Helpers
@@ -100,7 +97,10 @@ pub mod Native_ {
     }
 
     pub fn getHashCode<T: Hash>(x: T) -> i32 {
-        let mut hasher = DefaultHasher::new();
+        #[cfg(feature = "no_std")]
+        let mut hasher = hashbrown::hash_map::DefaultHashBuilder::default().build_hasher();
+        #[cfg(not(feature = "no_std"))]
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
         x.hash(&mut hasher);
         let h = hasher.finish();
         ((h >> 32) ^ h) as i32

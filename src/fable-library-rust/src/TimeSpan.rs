@@ -1,5 +1,5 @@
 pub mod TimeSpan_ {
-    use crate::Native_::{compare, MutCell};
+    use crate::Native_::{compare, MutCell, ToString, Vec};
     use crate::String_::{fromString, string};
     use core::ops::{Add, Div, Mul, Sub};
 
@@ -131,31 +131,31 @@ pub mod TimeSpan_ {
         }
 
         pub fn days(&self) -> i32 {
-            self.total_days().trunc() as i32
+            self.total_days() as i32
         }
 
         pub fn hours(&self) -> i32 {
-            (self.total_hours() - self.total_days().trunc() * 24.0) as i32
+            (self.total_hours() - self.total_days() as i32 as f64 * 24.0) as i32
         }
 
         pub fn minutes(&self) -> i32 {
-            (self.total_minutes() - self.total_hours().trunc() * 60.0) as i32
+            (self.total_minutes() - self.total_hours() as i32 as f64 * 60.0) as i32
         }
 
         pub fn seconds(&self) -> i32 {
-            (self.total_seconds() - self.total_minutes().trunc() * 60.0) as i32
+            (self.total_seconds() - self.total_minutes() as i32 as f64 * 60.0) as i32
         }
 
         pub fn milliseconds(&self) -> i32 {
-            (self.total_milliseconds() - self.total_seconds().trunc() * 1000.0) as i32
+            (self.total_milliseconds() - self.total_seconds() as i32 as f64 * 1000.0) as i32
         }
 
         pub fn microseconds(&self) -> i32 {
-            (self.total_microseconds() - self.total_milliseconds().trunc() * 1000.0) as i32
+            (self.total_microseconds() - self.total_milliseconds() as i32 as f64 * 1000.0) as i32
         }
 
         pub fn nanoseconds(&self) -> i32 {
-            (self.total_nanoseconds() - self.total_microseconds().trunc() * 1000.0) as i32
+            (self.total_nanoseconds() - self.total_microseconds() as i32 as f64 * 1000.0) as i32
         }
 
         pub fn negate(&self) -> TimeSpan {
@@ -166,31 +166,33 @@ pub mod TimeSpan_ {
             let sign = if self.ticks < 0 { "-" } else { "" };
             let days = self.days().abs();
             let days = if days == 0 {
-                "".to_owned()
+                "".to_string()
             } else {
-                format!("{}.", days)
+                format_args!("{}.", days).to_string()
             };
             let hours = self.hours().abs();
             let mins = self.minutes().abs();
             let secs = self.seconds().abs();
             let frac = (self.ticks % ticks_per_second).abs();
             let frac = if frac == 0 {
-                "".to_owned()
+                "".to_string()
             } else {
-                format!(".{:07}", frac)
+                format_args!(".{:07}", frac).to_string()
             };
-            let str = match format.as_str() {
-                "" | "c" => format!(
+            let s = match format.as_str() {
+                "" | "c" => format_args!(
                     "{}{}{:02}:{:02}:{:02}{}",
                     sign, days, hours, mins, secs, frac
-                ),
+                )
+                .to_string(),
                 //TODO: support more formats, custom formats, etc.
-                _ => format!(
+                _ => format_args!(
                     "{}{}{:02}:{:02}:{:02}{}",
                     sign, days, hours, mins, secs, frac
-                ),
+                )
+                .to_string(),
             };
-            fromString(str)
+            fromString(s)
         }
 
         fn try_parse_str(s: &str) -> Result<TimeSpan, ()> {

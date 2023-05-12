@@ -3,7 +3,7 @@ pub mod DateTimeOffset_ {
     use crate::{
         DateOnly_::DateOnly,
         DateTime_::{duration_to_ticks, ticks_to_duration, DateTime, DateTimeKind},
-        Native_::{compare, MutCell},
+        Native_::{compare, MutCell, ToString},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::{
@@ -387,10 +387,10 @@ pub mod DateTimeOffset_ {
 
         pub fn toString(&self, format: string) -> string {
             let fmt = match format.as_str() {
-                "" => "%m/%d/%Y %H:%M:%S %:z".to_owned(),
-                "g" => "%m/%d/%Y %H:%M".to_owned(),
-                "G" => "%m/%d/%Y %H:%M:%S".to_owned(),
-                "o" | "O" => "%Y-%m-%dT%H:%M:%S%.f%:z".to_owned(),
+                "" => "%m/%d/%Y %H:%M:%S %:z".to_string(),
+                "g" => "%m/%d/%Y %H:%M".to_string(),
+                "G" => "%m/%d/%Y %H:%M:%S".to_string(),
+                "o" | "O" => "%Y-%m-%dT%H:%M:%S%.f%:z".to_string(),
                 //TODO: support more formats, custom formats, etc.
                 _ => format
                     .replace("yyyy", "%Y")
