@@ -1,3 +1,4 @@
+#[cfg_attr(rustfmt, rustfmt::skip)]
 pub mod String_ {
 
     // -----------------------------------------------------------
@@ -15,7 +16,7 @@ pub mod String_ {
     // -----------------------------------------------------------
 
     mod HeapString {
-        use crate::Native_::Lrc;
+        use crate::Native_::{Lrc, String};
 
         #[repr(transparent)]
         #[derive(Clone)]
@@ -53,7 +54,7 @@ pub mod String_ {
     // TODO: maybe intern strings, maybe add length in chars.
 
     mod EnumString {
-        use crate::Native_::Lrc;
+        use crate::Native_::{Lrc, String};
 
         const INLINE_MAX: usize = 22;
 
@@ -294,6 +295,12 @@ pub mod String_ {
         s.chars().nth(i as usize).unwrap()
     }
 
+    // O(n) because Rust strings are UTF-8
+    pub fn get_char_pos(s: &string, i: i32) -> usize {
+        if i == 0 { 0 }
+        else { s.chars().take(i as usize).map(|c| c.len_utf8()).sum() }
+    }
+
     pub fn fromChar(c: char, count: i32) -> string {
         fromIter(core::iter::repeat(c).take(count as usize))
     }
@@ -425,16 +432,12 @@ pub mod String_ {
         fromString(s.replace(old.as_str(), new.as_str()))
     }
 
-    fn get_nth_pos(s: &string, i: i32) -> usize {
-        s.chars().take(i as usize).map(|c| c.len_utf8()).sum()
-    }
-
     pub fn substring(s: string, i: i32) -> string {
         if (i < 0) {
             panic!("Argument out of range")
         }
         // fromIter(s.chars().skip(i as usize))
-        let pos = get_nth_pos(&s, i);
+        let pos = get_char_pos(&s, i);
         fromSlice(&s[pos..])
     }
 
@@ -443,8 +446,8 @@ pub mod String_ {
             panic!("Argument out of range")
         }
         // fromIter(s.chars().skip(index as usize).take(count as usize))
-        let pos = get_nth_pos(&s, i);
-        let end = get_nth_pos(&s, i + count);
+        let pos = get_char_pos(&s, i);
+        let end = get_char_pos(&s, i + count);
         fromSlice(&s[pos..end])
     }
 

@@ -792,3 +792,79 @@ let ``Lock should return result`` () =
 //         equal 7 res
 //     }
 //     |> Async.StartImmediate
+
+
+// [<Fact>]
+// let ``Timer with AutoReset = true works`` () =
+//     async {
+//         let res = ref 0
+//         let t = new Timers.Timer(50.)
+//         t.Elapsed.Add(fun ev -> res := !res + 5)
+//         t.Start()
+//         do! Async.Sleep 125
+//         t.Stop()
+//         do! Async.Sleep 50
+//         equal 10 !res
+//     }
+//     |> Async.StartImmediate
+
+// [<Fact>]
+// let ``Timer with AutoReset = false works`` () =
+//     async {
+//         let res = ref 0
+//         let t = new Timers.Timer()
+//         t.Elapsed.Add(fun ev -> res := !res + 5)
+//         t.AutoReset <- false
+//         t.Interval <- 25.
+//         t.Enabled <- true
+//         do! Async.Sleep 100
+//         equal 5 !res
+//     }
+//     |> Async.StartImmediate
+
+// [<Fact>]
+// let ``Timer.Elapsed.Subscribe works`` () =
+//     async {
+//         let res = ref 0
+//         let t = new Timers.Timer(50.)
+//         let disp = t.Elapsed.Subscribe(fun ev -> res := !res + 5)
+//         t.Start()
+//         do! Async.Sleep 125
+//         disp.Dispose()
+//         do! Async.Sleep 50
+//         equal 10 !res
+//         t.Stop()
+//     }
+//     |> Async.StartImmediate
+
+// [<Fact>]
+// let ``Assigning an event to a variable works`` () = // See #1863
+//     let createTimerAndObservable timerInterval =
+//         // setup a timer
+//         let timer = new System.Timers.Timer(float timerInterval)
+//         timer.AutoReset <- true
+//         // events are automatically IObservable
+//         let observable = timer.Elapsed
+//         // return an async task
+//         let task = async {
+//             timer.Start()
+//             do! Async.Sleep 200
+//             timer.Stop()
+//         }
+//         // return a async task and the observable
+//         (task,observable)
+//     // create the timer and the corresponding observable
+//     let basicTimer2 , timerEventStream = createTimerAndObservable 50
+
+//     let mutable acc = 1
+//     // register that everytime something happens on the
+//     // event stream, print the time.
+//     timerEventStream |> Observable.subscribe (fun _ ->
+//         acc <- acc + 1) |>ignore
+
+//     async {
+//         do! basicTimer2
+//         // printfn "%i" acc
+//         acc > 2 |> equal true
+//     }
+//     |> Async.StartImmediate

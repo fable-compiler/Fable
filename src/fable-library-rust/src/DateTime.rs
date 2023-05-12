@@ -3,7 +3,7 @@ pub mod DateTime_ {
     use crate::{
         DateOnly_::DateOnly,
         DateTimeOffset_::DateTimeOffset,
-        Native_::{compare, MutCell},
+        Native_::{compare, MutCell, ToString},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::{nanoseconds_per_tick, ticks_per_second, TimeSpan},
@@ -450,13 +450,13 @@ pub mod DateTime_ {
 
         pub fn toString(&self, format: string) -> string {
             let fmt = match format.as_str() {
-                "" => "%m/%d/%Y %H:%M:%S".to_owned(),
-                "g" => "%m/%d/%Y %H:%M".to_owned(),
-                "G" => "%m/%d/%Y %H:%M:%S".to_owned(),
+                "" => "%m/%d/%Y %H:%M:%S".to_string(),
+                "g" => "%m/%d/%Y %H:%M".to_string(),
+                "G" => "%m/%d/%Y %H:%M:%S".to_string(),
                 "o" | "O" => match self.kind {
-                    DateTimeKind::Utc => "%Y-%m-%dT%H:%M:%S%.fZ".to_owned(),
-                    DateTimeKind::Local => "%Y-%m-%dT%H:%M:%S%.f%:z".to_owned(),
-                    DateTimeKind::Unspecified => "%Y-%m-%dT%H:%M:%S%.f".to_owned(),
+                    DateTimeKind::Utc => "%Y-%m-%dT%H:%M:%S%.fZ".to_string(),
+                    DateTimeKind::Local => "%Y-%m-%dT%H:%M:%S%.f%:z".to_string(),
+                    DateTimeKind::Unspecified => "%Y-%m-%dT%H:%M:%S%.f".to_string(),
                 },
                 //TODO: support more formats, custom formats, etc.
                 _ => format

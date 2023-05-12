@@ -96,12 +96,12 @@ let ``System.SByte.Parse works`` () =
 
 [<Fact>]
 let ``System.SByte.Parse with hex works`` () =
-    SByte.Parse("55", System.Globalization.NumberStyles.HexNumber) |> equal 85y
-    SByte.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95y
-    SByte.Parse("FF", System.Globalization.NumberStyles.HexNumber) |> equal -1y
-    throwsAnyError (fun () -> SByte.Parse("1FF", System.Globalization.NumberStyles.HexNumber))
-    throwsAnyError (fun () -> SByte.Parse("5o", System.Globalization.NumberStyles.HexNumber))
-    throwsAnyError (fun () -> SByte.Parse("o5", System.Globalization.NumberStyles.HexNumber))
+    SByte.Parse("55", NumberStyles.HexNumber) |> equal 85y
+    SByte.Parse("5f", NumberStyles.HexNumber) |> equal 95y
+    SByte.Parse("FF", NumberStyles.HexNumber) |> equal -1y
+    throwsAnyError (fun () -> SByte.Parse("1FF", NumberStyles.HexNumber))
+    throwsAnyError (fun () -> SByte.Parse("5o", NumberStyles.HexNumber))
+    throwsAnyError (fun () -> SByte.Parse("o5", NumberStyles.HexNumber))
 
 [<Fact>]
 let ``System.Int16.Parse works`` () =
@@ -115,12 +115,12 @@ let ``System.Int16.Parse works`` () =
 
 [<Fact>]
 let ``System.Int16.Parse with hex works`` () =
-    Int16.Parse("5555", System.Globalization.NumberStyles.HexNumber) |> equal 21845s
-    Int16.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95s
-    Int16.Parse("FFFF", System.Globalization.NumberStyles.HexNumber) |> equal -1s
-    throwsAnyError (fun () -> Int16.Parse("1FFFF", System.Globalization.NumberStyles.HexNumber))
-    throwsAnyError (fun () -> Int16.Parse("5foo", System.Globalization.NumberStyles.HexNumber))
-    throwsAnyError (fun () -> Int16.Parse("foo5", System.Globalization.NumberStyles.HexNumber))
+    Int16.Parse("5555", NumberStyles.HexNumber) |> equal 21845s
+    Int16.Parse("5f", NumberStyles.HexNumber) |> equal 95s
+    Int16.Parse("FFFF", NumberStyles.HexNumber) |> equal -1s
+    throwsAnyError (fun () -> Int16.Parse("1FFFF", NumberStyles.HexNumber))
+    throwsAnyError (fun () -> Int16.Parse("5foo", NumberStyles.HexNumber))
+    throwsAnyError (fun () -> Int16.Parse("foo5", NumberStyles.HexNumber))
 
 [<Fact>]
 let ``System.Int32.Parse works`` () =
@@ -134,12 +134,12 @@ let ``System.Int32.Parse works`` () =
 
 [<Fact>]
 let ``System.Int32.Parse with hex works`` () =
-    Int32.Parse("555555", System.Globalization.NumberStyles.HexNumber) |> equal 5592405
-    Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
-    Int32.Parse("FFFFFFFF", System.Globalization.NumberStyles.HexNumber) |> equal -1
-    throwsAnyError (fun () -> Int32.Parse("1FFFFFFFF", System.Globalization.NumberStyles.HexNumber))
-    throwsAnyError (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber))
-    throwsAnyError (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber))
+    Int32.Parse("555555", NumberStyles.HexNumber) |> equal 5592405
+    Int32.Parse("5f", NumberStyles.HexNumber) |> equal 95
+    Int32.Parse("FFFFFFFF", NumberStyles.HexNumber) |> equal -1
+    throwsAnyError (fun () -> Int32.Parse("1FFFFFFFF", NumberStyles.HexNumber))
+    throwsAnyError (fun () -> Int32.Parse("5foo", NumberStyles.HexNumber))
+    throwsAnyError (fun () -> Int32.Parse("foo5", NumberStyles.HexNumber))
 
 [<Fact>]
 let ``System.Int64.Parse works`` () =
@@ -153,12 +153,12 @@ let ``System.Int64.Parse works`` () =
 
 [<Fact>]
 let ``System.Int64.Parse with hex works`` () =
-    Int64.Parse("555555", System.Globalization.NumberStyles.HexNumber) |> equal 5592405L
-    Int64.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95L
-    Int64.Parse("FFFFFFFFFFFFFFFF", System.Globalization.NumberStyles.HexNumber) |> equal -1L
-    throwsAnyError (fun () -> Int64.Parse("1FFFFFFFFFFFFFFFF", System.Globalization.NumberStyles.HexNumber))
-    throwsAnyError (fun () -> Int64.Parse("5foo", System.Globalization.NumberStyles.HexNumber))
-    throwsAnyError (fun () -> Int64.Parse("foo5", System.Globalization.NumberStyles.HexNumber))
+    Int64.Parse("555555", NumberStyles.HexNumber) |> equal 5592405L
+    Int64.Parse("5f", NumberStyles.HexNumber) |> equal 95L
+    Int64.Parse("FFFFFFFFFFFFFFFF", NumberStyles.HexNumber) |> equal -1L
+    throwsAnyError (fun () -> Int64.Parse("1FFFFFFFFFFFFFFFF", NumberStyles.HexNumber))
+    throwsAnyError (fun () -> Int64.Parse("5foo", NumberStyles.HexNumber))
+    throwsAnyError (fun () -> Int64.Parse("foo5", NumberStyles.HexNumber))
 
 [<Fact>]
 let ``System.Int64.TryParse works`` () =

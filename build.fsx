@@ -272,8 +272,9 @@ let buildLibraryRust() =
     copyFiles sourceDir "*.rs" outDir
     copyDirRecursive (libraryDir </> "vendored") (buildDir </> "vendored")
 
-    runInDir buildDir ("cargo fmt")
-    runInDir buildDir ("cargo build")
+    runInDir buildDir "cargo fmt"
+    runInDir buildDir "cargo fix --allow-no-vcs"
+    runInDir buildDir "cargo build"
 
 let buildLibraryRustIfNotExists() =
     if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-rust")) then
@@ -562,8 +563,9 @@ let testPython() =
     // runInDir buildDir "python -m pytest -x"
 
 type RustTestMode =
-    | SingleThreaded
-    | MultiThreaded
+    | NoStd
+    | Default
+    | Threaded
     | Everything
 
 let testRust testMode =
@@ -595,6 +597,7 @@ let testRust testMode =
         "--lang Rust"
         "--fableLib fable-library-rust"
         "--noCache"
+        if testMode = NoStd then "--define NO_STD_NO_EXCEPTIONS"
     ]
 
     // copy project file
@@ -602,15 +605,20 @@ let testRust testMode =
 
     // rustfmt all tests
     runInDir buildDir "cargo fmt"
+    // runInDir buildDir "cargo fix --allow-no-vcs"
+    runInDir buildDir "cargo build"
 
     // run Fable Rust tests
     match testMode with
-    | SingleThreaded ->
+    | Default ->
         runInDir buildDir "cargo test"
-    | MultiThreaded ->
+    | NoStd ->
+        runInDir buildDir "cargo test --features no_std"
+    | Threaded ->
         runInDir buildDir "cargo test --features threaded"
     | Everything ->
         runInDir buildDir "cargo test"
+        runInDir buildDir "cargo test --features no_std"
         runInDir buildDir "cargo test --features threaded"
 
 let testDart isWatch =
@@ -802,9 +810,10 @@ match BUILD_ARGS_LOWER with
 | ("test-ts"|"test-typescript")::_ -> testTypeScript(false)
 | ("watch-test-ts"|"watch-test-typescript")::_ -> testTypeScript(true)
 | "test-py"::_ -> testPython()
-| "test-rust"::_ -> testRust SingleThreaded
-| "test-rust-default"::_ -> testRust SingleThreaded
-| "test-rust-threaded"::_ -> testRust MultiThreaded
+| "test-rust"::_ -> testRust Default
+| "test-rust-no_std"::_ -> testRust NoStd
+| "test-rust-default"::_ -> testRust Default
+| "test-rust-threaded"::_ -> testRust Threaded
 | "test-rust-all"::_ -> testRust Everything
 | "test-dart"::_ -> testDart(false)
 | "watch-test-dart"::_ -> testDart(true)

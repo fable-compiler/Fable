@@ -1,6 +1,6 @@
 pub mod Encoding_ {
-    use crate::Native_::{Lrc, LrcPtr, MutCell};
     use crate::NativeArray_::{array_from, Array};
+    use crate::Native_::{Lrc, LrcPtr, MutCell, String, Vec};
     use crate::String_::{fromChars2, fromSlice, fromString, string, substring2};
 
     pub trait Encoding {

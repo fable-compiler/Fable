@@ -24,38 +24,50 @@ module Testing =
         let e = expected |> Seq.map Seq.toArray |> Seq.toArray
         a = e |> equal true
 
-    let doesntThrow f =
-        try
-            f() |> ignore
-            true
-        with e ->
-            false
-        |> equal true
+#if NO_STD_NO_EXCEPTIONS
+    [<AutoOpen>]
+    // [<Fable.Core.Rust.OuterAttr("cfg", [|"feature = \"no_std\""|])>]
+    module ExceptionUtils =
+        let doesntThrow f = ()
+        let throwsAnyError f = ()
+        let throwsError (expected: string) f = ()
+        let throwsErrorContaining (expected: string) f = ()
+#else
+    [<AutoOpen>]
+    // [<Fable.Core.Rust.OuterAttr("cfg", [|"not(feature = \"no_std\")"|])>]
+    module ExceptionUtils =
+        let doesntThrow f =
+            try
+                f() |> ignore
+                true
+            with e ->
+                false
+            |> equal true
 
-    let throwsAnyError f =
-        try
-            f() |> ignore
-            false
-        with e ->
-            true
-        |> equal true
+        let throwsAnyError f =
+            try
+                f() |> ignore
+                false
+            with e ->
+                true
+            |> equal true
 
-    let throwsError (expected: string) f =
-        try
-            f() |> ignore
-            false
-        with e ->
-            e.Message = expected
-        |> equal true
+        let throwsError (expected: string) f =
+            try
+                f() |> ignore
+                false
+            with e ->
+                e.Message = expected
+            |> equal true
 
-    let throwsErrorContaining (expected: string) f =
-        try
-            f() |> ignore
-            false
-        with e ->
-            e.Message.Contains(expected)
-        |> equal true
-
+        let throwsErrorContaining (expected: string) f =
+            try
+                f() |> ignore
+                false
+            with e ->
+                e.Message.Contains(expected)
+            |> equal true
+#endif
 
 // let rec sumFirstSeq (zs: seq<float>) (n: int): float =
 //     match n with

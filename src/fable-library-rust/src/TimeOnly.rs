@@ -2,7 +2,7 @@
 pub mod TimeOnly_ {
     use crate::{
         DateTime_::{duration_to_ticks, ticks_to_duration, DateTime},
-        Native_::{compare, MutCell},
+        Native_::{compare, MutCell, ToString},
         String_::{fromString, string},
         TimeSpan_::{nanoseconds_per_tick, ticks_per_day, TimeSpan},
     };
@@ -196,9 +196,9 @@ pub mod TimeOnly_ {
 
         pub fn toString(&self, format: string) -> string {
             let fmt = match format.as_str() {
-                "" | "t" => "%H:%M".to_owned(),
-                "o" | "O" => "%H:%M:%S%.f".to_owned(),
-                "r" | "R" | "T" => "%H:%M:%S".to_owned(),
+                "" | "t" => "%H:%M".to_string(),
+                "o" | "O" => "%H:%M:%S%.f".to_string(),
+                "r" | "R" | "T" => "%H:%M:%S".to_string(),
                 //TODO: support more formats, custom formats, etc.
                 _ => format
                     .replace("hh", "%H")

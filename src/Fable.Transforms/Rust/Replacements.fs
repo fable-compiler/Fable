@@ -1760,9 +1760,7 @@ let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
 let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseCall meth str args style =
-        let outValue =
-            if meth = "TryParse" then [List.last args] else []
-        let moduleName, meth, withStyleArg =
+        let moduleName, memberName, withStyleArg =
             match t with
             | Number(Decimal, _) ->
                 "Decimal", Naming.lowerFirst meth, false
@@ -1772,10 +1770,12 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
                 "Convert", Naming.lowerFirst meth + kind.ToString(), true
             | _ ->
                 "Convert", Naming.lowerFirst meth, true
+        let outValue =
+            if meth = "TryParse" then [List.last args] else []
         let args =
             if not withStyleArg then [str] @ outValue
             else [str; makeIntConst style] @ outValue
-        Helper.LibCall(com, moduleName, meth, t, args, ?loc=r)
+        Helper.LibCall(com, moduleName, memberName, t, args, ?loc=r)
 
     let isFloat =
         match i.SignatureArgTypes with
