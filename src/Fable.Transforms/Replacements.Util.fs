@@ -379,12 +379,14 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
 let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
     match com.Options.Language with
     | JavaScript | TypeScript | Dart | Python ->
-        let argTypes, returnType = uncurryLambdaType -1 [] expr.Type
-        let curriedType = makeLambdaType argTypes returnType
-        let curried = Helper.LibCall(com, "Util", $"curry{argTypes.Length}", curriedType, [expr])
-        match partialArgs with
-        | [] -> curried
-        | partialArgs -> curriedApply None t curried partialArgs
+        match uncurryLambdaType -1 [] expr.Type with
+        | ([]|[_]), _ -> expr
+        | argTypes, returnType ->
+            let curriedType = makeLambdaType argTypes returnType
+            let curried = Helper.LibCall(com, "Util", $"curry{argTypes.Length}", curriedType, [expr])
+            match partialArgs with
+            | [] -> curried
+            | partialArgs -> curriedApply None t curried partialArgs
     | _ ->
         // Check if argTypes.Length < arity?
         let argTypes, returnType = uncurryLambdaType arity [] t
