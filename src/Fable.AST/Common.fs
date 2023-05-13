@@ -24,7 +24,7 @@ type SourceLocation =
         |> Option.bind (fun name ->
             match name.IndexOf(";file:") with
             | -1 -> None
-            | i -> name.Substring(";file:".Length) |> Some)
+            | i -> name.Substring(i + ";file:".Length) |> Some)
 
     static member Create(start: Position, ``end``: Position, ?file: string, ?displayName: string) =
         let identifierName =
