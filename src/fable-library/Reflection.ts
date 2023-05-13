@@ -410,7 +410,7 @@ export function isFunction(t: TypeInfo): boolean {
 
 export function getUnionFields(v: any, t: TypeInfo): [CaseInfo, any[]] {
   const cases = getUnionCases(t);
-  const case_ = cases[v.tag];
+  const case_ = cases[getCaseTag(v)];
   if (case_ == null) {
     throw new Error(`Cannot find case ${v.name} in union type`);
   }
@@ -454,7 +454,7 @@ export function makeUnion(uci: CaseInfo, values: any[]): any {
     return new construct(...values);
   }
   else {
-    return new construct(uci.tag, values);
+    return new construct(getCaseTag(uci), values);
   }
 }
 
@@ -517,23 +517,69 @@ export function getValue(propertyInfo: PropertyInfo, v: any): any {
 
 // Fable.Core.Reflection
 
-function assertUnion(x: any) {
-  if (!(x instanceof Union)) {
-    throw new Error(`Value is not an F# union type`);
-  }
-}
+// Erased: fields: tuple or element, tag: 0, name: ""
+// StringEnum: fields: [], tag: x, name: x
+// TypeScriptTaggedUnion: fields: xs, tag: x, name: x
 
 export function getCaseTag(x: any): number {
-  assertUnion(x);
-  return x.tag;
+  return x instanceof Union ? x.tag : 0;
 }
 
 export function getCaseName(x: any): string {
-  assertUnion(x);
-  return x.cases()[x.tag];
+  return x instanceof Union ? x.cases()[x.tag] : "";
 }
 
 export function getCaseFields(x: any): any[] {
-  assertUnion(x);
-  return x.fields;
+  return x instanceof Union ? x.fields : [x];
+}
+
+interface SpecialUnion {
+  getTag: (x: any) => number,
+  getName: (x: any) => string,
+  getFields: (x: any) => any[],
+  getCases: () => CaseInfo[],
+  make: (uci: CaseInfo, values: any[]) => any,
+}
+
+export class StringEnum extends TypeInfo implements SpecialUnion {
+  constructor(public names: string[]) {
+    super();
+  }
+
+  getTag(x: any) {
+    return this.names.findIndex(x);
+  }
+  getName(x: any) {
+    return x;
+  }
+  getFields(_: any) {
+    return [];
+  }
+  getCases() {
+    return this.names.map((name, i) => new CaseInfo(this, i, name));
+  }
+  make(uci: CaseInfo, _: any[]) {
+    return uci.name;
+  }
+}
+
+export class TypeScriptTaggedUnion extends TypeInfo implements SpecialUnion {
+  constructor(public tagField: string, public names: string[]) {
+    super();
+  }
+  getTag(x: any) {
+    return this.names.findIndex(this.getName(x));
+  }
+  getName(x: any) {
+    return x[this.tagField];
+  }
+  getFields(x: any) {
+    return Object.entries(x).filter(([k, _]) => k != this.tagField).map(([_,v]) => v);
+  }
+  getCases() {
+    return this.names.map((name, i) => new CaseInfo(this, i, name));
+  }
+  make(uci: CaseInfo, _: any[]) {
+    return uci.name;
+  }
 }
