@@ -14,7 +14,7 @@
  */
 
 import { int64, fromFloat64, toFloat64 } from "./BigInt.js";
-import { create as createDate, dateOffsetToString, daysInMonth, parseRaw, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Date.js";
+import DateTime, { create as createDate, dateOffsetToString, daysInMonth, parseRaw, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Date.js";
 import { FSharpRef } from "./Types.js";
 import { compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
@@ -161,12 +161,12 @@ export function utcNow() {
   return DateTimeOffset(date.getTime(), 0);
 }
 
-export function toUniversalTime(date: IDateTimeOffset) {
-  return DateTimeOffset(date.getTime(), 0);
+export function toUniversalTime(date: IDateTimeOffset): Date {
+  return DateTime(date.getTime(), DateKind.UTC);
 }
 
-export function toLocalTime(date: Date) {
-  return DateTimeOffset(date.getTime(), date.getTimezoneOffset() * -60000);
+export function toLocalTime(date: IDateTimeOffset): Date {
+  return DateTime(date.getTime(), DateKind.Local);
 }
 
 export function timeOfDay(d: IDateTimeOffset) {
