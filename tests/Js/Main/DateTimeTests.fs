@@ -103,6 +103,25 @@ let tests =
         // dto.ToString() |> equal "2014-10-09 13:23:30 +00:00"
         dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 
+    testCase "DateTimeOffset.UtcDateTime works" <| fun () ->
+        let timeStr = "2016-07-07T01:00:00.000Z"
+        let dtOffset = System.DateTimeOffset.Parse timeStr
+        let dt = dtOffset.UtcDateTime
+        equal 7 dt.Day
+        equal 1 dt.Hour
+        equal 0 dt.Minute
+        equal DateTimeKind.Utc dt.Kind
+
+    testCase "DateTimeOffset.LocalDateTime works" <| fun () ->
+        let timeStr = "2016-07-07T01:00:00.000Z"
+        let dtOffset = System.DateTimeOffset.Parse timeStr
+        let dt = dtOffset.LocalDateTime
+        equal DateTimeKind.Local dt.Kind
+        let dt2 = DateTime.Parse(timeStr, CultureInfo.InvariantCulture).ToLocalTime()
+        equal dt2.Day dt.Day
+        equal dt2.Hour dt.Hour
+        equal dt2.Minute dt.Minute
+
     testCase "DateTime.Hour works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
         d.Hour |> equal 13
