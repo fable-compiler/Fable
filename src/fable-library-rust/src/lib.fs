@@ -20,6 +20,7 @@ let _imports() =
     importAll "./Native.rs"
     importAll "./NativeArray.rs"
     importAll "./Numeric.rs"
+    importAll "./RegExp.rs"
     importAll "./String.rs"
     importAll "./TimeOnly.rs"
     importAll "./TimeSpan.rs"

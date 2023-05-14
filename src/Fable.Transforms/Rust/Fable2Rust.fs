@@ -470,6 +470,13 @@ module TypeInfo =
         | Replacements.Util.IsEntity (Types.keyCollection) _
         | Replacements.Util.IsEntity (Types.valueCollection) _
         | Replacements.Util.IsEntity (Types.icollectionGeneric) _
+        // already wrapped
+        | Replacements.Util.IsEntity (Types.regexMatch) _
+        | Replacements.Util.IsEntity (Types.regexGroup) _
+        | Replacements.Util.IsEntity (Types.regexCapture) _
+        // | Replacements.Util.IsEntity (Types.regexMatchCollection) _
+        // | Replacements.Util.IsEntity (Types.regexGroupCollection) _
+        // | Replacements.Util.IsEntity (Types.regexCaptureCollection) _
             -> true
         | _ -> false
 
@@ -659,6 +666,9 @@ module TypeInfo =
 
     let transformGuidType com ctx: Rust.Ty =
         transformImportType com ctx [] "Guid" "Guid"
+
+    let transformRegexType com ctx: Rust.Ty =
+        transformImportType com ctx [] "RegExp" "Regex"
 
     let transformTimeSpanType com ctx: Rust.Ty =
         transformImportType com ctx [] "TimeSpan" "TimeSpan"
@@ -961,9 +971,7 @@ module TypeInfo =
             | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
             | Fable.Array(genArg, _kind) -> transformArrayType com ctx genArg
             | Fable.List genArg -> transformListType com ctx genArg
-            | Fable.Regex ->
-                // nonGenericTypeInfo Types.regex
-                TODO_TYPE $"%A{typ}" //TODO:
+            | Fable.Regex -> transformRegexType com ctx
             | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
                 transformTupleType com ctx isStruct genArgs
 
@@ -981,6 +989,14 @@ module TypeInfo =
             | Replacements.Util.IsEntity (Types.taskBuilder) (_, []) -> transformTaskBuilderType com ctx
             | Replacements.Util.IsEntity (Types.taskBuilderModule) (_, []) -> transformTaskBuilderType com ctx
             | Replacements.Util.IsEntity (Types.thread) (_, []) -> transformThreadType com ctx
+
+            // implemented regex types
+            | Replacements.Util.IsEntity (Types.regexMatch) (_, []) -> transformImportType com ctx [] "RegExp" "Match"
+            | Replacements.Util.IsEntity (Types.regexGroup) (_, []) -> transformImportType com ctx [] "RegExp" "Group"
+            | Replacements.Util.IsEntity (Types.regexCapture) (_, []) -> transformImportType com ctx [] "RegExp" "Capture"
+            | Replacements.Util.IsEntity (Types.regexMatchCollection) (_, []) -> transformImportType com ctx [] "RegExp" "MatchCollection"
+            | Replacements.Util.IsEntity (Types.regexGroupCollection) (_, []) -> transformImportType com ctx [] "RegExp" "GroupCollection"
+            | Replacements.Util.IsEntity (Types.regexCaptureCollection) (_, []) -> transformImportType com ctx [] "RegExp" "CaptureCollection"
 
             | Replacements.Util.IsEnumerator (entRef, genArgs) ->
                 // get IEnumerator interface from enumerator object
