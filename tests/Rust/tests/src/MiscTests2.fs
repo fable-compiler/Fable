@@ -1084,16 +1084,19 @@ let ``Type of if-then-else expression is correctly determined when 'else' branch
 
 [<Fact>]
 let ``Type of try-with expression is correctly determined when 'try' block throws`` () =
-    let f () =
-        try failwith "error" with | _ -> 7
-    f () |> equal 7
+    doesntThrow (fun () ->
+        let f () =
+            try failwith "error" with | _ -> 7
+        f () |> equal 7
+    )
 
 [<Fact>]
 let ``Type of try-with expression is correctly determined when exception handler throws`` () =
-    let f () =
-        try 7 with | _ -> failwith "error"
-    f () |> equal 7
-
+    doesntThrow (fun () ->
+        let f () =
+            try 7 with | _ -> failwith "error"
+        f () |> equal 7
+    )
 [<Fact>]
 let ``use doesn't return on finally clause`` () = // See #211
     let foo() =
