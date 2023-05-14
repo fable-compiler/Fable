@@ -1,7 +1,7 @@
 pub mod Encoding_ {
     use crate::NativeArray_::{array_from, Array};
     use crate::Native_::{Lrc, LrcPtr, MutCell, String, Vec};
-    use crate::String_::{fromChars2, fromSlice, fromString, string, substring2};
+    use crate::String_::{fromChars2, fromSlice, fromString, string, substring2_safe};
 
     pub trait Encoding {
         fn getBytes(&self, s: string) -> Array<u8>;
@@ -65,7 +65,7 @@ pub mod Encoding_ {
         }
 
         fn getBytes2(&self, s: string, index: i32, count: i32) -> Array<u8> {
-            self.getBytes(substring2(s, index, count))
+            self.getBytes(substring2_safe(s, index, count))
         }
 
         fn getBytesFromChars(&self, chars: Array<char>) -> Array<u8> {
@@ -81,7 +81,7 @@ pub mod Encoding_ {
         }
 
         fn getByteCount2(&self, s: string, index: i32, count: i32) -> i32 {
-            self.getByteCount(substring2(s, index, count))
+            self.getByteCount(substring2_safe(s, index, count))
         }
 
         fn getByteCountFromChars(&self, chars: Array<char>) -> i32 {
@@ -153,7 +153,7 @@ pub mod Encoding_ {
         }
 
         fn getBytes2(&self, s: string, index: i32, count: i32) -> Array<u8> {
-            self.getBytes(substring2(s, index, count))
+            self.getBytes(substring2_safe(s, index, count))
         }
 
         fn getBytesFromChars(&self, chars: Array<char>) -> Array<u8> {
@@ -169,7 +169,7 @@ pub mod Encoding_ {
         }
 
         fn getByteCount2(&self, s: string, index: i32, count: i32) -> i32 {
-            self.getByteCount(substring2(s, index, count))
+            self.getByteCount(substring2_safe(s, index, count))
         }
 
         fn getByteCountFromChars(&self, chars: Array<char>) -> i32 {

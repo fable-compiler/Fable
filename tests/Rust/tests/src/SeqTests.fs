@@ -141,12 +141,12 @@ let ``Seq.append works`` () =
 // [<Fact>]
 // let ``Seq.average for empty sequence`` () =
 //     let xs = Seq.empty<float>
-//     (try Seq.average xs |> ignore; false with | _ -> true) |> equal true
+//     throwsAnyError (fun () -> Seq.average xs |> ignore)
 
 // [<Fact>]
 // let ``Seq.averageBy for empty sequence`` () =
 //     let xs = Seq.empty<float>
-//     (try Seq.averageBy ((*) 2.) xs |> ignore; false with | _ -> true) |> equal true
+//     throwsAnyError (fun () -> Seq.averageBy ((*) 2.) xs |> ignore)
 
 [<Fact>]
 let ``Seq.average works`` () =
@@ -795,14 +795,12 @@ let ``Seq.skip works`` () =
 let ``Seq.skip fails when there're not enough elements`` () =
     let mutable error = false
     let xs = [|1;2;3;4;5|]
-    try
+    doesntThrow (fun () ->
         Seq.skip 5 xs |> Seq.length |> equal 0
-    with _ -> error <- true
-    error |> equal false
-    try
+    )
+    throwsAnyError (fun () ->
         Seq.skip 6 xs |> Seq.length |> equal 0
-    with _ -> error <- true
-    error |> equal true
+    )
 
 [<Fact>]
 let ``Seq.toArray works`` () =
@@ -1079,8 +1077,7 @@ let ``Seq.take works`` () =
 let ``Seq.take works II`` () =
     let xs = [1.; 2.; 3.; 4.; 5.]
     // Seq.take should throw an exception if there're not enough elements
-    try xs |> Seq.take 20 |> Seq.length with _ -> -1
-    |> equal -1
+    throwsAnyError (fun () -> xs |> Seq.take 20 |> Seq.length |> ignore)
 
 [<Fact>]
 let ``Seq.takeWhile works`` () =
@@ -1120,7 +1117,7 @@ let ``Seq.except works`` () =
 [<Fact>]
 let ``Seq.item throws exception when index is out of range`` () =
     let xs = [0]
-    (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true
+    throwsAnyError (fun () -> Seq.item 1 xs |> ignore)
 
 [<Fact>]
 let ``Seq iterators from range do rewind`` () =

@@ -426,5 +426,4 @@ let ``Option.map ignore generates Some ()`` () = // See #1923
 //     x.Value |> equal 5
 //     let y: System.Nullable<int> = System.Nullable()
 //     y.HasValue |> equal false
-//     let errorThrown = try y.Value |> ignore; false with _ -> true
-//     equal true errorThrown
+//     throwsAnyError (fun () -> y.Value |> ignore)

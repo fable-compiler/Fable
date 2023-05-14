@@ -296,9 +296,17 @@ pub mod String_ {
     }
 
     // O(n) because Rust strings are UTF-8
-    pub fn get_char_pos(s: &string, i: i32) -> usize {
-        if i == 0 { 0 }
-        else { s.chars().take(i as usize).map(|c| c.len_utf8()).sum() }
+    pub fn get_char_pos(s: &string, i: i32) -> (usize, i32) {
+        if i <= 0 { (0, 0) }
+        else {
+            let mut n = 0;
+            let mut pos: usize = 0;
+            for c in s.chars().take(i as usize) {
+                n = n + 1;
+                pos = pos + c.len_utf8();
+            }
+            (pos, n)
+        }
     }
 
     pub fn fromChar(c: char, count: i32) -> string {
@@ -432,12 +440,28 @@ pub mod String_ {
         fromString(s.replace(old.as_str(), new.as_str()))
     }
 
+    pub fn substring_safe(s: string, i: i32) -> string {
+        if i <= 0 { s }
+        else {
+            let (pos, n) = get_char_pos(&s, i);
+            fromSlice(&s[pos..])
+        }
+    }
+
+    pub fn substring2_safe(s: string, i: i32, count: i32) -> string {
+        let (pos, n1) = get_char_pos(&s, i);
+        let (end, n2) = get_char_pos(&s, i + count);
+        fromSlice(&s[pos..end])
+    }
+
     pub fn substring(s: string, i: i32) -> string {
         if (i < 0) {
             panic!("Argument out of range")
         }
-        // fromIter(s.chars().skip(i as usize))
-        let pos = get_char_pos(&s, i);
+        let (pos, n) = get_char_pos(&s, i);
+        if (n != i) || (pos > s.len()) {
+            panic!("Argument out of range")
+        }
         fromSlice(&s[pos..])
     }
 
@@ -445,9 +469,11 @@ pub mod String_ {
         if (i < 0) || (count < 0) {
             panic!("Argument out of range")
         }
-        // fromIter(s.chars().skip(index as usize).take(count as usize))
-        let pos = get_char_pos(&s, i);
-        let end = get_char_pos(&s, i + count);
+        let (pos, n1) = get_char_pos(&s, i);
+        let (end, n2) = get_char_pos(&s, i + count);
+        if (n1 != i) || (n2 != i + count) || (pos > s.len()) || (end > s.len()) {
+            panic!("Argument out of range")
+        }
         fromSlice(&s[pos..end])
     }
 
@@ -458,17 +484,17 @@ pub mod String_ {
             },
             (Some(start), None) => {
                 let start = if start < 0 { 0 } else { start };
-                substring(s, start)
+                substring_safe(s, start)
             },
             (None, Some(stop)) => {
                 let start = 0;
                 let count = if stop < start { 0 } else { stop - start + 1 };
-                substring2(s, 0, count)
+                substring2_safe(s, 0, count)
             },
             (Some(start), Some(stop)) => {
                 let start = if start < 0 { 0 } else { start };
                 let count = if stop < start { 0 } else { stop - start + 1 };
-                substring2(s, start, count)
+                substring2_safe(s, start, count)
             },
         }
     }

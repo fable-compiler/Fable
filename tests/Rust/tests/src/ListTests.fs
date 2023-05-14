@@ -264,9 +264,9 @@ let ``List.exactlyOne works`` () =
 [<Fact>]
 let ``List.exactlyOne works II`` () =
     let xs2 = [1.; 2.]
-    (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
+    throwsAnyError (fun () -> List.exactlyOne xs2 |> ignore)
     let xs3: float list = []
-    (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
+    throwsAnyError (fun () -> List.exactlyOne xs3 |> ignore)
 
 [<Fact>]
 let ``List.tryExactlyOne works`` () =
@@ -623,8 +623,7 @@ let ``List.take works`` () =
 let ``List.take works II`` () =
     let xs = [1.; 2.; 3.; 4.; 5.]
     // List.take should throw an exception if there're not enough elements
-    try xs |> List.take 20 |> List.length with _ -> -1
-    |> equal -1
+    throwsAnyError (fun () -> xs |> List.take 20 |> List.length |> ignore)
 
 [<Fact>]
 let ``List.takeWhile works`` () =
@@ -1026,7 +1025,7 @@ let ``Types with same name as imports work`` () =
 [<Fact>]
 let ``List.Item throws exception when index is out of range`` () =
     let xs = [0]
-    (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
+    throwsAnyError (fun () -> xs.Item 1 |> ignore)
 
 [<Fact>]
 let ``List.except works`` () =

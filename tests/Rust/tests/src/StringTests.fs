@@ -1090,13 +1090,10 @@ let ``String.Substring works with length`` () =
     "abcdefg".Substring(2, 2)
     |> equal "cd"
 
-// [<Fact>]
-// let ``String.Substring throws error if startIndex or length are out of bounds`` () = // See #1955
-//     let throws f =
-//         try f () |> ignore; false
-//         with _ -> true
-//     throws (fun _ -> "abcdefg".Substring(20)) |> equal true
-//     throws (fun _ -> "abcdefg".Substring(2, 10)) |> equal true
+[<Fact>]
+let ``String.Substring throws error if startIndex or length are out of bounds`` () = // See #1955
+    throwsAnyError (fun () -> "abcdefg".Substring(20))
+    throwsAnyError (fun () -> "abcdefg".Substring(2, 10))
 
 [<Fact>]
 let ``String.ToUpper works`` () =

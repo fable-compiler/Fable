@@ -256,7 +256,8 @@ pub mod RegExp_ {
         }
 
         pub fn isMatch_sn(&self, input: string, start: i32) -> bool {
-            self.is_match_at(input.as_str(), get_char_pos(&input, start))
+            let (pos, n) = get_char_pos(&input, start);
+            self.is_match_at(input.as_str(), pos)
         }
 
         pub fn isMatch__ss(input: string, pat: string) -> bool {
@@ -291,7 +292,8 @@ pub mod RegExp_ {
         }
 
         pub fn match_sn(&self, input: string, start: i32) -> Match {
-            match self.captures_at(input.as_str(), get_char_pos(&input, start)) {
+            let (pos, n) = get_char_pos(&input, start);
+            match self.captures_at(input.as_str(), pos) {
                 Some(captures) => Match::new(&input, &self.capture_names(), &captures),
                 None => Match::empty(),
             }
@@ -299,7 +301,8 @@ pub mod RegExp_ {
 
         pub fn match_snn(&self, input: string, start: i32, count: i32) -> Match {
             let input = substring2(input, 0, start + count);
-            match self.captures_at(input.as_str(), get_char_pos(&input, start)) {
+            let (pos, n) = get_char_pos(&input, start);
+            match self.captures_at(input.as_str(), pos) {
                 Some(captures) => Match::new(&input, &self.capture_names(), &captures),
                 None => Match::empty(),
             }
@@ -354,7 +357,8 @@ pub mod RegExp_ {
         }
 
         pub fn replace_ssnn(&self, input: string, rep: string, count: i32, start: i32) -> string {
-            let (prefix, input) = input.split_at(get_char_pos(&input, start));
+            let (pos, n) = get_char_pos(&input, start);
+            let (prefix, input) = input.split_at(pos);
             let str = self.replacen(input, count as usize, rep.as_str());
             let s = [prefix, str.borrow()].join("");
             fromString(s)
@@ -385,7 +389,8 @@ pub mod RegExp_ {
             count: i32,
             start: i32,
         ) -> string {
-            let (prefix, input) = input.split_at(get_char_pos(&input, start));
+            let (pos, n) = get_char_pos(&input, start);
+            let (prefix, input) = input.split_at(pos);
             let input = fromSlice(input);
             let names = self.capture_names();
             let str = self.replacen(
