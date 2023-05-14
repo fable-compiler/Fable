@@ -185,8 +185,8 @@ module Util =
         | Types.valueType, _ -> Object
         | Types.nullable, [genArg]
         | "Fable.Core.Dart.DartNullable`1", [genArg] -> Nullable genArg
-        | "System.Text.RegularExpressions.Group", _ -> Nullable String
-        | "System.Text.RegularExpressions.Match", _ ->
+        | Types.regexGroup, _ -> Nullable String
+        | Types.regexMatch, _ ->
             makeTypeRefFromName "Match" []
         // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
         | Naming.EndsWith "Exception" _, _ -> Dynamic
@@ -1502,7 +1502,7 @@ module Util =
                 | ExprType(Fable.String) ->
                     Dart.Replacements.stringToCharSeq expr |> transform com ctx returnStrategy
 
-                | ExprType(Fable.DeclaredType(EntRefFullName "System.Text.RegularExpressions.Match", _)) ->
+                | ExprType(Fable.DeclaredType(EntRefFullName Types.regexMatch, _)) ->
                     Dart.Replacements.regexMatchToSeq com t expr |> transform com ctx returnStrategy
 
                 | _ -> transformCast com ctx t returnStrategy expr

@@ -2254,7 +2254,7 @@ let regexMatchToSeq com t e =
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let isGroup = function
-        | ExprType(DeclaredTypeFullName "System.Text.RegularExpressions.Group") -> true
+        | ExprType(DeclaredTypeFullName Types.regexGroup) -> true
         | _ -> false
 
     let createRegex r t args =
@@ -2279,7 +2279,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // MatchCollection & GroupCollection
     | "get_Item", Some thisArg ->
         match i.DeclaringEntityFullName with
-        | "System.Text.RegularExpressions.GroupCollection" ->
+        | Types.regexGroupCollection ->
             // can be group index or group name: `m.Groups.[0]` `m.Groups.["name"]`
             let meth =
                 match args with
@@ -2290,14 +2290,14 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             Helper.InstanceCall(thisArg, "elementAt", t, args, ?loc=r) |> Some
     | "get_Count", Some thisArg ->
         match i.DeclaringEntityFullName with
-        | "System.Text.RegularExpressions.GroupCollection" ->
+        | Types.regexGroupCollection ->
             // In Dart group count doesn't include group 0 so we need to add 1
             let groupCount = getFieldWith r t thisArg "groupCount"
             makeBinOp None t groupCount (makeIntConst 1) BinaryPlus |> Some
         | _ -> getLength thisArg |> Some
     | "GetEnumerator", Some thisArg ->
         match i.DeclaringEntityFullName with
-        | "System.Text.RegularExpressions.GroupCollection" ->
+        | Types.regexGroupCollection ->
             Helper.LibCall(com, "RegExp", "GroupIterator", t, [thisArg], ?loc=r) |> Some
         | _ -> getEnumerator com r t thisArg |> Some
     | "IsMatch" | "Match" | "Matches" as meth, thisArg ->
@@ -2741,11 +2741,11 @@ let private replacedModules =
     "System.Text.Encoding", encoding
     "System.Text.UnicodeEncoding", encoding
     "System.Text.UTF8Encoding", encoding
-    "System.Text.RegularExpressions.Capture", regex
-    "System.Text.RegularExpressions.Match", regex
-    "System.Text.RegularExpressions.Group", regex
-    "System.Text.RegularExpressions.MatchCollection", regex
-    "System.Text.RegularExpressions.GroupCollection", regex
+    Types.regexCapture, regex
+    Types.regexMatch, regex
+    Types.regexGroup, regex
+    Types.regexMatchCollection, regex
+    Types.regexGroupCollection, regex
     Types.regex, regex
     Types.fsharpSet, sets
     "Microsoft.FSharp.Collections.SetModule", setModule

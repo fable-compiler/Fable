@@ -2,8 +2,8 @@ module Fable.Tests.ListTests
 
 open Util.Testing
 
-// type List(x: int) =
-//     member val Value = x
+type List(x: int) =
+    member val Value = x
 
 type ExceptFoo = { Bar:string }
 
@@ -235,7 +235,7 @@ let ``List.append works II`` () =
     li4[1] |> equal 16
     li4[9] |> equal 3
     List.length li4 |> equal 12
-    // List.sum li4 |> equal 84
+    List.sum li4 |> equal 84
 
 [<Fact>]
 let ``List.append works with empty list`` () =
@@ -345,11 +345,11 @@ let ``List.foldBack2 works`` () =
     let total = List.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
     total |> equal -4
 
-// [<Fact>]
-// let ``List.foldBack with composition works`` () =
-//     [1; 2; 3; 4]
-//     |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
-//     |> equal 12
+[<Fact>]
+let ``List.foldBack with composition works`` () =
+    [1; 2; 3; 4]
+    |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
+    |> equal 12
 
 [<Fact>]
 let ``List.forall works`` () =
@@ -1018,15 +1018,15 @@ let ``List.windowed works`` () = // See #1716
     List.windowed 6 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]]
     List.windowed 7 nums |> List.isEmpty |> equal true
 
-// [<Fact>]
-// let ``Types with same name as imports work`` () =
-//     let li = [List 5]
-//     equal 5 li.Head.Value
+[<Fact>]
+let ``Types with same name as imports work`` () =
+    let li = [List 5]
+    equal 5 li.Head.Value
 
-// [<Fact>]
-// let ``List.Item throws exception when index is out of range`` () =
-//     let xs = [0]
-//     (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
+[<Fact>]
+let ``List.Item throws exception when index is out of range`` () =
+    let xs = [0]
+    (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
 
 [<Fact>]
 let ``List.except works`` () =

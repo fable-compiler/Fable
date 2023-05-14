@@ -3162,7 +3162,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 
     let isGroup =
         match thisArg with
-        | Some(ExprType(DeclaredTypeFullName "System.Text.RegularExpressions.Group")) -> true
+        | Some(ExprType(DeclaredTypeFullName Types.regexGroup)) -> true
         | _ -> false
 
     match i.CompiledName with
@@ -3201,7 +3201,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Success" ->
         nullCheck r false thisArg.Value |> Some
     // MatchCollection & GroupCollection
-    | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
+    | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
         Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
@@ -3853,11 +3853,11 @@ let private replacedModules =
            "System.Text.Encoding", encoding
            "System.Text.UnicodeEncoding", encoding
            "System.Text.UTF8Encoding", encoding
-           "System.Text.RegularExpressions.Capture", regex
-           "System.Text.RegularExpressions.Match", regex
-           "System.Text.RegularExpressions.Group", regex
-           "System.Text.RegularExpressions.MatchCollection", regex
-           "System.Text.RegularExpressions.GroupCollection", regex
+           Types.regexCapture, regex
+           Types.regexMatch, regex
+           Types.regexGroup, regex
+           Types.regexMatchCollection, regex
+           Types.regexGroupCollection, regex
            Types.regex, regex
            Types.fsharpSet, sets
            "Microsoft.FSharp.Collections.SetModule", setModule

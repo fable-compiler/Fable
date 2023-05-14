@@ -70,12 +70,14 @@ let makeStaticLibCall com r t (i: CallInfo) moduleName memberName args =
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs,
         isModuleMember=false, isConstructor=isConstructor, ?loc=r)
 
-let makeStaticMemberCall com r t i moduleName memberName args =
-    let memberName = moduleName + "::" + memberName
+let makeStaticMemberCall com r t (i: CallInfo) moduleName memberName args =
+    let fullName = i.DeclaringEntityFullName
+    let entityName = fullName.Substring(fullName.LastIndexOf(".") + 1)
+    let memberName = entityName + "::" + memberName
     makeStaticLibCall com r t i moduleName memberName args
 
-let makeStaticFieldCall com r t moduleName memberName =
-    let memberName = moduleName + "::" + memberName
+let makeStaticFieldCall com r t moduleName entityName memberName =
+    let memberName = entityName + "::" + memberName
     Helper.LibCall(com, moduleName, memberName, t, [], ?isModuleMember=Some(false), ?loc=r)
 
 let makeLibCall com r t (i: CallInfo) moduleName memberName args =
@@ -1128,6 +1130,9 @@ let getEnumerator com r t i (expr: Expr) =
     | IsEntity (Types.keyCollection) _
     | IsEntity (Types.valueCollection) _
     | IsEntity (Types.icollectionGeneric) _
+    // | IsEntity (Types.regexMatchCollection) _
+    // | IsEntity (Types.regexGroupCollection) _
+    // | IsEntity (Types.regexCaptureCollection) _
     | Array _ ->
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [expr], ?loc=r)
     | List _ ->
@@ -1440,7 +1445,7 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "Cast", [arg] -> Some arg // Erase
+    | "Cast", [MaybeCasted(arg)] -> Some arg // Erase
     // | "ToArray", [arg] ->
     //     Helper.LibCall(com, "Array", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToList", [arg] ->
@@ -2550,71 +2555,48 @@ let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.LibCall(com, "Reflection", "createInstance", t, args, ?loc=r) |> Some
     | _ -> None
 
+// alternative member suffix for languages that don't support member overloads
+let getArgsSuffix (thisArg: Expr option) (args: Expr list) =
+    let chars = [|
+        if thisArg.IsNone then '_' // static methods have extra _
+        if args.Length > 0 then '_'
+        for arg in args do
+            match arg.Type with
+            | Measure _ -> '_'
+            | MetaType -> '_'
+            | Any -> '_'
+            | Unit -> 'u'
+            | Boolean -> 'b'
+            | Char -> 'c'
+            | String -> 's'
+            | Regex -> 'r'
+            | Number _ -> 'n'
+            | Option _ -> 'o'
+            | Tuple _ -> 't'
+            | Array _ -> 'a'
+            | List _ -> 'l'
+            | LambdaType _ -> 'f'
+            | DelegateType _ -> 'f'
+            | GenericParam _ -> 'g'
+            | DeclaredType _ -> '_'
+            | AnonymousRecordType _ -> '_'
+    |]
+    System.String(chars)
+
+let bclNativeImpl com ctx r t i moduleName memberName (thisArg: Expr option) (args: Expr list) =
+    let suffix = getArgsSuffix thisArg args
+    let memberName = memberName + suffix
+    match thisArg with
+    | Some callee -> makeInstanceCall r t i callee memberName args
+    | None -> makeStaticMemberCall com r t i moduleName memberName args
+
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let propInt p callee = getExpr r t callee (makeIntConst p)
-    let propStr p callee = getExpr r t callee (makeStrConst p)
-    let isGroup =
-        match thisArg with
-        | Some(ExprType(DeclaredTypeFullName "System.Text.RegularExpressions.Group")) -> true
-        | _ -> false
-
     match i.CompiledName with
-    | ".ctor" ->
-        match args with
-        | [StringConst pattern] -> makeRegexConst r pattern [] |> Some
-        | StringConst pattern::(RegexFlags flags)::_ -> makeRegexConst r pattern flags |> Some
-        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "get_Options" -> Helper.LibCall(com, "RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-    // Capture
-    | "get_Index" ->
-        if not isGroup
-        then propStr "index" thisArg.Value |> Some
-        else "Accessing index of Regex groups is not supported"
-             |> addErrorAndReturnNull com ctx.InlinePath r |> Some
-    | "get_Value" ->
-        if isGroup
-        // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r) |> Some
-        else propInt 0 thisArg.Value |> Some
-    | "get_Length" ->
-        if isGroup
-        then propStr "length" thisArg.Value |> Some
-        else propInt 0 thisArg.Value |> propStr "length" |> Some
-    // Group
-    | "get_Success" -> nullCheck r false thisArg.Value |> Some
-    // Match
-    | "get_Groups" -> thisArg.Value |> Some
-    // MatchCollection & GroupCollection
-    | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
-        // can be group index or group name
-        //        `m.Groups[0]` `m.Groups["name"]`
-        match (args |> List.head).Type with
-        | String ->
-            // name
-            (* `groups` might not exist -> check first:
-                (`m`: `thisArg.Value`; `name`: `args.Head`)
-                  ```ts
-                  m.groups?[name]
-                  ```
-                or here
-                  ```ts
-                  m.groups && m.groups[name]
-                  ```
-            *)
-            let groups = propStr "groups" thisArg.Value
-            let getItem = getExpr r t groups args.Head
-
-            Operation(Logical(LogicalAnd, groups, getItem), Tags.empty, t, None)
-            |> Some
-        | _ ->
-            // index
-            getExpr r t thisArg.Value args.Head |> Some
-    | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
-    | "get_Count" -> propStr "length" thisArg.Value |> Some
-    | "GetEnumerator" -> getEnumerator com r t i thisArg.Value |> Some
+    // | "GetEnumerator" -> getEnumerator com r t i thisArg.Value |> Some
     | meth ->
+        let meth = if meth = ".ctor" then "new" else meth
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-        Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        bclNativeImpl com ctx r t i "RegExp" meth thisArg args |> Some
 
 let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -2913,10 +2895,10 @@ let tryField com t ownerTyp fieldName =
         Helper.LibValue(com, "TimeSpan", meth, t) |> Some
     | Builtin BclDateTime, _->
         let meth = fieldName |> Naming.lowerFirst
-        makeStaticFieldCall com None t "DateTime" meth |> Some
+        makeStaticFieldCall com None t "DateTime" "DateTime" meth |> Some
     | Builtin BclDateTimeOffset, _ ->
         let meth = fieldName |> Naming.lowerFirst
-        makeStaticFieldCall com None t "DateTimeOffset" meth |> Some
+        makeStaticFieldCall com None t "DateTimeOffset" "DateTimeOffset" meth |> Some
     | DeclaredType(ent, genArgs), fieldName ->
         let meth = fieldName |> Naming.lowerFirst
         match ent.FullName with
@@ -3034,12 +3016,13 @@ let private replacedModules =
     "System.Text.Encoding", encoding
     "System.Text.UnicodeEncoding", encoding
     "System.Text.UTF8Encoding", encoding
-    "System.Text.RegularExpressions.Capture", regex
-    "System.Text.RegularExpressions.Match", regex
-    "System.Text.RegularExpressions.Group", regex
-    "System.Text.RegularExpressions.MatchCollection", regex
-    "System.Text.RegularExpressions.GroupCollection", regex
     Types.regex, regex
+    Types.regexMatch, regex
+    Types.regexGroup, regex
+    Types.regexCapture, regex
+    Types.regexMatchCollection, regex
+    Types.regexGroupCollection, regex
+    Types.regexCaptureCollection, regex
     Types.fsharpSet, sets
     "Microsoft.FSharp.Collections.SetModule", setModule
     Types.fsharpMap, maps
