@@ -85,9 +85,11 @@ module Lib =
             match purpose with
             | Annotation -> ent.IsMeasure || (FSharp2Fable.Util.isErasedOrStringEnumEntity ent && not ent.IsFSharpUnion)
             // Historically we have used interfaces to represent JS classes in bindings,
-            // so it may happen that an F# interface corresponds to an actual type in JS.
-            // But just in case we avoid referencing interfaces for reflection.
-            | ActualConsRef -> ent.IsMeasure || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+            // so we allow explicit type references (e.g. for type testing) when the interface is global or imported.
+            // But just in case we avoid referencing interfaces for reflection (as the type may not exist in actual code)
+            | ActualConsRef ->
+                if ent.IsInterface then not(FSharp2Fable.Util.isGlobalOrImportedEntity ent)
+                else ent.IsMeasure || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
             | Reflection -> ent.IsInterface || ent.IsMeasure || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
 
         if isErased then None
