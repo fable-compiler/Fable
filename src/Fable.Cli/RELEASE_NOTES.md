@@ -1,3 +1,25 @@
+### 4.1.4
+
+* Fix #3438: Source maps
+* Fix #3440: Don't curry arity-1 functions
+* Fix #3452: DateTimeOffset conversion to DateTime
+* Fix regression: Don't type test interfaces declared in F# code
+* Rust: Added no_std test build
+* Rust: Added regex support
+* Rust: Fixed no_std support
+* Rust: Fixed uncurried options
+* Rust: Enabled some applicative tests
+* Rust: Enabled some tests
+* Rust: Updated switch transform (#3449)
+* Rust: Updated dependencies (#3447)
+* Rust: Fixed interface properties (#3445)
+* Rust: Updated object equality (#3444)
+* Rust: Enabled some Comparison tests (#3442)
+* Rust: Added DateOnly, TimeOnly tests
+* Rust: Added DateTimeOffset tests
+* Rust: Updated TimeSpan
+* Rust: Added DateTimeOffset
+
 ### 4.1.3
 
 * JS/TS/Rust: Added bigint log, log2, log10, minMag, maxMag

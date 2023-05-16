@@ -4,13 +4,27 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.1.3</Version>
-    <PackageVersion>4.1.3</PackageVersion>
-    <PackageReleaseNotes>* JS/TS/Rust: Added bigint log, log2, log10, minMag, maxMag
-* TS: Fix extension of files in fable_modules with out dir
-* TS: Support annotations of StringEnum and TypeScriptTaggedUnion types
-* JS/TS: Output JS docs
-* Fix range of inlined functions</PackageReleaseNotes>
+    <Version>4.1.4</Version>
+    <PackageVersion>4.1.4</PackageVersion>
+    <PackageReleaseNotes>* Fix #3438: Source maps
+* Fix #3440: Don't curry arity-1 functions
+* Fix #3452: DateTimeOffset conversion to DateTime
+* Fix regression: Don't type test interfaces declared in F# code
+* Rust: Added no_std test build
+* Rust: Added regex support
+* Rust: Fixed no_std support
+* Rust: Fixed uncurried options
+* Rust: Enabled some applicative tests
+* Rust: Enabled some tests
+* Rust: Updated switch transform (#3449)
+* Rust: Updated dependencies (#3447)
+* Rust: Fixed interface properties (#3445)
+* Rust: Updated object equality (#3444)
+* Rust: Enabled some Comparison tests (#3442)
+* Rust: Added DateOnly, TimeOnly tests
+* Rust: Added DateTimeOffset tests
+* Rust: Updated TimeSpan
+* Rust: Added DateTimeOffset</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
