@@ -34,7 +34,7 @@ let tests() =
     //
     // testCase "DateTime.ToString with Round-trip format works for local" <| fun () ->
     //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
-    //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
+    //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europe/Paris (GMT+2)
 
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
        let date = DateTime(1, 1, 2)

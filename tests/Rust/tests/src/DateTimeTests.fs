@@ -46,7 +46,7 @@ let ``DateTime.ToString with milliseconds`` () = // See #1726
 // [<Fact>]
 // let ``DateTime.ToString with Round-trip format works for local`` () =
 //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
-//     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
+//     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europe/Paris (GMT+2)
 
 [<Fact>]
 let ``DateTime from Year 1 to 99 works`` () =
@@ -106,6 +106,25 @@ let ``Creating DateTimeOffset from DateTime and back works`` () =
 //     dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 
 [<Fact>]
+let ``DateTime.Parse without offset works`` () =
+    let dtStr = "2016-07-07T01:02:03.004"
+    let dt = DateTime.Parse(dtStr)
+    dt.Kind |> equal DateTimeKind.Unspecified
+    dt.Day |> equal 7
+    dt.Hour |> equal 1
+    dt.Minute |> equal 2
+    dt.Second |> equal 3
+    dt.Millisecond |> equal 4
+
+[<Fact>]
+let ``DateTime.Parse with offset works`` () =
+    let dtStr = "2016-07-07T01:02:03.004-05:00"
+    let dto = DateTimeOffset.Parse(dtStr)
+    let dt = DateTime.Parse(dtStr)
+    dt.Kind |> equal DateTimeKind.Local
+    dt |> equal dto.LocalDateTime
+
+[<Fact>]
 let ``DateTime.Hour works`` () =
     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
     d.Hour |> equal 13
@@ -140,17 +159,15 @@ let ``DateTime.Hour works`` () =
 //     s.Length > 0
 //     |> equal true
 
-// // TODO: Unfortunately, JS will happily create invalid dates like DateTime(2014,2,29)
-// //       But this problem also happens when parsing, so I haven't tried to fix it
-// [<Fact>]
-// let ``DateTime constructors work`` () =
-//     let d1 = DateTime(2014, 10, 9)
-//     let d2 = DateTime(2014, 10, 9, 13, 23, 30)
-//     let d3 = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//     let d4 = DateTime(2014, 10, 9, 13, 23, 30, 500)
-//     let d5 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
-//     d1.Day + d2.Second + d3.Second + d4.Millisecond + d5.Millisecond
-//     |> equal 1069
+[<Fact>]
+let ``DateTime constructors work`` () =
+    let d1 = DateTime(2014, 10, 9)
+    let d2 = DateTime(2014, 10, 9, 13, 23, 30)
+    let d3 = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    let d4 = DateTime(2014, 10, 9, 13, 23, 30, 500)
+    let d5 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+    d1.Day + d2.Second + d3.Second + d4.Millisecond + d5.Millisecond
+    |> equal 1069
 
 [<Fact>]
 let ``DateTime constructor from Ticks works`` () =
@@ -254,17 +271,17 @@ let ``DateTime.UtcNow works`` () =
     let d = DateTime.UtcNow
     d > DateTime.MinValue |> equal true
 
-// [<Fact>]
-// let ``DateTime.Parse Now works`` () =
-//     let d = DateTime.Now
-//     let d2 = DateTime.Parse(d.ToString("o"))
-//     d2 |> equal d
+[<Fact>]
+let ``DateTime.Parse Now works`` () =
+    let d = DateTime.Now
+    let d2 = DateTime.Parse(d.ToString("o"))
+    d2 |> equal d
 
-// [<Fact>]
-// let ``DateTime.Parse UtcNow works`` () =
-//     let d = DateTime.UtcNow
-//     let d2 = DateTime.Parse(d.ToString("o")).ToUniversalTime()
-//     d2 |> equal d
+[<Fact>]
+let ``DateTime.Parse UtcNow works`` () =
+    let d = DateTime.UtcNow
+    let d2 = DateTime.Parse(d.ToString("o")).ToUniversalTime()
+    d2 |> equal d
 
 [<Fact>]
 let ``DateTime.Parse with provider works`` () =
@@ -566,7 +583,7 @@ let ``DateTime Inequality works`` () =
 
 [<Fact>]
 let ``DateTime TimeOfDay works`` () =
-    let d = System.DateTime(2014, 10, 9, 13, 23, 30, 1, System.DateTimeKind.Utc)
+    let d = DateTime(2014, 10, 9, 13, 23, 30, 1, DateTimeKind.Utc)
     let t = d.TimeOfDay
     t |> equal (TimeSpan(0, 13, 23, 30, 1))
 

@@ -260,11 +260,13 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn localDateTime(&self) -> DateTime {
-            DateTime::new(self.0.naive_local(), DateTimeKind::Local)
+            let ndt = Local.from_utc_datetime(&self.0.naive_utc()).naive_local();
+            DateTime::new(ndt, DateTimeKind::Local)
         }
 
         pub fn utcDateTime(&self) -> DateTime {
-            DateTime::new(self.0.naive_utc(), DateTimeKind::Utc)
+            let ndt = self.0.naive_utc();
+            DateTime::new(ndt, DateTimeKind::Utc)
         }
 
         pub fn toUnixTimeMilliseconds(&self) -> i64 {
@@ -406,7 +408,7 @@ pub mod DateTimeOffset_ {
             fromString(df.to_string())
         }
 
-        fn try_parse_str(s: &str) -> ParseResult<CDateTime<FixedOffset>> {
+        pub(crate) fn try_parse_str(s: &str) -> ParseResult<CDateTime<FixedOffset>> {
             let now = Local::now();
             let localTz = now.offset();
             s.parse::<CDateTime<FixedOffset>>()
