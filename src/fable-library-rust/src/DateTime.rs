@@ -469,20 +469,29 @@ pub mod DateTime_ {
                     .replace("ffffff", "%6f")
                     .replace("fff", "%3f"),
             };
-            let df = self.ndt.format(&fmt);
+            let cdt = self.to_cdt_fixed();
+            let df = cdt.format(&fmt);
             fromString(df.to_string())
         }
 
-        fn try_parse_str(s: &str) -> ParseResult<NaiveDateTime> {
-            s.parse::<NaiveDateTime>()
+        fn try_parse_str(s: &str) -> ParseResult<DateTime> {
+            match s
+                .parse::<NaiveDateTime>()
                 .or(NaiveDateTime::parse_from_str(s, "%m/%d/%Y %H:%M:%S%.f"))
                 .or(NaiveDateTime::parse_from_str(s, "%m/%d/%Y %I:%M:%S %P"))
+            {
+                Ok(ndt) => Ok(Self::new(ndt, DateTimeKind::Unspecified)),
+                Err(e) => DateTimeOffset::try_parse_str(s).map(|cdt| {
+                    let ndt = Local.from_utc_datetime(&cdt.naive_utc()).naive_local();
+                    Self::new(ndt, DateTimeKind::Local)
+                }),
+            }
         }
 
         pub fn tryParse(s: string, res: &MutCell<DateTime>) -> bool {
             match Self::try_parse_str(s.trim()) {
-                Ok(ndt) => {
-                    res.set(Self::new(ndt, DateTimeKind::Unspecified));
+                Ok(dt) => {
+                    res.set(dt);
                     true
                 }
                 Err(e) => false,
@@ -491,7 +500,7 @@ pub mod DateTime_ {
 
         pub fn parse(s: string) -> DateTime {
             match Self::try_parse_str(s.trim()) {
-                Ok(ndt) => Self::new(ndt, DateTimeKind::Unspecified),
+                Ok(dt) => dt,
                 Err(e) => panic!("Input string was not in a correct format."),
             }
         }

@@ -535,7 +535,7 @@ let ``DateTimeOffset Inequality works`` () =
 
 [<Fact>]
 let ``DateTimeOffset TimeOfDay works`` () =
-    let d = System.DateTimeOffset(2014, 10, 9, 13, 23, 30, 1, TimeSpan.Zero)
+    let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, 1, TimeSpan.Zero)
     let t = d.TimeOfDay
 
     t |> equal (TimeSpan(0, 13, 23, 30, 1))
