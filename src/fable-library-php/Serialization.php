@@ -58,7 +58,7 @@ function convertTypeFromJson($json, $cls)
     if (count($class_vars) == 0) {
         return new $cls();
     } elseif (count($class_vars) == 1) {
-        $fieldName =key($class_vars);
+        $fieldName = key($class_vars);
         $method = "get_{$fieldName}_Type";
         $field = convertFromSimpleJson($json, $cls::$method());
         return new $cls($field);
@@ -66,7 +66,7 @@ function convertTypeFromJson($json, $cls)
         $fields = [];
         foreach ($class_vars as $field => $_) {
             $method = "get_{$field}_Type";
-            $fields[$field] = convertFromSimpleJson($json->$field, $cls::$method());
+            $fields[] = convertFromSimpleJson($json->$field, $cls::$method());
         }
         return new $cls(...$fields);
     }
@@ -140,7 +140,7 @@ function convertFromSimpleJson($json, $cls)
     }
 
     // Record (should be at least iComparable)
-    if (is_subclass_of($cls, "IComparable")) {
+    if (is_subclass_of($cls, "\\IComparable")) {
         return convertTypeFromJson($json, $cls);
     }
 
