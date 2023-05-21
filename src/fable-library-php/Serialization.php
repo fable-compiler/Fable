@@ -135,6 +135,13 @@ function convertFromSimpleJson($json, $cls)
                     return convertTypeFromJson($json->$caseName, $caseCls);
                 }
             }
+        } elseif (is_array($json)) {
+            foreach ($cls::allCases() as $caseCls) {
+                $caseName = $caseCls::get_FSharpCase();
+                if ($json[$caseName] != null) {
+                    return convertTypeFromJson($json[$caseName], $caseCls);
+                }
+            }
         }
         throw new \Error("Not sure how to decode this union");
     }
