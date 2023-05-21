@@ -55,6 +55,7 @@ class Cons extends FSharpList {
     }
 
     function isEmpty() { return false; }
+}
 
 function cons($hd, $tl) {
     return new Cons($hd, $tl);
