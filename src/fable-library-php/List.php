@@ -177,7 +177,7 @@ function item($count, $list)
     while ($count-- >= 0 && $list instanceof Cons) {
         $list = $list->next;
     }
-    return $list->next;
+    return $list->value;
 }
 
 function reverse($list)
