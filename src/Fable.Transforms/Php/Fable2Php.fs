@@ -91,10 +91,11 @@ let rec convertTypeToPhp (com: IPhpCompiler) (fableType: Fable.Type) =
     | Fable.Type.String -> constType "String"
     | Fable.DeclaredType(ref,args) ->
         let ent = com.GetEntity(ref)
+        let name = fixName (com.GetEntityName ent)
         if ent.GenericParameters.Length > 0 then
-            withGenericParameters (com.GetEntityName(ent))
+            withGenericParameters name
         else
-            constType (sprintf "\%s\%s" com.PhpNamespace (com.GetEntityName(ent)))
+            constType (sprintf "\%s\%s" com.PhpNamespace (fixName (ent.FullName.Replace(com.PhpNamespace + ".", ""))))
     | Fable.Type.List t ->
         withGenericParameters "List"
     | Fable.Tuple _ -> withGenericParameters "Tuple"
