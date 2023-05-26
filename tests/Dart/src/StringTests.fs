@@ -754,6 +754,7 @@ let tests() =
             "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
             "abcdbcebc".IndexOfAny([|'f';'e'|], 2) |> equal 6
             "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
+            "abcdbcebc".IndexOfAny([|'c';'b'|]) |> equal 1
 
       testCase "String.StartsWith works" <| fun () ->
             let args = [("ab", true); ("cd", false); ("abcdx", false)]

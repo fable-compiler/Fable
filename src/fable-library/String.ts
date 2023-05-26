@@ -85,11 +85,11 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   if (startIndex + length > str.length) {
     throw new Error("Invalid startIndex and length");
   }
-  str = str.substring(startIndex, startIndex + length);
-  for (const c of anyOf) {
-    const index = str.indexOf(c);
-    if (index > -1) {
-      return index + startIndex;
+  const endIndex = startIndex + length
+  const anyOfAsStr = "".concat.apply("", anyOf);
+  for (let i=startIndex; i<endIndex; i++) {
+    if (anyOfAsStr.indexOf(str[i]) > -1) {
+      return i;
     }
   }
   return -1;
