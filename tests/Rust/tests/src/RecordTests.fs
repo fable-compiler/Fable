@@ -381,7 +381,7 @@ module ComplexEdgeCases =
         res.Spatial.Rotation |> equal (1.1f<Rad> + 1.2f<Rad>)
 
     [<Fact>]
-    let ``Ref tracking should correctly count arm ident usages + clone accordingly`` () =
+    let ``Ref tracking should correctly count arm ident usages and clone accordingly`` () =
         let cmpPropLstR = [{ MyRecord.a = 1; b = "2"; c = 3.0 }]
         let add1 (x: MyRecord) = {x with a = x.a + 1}
         let res =
@@ -417,7 +417,7 @@ module ComplexEdgeCases =
 
     // This is mainly about ensuring the idents are correctly counted leading to too little/much cloning and potentially a build error
     [<Fact>]
-    let ``Ref tracking should correctly count arm ident usages 2 + clone accordingly`` () =
+    let ``Ref tracking should correctly count arm ident usages and clone accordingly II`` () =
         let current = { Items = [{Name = "ab"; Spatial = Some { Rotation = 1.1f<Rad>; Position = { x = 1f<m>; y = 2f<m> } }}]}
         let next = someStateTransform T_A current
         next |> notEqual current

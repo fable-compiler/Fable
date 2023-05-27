@@ -23,10 +23,18 @@ module SR =
     let resetNotSupported = "Reset is not supported on this enumerator."
     let setContainsNoElements = "Set contains no elements."
 
-// ResizeArray<T> intentionally has same representation as Array<T> in Rust
-// so can be casted to array instead of using .ToArray() which makes a copy
-let inline internal asArray (a: ResizeArray<'T>): 'T[] =
-    (a :> obj) :?> 'T[] // cast will go away
+[<AutoOpen>]
+module Helpers =
+    open Fable.Core
+
+#if FABLE_COMPILER_RUST
+    // ResizeArray<T> intentionally has same representation as Array<T> in Rust
+    // so can be casted to array instead of using .ToArray() which makes a copy
+    [<Emit("$0")>]
+    let inline internal asArray (a: ResizeArray<'T>): 'T[] = nativeOnly
+#else
+    let inline internal asArray (a: ResizeArray<'T>): 'T[] = a.ToArray()
+#endif
 
 // type IObject =
 //     abstract to_any: unit -> obj

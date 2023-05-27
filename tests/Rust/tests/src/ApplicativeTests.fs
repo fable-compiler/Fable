@@ -358,18 +358,18 @@ let ``Flattened lambdas can be composed`` () = // See #704
     List.foldBack f [1;2;3;4] 0
     |> equal 10
 
-// type ImplicitType<'a,'b> =
-//     | Case1 of 'a
-//     | Case2 of 'b
-//     static member op_Implicit(x:'a) = ImplicitType.Case1 x
-//     static member op_Implicit(x:'b) = ImplicitType.Case2 x
+type ImplicitType<'a,'b> =
+    | Case1 of 'a
+    | Case2 of 'b
+    static member op_Implicit(x:'a) = ImplicitType.Case1 x
+    static member op_Implicit(x:'b) = ImplicitType.Case2 x
 
-// let inline (!+) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_Implicit : ^t1 -> ^t2) x)
+let inline (!+) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_Implicit : ^t1 -> ^t2) x)
 
-// let implicitMethod (arg: ImplicitType<string, int>) (i: int) =
-//     match arg with
-//     | ImplicitType.Case1 _ -> 1
-//     | ImplicitType.Case2 _ -> 2
+let implicitMethod (arg: ImplicitType<string, int>) (i: int) =
+    match arg with
+    | ImplicitType.Case1 _ -> 1
+    | ImplicitType.Case2 _ -> 2
 
 type ArityRecord = { arity2: int->int->string }
 
@@ -398,9 +398,9 @@ with
     // Aether
     static member RecordB_ : Lens<RecordA, RecordB> = (fun x -> x.RecordB), (fun value x -> { x with RecordB = value })
 
-// type Action<'model> =
-//     | InputChanged of Id: string * Value: string * Lens<'model, string>
-//     | CheckboxChanged of Id: string * Value: bool * Lens<'model, bool>
+type Action<'model> =
+    | InputChanged of Id: string * Value: string * Lens<'model, string>
+    | CheckboxChanged of Id: string * Value: bool * Lens<'model, bool>
 
 // // type Action =
 // //     | InputChanged of Id: string * Value: string * Lens<RecordB, string>
@@ -411,48 +411,48 @@ with
 // //         | InputChanged (id, value, _) -> $"InputChanged ({id}, {value})"
 // //         | CheckboxChanged (id, value, _) -> $"CheckboxChanged ({id}, {value})"
 
-// let makeInput<'model> id (model: 'model) (lens: Lens<'model, string>) =
-// // let makeInput id (model: RecordB) (lens: Lens<RecordB, string>) =
-//     Optic.get lens model
+let makeInput<'model> id (model: 'model) (lens: Lens<'model, string>) =
+// let makeInput id (model: RecordB) (lens: Lens<RecordB, string>) =
+    Optic.get lens model
 
-// let makeCheckbox<'model> id (model: 'model) (lens: Lens<'model, bool>) =
-// // let makeCheckbox id (model: RecordB) (lens: Lens<RecordB, bool>) =
-//     Optic.get lens model
+let makeCheckbox<'model> id (model: 'model) (lens: Lens<'model, bool>) =
+// let makeCheckbox id (model: RecordB) (lens: Lens<RecordB, bool>) =
+    Optic.get lens model
 
-// let view (model: RecordA) =
-//     let subModel = Optic.get RecordA.RecordB_ model
-//     makeInput<RecordB> "A" subModel RecordB.A_,
-//     makeCheckbox<RecordB> "B" subModel RecordB.B_
-//     // makeInput "A" subModel RecordB.A_,
-//     // makeCheckbox "B" subModel RecordB.B_
+let view (model: RecordA) =
+    let subModel = Optic.get RecordA.RecordB_ model
+    makeInput<RecordB> "A" subModel RecordB.A_,
+    makeCheckbox<RecordB> "B" subModel RecordB.B_
+    // makeInput "A" subModel RecordB.A_,
+    // makeCheckbox "B" subModel RecordB.B_
 
-// let update (model: RecordA) action =
-//     match action with
-//     | InputChanged (id, value, lens) ->
-//         Optic.set (RecordA.RecordB_ >-> lens) value model
-//     | CheckboxChanged (id, value, lens) ->
-//         Optic.set (RecordA.RecordB_ >-> lens) value model
+let update (model: RecordA) action =
+    match action with
+    | InputChanged (id, value, lens) ->
+        Optic.set (RecordA.RecordB_ >-> lens) value model
+    | CheckboxChanged (id, value, lens) ->
+        Optic.set (RecordA.RecordB_ >-> lens) value model
 
-// type Item2 = static member inline Invoke value = (^t : (member Item2 : _) value)
+type Item2 = static member inline Invoke value = (^t : (member Item2 : _) value)
 
-// type Ideable2 =
-//     { Id: string; Name: string }
+type Ideable2 =
+    { Id: string; Name: string }
 
-// type Id = Id of string
+type Id = Id of string
 
-// type Ideable =
-//     { Id: Id; Name: string }
-//     // with override this.ToString() = this.Name
+type Ideable =
+    { Id: Id; Name: string }
+    // with override this.ToString() = this.Name
 
-// let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
-//     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
+let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
+    Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
 
-// let inline getId (x: ^a when ^a:(member Id : string)) =
-//     (^a : (member Id : string) x)
+let inline getId (x: ^a when ^a:(member Id : string)) =
+    (^a : (member Id : string) x)
 
-// let inline wrapId x =
-//     let id = getId x
-//     "<<<" + id + ">>>"
+let inline wrapId x =
+    let id = getId x
+    "<<<" + id + ">>>"
 
 // // type Parseable = Parseable with static member Parse (_: string) = Parseable
 
@@ -505,27 +505,27 @@ let mutateAndLambdify x =
     mutableValue3 <- x
     (fun _ -> x)
 
-// type Grandchild =
-//     { x : int option }
-//     static member x_ : Prism<Grandchild, int> =
-//         (fun p -> p.x),
-//         (fun x p ->
-//             match p with
-//             | p when p.x.IsSome -> { p with x = Some x }
-//             | p -> p)
+type Grandchild =
+    { x : int option }
+    static member x_ : Prism<Grandchild, int> =
+        (fun p -> p.x),
+        (fun x p ->
+            match p with
+            | p when p.x.IsSome -> { p with x = Some x }
+            | p -> p)
 
-// type Child =
-//     { g : Grandchild }
-//     static member g_ : Lens<Child, Grandchild> = (fun p -> p.g), (fun x p -> { p with g = x })
+type Child =
+    { g : Grandchild }
+    static member g_ : Lens<Child, Grandchild> = (fun p -> p.g), (fun x p -> { p with g = x })
 
-// type Parent =
-//     { c : Child option }
-//     static member c_ : Prism<Parent, Child> =
-//         (fun p -> p.c),
-//         (fun x p ->
-//             match p with
-//             | p when p.c.IsSome -> { p with c = Some x }
-//             | p -> p)
+type Parent =
+    { c : Child option }
+    static member c_ : Prism<Parent, Child> =
+        (fun p -> p.c),
+        (fun x p ->
+            match p with
+            | p when p.c.IsSome -> { p with c = Some x }
+            | p -> p)
 
 // [<Fact>]
 // let ``TraitCall can resolve overloads with a single generic argument`` () =
@@ -575,17 +575,14 @@ let ``Multiple nested lambdas can be partially applied`` () =
     let f2 = f 1 2
     f2 3 4 5 |> equal 15
 
-// TODO
-// open Microsoft.FSharp.Core.OptimizedClosures
-
-// [<Fact>]
-// let ``Partial application of optimized closures works`` () =
-//   let mutable m = 1
-//   let f x = m <- m + 1; (fun y z -> x + y + z)
-//   let f = FSharpFunc<_,_,_,_>.Adapt(f)
-//   let r = f.Invoke(1, 2, 3)
-//   equal 2 m
-//   equal 6 r
+// // [<Fact>]
+// // let ``Partial application of optimized closures works`` () =
+// //     let mutable m = 1
+// //     let f x = m <- m + 1; (fun y z -> x + y + z)
+// //     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
+// //     let r = f.Invoke(1, 2, 3)
+// //     m |> equal 2
+// //     r |> equal 6
 
 [<Fact>]
 let ``No errors because references to missing unit args`` () =
@@ -600,36 +597,36 @@ let ``Arity is checked also when constructing records`` () =
     let r = { arity2 = fun x -> f x >> fun y -> $"foo{y}" }
     r.arity2 4 5 |> equal "foo23"
 
-// [<Fact>]
-// let ``Aether with generics works`` () = // See #750
-//     let a = { RecordB = {A= "foo"; B=true} }
-//     let input, checkbox = view a
-//     input |> equal "foo"
-//     checkbox |> equal true
-//     let a2 = InputChanged("abc", "bar", RecordB.A_) |> update a
-//     let input2, checkbox2 = view a2
-//     input2 |> equal "bar"
-//     checkbox2 |> equal true
+[<Fact>]
+let ``Aether with generics works`` () = // See #750
+    let a = { RecordB = {A= "foo"; B=true} }
+    let input, checkbox = view a
+    input |> equal "foo"
+    checkbox |> equal true
+    let a2 = InputChanged("abc", "bar", RecordB.A_) |> update a
+    let input2, checkbox2 = view a2
+    input2 |> equal "bar"
+    checkbox2 |> equal true
 
-// [<Fact>]
-// let ``Aether works II`` () = // See #2101
-//     let x : Parent = { c = Some { g = { x = Some 5 } } }
-//     let y : Parent = { c = None }
-//     let z : Parent = { c = Some { g = { x = None } } }
-//     let grandchild = Parent.c_ >?> Child.g_ >?> Grandchild.x_
-//     x ^. grandchild |> equal (Some 5)
-//     y ^. grandchild |> equal None
-//     z ^. grandchild |> equal None
+[<Fact>]
+let ``Aether works II`` () = // See #2101
+    let x : Parent = { c = Some { g = { x = Some 5 } } }
+    let y : Parent = { c = None }
+    let z : Parent = { c = Some { g = { x = None } } }
+    let grandchild = Parent.c_ >?> Child.g_ >?> Grandchild.x_
+    x ^. grandchild |> equal (Some 5)
+    y ^. grandchild |> equal None
+    z ^. grandchild |> equal None
 
-// [<Fact>]
-// let ``Trait calls work with tuples`` () =
-//     Item2.Invoke (1,2,3) |> equal 2
+[<Fact>]
+let ``Trait calls work with tuples`` () =
+    Item2.Invoke (1,2,3) |> equal 2
 
-// [<Fact>]
-// let ``Trait calls work with record fields`` () =
-//     let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
-//     replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
-//     replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> fun x -> equal "Anna" x.Name
+[<Fact>]
+let ``Trait calls work with record fields`` () =
+    let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
+    replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
+    replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> fun x -> equal "Anna" x.Name
 
 // // [<Fact>]
 // // let ``Nested trait calls work`` () = // See #2468
@@ -642,19 +639,19 @@ let ``Arity is checked also when constructing records`` () =
 // //     equal Parseable p
 // //     equal (DateTimeOffset(2011, 3, 4, 15, 42, 19, TimeSpan.FromHours(3.))) h
 
-// [<Fact>]
-// let ``Inline local function can call another inline function with trait call`` () =
-//     let inline wrapIdLocal x =
-//         let id = getId x
-//         "<<<" + id + ">>>"
-//     let a = wrapId { Ideable2.Id="ABC"; Name="OOOO"}
-//     let b = wrapId {| Id = "xyz" |}
-//     let c = wrapIdLocal { Ideable2.Id="ABC"; Name="EEEE"}
-//     let d = wrapIdLocal {| Id = "xyz" |}
-//     equal "<<<ABC>>>" a
-//     equal "<<<xyz>>>" b
-//     equal "<<<ABC>>>" c
-//     equal "<<<xyz>>>" d
+[<Fact>]
+let ``Inline local function can call another inline function with trait call`` () =
+    let inline wrapIdLocal x =
+        let id = getId x
+        "<<<" + id + ">>>"
+    let a = wrapId { Ideable2.Id="ABC"; Name="OOOO"}
+    let b = wrapId {| Id = "xyz" |}
+    let c = wrapIdLocal { Ideable2.Id="ABC"; Name="EEEE"}
+    let d = wrapIdLocal {| Id = "xyz" |}
+    equal "<<<ABC>>>" a
+    equal "<<<xyz>>>" b
+    equal "<<<ABC>>>" c
+    equal "<<<xyz>>>" d
 
 [<Fact>]
 let ``Unit expression arguments are not removed`` () =
@@ -684,102 +681,102 @@ let ``Basic currying works`` () =
 //         (a,b)
 //     string mutableValue3 |> equal "349787"
 
-// module Types =
-//     let inline flip f a b = f b a
+module Types =
+    let inline flip f a b = f b a
 
-//     type StringField =
-//         { Value : string }
+    type StringField =
+        { Value : string }
 
-//         static member Empty =
-//             { Value = "" }
+        static member Empty =
+            { Value = "" }
 
-//     let setValue value stringField =
-//         { stringField with Value = value }
+    let setValue value stringField =
+        { stringField with Value = value }
 
-//     type Model =
-//         { Email : StringField }
+    type Model =
+        { Email : StringField }
 
-//     let setEmail email model =
-//         { model with Email = email }
+    let setEmail email model =
+        { model with Email = email }
 
-//     let asEmailIn =
-//         flip setEmail
+    let asEmailIn =
+        flip setEmail
 
-// module State =
-//     open Types
+module State =
+    open Types
 
-//     let update email (model: Types.Model) =
-//         model.Email
-//         |> setValue email
-//         |> asEmailIn model
+    let update email (model: Types.Model) =
+        model.Email
+        |> setValue email
+        |> asEmailIn model
 
-// type StringEnvironment<'a> = string -> 'a
+type StringEnvironment<'a> = string -> 'a
 
-// [<Fact>]
-// let ``Point-free style with multiple arguments works`` () = // See #1041
-//     let initialValue = { Types.Email = Types.StringField.Empty }
-//     let m = State.update "m" initialValue
-//     m.Email.Value |> equal "m"
+[<Fact>]
+let ``Point-free style with multiple arguments works`` () = // See #1041
+    let initialValue = { Types.Email = Types.StringField.Empty }
+    let m = State.update "m" initialValue
+    m.Email.Value |> equal "m"
 
-// [<Fact>]
-// let ``Function generic type alias works`` () = // See #1121
-//     let five = fun _ -> 5
+[<Fact>]
+let ``Function generic type alias works`` () = // See #1121
+    let five = fun _ -> 5
 
-//     let bind (x : StringEnvironment<'a>) (f : 'a -> StringEnvironment<'b>) : StringEnvironment<'b> =
-//         fun environment ->
-//             f (x environment) environment
+    let bind (x : StringEnvironment<'a>) (f : 'a -> StringEnvironment<'b>) : StringEnvironment<'b> =
+        fun environment ->
+            f (x environment) environment
 
-//     bind five (fun i -> five) "environment"
-//     |> equal 5
+    bind five (fun i -> five) "environment"
+    |> equal 5
 
-// [<Fact>]
-// let ``Function generic type alias works II`` () =
-//     let three = fun _ -> 3
+[<Fact>]
+let ``Function generic type alias works II`` () =
+    let three = fun _ -> 3
 
-//     let bind (x : string -> 'a) (f : 'a -> string -> 'b) : string -> 'b =
-//         fun environment ->
-//             f (x environment) environment
+    let bind (x : string -> 'a) (f : 'a -> string -> 'b) : string -> 'b =
+        fun environment ->
+            f (x environment) environment
 
-//     bind three (fun i -> three) "environment"
-//     |> equal 3
+    bind three (fun i -> three) "environment"
+    |> equal 3
 
-// [<Fact>]
-// let ``Piping to an alias of a function which returns a function works`` () = // See #2657
-//     let f a b = $"{a} {b}"
+[<Fact>]
+let ``Piping to an alias of a function which returns a function works`` () = // See #2657
+    let f (a: string) (b: string) = $"{a} {b}"
 
-//     let f_option = Some f
-//     let defaultValue x = Option.defaultValue x
+    let f_option = Some f
+    // let defaultValue x = Option.defaultValue x // TODO:
 
-//     let functionA = f_option |> Option.defaultValue f
-//     functionA "functionA" "works" |> equal "functionA works"
+    let functionA = f_option |> Option.defaultValue f
+    functionA "functionA" "works" |> equal "functionA works"
 
-//     let functionB = defaultValue f f_option
-//     functionB "functionB" "works" |> equal "functionB works"
+    let functionB = Option.defaultValue f f_option
+    functionB "functionB" "works" |> equal "functionB works"
 
-//     let functionC = f_option |> defaultValue f
-//     functionC "functionC" "works" |> equal "functionC works"
+    let functionC = f_option |> Option.defaultValue f
+    functionC "functionC" "works" |> equal "functionC works"
 
-//     let functionC x = (f_option |> defaultValue f) x
-//     functionC "functionC" "works" |> equal "functionC works"
+    let functionC x = (f_option |> Option.defaultValue f) x
+    functionC "functionC" "works" |> equal "functionC works"
 
-//     let functionC x y = (f_option |> defaultValue f) x y
-//     functionC "functionC" "works" |> equal "functionC works"
+    let functionC x y = (f_option |> Option.defaultValue f) x y
+    functionC "functionC" "works" |> equal "functionC works"
 
-// [<Fact>]
-// let ``Piping to an alias of a function which returns a function works II`` () = // See #2657
-//     let f a b = $"{a} {b}"
+[<Fact>]
+let ``Piping to an alias of a function which returns a function works II`` () = // See #2657
+    let f (a: string) (b: string) = $"{a} {b}"
 
-//     let getFunction x y = y
-//     let getFunctionAlias = getFunction
+    let getFunction x y = y
+    let getFunctionAlias = getFunction
 
-//     let functionA = f |> getFunction 1
-//     functionA "functionA" "works" |> equal "functionA works"
+    let functionA = f |> getFunction 1
+    functionA "functionA" "works" |> equal "functionA works"
 
-//     let functionB = getFunctionAlias 1 f
-//     functionB "functionB" "works" |> equal "functionB works"
+    let functionB = getFunctionAlias 1 f
+    functionB "functionB" "works" |> equal "functionB works"
 
-//     let functionC = f |> getFunctionAlias 2
-//     functionC "functionC" "works?" |> equal "functionC works?"
+    let functionC = f |> getFunctionAlias 2
+    functionC "functionC" "works?" |> equal "functionC works?"
 
 module CurriedApplicative =
     type Option2<'T> =
@@ -1384,12 +1381,12 @@ let ``Fix lambda uncurry/curry semantic #1836`` () =
     doMapCalled |> equal 1
     doMapResultCalled |> equal 2
 
-// [<Fact>]
-// let ``OptimizedClosures.FSharpFunc<_,_,_>.Adapt works`` () = // See #1904
-//     let f = OptimizedClosures.FSharpFunc<_,_,_>.Adapt (fun x y -> x + y)
-//     f.Invoke(3, 4) |> equal 7
-//     let f2 = OptimizedClosures.FSharpFunc<_,_,_>.Adapt mul
-//     f2.Invoke(3, 4) |> equal 12
+[<Fact>]
+let ``OptimizedClosures.FSharpFunc<_,_,_>.Adapt works`` () = // See #1904
+    let f = OptimizedClosures.FSharpFunc<_,_,_>.Adapt (fun x y -> x + y)
+    f.Invoke(3, 4) |> equal 7
+    let f2 = OptimizedClosures.FSharpFunc<_,_,_>.Adapt mul
+    f2.Invoke(3, 4) |> equal 12
 
 [<Fact>]
 let ``Arguments passed to point-free function are uncurried`` () = // See #1959

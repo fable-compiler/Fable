@@ -1102,6 +1102,12 @@ module AST =
             else false
         FSharp.Collections.ResizeArray [|expr|] |> deepExistsInner
 
+    // depth-first search
+    let rec tryFindExprDFS (f: Expr -> bool) (e: Expr) =
+        getSubExpressions e
+        |> List.tryPick (fun e2 -> tryFindExprDFS f e2)
+        |> Option.orElse (if f e then Some e else None)
+
     let isIdentUsed identName expr =
         expr |> deepExists (function
             | IdentExpr i -> i.Name = identName
