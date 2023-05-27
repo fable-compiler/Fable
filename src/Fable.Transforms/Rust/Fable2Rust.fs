@@ -82,117 +82,117 @@ module Helpers =
 
 module UsageTracking =
 
-    type ConsumptionType =
-        {
-            Name: string
-            ByRef: bool
-            //Path: string list // for debugging purposes only
-        }
+    // type ConsumptionType =
+    //     {
+    //         Name: string
+    //         ByRef: bool
+    //         //Path: string list // for debugging purposes only
+    //     }
 
-    let calcIdentConsumption (body: Fable.Expr) =
-        // todo - handle shadowing of idents
-        let rec loop pathRev decTreeTargets consumingRef expr =
-            let mkUsage name= { Name = name
-                                ByRef = consumingRef
-                                //Path = pathRev |> List.rev //for debugging purposes only
-                                }
-            let loop pathComp =
-                loop []
-                //loop (pathComp::pathRev) // debugging purposes only
-            match expr with
-            | Fable.IdentExpr ident ->
-                [mkUsage ident.Name]
-            | Fable.Sequential exprs ->
-                exprs |> List.collect (loop "seq" decTreeTargets consumingRef)
-            | Fable.Let(_, value, body) -> loop "let" decTreeTargets false value @ loop "let" decTreeTargets false body
-            | Fable.LetRec(bindings, body) ->
-                let bindingUsages =
-                    bindings
-                    |> List.map snd
-                    |> List.collect (loop "letrec" decTreeTargets false)
-                bindingUsages @ loop "letrec" decTreeTargets false body
-            | Fable.IfThenElse(cond, thenExpr, elseExpr, _) ->
-                loop "ifelse" decTreeTargets true cond @ loop "ifelse" decTreeTargets consumingRef thenExpr @ loop "ifelse" decTreeTargets consumingRef elseExpr
-            | Fable.DecisionTree(expr, targets) ->
-                loop "dectree" targets true expr //@ (List.map snd targets |> List.collect (loop consumingRef))
-            | Fable.DecisionTreeSuccess(targetIdx, boundValues, _ ) ->
-                //getDecisionTargetAndBindValues
-                let dcexpr = List.tryItem targetIdx decTreeTargets |> Option.map snd |> Option.toList
-                (boundValues @ dcexpr) |> List.collect (loop $"dtsuc{targetIdx}" decTreeTargets consumingRef)
-            | Fable.Get(expr, kind, _, _) ->
-                loop "get" decTreeTargets consumingRef expr
-            | Fable.Set(expr, kind, _, value, _) ->
-                let kindOps =
-                    match kind with
-                    | Fable.ExprSet expr -> loop "set" decTreeTargets true expr @ loop "set" decTreeTargets true value
-                    | _ -> loop "set" decTreeTargets true value
-                loop "set" decTreeTargets false expr @ kindOps @ loop "set" decTreeTargets false value
-            | Fable.Call(callee, info, t, r) ->
-                loop "call" decTreeTargets consumingRef callee
-                @ (info.ThisArg |> Option.map (loop "call" decTreeTargets true) |> Option.defaultValue [])
-                @ (info.Args |> List.collect (loop "call" decTreeTargets false))
-            | Fable.Value (kind, _) ->
-                match kind with
-                | Fable.ThisValue _ | Fable.BaseValue _ -> []
-                | Fable.TypeInfo _ | Fable.Null _ | Fable.UnitConstant | Fable.NumberConstant _
-                | Fable.BoolConstant _ | Fable.CharConstant _ | Fable.StringConstant _ | Fable.RegexConstant _  -> []
-                | Fable.NewList(None,_) | Fable.NewOption(None,_,_) -> []
-                | Fable.NewOption(Some e,_,_) -> loop "val_opt" decTreeTargets false e
-                | Fable.NewList(Some(h,t),_) -> loop "val_lst" decTreeTargets false h @ loop "val_lst" decTreeTargets false t
-                | Fable.StringTemplate(_,_,exprs)
-                | Fable.NewTuple(exprs,_)
-                | Fable.NewUnion(exprs,_,_,_) -> exprs |> List.collect (loop "val_union" decTreeTargets consumingRef)
-                | Fable.NewArray(newKind, _, kind) ->
-                    match newKind with
-                    | Fable.ArrayFrom expr -> loop "val_arr" decTreeTargets false expr
-                    | Fable.ArrayAlloc expr -> loop "val_arr" decTreeTargets false expr
-                    | Fable.ArrayValues exprs -> exprs |> List.collect (loop "val_arr" decTreeTargets consumingRef)
-                | Fable.NewRecord (exprs, _, _) | Fable.NewAnonymousRecord (exprs, _, _, _) ->
-                    exprs |> List.collect (loop "val_rec" decTreeTargets consumingRef)
-            | Fable.Lambda (_, body, _)
-            | Fable.Delegate (_, body, _, _ ) ->
-                // this is not completely accurate. From here on out we only really want to count each ident maximum 1 time (by value) to simulate closed over ident cloning
-                loop "del" decTreeTargets false body
-            | Fable.Operation(kind, _, _, _) ->
-                match kind with
-                | Fable.Unary(_, expr) ->
-                    loop "op_u" decTreeTargets false expr
-                | Fable.Binary(_, l, r) ->
-                    loop "op_b" decTreeTargets false l @ loop "op_b" decTreeTargets false r
-                | Fable.Logical(_, l, r) -> loop "op_l" decTreeTargets true l @ loop "op_l" decTreeTargets true r
-            | Fable.WhileLoop (guard, body, _) ->
-                loop "while" decTreeTargets true guard @ loop "while" decTreeTargets true body
-            | Fable.ForLoop (ident, start, limit, body, _, _) ->
-                let identEv = mkUsage ident.Name
-                [identEv] @ loop "for" decTreeTargets true start @ loop "for" decTreeTargets true limit @ loop "for" decTreeTargets true body
-            | Fable.CurriedApply (applied, args, _, _) ->
-                loop "ca" decTreeTargets false applied @ (args |> List.collect (loop "ca" decTreeTargets false))
-            | Fable.TypeCast(e, t) ->
-                loop "tc" decTreeTargets true e
-            | Fable.Test(expr, kind, range) ->
-                loop "test" decTreeTargets true expr
-            | Fable.TryCatch (body, catch, finalizer, _) ->
-                loop "try_catch" decTreeTargets false body
-                @ (catch |> Option.map (snd >> loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
-                @ (finalizer |> Option.map (loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
-            | Fable.Emit (info, _, _) ->
-                (info.CallInfo.ThisArg |> Option.map (loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
-                @ (info.CallInfo.Args |> List.collect (loop "try_catch" decTreeTargets false))
-            | _ -> []
-        loop [] [] false body
+    // let calcIdentConsumption (body: Fable.Expr) =
+    //     // todo - handle shadowing of idents
+    //     let rec loop pathRev decTreeTargets consumingRef expr =
+    //         let mkUsage name= { Name = name
+    //                             ByRef = consumingRef
+    //                             //Path = pathRev |> List.rev //for debugging purposes only
+    //                             }
+    //         let loop pathComp =
+    //             loop []
+    //             //loop (pathComp::pathRev) // debugging purposes only
+    //         match expr with
+    //         | Fable.IdentExpr ident ->
+    //             [mkUsage ident.Name]
+    //         | Fable.Sequential exprs ->
+    //             exprs |> List.collect (loop "seq" decTreeTargets consumingRef)
+    //         | Fable.Let(_, value, body) -> loop "let" decTreeTargets false value @ loop "let" decTreeTargets false body
+    //         | Fable.LetRec(bindings, body) ->
+    //             let bindingUsages =
+    //                 bindings
+    //                 |> List.map snd
+    //                 |> List.collect (loop "letrec" decTreeTargets false)
+    //             bindingUsages @ loop "letrec" decTreeTargets false body
+    //         | Fable.IfThenElse(cond, thenExpr, elseExpr, _) ->
+    //             loop "ifelse" decTreeTargets true cond @ loop "ifelse" decTreeTargets consumingRef thenExpr @ loop "ifelse" decTreeTargets consumingRef elseExpr
+    //         | Fable.DecisionTree(expr, targets) ->
+    //             loop "dectree" targets true expr //@ (List.map snd targets |> List.collect (loop consumingRef))
+    //         | Fable.DecisionTreeSuccess(targetIdx, boundValues, _ ) ->
+    //             //getDecisionTargetAndBindValues
+    //             let dcexpr = List.tryItem targetIdx decTreeTargets |> Option.map snd |> Option.toList
+    //             (boundValues @ dcexpr) |> List.collect (loop $"dtsuc{targetIdx}" decTreeTargets consumingRef)
+    //         | Fable.Get(expr, kind, _, _) ->
+    //             loop "get" decTreeTargets consumingRef expr
+    //         | Fable.Set(expr, kind, _, value, _) ->
+    //             let kindOps =
+    //                 match kind with
+    //                 | Fable.ExprSet expr -> loop "set" decTreeTargets true expr @ loop "set" decTreeTargets true value
+    //                 | _ -> loop "set" decTreeTargets true value
+    //             loop "set" decTreeTargets false expr @ kindOps @ loop "set" decTreeTargets false value
+    //         | Fable.Call(callee, info, t, r) ->
+    //             loop "call" decTreeTargets consumingRef callee
+    //             @ (info.ThisArg |> Option.map (loop "call" decTreeTargets true) |> Option.defaultValue [])
+    //             @ (info.Args |> List.collect (loop "call" decTreeTargets false))
+    //         | Fable.Value (kind, _) ->
+    //             match kind with
+    //             | Fable.ThisValue _ | Fable.BaseValue _ -> []
+    //             | Fable.TypeInfo _ | Fable.Null _ | Fable.UnitConstant | Fable.NumberConstant _
+    //             | Fable.BoolConstant _ | Fable.CharConstant _ | Fable.StringConstant _ | Fable.RegexConstant _  -> []
+    //             | Fable.NewList(None,_) | Fable.NewOption(None,_,_) -> []
+    //             | Fable.NewOption(Some e,_,_) -> loop "val_opt" decTreeTargets false e
+    //             | Fable.NewList(Some(h,t),_) -> loop "val_lst" decTreeTargets false h @ loop "val_lst" decTreeTargets false t
+    //             | Fable.StringTemplate(_,_,exprs)
+    //             | Fable.NewTuple(exprs,_)
+    //             | Fable.NewUnion(exprs,_,_,_) -> exprs |> List.collect (loop "val_union" decTreeTargets consumingRef)
+    //             | Fable.NewArray(newKind, _, kind) ->
+    //                 match newKind with
+    //                 | Fable.ArrayFrom expr -> loop "val_arr" decTreeTargets false expr
+    //                 | Fable.ArrayAlloc expr -> loop "val_arr" decTreeTargets false expr
+    //                 | Fable.ArrayValues exprs -> exprs |> List.collect (loop "val_arr" decTreeTargets consumingRef)
+    //             | Fable.NewRecord (exprs, _, _) | Fable.NewAnonymousRecord (exprs, _, _, _) ->
+    //                 exprs |> List.collect (loop "val_rec" decTreeTargets consumingRef)
+    //         | Fable.Lambda (_, body, _)
+    //         | Fable.Delegate (_, body, _, _ ) ->
+    //             // this is not completely accurate. From here on out we only really want to count each ident maximum 1 time (by value) to simulate closed over ident cloning
+    //             loop "del" decTreeTargets false body
+    //         | Fable.Operation(kind, _, _, _) ->
+    //             match kind with
+    //             | Fable.Unary(_, expr) ->
+    //                 loop "op_u" decTreeTargets false expr
+    //             | Fable.Binary(_, l, r) ->
+    //                 loop "op_b" decTreeTargets false l @ loop "op_b" decTreeTargets false r
+    //             | Fable.Logical(_, l, r) -> loop "op_l" decTreeTargets true l @ loop "op_l" decTreeTargets true r
+    //         | Fable.WhileLoop (guard, body, _) ->
+    //             loop "while" decTreeTargets true guard @ loop "while" decTreeTargets true body
+    //         | Fable.ForLoop (ident, start, limit, body, _, _) ->
+    //             let identEv = mkUsage ident.Name
+    //             [identEv] @ loop "for" decTreeTargets true start @ loop "for" decTreeTargets true limit @ loop "for" decTreeTargets true body
+    //         | Fable.CurriedApply (applied, args, _, _) ->
+    //             loop "ca" decTreeTargets false applied @ (args |> List.collect (loop "ca" decTreeTargets false))
+    //         | Fable.TypeCast(e, t) ->
+    //             loop "tc" decTreeTargets true e
+    //         | Fable.Test(expr, kind, range) ->
+    //             loop "test" decTreeTargets true expr
+    //         | Fable.TryCatch (body, catch, finalizer, _) ->
+    //             loop "try_catch" decTreeTargets false body
+    //             @ (catch |> Option.map (snd >> loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
+    //             @ (finalizer |> Option.map (loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
+    //         | Fable.Emit (info, _, _) ->
+    //             (info.CallInfo.ThisArg |> Option.map (loop "try_catch" decTreeTargets true) |> Option.defaultValue [])
+    //             @ (info.CallInfo.Args |> List.collect (loop "try_catch" decTreeTargets false))
+    //         | _ -> []
+    //     loop [] [] false body
 
-    let calcIdentUsages expr =
-        let identUsages = calcIdentConsumption expr
-        //break here if you want to know how we got to a certain count
-        identUsages
-        |> List.map (fun u -> u.Name)
-        |> List.groupBy id
-        |> List.map (fun (identName, instances) ->
-            match identName with
-            //cannot get this working - It seems some call sites retain original ident names, so match value gives counts that are too low
-            | "matchValue" -> identName, 9999
-            | _ -> identName, instances |> List.length)
-        |> Map.ofList
+    // let calcIdentUsages expr =
+    //     let identUsages = calcIdentConsumption expr
+    //     //break here if you want to know how we got to a certain count
+    //     identUsages
+    //     |> List.map (fun u -> u.Name)
+    //     |> List.groupBy id
+    //     |> List.map (fun (identName, instances) ->
+    //         match identName with
+    //         //cannot get this working - It seems some call sites retain original ident names, so match value gives counts that are too low
+    //         | "matchValue" -> identName, 9999
+    //         | _ -> identName, instances |> List.length)
+    //     |> Map.ofList
 
     let isArmScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsArm) |> Option.defaultValue false
@@ -209,8 +209,29 @@ module UsageTracking =
     let isFuncScoped ctx name =
         ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.IsFunc) |> Option.defaultValue false
 
+    let isUsedOnce ctx name =
+        ctx.ScopedSymbols |> Map.tryFind name |> Option.map (fun s -> s.UsageCount = 1) |> Option.defaultValue false
+
     let usageCount name usages =
         Map.tryFind name usages |> Option.defaultValue 0
+
+    // not an accurate count, just a metric if ident is used more than once
+    // (the reason is that we want to count usage in loops as multiple uses)
+    // (i.e. usage can be tested for zero, one, or more than one (not exact))
+    // TODO: also adjust usage count in tail call loops
+    let rec countIdentUsage name (expr: Fable.Expr): int =
+        let subCount =
+            getSubExpressions expr
+            |> List.sumBy (fun e -> countIdentUsage name e) // depth-first
+        match expr with
+        | Fable.IdentExpr ident when ident.Name = name
+            -> subCount + 1     // count each ident with the same name
+        | Fable.ForLoop _
+        | Fable.WhileLoop _
+            -> subCount * 2     // usage in loops counts as multiple uses
+        | Fable.DecisionTree _ when subCount > 1
+            -> subCount * 2     // usage in complex decision trees can vary
+        | _ -> subCount + 0     // anything else is zero
 
 module TypeInfo =
 
@@ -557,15 +578,15 @@ module TypeInfo =
             -> true
         | _ -> false
 
-    let rec tryGetIdent = function
+    let rec tryGetIdentName = function
         | Fable.IdentExpr ident -> ident.Name |> Some
-        | Fable.Get (expr, Fable.OptionValue, _, _) -> tryGetIdent expr
-        | Fable.Get (expr, Fable.UnionField _, _, _) -> tryGetIdent expr
-        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, expr), _, _, _) -> tryGetIdent expr
+        | Fable.Get(expr, Fable.OptionValue, _, _) -> tryGetIdentName expr
+        | Fable.Get(expr, Fable.UnionField _, _, _) -> tryGetIdentName expr
+        | Fable.Operation (Fable.Unary(UnaryOperator.UnaryAddressOf, expr), _, _, _) -> tryGetIdentName expr
         | _ -> None
 
-    let getIdentName expr =
-        tryGetIdent expr |> Option.defaultValue ""
+    // let getIdentName expr =
+    //     tryGetIdentName expr |> Option.defaultValue ""
 
     let transformImport (com: IRustCompiler) ctx r t (info: Fable.ImportInfo) genArgsOpt =
         if info.Selector.Contains("*") || info.Selector.Contains("{") then
@@ -1149,13 +1170,6 @@ module Util =
         | None -> failwith $"Cannot find DecisionTree target %i{targetIndex}"
         | Some(idents, target) -> idents, target
 
-    let isRefExpr com ctx (expr: Fable.Expr) =
-        match expr with
-        | Fable.IdentExpr ident ->
-            (isInRefOrAnyType com expr.Type) || (isRefScoped ctx ident.Name)
-        | _ ->
-            (isInRefOrAnyType com expr.Type)
-
     let transformIdent com ctx r (ident: Fable.Ident) =
         match ctx.ScopedSymbols |> Map.tryFind ident.Name with
         | Some varAttrs ->
@@ -1344,7 +1358,7 @@ module Util =
         // // casts to System.Object
         // | _, Fable.Any ->
         //     let ty = transformType com ctx toType
-        //     expr |> mkCastExpr (ty |> mkRefTy)
+        //     expr |> mkCastExpr (ty |> mkRefTy None)
 
         // TODO: other casts?
         | _ ->
@@ -1356,11 +1370,6 @@ module Util =
 
     /// Calling this on an rc guarantees a &T, regardless of if the Rc is a ref or not
     let makeAsRef expr = mkMethodCallExpr "as_ref" None expr []
-
-    let makeAddrOf com ctx fableExpr expr =
-        if isRefExpr com ctx fableExpr
-        then expr
-        else expr |> mkAddrOfExpr
 
     let makeCall pathNames genArgs (args: Rust.Expr list) =
         let callee = mkGenericPathExpr pathNames genArgs
@@ -1465,9 +1474,9 @@ module Util =
                     let ctx = { ctx with IsParamByRefPreferred = isByRefPreferred || ctx.IsParamByRefPreferred }
                     transformLeaveContext com ctx argType arg)
 
-    let prepareRefForPatternMatch (com: IRustCompiler) ctx typ name fableExpr =
+    let prepareRefForPatternMatch (com: IRustCompiler) ctx typ (name: string option) fableExpr =
         let expr = com.TransformExpr(ctx, fableExpr)
-        if isRefScoped ctx name || (isInRefOrAnyType com typ)
+        if (name.IsSome && isRefScoped ctx name.Value) || (isInRefOrAnyType com typ)
         then expr
         elif shouldBeRefCountWrapped com ctx typ |> Option.isSome
         then expr |> makeAsRef
@@ -1777,63 +1786,76 @@ module Util =
         | Fable.NewAnonymousRecord(values, fieldNames, genArgs, isStruct) -> makeTuple com ctx r isStruct values
         | Fable.NewUnion(values, tag, entRef, genArgs) -> makeUnion com ctx r values tag entRef genArgs
 
-    let calcVarAttrsAndOnlyRef com ctx (e: Fable.Expr) =
-        let t = e.Type
-        let name = getIdentName e
-        let varAttrs =
-            ctx.ScopedSymbols   // todo - cover more than just root level idents
-            |> Map.tryFind name
-            |> Option.defaultValue {
-                IsArm = false
-                IsRef = false
-                IsBox = false
-                IsFunc = false
-                UsageCount = 9999 }
-        let isOnlyReference =
-            match e with
-            | Fable.Let _ -> true
-            | Fable.Call _ ->
-                //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
-                true
-            | Fable.CurriedApply _ -> true
-            | Fable.Value(kind, r) ->
-                //an inline value kind is also never bound, so can assume this is the only reference also
-                true
-            | Fable.Operation(Fable.Binary _, _, _, _) ->
-                true //Anything coming out of an operation is as good as being returned from a function
-            | Fable.Lambda _
-            | Fable.Delegate _ ->
-                true
-            | Fable.IfThenElse _
-            | Fable.DecisionTree _
-            | Fable.DecisionTreeSuccess _
-            | Fable.Sequential _
-            | Fable.ForLoop _
-                -> true // All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
-            | _ ->
-                if ctx.HasMultipleUses then
-                    false
-                    // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
-                    // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
-                else varAttrs.UsageCount < 2
-        varAttrs, isOnlyReference
+    // let calcVarAttrsAndOnlyRef com ctx (e: Fable.Expr) =
+    //     let t = e.Type
+    //     let name = getIdentName e
+    //     let varAttrs =
+    //         ctx.ScopedSymbols   // todo - cover more than just root level idents
+    //         |> Map.tryFind name
+    //         |> Option.defaultValue {
+    //             IsArm = false
+    //             IsRef = false
+    //             IsBox = false
+    //             IsFunc = false
+    //             UsageCount = 9999 }
+    //     let isOnlyReference =
+    //         match e with
+    //         | Fable.Let _ -> true
+    //         | Fable.Call _ ->
+    //             //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
+    //             true
+    //         | Fable.CurriedApply _ -> true
+    //         | Fable.Value(kind, r) ->
+    //             //an inline value kind is also never bound, so can assume this is the only reference also
+    //             true
+    //         | Fable.Operation(Fable.Binary _, _, _, _) ->
+    //             true //Anything coming out of an operation is as good as being returned from a function
+    //         | Fable.Lambda _
+    //         | Fable.Delegate _ ->
+    //             true
+    //         | Fable.IfThenElse _
+    //         | Fable.DecisionTree _
+    //         | Fable.DecisionTreeSuccess _
+    //         | Fable.Sequential _
+    //         | Fable.ForLoop _
+    //             -> true // All control constructs in f# return expressions, and as return statements are always take ownership, we can assume this is already owned, and not bound
+    //         | _ ->
+    //             if ctx.HasMultipleUses then
+    //                 false
+    //                 // If an owned value is captured, it must be cloned or it will turn a closure into a FnOnce (as value is consumed on first call).
+    //                 // If an owned value leaves scope inside a for loop, it can also not be assumed to be the only usage, as there are multiple instances of that expression invocation at runtime
+    //             else varAttrs.UsageCount < 2
+    //     varAttrs, isOnlyReference
 
-    let transformLeaveContext (com: IRustCompiler) ctx (t: Fable.Type option) (e: Fable.Expr): Rust.Expr =
-        let varAttrs, isOnlyRef = calcVarAttrsAndOnlyRef com ctx e
-        // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
-
-        let expr =
-            //only valid for this level, so must reset for nested expressions
-            let ctx = { ctx with IsParamByRefPreferred = false }
-            com.TransformExpr (ctx, e)
+    let transformLeaveContext (com: IRustCompiler) ctx (tOpt: Fable.Type option) (e: Fable.Expr): Rust.Expr =
+        // let varAttrs, isOnlyRef = calcVarAttrsAndOnlyRef com ctx e
 
         let implCopy = typeImplementsCopyTrait com ctx e.Type
         let implClone = typeImplementsCloneTrait com ctx e.Type
-        let sourceIsRef = varAttrs.IsRef
+
+        let sourceIsRef =
+            match e with
+            | Fable.Get(Fable.IdentExpr ident, _, _, _)
+            | MaybeCasted(Fable.IdentExpr ident)
+                -> isRefScoped ctx ident.Name
+            | _ -> false
+
         let targetIsRef =
             ctx.IsParamByRefPreferred
-            || Option.exists (isByRefOrAnyType com) t
-            || isAddrOfExpr e
+            || Option.exists (fun t -> t = Fable.Any) tOpt
+            // || Option.exists (isByRefOrAnyType com) tOpt
+            // || isAddrOfExpr e
+
+        let mustClone =
+            match e with
+            | MaybeCasted(Fable.IdentExpr ident) ->
+                // clone non-mutable idents if used more than once
+                not (ident.IsMutable) && not (isUsedOnce ctx ident.Name)
+            | Fable.Get(_, Fable.FieldGet _, _, _)
+                -> true // always clone field get exprs
+            // | Fable.Get(_, _, _, _) -> //TODO: clone other gets ???
+            | _ -> false
+
         let isUnreachable =
             match e with
             | Fable.Emit _
@@ -1841,13 +1863,18 @@ module Util =
                 -> true
             | _ -> false
 
-        match implCopy, implClone, sourceIsRef, targetIsRef, isOnlyRef, isUnreachable with
-        |     _,        _,         true,        true,        _,         false ->           expr
-        |     true,     _,         false,       false,       _,         false ->           expr
-        |     _,        _,         true,        false,       _,         false ->           expr |> makeClone
-        //|     _,        _,         true,        false,       true,      false ->           expr |> mkDerefExpr // should be able to just deref but sourceIsRef is not always correct for root union ident
-        |     _,        _,         false,       true,        _,         false ->           expr |> makeAddrOf com ctx e
-        |     false,    true,      _,           false,       false,     false ->           expr |> makeClone
+        // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
+        let expr =
+            //only valid for this level, so must reset for nested expressions
+            let ctx = { ctx with IsParamByRefPreferred = false }
+            com.TransformExpr (ctx, e)
+
+        match implCopy, implClone, sourceIsRef, targetIsRef, mustClone, isUnreachable with
+        |     _,        _,         false,       true,        _,         false ->        expr |> mkAddrOfExpr
+        |     _,        _,         true,        true,        _,         false ->        expr
+        |     _,        _,         true,        false,       _,         false ->        expr |> makeClone
+        |     true,     _,         false,       false,       _,         false ->        expr
+        |     false,    true,      _,           false,       true,      false ->        expr |> makeClone
         | _ ->                                                                             expr
         //|> BLOCK_COMMENT_SUFFIX (sprintf implCopy: %b, "implClone: %b, sourceIsRef; %b, targetIsRef: %b, isOnlyRef: %b (%i), isUnreachable: %b" implCopy implClone sourceIsRef targetIsRef isOnlyRef isUnreachable varAttrs.UsageCount)
 
@@ -1948,15 +1975,15 @@ module Util =
 
     let transformOperation com ctx range typ opKind: Rust.Expr =
         match opKind with
-        | Fable.Unary(UnaryOperator.UnaryAddressOf, Fable.IdentExpr ident) ->
-            transformIdent com ctx range ident // |> mkAddrOfExpr
+        | Fable.Unary(UnaryOperator.UnaryAddressOf, MaybeCasted(Fable.IdentExpr ident)) ->
+            transformIdent com ctx range ident |> mkAddrOfExpr
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
             | UnaryOperator.UnaryMinus -> mkNegExpr expr //?loc=range)
             | UnaryOperator.UnaryPlus -> expr // no unary plus
             | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
-            | UnaryOperator.UnaryAddressOf -> expr // |> mkAddrOfExpr// already handled above
+            | UnaryOperator.UnaryAddressOf -> expr |> mkAddrOfExpr
 
         | Fable.Binary(op, leftExpr, rightExpr) ->
             let kind =
@@ -2262,7 +2289,7 @@ module Util =
                 let pat = makeUnionCasePat unionCaseName fields
                 let expr =
                     fableExpr
-                    |> prepareRefForPatternMatch com ctx fableExpr.Type ""
+                    |> prepareRefForPatternMatch com ctx fableExpr.Type None
                 let thenExpr =
                     mkGenericPathExpr [fieldName] None |> makeClone
 
@@ -2432,12 +2459,23 @@ module Util =
                 (ctxNext, stmt :: lst) )
         letStmtsRev |> List.rev, ctx
 
-    let transformLet (com: IRustCompiler) ctx bindings body =
+    let transformLet (com: IRustCompiler) ctx (bindings: (Fable.Ident * Fable.Expr) list) body =
+        // let usages =
+        //     let bodyUsages = calcIdentUsages body
+        //     let bindingsUsages = bindings |> List.map (snd >> calcIdentUsages)
+        //     (Map.empty, bodyUsages::bindingsUsages)
+        //     ||> List.fold (Helpers.Map.mergeAndAggregate (+))
         let usages =
-            let bodyUsages = calcIdentUsages body
-            let bindingsUsages = bindings |> List.map (snd >> calcIdentUsages)
-            (Map.empty, bodyUsages::bindingsUsages)
-            ||> List.fold (Helpers.Map.mergeAndAggregate (+))
+            let idents, values = List.unzip bindings
+            let exprs = body::values
+            let usageCounts = idents |> List.map (fun ident ->
+                let count =
+                    exprs
+                    |> List.map (fun e -> countIdentUsage ident.Name e)
+                    |> List.sum
+                ident.Name, count
+            )
+            usageCounts |> Map
         let letStmts, ctx = makeLetStmts com ctx bindings body usages
         let bodyStmts =
             match body with
@@ -2557,7 +2595,6 @@ module Util =
         let callee = transformCallee com ctx expr
         let genArgsOpt = transformGenArgs com ctx [typ]
         let anyTy = makeAnyTy com ctx |> mkRefTy None
-        let callee = makeAddrOf com ctx expr callee
         let toAnyExpr = callee |> mkCastExpr anyTy
         match expr with
         | Fable.IdentExpr ident when isDowncast ->
@@ -2600,7 +2637,7 @@ module Util =
                 let pat = makeUnionCasePat unionCaseName fields
                 let expr =
                     fableExpr
-                    |> prepareRefForPatternMatch com ctx fableExpr.Type (getIdentName fableExpr)
+                    |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
                 mkLetExpr pat expr
             | _ ->
                 failwith "Should not happen"
@@ -2629,7 +2666,7 @@ module Util =
                 else []
             | _ -> []
 
-        let makeArm pat targetIndex boundValues (extraVals: (string * string * Fable.Type) list)=
+        let makeArm pat targetIndex boundValues (extraVals: (string * string * Fable.Type) list) =
             let attrs = []
             let guard = None // TODO:
             let idents, (bodyExpr: Fable.Expr) = targets |> List.item targetIndex // TODO:
@@ -2637,13 +2674,16 @@ module Util =
             // TODO: vars, boundValues
             let body =
                 //com.TransformExpr(ctx, bodyExpr)
-                let usages = calcIdentUsages bodyExpr
+                // let usages = calcIdentUsages bodyExpr
                 let getScope name =
-                    name, { IsArm = true
-                            IsRef = true
-                            IsBox = false
-                            IsFunc = false
-                            UsageCount = usageCount name usages }
+                    let scopedVarAttrs = {
+                        IsArm = true
+                        IsRef = true
+                        IsBox = false
+                        IsFunc = false
+                        UsageCount = countIdentUsage name bodyExpr
+                    }
+                    name, scopedVarAttrs
                 let symbolsAndNames =
                     let fromIdents =
                         idents
@@ -2703,7 +2743,7 @@ module Util =
 
         let evalType, evalName =
             match evalExpr with
-            | Fable.Get (Fable.IdentExpr ident, Fable.UnionTag, _, _) ->
+            | Fable.Get(Fable.IdentExpr ident, Fable.UnionTag, _, _) ->
                 ident.Type, Some ident.Name
             | _ -> evalExpr.Type, None
 
@@ -2731,10 +2771,10 @@ module Util =
             let patOpt =
                 let rec getUnionPat expr =
                     match expr with
-                    | Fable.Get (Fable.IdentExpr ident, Fable.OptionValue, _, _)
+                    | Fable.Get(Fable.IdentExpr ident, Fable.OptionValue, _, _)
                         when Some ident.Name = evalName && ident.Type = evalType ->
                         makeUnionCasePatOpt evalType evalName 0
-                    | Fable.Get (Fable.IdentExpr ident, Fable.UnionField info, _, _)
+                    | Fable.Get(Fable.IdentExpr ident, Fable.UnionField info, _, _)
                         when Some ident.Name = evalName && ident.Type = evalType ->
                         makeUnionCasePatOpt evalType evalName info.CaseIndex
                     | _ ->
@@ -2748,7 +2788,7 @@ module Util =
 
         let expr =
             evalExpr
-            |> prepareRefForPatternMatch com ctx evalType (evalName |> Option.defaultValue "")
+            |> prepareRefForPatternMatch com ctx evalType evalName
 
         mkMatchExpr expr (arms @ [defaultArm])
 
@@ -3150,7 +3190,7 @@ module Util =
         capturedIdents
 
     let getFunctionBodyCtx com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) isTailRec =
-        let usages = calcIdentUsages body
+        // let usages = calcIdentUsages body
         let scopedSymbols =
             (ctx.ScopedSymbols, args)
             ||> List.fold (fun acc arg ->
@@ -3160,7 +3200,7 @@ module Util =
                     IsRef = arg.IsThisArgument || isByRefOrAnyType com arg.Type || ctx.IsParamByRefPreferred
                     IsBox = false
                     IsFunc = false
-                    UsageCount = usageCount arg.Name usages
+                    UsageCount = countIdentUsage arg.Name body
                 }
                 acc |> Map.add arg.Name scopedVarAttrs)
         let tco =
