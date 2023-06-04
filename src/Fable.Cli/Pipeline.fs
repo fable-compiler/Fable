@@ -357,7 +357,7 @@ module Lua =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
