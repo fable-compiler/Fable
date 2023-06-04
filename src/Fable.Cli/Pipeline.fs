@@ -65,7 +65,7 @@ type Stream =
         }
 
 module Js =
-    type BabelWriter(cliArgs: CliArgs, pathResolver: PathResolver, sourcePath: string, targetPath: string) =
+    type BabelWriter(com: Compiler, cliArgs: CliArgs, pathResolver: PathResolver, sourcePath: string, targetPath: string) =
         // In imports *.ts extensions have to be converted to *.js extensions instead
         let fileExt =
             let fileExt = cliArgs.CompilerOptions.FileExtension
@@ -108,14 +108,15 @@ module Js =
                     let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
                     File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
                 else path
-            member _.AddLog(msg, severity, ?range) = () // TODO
-            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
+            member _.AddSourceMapping(srcLine, srcCol, genLine, genCol, file, displayName) =
                 if cliArgs.SourceMaps then
                     let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
                     let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
                     let targetPath = Path.normalizeFullPath targetPath
-                    let sourcePath = Path.getRelativeFileOrDirPath false targetPath false sourcePath
-                    mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
+                    let sourcePath = defaultArg file sourcePath |> Path.getRelativeFileOrDirPath false targetPath false
+                    mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=displayName)
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) = async {
         let babel =
@@ -124,7 +125,7 @@ module Js =
             |> Fable2Babel.Compiler.transformFile com
 
         if not(isSilent || babel.IsEmpty) then
-            use writer = new BabelWriter(cliArgs, pathResolver, com.CurrentFile, outPath)
+            use writer = new BabelWriter(com, cliArgs, pathResolver, com.CurrentFile, outPath)
             do! BabelPrinter.run writer babel
             // TODO: Check also if file has actually changed with other printers
             do! writer.WriteToFileIfChanged()
@@ -169,7 +170,7 @@ module Python =
 
             member _.Dispose() = stream.Dispose()
 
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
 
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
@@ -268,7 +269,7 @@ module Php =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
@@ -296,7 +297,7 @@ module Dart =
             member _.MakeImportPath(path) =
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()
@@ -326,7 +327,7 @@ module Rust =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-            member _.AddSourceMapping _ = ()
+            member _.AddSourceMapping(_,_,_,_,_,_) = ()
             member _.AddLog(msg, severity, ?range) =
                 com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
             member _.Dispose() = stream.Dispose()

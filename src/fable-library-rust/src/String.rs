@@ -1,10 +1,12 @@
+#[cfg_attr(rustfmt, rustfmt::skip)]
 pub mod String_ {
 
     // -----------------------------------------------------------
     // Strings
     // -----------------------------------------------------------
 
-    use crate::Native_::{arrayFrom, compare, Array, Func1, Func2, Lrc, String, ToString, Vec};
+    use crate::Native_::{compare, Func1, Func2, Lrc, String, ToString, Vec};
+    use crate::NativeArray_::{array_from, Array};
 
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
@@ -14,7 +16,7 @@ pub mod String_ {
     // -----------------------------------------------------------
 
     mod HeapString {
-        use crate::Native_::Lrc;
+        use crate::Native_::{Lrc, String};
 
         #[repr(transparent)]
         #[derive(Clone)]
@@ -52,7 +54,7 @@ pub mod String_ {
     // TODO: maybe intern strings, maybe add length in chars.
 
     mod EnumString {
-        use crate::Native_::Lrc;
+        use crate::Native_::{Lrc, String};
 
         const INLINE_MAX: usize = 22;
 
@@ -293,6 +295,20 @@ pub mod String_ {
         s.chars().nth(i as usize).unwrap()
     }
 
+    // O(n) because Rust strings are UTF-8
+    pub fn get_char_pos(s: &string, i: i32) -> (usize, i32) {
+        if i <= 0 { (0, 0) }
+        else {
+            let mut n = 0;
+            let mut pos: usize = 0;
+            for c in s.chars().take(i as usize) {
+                n = n + 1;
+                pos = pos + c.len_utf8();
+            }
+            (pos, n)
+        }
+    }
+
     pub fn fromChar(c: char, count: i32) -> string {
         fromIter(core::iter::repeat(c).take(count as usize))
     }
@@ -424,18 +440,41 @@ pub mod String_ {
         fromString(s.replace(old.as_str(), new.as_str()))
     }
 
+    pub fn substring_safe(s: string, i: i32) -> string {
+        if i <= 0 { s }
+        else {
+            let (pos, n) = get_char_pos(&s, i);
+            fromSlice(&s[pos..])
+        }
+    }
+
+    pub fn substring2_safe(s: string, i: i32, count: i32) -> string {
+        let (pos, n1) = get_char_pos(&s, i);
+        let (end, n2) = get_char_pos(&s, i + count);
+        fromSlice(&s[pos..end])
+    }
+
     pub fn substring(s: string, i: i32) -> string {
         if (i < 0) {
             panic!("Argument out of range")
         }
-        fromIter(s.chars().skip(i as usize))
+        let (pos, n) = get_char_pos(&s, i);
+        if (n != i) || (pos > s.len()) {
+            panic!("Argument out of range")
+        }
+        fromSlice(&s[pos..])
     }
 
     pub fn substring2(s: string, i: i32, count: i32) -> string {
         if (i < 0) || (count < 0) {
             panic!("Argument out of range")
         }
-        fromIter(s.chars().skip(i as usize).take(count as usize))
+        let (pos, n1) = get_char_pos(&s, i);
+        let (end, n2) = get_char_pos(&s, i + count);
+        if (n1 != i) || (n2 != i + count) || (pos > s.len()) || (end > s.len()) {
+            panic!("Argument out of range")
+        }
+        fromSlice(&s[pos..end])
     }
 
     pub fn getSlice(s: string, lower: Option<i32>, upper: Option<i32>) -> string {
@@ -445,17 +484,17 @@ pub mod String_ {
             },
             (Some(start), None) => {
                 let start = if start < 0 { 0 } else { start };
-                substring(s, start)
+                substring_safe(s, start)
             },
             (None, Some(stop)) => {
                 let start = 0;
                 let count = if stop < start { 0 } else { stop - start + 1 };
-                substring2(s, 0, count)
+                substring2_safe(s, 0, count)
             },
             (Some(start), Some(stop)) => {
                 let start = if start < 0 { 0 } else { start };
                 let count = if stop < start { 0 } else { stop - start + 1 };
-                substring2(s, start, count)
+                substring2_safe(s, start, count)
             },
         }
     }
@@ -480,7 +519,7 @@ pub mod String_ {
         fromIter([left, right].iter().flat_map(|s| s.chars()))
     }
 
-    fn toIndex(offset: i32, opt: Option<(&str, &str)>) -> i32 {
+    fn to_index(offset: i32, opt: Option<(&str, &str)>) -> i32 {
         match opt {
             Some((s, _)) => offset + s.chars().count() as i32,
             None => -1,
@@ -488,75 +527,75 @@ pub mod String_ {
     }
 
     pub fn indexOf(s: string, p: string) -> i32 {
-        toIndex(0, s.split_once(p.as_str()))
+        to_index(0, s.split_once(p.as_str()))
     }
 
     pub fn indexOf2(s: string, p: string, i: i32) -> i32 {
-        toIndex(i, substring(s, i).split_once(p.as_str()))
+        to_index(i, substring(s, i).split_once(p.as_str()))
     }
 
     pub fn indexOf3(s: string, p: string, i: i32, count: i32) -> i32 {
-        toIndex(i, substring2(s, i, count).split_once(p.as_str()))
+        to_index(i, substring2(s, i, count).split_once(p.as_str()))
     }
 
     pub fn indexOfChar(s: string, c: char) -> i32 {
-        toIndex(0, s.split_once(c))
+        to_index(0, s.split_once(c))
     }
 
     pub fn indexOfChar2(s: string, c: char, i: i32) -> i32 {
-        toIndex(i, substring(s, i).split_once(c))
+        to_index(i, substring(s, i).split_once(c))
     }
 
     pub fn indexOfChar3(s: string, c: char, i: i32, count: i32) -> i32 {
-        toIndex(i, substring2(s, i, count).split_once(c))
+        to_index(i, substring2(s, i, count).split_once(c))
     }
 
     pub fn indexOfAny(s: string, a: Array<char>) -> i32 {
-        toIndex(0, s.split_once(a.as_slice()))
+        to_index(0, s.split_once(a.as_slice()))
     }
 
     pub fn indexOfAny2(s: string, a: Array<char>, i: i32) -> i32 {
-        toIndex(i, substring(s, i).split_once(a.as_slice()))
+        to_index(i, substring(s, i).split_once(a.as_slice()))
     }
 
     pub fn indexOfAny3(s: string, a: Array<char>, i: i32, count: i32) -> i32 {
-        toIndex(i, substring2(s, i, count).split_once(a.as_slice()))
+        to_index(i, substring2(s, i, count).split_once(a.as_slice()))
     }
 
     pub fn lastIndexOf(s: string, p: string) -> i32 {
-        toIndex(0, s.rsplit_once(p.as_str()))
+        to_index(0, s.rsplit_once(p.as_str()))
     }
 
     pub fn lastIndexOf2(s: string, p: string, i: i32) -> i32 {
-        toIndex(0, substring2(s, 0, (i + 1)).rsplit_once(p.as_str()))
+        to_index(0, substring2(s, 0, (i + 1)).rsplit_once(p.as_str()))
     }
 
     pub fn lastIndexOf3(s: string, p: string, i: i32, count: i32) -> i32 {
-        toIndex((i - count), substring2(s, (i-count+1), count).rsplit_once(p.as_str()))
+        to_index((i - count), substring2(s, (i-count+1), count).rsplit_once(p.as_str()))
     }
 
     pub fn lastIndexOfChar(s: string, c: char) -> i32 {
-        toIndex(0, s.rsplit_once(c))
+        to_index(0, s.rsplit_once(c))
     }
 
     pub fn lastIndexOfChar2(s: string, c: char, i: i32) -> i32 {
-        toIndex(0, substring2(s, 0, i + 1).rsplit_once(c))
+        to_index(0, substring2(s, 0, i + 1).rsplit_once(c))
     }
 
     pub fn lastIndexOfChar3(s: string, c: char, i: i32, count: i32) -> i32 {
-        toIndex(i - count, substring2(s, i-count+1, count).rsplit_once(c))
+        to_index(i - count, substring2(s, i-count+1, count).rsplit_once(c))
     }
 
     pub fn lastIndexOfAny(s: string, a: Array<char>) -> i32 {
-        toIndex(0, s.rsplit_once(a.as_slice()))
+        to_index(0, s.rsplit_once(a.as_slice()))
     }
 
     pub fn lastIndexOfAny2(s: string, a: Array<char>, i: i32) -> i32 {
-        toIndex(0, substring2(s, 0, i + 1).rsplit_once(a.as_slice()))
+        to_index(0, substring2(s, 0, i + 1).rsplit_once(a.as_slice()))
     }
 
     pub fn lastIndexOfAny3(s: string, a: Array<char>, i: i32, count: i32) -> i32 {
-        toIndex(i - count, substring2(s, i-count+1, count).rsplit_once(a.as_slice()))
+        to_index(i - count, substring2(s, i-count+1, count).rsplit_once(a.as_slice()))
     }
 
     pub fn padLeft(s: string, count: i32, c: char) -> string {
@@ -591,7 +630,7 @@ pub mod String_ {
             a = a.into_iter().take(count as usize).collect()
         }
         let a = a.into_iter().map(|s| fromSlice(s)).collect();
-        arrayFrom(a)
+        array_from(a)
     }
 
     pub fn split(s: string, p: string, count: i32, options: i32) -> Array<string> {
@@ -631,11 +670,11 @@ pub mod String_ {
     }
 
     pub fn toCharArray(s: string) -> Array<char> {
-        arrayFrom(s.chars().collect())
+        array_from(s.chars().collect())
     }
 
     pub fn toCharArray2(s: string, i: i32, count: i32) -> Array<char> {
-        arrayFrom(s.chars().skip(i as usize).take(count as usize).collect())
+        array_from(s.chars().skip(i as usize).take(count as usize).collect())
     }
 
     // -----------------------------------------------------------

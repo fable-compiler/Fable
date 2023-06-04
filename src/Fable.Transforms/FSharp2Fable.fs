@@ -46,6 +46,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
     match getUnionPattern fsType unionCase with
     | ErasedUnionCase ->
         makeTuple r false argExprs
+
     | ErasedUnion(tdef, _genArgs, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -54,17 +55,32 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
         | argExprs -> makeTuple r false argExprs
-    | TypeScriptTaggedUnion _  ->
+
+    | TypeScriptTaggedUnion (_, _, tagName, rule)   ->
         match argExprs with
-        | [argExpr] -> argExpr
+        | [argExpr] when not(FsUnionCase.HasNamedFields unionCase) -> argExpr
         | _ ->
-            "TS tagged unions must have one single field: " + (getFsTypeFullName fsType)
-            |> addErrorAndReturnNull com ctx.InlinePath r
+            let isCompiledValue, tagExpr =
+                match FsUnionCase.CompiledValue unionCase with
+                | None -> false, transformStringEnum rule unionCase
+                | Some (CompiledValue.Integer i) -> false, makeIntConst i
+                | Some (CompiledValue.Float f) -> false, makeFloatConst f
+                | Some (CompiledValue.Boolean b) -> false, makeBoolConst b
+            match isCompiledValue, com.Options.Language with
+            | true, TypeScript ->
+                "CompileValue attribute is not supported in TypeScript"
+                |> addErrorAndReturnNull com ctx.InlinePath r
+            | _ ->
+                let fieldNames, fieldTypes = unionCase.Fields |> Seq.map (fun fi -> fi.Name, fi.FieldType) |> Seq.toArray |> Array.unzip
+                let fieldTypes = makeTypeGenArgs ctx.GenericArgs fieldTypes
+                Fable.NewAnonymousRecord(tagExpr::argExprs, Array.append [|tagName|] fieldNames, tagExpr.Type::fieldTypes, false) |> makeValue r
+
     | StringEnum(tdef, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
         | _ -> $"StringEnum types cannot have fields: {tdef.TryFullName}"
                |> addErrorAndReturnNull com ctx.InlinePath r
+
     | OptionUnion(typ, isStruct) ->
         let typ = makeType ctx.GenericArgs typ
         let expr =
@@ -73,6 +89,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             | [expr] -> Some expr
             | _ -> failwith "Unexpected args for Option constructor"
         Fable.NewOption(expr, typ, isStruct) |> makeValue r
+
     | ListUnion typ ->
         let typ = makeType ctx.GenericArgs typ
         let headAndTail =
@@ -81,6 +98,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             | [head; tail] -> Some(head, tail)
             | _ -> failwith "Unexpected args for List constructor"
         Fable.NewList(headAndTail, typ) |> makeValue r
+
     | DiscriminatedUnion(tdef, genArgs) ->
         let genArgs = makeTypeGenArgs ctx.GenericArgs genArgs
         let tag = unionCaseTag com tdef unionCase
@@ -326,6 +344,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
     | ErasedUnionCase ->
         return "Cannot test erased union cases"
         |> addErrorAndReturnNull com ctx.InlinePath r
+
     | ErasedUnion(tdef, genArgs, rule) ->
         match unionCase.Fields.Count with
         | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
@@ -344,30 +363,33 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         | _ ->
             return "Erased unions with multiple cases cannot have more than one field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
+
     | TypeScriptTaggedUnion (_, _, tagName, rule) ->
-        match unionCase.Fields.Count with
-        | 1 ->
-            let value =
-                match FsUnionCase.CompiledValue unionCase with
-                | None -> transformStringEnum rule unionCase
-                | Some (CompiledValue.Integer i) -> makeIntConst i
-                | Some (CompiledValue.Float f) -> makeFloatConst f
-                | Some (CompiledValue.Boolean b) -> makeBoolConst b
-            return makeEqOp r
-                (Fable.Get(unionExpr, Fable.FieldInfo.Create(tagName), value.Type, r))
-                value
-                BinaryEqual
-        | _ ->
-            return "TS tagged unions must have one single field: " + (getFsTypeFullName fsType)
+        let isCompiledValue, value =
+            match FsUnionCase.CompiledValue unionCase with
+            | None -> false, transformStringEnum rule unionCase
+            | Some (CompiledValue.Integer i) -> true, makeIntConst i
+            | Some (CompiledValue.Float f) -> true, makeFloatConst f
+            | Some (CompiledValue.Boolean b) -> true, makeBoolConst b
+        match isCompiledValue, com.Options.Language with
+        | true, TypeScript ->
+            return "CompileValue attribute is not supported in TypeScript"
             |> addErrorAndReturnNull com ctx.InlinePath r
+        | _ ->
+            let getTag = Fable.Get(unionExpr, Fable.FieldInfo.Create(tagName), value.Type, r)
+            return makeEqOp r getTag value BinaryEqual
+
     | OptionUnion _ ->
         let kind = Fable.OptionTest(unionCase.Name <> "None" && unionCase.Name <> "ValueNone")
         return Fable.Test(unionExpr, kind, r)
+
     | ListUnion _ ->
         let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
         return Fable.Test(unionExpr, kind, r)
+
     | StringEnum(_, rule) ->
         return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
+
     | DiscriminatedUnion(tdef,_) ->
         let tag = unionCaseTag com tdef unionCase
         return Fable.Test(unionExpr, Fable.UnionCaseTest(tag), r)
@@ -875,23 +897,30 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let typ = Seq.item tupleElemIndex tupleType.GenericArguments |> makeType ctx.GenericArgs
             return Fable.Get(tupleExpr, Fable.TupleIndex tupleElemIndex, typ, makeRangeFrom fsExpr)
 
-    | FSharpExprPatterns.UnionCaseGet (IgnoreAddressOf unionExpr, fsType, unionCase, field) ->
+    | FSharpExprPatterns.UnionCaseGet (IgnoreAddressOf unionExpr, unionType, unionCase, field) ->
         let r = makeRangeFrom fsExpr
+        // let fieldType = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
+        let fieldType = resolveFieldType ctx unionType field.FieldType
         let! unionExpr = transformExpr com ctx [] unionExpr
-        match getUnionPattern fsType unionCase with
+
+        match getUnionPattern unionType unionCase with
         | ErasedUnionCase ->
             let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
-            return Fable.Get(unionExpr, Fable.TupleIndex(index), makeType ctx.GenericArgs fsType, r)
+            return Fable.Get(unionExpr, Fable.TupleIndex(index), makeType ctx.GenericArgs unionType, r)
         | ErasedUnion _  ->
-            if unionCase.Fields.Count = 1 then return unionExpr
+            if unionCase.Fields.Count = 1 then
+                return unionExpr
             else
                 let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
-                return Fable.Get(unionExpr, Fable.TupleIndex index, makeType ctx.GenericArgs fsType, r)
+                return Fable.Get(unionExpr, Fable.TupleIndex index, fieldType, r)
         | TypeScriptTaggedUnion _ ->
-            if unionCase.Fields.Count = 1 then return unionExpr
+            if FsUnionCase.HasNamedFields unionCase then
+                let kind = Fable.FieldInfo.Create(
+                    FsField.FSharpFieldName field,
+                    fieldType=makeType Map.empty field.FieldType)
+                return Fable.Get(unionExpr, kind, fieldType, r)
             else
-                return "Tagged unions must have one single field: " + (getFsTypeFullName fsType)
-                |> addErrorAndReturnNull com ctx.InlinePath r
+                return unionExpr
         | StringEnum _ ->
             return "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -911,11 +940,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 entity=FsEnt.Ref tdef,
                 genArgs=makeTypeGenArgs ctx.GenericArgs genArgs,
                 caseIndex=caseIndex,
-                fieldIndex=fieldIndex
-            )
-//            let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
-            let typ = resolveFieldType ctx fsType field.FieldType
-            return Fable.Get(unionExpr, kind, typ, r)
+                fieldIndex=fieldIndex)
+            return Fable.Get(unionExpr, kind, fieldType, r)
 
     | FSharpExprPatterns.FSharpFieldSet(callee, calleeType, field, value) ->
         let r = makeRangeFrom fsExpr
@@ -1396,12 +1422,12 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     let ctx = { ctx with EnclosingMember = Some memb
                          UsedNamesInDeclarationScope = HashSet() }
     if isIgnoredNonAttachedMember memb then
-        if memb.IsMutable && isNotPrivate memb && hasAttribute Atts.global_ memb.Attributes then
+        if memb.IsMutable && isNotPrivate memb && hasAttrib Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
             |> addError com [] None
         []
     // for Rust, retain inlined functions that have [<CompiledName("...")>] attribute
-    elif isInline memb && (Compiler.Language <> Rust || not (hasAttribute Atts.compiledName memb.Attributes)) then
+    elif isInline memb && (Compiler.Language <> Rust || not (hasAttrib Atts.compiledName memb.Attributes)) then
         []
     elif memb.IsImplicitConstructor then
         transformPrimaryConstructor com ctx memb args body
@@ -1409,21 +1435,22 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     elif isCompilerGenerated memb args then
         []
     elif memb.IsOverrideOrExplicitInterfaceImplementation then
-        match memb.DeclaringEntity with
-        | Some ent ->
-            if isGlobalOrImportedFSharpEntity ent then ()
-            elif isErasedOrStringEnumFSharpEntity ent then
-                // Ignore abstract members for classes, see #2295
-                if ent.IsFSharpUnion || ent.IsFSharpRecord then
-                    let r = makeRange memb.DeclarationLocation |> Some
-                    "Erased unions/records cannot implement abstract members"
-                    |> addError com ctx.InlinePath r
-            else
-                // Not sure when it's possible that a member implements multiple abstract signatures
-                memb.ImplementedAbstractSignatures
-                |> Seq.tryHead
-                |> Option.iter (fun s -> transformImplementedSignature com ctx ent s memb args body)
-        | None -> ()
+        if not memb.IsCompilerGenerated then
+            match memb.DeclaringEntity with
+            | Some ent ->
+                if isGlobalOrImportedFSharpEntity ent then ()
+                elif isErasedOrStringEnumFSharpEntity ent then
+                    // Ignore abstract members for classes, see #2295
+                    if ent.IsFSharpUnion || ent.IsFSharpRecord then
+                        let r = makeRange memb.DeclarationLocation |> Some
+                        "Erased unions/records cannot implement abstract members"
+                        |> addError com ctx.InlinePath r
+                else
+                    // Not sure when it's possible that a member implements multiple abstract signatures
+                    memb.ImplementedAbstractSignatures
+                    |> Seq.tryHead
+                    |> Option.iter (fun s -> transformImplementedSignature com ctx ent s memb args body)
+            | None -> ()
         []
     else
         match memb.DeclaringEntity with
@@ -1438,14 +1465,13 @@ let private addUsedRootName (com: Compiler) name (usedRootNames: Set<string>) =
     Set.add name usedRootNames
 
 // Entities that are not output to other languages
-// Interfaces should be part of the AST, see #2673
 let private isIgnoredLeafEntity (ent: FSharpEntity) =
-    // ent.IsInterface
     ent.IsEnum
     || ent.IsMeasure
-    || ent.IsFSharpAbbreviation //&& com.Options.Language <> Rust
+    || ent.IsFSharpAbbreviation
     || ent.IsDelegate
     || ent.IsNamespace // Ignore empty namespaces
+    || ent.Attributes |> hasAttrib "Microsoft.FSharp.Core.MeasureAnnotatedAbbreviationAttribute"
 
 // In case this is a recursive module, do a first pass to get all entity and member names
 let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls =
@@ -1494,7 +1520,8 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
             | [] ->
                 let entRef = FsEnt.Ref fsEnt
                 let ent = (com :> Compiler).GetEntity(entRef)
-                if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
+                if (isErasedOrStringEnumEntity ent && Compiler.Language <> TypeScript)
+                    || isGlobalOrImportedEntity ent then
                     []
                 else
                     // If the file is empty F# creates a class for the module, but Fable clears the name

@@ -30,10 +30,10 @@ type Point<'T> = { x: 'T; y: 'T }
 let getX<'T> (opt: Point<'T> option): 'T =
     (Option.get opt).x
 
-// [<Fact>]
-// let ``Option generic None works`` () =
-//     let opt = None
-//     opt |> equal None
+[<Fact>]
+let ``Option generic None works`` () =
+    let opt = None
+    opt = None |> equal true
 
 [<Fact>]
 let ``Option get value works`` () =
@@ -141,7 +141,7 @@ let ``Option.isSome,isNone works`` () =
 
 [<Fact>]
 let ``Option.IsSome,IsNone works`` () =
-    let o1: int option = None //TODO: handle generic option None
+    let o1 = None
     let o2 = Some 5
     o1.IsNone |> equal true
     o1.IsSome |> equal false
@@ -150,7 +150,7 @@ let ``Option.IsSome,IsNone works`` () =
 
 [<Fact>]
 let ``ValueOption.isSome,isNone works`` () =
-    let o1: int voption = ValueNone
+    let o1 = ValueNone
     let o2 = ValueSome 5
     ValueOption.isNone o1 |> equal true
     ValueOption.isSome o1 |> equal false
@@ -159,7 +159,7 @@ let ``ValueOption.isSome,isNone works`` () =
 
 [<Fact>]
 let ``ValueOption.IsSome,IsNone works`` () =
-    let o1: int voption = ValueNone
+    let o1 = ValueNone
     let o2 = Some 5
     o1.IsNone |> equal true
     o1.IsSome |> equal false
@@ -426,5 +426,4 @@ let ``Option.map ignore generates Some ()`` () = // See #1923
 //     x.Value |> equal 5
 //     let y: System.Nullable<int> = System.Nullable()
 //     y.HasValue |> equal false
-//     let errorThrown = try y.Value |> ignore; false with _ -> true
-//     equal true errorThrown
+//     throwsAnyError (fun () -> y.Value |> ignore)

@@ -305,12 +305,11 @@ let ``ResizeArray.ToArray works`` () =
     equal 3. xs[0]
     equal 2. ar[0]
 
-// [<Fact>]
-// let ``ResizeArray.Item is undefined when index is out of range`` () =
-//     let xs = ResizeArray [0]
-//     #if FABLE_COMPILER
-//     isNull <| box (xs.Item 1)
-//     #else
-//     try (xs.Item 1) |> ignore; false with _ -> true
-//     #endif
-//     |> equal true
+[<Fact>]
+let ``ResizeArray.Item is undefined when index is out of range`` () =
+    let xs = ResizeArray [0]
+#if FABLE_COMPILER_JAVASCRIPT
+    isNull <| box (xs.Item 1) |> equal true
+#else
+    throwsAnyError (fun () -> (xs.Item 1) |> ignore)
+#endif

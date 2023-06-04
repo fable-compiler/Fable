@@ -7,6 +7,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+    <DefineConstants>$(DefineConstants);COMPILER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_WEAKTABLE</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_TYPEPROVIDERS</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
@@ -169,6 +170,8 @@
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTreeOps.fs" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTreePickle.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTreePickle.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/TypedTree/UpdatePrettyTyparNames.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/TypedTree/UpdatePrettyTyparNames.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/import.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/import.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/TypeHierarchy.fsi" />
@@ -209,6 +212,8 @@
     <Compile Include="$(FSharpSourcesRoot)/Checking/PostInferenceChecks.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckBasics.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckBasics.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckRecordSyntaxHelpers.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckRecordSyntaxHelpers.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckExpressions.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckExpressions.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckPatterns.fsi" />

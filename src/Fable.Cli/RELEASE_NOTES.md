@@ -1,3 +1,79 @@
+### 4.1.4
+
+* Fix #3438: Source maps
+* Fix #3440: Don't curry arity-1 functions
+* Fix #3452: DateTimeOffset conversion to DateTime
+* Fix regression: Don't type test interfaces declared in F# code
+* Rust: Added no_std test build
+* Rust: Added regex support
+* Rust: Fixed no_std support
+* Rust: Fixed uncurried options
+* Rust: Enabled some applicative tests
+* Rust: Enabled some tests
+* Rust: Updated switch transform (#3449)
+* Rust: Updated dependencies (#3447)
+* Rust: Fixed interface properties (#3445)
+* Rust: Updated object equality (#3444)
+* Rust: Enabled some Comparison tests (#3442)
+* Rust: Added DateOnly, TimeOnly tests
+* Rust: Added DateTimeOffset tests
+* Rust: Updated TimeSpan
+* Rust: Added DateTimeOffset
+
+### 4.1.3
+
+* JS/TS/Rust: Added bigint log, log2, log10, minMag, maxMag
+* TS: Fix extension of files in fable_modules with out dir
+* TS: Support annotations of StringEnum and TypeScriptTaggedUnion types
+* JS/TS: Output JS docs
+* Fix range of inlined functions
+
+### 4.1.2
+
+* Print minimum fable-library version from npm
+
+### 4.1.1
+
+* Fix fable-library package.json
+
+### 4.1.0
+
+* Set TypeScript compilation as stable
+* Added Map.minKeyValue and maxKeyValue
+
+### 4.1.0-beta-001
+
+* Fix #3418: Single-Case Union Reflection
+* Include declaration .d.ts files in fable-library
+* Update FCS
+* Python: Implement missing bigint functions @johannesmols
+* TS: Fix #3415: ident type of uncurried lambdas
+* TS: Don't use const enums to represent union tags
+* TS: Fix function type annotation
+* TS: Get generic types of generated members
+* TS/JS: Sanitize class fields
+
+### 4.0.6
+
+* JS Hotfix: Skip compiler generated decls
+* TS: Fixes for unions, pattern matching and interface function getters
+
+### 4.0.5
+
+* Use native JS BigInt for int64/uint64
+* Fix #3402: Rust type mismatch error when compiling F# closure code
+* Improve optional field and argument typing in TypeScript
+* Fix fable-library-ts when used with Vite
+
+### 4.0.4
+
+* Fix #3397: Curry only user imports
+* Fix: Compiler Exception when `!!`, Anon Record, and aliased `Ux` (also behind option) @Booksbaum
+* Use native bigint type @ncave
+* Emit Fable erased unions as TS union types
+* Optimize compile time equality and testing (union, list, options)
+* TypeScript: enable Comparison, Convert and Event tests
+
 ### 4.0.3
 
 * Fix #3389: Don't wrap TemplateStringArray

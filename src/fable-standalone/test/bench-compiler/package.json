@@ -17,10 +17,13 @@
     "postbuild-cli": "npm run rollup-bundle",
 
     "prebuild": "npm run clean && npm run build-lib",
+    "prebuild-ts": "npm run clean && npm run build-lib-ts",
     "build": "dotnet run -c Release bench-compiler.fsproj out-node --fableLib out-lib",
+    "build-ts": "dotnet run -c Release bench-compiler.fsproj out-ts --fableLib out-lib-ts --lang TypeScript",
     "build-rust": "dotnet run -c Release bench-compiler.fsproj out-rust --fableLib out-lib --lang Rust",
     "build-opt": "npm run build --optimize",
     "postbuild": "npm run rollup-bundle",
+    "postbuild-ts": "cp tsconfig.json out-ts && npm run tsc -- -p out-ts --outDir out-js",
 
     "build-node": "node --stack_size=1200 dist/bundle.js bench-compiler.fsproj out-node2 --fableLib out-lib",
     "build-node-es": "node --stack_size=1200 out-node/app.js bench-compiler.fsproj out-node2 --fableLib out-lib",
@@ -40,19 +43,21 @@
     "webpack-bundle": "npm run webpack -- -p --entry ./out-node/app.js --output ./dist/bundle.min.js --target node",
 
     "prebuild-lib": "npm run tsc -- -p ../../../fable-library --outDir ./out-lib",
-    "prebuild-lib-ts": "mkdir -p out-lib-ts && cp -R ../../../fable-library/*.ts out-lib-ts",
+    "prebuild-lib-ts": "mkdir -p out-lib-ts && cp -r ../../../fable-library/*.ts out-lib-ts && cp -r ../../../fable-library/lib out-lib-ts",
     "build-lib": "dotnet run -c Release ../../../fable-library/Fable.Library.fsproj out-lib --fableLib out-lib --sourceMaps",
     "build-lib-ts": "dotnet run -c Release ../../../fable-library/Fable.Library.fsproj out-lib-ts --fableLib out-lib-ts --typescript",
     "tsc-lib-init": "npm run tsc -- --init --target es2020 --module es2020 --allowJs",
     "tsc-lib": "npm run tsc -- -p ./out-lib-ts --outDir ./out-lib-js",
 
     "prebuild-test": "npm run clean && npm run build-lib",
+    "prebuild-test-ts": "npm run clean && npm run build-lib-ts",
     "build-test": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib --sourceMaps",
     "build-test-ast": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib --printAst",
-    "build-test-ts": "npm run build-test -- --fableLib out-lib-ts --typescript",
+    "build-test-ts": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test-ts --fableLib out-lib-ts --typescript",
     "build-test-opt": "npm run build-test -- --optimize",
     "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib --sourceMaps",
     "build-test-node-ts": "npm run build-test-node --typescript",
+    "postbuild-test-ts": "cp tsconfig.json out-test-ts && npm run tsc -- -p out-test-ts --outDir out-test-js",
     "test": "node ./out-test/src/test.js",
 
     "prebuild-tests": "npm run clean && npm run build-lib",

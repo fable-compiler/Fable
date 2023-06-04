@@ -1,5 +1,6 @@
 pub mod BitConverter_ {
-    use crate::Native_::{array, Array};
+    use crate::Native_::{String};
+    use crate::NativeArray_::{new_array, Array};
     use crate::String_::{string, fromString};
 
     #[cfg(target_endian = "little")]
@@ -12,48 +13,48 @@ pub mod BitConverter_ {
     }
 
     pub fn getBytesBoolean(value: bool) -> Array<u8> {
-        array(&(value as u8).to_ne_bytes())
+        new_array(&(value as u8).to_ne_bytes())
     }
 
     pub fn getBytesChar(value: char) -> Array<u8> {
         let code = value as u16;
-        array(&code.to_ne_bytes())
+        new_array(&code.to_ne_bytes())
     }
 
     pub fn getBytesInt16(value: i16) -> Array<u8> {
-        array(&value.to_ne_bytes())
+        new_array(&value.to_ne_bytes())
     }
 
     pub fn getBytesInt32(value: i32) -> Array<u8> {
-        array(&value.to_ne_bytes())
+        new_array(&value.to_ne_bytes())
     }
 
     pub fn getBytesInt64(value: i64) -> Array<u8> {
-        array(&value.to_ne_bytes())
+        new_array(&value.to_ne_bytes())
     }
 
     pub fn getBytesUInt16(value: u16) -> Array<u8> {
-        array(&value.to_ne_bytes())
+        new_array(&value.to_ne_bytes())
     }
 
     pub fn getBytesUInt32(value: u32) -> Array<u8> {
-        array(&value.to_ne_bytes())
+        new_array(&value.to_ne_bytes())
     }
 
     pub fn getBytesUInt64(value: u64) -> Array<u8> {
-        array(&value.to_ne_bytes())
+        new_array(&value.to_ne_bytes())
     }
 
     // pub fn getBytesFloat16(value: f16) -> Array<u8> {
-    //     array(&value.to_ne_bytes())
+    //     new_array(&value.to_ne_bytes())
     // }
 
     pub fn getBytesFloat32(value: f32) -> Array<u8> {
-        array(&value.to_ne_bytes())
+        new_array(&value.to_ne_bytes())
     }
 
     pub fn getBytesFloat64(value: f64) -> Array<u8> {
-        array(&value.to_ne_bytes())
+        new_array(&value.to_ne_bytes())
     }
 
     pub fn doubleToInt64Bits(value: f64) -> i64 {

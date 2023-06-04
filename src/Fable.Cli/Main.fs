@@ -107,10 +107,9 @@ module private Util =
                 | FSharpDiagnosticSeverity.Warning -> Severity.Warning
                 | FSharpDiagnosticSeverity.Error -> Severity.Error
 
-            let range =
-                { start={ line=er.StartLine; column=er.StartColumn+1}
-                  ``end``={ line=er.EndLine; column=er.EndColumn+1}
-                  identifierName = None }
+            let range = SourceLocation.Create(
+                start = { line=er.StartLine; column=er.StartColumn+1 },
+                ``end`` = { line=er.EndLine; column=er.EndColumn+1 })
 
             let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
 
@@ -157,10 +156,11 @@ module private Util =
             Path.ChangeExtension(absPath, fileExt)
         | lang ->
             let changeExtension path fileExt =
-                if lang = JavaScript then
+                match lang with
+                | JavaScript | TypeScript ->
                     let isInFableModules = Naming.isInFableModules file
-                    File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
-                else
+                    File.changeExtensionButUseDefaultExtensionInFableModules lang isInFableModules path fileExt
+                | _ ->
                     Path.ChangeExtension(path, fileExt)
             let fileExt = cliArgs.CompilerOptions.FileExtension
             match cliArgs.OutDir with

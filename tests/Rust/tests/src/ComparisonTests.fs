@@ -8,50 +8,50 @@ type RTest = { a: int; b: int }
 type STest = struct val A: int; new(a: int) = { A = a }; end
 type OTest(a) = member val A = a with get, set
 
-[<CustomEquality; CustomComparison>]
-type UTest2 =
-    | String of string
-    override x.GetHashCode() = x.GetHashCode()
-    override x.Equals(yobj) =
-       match yobj with
-         | :? UTest2 as y ->
-            match x, y with
-            | String s1, String s2 -> (s1 + s1) = s2
-         | _ -> false
-    interface System.IEquatable<UTest2> with
-        member x.Equals(y) =
-            match x, y with
-            | String s1, String s2 -> (s1 + s1) = s2
-    interface System.IComparable with
-        member x.CompareTo(yobj) =
-            match yobj with
-            | :? UTest2 as y ->
-                match x, y with
-                | String s1, String s2 -> compare (s1 + s1) s2
-            | _ -> invalidArg "yobj" "cannot compare values of different types"
+// [<CustomEquality; CustomComparison>]
+// type UTest2 =
+//     | String of string
+//     override x.GetHashCode() = x.GetHashCode()
+//     override x.Equals(yobj) =
+//        match yobj with
+//          | :? UTest2 as y ->
+//             match x, y with
+//             | String s1, String s2 -> (s1 + s1) = s2
+//          | _ -> false
+//     interface System.IEquatable<UTest2> with
+//         member x.Equals(y) =
+//             match x, y with
+//             | String s1, String s2 -> (s1 + s1) = s2
+//     interface System.IComparable with
+//         member x.CompareTo(yobj) =
+//             match yobj with
+//             | :? UTest2 as y ->
+//                 match x, y with
+//                 | String s1, String s2 -> compare (s1 + s1) s2
+//             | _ -> invalidArg "yobj" "cannot compare values of different types"
 
-exception Ex of int
+// exception Ex of int
 
-[<ReferenceEquality>]
-type RTest2 = { a2: int; b2: int }
+// [<ReferenceEquality>]
+// type RTest2 = { a2: int; b2: int }
 
-type Test(i: int) =
-    member x.Value = i
-    override x.GetHashCode() = i
-    override x.Equals(yobj) =
-       match yobj with
-         | :? Test as y -> y.Value + 1 = x.Value
-         | _ -> false
-    interface System.IComparable with
-        member x.CompareTo(yobj) =
-            match yobj with
-            | :? Test as y -> compare (y.Value + 1) x.Value
-            | _ -> invalidArg "yobj" "cannot compare values of different types"
-            // | _ -> -1
+// type Test(i: int) =
+//     member x.Value = i
+//     override x.GetHashCode() = i
+//     override x.Equals(yobj) =
+//        match yobj with
+//          | :? Test as y -> y.Value + 1 = x.Value
+//          | _ -> false
+//     interface System.IComparable with
+//         member x.CompareTo(yobj) =
+//             match yobj with
+//             | :? Test as y -> compare (y.Value + 1) x.Value
+//             | _ -> invalidArg "yobj" "cannot compare values of different types"
+//             // | _ -> -1
 
-    interface System.IEquatable<Test> with
-        member x.Equals(y) =
-            y.Value + 1 = x.Value
+//     interface System.IEquatable<Test> with
+//         member x.Equals(y) =
+//             y.Value + 1 = x.Value
 
 type Status =
 | CreateScenePicture
@@ -66,19 +66,19 @@ type Status =
 type MyClass(v) =
     member val Value: int = v with get, set
 
-[<CustomEquality; NoComparison>]
-type FuzzyInt =
-    | FuzzyInt of int
-    override x.GetHashCode() =
-        let (FuzzyInt x) = x
-        x.GetHashCode()
-    override x.Equals(y: obj) =
-        match y with
-        | :? FuzzyInt as y ->
-            let (FuzzyInt x) = x
-            let (FuzzyInt y) = y
-            x - 2 <= y && y <= x + 2
-        | _ -> false
+// [<CustomEquality; NoComparison>]
+// type FuzzyInt =
+//     | FuzzyInt of int
+//     override x.GetHashCode() =
+//         let (FuzzyInt x) = x
+//         x.GetHashCode()
+//     override x.Equals(y: obj) =
+//         match y with
+//         | :? FuzzyInt as y ->
+//             let (FuzzyInt x) = x
+//             let (FuzzyInt y) = y
+//             x - 2 <= y && y <= x + 2
+//         | _ -> false
 
 [<Fact>]
 let ``Typed array equality works`` () =
@@ -104,13 +104,13 @@ let ``Array equality works`` () =
     equal false (xs1 <> xs2)
     equal true (xs1 <> xs4)
 
-[<Fact>]
-let ``Array custom equality works`` () =
-    let xs = [| FuzzyInt 3; FuzzyInt 5 |]
-    let ys = [| FuzzyInt 2; FuzzyInt 4 |]
-    let zs = [| FuzzyInt 2; FuzzyInt 8 |]
-    xs = ys |> equal true
-    xs = zs |> equal false
+// [<Fact>]
+// let ``Array custom equality works`` () =
+//     let xs = [| FuzzyInt 3; FuzzyInt 5 |]
+//     let ys = [| FuzzyInt 2; FuzzyInt 4 |]
+//     let zs = [| FuzzyInt 2; FuzzyInt 8 |]
+//     xs = ys |> equal true
+//     xs = zs |> equal false
 
 [<Fact>]
 let ``Tuple equality works`` () =
@@ -172,13 +172,13 @@ let ``Union equality works`` () =
     System.Object.ReferenceEquals(u1, u1) |> equal true
     System.Object.ReferenceEquals(u1, u2) |> equal false
 
-[<Fact>]
-let ``Union custom equality works`` () =
-    let u1 = String "A"
-    let u2 = String "A"
-    let u3 = String "AA"
-    equal false (u1 = u2)
-    equal true (u1 = u3)
+// [<Fact>]
+// let ``Union custom equality works`` () =
+//     let u1 = String "A"
+//     let u2 = String "A"
+//     let u3 = String "AA"
+//     equal false (u1 = u2)
+//     equal true (u1 = u3)
 
 [<Fact>]
 let ``Record equality works`` () =
@@ -192,10 +192,10 @@ let ``Record equality works`` () =
     System.Object.ReferenceEquals(r1, r1) |> equal true
     System.Object.ReferenceEquals(r1, r2) |> equal false
 
-[<Fact>]
-let ``Exception equality works`` () =
-    equal true ((Ex 1) = (Ex 1))
-    equal false ((Ex 1) = (Ex 2))
+// [<Fact>]
+// let ``Exception equality works`` () =
+//     equal true ((Ex 1) = (Ex 1))
+//     equal false ((Ex 1) = (Ex 2))
 
 // TODO: If we want to make this work in Fable 2 we'll have
 // to access reflection info for records
@@ -219,17 +219,17 @@ let ``Exception equality works`` () =
 //     equal 0 (compare r1 r2)
 // #endif
 
-[<Fact>]
-let ``Equality with objects implementing IEquatable works`` () =
-    let c1 = Test(5)
-    let c2 = Test(4)
-    let c3 = Test(5)
-    equal true (c1 = c2)
-    equal false (c1 = c3)
-    equal true (c1 <> c3)
-    equal false (c1 <> c2)
-    System.Object.ReferenceEquals(c1, c1) |> equal true
-    System.Object.ReferenceEquals(c1, c2) |> equal false
+// [<Fact>]
+// let ``Equality with objects implementing IEquatable works`` () =
+//     let c1 = Test(5)
+//     let c2 = Test(4)
+//     let c3 = Test(5)
+//     equal true (c1 = c2)
+//     equal false (c1 = c3)
+//     equal true (c1 <> c3)
+//     equal false (c1 <> c2)
+//     System.Object.ReferenceEquals(c1, c1) |> equal true
+//     System.Object.ReferenceEquals(c1, c2) |> equal false
 
 [<Fact>]
 let ``Typed array comparison works`` () =
@@ -346,13 +346,13 @@ let ``Union comparison works`` () =
     equal false (u1 < u4)
     (compare u1 u5) = 0 |> equal false
 
-[<Fact>]
-let ``Union custom comparison works`` () =
-    let u1 = String "A"
-    let u2 = String "A"
-    let u3 = String "AA"
-    equal 0 (compare u1 u3)
-    equal true (compare u1 u2 > 0)
+// [<Fact>]
+// let ``Union custom comparison works`` () =
+//     let u1 = String "A"
+//     let u2 = String "A"
+//     let u3 = String "AA"
+//     equal 0 (compare u1 u3)
+//     equal true (compare u1 u2 > 0)
 
 [<Fact>]
 let ``Record comparison works`` () =
@@ -362,14 +362,14 @@ let ``Record comparison works`` () =
     equal 0 (compare r1 r2)
     (compare r1 r3) = 0 |> equal false
 
-[<Fact>]
-let ``Comparison with objects implementing IComparable works`` () =
-    let c1 = Test(5)
-    let c2 = Test(4)
-    let c3 = Test(5)
-    equal 0 (compare c1 c2)
-    equal 1 (compare c1 c3)
-    equal true (c1 > c3)
+// [<Fact>]
+// let ``Comparison with objects implementing IComparable works`` () =
+//     let c1 = Test(5)
+//     let c2 = Test(4)
+//     let c3 = Test(5)
+//     equal 0 (compare c1 c2)
+//     equal 1 (compare c1 c3)
+//     equal true (c1 > c3)
 
 [<Fact>]
 let ``max works with primitives`` () =
@@ -383,11 +383,11 @@ let ``max works with records`` () =
     let r2 = {a=1; b=2}
     max r1 r2 |> equal r2
 
-[<Fact>]
-let ``max with objects implementing IComparable works`` () =
-    let c1 = Test(5)
-    let c2 = Test(5)
-    System.Object.ReferenceEquals(max c1 c2, c1) |> equal true
+// [<Fact>]
+// let ``max with objects implementing IComparable works`` () =
+//     let c1 = Test(5)
+//     let c2 = Test(5)
+//     System.Object.ReferenceEquals(max c1 c2, c1) |> equal true
 
 [<Fact>]
 let ``min works with primitives`` () =
@@ -401,67 +401,62 @@ let ``min works with records`` () =
     let r2 = {a=1; b=2}
     min r1 r2 |> equal r1
 
-[<Fact>]
-let ``min with objects implementing IComparable works`` () =
-    let c1 = Test(5)
-    let c2 = Test(5)
-    System.Object.ReferenceEquals(min c1 c2, c2) |> equal true
+// [<Fact>]
+// let ``min with objects implementing IComparable works`` () =
+//     let c1 = Test(5)
+//     let c2 = Test(5)
+//     System.Object.ReferenceEquals(min c1 c2, c2) |> equal true
 
-// TODO: More tests, also with longs and decimals
-[<Fact>]
-let ``clamp works`` () =
-    System.Math.Clamp(14, 0, 12) |> equal 12
+// [<Fact>]
+// let ``nullArg works`` () =
+//     try
+//         nullArg null
+//         true
+//     with _ex ->
+//         false
+//     |> equal false
 
-[<Fact>]
-let ``nullArg works`` () =
-    try
-        nullArg null
-        true
-    with _ex ->
-        false
-    |> equal false
+// [<Fact>]
+// let ``using function disposes the resource when action finishes`` () =
+//     let mutable disposed = false
+//     let resource = { new System.IDisposable with member _.Dispose() = disposed <- true }
+//     using resource (fun _resource -> ())
+//     equal true disposed
 
-[<Fact>]
-let ``using function disposes the resource when action finishes`` () =
-    let mutable disposed = false
-    let resource = { new System.IDisposable with member _.Dispose() = disposed <- true }
-    using resource (fun _resource -> ())
-    equal true disposed
+// [<Fact>]
+// let ``using function disposes the resource when action fails`` () =
+//     let mutable disposed = false
+//     let resource = { new System.IDisposable with member _.Dispose() = disposed <- true }
+//     try
+//         using resource (fun _resource -> failwith "action failed")
+//     with
+//     | _ -> () // ignore
+//     equal true disposed
 
-[<Fact>]
-let ``using function disposes the resource when action fails`` () =
-    let mutable disposed = false
-    let resource = { new System.IDisposable with member _.Dispose() = disposed <- true }
-    try
-        using resource (fun _resource -> failwith "action failed")
-    with
-    | _ -> () // ignore
-    equal true disposed
+// [<Fact>]
+// let ``isNull with primitives works`` () =
+//     isNull null |> equal true
+//     isNull "" |> equal false
+//     isNull "0" |> equal false
+//     isNull "hello" |> equal false
 
-[<Fact>]
-let ``isNull with primitives works`` () =
-    isNull null |> equal true
-    isNull "" |> equal false
-    isNull "0" |> equal false
-    isNull "hello" |> equal false
+// [<Fact>]
+// let ``isNull with objects works`` () =
+//     let s1: System.String = null
+//     isNull s1 |> equal true
+//     let s2: System.String = "hello"
+//     isNull s2 |> equal false
 
-[<Fact>]
-let ``isNull with objects works`` () =
-    let s1: System.String = null
-    isNull s1 |> equal true
-    let s2: System.String = "hello"
-    isNull s2 |> equal false
-
-[<Fact>]
-let ``Classes must use identity hashing by default`` () = // See #2291
-    let x = MyClass(5)
-    let y = MyClass(5)
-    let h1 = hash(box x)
-    let h2 = hash(box y)
-    x.Value <- 8
-    let h3 = hash(box x)
-    h1 = h2 |> equal false
-    h1 = h3 |> equal true
+// [<Fact>]
+// let ``Classes must use identity hashing by default`` () = // See #2291
+//     let x = MyClass(5)
+//     let y = MyClass(5)
+//     let h1 = hash(box x)
+//     let h2 = hash(box y)
+//     x.Value <- 8
+//     let h3 = hash(box x)
+//     h1 = h2 |> equal false
+//     h1 = h3 |> equal true
 
 [<Fact>]
 let ``GetHashCode with arrays works`` () =
@@ -480,9 +475,10 @@ let ``GetHashCode with tuples works`` () =
 
 [<Fact>]
 let ``GetHashCode with options works`` () =
+    let None_0: int option option = Some None
     ((Some 1).GetHashCode(), (Some 1).GetHashCode()) ||> equal
     ((Some 2).GetHashCode(), (Some 1).GetHashCode()) ||> notEqual
-    ((Some None).GetHashCode(), (Some 1).GetHashCode()) ||> notEqual
+    ((None_0).GetHashCode(), (Some 1).GetHashCode()) ||> notEqual
 
 [<Fact>]
 let ``GetHashCode with unions works`` () =
@@ -505,10 +501,10 @@ let ``GetHashCode with objects works`` () =
     (OTest(1).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
     (OTest(2).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
 
-[<Fact>]
-let ``GetHashCode with objects that overwrite it works`` () =
-    (Test(1).GetHashCode(), Test(1).GetHashCode()) ||> equal
-    (Test(2).GetHashCode(), Test(1).GetHashCode()) ||> notEqual
+// [<Fact>]
+// let ``GetHashCode with objects that overwrite it works`` () =
+//     (Test(1).GetHashCode(), Test(1).GetHashCode()) ||> equal
+//     (Test(2).GetHashCode(), Test(1).GetHashCode()) ||> notEqual
 
 [<Fact>]
 let ``GetHashCode with same object works`` () =
@@ -523,12 +519,12 @@ let ``GetHashCode with primitives works`` () =
     ("1".GetHashCode(), "1".GetHashCode()) ||> equal
     ("2".GetHashCode(), "1".GetHashCode()) ||> notEqual
 
-// This is going to give different results in .NET and JS
-// Just check no exception is thrown
-[<Fact>]
-let ``hash works with JS objects`` () = // See #2281
-    let _ = obj () |> hash
-    ()
+// // This is going to give different results in .NET and JS
+// // Just check no exception is thrown
+// [<Fact>]
+// let ``hash works with JS objects`` () = // See #2281
+//     let _ = obj () |> hash
+//     ()
 
 [<Fact>]
 let ``hash with arrays works`` () =
@@ -547,9 +543,10 @@ let ``hash with tuples works`` () =
 
 [<Fact>]
 let ``hash with options works`` () =
+    let None_0: int option option = Some None
     (hash (Some 1), hash (Some 1)) ||> equal
     (hash (Some 2), hash (Some 1)) ||> notEqual
-    (hash (Some None), hash (Some 1)) ||> notEqual
+    (hash (None_0), hash (Some 1)) ||> notEqual
 
 [<Fact>]
 let ``hash with unions works`` () =

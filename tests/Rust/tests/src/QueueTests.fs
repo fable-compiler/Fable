@@ -130,24 +130,12 @@ let ``TryPeek works with empty and non-empty queues`` () =
 // [<Fact>]
 // let ``Peek throws on empty queue`` () =
 //     let q = Queue(0);
-//     (
-//         try
-//             q.Peek() |> ignore
-//             false
-//         with
-//         | _ -> true
-//     ) |> equal true
+//     throwsAnyError (fun () -> q.Peek() |> ignore)
 
 // [<Fact>]
 // let ``Dequeue throws on empty queue`` () =
 //     let q = Queue(0);
-//     (
-//         try
-//             q.Dequeue() |> ignore
-//             false
-//         with
-//         | _ -> true
-//     ) |> equal true
+//     throwsAnyError (fun () -> q.Dequeue() |> ignore)
 
 [<Fact>]
 let ``Clear queue removes all entries`` () =

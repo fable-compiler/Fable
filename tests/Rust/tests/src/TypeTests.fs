@@ -28,10 +28,10 @@ type TestType3() =
     member _.Value = "Hi"
     interface ITest
 
-// type TestType4() =
-//     inherit TestType3()
-//     member _.Value2 = "Bye"
-//     interface ITest2
+type TestType4() =
+    inherit TestType3()
+    member _.Value2 = "Bye"
+    interface ITest2
 
 type TestType5(greeting: string) =
     member _.Value = greeting
@@ -59,31 +59,31 @@ type RenderState =
       Players : Map<int, string>
       Map : string }
 
-// type T4 = TestType4
+type T4 = TestType4
 
-// type TestType6(x: int) =
-//     let mutable i = x
-//     member val Value1 = i with get, set
-//     member _.Value2 = i + i
-//     member _.Value3 with get() = i * i and set(v) = i <- v
+type TestType6(x: int) =
+    let mutable i = x
+    member val Value1 = i with get, set
+    member _.Value2 = i + i
+    member _.Value3 with get() = i * i and set(v) = i <- v
 
-// type TestType7(a1, a2, a3) =
-//     let arr = [|a1; a2; a3|]
-//     member _.Value with get(i) = arr[i] and set(i) (v) = arr[i] <- v
+type TestType7(a1, a2, a3) =
+    let arr = [|a1; a2; a3|]
+    member _.Value with get(i) = arr[i] and set(i) (v) = arr[i] <- v
 
-// type A  = { thing: int } with
-//     member x.show() = string x.thing
-//     static member show (x: A) = "Static: " + (string x.thing)
+type A  = { thing: int } with
+    member x.show() = string x.thing
+    static member show (x: A) = "Static: " + (string x.thing)
 
-// type B  = { label: string } with
-//     member x.show() = x.label
-//     static member show (x: B) = "Static: " + x.label
+type B  = { label: string } with
+    member x.show() = x.label
+    static member show (x: B) = "Static: " + x.label
 
-// let inline show< ^T when ^T : (member show : unit -> string)> (x:^T) : string =
-//    (^T : (member show : unit -> string) (x))
+let inline show< ^T when ^T : (member show : unit -> string)> (x:^T) : string =
+   (^T : (member show : unit -> string) (x))
 
-// let inline showStatic< ^T when ^T : (static member show : ^T -> string)> (x:^T) : string =
-//    (^T : (static member show : ^T -> string) (x))
+let inline showStatic< ^T when ^T : (static member show : ^T -> string)> (x:^T) : string =
+   (^T : (static member show : ^T -> string) (x))
 
 // [<AllowNullLiteral>]
 // type Serializable(?i: int) =
@@ -137,27 +137,27 @@ type MultipleCons(x: int, y: int) =
 //     let mutable v = 5
 //     override __.MyProp with get() = v and set(v2) = v <- v + v2
 
-// type ISomeInterface =
-//     abstract OnlyGetProp: int with get
-//     abstract OnlyProp: int
-//     abstract Sender : int with get, set
+type ISomeInterface =
+    abstract OnlyGetProp: int with get
+    abstract OnlyProp: int
+    abstract Sender : int with get, set
 
-// type XISomeInterface () =
-//     let mutable i = 0
-//     interface ISomeInterface with
-//         member x.OnlyGetProp
-//             with get () = 0
-//         member x.OnlyProp = 3
-//         member x.Sender
-//             with get () = i
-//             and set i' = i <- i'
+type XISomeInterface () =
+    let mutable i = 0
+    interface ISomeInterface with
+        member x.OnlyGetProp
+            with get () = 0
+        member x.OnlyProp = 3
+        member x.Sender
+            with get () = i
+            and set i' = i <- i'
 
-// type IFoo =
-//     abstract Foo: unit -> string
-//     abstract Bar: string
-//     abstract MySetter: int with get, set
+type IFoo =
+    abstract Foo: unit -> string
+    abstract Bar: string
+    abstract MySetter: int with get, set
 
-// let mangleFoo(x: IFoo) = x.Foo()
+let mangleFoo(x: IFoo) = x.Foo()
 
 // type FooImplementor(i: int) =
 //     let mutable mut1 = 0
@@ -225,10 +225,10 @@ type ValueType1<'T>(value: 'T) =
 type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
-// type ValueType3 =
-//   struct
-//     val mutable public X : int
-//   end
+type ValueType3 =
+  struct
+    val mutable public X : int
+  end
 
 [<Struct>]
 type StructUnion = Value of string
@@ -253,10 +253,10 @@ type Point2D =
 //     let f () = v
 //     member val Value = f
 
-// type DowncastTest(value: int) =
-//     member _.Value = value
-//     interface System.IDisposable with
-//         member _.Dispose() = ()
+type DowncastTest(value: int) =
+    member _.Value = value
+    interface System.IDisposable with
+        member _.Dispose() = ()
 
 [<Class>]
 type TypeWithClassAttribute =
@@ -460,10 +460,10 @@ type MyRecord2 = { Foo: int; Bar: string }
 // type ConcreteClass1() =
 //     inherit MangledAbstractClass5(2)
 
-// type IndexedProps(v: int) =
-//     let mutable v = v
-//     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
-//     member _.Item with get (v2: float) = float v + v2 / 2.
+type IndexedProps(v: int) =
+    let mutable v = v
+    member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
+    member _.Item with get (v2: float) = float v + v2 / 2.
 
 // // TODO: This test produces different results in Fable and .NET
 // // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
@@ -474,13 +474,13 @@ type MyRecord2 = { Foo: int; Bar: string }
 // //     |> fun fi -> fi.PropertyType.GetGenericArguments().Length
 // //     |> equal 1
 
-// [<Fact>]
-// let ``Indexed properties work`` () =
-//     let f = IndexedProps(5)
-//     f[4] |> equal 9
-//     f[3] <- "6"
-//     f[4] |> equal 13
-//     f[4.] |> equal 11
+[<Fact>]
+let ``Indexed properties work`` () =
+    let f = IndexedProps(5)
+    f[4] |> equal 9
+    f[3] <- "6"
+    f[4] |> equal 13
+    f[4.] |> equal 11
 
 // [<Fact>]
 // let ``Types can instantiate their parent in the constructor`` () =
@@ -603,48 +603,48 @@ let ``Overloads work`` () =
     t.Overload(2) |> equal 4
     t.Overload(2, 3) |> equal 5
 
-// [<Fact>]
-// let ``Type abbreviation works`` () =
-//     let t = T4()
-//     t.Value2 |> equal "Bye"
+[<Fact>]
+let ``Type abbreviation works`` () =
+    let t = T4()
+    t.Value2 |> equal "Bye"
 
-// [<Fact>]
-// let ``Getter and Setter work`` () =
-//     let t = TestType6(5)
-//     t.Value1 |> equal 5
-//     t.Value2 |> equal 10
-//     t.Value3 |> equal 25
-//     t.Value3 <- 10
-//     t.Value1 |> equal 5
-//     t.Value2 |> equal 20
-//     t.Value3 |> equal 100
-//     t.Value1 <- 20
-//     t.Value1 |> equal 20
-//     t.Value2 |> equal 20
-//     t.Value3 |> equal 100
+[<Fact>]
+let ``Getter and Setter work`` () =
+    let t = TestType6(5)
+    t.Value1 |> equal 5
+    t.Value2 |> equal 10
+    t.Value3 |> equal 25
+    t.Value3 <- 10
+    t.Value1 |> equal 5
+    t.Value2 |> equal 20
+    t.Value3 |> equal 100
+    t.Value1 <- 20
+    t.Value1 |> equal 20
+    t.Value2 |> equal 20
+    t.Value3 |> equal 100
 
-// [<Fact>]
-// let ``Getter and Setter with indexer work`` () =
-//     let t = TestType7(1, 2, 3)
-//     t.Value(1) |> equal 2
-//     t.Value(2) |> equal 3
-//     t.Value(1) <- 5
-//     t.Value(1) |> equal 5
-//     t.Value(2) |> equal 3
+[<Fact>]
+let ``Getter and Setter with indexer work`` () =
+    let t = TestType7(1, 2, 3)
+    t.Value(1) |> equal 2
+    t.Value(2) |> equal 3
+    t.Value(1) <- 5
+    t.Value(1) |> equal 5
+    t.Value(2) |> equal 3
 
-// [<Fact>]
-// let ``Statically resolved instance calls work`` () =
-//     let a = { thing = 5 }
-//     let b = { label = "five" }
-//     show a |> equal "5"
-//     show b |> equal "five"
+[<Fact>]
+let ``Statically resolved instance calls work`` () =
+    let a = { thing = 5 }
+    let b = { label = "five" }
+    show a |> equal "5"
+    show b |> equal "five"
 
-// [<Fact>]
-// let ``Statically resolved static calls work`` () =
-//     let a = { thing = 5 }
-//     let b = { label = "five" }
-//     showStatic a |> equal "Static: 5"
-//     showStatic b |> equal "Static: five"
+[<Fact>]
+let ``Statically resolved static calls work`` () =
+    let a = { thing = 5 }
+    let b = { label = "five" }
+    showStatic a |> equal "Static: 5"
+    showStatic b |> equal "Static: five"
 
 // [<Fact>]
 // let ``lazy works`` () =
@@ -727,12 +727,12 @@ let ``Multiple constructors work`` () =
 //     x.MyProp <- 2
 //     equal 7 x.MyProp
 
-// [<Fact>]
-// let ``Interface setters don't conflict`` () = // See #505
-//     let x = XISomeInterface () :> ISomeInterface
-//     x.Sender |> equal 0
-//     x.Sender <- 5
-//     x.Sender |> equal 5
+[<Fact>]
+let ``Interface setters don't conflict`` () = // See #505
+    let x = XISomeInterface () :> ISomeInterface
+    x.Sender |> equal 0
+    x.Sender <- 5
+    x.Sender |> equal 5
 
 // [<Fact>]
 // let ``A type can overload an interface method`` () =
@@ -838,17 +838,17 @@ let ``Other Value Types work`` () =
     let p = Point2D(2.)
     p.Y |> equal 2.
 
-// [<Fact>]
-// let ``struct without explicit ctor works`` () =
-//     let t1 = ValueType3(X=10)
-//     t1.X |> equal 10
-//     let mutable t2 = ValueType3()
-//     t2.X |> equal 0
-//     t1 |> notEqual t2
-//     (compare t1 t2) |> equal 1
-//     t2.X <- 10
-//     t1 |> equal t2
-//     (compare t1 t2) |> equal 0
+[<Fact>]
+let ``struct without explicit ctor works`` () =
+    let t1 = ValueType3(X=10)
+    t1.X |> equal 10
+    let mutable t2 = ValueType3()
+    t2.X |> equal 0
+    t1 |> notEqual t2
+    (compare t1 t2) |> equal 1
+    t2.X <- 10
+    t1 |> equal t2
+    (compare t1 t2) |> equal 0
 
 [<Fact>]
 let ``copying struct records works`` () = // See #3371

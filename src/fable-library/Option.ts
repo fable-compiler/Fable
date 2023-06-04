@@ -1,5 +1,4 @@
-import { Nullable, Option, Some, value } from "./Util.js";
-export { Nullable, Option, Some, value };
+import { structuralHash, equals, compare } from "./Util.js";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
@@ -13,6 +12,59 @@ export { Nullable, Option, Some, value };
 // Note: We use non-strict null check for backwards compatibility with
 // code that use F# options to represent values that could be null in JS
 
+export type Nullable<T> = T | null | undefined;
+
+export type Option<T> = T | Some<T> | undefined;
+
+// Using a class here for better compatibility with TS files importing Some
+export class Some<T> {
+  public value: T;
+
+  constructor(value: T) {
+    this.value = value;
+  }
+
+  public toJSON() {
+    return this.value;
+  }
+
+  // Don't add "Some" for consistency with erased options
+  public toString() {
+    return String(this.value);
+  }
+
+  public GetHashCode() {
+    return structuralHash(this.value);
+  }
+
+  public Equals(other: Option<T>): boolean {
+    if (other == null) {
+      return false;
+    } else {
+      return equals(this.value, other instanceof Some ? other.value : other);
+    }
+  }
+
+  public CompareTo(other: Option<T>) {
+    if (other == null) {
+      return 1;
+    } else {
+      return compare(this.value, other instanceof Some ? other.value : other);
+    }
+  }
+}
+
+export function value<T>(x: Option<T>) {
+  if (x == null) {
+    throw new Error("Option has no value");
+  } else {
+    return x instanceof Some ? x.value : x;
+  }
+}
+
+export function unwrap<T>(opt: Option<T>): T | undefined {
+  return opt instanceof Some ? opt.value : opt;
+}
 
 export function some<T>(x: T): Option<T> {
   return x == null || x instanceof Some ? new Some(x) : x;

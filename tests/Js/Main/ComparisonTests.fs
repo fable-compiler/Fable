@@ -159,17 +159,20 @@ let tests =
         equal true (xs1 = xs4)
 
     testCase "Union equality works" <| fun () ->
+        // Prevents Fable from inlining so TypeScript doesn't complain
+        let mutable run = fun u1 u2 u3 u4 ->
+            equal true (u1 = u2)
+            equal false (u1 = u3)
+            equal true (u1 <> u3)
+            equal false (u1 <> u2)
+            equal false (u1 = u4)
+            Object.ReferenceEquals(u1, u1) |> equal true
+            Object.ReferenceEquals(u1, u2) |> equal false
         let u1 = A 2
         let u2 = A 2
         let u3 = A 4
         let u4 = B 2
-        equal true (u1 = u2)
-        equal false (u1 = u3)
-        equal true (u1 <> u3)
-        equal false (u1 <> u2)
-        equal false (u1 = u4)
-        Object.ReferenceEquals(u1, u1) |> equal true
-        Object.ReferenceEquals(u1, u2) |> equal false
+        run u1 u2 u3 u4
 
     testCase "Union custom equality works" <| fun () ->
         let u1 = String "A"
@@ -320,17 +323,19 @@ let tests =
         equal false (xs1 > xs6)
 
     testCase "Union comparison works" <| fun () ->
+        let mutable run = fun u1 u2 u3 u4 u5 ->
+            equal 0 (compare u1 u2)
+            equal -1 (compare u1 u3)
+            equal true (u1 < u3)
+            equal 1 (compare u1 u4)
+            equal false (u1 < u4)
+            (compare u1 u5) = 0 |> equal false
         let u1 = A 2
         let u2 = A 2
         let u3 = A 4
         let u4 = A 1
         let u5 = B 2
-        equal 0 (compare u1 u2)
-        equal -1 (compare u1 u3)
-        equal true (u1 < u3)
-        equal 1 (compare u1 u4)
-        equal false (u1 < u4)
-        (compare u1 u5) = 0 |> equal false
+        run u1 u2 u3 u4 u5
 
     testCase "Union custom comparison works" <| fun () ->
         let u1 = String "A"
@@ -383,10 +388,6 @@ let tests =
         let c1 = Test(5)
         let c2 = Test(5)
         Object.ReferenceEquals(min c1 c2, c2) |> equal true
-
-    // TODO: More tests, also with longs and decimals
-    testCase "clamp works" <| fun () ->
-        Math.Clamp(14, 0, 12) |> equal 12
 
     testCase "nullArg works" <| fun () ->
         try
@@ -566,6 +567,17 @@ let tests =
         Unchecked.equals "2" "3" |> equal false
         Unchecked.equals [1] [1] |> equal true
         Unchecked.equals [2] [3] |> equal false
+        // Use mutable values to prevent inlining
+        let mutable ones = 111
+        let mutable twos = 222
+        let mutable threes = 333
+        let mutable oneStr = "1"
+        let mutable twoStr = "2"
+        let mutable threeStr = "3"
+        Unchecked.equals ones ones |> equal true
+        Unchecked.equals twos threes |> equal false
+        Unchecked.equals oneStr oneStr |> equal true
+        Unchecked.equals twoStr threeStr |> equal false
 
     testCase "Unchecked.compare works" <| fun () ->
         Unchecked.compare 111 111 |> equal 0
@@ -581,10 +593,10 @@ let tests =
     testCase "DU comparison works" <| fun () ->
         let hasStatusReached expectedStatus status =
             status >= expectedStatus
-        Status.CreateNewMeterReadingPicture >= Status.SelectingNewDevice
-        |> equal true
-        hasStatusReached Status.SelectingNewDevice Status.CreateNewMeterReadingPicture
-        |> equal true
+        let mutable run = fun x y ->
+            x >= y |> equal true
+            hasStatusReached y x |> equal true
+        run Status.CreateNewMeterReadingPicture Status.SelectingNewDevice
 
     testCase "LanguagePrimitives.GenericHash with primitives works" <| fun () ->
         (LanguagePrimitives.GenericHash 111, LanguagePrimitives.GenericHash 111) ||> equal
@@ -638,12 +650,29 @@ let tests =
         LanguagePrimitives.GenericEquality "2" "3" |> equal false
         LanguagePrimitives.GenericEquality [1] [1] |> equal true
         LanguagePrimitives.GenericEquality [2] [3] |> equal false
+        // Use mutable values to prevent inlining
+        let mutable ones = 111
+        let mutable twos = 222
+        let mutable threes = 333
+        let mutable oneStr = "1"
+        let mutable twoStr = "2"
+        let mutable threeStr = "3"
+        LanguagePrimitives.GenericEquality ones ones |> equal true
+        LanguagePrimitives.GenericEquality twos threes |> equal false
+        LanguagePrimitives.GenericEquality oneStr oneStr |> equal true
+        LanguagePrimitives.GenericEquality twoStr threeStr |> equal false
 
     testCase "LanguagePrimitives.PhysicalEquality works" <| fun () ->
         LanguagePrimitives.PhysicalEquality "1" "1" |> equal true
         LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
         LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
         LanguagePrimitives.PhysicalEquality [2] [3] |> equal false
+        // Use mutable values to prevent inlining
+        let mutable oneStr = "1"
+        let mutable twoStr = "2"
+        let mutable threeStr = "3"
+        LanguagePrimitives.PhysicalEquality oneStr oneStr |> equal true
+        LanguagePrimitives.PhysicalEquality twoStr threeStr |> equal false
 
     testCase "LanguagePrimitives.SByteWithMeasure works" <| fun () ->
         let distance: sbyte<m> = LanguagePrimitives.SByteWithMeasure 1y

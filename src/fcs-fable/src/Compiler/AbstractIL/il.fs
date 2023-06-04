@@ -1864,7 +1864,7 @@ let inline conditionalAdd condition flagToAdd source =
 
 let NoMetadataIdx = -1
 
-[<NoComparison; NoEquality>]
+[<NoComparison; NoEquality; StructuredFormatDisplay("{DebugText}")>]
 type ILMethodDef
     (
         name: string,
@@ -2103,6 +2103,11 @@ type ILMethodDef
     member x.WithRuntime(condition) =
         x.With(implAttributes = (x.ImplAttributes |> conditionalAdd condition MethodImplAttributes.Runtime))
 
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    member x.DebugText = x.ToString()
+
+    override x.ToString() = "method " + x.Name
+
 /// Index table by name and arity.
 type MethodDefMap = Map<string, ILMethodDef list>
 
@@ -2319,7 +2324,7 @@ let convertFieldAccess (ilMemberAccess: ILMemberAccess) =
     | ILMemberAccess.Private -> FieldAttributes.Private
     | ILMemberAccess.Public -> FieldAttributes.Public
 
-[<NoComparison; NoEquality>]
+[<NoComparison; NoEquality; StructuredFormatDisplay("{DebugText}")>]
 type ILFieldDef
     (
         name: string,
@@ -2409,6 +2414,11 @@ type ILFieldDef
 
     member x.WithFieldMarshal(marshal) =
         x.With(marshal = marshal, attributes = (x.Attributes |> conditionalAdd marshal.IsSome FieldAttributes.HasFieldMarshal))
+
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    member x.DebugText = x.ToString()
+
+    override x.ToString() = "field " + x.Name
 
 // Index table by name. Keep a canonical list to make sure field order is not disturbed for binary manipulation.
 type ILFieldDefs =
@@ -2564,7 +2574,7 @@ let convertInitSemantics (init: ILTypeInit) =
     | ILTypeInit.BeforeField -> TypeAttributes.BeforeFieldInit
     | ILTypeInit.OnAny -> enum 0
 
-[<NoComparison; NoEquality>]
+[<NoComparison; NoEquality; StructuredFormatDisplay("{DebugText}")>]
 type ILTypeDef
     (
         name: string,
@@ -2777,6 +2787,11 @@ type ILTypeDef
 
     member x.WithInitSemantics(init) =
         x.With(attributes = (x.Attributes ||| convertInitSemantics init))
+
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    member x.DebugText = x.ToString()
+
+    override x.ToString() = "type " + x.Name
 
 and [<Sealed>] ILTypeDefs(f: unit -> ILPreTypeDef[]) =
 
@@ -3303,6 +3318,12 @@ let destILArrTy ty =
 let tname_Attribute = "System.Attribute"
 
 [<Literal>]
+let tname_Enum = "System.Enum"
+
+[<Literal>]
+let tname_SealedAttribute = "System.SealedAttribute"
+
+[<Literal>]
 let tname_Object = "System.Object"
 
 [<Literal>]
@@ -3376,6 +3397,10 @@ type ILGlobals(primaryScopeRef: ILScopeRef, equivPrimaryAssemblyRefs: ILAssembly
     member x.primaryAssemblyName = x.primaryAssemblyRef.Name
 
     member val typ_Attribute = mkILBoxedType (mkILNonGenericTySpec (mkSysILTypeRef tname_Attribute))
+
+    member val typ_Enum = mkILBoxedType (mkILNonGenericTySpec (mkSysILTypeRef tname_Enum))
+
+    member val typ_SealedAttribute = mkILBoxedType (mkILNonGenericTySpec (mkSysILTypeRef tname_SealedAttribute))
 
     member val typ_Object = mkILBoxedType (mkILNonGenericTySpec (mkSysILTypeRef tname_Object))
 
@@ -3994,6 +4019,9 @@ let mkILInstanceField (nm, ty, init, access) =
 
 let mkILStaticField (nm, ty, init, at, access) =
     mkILField (true, nm, ty, init, at, access, false)
+
+let mkILStaticLiteralField (nm, ty, init, at, access) =
+    mkILField (true, nm, ty, Some init, at, access, true)
 
 let mkILLiteralField (nm, ty, init, at, access) =
     mkILField (true, nm, ty, Some init, at, access, true)

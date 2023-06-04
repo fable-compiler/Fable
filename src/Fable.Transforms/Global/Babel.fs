@@ -23,6 +23,7 @@ type AssignmentOperator =
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 type Expression =
+    | CommentedExpression of comment: string * expr: Expression
     | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
     | JsxTemplate of parts: string[] * values: Expression[]
     | Literal of Literal
@@ -31,12 +32,11 @@ type Expression =
         members: ClassMember array *
         id: Identifier option *
         superClass: SuperClass option *
-        implements: ClassImplements array option *
+        implements: TypeAnnotation array *
         typeParameters: TypeParameter array *
         loc: SourceLocation option
-    | ClassImplements of ClassImplements
     | Super of loc: SourceLocation option
-    | Undefined of Loc: SourceLocation option
+    | Undefined of loc: SourceLocation option
     | ThisExpression of loc: SourceLocation option
     | SpreadElement of argument: Expression * loc: SourceLocation option
     | ArrayExpression of elements: Expression array * loc: SourceLocation option
@@ -44,7 +44,7 @@ type Expression =
     | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
     | CallExpression of callee: Expression * args: Expression array * typeArguments: TypeAnnotation array * loc: SourceLocation option
-    | UnaryExpression of argument: Expression * operator: string * loc: SourceLocation option
+    | UnaryExpression of argument: Expression * operator: string * isSuffix: bool * loc: SourceLocation option
     | UpdateExpression of prefix: bool * argument: Expression * operator: string * loc: SourceLocation option
     | BinaryExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
@@ -66,30 +66,46 @@ type Expression =
         typeParameters: TypeParameter array *
         loc: SourceLocation option
     | AsExpression of expression: Expression * typeAnnotation: TypeAnnotation
+    member this.Location =
+        match this with
+        | ClassExpression(loc=loc) -> loc
+        | Super(loc=loc) -> loc
+        | Undefined(loc=loc) -> loc
+        | ThisExpression(loc=loc) -> loc
+        | SpreadElement(loc=loc) -> loc
+        | ArrayExpression(loc=loc) -> loc
+        | ObjectExpression(loc=loc) -> loc
+        | SequenceExpression(loc=loc) -> loc
+        | EmitExpression(loc=loc) -> loc
+        | CallExpression(loc=loc) -> loc
+        | UnaryExpression(loc=loc) -> loc
+        | UpdateExpression(loc=loc) -> loc
+        | BinaryExpression(loc=loc) -> loc
+        | LogicalExpression(loc=loc) -> loc
+        | AssignmentExpression(loc=loc) -> loc
+        | ConditionalExpression(loc=loc) -> loc
+        | MemberExpression(loc=loc) -> loc
+        | NewExpression(loc=loc) -> loc
+        | FunctionExpression(loc=loc) -> loc
+        | ArrowFunctionExpression(loc=loc) -> loc
+        | _ -> None
+
+type ParameterFlags(?defVal: Expression, ?isOptional, ?isSpread, ?isNamed) =
+    member _.DefVal = defVal
+    member _.IsOptional = defaultArg isOptional false
+    member _.IsNamed = defaultArg isNamed false
+    member _.IsSpread = defaultArg isSpread false
 
 type Parameter =
-    | Parameter of name: string * isOptional: bool * isNamed: bool * isSpread: bool * typeAnnotation: TypeAnnotation option
+    | Parameter of name: string * typeAnnotation: TypeAnnotation option * flags: ParameterFlags
 
     member this.Name =
         match this with
         | Parameter(name=name) -> name
 
-    member this.IsNamed =
+    member this.WithFlags(flags) =
         match this with
-        | Parameter(isNamed=isNamed) -> isNamed
-
-    member this.AsNamed =
-        match this with
-        | Parameter(id, isOptional, _isNamed, isSpread, typeAnnotation) -> Parameter(id, isOptional, true, isSpread, typeAnnotation)
-
-    member this.AsOptional =
-        match this with
-        | Parameter(id, _isOptional, isNamed, isSpread, typeAnnotation) -> Parameter(id, true, isNamed, isSpread, typeAnnotation)
-
-    member this.AsSpread =
-        match this with
-        | Parameter(id, isOptional, isNamed, _isSpread, typeAnnotation) -> Parameter(id, isOptional, isNamed, true, typeAnnotation)
-
+        | Parameter(name, typ, _) -> Parameter(name, typ, flags)
 
 type Literal =
     | StringLiteral of StringLiteral
@@ -97,6 +113,7 @@ type Literal =
     | DirectiveLiteral of value: string
     | NullLiteral of loc: SourceLocation option
     | BooleanLiteral of value: bool * loc: SourceLocation option
+    | BigIntLiteral of value: string * loc: SourceLocation option
     | NumericLiteral of value: float * loc: SourceLocation option
     | RegExp of pattern: string * flags: string * loc: SourceLocation option
     | EnumCaseLiteral of id: Identifier * caseName: string
@@ -123,9 +140,10 @@ type Declaration =
         members: ClassMember array *
         id: Identifier option *
         superClass: SuperClass option *
-        implements: ClassImplements array option *
+        implements: TypeAnnotation array *
         typeParameters: TypeParameter array *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
     | VariableDeclaration of
         var: VariableDeclaration
     | FunctionDeclaration of
@@ -134,7 +152,8 @@ type Declaration =
         id: Identifier *
         returnType: TypeAnnotation option *
         typeParameters: TypeParameter array *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
     | InterfaceDeclaration of
         id: Identifier *
         members: AbstractMember array *
@@ -148,6 +167,12 @@ type Declaration =
         name: string *
         typeParameters: TypeParameter array *
         alias: TypeAnnotation
+
+    member this.JsDoc =
+        match this with
+        | ClassDeclaration(_, _, _, _, _, _, doc)
+        | FunctionDeclaration(_, _, _, _, _, _, doc) -> doc
+        | _ -> None
 
 /// A module import or export declaration.
 type ModuleDeclaration =
@@ -234,7 +259,7 @@ type CatchClause =
 
 // Declarations
 type VariableDeclarator =
-    | VariableDeclarator of name: string * annotation: TypeAnnotation option * typeParameters: TypeParameter array * init: Expression option
+    | VariableDeclarator of name: string * annotation: TypeAnnotation option * typeParameters: TypeParameter array * init: Expression option * loc: SourceLocation option
 
 type VariableDeclarationKind =
     | Var
@@ -315,17 +340,18 @@ type VariableDeclaration =
 //    member _.Argument: Expression = argument
 
 type AbstractMember =
-    | AbstractProperty of key: Expression * returnType: TypeAnnotation * isComputed: bool
+    | AbstractProperty of key: Expression * returnType: TypeAnnotation * isComputed: bool * isOptional: bool * doc: string option
     | AbstractMethod of
         kind: ObjectMethodKind *
         key: Expression *
         parameters: Parameter array *
         returnType: TypeAnnotation *
         typeParameters: TypeParameter array *
-        isComputed: bool
+        isComputed: bool *
+        doc: string option
 
 type ObjectMember =
-    | ObjectProperty of key: Expression * value: Expression * isComputed: bool
+    | ObjectProperty of key: Expression * value: Expression * isComputed: bool * doc: string option
     | ObjectMethod of
         kind: ObjectMethodKind *
         key: Expression *
@@ -334,7 +360,8 @@ type ObjectMember =
         isComputed: bool *
         returnType: TypeAnnotation option *
         typeParameters: TypeParameter array *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
 
 //    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
@@ -383,7 +410,8 @@ type ClassMember =
         isAbstract: bool *
         returnType: TypeAnnotation option *
         typeParameters: TypeParameter array *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
     | ClassProperty of
         key: Expression *
         value: Expression option *
@@ -392,24 +420,15 @@ type ClassMember =
         isOptional: bool *
         typeAnnotation: TypeAnnotation option *
         accessModifier: AccessModifier option *
-        loc: SourceLocation option
+        loc: SourceLocation option *
+        doc: string option
+
 
 type ClassMethodKind =
     | ClassPrimaryConstructor of AccessModifier[]
     | ClassFunction of key: Expression * isComputed: bool
     | ClassGetter of key: Expression * isComputed: bool
     | ClassSetter of key: Expression * isComputed: bool
-
-/// ES Class Fields & Static Properties
-/// https://github.com/jeffmo/es-class-fields-and-static-properties
-/// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassImplements =
-    | ClassImplements of id: Identifier * typeArguments: TypeAnnotation array
-
-// type MetaProperty(meta, property, ?loc) =
-//     interface Expression with
-//     member _.Meta: Identifier = meta
-//     member _.Property: Expression = property
 
 // Modules
 
@@ -440,6 +459,7 @@ type TypeAnnotation =
     | AliasTypeAnnotation of id: Identifier * typeArguments: TypeAnnotation array
     | AnyTypeAnnotation
     | VoidTypeAnnotation
+    | UndefinedTypeAnnotation
     | StringTypeAnnotation
     | NumberTypeAnnotation
     | BooleanTypeAnnotation
@@ -450,7 +470,6 @@ type TypeAnnotation =
         parameters: FunctionTypeParam array *
         returnType: TypeAnnotation *
         spread: FunctionTypeParam option
-    | NullableTypeAnnotation of typeAnnotation: TypeAnnotation
     | ArrayTypeAnnotation of TypeAnnotation
     | TupleTypeAnnotation of types: TypeAnnotation array
     | KeyofTypeAnnotation of TypeAnnotation
@@ -473,6 +492,7 @@ module Helpers =
         static member super(?loc) = Super loc
         static member emitExpression(value, args, ?loc) = EmitExpression(value, args, loc)
         static member nullLiteral(?loc) = NullLiteral loc |> Literal
+        static member bigintLiteral(value, ?loc) = BigIntLiteral (value, loc) |> Literal
         static member numericLiteral(value, ?loc) = NumericLiteral (value, loc) |> Literal
         static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc) |> Literal
         static member stringLiteral(value, ?loc) = Literal.stringLiteral (value, ?loc=loc) |> Literal
@@ -485,9 +505,9 @@ module Helpers =
         /// A function or method call expression.
         static member callExpression(callee, args, ?typeArguments, ?loc) =
             CallExpression(callee, args, defaultArg typeArguments [||], loc)
-        static member assignmentExpression(operator_, left, right, ?loc) =
+        static member assignmentExpression(operator, left, right, ?loc) =
             let operator =
-                match operator_ with
+                match operator with
                 | AssignEqual -> "="
                 | AssignMinus -> "-="
                 | AssignPlus -> "+="
@@ -514,7 +534,7 @@ module Helpers =
             LogicalExpression(left, operator, right, loc)
         static member objectExpression(properties, ?loc) = ObjectExpression(properties, loc)
         static member newExpression(callee, args, ?typeArguments, ?loc) = NewExpression(callee, args, defaultArg typeArguments [||], loc)
-        /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
+        /// A fat arrow function expression, e.g., let foo = (bar) => { body }
         static member arrowFunctionExpression(parameters, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
             ArrowFunctionExpression(parameters, body, returnType, defaultArg typeParameters [||], loc)
         static member arrowFunctionExpression(parameters, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
@@ -528,14 +548,14 @@ module Helpers =
         static member functionExpression(parameters, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
             FunctionExpression(id, parameters, body, returnType, defaultArg typeParameters [||], loc)
         static member classExpression(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
-            ClassExpression(body, id, superClass, implements, defaultArg typeParameters [||], loc)
+            ClassExpression(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc)
         static member spreadElement(argument, ?loc) =
             SpreadElement(argument, ?loc=loc)
         static member conditionalExpression(test, consequent, alternate, ?loc): Expression =
             ConditionalExpression(test, consequent, alternate, loc)
-        static member binaryExpression(operator_, left, right, ?loc) =
+        static member binaryExpression(operator, left, right, ?loc) =
             let operator =
-                match operator_ with
+                match operator with
                 | BinaryEqual -> "==="
                 | BinaryUnequal -> "!=="
                 | BinaryLess -> "<"
@@ -555,18 +575,22 @@ module Helpers =
                 | BinaryXorBitwise -> "^"
                 | BinaryAndBitwise -> "&"
             BinaryExpression(left, right, operator, loc)
-        static member unaryExpression(operator_, argument, ?loc) =
+
+        static member unaryExpression(operator: string, argument, ?isSuffix, ?loc) =
+            UnaryExpression(argument, operator, defaultArg isSuffix false, loc)
+
+        static member unaryExpression(operator, argument, ?isSuffix, ?loc) =
             let operator =
-                match operator_ with
+                match operator with
                 | UnaryMinus -> "-"
                 | UnaryPlus -> "+"
                 | UnaryNot -> "!"
                 | UnaryNotBitwise -> "~"
                 | UnaryAddressOf -> "" //"&"
-            UnaryExpression(argument, operator, loc)
-        static member updateExpression(operator_, prefix, argument, ?loc) : Expression =
+            UnaryExpression(argument, operator, defaultArg isSuffix false, loc)
+        static member updateExpression(operator, prefix, argument, ?loc) : Expression =
             let operator =
-                match operator_ with
+                match operator with
                 | UpdateMinus -> "--"
                 | UpdatePlus -> "++"
             UpdateExpression(prefix, argument, operator, loc)
@@ -615,16 +639,12 @@ module Helpers =
             CatchClause(param, annotation, body, loc)
 
     type SwitchCase with
-        static member switchCase(?consequent, ?test, ?loc) =
-            SwitchCase(test, defaultArg consequent Array.empty, loc)
+        static member switchCase(?test, ?body, ?loc) =
+            SwitchCase(test, defaultArg body Array.empty, loc)
 
     type Parameter with
-        static member parameter(name, ?isOptional, ?isNamed, ?isSpread, ?typeAnnotation) =
-            Parameter(name, isOptional=defaultArg isOptional false, isNamed=defaultArg isNamed false, isSpread=defaultArg isSpread false, typeAnnotation=typeAnnotation)
-
-    type ClassImplements with
-        static member classImplements(id, ?typeArguments) =
-            ClassImplements(id, defaultArg typeArguments [||])
+        static member parameter(name, ?typeAnnotation) =
+            Parameter(name, typeAnnotation=typeAnnotation, flags=ParameterFlags())
 
     type Declaration with
         static member variableDeclaration(kind, declarations, ?loc) : Declaration =
@@ -633,10 +653,10 @@ module Helpers =
         static member variableDeclaration(kind, var, ?annotation, ?typeParameters, ?init, ?loc) =
             VariableDeclaration.variableDeclaration(kind, var, ?annotation=annotation, ?typeParameters=typeParameters, ?init=init, ?loc=loc)
             |> Declaration.VariableDeclaration
-        static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc) =
-            FunctionDeclaration(parameters, body, id, returnType, defaultArg typeParameters [||], loc)
-        static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
-            ClassDeclaration(body, id, superClass, implements, defaultArg typeParameters [||], loc)
+        static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc, ?doc) =
+            FunctionDeclaration(parameters, body, id, returnType, defaultArg typeParameters [||], loc, doc)
+        static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc, ?doc) =
+            ClassDeclaration(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc, doc)
         static member interfaceDeclaration(id, body, ?extends, ?typeParameters): Declaration = // ?mixins_,
             InterfaceDeclaration(id, body, defaultArg extends [||], defaultArg typeParameters [||])
         static member enumDeclaration(name, cases, ?isConst) =
@@ -654,19 +674,19 @@ module Helpers =
             )
 
     type VariableDeclarator with
-        static member variableDeclarator(id, ?annotation, ?typeParameters, ?init) =
-            VariableDeclarator(id, annotation, defaultArg typeParameters [||], init)
+        static member variableDeclarator(id, ?annotation, ?typeParameters, ?init, ?loc) =
+            VariableDeclarator(id, annotation, defaultArg typeParameters [||], init, loc)
 
     type FunctionTypeParam with
         static member functionTypeParam(name, typeInfo, ?isOptional) =
             FunctionTypeParam(name, typeInfo, defaultArg isOptional false)
 
     type ClassMember with
-        static member classMethod(kind, parameters, body, ?isStatic, ?isAbstract, ?returnType, ?typeParameters, ?loc) : ClassMember =
-            ClassMethod(kind, parameters, body, defaultArg isStatic false, defaultArg isAbstract false, returnType, defaultArg typeParameters [||], loc)
-        static member classProperty(key, ?value, ?isComputed, ?isStatic, ?isOptional, ?typeAnnotation, ?accessModifier, ?loc): ClassMember =
+        static member classMethod(kind, parameters, body, ?isStatic, ?isAbstract, ?returnType, ?typeParameters, ?loc, ?doc) : ClassMember =
+            ClassMethod(kind, parameters, body, defaultArg isStatic false, defaultArg isAbstract false, returnType, defaultArg typeParameters [||], loc, doc)
+        static member classProperty(key, ?value, ?isComputed, ?isStatic, ?isOptional, ?typeAnnotation, ?accessModifier, ?loc, ?doc): ClassMember =
             let isComputed = defaultArg isComputed false
-            ClassProperty(key, value, isComputed, defaultArg isStatic false, defaultArg isOptional false, typeAnnotation, accessModifier, loc)
+            ClassProperty(key, value, isComputed, defaultArg isStatic false, defaultArg isOptional false, typeAnnotation, accessModifier, loc, doc)
 
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
@@ -688,18 +708,18 @@ module Helpers =
         static member stringLiteral(value, ?loc) = StringLiteral(value, loc)
 
     type ObjectMember with
-        static member objectProperty(key, value, ?isComputed) = // ?shorthand_,
+        static member objectProperty(key, value, ?isComputed, ?doc) = // ?shorthand_,
             let isComputed = defaultArg isComputed false
-            ObjectProperty(key, value, isComputed)
-        static member objectMethod(kind, key, parameters, body, ?isComputed, ?returnType, ?typeParameters, ?loc) =
+            ObjectProperty(key, value, isComputed, doc)
+        static member objectMethod(kind, key, parameters, body, ?isComputed, ?returnType, ?typeParameters, ?loc, ?doc) =
             let isComputed = defaultArg isComputed false
-            ObjectMethod(kind, key, parameters, body, isComputed, returnType, defaultArg typeParameters [||], loc)
+            ObjectMethod(kind, key, parameters, body, isComputed, returnType, defaultArg typeParameters [||], loc, doc)
 
     type AbstractMember with
-        static member abstractProperty(key, typ, ?isComputed) =
-            AbstractProperty(key, typ, defaultArg isComputed false)
-        static member abstractMethod(kind, key, parameters, returnType, ?typeParameters, ?isComputed) =
-            AbstractMethod(kind, key, parameters, returnType, defaultArg typeParameters [||], defaultArg isComputed false)
+        static member abstractProperty(key, typ, ?isComputed, ?isOptional, ?doc) =
+            AbstractProperty(key, typ, defaultArg isComputed false, defaultArg isOptional false, doc)
+        static member abstractMethod(kind, key, parameters, returnType, ?typeParameters, ?isComputed, ?doc) =
+            AbstractMethod(kind, key, parameters, returnType, defaultArg typeParameters [||], defaultArg isComputed false, doc)
 
     type ModuleDeclaration with
         static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)

@@ -18,7 +18,7 @@ let thatYearMilliseconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds
 
 [<Fact>]
-let ``test DateTime.ToString with format works`` () =
+let ``test DateTime.ToString with custom format works`` () =
     DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
     |> equal "16:37"
 

@@ -156,10 +156,10 @@ let ``Array.empty works`` () =
     let xs = Array.empty<int>
     xs.Length |> equal 0
 
-// [<Fact>]
-// let ``Array.empty generic works`` () =
-//     let xs = [||]
-//     xs.Length |> equal 0
+[<Fact>]
+let ``Array.empty generic works`` () =
+    let xs = [||]
+    xs.Length |> equal 0
 
 [<Fact>]
 let ``Array.create with integer works`` () =
@@ -1156,15 +1156,14 @@ let ``Array.except works`` () =
     Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true
     // Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
 
-// [<Fact>]
-// let ``Array[i] is undefined in Fable when i is out of range`` () =
-//     let xs = [|0|]
-// #if FABLE_COMPILER
-//     isNull <| box xs[1]
-// #else
-//     try xs[1] |> ignore; false with _ -> true
-// #endif
-//     |> equal true
+[<Fact>]
+let ``Array[i] is undefined in Fable when i is out of range`` () =
+    let xs = [|0|]
+#if FABLE_COMPILER_JAVASCRIPT
+    isNull <| box xs[1] |> equal true
+#else
+    throwsAnyError (fun () -> xs[1] |> ignore)
+#endif
 
 [<Fact>]
 let ``Array iterators from range do rewind`` () =
@@ -1230,8 +1229,7 @@ let ``Array.take works`` () =
 let ``Array.take works II`` () =
     let xs = [|1.; 2.; 3.; 4.; 5.|]
     // Array.take should throw an exception if there're not enough elements
-    try xs |> Array.take 20 |> Array.length with _ -> -1
-    |> equal -1
+    throwsAnyError (fun () -> xs |> Array.take 20 |> Array.length |> ignore)
 
 [<Fact>]
 let ``Array.takeWhile works`` () =
@@ -1309,8 +1307,8 @@ let ``Array.tryExactlyOne works`` () =
 [<Fact>]
 let ``Array.exactlyOne works II`` () =
     [|1.|] |> Array.exactlyOne |> equal 1.
-    (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
-    (try Array.exactlyOne<int> [||] |> ignore; false with | _ -> true) |> equal true
+    throwsAnyError (fun () -> Array.exactlyOne [|1.;2.|] |> ignore)
+    throwsAnyError (fun () -> Array.exactlyOne<int> [||] |> ignore)
 
 [<Fact>]
 let ``Array.transpose works`` () =

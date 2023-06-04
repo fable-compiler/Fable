@@ -62,7 +62,15 @@ let makeDecimal com r t (x: decimal) =
     Helper.LibCall(com, "decimal", "Decimal", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
 
 let makeDecimalFromExpr com r t (e: Expr) =
-    Helper.LibCall(com, "decimal", "Decimal", t, [ e ], isConstructor = true, ?loc = r)
+    match e with
+    | Value(Fable.NumberConstant(:? float32 as x, Float32, _), _)  ->
+        makeDecimal com r t (decimal x)
+    | Value(Fable.NumberConstant(:? float as x, Float64, _), _) ->
+        makeDecimal com r t (decimal x)
+    | Value(Fable.NumberConstant(:? decimal as x, Decimal, _), _) ->
+        makeDecimal com r t x
+    | _ ->
+        Helper.LibCall(com, "decimal", "Decimal", t, [ e ], isConstructor = true, ?loc = r)
 
 let createAtom com (value: Expr) =
     let typ = value.Type
@@ -189,8 +197,8 @@ let castBigIntMethod typeTo =
         | BigInt | NativeInt | UNativeInt -> FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
 
-let kindIndex t = //         0   1   2   3   4   5   6   7   8   9  10  11
-    match t with //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+let kindIndex kind = //         0   1   2   3   4   5   6   7   8   9  10  11
+    match kind with //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
     | Int8 -> 0 //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
     | Int16 -> 1 //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
     | Int32 -> 2 //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
@@ -207,9 +215,9 @@ let kindIndex t = //         0   1   2   3   4   5   6   7   8   9  10  11
     | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
-let needToCast typeFrom typeTo =
-    let v = kindIndex typeFrom // argument type (vertical)
-    let h = kindIndex typeTo // return type (horizontal)
+let needToCast fromKind toKind =
+    let v = kindIndex fromKind // argument type (vertical)
+    let h = kindIndex toKind // return type (horizontal)
 
     ((v > h) || (v < 4 && h > 3)) && (h < 8)
     || (h <> v && (h = 11 || v = 11))
@@ -437,7 +445,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     | Number(Int64|UInt64|BigInt|Decimal as kind,_)::_ ->
         let modName, opName =
             match kind, opName with
-            | UInt64, Operators.rightShift -> "long", "op_RightShiftUnsigned" // See #1482
+            // | UInt64, Operators.rightShift -> "long", "op_RightShiftUnsigned" // See #1482
             | Decimal, Operators.divideByInt -> "decimal", Operators.division
             | Decimal, _ -> "decimal", opName
             | BigInt, _ -> "big_int", opName
@@ -886,7 +894,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 let ent = com.GetEntity(ent)
 
                 if ent.IsInterface then
-                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com r exprs fieldNames ent
+                    AnonRecords.fitsInInterface com r exprs fieldNames ent
                     |> function
                         | Error errors ->
                             errors
@@ -1246,10 +1254,16 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.ImportedCall("math", "trunc", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
     | "Sign", _ ->
-        let args = toFloat com ctx r t args |> List.singleton
-
-        Helper.LibCall(com, "util", "sign", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        match args with
+        | ExprType(Number(Decimal,_))::_ ->
+            Helper.LibCall(com, "decimal", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | ExprType(Number(BigInt,_))::_ ->
+            Helper.LibCall(com, "big_int", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | ExprType(Number((Float16|Float32|Float64),_))::_ ->
+            Helper.LibCall(com, "double", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | ExprType(Number(_,_))::_ ->
+            Helper.LibCall(com, "long", "sign", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ -> None
     // Numbers
     | ("Infinity"
       | "InfinitySingle"),
@@ -3148,7 +3162,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 
     let isGroup =
         match thisArg with
-        | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
+        | Some(ExprType(DeclaredTypeFullName Types.regexGroup)) -> true
         | _ -> false
 
     match i.CompiledName with
@@ -3187,7 +3201,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Success" ->
         nullCheck r false thisArg.Value |> Some
     // MatchCollection & GroupCollection
-    | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
+    | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
         Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
@@ -3734,6 +3748,7 @@ let tryField com returnTyp ownerTyp fieldName =
 
 let private replacedModules =
     dict [ "System.Math", operators
+           "System.MathF", operators
            "Microsoft.FSharp.Core.Operators", operators
            "Microsoft.FSharp.Core.Operators.Checked", operators
            "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
@@ -3838,11 +3853,11 @@ let private replacedModules =
            "System.Text.Encoding", encoding
            "System.Text.UnicodeEncoding", encoding
            "System.Text.UTF8Encoding", encoding
-           "System.Text.RegularExpressions.Capture", regex
-           "System.Text.RegularExpressions.Match", regex
-           "System.Text.RegularExpressions.Group", regex
-           "System.Text.RegularExpressions.MatchCollection", regex
-           "System.Text.RegularExpressions.GroupCollection", regex
+           Types.regexCapture, regex
+           Types.regexMatch, regex
+           Types.regexGroup, regex
+           Types.regexMatchCollection, regex
+           Types.regexGroupCollection, regex
            Types.regex, regex
            Types.fsharpSet, sets
            "Microsoft.FSharp.Collections.SetModule", setModule

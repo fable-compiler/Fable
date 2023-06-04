@@ -20,15 +20,21 @@ function convertToSimpleJson($obj)
         return $array;
     } elseif ($obj instanceof \FSharpUnion) {
         $vars = get_object_vars($obj);
+        $case = $obj->get_FSharpCase();
         if (empty($vars)) {
-            return $obj->get_FSharpCase();
+            return $case;
         }
 
-        $props = [$obj->get_FSharpCase()];
+
+        if (count($vars) == 1) {
+            return array($case => convertToSimpleJson($vars[key($vars)]));
+        }
+
+        $props = [];
         foreach ($vars as $prop => $value) {
             $props[] = convertToSimpleJson($value);
         }
-        return $props;
+        return array($case => $props);
     } elseif (is_array($obj)) {
         $array = [];
         foreach ($obj as $key => $value) {
@@ -52,7 +58,7 @@ function convertTypeFromJson($json, $cls)
     if (count($class_vars) == 0) {
         return new $cls();
     } elseif (count($class_vars) == 1) {
-        $fieldName =key($class_vars);
+        $fieldName = key($class_vars);
         $method = "get_{$fieldName}_Type";
         $field = convertFromSimpleJson($json, $cls::$method());
         return new $cls($field);
@@ -60,7 +66,7 @@ function convertTypeFromJson($json, $cls)
         $fields = [];
         foreach ($class_vars as $field => $_) {
             $method = "get_{$field}_Type";
-            $fields[$field] = convertFromSimpleJson($json->$field, $cls::$method());
+            $fields[] = convertFromSimpleJson($json->$field, $cls::$method());
         }
         return new $cls(...$fields);
     }
@@ -129,11 +135,19 @@ function convertFromSimpleJson($json, $cls)
                     return convertTypeFromJson($json->$caseName, $caseCls);
                 }
             }
+        } elseif (is_array($json)) {
+            foreach ($cls::allCases() as $caseCls) {
+                $caseName = $caseCls::get_FSharpCase();
+                if ($json[$caseName] != null) {
+                    return convertTypeFromJson($json[$caseName], $caseCls);
+                }
+            }
         }
+        throw new \Error("Not sure how to decode this union");
     }
 
     // Record (should be at least iComparable)
-    if (is_subclass_of($cls, "IComparable")) {
+    if (is_subclass_of($cls, "\\IComparable")) {
         return convertTypeFromJson($json, $cls);
     }
 

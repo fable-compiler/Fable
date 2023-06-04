@@ -3,9 +3,12 @@ namespace Fable.Transforms
 [<RequireQualifiedAccess>]
 module Atts =
     let [<Literal>] noEquality = "Microsoft.FSharp.Core.NoEqualityAttribute" // typeof<NoEqualityAttribute>.FullName
-    let [<Literal>] noComparison = "Microsoft.FSharp.Core.NoComparisonAttribute" // typeof<NoComparisonAttribute>.FullName
     let [<Literal>] customEquality = "Microsoft.FSharp.Core.CustomEqualityAttribute" // typeof<CustomEqualityAttribute>.FullName
+    let [<Literal>] referenceEquality = "Microsoft.FSharp.Core.ReferenceEqualityAttribute" // typeof<ReferenceEqualityAttribute>.FullName
+    let [<Literal>] structuralEquality = "Microsoft.FSharp.Core.StructuralEqualityAttribute" // typeof<StructuralEqualityAttribute>.FullName
+    let [<Literal>] noComparison = "Microsoft.FSharp.Core.NoComparisonAttribute" // typeof<NoComparisonAttribute>.FullName
     let [<Literal>] customComparison = "Microsoft.FSharp.Core.CustomComparisonAttribute" // typeof<CustomComparisonAttribute>.FullName
+    let [<Literal>] structuralComparison = "Microsoft.FSharp.Core.StructuralComparisonAttribute" // typeof<StructuralComparisonAttribute>.FullName
     let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
     let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
     let [<Literal>] compiledValue = "Fable.Core.CompiledValueAttribute" // typeof<CompiledValueAttribute>.FullName
@@ -32,7 +35,6 @@ module Atts =
     let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
     let [<Literal>] paramList = "Fable.Core.ParamListAttribute"// typeof<Fable.Core.ParamListAttribute>.FullName
     let [<Literal>] paramObject = "Fable.Core.ParamObjectAttribute"// typeof<Fable.Core.ParamObjectAttribute>.FullName
-    let [<Literal>] referenceType = "Fable.Core.Rust.ReferenceTypeAttribute" // typeof<Fable.Core.PointerTypeAttribute>.FullName
     let [<Literal>] jsDecorator = "Fable.Core.JS.DecoratorAttribute" // typeof<Fable.Core.JS.DecoratorAttribute>.FullName
     let [<Literal>] jsReflectedDecorator = "Fable.Core.JS.ReflectedDecoratorAttribute" // typeof<Fable.Core.JS.ReflectedDecoratorAttribute>.FullName
     let [<Literal>] jsxComponent = "Fable.Core.JSX.ComponentAttribute" // typeof<Fable.Core.JSX.ComponentAttribute>.FullName
@@ -42,6 +44,7 @@ module Atts =
     let [<Literal>] rustByRef = "Fable.Core.Rust.ByRefAttribute"// typeof<Fable.Core.Rust.ByRefAttribute>.FullName
     let [<Literal>] rustOuterAttr = "Fable.Core.Rust.OuterAttrAttribute"// typeof<Fable.Core.Rust.OuterAttrAttribute>.FullName
     let [<Literal>] rustInnerAttr = "Fable.Core.Rust.InnerAttrAttribute"// typeof<Fable.Core.Rust.InnerAttrAttribute>.FullName
+    let [<Literal>] referenceType = "Fable.Core.Rust.ReferenceTypeAttribute" // typeof<Fable.Core.ReferenceTypeAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
@@ -82,6 +85,12 @@ module Types =
     let [<Literal>] decimal = "System.Decimal"
     let [<Literal>] bigint = "System.Numerics.BigInteger"
     let [<Literal>] regex = "System.Text.RegularExpressions.Regex"
+    let [<Literal>] regexMatch = "System.Text.RegularExpressions.Match"
+    let [<Literal>] regexGroup = "System.Text.RegularExpressions.Group"
+    let [<Literal>] regexCapture = "System.Text.RegularExpressions.Capture"
+    let [<Literal>] regexMatchCollection = "System.Text.RegularExpressions.MatchCollection"
+    let [<Literal>] regexGroupCollection = "System.Text.RegularExpressions.GroupCollection"
+    let [<Literal>] regexCaptureCollection = "System.Text.RegularExpressions.CaptureCollection"
     let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
     let [<Literal>] option = "Microsoft.FSharp.Core.FSharpOption`1"
     let [<Literal>] valueOption = "Microsoft.FSharp.Core.FSharpValueOption`1"
@@ -89,7 +98,7 @@ module Types =
     let [<Literal>] matchFail = "Microsoft.FSharp.Core.MatchFailureException"
     let [<Literal>] byref = "Microsoft.FSharp.Core.byref`1"
     let [<Literal>] byref2 = "Microsoft.FSharp.Core.byref`2"
-    let [<Literal>] ievent = "Microsoft.FSharp.Control.IEvent`2"
+    let [<Literal>] ievent2 = "Microsoft.FSharp.Control.IEvent`2"
     let [<Literal>] byrefKindIn = "Microsoft.FSharp.Core.ByRefKinds.In"
     let [<Literal>] byrefKindInOut = "Microsoft.FSharp.Core.ByRefKinds.InOut"
     let [<Literal>] byrefKindOut = "Microsoft.FSharp.Core.ByRefKinds.Out"
@@ -131,6 +140,7 @@ module Types =
     let [<Literal>] iStructuralComparable = "System.Collections.IStructuralComparable"
     let [<Literal>] idisposable = "System.IDisposable"
     let [<Literal>] iformattable = "System.IFormattable"
+    let [<Literal>] iformatProvider = "System.IFormatProvider"
     let [<Literal>] iobserverGeneric = "System.IObserver`1"
     let [<Literal>] iobservableGeneric = "System.IObservable`1"
     let [<Literal>] refCell = "Microsoft.FSharp.Core.FSharpRef`1"
@@ -231,7 +241,7 @@ module Log =
         FromRange: SourceLocation option
     }
 
-    let private addLog (com: Compiler) (inlinePath: InlinePath list) range msg severity =
+    let private addLog (com: Compiler) (inlinePath: InlinePath list) (range: SourceLocation option) msg severity =
         let printInlineSource fromPath (p: InlinePath) =
             let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
             match p.FromRange with
@@ -239,13 +249,13 @@ module Log =
             | None -> path
         let actualFile, msg =
             match inlinePath with
-            | [] -> com.CurrentFile, msg
             | { ToFile = file }::_ ->
                 let inlinePath =
                     inlinePath
                     |> List.map (printInlineSource file)
                     |> String.concat " < "
                 file, msg + " - Inline call from " + inlinePath
+            | [] -> range |> Option.bind (fun r -> r.File) |> Option.defaultValue com.CurrentFile, msg
         com.AddLog(msg, severity, ?range=range, fileName=actualFile)
 
     let addWarning (com: Compiler) inlinePath range warning =
@@ -282,7 +292,12 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|ExprTypeAs|) (e: Expr) = e.Type, e
     let inline (|IdentType|) (id: Ident) = id.Type
-    let inline (|EntFullName|) (e: EntityRef) = e.FullName
+    let inline (|EntFullName|) (e: Entity) = e.FullName
+    let inline (|EntRefFullName|) (e: EntityRef) = e.FullName
+
+    let (|DeclaredTypeFullName|_|) = function
+        | DeclaredType(entRef, _) -> Some entRef.FullName
+        | _ -> None
 
     let rec uncurryLambdaType maxArity (revArgTypes: Type list) (returnType: Type) =
         match returnType with
@@ -451,7 +466,9 @@ module AST =
                 // Other languages include a runtime check for options
                 | _ -> true
             | ListHead | ListTail | TupleIndex _
-            | UnionTag | UnionField _ -> canHaveSideEffects e
+            | UnionTag -> canHaveSideEffects e
+            // Don't move union field getters after union case test in case TypeScript complains
+            | UnionField _ -> Compiler.Language = TypeScript || canHaveSideEffects e
             | FieldGet info ->
                 if info.CanHaveSideEffects then true
                 else canHaveSideEffects e
@@ -1085,6 +1102,12 @@ module AST =
             else false
         FSharp.Collections.ResizeArray [|expr|] |> deepExistsInner
 
+    // depth-first search
+    let rec tryFindExprDFS (f: Expr -> bool) (e: Expr) =
+        getSubExpressions e
+        |> List.tryPick (fun e2 -> tryFindExprDFS f e2)
+        |> Option.orElse (if f e then Some e else None)
+
     let isIdentUsed identName expr =
         expr |> deepExists (function
             | IdentExpr i -> i.Name = identName
@@ -1106,9 +1129,9 @@ module AST =
         extractGenericArgs Map.empty maybeGenericExpr.Type concreteType
 
     let rec resolveInlineType (genArgs: Map<string, Type>) = function
-        | Fable.GenericParam(name, isMeasure, _constraints) as t ->
+        | GenericParam(name, isMeasure, _constraints) as t ->
             match Map.tryFind name genArgs with
-            | Some v when isMeasure && v = Fable.Any -> t // avoids resolving measures to Fable.Any
+            | Some v when isMeasure && v = Any -> t // avoids resolving measures to Fable.Any
             | Some v -> v
             | None -> t
         | t -> t.MapGenerics(resolveInlineType genArgs)

@@ -58,6 +58,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests.Dart", "tests\D
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests.TypeScript", "tests\TypeScript\Fable.Tests.TypeScript.fsproj", "{F9134F40-C6CD-4368-A28E-33E5102FD4AB}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Spaces", "tests\Js\Project With Spaces\Fable.Tests.Spaces.fsproj", "{C90E23AF-4B5B-44A7-ADCC-3BF89547395B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -148,6 +150,10 @@ Global
 		{F9134F40-C6CD-4368-A28E-33E5102FD4AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F9134F40-C6CD-4368-A28E-33E5102FD4AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F9134F40-C6CD-4368-A28E-33E5102FD4AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C90E23AF-4B5B-44A7-ADCC-3BF89547395B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C90E23AF-4B5B-44A7-ADCC-3BF89547395B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C90E23AF-4B5B-44A7-ADCC-3BF89547395B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C90E23AF-4B5B-44A7-ADCC-3BF89547395B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -175,6 +181,7 @@ Global
 		{2971A69B-4A5B-4841-920F-38A5D11F7881} = {C8CB96CF-68A8-4083-A0F8-319275CF8097}
 		{40C7000A-6BC2-42B7-B7E2-3AAC60DAC06D} = {CF0A8EC3-841F-4A54-B9FC-8D174CCD4A90}
 		{F9134F40-C6CD-4368-A28E-33E5102FD4AB} = {CF0A8EC3-841F-4A54-B9FC-8D174CCD4A90}
+		{C90E23AF-4B5B-44A7-ADCC-3BF89547395B} = {DA29278E-3808-42DE-8333-964F129F295D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {58DF9285-8523-4EAC-B598-BE5B02A76A00}

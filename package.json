@@ -19,14 +19,14 @@
     "posttest-ts": "mocha build/tests/TypeScriptCompiled/build/tests/TypeScript -reporter dot -t 10000"
   },
   "dependencies": {
-    "@types/node": "^18.15.5",
-    "concurrently": "^7.6.0",
+    "@types/node": "^20.1.0",
+    "concurrently": "^8.0.1",
     "ghreleases": "^3.0.2",
     "mocha": "^10.2.0",
-    "nodemon": "^2.0.21",
-    "rollup": "^3.20.0",
-    "terser": "^5.16.6",
+    "nodemon": "^2.0.22",
+    "rollup": "^3.21.5",
+    "terser": "^5.17.1",
     "tslint": "^6.1.3",
-    "typescript": "^5.0.2"
+    "typescript": "^5.0.4"
   }
 }

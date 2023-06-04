@@ -9,12 +9,12 @@
   <ItemGroup>
     <Compile Include="Global.fs" />
     <!-- <Compile Include="BigInt/n.fsi" /> -->
-    <Compile Include="BigInt/n.fs" />
+    <!-- <Compile Include="BigInt/n.fs" /> -->
     <!-- <Compile Include="BigInt/z.fsi" /> -->
-    <Compile Include="BigInt/z.fs" />
-    <Compile Include="BigInt.fs" />
-    <!-- <Compile Include="BigInt/q.fsi"/>
-    <Compile Include="BigInt/q.fs"/> -->
+    <!-- <Compile Include="BigInt/z.fs" /> -->
+    <!-- <Compile Include="BigInt.fs" /> -->
+    <!-- <Compile Include="BigInt/q.fsi"/> -->
+    <!-- <Compile Include="BigInt/q.fs"/> -->
     <Compile Include="SystemException.fs" />
     <Compile Include="System.Text.fs" />
     <Compile Include="System.Collections.Generic.fs" />

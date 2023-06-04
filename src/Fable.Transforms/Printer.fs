@@ -5,12 +5,9 @@ open System
 open Fable
 open Fable.AST
 
-type SourceMapping =
-    int * int * int * int * string option
-
 type Writer =
     inherit IDisposable
-    abstract AddSourceMapping: SourceMapping -> unit
+    abstract AddSourceMapping: srcLine: int * srcCol: int * genLine: int * genCol: int * file: string option * displayName: string option -> unit
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
     abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
@@ -39,11 +36,12 @@ type PrinterImpl(writer: Writer, ?indent: string) =
         | None -> ()
         | Some loc ->
             writer.AddSourceMapping(
-                loc.start.line,
-                loc.start.column,
-                line,
-                column,
-                loc.identifierName)
+                srcLine=loc.start.line,
+                srcCol=loc.start.column,
+                genLine=line,
+                genCol=column,
+                file=loc.File,
+                displayName=loc.DisplayName)
 
     member _.Flush(): Async<unit> =
         async {

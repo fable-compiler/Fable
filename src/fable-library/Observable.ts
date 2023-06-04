@@ -1,7 +1,7 @@
 
-import { FSharpChoice$2, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
-import { value } from "./Option.js";
-import { IDisposable, Option } from "./Util.js";
+import { FSharpChoice$2_$union, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
+import { Option, value } from "./Option.js";
+import { IDisposable } from "./Util.js";
 
 export interface IObserver<T> {
   OnNext: (x: T) => void;
@@ -144,7 +144,7 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObse
   });
 }
 
-export function split<T, U1, U2>(splitter: (x: T) => FSharpChoice$2<U1, U2>, source: IObservable<T>): [Observable<U1>, Observable<U2>] {
+export function split<T, U1, U2>(splitter: (x: T) => FSharpChoice$2_$union<U1, U2>, source: IObservable<T>): [Observable<U1>, Observable<U2>] {
   return [
     choose((v) => Choice_tryValueIfChoice1Of2(splitter(v)), source),
     choose((v) => Choice_tryValueIfChoice2Of2(splitter(v)), source)

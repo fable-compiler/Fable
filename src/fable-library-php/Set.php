@@ -566,6 +566,10 @@ function intersect($a, $b)
     return new Set($a->Comparer, SetTree::intersection($a->Comparer, $a->Tree, $b->Tree));
 }
 
+function add($item, $table) {
+    return new Set($table->Comparer, SetTree::add($table->Comparer,$item, $table->Tree));
+}
+
 function remove($item,$table)
 {
     return new Set($table->Comparer, SetTree::remove($table->Comparer,$item, $table->Tree));

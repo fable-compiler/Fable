@@ -185,8 +185,8 @@ module Util =
         | Types.valueType, _ -> Object
         | Types.nullable, [genArg]
         | "Fable.Core.Dart.DartNullable`1", [genArg] -> Nullable genArg
-        | "System.Text.RegularExpressions.Group", _ -> Nullable String
-        | "System.Text.RegularExpressions.Match", _ ->
+        | Types.regexGroup, _ -> Nullable String
+        | Types.regexMatch, _ ->
             makeTypeRefFromName "Match" []
         // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
         | Naming.EndsWith "Exception" _, _ -> Dynamic
@@ -1482,7 +1482,7 @@ module Util =
 
         | Fable.TypeCast(expr, t) ->
             match t with
-            | Fable.DeclaredType(EntFullName(Types.ienumerableGeneric | Types.ienumerable), [_]) ->
+            | Fable.DeclaredType(EntRefFullName(Types.ienumerableGeneric | Types.ienumerable), [_]) ->
                 match expr with
                 // Optimization for (numeric) array or list literals casted to seq
                 // Done at the very end of the compile pipeline to get more opportunities
@@ -1494,7 +1494,7 @@ module Util =
                 | ExprType(Fable.Array _ | Fable.List _) ->
                     transform com ctx returnStrategy expr
 
-                | ExprType(Fable.DeclaredType(EntFullName(Types.dictionary | Types.idictionary), _)) ->
+                | ExprType(Fable.DeclaredType(EntRefFullName(Types.dictionary | Types.idictionary), _)) ->
                     transformExprAndResolve com ctx returnStrategy expr (fun expr ->
                         let t = transformType com ctx t
                         get t expr "entries")
@@ -1502,7 +1502,7 @@ module Util =
                 | ExprType(Fable.String) ->
                     Dart.Replacements.stringToCharSeq expr |> transform com ctx returnStrategy
 
-                | ExprType(Fable.DeclaredType(EntFullName "System.Text.RegularExpressions.Match", _)) ->
+                | ExprType(Fable.DeclaredType(EntRefFullName Types.regexMatch, _)) ->
                     Dart.Replacements.regexMatchToSeq com t expr |> transform com ctx returnStrategy
 
                 | _ -> transformCast com ctx t returnStrategy expr

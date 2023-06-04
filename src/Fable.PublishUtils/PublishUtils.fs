@@ -487,6 +487,23 @@ module Publish =
                 printfn "Please revert the version change in .fsproj"
                 reraise()
 
+    let pushNpmWithoutReleaseNotesCheck projDir (tag: string option) =
+        // let _npmToken =
+        //     match envVarOrNone "NPM_TOKEN" with
+        //     | Some npmToken -> npmToken
+        //     | None -> failwith "The npm token key must be set in a NPM_TOKEN environmental variable"
+        // runInDir projDir @"npm config set '//registry.npmjs.org/:_authToken' ""${NPM_TOKEN}"""
+        try
+            let publishCmd =
+                match tag with
+                | Some tag -> $"npm publish --tag {tag}"
+                | None -> "npm publish"
+            runInDir projDir publishCmd
+        with _ ->
+            printfn "There's been an error when pushing project: %s" projDir
+            printfn "Please revert the version change in package.json"
+            reraise()
+
     let pushNpm (projDir: string) buildAction =
         let checkPkgVersion json: string option =
             Json.Parse(json)
@@ -494,23 +511,13 @@ module Publish =
             |> Option.map Json.GetString
         let releaseVersion = loadReleaseVersion projDir
         if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
-            let _npmToken =
-                match envVarOrNone "NPM_TOKEN" with
-                | Some npmToken -> npmToken
-                | None -> failwith "The npm token key must be set in a NPM_TOKEN environmental variable"
-            runInDir projDir @"npm config set '//registry.npmjs.org/:_authToken' ""${NPM_TOKEN}"""
             buildAction()
             bumpNpmVersion projDir releaseVersion
-            try
-                let publishCmd =
-                    match splitPrerelease releaseVersion with
-                    | _, Some _ -> "npm publish --tag next"
-                    | _, None -> "npm publish"
-                runInDir projDir publishCmd
-            with _ ->
-                printfn "There's been an error when pushing project: %s" projDir
-                printfn "Please revert the version change in package.json"
-                reraise()
+            let tag =
+                match splitPrerelease releaseVersion with
+                | _, Some _ -> Some "next"
+                | _, None -> None
+            pushNpmWithoutReleaseNotesCheck projDir tag
 
 let doNothing () = ()
 
@@ -550,12 +557,26 @@ let pushFableNuget projFile props buildAction =
 let pushNpm projDir buildAction =
     Publish.pushNpm projDir buildAction
 
+let pushNpmWithoutReleaseNotesCheck projDir =
+    Publish.pushNpmWithoutReleaseNotesCheck projDir None
+
 let getDotNetSDKVersionFromGlobalJson(): string =
     readFile "global.json"
     |> Json.Parse
     |> Json.TryGetProperty "sdk"
     |> Option.bind (Json.TryGetProperty "version")
     |> Option.map (Json.GetString)
+    |> Option.defaultWith (fun _ -> failwith "Cannot parse version")
+
+let getNpmVersion (projDir: string) =
+    let pkgJsonPath =
+        if projDir.EndsWith("package.json")
+        then projDir
+        else projDir </> "package.json"
+    readFile pkgJsonPath
+    |> Json.Parse
+    |> Json.TryGetProperty "version"
+    |> Option.map Json.GetString
     |> Option.defaultWith (fun _ -> failwith "Cannot parse version")
 
 (*

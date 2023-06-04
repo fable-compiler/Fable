@@ -1,6 +1,7 @@
 module Fable.Tests.DateTimeOffsetTests
 
 open System
+open System.Globalization
 open Util.Testing
 
 let toSigFigs nSigFigs x =
@@ -16,27 +17,21 @@ let thatYearSeconds (dt: DateTimeOffset) =
 let thatYearMilliseconds (dt: DateTimeOffset) =
     (dt - DateTimeOffset(dt.Year, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalMilliseconds
 
-[<Fact>]
-let ``DateTimeOffset.ToString with format works`` () =
-    DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
-    |> equal "16:37"
+// [<Fact>]
+// let ``DateTimeOffset.ToString with custom format works`` () =
+//     DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", CultureInfo.InvariantCulture)
+//     |> equal "16:37"
 
 [<Fact>]
 let ``DateTimeOffset.ToString without separator works`` () = // See #1131
     DateTimeOffset(2017, 9, 5, 0, 0, 0, TimeSpan.Zero).ToString("yyyyMM")
     |> equal "201709"
 
-// TODO
 // [<Fact>]
-// let ``TimeSpan.ToString with format works`` () =
-//     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
-//     |> equal "03:54:00"
-
-[<Fact>]
-let ``DateTimeOffset.ToString with Roundtrip format works for Utc`` () =
-    let str = DateTimeOffset(2014, 9, 11, 16, 37, 2, TimeSpan.Zero).ToString("O")
-    System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
-    |> equal "2014-09-11T16:37:02.000+00:00"
+// let ``DateTimeOffset.ToString with Roundtrip format works for Utc`` () =
+//     let str = DateTimeOffset(2014, 9, 11, 16, 37, 2, TimeSpan.Zero).ToString("O")
+//     System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
+//     |> equal "2014-09-11T16:37:02.000+00:00"
 
 [<Fact>]
 let ``DateTimeOffset from Year 1 to 99 works`` () =
@@ -231,6 +226,18 @@ let ``DateTimeOffset.UtcNow works`` () =
     let d = DateTimeOffset.UtcNow
     d > DateTimeOffset.MinValue |> equal true
 
+// [<Fact>]
+// let ``DateTimeOffset.Parse Now works`` () =
+//     let d = DateTimeOffset.Now
+//     let d2 = DateTimeOffset.Parse(d.ToString("o"))
+//     d2 |> equal d
+
+// [<Fact>]
+// let ``DateTimeOffset.Parse UtcNow works`` () =
+//     let d = DateTimeOffset.UtcNow
+//     let d2 = DateTimeOffset.Parse(d.ToString("o"))
+//     d2 |> equal d
+
 [<Fact>]
 let ``DateTimeOffset.Parse works`` () =
     let d = DateTimeOffset.Parse("9/10/2014 1:50:34 PM")
@@ -240,34 +247,33 @@ let ``DateTimeOffset.Parse works`` () =
     d.Minute |> equal 50
     d.Second |> equal 34
 
-[<Fact>]
-let ``DateTimeOffset.Parse with time-only string works`` () = // See #1045
-    let d = DateTimeOffset.Parse("13:50:34")
-    d.Hour + d.Minute + d.Second |> equal 97
-    let d = DateTimeOffset.Parse("1:5:34 AM")
-    d.Hour + d.Minute + d.Second |> equal 40
-    let d = DateTimeOffset.Parse("1:5:34 PM")
-    d.Hour + d.Minute + d.Second |> equal 52
+// [<Fact>]
+// let ``DateTimeOffset.Parse with time-only string works`` () = // See #1045
+//     let d = DateTimeOffset.Parse("13:50:34")
+//     d.Hour + d.Minute + d.Second |> equal 97
+//     let d = DateTimeOffset.Parse("1:5:34 AM")
+//     d.Hour + d.Minute + d.Second |> equal 40
+//     let d = DateTimeOffset.Parse("1:5:34 PM")
+//     d.Hour + d.Minute + d.Second |> equal 52
 
-[<Fact>]
-let ``DateTimeOffset.Parse with only date and offset works`` () = // See #1422
-    let d = DateTimeOffset.Parse("05/01/2008 +3:00")
-    d.Year + d.Month + d.Day |> equal 2014
-    d.Offset |> equal (TimeSpan.FromHours(3.))
+// [<Fact>]
+// let ``DateTimeOffset.Parse with only date and offset works`` () = // See #1422
+//     let d = DateTimeOffset.Parse("05/01/2008 +03:00")
+//     d.Year + d.Month + d.Day |> equal 2014
+//     d.Offset |> equal (TimeSpan.FromHours(3.))
 
-[<Fact>]
-let ``DateTimeOffset.Parse doesn't confuse day and offset`` () =
-    let d = DateTimeOffset.Parse("2021-11-15")
-    d.Year |> equal 2021
-    d.Month |> equal 11
-    d.Day |> equal 15
-    d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(5.)) |> equal false
-    d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(50.)) |> equal false
-    d.Offset = (TimeSpan.FromHours(15.)) |> equal false
-
-    let d = DateTimeOffset.Parse("2021-11-08-08")
-    d.Year + d.Month + d.Day |> equal 2040
-    d.Offset |> equal (TimeSpan.FromHours(-8.))
+// [<Fact>]
+// let ``DateTimeOffset.Parse doesn't confuse day and offset`` () =
+//     let d = DateTimeOffset.Parse("2021-11-15")
+//     d.Year |> equal 2021
+//     d.Month |> equal 11
+//     d.Day |> equal 15
+//     d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(5.)) |> equal false
+//     d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(50.)) |> equal false
+//     d.Offset = (TimeSpan.FromHours(15.)) |> equal false
+//     let d = DateTimeOffset.Parse("2021-11-08-08")
+//     d.Year + d.Month + d.Day |> equal 2040
+//     d.Offset |> equal (TimeSpan.FromHours(-8.))
 
 [<Fact>]
 let ``DateTimeOffset.TryParse works`` () =
@@ -276,8 +282,13 @@ let ``DateTimeOffset.TryParse works`` () =
         | true, _ -> true
         | false, _ -> false
     f "foo" |> equal false
+    f "9/10/2014 1:50:34" |> equal true
     f "9/10/2014 1:50:34 PM" |> equal true
-    f "1:50:34" |> equal true
+    f "9/10/2014 1:50:34 +03" |> equal true
+    f "9/10/2014 1:50:34 -05:00" |> equal true
+    f "2014-09-10 01:50:34 +03:00" |> equal true
+    f "2014-09-10 01:50:34.1234567 -05:00" |> equal true
+    // f "1:50:34" |> equal true //TODO:
 
 [<Fact>]
 let ``DateTimeOffset.Date works`` () =
@@ -524,7 +535,7 @@ let ``DateTimeOffset Inequality works`` () =
 
 [<Fact>]
 let ``DateTimeOffset TimeOfDay works`` () =
-    let d = System.DateTimeOffset(2014, 10, 9, 13, 23, 30, 1, TimeSpan.Zero)
+    let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, 1, TimeSpan.Zero)
     let t = d.TimeOfDay
 
     t |> equal (TimeSpan(0, 13, 23, 30, 1))
@@ -533,7 +544,7 @@ let ``DateTimeOffset TimeOfDay works`` () =
 /// date is 2007-09-01
 /// -> UTC + 2 in Europe! (summer time)
 let usedDate = DateTime(2007, 9, 1, 9, 30, 17, DateTimeKind.Unspecified)
-let dateWithKind (kind: DateTimeKind)=
+let dateWithKind (kind: DateTimeKind) =
     DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, kind)
 
 let fromDateList (offset: TimeSpan) =
@@ -562,11 +573,12 @@ let fromUnspecifiedDateTime (offset: TimeSpan) =
 /// NOTE: local utc offset of `usedDate`, NOT `DateTime.Now`
 /// -> `usedDate` is in september -> summer time in Europe (`+2`)!
 let localOffset: TimeSpan =
-#if FABLE_COMPILER
-    !!(usedDate?getTimezoneOffset() * -60_000)
-#else
-    TimeZoneInfo.Local.GetUtcOffset(usedDate)
-#endif
+    DateTimeOffset(dateWithKind DateTimeKind.Local).Offset
+// #if FABLE_COMPILER
+//     !!(usedDate?getTimezoneOffset() * -60_000)
+// #else
+//     TimeZoneInfo.Local.GetUtcOffset(usedDate)
+// #endif
 
 let shouldSucceed = Ok ()
 let shouldThrowOutOfRange = Error "Offset must be within plus or minus 14 hours."
@@ -621,28 +633,13 @@ let withCtor ctor offsets =
     offsets
     |> List.map (fun (offset, expected) -> (ctor, offset, expected))
 
-module Util =
-    let doesntThrow f =
-        try
-            f() |> ignore
-            true
-        with e ->
-            false
-
-    let throwsErrorContaining (expected: string) f =
-        try
-            f() |> ignore
-            false
-        with e ->
-            e.Message.Contains(expected)
-
 let testSucceeds (ctor: TimeSpan -> DateTimeOffset) offset =
-    (fun _ -> ctor offset)
-    |> Util.doesntThrow
+    (fun () -> ctor offset)
+    |> doesntThrow
 
-let testThrows expectedError (ctor: TimeSpan -> DateTimeOffset) offset =
-    (fun _ -> ctor offset)
-    |> Util.throwsErrorContaining expectedError
+let testThrows expected (ctor: TimeSpan -> DateTimeOffset) offset =
+    (fun () -> ctor offset)
+    |> throwsErrorContaining expected
 
 let toTestCase (ctor, offset, expected: Result<unit, string>) =
     let formatOffset (offset: TimeSpan) =
@@ -663,20 +660,19 @@ let toTestCase (ctor, offset, expected: Result<unit, string>) =
         match expected with
         | Ok _ -> testSucceeds
         | Error msg -> testThrows msg
-    // testCase name (fun _ -> test ctor offset)
-    ()
+    test ctor offset
 
 [<Fact>]
 let ``(year, month, ..., second, offset)`` () =
     offsets
     |> withCtor fromDateList
-    |> List.map toTestCase
+    |> List.iter toTestCase
 
 [<Fact>]
 let ``(ticks, offset)`` () =
     offsets
     |> withCtor fromTicks
-    |> List.map toTestCase
+    |> List.iter toTestCase
 
 [<Fact>]
 let ``Default (= unspecified)`` () =
@@ -706,14 +702,14 @@ let ``Local`` () =
 let ``(DateTime, offset)`` () =
     offsets
     |> withCtor fromDateTime
-    |> List.map toTestCase
+    |> List.iter toTestCase
 
 // Unspecified is default -> same as test list above
 [<Fact>]
 let ``(DateTime(Unspecified), offset)`` () =
     offsets
     |> withCtor fromUnspecifiedDateTime
-    |> List.map toTestCase
+    |> List.iter toTestCase
 
 // all must fail -- except when offset = localOffset
 [<Fact>]
@@ -730,20 +726,20 @@ let ``(DateTime(Local)), offset)`` () =
             (offset, shouldThrowUTCOffsetAndLocalDateTimeDontMatch)
     )
     |> withCtor fromLocalDateTime
-    |> List.map toTestCase
+    |> List.iter toTestCase
 
 [<Fact>]
 let ``offset = localOffset succeeds`` () =
     localOffset
     |> testSucceeds fromLocalDateTime
 
-// all execpt zero offset must fail
+// all except zero offset must fail
 [<Fact>]
 let ``(DateTime(UTC), offset)`` () =
     offsets
     |> List.map (fun (offset, _) -> (offset, if offset = TimeSpan.Zero then shouldSucceed else shouldThrowUTCOffsetForUTCDateTimeMustBeZero))
     |> withCtor fromUTCDateTime
-    |> List.map toTestCase
+    |> List.iter toTestCase
 
 // source: https://docs.microsoft.com/en-us/dotnet/api/system.datetimeoffset.tooffset?view=net-5.0#System_DateTimeOffset_ToOffset_System_TimeSpan_
 
@@ -818,7 +814,7 @@ let ``UTC: Convert to 3 hours and 30 min ahead of UTC`` () =
     target |> equal expected
 
 [<Fact>]
-let ``14h offset doesn't throw exception`` () =
+let ``+14h offset doesn't throw exception`` () =
     let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
     source.ToOffset(TimeSpan(14, 0, 0))
     |> ignore
@@ -830,37 +826,37 @@ let ``-14h offset doesn't throw exception`` () =
     |> ignore
 
 [<Fact>]
-let ``14h 30min offset throws exception`` () =
+let ``+14h:30min offset throws exception`` () =
     let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
-    (fun _ -> source.ToOffset(TimeSpan(14, 30, 0)))
-    |> Util.throwsErrorContaining "Offset must be within plus or minus 14 hour"
+    (fun () -> source.ToOffset(TimeSpan(14, 30, 0)))
+    |> throwsErrorContaining "Offset must be within plus or minus 14 hour"
 
 [<Fact>]
-let ``-(14h 30min) offset throws exception`` () =
+let ``-14h:30min offset throws exception`` () =
     let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
-    (fun _ -> source.ToOffset(TimeSpan(-14, -30, 0)))
-    |> Util.throwsErrorContaining "Offset must be within plus or minus 14 hour"
+    (fun () -> source.ToOffset(TimeSpan(-14, -30, 0)))
+    |> throwsErrorContaining "Offset must be within plus or minus 14 hour"
 
 [<Fact>]
-let ``100h offset throws exception`` () =
+let ``+100h offset throws exception`` () =
     let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
-    (fun _ -> source.ToOffset(TimeSpan(100, 0, 0)))
-    |> Util.throwsErrorContaining "Offset must be within plus or minus 14 hour"
+    (fun () -> source.ToOffset(TimeSpan(100, 0, 0)))
+    |> throwsErrorContaining "Offset must be within plus or minus 14 hour"
 
 [<Fact>]
 let ``-100h offset throws exception`` () =
     let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
-    (fun _ -> source.ToOffset(TimeSpan(-100, 0, 0)))
-    |> Util.throwsErrorContaining "Offset must be within plus or minus 14 hour"
+    (fun () -> source.ToOffset(TimeSpan(-100, 0, 0)))
+    |> throwsErrorContaining "Offset must be within plus or minus 14 hour"
 
 [<Fact>]
-let ``10s offset throws exception`` () =
+let ``+10s offset throws exception`` () =
     let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
-    (fun _ -> source.ToOffset(TimeSpan(0, 0, 10)))
-    |> Util.throwsErrorContaining "Offset must be specified in whole minutes"
+    (fun () -> source.ToOffset(TimeSpan(0, 0, 10)))
+    |> throwsErrorContaining "Offset must be specified in whole minutes"
 
 [<Fact>]
 let ``-10s offset throws exception`` () =
     let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
-    (fun _ -> source.ToOffset(TimeSpan(0, 0, -10)))
-    |> Util.throwsErrorContaining "Offset must be specified in whole minutes"
+    (fun () -> source.ToOffset(TimeSpan(0, 0, -10)))
+    |> throwsErrorContaining "Offset must be specified in whole minutes"

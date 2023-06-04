@@ -211,6 +211,7 @@ let tests =
         equal 5 result
         equal (box classWithEvent) sender
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Generic interface expression can have CLI events" <| fun () ->
         let mutable actualSender = ""
         let mutable result = false
@@ -227,6 +228,7 @@ let tests =
         event.Trigger(expectedSender, expectedResult)
         equal expectedSender actualSender
         equal expectedResult result
+#endif
 
     testCase "Events are unsubscribed correctly" <| fun () -> // See #609
         let mutable counter = 0

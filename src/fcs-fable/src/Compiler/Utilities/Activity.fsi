@@ -7,6 +7,18 @@ open System
 /// For activities following the dotnet distributed tracing concept
 /// https://learn.microsoft.com/dotnet/core/diagnostics/distributed-tracing-concepts?source=recommendations
 [<RequireQualifiedAccess>]
+module ActivityNames =
+    [<Literal>]
+    val FscSourceName: string = "fsc"
+
+    [<Literal>]
+    val ProfiledSourceName: string = "fsc_with_env_stats"
+
+    val AllRelevantNames: string[]
+
+/// For activities following the dotnet distributed tracing concept
+/// https://learn.microsoft.com/dotnet/core/diagnostics/distributed-tracing-concepts?source=recommendations
+[<RequireQualifiedAccess>]
 module internal Activity =
 
     module Tags =
@@ -16,10 +28,16 @@ module internal Activity =
         val userOpName: string
         val length: string
         val cache: string
+        val buildPhase: string
+
+    module Events =
+        val cacheHit: string
 
     val startNoTags: name: string -> IDisposable
 
     val start: name: string -> tags: (string * string) seq -> IDisposable
+
+    val addEvent: name: string -> unit
 
 #if !FABLE_COMPILER
     module Profiling =

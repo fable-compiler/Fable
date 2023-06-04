@@ -1,55 +1,5 @@
 // tslint:disable:ban-types
 
-export type Nullable<T> = T | null | undefined;
-
-export type Option<T> = T | Some<T> | undefined;
-
-// Using a class here for better compatibility with TS files importing Some
-export class Some<T> {
-  public value: T;
-
-  constructor(value: T) {
-    this.value = value;
-  }
-
-  public toJSON() {
-    return this.value;
-  }
-
-  // Don't add "Some" for consistency with erased options
-  public toString() {
-    return String(this.value);
-  }
-
-  public GetHashCode() {
-    return structuralHash(this.value);
-  }
-
-  public Equals(other: Option<T>): boolean {
-    if (other == null) {
-      return false;
-    } else {
-      return equals(this.value, other instanceof Some ? other.value : other);
-    }
-  }
-
-  public CompareTo(other: Option<T>) {
-    if (other == null) {
-      return 1;
-    } else {
-      return compare(this.value, other instanceof Some ? other.value : other);
-    }
-  }
-}
-
-export function value<T>(x: Option<T>) {
-  if (x == null) {
-    throw new Error("Option has no value");
-  } else {
-    return x instanceof Some ? x.value : x;
-  }
-}
-
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,
@@ -220,7 +170,7 @@ export function enumerableToIterator<T>(e: IEnumerable<T> | Iterable<T>): Iterat
 }
 
 export interface ISet<T> {
-  add(value: T): this;
+  add(value: T): ISet<T>;
   clear(): void;
   delete(value: T): boolean;
   forEach(callbackfn: (value: T, value2: T, set: ISet<T>) => void, thisArg?: any): void;
@@ -239,7 +189,7 @@ export interface IMap<K, V> {
   forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
   get(key: K): V | undefined;
   has(key: K): boolean;
-  set(key: K, value: V): this;
+  set(key: K, value: V): IMap<K, V>;
   readonly size: number;
 
   [Symbol.iterator](): Iterator<[K, V]>;
@@ -356,6 +306,11 @@ export function int32ToString(i: number, radix?: number) {
   return i.toString(radix);
 }
 
+export function int64ToString(i: bigint, radix?: number) {
+  i = i < 0 && radix != null && radix !== 10 ? 0xFFFFFFFFFFFFFFFFn + i + 1n : i;
+  return i.toString(radix);
+}
+
 export abstract class ObjectRef {
   public static id(o: any) {
     if (!ObjectRef.idMap.has(o)) {
@@ -381,12 +336,19 @@ export function numberHash(x: number) {
   return x * 2654435761 | 0;
 }
 
+export function bigintHash(x: bigint) {
+  return stringHash(x.toString(32));
+}
+
 // From https://stackoverflow.com/a/37449594
-export function combineHashCodes(hashes: number[]) {
-  if (hashes.length === 0) { return 0; }
-  return hashes.reduce((h1, h2) => {
-    return ((h1 << 5) + h1) ^ h2;
-  });
+export function combineHashCodes(hashes: ArrayLike<number>) {
+  let h1 = 0;
+  const len = hashes.length;
+  for (let i = 0; i < len; i++) {
+    const h2 = hashes[i];
+    h1 = ((h1 << 5) + h1) ^ h2;
+  }
+  return h1;
 }
 
 export function physicalHash<T>(x: T): number {
@@ -398,6 +360,8 @@ export function physicalHash<T>(x: T): number {
       return x ? 1 : 0;
     case "number":
       return numberHash(x);
+    case "bigint":
+      return bigintHash(x);
     case "string":
       return stringHash(x);
     default:
@@ -435,6 +399,8 @@ export function structuralHash<T>(x: T): number {
       return x ? 1 : 0;
     case "number":
       return numberHash(x);
+    case "bigint":
+      return bigintHash(x);
     case "string":
       return stringHash(x);
     default: {
@@ -498,6 +464,10 @@ function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean
   return true;
 }
 
+export function physicalEquality<T>(x: T, y: T): boolean {
+  return x === y;
+}
+
 export function equals<T>(x: T, y: T): boolean {
   if (x === y) {
     return true;
@@ -534,7 +504,7 @@ export function compareDates(x: Date | IDateTime | IDateTimeOffset, y: Date | ID
   return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
 }
 
-export function comparePrimitives(x: any, y: any): number {
+export function comparePrimitives<T>(x: T, y: T): number {
   return x === y ? 0 : (x < y ? -1 : 1);
 }
 

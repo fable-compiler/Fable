@@ -6,7 +6,7 @@ import { IAsyncContext } from "./AsyncBuilder.js";
 import { protectedCont } from "./AsyncBuilder.js";
 import { protectedBind } from "./AsyncBuilder.js";
 import { protectedReturn } from "./AsyncBuilder.js";
-import { FSharpChoice$2, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
+import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
 import { TimeoutException } from "./SystemException.js";
 
 // Implemented just for type references
@@ -111,7 +111,7 @@ export function cancellationToken() {
 export const defaultCancellationToken = new CancellationToken();
 
 export function catchAsync<T>(work: IAsync<T>) {
-  return protectedCont((ctx: IAsyncContext<FSharpChoice$2<T, Error>>) => {
+  return protectedCont((ctx: IAsyncContext<FSharpChoice$2_$union<T, Error>>) => {
     work({
       onSuccess: (x) => ctx.onSuccess(Choice_makeChoice1Of2(x)),
       onError: (ex) => ctx.onSuccess(Choice_makeChoice2Of2(ex)),

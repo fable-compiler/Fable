@@ -121,27 +121,27 @@ let castBigIntMethod typeTo =
         | BigInt | NativeInt | UNativeInt -> FableError $"Unexpected BigInt/%A{kind} conversion" |> raise
     | _ -> FableError $"Unexpected non-number type %A{typeTo}" |> raise
 
-let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10  11
-    match t with            //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
-    | Int8 -> 0    //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
-    | Int16 -> 1   //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
-    | Int32 -> 2   //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
-    | Int64 -> 3   //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
-    | UInt8 -> 4   //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
-    | UInt16 -> 5  //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
-    | UInt32 -> 6  //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
-    | UInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
-    | Float32 -> 8 //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
-    | Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
-    | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
-    | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+let kindIndex kind = //         0   1   2   3   4   5   6   7   8   9  10  11
+    match kind with  //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+    | Int8 -> 0      //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
+    | Int16 -> 1     //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
+    | Int32 -> 2     //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
+    | Int64 -> 3     //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
+    | UInt8 -> 4     //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
+    | UInt16 -> 5    //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
+    | UInt32 -> 6    //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
+    | UInt64 -> 7    //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
+    | Float32 -> 8   //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
+    | Float64 -> 9   //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
+    | Decimal -> 10  // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+    | BigInt -> 11   // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
     | Float16 -> FableError "Casting to/from float16 is unsupported" |> raise
     | Int128 | UInt128 -> FableError "Casting to/from (u)int128 is unsupported" |> raise
     | NativeInt | UNativeInt -> FableError "Casting to/from (u)nativeint is unsupported" |> raise
 
-let needToCast typeFrom typeTo =
-    let v = kindIndex typeFrom // argument type (vertical)
-    let h = kindIndex typeTo   // return type (horizontal)
+let needToCast fromKind toKind =
+    let v = kindIndex fromKind // argument type (vertical)
+    let h = kindIndex toKind   // return type (horizontal)
     ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
 
 let stringToDouble (_com: ICompiler) (_ctx: Context) r targetType (args: Expr list): Expr =
@@ -2254,7 +2254,7 @@ let regexMatchToSeq com t e =
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let isGroup = function
-        | ExprType (EntFullName "System.Text.RegularExpressions.Group") -> true
+        | ExprType(DeclaredTypeFullName Types.regexGroup) -> true
         | _ -> false
 
     let createRegex r t args =
@@ -2279,7 +2279,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // MatchCollection & GroupCollection
     | "get_Item", Some thisArg ->
         match i.DeclaringEntityFullName with
-        | "System.Text.RegularExpressions.GroupCollection" ->
+        | Types.regexGroupCollection ->
             // can be group index or group name: `m.Groups.[0]` `m.Groups.["name"]`
             let meth =
                 match args with
@@ -2290,14 +2290,14 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             Helper.InstanceCall(thisArg, "elementAt", t, args, ?loc=r) |> Some
     | "get_Count", Some thisArg ->
         match i.DeclaringEntityFullName with
-        | "System.Text.RegularExpressions.GroupCollection" ->
+        | Types.regexGroupCollection ->
             // In Dart group count doesn't include group 0 so we need to add 1
             let groupCount = getFieldWith r t thisArg "groupCount"
             makeBinOp None t groupCount (makeIntConst 1) BinaryPlus |> Some
         | _ -> getLength thisArg |> Some
     | "GetEnumerator", Some thisArg ->
         match i.DeclaringEntityFullName with
-        | "System.Text.RegularExpressions.GroupCollection" ->
+        | Types.regexGroupCollection ->
             Helper.LibCall(com, "RegExp", "GroupIterator", t, [thisArg], ?loc=r) |> Some
         | _ -> getEnumerator com r t thisArg |> Some
     | "IsMatch" | "Match" | "Matches" as meth, thisArg ->
@@ -2634,6 +2634,7 @@ let tryField com returnTyp ownerTyp fieldName =
 let private replacedModules =
   dict [
     "System.Math", operators
+    "System.MathF", operators
     "Microsoft.FSharp.Core.Operators", operators
     "Microsoft.FSharp.Core.Operators.Checked", operators
     "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
@@ -2740,11 +2741,11 @@ let private replacedModules =
     "System.Text.Encoding", encoding
     "System.Text.UnicodeEncoding", encoding
     "System.Text.UTF8Encoding", encoding
-    "System.Text.RegularExpressions.Capture", regex
-    "System.Text.RegularExpressions.Match", regex
-    "System.Text.RegularExpressions.Group", regex
-    "System.Text.RegularExpressions.MatchCollection", regex
-    "System.Text.RegularExpressions.GroupCollection", regex
+    Types.regexCapture, regex
+    Types.regexMatch, regex
+    Types.regexGroup, regex
+    Types.regexMatchCollection, regex
+    Types.regexGroupCollection, regex
     Types.regex, regex
     Types.fsharpSet, sets
     "Microsoft.FSharp.Collections.SetModule", setModule
@@ -2889,12 +2890,12 @@ let tryType = function
     | Builtin kind ->
         match kind with
         | BclGuid -> Some(Types.guid, guids, [])
-        | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclDateTime -> Some(Types.datetime, dates, [])
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
         | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
         | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
         | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [genArg])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [key; value])
         | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [key; value])

@@ -558,13 +558,6 @@ module Helpers =
                 Some stmt
         | _ -> Some stmt
 
-    let hasAttribute fullName (ent: Fable.Entity) =
-        ent.Attributes
-        |> Seq.exists (fun att -> att.Entity.FullName = fullName)
-
-    let hasInterface fullName (ent: Fable.Entity) =
-        ent |> FSharp2Fable.Util.hasInterface fullName
-
     let toString (e: Fable.Expr) =
         let callInfo = Fable.CallInfo.Create(args=[e])
         makeIdentExpr "str"
@@ -901,7 +894,7 @@ module Annotation =
         | Types.idictionary, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "util" "IDictionary" resolved, stmts
-        | Types.ievent, _ ->
+        | Types.ievent2, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "event" "IEvent_2" resolved, stmts
         | Types.cancellationToken, _ -> libValue com ctx "async_builder" "CancellationToken", []

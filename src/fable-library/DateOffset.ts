@@ -3,7 +3,7 @@
  *
  * Note: DateOffset instances are always DateObjects in local
  * timezone (because JS dates are all kinds of messed up).
- * A local date returns UTC epoc when `.getTime()` is called.
+ * A local date returns UTC epoch when `.getTime()` is called.
  *
  * However, this means that in order to construct an UTC date
  * from a DateOffset with offset of +5 hours, you first need
@@ -13,8 +13,8 @@
  * Basically; invariant: date.getTime() always return UTC time.
  */
 
-import { create as createDate, dateOffsetToString, daysInMonth, parseRaw } from "./Date.js";
-import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long.js";
+import { int64, fromFloat64, toFloat64 } from "./BigInt.js";
+import DateTime, { create as createDate, dateOffsetToString, daysInMonth, parseRaw, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Date.js";
 import { FSharpRef } from "./Types.js";
 import { compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
@@ -72,10 +72,17 @@ export function fromDate(date: IDateTime, offset?: number) {
   return DateTimeOffset(date.getTime(), offset2);
 }
 
-export function fromTicks(ticks: number | Long, offset: number) {
-  ticks = fromValue(ticks);
-  const epoc = ticksToUnixEpochMilliseconds(ticks) - offset;
-  return DateTimeOffset(epoc, offset);
+export function fromTicks(ticks: int64, offset: number) {
+  const ms = ticksToUnixEpochMilliseconds(ticks) - offset;
+  return DateTimeOffset(ms, offset);
+}
+
+export function fromUnixTimeMilliseconds(ms: int64) {
+  return DateTimeOffset(toFloat64(ms), 0)
+}
+
+export function fromUnixTimeSeconds(seconds: int64) {
+  return DateTimeOffset(toFloat64(seconds * 1000n), 0)
 }
 
 export function getUtcTicks(date: IDateTimeOffset) {
@@ -154,12 +161,12 @@ export function utcNow() {
   return DateTimeOffset(date.getTime(), 0);
 }
 
-export function toUniversalTime(date: IDateTimeOffset) {
-  return DateTimeOffset(date.getTime(), 0);
+export function toUniversalTime(date: IDateTimeOffset): Date {
+  return DateTime(date.getTime(), DateKind.UTC);
 }
 
-export function toLocalTime(date: Date) {
-  return DateTimeOffset(date.getTime(), date.getTimezoneOffset() * -60000);
+export function toLocalTime(date: IDateTimeOffset): Date {
+  return DateTime(date.getTime(), DateKind.Local);
 }
 
 export function timeOfDay(d: IDateTimeOffset) {
@@ -223,23 +230,27 @@ export function add(d: IDateTimeOffset, ts: number) {
 }
 
 export function addDays(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v * 86400000, (d.offset ?? 0));
+  return add(d, v * 86400000);
 }
 
 export function addHours(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v * 3600000, (d.offset ?? 0));
+  return add(d, v * 3600000);
 }
 
 export function addMinutes(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v * 60000, (d.offset ?? 0));
+  return add(d, v * 60000);
 }
 
 export function addSeconds(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v * 1000, (d.offset ?? 0));
+  return add(d, v * 1000);
 }
 
 export function addMilliseconds(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v, (d.offset ?? 0));
+  return add(d, v);
+}
+
+export function addTicks(d: IDateTimeOffset, v: int64) {
+  return add(d, toFloat64(v / 10000n));
 }
 
 export function addYears(d: IDateTimeOffset, v: number) {
@@ -302,4 +313,12 @@ export function op_Subtraction<Input extends number | IDateTimeOffset, Output = 
 
 export function toOffset(d: IDateTimeOffset, offset: number): IDateTimeOffset {
   return DateTimeOffset(d.getTime(), offset);
+}
+
+export function toUnixTimeMilliseconds(d: IDateTimeOffset): int64 {
+  return fromFloat64(d.getTime());
+}
+
+export function toUnixTimeSeconds(d: IDateTimeOffset): int64 {
+  return fromFloat64(d.getTime() / 1000.0);
 }

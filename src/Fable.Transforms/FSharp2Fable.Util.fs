@@ -103,7 +103,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
     /// We must check the attributes explicitly
     static member CompiledName (uci: FSharpUnionCase) =
         uci.Attributes
-        |> Helpers.tryFindAtt Atts.compiledName
+        |> Helpers.tryFindAttrib Atts.compiledName
         |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments[0] |> snd |> string)
 
     static member FullName (uci: FSharpUnionCase) =
@@ -114,7 +114,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
 
     static member CompiledValue (uci: FSharpUnionCase) =
         uci.Attributes
-        |> Helpers.tryFindAtt Atts.compiledValue
+        |> Helpers.tryFindAttrib Atts.compiledValue
         |> Option.bind (fun (att: FSharpAttribute) ->
             match snd att.ConstructorArguments[0] with
             | :? int as value -> Some (CompiledValue.Integer value)
@@ -123,6 +123,9 @@ type FsUnionCase(uci: FSharpUnionCase) =
             | :? Enum as value when Enum.GetUnderlyingType(value.GetType()) = typeof<int> -> Some (CompiledValue.Integer (box value :?> int))
             | _ -> None
         )
+
+    static member HasNamedFields (uci: FSharpUnionCase) =
+        not(uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
 
     interface Fable.UnionCase with
         member _.Name = uci.Name
@@ -162,11 +165,11 @@ type FsGenParam(gen: FSharpGenericParameter) =
         gen.Constraints |> Seq.chooseToList FsGenParam.Constraint
 
 type FsParam(p: FSharpParameter, ?isNamed) =
-    let isOptional = Helpers.isOptionalParam p
+    let isOptional = p.IsOptionalArg
     let defValue =
         if isOptional then
             p.Attributes
-            |> Helpers.tryFindAtt "System.Runtime.InteropServices.DefaultParameterValueAttribute"
+            |> Helpers.tryFindAttrib "System.Runtime.InteropServices.DefaultParameterValueAttribute"
             |> Option.bind (fun att ->
                 Seq.tryHead att.ConstructorArguments
                 |> Option.map (fun (t, v) ->
@@ -214,7 +217,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
             let mutable i = -1
             let namedParamsIndex =
                 m.Attributes
-                |> Helpers.tryFindAtt Atts.paramObject
+                |> Helpers.tryFindAttrib Atts.paramObject
                 |> Option.map (fun (att: FSharpAttribute) ->
                     match Seq.tryItem 0 att.ConstructorArguments with
                     | Some(_, (:?int as index)) -> index
@@ -255,6 +258,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.ImplementedAbstractSignatures = m.ImplementedAbstractSignatures |> Seq.map (fun s -> FsAbstractSignature(s))
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity |> Some
         member _.DeclaringEntity = m.DeclaringEntity |> Option.map FsEnt.Ref
+        member _.XmlDoc = TypeHelpers.tryGetXmlDoc m.XmlDoc
 
 type FsEnt(maybeAbbrevEnt: FSharpEntity) =
     let ent = Helpers.nonAbbreviatedDefinition maybeAbbrevEnt
@@ -506,6 +510,7 @@ module Helpers =
     let cleanNameAsRustIdentifier (name: string) =
         // name |> Naming.sanitizeIdentForbiddenChars
         let name = Regex.Replace(name, @"[\s`'"".]", "_")
+        let name = if Char.IsDigit(name, 0) then "_" + name else name
         let name = Regex.Replace(name, @"[^\w]",
             fun c -> String.Format(@"_{0:x4}", int c.Value[0]))
         name
@@ -561,9 +566,14 @@ module Helpers =
                         moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
                 else
                     let overloadSuffix = getOverloadSuffixFrom ent memb
-                    if memb.IsInstanceMember
-                    then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
-                    else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
+                    if memb.IsInstanceMember then
+                        entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
+                    else
+                        // Special case of non-mangled static classes to easily expose methods with optional args, etc, to native code
+                        // TODO: If entity is not mangled and Erase attribute is not present, raise warning
+                        match Util.tryMangleAttribute ent.Attributes with
+                        | Some false -> memb.CompiledName, Naming.NoMemberPart
+                        | Some true | None -> entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
             | None -> memb.CompiledName, Naming.NoMemberPart
 
     /// Returns the sanitized name for the member declaration and whether it has an overload suffix
@@ -579,7 +589,7 @@ module Helpers =
             | Python ->
                 let name =
                     // Don't snake_case if member has compiled name attribute
-                    match memb.Attributes |> Helpers.tryFindAtt Atts.compiledName with
+                    match memb.Attributes |> Helpers.tryFindAttrib Atts.compiledName with
                     | Some _ -> name
                     | _ -> Fable.Py.Naming.toSnakeCase name
                 Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
@@ -626,27 +636,27 @@ module Helpers =
         && not value.IsMemberThisValue
         && isByRefType value.FullType
 
-    let tryFindAtt fullName (atts: FSharpAttribute seq) =
+    let tryFindAttrib fullName (atts: FSharpAttribute seq) =
         atts |> Seq.tryPick (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
             | Some fullName' ->
                 if fullName = fullName' then Some att else None
             | None -> None)
 
-    let hasAttribute attFullName (attributes: FSharpAttribute seq) =
+    let hasAttrib attFullName (attributes: FSharpAttribute seq) =
         attributes |> Seq.exists (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
             | Some attFullName2 -> attFullName = attFullName2
             | None -> false)
 
-    let tryPickAttribute attFullNames (attributes: FSharpAttribute seq) =
+    let tryPickAttrib attFullNames (attributes: FSharpAttribute seq) =
         let attFullNames = Map attFullNames
         attributes |> Seq.tryPick (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
             | Some fullName -> Map.tryFind fullName attFullNames
             | None -> None)
 
-    let tryAttributeConsArg (att: FSharpAttribute) index (defValue: 'T) (f: obj -> 'T option) =
+    let tryAttribConsArg (att: FSharpAttribute) index (defValue: 'T) (f: obj -> 'T option) =
         let consArgs = att.ConstructorArguments
         if consArgs.Count <= index then defValue
         else
@@ -684,11 +694,10 @@ module Helpers =
         else memb.Accessibility.IsPublic
 
     let makeRange (r: Range) =
-        {
-            start = { line = r.StartLine; column = r.StartColumn }
-            ``end``= { line = r.EndLine; column = r.EndColumn }
-            identifierName = None
-        }
+        SourceLocation.Create(
+            start = { line = r.StartLine; column = r.StartColumn },
+            ``end``= { line = r.EndLine; column = r.EndColumn },
+            file = r.FileName)
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
@@ -723,7 +732,8 @@ module Helpers =
     let isModuleValueCompiledAsFunction (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         match com.Options.Language with
         | Python | JavaScript | TypeScript | Lua -> memb.IsMutable && isNotPrivate memb
-        | Rust | Php | Dart  -> false
+        | Rust -> true // always
+        | Php | Dart  -> false
 
     let isModuleValueForCalls com (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         declaringEntity.IsFSharpModule
@@ -749,13 +759,6 @@ module Helpers =
                 |> Seq.exists (testInterfaceHierarchy interfaceFullname)
         | _ -> false
 
-    let isOptionalParam (p: FSharpParameter) =
-        p.IsOptionalArg || (
-            // Dart resolves [<Optional>] args also on the declaration site
-            Compiler.Language = Dart
-            && hasAttribute "System.Runtime.InteropServices.OptionalAttribute" p.Attributes
-        )
-
     let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
 
         let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
@@ -766,7 +769,7 @@ module Helpers =
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
             |> Option.bind Seq.tryLast
-            |> Option.map (fun lastParam -> hasAttribute Atts.paramList lastParam.Attributes)
+            |> Option.map (fun lastParam -> hasAttrib Atts.paramList lastParam.Attributes)
             |> Option.defaultValue false
 
         hasParamArray memb || hasParamSeq memb
@@ -816,7 +819,7 @@ module Helpers =
         )
 
     let tryGetFieldTag (memb: FSharpMemberOrFunctionOrValue) =
-        if Compiler.Language = Dart && hasAttribute Atts.dartIsConst memb.Attributes
+        if Compiler.Language = Dart && hasAttrib Atts.dartIsConst memb.Attributes
         then Some "const"
         else None
 
@@ -1019,7 +1022,8 @@ module TypeHelpers =
 
     let genParamName (genParam: FSharpGenericParameter) =
         // Sometimes the names of user-declared and compiler-generated clash, see #1900 and https://github.com/dotnet/fsharp/issues/13062
-        let name = if genParam.IsCompilerGenerated then "$" + genParam.Name.Replace("?", "$") else genParam.Name
+        let name = genParam.Name.Replace("?", "$")
+        let name = if genParam.IsCompilerGenerated then "$" + name else name
         match Compiler.Language with
         // In Dart we cannot have the same generic name as a variable or argument, so we add $ to reduce the probabilities of conflict
         // Other solutions would be to add generic names to the name deduplication context or enforce Dart case conventions:
@@ -1051,14 +1055,14 @@ module TypeHelpers =
 
     // Filter measure generic arguments here? (for that we need to pass the compiler, which needs a bigger refactoring)
     // Currently for Dart we're doing it in the Fable2Dart step
-    let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) =
+    let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: seq<FSharpType>) =
         genArgs
         |> Seq.mapToList (fun genArg ->
             if genArg.IsGenericParameter
             then resolveGenParam withConstraints ctxTypeArgs genArg.GenericParameter
             else makeTypeWithConstraints withConstraints ctxTypeArgs genArg)
 
-    let makeTypeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
+    let makeTypeGenArgs ctxTypeArgs (genArgs: seq<FSharpType>) =
         makeTypeGenArgsWithConstraints true ctxTypeArgs genArgs
 
     let makeTypeFromDelegate withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
@@ -1205,22 +1209,10 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | fullName when tdef.IsMeasure -> Fable.Measure fullName
+            | _ when hasAttrib Atts.stringEnum tdef.Attributes && Compiler.Language <> TypeScript -> Fable.String
             | _ ->
-                let mkDeclType () =
-                    let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
-                    Fable.DeclaredType(FsEnt.Ref tdef, genArgs)
-                // Emit attribute
-                if tdef.Attributes |> hasAttribute Atts.emitAttr then
-                    mkDeclType ()
-                else
-                    // other special attributes
-                    tdef.Attributes |> tryPickAttribute [
-                        Atts.stringEnum, Fable.String
-                        Atts.erase, Fable.Any
-                        Atts.tsTaggedUnion, Fable.Any
-                    ]
-                    // Rest of declared types
-                    |> Option.defaultWith mkDeclType
+                let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
+                Fable.DeclaredType(FsEnt.Ref tdef, genArgs)
 
     let rec makeTypeWithConstraints withConstraints (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
@@ -1278,7 +1270,7 @@ module TypeHelpers =
         |> Seq.toList
 
     let isAbstract (ent: FSharpEntity) =
-       hasAttribute Atts.abstractClass ent.Attributes
+       hasAttrib Atts.abstractClass ent.Attributes
 
     let tryGetXmlDoc = function
         | FSharpXmlDoc.FromXmlText(xmlDoc) -> xmlDoc.GetXmlText() |> Some
@@ -1317,321 +1309,6 @@ module TypeHelpers =
             && w.IsInstance = isInstance
             && listEquals (typeEquals false) argTypes w.ArgTypes)
 
-    [<Flags>]
-    type private Allow =
-        | TheUsual      = 0b0000
-          /// Enums in F# are uint32
-          /// -> Allow into all int & uint
-        | EnumIntoInt   = 0b0001
-          /// Erased Unions are reduced to `Any`
-          /// -> Cannot distinguish between 'normal' Any (like `obj`) and Erased Union (like Erased Union with string field)
-          ///
-          /// For interface members the FSharp Type is available
-          /// -> `Ux<...>` receive special treatment and its types are extracted
-          /// -> `abstract Value: U2<int,string>` -> extract `int` & `string`
-          /// BUT: for Expressions in Anon Records that's not possible, and `U2<int,string>` is only recognized as `Any`
-          /// -> `{| Value = v |}`: `v: int` and `v: string` are recognized as matching,
-          ///    but `v: U2<int,string>` isn't: only `Any`/`obj` as Type available
-          /// To recognize as matching, we must allow all `Any` expressions for `U2` in interface place.
-          ///
-          /// Note: Only `Ux<...>` are currently handled (on interface side), not other Erased Unions!
-        | AnyIntoErased = 0b0010
-          /// Unlike `AnyIntoErased`, this allows all expressions of type `Any` in all interface properties.
-          /// (The other way is always allow: Expression of all Types fits into `Any`)
-        | AlwaysAny     = 0b0100
-
-    let fitsAnonRecordInInterface
-        (_com: IFableCompiler)
-        (range: SourceLocation option)
-        (argExprs: Fable.Expr list)
-        (fieldNames: string array)
-        (interface_: Fable.Entity)
-        =
-        match interface_ with
-        | :? FsEnt as fsEnt ->
-            let interface_ = fsEnt.FSharpEntity
-            let interfaceMembers =
-                getAllInterfaceMembers interface_
-                |> Seq.toList
-
-            let makeType = makeType Map.empty
-            /// Returns for:
-            /// * `Ux<...>`: extracted types from `<....>`: `U2<string,int>` -> `[String; Int]`
-            /// * `Option<Ux<...>>`: extracted types from `<...>`, then made Optional: `Option<U2<string,int>>` -> `[Option String; Option Int]`
-            /// * 'normal' type: `makeType`ed type: `string` -> `[String]`
-            ///     Note: Erased Unions (except handled `Ux<...>`) are reduced to `Any`
-            ///
-            /// Extracting necessary: Erased Unions are reduced to `Any` -> special handling for `Ux<...>`
-            ///
-            /// Note: nested types aren't handled: `U2<string, U<int, float>>` -> `[Int; Any]`
-            let rec collectTypes (ty: FSharpType) : Fable.Type list =
-                // Special treatment for Ux<...> and Option<Ux<...>>: extract types in Ux
-                // This is necessary because: `makeType` reduces Erased Unions (including Ux) to `Any` -> no type info any more
-                //
-                // Note: no handling of nested types: `U2<string, U<int, float>>` -> `int` & `float` don't get extract
-                let ty = ty.AbbreviatedType
-                match ty with
-                | UType tys ->
-                    tys
-                    |> List.map makeType
-                    |> List.distinct
-                | OptionType (UType tys, isStruct) ->
-                    tys
-                    |> List.map (fun t -> Fable.Option(makeType t, isStruct))
-                    |> List.distinct
-                | _ ->
-                    makeType ty
-                    |> List.singleton
-            and (|OptionType|_|) (ty: FSharpType) =
-                match ty with
-                | TypeDefinition tdef ->
-                    match FsEnt.FullName tdef with
-                    | Types.valueOption -> Some(ty.GenericArguments[0].AbbreviatedType, true)
-                    | Types.option -> Some(ty.GenericArguments[0].AbbreviatedType, false)
-                    | _ -> None
-                | _ -> None
-            and (|UType|_|) (ty: FSharpType) =
-                let (|UName|_|) (tdef: FSharpEntity) =
-                    if
-                        tdef.Namespace = Some "Fable.Core"
-                        &&
-                        (
-                            let name = tdef.DisplayName
-                            name.Length = 2 && name[0] = 'U' && Char.IsDigit name[1]
-                        )
-                    then
-                        Some ()
-                    else
-                        None
-                match ty with
-                | TypeDefinition UName ->
-                    ty.GenericArguments
-                    |> Seq.map (fun t -> t.AbbreviatedType)
-                    |> Seq.toList
-                    |> Some
-                | _ -> None
-
-            /// Special Rules mostly for Indexers:
-            ///     For direct interface member implementation we want to be precise (-> exact_ish match)
-            ///     But for indexer allow a bit more types like erased union with string field when indexer is string
-            let fitsInto (rules: Allow) (expected: Fable.Type list) (actual: Fable.Type) =
-                assert(expected |> List.isEmpty |> not)
-
-                let (|IntNumber|_|) =
-                    function
-                    | Fable.Number((Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32), _) -> Some ()
-                    | _ -> None
-                let fitsIntoSingle (rules: Allow) (expected: Fable.Type) (actual: Fable.Type) =
-                    match expected, actual with
-                    | Fable.Any, _ -> true
-                    | _, Fable.Any when rules.HasFlag Allow.AlwaysAny ->
-                        // Erased Unions are reduced to `Any`
-                        // -> cannot distinguish between 'normal' Any (like 'obj')
-                        // and Erased Union (like Erased Union with string field)
-                        true
-                    | IntNumber, Fable.Number(_, Fable.NumberInfo.IsEnum _) when rules.HasFlag Allow.EnumIntoInt ->
-                        // the underlying type of enum in F# is uint32
-                        // For practicality: allow in all uint & int fields
-                        true
-                    | Fable.Option(t1,_), Fable.Option(t2,_)
-                    | Fable.Option(t1,_), t2
-                    | t1, t2 ->
-                        typeEquals false t1 t2
-                let fitsIntoMulti (rules: Allow) (expected: Fable.Type list) (actual: Fable.Type) =
-                    expected |> List.contains Fable.Any
-                    ||
-                    (
-                        // special treatment for actual=Any & multiple expected:
-                        // multiple expected -> `Ux<...>` -> extracted types
-                        // BUT: in actual that's not possible -> in actual `Ux<...>` = `Any`
-                        //      -> no way to distinguish Ux (or other Erased Unions) from 'normal` Any (like obj)
-                        rules.HasFlag Allow.AnyIntoErased
-                        &&
-                        expected |> List.isMultiple
-                        &&
-                        actual = Fable.Any
-                    )
-                    ||
-                    expected |> List.exists (fun expected -> fitsIntoSingle rules expected actual)
-
-                fitsIntoMulti rules expected actual
-
-            let quote = sprintf "'%s'"
-            let formatType = getTypeFullName true
-            let formatTypes = List.map (formatType >> quote) >> String.concat "; "
-            let unreachable () = failwith "unreachable"
-            let formatMissingFieldError
-                (fieldName: string)
-                (expectedTypes: Fable.Type list)
-                =
-                assert(expectedTypes |> List.isEmpty |> not)
-
-                let interfaceName = interface_.DisplayName
-
-                // adjust error messages based on:
-                // * 1, more expectedTypes
-                let msg =
-                    match expectedTypes with
-                    | [] -> unreachable ()
-                    | [expectedType] ->
-                        let expectedType = expectedType |> formatType
-                        $"Object doesn't contain field '{fieldName}' of type '{expectedType}' required by interface '{interfaceName}'"
-                    | _ ->
-                        let expectedTypes = expectedTypes |> formatTypes
-                        $"Object doesn't contain field '{fieldName}' of any type [{expectedTypes}] required by interface '{interfaceName}'"
-
-                (range, fieldName, msg)
-
-            let formatUnexpectedTypeError
-                (indexers: FSharpMemberOrFunctionOrValue list option)
-                (fieldName: string)
-                (expectedTypes: Fable.Type list)
-                (actualType: Fable.Type)
-                (r: SourceLocation option)
-                =
-                assert(expectedTypes |> List.isEmpty |> not)
-
-                let interfaceName = interface_.DisplayName
-                let actualType = actualType |> formatType
-
-                // adjust error messages based on:
-                // * 1, more expectedTypes
-                // * 0 (None), 1, more indexer
-                let msg =
-                    match indexers with
-                    | None ->
-                        match expectedTypes with
-                        | [] -> unreachable ()
-                        | [expectedType] ->
-                            let expectedType = expectedType |> formatType
-                            $"Expected type '{expectedType}' for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
-                        | _ ->
-                            let expectedTypes = expectedTypes |> formatTypes
-                            $"Expected any type of [{expectedTypes}] for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
-                    | Some indexers ->
-                        assert(indexers |> List.isEmpty |> not)
-
-                        let indexers =
-                            indexers
-                            |> List.map (fun i -> i.DisplayName)
-                            |> List.distinct
-
-                        match indexers with
-                        | [] -> unreachable ()
-                        | [indexerName] ->
-                            match expectedTypes with
-                            | [] -> unreachable ()
-                            | [expectedType] ->
-                                let expectedType = expectedType |> formatType
-                                $"Expected type '{expectedType}' for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
-                            | _ ->
-                                let expectedTypes = expectedTypes |> formatTypes
-                                $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
-                        | _ ->
-                            let indexerNames =
-                                indexers
-                                |> List.map (quote)
-                                |> String.concat "; "
-                            match expectedTypes with
-                            | [] -> unreachable ()
-                            | [expectedType] ->
-                                let expectedType = expectedType |> formatType
-                                $"Expected type '{expectedType}' for field '{fieldName}' because of Indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
-                            | _ ->
-                                let expectedTypes = expectedTypes |> formatTypes
-                                $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
-
-                let r = r |> Option.orElse range // fall back to anon record range
-
-                (r, fieldName, msg)
-
-            /// Returns: errors
-            let fitsInterfaceMembers (fieldsToIgnore: Set<string>) =
-                interfaceMembers
-                |> List.filter (fun m -> not (m.Attributes |> hasAttribute Atts.emitIndexer))
-                |> List.filter (fun m -> m.IsPropertyGetterMethod)
-                |> List.choose (fun m ->
-                    if fieldsToIgnore |> Set.contains m.DisplayName then
-                        None
-                    else
-                        let expectedTypes = m.ReturnParameter.Type |> collectTypes
-                        fieldNames
-                        |> Array.tryFindIndex ((=) m.DisplayName)
-                        |> function
-                            | None ->
-                                if expectedTypes |> List.forall (function | Fable.Option _ -> true | _ -> false) then
-                                    None    // Optional fields can be missing
-                                else
-                                    formatMissingFieldError m.DisplayName expectedTypes
-                                    |> Some
-                            | Some i ->
-                                let expr = List.item i argExprs
-                                let ty = expr.Type
-                                if ty |> fitsInto (Allow.TheUsual ||| Allow.AnyIntoErased) expectedTypes then
-                                    None
-                                else
-                                    formatUnexpectedTypeError None m.DisplayName expectedTypes ty expr.Range
-                                    |> Some
-                )
-
-            /// Returns errors
-            let fitsInterfaceIndexers (fieldsToIgnore: Set<string>) =
-                // Note: Indexers are assumed to be "valid" index properties (like `string` and/or `int` input (TS rules))
-                let indexers =
-                    interfaceMembers
-                    |> List.filter (fun m -> m.Attributes |> hasAttribute Atts.emitIndexer)
-                        // Indexer:
-                        // * with explicit get: IsPropertyGetterMethod
-                        // * with explicit set: IsPropertySetterMetod
-                        // * without explicit get (readonly -> same as get): IsPropertyGetterMethod = false
-                    |> List.filter (fun m -> not m.IsPropertySetterMethod)
-                // far from perfect: Erased Types are `Fable.Any` instead of their actual type
-                // (exception: `Ux<...>` (and `Option<Ux<...>>`) -> types get extracted)
-                let validTypes =
-                    indexers
-                    |> List.collect (fun i -> collectTypes i.ReturnParameter.Type)
-                    |> List.distinct
-
-                match validTypes with
-                | [] -> []  // no indexer
-                | _ when validTypes |> List.contains Fable.Any -> []
-                | _ ->
-                    List.zip (fieldNames |> Array.toList) argExprs
-                    |> List.filter (fun (fieldName, _) -> fieldsToIgnore |> Set.contains fieldName |> not )
-                    |> List.choose (fun (name, expr) ->
-                        let ty = expr.Type
-                        if fitsInto (Allow.TheUsual ||| Allow.EnumIntoInt ||| Allow.AnyIntoErased) validTypes ty then
-                            None
-                        else
-                            formatUnexpectedTypeError (Some indexers) name validTypes ty expr.Range
-                            |> Some
-                    )
-
-//            let withoutErrored
-//                (interfaceMembers: FSharpMemberOrFunctionOrValue list)
-//                (errors: _ list)
-//                =
-//                let fieldsWithError = errors |> List.map (fun (_, fieldName, _) -> fieldName) |> Set.ofList
-//                interfaceMembers
-//                |> List.filter (fun m -> fieldsWithError |> Set.contains (m.DisplayName) |> not)
-
-            // TODO: Check also if there are extra fields in the record not present in the interface?
-            let fieldErrors = fitsInterfaceMembers (Set.empty)
-            let indexerErrors =
-                fitsInterfaceIndexers
-                    // don't check already errored fields
-                    (fieldErrors |> List.map (fun (_, fieldName, _) -> fieldName) |> Set.ofList)
-
-            List.append fieldErrors indexerErrors
-            |> List.map (fun (r,_,m) -> (r,m))
-               // sort errors by their appearance in code
-            |> List.sortBy fst
-            |> function
-                | [] -> Ok ()
-                | errors -> Error errors
-        | _ ->
-            Ok () // TODO: Error instead if we cannot check the interface?
-
 module Identifiers =
     open Helpers
     open TypeHelpers
@@ -1665,16 +1342,15 @@ module Identifiers =
             | _ -> fsRef.IsMutable
 
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
+        let r = makeRange fsRef.DeclarationLocation
+        let r = SourceLocation.Create(start=r.start, ``end``=r.``end``, ?file=r.File, displayName=fsRef.DisplayName)
 
-        {
-            Name = sanitizedName
-            Type = makeType ctx.GenericArgs fsRef.FullType
-            IsThisArgument = fsRef.IsMemberThisValue
-            IsCompilerGenerated = fsRef.IsCompilerGenerated
-            IsMutable = isMutable
-            Range = { makeRange fsRef.DeclarationLocation
-                    with identifierName = Some fsRef.DisplayName } |> Some
-        }
+        { Name = sanitizedName
+          Type = makeType ctx.GenericArgs fsRef.FullType
+          IsThisArgument = fsRef.IsMemberThisValue
+          IsCompilerGenerated = fsRef.IsCompilerGenerated
+          IsMutable = isMutable
+          Range = Some r }
 
     let putIdentInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
@@ -1851,11 +1527,15 @@ module Util =
         | _ -> None
 
     let tryGlobalOrImportedAttributes (com: Compiler) (entRef: Fable.EntityRef) (attributes: Fable.Attribute seq) =
+        let globalRef customName =
+            defaultArg customName entRef.DisplayName
+            |> makeTypedIdent Fable.Any
+            |> Fable.IdentExpr
+            |> Some
+
         match attributes with
-        | GlobalAtt(Some customName) ->
-            makeTypedIdent Fable.Any customName |> Fable.IdentExpr |> Some
-        | GlobalAtt None ->
-            entRef.DisplayName |> makeTypedIdent Fable.Any |> Fable.IdentExpr |> Some
+        | _  when entRef.FullName.StartsWith("Fable.Core.JS.") -> globalRef None
+        | GlobalAtt customName -> globalRef customName
         | ImportAtt(selector, path) ->
             let selector =
                 if selector = Naming.placeholder then entRef.DisplayName
@@ -1926,17 +1606,18 @@ module Util =
         | Fable.PrecompiledLib _ -> false
 
     let private isReplacementCandidatePrivate isFromDll (entFullName: string) =
-        if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDll
-        // When compiling Fable itself, Fable.Core entities will be part of the code base,
-        // but still need to be replaced
+        if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDll()
+        // When compiling Fable itself, Fable.Core entities will be part of the code base, but still need to be replaced
         else entFullName.StartsWith("Fable.Core.")
+            && (not(entFullName.StartsWith("Fable.Core.JS.")) || entFullName.EndsWith("Attribute"))
 
     let isReplacementCandidate (ent: Fable.EntityRef) =
-        isReplacementCandidatePrivate (isFromDllNotPrecompiled ent) ent.FullName
+        let isFromDll() = isFromDllNotPrecompiled ent
+        isReplacementCandidatePrivate isFromDll ent.FullName
 
     let isReplacementCandidateFrom (ent: FSharpEntity) =
-        let isFromDllRef = Option.isSome ent.Assembly.FileName
-        isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
+        let isFromDll() = Option.isSome ent.Assembly.FileName
+        isReplacementCandidatePrivate isFromDll (FsEnt.FullName ent)
 
     let getEntityGenArgs (ent: Fable.Entity) =
         ent.GenericParameters
@@ -2063,7 +1744,7 @@ module Util =
 
     let tryMangleAttribute (attributes: FSharpAttribute seq) =
         attributes
-        |> tryFindAtt Atts.mangle
+        |> tryFindAttrib Atts.mangle
         |> Option.map (fun att ->
             match Seq.tryHead att.ConstructorArguments with
             | Some(_, (:?bool as value)) -> value
@@ -2087,8 +1768,7 @@ module Util =
             | Types.icomparableGeneric -> com.Options.Language <> Dart
             | _ -> true
         // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.Py namespaces
-        | Some fullName when fullName.StartsWith("Fable.Core.JS.") -> false
-        | Some fullName when fullName.StartsWith("Fable.Core.Py.") -> false
+        | Some fullName when fullName.StartsWithAny("Fable.Core.JS.", "Fable.Core.Py.") -> false
         // Don't mangle interfaces by default (for better interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> tryMangleAttribute ent.Attributes |> Option.defaultValue false
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
@@ -2110,7 +1790,9 @@ module Util =
                     else getOverloadSuffixFrom ent memb
                 getMangledAbstractMemberName ent memb.CompiledName overloadHash
             else
-                if isGetter || isSetter then getMemberDisplayName memb
+                // use compiled member name for Rust
+                if (isGetter || isSetter) && com.Options.Language <> Rust
+                then getMemberDisplayName memb
                 else memb.CompiledName
         {|
             name = name
@@ -2215,8 +1897,8 @@ module Util =
                     match tryGlobalOrImportedMember com Fable.Any memb with
                     | Some importExpr -> { callInfo with Fable.ThisArg = Some importExpr }
                     | _ -> callInfo
-                let isStatement = tryAttributeConsArg att 1 false tryBoolean
-                let macro = tryAttributeConsArg att 0  "" tryString
+                let isStatement = tryAttribConsArg att 1 false tryBoolean
+                let macro = tryAttribConsArg att 0  "" tryString
                 let macro =
                     match attFullName with
                     | Atts.emitMethod -> "$0." + macro + "($1...)"
@@ -2364,8 +2046,30 @@ module Util =
                 else false, arg::acc)
             |> snd
 
-    let hasInterface interfaceFullname (ent: Fable.Entity) =
-        ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
+    let hasInterface fullName (ent: Fable.Entity) =
+        ent.AllInterfaces
+        |> Seq.exists (fun ifc -> ifc.Entity.FullName = fullName)
+
+    let hasAttribute fullName (ent: Fable.Entity) =
+        ent.Attributes
+        |> Seq.exists (fun att -> att.Entity.FullName = fullName)
+
+    let hasStructuralEquality (ent: Fable.Entity) =
+        (ent |> hasAttribute Atts.structuralEquality) ||
+            not (ent |> hasAttribute Atts.noEquality) &&
+            not (ent |> hasAttribute Atts.referenceEquality) && (
+                ent.IsFSharpRecord ||
+                ent.IsFSharpUnion ||
+                ent.IsValueType ||
+                (ent |> hasInterface Types.iStructuralEquatable))
+
+    let hasStructuralComparison (ent: Fable.Entity) =
+        (ent |> hasAttribute Atts.structuralComparison) ||
+            not (ent |> hasAttribute Atts.noComparison) && (
+                ent.IsFSharpRecord ||
+                ent.IsFSharpUnion ||
+                ent.IsValueType ||
+                (ent |> hasInterface Types.iStructuralComparable))
 
     let makeCallWithArgInfo com (ctx: Context) r typ callee (memb: FSharpMemberOrFunctionOrValue) membRef (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
@@ -2409,7 +2113,7 @@ module Util =
 
             callAttachedMember com r typ callInfo entity memb
 
-        | _, Some entity when com.Options.Language <> Rust && isModuleValueForCalls com entity memb ->
+        | _, Some entity when isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
             memberIdent com r typ memb membRef
 
@@ -2422,7 +2126,7 @@ module Util =
             let typ = makeType ctx.GenericArgs memb.ReturnParameter.Type
             let callExpr =
                 memberIdent com r Fable.Any memb membRef
-                |> makeCall r typ callInfo
+                |> makeCall r typ { callInfo with Tags = "value"::callInfo.Tags }
             let fableMember = FsMemberFunctionOrValue(memb)
             // TODO: Move plugin application to FableTransforms
             com.ApplyMemberCallPlugin(fableMember, callExpr)

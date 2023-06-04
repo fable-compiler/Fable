@@ -4,6 +4,12 @@ open System
 open System.Globalization
 open System.Text
 
+[<AutoOpen>]
+module Extensions =
+    type String with
+        member str.StartsWithAny([<ParamArray>] patterns: string[]) =
+            patterns |> Array.exists (fun p -> str.StartsWith(p))
+
 module Dictionary =
     open System.Collections.Generic
     let tryFind key (dic: #IDictionary<'Key, 'Value>) =
@@ -103,7 +109,7 @@ module List =
         | [_] -> true
         | _ -> false
 
-    /// Same as List.length xs > 1
+    /// Same as List.length xs > 1 but doesn't calculate the whole length
     let isMultiple = function
         | [] | [_] -> false
         | _ -> true

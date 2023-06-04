@@ -1,9 +1,39 @@
+#[cfg_attr(rustfmt, rustfmt::skip)]
 pub mod Convert_ {
-    use crate::Native_::{arrayFrom, Array, MutCell};
-    use crate::String_::{string, fromString};
+    use crate::Native_::{MutCell, ToString, Vec};
+    use crate::NativeArray_::{array_from, Array};
+    use crate::String_::{string, fromString, substring};
     use core::fmt::{Display, Binary, Octal, LowerHex};
     use core::str::FromStr;
-    use num_traits::*;
+
+    pub trait TryParse<N>: PartialEq + Default {
+        fn try_parse(s: &str, radix: i32) -> Option<N>;
+    }
+
+    macro_rules! int_try_parse_impl {
+        ($($t:ty)*) => ($(
+            impl TryParse<$t> for $t {
+                #[inline]
+                fn try_parse(s: &str, radix: i32) -> Option<$t> {
+                    <$t>::from_str_radix(s, radix as u32).ok()
+                }
+            }
+        )*)
+    }
+
+    macro_rules! float_try_parse_impl {
+        ($($t:ty)*) => ($(
+            impl TryParse<$t> for $t {
+                #[inline]
+                fn try_parse(s: &str, _radix: i32) -> Option<$t> {
+                    <$t>::from_str(s).ok()
+                }
+            }
+        )*)
+    }
+
+    int_try_parse_impl!(i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize);
+    float_try_parse_impl!(f32 f64);
 
     const AllowHexSpecifier: i32 = 512;
 
@@ -16,39 +46,40 @@ pub mod Convert_ {
         }
     }
 
-    fn radix_from_string(s: &str) -> (&str, i32) {
-        if s.starts_with("0x") { (&s[2..], 16) }
-        else if s.starts_with("0o") { (&s[2..], 8) }
-        else if s.starts_with("0b") { (&s[2..], 2) }
-        else { (&s, 10) }
+    fn radix_from_string(s: string) -> (string, i32) {
+        if s.starts_with("0x") { (substring(s, 2), 16) }
+        else if s.starts_with("0o") { (substring(s, 2), 8) }
+        else if s.starts_with("0b") { (substring(s, 2), 2) }
+        else { (s, 10) }
     }
 
-    fn from_string_radix<N: Num>(s: string, radix: i32) -> N {
+    fn from_string_radix<N: TryParse<N>>(s: string, radix: i32) -> N {
         match radix {
             2|8|10|16 => (),
             _ => panic!("Invalid Base."),
         }
-        let trimmed = s.trim();
-        match N::from_str_radix(trimmed, radix as u32) {
-            Ok(d) => d,
-            Err(_e) =>
+        match N::try_parse(s.trim(), radix) {
+            Some(d) => d,
+            None =>
                 panic!("The input string '{}' was not in a correct format.", s),
         }
     }
 
-    fn from_string<N: Num>(s: string) -> N {
-        let s =
-            if s.contains("_") { fromString(s.replace("_", "")) }
-            else { s };
-        let (trimmed, radix) = radix_from_string(s.trim());
-        match N::from_str_radix(trimmed, radix as u32) {
-            Ok(d) => d,
-            Err(_e) =>
-                panic!("The input string '{}' was not in a correct format.", s),
+    fn trim_separators(s: string) -> string {
+        if s.contains("_") {
+            fromString(s.replace("_", ""))
+        } else {
+            s
         }
     }
 
-    fn from_style<N: Num>(s: string, style: i32) -> N {
+    fn from_string<N: TryParse<N>>(s: string) -> N {
+        let s = trim_separators(s);
+        let (s, radix) = radix_from_string(s);
+        from_string_radix(s, radix)
+    }
+
+    fn from_style<N: TryParse<N>>(s: string, style: i32) -> N {
         let radix = radix_from_style(style);
         from_string_radix(s, radix)
     }
@@ -152,9 +183,9 @@ pub mod Convert_ {
     pub fn toFloat32(s: string) -> f32 { from_string(s) }
     pub fn toFloat64(s: string) -> f64 { from_string(s) }
 
-    pub fn toBoolean<N: Num>(n: N) -> bool { !n.is_zero() }
+    pub fn toBoolean<N: PartialEq + Default>(n: N) -> bool { !(n == N::default()) }
 
-    // pub fn toChar<N: Num>(n: N) -> char {
+    // pub fn toChar<N>(n: N) -> char {
     //     core::char::from_u32(n.to_u32().unwrap()).unwrap()
     // }
 
@@ -186,12 +217,11 @@ pub mod Convert_ {
         }
     }
 
-    pub fn tryParse<N: Num>(s: string, style: i32, res: &MutCell<N>) -> bool {
+    pub fn tryParse<N: TryParse<N>>(s: string, style: i32, res: &MutCell<N>) -> bool {
         let radix = radix_from_style(style);
-        let trimmed = s.trim();
-        match N::from_str_radix(trimmed, radix as u32) {
-            Ok(d) => { res.set(d); true }
-            Err(_e) => false,
+        match N::try_parse(s.trim(), radix) {
+            Some(d) => { res.set(d); true }
+            None => false,
         }
     }
 
@@ -199,10 +229,10 @@ pub mod Convert_ {
     where N: Display + Binary + Octal + LowerHex,
     {
         let s = match radix {
-            2 => format!("{:b}", n),
-            8 => format!("{:o}", n),
-            10 => format!("{}", n),
-            16 => format!("{:x}", n),
+            2 => format_args!("{:b}", n).to_string(),
+            8 => format_args!("{:o}", n).to_string(),
+            10 => format_args!("{}", n).to_string(),
+            16 => format_args!("{:x}", n).to_string(),
             _ => panic!("Invalid Base."),
         };
         fromString(s)
@@ -238,7 +268,7 @@ pub mod Convert_ {
             .chunks_exact(2)
             .map(|x| decode(x[0]) << 4 | decode(x[1]))
             .collect();
-        arrayFrom(bytes)
+        array_from(bytes)
     }
 
     pub fn toBase64String(bytes: Array<u8>) -> string {
@@ -336,7 +366,7 @@ pub mod Convert_ {
                 else { 1 }
             } else { 0 };
         bytes.truncate(3 * (chars.len() - padding_len) / 4);
-        arrayFrom(bytes)
+        array_from(bytes)
     }
 
 }

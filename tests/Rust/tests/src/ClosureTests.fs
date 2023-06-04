@@ -237,3 +237,10 @@ let ``Non-tail recursive non-capturing closures work`` () =
 let ``Non-tail recursive capturing closures also work`` () =
     let n = fib_rec_clo 2 30
     n |> equal 832040UL
+
+let rec closure0 () () : int32 = 5
+let v0 : (unit -> int32) = closure0()
+
+[<Fact>]
+let ``Closures with multiple unit arguments work`` () =
+    v0() |> equal 5

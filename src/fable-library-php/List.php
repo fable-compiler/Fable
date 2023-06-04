@@ -57,6 +57,18 @@ class Cons extends FSharpList {
     function isEmpty() { return false; }
 }
 
+function cons($hd, $tl) {
+    return new Cons($hd, $tl);
+}
+
+function _empty() {
+    return $GLOBALS['NIL'];
+}
+
+function isEmpty($list) {
+    return $list->isEmpty();
+}
+
 function length(?FSharpList $list) {
     $len = 0;
     while($list instanceof Cons)
@@ -160,6 +172,14 @@ function skip($count, $list)
     return $list;
 }
 
+function item($count, $list)
+{
+    while ($count-- >= 0 && $list instanceof Cons) {
+        $list = $list->next;
+    }
+    return $list->value;
+}
+
 function reverse($list)
 {
     $result = $GLOBALS['NIL'];
@@ -249,6 +269,20 @@ function map($projection, $list)
         $p = new Cons($projection($list->value), NULL);
         $p = &$p->next;    
         $list = $list->next;
+    }
+    $p = $GLOBALS['NIL'];
+    return $lst;
+}
+
+function zip($list1, $list2)
+{
+    $lst = null;
+    $p = &$lst;
+    while ($list1 instanceof Cons && $list2 instanceof Cons) {
+        $p = new Cons([$list1->value, $list2->value], null);
+        $p = &$p->next;
+        $list1 = $list1->next;
+        $list2 = $list2->next;
     }
     $p = $GLOBALS['NIL'];
     return $lst;

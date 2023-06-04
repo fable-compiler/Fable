@@ -21,7 +21,8 @@
     "object-literal-sort-keys": false,
     "variable-name": false,
     "prefer-for-of": false,
-    "no-console": false
+    "no-console": false,
+    "ban-types": false
   },
   "rulesDirectory": []
 }

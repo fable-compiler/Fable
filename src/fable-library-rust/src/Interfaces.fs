@@ -14,6 +14,12 @@ module System =
     type IComparable<'T> =
         abstract CompareTo: 'T -> int
 
+    type IFormatProvider =
+        abstract GetFormat: System.Type -> obj
+
+    type IFormattable =
+        abstract ToString: string * IFormatProvider -> string
+
     module Collections =
 
         type IComparer =

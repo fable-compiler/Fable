@@ -1,117 +1,81 @@
-import { IObservable, IObserver, Observer } from "./Observable.js";
+import { IObservable, subscribe } from "./Observable.js";
 import { Option, some, value } from "./Option.js";
-import { FSharpChoice$2, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
+import { FSharpChoice$2_$union, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
 
-export type Delegate<T> = (x: T) => void;
-export type DotNetDelegate<T> = (sender: any, x: T) => void;
-type EventDelegate<T> = Delegate<T> | DotNetDelegate<T>;
+export type Handler<T> = (sender: any, x: T) => void;
 
-export interface IDelegateEvent<T> {
-  AddHandler(d: DotNetDelegate<T>): void;
-  RemoveHandler(d: DotNetDelegate<T>): void;
+export interface IDelegateEvent<Delegate extends Function> {
+  AddHandler(d: Delegate): void;
+  RemoveHandler(d: Delegate): void;
 }
 
-export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
+export interface IEvent$2<Delegate extends Function, Args> extends IDelegateEvent<Delegate>, IObservable<Args> {
 }
 
-export class Event<T> implements IEvent<T> {
-  private delegates: EventDelegate<T>[];
+export type IEvent<T> = IEvent$2<Handler<T>, T>
 
-  constructor() {
-    this.delegates = [];
+export class Event$2<Delegate extends Function, Args> {
+  private delegates: Delegate[] = [];
+
+  private _add(d: Delegate) {
+    this.delegates.push(d);
   }
 
-  public Add(f: Delegate<T>) {
-    this._addHandler(f);
-  }
-
-  get Publish() {
-    return this;
-  }
-
-  public Trigger(value: T): void;
-  public Trigger(sender: any, value: T): void;
-  public Trigger(senderOrValue: any, valueOrUndefined?: T) {
-    let sender: any;
-    let value : T;
-    if (valueOrUndefined === undefined) {
-      sender = null;
-      value = senderOrValue;
-    } else {
-      sender = senderOrValue;
-      value = valueOrUndefined;
-    }
-    this.delegates.forEach((f) => f.length === 1 ? (f as Delegate<T>)(value) : f(sender, value));
-  }
-
-  // IDelegateEvent<T> methods
-
-  public AddHandler(handler: DotNetDelegate<T>) {
-    this._addHandler(handler);
-  }
-
-  public RemoveHandler(handler: DotNetDelegate<T>) {
-    this._removeHandler(handler);
-  }
-
-  // IObservable<T> methods
-
-  public Subscribe(arg: IObserver<T> | Delegate<T>) {
-    const callback = typeof arg === "function"
-      ? arg as Delegate<T>
-      : (arg as IObserver<T>).OnNext;
-    this._addHandler(callback);
-    return { Dispose: () => { this._removeHandler(callback); } };
-  }
-
-  private _addHandler(f: EventDelegate<T>) {
-    this.delegates.push(f);
-  }
-
-  private _removeHandler(f: EventDelegate<T>) {
-    const index = this.delegates.indexOf(f);
+  private _remove(d: Delegate) {
+    const index = this.delegates.indexOf(d);
     if (index > -1) {
       this.delegates.splice(index, 1);
     }
   }
-}
 
-export function add<T>(callback: (x: T) => void, sourceEvent: IEvent<T>) {
-  if (sourceEvent instanceof Event) {
-    sourceEvent.Add(callback);
-  } else {
-    sourceEvent.Subscribe(new Observer(callback));
+  get Publish(): IEvent$2<Delegate, Args> {
+    return createEvent(h => { this._add(h) }, h => { this._remove(h) });
+  }
+
+  public Trigger(value: Args): void;
+  public Trigger(sender: any, value: Args): void
+  public Trigger(senderOrValue: any, valueOrUndefined?: Args): void {
+    let sender: any = null;
+    const value = valueOrUndefined === undefined ? senderOrValue as Args : (sender = senderOrValue, valueOrUndefined);
+    this.delegates.forEach(f => { f(sender, value) });
   }
 }
 
-export function choose<T, U>(chooser: (x: T) => Option<U>, sourceEvent: IEvent<T>) {
+export class Event<T> extends Event$2<Handler<T>, T> {
+}
+
+export function add<Del extends Function, T>(callback: (x: T) => void, sourceEvent: IEvent$2<Del, T>): void {
+  subscribe(callback, sourceEvent);
+}
+
+export function choose<Del extends Function, T, U>(chooser: (x: T) => Option<U>, sourceEvent: IEvent$2<Del, T>): IEvent<U> {
   const ev = new Event<U>();
   add((t) => {
     const u = chooser(t);
     if (u != null) { ev.Trigger(value(u)); }
   }, sourceEvent);
-  return ev;
+  return ev.Publish;
 }
 
-export function filter<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
+export function filter<Del extends Function, T>(predicate: (x: T) => boolean, sourceEvent: IEvent$2<Del, T>): IEvent<T> {
   return choose((x) => predicate(x) ? some(x) : undefined, sourceEvent);
 }
 
-export function map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {
+export function map<Del extends Function, T, U>(mapping: (x: T) => U, sourceEvent: IEvent$2<Del, T>): IEvent<U> {
   const ev = new Event<U>();
   add((t) => ev.Trigger(mapping(t)), sourceEvent);
-  return ev;
+  return ev.Publish;
 }
 
-export function merge<T>(event1: IEvent<T>, event2: IEvent<T>) {
+export function merge<Del1 extends Function, Del2 extends Function, T>(event1: IEvent$2<Del1, T>, event2: IEvent$2<Del2, T>): IEvent<T> {
   const ev = new Event<T>();
   const fn = (x: T) => ev.Trigger(x);
   add(fn, event1);
   add(fn, event2);
-  return ev;
+  return ev.Publish;
 }
 
-export function pairwise<T>(sourceEvent: IEvent<T>) {
+export function pairwise<Del extends Function, T>(sourceEvent: IEvent$2<Del, T>): IEvent<[T, T]> {
   const ev = new Event<[T, T]>();
   let last: T;
   let haveLast = false;
@@ -122,30 +86,30 @@ export function pairwise<T>(sourceEvent: IEvent<T>) {
     last = next;
     haveLast = true;
   }, sourceEvent);
-  return ev;
+  return ev.Publish;
 }
 
-export function partition<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>): [IEvent<T>, IEvent<T>] {
+export function partition<Del extends Function, T>(predicate: (x: T) => boolean, sourceEvent: IEvent$2<Del, T>): [IEvent<T>, IEvent<T>] {
   return [filter(predicate, sourceEvent), filter((x) => !predicate(x), sourceEvent)];
 }
 
-export function scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: IEvent<T>) {
+export function scan<Del extends Function, U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: IEvent$2<Del, T>): IEvent<U> {
   return map((t) => state = collector(state, t), sourceEvent);
 }
 
-export function split<T, U1, U2>(splitter: (x: T) => FSharpChoice$2<U1, U2>, sourceEvent: IEvent<T>): [IEvent<U1>, IEvent<U2>] {
+export function split<Del extends Function, T, U1, U2>(splitter: (x: T) => FSharpChoice$2_$union<U1, U2>, sourceEvent: IEvent$2<Del, T>): [IEvent<U1>, IEvent<U2>] {
   return [
     choose((v) => Choice_tryValueIfChoice1Of2(splitter(v)), sourceEvent),
     choose((v) => Choice_tryValueIfChoice2Of2(splitter(v)), sourceEvent),
   ];
 }
 
-export function createEvent<T>(addHandler: (h: DotNetDelegate<T>) => void, removeHandler: (h: DotNetDelegate<T>) => void): IEvent<T> {
+export function createEvent<Del extends Function, T>(addHandler: (h: Del) => void, removeHandler: (h: Del) => void): IEvent$2<Del, T> {
   return {
     AddHandler(h) { addHandler(h); },
     RemoveHandler(h) { removeHandler(h); },
     Subscribe(r) {
-      const h: DotNetDelegate<T> = (_, args) => r.OnNext(args);
+      const h = ((_: any, args: T) => r.OnNext(args)) as unknown as Del;
       addHandler(h);
       return {
         Dispose() { removeHandler(h); }
@@ -153,5 +117,3 @@ export function createEvent<T>(addHandler: (h: DotNetDelegate<T>) => void, remov
     }
   };
 }
-
-export default Event;

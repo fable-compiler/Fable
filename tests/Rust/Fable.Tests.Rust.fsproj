@@ -3,9 +3,11 @@
     <TargetFramework>net6.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.1" />
+    <PackageReference Include="FSharp.Core" Version="7.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
     <PackageReference Include="XUnit" Version="2.4.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -19,6 +21,8 @@
     <Compile Include="tests/common/Aether.fs" />
     <Compile Include="tests/common/Imports.fs" />
     <Compile Include="tests/common/Util.fs" />
+    <Compile Include="tests/common/Util2.fs" />
+    <Compile Include="tests/common/Util3.fs" />
     <Compile Include="tests/src/AnonRecordTests.fs" />
     <Compile Include="tests/src/ApplicativeTests.fs" />
     <Compile Include="tests/src/ArithmeticTests.fs" />
@@ -28,13 +32,13 @@
     <Compile Include="tests/src/CharTests.fs" />
     <Compile Include="tests/src/ClassTests.fs" />
     <Compile Include="tests/src/ClosureTests.fs" />
-    <!-- <Compile Include="tests/src/ComparisonTests.fs" /> -->
+    <Compile Include="tests/src/ComparisonTests.fs" />
     <Compile Include="tests/src/ControlFlowTests.fs" />
     <Compile Include="tests/src/ConvertTests.fs" />
     <Compile Include="tests/src/CustomOperatorTests.fs" />
-    <!-- <Compile Include="tests/src/DateTimeOffsetTests.fs" /> -->
+    <Compile Include="tests/src/DateTimeOffsetTests.fs" />
     <Compile Include="tests/src/DateTimeTests.fs" />
-    <!-- <Compile Include="tests/src/DateOnlyTests.fs" /> -->
+    <Compile Include="tests/src/DateOnlyTests.fs" />
     <Compile Include="tests/src/DictionaryTests.fs" />
     <!-- <Compile Include="tests/src/ElmishParserTests.fs" /> -->
     <!-- <Compile Include="tests/src/EnumerableTests.fs" /> -->
@@ -48,14 +52,14 @@
     <Compile Include="tests/src/ListTests.fs" />
     <Compile Include="tests/src/MapTests.fs" />
     <Compile Include="tests/src/MiscTests.fs" />
-    <!-- <Compile Include="tests/src/MiscTests2.fs" /> -->
+    <Compile Include="tests/src/MiscTests2.fs" />
     <Compile Include="tests/src/NBodyTests.fs" />
     <!-- <Compile Include="tests/src/ObservableTests.fs" /> -->
     <Compile Include="tests/src/OptionTests.fs" />
     <Compile Include="tests/src/QueueTests.fs" />
     <Compile Include="tests/src/RecordTests.fs" />
     <!-- <Compile Include="tests/src/ReflectionTests.fs" /> -->
-    <!-- <Compile Include="tests/src/RegexTests.fs" /> -->
+    <Compile Include="tests/src/RegexTests.fs" />
     <Compile Include="tests/src/ResizeArrayTests.fs" />
     <Compile Include="tests/src/ResultTests.fs" />
     <Compile Include="tests/src/SeqExpressionTests.fs" />
@@ -65,7 +69,7 @@
     <Compile Include="tests/src/StringTests.fs" />
     <Compile Include="tests/src/SudokuTest.fs" />
     <Compile Include="tests/src/TailCallTests.fs" />
-    <!-- <Compile Include="tests/src/TimeOnlyTests.fs" /> -->
+    <Compile Include="tests/src/TimeOnlyTests.fs" />
     <Compile Include="tests/src/TimeSpanTests.fs" />
     <Compile Include="tests/src/TupleTests.fs" />
     <Compile Include="tests/src/TypeTests.fs" />

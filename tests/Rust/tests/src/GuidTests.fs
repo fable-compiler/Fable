@@ -83,14 +83,9 @@ let ``Guid.ToString works`` () =
 //     guids
 //     |> List.iter (fun g -> g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
 
-// [<Fact>]
-// let ``Guid.Parse fails if string is not well formed`` () =
-//     let success =
-//         try
-//             let g1 = Guid.Parse(id "foo")
-//             true
-//         with _ -> false
-//     equal false success
+[<Fact>]
+let ``Guid.Parse fails if string is not well formed`` () =
+    throwsAnyError (fun () -> Guid.Parse(id "foo"))
 
 // [<Fact>]
 // let ``Guid.TryParse works`` () =

@@ -1,24 +1,7 @@
 // Adapted from https://github.com/MikeMcl/big.js/blob/0f94dc9110d55c4f324a47ba6a2e832ce23ac589/big.mjs
 /* tslint:disable */
-import { combineHashCodes } from "../Util.js";
-import { symbol } from "../Numeric.js";
 
-// The shared prototype object.
-var P = {
-    GetHashCode() { return combineHashCodes([this.s, this.e].concat(this.c)) },
-    Equals(x) { return !this.cmp(x) },
-    CompareTo(x) { return this.cmp(x) },
-    [symbol]() {
-      const _this = this;
-      return {
-        multiply: y => _this.mul(y),
-        toPrecision: sd => _this.toPrecision(sd),
-        toExponential: dp => _this.toExponential(dp),
-        toFixed: dp => _this.toFixed(dp),
-        toHex: () => (Number(_this) >>> 0).toString(16),
-      }
-    }
-};
+var P = {};
 
 /*
  *  big.js v6.0.3
@@ -1062,6 +1045,9 @@ P.valueOf = function () {
 // Export
 
 
+/**
+ * @type object
+ */
 export var Big = _Big_();
 
 /// <reference types="https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/big.js/index.d.ts" />

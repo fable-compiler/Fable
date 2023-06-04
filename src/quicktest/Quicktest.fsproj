@@ -3,6 +3,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <RollForward>Major</RollForward>
+    <!-- <LangVersion>Preview</LangVersion> -->
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="QuickTest.fs" />

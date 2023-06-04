@@ -522,6 +522,32 @@ module MapTree =
             e.MoveNext() |> ignore
             e.Current)
 
+    let rec leftmost (m: MapTree<'Key, 'Value>) =
+        match m with
+        | None -> raise (KeyNotFoundException())
+        | Some m2 ->
+            match m2 with
+            | :? MapTreeNode<'Key, 'Value> as nd when nd.Height > 1 ->
+                if isEmpty nd.Left then
+                    (nd.Key, nd.Value)
+                else
+                    leftmost nd.Left
+            | _ ->
+                (m2.Key, m2.Value)
+
+    let rec rightmost (m: MapTree<'Key, 'Value>) =
+        match m with
+        | None -> raise (KeyNotFoundException())
+        | Some m2 ->
+            match m2 with
+            | :? MapTreeNode<'Key, 'Value> as nd when nd.Height > 1 ->
+                if isEmpty nd.Right then
+                    (nd.Key, nd.Value)
+                else
+                    rightmost nd.Right
+            | _ ->
+                (m2.Key, m2.Value)
+
 open Fable.Core
 
 [<Sealed>]
@@ -661,6 +687,9 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
 
     member _.Values: ICollection<'Value> =
         MapTree.toArray tree |> Array.map (fun kvp -> kvp.Value) :> _
+
+    member m.MinKeyValue = MapTree.leftmost tree
+    member m.MaxKeyValue = MapTree.rightmost tree
 
     member m.TryFind key =
 // #if TRACE_SETS_AND_MAPS
@@ -872,11 +901,21 @@ let toList (table: Map<_, _>) =
 let toArray (table: Map<_, _>) =
     table.ToArray() |> Array.map (fun kv -> kv.Key, kv.Value)
 
+// [<CompiledName("Keys")>]
 let keys (table: Map<'K, 'V>): ICollection<'K> =
     table.Keys
 
+// [<CompiledName("Values")>]
 let values (table: Map<'K, 'V>): ICollection<'V> =
     table.Values
+
+// [<CompiledName("MinKeyValue")>]
+let minKeyValue (table: Map<_, _>) =
+    table.MinKeyValue
+
+// [<CompiledName("MaxKeyValue")>]
+let maxKeyValue (table: Map<_, _>) =
+    table.MaxKeyValue
 
 // [<CompiledName("Empty")>]
 let empty<'Key, 'Value  when 'Key : comparison> ([<Inject>] comparer: IComparer<'Key>) : Map<'Key, 'Value> =

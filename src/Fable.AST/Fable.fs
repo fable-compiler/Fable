@@ -121,6 +121,7 @@ type MemberFunctionOrValue =
     abstract DeclaringEntity: EntityRef option
     abstract ApparentEnclosingEntity: EntityRef option
     abstract ImplementedAbstractSignatures: AbstractSignature seq
+    abstract XmlDoc: string option
 
 type Entity =
     abstract Ref: EntityRef
@@ -283,13 +284,24 @@ type GeneratedMember =
             member _.IsOptional = false
             member _.DefaultValue = None }
 
+    static member GenericParams(typ: Type): GenericParam list =
+        typ :: typ.Generics
+        |> List.choose (function
+            | GenericParam(name, isMeasure, constraints) ->
+                { new GenericParam with
+                    member _.Name = name
+                    member _.IsMeasure = isMeasure
+                    member _.Constraints = constraints }
+                |> Some
+            | _ -> None
+        )
+
     interface MemberFunctionOrValue with
         member this.DeclaringEntity = this.Info.DeclaringEntity
         member this.DisplayName = this.Info.Name
         member this.CompiledName = this.Info.Name
         member this.FullName = this.Info.Name
-        // TODO: Try getting generic paramas from ParamTypes?
-        member _.GenericParameters = []
+        member this.GenericParameters = this.Info.ParamTypes |> List.collect (fun t -> GeneratedMember.GenericParams(t))
         member this.CurriedParameterGroups = [this.Info.ParamTypes |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a{i}"))]
         member this.ReturnParameter = GeneratedMember.Param(this.Info.ReturnType)
         member this.IsConstructor = this.Info.Name = ".ctor" || this.Info.Name = ".cctor"
@@ -310,6 +322,7 @@ type GeneratedMember =
         member _.Attributes = []
         member _.ApparentEnclosingEntity = None
         member _.ImplementedAbstractSignatures = []
+        member _.XmlDoc = None
 
 type ObjectExprMember = {
     Name: string
@@ -382,7 +395,7 @@ type Ident =
       Range: SourceLocation option }
     member x.DisplayName =
         x.Range
-        |> Option.bind (fun r -> r.identifierName)
+        |> Option.bind (fun r -> r.DisplayName)
         |> Option.defaultValue x.Name
 
 type NewArrayKind =

@@ -6,9 +6,9 @@ module Testing =
     open Fable.Core
 
     [<Emit("assert_eq!")>]
-    let inline equal expected actual: unit = nativeOnly
+    let inline equal<'T> (expected: 'T) (actual: 'T): unit = nativeOnly
     [<Emit("assert_ne!")>]
-    let inline notEqual expected actual: unit = nativeOnly
+    let inline notEqual<'T> (expected: 'T) (actual: 'T): unit = nativeOnly
 
     type FactAttribute() = inherit System.Attribute()
 #else
@@ -24,55 +24,113 @@ module Testing =
         let e = expected |> Seq.map Seq.toArray |> Seq.toArray
         a = e |> equal true
 
-    // let rec sumFirstSeq (zs: seq<float>) (n: int): float =
-    //    match n with
-    //    | 0 -> 0.
-    //    | 1 -> Seq.head zs
-    //    | _ -> (Seq.head zs) + sumFirstSeq (Seq.skip 1 zs) (n-1)
+#if NO_STD_NO_EXCEPTIONS
+    [<AutoOpen>]
+    // [<Fable.Core.Rust.OuterAttr("cfg", [|"feature = \"no_std\""|])>]
+    module ExceptionUtils =
+        let doesntThrow f = ()
+        let throwsAnyError f = ()
+        let throwsError (expected: string) f = ()
+        let throwsErrorContaining (expected: string) f = ()
+#else
+    [<AutoOpen>]
+    // [<Fable.Core.Rust.OuterAttr("cfg", [|"not(feature = \"no_std\")"|])>]
+    module ExceptionUtils =
+        let doesntThrow f =
+            try
+                f() |> ignore
+                true
+            with e ->
+                false
+            |> equal true
 
-    module private RunResult =
+        let throwsAnyError f =
+            try
+                f() |> ignore
+                false
+            with e ->
+                true
+            |> equal true
 
-        let inline wasSuccess actual =
-            match actual with
-            | Ok _ -> ()
-            | Error actual ->
-                equal (Ok 0) (Error actual)
+        let throwsError (expected: string) f =
+            try
+                f() |> ignore
+                false
+            with e ->
+                e.Message = expected
+            |> equal true
 
-        let inline wasAnyError actual =
-            match actual with
-            | Error _ -> ()
-            | Ok value ->
-                equal (Error 0) (Ok value)
+        let throwsErrorContaining (expected: string) f =
+            try
+                f() |> ignore
+                false
+            with e ->
+                e.Message.Contains(expected)
+            |> equal true
+#endif
 
-        let inline wasError expected actual =
-            match actual with
-            | Error _ when System.String.IsNullOrEmpty expected -> ()
-            | Error actual -> equal (Error expected) (Error actual)
-            | Ok value  -> equal (Error expected) (Ok value)
+// let rec sumFirstSeq (zs: seq<float>) (n: int): float =
+//     match n with
+//     | 0 -> 0.
+//     | 1 -> Seq.head zs
+//     | _ -> (Seq.head zs) + sumFirstSeq (Seq.skip 1 zs) (n-1)
 
-        let inline wasErrorContaining expected actual =
-            match actual with
-            | Error _ when System.String.IsNullOrEmpty expected -> ()
-            | Error (actual: string) when actual.Contains expected -> ()
-            | Error actual -> equal (Error expected) (Error actual)
-            | Ok value  -> equal (Error expected) (Ok value)
+let f2 a b = a + b
 
-    let inline private run (f: unit -> 'a) =
-        try
-            Ok (f())
-        with e ->
-            Error (e.Message)
+// // Assignment block as expression outside a function is NOT optimized
+// f2(let mutable x = 5 in let mutable y = 6 in x + y) |> ignore
 
-    let inline throwsError (expected: string) (f: unit -> 'a): unit =
-        run f |> RunResult.wasError expected
+let mutable a = 10
 
-    /// While `throwsError` tests exception message for equality,
-    /// this checks if error message CONTAINS passed message
-    let inline throwsErrorContaining (expected: string) (f: unit -> 'a): unit =
-        run f |> RunResult.wasErrorContaining expected
+module B =
+    let c = a
+    a <- a + 5
+    let mutable a = 20
+    let d = f2 2 2
+    let f2 a b = a - b
 
-    let inline throwsAnyError (f: unit -> 'a): unit =
-        run f |> RunResult.wasAnyError
+    module D =
+        let d = a
+        a <- a + 5
+        let e = f2 2 2
 
-    let inline doesntThrow (f: unit -> 'a): unit =
-        run f |> RunResult.wasSuccess
+// Test members with names conflicting with JS
+let Int32Array = [|1;2|]
+
+module Float64Array =
+    let Float64Array = [|3.;4.|]
+
+// type private R = { a: int }
+// let mutable private x = 5
+
+// // Check that variables with same name (the compiler generated `matchValue` here)
+// // at module level don't conflict. See https://github.com/fable-compiler/Fable/issues/718#issuecomment-281533299
+// match { a = 5 } with
+// | { a = 3 } -> ()
+// | _ -> x <- 4
+
+// match { a = 2 } with
+// | { a = 2 } -> x <- 2
+// | _ -> x <- 4
+
+module Foo =
+    let update () = ()
+
+module Bar =
+    let rec nestedRecursive i = update (i+2)
+    and update i = i + 5
+
+let rec nonNestedRecursive s = update s
+and update s = String.replicate 3 s
+
+// let mutable mutableValue = 1
+// let mutable mutableValueOpt = Some 1
+
+// let getValueTimes2() = mutableValue * 2
+
+// module Nested =
+//     let mutable nestedMutableValue = "a"
+//     let getValueTimes2() = nestedMutableValue + nestedMutableValue
+//     let getOuterValueTimes4() = mutableValue * 4
+
+// let getNestedValueTimes3() = Nested.nestedMutableValue + Nested.nestedMutableValue + Nested.nestedMutableValue

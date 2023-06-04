@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
-      "target": "es2015",
-      "module": "es2015",
+      "target": "es2020",
+      "module": "es2020",
       "sourceMap": false,
       "allowJs": true,
       "esModuleInterop": true,

@@ -141,12 +141,12 @@ let ``Seq.append works`` () =
 // [<Fact>]
 // let ``Seq.average for empty sequence`` () =
 //     let xs = Seq.empty<float>
-//     (try Seq.average xs |> ignore; false with | _ -> true) |> equal true
+//     throwsAnyError (fun () -> Seq.average xs |> ignore)
 
 // [<Fact>]
 // let ``Seq.averageBy for empty sequence`` () =
 //     let xs = Seq.empty<float>
-//     (try Seq.averageBy ((*) 2.) xs |> ignore; false with | _ -> true) |> equal true
+//     throwsAnyError (fun () -> Seq.averageBy ((*) 2.) xs |> ignore)
 
 [<Fact>]
 let ``Seq.average works`` () =
@@ -695,29 +695,29 @@ let ``Seq.range step works with long`` () =
     |> Seq.reduce (+)
     |> equal 20UL
 
-// [<Fact>]
-// let ``Seq.range works with decimal`` () =
-//     seq {1M .. 50M}
-//     |> Seq.reduce (+)
-//     |> equal 1275M
+[<Fact>]
+let ``Seq.range works with decimal`` () =
+    seq {1M .. 50M}
+    |> Seq.reduce (+)
+    |> equal 1275M
 
-// [<Fact>]
-// let ``Seq.range step works with decimal`` () =
-//     seq {-3M .. -0.4359698987M .. -50M}
-//     |> Seq.reduce (+)
-//     |> equal -2843.0340746886M
+[<Fact>]
+let ``Seq.range step works with decimal`` () =
+    seq {-3M .. -0.4359698987M .. -50M}
+    |> Seq.reduce (+)
+    |> equal -2843.0340746886M
 
-// [<Fact>]
-// let ``Seq.range works with bigint`` () =
-//     seq {1I..2000I}
-//     |> Seq.reduce (+)
-//     |> equal 2001000I
+[<Fact>]
+let ``Seq.range works with bigint`` () =
+    seq {1I..2000I}
+    |> Seq.reduce (+)
+    |> equal 2001000I
 
-// [<Fact>]
-// let ``Seq.range step works with bigint`` () =
-//     seq {1I .. 10000000000000I .. 20000000000000000I}
-//     |> Seq.reduce (+)
-//     |> equal 19990000000000002000I
+[<Fact>]
+let ``Seq.range step works with bigint`` () =
+    seq {1I .. 10000000000000I .. 20000000000000000I}
+    |> Seq.reduce (+)
+    |> equal 19990000000000002000I
 
 [<Fact>]
 let ``Seq.reduce works`` () =
@@ -791,18 +791,16 @@ let ``Seq.skip works`` () =
     Seq.length ys |> equal 2
     Seq.head ys |> equal 2.
 
-// [<Fact>]
-// let ``Seq.skip fails when there're not enough elements`` () =
-//     let mutable error = false
-//     let xs = [|1;2;3;4;5|]
-//     try
-//         Seq.skip 5 xs |> Seq.length |> equal 0
-//     with _ -> error <- true
-//     error |> equal false
-//     try
-//         Seq.skip 6 xs |> Seq.length |> equal 0
-//     with _ -> error <- true
-//     error |> equal true
+[<Fact>]
+let ``Seq.skip fails when there're not enough elements`` () =
+    let mutable error = false
+    let xs = [|1;2;3;4;5|]
+    doesntThrow (fun () ->
+        Seq.skip 5 xs |> Seq.length |> equal 0
+    )
+    throwsAnyError (fun () ->
+        Seq.skip 6 xs |> Seq.length |> equal 0
+    )
 
 [<Fact>]
 let ``Seq.toArray works`` () =
@@ -1075,12 +1073,11 @@ let ``Seq.take works`` () =
     let ys = xs |> Seq.take 2
     ys |> Seq.toArray |> equal [|1.; 2.|]
 
-// [<Fact>]
-// let ``Seq.take works II`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     // Seq.take should throw an exception if there're not enough elements
-//     try xs |> Seq.take 20 |> Seq.length with _ -> -1
-//     |> equal -1
+[<Fact>]
+let ``Seq.take works II`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    // Seq.take should throw an exception if there're not enough elements
+    throwsAnyError (fun () -> xs |> Seq.take 20 |> Seq.length |> ignore)
 
 [<Fact>]
 let ``Seq.takeWhile works`` () =
@@ -1117,10 +1114,10 @@ let ``Seq.except works`` () =
     Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
     // Seq.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> Seq.isEmpty |> equal true
 
-// [<Fact>]
-// let ``Seq.item throws exception when index is out of range`` () =
-//     let xs = [0]
-//     (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true
+[<Fact>]
+let ``Seq.item throws exception when index is out of range`` () =
+    let xs = [0]
+    throwsAnyError (fun () -> Seq.item 1 xs |> ignore)
 
 [<Fact>]
 let ``Seq iterators from range do rewind`` () =

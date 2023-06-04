@@ -5,12 +5,14 @@
     <RollForward>Major</RollForward>
     <OtherFlags>$(OtherFlags) --crossoptimize- --nowarn:3370</OtherFlags>
     <FableDefinesQueue>True</FableDefinesQueue>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
  </PropertyGroup>
 
  <ItemGroup>
     <PackageReference Include="Expecto" Version="9.0.4" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="Fable.JsonProvider" Version="1.0.1" />
+    <PackageReference Include="FSharp.Core" Version="7.0.0" />
     <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
 
@@ -56,6 +58,7 @@
     <Compile Include="MapTests.fs" />
     <Compile Include="MiscTestsHelper.fs" />
     <Compile Include="MiscTests.fs" />
+    <Compile Include="NestedAndRecursivePatternTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
     <Compile Include="QueueTests.fs" />

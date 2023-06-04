@@ -331,11 +331,14 @@ let getSourcesFromFablePkg (opts: CrackerOptions) (projFile: string) =
         | path -> [ path ]
         |> List.map Path.normalizeFullPath)
 
-let private extractUsefulOptionsAndSources (line: string) (accSources: string list, accOptions: string list) =
+let private extractUsefulOptionsAndSources isMainProj (line: string) (accSources: string list, accOptions: string list) =
     if line.StartsWith("-") then
     //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
-    //   "--langversion" // See getBasicCompilerArgs
-        if line.StartsWith("--nowarn") || line.StartsWith("--warnon") then
+        if line.StartsWith("--langversion:") && isMainProj then
+            let v = line.Substring("--langversion:".Length).ToLowerInvariant()
+            if v = "preview" then accSources, line::accOptions
+            else accSources, accOptions
+        elif line.StartsWith("--nowarn") || line.StartsWith("--warnon") then
             accSources, line::accOptions
         elif line.StartsWith("--define:") then
             // When parsing the project as .csproj there will be multiple defines in the same line,
@@ -365,7 +368,7 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
         //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
 
-let getCrackedFsproj (opts: CrackerOptions) (projOpts: string[], projRefs, msbuildProps, targetFramework) =
+let getCrackedMainFsproj (opts: CrackerOptions) (projOpts: string[], projRefs, msbuildProps, targetFramework) =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
@@ -379,7 +382,7 @@ let getCrackedFsproj (opts: CrackerOptions) (projOpts: string[], projRefs, msbui
                 dllRefs.Add(dllName, line)
                 src, otherOpts
             else
-                extractUsefulOptionsAndSources line (src, otherOpts))
+                extractUsefulOptionsAndSources true line (src, otherOpts))
 
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
@@ -411,7 +414,7 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj =
         |> Async.RunSynchronously
 
     let projOpts = Array.append projOpts.OtherOptions projOpts.SourceFiles
-    getCrackedFsproj opts (projOpts, [||], Dictionary(), "")
+    getCrackedMainFsproj opts (projOpts, [||], Dictionary(), "")
 
 let getProjectOptionsFromProjectFile =
     let mutable manager = None
@@ -509,12 +512,12 @@ let getProjectOptionsFromProjectFile =
 /// the references, checking if some .dlls correspond to Fable libraries
 let crackMainProject (opts: CrackerOptions): CrackedFsproj =
     getProjectOptionsFromProjectFile true opts opts.ProjFile
-    |> getCrackedFsproj opts
+    |> getCrackedMainFsproj opts
 
 /// For project references of main project, ignore dll and package references
 let crackReferenceProject (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
     let projOpts, projRefs, msbuildProps, targetFramework = getProjectOptionsFromProjectFile false opts projFile
-    let sourceFiles, otherOpts = Array.foldBack extractUsefulOptionsAndSources projOpts ([], [])
+    let sourceFiles, otherOpts = Array.foldBack (extractUsefulOptionsAndSources false) projOpts ([], [])
     { ProjectFile = projFile
       SourceFiles = sourceFiles
       ProjectReferences = projRefs |> Array.choose (excludeProjRef opts dllRefs) |> Array.toList
@@ -591,22 +594,23 @@ let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
         copyDir replaceFsprojExt source target
 
 let getFableLibraryPath (opts: CrackerOptions) =
-    match opts.FableLib with
-    | Some path -> Path.normalizeFullPath path
-    | None ->
-        let buildDir, libDir =
-            match opts.FableOptions.Language with
-            | Python ->
-                match opts.FableLib with
-                | Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
-                | _ -> "fable-library-py/fable_library", "fable_library"
-            | Dart -> "fable-library-dart", "fable_library"
-            | Rust -> "fable-library-rust", "fable-library-rust"
-            | TypeScript -> "fable-library-ts", "fable-library-ts"
-            | Lua -> "fable-library-lua", "fable-library-lua"
-            | Php -> "fable-library-php", "fable-library-php"
-            | _ -> "fable-library", "fable-library" + "." + Literals.VERSION
+    let buildDir, libDir =
+        match opts.FableOptions.Language, opts.FableLib with
+        | Dart, None -> "fable-library-dart", "fable_library"
+        | Rust, None -> "fable-library-rust", "fable-library-rust"
+        | TypeScript, None -> "fable-library-ts", "fable-library-ts"
+        | Php, None -> "fable-library-php", "fable-library-php"
+        | JavaScript, None -> "fable-library", "fable-library" + "." + Literals.VERSION
+        | Python, None -> "fable-library-py/fable_library", "fable_library"
+        | Python, Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
+        | Lua, None -> "fable-library-lua", "fable-library-lua"
+        | _, Some path ->
+            if path.StartsWith("./") then "", Path.normalizeFullPath path
+            elif IO.Path.IsPathRooted(path) then "", Path.normalizePath path
+            else "", path
 
+    if String.IsNullOrEmpty(buildDir) then libDir
+    else
         let fableLibrarySource =
             let baseDir = AppContext.BaseDirectory
             baseDir

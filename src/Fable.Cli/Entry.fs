@@ -361,13 +361,21 @@ let clean (args: CliArgs) language rootDir =
         Log.always("Clean completed! Files deleted: " + string fileCount)
 
 let getStatus = function
-    | JavaScript -> "stable"
+    | JavaScript
+    | TypeScript -> "stable"
     | Python -> "beta"
     | Rust -> "alpha"
     | Dart -> "beta"
-    | TypeScript -> "beta"
     | Php -> "experimental"
     | Lua -> "experimental"
+
+let getLibPkgVersion = function
+    | JavaScript
+    | TypeScript -> Some("npm", "fable-library", Literals.JS_LIBRARY_VERSION)
+    | Python
+    | Rust
+    | Dart
+    | Php -> None
 
 [<EntryPoint>]
 let main argv =
@@ -414,8 +422,14 @@ let main argv =
                     match getStatus language with
                     | "stable" | "" -> ""
                     | status -> $" (status: {status})"
-                Log.always($"Fable: F# to {language} compiler {Literals.VERSION}{status}")
-                Log.always("Thanks to the contributor! @" + Contributors.getRandom())
+                Log.always($"Fable {Literals.VERSION}: F# to {language} compiler{status}")
+
+                match getLibPkgVersion language with
+                | Some(repository, pkgName, version) ->
+                    Log.always($"Minimum {pkgName} version (when installed from {repository}): {version}")
+                | None -> ()
+
+                Log.always("\nThanks to the contributor! @" + Contributors.getRandom())
                 Log.always("Stand with Ukraine! https://standwithukraine.com.ua/" + "\n")
 
         match commands with

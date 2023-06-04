@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+no_std = ["fable_library_rust/no_std"]
 threaded = ["fable_library_rust/threaded"]
 # default = ["threaded"] # Uncomment when attempting to debug/use rust analyzer to switch to threaded mode
 

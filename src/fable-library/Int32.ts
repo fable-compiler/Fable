@@ -6,14 +6,10 @@ export type int16 = number;
 export type uint16 = number;
 export type int32 = number;
 export type uint32 = number;
-// export type int64 = Long;
-// export type uint64 = Long;
-export type int128 = number;
-export type uint128 = number;
+
 export type float16 = number;
 export type float32 = number;
 export type float64 = number;
-// export type decimal = Decimal;
 
 export enum NumberStyles {
   // None = 0x00000000,
@@ -70,7 +66,17 @@ function getInvalidDigits(radix: number): RegExp {
   }
 }
 
-function getRadix(prefix: string, style: number) {
+export function getPrefix(radix: number): string {
+  switch (radix) {
+    case 2: return "0b";
+    case 8: return "0o";
+    case 10: return "";
+    case 16: return "0x";
+    default: return "";
+  }
+}
+
+export function getRadix(prefix: string, style: number) {
   if (style & NumberStyles.AllowHexSpecifier) {
     return 16;
   } else {

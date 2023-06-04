@@ -85,12 +85,12 @@ let replaceNames replacements expr =
             | None -> e
         | e -> e)
 
-let countReferences limit identName body =
+let countReferencesUntil limit identName body =
     let mutable count = 0
     body |> deepExists (function
         | IdentExpr id2 when id2.Name = identName ->
             count <- count + 1
-            count > limit
+            count >= limit
         | _ -> false) |> ignore
     count
 
@@ -181,11 +181,16 @@ let noSideEffectBeforeIdent identName expr =
     findIdentOrSideEffect expr && not sideEffect
 
 let canInlineArg identName value body =
-    (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)
-     || (noSideEffectBeforeIdent identName body
-         && isIdentCaptured identName body |> not
-         // Make sure is at least referenced once so the expression is not erased
-         && countReferences 1 identName body = 1)
+    match value with
+    | Value((Null _|UnitConstant|TypeInfo _|BoolConstant _|NumberConstant _|CharConstant _),_) -> true
+    | Value(StringConstant s,_) -> s.Length < 100
+    | _ ->
+        let refCount = countReferencesUntil 2 identName body
+        (refCount <= 1 && not (canHaveSideEffects value))
+        // If it can have side effects, make sure is at least referenced once so the expression is not erased
+        || (refCount = 1
+            && noSideEffectBeforeIdent identName body
+            && not (isIdentCaptured identName body))
 
 /// Returns arity of lambda (or lambda option) types
 let (|Arity|) typ =
@@ -242,13 +247,15 @@ module private Transforms =
         let canInlineBinding =
             match value with
             | Import(i,_,_) -> i.IsCompilerGenerated
+            | Call(callee, info, _, _) when List.isEmpty info.Args && List.contains "value" info.Tags ->
+                canInlineArg ident.Name callee letBody
             // Replace non-recursive lambda bindings
             | NestedLambda(_args, lambdaBody, _name) ->
                 match lambdaBody with
                 | Import(i,_,_) -> i.IsCompilerGenerated
                 // Check the lambda doesn't reference itself recursively
                 | _ ->
-                    countReferences 0 ident.Name lambdaBody = 0
+                    countReferencesUntil 1 ident.Name lambdaBody = 0
                     && canInlineArg ident.Name value letBody
                     // If we inline the lambda Fable2Rust doesn't have
                     // a chance to clone the mutable ident
@@ -327,6 +334,26 @@ module private Transforms =
             | None -> e
         | e -> e
 
+    let typeEqualsAtCompileTime t1 t2 =
+        let stripMeasure = function
+            | Number(kind, NumberInfo.IsMeasure _) -> Number(kind, NumberInfo.Empty)
+            | t -> t
+        typeEquals true (stripMeasure t1) (stripMeasure t2)
+
+    let rec tryEqualsAtCompileTime a b =
+        match a, b with
+        | Value(TypeInfo(a, []),_), Value(TypeInfo(b, []),_) ->
+            typeEqualsAtCompileTime a b |> Some
+        | Value(Null _,_), Value(Null _,_)
+        | Value(UnitConstant,_), Value(UnitConstant,_) -> Some true
+        | Value(BoolConstant a,_), Value(BoolConstant b,_) -> Some(a = b)
+        | Value(CharConstant a,_), Value(CharConstant b,_) -> Some(a = b)
+        | Value(StringConstant a,_), Value(StringConstant b,_) -> Some(a = b)
+        | Value(NumberConstant(a,_,_),_), Value(NumberConstant(b,_,_),_) -> Some(a = b)
+        | Value(NewOption(None,_,_)  ,_), Value(NewOption(None,_,_),_) -> Some true
+        | Value(NewOption(Some a,_,_),_), Value(NewOption(Some b,_,_),_) -> tryEqualsAtCompileTime a b
+        | _ -> None
+
     let operationReduction (_com: Compiler) e =
         match e with
         // TODO: Other binary operations and numeric types
@@ -339,10 +366,31 @@ module private Transforms =
                 Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [r1; r2])
             | _ -> e
 
-        | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), _, _, _) -> if b then v2 else v1
-        | Operation(Logical(AST.LogicalAnd, v1, (Value(BoolConstant b, _) as v2)), _, _, _) -> if b then v1 else v2
-        | Operation(Logical(AST.LogicalOr, (Value(BoolConstant b, _) as v1), v2), _, _, _) -> if b then v1 else v2
-        | Operation(Logical(AST.LogicalOr, v1, (Value(BoolConstant b, _) as v2)), _, _, _) -> if b then v2 else v1
+        | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), [], _, _) -> if b then v2 else v1
+        | Operation(Logical(AST.LogicalAnd, v1, (Value(BoolConstant b, _) as v2)), [], _, _) -> if b then v1 else v2
+        | Operation(Logical(AST.LogicalOr, (Value(BoolConstant b, _) as v1), v2), [], _, _) -> if b then v1 else v2
+        | Operation(Logical(AST.LogicalOr, v1, (Value(BoolConstant b, _) as v2)), [], _, _) -> if b then v2 else v1
+
+        | Operation(Unary(AST.UnaryNot, Value(BoolConstant b, r)), [], _, _) -> Value(BoolConstant(not b), r)
+
+        | Operation(Binary((AST.BinaryEqual | AST.BinaryUnequal as op), v1, v2), [], _, _) ->
+            let isNot = op = AST.BinaryUnequal
+            tryEqualsAtCompileTime v1 v2
+            |> Option.map (fun b -> (if isNot then not b else b) |> makeBoolConst)
+            |> Option.defaultValue e
+
+        | Test(expr, kind, _) ->
+            match kind, expr with
+            // This optimization doesn't work well with erased unions
+            // | TypeTest typ, expr ->
+            //     typeEqualsAtCompileTime typ expr.Type |> makeBoolConst
+            | OptionTest isSome, Value(NewOption(expr,_,_),_)->
+                isSome = Option.isSome expr |> makeBoolConst
+            | ListTest isCons, Value(NewList(headAndTail,_),_) ->
+                isCons = Option.isSome headAndTail |> makeBoolConst
+            | UnionCaseTest tag1, Value(NewUnion(_,tag2,_,_),_) ->
+                tag1 = tag2 |> makeBoolConst
+            | _ -> e
 
         | IfThenElse(Value(BoolConstant b, _), thenExpr, elseExpr, _) -> if b then thenExpr else elseExpr
 
@@ -460,7 +508,7 @@ module private Transforms =
                                                                           && not ident.IsMutable ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
-            Let(ident, Delegate(args, fnBody, None, Tags.empty), letBody)
+            Let({ ident with Type = uncurryType ident.Type }, Delegate(args, fnBody, None, Tags.empty), letBody)
         // Anonymous lambda immediately applied
         | CurriedApply(NestedLambdaWithSameArity(args, fnBody, Some name), argExprs, t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
@@ -523,6 +571,9 @@ module private Transforms =
 
         | e -> e
 
+    let isGetterOrValueWithoutGenerics (mRef: MemberFunctionOrValue) =
+        mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
+
     let uncurrySendingArgs (com: Compiler) e =
         let uncurryConsArgs args (fields: seq<Field>) =
             let argTypes =
@@ -555,15 +606,17 @@ module private Transforms =
         | ObjectExpr(members, t, baseCall) ->
             let members =
                 members |> List.map (fun m ->
-                    match com.TryGetMember(m.MemberRef) with
-                    | Some mRef ->
-                        let isGetterOrValueWithoutGenerics =
-                            mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
-                        if isGetterOrValueWithoutGenerics then
-                            let value = uncurryArgs com false [mRef.ReturnParameter.Type] [m.Body]
-                            { m with Body = List.head value }
-                        else m
-                    | None -> m)
+                    match m.Body.Type with
+                    | Arity arity when arity > 1 ->
+                        match com.TryGetMember(m.MemberRef) with
+                        | Some mRef when isGetterOrValueWithoutGenerics mRef ->
+                            match mRef.ReturnParameter.Type with
+                            // It may happen the arity of the abstract signature is smaller than actual arity
+                            | Arity arity when arity > 1 ->
+                                { m with Body = uncurryExpr com (Some arity) m.Body }
+                            | _ -> m
+                        | _ -> m
+                    | _ -> m)
             ObjectExpr(members, t, baseCall)
         | e -> e
 
@@ -652,7 +705,30 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
         // (ent, ident, cons, baseCall, attachedMembers)
         let attachedMembers =
             decl.AttachedMembers
-            |> List.map (uncurryMemberArgs >> transformMemberBody com)
+            |> List.map (fun m ->
+                let uncurriedMember =
+                    if m.IsMangled then None
+                    else
+                        match m.Body.Type with
+                        | Arity arity when arity > 1 ->
+                            m.ImplementedSignatureRef
+                            |> Option.bind (com.TryGetMember)
+                            |> Option.bind (fun mRef ->
+                                if isGetterOrValueWithoutGenerics mRef then
+                                    match mRef.ReturnParameter.Type with
+                                    // It may happen the arity of the abstract signature is smaller than actual arity
+                                    | Arity arity when arity > 1 ->
+                                        Some { m with Body = uncurryExpr com (Some arity) m.Body }
+                                    | _ -> None
+                                else None)
+                        | _ -> None
+
+                let m =
+                    match uncurriedMember with
+                    | Some m -> m
+                    | None -> uncurryMemberArgs m
+
+                transformMemberBody com m)
 
         let cons, baseCall =
             match decl.Constructor, decl.BaseCall with

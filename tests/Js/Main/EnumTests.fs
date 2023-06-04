@@ -196,7 +196,7 @@ let tests =
 
     // See https://github.com/fable-compiler/Fable/issues/1415#issuecomment-395138456
     testCase "Multiple cases with same target don't create variable duplication" <| fun () ->
-        let test arg =
+        let mutable test = fun arg ->
             match arg with
             | 0 | 1 | 2 | 3 ->
                 let test2 x = x + x
@@ -206,7 +206,7 @@ let tests =
 
     // See https://github.com/fable-compiler/Fable/issues/1415#issuecomment-396456500
     testCase "Decision targets can be found" <| fun () ->
-        let test x =
+        let mutable test = fun x ->
             match x with
             | (4 | 5) as r -> r
             | _ -> 1

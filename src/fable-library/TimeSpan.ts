@@ -1,9 +1,10 @@
 // tslint:disable:max-line-length
-import Long, { fromNumber as Long_fromNumber, op_Division as Long_op_Division, op_Multiply as Long_op_Multiply, toNumber as Long_toNumber } from "./Long.js";
 import { FSharpRef } from "./Types.js";
 import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
+import { toInt64 } from "./BigInt.js";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
+export type TimeSpan = number;
 
 /**
  * Calls:
@@ -31,8 +32,8 @@ export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 
   return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
 }
 
-export function fromTicks(ticks: Long) {
-  return Long_toNumber(Long_op_Division(ticks, 10000));
+export function fromTicks(ticks: number | bigint) {
+  return Number(BigInt(ticks) / 10000n);
 }
 
 export function fromDays(d: number) {
@@ -51,47 +52,47 @@ export function fromSeconds(s: number) {
   return create(0, 0, s);
 }
 
-export function days(ts: number) {
+export function days(ts: TimeSpan) {
   return signedRound(ts / 86400000);
 }
 
-export function hours(ts: number) {
+export function hours(ts: TimeSpan) {
   return signedRound(ts % 86400000 / 3600000);
 }
 
-export function minutes(ts: number) {
+export function minutes(ts: TimeSpan) {
   return signedRound(ts % 3600000 / 60000);
 }
 
-export function seconds(ts: number) {
+export function seconds(ts: TimeSpan) {
   return signedRound(ts % 60000 / 1000);
 }
 
-export function milliseconds(ts: number) {
+export function milliseconds(ts: TimeSpan) {
   return signedRound(ts % 1000);
 }
 
-export function ticks(ts: number) {
-  return Long_op_Multiply(Long_fromNumber(ts), 10000);
+export function ticks(ts: TimeSpan) {
+  return toInt64(BigInt(ts) * 10000n);
 }
 
-export function totalDays(ts: number) {
+export function totalDays(ts: TimeSpan) {
   return ts / 86400000;
 }
 
-export function totalHours(ts: number) {
+export function totalHours(ts: TimeSpan) {
   return ts / 3600000;
 }
 
-export function totalMinutes(ts: number) {
+export function totalMinutes(ts: TimeSpan) {
   return ts / 60000;
 }
 
-export function totalSeconds(ts: number) {
+export function totalSeconds(ts: TimeSpan) {
   return ts / 1000;
 }
 
-export function negate(ts: number) {
+export function negate(ts: TimeSpan) {
   return ts * -1;
 }
 
@@ -103,11 +104,11 @@ export function subtract(ts1: number, ts2: number) {
   return ts1 - ts2;
 }
 
-export function multiply(ts: number, factor: number) {
+export function multiply(ts: TimeSpan, factor: number) {
   return ts * factor;
 }
 
-export function divide(ts: number, b: number) {
+export function divide(ts: TimeSpan, b: number) {
   return ts / b;
 }
 
@@ -123,7 +124,7 @@ export function duration(x: number) {
   return Math.abs(x);
 }
 
-export function toString(ts: number, format = "c", _provider?: any) {
+export function toString(ts: TimeSpan, format = "c", _provider?: any) {
   if (["c", "g", "G"].indexOf(format) === -1) {
     throw new Error("Custom formats are not supported");
   }

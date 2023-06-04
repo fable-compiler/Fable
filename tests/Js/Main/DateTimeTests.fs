@@ -20,7 +20,7 @@ let thatYearMilliseconds (dt: DateTime) =
 
 let tests =
   testList "DateTime" [
-    testCase "DateTime.ToString with format works" <| fun () ->
+    testCase "DateTime.ToString with custom format works" <| fun () ->
         DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
         |> equal "16:37"
 
@@ -43,7 +43,7 @@ let tests =
     //
     // testCase "DateTime.ToString with Round-trip format works for local" <| fun () ->
     //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
-    //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
+    //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europe/Paris (GMT+2)
 
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
         let date = DateTime(1, 1, 2)
@@ -95,15 +95,32 @@ let tests =
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
         let dto = DateTimeOffset(d)
         let d' = dto.DateTime
-
         d' |> equal d
 
     testCase "Formatting DateTimeOffset works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
         let dto = DateTimeOffset(d)
-
         // dto.ToString() |> equal "2014-10-09 13:23:30 +00:00"
         dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
+
+    testCase "DateTimeOffset.UtcDateTime works" <| fun () ->
+        let timeStr = "2016-07-07T01:00:00.000Z"
+        let dtOffset = System.DateTimeOffset.Parse timeStr
+        let dt = dtOffset.UtcDateTime
+        equal 7 dt.Day
+        equal 1 dt.Hour
+        equal 0 dt.Minute
+        equal DateTimeKind.Utc dt.Kind
+
+    testCase "DateTimeOffset.LocalDateTime works" <| fun () ->
+        let timeStr = "2016-07-07T01:00:00.000Z"
+        let dtOffset = System.DateTimeOffset.Parse timeStr
+        let dt = dtOffset.LocalDateTime
+        equal DateTimeKind.Local dt.Kind
+        let dt2 = DateTime.Parse(timeStr, CultureInfo.InvariantCulture).ToLocalTime()
+        equal dt2.Day dt.Day
+        equal dt2.Hour dt.Hour
+        equal dt2.Minute dt.Minute
 
     testCase "DateTime.Hour works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)

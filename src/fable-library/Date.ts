@@ -3,12 +3,12 @@
  *
  * Note: Date instances are always DateObjects in local
  * timezone (because JS dates are all kinds of messed up).
- * A local date returns UTC epoc when `.getTime()` is called.
+ * A local date returns UTC epoch when `.getTime()` is called.
  *
  * Basically; invariant: date.getTime() always return UTC time.
  */
 
-import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long.js";
+import { int64, toInt64, toFloat64 } from "./BigInt.js";
 import { FSharpRef } from "./Types.js";
 import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
@@ -17,6 +17,14 @@ export type Offset = "Z" | OffsetInMinutes | null;
 
 export function kind(value: IDateTime): number {
   return value.kind || 0;
+}
+
+export function unixEpochMillisecondsToTicks(ms: number, offset: number): int64 {
+  return toInt64(((BigInt(ms) + 62135596800000n) + BigInt(offset)) * 10000n);
+}
+
+export function ticksToUnixEpochMilliseconds(ticks: number | bigint): number {
+  return Number(((BigInt(ticks) / 10000n) - 62135596800000n));
 }
 
 export function dateOffsetToString(offset: number) {
@@ -131,8 +139,7 @@ export function DateTime(value: number, kind?: DateKind) {
   return d;
 }
 
-export function fromTicks(ticks: number | Long, kind?: DateKind) {
-  ticks = fromValue(ticks);
+export function fromTicks(ticks: number | bigint, kind?: DateKind) {
   kind = kind != null ? kind : DateKind.Local; // better default than Unspecified
   let date = DateTime(ticksToUnixEpochMilliseconds(ticks), kind);
 
@@ -402,6 +409,10 @@ export function addSeconds(d: IDateTime, v: number) {
 
 export function addMilliseconds(d: IDateTime, v: number) {
   return add(d, v);
+}
+
+export function addTicks(d: IDateTime, v: int64) {
+  return add(d, toFloat64(v / 10000n));
 }
 
 export function addYears(d: IDateTime, v: number) {
