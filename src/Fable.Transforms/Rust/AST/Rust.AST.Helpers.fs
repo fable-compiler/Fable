@@ -340,6 +340,16 @@ module Literals =
           span = DUMMY_SP }
 
 [<AutoOpen>]
+module StrLiterals =
+
+    let mkStrLitFrom (value: Symbol) (suffix: Symbol option): StrLit =
+        { style = StrStyle.Cooked
+          symbol = value.escape_debug()
+          suffix = suffix
+          span = DUMMY_SP
+          symbol_unescaped = value }
+
+[<AutoOpen>]
 module Paths =
 
     let mkPathSegment ident args: PathSegment =
@@ -422,6 +432,7 @@ module Visibilities =
 
 [<AutoOpen>]
 module AnonConsts =
+
     let mkAnonConst value =
         { id = DUMMY_NODE_ID
           value = value }
@@ -1068,14 +1079,14 @@ module Types =
           span = DUMMY_SP
           tokens = None }
 
-    let mkBareFnTy genParams fnDecl: BareFnTy =
-        { unsafety = Unsafety.No
-          ext = Extern.None
+    let mkBareFnTy unsafety ext genParams fnDecl: BareFnTy =
+        { unsafety = unsafety
+          ext = ext
           generic_params = mkVec genParams
           decl = fnDecl }
 
-    let mkFnTy genParams fnDecl: Ty =
-        TyKind.BareFn(mkBareFnTy genParams fnDecl)
+    let mkFnTy unsafety ext genParams fnDecl: Ty =
+        TyKind.BareFn(mkBareFnTy unsafety ext genParams fnDecl)
         |> mkTy
 
     let mkInferTy (): Ty =
@@ -1143,9 +1154,6 @@ module Types =
         TyKind.EmitTypeExpression(value, mkVec tys)
         |> mkTy
 
-    let TODO_TYPE name: Ty =
-        mkGenericPathTy ["TODO_TYPE_" + name] None
-
 [<AutoOpen>]
 module Params =
 
@@ -1191,14 +1199,35 @@ module Params =
 [<AutoOpen>]
 module Funcs =
 
-    let mkFnHeader unsafety asyncness constness ext: FnHeader =
-        { unsafety = unsafety
-          asyncness = asyncness
-          constness = constness
-          ext = ext }
+    let mkAsyncness isAsync: Asyncness =
+        if isAsync
+        then Asyncness.Yes(DUMMY_SP, DUMMY_NODE_ID, DUMMY_NODE_ID)
+        else Asyncness.No
+
+    let mkConstness isConst: Constness =
+        if isConst
+        then Constness.Yes(DUMMY_SP)
+        else Constness.No
+
+    let mkUnsafety isUnsafe: Unsafety =
+        if isUnsafe
+        then Unsafety.Yes(DUMMY_SP)
+        else Unsafety.No
+
+    let mkExtern (extOpt: Symbol option): Extern =
+        match extOpt with
+        | Some("") -> Extern.Implicit
+        | Some(abi) -> Extern.Explicit(mkStrLitFrom abi None)
+        | None -> Extern.None
+
+    let mkFnHeader isUnsafe isAsync isConst extOpt: FnHeader =
+        { unsafety = mkUnsafety isUnsafe
+          asyncness = mkAsyncness isAsync
+          constness = mkConstness isConst
+          ext = mkExtern extOpt }
 
     let DEFAULT_FN_HEADER: FnHeader =
-        mkFnHeader Unsafety.No Asyncness.No Constness.No Extern.None
+        mkFnHeader false false false None
 
     let VOID_RETURN_TY: FnRetTy =
         FnRetTy.Default(DUMMY_SP)

@@ -104,7 +104,11 @@ let ``automatically generated generic names don't conflict`` () =
     |> equal 456
 
 #if FABLE_COMPILER_RUST
+// open Fable.Core
 open Fable.Core.Rust
+
+[<Struct; OuterAttr("repr", [|"C"|])>]
+type StructC = { x: int; y: int }
 
 [<OuterAttr("should_panic")>]
 [<Fact>]
@@ -120,5 +124,34 @@ let ``Name value outer attribute works`` (): unit =
 [<Fact>]
 let ``Delimited outer attribute works`` (): unit =
     failwith "Some error"
+
+// [<Async; OuterAttr("cfg", [|"feature = \"threaded\""|])>]
+// let f_async () = 2
+
+[<Const>]
+let f_const () = 3
+
+[<Unsafe>]
+let f_unsafe () = 4
+
+[<Extern("C"); OuterAttr("no_mangle")>]
+let f_extern () = 5
+
+// [<Emit("$0.await")>]
+// let await x = nativeOnly
+
+// [<Async; OuterAttr("cfg", [|"feature = \"threaded\""|])>]
+// let ``Async attribute works`` (): unit =
+//     f_async () |> await |> equal 2
+
+let ``Const attribute works`` (): unit =
+    f_const () |> equal 3
+
+[<Unsafe>]
+let ``Unsafe attribute works`` (): unit =
+    f_unsafe () |> equal 4
+
+let ``Extern attribute works`` (): unit =
+    f_extern () |> equal 5
 
 #endif //FABLE_COMPILER_RUST
