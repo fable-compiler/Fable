@@ -566,7 +566,6 @@ type RustTestMode =
     | NoStd
     | Default
     | Threaded
-    | Everything
 
 let testRust testMode =
     // buildLibraryRustIfNotExists()
@@ -615,10 +614,6 @@ let testRust testMode =
     | NoStd ->
         runInDir buildDir "cargo test --features no_std"
     | Threaded ->
-        runInDir buildDir "cargo test --features threaded"
-    | Everything ->
-        runInDir buildDir "cargo test"
-        runInDir buildDir "cargo test --features no_std"
         runInDir buildDir "cargo test --features threaded"
 
 let testDart isWatch =
@@ -814,7 +809,6 @@ match BUILD_ARGS_LOWER with
 | "test-rust-no_std"::_ -> testRust NoStd
 | "test-rust-default"::_ -> testRust Default
 | "test-rust-threaded"::_ -> testRust Threaded
-| "test-rust-all"::_ -> testRust Everything
 | "test-dart"::_ -> testDart(false)
 | "watch-test-dart"::_ -> testDart(true)
 
