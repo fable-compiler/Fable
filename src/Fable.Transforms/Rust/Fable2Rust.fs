@@ -3019,10 +3019,10 @@ module Util =
 
     let getModuleItems (com: IRustCompiler) ctx =
         if isLastFileInProject com then
-            // add all other project files as module imports
+            // add all other source files as module imports
             com.SourceFiles |> Array.iter (fun filePath ->
                 if filePath <> com.CurrentFile then
-                    let relPath = Path.getRelativeFileOrDirPath false com.CurrentFile false filePath
+                    let relPath = Path.getRelativePath com.CurrentFile filePath
                     com.GetImportName(ctx, "*", relPath, None) |> ignore
             )
             let makeModItems (modulePath, moduleName) =
@@ -4161,7 +4161,8 @@ module Util =
         modulePath
 
     let getImportModuleName (com: IRustCompiler) (modulePath: string) =
-        System.String.Format("module_{0:x}", stableStringHash modulePath)
+        let relPath = Path.getRelativePath com.CurrentFile modulePath
+        System.String.Format("module_{0:x}", stableStringHash relPath)
 
     let transformImports (com: IRustCompiler) ctx (imports: Import list): Rust.Item list =
         imports
