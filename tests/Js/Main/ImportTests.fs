@@ -9,6 +9,7 @@ type IFooImported =
 
 #if FABLE_COMPILER
 open Fable.Core
+open Fable.Core.JsInterop
 
 [<Import("*", "./js/1foo.js")>]
 let fooAll: IFooImported = jsNative
@@ -31,6 +32,22 @@ type MyJsClassWithOptionArgs
     [<ParamObject(2)>] member _.method(foo: int, bar: string, baz: float, ?lol: int) = jsNative
 
     [<ImportMember("./js/1foo.js"); ParamObject(2)>] static member myJsMethodWithOptionArgs(foo: int, bar: string, baz: float, ?lol: int) = jsNative
+
+[<AllowNullLiteral>]
+[<Global>]
+type MyJsClassWithOptionsOverload [<ParamObject; Emit("$0")>]
+    private (name: U2<string, ResizeArray<string>>, weight: float) =
+
+    [<ParamObject; Emit("$0")>]
+    new (name: string, weight: float) =
+        MyJsClassWithOptionsOverload(U2.Case1 name, weight)
+
+    [<ParamObject; Emit("$0")>]
+    new (name: ResizeArray<string>, weight: float) =
+        MyJsClassWithOptionsOverload(U2.Case2 name, weight)
+
+    member val name: U2<string, ResizeArray<string>> = jsNative with get, set
+    member val weight: float = jsNative with get, set
 
 type FooOptional =
     abstract Foo1: x: int * ?y: string -> int
@@ -122,6 +139,27 @@ let tests =
     testCase "ParamObject works with imported members" <| fun () ->
         MyJsClassWithOptionArgs.myJsMethodWithOptionArgs(5, baz=4., lol=10, bar="b")
         |> equal "5b410"
+
+    testCase "ParamObject works with overloaded constructors" <| fun () ->
+        // Test first overload
+        let options1 = MyJsClassWithOptionsOverload("foo", 5.)
+        let expected =
+            createObj [
+                "name", "foo"
+                "weight", 5.
+            ] |> unbox<MyJsClassWithOptionsOverload>
+
+        options1 |> equal expected
+
+        // Test second overload
+        let options2 = MyJsClassWithOptionsOverload(ResizeArray ["foo"; "bar"], 5.)
+        let expected =
+            createObj [
+                "name", [|"foo"; "bar"|]
+                "weight", 5.
+            ] |> unbox<MyJsClassWithOptionsOverload>
+
+        options2 |> equal expected
     #endif
 
     testCase "Import with relative paths from project subdirectory works" <| fun () ->
