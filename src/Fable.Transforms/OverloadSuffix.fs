@@ -158,6 +158,9 @@ let getHash (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
     if m.CurriedParameterGroups.Count <> 1 then ""
     else
         let paramTypes = m.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type) |> Seq.toList
+        let paramTypes =
+            if m.CompiledName = "op_Implicit" then paramTypes @ [m.ReturnParameter.Type]
+            else paramTypes
         if hasEmptyOverloadSuffix paramTypes then ""
         else
             // Generics can have different names in signature

@@ -88,15 +88,31 @@ type ToLength = ToLength with
 
 let inline toLen x : string = (Unchecked.defaultof<ToLength> &. x) D1 D2 D3
 
+type MyType =
+    { Field : int}
+    static member op_Implicit(s: MyType):int = s.Field + 2
+    static member op_Implicit(s: MyType):string = $"Field is %i{s.Field}"
+
+#nowarn "3391"
+
 let operatorsForOverloads = [
     testCase "first overload" <| fun () ->
         toLen 1<px>
         |> equal "1px"
+
     testCase "second overload" <| fun () ->
         toLen 1<em>
         |> equal "1em"
+
+    testCase "op_Implicit can be overloaded" <| fun () ->
+        let takeInt(x: int) = x
+        let takeString(x: string) = x
+        let x = { MyType.Field = 5 }
+        // TODO Remove MyType.op_Implicit with F# 6
+        takeInt(MyType.op_Implicit x) |> equal 7
+        takeString(MyType.op_Implicit x) |> equal "Field is 5"
 ]
 
 let tests =
-  testList "Miscellaneous"
+  testList "Custom operators"
     (typeOperators @ moduleOperators @ operatorsAsFunctions @ operatorsForOverloads)
