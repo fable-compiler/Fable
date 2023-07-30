@@ -1076,6 +1076,14 @@ let tests =
         let value = 1.0m
         decimal (bigint value) |> equal value
 
+    testCase "BigInt ToDecimal of Decimal.MinValue works" <| fun () ->
+        let value = Decimal.MinValue
+        decimal (bigint value) |> equal value
+
+    testCase "BigInt ToDecimal of Decimal.MaxValue works" <| fun () ->
+        let value = Decimal.MaxValue
+        decimal (bigint value) |> equal value
+
     testCase "BigInt ToString works" <| fun () ->
         let value = 1234567890
         string (bigint value) |> equal "1234567890"
