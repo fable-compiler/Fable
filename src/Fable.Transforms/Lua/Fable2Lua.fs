@@ -78,9 +78,9 @@ module Transforms =
                 NewObj(equality::pairs)
             else sprintf "Names and values do not match %A %A" names values |> Unknown
     let transformValueKind (com: LuaCompiler) = function
-        | Fable.NumberConstant(:? float as v,kind,_) ->
+        | Fable.NumberConstant(:? float as v,_kind,_) ->
             Const(ConstNumber v)
-        | Fable.NumberConstant(:? int as v,kind,_) ->
+        | Fable.NumberConstant(:? int as v,_kind,_) ->
             Const(ConstInteger v)
         | Fable.StringConstant(s) ->
             Const(ConstString s)
@@ -367,7 +367,7 @@ module Transforms =
 
 
         match decl with
-        | Fable.ModuleDeclaration m ->
+        | Fable.ModuleDeclaration _m ->
             Assignment(["moduleDecTest"], Expr.Const (ConstString "moduledectest"), false)
         | Fable.MemberDeclaration m ->
             if m.Args.Length = 0 then
@@ -382,25 +382,26 @@ module Transforms =
                 FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), unwrapSelfExStatements, info.IsPublic)
         | Fable.ClassDeclaration(d) ->
             com.AddClassDecl d
-            let ent = d.Entity
+            let _ent = d.Entity
+                
+            let transformAttached (memb: Fable.MemberDecl) ctx = 
+                let info =
+                    memb.ImplementedSignatureRef
+                    |> Option.map com.GetMember
+                    |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
+
+                if not memb.IsMangled
+                   && (info.IsGetter || info.IsSetter) then
+                    transformAttachedProperty com ctx info memb
+                else
+                    transformAttachedMethod com ctx info memb
             let classMembers =
                 d.AttachedMembers
                 |> List.collect (fun memb ->
-                    withCurrentScope ctx memb.UsedNames
-                    <| fun ctx ->
-                        let info =
-                            memb.ImplementedSignatureRef
-                            |> Option.map com.GetMember
-                            |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
-
-                        if not memb.IsMangled
-                           && (info.IsGetter || info.IsSetter) then
-                            transformAttachedProperty com ctx info memb
-                        else
-                            transformAttachedMethod com ctx info memb)
+                    withCurrentScope ctx memb.UsedNames <| transformAttached memb)
             match d.Constructor with
                 | Some cons ->
-                    withCurrentScope ctx cons.UsedNames <| fun ctx ->
+                    withCurrentScope ctx cons.UsedNames <| fun _ctx ->
                         Assignment([d.Name], NewArr(classMembers), true)   //transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
                 | None ->
                     Assignment([d.Name], NewArr(classMembers), true)
