@@ -3019,10 +3019,10 @@ module Util =
 
     let getModuleItems (com: IRustCompiler) ctx =
         if isLastFileInProject com then
-            // add all other project files as module imports
+            // add all other source files as module imports
             com.SourceFiles |> Array.iter (fun filePath ->
                 if filePath <> com.CurrentFile then
-                    let relPath = Path.getRelativeFileOrDirPath false com.CurrentFile false filePath
+                    let relPath = Path.getRelativePath com.CurrentFile filePath
                     com.GetImportName(ctx, "*", relPath, None) |> ignore
             )
             let makeModItems (modulePath, moduleName) =
@@ -3379,6 +3379,27 @@ module Util =
         let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
         ctxNext
 
+    let makeFnHeader com ctx (attributes: Fable.Attribute seq): Rust.FnHeader =
+        let isAsync =
+            attributes
+            |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustAsync)
+        let isConst =
+            attributes
+            |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustConst)
+        let isUnsafe =
+            attributes
+            |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustUnsafe)
+        let extOpt =
+            attributes
+            |> Seq.tryPick (fun a ->
+                if a.Entity.FullName = Atts.rustExtern then
+                    match a.ConstructorArgs with
+                    | [] -> Some("")
+                    | [:? string as abi] -> Some(abi)
+                    | _ -> None
+                else None)
+        mkFnHeader isUnsafe isAsync isConst extOpt
+
     let transformNestedFunction com ctx (ident: Fable.Ident) (args: Fable.Ident list) (body: Fable.Expr) usages =
         let name = ident.Name
         let fnDecl, fnBody, genArgs =
@@ -3397,17 +3418,17 @@ module Util =
 
     let transformAttributes com ctx (attributes: Fable.Attribute seq) =
         attributes
-        |> Seq.collect (fun att ->
+        |> Seq.collect (fun a ->
             // Rust outer attributes
-            if att.Entity.FullName = Atts.rustOuterAttr then
-                match att.ConstructorArgs with
+            if a.Entity.FullName = Atts.rustOuterAttr then
+                match a.ConstructorArgs with
                 | [:? string as name] -> [mkAttr name []]
                 | [:? string as name; :? string as value] -> [mkEqAttr name value]
                 | [:? string as name; :? (obj[]) as items] -> [mkAttr name (items |> Array.map string)]
                 | _ -> []
             // translate test methods attributes
             // TODO: support more test frameworks
-            elif att.Entity.FullName.EndsWith(".FactAttribute") then
+            elif a.Entity.FullName.EndsWith(".FactAttribute") then
                 [mkAttr "test" []]
             else []
         )
@@ -3457,6 +3478,7 @@ module Util =
         let macroItem = mkMacroItem attrs macroName [expr]
         [macroItem]
 
+
     let transformModuleFunction (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
         //if name = "someProblematicFunction" then System.Diagnostics.Debugger.Break()
@@ -3471,7 +3493,7 @@ module Util =
             if decl.Body.Type = Fable.Unit
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
-        let header = DEFAULT_FN_HEADER
+        let header = makeFnHeader com ctx memb.Attributes
         let generics = makeGenerics com ctx genArgs
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = transformAttributes com ctx memb.Attributes
@@ -4139,7 +4161,8 @@ module Util =
         modulePath
 
     let getImportModuleName (com: IRustCompiler) (modulePath: string) =
-        System.String.Format("module_{0:x}", stableStringHash modulePath)
+        let relPath = Path.getRelativePath com.CurrentFile modulePath
+        System.String.Format("module_{0:x}", stableStringHash relPath)
 
     let transformImports (com: IRustCompiler) ctx (imports: Import list): Rust.Item list =
         imports
