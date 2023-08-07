@@ -148,6 +148,7 @@ let argLanguage (args: CliArgs) =
     |> (function
     | "js" | "javascript" -> JavaScript
     | "ts" | "typescript" -> TypeScript
+    | "lua" | "Lua" -> Lua
     | "py" | "python" -> Python
     | "php" -> Php
     | "dart" -> Dart
@@ -237,6 +238,7 @@ type Runner =
             | Python -> "FABLE_COMPILER_PYTHON"
             | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
             | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
+            | Lua -> "FABLE_COMPILER_LUA"
         ]
         |> List.distinct
 
@@ -365,6 +367,7 @@ let getStatus = function
     | Rust -> "alpha"
     | Dart -> "beta"
     | Php -> "experimental"
+    | Lua -> "experimental"
 
 let getLibPkgVersion = function
     | JavaScript

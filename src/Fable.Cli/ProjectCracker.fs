@@ -603,6 +603,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
         | JavaScript, None -> "fable-library", "fable-library" + "." + Literals.VERSION
         | Python, None -> "fable-library-py/fable_library", "fable_library"
         | Python, Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
+        | Lua, None -> "fable-library-lua", "fable-library-lua"
         | _, Some path ->
             if path.StartsWith("./") then "", Path.normalizeFullPath path
             elif IO.Path.IsPathRooted(path) then "", Path.normalizePath path
