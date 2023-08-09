@@ -31,10 +31,15 @@ type EntityRef =
         | PrecompiledLib(p,_) -> Some p
         | AssemblyPath _ | CoreAssemblyName _ -> None
 
+type Attribute =
+    abstract Entity: EntityRef
+    abstract ConstructorArgs: obj list
+
 type MemberRefInfo =
     { IsInstance: bool
       CompiledName: string
-      NonCurriedArgTypes: Type list option }
+      NonCurriedArgTypes: Type list option
+      Attributes : Attribute seq }
 
 type MemberRef =
     | MemberRef of declaringEntity: EntityRef * info: MemberRefInfo
@@ -43,10 +48,6 @@ type MemberRef =
 type DeclaredType =
     abstract Entity: EntityRef
     abstract GenericArgs: Type list
-
-type Attribute =
-    abstract Entity: EntityRef
-    abstract ConstructorArgs: obj list
 
 type Field =
     abstract Name: string

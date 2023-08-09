@@ -1534,7 +1534,26 @@ module Util =
             |> Option.map (splitNamedArgs args)
             |> function
             | None -> args, None
-            | Some(args, []) -> args, None
+            | Some(args, []) ->
+                // Detect if the method has a ParamObject attribute
+                // If yes and no argument is passed, pass an empty object
+                // See https://github.com/fable-compiler/Fable/issues/3480
+                match callInfo.MemberRef with
+                | Some (Fable.MemberRef (_, info)) ->
+                    let hasParamObjectAttribute =
+                        info.Attributes
+                        |> Seq.tryFind (fun attr ->
+                            attr.Entity.FullName = Atts.paramObject
+                        )
+                        |> Option.isSome
+
+                    if hasParamObjectAttribute then
+                        args, Some (makeJsObject [])
+                    else
+                        args, None
+                | _ ->
+                    // Here detect empty named args
+                    args, None
             | Some(args, namedArgs) ->
                 let objArg =
                     namedArgs

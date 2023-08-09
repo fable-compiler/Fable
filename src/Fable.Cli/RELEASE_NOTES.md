@@ -1,3 +1,7 @@
+### Unreleased
+
+* Fix #3480: Function decorated with `[<NamedParams>]` without arguments provided should take an empty object
+
 ### 4.1.4
 
 * Fix #3438: Source maps

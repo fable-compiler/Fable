@@ -1694,10 +1694,14 @@ module Util =
                      |> Seq.mapToList (fun p -> makeType Map.empty p.Type)
                      |> Some
                  else None
+
+            let fableMemberFunctionOrValue = FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
+
             Fable.MemberRef(FsEnt.Ref(ent), {
                 CompiledName = memb.CompiledName
                 IsInstance = memb.IsInstanceMember
                 NonCurriedArgTypes = nonCurriedArgTypes
+                Attributes = fableMemberFunctionOrValue.Attributes
             })
         | ent ->
             let entRef = ent |> Option.map FsEnt.Ref
@@ -1712,10 +1716,13 @@ module Util =
         match memb.DeclaringEntity with
         // We cannot retrieve compiler generated members from the entity
         | Some ent when not memb.IsCompilerGenerated ->
+            let fableMemberFunctionOrValue = FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
+
             Fable.MemberRef(FsEnt.Ref(ent), {
                 CompiledName = memb.CompiledName
                 IsInstance = memb.IsInstanceMember
                 NonCurriedArgTypes = None
+                Attributes = fableMemberFunctionOrValue.Attributes
             })
         | ent ->
             let entRef = ent |> Option.map FsEnt.Ref

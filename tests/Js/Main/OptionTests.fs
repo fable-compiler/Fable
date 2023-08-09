@@ -62,6 +62,12 @@ type VeryOptionalClass () =
 type StaticClass =
     [<NamedParams>]
     static member NamedParams(foo: string, ?bar: int) = int foo + (defaultArg bar -3)
+    [<NamedParams>]
+    static member NamedParams(?name : string, ?age: int) =
+        let name = defaultArg name "John"
+        let age = defaultArg age 30
+
+        $"%s{name} is %d{age} years old"
     static member FSharpOptionalParam(?value: bool) = defaultArg value true
     static member FSharpOptionalParam2(?value: unit) = Option.isSome value
     static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
@@ -142,6 +148,7 @@ let tests =
         StaticClass.NamedParams(foo="5", bar=4) |> equal 9
         StaticClass.NamedParams(foo="3", ?bar=Some 4) |> equal 7
         StaticClass.NamedParams(foo="14") |> equal 11
+        StaticClass.NamedParams() |> equal "John is 30 years old"
 
     testCase "F# optional param works" <| fun () ->
         let mutable f1 = fun (v: bool) ->
