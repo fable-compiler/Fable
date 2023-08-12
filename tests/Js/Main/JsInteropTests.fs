@@ -256,6 +256,8 @@ type ClassWithAttachments(v, ?sign) =
     static member GreetingFormat = "Hello {0}"
     static member GetGrettingEnding(times, sign) = String.replicate times sign
     member _.WithSecretSauce(food) = $"{food} with lots of {secretSauce}"
+    member this.Add
+        with get(added : int) = x + added
 
 type ClassWithAttachmentsChild() =
     inherit ClassWithAttachments(3, "?")
@@ -320,6 +322,8 @@ let tests =
         equal 2 x.Times
         x.Times <- 3
         x.SaySomethingTo("Tanaka") |> equal "Hello Tanaka!!!!!"
+        // See https://github.com/fable-compiler/Fable/issues/3494
+        x.Add 2 |> equal 7
 
     testCase "Class with attached members can have static constructors" <| fun _ ->
         let x = ClassWithAttachments(2)

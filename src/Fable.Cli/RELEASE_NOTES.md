@@ -1,6 +1,7 @@
 ### Unreleased
 
 * Fix #3480: Function decorated with `[<NamedParams>]` without arguments provided should take an empty object
+* Fix #3494: Calling an attached parametrized getter fails in transpiled javascript
 
 ### 4.1.4
 

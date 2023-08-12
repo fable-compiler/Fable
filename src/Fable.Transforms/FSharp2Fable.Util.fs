@@ -1832,11 +1832,19 @@ module Util =
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
             Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)
         else
+            // If the entity is decorated with AttachMembers, we need to remove the get/set prefix
+            // See https://github.com/fable-compiler/Fable/issues/3494
+            let membName =
+                if isAttachMembersEntity com entity then
+                    Naming.removeGetSetPrefix info.name
+                else
+                    info.name
+
             let entityGenParamsCount = entity.GenericParameters.Count
             let callInfo =
                 if callInfo.GenericArgs.Length < entityGenParamsCount then callInfo
                 else { callInfo with GenericArgs = List.skip entityGenParamsCount callInfo.GenericArgs }
-            getField callee info.name |> makeCall r typ callInfo
+            getField callee membName |> makeCall r typ callInfo
 
     let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) (thisArg: Fable.Expr option) =
         let msg =

@@ -17,6 +17,16 @@
             "console": "internalConsole"
         },
         {
+            "name": "Quicktest - JavaScript",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+            "args": ["src/quicktest", "--exclude", "Fable.Core", "--noCache"],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole"
+        },
+        {
             "name": "Attach to Node",
             "port": 9229,
             "request": "attach",
