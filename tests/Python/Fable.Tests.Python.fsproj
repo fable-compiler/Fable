@@ -75,6 +75,7 @@
     <Compile Include="TestUri.fs" />
     <Compile Include="TestPyInterop.fs" />
 
+    <Compile Include="TestNonRegression.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

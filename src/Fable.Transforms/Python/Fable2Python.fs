@@ -2223,12 +2223,13 @@ module Util =
         // printfn "transformGet: %A" kind
         // printfn "transformGet: %A" (fableExpr.Type)
 
-        match kind with
-        | Fable.ExprGet (Fable.Value(kind = Fable.StringConstant "length"))
-        | Fable.FieldGet { Name = "length" } ->
+        let inline lenFunctionCall () =
             let func = Expression.name "len"
             let left, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.call (func, [ left ]), stmts
+        match kind with
+        | Fable.ExprGet (Fable.Value(kind = Fable.StringConstant "length")) ->
+            lenFunctionCall ()
         | Fable.FieldGet { Name = "message" } ->
             let func = Expression.name "str"
             let left, stmts = com.TransformAsExpr(ctx, fableExpr)
@@ -2243,25 +2244,29 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
         | Fable.FieldGet i ->
-            //printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
-            let fieldName = i.Name |> Naming.toSnakeCase // |> Helpers.clean
+            // see TestArray.fs/``test Array slice with lower index work`` and https://github.com/fable-compiler/Fable/issues/3496
+            match fableExpr.Type, i.Name with
+            | Fable.AST.Fable.Type.Array _, "length"->
+                lenFunctionCall ()
+            | _ ->
+                //printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
+                let fieldName = i.Name |> Naming.toSnakeCase // |> Helpers.clean
+                let fableExpr =
+                    match fableExpr with
+                    // If we're accessing a virtual member with default implementation (see #701)
+                    // from base class, we can use `super` in JS so we don't need the bound this arg
+                    | Fable.Value (Fable.BaseValue (_, t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
+                    | _ -> fableExpr
 
-            let fableExpr =
-                match fableExpr with
-                // If we're accessing a virtual member with default implementation (see #701)
-                // from base class, we can use `super` in JS so we don't need the bound this arg
-                | Fable.Value (Fable.BaseValue (_, t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
-                | _ -> fableExpr
+                let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
 
-            let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-
-            let subscript =
-                match fableExpr.Type with
-                | Fable.AnonymousRecordType _ -> true
-                | Fable.GenericParam (_, _, [ Fable.Constraint.HasMember (_, false) ]) -> true
-                | _ -> false
-            // printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
-            get com ctx range expr fieldName subscript, stmts
+                let subscript =
+                    match fableExpr.Type with
+                    | Fable.AnonymousRecordType _ -> true
+                    | Fable.GenericParam (_, _, [ Fable.Constraint.HasMember (_, false) ]) -> true
+                    | _ -> false
+                // printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
+                get com ctx range expr fieldName subscript, stmts
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
