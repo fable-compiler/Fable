@@ -72,8 +72,20 @@ let knownCliArgs() = [
                           "(Intended for plugin development)"]
   [], []
   ["--optimize"],        ["Compile with optimized F# AST (experimental)"]
-  ["--lang"; "--language"], ["Compile to JavaScript (default), TypeScript, Php or Python."
-                             "Support for TypeScript, Php and Python is experimental."]
+  ["--lang"; "--language"], ["Choose wich languages to compile to"
+                             ""
+                             "Available options:"
+                             "  - javascript (alias js)"
+                             "  - typescript (alias ts)"
+                             "  - python (alias py)"
+                             "  - rust (alias rs)"
+                             "  - php"
+                             "  - dart"
+                             ""
+                             "Default is javascript"
+                             ""
+                             "Support for TypeScript, Python, Rust, Php and Dart is experimental."
+                             ]
 
   // Hidden args
   ["--precompiledLib"], []
@@ -136,23 +148,34 @@ Arguments:
 let argLanguage (args: CliArgs) =
     args.Value("--lang", "--language")
     |> Option.orElseWith (fun () -> if args.FlagEnabled("--typescript") then Some "ts" else None) // Compatibility with "--typescript"
-    |> Option.map (fun lang -> lang.ToLower())
-    |> Option.defaultWith (fun () ->
-        // Set default language based on name of executing process (fable tool).
-        let proc = System.Reflection.Assembly.GetEntryAssembly().Location
-        match Path.GetFileNameWithoutExtension(proc) with
-        | "fable-py" -> Python
-        | _ -> JavaScript
-        |> string
+    |> Option.map (fun lang ->
+        let lang = lang.ToLower()
+
+        match lang with
+        | "js" | "javascript" -> Ok JavaScript
+        | "ts" | "typescript" -> Ok TypeScript
+        | "py" | "python" -> Ok Python
+        | "php" -> Ok Php
+        | "dart" -> Ok Dart
+        | "rs" | "rust" -> Ok Rust
+        | unknown ->
+            let errorMessage =
+                [
+                    $"'{unknown}' is not a valid language."
+                    ""
+                    "Available options:"
+                    "  - javascript (alias js)"
+                    "  - typescript (alias ts)"
+                    "  - python (alias py)"
+                    "  - rust (alias rs)"
+                    "  - php"
+                    "  - dart"
+                ]
+                |> String.concat "\n"
+
+            Error errorMessage
     )
-    |> (function
-    | "js" | "javascript" -> JavaScript
-    | "ts" | "typescript" -> TypeScript
-    | "py" | "python" -> Python
-    | "php" -> Php
-    | "dart" -> Dart
-    | "rs" | "rust" -> Rust
-    | _ -> JavaScript)
+    |> Option.defaultValue (Ok JavaScript)
 
 type Runner =
   static member Run(args: CliArgs, language: Language, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?precompile) = result {
@@ -400,7 +423,7 @@ let main argv =
             | argv -> argv |> List.splitWhile (fun x -> x.StartsWith("-") |> not)
 
         let! args = parseCliArgs args
-        let language = argLanguage args
+        let! language = argLanguage args
         Compiler.SetLanguageUnsafe language
 
         let rootDir =

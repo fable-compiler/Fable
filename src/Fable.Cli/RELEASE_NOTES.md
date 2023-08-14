@@ -2,6 +2,9 @@
 
 * Fix #3480: Function decorated with `[<NamedParams>]` without arguments provided should take an empty object
 * Fix #3494: Calling an attached parametrized getter fails in transpiled javascript
+* Remove fable-py support
+* Fix #3461: Don't default to javascript if the language requested by the user is unknown (help detect typo)
+* Improve --help message for the --lang section
 
 ### 4.1.4
 
