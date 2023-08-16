@@ -8,6 +8,7 @@
 * Fix #3464: Invalidate cache when the target language changes
 * Always delete the `fable_modules` folder when the cache is invalidated
 * Remove `--typescript` options support, use `--lang <target>` instead
+* Fix #3441: Don't ignore error when loading plugin
 
 ### 4.1.4
 
