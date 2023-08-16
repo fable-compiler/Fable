@@ -5,6 +5,8 @@
 * Remove fable-py support
 * Fix #3461: Don't default to javascript if the language requested by the user is unknown (help detect typo)
 * Improve --help message for the --lang section
+* Fix #3464: Invalidate cache when the target language changes
+* Always delete the `fable_modules` folder when the cache is invalidated
 
 ### 4.1.4
 

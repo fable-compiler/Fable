@@ -722,6 +722,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
             cacheInfo.Version = Literals.VERSION
             && cacheInfo.Exclude = opts.Exclude
+            && cacheInfo.FableOptions.Language = opts.FableOptions.Language
             && (
                 [
                     cacheInfo.ProjectPath
@@ -788,6 +789,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
+
+        // The cache was considered outdated / invalid so it is better to make
+        // make sure we have are in a clean state
+        if IO.Directory.Exists(opts.FableModulesDir) then
+            IO.Directory.Delete(opts.FableModulesDir, true)
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
