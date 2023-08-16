@@ -276,7 +276,6 @@ let run opts projectFileName outDir =
         sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
         typedArrays = opts |> tryFlag "--typedArrays"
         language = opts |> argValue ["--language"; "--lang"]
-                        |> Option.orElse (tryFlag "--typescript" opts
                         |> Option.map (fun _ -> "TypeScript"))
                         |> Option.defaultValue "JavaScript"
         printAst = opts |> hasFlag "--printAst"
@@ -297,7 +296,6 @@ Options:
   --typedArrays     Compile numeric arrays as JS typed arrays (default is true for JS, false for TS)
   --run             Execute the script after compilation
 
-  --typescript      Compile to TypeScript (experimental)
   --optimize        Compile with optimized F# AST (experimental)
 """
 

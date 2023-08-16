@@ -92,7 +92,6 @@ let knownCliArgs() = [
   ["--printAst"], []
   ["--noReflection"], []
   ["--noParallelTypeCheck"], []
-  ["--typescript"], []
   ["--trimRootModule"], []
   ["--fableLib"], []
   ["--replace"], []
@@ -147,7 +146,6 @@ Arguments:
 
 let argLanguage (args: CliArgs) =
     args.Value("--lang", "--language")
-    |> Option.orElseWith (fun () -> if args.FlagEnabled("--typescript") then Some "ts" else None) // Compatibility with "--typescript"
     |> Option.map (fun lang ->
         let lang = lang.ToLower()
 

@@ -1,3 +1,7 @@
+### Unreleased
+
+* Remove `--typescript` options support, use `--lang <target>` instead
+
 ### 3.0.1
 
 * Reduced package dependencies

@@ -92,7 +92,6 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
         let nonFSharpOptions = set [
             "--typedArrays"
             "--clampByteArrays"
-            "--typescript"
             "--sourceMaps"
         ]
         let fableOptions, otherFSharpOptions =

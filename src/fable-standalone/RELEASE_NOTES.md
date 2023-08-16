@@ -1,3 +1,7 @@
+### Unreleased
+
+* Remove `--typescript` options support, use `--lang <target>` instead
+
 ### 3.2.11
 
 * Enable Fable.Repl.Lib

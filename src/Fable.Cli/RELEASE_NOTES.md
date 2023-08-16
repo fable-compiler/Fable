@@ -7,6 +7,7 @@
 * Improve --help message for the --lang section
 * Fix #3464: Invalidate cache when the target language changes
 * Always delete the `fable_modules` folder when the cache is invalidated
+* Remove `--typescript` options support, use `--lang <target>` instead
 
 ### 4.1.4
 

@@ -113,7 +113,6 @@ function main() {
     commonjs: process.argv.find(v => v === "--commonjs") != null,
     sourceMaps: process.argv.find(v => v === "--sourceMaps") != null,
     classTypes: process.argv.find(v => v === "--classTypes") != null,
-    typescript: process.argv.find(v => v === "--typescript") != null,
   };
 
   const babelOptions = options.commonjs ?
