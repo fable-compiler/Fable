@@ -52,6 +52,11 @@ type CacheInfo =
 
     member this.Write() =
         let path = CacheInfo.GetPath(this.FableModulesDir, this.FableOptions.DebugMode)
+
+        // Ensure the destination folder exists
+        if not (IO.File.Exists path) then
+            IO.Directory.CreateDirectory(IO.Path.GetDirectoryName path) |> ignore
+
         Json.write path this
 
     /// Checks if there's also cache info for the alternate build mode (Debug/Release) and whether is more recent
@@ -106,9 +111,8 @@ type CrackerOptions(cliArgs: CliArgs) =
             |> CrackerOptions.GetFableModulesFromDir
 
         if noCache then
-            try
+            if IO.Directory.Exists(fableModulesDir) then
                 IO.Directory.Delete(fableModulesDir, recursive=true)
-            with _ -> ()
 
         if File.isDirectoryEmpty fableModulesDir then
             IO.Directory.CreateDirectory(fableModulesDir) |> ignore
