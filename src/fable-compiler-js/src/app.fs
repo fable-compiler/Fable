@@ -276,7 +276,7 @@ let run opts projectFileName outDir =
         sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
         typedArrays = opts |> tryFlag "--typedArrays"
         language = opts |> argValue ["--language"; "--lang"]
-                        |> Option.map (fun _ -> "TypeScript"))
+                        |> Option.map (fun _ -> "TypeScript")
                         |> Option.defaultValue "JavaScript"
         printAst = opts |> hasFlag "--printAst"
         // watch = opts |> hasFlag "--watch"
