@@ -48,9 +48,13 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                                         ]
                                         |> String.concat "\n"
 
+                                    #if FABLE_COMPILER
+                                    eprintfn "%s" errorMessage
+                                    #else
                                     Console.ForegroundColor <- ConsoleColor.DarkRed
                                     Console.Error.WriteLine(errorMessage)
                                     Console.ResetColor()
+                                    #endif
                                     raise ex
 
                     assemblies.Add(path, asm)
