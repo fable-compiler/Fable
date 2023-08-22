@@ -18,6 +18,8 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
 
     let plugins =
         let plugins = Dictionary<Fable.EntityRef, System.Type>()
+        let mutable hasSkippedAssembly = false
+
         for asm in fsharpAssemblies do
             match asm.FileName with
             | Some path ->
@@ -28,8 +30,23 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                     coreAssemblies.Add(asmName, asm)
                 else
                     let scanForPlugins =
-                        asm.Contents.Attributes |> Seq.exists (fun attr ->
-                            attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
+                        try
+                            asm.Contents.Attributes |> Seq.exists (fun attr ->
+                                attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
+                        with
+                            | _ ->
+                                // To help identify problem, log information about the exception
+                                // but keep the process going to mimic previous Fable behavior
+                                // and because these exception seems harmless
+                                let errorMessage =
+                                    $"Could not scan {path} for Fable plugins, skipping this assembly"
+
+                                Console.ForegroundColor <- ConsoleColor.Gray
+                                Console.Error.WriteLine(errorMessage)
+                                Console.ResetColor()
+                                hasSkippedAssembly <- true
+                                false
+
                     if scanForPlugins then
                         for e in asm.Contents.Entities do
                             if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
@@ -42,7 +59,7 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                                             $"Error while loading plugin: {e.FullName}"
                                             ""
                                             "This error often happens if you are trying to use a plugin that is not compatible with the current version of Fable."
-                                            ""
+
                                             "If you see this error please open an issue at https://github.com/fable-compiler/Fable/"
                                             "so we can check if we can improve the plugin detection mechanism."
                                         ]
@@ -59,6 +76,10 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
 
                     assemblies.Add(path, asm)
             | None -> ()
+
+        // Add a blank line to separate the error message from the rest of the output
+        if hasSkippedAssembly then
+            Console.WriteLine()
 
         ({ MemberDeclarationPlugins = Map.empty }, plugins)
         ||> Seq.fold (fun acc kv ->

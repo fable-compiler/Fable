@@ -10,19 +10,17 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="7.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
-    <PackageReference Include="XUnit" Version="2.4.2" />
+    <PackageReference Include="XUnit" Version="2.5.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="FSharp.UMX" Version="1.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Js/Main/Globs/*.fs" />
