@@ -352,10 +352,7 @@ module Process =
             psi.EnvironmentVariables.[key] <- value
         psi.WorkingDirectory <- workingDir
         psi.CreateNoWindow <- false
-        // This is needed in order to load the users profile
-        // For example, on OSX Python is installed as python3
-        // and user often alias it to python in their profile
-        psi.UseShellExecute <- true
+        psi.UseShellExecute <- false
         psi.RedirectStandardOutput <- redirectOutput
 
         // TODO: Make this output no logs if we've set silent verbosity
