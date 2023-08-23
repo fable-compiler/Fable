@@ -8,28 +8,32 @@ int signedRound(double value) {
 // double getFractionalPart(double num) =>
 //   num.remainder(signedRound(num));
 
-Duration create(double days, double hours, double minutes, double seconds, [double milliseconds = 0]) {
-  double totalMicroseconds = days * 86400000000.0 + hours * 3600000000.0 + minutes * 60000000.0 + seconds * 1000000.0 + milliseconds * 1000.0;
+Duration create(double days, double hours, double minutes, double seconds,
+    [double milliseconds = 0]) {
+  double totalMicroseconds = days * 86400000000.0 +
+      hours * 3600000000.0 +
+      minutes * 60000000.0 +
+      seconds * 1000000.0 +
+      milliseconds * 1000.0;
   return Duration(microseconds: totalMicroseconds.toInt());
 }
 
 Duration fromDays(double v) =>
-  Duration(microseconds: (v * 86400000000.0).toInt());
+    Duration(microseconds: (v * 86400000000.0).toInt());
 
 Duration fromHours(double v) =>
-  Duration(microseconds: (v * 3600000000.0).toInt());
+    Duration(microseconds: (v * 3600000000.0).toInt());
 
 Duration fromMinutes(double v) =>
-  Duration(microseconds: (v * 60000000.0).toInt());
+    Duration(microseconds: (v * 60000000.0).toInt());
 
 Duration fromSeconds(double v) =>
-  Duration(microseconds: (v * 1000000.0).toInt());
+    Duration(microseconds: (v * 1000000.0).toInt());
 
 Duration fromMilliseconds(double milliseconds) =>
-  Duration(microseconds: (milliseconds * 1000.0).toInt());
+    Duration(microseconds: (milliseconds * 1000.0).toInt());
 
-Duration fromTicks(int ticks) =>
-  Duration(microseconds: ticks ~/ 10);
+Duration fromTicks(int ticks) => Duration(microseconds: ticks ~/ 10);
 
 int days(Duration ts) => ts.inDays;
 int hours(Duration ts) => ts.inHours - (ts.inDays * 24);
