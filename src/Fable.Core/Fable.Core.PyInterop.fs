@@ -30,12 +30,12 @@ let ($) (callee: obj) (args: obj): 'a = nativeOnly
 let (==>) (key: string) (v: obj): string*obj = nativeOnly
 
 /// Destructure a tuple of arguments and applies to literal Python code as with EmitAttribute.
-/// E.g. `emitExpr (arg1, arg2) "$0 + $1"` in Python becomes `arg1 + arg2`
-let emitExpr<'T> (args: obj) (pyCode: string): 'T = nativeOnly
+/// E.g. `emitPyExpr (arg1, arg2) "$0 + $1"` in Python becomes `arg1 + arg2`
+let emitPyExpr<'T> (args: obj) (pyCode: string): 'T = nativeOnly
 
-/// Same as emitExpr but intended for Python code that must appear in a statement position
-/// E.g. `emitStatement aValue "while($0 < 5) doSomething()"`
-let emitStatement<'T> (args: obj) (pyCode: string): 'T = nativeOnly
+/// Same as emitPyExpr but intended for Python code that must appear in a statement position
+/// E.g. `emitPyStatement aValue "while($0 < 5) doSomething()"`
+let emitPyStatement<'T> (args: obj) (pyCode: string): 'T = nativeOnly
 
 /// Create a literal Python object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in Python becomes `{ a: 5 }`

@@ -48,10 +48,6 @@ type ReferenceTypeAttribute(pointerType: PointerType) =
 type UnsafeAttribute() =
     inherit Attribute()
 
-/// Destructure a tuple of arguments and apply them to literal code as with EmitAttribute.
-/// E.g. `emitExpr (arg1, arg2) "$0 + $1"` becomes `arg1 + arg2`
-let emitExpr<'T> (args: obj) (code: string): 'T = nativeOnly
-
 /// Works like `ImportAttribute` (same semantics as Dart imports).
 /// You can use "*" selector.
 let import<'T> (selector: string) (path: string): 'T = nativeOnly

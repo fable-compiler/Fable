@@ -704,16 +704,19 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | _ -> None
-    | "Fable.Core.JsInterop", "op_BangHat"-> List.tryHead args
+    | "Fable.Core.RustInterop", "op_BangHat"-> List.tryHead args
+    | "Fable.Core.RustInterop", _ ->
+        match i.CompiledName, args with
+        | "emitRustExpr", [args; RequireStringConstOrTemplate com ctx r template] ->
+            let args = destructureTupleArgs [args]
+            emitTemplate r t args false template |> Some
+        | _ -> None
     | "Fable.Core.Rust", _ ->
         match i.CompiledName, args with
         | "import", [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] ->
             makeImportUserGenerated r t selector path |> Some
         | "importAll", [RequireStringConst com ctx r path] ->
             makeImportUserGenerated r t "*" path |> Some
-        | "emitExpr", [args; RequireStringConstOrTemplate com ctx r template] ->
-            let args = destructureTupleArgs [args]
-            emitTemplate r t args false template |> Some
         | _ -> None
     | _ -> None
 
