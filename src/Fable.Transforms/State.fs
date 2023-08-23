@@ -41,9 +41,14 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                                 let errorMessage =
                                     $"Could not scan {path} for Fable plugins, skipping this assembly"
 
+                                #if !FABLE_COMPILER
                                 Console.ForegroundColor <- ConsoleColor.Gray
-                                Console.Error.WriteLine(errorMessage)
+                                #endif
+                                Console.WriteLine(errorMessage)
+                                #if !FABLE_COMPILER
                                 Console.ResetColor()
+                                #endif
+
                                 hasSkippedAssembly <- true
                                 false
 
@@ -65,13 +70,14 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                                         ]
                                         |> String.concat "\n"
 
-                                    #if FABLE_COMPILER
-                                    eprintfn "%s" errorMessage
-                                    #else
+                                    #if !FABLE_COMPILER
                                     Console.ForegroundColor <- ConsoleColor.DarkRed
-                                    Console.Error.WriteLine(errorMessage)
+                                    #endif
+                                    Console.WriteLine(errorMessage)
+                                    #if !FABLE_COMPILER
                                     Console.ResetColor()
                                     #endif
+
                                     raise ex
 
                     assemblies.Add(path, asm)
