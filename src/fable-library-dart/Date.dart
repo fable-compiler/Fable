@@ -217,8 +217,13 @@ DateTime add(DateTime d, Duration ts) {
     final oldTzOffset = d.timeZoneOffset;
     final newTzOffset = newDate.timeZoneOffset;
     return oldTzOffset != newTzOffset
-      ? newDate.add(newTzOffset - oldTzOffset)
-      : newDate;
+        // Maxime Mangel: I am not sure why but the next line needs to have
+        // different reversed compared to other languages implementations
+        // Without that, I have an error on the test "Adding days to a local date works even if daylight saving time changes"
+        // when executing from Europe/Paris timezone
+        // If this breaks another timezone, we need to investigate for a more robust detection
+        ? newDate.add(oldTzOffset - newTzOffset)
+        : newDate;
   } else {
     return newDate;
   }
