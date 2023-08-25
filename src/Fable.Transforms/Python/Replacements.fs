@@ -867,14 +867,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | _ -> None
-    | "Fable.Core.Py", ("python" | "expr_python" as meth) ->
-        let isStatement = meth <> "expr_python"
-        match args with
-        | RequireStringConstOrTemplate com ctx r template::_ ->
-            emitTemplate r t [] isStatement template  |> Some
-        | _ -> None
-    | "Fable.Core.PyInterop", _
-    | "Fable.Core.JsInterop", _ ->
+    | "Fable.Core.PyInterop", _ ->
         match i.CompiledName, args with
         | Naming.StartsWith "import" suffix, _ ->
             match suffix, args with
@@ -918,7 +911,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 "$0($1...)"
             |> emitExpr r t (callee :: args)
             |> Some
-        | Naming.StartsWith "emit" rest, [ args; macro ] ->
+        | Naming.StartsWith "emitPy" rest, [ args; macro ] ->
             match macro with
             | RequireStringConstOrTemplate com ctx r template ->
                 let args = destructureTupleArgs [ args ]

@@ -1,3 +1,11 @@
+### Unreleased
+
+* Fix #3482: Remove `Py.python` and `Py.expr_python`
+* Add `!^` to `Fable.Core.RustInterop` module
+* Fix #3484: Rename `emitStatement` to `emitPyStatement` in `PyInterop`
+* Fix #3484: Rename `emitExpr` to `emitPyExpr` in `PyInterop`
+* Fix #3484: Replace `Rust.emitExpr` with `RustInterop.emitRustExpr`
+
 ### 4.0.0
 
 * Fable 4 stable

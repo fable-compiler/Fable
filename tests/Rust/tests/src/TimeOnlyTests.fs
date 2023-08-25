@@ -161,7 +161,9 @@ let ``ToString works`` () =
     let t1 = TimeOnly (5, 0, 2, 22)
     let t2 = TimeOnly (14, 2)
 
-    t2.ToString() |> equal "14:02"
+    // Disabled because depending on the CurrentCulture the result can be different
+    // Is it possible to use an env variable to set the culture?
+    // t2.ToString() |> equal "14:02"
 
     t1.ToString(CultureInfo.InvariantCulture) |> equal "05:00"
     t2.ToString(CultureInfo.InvariantCulture) |> equal "14:02"

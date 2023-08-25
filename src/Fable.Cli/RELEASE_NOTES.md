@@ -9,6 +9,8 @@
 * Always delete the `fable_modules` folder when the cache is invalidated
 * Remove `--typescript` options support, use `--lang <target>` instead
 * Fix #3441: Don't ignore error when loading plugin
+* Fix #3482: Remove `Py.python` and `Py.expr_python` use `emitPyStatement` and `emitPyExpr` instead
+* Restrict replacements to accept only functions from their target language module
 
 ### 4.1.4
 

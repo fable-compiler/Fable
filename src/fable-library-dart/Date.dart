@@ -33,7 +33,8 @@ void _assertNonUnspecified(int kind) {
   }
 }
 
-final _parseFormat = RegExp(r'^\+?(?<date>(?<date1>\d+)[\/\-.](?<date2>\d+)(?:[\/\-.](?<date3>\d+))?(?:T|\s+))?(?<time>\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*(?<ampm>[AaPp][Mm])?\s*(?<offset>Z|[+-](?<offsethours>[01]?\d):?(?<offsetminutes>[0-5]?\d)?)?$');
+final _parseFormat = RegExp(
+    r'^\+?(?<date>(?<date1>\d+)[\/\-.](?<date2>\d+)(?:[\/\-.](?<date3>\d+))?(?:T|\s+))?(?<time>\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*(?<ampm>[AaPp][Mm])?\s*(?<offset>Z|[+-](?<offsethours>[01]?\d):?(?<offsetminutes>[0-5]?\d)?)?$');
 
 DateTime parse(String input) {
   input = input.trim();
@@ -106,17 +107,18 @@ DateTime parse(String input) {
     utc = true;
     if (offset.toUpperCase() != "Z") {
       final offsetMinutes = m.namedGroup("offsetminutes");
-      offsetTotalMinutes =
-        int.parse(m.namedGroup("offsethours")!) * 60
-        + (offsetMinutes != null ? int.parse(offsetMinutes) : 0);
+      offsetTotalMinutes = int.parse(m.namedGroup("offsethours")!) * 60 +
+          (offsetMinutes != null ? int.parse(offsetMinutes) : 0);
       if (offset.startsWith("-")) {
         offsetTotalMinutes = -offsetTotalMinutes;
       }
     }
   }
 
-  final parsedDate = utc ? DateTime.utc(year, month, day, hours, minutes, secondsInt, 0, microSeconds) :
-    DateTime(year, month, day, hours, minutes, secondsInt, 0, microSeconds);
+  final parsedDate = utc
+      ? DateTime.utc(
+          year, month, day, hours, minutes, secondsInt, 0, microSeconds)
+      : DateTime(year, month, day, hours, minutes, secondsInt, 0, microSeconds);
 
   // DateTime will be UTC in this case so it's safe to add time, see:
   // https://medium.com/pinch-nl/datetime-and-daylight-saving-time-in-dart-9c9468633b5d
@@ -137,7 +139,11 @@ bool tryParse(String input, types.FSharpRef<DateTime> defaultValue) {
 }
 
 DateTime create(int year, int month, int day,
-    [int hour = 0, int min = 0, int sec = 0, int millisec = 0, int kind = DateTimeKind.Local]) {
+    [int hour = 0,
+    int min = 0,
+    int sec = 0,
+    int millisec = 0,
+    int kind = DateTimeKind.Local]) {
   _assertNonUnspecified(kind);
   return kind == DateTimeKind.Utc
       ? DateTime.utc(year, month, day, hour, min, sec, millisec)
@@ -150,11 +156,18 @@ DateTime specifyKind(DateTime d, int kind) {
 }
 
 Duration timeOfDay(DateTime d) {
-  return Duration(hours: d.hour, minutes: d.minute, seconds: d.second, milliseconds: d.millisecond, microseconds: d.microsecond);
+  return Duration(
+      hours: d.hour,
+      minutes: d.minute,
+      seconds: d.second,
+      milliseconds: d.millisecond,
+      microseconds: d.microsecond);
 }
 
 DateTime date(DateTime d) {
-  return d.isUtc ? DateTime.utc(d.year, d.month, d.day) : DateTime(d.year, d.month, d.day);
+  return d.isUtc
+      ? DateTime.utc(d.year, d.month, d.day)
+      : DateTime(d.year, d.month, d.day);
 }
 
 int year(DateTime d) => d.year;
@@ -184,8 +197,10 @@ DateTime addYears(DateTime d, int v) {
   final _daysInMonth = daysInMonth(newYear, newMonth);
   final newDay = math.min(_daysInMonth, d.day);
   return d.isUtc
-      ? DateTime.utc(newYear, newMonth, newDay, d.hour, d.minute, d.second, d.millisecond, d.microsecond)
-      : DateTime(newYear, newMonth, newDay, d.hour, d.minute, d.second, d.millisecond, d.microsecond);
+      ? DateTime.utc(newYear, newMonth, newDay, d.hour, d.minute, d.second,
+          d.millisecond, d.microsecond)
+      : DateTime(newYear, newMonth, newDay, d.hour, d.minute, d.second,
+          d.millisecond, d.microsecond);
 }
 
 DateTime addMonths(DateTime d, int v) {
@@ -207,8 +222,10 @@ DateTime addMonths(DateTime d, int v) {
   final _daysInMonth = daysInMonth(newYear, newMonth);
   final newDay = math.min(_daysInMonth, d.day);
   return d.isUtc
-      ? DateTime.utc(newYear, newMonth, newDay, d.hour, d.minute, d.second, d.millisecond, d.microsecond)
-      : DateTime(newYear, newMonth, newDay, d.hour, d.minute, d.second, d.millisecond, d.microsecond);
+      ? DateTime.utc(newYear, newMonth, newDay, d.hour, d.minute, d.second,
+          d.millisecond, d.microsecond)
+      : DateTime(newYear, newMonth, newDay, d.hour, d.minute, d.second,
+          d.millisecond, d.microsecond);
 }
 
 DateTime add(DateTime d, Duration ts) {
@@ -217,8 +234,13 @@ DateTime add(DateTime d, Duration ts) {
     final oldTzOffset = d.timeZoneOffset;
     final newTzOffset = newDate.timeZoneOffset;
     return oldTzOffset != newTzOffset
-      ? newDate.add(newTzOffset - oldTzOffset)
-      : newDate;
+        // Maxime Mangel: I am not sure why but the next line needs to have
+        // different reversed compared to other languages implementations
+        // Without that, I have an error on the test "Adding days to a local date works even if daylight saving time changes"
+        // when executing from Europe/Paris timezone
+        // If this breaks another timezone, we need to investigate for a more robust detection
+        ? newDate.add(oldTzOffset - newTzOffset)
+        : newDate;
   } else {
     return newDate;
   }
@@ -229,7 +251,8 @@ DateTime subtract(DateTime d, Duration ts) {
 }
 
 Duration subtractDate(DateTime d1, DateTime d2) {
-  return Duration(microseconds: d1.microsecondsSinceEpoch - d2.microsecondsSinceEpoch);
+  return Duration(
+      microseconds: d1.microsecondsSinceEpoch - d2.microsecondsSinceEpoch);
 }
 
 int compare(DateTime dt1, DateTime dt2) {
@@ -240,7 +263,8 @@ DateTime addDays(DateTime d, double v) => add(d, timespan.fromDays(v));
 DateTime addHours(DateTime d, double v) => add(d, timespan.fromHours(v));
 DateTime addMinutes(DateTime d, double v) => add(d, timespan.fromMinutes(v));
 DateTime addSeconds(DateTime d, double v) => add(d, timespan.fromSeconds(v));
-DateTime addMilliseconds(DateTime d, double v) => add(d, timespan.fromMilliseconds(v));
+DateTime addMilliseconds(DateTime d, double v) =>
+    add(d, timespan.fromMilliseconds(v));
 DateTime addTicks(DateTime d, int v) => add(d, Duration(microseconds: v ~/ 10));
 
 DateTime now() {
@@ -256,10 +280,9 @@ DateTime today() {
 }
 
 bool isLeapYear(int year) =>
-  year % 4 == 0 && year % 100 != 0 || year % 400 == 0;
+    year % 4 == 0 && year % 100 != 0 || year % 400 == 0;
 
-int daysInMonth(int year, int month) =>
-  month == 2
+int daysInMonth(int year, int month) => month == 2
     ? (isLeapYear(year) ? 29 : 28)
     : (month >= 8 ? (month % 2 == 0 ? 31 : 30) : (month % 2 == 0 ? 30 : 31));
 
@@ -283,8 +306,9 @@ String dateOffsetToString(Duration offset) {
   final hours = offsetMinutes ~/ 3600000;
   final minutes = (offsetMinutes % 3600000) ~/ 60000;
   return (isMinus ? "-" : "+") +
-    util.padWithZeros(hours, 2) + ":" +
-    util.padWithZeros(minutes, 2);
+      util.padWithZeros(hours, 2) +
+      ":" +
+      util.padWithZeros(minutes, 2);
 }
 
 String toDateOnlyString(DateTime date) {
@@ -294,7 +318,7 @@ String toDateOnlyString(DateTime date) {
 
 String toTimeOnlyString(DateTime date) {
   final str = date.toIso8601String();
-  return str.substring(str.indexOf("T") + 1, str.length - (date.isUtc ?  1 : 0));
+  return str.substring(str.indexOf("T") + 1, str.length - (date.isUtc ? 1 : 0));
 }
 
 String dateToISOString(DateTime d, [bool? utc]) {
@@ -304,8 +328,8 @@ String dateToISOString(DateTime d, [bool? utc]) {
     d = utc ? d.toUtc() : d.toLocal();
   }
   return utc
-    ? d.toIso8601String()
-    : d.toIso8601String() + dateOffsetToString(d.timeZoneOffset * -60000);
+      ? d.toIso8601String()
+      : d.toIso8601String() + dateOffsetToString(d.timeZoneOffset * -60000);
 }
 
 String dateToStringWithCustomFormat(DateTime date, String format, [bool? utc]) {
@@ -318,21 +342,37 @@ String dateToStringWithCustomFormat(DateTime date, String format, [bool? utc]) {
     switch (matchValue.substring(0, 1)) {
       case "y":
         final y = date.year;
-        rep = matchValue.length < 4 ? y % 100 : y; break;
-      case "M": rep = date.month; break;
-      case "d": rep = date.day; break;
-      case "H": rep = date.hour; break;
+        rep = matchValue.length < 4 ? y % 100 : y;
+        break;
+      case "M":
+        rep = date.month;
+        break;
+      case "d":
+        rep = date.day;
+        break;
+      case "H":
+        rep = date.hour;
+        break;
       case "h":
         final h = date.hour;
-        rep = h > 12 ? h % 12 : h; break;
-      case "m": rep = date.minute; break;
-      case "s": rep = date.second; break;
-      case "f": rep = date.millisecond; break;
+        rep = h > 12 ? h % 12 : h;
+        break;
+      case "m":
+        rep = date.minute;
+        break;
+      case "s":
+        rep = date.second;
+        break;
+      case "f":
+        rep = date.millisecond;
+        break;
     }
     if (rep == null) {
       return matchValue;
     } else {
-      return (rep < 10 && matchValue.length > 1) ? "0" + rep.toString() : "" + rep.toString();
+      return (rep < 10 && matchValue.length > 1)
+          ? "0" + rep.toString()
+          : "" + rep.toString();
     }
   });
 }
@@ -342,11 +382,14 @@ String toString(DateTime date, [String? format]) {
     return date.toString();
   } else if (format.length == 1) {
     switch (format) {
-      case "D": case "d":
+      case "D":
+      case "d":
         return toDateOnlyString(date);
-      case "T": case "t":
+      case "T":
+      case "t":
         return toTimeOnlyString(date);
-      case "O": case "o":
+      case "O":
+      case "o":
         return dateToISOString(date);
       default:
         throw Exception("Unrecognized Date print format");

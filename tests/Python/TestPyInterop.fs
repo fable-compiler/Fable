@@ -133,4 +133,33 @@ let ``test Decorators work`` () =
         "LOG2: called 2 time(s)!"
     ]
 
+
+[<Fact>]
+let ``test emitPyExpr works with parameters`` () =
+    let two : int =
+        emitPyExpr (1, 1) "$0 + $1"
+
+    two |> equal 2
+
+[<Fact>]
+let ``test emitPyExpr works without parameters`` () =
+    let hello : string =
+        emitPyExpr () "\"Hello\""
+
+    hello |> equal "Hello"
+
+// This function needs to be at the root level to avoid being mangled
+let factorial (count : int) : int =
+    emitPyStatement
+        count
+        """if $0 < 2:
+        return 1
+    else:
+        return $0 * factorial($0-1)
+    """
+
+[<Fact>]
+let ``test emitPyStatement works with parameters`` () =
+    factorial 5 |> equal 120
+
 #endif

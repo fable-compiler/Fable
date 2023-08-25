@@ -2,6 +2,8 @@ module Fable.Tests.InteropTests
 
 #if FABLE_COMPILER
 open Fable.Core
+open Fable.Core.Rust
+open Fable.Core.RustInterop
 
 module Subs =
     [<Emit("$0 + $1")>]
@@ -128,5 +130,27 @@ let ``Bindings with Emit on interfaces works`` () =
     let res, elapsed = measureTime (fun () -> 2 + 2)
     res |> equal 4
     elapsed > 0 |> equal true
+
+[<Fact>]
+let ``test emitRustExpr works without parameters`` () =
+    let hello : string =
+        emitRustExpr () "string(\"Hello\")"
+
+    hello |> equal "Hello"
+
+// This function needs to be at the root level to avoid being mangled
+let factorial (count : int) : int =
+    emitRustExpr
+        count
+        """match $0 {
+        0 => 1,
+        1 => 1,
+        _ => factorial($0 - 1) * $0,
+    }
+    """
+
+[<Fact>]
+let ``test emitRustExpr works with parameters`` () =
+    factorial 5 |> equal 120
 
 #endif
