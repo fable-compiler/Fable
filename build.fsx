@@ -1,4 +1,4 @@
-#r "nuget: Fun.Build, 0.4.2"
+#r "nuget: Fun.Build, 0.5.1"
 #r "nuget: Fake.IO.FileSystem, 5.23.1"
 #r "nuget: Fake.Core.Environment, 5.23.1"
 #r "nuget: Fake.Tools.Git, 5.23.1"
@@ -12,54 +12,135 @@ open Fake.IO
 open BlackFox.CommandLine
 open FsToolkit.ErrorHandling
 
-let (</>) (p1: string) (p2: string): string =
-    Path.Combine(p1, p2)
+module Commands =
 
-type Cmd =
+    let isWatch =
+        CmdArg.Create(
+            "-w",
+            "--watch",
+            "Watch for changes and recompile",
+            isOptional = true
+        )
 
-    static member fable (?argsBuilder : CmdLine -> CmdLine) : CmdLine =
-        let argsBuilder = defaultArg argsBuilder id
-        // Use absolute path so we can invoke the command from anywhere
-        let localFableDir = __SOURCE_DIRECTORY__ </> "src" </> "Fable.Cli"
+module TypeScript =
 
-        CmdLine.empty
-        |> CmdLine.appendRaw "dotnet"
-        |> CmdLine.appendRaw "run"
-        |> CmdLine.appendPrefix "-c" "Release"
-        |> CmdLine.appendPrefix "--project" localFableDir
-        |> CmdLine.appendRaw "--"
-        |> argsBuilder
+    let fableBuildDest = "build/tests/TypeScript"
+    let typeScriptBuildDest = "build/tests/TypeScriptCompiled"
+    let projectDir = "tests/TypeScript"
 
+    module Stages =
 
-    static member node (?argsBuilder : CmdLine -> CmdLine) : CmdLine =
-        let argsBuilder = defaultArg argsBuilder id
+        let compileAndTestInWatchMode =
+            stage "" {
+                whenCmdArg Commands.isWatch
 
-        CmdLine.empty
-        |> CmdLine.appendRaw "node"
-        |> argsBuilder
+                stage "Pre-compile" {
+                    // We need to first pre-compile for TypeScript and Mocha to
+                    // start in watch mode
+                    // Could use NPM script, but doing the pre-compilation allow
+                    // to have the full build system in a single place
+                    run (fun _ ->
+                        let args =
+                            CmdLine.appendRaw projectDir
+                            >> CmdLine.appendPrefix "--outDir" fableBuildDest
+                            >> CmdLine.appendPrefix "--lang" "typescript"
+                            >> CmdLine.appendPrefix "--exclude" "Fable.Core"
 
-    static member tsc (?argsBuilder : CmdLine -> CmdLine) : CmdLine =
-        let argsBuilder = defaultArg argsBuilder id
+                        Cmd.fable args
+                        |> CmdLine.toString
+                    )
 
-        CmdLine.empty
-        |> CmdLine.appendRaw "npx"
-        |> CmdLine.appendRaw "tsc"
-        |> argsBuilder
+                    run (fun _ ->
+                        let args =
+                            CmdLine.appendPrefix "-p" fableBuildDest
+                            >> CmdLine.appendPrefix "--outDir" typeScriptBuildDest
 
-    static member mocha (?argsBuilder : CmdLine -> CmdLine) : CmdLine =
-        let argsBuilder = defaultArg argsBuilder id
+                        Cmd.tsc args
+                        |> CmdLine.toString
+                    )
+                }
 
-        CmdLine.empty
-        |> CmdLine.appendRaw "npx"
-        |> CmdLine.appendRaw "mocha"
-        |> argsBuilder
+                stage "Watch, compile and test" {
+                    paralle
 
-    static member dotnet (?argsBuilder : CmdLine -> CmdLine) : CmdLine =
-        let argsBuilder = defaultArg argsBuilder id
+                    run (fun _ ->
+                        let args =
+                            CmdLine.appendRaw projectDir
+                            >> CmdLine.appendPrefix "--outDir" fableBuildDest
+                            >> CmdLine.appendPrefix "--lang" "typescript"
+                            >> CmdLine.appendPrefix "--exclude" "Fable.Core"
+                            >> CmdLine.appendRaw "--watch"
 
-        CmdLine.empty
-        |> CmdLine.appendRaw "dotnet"
-        |> argsBuilder
+                        Cmd.fable args
+                        |> CmdLine.toString
+                    )
+
+                    run (fun _ ->
+                        let args =
+                            CmdLine.appendPrefix "-p" fableBuildDest
+                            >> CmdLine.appendPrefix "--outDir" typeScriptBuildDest
+                            >> CmdLine.appendRaw "--watch"
+
+                        Cmd.tsc args
+                        |> CmdLine.toString
+                    )
+
+                    run (fun _ ->
+                        // Mocha `--watch` doesn't support for ESM modules
+                        // So we use nodemon as the watcher
+                        let args =
+                            CmdLine.appendPrefix "-e" "js"
+                            >> CmdLine.appendRaw "--watch"
+                            >> CmdLine.appendRaw typeScriptBuildDest
+                            >> CmdLine.appendPrefix "--delay" "200ms"
+                            >> CmdLine.appendPrefix "--exec" "mocha"
+                            >> CmdLine.appendRaw $"{typeScriptBuildDest}/{fableBuildDest}"
+                            >> CmdLine.appendPrefix "--reporter" "dot"
+                            >> CmdLine.appendPrefix "-t" "10000"
+
+                        Cmd.nodemon args
+                        |> CmdLine.toString
+                    )
+                }
+
+            }
+
+        let compileAndTest =
+            stage "Compile and tests" {
+                whenNot {
+                    cmdArg Commands.isWatch
+                }
+
+                run (fun _ ->
+                    let args =
+                        CmdLine.appendRaw projectDir
+                        >> CmdLine.appendPrefix "--outDir" fableBuildDest
+                        >> CmdLine.appendPrefix "--lang" "typescript"
+                        >> CmdLine.appendPrefix "--exclude" "Fable.Core"
+
+                    Cmd.fable args
+                    |> CmdLine.toString
+                )
+
+                run (fun _ ->
+                    let args =
+                        CmdLine.appendPrefix "-p" fableBuildDest
+                        >> CmdLine.appendPrefix "--outDir" typeScriptBuildDest
+
+                    Cmd.tsc args
+                    |> CmdLine.toString
+                )
+
+                run (fun _ ->
+                    let args =
+                        CmdLine.appendRaw $"{typeScriptBuildDest}/{fableBuildDest}"
+                        >> CmdLine.appendPrefix "--reporter" "dot"
+                        >> CmdLine.appendPrefix "-t" "10000"
+
+                    Cmd.mocha args
+                    |> CmdLine.toString
+                )
+            }
 
 module Stages =
 
@@ -158,272 +239,11 @@ module Stages =
                     >> CmdLine.appendPrefix "--reporter" "dot"
                     >> CmdLine.appendPrefix "-t" "10000"
 
-                Cmd.fable args
+                Cmd.mocha args
                 |> CmdLine.toString
             )
         }
 
-type BuildFableLibrary
-    (
-        language : string,
-        libraryDir : string,
-        sourceDir : string,
-        buildDir : string,
-        outDir : string,
-        ?fableLibArg : string
-    ) =
-
-    // It seems like the different target have a different way of supporting
-    // --fableLib argument.
-    // For example,
-    // If we provide `--fableLib < out dir path>`, then the Dart target
-    // generates import './Option.dart' as option;
-    // Bt if we provides `--fableLib .`, then the Dart target
-    // generates import '../../src/fable-library-dart/Option.dart' as option;
-    // Python seems to ignore completely the --fableLib argument.
-    // Investigation are required to make all the targets behave the same way.
-    // For now, I am providing a way to override the --fableLib argument in the
-    // build system but it should be removed once the issue is fixed.
-    let fableLibArg = defaultArg fableLibArg "."
-
-    member val LibraryDir = libraryDir
-    member val SourceDir = sourceDir
-    member val BuildDir = buildDir
-    member val OutDir = outDir
-
-    // Allow language to be orverriden from "do constructor"
-    // Useful for JavaScript target which is a specialisation of the TypeScript
-    member val Language = language with get, set
-
-    abstract member FableArgsBuilder : (CmdLine -> CmdLine)
-    default _.FableArgsBuilder = id
-
-    abstract member PostFableBuildStage : Internal.StageContext
-    default _.PostFableBuildStage =
-        stage "Post fable build" {
-            echo "Nothing to do"
-        }
-
-    abstract member CopyStageRunner : Internal.StageContext -> unit
-    default _.CopyStageRunner _ =
-        ()
-
-    member this.Pipeline () =
-        pipeline $"fable-library-{this.Language}" {
-            this.Stage()
-
-            runIfOnlySpecified
-        }
-
-    member this.Stage () : Internal.StageContext =
-
-        stage $"Build fable-library-{this.Language}" {
-            run (fun ctx ->
-                let isFast = ctx.TryGetCmdArg "--fast" |> ValueOption.isSome
-                if isFast && Directory.Exists buildDir then
-                    ctx.SoftCancelStage()
-            )
-
-            run (fun _ ->
-                // Make sure to work with a clean build directory
-                if Directory.Exists buildDir then
-                    Directory.Delete(buildDir, true)
-            )
-
-            stage "Build library with Fable" {
-                run (fun _ ->
-                    let args =
-                        CmdLine.appendRaw sourceDir
-                        >> CmdLine.appendPrefix "--outDir" outDir
-                        >> CmdLine.appendPrefix "--fableLib" fableLibArg
-                        >> CmdLine.appendPrefix "--lang" language
-                        >> CmdLine.appendPrefix "--exclude" "Fable.Core"
-                        >> CmdLine.appendPrefix "--define" "FABLE_LIBRARY"
-                        >> CmdLine.appendRaw "--noCache"
-                        // Target implementation can require additional arguments
-                        >> this.FableArgsBuilder
-
-                    // Compile F# files of Fable library to TypeScript
-                    Cmd.fable args
-                    |> CmdLine.toString
-                )
-            }
-
-            stage "Copy" {
-                run this.CopyStageRunner
-            }
-
-            this.PostFableBuildStage
-
-        }
-
-type BuildFableLibraryRust() =
-    inherit BuildFableLibrary(
-        "rust",
-        Path.Combine("src", "fable-library-rust"),
-        Path.Combine("src", "fable-library-rust", "src"),
-        Path.Combine("build", "fable-library-rust"),
-        Path.Combine("build", "fable-library-rust", "src")
-    )
-
-    override this.PostFableBuildStage =
-        stage "Post fable build" {
-            workingDir this.BuildDir
-            run "cargo fmt"
-            run "cargo fix --allow-no-vcs"
-            run "cargo build"
-        }
-
-    override this.CopyStageRunner _ =
-        // Copy all *.rs files to the build directory
-        Directory.GetFiles(this.SourceDir, "*.rs")
-        |> Shell.copyFiles this.OutDir
-
-        Shell.copyFile
-            this.BuildDir
-            (Path.Combine(this.LibraryDir, "Cargo.toml"))
-
-        Shell.copyDir
-            (Path.Combine(this.BuildDir, "vendored"))
-            (Path.Combine(this.LibraryDir, "vendored"))
-            FileFilter.allFiles
-
-type BuildFableLibraryPython() =
-    inherit BuildFableLibrary(
-        "python",
-        Path.Combine("src", "fable-library-py"),
-        Path.Combine("src", "fable-library-py", "fable_library"),
-        Path.Combine("build", "fable-library-py"),
-        Path.Combine("build", "fable-library-py", "fable_library")
-    )
-
-    override this.CopyStageRunner _ =
-        // Copy all *.rs files to the build directory
-        Directory.GetFiles(this.LibraryDir, "*")
-        |> Shell.copyFiles this.BuildDir
-
-        Directory.GetFiles(this.SourceDir, "*.py")
-        |> Shell.copyFiles this.OutDir
-
-    override this.PostFableBuildStage =
-        stage "Post fable build" {
-            run (fun _ ->
-                // Fix issues with Fable .fsproj not supporting links
-                let linkedFileFolder = Path.Combine(this.BuildDir, "fable_library", "fable-library")
-                Directory.GetFiles(linkedFileFolder, "*")
-                |> Shell.copyFiles this.OutDir
-
-                Shell.deleteDir (this.BuildDir </> "fable_library/fable-library")
-            )
-        }
-
-type BuildFableLibraryDart() =
-    inherit BuildFableLibrary(
-        "dart",
-        Path.Combine("src", "fable-library-dart"),
-        Path.Combine("src", "fable-library-dart"),
-        Path.Combine("build", "fable-library-dart"),
-        Path.Combine("build", "fable-library-dart"),
-        Path.Combine("." , "build", "fable-library-dart")
-    )
-
-    override this.CopyStageRunner _ =
-        Directory.GetFiles(this.SourceDir, "pubspec.*")
-        |> Shell.copyFiles this.BuildDir
-
-        Shell.copyFile
-            this.BuildDir
-            (Path.Combine(this.LibraryDir, "analysis_options.yaml"))
-
-        Directory.GetFiles(this.SourceDir, "*.dart")
-        |> Shell.copyFiles this.OutDir
-
-type BuildFableLibraryTypeScript() =
-    inherit BuildFableLibrary(
-        "typescript",
-        Path.Combine("src", "fable-library"),
-        Path.Combine("src", "fable-library"),
-        Path.Combine("build", "fable-library-ts"),
-        Path.Combine("build", "fable-library-ts"),
-        Path.Combine(".", "build", "fable-library-ts")
-    )
-
-    // TODO add pre stage runner
-
-    override _.FableArgsBuilder =
-        CmdLine.appendPrefix "--typedArrays" "false"
-        >> CmdLine.appendPrefix "--define" "FX_NO_BIGINT"
-
-    override this.CopyStageRunner _ =
-        // Copy all *.ts files to the build directory from source directory
-        Directory.GetFiles(this.SourceDir, "*.ts")
-        |> Shell.copyFiles this.OutDir
-
-        // Copy the tsconfig.json file to the build directory
-        let typeScriptConfig = Path.Combine(this.SourceDir, "ts", "tsconfig.json")
-        Shell.copyFile this.OutDir typeScriptConfig
-
-        // Copy the lib folder to the build directory
-        let libSourceFolder = Path.Combine(this.SourceDir, "lib")
-        let libDestinationFolder = Path.Combine(this.OutDir, "lib")
-        Shell.copyDir libDestinationFolder libSourceFolder FileFilter.allFiles
-
-        // Copy the package.json file to the build directory
-        let packageJson = Path.Combine(this.SourceDir, "package.json")
-        Shell.copyFile this.OutDir packageJson
-
-        // Copy the README.md file to the build directory
-        let readme = Path.Combine(this.SourceDir, "README.md")
-        Shell.copyFile this.OutDir readme
-
-type BuildFableLibraryJavaScript() =
-    // JavaScript is a specialisation of the TypeScript target
-    inherit BuildFableLibraryTypeScript()
-
-    let jsOutDir = Path.Combine("build", "fable-library")
-    do
-        base.Language <- "javascript"
-
-    override this.PostFableBuildStage =
-        // Alias to make it clear which directory is referred to
-        let tsBuildDir = this.BuildDir
-
-        stage "Post Build" {
-
-            // Make sure to work with a clean build directory
-            // We need to delete the directy here because JavaScript is
-            // a bit special compared to other targets.
-            // JavaScript things happens after the Fable.Library to TypeScript compilation
-            run (fun _ ->
-                if Directory.Exists jsOutDir then
-                    Directory.Delete(jsOutDir, true)
-            )
-
-            run (fun _ ->
-                // Compile the library to JavaScript using the TypeScript compiler
-                let args =
-                    CmdLine.appendPrefix "--project" tsBuildDir
-                    >> CmdLine.appendPrefix "--outDir" jsOutDir
-
-                Cmd.tsc args
-                |> CmdLine.toString
-            )
-
-            run (fun _ ->
-                // Copy lib/big.d.ts to the JavaScript build directory
-                //             // Copy lib/big.d.ts to the JavaScript build directory
-            let bigDts = Path.Combine(tsBuildDir, "lib", "big.d.ts")
-            Shell.copyFile bigDts jsOutDir
-
-            Shell.copyFile
-                jsOutDir
-                (Path.Combine(tsBuildDir, "package.json"))
-
-            Shell.copyFile
-                jsOutDir
-                (Path.Combine(this.SourceDir, "README.md"))
-            )
-        }
 
 pipeline "Standalone" {
     // Make the pipeline think it is running on CI
@@ -435,39 +255,134 @@ pipeline "Standalone" {
     runIfOnlySpecified
 }
 
-module Instances =
+[<AbstractClass>]
+type TestsTarget
+    (
+        language : string,
+        buildFableLibrary: BuildFableLibrary,
+        sourceDir : string,
+        buildDir : string
+    ) =
 
-    let buildFableLibraryRust = BuildFableLibraryRust()
-    let buildFableLibraryPython = BuildFableLibraryPython()
-    let buildFableLibraryDart = BuildFableLibraryDart()
-    let buildFableLibraryTypeScript = BuildFableLibraryTypeScript()
-    let buildFableLibraryJavaScript = BuildFableLibraryJavaScript()
+    member val Language = language with get, set
+    member val SourceDir = sourceDir with get, set
+    member val BuildDir = buildDir with get, set
+
+    abstract member TestsAgainstTargetStage : Internal.StageContext
+
+    member this.Pipeline () =
+        pipeline $"test-{this.Language}" {
+            buildFableLibrary.Stage()
+
+            stage "Clean" {
+                run (fun _ ->
+                    if Directory.Exists this.BuildDir then
+                        Directory.Delete(this.BuildDir, true)
+                )
+            }
+
+            stage "Build" {
+                run (fun _ ->
+                    let args =
+                        CmdLine.appendRaw this.SourceDir
+                        >> CmdLine.appendPrefix "--outDir" this.BuildDir
+                        >> CmdLine.appendPrefix "--lang" this.Language
+                        >> CmdLine.appendPrefix "--exclude" "Fable.Core"
+                        >> CmdLine.appendRaw "--noCache"
+
+                    Cmd.fable args
+                    |> CmdLine.toString
+                )
+            }
+
+            stage "Run tests against .NET" {
+                workingDir this.SourceDir
+
+                run "dotnet test -c Release"
+            }
+
+            this.TestsAgainstTargetStage
+
+            runIfOnlySpecified
+        }
+
+type TestsPython () =
+    inherit TestsTarget(
+        "python",
+        BuildFableLibraryPython(),
+        Path.Combine("tests", "Python"),
+        Path.Combine("build", "tests", "Python")
+    )
+
+    override this.TestsAgainstTargetStage =
+        stage "Run tests against Python" {
+            workingDir this.BuildDir
+
+            run "poetry run pytest -x"
+        }
+
+type TestsRust() =
+    inherit TestsTarget(
+        "rust",
+        BuildFableLibraryRust(),
+        Path.Combine("tests", "Rust"),
+        Path.Combine("build", "tests", "Rust")
+    )
+
+    override this.TestsAgainstTargetStage =
+        stage "Run tests against Rust" {
+            workingDir this.BuildDir
+
+            run "cargo test"
+        }
+
+module Test =
+
+    let python = TestsPython()
 
 pipeline "test-javascript" {
-    Instances.buildFableLibraryJavaScript.Stage()
+    FableLibrary.javaScript.Stage()
 
     // Test against .NET
+    stage "Run tests against .NET" {
+        workingDir "tests/Js/Main"
+
+        run "dotnet run -c Release"
+    }
 
     Stages.JavaScript.testWithMocha "Main"
     Stages.JavaScript.testWithMocha "Adaptive"
     Stages.JavaScript.testReact
+    Stages.testStandalone
+
+    runIfOnlySpecified
+}
+
+pipeline "test-typescript" {
+    FableLibrary.typeScript.Stage()
+
+    // Stages below use a flag to determine which stage should
+    TypeScript.Stages.compileAndTest
+    TypeScript.Stages.compileAndTestInWatchMode
 
     runIfOnlySpecified
 }
 
 pipeline "test-react" {
-    Instances.buildFableLibraryJavaScript.Stage()
-
+    FableLibrary.javaScript.Stage()
     Stages.JavaScript.testReact
 
     runIfOnlySpecified
 }
 
 // Register the build fable-library pipelines
-Instances.buildFableLibraryRust.Pipeline()
-Instances.buildFableLibraryPython.Pipeline()
-Instances.buildFableLibraryDart.Pipeline()
-Instances.buildFableLibraryTypeScript.Pipeline()
-Instances.buildFableLibraryJavaScript.Pipeline()
+FableLibrary.rust.Pipeline()
+FableLibrary.python.Pipeline()
+FableLibrary.dart.Pipeline()
+FableLibrary.typeScript.Pipeline()
+FableLibrary.javaScript.Pipeline()
+
+// Register the tests pipelines
+Test.python.Pipeline()
 
 tryPrintPipelineCommandHelp()

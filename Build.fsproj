@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="build2/Utils.fs" />
+    <Compile Include="build2/FableLibrary/Core.fs" />
+    <Compile Include="build2/FableLibrary/Dart.fs" />
+    <Compile Include="build2/FableLibrary/TypeScript.fs" />
+    <Compile Include="build2/FableLibrary/JavaScript.fs" />
+    <Compile Include="build2/FableLibrary/Python.fs" />
+    <Compile Include="build2/FableLibrary/Rust.fs" />
+    <Compile Include="build2/Tests/Core.fs" />
+    <Compile Include="build2/Tests/Python.fs" />
+    <Compile Include="build2/Tests/JavaScript.fs" />
+    <Compile Include="build2/Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
+    <PackageReference Include="Fake.IO.FileSystem" Version="6.0.0" />
+    <PackageReference Include="Fun.Build" Version="0.5.1" />
+  </ItemGroup>
+</Project>
