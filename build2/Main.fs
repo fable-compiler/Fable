@@ -1,16 +1,21 @@
-module Program
+module Build.Main
 
 open Fun.Build
 open Build.FableLibrary
-open Build.Tests
 
-BuildFableLibraryRust().Pipeline
-BuildFableLibraryDart().Pipeline
-BuildFableLibraryPython().Pipeline
-BuildFableLibraryTypeScript().Pipeline
-BuildFableLibraryJavaScript().Pipeline
+// Register fable-library pipelines
+BuildFableLibraryJavaScript().Pipeline()
+BuildFableLibraryRust().Pipeline()
+BuildFableLibraryDart().Pipeline()
+BuildFableLibraryPython().Pipeline()
+BuildFableLibraryTypeScript().Pipeline()
+BuildFableLibraryJavaScript().Pipeline()
 
-TestsPython().Pipeline
-TestsJavaScript().Pipeline
+// Register main tests
+JavaScript.Tests.registerPipelines()
+Python.Tests.registerPipelines()
+Rust.Tests.registerPipelines()
+
+// Register quick tests
 
 tryPrintPipelineCommandHelp()

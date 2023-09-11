@@ -11,14 +11,14 @@
     <Compile Include="build2/FableLibrary/JavaScript.fs" />
     <Compile Include="build2/FableLibrary/Python.fs" />
     <Compile Include="build2/FableLibrary/Rust.fs" />
-    <Compile Include="build2/Tests/Core.fs" />
     <Compile Include="build2/Tests/Python.fs" />
     <Compile Include="build2/Tests/JavaScript.fs" />
+    <Compile Include="build2/Tests/Rust.fs" />
     <Compile Include="build2/Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
     <PackageReference Include="Fake.IO.FileSystem" Version="6.0.0" />
-    <PackageReference Include="Fun.Build" Version="0.5.1" />
+    <PackageReference Include="Fun.Build" Version="0.5.2" />
   </ItemGroup>
 </Project>

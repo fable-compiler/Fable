@@ -7,6 +7,10 @@ open System.IO
 open Build.Utils
 open Build.Utils
 
+/// <summary>
+/// Building fable-library is similar enough for all the targets
+/// that we can use this class to standardise the process.
+/// </summary>
 type BuildFableLibrary
     (
         language : string,
@@ -52,7 +56,7 @@ type BuildFableLibrary
     default _.CopyStageRunner _ =
         ()
 
-    member this.Pipeline =
+    member this.Pipeline () =
         pipeline $"fable-library-{this.Language}" {
             this.Stage()
 
