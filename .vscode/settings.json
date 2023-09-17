@@ -27,5 +27,6 @@
         "build/fable-library-rust/Cargo.toml",
         "build/tests/Rust/Cargo.toml"
     ],
-    "editor.inlayHints.enabled": "offUnlessPressed"
+    "editor.inlayHints.enabled": "offUnlessPressed",
+    "dotnet.defaultSolution": "disable"
 }

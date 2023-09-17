@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="build2/Utils.fs" />
+    <Compile Include="build2/SimpleExec.Extensions.fs" />
+    <Compile Include="build2/FableLibrary/Core.fs" />
+    <Compile Include="build2/FableLibrary/Python.fs" />
+    <Compile Include="build2/FableLibrary/Dart.fs" />
+    <Compile Include="build2/FableLibrary/TypeScript.fs" />
+    <Compile Include="build2/FableLibrary/JavaScript.fs" />
+    <Compile Include="build2/FableLibrary/Rust.fs" />
+    <Compile Include="build2/Tests/JavaScript.fs" />
+    <Compile Include="build2/Tests/Python.fs" />
+    <Compile Include="build2/Tests/Rust.fs" />
+    <Compile Include="build2/Tests/Dart.fs" />
+    <Compile Include="build2/Tests/TypeScript.fs" />
+    <Compile Include="build2/Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
+    <PackageReference Include="EluciusFTW.SpectreCoff" Version="0.47.28" />
+    <PackageReference Include="Fake.IO.FileSystem" Version="6.0.0" />
+    <PackageReference Include="SimpleExec" Version="11.0.0" />
+    <PackageReference Include="Spectre.Console" Version="0.47.0" />
+    <PackageReference Update="FSharp.Core" Version="7.0.400" />
+  </ItemGroup>
+</Project>
