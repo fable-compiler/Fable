@@ -19,7 +19,21 @@ Available commands:
             --dart              Build fable-library for Dart
             --rust              Build fable-library for Rust
 
-    tests
+    quicktests                  Watch for changes and re-run the quicktests
+                                This is useful to work on a feature in an isolated
+                                manner to avoid all the noise coming from the main tests
+
+        Subcommands:
+            javascript        Run for JavaScript
+            typescript        Run for TypeScript
+            python            Run for Python
+            dart              Run for Dart
+            rust              Run for Rust
+
+        Options:
+            --fast              Skip building fable-library if folder already exists
+
+    tests                       Run the main tests suite
         Subcommands:
             javascript          Run the tests for JavaScript
             typescript          Run the tests for TypeScript
@@ -28,8 +42,8 @@ Available commands:
             rust                Run the tests for Rust
 
         Options for all:
-            --watch
-            --fast
+            --watch             Watch for changes and re-run the tests
+            --fast              Skip building fable-library if folder already exists
             --no-dotnet         When in watch mode, do not run the .NET tests
 
         Options for JavaScript:
@@ -64,7 +78,14 @@ let main argv =
         | "dart" :: args -> Tests.Dart.handle args
         | "rust" :: args -> Tests.Rust.handle args
         | _ -> printHelp ()
-
+    | "quicktest" :: args ->
+        match args with
+        | "javascript" :: _ -> Quicktest.JavaScript.handle args
+        | "typescript" :: _ -> Quicktest.TypeScript.handle args
+        | "python" :: _ -> Quicktest.Python.handle args
+        | "dart" :: _ -> Quicktest.Dart.handle args
+        | "rust" :: _ -> Quicktest.Rust.handle args
+        | _ -> printHelp ()
     | "--help" :: _
     | _ -> printHelp ()
 

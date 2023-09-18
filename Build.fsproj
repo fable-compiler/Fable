@@ -17,6 +17,12 @@
     <Compile Include="build2/Tests/Rust.fs" />
     <Compile Include="build2/Tests/Dart.fs" />
     <Compile Include="build2/Tests/TypeScript.fs" />
+    <Compile Include="build2/Quicktest/Core.fs" />
+    <Compile Include="build2/Quicktest/TypeScript.fs" />
+    <Compile Include="build2/Quicktest/JavaScript.fs" />
+    <Compile Include="build2/Quicktest/Python.fs" />
+    <Compile Include="build2/Quicktest/Rust.fs" />
+    <Compile Include="build2/Quicktest/Dart.fs" />
     <Compile Include="build2/Main.fs" />
   </ItemGroup>
   <ItemGroup>
