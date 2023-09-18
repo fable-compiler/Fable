@@ -684,8 +684,18 @@ module Helpers =
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 
+    let topLevelBindingHiddenBySignatureFile (v: FSharpMemberOrFunctionOrValue) =
+        let parentHasSignatureFile () =
+            v.DeclaringEntity
+            |> Option.bind (fun p -> p.SignatureLocation)
+            |> Option.map (fun m -> m.FileName.EndsWith(".fsi"))
+            |> Option.defaultValue false
+
+        v.IsModuleValueOrMember && not v.HasSignatureFile && parentHasSignatureFile ()
+    
     let isNotPrivate (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated then false
+        elif topLevelBindingHiddenBySignatureFile memb then false
         else not memb.Accessibility.IsPrivate
 
     let isPublic (memb: FSharpMemberOrFunctionOrValue) =
