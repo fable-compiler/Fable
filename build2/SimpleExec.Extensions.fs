@@ -39,13 +39,15 @@ type Command with
 
     static member Fable
         (
-            argsBuilder: CmdLine -> CmdLine,
+            ?argsBuilder: CmdLine -> CmdLine,
             ?workingDirectory: string,
             ?noEcho,
             ?echoPrefix
         ) =
         let localFableDir =
             __SOURCE_DIRECTORY__ </> ".." </> "src" </> "Fable.Cli"
+
+        let argsBuilder = defaultArg argsBuilder id
 
         let args =
             CmdLine.empty

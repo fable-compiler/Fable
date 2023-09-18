@@ -23,6 +23,7 @@
     <Compile Include="build2/Quicktest/Python.fs" />
     <Compile Include="build2/Quicktest/Rust.fs" />
     <Compile Include="build2/Quicktest/Dart.fs" />
+    <Compile Include="build2/FcsRepo.fs" />
     <Compile Include="build2/Main.fs" />
   </ItemGroup>
   <ItemGroup>

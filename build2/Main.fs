@@ -86,6 +86,8 @@ let main argv =
         | "dart" :: _ -> Quicktest.Dart.handle args
         | "rust" :: _ -> Quicktest.Rust.handle args
         | _ -> printHelp ()
+    | "sync-fcs-repo":: _ -> FcsRepo.sync ()
+    | "copy-fcs-repo":: _ -> FcsRepo.copy ()
     | "--help" :: _
     | _ -> printHelp ()
 

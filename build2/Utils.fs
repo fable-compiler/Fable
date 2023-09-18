@@ -17,7 +17,8 @@ type Path =
     static member Resolve([<ParamArray>] segments: string array) : string =
         let paths = Array.concat [ [| __SOURCE_DIRECTORY__; ".." |]; segments ]
 
-        Path.Combine(paths)
+        // Use GetFullPath to clean the path
+        Path.GetFullPath(Path.Combine(paths))
 
 type Cmd =
 
@@ -118,3 +119,10 @@ module Directory =
                 Directory.Delete(dir, true)
 
         Directory.CreateDirectory(dir) |> ignore
+
+module Environment =
+
+    open System.Runtime
+
+    let isWindows () =
+        InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)

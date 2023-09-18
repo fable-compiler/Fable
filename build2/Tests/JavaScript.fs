@@ -8,6 +8,11 @@ open Build.Utils
 open Build
 open SimpleExec
 
+let private mainTestSourceDir =
+    Path.Resolve("tests", "Js", "Main")
+
+let private mochaCommand = "npx mocha . --reporter dot -t 10000"
+
 let private testReact (isWatch: bool) =
     let workingDirectoy = Path.Resolve("tests", "React")
 
@@ -38,7 +43,44 @@ let private testReact (isWatch: bool) =
 
         Command.Run("npx", "jest", workingDirectory = workingDirectoy)
 
-let private handleMainTests (isWatch: bool) (noDotnet : bool)=
+let private handleStandaloneFast () =
+    let fableCompilerJsDir =
+        Path.Resolve("src", "fable-compiler-js", "src")
+    let fableCompilerJsEntry =
+        Path.Combine(fableCompilerJsDir, "app.fs.js")
+    let standaloneBuildDest = Path.Resolve("build", "tests", "Standalone")
+
+    Command.Fable(
+        CmdLine.appendRaw "--noCache",
+        workingDirectory =
+            Path.Resolve("src", "fable-standalone", "src")
+    )
+
+    Command.Fable(
+        CmdLine.appendPrefix "--exclude" "Fable.Core"
+        >> CmdLine.appendPrefix "--define" "LOCAL_TEST"
+        >> CmdLine.appendRaw "--noCache",
+        workingDirectory =
+            fableCompilerJsDir
+    )
+
+    Command.Run(
+        "node",
+        CmdLine.empty
+        |> CmdLine.appendRaw fableCompilerJsEntry
+        |> CmdLine.appendRaw mainTestSourceDir
+        |> CmdLine.appendRaw standaloneBuildDest
+        |> CmdLine.toString,
+        workingDirectory = fableCompilerJsDir
+    )
+
+    Command.Run(
+        "npx",
+        mochaCommand,
+        workingDirectory = standaloneBuildDest
+    )
+
+let private handleMainTests (isWatch: bool) (noDotnet: bool) =
     let folderName = "Main"
     let sourceDir = Path.Resolve("tests", "Js", folderName)
 
@@ -46,8 +88,6 @@ let private handleMainTests (isWatch: bool) (noDotnet : bool)=
         Path.Resolve("build", "tests", "JavaScript", folderName)
 
     Directory.clean destinationDir
-
-    let mochaCommand = "npx mocha . --reporter dot -t 10000"
 
     let fableArgs =
         CmdLine.concat [
@@ -100,6 +140,10 @@ let private handleMainTests (isWatch: bool) (noDotnet : bool)=
 
         testReact false
 
+        let isCI = Environment.GetEnvironmentVariable("CI") |> Option.ofObj
+
+        if isCI.IsSome then
+            handleStandaloneFast ()
 
 let handle (args: string list) =
     let isReactOnly = args |> List.contains "--react-only"
