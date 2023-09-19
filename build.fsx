@@ -500,9 +500,8 @@ let testProjectConfigs() =
     )
 
 let testIntegration() =
-    runInDir "tests/Integration/Integration" "dotnet run -c Release"
-
     buildLibraryTsIfNotExists()
+    runInDir "tests/Integration/Integration" "dotnet run -c Release"
     runInDir "tests/Integration/Compiler" "dotnet run -c Release"
     testProjectConfigs()
 
