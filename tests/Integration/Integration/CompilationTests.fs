@@ -34,4 +34,4 @@ let tests =
             }))
 
     |> Seq.toList
-    |> ftestList "Compilation"
+    |> testList "Compilation"
