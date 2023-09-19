@@ -213,3 +213,6 @@ project.lock.json
 __pycache__/
 .python-version
 .hypothesis
+
+# Compilation tests
+tests/**/*.actual
