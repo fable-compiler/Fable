@@ -320,3 +320,5 @@
 // Test.python.Pipeline()
 
 // tryPrintPipelineCommandHelp()
+
+let x = ""
