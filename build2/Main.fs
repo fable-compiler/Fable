@@ -24,11 +24,11 @@ Available commands:
                                 manner to avoid all the noise coming from the main tests
 
         Subcommands:
-            javascript        Run for JavaScript
-            typescript        Run for TypeScript
-            python            Run for Python
-            dart              Run for Dart
-            rust              Run for Rust
+            javascript          Run for JavaScript
+            typescript          Run for TypeScript
+            python              Run for Python
+            dart                Run for Dart
+            rust                Run for Rust
 
         Options:
             --fast              Skip building fable-library if folder already exists

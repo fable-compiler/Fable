@@ -16,7 +16,7 @@ let handle (args: string list) =
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
 
-    BuildFableLibraryPython().Run(skipFableLibrary)
+    BuildFableLibraryDart().Run(skipFableLibrary)
 
     Directory.clean buildDir
 

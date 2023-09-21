@@ -15,7 +15,10 @@
 #
 # Run the docker file and delete it on exit:
 #   docker run -it --rm fable-dev
-FROM mcr.microsoft.com/devcontainers/base:ubuntu
+
+# Use x86_64 architecture to avoid all the small pains
+# coming from alpine over ARM --platform=linux/amd64
+FROM mcr.microsoft.com/devcontainers/base:debian
 # Install the xz-utils package
 RUN apt-get update && apt-get install -y xz-utils
 
@@ -31,7 +34,7 @@ USER vscode
 # Change the default shell to zsh
 SHELL ["/bin/zsh", "-c"]
 
-# Install .NET
+# # Install .NET
 WORKDIR /home/vscode
 RUN sudo apt install wget
 RUN wget -qO- https://dot.net/v1/dotnet-install.sh | bash -s - --version $DOTNET_VERSION
@@ -66,6 +69,9 @@ RUN echo 'eval "$(pyenv init -)"' >> ~/.zshrc
 RUN source .zshrc && pyenv install $PYTHON_VERSION
 # Make python point to the installed version
 RUN source .zshrc && pyenv global $PYTHON_VERSION
+RUN source .zshrc && curl -sSL https://install.python-poetry.org | python
+RUN echo "# Load poetry path" >> .zshrc
+RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> .zshrc
 
 # Install rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s - -y
@@ -77,7 +83,12 @@ RUN curl -fsSL https://dsm-vm.vercel.app/install.sh | bash
 RUN echo "# Load dart path" >> .zshrc
 RUN echo 'export PATH="/home/vscode/.dsm:$PATH"' >> .zshrc
 RUN echo 'eval "`dsm env zsh`"' >> .zshrc
-RUN source .zshrc && dsm install $DART_VERSION
+ENV DART_VERSION=$DART_VERSION
+# Workaround dsm bug (see script for more details)
+COPY install_dart.sh /home/vscode/install_dart.sh
+RUN sudo chmod +x /home/vscode/install_dart.sh
+RUN source .zshrc && /home/vscode/install_dart.sh $DART_VERSION
+RUN source .zshrc && dsm use $DART_VERSION
 
 # Force docker to load the zsh profile
 # This should be the last steps

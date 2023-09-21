@@ -18,6 +18,8 @@ let handle (args: string list) =
 
     Directory.clean buildDir
 
+    Command.Run("poetry", "install")
+
     let fableArgs =
         CmdLine.concat [
             CmdLine.empty

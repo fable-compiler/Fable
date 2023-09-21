@@ -13,6 +13,7 @@ let handle (args: string list) =
     let mainFile = outDir </> "Quicktest.fs.js"
 
     // Make sure the output directory exists, so nodemon doesn't complain
+    Directory.CreateDirectory(outDir) |> ignore
     FileInfo(mainFile).Create() |> ignore
 
     let tscCommand =
