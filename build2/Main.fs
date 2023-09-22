@@ -40,8 +40,9 @@ Available commands:
             python              Run the tests for Python
             dart                Run the tests for Dart
             rust                Run the tests for Rust
+            integration         Run th integration test suite
 
-        Options for all:
+        Options for all except integration:
             --watch             Watch for changes and re-run the tests
             --fast              Skip building fable-library if folder already exists
             --no-dotnet         When in watch mode, do not run the .NET tests
@@ -77,6 +78,7 @@ let main argv =
         | "python" :: args -> Tests.Python.handle args
         | "dart" :: args -> Tests.Dart.handle args
         | "rust" :: args -> Tests.Rust.handle args
+        | "integration" :: args -> Tests.Integration.handle args
         | _ -> printHelp ()
     | "quicktest" :: args ->
         match args with

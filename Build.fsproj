@@ -17,6 +17,7 @@
     <Compile Include="build2/Tests/Rust.fs" />
     <Compile Include="build2/Tests/Dart.fs" />
     <Compile Include="build2/Tests/TypeScript.fs" />
+    <Compile Include="build2/Tests/Integration.fs" />
     <Compile Include="build2/Quicktest/Core.fs" />
     <Compile Include="build2/Quicktest/TypeScript.fs" />
     <Compile Include="build2/Quicktest/JavaScript.fs" />
