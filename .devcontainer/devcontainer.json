@@ -10,7 +10,15 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"Ionide.Ionide-fsharp"
+				"Ionide.Ionide-fsharp",
+				"adpyke.codesnap",
+				"Dart-Code.dart-code",
+				"EditorConfig.EditorConfig",
+				"GitHub.copilot",
+				"christian-kohler.npm-intellisense",
+				"ionutvmi.path-autocomplete",
+				"ms-python.vscode-pylance",
+				"rust-lang.rust-analyzer"
 			],
 			"settings": {
 				"terminal.integrated.defaultProfile.linux": "zsh",

@@ -41,7 +41,7 @@ RUN wget -qO- https://dot.net/v1/dotnet-install.sh | bash -s - --version $DOTNET
 RUN echo "# Load dotnet path" >> .zshrc
 RUN echo "export PATH=$PATH:/home/vscode/.dotnet" >> .zshrc
 # Trigger the dotnet first run experience by running a command
-RUN source .zshrc && dotnet --version
+RUN source .zshrc && dotnet --help
 
 # Install Node.js
 RUN wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
@@ -79,16 +79,23 @@ RUN echo "# Load rust path" >> .zshrc
 RUN echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> .zshrc
 
 # Instal dart
-RUN curl -fsSL https://dsm-vm.vercel.app/install.sh | bash
+# Use custom dsm install script, because we broke it while
+#  trying to fix another issue with dsm
+# See https://github.com/Yakiyo/dsm/issues/26
+COPY install_dsm.sh /home/vscode/install_dsm.sh
+RUN sudo chmod +x /home/vscode/install_dsm.sh
+RUN /home/vscode/install_dsm.sh
+# RUN curl -fsSL https://dsm-vm.vercel.app/install.sh | bash
 RUN echo "# Load dart path" >> .zshrc
 RUN echo 'export PATH="/home/vscode/.dsm:$PATH"' >> .zshrc
 RUN echo 'eval "`dsm env zsh`"' >> .zshrc
-ENV DART_VERSION=$DART_VERSION
 # Workaround dsm bug (see script for more details)
 COPY install_dart.sh /home/vscode/install_dart.sh
 RUN sudo chmod +x /home/vscode/install_dart.sh
 RUN source .zshrc && /home/vscode/install_dart.sh $DART_VERSION
 RUN source .zshrc && dsm use $DART_VERSION
+RUN rm /home/vscode/install_dsm.sh
+RUN rm /home/vscode/install_dart.sh
 
 # Force docker to load the zsh profile
 # This should be the last steps
