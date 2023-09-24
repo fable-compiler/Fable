@@ -49,6 +49,7 @@ Available commands:
 
         Options for JavaScript:
             --reat-only         Run only the tests for React (can be run in watch mode)
+            --standalone-only   Run only the tests for standalone (can't be run in watch mode)
 
         Options for Rust:
             --ast-only          Run only the tests for the AST (can be run in watch mode)
@@ -87,6 +88,7 @@ let main argv =
         | "python" :: _ -> Quicktest.Python.handle args
         | "dart" :: _ -> Quicktest.Dart.handle args
         | "rust" :: _ -> Quicktest.Rust.handle args
+        // Add standalone tests here
         | _ -> printHelp ()
     | "sync-fcs-repo":: _ -> FcsRepo.sync ()
     | "copy-fcs-repo":: _ -> FcsRepo.copy ()
