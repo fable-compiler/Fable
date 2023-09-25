@@ -40,16 +40,17 @@ Available commands:
             python              Run the tests for Python
             dart                Run the tests for Dart
             rust                Run the tests for Rust
-            integration         Run th integration test suite
+            integration         Run the integration test suite
+            standalone          Tests the standalone version of Fable
+                                (Fable running on top of Node.js)
 
-        Options for all except integration:
+        Options for all except integration and standalone:
             --watch             Watch for changes and re-run the tests
             --fast              Skip building fable-library if folder already exists
             --no-dotnet         When in watch mode, do not run the .NET tests
 
         Options for JavaScript:
             --reat-only         Run only the tests for React (can be run in watch mode)
-            --standalone-only   Run only the tests for standalone (can't be run in watch mode)
 
         Options for Rust:
             --ast-only          Run only the tests for the AST (can be run in watch mode)
@@ -80,6 +81,7 @@ let main argv =
         | "dart" :: args -> Tests.Dart.handle args
         | "rust" :: args -> Tests.Rust.handle args
         | "integration" :: args -> Tests.Integration.handle args
+        | "standalone" :: _ -> Tests.Standalone.handle args
         | _ -> printHelp ()
     | "quicktest" :: args ->
         match args with
@@ -88,7 +90,6 @@ let main argv =
         | "python" :: _ -> Quicktest.Python.handle args
         | "dart" :: _ -> Quicktest.Dart.handle args
         | "rust" :: _ -> Quicktest.Rust.handle args
-        // Add standalone tests here
         | _ -> printHelp ()
     | "sync-fcs-repo":: _ -> FcsRepo.sync ()
     | "copy-fcs-repo":: _ -> FcsRepo.copy ()

@@ -45,39 +45,6 @@ let private testReact (isWatch: bool) =
 
         Command.Run("npx", "jest", workingDirectory = workingDirectoy)
 
-let private handleStandaloneFast () =
-    let fableCompilerJsDir = Path.Resolve("src", "fable-compiler-js", "src")
-    let fableCompilerJsEntry = Path.Combine(fableCompilerJsDir, "app.fs.js")
-    let standaloneBuildDest = Path.Resolve("build", "tests", "Standalone")
-
-    Command.Fable(
-        CmdLine.appendRaw "--noCache",
-        workingDirectory = Path.Resolve("src", "fable-standalone", "src")
-    )
-
-    Command.Fable(
-        CmdLine.appendPrefix "--exclude" "Fable.Core"
-        >> CmdLine.appendPrefix "--define" "LOCAL_TEST"
-        >> CmdLine.appendRaw "--noCache",
-        workingDirectory = fableCompilerJsDir
-    )
-
-    // Make sure the projects are restored
-    // Otherwise, on a first VM dependencies can be missing
-    Command.Run("dotnet", $"restore {mainTestProject}")
-
-    Command.Run(
-        "node",
-        CmdLine.empty
-        |> CmdLine.appendRaw fableCompilerJsEntry
-        |> CmdLine.appendRaw mainTestProject
-        |> CmdLine.appendRaw standaloneBuildDest
-        |> CmdLine.toString,
-        workingDirectory = fableCompilerJsDir
-    )
-
-    Command.Run("npx", mochaCommand, workingDirectory = standaloneBuildDest)
-
 let private handleMainTests (isWatch: bool) (noDotnet: bool) =
     let folderName = "Main"
     let sourceDir = Path.Resolve("tests", "Js", folderName)
@@ -141,7 +108,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
         let isCI = Environment.GetEnvironmentVariable("CI") |> Option.ofObj
 
         if isCI.IsSome then
-            handleStandaloneFast ()
+            Standalone.handleStandaloneFast ()
 
 let handle (args: string list) =
     let isReactOnly = args |> List.contains "--react-only"
@@ -156,6 +123,9 @@ let handle (args: string list) =
 
     BuildFableLibraryJavaScript().Run(skipFableLibrary)
 
-    if isReactOnly then testReact isWatch
-    else if isStandaloneOnly then handleStandaloneFast ()
-    else handleMainTests isWatch noDotnet
+    if isReactOnly then
+        testReact isWatch
+    else if isStandaloneOnly then
+        Standalone.handleStandaloneFast ()
+    else
+        handleMainTests isWatch noDotnet

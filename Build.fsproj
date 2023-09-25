@@ -12,6 +12,7 @@
     <Compile Include="build2/FableLibrary/TypeScript.fs" />
     <Compile Include="build2/FableLibrary/JavaScript.fs" />
     <Compile Include="build2/FableLibrary/Rust.fs" />
+    <Compile Include="build2/Tests/Standalone.fs" />
     <Compile Include="build2/Tests/JavaScript.fs" />
     <Compile Include="build2/Tests/Python.fs" />
     <Compile Include="build2/Tests/Rust.fs" />

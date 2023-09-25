@@ -18,7 +18,8 @@
 				"christian-kohler.npm-intellisense",
 				"ionutvmi.path-autocomplete",
 				"ms-python.vscode-pylance",
-				"rust-lang.rust-analyzer"
+				"rust-lang.rust-analyzer",
+				"tintoy.msbuild-project-tools"
 			],
 			"settings": {
 				"terminal.integrated.defaultProfile.linux": "zsh",
