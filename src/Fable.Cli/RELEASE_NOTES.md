@@ -11,6 +11,7 @@
 * Fix #3441: Don't ignore error when loading plugin
 * Fix #3482: Remove `Py.python` and `Py.expr_python` use `emitPyStatement` and `emitPyExpr` instead
 * Restrict replacements to accept only functions from their target language module
+* Fix #3528: Consider functions hidden by a signature file as private (@nojaf)
 
 ### 4.1.4
 
