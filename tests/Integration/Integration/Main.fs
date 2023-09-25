@@ -5,6 +5,7 @@ let allTests =
   [
     Cli.tests
     FileWatcher.tests
+    CompilationTests.tests
   ]
 
 open Expecto
