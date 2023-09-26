@@ -19,7 +19,8 @@
 				"ionutvmi.path-autocomplete",
 				"ms-python.vscode-pylance",
 				"rust-lang.rust-analyzer",
-				"tintoy.msbuild-project-tools"
+				"tintoy.msbuild-project-tools",
+				"eamodio.gitlens"
 			],
 			"settings": {
 				"terminal.integrated.defaultProfile.linux": "zsh",

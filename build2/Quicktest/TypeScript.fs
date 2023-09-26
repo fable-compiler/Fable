@@ -9,7 +9,7 @@ open System.IO
 let handle (args: string list) =
 
     let srcDir = Path.Resolve "src/quicktest"
-    let outDir = Path.Resolve "build/quicktest-ts"
+    let outDir = Path.Resolve "temp/quicktest-ts"
     let mainFile = outDir </> "Quicktest.fs.js"
 
     // Make sure the output directory exists, so nodemon doesn't complain

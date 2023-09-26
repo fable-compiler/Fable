@@ -56,6 +56,13 @@ Available commands:
             --ast-only          Run only the tests for the AST (can be run in watch mode)
             --noStd             Compile and run the tests without the standard library
             --threaded          Compile and run the tests with the threaded runtime
+
+    standalone                  Compile standalone version of Fable running
+                                on top of of Node.js
+
+        Options:
+            --no-minify         Don't minify the JavaScript output
+            --watch             Watch for changes and recompile
         """
 
     printfn "%s" helpText
@@ -91,6 +98,7 @@ let main argv =
         | "dart" :: _ -> Quicktest.Dart.handle args
         | "rust" :: _ -> Quicktest.Rust.handle args
         | _ -> printHelp ()
+    | "standalone" :: args -> Standalone.handle args
     | "sync-fcs-repo":: _ -> FcsRepo.sync ()
     | "copy-fcs-repo":: _ -> FcsRepo.copy ()
     | "--help" :: _

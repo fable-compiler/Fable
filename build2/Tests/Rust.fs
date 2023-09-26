@@ -25,7 +25,7 @@ let private testAst isWatch =
     else
         Command.Run("dotnet", "test -c Release", workingDirectory = projectDir)
 
-let mainTestsDestinationDir = Path.Resolve("build", "tests", "Rust")
+let mainTestsDestinationDir = Path.Resolve("temp", "tests", "Rust")
 let mainTestsProjectDir = Path.Resolve("tests", "Rust")
 
 let handle (args: string list) =
@@ -130,6 +130,6 @@ let handle (args: string list) =
 
             // Command.Run(
             //     "cargo",
-            //     "build",
+            //     "temp",
             //     workingDirectory = mainTestsDestinationDir
             // )

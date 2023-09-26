@@ -10,8 +10,8 @@ type BuildFableLibraryPython() =
             "python",
             Path.Combine("src", "fable-library-py"),
             Path.Combine("src", "fable-library-py", "fable_library"),
-            Path.Combine("build", "fable-library-py"),
-            Path.Combine("build", "fable-library-py", "fable_library")
+            Path.Combine("temp", "fable-library-py"),
+            Path.Combine("temp", "fable-library-py", "fable_library")
         )
 
     override this.CopyStage() =

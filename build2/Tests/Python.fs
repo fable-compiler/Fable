@@ -6,7 +6,7 @@ open Build.Utils
 open BlackFox.CommandLine
 open SimpleExec
 
-let private buildDir = Path.Resolve("build", "tests", "Python")
+let private buildDir = Path.Resolve("temp", "tests", "Python")
 let private sourceDir = Path.Resolve("tests", "Python")
 
 let handle (args: string list) =

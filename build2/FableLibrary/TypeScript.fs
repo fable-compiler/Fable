@@ -10,9 +10,9 @@ type BuildFableLibraryTypeScript() =
             "typescript",
             Path.Combine("src", "fable-library"),
             Path.Combine("src", "fable-library"),
-            Path.Combine("build", "fable-library-ts"),
-            Path.Combine("build", "fable-library-ts"),
-            Path.Combine(".", "build", "fable-library-ts")
+            Path.Combine("temp", "fable-library-ts"),
+            Path.Combine("temp", "fable-library-ts"),
+            Path.Combine(".", "temp", "fable-library-ts")
         )
 
     override _.FableArgsBuilder =

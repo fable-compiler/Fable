@@ -50,7 +50,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
     let sourceDir = Path.Resolve("tests", "Js", folderName)
 
     let destinationDir =
-        Path.Resolve("build", "tests", "JavaScript", folderName)
+        Path.Resolve("temp", "tests", "JavaScript", folderName)
 
     Directory.clean destinationDir
 

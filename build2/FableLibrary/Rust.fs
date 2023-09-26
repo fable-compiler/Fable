@@ -11,8 +11,8 @@ type BuildFableLibraryRust() =
             "rust",
             Path.Combine("src", "fable-library-rust"),
             Path.Combine("src", "fable-library-rust", "src"),
-            Path.Combine("build", "fable-library-rust"),
-            Path.Combine("build", "fable-library-rust", "src")
+            Path.Combine("temp", "fable-library-rust"),
+            Path.Combine("temp", "fable-library-rust", "src")
         )
 
     override this.PostFableBuildStage() =

@@ -16,7 +16,7 @@ let private mochaCommand = "npx mocha . --reporter dot -t 10000"
 let handleStandaloneFast () =
     let fableCompilerJsDir = Path.Resolve("src", "fable-compiler-js", "src")
     let fableCompilerJsEntry = Path.Combine(fableCompilerJsDir, "app.fs.js")
-    let standaloneBuildDest = Path.Resolve("build", "tests", "Standalone")
+    let standaloneBuildDest = Path.Resolve("temp", "tests", "Standalone")
 
     Command.Fable(
         CmdLine.appendRaw "--noCache",

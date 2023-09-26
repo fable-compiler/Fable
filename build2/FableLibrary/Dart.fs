@@ -9,9 +9,9 @@ type BuildFableLibraryDart() =
             "dart",
             Path.Combine("src", "fable-library-dart"),
             Path.Combine("src", "fable-library-dart"),
-            Path.Combine("build", "fable-library-dart"),
-            Path.Combine("build", "fable-library-dart"),
-            Path.Combine(".", "build", "fable-library-dart")
+            Path.Combine("temp", "fable-library-dart"),
+            Path.Combine("temp", "fable-library-dart"),
+            Path.Combine(".", "temp", "fable-library-dart")
         )
 
     override this.CopyStage() =

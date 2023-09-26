@@ -8,8 +8,8 @@ open SimpleExec
 open Fake.IO
 
 let private projectDir = Path.Resolve("tests", "TypeScript")
-let private fableDest = Path.Resolve("build", "tests", "TypeScript")
-let private tscDest = Path.Resolve("build", "tests", "TypeScriptCompiled")
+let private fableDest = Path.Resolve("temp", "tests", "TypeScript")
+let private tscDest = Path.Resolve("temp", "tests", "TypeScriptCompiled")
 
 let handle (args: string list) =
     let skipFableLibrary = args |> List.contains "--fast"
@@ -24,7 +24,7 @@ let handle (args: string list) =
     Shell.copyFile fableDest (projectDir </> "tsconfig.json")
 
     let tscArgs = $"tsc --outDir {tscDest}"
-    let mochaArgs = "mocha build/tests/TypeScript --reporter dot -t 10000"
+    let mochaArgs = "mocha temp/tests/TypeScript --reporter dot -t 10000"
 
     let fableArgs =
         CmdLine.concat [

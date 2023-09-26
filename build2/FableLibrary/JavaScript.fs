@@ -9,7 +9,7 @@ type BuildFableLibraryJavaScript() =
     // JavaScript is a specialisation of the TypeScript target
     inherit BuildFableLibraryTypeScript()
 
-    let jsOutDir = Path.Combine("build", "fable-library")
+    let jsOutDir = Path.Combine("temp", "fable-library")
     do base.Language <- "javascript"
 
     override this.PostFableBuildStage() =

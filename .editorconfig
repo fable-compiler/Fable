@@ -3,6 +3,8 @@
 # All files
 [*]
 indent_style = space
+trim_trailing_whitespace = true
+insert_final_newline = true
 
 # TS files
 [*.ts]

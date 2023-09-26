@@ -285,51 +285,6 @@ let testStandalone(minify) =
     runInDir fableDir "npm unlink ../fable-metadata && cd ../fable-metadata && npm unlink"
     runInDir fableDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
 
-let testReact() =
-    runFableWithArgs "tests/React" ["--noCache"]
-    runInDir "tests/React" "npm i && npm test"
-
-let compileAndRunTestsWithMocha clean projectName =
-    let projectDir = "tests/Js/" + projectName
-    let buildDir = "build/tests/Js/" + projectName
-
-    if clean then
-        cleanDirs [buildDir]
-
-    runFableWithArgs projectDir [
-        "--outDir " + buildDir
-        "--exclude Fable.Core"
-    ]
-
-    runMocha buildDir
-
-let testProjectConfigs() =
-    [ "tests/Integration/ProjectConfigs/DebugWithExtraDefines", "Debug"
-      "tests/Integration/ProjectConfigs/CustomConfiguration", "Test"
-      "tests/Integration/ProjectConfigs/ReleaseNoExtraDefines", String.Empty
-      "tests/Integration/ProjectConfigs/ConsoleApp", String.Empty
-    ]
-    |> List.iter (fun (projectDir, configuration) ->
-        let buildDir = "build/"+ projectDir
-
-        cleanDirs [ buildDir ]
-        runFableWithArgs projectDir [
-            "--outDir " + buildDir
-            "--exclude Fable.Core"
-            if not(String.IsNullOrEmpty configuration) then
-                "--configuration " + configuration
-        ]
-
-        runMocha buildDir
-    )
-
-let testIntegration() =
-    runInDir "tests/Integration/Integration" "dotnet run -c Release"
-
-    // buildLibraryTsIfNotExists()
-    runInDir "tests/Integration/Compiler" "dotnet run -c Release"
-    testProjectConfigs()
-
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = Publish.loadReleaseVersion "src/Fable.Cli" + "-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
     action version
@@ -437,8 +392,6 @@ match BUILD_ARGS_LOWER with
     let minify = hasFlag "--no-minify" |> not
     testStandalone(minify)
 // | "test-standalone-fast"::_ -> testStandaloneFast()
-| "test-configs"::_ -> testProjectConfigs()
-| "test-integration"::_ -> testIntegration()
 | "test-repos"::_ -> testRepos()
 
 | "package"::_ ->

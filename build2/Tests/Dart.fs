@@ -7,7 +7,7 @@ open BlackFox.CommandLine
 open SimpleExec
 open Fake.IO
 
-let private buildDir = Path.Resolve("build", "tests", "Dart")
+let private buildDir = Path.Resolve("temp", "tests", "Dart")
 let private testsFolder = Path.Resolve("tests", "Dart")
 let private testsFsprojFolder = Path.Resolve("tests", "Dart", "src")
 

@@ -16,7 +16,7 @@ let private compilerProjectDir =
 
 let private testProjectConfig (projectDirName : string) (configuration : string option) =
     let projectDir = Path.Resolve("tests", "Integration", "ProjectConfigs", projectDirName)
-    let destinationDir = Path.Resolve("build", "tests", "Integration", "ProjectConfigs", projectDirName)
+    let destinationDir = Path.Resolve("temp", "tests", "Integration", "ProjectConfigs", projectDirName)
 
     Directory.clean destinationDir
 
