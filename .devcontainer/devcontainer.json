@@ -20,7 +20,8 @@
 				"ms-python.vscode-pylance",
 				"rust-lang.rust-analyzer",
 				"tintoy.msbuild-project-tools",
-				"eamodio.gitlens"
+				"eamodio.gitlens",
+				"tamasfe.even-better-toml"
 			],
 			"settings": {
 				"terminal.integrated.defaultProfile.linux": "zsh",
