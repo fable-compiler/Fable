@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Utils.fs" />
+    <Compile Include="Utils/ChangelogParser.fs" />
+    <Compile Include="Utils/Changelog.fs" />
+    <Compile Include="SimpleExec.Extensions.fs" />
+    <Compile Include="FableLibrary/Core.fs" />
+    <Compile Include="FableLibrary/Python.fs" />
+    <Compile Include="FableLibrary/Dart.fs" />
+    <Compile Include="FableLibrary/TypeScript.fs" />
+    <Compile Include="FableLibrary/JavaScript.fs" />
+    <Compile Include="FableLibrary/Rust.fs" />
+    <Compile Include="Tests/Standalone.fs" />
+    <Compile Include="Tests/JavaScript.fs" />
+    <Compile Include="Tests/Python.fs" />
+    <Compile Include="Tests/Rust.fs" />
+    <Compile Include="Tests/Dart.fs" />
+    <Compile Include="Tests/TypeScript.fs" />
+    <Compile Include="Tests/Integration.fs" />
+    <Compile Include="Quicktest/Core.fs" />
+    <Compile Include="Quicktest/TypeScript.fs" />
+    <Compile Include="Quicktest/JavaScript.fs" />
+    <Compile Include="Quicktest/Python.fs" />
+    <Compile Include="Quicktest/Rust.fs" />
+    <Compile Include="Quicktest/Dart.fs" />
+    <Compile Include="FcsRepo.fs" />
+    <Compile Include="Standalone.fs" />
+    <Compile Include="Publish.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
+    <PackageReference Include="EluciusFTW.SpectreCoff" Version="0.47.28" />
+    <PackageReference Include="Fake.IO.FileSystem" Version="6.0.0" />
+    <PackageReference Include="SimpleExec" Version="11.0.0" />
+    <PackageReference Include="Spectre.Console" Version="0.47.0" />
+    <PackageReference Update="FSharp.Core" Version="7.0.400" />
+    <PackageReference Include="Thoth.Json.Net" Version="11.0.0" />
+  </ItemGroup>
+</Project>
