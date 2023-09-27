@@ -1,72 +1,149 @@
 module Build.Publish
 
-open SimpleExec
 open Build.Utils
-open BlackFox.CommandLine
 open System.IO
 open System.Text.RegularExpressions
-open Thoth.Json.Net
-
-module Npm =
-
-    let getVersion (projectDir: string) =
-        let packageJson = Path.Combine(projectDir, "package.json")
-        let packageJsonContent = File.ReadAllText(packageJson)
-        let versionDecoder = Decode.field "version" Decode.string
-
-        match Decode.fromString versionDecoder packageJsonContent with
-        | Ok version -> version
-        | Error msg ->
-            failwithf
-                $"""Failed to find version in package.json:
-File: %s{packageJson}
-
-Error:
-%s{msg}"""
+open Build.FableLibrary
 
 let private updateLibraryVersionInFableTransforms
-    (compilerVersion : string)
-    (librariesVersion : {|
-        JavaScript: string
-    |})
-     =
-    let replaceVersion (langPrefix : string) (version: string) (file: string) =
-        let fileContent = File.ReadAllText file
-        let prefix = langPrefix.ToUpperInvariant()
-        let mutable updated = false
+    (compilerVersion: string)
+    (librariesVersion: {| JavaScript: string |})
+    =
+    let filePath =
+        Path.Resolve("src", "Fable.Transforms", "Global", "Compiler.fs")
 
+    // Use a mutable variable for simplicity
+    // Allows to keep track of successive replacements
+    let mutable fileContent = File.ReadAllText filePath
+
+    // Replace compiler version
+    fileContent <-
         Regex.Replace(
             fileContent,
-            $@"^(?'indentation'\s*)let \[<Literal>\] {prefix}_LIBRARY_VERSION = ""(?'version'.*?)""",
+            $@"^(?'indentation'\s*)let \[<Literal>\] VERSION = ""(?'version'.*?)""",
             (fun (m: Match) ->
-                updated <- true
-                m.Groups.["indentation"].Value + $"let [<Literal>] {prefix}_LIBRARY_VERSION = \"{version}\""
+                m.Groups.["indentation"].Value
+                + $"let [<Literal>] VERSION = \"{compilerVersion}\""
             ),
             RegexOptions.Multiline
         )
 
-    {|
-        JavaScript = replaceVersion "js" compilerVersion librariesVersion.JavaScript
-    |}
+    let replaceLangVersion (langPrefix: string) (version: string) =
+        let prefix = langPrefix.ToUpperInvariant()
 
-module ProjectDir =
+        fileContent <-
+            Regex.Replace(
+                fileContent,
+                $@"^(?'indentation'\s*)let \[<Literal>\] {prefix}_LIBRARY_VERSION = ""(?'version'.*?)""",
+                (fun (m: Match) ->
+                    m.Groups.["indentation"].Value
+                    + $"let [<Literal>] {prefix}_LIBRARY_VERSION = \"{version}\""
+                ),
+                RegexOptions.Multiline
+            )
 
-    let fableAst = Path.Resolve("src", "Fable.Ast")
+    replaceLangVersion "js" librariesVersion.JavaScript
+
+    // Save changes on the disk
+    File.WriteAllText(filePath, fileContent)
+
+module private ProjectDir =
+
+    let fableAst = Path.Resolve("src", "Fable.AST")
     let fableCore = Path.Resolve("src", "Fable.Core")
     let fableCli = Path.Resolve("src", "Fable.Cli")
-    let fablePublishUtils = Path.Resolve("src", "Fable.Publish.Utils")
+    let fablePublishUtils = Path.Resolve("src", "Fable.PublishUtils")
+    let temp_fable_library = Path.Resolve("temp", "fable-library")
     let fable_library = Path.Resolve("src", "fable-library")
     let fable_metadata = Path.Resolve("src", "fable-metadata")
     let fable_standalone = Path.Resolve("src", "fable-standalone")
     let fable_compiler_js = Path.Resolve("src", "fable-compiler-js")
 
+let private publishNuget (fsprojDir : string) =
+    let fsprojFiles = Directory.GetFiles(fsprojDir, "*.fsproj")
 
-let test () =
+    if Array.length fsprojFiles <> 1 then
+        failwithf
+            $"Expected to find exactly one fsproj file in %s{fsprojDir}"
+
+    let fsprojPath = fsprojFiles[0]
+    let fsprojContent = File.ReadAllText fsprojPath
+    let changelogPath = Path.Combine(fsprojDir, "CHANGELOG.md")
+    let lastChangelogVersion = Changelog.getLastVersion changelogPath
+
+    printfn $"Publishing: %s{fsprojDir}"
+
+    if Fsproj.needPublishing fsprojContent lastChangelogVersion then
+        let updatedFsprojContent = Fsproj.replaceVersion fsprojContent lastChangelogVersion
+        File.WriteAllText(fsprojPath, updatedFsprojContent)
+        let nupkgPath = Dotnet.pack fsprojDir
+        let nupkgFolder = Path.GetDirectoryName nupkgPath
+        Dotnet.Nuget.publish nupkgFolder
+        printfn $"Published!"
+    else
+        printfn $"Already up-to-date, skipping..."
+
+let private publishNpm (projectDir : string) =
+    let packageJsonPath = Path.Combine(projectDir, "package.json")
+    let packageJsonContent = File.ReadAllText(packageJsonPath)
+    let changelogPath = Path.Combine(projectDir, "CHANGELOG.md")
+    let lastChangelogVersion = Changelog.getLastVersion changelogPath
+
+    printfn $"Publishing: %s{projectDir}"
+
+    if Npm.needPublishing packageJsonContent lastChangelogVersion then
+        let updatedPackageJsonContent = Npm.replaceVersion packageJsonContent lastChangelogVersion
+        File.WriteAllText(packageJsonPath, updatedPackageJsonContent)
+        Npm.publish projectDir
+        printfn $"Published!"
+    else
+        printfn $"Already up-to-date, skipping..."
+
+let private updateFableLibraryPackageJsonVersion () =
+    let packageJsonPath = Path.Combine(ProjectDir.fable_library, "package.json")
+    let packageJsonContent = File.ReadAllText(packageJsonPath)
+    let changelogPath = Path.Combine(ProjectDir.fable_library, "CHANGELOG.md")
+    let lastChangelogVersion = Changelog.getLastVersion changelogPath
+
+    let updatedPackageJsonContent = Npm.replaceVersion packageJsonContent lastChangelogVersion
+    File.WriteAllText(packageJsonPath, updatedPackageJsonContent)
+
+let handle (args: string list) =
+    // Build all the fable-libraries
+    BuildFableLibraryDart().Run()
+    BuildFableLibraryJavaScript().Run()
+    BuildFableLibraryPython().Run()
+    BuildFableLibraryRust().Run()
+    BuildFableLibraryTypeScript().Run()
+
+    // Handle the NPM packages
+
+    // For fable-library, we use the compiled version of the project for publishing
+    // This i because we want to publish the JavaScript code and not a mix of F# and TypeScript
+    publishNpm ProjectDir.temp_fable_library
+    // We need also want to update the original package.json if needed
+    // This is to keep the versions consistent across the project
+    // and also will be used when updating libraries version inside of Fable compiler
+    updateFableLibraryPackageJsonVersion ()
+
+    publishNpm ProjectDir.fable_metadata
+
+    // Disabled because standalone terser optimisation seems to never end
+    // Standalone.handle []
+    // publishNpm ProjectDir.fable_standalone
+
+    // Disabled as we need standalone
+    // TODO: Build fable compiler js
+    // publishNpm ProjectDir.fable_compiler_js
+
+    // Update embedded version (both compiler and libraries)
     let changelogPath = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
     let compilerVersion = Changelog.getLastVersion changelogPath
-
     updateLibraryVersionInFableTransforms compilerVersion {|
-        JavaScript = Npm.getVersion ProjectDir.fable_library
+        JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library
     |}
 
-let handle (args: string list) = ()
+    publishNuget ProjectDir.fableAst
+    publishNuget ProjectDir.fableCore
+    publishNuget ProjectDir.fableCli
+    publishNuget ProjectDir.fablePublishUtils

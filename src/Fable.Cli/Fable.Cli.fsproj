@@ -5,7 +5,6 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <Version>4.1.4</Version>
-    <PackageVersion>4.1.4</PackageVersion>
     <PackageReleaseNotes>* Fix #3438: Source maps
 * Fix #3440: Don't curry arity-1 functions
 * Fix #3452: DateTimeOffset conversion to DateTime

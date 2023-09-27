@@ -8,7 +8,7 @@ let getLastVersion (changelogPath: string) =
     match ChangelogParser.parse content with
     | Ok changelog ->
         changelog.Versions
-        |> List.tryFind (fun v -> v.Version <> Some "Unreleased")
+        |> List.tryFind (fun v -> v.Title <> "Unreleased")
         |> Option.map (fun v -> v.Version.Value)
         |> Option.defaultWith (fun () ->
             failwithf

@@ -101,6 +101,7 @@ let main argv =
     | "standalone" :: args -> Standalone.handle args
     | "sync-fcs-repo":: _ -> FcsRepo.sync ()
     | "copy-fcs-repo":: _ -> FcsRepo.copy ()
+    | "publish" :: args -> Publish.handle args
     | "--help" :: _
     | _ -> printHelp ()
 

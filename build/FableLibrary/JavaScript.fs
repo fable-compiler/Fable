@@ -37,6 +37,6 @@ type BuildFableLibraryJavaScript() =
         let bigDts = Path.Combine(tsBuildDir, "lib", "big.d.ts")
         Shell.copyFile bigDts jsOutDir
 
-        Shell.copyFile jsOutDir (Path.Combine(tsBuildDir, "package.json"))
-
+        Shell.copyFile jsOutDir (Path.Combine(this.SourceDir, "package.json"))
+        Shell.copyFile jsOutDir (Path.Combine(this.SourceDir, "CHANGELOG.md"))
         Shell.copyFile jsOutDir (Path.Combine(this.SourceDir, "README.md"))

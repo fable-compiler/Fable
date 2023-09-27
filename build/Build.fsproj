@@ -7,6 +7,9 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Utils/ChangelogParser.fs" />
     <Compile Include="Utils/Changelog.fs" />
+    <Compile Include="Utils/Fsproj.fs" />
+    <Compile Include="Utils/Npm.fs" />
+    <Compile Include="Utils/Nuget.fs" />
     <Compile Include="SimpleExec.Extensions.fs" />
     <Compile Include="FableLibrary/Core.fs" />
     <Compile Include="FableLibrary/Python.fs" />

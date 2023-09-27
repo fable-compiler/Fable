@@ -36,7 +36,14 @@
 				"csharp.suppressDotnetInstallWarning": true
 			}
 		}
-	}
+	},
+
+    "mounts": [
+        // Mount .npmrc from the host machine, to be able to use the host session
+        // This allow the user to login on their own machine once and not each time
+        // they build a new devcontainer
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.npmrc,target=/home/vscode/.npmrc,type=bind,consistency=cached"
+    ]
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
