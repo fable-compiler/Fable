@@ -23,7 +23,7 @@ jobs:
       uses: actions/setup-node@v2.4.1
 
     - name: Fable Tests - JavaScript
-      run: dotnet fsi build.fsx test-js
+      run: ./build.sh test javascript
 
   # Separate build job for TypeScript
   build-typescript:
@@ -41,7 +41,7 @@ jobs:
       uses: actions/setup-node@v2.4.1
 
     - name: Fable Tests - TypeScript
-      run: dotnet fsi build.fsx test-ts
+      run: ./build.sh test typescript
 
     # - name: Fable Tests - TypeScript
     #   run: dotnet fsi build.fsx test-ts
@@ -62,7 +62,7 @@ jobs:
       uses: actions/setup-node@v2.4.1
 
     - name: Fable Tests
-      run: dotnet fsi build.fsx test-integration
+      run: ./build.sh test integration
 
   # Separate build job for Python since we use a test matrix (will run in parallell)
   build-python:
@@ -91,7 +91,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Fable Library - Python
-        run: dotnet fsi build.fsx library-py
+        run: ./build.sh fable-library --python
 
       - name: Install dependencies
         run: |
@@ -99,7 +99,8 @@ jobs:
           poetry install
 
       - name: Fable Tests - Python
-        run: dotnet fsi build.fsx test-py
+        #
+        run: ./build.sh test python --skip-fable-library
 
   # Separate build job for Rust (will run in parallel)
   build-rust:
@@ -125,7 +126,7 @@ jobs:
         toolchain: stable
 
     - name: Fable Tests - Rust
-      run: dotnet fsi build.fsx test-rust-${{ matrix.test }}
+      run: ./build.sh test rust --${{ matrix.test }}
 
   build-dart:
     runs-on: ubuntu-latest
@@ -142,4 +143,4 @@ jobs:
       uses: dart-lang/setup-dart@v1.3
 
     - name: Fable Tests - Dart
-      run: dotnet fsi build.fsx test-dart
+      run: ./build.sh test dart

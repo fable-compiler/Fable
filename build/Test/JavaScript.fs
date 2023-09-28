@@ -113,7 +113,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
 let handle (args: string list) =
     let isReactOnly = args |> List.contains "--react-only"
     let isStandaloneOnly = args |> List.contains "--standalone-only"
-    let skipFableLibrary = args |> List.contains "--fast"
+    let skipFableLibrary = args |> List.contains "--skip-fable-library"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
 

@@ -18,7 +18,7 @@ type QuicktestConfig = {
 }
 
 let genericQuicktest (config: QuicktestConfig) (args: string list) =
-    let skipFableLibrary = args |> List.contains "--fast"
+    let skipFableLibrary = args |> List.contains "--skip-fable-library"
 
     config.FableLibBuilder.Run(skipFableLibrary)
 

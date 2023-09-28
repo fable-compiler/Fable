@@ -29,10 +29,10 @@ let mainTestsDestinationDir = Path.Resolve("temp", "tests", "Rust")
 let mainTestsProjectDir = Path.Resolve("tests", "Rust")
 
 let handle (args: string list) =
-    let skipFableLibrary = args |> List.contains "--fast"
+    let skipFableLibrary = args |> List.contains "--skip-fable-library"
     let isWatch = args |> List.contains "--watch"
     let astOnly = args |> List.contains "--ast-only"
-    let noStd = args |> List.contains "--no-std"
+    let noStd = args |> List.contains "--no_std"
     let threaded = args |> List.contains "--threaded"
     let noDotnet = args |> List.contains "--no-dotnet"
 
