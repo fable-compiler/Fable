@@ -618,7 +618,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
             let baseDir = AppContext.BaseDirectory
             baseDir
             |> File.tryFindNonEmptyDirectoryUpwards {| matches = [buildDir; "temp/" + buildDir]; exclude = ["src"] |}
-            |> Option.defaultWith (fun () -> Fable.FableError $"Cannot find [temp/]{buildDir} from {baseDir}" |> raise)
+            |> Option.defaultWith (fun () -> Fable.FableError $"Cannot find [temp/]{buildDir} from {baseDir}.\nPlease, make sure you build {buildDir}" |> raise)
 
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)
         // Always overwrite fable-library in case it has been updated, see #3208

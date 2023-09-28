@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Fix #3482: Remove `Py.python` and `Py.expr_python` use `emitPyStatement` and `emitPyExpr` instead
 * Restrict replacements to accept only functions from their target language module
 * Fix #3528: Consider functions hidden by a signature file as private (@nojaf)
+* Improve error message when Fable doesn't find the `fable-library` folder.
+
+    This is especially useful when working on Fable itself, and should save time to others.
+    Each time I got this is error, I needed several minutes to remember the cause of it.
 
 ## 4.1.4
 
