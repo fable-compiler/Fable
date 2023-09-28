@@ -56,13 +56,13 @@ let handle (args: string list) =
 
         Shell.copyFile
             mainTestsDestinationDir
-            (mainTestsProjectDir </> "cargo.toml")
+            (mainTestsProjectDir </> "Cargo.toml")
 
         !!(mainTestsProjectDir </> "tests" </> "src" </> "*.rs")
         |> Seq.iter (fun file ->
-            let destionation = mainTestsDestinationDir </> "tests" </> "src"
+            let destination = mainTestsDestinationDir </> "tests" </> "src"
 
-            Shell.copyFile destionation file
+            Shell.copyFile destination file
         )
 
         let cargoTestArgs =
