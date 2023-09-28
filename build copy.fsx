@@ -331,52 +331,6 @@ let testRepos() =
         runInDir repoDir "dotnet tool restore"
         runInDir repoDir command
 
-let githubRelease() =
-    match envVarOrNone "GITHUB_USER", envVarOrNone "GITHUB_TOKEN" with
-    | Some user, Some token ->
-        try
-            let version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
-            let notes = notes |> Array.map (fun n -> $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'""") |> String.concat ","
-            run $"git commit -am \"Release {version}\" && git push"
-            runSilent $"""node --eval "require('ghreleases').create({{ user: '{user}', token: '{token}', }}, 'fable-compiler', 'Fable', {{ tag_name: '{version}', name: '{version}', body: [{notes}].join('\n'), }}, (err, res) => {{ if (err != null) {{ console.error(err) }} }})" """
-            printfn $"Github release %s{version} created successfully"
-        with ex ->
-            printfn $"Github release failed: %s{ex.Message}"
-    | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
-
-let packages() =
-    ["Fable.AST", doNothing
-     "Fable.Core", doNothing
-     "Fable.Cli", (fun () ->
-        // TODO: Add library versions for other languages
-        let compilerVersion = Publish.loadReleaseVersion "src/Fable.Cli"
-        let updatedLibs = updateVersionsInFableTransforms compilerVersion [
-            "js", getNpmVersion "src/fable-library"
-        ]
-        // buildLibraryTs()
-        // buildLibraryPy()
-        // buildLibraryRust()
-        // buildLibraryDart true
-        if updatedLibs.Contains("js") then
-            pushNpmWithoutReleaseNotesCheck "build/fable-library"
-     )
-     "Fable.PublishUtils", doNothing
-     "fable-metadata", doNothing
-     "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
-     "fable-compiler-js", fun () -> buildCompilerJs true
-    ]
-
-let publishPackages restArgs =
-    let packages =
-        match List.tryHead restArgs with
-        | Some pkg -> packages() |> List.filter (fun (name,_) -> name = pkg)
-        | None -> packages()
-    for (pkg, buildAction) in packages do
-        if Char.IsUpper pkg[0] then
-            let projFile = "src" </> pkg </> pkg + ".fsproj"
-            pushFableNuget projFile ["Pack", "true"] buildAction
-        else
-            pushNpm ("src" </> pkg) buildAction
 
 let hasFlag flag =
     BUILD_ARGS_LOWER |> List.contains flag
@@ -388,9 +342,6 @@ match BUILD_ARGS_LOWER with
 //     |> List.singleton |> quicktest
 // | "coverage"::_ -> coverage()
 
-| "test-standalone"::_ ->
-    let minify = hasFlag "--no-minify" |> not
-    testStandalone(minify)
 // | "test-standalone-fast"::_ -> testStandaloneFast()
 | "test-repos"::_ -> testRepos()
 
@@ -400,7 +351,6 @@ match BUILD_ARGS_LOWER with
 | "package-core"::_ ->
     let pkgInstallCmd = buildLocalPackageWith (resolveDir "temp/pkg") "add package Fable.Core" (resolveDir "src/Fable.Core/Fable.Core.fsproj") ignore
     printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
-
 
 | ("fable-compiler-js"|"compiler-js")::_ ->
     let minify = hasFlag "--no-minify" |> not
@@ -413,10 +363,6 @@ match BUILD_ARGS_LOWER with
     buildWorker {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
 
-| "publish"::restArgs -> publishPackages restArgs
-| "github-release"::_ ->
-    publishPackages []
-    githubRelease ()
 
 | _ ->
     printfn """Please pass a target name. Examples:
