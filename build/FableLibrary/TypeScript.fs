@@ -3,6 +3,7 @@ namespace Build.FableLibrary
 open System.IO
 open Fake.IO
 open BlackFox.CommandLine
+open SimpleExec
 
 type BuildFableLibraryTypeScript() =
     inherit
@@ -20,6 +21,8 @@ type BuildFableLibraryTypeScript() =
         >> CmdLine.appendPrefix "--define" "FX_NO_BIGINT"
 
     override this.CopyStage() =
+        Command.Run("npm", "install", workingDirectory = Build.Workspace.root)
+
         // Copy all *.ts files to the build directory from source directory
         Directory.GetFiles(this.SourceDir, "*.ts")
         |> Shell.copyFiles this.OutDir

@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test: ["default"]  # "no_std", "threaded"]
+        test: ["default", "no_std", "threaded"]
 
     steps:
     - uses: actions/checkout@v2
@@ -125,8 +125,11 @@ jobs:
       with:
         toolchain: stable
 
+    - name: Fable Library - Rust
+      run: ./build.sh fable-library --rust
+
     - name: Fable Tests - Rust
-      run: ./build.sh test rust --${{ matrix.test }}
+      run: ./build.sh test rust --skip-fable-library --${{ matrix.test }}
 
   build-dart:
     runs-on: ubuntu-latest
