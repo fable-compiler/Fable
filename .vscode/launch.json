@@ -11,7 +11,7 @@
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
             // "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--noCache", "--runScript"],
-            "args": ["src/fable-library", "--outDir", "build/fable-library-ts", "--fableLib", "build/fable-library-ts", "--lang", "TypeScript", "--typedArrays", "false", "--exclude", "Fable.Core", "--define", "FX_NO_BIGINT", "--define", "FABLE_LIBRARY"],
+            "args": ["src/fable-library", "--outDir", "temp/fable-library-ts", "--fableLib", "temp/fable-library-ts", "--lang", "TypeScript", "--typedArrays", "false", "--exclude", "Fable.Core", "--define", "FX_NO_BIGINT", "--define", "FABLE_LIBRARY"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": true,
             "console": "internalConsole"
@@ -37,7 +37,7 @@
         },
         {
             "args": [
-                "${workspaceFolder}/build/tests",
+                "${workspaceFolder}/temp/tests",
                 "--reporter",
                 "dot",
                 "--timeout",
@@ -54,7 +54,7 @@
         },
         {
             "args": [
-                "${workspaceFolder}/build/tests/TypeScriptCompiled/build/tests/TypeScript",
+                "${workspaceFolder}/temp/tests/TypeScriptCompiled/build/tests/TypeScript",
                 "--reporter",
                 "dot",
                 "--timeout",
@@ -118,8 +118,8 @@
             "type": "node",
             "request": "launch",
             "name": "Run compiler-js",
-            "program": "${workspaceRoot}/build/fable-compiler-js/src/fable-compiler-js/dist/app.js",
-            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "build/tests-js"],
+            "program": "${workspaceRoot}/temp/fable-compiler-js/src/fable-compiler-js/dist/app.js",
+            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "temp/tests-js"],
             "stopOnEntry": true
         },
         {
@@ -128,7 +128,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/../fable-test", "--fableLib", "../../Fable/build/fable-library-rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache"],
+            "args": ["--outDir", "${workspaceRoot}/../fable-test", "--fableLib", "../../Fable/temp/fable-library-rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache"],
             "cwd": "${workspaceRoot}/../fable-test",
             "stopAtEntry": false,
             "console": "internalConsole"
@@ -150,7 +150,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/build/fable-library-rust/src", "--fableLib", ".", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache", "--define", "FABLE_LIBRARY"],
+            "args": ["--outDir", "${workspaceRoot}/temp/fable-library-rust/src", "--fableLib", ".", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache", "--define", "FABLE_LIBRARY"],
             "cwd": "${workspaceRoot}/src/fable-library-rust/src",
             "stopAtEntry": false,
             "console": "internalConsole"

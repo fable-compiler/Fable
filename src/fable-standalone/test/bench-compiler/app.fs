@@ -4,7 +4,7 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let getMetadataDir(): string = __SOURCE_DIRECTORY__ + "/../../../fable-metadata/lib/"
-let getFableLibDir(): string = __SOURCE_DIRECTORY__ + "/../../../../build/fable-library"
+let getFableLibDir(): string = __SOURCE_DIRECTORY__ + "/../../../../temp/fable-library"
 let getVersion(): string = ".next"
 let initFable (): Fable.Standalone.IFableManager = Fable.Standalone.Main.init ()
 
