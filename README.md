@@ -14,12 +14,28 @@ Check [this page](https://fable.io/docs/2-steps/setup.html).
 
 ## Building
 
+### VSCode Dev Container
+
+You can use VSCode Dev Container to get a preconfigured environment both with requirements and VSCode extensions.
+
+1. You need to have docker installed and running.
+2. [Install the Dev Container extension in VSCode](vscode:extension/ms-vscode-remote.remote-containers)
+3. Open the project in VSCode and click on the green button at the bottom left corner.
+
+Then run `./builsh.sh` or `./build.cmd` to see the build options.
+
+### On your machine
+
 Make sure the following **requirements** are installed in your system:
 
 - [dotnet SDK 6 or higher](https://dotnet.microsoft.com/download)
 - [node.js](https://nodejs.org) with npm
+- [Python 3](https://www.python.org/) is installed and available as `python`
+- [Poetry](https://python-poetry.org/)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Dart](https://dart.dev/get-dart)
 
-Then run `dotnet fsi build.fsx` at the root folder to see the build options.
+Then run `./builsh.sh` or `./build.cmd` to see the build options.
 
 ## Contributing
 
