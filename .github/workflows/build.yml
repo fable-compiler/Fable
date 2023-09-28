@@ -102,12 +102,12 @@ jobs:
         #
         run: ./build.sh test python --skip-fable-library
 
-  # Separate build job for Rust (will run in parallel)
+  # Separate build job for Rust
   build-rust:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        test: ["default", "no_std", "threaded"]
+    # strategy:
+    #   matrix:
+    #     test: ["default", "no_std", "threaded"]
 
     steps:
     - uses: actions/checkout@v2
@@ -128,9 +128,16 @@ jobs:
     - name: Fable Library - Rust
       run: ./build.sh fable-library --rust
 
-    - name: Fable Tests - Rust
-      run: ./build.sh test rust --skip-fable-library --${{ matrix.test }}
+    - name: Fable Tests - Rust default
+      run: ./build.sh test rust --skip-fable-library
 
+    - name: Fable Tests - Rust no_std
+      run: ./build.sh test rust --skip-fable-library --no-std
+
+    - name: Fable Tests - Rust threaded
+      run: ./build.sh test rust --skip-fable-library --threaded
+
+  # Separate build job for Dart
   build-dart:
     runs-on: ubuntu-latest
 
