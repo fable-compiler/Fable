@@ -43,8 +43,16 @@
         // This allow the user to login on their own machine once and not each time
         // they build a new devcontainer
         "source=${localEnv:HOME}${localEnv:USERPROFILE}/.npmrc,target=/home/vscode/.npmrc,type=bind,consistency=cached"
-    ]
+    ],
 
+    "containerEnv": {
+        // Expose the local environment variable to the container
+        // They are used for releasing and publishing from the container
+        "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}",
+        "FABLE_NUGET_KEY": "${localEnv:FABLE_NUGET_KEY}"
+    },
+
+    "postAttachCommand": "dotnet tool restore"
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
@@ -55,5 +63,6 @@
 	// "customizations": {},
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
+	// "remoteUser": "root",
+
 }
