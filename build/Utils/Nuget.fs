@@ -7,20 +7,21 @@ module Dotnet =
 
     type Nuget =
 
-        static member publish(projectDir: string) =
+        static member push(projectDir: string, nugetKey : string) =
             Command.Run(
                 "dotnet",
                 "nuget push *.nupkg -s https://api.nuget.org/v3/index.json",
                 workingDirectory = projectDir
             )
 
-        static member publish
+        static member push
             (
                 projectDir: string,
+                nugetKey : string,
                 preBuildAction: unit -> unit
             ) =
             preBuildAction ()
-            Nuget.publish projectDir
+            Nuget.push(projectDir, nugetKey)
 
     let pack (projectDir: string) =
         let struct (standardOutput, _) =

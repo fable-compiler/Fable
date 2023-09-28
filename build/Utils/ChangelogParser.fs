@@ -4,6 +4,7 @@ module ChangelogParser
 open Fable.Core
 open System
 open System.Text.RegularExpressions
+open Semver
 
 [<AutoOpen>]
 module Types =
@@ -12,59 +13,52 @@ module Types =
         | ListItem of string
         | Text of string
 
-    type OtherItem =
-        {
-            ListItem : string
-            TextBody : string option
+    type OtherItem = {
+        ListItem: string
+        TextBody: string option
+    }
+
+    type Categories = {
+        Added: CategoryBody list
+        Changed: CategoryBody list
+        Deprecated: CategoryBody list
+        Removed: CategoryBody list
+        Improved: CategoryBody list
+        Fixed: CategoryBody list
+        Security: CategoryBody list
+        Custom: Map<string, CategoryBody list>
+    }
+
+    type Version = {
+        Version: SemVersion
+        Title: string
+        Date: DateTime option
+        Categories: Categories
+        OtherItems: OtherItem list
+    }
+
+    type Changelog = {
+        Title: string
+        Description: string
+        Versions: Version list
+    } with
+
+        static member Empty = {
+            Title = ""
+            Description = ""
+            Versions = []
         }
 
     [<RequireQualifiedAccess>]
-    type CategoryType =
-        | Added
-        | Changed
-        | Deprecated
-        | Removed
-        | Improved
-        | Fixed
-        | Security
-        | Unknown of string
-
-        member this.Text
-            with get () =
-                match this with
-                | Added -> "Added"
-                | Changed -> "Changed"
-                | Deprecated -> "Deprecated"
-                | Removed -> "Removed"
-                | Improved -> "Improved"
-                | Fixed -> "Fixed"
-                | Security -> "Security"
-                | Unknown tag -> tag
-
-    type Version =
-        { Version : string option
-          Title : string
-          Date : DateTime option
-          Categories : Map<CategoryType, CategoryBody list>
-          OtherItems : OtherItem list }
-
-    type Changelog =
-        { Title : string
-          Description : string
-          Versions : Version list }
-
-        static member Empty =
-            { Title = ""
-              Description = ""
-              Versions = [] }
-
-    [<RequireQualifiedAccess>]
     type Symbols =
-        | Title of title : string
-        | RawText of body : string
-        | SectionHeader of title : string * version : string option * date : string option
-        | SubSection of tag : string
-        | ListItem of content : string
+        | Title of title: string
+        | RawText of body: string
+        | SectionHeader of
+            title: string *
+            version: string option *
+            date: string option
+        | SubSection of tag: string
+        | ListItem of content: string
 
 
 [<RequireQualifiedAccess>]
@@ -72,32 +66,25 @@ module Lexer =
 
     let private (|Match|_|) pattern input =
         let m = Regex.Match(input, pattern)
-        if m.Success then
-            Some m
-        else
-            None
+        if m.Success then Some m else None
 
-    let private (|Title|_|) (input : string) =
+    let private (|Title|_|) (input: string) =
         match input with
-        | Match "^# ?[^#]" _ ->
-            input.Substring(1).Trim()
-            |> Some
+        | Match "^# ?[^#]" _ -> input.Substring(1).Trim() |> Some
         | _ -> None
 
-    let private (|Semver|_|) (input : string) =
+    let private (|Semver|_|) (input: string) =
         match input with
         | Match "\\[?v?([\\w\\d.-]+\\.[\\w\\d.-]+[a-zA-Z0-9])\\]?" m ->
             Some m.Groups.[1].Value
-        | _ ->
-            None
-
-    let private (|Date|_|) (input : string) =
-        match input with
-        | Match "(\\d{4}-\\d{2}-\\d{2})" m ->
-            Some m.Groups.[0].Value
         | _ -> None
 
-    let private (|Version|_|) (input : string) =
+    let private (|Date|_|) (input: string) =
+        match input with
+        | Match "(\\d{4}-\\d{2}-\\d{2})" m -> Some m.Groups.[0].Value
+        | _ -> None
+
+    let private (|Version|_|) (input: string) =
         match input with
         | Match "^##? ?[^#]" _ ->
             let version =
@@ -112,48 +99,52 @@ module Lexer =
 
             let title = input.Substring(2).Trim()
 
-            Some (title, version, date)
+            Some(title, version, date)
 
         | _ -> None
 
-    let private (|SubSection|_|) (input : string) =
+    let private (|SubSection|_|) (input: string) =
         match input with
-        | Match "^###" _ ->
-            input.Substring(3).Trim()
-            |> Some
+        | Match "^###" _ -> input.Substring(3).Trim() |> Some
         | _ -> None
 
-    let private (|ListItem|_|) (input : string) =
+    let private (|ListItem|_|) (input: string) =
         match input with
-        | Match "^[*-]" _ ->
-            input.Substring(1).Trim()
-            |> Some
+        | Match "^[*-]" _ -> input.Substring(1).Trim() |> Some
         | _ -> None
 
-    let toSymbols (lines : string list) =
+    let toSymbols (lines: string list) =
         lines
-        |> List.map (function
+        |> List.map (
+            function
             | Title title -> Symbols.Title title
-            | Version (title, version, date) -> Symbols.SectionHeader (title, version, date)
+            | Version(title, version, date) ->
+                Symbols.SectionHeader(title, version, date)
             | SubSection tag -> Symbols.SubSection tag
             | ListItem content -> Symbols.ListItem content
-            | rawText -> Symbols.RawText (rawText.TrimEnd())
+            | rawText -> Symbols.RawText(rawText.TrimEnd())
         )
 
 [<RequireQualifiedAccess>]
 module Transform =
 
-    let rec private parseCategoryBody (symbols : Symbols list) (sectionContent : CategoryBody list) =
+    let rec private parseCategoryBody
+        (symbols: Symbols list)
+        (sectionContent: CategoryBody list)
+        =
         match symbols with
-        | Symbols.ListItem item::tail ->
+        | Symbols.ListItem item :: tail ->
 
-            parseCategoryBody tail (sectionContent @ [ CategoryBody.ListItem item ])
+            parseCategoryBody
+                tail
+                (sectionContent @ [ CategoryBody.ListItem item ])
         // If this is the beginning of a text block
-        | Symbols.RawText _::_ ->
+        | Symbols.RawText _ :: _ ->
             // Capture all the lines of the text block
             let textLines =
                 symbols
-                |> List.takeWhile (function
+                |> List.takeWhile (
+                    function
                     | Symbols.RawText _ -> true
                     | _ -> false
                 )
@@ -161,9 +152,11 @@ module Transform =
             // Regroup everything into a single string
             let content =
                 textLines
-                |> List.map (function
+                |> List.map (
+                    function
                     | Symbols.RawText text -> text
-                    | _ -> failwith "Should not happen the list has been filtered"
+                    | _ ->
+                        failwith "Should not happen the list has been filtered"
                 )
                 // Skip empty lines at the beginning
                 |> List.skipWhile String.IsNullOrEmpty
@@ -175,27 +168,28 @@ module Transform =
                 |> String.concat "\n"
 
             // Remove already handle symbols
-            let rest =
-                symbols
-                |> List.skip textLines.Length
+            let rest = symbols |> List.skip textLines.Length
 
             // If details is an empty line don't store it
             if String.IsNullOrEmpty content then
                 parseCategoryBody rest sectionContent
             else
-                parseCategoryBody rest (sectionContent @ [ CategoryBody.Text content ])
+                parseCategoryBody
+                    rest
+                    (sectionContent @ [ CategoryBody.Text content ])
 
         // End of the Section, return the built content
         | _ -> symbols, sectionContent
 
-    let rec private tryEatRawText (symbols : Symbols list) =
+    let rec private tryEatRawText (symbols: Symbols list) =
         match symbols with
         // If this is the beginning of a text block
-        | Symbols.RawText _::_ ->
+        | Symbols.RawText _ :: _ ->
             // Capture all the lines of the text block
             let textLines =
                 symbols
-                |> List.takeWhile (function
+                |> List.takeWhile (
+                    function
                     | Symbols.RawText _ -> true
                     | _ -> false
                 )
@@ -203,9 +197,11 @@ module Transform =
             // Regroup everything into a single string
             let content =
                 textLines
-                |> List.map (function
+                |> List.map (
+                    function
                     | Symbols.RawText text -> text
-                    | _ -> failwith "Should not happen the list has been filtered"
+                    | _ ->
+                        failwith "Should not happen the list has been filtered"
                 )
                 // Skip empty lines at the beginning
                 |> List.skipWhile String.IsNullOrEmpty
@@ -217,70 +213,124 @@ module Transform =
                 |> String.concat "\n"
 
             // Remove already handle symbols
-            let rest =
-                symbols
-                |> List.skip textLines.Length
+            let rest = symbols |> List.skip textLines.Length
 
             rest, Some content
         // End of the Section, return the built content
         | _ -> symbols, None
 
-    let rec private parse (symbols : Symbols list) (changelog : Changelog) =
+    let rec private parse (symbols: Symbols list) (changelog: Changelog) =
         match symbols with
-        | Symbols.Title title::tail ->
+        | Symbols.Title title :: tail ->
             if String.IsNullOrEmpty changelog.Title then
                 { changelog with Title = title }
             else
-                printfn "Title has already been filled."
-                printfn $"Discarding: %s{title}"
                 changelog
             |> parse tail
 
-        | Symbols.SectionHeader (title, version, date)::tail ->
-            let version =
-                {
-                    Version = version
-                    Title = title
-                    Date = date |> Option.map DateTime.Parse
-                    Categories = Map.empty
-                    OtherItems = []
+        | Symbols.SectionHeader(title, version, date) :: tail ->
+            let version = {
+                Version =
+                    match version with
+                    | Some version ->
+                        SemVersion.Parse(version, SemVersionStyles.Strict)
+                    | None ->
+                        // If no version is provided, use a dummy version
+                        // This happens when handling the unreleased section
+                        SemVersion.Parse(
+                            "0.0.0-Unreleased",
+                            SemVersionStyles.Strict
+                        )
+                Title = title
+                Date = date |> Option.map DateTime.Parse
+                Categories = {
+                    Added = []
+                    Changed = []
+                    Deprecated = []
+                    Removed = []
+                    Improved = []
+                    Fixed = []
+                    Security = []
+                    Custom = Map.empty
                 }
+                OtherItems = []
+            }
 
-            parse tail { changelog with Versions = version :: changelog.Versions }
+            parse tail {
+                changelog with
+                    Versions = version :: changelog.Versions
+            }
 
-        | Symbols.SubSection tag::tail ->
+        | Symbols.SubSection tag :: tail ->
             let (unparsedSymbols, categoryBody) = parseCategoryBody tail []
 
-            let categoryType =
-                match tag.ToLower() with
-                | "added" -> CategoryType.Added
-                | "changed" -> CategoryType.Changed
-                | "deprecated" -> CategoryType.Deprecated
-                | "removed" -> CategoryType.Removed
-                | "improved" -> CategoryType.Improved
-                | "fixed" -> CategoryType.Fixed
-                | "security" -> CategoryType.Security
-                | unknown -> CategoryType.Unknown unknown
-
             match changelog.Versions with
-            | currentVersion::otherVersions ->
-                let categoryBody =
-                    match Map.tryFind categoryType currentVersion.Categories with
-                    | Some existingBody ->
-                        existingBody @ categoryBody
-                    | None -> categoryBody
+            | currentVersion :: otherVersions ->
+                let updatedCategories =
+                    match tag.ToLower() with
+                    | "added" -> {
+                        currentVersion.Categories with
+                            Added =
+                                currentVersion.Categories.Added @ categoryBody
+                      }
+                    | "changed" -> {
+                        currentVersion.Categories with
+                            Changed =
+                                currentVersion.Categories.Changed @ categoryBody
+                      }
+                    | "deprecated" -> {
+                        currentVersion.Categories with
+                            Deprecated =
+                                currentVersion.Categories.Deprecated
+                                @ categoryBody
+                      }
+                    | "removed" -> {
+                        currentVersion.Categories with
+                            Removed =
+                                currentVersion.Categories.Removed @ categoryBody
+                      }
+                    | "improved" -> {
+                        currentVersion.Categories with
+                            Improved =
+                                currentVersion.Categories.Improved
+                                @ categoryBody
+                      }
+                    | "fixed" -> {
+                        currentVersion.Categories with
+                            Fixed =
+                                currentVersion.Categories.Fixed @ categoryBody
+                      }
+                    | "security" -> {
+                        currentVersion.Categories with
+                            Security =
+                                currentVersion.Categories.Security
+                                @ categoryBody
+                      }
+                    | unknown -> {
+                        currentVersion.Categories with
+                            Custom =
+                                currentVersion.Categories.Custom.Add(
+                                    unknown,
+                                    categoryBody
+                                )
+                      }
 
-                let updatedCategories = currentVersion.Categories.Add(categoryType, categoryBody)
-                let versions = { currentVersion with Categories = updatedCategories } :: otherVersions
+                let versions =
+                    {
+                        currentVersion with
+                            Categories = updatedCategories
+                    }
+                    :: otherVersions
+
                 parse unparsedSymbols { changelog with Versions = versions }
-            | _ ->
-                Error "A category should always be under a version"
+            | _ -> Error "A category should always be under a version"
 
-        | Symbols.RawText _::_ ->
+        | Symbols.RawText _ :: _ ->
             // Capture all the lines of the text block
             let textLines =
                 symbols
-                |> List.takeWhile (function
+                |> List.takeWhile (
+                    function
                     | Symbols.RawText _ -> true
                     | _ -> false
                 )
@@ -288,48 +338,104 @@ module Transform =
             // Regroup everything into a single string
             let content =
                 textLines
-                |> List.map (function
+                |> List.map (
+                    function
                     | Symbols.RawText text -> text
-                    | _ -> failwith "Should not happen the list has been filtered"
+                    | _ ->
+                        failwith "Should not happen the list has been filtered"
                 )
                 |> String.concat "\n"
 
             // Remove already handle symbols
-            let rest =
-                symbols
-                |> List.skip textLines.Length
+            let rest = symbols |> List.skip textLines.Length
 
             parse rest { changelog with Description = content }
 
         | Symbols.ListItem text :: tail ->
             match changelog.Versions with
-            | currentVersion::otherVersions ->
+            | currentVersion :: otherVersions ->
                 let (unparsedSymbols, textBody) = tryEatRawText tail
 
-                let otherItemItem =
-                    {
-                        ListItem = text
-                        TextBody = textBody
-                    }
+                let otherItemItem = { ListItem = text; TextBody = textBody }
 
                 let versions =
-                    { currentVersion with
-                        OtherItems = currentVersion.OtherItems @ [ otherItemItem ]
-                    } :: otherVersions
+                    {
+                        currentVersion with
+                            OtherItems =
+                                currentVersion.OtherItems @ [ otherItemItem ]
+                    }
+                    :: otherVersions
 
                 parse unparsedSymbols { changelog with Versions = versions }
             | _ ->
 
-                sprintf "A list item should always be under version. The following list item made the parser failed:\n\n%s\n" text
+                sprintf
+                    "A list item should always be under version. The following list item made the parser failed:\n\n%s\n"
+                    text
                 |> Error
 
-        | [] -> Ok { changelog with Versions = changelog.Versions |> List.rev }
+        | [] ->
+            Ok {
+                changelog with
+                    Versions = changelog.Versions |> List.rev
+            }
 
-    let fromSymbols (symbols : Symbols list) =
-        parse symbols Changelog.Empty
+    let fromSymbols (symbols: Symbols list) = parse symbols Changelog.Empty
 
-let parse (changelogContent : string) =
+let parse (changelogContent: string) =
     changelogContent.Split([| '\r'; '\n' |])
     |> Array.toList
     |> Lexer.toSymbols
     |> Transform.fromSymbols
+
+module Version =
+
+    let bodyAsMarkdown (version: Types.Version) =
+        let renderCategoryBody
+            (categoryLabel: string)
+            (items: CategoryBody list)
+            =
+            if items.IsEmpty then
+                ""
+            else
+                let categoryBody =
+                    items
+                    |> List.map (
+                        function
+                        | ListItem item -> sprintf "- %s" item
+                        | Text text -> text
+                    )
+                    |> String.concat "\n"
+
+                $"## {categoryLabel}\n\n{categoryBody}\n\n"
+
+        let mutable body = ""
+
+        body <- body + renderCategoryBody "Added" version.Categories.Added
+        body <- body + renderCategoryBody "Changed" version.Categories.Changed
+
+        body <-
+            body + renderCategoryBody "Deprecated" version.Categories.Deprecated
+
+        body <- body + renderCategoryBody "Removed" version.Categories.Removed
+        body <- body + renderCategoryBody "Improved" version.Categories.Improved
+        body <- body + renderCategoryBody "Fixed" version.Categories.Fixed
+        body <- body + renderCategoryBody "Security" version.Categories.Security
+
+        for unkownCategory in version.Categories.Custom.Keys do
+            let items = version.Categories.Custom.[unkownCategory]
+            body <- body + renderCategoryBody unkownCategory items
+
+        if not version.OtherItems.IsEmpty then
+            body <- body + "\n"
+
+        for otherItems in version.OtherItems do
+            body <- body + sprintf "- %s" otherItems.ListItem
+
+            match otherItems.TextBody with
+            | Some textBody -> body <- body + sprintf "\n%s" textBody
+            | None -> ()
+
+            body <- body + "\n"
+
+        body

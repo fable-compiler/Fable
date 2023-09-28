@@ -1,4 +1,4 @@
-module Build.Tests.Rust
+module Build.Test.Rust
 
 open Build.FableLibrary
 open System.IO

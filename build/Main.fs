@@ -19,7 +19,7 @@ Available commands:
             --dart              Build fable-library for Dart
             --rust              Build fable-library for Rust
 
-    quicktests                  Watch for changes and re-run the quicktests
+    quicktest                  Watch for changes and re-run the quicktest
                                 This is useful to work on a feature in an isolated
                                 manner to avoid all the noise coming from the main tests
 
@@ -33,7 +33,7 @@ Available commands:
         Options:
             --fast              Skip building fable-library if folder already exists
 
-    tests                       Run the main tests suite
+    test                        Run the main tests suite
         Subcommands:
             javascript          Run the tests for JavaScript
             typescript          Run the tests for TypeScript
@@ -63,6 +63,16 @@ Available commands:
         Options:
             --no-minify         Don't minify the JavaScript output
             --watch             Watch for changes and recompile
+
+    publish                     Publish the different packages to NuGet and NPM
+                                based on the CHANGELOG.md files
+                                If the last version in the CHANGELOG.md is
+                                different from the version in the packages,
+                                the package will be published
+
+    github-release              Create a GitHub release based on the CHANGELOG.md
+                                file and the version in the package.json
+                                This will also invoke the publish command
         """
 
     printfn "%s" helpText
@@ -80,15 +90,15 @@ let main argv =
         | "--dart" :: _ -> BuildFableLibraryDart().Run()
         | "--rust" :: _ -> BuildFableLibraryRust().Run()
         | _ -> printHelp ()
-    | "tests" :: args ->
+    | "test" :: args ->
         match args with
-        | "javascript" :: args -> Tests.JavaScript.handle args
-        | "typescript" :: args -> Tests.TypeScript.handle args
-        | "python" :: args -> Tests.Python.handle args
-        | "dart" :: args -> Tests.Dart.handle args
-        | "rust" :: args -> Tests.Rust.handle args
-        | "integration" :: args -> Tests.Integration.handle args
-        | "standalone" :: _ -> Tests.Standalone.handle args
+        | "javascript" :: args -> Test.JavaScript.handle args
+        | "typescript" :: args -> Test.TypeScript.handle args
+        | "python" :: args -> Test.Python.handle args
+        | "dart" :: args -> Test.Dart.handle args
+        | "rust" :: args -> Test.Rust.handle args
+        | "integration" :: args -> Test.Integration.handle args
+        | "standalone" :: _ -> Test.Standalone.handle args
         | _ -> printHelp ()
     | "quicktest" :: args ->
         match args with
@@ -102,6 +112,7 @@ let main argv =
     | "sync-fcs-repo":: _ -> FcsRepo.sync ()
     | "copy-fcs-repo":: _ -> FcsRepo.copy ()
     | "publish" :: args -> Publish.handle args
+    | "github-release" :: args -> GithubRelease.handle args
     | "--help" :: _
     | _ -> printHelp ()
 

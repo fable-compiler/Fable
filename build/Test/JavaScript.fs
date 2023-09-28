@@ -1,4 +1,4 @@
-module Build.Tests.JavaScript
+module Build.Test.JavaScript
 
 open Build.FableLibrary
 open System.IO

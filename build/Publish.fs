@@ -4,6 +4,8 @@ open Build.Utils
 open System.IO
 open System.Text.RegularExpressions
 open Build.FableLibrary
+open System
+open Build.Workspace
 
 let private updateLibraryVersionInFableTransforms
     (compilerVersion: string)
@@ -47,18 +49,6 @@ let private updateLibraryVersionInFableTransforms
     // Save changes on the disk
     File.WriteAllText(filePath, fileContent)
 
-module private ProjectDir =
-
-    let fableAst = Path.Resolve("src", "Fable.AST")
-    let fableCore = Path.Resolve("src", "Fable.Core")
-    let fableCli = Path.Resolve("src", "Fable.Cli")
-    let fablePublishUtils = Path.Resolve("src", "Fable.PublishUtils")
-    let temp_fable_library = Path.Resolve("temp", "fable-library")
-    let fable_library = Path.Resolve("src", "fable-library")
-    let fable_metadata = Path.Resolve("src", "fable-metadata")
-    let fable_standalone = Path.Resolve("src", "fable-standalone")
-    let fable_compiler_js = Path.Resolve("src", "fable-compiler-js")
-
 let private publishNuget (fsprojDir : string) =
     let fsprojFiles = Directory.GetFiles(fsprojDir, "*.fsproj")
 
@@ -69,16 +59,24 @@ let private publishNuget (fsprojDir : string) =
     let fsprojPath = fsprojFiles[0]
     let fsprojContent = File.ReadAllText fsprojPath
     let changelogPath = Path.Combine(fsprojDir, "CHANGELOG.md")
-    let lastChangelogVersion = Changelog.getLastVersion changelogPath
+    let lastChangelogVersion =
+        Changelog.getLastVersion changelogPath
+        |> fun v -> v.Version.ToString()
 
     printfn $"Publishing: %s{fsprojDir}"
+
+    let nugetKey = Environment.GetEnvironmentVariable("FABLE_NUGET_KEY")
+
+    if nugetKey = null then
+        failwithf $"Missing FABLE_NUGET_KEY environment variable"
+
 
     if Fsproj.needPublishing fsprojContent lastChangelogVersion then
         let updatedFsprojContent = Fsproj.replaceVersion fsprojContent lastChangelogVersion
         File.WriteAllText(fsprojPath, updatedFsprojContent)
         let nupkgPath = Dotnet.pack fsprojDir
         let nupkgFolder = Path.GetDirectoryName nupkgPath
-        Dotnet.Nuget.publish nupkgFolder
+        Dotnet.Nuget.push(nupkgFolder, nugetKey)
         printfn $"Published!"
     else
         printfn $"Already up-to-date, skipping..."
@@ -87,7 +85,9 @@ let private publishNpm (projectDir : string) =
     let packageJsonPath = Path.Combine(projectDir, "package.json")
     let packageJsonContent = File.ReadAllText(packageJsonPath)
     let changelogPath = Path.Combine(projectDir, "CHANGELOG.md")
-    let lastChangelogVersion = Changelog.getLastVersion changelogPath
+    let lastChangelogVersion =
+        Changelog.getLastVersion changelogPath
+        |> fun v -> v.Version.ToString()
 
     printfn $"Publishing: %s{projectDir}"
 
@@ -103,7 +103,9 @@ let private updateFableLibraryPackageJsonVersion () =
     let packageJsonPath = Path.Combine(ProjectDir.fable_library, "package.json")
     let packageJsonContent = File.ReadAllText(packageJsonPath)
     let changelogPath = Path.Combine(ProjectDir.fable_library, "CHANGELOG.md")
-    let lastChangelogVersion = Changelog.getLastVersion changelogPath
+    let lastChangelogVersion =
+        Changelog.getLastVersion changelogPath
+        |> fun v -> v.Version.ToString()
 
     let updatedPackageJsonContent = Npm.replaceVersion packageJsonContent lastChangelogVersion
     File.WriteAllText(packageJsonPath, updatedPackageJsonContent)
@@ -138,7 +140,10 @@ let handle (args: string list) =
 
     // Update embedded version (both compiler and libraries)
     let changelogPath = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
-    let compilerVersion = Changelog.getLastVersion changelogPath
+    let compilerVersion =
+        Changelog.getLastVersion changelogPath
+        |> fun v -> v.Version.ToString()
+
     updateLibraryVersionInFableTransforms compilerVersion {|
         JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library
     |}

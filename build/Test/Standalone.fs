@@ -1,4 +1,4 @@
-module Build.Tests.Standalone
+module Build.Test.Standalone
 
 open Build.FableLibrary
 open System.IO

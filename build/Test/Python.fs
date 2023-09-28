@@ -1,41 +1,31 @@
-module Build.Tests.Dart
+module Build.Test.Python
 
 open Build.FableLibrary
 open System.IO
 open Build.Utils
 open BlackFox.CommandLine
 open SimpleExec
-open Fake.IO
 
-let private buildDir = Path.Resolve("temp", "tests", "Dart")
-let private testsFolder = Path.Resolve("tests", "Dart")
-let private testsFsprojFolder = Path.Resolve("tests", "Dart", "src")
+let private buildDir = Path.Resolve("temp", "tests", "Python")
+let private sourceDir = Path.Resolve("tests", "Python")
 
 let handle (args: string list) =
     let skipFableLibrary = args |> List.contains "--fast"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
 
-    BuildFableLibraryDart().Run(skipFableLibrary)
+    BuildFableLibraryPython().Run(skipFableLibrary)
 
     Directory.clean buildDir
 
-    Directory.GetFiles(testsFolder, "pubspec.*")
-    |> Seq.iter (Shell.copyFile buildDir)
-
-    Shell.copyFile buildDir (testsFolder </> "analysis_options.yaml")
-
-    Directory.GetFiles(testsFolder, "*.dart")
-    |> Seq.iter (Shell.copyFile buildDir)
-
-    let testCmd = $"dart test {buildDir}/main.dart"
+    Command.Run("poetry", "install")
 
     let fableArgs =
         CmdLine.concat [
             CmdLine.empty
-            |> CmdLine.appendRaw testsFsprojFolder
-            |> CmdLine.appendPrefix "--outDir" (buildDir </> "src")
-            |> CmdLine.appendPrefix "--lang" "dart"
+            |> CmdLine.appendRaw sourceDir
+            |> CmdLine.appendPrefix "--outDir" buildDir
+            |> CmdLine.appendPrefix "--lang" "python"
             |> CmdLine.appendPrefix "--exclude" "Fable.Core"
             |> CmdLine.appendRaw "--noCache"
 
@@ -43,11 +33,11 @@ let handle (args: string list) =
                 CmdLine.empty
                 |> CmdLine.appendRaw "--watch"
                 |> CmdLine.appendRaw "--runWatch"
-                |> CmdLine.appendRaw testCmd
+                |> CmdLine.appendRaw "poetry run pytest -x"
             else
                 CmdLine.empty
                 |> CmdLine.appendRaw "--run"
-                |> CmdLine.appendRaw testCmd
+                |> CmdLine.appendRaw "poetry run pytest -x"
         ]
 
     if isWatch then
@@ -56,7 +46,7 @@ let handle (args: string list) =
                 Command.RunAsync(
                     "dotnet",
                     "watch test -c Release",
-                    workingDirectory = testsFsprojFolder
+                    workingDirectory = sourceDir
                 )
                 |> Async.AwaitTask
 
@@ -66,10 +56,9 @@ let handle (args: string list) =
         |> Async.RunSynchronously
         |> ignore
     else
-        Command.Run(
-            "dotnet",
-            "test -c Release",
-            workingDirectory = testsFsprojFolder
-        )
 
+        // Test against .NET
+        Command.Run("dotnet", "test -c Release", workingDirectory = sourceDir)
+
+        // Test against Python
         Command.Fable(fableArgs, workingDirectory = buildDir)

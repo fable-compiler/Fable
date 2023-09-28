@@ -9,7 +9,6 @@ let getLastVersion (changelogPath: string) =
     | Ok changelog ->
         changelog.Versions
         |> List.tryFind (fun v -> v.Title <> "Unreleased")
-        |> Option.map (fun v -> v.Version.Value)
         |> Option.defaultWith (fun () ->
             failwithf
                 $"""Failed to find version in changelog:

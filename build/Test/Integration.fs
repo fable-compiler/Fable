@@ -1,4 +1,4 @@
-module Build.Tests.Integration
+module Build.Test.Integration
 
 open Build.FableLibrary
 open System.IO
