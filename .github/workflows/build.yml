@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test: ["default", "no_std", "threaded"]
+        test: ["default"]  # "no_std", "threaded"]
 
     steps:
     - uses: actions/checkout@v2

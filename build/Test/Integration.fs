@@ -36,6 +36,8 @@ let private testProjectConfig (projectDirName : string) (configuration : string 
     )
 
 let handle (args: string list) =
+    BuildFableLibraryJavaScript().Run()
+
     Command.Run(
         "dotnet",
         "run -c Release",

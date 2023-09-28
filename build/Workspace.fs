@@ -3,6 +3,8 @@ module Build.Workspace
 open Build.Utils
 open System.IO
 
+let root = Path.Resolve()
+
 module ProjectDir =
 
     let fableAst = Path.Resolve("src", "Fable.AST")

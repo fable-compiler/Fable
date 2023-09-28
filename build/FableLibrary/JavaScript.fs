@@ -23,6 +23,8 @@ type BuildFableLibraryJavaScript() =
         if Directory.Exists jsOutDir then
             Directory.Delete(jsOutDir, true)
 
+        Command.Run("npm", "install", workingDirectory = Build.Workspace.root)
+
         // Compile the library to JavaScript using the TypeScript compiler
         let args =
             CmdLine.empty
