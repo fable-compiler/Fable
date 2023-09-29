@@ -48,7 +48,7 @@
     "containerEnv": {
         // Expose the local environment variable to the container
         // They are used for releasing and publishing from the container
-        "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}",
+        "GITHUB_TOKEN_FABLE_ORG": "${localEnv:GITHUB_TOKEN_FABLE_ORG}",
         "FABLE_NUGET_KEY": "${localEnv:FABLE_NUGET_KEY}"
     },
 

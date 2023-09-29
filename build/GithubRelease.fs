@@ -41,39 +41,30 @@ let private createTag (version: ChangelogParser.Types.Version) =
         |> CmdLine.toString
     )
 
-    Command.Run(
-        "git",
-        CmdLine.empty
-        |> CmdLine.appendRaw "tag"
-        |> CmdLine.appendPrefix "-a" (versionText)
-        |> CmdLine.appendPrefix "-m" $"Release {versionText}"
-        |> CmdLine.toString
-    )
+    // Command.Run(
+    //     "git",
+    //     CmdLine.empty
+    //     |> CmdLine.appendRaw "tag"
+    //     |> CmdLine.appendPrefix "-a" (versionText)
+    //     |> CmdLine.appendPrefix "-m" $"Release {versionText}"
+    //     |> CmdLine.toString
+    // )
 
     Command.Run(
         "git",
         "push"
     )
 
-    Command.Run(
-        "git",
-        CmdLine.empty
-        |> CmdLine.appendRaw "push"
-        |> CmdLine.appendRaw "origin"
-        |> CmdLine.appendRaw versionText
-        |> CmdLine.toString
-    )
-
 
 let handle (args: string list) =
     Publish.handle args
 
-    let githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN")
+    let githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
 
     if githubToken = null then
-        failwith "Missing GITHUB_TOKEN environment variable"
+        failwith "Missing GITHUB_TOKEN_FABLE_ORG environment variable"
 
     let versionInfo = Changelog.getLastVersion Changelog.fableCLi
 
-    createGithubRelease githubToken versionInfo
     createTag versionInfo
+    createGithubRelease githubToken versionInfo

@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.2.0
+
 * Fix #3480: Function decorated with `[<NamedParams>]` without arguments provided should take an empty object
 * Fix #3494: Calling an attached parametrized getter fails in transpiled javascript
 * Remove fable-py support

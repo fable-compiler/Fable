@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.1.0
+
 * Fix #3482: Remove `Py.python` and `Py.expr_python`
 * Add `!^` to `Fable.Core.RustInterop` module
 * Fix #3484: Rename `emitStatement` to `emitPyStatement` in `PyInterop`

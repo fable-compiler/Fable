@@ -75,8 +75,7 @@ let private publishNuget (fsprojDir : string) =
         let updatedFsprojContent = Fsproj.replaceVersion fsprojContent lastChangelogVersion
         File.WriteAllText(fsprojPath, updatedFsprojContent)
         let nupkgPath = Dotnet.pack fsprojDir
-        let nupkgFolder = Path.GetDirectoryName nupkgPath
-        Dotnet.Nuget.push(nupkgFolder, nugetKey)
+        Dotnet.Nuget.push(nupkgPath, nugetKey)
         printfn $"Published!"
     else
         printfn $"Already up-to-date, skipping..."
