@@ -14,7 +14,9 @@ Check [this page](https://fable.io/docs/2-steps/setup.html).
 
 ## Building
 
-### VSCode Dev Container
+### Requirements
+
+#### Use VSCode Dev Container
 
 You can use VSCode Dev Container to get a preconfigured environment both with requirements and VSCode extensions.
 
@@ -22,9 +24,7 @@ You can use VSCode Dev Container to get a preconfigured environment both with re
 2. [Install the Dev Container extension in VSCode](vscode:extension/ms-vscode-remote.remote-containers)
 3. Open the project in VSCode and click on the green button at the bottom left corner.
 
-Then run `./builsh.sh` or `./build.cmd` to see the build options.
-
-### On your machine
+#### Use your machine
 
 Make sure the following **requirements** are installed in your system:
 
@@ -35,7 +35,13 @@ Make sure the following **requirements** are installed in your system:
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Dart](https://dart.dev/get-dart)
 
-Then run `./builsh.sh` or `./build.cmd` to see the build options.
+### Build
+
+Run `./builsh.sh` or `./build.cmd` to see the build options.
+
+When using VSCode, you can also run the build tasks from the command palette (Ctrl+Shift+P) by typing `Run Task` and selecting the task you want to run.
+
+We also configured several debug configurations that you can use from the debug panel (Ctrl+Shift+D). This is useful as you can attach the debugger to the Fable compiler process to check what's going on.
 
 ## Contributing
 

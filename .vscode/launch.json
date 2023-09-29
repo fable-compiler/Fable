@@ -1,160 +1,269 @@
 {
-    // Use IntelliSense to learn about possible Node.js debug attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Quicktest",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            // "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--noCache", "--runScript"],
-            "args": ["src/fable-library", "--outDir", "temp/fable-library-ts", "--fableLib", "temp/fable-library-ts", "--lang", "TypeScript", "--typedArrays", "false", "--exclude", "Fable.Core", "--define", "FX_NO_BIGINT", "--define", "FABLE_LIBRARY"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "console": "internalConsole"
-        },
-        {
-            "name": "Quicktest - JavaScript",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            "args": ["src/quicktest", "--exclude", "Fable.Core", "--noCache"],
-            "cwd": "${workspaceFolder}",
-            "console": "internalConsole"
-        },
-        {
-            "name": "Attach to Node",
-            "port": 9229,
-            "request": "attach",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "type": "node"
-        },
-        {
-            "args": [
-                "${workspaceFolder}/temp/tests",
-                "--reporter",
-                "dot",
-                "--timeout",
-                "10000"
-            ],
-            "internalConsoleOptions": "openOnSessionStart",
-            "name": "Run Mocha tests",
-            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-            "request": "launch",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "type": "node"
-        },
-        {
-            "args": [
-                "${workspaceFolder}/temp/tests/TypeScriptCompiled/build/tests/TypeScript",
-                "--reporter",
-                "dot",
-                "--timeout",
-                "10000"
-            ],
-            "internalConsoleOptions": "openOnSessionStart",
-            "name": "Run Mocha TS tests",
-            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-            "request": "launch",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "type": "node"
-        },
-        {
-            "name": "Run Fable.Cli",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            "args": ["watch", "--exclude", "Fable.Core"],
-            "cwd": "${workspaceRoot}/src/quicktest",
-            "stopAtEntry": false,
-            "console": "internalConsole"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Run bench-compiler JS test",
-            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-test/src/test.js"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Run bench-compiler JS tests",
-            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-            "args": ["out-tests"],
-            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Run bench-compiler (Node)",
-            "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
-            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
-            // "args": ["${workspaceRoot}/src/fcs-fable/fcs-fable.fsproj", "out-fcs", "--fableLib", "out-lib"],
-            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
-        },
-        {
-            "type": "coreclr",
-            "request": "launch",
-            "name": "Run bench-compiler (.NET)",
-            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/net7.0/bench-compiler.dll",
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
-            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
-            // "args": ["${workspaceRoot}/src/fcs-fable/fcs-fable.fsproj", "out-fcs", "--fableLib", "out-lib"],
-            "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
-        },
-        {
-            // src/fable-compiler-js/ tests/Main/Fable.Tests.fsproj build/tests-js
-            "type": "node",
-            "request": "launch",
-            "name": "Run compiler-js",
-            "program": "${workspaceRoot}/temp/fable-compiler-js/src/fable-compiler-js/dist/app.js",
-            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "temp/tests-js"],
-            "stopOnEntry": true
-        },
-        {
-            "name": "Run Fable.Cli on fable-test",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/../fable-test", "--fableLib", "../../Fable/temp/fable-library-rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache"],
-            "cwd": "${workspaceRoot}/../fable-test",
-            "stopAtEntry": false,
-            "console": "internalConsole"
-        },
-        {
-            "name": "Run Fable.Cli on tests/Rust",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/build/tests/Rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache"],
-            "cwd": "${workspaceRoot}/tests/Rust",
-            "stopAtEntry": false,
-            "console": "internalConsole"
-        },
-        {
-            "name": "Run Fable.Cli on library-rust",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-            "args": ["--outDir", "${workspaceRoot}/temp/fable-library-rust/src", "--fableLib", ".", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache", "--define", "FABLE_LIBRARY"],
-            "cwd": "${workspaceRoot}/src/fable-library-rust/src",
-            "stopAtEntry": false,
-            "console": "internalConsole"
-        },
-
-    ]
+  // Use IntelliSense to learn about possible Node.js debug attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Quicktest - Dart",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "args": [
+        "src/quicktest-dart",
+        "--lang",
+        "dart",
+        "--extension",
+        ".dart",
+        "--exclude",
+        "Fable.Core",
+        "--noCache",
+        "--runScript"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "name": "Quicktest - JavaScript",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "args": [
+        "src/quicktest",
+        "--exclude",
+        "Fable.Core",
+        "--noCache",
+        "--runScript"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "name": "Quicktest - TypeScript",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "args": [
+        "src/quicktest",
+        "--lang",
+        "TypeScript",
+        "--exclude",
+        "Fable.Core",
+        "--noCache"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "name": "Quicktest - Python",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "args": [
+        "src/quicktest-py",
+        "--lang",
+        "python",
+        "--extension",
+        ".py",
+        "--exclude",
+        "Fable.Core",
+        "--noCache",
+        "--runScript"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "name": "Quicktest - Rust (default)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "args": [
+        "src/quicktest-rust",
+        "--lang",
+        "rust",
+        "--extension",
+        ".rs",
+        "--exclude",
+        "Fable.Core",
+        "--noCache",
+        "--runScript"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "name": "Quicktest - Rust (no_std)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "args": [
+        "src/quicktest-rust",
+        "--lang",
+        "rust",
+        "--extension",
+        ".rs",
+        "--exclude",
+        "Fable.Core",
+        "--noCache",
+        "--runScript",
+        "--features",
+        "no_std"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "name": "Quicktest - Rust (threaded)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "args": [
+        "src/quicktest-rust",
+        "--lang",
+        "rust",
+        "--extension",
+        ".rs",
+        "--exclude",
+        "Fable.Core",
+        "--noCache",
+        "--runScript",
+        "--features",
+        "threaded"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    // {
+    //     "type": "node",
+    //     "request": "launch",
+    //     "name": "Run bench-compiler JS test",
+    //     "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-test/src/test.js"
+    // },
+    // {
+    //     "type": "node",
+    //     "request": "launch",
+    //     "name": "Run bench-compiler JS tests",
+    //     "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+    //     "args": ["out-tests"],
+    //     "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
+    // },
+    // {
+    //     "type": "node",
+    //     "request": "launch",
+    //     "name": "Run bench-compiler (Node)",
+    //     "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
+    //     "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
+    //     // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
+    //     // "args": ["${workspaceRoot}/src/fcs-fable/fcs-fable.fsproj", "out-fcs", "--fableLib", "out-lib"],
+    //     "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
+    // },
+    {
+      "name": "Fable.Cli - fable-library-dart",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceRoot}/src/Fable.Cli",
+        "--",
+        "src/fable-library-dart",
+        "--outDir",
+        "temp/fable-library-dart",
+        "--fableLib",
+        "./temp/fable-library-dart",
+        "--lang",
+        "dart",
+        "--exclude",
+        "Fable.Core",
+        "--define",
+        "FABLE_LIBRARY",
+        "--noCache"
+      ]
+    },
+    {
+      "name": "Fable.Cli - fable-library-ts",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceRoot}/src/Fable.Cli",
+        "--",
+        "src/fable-library",
+        "--outDir",
+        "temp/fable-library-ts",
+        "--fableLib",
+        "./temp/fable-library-ts",
+        "--lang",
+        "typescript",
+        "--exclude",
+        "Fable.Core",
+        "--define",
+        "FABLE_LIBRARY",
+        "--noCache",
+        "--typedArrays",
+        "false",
+        "--define",
+        "FX_NO_BIGINT"
+      ]
+    },
+    {
+      "name": "Fable.Cli - fable-library-py",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceRoot}/src/Fable.Cli",
+        "--",
+        "src/fable-library-py/fable_library",
+        "--outDir",
+        "temp/fable-library-py/fable_library",
+        "--fableLib",
+        ".",
+        "--lang",
+        "python",
+        "--exclude",
+        "Fable.Core",
+        "--define",
+        "FABLE_LIBRARY",
+        "--noCache"
+      ]
+    },
+    {
+      "name": "Fable.Cli - fable-library-rust",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceRoot}/src/Fable.Cli",
+        "--",
+        "src/fable-library-rust/src",
+        "--outDir",
+        "temp/fable-library-rust/src",
+        "--fableLib",
+        ".",
+        "--lang",
+        "rust",
+        "--exclude",
+        "Fable.Core",
+        "--define",
+        "FABLE_LIBRARY",
+        "--noCache"
+      ]
+    }
+  ]
 }

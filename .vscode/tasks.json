@@ -9,9 +9,7 @@
             "type": "shell",
             "args": [
                 "build",
-                // Ask dotnet build to generate full paths for file names.
                 "/property:GenerateFullPaths=true",
-                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
                 "/consoleloggerparameters:NoSummary",
                 "src/Fable.Cli"
             ],
@@ -20,6 +18,96 @@
                 "reveal": "silent"
             },
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Build fable-library - JavaScript",
+            "type": "shell",
+            "args": [
+                "fable-library",
+                "--javascript"
+            ],
+            "linux": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "osx": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "windows": {
+                "command": "${workspaceFolder}/build.cmd"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build fable-library - TypeScript",
+            "type": "shell",
+            "args": [
+                "fable-library",
+                "--typescript"
+            ],
+            "linux": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "osx": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "windows": {
+                "command": "${workspaceFolder}/build.cmd"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build fable-library - Python",
+            "type": "shell",
+            "args": [
+                "fable-library",
+                "--python"
+            ],
+            "linux": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "osx": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "windows": {
+                "command": "${workspaceFolder}/build.cmd"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build fable-library - Dart",
+            "type": "shell",
+            "args": [
+                "fable-library",
+                "--dart"
+            ],
+            "linux": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "osx": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "windows": {
+                "command": "${workspaceFolder}/build.cmd"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build fable-library - Rust",
+            "type": "shell",
+            "args": [
+                "fable-library",
+                "--rust"
+            ],
+            "linux": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "osx": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "windows": {
+                "command": "${workspaceFolder}/build.cmd"
+            },
+            "problemMatcher": []
         },
         {
             "label": "build bench-compiler",
@@ -44,7 +132,6 @@
                 "src/Fable.Transforms/Rust/AST/Tests"
             ],
             "problemMatcher": "$msCompile"
-        },
-
+        }
     ]
 }
