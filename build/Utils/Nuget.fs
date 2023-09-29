@@ -23,7 +23,7 @@ module Dotnet =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-        let m = Regex.Match(standardOutput, "'(?'nupkgPath'.*\.nupkg)'")
+        let m = Regex.Match(standardOutput, "Successfully created package '(?'nupkgPath'.*\.nupkg)'")
 
         if m.Success then
             m.Groups.["nupkgPath"].Value

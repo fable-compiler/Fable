@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## 4.2.0
+## 4.2.1 - 2023-09-29
+
+* Fix package to include Fable libraries folders
+
+## 4.2.0 - 2023-09-29
 
 * Fix #3480: Function decorated with `[<NamedParams>]` without arguments provided should take an empty object
 * Fix #3494: Calling an attached parametrized getter fails in transpiled javascript
