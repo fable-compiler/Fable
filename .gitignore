@@ -11,8 +11,10 @@ temp*/
 *.fs.dart
 src/fable-library/*.js
 src/fable-library/BigInt/*.js
+src/quicktest/**/*.js
 src/quicktest-py/**/*.py
 src/quicktest-rust/**/*.rs
+src/quicktest-dart/**/*.dart
 **/fable_modules/**
 
 ## Ignore Visual Studio temporary files, build results, and
@@ -33,7 +35,6 @@ src/quicktest-rust/**/*.rs
 [Dd]ebug/
 [Rr]elease/
 x64/
-build/
 [Bb]in/
 [Oo]bj/
 

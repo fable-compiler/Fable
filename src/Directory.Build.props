@@ -11,10 +11,10 @@
 
         <!-- Symbols are giving errors when publishing, skip for now -->
         <!-- For SourceLink. See: https://github.com/dotnet/sourcelink#using-source-link-in-net-projects -->
-        <!-- <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <EmbedUntrackedSources>true</EmbedUntrackedSources>
         <IncludeSymbols>true</IncludeSymbols>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat> -->
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)\..\fable_logo.png" Pack="true" Visible="false" PackagePath="" />

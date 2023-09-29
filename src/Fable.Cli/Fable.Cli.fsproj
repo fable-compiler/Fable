@@ -5,7 +5,6 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <Version>4.1.4</Version>
-    <PackageVersion>4.1.4</PackageVersion>
     <PackageReleaseNotes>* Fix #3438: Source maps
 * Fix #3440: Don't curry arity-1 functions
 * Fix #3452: DateTimeOffset conversion to DateTime
@@ -35,11 +34,11 @@
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup Condition="'$(Pack)' == 'true'">
-    <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />
-    <Content Include="..\..\build\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
-    <Content Include="..\..\build\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
-    <Content Include="..\..\build\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
-    <Content Include="..\..\build\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
+    <Content Include="..\..\temp\fable-library\**\*.*" PackagePath="fable-library\" />
+    <Content Include="..\..\temp\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
+    <Content Include="..\..\temp\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
+    <Content Include="..\..\temp\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
+    <Content Include="..\..\temp\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
     <Content Include="..\fable-library-php\**\*.*" PackagePath="fable-library-php\" />
   </ItemGroup>
   <ItemGroup>
@@ -52,7 +51,7 @@
     <Compile Include="Pipeline.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="Entry.fs" />
-    <Content Include="RELEASE_NOTES.md" />
+    <Content Include="CHANGELOG.md" />
     <Content Include="Properties\launchSettings.json" />
   </ItemGroup>
   <ItemGroup>

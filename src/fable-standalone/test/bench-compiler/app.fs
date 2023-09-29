@@ -4,7 +4,7 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let getMetadataDir(): string = __SOURCE_DIRECTORY__ + "/../../../fable-metadata/lib/"
-let getFableLibDir(): string = __SOURCE_DIRECTORY__ + "/../../../../build/fable-library"
+let getFableLibDir(): string = __SOURCE_DIRECTORY__ + "/../../../../temp/fable-library"
 let getVersion(): string = ".next"
 let initFable (): Fable.Standalone.IFableManager = Fable.Standalone.Main.init ()
 
@@ -260,7 +260,7 @@ let run opts projectFileName outDir =
         sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
         typedArrays = opts |> tryFlag "--typedArrays"
         language = opts |> argValue ["--language"; "--lang"]
-                        |> Option.map (fun _ -> "TypeScript"))
+                        |> Option.map (fun _ -> "TypeScript")
                         |> Option.defaultValue "JavaScript"
         printAst = opts |> hasFlag "--printAst"
         // watch = opts |> hasFlag "--watch"

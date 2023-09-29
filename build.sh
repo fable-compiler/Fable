@@ -1,3 +1,4 @@
 #!/bin/sh -x
 
-dotnet fsi build.fsx $@
+dotnet tool restore
+dotnet run --project build/Build.fsproj -- $@

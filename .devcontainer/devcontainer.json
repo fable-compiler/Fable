@@ -1,0 +1,72 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-outside-of-docker
+{
+	"name": "Docker outside of Docker",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	// "image": "mcr.microsoft.com/devcontainers/base:bullseye",
+    "build": {
+        "dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"Ionide.Ionide-fsharp",
+				"adpyke.codesnap",
+				"Dart-Code.dart-code",
+				"EditorConfig.EditorConfig",
+				"GitHub.copilot",
+				"christian-kohler.npm-intellisense",
+				"ionutvmi.path-autocomplete",
+				"ms-python.vscode-pylance",
+				"rust-lang.rust-analyzer",
+				"tintoy.msbuild-project-tools",
+				"eamodio.gitlens",
+				"tamasfe.even-better-toml"
+			],
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "zsh",
+				// I don't know why but Ionide and C# extension don't find
+				// the installed dotnet version.
+				// For Ionide, we guide it using the following setting
+				"FSharp.dotnetRoot": "/home/vscode/.dotnet",
+				// For C#, we disable the warning as we don't seems to need it.
+				// If this is a problem, we can probably use the C#/F# dockerfile
+				// as the base and keep our way to install the different target version
+				// .NET included to respect the global.json requirements
+				"csharp.suppressDotnetInstallWarning": true
+			}
+		}
+	},
+
+    "mounts": [
+        // Mount .npmrc from the host machine, to be able to use the host session
+        // This allow the user to login on their own machine once and not each time
+        // they build a new devcontainer
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.npmrc,target=/home/vscode/.npmrc,type=bind,consistency=cached"
+    ],
+
+    "containerEnv": {
+        // Expose the local environment variable to the container
+        // They are used for releasing and publishing from the container
+        "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}",
+        "FABLE_NUGET_KEY": "${localEnv:FABLE_NUGET_KEY}"
+    },
+
+	// Restore the dotnet tools when the container is attached
+    // This makes fanomas available directly without having the user needing to
+    // run `dotnet tool restore` or build the project once
+    "postAttachCommand": "/bin/zsh -c 'source ~/.zshrc && dotnet tool restore'"
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	// "postCreateCommand": "docker --version",
+
+	// Configure tool-specific properties.
+	// "customizations": {},
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root",
+
+}

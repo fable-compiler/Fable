@@ -14,7 +14,7 @@ let inline getCurrentFilePath() = fileURLToPath(importMetaUrl())
 
 let currentDirName = getCurrentFilePath() |> dirname
 let getMetadataDir(): string = join currentDirName "../../fable-metadata/lib/"
-let getFableLibDir(): string = join currentDirName "../../../build/fable-library/"
+let getFableLibDir(): string = join currentDirName "../../../temp/fable-library/"
 let getVersion(): string = ".next"
 let initFable (): Fable.Standalone.IFableManager = import "init" "../../fable-standalone/src/Main.fs.js"
 #else

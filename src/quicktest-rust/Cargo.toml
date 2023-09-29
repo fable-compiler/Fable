@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-fable_library_rust = { path = "../../build/fable-library-rust" }
+fable_library_rust = { path = "../../temp/fable-library-rust" }
