@@ -76,10 +76,10 @@ module MiscTestsHelper =
         member        this.Method  ()       = { this with a = this.a * 10 }
         member inline this.MethodI ()       = { this with a = this.a * 10 }
 
-    type Vector2<[<Measure>] 'u> = Vector2 of x: float<'u> * y: float<'u> with
-
-    static member inline ( + ) (Vector2(ax, ay), Vector2(bx, by)) = Vector2(ax + bx, ay + by)
-    static member inline ( * ) (scalar, Vector2(x, y)) = Vector2(scalar * x, scalar * y)
+    type Vector2<[<Measure>] 'u> = Vector2 of x: float<'u> * y: float<'u>
+    with
+        static member inline ( + ) (Vector2(ax, ay), Vector2(bx, by)) = Vector2(ax + bx, ay + by)
+        static member inline ( * ) (scalar, Vector2(x, y)) = Vector2(scalar * x, scalar * y)
 
 // We can have aliases with same name in same file #1662
 module One =

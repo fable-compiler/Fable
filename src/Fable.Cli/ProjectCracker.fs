@@ -655,7 +655,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
     getFableLibraryPath opts, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
-let removeFilesInObjFolder sourceFiles =
+let removeFilesInObjFolder (sourceFiles: string[]) =
     let reg = Regex(@"[\\\/]obj[\\\/]")
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 
@@ -717,7 +717,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
     let cacheInfo =
         opts.CacheInfo |> Option.filter (fun cacheInfo ->
             let cacheTimestamp = cacheInfo.GetTimestamp()
-            let isOlderThanCache filePath =
+            let isOlderThanCache (filePath: string) =
                 let fileTimestamp = IO.File.GetLastWriteTime(filePath)
                 let isOlder = fileTimestamp < cacheTimestamp
                 if not isOlder then

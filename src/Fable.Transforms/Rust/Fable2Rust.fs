@@ -48,7 +48,7 @@ type Context = {
     ScopedEntityGenArgs: Set<string>
     ScopedMemberGenArgs: Set<string>
     ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
-    HasMultipleUses: bool //this could be a closure in a map, or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
+    // HasMultipleUses: bool //this could be a closure in a map, or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
     InferAnyType: bool
     IsAssocMember: bool
     IsLambda: bool
@@ -2513,7 +2513,7 @@ module Util =
     let transformForLoop (com: IRustCompiler) ctx range isUp (var: Fable.Ident) start limit body =
         let startExpr = transformExpr com ctx start
         let limitExpr = transformExpr com ctx limit
-        let ctx = { ctx with HasMultipleUses = true }
+        // let ctx = { ctx with HasMultipleUses = true }
         let bodyExpr = com.TransformExpr(ctx, body)
         let varPat = makeFullNameIdentPat var.Name
         let rangeExpr =
@@ -3254,7 +3254,7 @@ module Util =
         // remove captured names from scoped symbols, as they will be cloned
         let closedOverCloneableIdents = getCapturedIdents com ctx name args body
         let scopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableIdents
-        let ctx = { ctx with ScopedSymbols = scopedSymbols; HasMultipleUses = true }
+        let ctx = { ctx with ScopedSymbols = scopedSymbols } //; HasMultipleUses = true }
         let argCount = args |> List.length |> string
         let fnBody = transformFunctionBody com ctx args body
         let fnBody =
@@ -4330,7 +4330,7 @@ module Compiler =
             ScopedEntityGenArgs = Set.empty
             ScopedMemberGenArgs = Set.empty
             ScopedSymbols = Map.empty
-            HasMultipleUses = false
+            // HasMultipleUses = false
             InferAnyType = false
             IsAssocMember = false
             IsLambda = false
