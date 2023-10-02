@@ -408,13 +408,19 @@ pub mod DateTimeOffset_ {
             fromString(df.to_string())
         }
 
-        pub(crate) fn try_parse_str(s: &str) -> ParseResult<CDateTime<FixedOffset>> {
+        fn local_time_from_str(s: &str, fmt: &str) -> ParseResult<CDateTime<FixedOffset>> {
             let now = Local::now();
             let localTz = now.offset();
+            let ndt = NaiveDateTime::parse_from_str(s, fmt)?;
+            let loc = localTz.from_local_datetime(&ndt).unwrap();
+            Ok(loc)
+        }
+
+        pub(crate) fn try_parse_str(s: &str) -> ParseResult<CDateTime<FixedOffset>> {
             s.parse::<CDateTime<FixedOffset>>()
                 .or(CDateTime::parse_from_str(s, "%m/%d/%Y %H:%M:%S%.f %#z"))
-                .or(localTz.datetime_from_str(s, "%m/%d/%Y %H:%M:%S%.f"))
-                .or(localTz.datetime_from_str(s, "%m/%d/%Y %I:%M:%S %P"))
+                .or(Self::local_time_from_str(s, "%m/%d/%Y %H:%M:%S%.f"))
+                .or(Self::local_time_from_str(s, "%m/%d/%Y %I:%M:%S %P"))
         }
 
         pub fn tryParse(s: string, res: &MutCell<DateTimeOffset>) -> bool {
