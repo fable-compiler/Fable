@@ -1578,7 +1578,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "Length", [ arg ] -> getFieldWith r t arg "length" |> Some
+    | "Length", [ arg ] -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
     | ("Iterate"
       | "IterateIndexed"
       | "ForAll"
@@ -1617,7 +1617,7 @@ let formattableString (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) 
     | "Create", None, [ str; args ] -> objExpr [ "str", str; "args", args ] |> Some
     | "get_Format", Some x, _ -> getFieldWith r t x "str" |> Some
     | "get_ArgumentCount", Some x, _ ->
-        getFieldWith r t (getField x "args") "length"
+        Helper.GlobalCall("len", t, [ getField x "args" ], [ t ], ?loc = r)
         |> Some
     | "GetArgument", Some x, [ idx ] ->
         getExpr r t (getField x "args") idx
@@ -1696,7 +1696,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         match ar.Type with
         // Fable translates System.Collections.Generic.List as Array
         // TODO: Check also IList?
-        | Array _ -> getFieldWith r t ar "length" |> Some
+        | Array _ -> Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r) |> Some
         | _ ->
             Helper.LibCall(com, "util", "count", t, [ ar ], ?loc = r)
             |> Some
@@ -1889,7 +1889,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ ar ] ->
-        eq (getFieldWith r (Int32.Number) ar "length") (makeIntConst 0)
+        eq (Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r)) (makeIntConst 0)
         |> Some
 
     | "SortInPlaceWith", args ->
@@ -2480,7 +2480,9 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
       [ ar; lower; upper ] ->
         let upper =
             match upper with
-            | Value (NewOption (None, _, _), _) -> getExpr None (Int32.Number) ar (makeStrConst "length")
+            | Value (NewOption (None, _, _), _) ->
+                Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r)
+                //getExpr None (Int32.Number) ar (makeStrConst "length2")
             | _ -> add upper (makeIntConst 1)
 
         Helper.InstanceCall(ar, "slice", t, [ lower; upper ], ?loc = r)
@@ -3185,10 +3187,10 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             propInt 0 thisArg.Value |> Some
     | "get_Length" ->
         if isGroup then
-            propStr "length" thisArg.Value |> Some
+            Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
         else
-            propInt 0 thisArg.Value
-            |> propStr "length"
+            let prop = propInt 0 thisArg.Value
+            Helper.GlobalCall("len", t, [ prop ], [ t ], ?loc = r)
             |> Some
     // Group
     | "get_Success" ->
@@ -3198,7 +3200,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
-    | "get_Count" -> propStr "length" thisArg.Value |> Some
+    | "get_Count" -> Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r)  |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
     | meth ->
         let meth =

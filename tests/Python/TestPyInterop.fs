@@ -53,6 +53,7 @@ type Props =
 [<Global("Array")>]
 type PyArray =
     abstract push: item: obj -> unit
+    [<Emit("len($0)")>]
     abstract length: int
 
 [<Fable.Core.AttachMembers>]
