@@ -2,6 +2,7 @@ module rec Fable.Transforms.Fable2Python
 
 open System
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
 open Fable
 open Fable.AST
@@ -992,7 +993,6 @@ module Util =
     open Lib
     open Reflection
     open Annotation
-    open System.Text.RegularExpressions
 
     let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
         let name = Helpers.clean name
