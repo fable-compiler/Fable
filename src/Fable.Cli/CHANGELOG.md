@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix #3527: Fix error `name '...' is not defined`
+* [Python] Fix #3496: Python target is confused with class taking a `length: int ` argument
+
 ## 4.2.1 - 2023-09-29
 
 * Fix package to include Fable libraries folders
