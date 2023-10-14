@@ -17,7 +17,7 @@ export function parse(str: string): number {
   if (tryParse(str, defValue)) {
     return defValue.contents;
   } else {
-    throw new Error("Input string was not in a correct format.");
+    throw new Error(`The input string ${str} was not in a correct format.`);
   }
 }
 
