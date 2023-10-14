@@ -14,7 +14,7 @@ type Command with
             ?echoPrefix
         ) =
         let localFableDir =
-            __SOURCE_DIRECTORY__ </> ".." </> "src" </> "Fable.Cli"
+            __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
 
         let args =
             CmdLine.concat [
@@ -45,7 +45,7 @@ type Command with
             ?echoPrefix
         ) =
         let localFableDir =
-            __SOURCE_DIRECTORY__ </> ".." </> "src" </> "Fable.Cli"
+            __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
 
         let argsBuilder = defaultArg argsBuilder id
 
@@ -74,7 +74,7 @@ type Command with
             ?echoPrefix
         ) =
         let localFableDir =
-            __SOURCE_DIRECTORY__ </> ".." </> "src" </> "Fable.Cli"
+            __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
 
         let argsBuilder =
             CmdLine.empty
@@ -101,7 +101,7 @@ type Command with
             ?echoPrefix
         ) =
         let localFableDir =
-            __SOURCE_DIRECTORY__ </> ".." </> "src" </> "Fable.Cli"
+            __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
 
         let argsBuilder =
             CmdLine.empty
@@ -130,7 +130,7 @@ type Command with
             ?echoPrefix
         ) =
         let localFableDir =
-            __SOURCE_DIRECTORY__ </> ".." </> "src" </> "Fable.Cli"
+            __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
 
         let args =
             CmdLine.concat [
