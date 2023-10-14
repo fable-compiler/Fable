@@ -6,10 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.2.2 - 2023-10-14
+
 ### Fixed
 
-* [Python] Fix #3527: Fix error `name '...' is not defined`
-* [Python] Fix #3496: Python target is confused with class taking a `length: int ` argument
+* [Python] Fix #3527: Fix error `name '...' is not defined` (by @dbrattli)
+* [Python] Fix #3496: Python target is confused with class taking a `length: int ` argument (by @dbrattli)
 
 ## 4.2.1 - 2023-09-29
 
