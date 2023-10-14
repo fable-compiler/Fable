@@ -6,7 +6,7 @@ open Build.Utils
 [<Literal>]
 let FCS_REPO = "https://github.com/ncave/fsharp"
 
-let FCS_REPO_LOCAL = Path.Resolve("../fsharp_fable")
+let FCS_REPO_LOCAL = Path.Resolve("../../../fsharp_fable")
 
 [<Literal>]
 let FCS_REPO_FABLE_BRANCH = "fable"
