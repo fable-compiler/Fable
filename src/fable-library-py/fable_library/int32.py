@@ -30,7 +30,7 @@ def parse(
     try:
         v = int(string, base=radix)
     except Exception:
-        raise ValueError("Input string was not in a correct format.")
+        raise ValueError(f"The input string {string} was not in a correct format.")
 
     (umin, umax) = get_range(True, bitsize)
     if not unsigned and radix != 10 and v >= umin and v <= umax:
@@ -42,7 +42,7 @@ def parse(
     if v >= min and v <= max:
         return v
 
-    raise ValueError("Input string was not in a correct format.")
+    raise ValueError(f"The input string {string} was not in a correct format.")
 
 
 def try_parse(

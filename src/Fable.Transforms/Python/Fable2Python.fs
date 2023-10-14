@@ -46,10 +46,9 @@ type BoundVars =
         enclosingScope.UnionWith(this.EnclosingScope)
         enclosingScope.UnionWith(this.LocalScope)
 
-        { this with
-            LocalScope = HashSet()
-            EnclosingScope = enclosingScope
-            Inceptions = this.Inceptions + 1 }
+        { LocalScope = HashSet()
+          EnclosingScope = enclosingScope
+          Inceptions = this.Inceptions + 1 }
 
     member this.Bind(name: string) =
         this.LocalScope.Add name |> ignore
@@ -419,7 +418,7 @@ module Reflection =
             Expression.compare (expr, [ Is ], [ Util.undefined None ], ?loc = range), stmts
         | Fable.Boolean -> pyTypeof "<class 'bool'>" expr
         | Fable.Char
-        | Fable.String _ -> pyTypeof "<class 'str'>" expr
+        | Fable.String -> pyTypeof "<class 'str'>" expr
         | Fable.Number (kind, b) ->
             match kind, typ with
             | _, Fable.Type.Number (UInt8, _) -> pyTypeof "<fable_modules.fable_library.types.uint8'>>" expr

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
+    <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
@@ -38,12 +39,12 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="7.0.400" />
     <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
     <PackageReference Include="EluciusFTW.SpectreCoff" Version="0.47.28" />
     <PackageReference Include="Fake.IO.FileSystem" Version="6.0.0" />
     <PackageReference Include="SimpleExec" Version="11.0.0" />
     <PackageReference Include="Spectre.Console" Version="0.47.0" />
-    <PackageReference Update="FSharp.Core" Version="7.0.400" />
     <PackageReference Include="Thoth.Json.Net" Version="11.0.0" />
     <PackageReference Include="Octokit" Version="8.0.0" />
     <PackageReference Include="Semver" Version="2.3.0" />

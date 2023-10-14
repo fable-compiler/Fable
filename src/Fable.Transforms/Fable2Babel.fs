@@ -347,7 +347,7 @@ module Reflection =
         | Fable.Any -> Expression.booleanLiteral(true)
         | Fable.Unit -> com.TransformAsExpr(ctx, expr) |> Util.makeNullCheck range true
         | Fable.Boolean -> jsTypeof "boolean" expr
-        | Fable.Char | Fable.String _ -> jsTypeof "string" expr
+        | Fable.Char | Fable.String -> jsTypeof "string" expr
         | Fable.Number(Decimal,_) -> jsInstanceof (libValue com ctx "Decimal" "default") expr
         | Fable.Number(JS.Replacements.BigIntegers _, _) -> jsTypeof "bigint" expr
         | Fable.Number _ -> jsTypeof "number" expr

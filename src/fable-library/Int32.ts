@@ -118,7 +118,7 @@ export function parse(str: string, style: number, unsigned: boolean, bitsize: nu
       }
     }
   }
-  throw new Error("Input string was not in a correct format.");
+  throw new Error(`The input string ${str} was not in a correct format.`);
 }
 
 export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number, defValue: FSharpRef<number>): boolean {

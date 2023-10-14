@@ -61,8 +61,8 @@
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Buildalyzer" Version="4.1.6" />
-    <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
-    <PackageReference Include="source-map-sharp" Version="1.0.8" />
+    <PackageReference Include="Buildalyzer" Version="5.0.1" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
+    <PackageReference Include="source-map-sharp" Version="1.0.9" />
   </ItemGroup>
 </Project>

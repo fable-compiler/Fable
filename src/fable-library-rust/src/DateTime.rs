@@ -501,7 +501,7 @@ pub mod DateTime_ {
         pub fn parse(s: string) -> DateTime {
             match Self::try_parse_str(s.trim()) {
                 Ok(dt) => dt,
-                Err(e) => panic!("Input string was not in a correct format."),
+                Err(e) => panic!("The input string {} was not in a correct format.", s),
             }
         }
 
