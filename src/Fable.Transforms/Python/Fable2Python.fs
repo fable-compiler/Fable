@@ -3689,6 +3689,16 @@ module Util =
     let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
 
+        let genTypeArgument =
+          let gen =
+            getGenericTypeParams [ fieldIds[1].Type ]
+            |> Set.toList
+            |> List.tryHead
+
+          let ta = Expression.name (gen |> Option.defaultValue "Any")
+          let id = ident com ctx fieldIds[1]
+          Arg.arg (id, annotation = ta)
+
         let args, isOptional =
             let args =
                 fieldIds[0]
@@ -3698,20 +3708,8 @@ module Util =
                     Arg.arg (id, annotation = ta))
                 |> List.singleton
 
-            let varargs =
-                fieldIds[1]
-                |> ident com ctx
-                |> (fun id ->
-                    let gen =
-                        getGenericTypeParams [ fieldIds[1].Type ]
-                        |> Set.toList
-                        |> List.tryHead
-
-                    let ta = Expression.name (gen |> Option.defaultValue "Any")
-                    Arg.arg (id, annotation = ta))
-
             let isOptional = Helpers.isOptional fieldIds
-            Arguments.arguments (args = args, vararg = varargs), isOptional
+            Arguments.arguments (args = args, vararg = genTypeArgument), isOptional
 
         let body =
             [ yield callSuperAsStatement []
@@ -3752,8 +3750,34 @@ module Util =
 
             Statement.functionDef (name, Arguments.arguments (), body = body, returns = returnType, decoratorList = decorators)
 
+        let constructors =
+          [
+            for case in ent.UnionCases do
+              let name = Identifier case.Name
+              let args =
+                Arguments.arguments
+                  [
+                    for field in case.UnionCaseFields do
+                      Arg.arg(com.GetIdentifier(ctx, field.Name))
+                  ]
+              let decorators = [Expression.name "staticmethod"]
+              let body =
+                // todo
+                [Statement.return' (Expression.constant 1)]
+
+              let returnType =
+                match args.VarArg with
+                | None -> Expression.name entName
+                | Some _ ->
+                  Expression.subscript(Expression.name entName, Expression.name genTypeArgument.Arg)
+              Statement.functionDef(name, args, body = body, returns = returnType, decoratorList = decorators)
+          ]
         let baseExpr = libValue com ctx "types" "Union" |> Some
-        let classMembers = List.append [ cases ] classMembers
+        let classMembers = [
+          cases
+          yield! constructors
+          yield! classMembers
+        ]
         declareType com ctx ent entName args isOptional body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
