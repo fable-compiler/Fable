@@ -38,15 +38,22 @@ pythonVersion = "3.10"
 typeCheckingMode = "strict"
 
 [tool.isort]
-profile = "black"
-atomic = true
-lines_after_imports = 2
-lines_between_types = 1
-multi_line_output = 3            # corresponds to -m  flag
-include_trailing_comma = true    # corresponds to -tc flag
-line_length = 88
-known_third_party = ["cognite","pytest"]
-py_version=310
+
+[tool.ruff]
+# Keep in sync with .pre-commit-config.yaml
+line-length = 120
+ignore = []
+target-version = "py310"
+select = ["E", "W",  "F", "I", "T", "RUF", "TID", "UP"]
+exclude = ["tests", "build", "temp", "src/fable_library", "src/fable_library_rust", "src/fable_library_php"]
+include =["*.py"]
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.ruff.isort]
+lines-after-imports = 2
+
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -1,5 +1,4 @@
 import asyncio
-
 from asyncio import Future, ensure_future
 from concurrent.futures import ThreadPoolExecutor
 from threading import Timer
@@ -16,9 +15,9 @@ from typing import (
 )
 
 from .async_builder import (
-    Continuations,
     Async,
     CancellationToken,
+    Continuations,
     IAsyncContext,
     OperationCanceledError,
     Trampoline,
@@ -30,10 +29,11 @@ from .async_builder import (
 )
 
 # F# generated code (from Choice.fs)
-from .choice import Choice_makeChoice1Of2  # type: ignore
-from .choice import Choice_makeChoice2Of2  # type: ignore
+from .choice import (
+    Choice_makeChoice1Of2,  # type: ignore
+    Choice_makeChoice2Of2,  # type: ignore
+)
 from .task import TaskCompletionSource
-
 
 _T = TypeVar("_T")
 
@@ -46,6 +46,7 @@ def cancellation_token() -> Async[CancellationToken]:
 
 
 default_cancellation_token = CancellationToken()
+
 
 # see AsyncBuilder.Delay
 def delay(generator: Callable[[], Async[_T]]):
@@ -81,7 +82,6 @@ def is_cancellation_requested(token: CancellationToken) -> bool:
 def sleep(millisecondsDueTime: int) -> Async[None]:
     def cont(ctx: IAsyncContext[None]):
         def cancel():
-            timer.cancel()
             ctx.on_cancel(OperationCanceledError())
 
         token_id = ctx.cancel_token.add_listener(cancel)
@@ -90,8 +90,8 @@ def sleep(millisecondsDueTime: int) -> Async[None]:
             ctx.cancel_token.remove_listener(token_id)
             ctx.on_success(None)
 
-        timer = Timer(millisecondsDueTime / 1000.0, timeout)
-        timer.start()
+        due_time = millisecondsDueTime / 1000.0
+        ctx.trampoline.run_later(timeout, due_time)
 
     return protected_cont(cont)
 
@@ -106,8 +106,10 @@ def ignore(computation: Async[Any]) -> Async[None]:
 def parallel(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
     def delayed() -> Async[List[_T]]:
         tasks: Iterable[Future[_T]] = map(start_as_task, computations)  # type: ignore
-        all: Future[List[_T]] = asyncio.gather(*tasks)
-
+        try:
+            all: Future[List[_T]] = asyncio.gather(*tasks)
+        except Exception as ex:
+            raise ex
         return await_task(all)
 
     return delay(delayed)
@@ -189,7 +191,7 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
         continuation = conts
 
     task.add_done_callback(done)
-    return from_continuations(callback)  # type: ignore
+    return from_continuations(callback)
 
 
 def start_with_continuations(
@@ -251,6 +253,32 @@ def start_as_task(
     return tcs.get_task()
 
 
+def start_child(computation: Async[_T], ms: Optional[int] = None) -> Async[Async[_T]]:
+    if ms:
+        computation_with_timeout = protected_bind(
+            parallel(computation, throw_after(ms)), lambda xs: protected_return(xs[0])
+        )
+        return start_child(computation_with_timeout)
+
+    task = start_as_task(computation)
+
+    def cont(ctx: IAsyncContext[Async[_T]]) -> None:
+        def on_success(_: Async[_T]) -> None:
+            ctx.on_success(await_task(task))
+
+        on_error = ctx.on_error
+        on_cancel = ctx.on_cancel
+        trampoline = ctx.trampoline
+        cancel_token = ctx.cancel_token
+
+        ctx_ = IAsyncContext.create(
+            on_success, on_error, on_cancel, trampoline, cancel_token
+        )
+        computation(ctx_)
+
+    return protected_cont(cont)
+
+
 def start_immediate(
     computation: Async[Any],
     cancellation_token: Optional[CancellationToken] = None,
@@ -260,7 +288,20 @@ def start_immediate(
     Runs an asynchronous computation, starting immediately on the
     current operating system thread
     """
-    return start_with_continuations(computation, cancellation_token=cancellation_token)
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+
+        async def runner() -> None:
+            return start_with_continuations(
+                computation, cancellation_token=cancellation_token
+            )
+
+        return asyncio.run(runner())
+    else:
+        return start_with_continuations(
+            computation, cancellation_token=cancellation_token
+        )
 
 
 _executor: Optional[ThreadPoolExecutor] = None
