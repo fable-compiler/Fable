@@ -1,17 +1,14 @@
+from __future__ import annotations
+
 import asyncio
 from asyncio import Future, ensure_future
+from collections.abc import Awaitable, Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from threading import Timer
 from typing import (
     Any,
-    Awaitable,
-    Callable,
-    Iterable,
-    List,
     Literal,
-    Optional,
     TypeVar,
-    Union,
 )
 
 from .async_builder import (
@@ -35,6 +32,7 @@ from .choice import (
 )
 from .task import TaskCompletionSource
 
+
 _T = TypeVar("_T")
 
 
@@ -56,7 +54,7 @@ def delay(generator: Callable[[], Async[_T]]):
     return protected_cont(cont)
 
 
-def create_cancellation_token(arg: Union[int, bool, None] = None) -> CancellationToken:
+def create_cancellation_token(arg: int | bool | None = None) -> CancellationToken:
     cancelled = arg if isinstance(arg, bool) else False
     token = CancellationToken(cancelled)
     if isinstance(arg, int):
@@ -97,27 +95,24 @@ def sleep(millisecondsDueTime: int) -> Async[None]:
 
 
 def ignore(computation: Async[Any]) -> Async[None]:
-    def binder(_: Optional[Any] = None) -> Async[None]:
+    def binder(_: Any | None = None) -> Async[None]:
         return protected_return(None)
 
     return protected_bind(computation, binder)
 
 
-def parallel(computations: Iterable[Async[_T]]) -> Async[List[_T]]:
-    def delayed() -> Async[List[_T]]:
+def parallel(computations: Iterable[Async[_T]]) -> Async[list[_T]]:
+    def delayed() -> Async[list[_T]]:
         tasks: Iterable[Future[_T]] = map(start_as_task, computations)  # type: ignore
-        try:
-            all: Future[List[_T]] = asyncio.gather(*tasks)
-        except Exception as ex:
-            raise ex
+        all: Future[list[_T]] = asyncio.gather(*tasks)
         return await_task(all)
 
     return delay(delayed)
 
 
-def sequential(computations: Iterable[Async[_T]]) -> Async[List[Optional[_T]]]:
-    def delayed() -> Async[List[Optional[_T]]]:
-        results: List[_T] = []
+def sequential(computations: Iterable[Async[_T]]) -> Async[list[_T | None]]:
+    def delayed() -> Async[list[_T | None]]:
+        results: list[_T] = []
 
         def _arrow20(_arg: Async[_T]) -> Async[None]:
             cmp: Async[_T] = _arg
@@ -129,7 +124,7 @@ def sequential(computations: Iterable[Async[_T]]) -> Async[List[Optional[_T]]]:
 
             return singleton.Bind(cmp, _arrow19)
 
-        def _arrow21(__unit: Literal[None] = None) -> Async[List[_T]]:
+        def _arrow21(__unit: Literal[None] = None) -> Async[list[_T]]:
             return singleton.Return(results)
 
         return singleton.Combine(
@@ -196,12 +191,10 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
 
 def start_with_continuations(
     computation: Async[_T],
-    continuation: Optional[Callable[[_T], None]] = None,
-    exception_continuation: Optional[Callable[[Exception], None]] = None,
-    cancellation_continuation: Optional[
-        Callable[[OperationCanceledError], None]
-    ] = None,
-    cancellation_token: Optional[CancellationToken] = None,
+    continuation: Callable[[_T], None] | None = None,
+    exception_continuation: Callable[[Exception], None] | None = None,
+    cancellation_continuation: Callable[[OperationCanceledError], None] | None = None,
+    cancellation_token: CancellationToken | None = None,
 ) -> None:
     """Runs an asynchronous computation.
 
@@ -225,7 +218,7 @@ def start_with_continuations(
 
 
 def start_as_task(
-    computation: Async[_T], cancellation_token: Optional[CancellationToken] = None
+    computation: Async[_T], cancellation_token: CancellationToken | None = None
 ) -> Awaitable[_T]:
     """Executes a computation in the thread pool.
 
@@ -253,7 +246,7 @@ def start_as_task(
     return tcs.get_task()
 
 
-def start_child(computation: Async[_T], ms: Optional[int] = None) -> Async[Async[_T]]:
+def start_child(computation: Async[_T], ms: int | None = None) -> Async[Async[_T]]:
     if ms:
         computation_with_timeout = protected_bind(
             parallel(computation, throw_after(ms)), lambda xs: protected_return(xs[0])
@@ -281,7 +274,7 @@ def start_child(computation: Async[_T], ms: Optional[int] = None) -> Async[Async
 
 def start_immediate(
     computation: Async[Any],
-    cancellation_token: Optional[CancellationToken] = None,
+    cancellation_token: CancellationToken | None = None,
 ) -> None:
     """Start computation immediately.
 
@@ -304,12 +297,12 @@ def start_immediate(
         )
 
 
-_executor: Optional[ThreadPoolExecutor] = None
+_executor: ThreadPoolExecutor | None = None
 
 
 def start(
     computation: Callable[[IAsyncContext[Any]], None],
-    cancellation_token: Optional[CancellationToken] = None,
+    cancellation_token: CancellationToken | None = None,
 ) -> None:
     """Starts the asynchronous computation.
 
@@ -331,8 +324,8 @@ def start(
 
 def run_synchronously(
     computation: Async[_T],
-    cancellation_token: Optional[CancellationToken] = None,
-) -> Optional[_T]:
+    cancellation_token: CancellationToken | None = None,
+) -> _T | None:
     """Run computation synchronously.
 
     Runs an asynchronous computation and awaits its result on the
@@ -340,7 +333,7 @@ def run_synchronously(
     one. This call is blocking.
     """
 
-    async def runner() -> Optional[_T]:
+    async def runner() -> _T | None:
         return await start_as_task(computation, cancellation_token=cancellation_token)
 
     return asyncio.run(runner())
@@ -353,11 +346,16 @@ __all__ = [
     "cancellation_token",
     "catch_async",
     "create_cancellation_token",
+    "delay",
     "from_continuations",
     "ignore",
     "is_cancellation_requested",
+    "parallel",
+    "sequential",
     "sleep",
     "start",
+    "start_as_task",
+    "start_child",
     "start_immediate",
     "start_with_continuations",
 ]
