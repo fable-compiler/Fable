@@ -105,10 +105,11 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
 
         testReact false
 
-        let isCI = Environment.GetEnvironmentVariable("CI") |> Option.ofObj
+        // let isCI = Environment.GetEnvironmentVariable("CI") |> Option.ofObj
 
-        if isCI.IsSome then
-            Standalone.handleStandaloneFast ()
+        // standalone will be tested by a separate CI job
+        // if isCI.IsSome then
+        //     Standalone.handleStandaloneFast ()
 
 let handle (args: string list) =
     let isReactOnly = args |> List.contains "--react-only"

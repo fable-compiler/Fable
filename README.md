@@ -22,7 +22,7 @@ You can use VSCode Dev Container to get a preconfigured environment both with re
 
 1. You need to have docker installed and running.
 2. [Install the Dev Container extension in VSCode](vscode:extension/ms-vscode-remote.remote-containers)
-3. Open the project in VSCode and click on the green button at the bottom left corner.
+3. Open the project in VSCode and click on the green button in the bottom left corner.
 
 #### Use your machine
 

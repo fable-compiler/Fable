@@ -47,4 +47,5 @@ let handleStandaloneFast () =
     Command.Run("npx", mochaCommand, workingDirectory = standaloneBuildDest)
 
 let handle (args: string list) =
+    BuildFableLibraryJavaScript().Run()
     handleStandaloneFast ()

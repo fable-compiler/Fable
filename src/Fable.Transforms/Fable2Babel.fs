@@ -83,7 +83,10 @@ module Lib =
     let tryJsConstructorFor purpose (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         let isErased =
             match purpose with
-            | Annotation -> ent.IsMeasure || (FSharp2Fable.Util.isErasedOrStringEnumEntity ent && not ent.IsFSharpUnion)
+            | Annotation ->
+                ent.IsMeasure
+                || (ent.IsInterface && not com.IsTypeScript)
+                || (FSharp2Fable.Util.isErasedOrStringEnumEntity ent && not ent.IsFSharpUnion)
             // Historically we have used interfaces to represent JS classes in bindings,
             // so we allow explicit type references (e.g. for type testing) when the interface is global or imported.
             // But just in case we avoid referencing interfaces for reflection (as the type may not exist in actual code)
@@ -347,7 +350,7 @@ module Reflection =
         | Fable.Any -> Expression.booleanLiteral(true)
         | Fable.Unit -> com.TransformAsExpr(ctx, expr) |> Util.makeNullCheck range true
         | Fable.Boolean -> jsTypeof "boolean" expr
-        | Fable.Char | Fable.String _ -> jsTypeof "string" expr
+        | Fable.Char | Fable.String -> jsTypeof "string" expr
         | Fable.Number(Decimal,_) -> jsInstanceof (libValue com ctx "Decimal" "default") expr
         | Fable.Number(JS.Replacements.BigIntegers _, _) -> jsTypeof "bigint" expr
         | Fable.Number _ -> jsTypeof "number" expr

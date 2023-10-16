@@ -125,7 +125,7 @@ let noSideEffectBeforeIdent identName expr =
         | Get(_, ExprGet _, _, _) ->
             sideEffect <- true
             true
-        | Get(e, (TupleIndex _|UnionField _|UnionTag|ListHead|ListTail|OptionValue _), _, _) ->
+        | Get(e, (TupleIndex _|UnionField _|UnionTag|ListHead|ListTail|OptionValue), _, _) ->
             findIdentOrSideEffect e
         | Import _ | Lambda _ | Delegate _ -> false
         | Extended((Throw _|Debugger),_) -> true

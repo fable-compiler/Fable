@@ -58,7 +58,7 @@ def parse(value: Any) -> float:
     try:
         return float(value)
     except Exception:
-        raise ValueError("Input string was not in a correct format.")
+        raise ValueError(f"The input string {value} was not in a correct format.")
 
 
 def try_parse(string: str, def_value: FSharpRef[float]) -> bool:

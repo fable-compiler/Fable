@@ -1175,7 +1175,7 @@ and convertMatching (com: IPhpCompiler) input guard thenExpr elseExpr expr retur
                             com.AddLocalVar(fixName t, false)
                             PhpAssign(PhpVar(fixName t, None), PhpConst(PhpConstNumber(float i)))
                             PhpBreak None
-                      | Return _ ->
+                      | Return ->
                             yield! convertExprToStatement com target returnStrategy
                       | _ ->
                             yield! convertExprToStatement com target returnStrategy
@@ -1214,7 +1214,7 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
                                 yield! convertExprToStatement com expr returnStrategy
                             | None -> ()
                             match returnStrategy with
-                            | Return _ -> ()
+                            | Return -> ()
                             | _ -> PhpBreak None;
                         ]
 
@@ -1306,7 +1306,7 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
     | Fable.Extended(Fable.Throw(expr, _ ),_) ->
         match expr with
         | None -> failwith "TODO: rethrow"
-        | Some (Fable.Call (Fable.IdentExpr expr, args, _, _)) when expr.Name = "Error" -> 
+        | Some (Fable.Call (Fable.IdentExpr expr, args, _, _)) when expr.Name = "Error" ->
             [ PhpThrow (PhpNew (ExType { Name="Exception"; Namespace=Some ""; Class=None }, List.map (convertExpr com) args.Args))]
         | Some expr -> [ PhpThrow(convertExpr com expr)]
     | Fable.Extended(Fable.Curry(expr, arrity),_) ->

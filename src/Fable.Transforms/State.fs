@@ -90,7 +90,7 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
         ({ MemberDeclarationPlugins = Map.empty }, plugins)
         ||> Seq.fold (fun acc kv ->
             if kv.Value.IsSubclassOf(typeof<MemberDeclarationPluginAttribute>) then
-                { acc with MemberDeclarationPlugins = Map.add kv.Key kv.Value acc.MemberDeclarationPlugins }
+                { MemberDeclarationPlugins = Map.add kv.Key kv.Value acc.MemberDeclarationPlugins }
             else acc)
 
     let tryFindEntityByPath (entityFullName: string) (asm: FSharpAssembly) =

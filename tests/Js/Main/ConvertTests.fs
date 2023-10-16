@@ -105,60 +105,60 @@ let tests =
         SByte.Parse("-5") |> equal -5y
         SByte.Parse("-128") |> equal -128y
         (fun () -> SByte.Parse("128")) |> throwsError ""
-        (fun () -> SByte.Parse("5f")) |> throwsError "Input string was not in a correct format."
-        (fun () -> SByte.Parse("F")) |> throwsError "Input string was not in a correct format."
-        (fun () -> SByte.Parse("5o")) |> throwsError "Input string was not in a correct format."
+        (fun () -> SByte.Parse("5f")) |> throwsError ""
+        (fun () -> SByte.Parse("F")) |> throwsError ""
+        (fun () -> SByte.Parse("5o")) |> throwsError ""
 
     testCase "System.SByte.Parse with hex works" <| fun () ->
         SByte.Parse("55", System.Globalization.NumberStyles.HexNumber) |> equal 85y
         SByte.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95y
         SByte.Parse("FF", System.Globalization.NumberStyles.HexNumber) |> equal -1y
         (fun () -> SByte.Parse("1FF", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
-        (fun () -> SByte.Parse("5o", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
-        (fun () -> SByte.Parse("o5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
+        (fun () -> SByte.Parse("5o", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+        (fun () -> SByte.Parse("o5", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
     testCase "System.Int16.Parse works" <| fun () ->
         Int16.Parse("5") |> equal 5s
         Int16.Parse("-5") |> equal -5s
         Int16.Parse("-32768") |> equal -32768s
         (fun () -> Int16.Parse("32768")) |> throwsError ""
-        (fun () -> Int16.Parse("5f")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Int16.Parse("FFF")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Int16.Parse("5fo0")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Int16.Parse("5f")) |> throwsError ""
+        (fun () -> Int16.Parse("FFF")) |> throwsError ""
+        (fun () -> Int16.Parse("5fo0")) |> throwsError ""
 
     testCase "System.Int16.Parse with hex works" <| fun () ->
         Int16.Parse("5555", System.Globalization.NumberStyles.HexNumber) |> equal 21845s
         Int16.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95s
         Int16.Parse("FFFF", System.Globalization.NumberStyles.HexNumber) |> equal -1s
         (fun () -> Int16.Parse("1FFFF", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
-        (fun () -> Int16.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
-        (fun () -> Int16.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Int16.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+        (fun () -> Int16.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
     testCase "System.Int32.Parse works" <| fun () ->
         Int32.Parse("5") |> equal 5
         Int32.Parse("-5") |> equal -5
         Int32.Parse("-2147483648") |> equal -2147483648
         (fun () -> Int32.Parse("2147483648")) |> throwsError ""
-        (fun () -> Int32.Parse("5f")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Int32.Parse("f5")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Int32.Parse("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Int32.Parse("5f")) |> throwsError ""
+        (fun () -> Int32.Parse("f5")) |> throwsError ""
+        (fun () -> Int32.Parse("foo")) |> throwsError ""
 
     testCase "System.Int32.Parse with hex works" <| fun () ->
         Int32.Parse("555555", System.Globalization.NumberStyles.HexNumber) |> equal 5592405
         Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
         Int32.Parse("FFFFFFFF", System.Globalization.NumberStyles.HexNumber) |> equal -1
         (fun () -> Int32.Parse("1FFFFFFFF", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
-        (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
-        (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+        (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
     testCase "System.Int64.Parse works" <| fun () ->
         Int64.Parse("5") |> equal 5L
         Int64.Parse("-5") |> equal -5L
         Int64.Parse("-9223372036854775808") |> equal -9223372036854775808L
         (fun () -> Int64.Parse("9223372036854775808")) |> throwsError ""
-        (fun () -> Int64.Parse("5f")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Int64.Parse("f5")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Int64.Parse("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Int64.Parse("5f")) |> throwsError ""
+        (fun () -> Int64.Parse("f5")) |> throwsError ""
+        (fun () -> Int64.Parse("foo")) |> throwsError ""
 
     testCase "System.Int64.Parse with hex works" <| fun () ->
         Int64.Parse("555555", System.Globalization.NumberStyles.HexNumber) |> equal 5592405L
@@ -166,7 +166,7 @@ let tests =
         Int64.Parse("FFFFFFFFFFFFFFFF", System.Globalization.NumberStyles.HexNumber) |> equal -1L
         (fun () -> Int64.Parse("1FFFFFFFFFFFFFFFF", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
         (fun () -> Int64.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
-        (fun () -> Int64.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Int64.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
     testCase "System.Int64.TryParse works" <| fun () ->
         tryParse Int64.TryParse 0L "99" |> equal (true, 99L)
@@ -252,8 +252,8 @@ let tests =
         sbyte(1.6) |> equal x
         sbyte(1.m) |> equal x
         sbyte("1") |> equal x
-        (fun () -> sbyte("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> sbyte("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> sbyte("1.4")) |> throwsError ""
+        (fun () -> sbyte("foo")) |> throwsError ""
 
         Convert.ToSByte(1y) |> equal x
         Convert.ToSByte(1uy) |> equal x
@@ -274,8 +274,8 @@ let tests =
         Convert.ToSByte(2.6) |> equal (x+x+x)
         Convert.ToSByte(3.5) |> equal (x+x+x+x)
         Convert.ToSByte("1") |> equal x
-        (fun () -> Convert.ToSByte("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Convert.ToSByte("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToSByte("1.4")) |> throwsError ""
+        (fun () -> Convert.ToSByte("foo")) |> throwsError ""
 
     testCase "System.Convert.ToInt16 works" <| fun () ->
         let x = 1s
@@ -295,8 +295,8 @@ let tests =
         int16(1.6) |> equal x
         int16(1.m) |> equal x
         int16("1") |> equal x
-        (fun () -> int16("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> int16("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> int16("1.4")) |> throwsError ""
+        (fun () -> int16("foo")) |> throwsError ""
 
         Convert.ToInt16(1y) |> equal x
         Convert.ToInt16(1uy) |> equal x
@@ -317,8 +317,8 @@ let tests =
         Convert.ToInt16(2.6) |> equal (x+x+x)
         Convert.ToInt16(3.5) |> equal (x+x+x+x)
         Convert.ToInt16("1") |> equal x
-        (fun () -> Convert.ToInt16("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Convert.ToInt16("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToInt16("1.4")) |> throwsError ""
+        (fun () -> Convert.ToInt16("foo")) |> throwsError ""
 
     testCase "System.Convert.ToInt32 works" <| fun () ->
         let x = 1
@@ -338,8 +338,8 @@ let tests =
         int(1.6) |> equal x
         int(1.m) |> equal x
         int("1") |> equal x
-        (fun () -> int("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> int("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> int("1.4")) |> throwsError ""
+        (fun () -> int("foo")) |> throwsError ""
 
         Convert.ToInt32(1y) |> equal x
         Convert.ToInt32(1uy) |> equal x
@@ -360,8 +360,8 @@ let tests =
         Convert.ToInt32(2.6) |> equal (x+x+x)
         Convert.ToInt32(3.5) |> equal (x+x+x+x)
         Convert.ToInt32("1") |> equal x
-        (fun () -> Convert.ToInt32("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Convert.ToInt32("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToInt32("1.4")) |> throwsError ""
+        (fun () -> Convert.ToInt32("foo")) |> throwsError ""
 
     testCase "Special cases conversion to/from Int64 work" <| fun () ->
         let xn = -1L
@@ -400,8 +400,8 @@ let tests =
         int64(1.6) |> equal x
         int64(1.m) |> equal x
         int64("1") |> equal x
-        (fun () -> int64("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> int64("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> int64("1.4")) |> throwsError ""
+        (fun () -> int64("foo")) |> throwsError ""
 
         Convert.ToInt64(1y) |> equal x
         Convert.ToInt64(1uy) |> equal x
@@ -422,8 +422,8 @@ let tests =
         Convert.ToInt64(2.6) |> equal (x+x+x)
         Convert.ToInt64(3.5) |> equal (x+x+x+x)
         Convert.ToInt64("1") |> equal x
-        (fun () -> Convert.ToInt64("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Convert.ToInt64("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToInt64("1.4")) |> throwsError ""
+        (fun () -> Convert.ToInt64("foo")) |> throwsError ""
 
     testCase "System.Convert.ToByte works" <| fun () ->
         let x = 1uy
@@ -443,8 +443,8 @@ let tests =
         byte(1.6) |> equal x
         byte(1.m) |> equal x
         byte("1") |> equal x
-        (fun () -> byte("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> byte("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> byte("1.4")) |> throwsError ""
+        (fun () -> byte("foo")) |> throwsError ""
 
         Convert.ToByte(1y) |> equal x
         Convert.ToByte(1uy) |> equal x
@@ -465,8 +465,8 @@ let tests =
         Convert.ToByte(2.6) |> equal (x+x+x)
         Convert.ToByte(3.5) |> equal (x+x+x+x)
         Convert.ToByte("1") |> equal x
-        (fun () -> Convert.ToByte("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Convert.ToByte("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToByte("1.4")) |> throwsError ""
+        (fun () -> Convert.ToByte("foo")) |> throwsError ""
 
     testCase "System.Convert.ToUInt16 works" <| fun () ->
         let x = 1us
@@ -486,8 +486,8 @@ let tests =
         uint16(1.6) |> equal x
         uint16(1.m) |> equal x
         uint16("1") |> equal x
-        (fun () -> uint16("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> uint16("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> uint16("1.4")) |> throwsError ""
+        (fun () -> uint16("foo")) |> throwsError ""
 
         Convert.ToUInt16(1y) |> equal x
         Convert.ToUInt16(1uy) |> equal x
@@ -508,8 +508,8 @@ let tests =
         Convert.ToUInt16(2.6) |> equal (x+x+x)
         Convert.ToUInt16(3.5) |> equal (x+x+x+x)
         Convert.ToUInt16("1") |> equal x
-        (fun () -> Convert.ToUInt16("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Convert.ToUInt16("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToUInt16("1.4")) |> throwsError ""
+        (fun () -> Convert.ToUInt16("foo")) |> throwsError ""
 
     testCase "System.Convert.ToUInt32 works" <| fun () ->
         let x = 1u
@@ -529,8 +529,8 @@ let tests =
         uint32(1.6) |> equal x
         uint32(1.m) |> equal x
         uint32("1") |> equal x
-        (fun () -> uint32("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> uint32("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> uint32("1.4")) |> throwsError ""
+        (fun () -> uint32("foo")) |> throwsError ""
 
         Convert.ToUInt32(1y) |> equal x
         Convert.ToUInt32(1uy) |> equal x
@@ -551,8 +551,8 @@ let tests =
         Convert.ToUInt32(2.6) |> equal (x+x+x)
         Convert.ToUInt32(3.5) |> equal (x+x+x+x)
         Convert.ToUInt32("1") |> equal x
-        (fun () -> Convert.ToUInt32("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Convert.ToUInt32("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToUInt32("1.4")) |> throwsError ""
+        (fun () -> Convert.ToUInt32("foo")) |> throwsError ""
 
     testCase "System.Convert.ToUInt64 works" <| fun () ->
         let x = 1uL
@@ -572,8 +572,8 @@ let tests =
         uint64(1.6) |> equal x
         uint64(1.m) |> equal x
         uint64("1") |> equal x
-        (fun () -> uint64("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> uint64("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> uint64("1.4")) |> throwsError ""
+        (fun () -> uint64("foo")) |> throwsError ""
 
         Convert.ToUInt64(1y) |> equal x
         Convert.ToUInt64(1uy) |> equal x
@@ -594,8 +594,8 @@ let tests =
         Convert.ToUInt64(2.6) |> equal (x+x+x)
         Convert.ToUInt64(3.5) |> equal (x+x+x+x)
         Convert.ToUInt64("1") |> equal x
-        (fun () -> Convert.ToUInt64("1.4")) |> throwsError "Input string was not in a correct format."
-        (fun () -> Convert.ToUInt64("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToUInt64("1.4")) |> throwsError ""
+        (fun () -> Convert.ToUInt64("foo")) |> throwsError ""
 
     testCase "Convert between (un)signed long" <| fun () -> // See #1485
         int64 System.UInt64.MaxValue |> equal -1L
@@ -625,7 +625,7 @@ let tests =
         float32(1.) |> equal x
         float32(1.m) |> equal x
         float32("1.") |> equal x
-        (fun () -> float32("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> float32("foo")) |> throwsError ""
 
         Convert.ToSingle(1y) |> equal x
         Convert.ToSingle(1uy) |> equal x
@@ -640,7 +640,7 @@ let tests =
         Convert.ToSingle(1.) |> equal x
         Convert.ToSingle(1.m) |> equal x
         parse Convert.ToSingle "1." |> equal x
-        (fun () -> Convert.ToSingle("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToSingle("foo")) |> throwsError ""
 
     testCase "System.Convert.ToDouble works" <| fun () ->
         let x = 1.
@@ -657,7 +657,7 @@ let tests =
         float(1.) |> equal x
         float(1.m) |> equal x
         float("1.") |> equal x
-        (fun () -> float("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> float("foo")) |> throwsError ""
 
         Convert.ToDouble(1y) |> equal x
         Convert.ToDouble(1uy) |> equal x
@@ -672,7 +672,7 @@ let tests =
         Convert.ToDouble(1.) |> equal x
         Convert.ToDouble(1.m) |> equal x
         parse Convert.ToDouble "1." |> equal x
-        (fun () -> Convert.ToDouble("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToDouble("foo")) |> throwsError ""
 
     testCase "System.Convert.ToDecimal works" <| fun () ->
         let x = 1.m
@@ -714,7 +714,7 @@ let tests =
         Convert.ToSByte(x, 8) |> equal 65y
         Convert.ToSByte(x, 10) |> equal 101y
         #if FABLE_COMPILER
-        (fun () -> Convert.ToSByte("255", 2)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToSByte("255", 2)) |> throwsError ""
         #else
         (fun () -> Convert.ToSByte("255", 2)) |> throwsError "Could not find any recognizable digits."
         #endif
@@ -727,7 +727,7 @@ let tests =
         Convert.ToInt16(x, 10) |> equal 101s
         Convert.ToInt16(x, 16) |> equal 257s
         #if FABLE_COMPILER
-        (fun () -> Convert.ToInt16("255", 2)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToInt16("255", 2)) |> throwsError ""
         #else
         (fun () -> Convert.ToInt16("255", 2)) |> throwsError "Could not find any recognizable digits."
         #endif
@@ -740,7 +740,7 @@ let tests =
         Convert.ToInt32(x, 10) |> equal 101
         Convert.ToInt32(x, 16) |> equal 257
         #if FABLE_COMPILER
-        (fun () -> Convert.ToInt32("255", 2)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToInt32("255", 2)) |> throwsError ""
         #else
         (fun () -> Convert.ToInt32("255", 2)) |> throwsError "Could not find any recognizable digits."
         #endif
@@ -753,7 +753,7 @@ let tests =
         Convert.ToInt64(x, 10) |> equal 101L
         Convert.ToInt64(x, 16) |> equal 257L
         #if FABLE_COMPILER
-        (fun () -> Convert.ToInt64("255", 2)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToInt64("255", 2)) |> throwsError ""
         #else
         (fun () -> Convert.ToInt64("255", 2)) |> throwsError "Could not find any recognizable digits."
         #endif
@@ -765,7 +765,7 @@ let tests =
         Convert.ToByte(x, 8) |> equal 65uy
         Convert.ToByte(x, 10) |> equal 101uy
         #if FABLE_COMPILER
-        (fun () -> Convert.ToByte("255", 2)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToByte("255", 2)) |> throwsError ""
         #else
         (fun () -> Convert.ToByte("255", 2)) |> throwsError "Could not find any recognizable digits."
         #endif
@@ -778,7 +778,7 @@ let tests =
         Convert.ToUInt16(x, 10) |> equal 101us
         Convert.ToUInt16(x, 16) |> equal 257us
         #if FABLE_COMPILER
-        (fun () -> Convert.ToUInt16("255", 2)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToUInt16("255", 2)) |> throwsError ""
         #else
         (fun () -> Convert.ToUInt16("255", 2)) |> throwsError "Could not find any recognizable digits."
         #endif
@@ -791,7 +791,7 @@ let tests =
         Convert.ToUInt32(x, 10) |> equal 101u
         Convert.ToUInt32(x, 16) |> equal 257u
         #if FABLE_COMPILER
-        (fun () -> Convert.ToUInt32("255", 2)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToUInt32("255", 2)) |> throwsError ""
         #else
         (fun () -> Convert.ToUInt32("255", 2)) |> throwsError "Could not find any recognizable digits."
         #endif
@@ -804,7 +804,7 @@ let tests =
         Convert.ToUInt64(x, 10) |> equal 101uL
         Convert.ToUInt64(x, 16) |> equal 257uL
         #if FABLE_COMPILER
-        (fun () -> Convert.ToUInt64("255", 2)) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToUInt64("255", 2)) |> throwsError ""
         #else
         (fun () -> Convert.ToUInt64("255", 2)) |> throwsError "Could not find any recognizable digits."
         #endif

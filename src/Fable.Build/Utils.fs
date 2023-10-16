@@ -15,7 +15,7 @@ type Path =
     /// Resolve a path relative to the repository root
     /// </summary>
     static member Resolve([<ParamArray>] segments: string array) : string =
-        let paths = Array.concat [ [| __SOURCE_DIRECTORY__; ".." |]; segments ]
+        let paths = Array.concat [ [| __SOURCE_DIRECTORY__; ".."; ".." |]; segments ]
 
         // Use GetFullPath to clean the path
         Path.GetFullPath(Path.Combine(paths))
@@ -39,7 +39,7 @@ type Cmd =
         let argsBuilder = defaultArg argsBuilder id
         // Use absolute path so we can invoke the command from anywhere
         let localFableDir =
-            __SOURCE_DIRECTORY__ </> ".." </> "src" </> "Fable.Cli"
+            __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
 
         let watchMode = defaultArg watchMode false
 

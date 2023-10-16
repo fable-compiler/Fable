@@ -573,7 +573,7 @@ module TypeInfo =
         | Fable.Number(BigInt, _) -> false
         | Fable.Unit
         | Fable.Boolean
-        | Fable.Char _
+        | Fable.Char
         | Fable.Number _ // all numbers except BigInt
             -> true
         | _ -> false

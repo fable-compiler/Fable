@@ -4,7 +4,7 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.2.1</Version>
+    <Version>4.2.2</Version>
     <PackageReleaseNotes>* Fix #3438: Source maps
 * Fix #3440: Don't curry arity-1 functions
 * Fix #3452: DateTimeOffset conversion to DateTime
@@ -61,8 +61,8 @@
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Buildalyzer" Version="4.1.6" />
-    <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
-    <PackageReference Include="source-map-sharp" Version="1.0.8" />
+    <PackageReference Include="Buildalyzer" Version="5.0.1" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
+    <PackageReference Include="source-map-sharp" Version="1.0.9" />
   </ItemGroup>
 </Project>
