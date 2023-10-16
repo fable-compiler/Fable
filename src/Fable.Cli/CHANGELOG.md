@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JavaScript] Improve error messages for `Decimal.Parse`, `Double.Parse`, `Int32.Parse`, `Long.Parse` (by @ncave)
 * [Rust] Improve error messages for `BigInt.Parse`, `DateOnly.Parse`, `DateTime.Parse`, `DateTimeOffset.Parse`, `Decimal.Parse`, `TimeOnly.Parse` (by @ncave)
 * [Python] Improve error messages for `Double.Parse`, `Int32.Parse`, `Long.Parse` (by @ncave)
+* [Python] Refactored async trampoline leveraging asyncio mainloop. Fixed `Async.Parallel`. Added `Async.StartChild` (by @dbrattli)
 
 ## 4.2.2 - 2023-10-14
 
