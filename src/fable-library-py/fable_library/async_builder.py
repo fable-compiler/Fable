@@ -256,7 +256,7 @@ def protected_bind(
     computation: Callable[[IAsyncContext[_T]], None],
     binder: Callable[[_T], Async[_U]],
 ) -> Async[_U]:
-    def cont(ctx: IAsyncContext[_T]):
+    def cont(ctx: IAsyncContext[_U]) -> None:
         def on_success(x: _T) -> None:
             try:
                 binder(x)(ctx)

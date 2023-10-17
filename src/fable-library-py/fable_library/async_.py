@@ -189,6 +189,23 @@ def await_task(task: Awaitable[_T]) -> Async[_T]:
     return from_continuations(callback)
 
 
+def run_in_loop(computation: Callable[..., None]) -> Any:
+    """Run a computation on the event loop.
+
+    If no event loop is running, then one is created and run.
+    """
+
+    async def runner() -> None:
+        return computation()
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(runner())
+    else:
+        return computation()
+
+
 def start_with_continuations(
     computation: Async[_T],
     continuation: Callable[[_T], None] | None = None,
@@ -214,7 +231,10 @@ def start_with_continuations(
         cancellation_token or default_cancellation_token,
     )
 
-    return computation(ctx)
+    def runner() -> None:
+        computation(ctx)
+
+    run_in_loop(runner)
 
 
 def start_as_task(
@@ -281,20 +301,7 @@ def start_immediate(
     Runs an asynchronous computation, starting immediately on the
     current operating system thread
     """
-    try:
-        asyncio.get_event_loop()
-    except RuntimeError:
-
-        async def runner() -> None:
-            return start_with_continuations(
-                computation, cancellation_token=cancellation_token
-            )
-
-        return asyncio.run(runner())
-    else:
-        return start_with_continuations(
-            computation, cancellation_token=cancellation_token
-        )
+    start_with_continuations(computation, cancellation_token=cancellation_token)
 
 
 _executor: ThreadPoolExecutor | None = None
