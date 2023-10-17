@@ -12,6 +12,7 @@ module Types =
     type CategoryBody =
         | ListItem of string
         | Text of string
+        | Section of string
 
     type OtherItem = {
         ListItem: string
@@ -58,6 +59,7 @@ module Types =
             version: string option *
             date: string option
         | SubSection of tag: string
+        | SubSubSection of tag: string
         | ListItem of content: string
 
 
@@ -105,7 +107,12 @@ module Lexer =
 
     let private (|SubSection|_|) (input: string) =
         match input with
-        | Match "^###" _ -> input.Substring(3).Trim() |> Some
+        | Match "^### ?[^#]" _ -> input.Substring(3).Trim() |> Some
+        | _ -> None
+
+    let private (|SubSubSection|_|) (input: string) =
+        match input with
+        | Match "^#### ?[^#]" _ -> input.Substring(4).Trim() |> Some
         | _ -> None
 
     let private (|ListItem|_|) (input: string) =
@@ -121,6 +128,7 @@ module Lexer =
             | Version(title, version, date) ->
                 Symbols.SectionHeader(title, version, date)
             | SubSection tag -> Symbols.SubSection tag
+            | SubSubSection tag -> Symbols.SubSubSection tag
             | ListItem content -> Symbols.ListItem content
             | rawText -> Symbols.RawText(rawText.TrimEnd())
         )
@@ -178,6 +186,11 @@ module Transform =
                     rest
                     (sectionContent @ [ CategoryBody.Text content ])
 
+        | Symbols.SubSubSection tag :: tail ->
+            parseCategoryBody
+                tail
+                (sectionContent @ [ CategoryBody.Section tag ])
+
         // End of the Section, return the built content
         | _ -> symbols, sectionContent
 
@@ -227,6 +240,10 @@ module Transform =
             else
                 changelog
             |> parse tail
+
+        | Symbols.SubSubSection _ :: tail ->
+            // Should not happen here, it should be captured in the parseCategoryBody function
+            parse tail changelog
 
         | Symbols.SectionHeader(title, version, date) :: tail ->
             let version = {
@@ -404,6 +421,7 @@ module Version =
                         function
                         | ListItem item -> sprintf "- %s" item
                         | Text text -> text
+                        | Section section -> sprintf "\n### %s\n" section
                     )
                     |> String.concat "\n"
 

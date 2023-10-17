@@ -8,18 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* [JavaScript] Fix #3541: Interface imported in generated javascript when DU has an interface type constraint (by @ncave)
-* [JavaScript] Improve error messages for `Decimal.Parse`, `Double.Parse`, `Int32.Parse`, `Long.Parse` (by @ncave)
-* [Rust] Improve error messages for `BigInt.Parse`, `DateOnly.Parse`, `DateTime.Parse`, `DateTimeOffset.Parse`, `Decimal.Parse`, `TimeOnly.Parse` (by @ncave)
-* [Python] Improve error messages for `Double.Parse`, `Int32.Parse`, `Long.Parse` (by @ncave)
-* [Python] Refactored async trampoline leveraging asyncio mainloop. Fixed `Async.Parallel`. Added `Async.StartChild` (by @dbrattli)
+#### JavaScript
+
+* Fix #3541: Interface imported in generated javascript when DU has an interface type constraint (by @ncave)
+
+#### Python
+
+* Fixed `Async.Parallel` (by @dbrattli)
+
+### Changed
+
+#### JavaScript
+
+* Improve error messages for `Decimal.Parse`, `Double.Parse`, `Int32.Parse`, `Long.Parse` (by @ncave)
+
+#### Rust
+
+* Improve error messages for `BigInt.Parse`, `DateOnly.Parse`, `DateTime.Parse`, `DateTimeOffset.Parse`, `Decimal.Parse`, `TimeOnly.Parse` (by @ncave)
+
+#### Python
+
+* Improve error messages for `Double.Parse`, `Int32.Parse`, `Long.Parse` (by @ncave)
+* Refactored async trampoline leveraging asyncio mainloop. (by @dbrattli)
+
+### Added
+
+#### Python
+
+* Added `Async.StartChild` (by @dbrattli)
 
 ## 4.2.2 - 2023-10-14
 
 ### Fixed
 
-* [Python] Fix #3527: Fix error `name '...' is not defined` (by @dbrattli)
-* [Python] Fix #3496: Python target is confused with class taking a `length: int ` argument (by @dbrattli)
+#### Python
+
+* Fix #3527: Fix error `name '...' is not defined` (by @dbrattli)
+* Fix #3496: Python target is confused with class taking a `length: int ` argument (by @dbrattli)
 
 ## 4.2.1 - 2023-09-29
 

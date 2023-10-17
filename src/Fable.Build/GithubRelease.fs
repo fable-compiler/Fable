@@ -41,15 +41,6 @@ let private createTag (version: ChangelogParser.Types.Version) =
         |> CmdLine.toString
     )
 
-    // Command.Run(
-    //     "git",
-    //     CmdLine.empty
-    //     |> CmdLine.appendRaw "tag"
-    //     |> CmdLine.appendPrefix "-a" (versionText)
-    //     |> CmdLine.appendPrefix "-m" $"Release {versionText}"
-    //     |> CmdLine.toString
-    // )
-
     Command.Run(
         "git",
         "push"
