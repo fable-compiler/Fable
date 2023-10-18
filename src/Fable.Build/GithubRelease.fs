@@ -48,6 +48,17 @@ let private createTag (version: ChangelogParser.Types.Version) =
 
 
 let handle (args: string list) =
+    let struct (currentBranch, _) =
+        Command.ReadAsync(
+            "git",
+            "rev-parse --abbrev-ref HEAD"
+        )
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+    if currentBranch.Trim() <> "main" then
+        failwith "You must be on the main branch to release"
+
     Publish.handle args
 
     let githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
