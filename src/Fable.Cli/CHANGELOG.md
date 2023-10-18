@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* Fix #3482: Revert removal of `Py.python` (by @dbrattli)
+
 ### Fixed
 
 #### JavaScript
