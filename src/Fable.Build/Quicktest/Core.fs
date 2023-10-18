@@ -35,8 +35,7 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
 
     Command.Fable(
         CmdLine.empty
-    |> CmdLine.appendRaw "clean"
-
+        |> CmdLine.appendRaw "clean"
         |> CmdLine.appendRaw projectDir
         |> CmdLine.appendPrefix "--lang" config.Language
         |> CmdLine.appendPrefix "--extension" config.Extension
