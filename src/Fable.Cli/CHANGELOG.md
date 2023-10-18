@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Python
 
 * Added `Async.StartChild` (by @dbrattli)
+* Fix #3482: Revert removal of `Py.python` and `Py.expr_python` (by @dbrattli)
 
 ## 4.2.2 - 2023-10-14
 

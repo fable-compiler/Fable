@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+#### Python
+
+* Fix #3482: Revert removal of `Py.python` and `Py.expr_python` (by @dbrattli)
+
 ## 4.1.0
 
 * Fix #3482: Remove `Py.python` and `Py.expr_python`

@@ -34,6 +34,7 @@ from .task import TaskCompletionSource
 
 
 _T = TypeVar("_T")
+_U = TypeVar("_U")
 
 
 def cancellation_token() -> Async[CancellationToken]:
@@ -104,6 +105,15 @@ def ignore(computation: Async[Any]) -> Async[None]:
 def parallel(computations: Iterable[Async[_T]]) -> Async[list[_T]]:
     def delayed() -> Async[list[_T]]:
         tasks: Iterable[Future[_T]] = map(start_as_task, computations)  # type: ignore
+        all: Future[list[_T]] = asyncio.gather(*tasks)
+        return await_task(all)
+
+    return delay(delayed)
+
+
+def parallel2(a: Async[_T], b: Async[_U]) -> Async[list[_T | _U]]:
+    def delayed() -> Async[list[_T, _T]]:
+        tasks: Iterable[Future[_T]] = map(start_as_task, [a, b])  # type: ignore
         all: Future[list[_T]] = asyncio.gather(*tasks)
         return await_task(all)
 
@@ -266,28 +276,33 @@ def start_as_task(
     return tcs.get_task()
 
 
+def throw_after(milliseconds_due_time: int) -> Async[None]:
+    def cont(ctx: IAsyncContext[None]) -> None:
+        def cancel() -> None:
+            ctx.on_cancel(OperationCanceledError())
+
+        token_id = ctx.cancel_token.add_listener(cancel)
+
+        def timeout() -> None:
+            ctx.cancel_token.remove_listener(token_id)
+            ctx.on_error(TimeoutError())
+
+        ctx.trampoline.run_later(timeout, milliseconds_due_time / 1000.0)
+
+    return protected_cont(cont)
+
+
 def start_child(computation: Async[_T], ms: int | None = None) -> Async[Async[_T]]:
     if ms:
         computation_with_timeout = protected_bind(
-            parallel(computation, throw_after(ms)), lambda xs: protected_return(xs[0])
+            parallel2(computation, throw_after(ms)), lambda xs: protected_return(xs[0])
         )
         return start_child(computation_with_timeout)
 
     task = start_as_task(computation)
 
     def cont(ctx: IAsyncContext[Async[_T]]) -> None:
-        def on_success(_: Async[_T]) -> None:
-            ctx.on_success(await_task(task))
-
-        on_error = ctx.on_error
-        on_cancel = ctx.on_cancel
-        trampoline = ctx.trampoline
-        cancel_token = ctx.cancel_token
-
-        ctx_ = IAsyncContext.create(
-            on_success, on_error, on_cancel, trampoline, cancel_token
-        )
-        computation(ctx_)
+        protected_return(await_task(task))(ctx)
 
     return protected_cont(cont)
 

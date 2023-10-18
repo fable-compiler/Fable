@@ -43,3 +43,7 @@ module Py =
     /// https://code.visualstudio.com/docs/python/jupyter-support-py
     [<Emit("# %%", isStatement=true)>]
     let NEW_CELL: unit = nativeOnly
+
+     /// Embeds literal Python code into F#. Code will be printed as statements,
+    /// if you want to return a value use Python `return` keyword within a function.
+    let python (template: string): 'T = nativeOnly
