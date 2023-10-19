@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="source-map-sharp" Version="1.0.8" />
+    <PackageReference Include="source-map-sharp" Version="1.0.9" />
   </ItemGroup>
 
   <ItemGroup>

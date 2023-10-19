@@ -1535,6 +1535,19 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "NativeArray", "new_copy", t, [ar], ?loc=r) |> Some
     | _ -> None
 
+let collectionExtensions (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | "AddRange", None, [ar; arg] ->
+        Helper.LibCall(com, "Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "InsertRange", None, [ar; idx; arg] ->
+        Helper.LibCall(com, "Array", "insertRangeInPlace", t, [idx; arg; ar], ?loc=r) |> Some
+    | _ -> None
+
+let readOnlySpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, args with
+    | "op_Implicit", [arg] -> arg |> Some
+    | _ -> None
+
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let changeKind isStruct = function
         | Value(NewTuple(args, _), r)::_ -> Value(NewTuple(args, isStruct), r) |> Some
@@ -2962,6 +2975,8 @@ let private replacedModules =
     "System.Collections.IList", resizeArrays
     Types.icollectionGeneric, collections
     Types.icollection, collections
+    "System.Collections.Generic.CollectionExtensions", collectionExtensions
+    "System.ReadOnlySpan`1", readOnlySpans
     Types.hashset, hashSets
     Types.stack, bclType
     Types.queue, bclType

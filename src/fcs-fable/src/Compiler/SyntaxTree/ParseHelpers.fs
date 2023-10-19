@@ -268,6 +268,7 @@ type LexerStringStyle =
     | Verbatim
     | TripleQuote
     | SingleQuote
+    | ExtendedInterpolated
 
 [<RequireQualifiedAccess; Struct>]
 type LexerStringKind =
@@ -307,7 +308,7 @@ type LexerStringKind =
 
 /// Represents the degree of nesting of '{..}' and the style of the string to continue afterwards, in an interpolation fill.
 /// Nesting counters and styles of outer interpolating strings are pushed on this stack.
-type LexerInterpolatedStringNesting = (int * LexerStringStyle * range) list
+type LexerInterpolatedStringNesting = (int * LexerStringStyle * int * range) list
 
 /// The parser defines a number of tokens for whitespace and
 /// comments eliminated by the lexer.  These carry a specification of
@@ -323,6 +324,7 @@ type LexerContinuation =
         nesting: LexerInterpolatedStringNesting *
         style: LexerStringStyle *
         kind: LexerStringKind *
+        delimLen: int *
         range: range
     | Comment of ifdef: LexerIfdefStackEntries * nesting: LexerInterpolatedStringNesting * int * range: range
     | SingleLineComment of ifdef: LexerIfdefStackEntries * nesting: LexerInterpolatedStringNesting * int * range: range
@@ -365,7 +367,7 @@ and LexCont = LexerContinuation
 // Parse IL assembly code
 //------------------------------------------------------------------------
 
-let ParseAssemblyCodeInstructions (s: string) (reportLibraryOnlyFeatures: bool) (langVersion: LanguageVersion) m : IL.ILInstr[] =
+let ParseAssemblyCodeInstructions (s: string) (reportLibraryOnlyFeatures: bool) (langVersion: LanguageVersion) (strictIndentation: bool option) m : IL.ILInstr[] =
 #if NO_INLINE_IL_PARSER
     ignore s
     ignore reportLibraryOnlyFeatures
@@ -375,13 +377,13 @@ let ParseAssemblyCodeInstructions (s: string) (reportLibraryOnlyFeatures: bool) 
     [||]
 #else
     try
-        AsciiParser.ilInstrs AsciiLexer.token (StringAsLexbuf(reportLibraryOnlyFeatures, langVersion, s))
+        AsciiParser.ilInstrs AsciiLexer.token (StringAsLexbuf(reportLibraryOnlyFeatures, langVersion, strictIndentation, s))
     with _ ->
         errorR (Error(FSComp.SR.astParseEmbeddedILError (), m))
         [||]
 #endif
 
-let ParseAssemblyCodeType (s: string) (reportLibraryOnlyFeatures: bool) (langVersion: LanguageVersion) m =
+let ParseAssemblyCodeType (s: string) (reportLibraryOnlyFeatures: bool) (langVersion: LanguageVersion) (strictIndentation: bool option) m =
     ignore s
 
 #if NO_INLINE_IL_PARSER
@@ -393,7 +395,7 @@ let ParseAssemblyCodeType (s: string) (reportLibraryOnlyFeatures: bool) (langVer
     IL.PrimaryAssemblyILGlobals.typ_Object
 #else
     try
-        AsciiParser.ilType AsciiLexer.token (StringAsLexbuf(reportLibraryOnlyFeatures, langVersion, s))
+        AsciiParser.ilType AsciiLexer.token (StringAsLexbuf(reportLibraryOnlyFeatures, langVersion, strictIndentation, s))
     with RecoverableParseError ->
         errorR (Error(FSComp.SR.astParseEmbeddedILTypeError (), m))
         IL.PrimaryAssemblyILGlobals.typ_Object
@@ -569,7 +571,7 @@ let mkSynMemberDefnGetSet
                 (mBindLhs, attrs)
                 ||> unionRangeWithListBy (fun (a: SynAttributeList) -> a.Range)
 
-            let (SynValData (_, valSynInfo, _)) = valSynData
+            let (SynValData (valInfo = valSynInfo)) = valSynData
 
             // Setters have all arguments tupled in their internal TAST form, though they don't appear to be
             // tupled from the syntax
@@ -619,7 +621,7 @@ let mkSynMemberDefnGetSet
                     // should be unreachable, cover just in case
                     raiseParseErrorAt mWholeBindLhs (FSComp.SR.parsInvalidProperty ())
 
-            let valSynData = SynValData(Some(memFlags), valSynInfo, None)
+            let valSynData = SynValData(Some(memFlags), valSynInfo, None, None)
 
             // Fold together the information from the first lambda pattern and the get/set binding
             // This uses the 'this' variable from the first and the patterns for the get/set binding,
@@ -677,11 +679,13 @@ let mkSynMemberDefnGetSet
                         let args =
                             if id.idText = "set" then
                                 match args with
-                                | [ SynPat.Paren (SynPat.Tuple (false, indexPats, _), indexPatRange); valuePat ] when id.idText = "set" ->
+                                | [ SynPat.Paren (SynPat.Tuple (false, indexPats, commas, _), indexPatRange); valuePat ] when
+                                    id.idText = "set"
+                                    ->
                                     [
-                                        SynPat.Tuple(false, indexPats @ [ valuePat ], unionRanges indexPatRange valuePat.Range)
+                                        SynPat.Tuple(false, indexPats @ [ valuePat ], commas, unionRanges indexPatRange valuePat.Range)
                                     ]
-                                | [ indexPat; valuePat ] -> [ SynPat.Tuple(false, args, unionRanges indexPat.Range valuePat.Range) ]
+                                | [ indexPat; valuePat ] -> [ SynPat.Tuple(false, args, [], unionRanges indexPat.Range valuePat.Range) ]
                                 | [ valuePat ] -> [ valuePat ]
                                 | _ -> raiseParseErrorAt m (FSComp.SR.parsSetSyntax ())
                             else
@@ -921,7 +925,7 @@ let mkSynExprDecl (e: SynExpr) = SynModuleDecl.Expr(e, e.Range)
 let addAttribs attrs p = SynPat.Attrib(p, attrs, p.Range)
 
 let unionRangeWithPos (r: range) p =
-    let r2 = mkRange r.FileName p p
+    let r2 = withStartEnd p p r
     unionRanges r r2
 
 /// Report a good error at the end of file, e.g. for non-terminated strings
@@ -929,19 +933,20 @@ let checkEndOfFileError t =
     match t with
     | LexCont.IfDefSkip (_, _, _, m) -> reportParseErrorAt m (FSComp.SR.parsEofInHashIf ())
 
-    | LexCont.String (_, _, LexerStringStyle.SingleQuote, kind, m) ->
+    | LexCont.String (_, _, LexerStringStyle.SingleQuote, kind, _, m) ->
         if kind.IsInterpolated then
             reportParseErrorAt m (FSComp.SR.parsEofInInterpolatedString ())
         else
             reportParseErrorAt m (FSComp.SR.parsEofInString ())
 
-    | LexCont.String (_, _, LexerStringStyle.TripleQuote, kind, m) ->
+    | LexCont.String (_, _, LexerStringStyle.ExtendedInterpolated, kind, _, m)
+    | LexCont.String (_, _, LexerStringStyle.TripleQuote, kind, _, m) ->
         if kind.IsInterpolated then
             reportParseErrorAt m (FSComp.SR.parsEofInInterpolatedTripleQuoteString ())
         else
             reportParseErrorAt m (FSComp.SR.parsEofInTripleQuoteString ())
 
-    | LexCont.String (_, _, LexerStringStyle.Verbatim, kind, m) ->
+    | LexCont.String (_, _, LexerStringStyle.Verbatim, kind, _, m) ->
         if kind.IsInterpolated then
             reportParseErrorAt m (FSComp.SR.parsEofInInterpolatedVerbatimString ())
         else
@@ -956,6 +961,7 @@ let checkEndOfFileError t =
     | LexCont.StringInComment (_, _, LexerStringStyle.Verbatim, _, m) ->
         reportParseErrorAt m (FSComp.SR.parsEofInVerbatimStringInComment ())
 
+    | LexCont.StringInComment (_, _, LexerStringStyle.ExtendedInterpolated, _, m)
     | LexCont.StringInComment (_, _, LexerStringStyle.TripleQuote, _, m) ->
         reportParseErrorAt m (FSComp.SR.parsEofInTripleQuoteStringInComment ())
 
@@ -971,7 +977,7 @@ let checkEndOfFileError t =
 
         match nesting with
         | [] -> ()
-        | (_, _, m) :: _ -> reportParseErrorAt m (FSComp.SR.parsEofInInterpolatedStringFill ())
+        | (_, _, _, m) :: _ -> reportParseErrorAt m (FSComp.SR.parsEofInInterpolatedStringFill ())
 
 type BindingSet = BindingSetPreAttrs of range * bool * bool * (SynAttributes -> SynAccess option -> SynAttributes * SynBinding list) * range
 
@@ -1089,3 +1095,70 @@ let appendValToLeadingKeyword mVal leadingKeyword =
     | SynLeadingKeyword.Override mOverride -> SynLeadingKeyword.OverrideVal(mOverride, mVal)
     | SynLeadingKeyword.Default (mDefault) -> SynLeadingKeyword.DefaultVal(mDefault, mVal)
     | _ -> leadingKeyword
+
+let mkSynUnionCase attributes (access: SynAccess option) id kind mDecl (xmlDoc, mBar) =
+    match access with
+    | Some access -> errorR (Error(FSComp.SR.parsUnionCasesCannotHaveVisibilityDeclarations (), access.Range))
+    | _ -> ()
+
+    let trivia: SynUnionCaseTrivia = { BarRange = Some mBar }
+    let mDecl = unionRangeWithXmlDoc xmlDoc mDecl
+    SynUnionCase(attributes, id, kind, xmlDoc, None, mDecl, trivia)
+
+let mkAutoPropDefn mVal access ident typ mEquals (expr: SynExpr) accessors xmlDoc attribs flags rangeStart =
+    let mWith, (getSet, getSetOpt) = accessors
+
+    let memberRange =
+        match getSetOpt with
+        | None -> unionRanges rangeStart expr.Range |> unionRangeWithXmlDoc xmlDoc
+        | Some (getSet: GetSetKeywords) ->
+            unionRanges rangeStart expr.Range
+            |> unionRangeWithXmlDoc xmlDoc
+            |> unionRanges getSet.Range
+
+    let flags, leadingKeyword = flags
+    let leadingKeyword = appendValToLeadingKeyword mVal leadingKeyword
+    let memberFlags: SynMemberFlags = flags SynMemberKind.Member
+    let memberFlagsForSet = flags SynMemberKind.PropertySet
+    let isStatic = not memberFlags.IsInstance
+
+    let trivia =
+        {
+            LeadingKeyword = leadingKeyword
+            WithKeyword = mWith
+            EqualsRange = mEquals
+            GetSetKeywords = getSetOpt
+        }
+
+    SynMemberDefn.AutoProperty(
+        attribs,
+        isStatic,
+        ident,
+        typ,
+        getSet,
+        memberFlags,
+        memberFlagsForSet,
+        xmlDoc,
+        access,
+        expr,
+        memberRange,
+        trivia
+    )
+
+let mkValField mVal mRhs mut access ident (typ: SynType) xmlDoc rangeStart attribs mStaticOpt =
+    let isStatic = Option.isSome mStaticOpt
+    let mValDecl = unionRanges rangeStart typ.Range |> unionRangeWithXmlDoc xmlDoc
+
+    let leadingKeyword =
+        match mStaticOpt with
+        | None -> SynLeadingKeyword.Val mVal
+        | Some mStatic -> SynLeadingKeyword.StaticVal(mStatic, mVal)
+
+    let fld =
+        SynField(attribs, isStatic, Some ident, typ, mut, xmlDoc, access, mRhs, { LeadingKeyword = Some leadingKeyword })
+
+    SynMemberDefn.ValField(fld, mValDecl)
+
+let mkSynField parseState idOpt t isMutable vis attributes isStatic mWhole leadingKeyword =
+    let xmlDoc = grabXmlDocAtRangeStart (parseState, attributes, mWhole)
+    SynField(attributes, isStatic, idOpt, t, isMutable, xmlDoc, vis, mWhole, { LeadingKeyword = leadingKeyword })

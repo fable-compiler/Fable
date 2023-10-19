@@ -186,19 +186,21 @@ type LazyOrderedMultiMap<'Key, 'Data when 'Key: equality>(keyf: 'Data -> 'Key, l
 
             t)
 
-    member self.Entries() = lazyItems.Force()
+    member _.Entries() = lazyItems.Force()
 
-    member self.Add y =
+    member _.Add y =
         new LazyOrderedMultiMap<'Key, 'Data>(keyf, lazyItems |> lazyMap (fun x -> y :: x))
 
-    member self.Filter f =
+    member _.Filter f =
         new LazyOrderedMultiMap<'Key, 'Data>(keyf, lazyItems |> lazyMap (List.filter f))
 
-    member self.Item
+    member _.Item
         with get x =
             match quickMap.Force().TryGetValue x with
             | true, v -> v
             | _ -> []
+
+    override _.ToString() = "<table>"
 
 //---------------------------------------------------------------------
 // SHA1 hash-signing algorithm. Used to get the public key token from
@@ -424,6 +426,8 @@ type AssemblyRefData =
         assemRefLocale: Locale option
     }
 
+    override x.ToString() = x.assemRefName
+
 /// Global state: table of all assembly references keyed by AssemblyRefData.
 let AssemblyRefUniqueStampGenerator = UniqueStampGenerator<AssemblyRefData>()
 
@@ -582,6 +586,8 @@ type ILModuleRef =
 
     member x.Hash = x.hash
 
+    override x.ToString() = x.Name
+
 [<StructuralEquality; StructuralComparison>]
 [<RequireQualifiedAccess>]
 type ILScopeRef =
@@ -670,6 +676,9 @@ type ILCallingConv =
     static member Instance = ILCallingConvStatics.Instance
 
     static member Static = ILCallingConvStatics.Static
+
+    override x.ToString() =
+        if x.IsStatic then "static" else "instance"
 
 /// Static storage to amortize the allocation of <c>ILCallingConv.Instance</c> and <c>ILCallingConv.Static</c>.
 and ILCallingConvStatics() =
@@ -990,7 +999,8 @@ type ILMethodRef =
 
     member x.ReturnType = x.mrefReturn
 
-    member x.CallingSignature = mkILCallSig (x.CallingConv, x.ArgTypes, x.ReturnType)
+    member x.GetCallingSignature() =
+        mkILCallSig (x.CallingConv, x.ArgTypes, x.ReturnType)
 
     static member Create(enclosingTypeRef, callingConv, name, genericArity, argTypes, returnType) =
         {
@@ -1118,6 +1128,8 @@ type ILSourceDocument =
     member x.DocumentType = x.sourceDocType
 
     member x.File = x.sourceFile
+
+    override x.ToString() = x.File
 
 [<StructuralEquality; StructuralComparison; StructuredFormatDisplay("{DebugText}")>]
 type ILDebugPoint =
@@ -1455,6 +1467,10 @@ type ILLocalDebugInfo =
         DebugMappings: ILLocalDebugMapping list
     }
 
+    override x.ToString() =
+        let firstLabel, secondLabel = x.Range
+        sprintf "%i-%i" firstLabel secondLabel
+
 [<RequireQualifiedAccess; NoEquality; NoComparison>]
 type ILCode =
     {
@@ -1464,6 +1480,8 @@ type ILCode =
         Locals: ILLocalDebugInfo list
     }
 
+    override x.ToString() = "<code>"
+
 [<RequireQualifiedAccess; NoComparison; NoEquality>]
 type ILLocal =
     {
@@ -1471,6 +1489,8 @@ type ILLocal =
         IsPinned: bool
         DebugInfo: (string * int * int) option
     }
+
+    override x.ToString() = "<local>"
 
 type ILLocals = ILLocal list
 
@@ -1488,6 +1508,8 @@ type ILDebugImports =
         Imports: ILDebugImport[]
     }
 
+    override x.ToString() = "<imports>"
+
 [<RequireQualifiedAccess; NoEquality; NoComparison>]
 type ILMethodBody =
     {
@@ -1500,6 +1522,8 @@ type ILMethodBody =
         DebugRange: ILDebugPoint option
         DebugImports: ILDebugImports option
     }
+
+    override x.ToString() = "<method body>"
 
 [<RequireQualifiedAccess>]
 type ILMemberAccess =
@@ -1741,6 +1765,8 @@ type PInvokeMethod =
         CharBestFit: PInvokeCharBestFit
     }
 
+    override x.ToString() = x.Name
+
 [<RequireQualifiedAccess; NoEquality; NoComparison>]
 type ILParameter =
     {
@@ -1757,6 +1783,9 @@ type ILParameter =
 
     member x.CustomAttrs = x.CustomAttrsStored.GetCustomAttrs x.MetadataIndex
 
+    override x.ToString() =
+        x.Name |> Option.defaultValue "<no name>"
+
 type ILParameters = ILParameter list
 
 [<RequireQualifiedAccess; NoEquality; NoComparison>]
@@ -1767,6 +1796,8 @@ type ILReturn =
         CustomAttrsStored: ILAttributesStored
         MetadataIndex: int32
     }
+
+    override x.ToString() = "<return>"
 
     member x.CustomAttrs = x.CustomAttrsStored.GetCustomAttrs x.MetadataIndex
 
@@ -1781,6 +1812,9 @@ type ILOverridesSpec =
     member x.MethodRef = let (OverridesSpec (mr, _ty)) = x in mr
 
     member x.DeclaringType = let (OverridesSpec (_mr, ty)) = x in ty
+
+    override x.ToString() =
+        "overrides " + x.DeclaringType.ToString() + "::" + x.MethodRef.ToString()
 
 type ILMethodVirtualInfo =
     {
@@ -1804,7 +1838,7 @@ type MethodCodeKind =
     | Native
     | Runtime
 
-let typesOfILParams (ps: ILParameters) : ILTypes = ps |> List.map (fun p -> p.Type)
+let typesOfILParams (ps: ILParameters) = ps |> List.map (fun p -> p.Type)
 
 [<StructuralEquality; StructuralComparison>]
 type ILGenericVariance =
@@ -1989,7 +2023,7 @@ type ILMethodDef
 
     member x.IsZeroInit = x.MethodBody.IsZeroInit
 
-    member md.CallingSignature =
+    member md.GetCallingSignature() =
         mkILCallSig (md.CallingConv, md.ParameterTypes, md.Return.Type)
 
     member x.IsClassInitializer = x.Name = ".cctor"
@@ -2153,7 +2187,7 @@ type ILMethodDefs(f: unit -> ILMethodDef[]) =
 
     member x.TryFindInstanceByNameAndCallingSignature(nm, callingSig) =
         x.FindByName nm
-        |> List.tryFind (fun x -> not x.IsStatic && x.CallingSignature = callingSig)
+        |> List.tryFind (fun x -> not x.IsStatic && x.GetCallingSignature() = callingSig)
 
 [<NoComparison; NoEquality; StructuredFormatDisplay("{DebugText}")>]
 type ILEventDef
@@ -2236,6 +2270,8 @@ type ILEventDefs =
 
     member x.LookupByName s = let (ILEvents t) = x in t[s]
 
+    override x.ToString() = "<events>"
+
 [<NoComparison; NoEquality; StructuredFormatDisplay("{DebugText}")>]
 type ILPropertyDef
     (
@@ -2313,6 +2349,8 @@ type ILPropertyDefs =
     member x.AsList() = let (ILProperties t) = x in t.Entries()
 
     member x.LookupByName s = let (ILProperties t) = x in t[s]
+
+    override x.ToString() = "<properties>"
 
 let convertFieldAccess (ilMemberAccess: ILMemberAccess) =
     match ilMemberAccess with
@@ -2427,6 +2465,8 @@ type ILFieldDefs =
     member x.AsList() = let (ILFields t) = x in t.Entries()
 
     member x.LookupByName s = let (ILFields t) = x in t[s]
+
+    override x.ToString() = "<fields>"
 
 type ILMethodImplDef =
     {
@@ -2812,10 +2852,10 @@ and [<Sealed>] ILTypeDefs(f: unit -> ILPreTypeDef[]) =
             ReadOnlyDictionary t)
 #endif
 
-    member x.AsArray() =
+    member _.AsArray() =
         [| for pre in array.Value -> pre.GetTypeDef() |]
 
-    member x.AsList() =
+    member _.AsList() =
         [ for pre in array.Value -> pre.GetTypeDef() ]
 
     interface IEnumerable with
@@ -2883,6 +2923,8 @@ type ILNestedExportedType =
 
     member x.CustomAttrs = x.CustomAttrsStored.GetCustomAttrs x.MetadataIndex
 
+    override x.ToString() = "exported type " + x.Name
+
 and ILNestedExportedTypes =
     | ILNestedExportedTypes of Lazy<Map<string, ILNestedExportedType>>
 
@@ -2904,6 +2946,8 @@ and [<NoComparison; NoEquality>] ILExportedTypeOrForwarder =
     member x.IsForwarder = x.Attributes &&& enum<TypeAttributes> (0x00200000) <> enum 0
 
     member x.CustomAttrs = x.CustomAttrsStored.GetCustomAttrs x.MetadataIndex
+
+    override x.ToString() = "exported type " + x.Name
 
 and ILExportedTypesAndForwarders =
     | ILExportedTypesAndForwarders of Lazy<Map<string, ILExportedTypeOrForwarder>>
@@ -2950,6 +2994,8 @@ type ILResource =
         | _ -> failwith "GetBytes"
 
     member x.CustomAttrs = x.CustomAttrsStored.GetCustomAttrs x.MetadataIndex
+
+    override x.ToString() = "resource " + x.Name
 
 type ILResources =
     | ILResources of ILResource list
@@ -2998,6 +3044,8 @@ type ILAssemblyManifest =
 
     member x.SecurityDecls = x.SecurityDeclsStored.GetSecurityDecls x.MetadataIndex
 
+    override x.ToString() = "assembly manifest " + x.Name
+
 [<RequireQualifiedAccess>]
 type ILNativeResource =
     | In of fileName: string * linkedResourceBase: int * linkedResourceStart: int * linkedResourceLength: int
@@ -3040,6 +3088,8 @@ type ILModuleDef =
         | _ -> true
 
     member x.CustomAttrs = x.CustomAttrsStored.GetCustomAttrs x.MetadataIndex
+
+    override x.ToString() = "assembly " + x.Name
 
 // --------------------------------------------------------------------
 // Add fields and types to tables, with decent error messages

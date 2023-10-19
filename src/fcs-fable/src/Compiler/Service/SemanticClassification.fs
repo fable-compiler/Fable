@@ -101,19 +101,19 @@ module TcResolutionsExtensions =
 
     let reprToClassificationType g repr tcref =
         match repr with
-        | TFSharpObjectRepr om ->
+        | TFSharpTyconRepr om ->
             match om.fsobjmodel_kind with
+            | TFSharpUnion
+            | TFSharpRecord ->
+                if isStructTyconRef g tcref then
+                    SemanticClassificationType.ValueType
+                else
+                    SemanticClassificationType.Type
             | TFSharpClass -> SemanticClassificationType.ReferenceType
             | TFSharpInterface -> SemanticClassificationType.Interface
             | TFSharpStruct -> SemanticClassificationType.ValueType
             | TFSharpDelegate _ -> SemanticClassificationType.Delegate
             | TFSharpEnum -> SemanticClassificationType.Enumeration
-        | TFSharpRecdRepr _
-        | TFSharpUnionRepr _ ->
-            if isStructTyconRef g tcref then
-                SemanticClassificationType.ValueType
-            else
-                SemanticClassificationType.Type
         | TILObjectRepr (TILObjectReprData (_, _, td)) ->
             if td.IsClass then
                 SemanticClassificationType.ReferenceType
@@ -170,7 +170,7 @@ module TcResolutionsExtensions =
 
                     let (|EnumCaseFieldInfo|_|) (rfinfo: RecdFieldInfo) =
                         match rfinfo.TyconRef.TypeReprInfo with
-                        | TFSharpObjectRepr x ->
+                        | TFSharpTyconRepr x ->
                             match x.fsobjmodel_kind with
                             | TFSharpEnum -> Some()
                             | _ -> None
@@ -203,11 +203,7 @@ module TcResolutionsExtensions =
 
                     let duplicates = HashSet<range>(comparer)
 
-#if FABLE_COMPILER
-                    let results = ResizeArray<_>()
-#else
                     let results = ImmutableArray.CreateBuilder()
-#endif
 
                     let inline add m (typ: SemanticClassificationType) =
                         if duplicates.Add m then
@@ -272,7 +268,7 @@ module TcResolutionsExtensions =
                             else
                                 add m SemanticClassificationType.RecordField
 
-                        | Item.Property (_, pinfo :: _), _, m ->
+                        | Item.Property(info = pinfo :: _), _, m ->
                             if not pinfo.IsIndexer then
                                 add m SemanticClassificationType.Property
 
@@ -360,8 +356,6 @@ module TcResolutionsExtensions =
 
                         | Item.SetterArg _, _, m -> add m SemanticClassificationType.NamedArgument
 
-                        | Item.SetterArg _, _, m -> add m SemanticClassificationType.Property
-
                         | Item.UnqualifiedType (tcref :: _), LegitTypeOccurence, m ->
                             if tcref.IsEnumTycon || tcref.IsILEnumTycon then
                                 add m SemanticClassificationType.Enumeration
@@ -402,7 +396,11 @@ module TcResolutionsExtensions =
                         formatSpecifierLocations
                         |> Array.map (fun (m, _) -> SemanticClassificationItem((m, SemanticClassificationType.Printf)))
 
+#if FABLE_COMPILER
+                    results.AddRange(locs :> IEnumerable<SemanticClassificationItem>)
+#else
                     results.AddRange(locs)
+#endif
                     results.ToArray())
                 (fun msg ->
                     Trace.TraceInformation(sprintf "FCS: recovering from error in GetSemanticClassification: '%s'" msg)

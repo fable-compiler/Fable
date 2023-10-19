@@ -91,6 +91,7 @@ type ExecutionContext =
     { LookupTypeRef: ILTypeRef -> Type
       LookupType: ILType -> Type }
 
+#if !FABLE_COMPILER
 /// An incremental ILX code generator for a single assembly
 type public IlxAssemblyGenerator =
     /// Create an incremental ILX code generator for a single assembly
@@ -107,7 +108,6 @@ type public IlxAssemblyGenerator =
     /// Generate ILX code for an assembly fragment
     member GenerateCode: IlxGenOptions * CheckedAssemblyAfterOptimization * Attribs * Attribs -> IlxGenResults
 
-#if !FABLE_COMPILER
     /// Invert the compilation of the given value and clear the storage of the value
     member ClearGeneratedValue: ExecutionContext * Val -> unit
 

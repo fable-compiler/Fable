@@ -15,7 +15,6 @@ open FSharp.Compiler.DiagnosticsLogger
 open FSharp.Compiler.IO
 open FSharp.Compiler.Text
 open FSharp.Compiler.Text.Range
-open FSharp.Compiler.AbstractIL.IL
 
 /// Represents collected XmlDoc lines
 [<RequireQualifiedAccess>]
@@ -274,7 +273,7 @@ type PreXmlDoc =
 
                 doc
 
-    member internal x.Range =
+    member x.Range =
         match x with
         | PreXmlDirect (_, m) -> m
         | PreXmlMerge (part1, part2) ->

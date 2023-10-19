@@ -454,6 +454,9 @@ type FSharpUnionCase =
     /// Get the range of the name of the case
     member DeclarationLocation: range
 
+    /// Get the declaring entity of the case
+    member DeclaringEntity: FSharpEntity
+
     /// Indicates if the union case has field definitions
     member HasFields: bool
 
@@ -945,6 +948,9 @@ type FSharpMemberOrFunctionOrValue =
     /// Indicates if this is a ref cell
     member IsRefCell: bool
 
+    /// Indicates if this is a value that has been referenced
+    member IsReferencedValue: bool
+
     /// Indicated if this is a value
     member IsValue: bool
 
@@ -959,6 +965,9 @@ type FSharpMemberOrFunctionOrValue =
 
     /// Format the type using the rules of the given display context
     member GetReturnTypeLayout: displayContext: FSharpDisplayContext -> TaggedText[] option
+
+    /// Get the signature text to include this Symbol into an existing signature file.
+    member GetValSignatureText: displayContext: FSharpDisplayContext * m: range -> string option
 
     /// Check if this method has an entrpoint that accepts witness arguments and if so return
     /// the name of that entrypoint and information about the additional witness arguments

@@ -43,7 +43,7 @@ let tokenizeLine (args: string[]) lineStr =
     let defines =
         args |> Seq.choose (fun s -> if s.StartsWith "--define:" then Some s[9..] else None)
              |> Seq.toList
-    let sourceTokenizer = FSharpSourceTokenizer(defines, Some "/tmp.fsx")
+    let sourceTokenizer = FSharpSourceTokenizer(defines, Some "/tmp.fsx", None, None)
     let lineTokenizer = sourceTokenizer.CreateLineTokenizer lineStr
     let rec loop lexState acc =
         match lineTokenizer.ScanToken lexState with

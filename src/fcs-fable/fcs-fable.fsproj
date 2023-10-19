@@ -12,7 +12,7 @@
     <DefineConstants>$(DefineConstants);NO_TYPEPROVIDERS</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
     <DefineConstants>$(DefineConstants);FSHARPCORE_USE_PACKAGE</DefineConstants>
-    <OtherFlags>$(OtherFlags) --warnon:1182 --nowarn:57</OtherFlags>
+    <OtherFlags>$(OtherFlags) --nowarn:57</OtherFlags>
     <!-- <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference> -->
   </PropertyGroup>
 
@@ -101,7 +101,9 @@
     <Compile Include="$(FSharpSourcesRoot)/AbstractIL/ilx.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/AbstractIL/ilascii.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/AbstractIL/ilascii.fs" /> -->
+    <!-- <Compile Include="$(FsYaccOutputFolder)/ilpars.fsi" /> -->
     <!-- <Compile Include="$(FsYaccOutputFolder)/ilpars.fs" /> -->
+    <!-- <Compile Include="$(FsLexOutputFolder)/illex.fsi" /> -->
     <!-- <Compile Include="$(FsLexOutputFolder)/illex.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/AbstractIL/ilprint.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/AbstractIL/ilprint.fs" /> -->
@@ -145,11 +147,15 @@
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/SyntaxTreeOps.fs" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/ParseHelpers.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/ParseHelpers.fs" />
+    <!-- <Compile Include="$(FsYaccOutputFolder)/pppars.fsi" /> -->
     <Compile Include="$(FsYaccOutputFolder)/pppars.fs" />
+    <!-- <Compile Include="$(FsYaccOutputFolder)/pars.fsi" /> -->
     <Compile Include="$(FsYaccOutputFolder)/pars.fs" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/LexHelpers.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/LexHelpers.fs" />
+    <!-- <Compile Include="$(FsYaccOutputFolder)/pplex.fsi" /> -->
     <Compile Include="$(FsYaccOutputFolder)/pplex.fs" />
+    <!-- <Compile Include="$(FsYaccOutputFolder)/lex.fsi" /> -->
     <Compile Include="$(FsYaccOutputFolder)/lex.fs" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/LexFilter.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/LexFilter.fs" />
@@ -210,6 +216,8 @@
     <Compile Include="$(FSharpSourcesRoot)/Checking/QuotationTranslator.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/PostInferenceChecks.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/PostInferenceChecks.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/TailCallChecks.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/TailCallChecks.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckBasics.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckBasics.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckRecordSyntaxHelpers.fsi" />
@@ -224,6 +232,8 @@
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckIncrementalClasses.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckDeclarations.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckDeclarations.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/SignatureHash.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/SignatureHash.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Optimize/Optimizer.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Optimize/Optimizer.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Optimize/DetupleArgs.fsi" />
@@ -240,6 +250,8 @@
     <Compile Include="$(FSharpSourcesRoot)/Optimize/LowerStateMachines.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Optimize/LowerLocalMutables.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Optimize/LowerLocalMutables.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/CodeGen/IlxGenSupport.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/CodeGen/IlxGenSupport.fs" />
     <Compile Include="$(FSharpSourcesRoot)/CodeGen/EraseClosures.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/CodeGen/EraseClosures.fs" />
     <Compile Include="$(FSharpSourcesRoot)/CodeGen/EraseUnions.fsi" />
@@ -274,8 +286,6 @@
     <Compile Include="$(FSharpSourcesRoot)/Driver/GraphChecking/DependencyResolution.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Driver/GraphChecking/GraphProcessing.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Driver/GraphChecking/GraphProcessing.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/Driver/GraphChecking/TypeCheckingGraphProcessing.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/Driver/GraphChecking/TypeCheckingGraphProcessing.fs" />
     <!-- <Content Include="$(FSharpSourcesRoot)/Driver/GraphChecking/Docs.md" /> -->
     <Compile Include="$(FSharpSourcesRoot)/Driver/ParseAndCheckInputs.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Driver/ParseAndCheckInputs.fs" />
@@ -297,12 +307,12 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/Driver/fsc.fs" /> -->
 
     <!-- the symbol API. -->
-    <Compile Include="$(FSharpSourcesRoot)/Symbols/FSharpDiagnostic.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/Symbols/FSharpDiagnostic.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Symbols/SymbolHelpers.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Symbols/SymbolHelpers.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Symbols/Symbols.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Symbols/Symbols.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Symbols/FSharpDiagnostic.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Symbols/FSharpDiagnostic.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Symbols/Exprs.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Symbols/Exprs.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Symbols/SymbolPatterns.fsi" />
@@ -367,7 +377,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="6.0.5" /> -->
+    <!-- <PackageReference Include="FSharp.Core" Version="8.0.0" /> -->
     <!-- <Reference Include="../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" /> -->
   </ItemGroup>
 

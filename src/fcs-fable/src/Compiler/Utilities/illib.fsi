@@ -26,8 +26,8 @@ module internal PervasiveAutoOpens =
     /// Returns true if the argument is non-null.
     val inline isNotNull: x: 'T -> bool when 'T: null
 
-    /// Indicates that a type may be null. 'MaybeNull<string>' used internally in the F# compiler as unchecked
-    /// replacement for 'string?' for example for future FS-1060.
+    /// Indicates that a type may be null. 'MaybeNull<string>' is used internally in the F# compiler as
+    /// replacement for 'string?' to align with FS-1060.
     type 'T MaybeNull when 'T: null and 'T: not struct = 'T
 
     /// Asserts the argument is non-null and raises an exception if it is
@@ -134,6 +134,8 @@ module internal Array =
     /// Returns true if one array has trailing elements equal to another's.
     val endsWith: suffix: 'a[] -> whole: 'a[] -> bool when 'a: equality
 
+    val prepend: item: 'T -> array: 'T[] -> 'T[]
+
 module internal Option =
 
     val mapFold: f: ('a -> 'b -> 'c * 'a) -> s: 'a -> opt: 'b option -> 'c option * 'a
@@ -219,6 +221,8 @@ module internal List =
 
     val isSingleton: xs: 'T list -> bool
 
+    val prependIfSome: x: 'a option -> l: 'a list -> 'a list
+
 module internal ResizeArray =
 
     /// Split a ResizeArray into an array of smaller chunks.
@@ -230,6 +234,11 @@ module internal ResizeArray =
     /// This is done to help prevent a stop-the-world collection of the single large array, instead allowing for a greater
     /// probability of smaller collections. Stop-the-world is still possible, just less likely.
     val mapToSmallArrayChunks: f: ('t -> 'a) -> inp: ResizeArray<'t> -> 'a[][]
+
+#if !FABLE_COMPILER
+module internal Span =
+    val inline exists: predicate: ('T -> bool) -> span: Span<'T> -> bool
+#endif
 
 module internal ValueOptionInternal =
 
