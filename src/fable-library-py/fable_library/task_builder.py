@@ -1,9 +1,8 @@
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable, Iterable
 from typing import (
     Any,
-    Awaitable,
-    Callable,
-    Iterable,
-    Optional,
     Protocol,
     TypeVar,
     overload,
@@ -20,7 +19,7 @@ _U = TypeVar("_U")
 
 
 class Delayed(Protocol[_T_co]):
-    def __call__(self, __unit: Optional[None] = None) -> Awaitable[_T_co]:
+    def __call__(self, __unit: None | None = None) -> Awaitable[_T_co]:
         ...
 
 

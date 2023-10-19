@@ -1,10 +1,13 @@
-from typing import Any, Callable, List, TypeVar
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 
 _T = TypeVar("_T")
 
 
-def exists(predicate: Callable[[_T], bool], xs: List[_T]) -> bool:
+def exists(predicate: Callable[[_T], bool], xs: list[_T]) -> bool:
     """Test if a predicate is true for at least one element in a list."""
 
     for x in xs:
@@ -13,7 +16,7 @@ def exists(predicate: Callable[[_T], bool], xs: List[_T]) -> bool:
     return False
 
 
-def find_index(predicate: Callable[[_T], bool], xs: List[_T]) -> int:
+def find_index(predicate: Callable[[_T], bool], xs: list[_T]) -> int:
     """Find the index of the first element in a list that satisfies a predicate."""
 
     for i, x in enumerate(xs):
@@ -22,7 +25,7 @@ def find_index(predicate: Callable[[_T], bool], xs: List[_T]) -> int:
     return -1
 
 
-def remove_range(start: int, count: int, xs: List[Any]) -> None:
+def remove_range(start: int, count: int, xs: list[Any]) -> None:
     """Remove a range of elements from a list in-place."""
 
     del xs[start : start + count]

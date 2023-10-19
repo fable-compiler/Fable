@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from queue import SimpleQueue
 from threading import RLock
-from typing import Any, Callable, Generic, List, Optional, TypeVar
+from typing import Any, Callable, Generic, Optional, TypeVar
 
 from .async_ import from_continuations, start_immediate
-from .async_builder import Async, CancellationToken, OperationCanceledError
+from .async_builder import (
+    Async,
+    CancellationToken,
+    Continuations,
+    OperationCanceledError,
+)
 
 
 _Msg = TypeVar("_Msg")
@@ -32,7 +37,7 @@ class MailboxProcessor(Generic[_Msg]):
         self.body = body
 
         # Holds the continuation i.e the `done` callback of Async.from_continuations returned by `receive`.
-        self.continuation: List[Callable[[Any], None]] = []
+        self.continuation: Continuations[Any] | None = None
 
     def post(self, msg: _Msg) -> None:
         """Post a message synchronously to the mailbox processor.
@@ -67,9 +72,9 @@ class MailboxProcessor(Generic[_Msg]):
         """
 
         result: Optional[_Reply] = None
-        continuation: List[
-            Callable[[Any], None]
-        ] = None  # This is the continuation for the `done` callback of the awaiting poster.
+        continuation: Continuations[
+            Any
+        ] | None = None  # This is the continuation for the `done` callback of the awaiting poster.
 
         def check_completion() -> None:
             if result is not None and continuation is not None:
@@ -84,7 +89,7 @@ class MailboxProcessor(Generic[_Msg]):
         self.messages.put(build_message(reply_channel))
         self.__process_events()
 
-        def callback(conts: List[Callable[[Any], None]]) -> None:
+        def callback(conts: Continuations[Any]) -> None:
             nonlocal continuation
             continuation = conts
             check_completion()
@@ -101,7 +106,7 @@ class MailboxProcessor(Generic[_Msg]):
             the timeout is exceeded.
         """
 
-        def callback(conts: List[Callable[[Any], None]]):
+        def callback(conts: Continuations[Any]):
             if self.continuation:
                 raise Exception("Receive can only be called once!")
 
@@ -118,7 +123,7 @@ class MailboxProcessor(Generic[_Msg]):
         # Cancellation of async workflows is more tricky in Python than
         # with F# so we check the cancellation token for each process.
         if self.token.is_cancellation_requested:
-            self.continuation, cont = [], self.continuation
+            self.continuation, cont = None, self.continuation
             if cont:
                 cont[2](OperationCanceledError("Mailbox was cancelled"))
             return
@@ -127,7 +132,7 @@ class MailboxProcessor(Generic[_Msg]):
             if self.messages.empty():
                 return
             msg = self.messages.get()
-            self.continuation, cont = [], self.continuation
+            self.continuation, cont = None, self.continuation
 
         if cont:
             cont[0](msg)

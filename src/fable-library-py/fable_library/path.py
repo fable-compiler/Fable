@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import os
 import tempfile
-from typing import Optional
 
 
 def get_temp_file_name() -> str:
@@ -35,7 +36,7 @@ def get_file_name_without_extension(path: str) -> str:
     return os.path.splitext(os.path.basename(path))[0]
 
 
-def get_full_path(path: str, base_path: Optional[str]=None) -> str:
+def get_full_path(path: str, base_path: str | None = None) -> str:
     return os.path.join(base_path or "", path)
 
 
