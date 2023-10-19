@@ -137,6 +137,7 @@ type Command with
                 CmdLine.empty
                 |> CmdLine.appendRaw "watch"
                 |> CmdLine.appendPrefix "--project" localFableDir
+                |> CmdLine.appendRaw "run"
                 // Without the release mode, Fable stack overflow when compiling the tests
                 |> CmdLine.appendPrefix "-c" "Release"
                 |> CmdLine.appendRaw "--"
