@@ -8,9 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### JavaScript
+
+* Support (un)curry up to 20 arguments (by @MangelMaxime)
+
 #### Python
 
 * Remove support for Python 3.9. Add GH testing for Python 3.12 (by @dbrattli)
+* Support (un)curry up to 20 arguments (by @MangelMaxime)
+
+#### Dart
+
+* Support (un)curry up to 20 arguments (by @MangelMaxime)
 
 ## 4.3.0 - 2023-10-14
 
