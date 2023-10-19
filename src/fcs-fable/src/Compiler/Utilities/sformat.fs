@@ -252,6 +252,10 @@ module TaggedText =
     let rightBracketAngle = tagPunctuation ">]"
     let star = tagOperator "*"
     let keywordNew = tagKeyword "new"
+    let keywordInline = tagKeyword "inline"
+    let keywordModule = tagKeyword "module"
+    let keywordNamespace = tagKeyword "namespace"
+    let punctuationUnit = tagPunctuation "()"
 #endif
 
 [<AutoOpen>]

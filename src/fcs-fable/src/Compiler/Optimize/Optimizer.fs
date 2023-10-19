@@ -294,6 +294,11 @@ let [<Literal>] crossAssemblyOptimizationDefault = true
 
 let [<Literal>] debugPointsForPipeRightDefault = true
 
+[<RequireQualifiedAccess>]
+type OptimizationProcessingMode =
+    | Sequential
+    | Parallel
+
 type OptimizationSettings = 
     { 
       abstractBigTargets : bool
@@ -325,6 +330,8 @@ type OptimizationSettings =
       reportHasEffect : bool 
       
       reportTotalSizes : bool
+      
+      processingMode : OptimizationProcessingMode
     }
 
     static member Defaults = 
@@ -341,6 +348,7 @@ type OptimizationSettings =
           reportFunctionSizes = false
           reportHasEffect = false
           reportTotalSizes = false
+          processingMode = OptimizationProcessingMode.Sequential
         }
 
     /// Determines if JIT optimizations are enabled
@@ -401,7 +409,10 @@ type OptimizationSettings =
 
     /// Determines if we should expand "let x = (exp1, exp2, ...)" bindings as prior tmps 
     /// Also if we should expand "let x = Some exp1" bindings as prior tmps 
-    member x.ExpandStructuralValues() = x.LocalOptimizationsEnabled 
+    member x.ExpandStructuralValues() = x.LocalOptimizationsEnabled
+    
+    /// Determines how to process optimization of multiple files and individual optimization phases
+    member x.ProcessingMode() = x.processingMode
 
 type cenv =
     { g: TcGlobals

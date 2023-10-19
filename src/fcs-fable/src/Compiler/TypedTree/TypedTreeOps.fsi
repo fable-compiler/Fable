@@ -633,6 +633,10 @@ val destAnyParTy: TcGlobals -> TType -> Typar
 
 val destMeasureTy: TcGlobals -> TType -> Measure
 
+val destAnonRecdTy: TcGlobals -> TType -> AnonRecdTypeInfo * TTypes
+
+val destStructAnonRecdTy: TcGlobals -> TType -> TTypes
+
 val tryDestForallTy: TcGlobals -> TType -> Typars * TType
 
 val isFunTy: TcGlobals -> TType -> bool
@@ -650,6 +654,8 @@ val isStructAnonRecdTy: TcGlobals -> TType -> bool
 val isAnonRecdTy: TcGlobals -> TType -> bool
 
 val isUnionTy: TcGlobals -> TType -> bool
+
+val isStructUnionTy: TcGlobals -> TType -> bool
 
 val isReprHiddenTy: TcGlobals -> TType -> bool
 
@@ -1698,6 +1704,27 @@ val isClassTy: TcGlobals -> TType -> bool
 /// Determine if a type is an enum type
 val isEnumTy: TcGlobals -> TType -> bool
 
+/// Determine if a type is a signed integer type
+val isSignedIntegerTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is an unsigned integer type
+val isUnsignedIntegerTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is an integer type
+val isIntegerTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is a floating point type
+val isFpTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is a decimal type
+val isDecimalTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is a non-decimal numeric type type
+val isNonDecimalNumericType: TcGlobals -> TType -> bool
+
+/// Determine if a type is a numeric type type
+val isNumericType: TcGlobals -> TType -> bool
+
 /// Determine if a type is a struct, record or union type
 val isStructRecordOrUnionTyconTy: TcGlobals -> TType -> bool
 
@@ -2708,4 +2735,13 @@ val tryAddExtensionAttributeIfNotAlreadyPresent:
 /// Serialize an entity to a very basic json structure.
 val serializeEntity: path: string -> entity: Entity -> unit
 
+/// Updates the IsPrefixDisplay to false for the Microsoft.FSharp.Collections.seq`1 entity
+/// Meant to be called with the FSharp.Core module spec right after it was unpickled.
+val updateSeqTypeIsPrefix: fsharpCoreMSpec: ModuleOrNamespace -> unit
+
 #endif //!FABLE_COMPILER
+
+/// Check if the order of defined typars is different from the order of used typars in the curried arguments.
+/// If this is the case, a generated signature would require explicit typars.
+/// See https://github.com/dotnet/fsharp/issues/15175
+val isTyparOrderMismatch: Typars -> CurriedArgInfos -> bool

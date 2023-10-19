@@ -998,4 +998,10 @@ let resources =
       ( "ErrorFromAddingTypeEquationTuples",
         "Type mismatch. Expecting a tuple of length {0} of type\n    {1}    \nbut given a tuple of length {2} of type\n    {3}    {4}\n"
       );
+      ( "ArgumentsInSigAndImplMismatch",
+        "The argument names in the signature '{0}' and implementation '{1}' do not match. The argument name from the signature file will be used. This may cause problems when debugging or profiling."
+      );
+      ( "Parser.TOKEN.WHILE.BANG",
+        "keyword 'while!'"
+      );
     ]

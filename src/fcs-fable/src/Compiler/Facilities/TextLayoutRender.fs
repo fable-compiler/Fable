@@ -59,6 +59,10 @@ module WordL =
     let keywordAbstract = wordL TaggedText.keywordAbstract
     let keywordOverride = wordL TaggedText.keywordOverride
     let keywordEnum = wordL TaggedText.keywordEnum
+    let keywordInline = wordL TaggedText.keywordInline
+    let leftAngle = wordL TaggedText.leftAngle
+    let keywordModule = wordL TaggedText.keywordModule
+    let keywordNamespace = wordL TaggedText.keywordNamespace
 
 module LeftL =
     let leftParen = leftL TaggedText.leftParen
@@ -77,6 +81,7 @@ module RightL =
     let rightAngle = rightL TaggedText.rightAngle
     let rightBracketAngle = rightL TaggedText.rightBracketAngle
     let rightBracketBar = rightL TaggedText.rightBracketBar
+    let semicolon = rightL TaggedText.semicolon
 
 type LayoutRenderer<'a, 'b> =
     abstract Start: unit -> 'b

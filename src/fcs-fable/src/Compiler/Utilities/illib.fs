@@ -139,14 +139,14 @@ type InlineDelayInit<'T when 'T: not struct> =
         }
 
     val mutable store: 'T
-    val mutable func: Func<'T>
+    val mutable func: Func<'T> MaybeNull
 
     member x.Value =
         match x.func with
         | null -> x.store
         | _ ->
             let res = LazyInitializer.EnsureInitialized(&x.store, x.func)
-            x.func <- Unchecked.defaultof<_>
+            x.func <- null
             res
 #endif //!FABLE_COMPILER
 
@@ -194,7 +194,7 @@ module Array =
         Array.length l1 = Array.length l2 && Array.forall2 p l1 l2
 
     let order (eltOrder: IComparer<'T>) =
-        { new IComparer<array<'T>> with
+        { new IComparer<'T array> with
             member _.Compare(xs, ys) =
                 let c = compare xs.Length ys.Length
 
@@ -346,6 +346,12 @@ module Array =
     /// Returns true if one array has trailing elements equal to another's.
     let endsWith (suffix: _[]) (whole: _[]) =
         isSubArray suffix whole (whole.Length - suffix.Length)
+
+    let prepend item (array: 'T[]) =
+        let res = Array.zeroCreate (array.Length + 1)
+        res[0] <- item
+        Array.blit array 0 res 1 array.Length
+        res
 
 module Option =
 
@@ -585,6 +591,11 @@ module List =
         | [ _ ] -> true
         | _ -> false
 
+    let prependIfSome x l =
+        match x with
+        | Some x -> x :: l
+        | _ -> l
+
 module ResizeArray =
 
     /// Split a ResizeArray into an array of smaller chunks.
@@ -635,6 +646,19 @@ module ResizeArray =
         // in order to prevent long-term storage of those values
         chunkBySize maxArrayItemCount f inp
 
+#if !FABLE_COMPILER
+module Span =
+    let inline exists ([<InlineIfLambda>] predicate: 'T -> bool) (span: Span<'T>) =
+        let mutable state = false
+        let mutable i = 0
+
+        while not state && i < span.Length do
+            state <- predicate span[i]
+            i <- i + 1
+
+        state
+#endif
+
 module ValueOptionInternal =
 
     let inline ofOption x =
@@ -642,7 +666,7 @@ module ValueOptionInternal =
         | Some x -> ValueSome x
         | None -> ValueNone
 
-    let inline bind f x =
+    let inline bind ([<InlineIfLambda>] f) x =
         match x with
         | ValueSome x -> f x
         | ValueNone -> ValueNone
@@ -1103,11 +1127,7 @@ type internal StampedDictionary<'T, 'U>(keyComparer: IEqualityComparer<'T>) =
 
             match valueReplaceFunc oldVal with
             | None -> ()
-#if FABLE_COMPILER
-            | Some newVal -> table[key] <- lazy (stamp, newVal)
-#else
             | Some newVal -> table.TryUpdate(key, lazy (stamp, newVal), v) |> ignore<bool>
-#endif
         | _ -> ()
 
     member _.GetAll() =

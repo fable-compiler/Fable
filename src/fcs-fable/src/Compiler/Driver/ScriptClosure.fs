@@ -139,7 +139,7 @@ module ScriptPreprocessClosure =
         let tcConfig = TcConfig.Create(tcConfigB, false)
 
         let lexbuf =
-            UnicodeLexing.SourceTextAsLexbuf(true, tcConfig.langVersion, sourceText)
+            UnicodeLexing.SourceTextAsLexbuf(true, tcConfig.langVersion, tcConfig.strictIndentation, sourceText)
 
         // The root compiland is last in the list of compilands.
         let isLastCompiland = (IsScript fileName, tcConfig.target.IsExe)

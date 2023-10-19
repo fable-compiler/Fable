@@ -416,7 +416,7 @@ type internal FxResolver
 
         match runningTfmOpt with
         | Some tfm -> tfm
-        | _ -> if isRunningOnCoreClr then "net7.0" else "net472"
+        | _ -> if isRunningOnCoreClr then "net8.0" else "net472"
 
     let trySdkRefsPackDirectory =
         lazy
@@ -759,6 +759,7 @@ type internal FxResolver
                 "System.Runtime.Serialization.Xml"
                 "System.Security"
                 "System.Security.Claims"
+                "System.Security.Cryptography"
                 "System.Security.Cryptography.Algorithms"
                 "System.Security.Cryptography.Cng"
                 "System.Security.Cryptography.Csp"

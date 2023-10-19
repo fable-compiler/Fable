@@ -7,6 +7,7 @@ module internal FSharp.Compiler.CompilerOptions
 open System
 open System.Diagnostics
 open System.IO
+open FSharp.Compiler.Optimizer
 open Internal.Utilities.Library
 open Internal.Utilities.Library.Extras
 open FSharp.Compiler.AbstractIL.IL
@@ -531,23 +532,12 @@ let SetOptimizeOff (tcConfigB: TcConfigBuilder) =
     tcConfigB.optSettings <-
         { tcConfigB.optSettings with
             jitOptUser = Some false
-        }
-
-    tcConfigB.optSettings <-
-        { tcConfigB.optSettings with
             localOptUser = Some false
-        }
-
-    tcConfigB.optSettings <-
-        { tcConfigB.optSettings with
             crossAssemblyOptimizationUser = Some false
-        }
-
-    tcConfigB.optSettings <-
-        { tcConfigB.optSettings with
             lambdaInlineThreshold = 0
         }
 
+    tcConfigB.onlyEssentialOptimizationData <- true
     tcConfigB.doDetuple <- false
     tcConfigB.doTLR <- false
     tcConfigB.doFinalSimplify <- false
@@ -1156,8 +1146,18 @@ let languageFlags tcConfigB =
             None,
             Some(FSComp.SR.optsChecked ())
         )
+
         CompilerOption("define", tagString, OptionString(defineSymbol tcConfigB), None, Some(FSComp.SR.optsDefine ()))
+
         mlCompatibilityFlag tcConfigB
+
+        CompilerOption(
+            "strict-indentation",
+            tagNone,
+            OptionSwitch(fun switch -> tcConfigB.strictIndentation <- Some(switch = OptionSwitch.On)),
+            None,
+            Some(FSComp.SR.optsStrictIndentation ())
+        )
     ]
 
 // OptionBlock: Advanced user options
@@ -1249,9 +1249,10 @@ let noFrameworkFlag isFsc tcConfigB =
         "noframework",
         tagNone,
         OptionUnit(fun () ->
-            tcConfigB.implicitlyReferenceDotNetAssemblies <- false
-
+            // When the compilation is not fsi do nothing.
+            // It is just not a usefull option when running fsi on the coreclr or the desktop framework really.
             if isFsc then
+                tcConfigB.implicitlyReferenceDotNetAssemblies <- false
                 tcConfigB.implicitlyResolveAssemblies <- false),
         None,
         Some(FSComp.SR.optsNoframework ())
@@ -1267,7 +1268,6 @@ let advancedFlagsFsi tcConfigB =
             None,
             Some(FSComp.SR.optsClearResultsCache ())
         )
-        noFrameworkFlag false tcConfigB
     ]
 
 let advancedFlagsFsc tcConfigB =
@@ -1348,7 +1348,6 @@ let advancedFlagsFsc tcConfigB =
             None,
             Some(FSComp.SR.optsEmitDebugInfoInQuotations ())
         )
-
     ]
 
 // OptionBlock: Internal options (test use only)
@@ -1403,6 +1402,11 @@ let testFlag tcConfigB =
                         DumpGraph = true
                     }
             | "DumpSignatureData" -> tcConfigB.dumpSignatureData <- true
+            | "ParallelOptimization" ->
+                tcConfigB.optSettings <-
+                    { tcConfigB.optSettings with
+                        processingMode = OptimizationProcessingMode.Parallel
+                    }
 #if DEBUG
             | "ShowParserStackOnParseError" -> showParserStackOnParseError <- true
 #endif
@@ -1571,6 +1575,14 @@ let internalFlags (tcConfigB: TcConfigBuilder) =
             tagNone,
             OptionUnit(fun () -> tcConfigB.tokenize <- TokenizeOption.Only),
             Some(InternalCommandLineOption("--tokenize", rangeCmdArgs)),
+            None
+        )
+
+        CompilerOption(
+            "tokenize-debug",
+            tagNone,
+            OptionUnit(fun () -> tcConfigB.tokenize <- TokenizeOption.Debug),
+            Some(InternalCommandLineOption("--tokenize-debug", rangeCmdArgs)),
             None
         )
 
@@ -1865,7 +1877,8 @@ let deprecatedFlagsBoth tcConfigB =
         )
     ]
 
-let deprecatedFlagsFsi tcConfigB = deprecatedFlagsBoth tcConfigB
+let deprecatedFlagsFsi tcConfigB =
+    [ noFrameworkFlag false tcConfigB; yield! deprecatedFlagsBoth tcConfigB ]
 
 let deprecatedFlagsFsc tcConfigB =
     deprecatedFlagsBoth tcConfigB

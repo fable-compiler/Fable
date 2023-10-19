@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
     <!-- <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference> -->
   </PropertyGroup>
@@ -19,9 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="6.0.5" /> -->
+    <!-- <PackageReference Include="FSharp.Core" Version="8.0.0" /> -->
     <!-- <Reference Include="../../../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" /> -->
-    <PackageReference Include="Fable.Core" Version="3.7.1" />
+    <PackageReference Include="Fable.Core" Version="4.1.0" />
   </ItemGroup>
 
 </Project>

@@ -26,7 +26,7 @@ module XmlDocParsing =
         | SynPat.Attrib (pat, _attrs, _range) -> digNamesFrom pat
         | SynPat.LongIdent(argPats = ConstructorPats pats) -> pats |> List.collect digNamesFrom
         | SynPat.ListCons (p1, p2, _, _) -> List.collect digNamesFrom [ p1; p2 ]
-        | SynPat.Tuple (_, pats, _range) -> pats |> List.collect digNamesFrom
+        | SynPat.Tuple (elementPats = pats) -> pats |> List.collect digNamesFrom
         | SynPat.Paren (pat, _range) -> digNamesFrom pat
         | SynPat.OptionalVal (id, _) -> [ id.idText ]
         | SynPat.As _ // no one uses as in fun decls
@@ -39,7 +39,6 @@ module XmlDocParsing =
         | SynPat.Wild _
         | SynPat.IsInst _
         | SynPat.QuoteExpr _
-        | SynPat.DeprecatedCharRange _
         | SynPat.InstanceMember _
         | SynPat.FromParseError _ -> []
 
@@ -47,11 +46,11 @@ module XmlDocParsing =
         let (SynBinding (valData = synValData; headPat = synPat)) = binding
 
         match synValData with
-        | SynValData (_, SynValInfo (curriedArgs, _), _) when not curriedArgs.IsEmpty ->
+        | SynValData(valInfo = SynValInfo (curriedArgInfos = curriedArgs)) when not curriedArgs.IsEmpty ->
             let parameters =
                 [
                     for args in curriedArgs do
-                        for (SynArgInfo (_, _, ident)) in args do
+                        for (SynArgInfo (ident = ident)) in args do
                             match ident with
                             | Some ident -> ident.idText
                             | None -> ()

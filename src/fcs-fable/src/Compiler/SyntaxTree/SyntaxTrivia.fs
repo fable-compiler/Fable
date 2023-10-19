@@ -76,7 +76,19 @@ type SynExprLambdaTrivia =
     static member Zero: SynExprLambdaTrivia = { ArrowRange = None }
 
 [<NoEquality; NoComparison>]
-type SynExprLetOrUseTrivia = { InKeyword: range option }
+type SynExprDotLambdaTrivia =
+    {
+        UnderscoreRange: range
+        DotRange: range
+    }
+
+[<NoEquality; NoComparison>]
+type SynExprLetOrUseTrivia =
+    {
+        InKeyword: range option
+    }
+
+    static member Zero: SynExprLetOrUseTrivia = { InKeyword = None }
 
 [<NoEquality; NoComparison>]
 type SynExprLetOrUseBangTrivia =
@@ -135,6 +147,13 @@ type SynTypeDefnLeadingKeyword =
     | StaticType of staticRange: range * typeRange: range
     | Synthetic
 
+    member this.Range =
+        match this with
+        | SynTypeDefnLeadingKeyword.Type range
+        | SynTypeDefnLeadingKeyword.And range -> range
+        | SynTypeDefnLeadingKeyword.StaticType (staticRange, typeRange) -> Range.unionRanges staticRange typeRange
+        | SynTypeDefnLeadingKeyword.Synthetic -> failwith "Getting range from synthetic keyword"
+
 [<NoEquality; NoComparison>]
 type SynTypeDefnTrivia =
     {
@@ -179,6 +198,7 @@ type SynLeadingKeyword =
     | OverrideVal of overrideRange: range * valRange: range
     | Abstract of abstractRange: range
     | AbstractMember of abstractRange: range * memberRange: range
+    | Static of staticRange: range
     | StaticMember of staticRange: range * memberRange: range
     | StaticMemberVal of staticRange: range * memberRange: range * valRange: range
     | StaticAbstract of staticRange: range * abstractRange: range
@@ -206,7 +226,8 @@ type SynLeadingKeyword =
         | Default m
         | Val m
         | New m
-        | Do m -> m
+        | Do m
+        | Static m -> m
         | LetRec (m1, m2)
         | UseRec (m1, m2)
         | AbstractMember (m1, m2)
@@ -379,3 +400,18 @@ type SynMemberSigMemberTrivia =
     }
 
     static member Zero: SynMemberSigMemberTrivia = { GetSetKeywords = None }
+
+[<NoEquality; NoComparison>]
+type SynTyparDeclTrivia =
+    {
+        AmpersandRanges: range list
+    }
+
+    static member Zero: SynTyparDeclTrivia = { AmpersandRanges = [] }
+
+[<NoEquality; NoComparison>]
+type SynMeasureConstantTrivia =
+    {
+        LessRange: range
+        GreaterRange: range
+    }

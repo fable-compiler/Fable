@@ -517,6 +517,9 @@ type MethInfo =
     /// Get the ParamData objects for the parameters of a MethInfo
     member GetParamDatas: amap: ImportMap * m: range * minst: TType list -> (ParamData * Attribs) list list
 
+    /// Get the parameter names of a MethInfo
+    member GetParamNames: unit -> string option list list
+
     /// Get the parameter types of a method info
     member GetParamTypes: amap: ImportMap * m: range * minst: TType list -> TType list list
 
@@ -1086,3 +1089,5 @@ val PropInfosEquivByNameAndSig:
 val SettersOfPropInfos: pinfos: PropInfo list -> (MethInfo * PropInfo option) list
 
 val GettersOfPropInfos: pinfos: PropInfo list -> (MethInfo * PropInfo option) list
+
+val (|DifferentGetterAndSetter|_|): pinfo: PropInfo -> (ValRef * ValRef) option

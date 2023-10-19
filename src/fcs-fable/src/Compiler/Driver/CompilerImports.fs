@@ -234,9 +234,7 @@ let EncodeOptimizationData (tcGlobals, tcConfig: TcConfig, outfile, exportRemapp
             else
                 data
 
-        [
-            WriteOptimizationData(tcConfig, tcGlobals, outfile, isIncrementalBuild, ccu, optData)
-        ]
+        [ WriteOptimizationData(tcConfig, tcGlobals, outfile, isIncrementalBuild, ccu, optData) ]         
     else
         []
 
@@ -2082,6 +2080,9 @@ and [<Sealed>] TcImports
 
                 let minfo: PickledCcuInfo = data.RawData
                 let mspec = minfo.mspec
+                
+                if mspec.DisplayName = "FSharp.Core" then
+                    updateSeqTypeIsPrefix mspec
 
 #if !NO_TYPEPROVIDERS
                 let invalidateCcu = Event<_>()

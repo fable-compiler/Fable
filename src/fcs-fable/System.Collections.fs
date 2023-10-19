@@ -6,18 +6,26 @@ namespace System.Collections
 
 module Generic =
 
-    type Queue<'T> =
-        inherit ResizeArray<'T>
+    type Queue<'T>() =
+        let xs = ResizeArray<'T>()
 
-        new () = Queue<'T>()
+        member _.Clear () = xs.Clear()
 
-        member x.Enqueue (item: 'T) =
-            x.Add(item)
+        member _.Enqueue (item: 'T) =
+            xs.Add(item)
 
-        member x.Dequeue () =
-            let item = x.Item(0)
-            x.RemoveAt(0)
+        member _.Dequeue () =
+            let item = xs.Item(0)
+            xs.RemoveAt(0)
             item
+
+        interface System.Collections.IEnumerable with
+            member _.GetEnumerator(): System.Collections.IEnumerator =
+                (xs.GetEnumerator() :> System.Collections.IEnumerator)
+
+        interface System.Collections.Generic.IEnumerable<'T> with
+            member _.GetEnumerator(): System.Collections.Generic.IEnumerator<'T> =
+                xs.GetEnumerator()
 
 module Immutable =
     open System.Collections.Generic
@@ -26,28 +34,85 @@ module Immutable =
     type ImmutableArray<'T> =
         static member CreateBuilder() = ResizeArray<'T>()
 
-    // not immutable, just a Dictionary // TODO: immutable implementation
-    type ImmutableDictionary<'Key, 'Value>(comparer: IEqualityComparer<'Key>) =
-        inherit Dictionary<'Key, 'Value>(comparer)
-        static member Create(comparer) = ImmutableDictionary<'Key, 'Value>(comparer)
-        static member Empty = ImmutableDictionary<'Key, 'Value>(EqualityComparer.Default)
-        member x.Add (key: 'Key, value: 'Value) = x[key] <- value; x
-        member x.SetItem (key: 'Key, value: 'Value) = x[key] <- value; x
+    type ImmutableHashSet<'T>(values: 'T seq) =
+        let xs = HashSet<'T>(values)
+
+        static member Create<'T>(values) = ImmutableHashSet<'T>(values)
+        static member Empty = ImmutableHashSet<'T>(Array.empty)
+
+        member _.Add (value: 'T) =
+            let copy = HashSet<'T>(xs)
+            copy.Add(value) |> ignore
+            ImmutableHashSet<'T>(copy)
+
+        member _.Union (values: seq<'T>) =
+            let copy = HashSet<'T>(xs)
+            copy.UnionWith(values)
+            ImmutableHashSet<'T>(copy)
+
+        member _.Overlaps (values: seq<'T>) =
+            // xs.Overlaps(values)
+            values |> Seq.exists (fun x -> xs.Contains(x))
+
+        interface System.Collections.IEnumerable with
+            member _.GetEnumerator(): System.Collections.IEnumerator =
+                (xs.GetEnumerator() :> System.Collections.IEnumerator)
+
+        interface IEnumerable<'T> with
+            member _.GetEnumerator(): IEnumerator<'T> =
+                xs.GetEnumerator()
+
+    type ImmutableDictionary<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Value> seq) =
+        let xs = Dictionary<'Key, 'Value>()
+        do for pair in pairs do xs.Add(pair.Key, pair.Value)
+
+        static member CreateRange(items) = ImmutableDictionary<'Key, 'Value>(items)
+        static member Empty = ImmutableDictionary<'Key, 'Value>(Array.empty)
+
+        member _.Item with get (key: 'Key): 'Value = xs[key]
+        member _.ContainsKey (key: 'Key) = xs.ContainsKey(key)
+
+        member _.Add (key: 'Key, value: 'Value) =
+            let copy = Dictionary<'Key, 'Value>(xs)
+            copy.Add(key, value)
+            ImmutableDictionary<'Key, 'Value>(copy)
+
+        member _.SetItem (key: 'Key, value: 'Value) =
+            let copy = Dictionary<'Key, 'Value>(xs)
+            copy[key] <- value
+            ImmutableDictionary<'Key, 'Value>(copy)
+
+        member _.TryGetValue (key: 'Key): bool * 'Value =
+            match xs.TryGetValue(key) with
+            | true, v -> (true, v)
+            | false, v -> (false, v)
+
+        interface System.Collections.IEnumerable with
+            member _.GetEnumerator(): System.Collections.IEnumerator =
+                (xs.GetEnumerator() :> System.Collections.IEnumerator)
+
+        interface IEnumerable<KeyValuePair<'Key, 'Value>> with
+            member _.GetEnumerator(): IEnumerator<KeyValuePair<'Key, 'Value>> =
+                xs.GetEnumerator()
 
 module Concurrent =
     open System.Collections.Generic
 
     // not thread safe, just a ResizeArray // TODO: threaded implementation
-    type ConcurrentStack<'T> =
-        inherit ResizeArray<'T>
+    type ConcurrentStack<'T>() =
+        let xs = ResizeArray<'T>()
 
-        new () = ConcurrentStack<'T>()
+        member _.Push (item: 'T) = xs.Add(item)
+        member _.PushRange (items: 'T[]) = xs.AddRange(items)
+        member _.Clear () = xs.Clear()
+        member _.ToArray () = xs.ToArray()
 
-        member x.Push (item: 'T) =
-            x.Add(item)
-
-        member x.PushRange (items: 'T[]) =
-            x.AddRange(items)
+        interface System.Collections.IEnumerable with
+            member _.GetEnumerator(): System.Collections.IEnumerator =
+                (xs.GetEnumerator() :> System.Collections.IEnumerator)
+        interface IEnumerable<'T> with
+            member _.GetEnumerator(): IEnumerator<'T> =
+                xs.GetEnumerator()
 
     // not thread safe, just a Dictionary // TODO: threaded implementation
     [<AllowNullLiteral>]
@@ -88,22 +153,22 @@ module Concurrent =
         //     | true, v -> v
         //     | _ -> let v = valueFactory(key, arg) in x.Add(key, v); v
 
-        // member x.TryUpdate (key: 'Key, value: 'Value, comparisonValue: 'Value): bool =
-        //     match x.TryGetValue(key) with
-        //     | true, v when v = comparisonValue -> x.[key] <- value; true
-        //     | _ -> false
+        member x.TryUpdate (key: 'Key, value: 'Value, comparisonValue: 'Value): bool =
+            match x.TryGetValue(key) with
+            | true, v when Unchecked.equals v comparisonValue -> x[key] <- value; true
+            | _ -> false
 
         member x.AddOrUpdate (key: 'Key, value: 'Value, updateFactory: System.Func<'Key, 'Value, 'Value>): 'Value =
             match x.TryGetValue(key) with
-            | true, v -> let v = updateFactory.Invoke(key, v) in x.[key] <- v; v
+            | true, v -> let v = updateFactory.Invoke(key, v) in x[key] <- v; v
             | _ -> let v = value in x.Add(key, v); v
 
         // member x.AddOrUpdate (key: 'Key, valueFactory: 'Key -> 'Value, updateFactory: 'Key * 'Value -> 'Value): 'Value =
         //     match x.TryGetValue(key) with
-        //     | true, v -> let v = updateFactory(key, v) in x.[key] <- v; v
+        //     | true, v -> let v = updateFactory(key, v) in x[key] <- v; v
         //     | _ -> let v = valueFactory(key) in x.Add(key, v); v
 
         // member x.AddOrUpdate (key: 'Key, valueFactory: 'Key * 'Arg -> 'Value, updateFactory: 'Key * 'Arg * 'Value -> 'Value, arg: 'Arg): 'Value =
         //     match x.TryGetValue(key) with
-        //     | true, v -> let v = updateFactory(key, arg, v) in x.[key] <- v; v
+        //     | true, v -> let v = updateFactory(key, arg, v) in x[key] <- v; v
         //     | _ -> let v = valueFactory(key, arg) in x.Add(key, v); v
