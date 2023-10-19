@@ -5,43 +5,43 @@ from typing import Optional
 
 
 def get_bytes_char(value: str) -> bytes:
-    return bytearray(bytes(value, "UTF-8"))
+    return bytes(value, "UTF-8")
 
 
 def get_bytes_int16(value: int) -> bytes:
-    return bytearray(value.to_bytes(length=2, byteorder=sys.byteorder))
+    return value.to_bytes(length=2, byteorder=sys.byteorder)
 
 
 def get_bytes_uint16(value: int) -> bytes:
-    return bytearray(value.to_bytes(length=2, byteorder=sys.byteorder))
+    return value.to_bytes(length=2, byteorder=sys.byteorder)
 
 
 def get_bytes_int32(value: int) -> bytes:
-    return bytearray(value.to_bytes(length=4, byteorder=sys.byteorder))
+    return value.to_bytes(length=4, byteorder=sys.byteorder)
 
 
 def get_bytes_uint32(value: int) -> bytes:
-    return bytearray(value.to_bytes(length=4, byteorder=sys.byteorder))
+    return value.to_bytes(length=4, byteorder=sys.byteorder)
 
 
 def get_bytes_int64(value: int) -> bytes:
-    return bytearray(value.to_bytes(length=8, byteorder=sys.byteorder))
+    return value.to_bytes(length=8, byteorder=sys.byteorder)
 
 
 def get_bytes_uint64(value: int) -> bytes:
-    return bytearray(value.to_bytes(length=8, byteorder=sys.byteorder))
+    return value.to_bytes(length=8, byteorder=sys.byteorder)
 
 
 def get_bytes_boolean(value: bool) -> bytes:
-    return bytearray(value.to_bytes(length=1, byteorder=sys.byteorder))
+    return value.to_bytes(length=1, byteorder=sys.byteorder)
 
 
 def get_bytes_single(value: float) -> bytes:
-    return bytearray(struct.pack("f", value))
+    return struct.pack("f", value)
 
 
 def get_bytes_double(value: float) -> bytes:
-    return bytearray(struct.pack("d", value))
+    return struct.pack("d", value)
 
 
 def int64bits_to_double(value: int) -> float:

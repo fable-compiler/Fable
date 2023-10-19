@@ -727,7 +727,7 @@ module Annotation =
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
-        | Fable.Tuple (genArgs, _) -> stdlibModuleTypeHint com ctx "typing" "Tuple" genArgs
+        | Fable.Tuple (genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
         | Fable.Array (genArg, _) ->
             match genArg with
             | Fable.Type.Number (UInt8, _) -> Expression.name "bytearray", []

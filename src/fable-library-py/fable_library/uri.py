@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Union
-from urllib.parse import ParseResult, urlparse, urljoin, unquote
-
+from urllib.parse import ParseResult, unquote, urljoin, urlparse
 
 from .types import FSharpRef
 
@@ -19,8 +17,8 @@ class Uri:
 
     def __init__(
         self,
-        base_uri: Union[Uri, str],
-        kind_or_uri: Union[int, str, Uri, None] = UriKind.Absolute,
+        base_uri: Uri | str,
+        kind_or_uri: int | (str | (Uri | None)) = UriKind.Absolute,
     ) -> None:
         self.res: ParseResult
 
@@ -104,13 +102,13 @@ class Uri:
 
     @staticmethod
     def create(
-        uri: Union[str, Uri], kind_or_uri: Union[UriKind, str, Uri] = UriKind.Absolute
+        uri: str | Uri, kind_or_uri: UriKind | (str | Uri) = UriKind.Absolute
     ) -> Uri:
         return Uri(uri, kind_or_uri)
 
     @staticmethod
     def try_create(
-        uri: Union[str, Uri], kind_or_uri: Union[UriKind, str, Uri], out: FSharpRef[Uri]
+        uri: str | Uri, kind_or_uri: UriKind | (str | Uri), out: FSharpRef[Uri]
     ) -> bool:
         try:
             out.contents = Uri.create(uri, kind_or_uri)

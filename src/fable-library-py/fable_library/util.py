@@ -1,39 +1,34 @@
 from __future__ import annotations
+
 import builtins
 import functools
 import math
 import platform
 import random
 import re
-
+import weakref
 from abc import ABC, abstractmethod
 from array import array
+from collections.abc import (
+    Callable,
+    Iterable,
+    Iterator,
+    MutableSequence,
+    Sequence,
+    Sized,
+)
+from contextlib import AbstractContextManager
 from enum import IntEnum
-from inspect import Parameter, signature
 from threading import RLock
 from types import TracebackType
 from typing import (
     Any,
-    Callable,
-    ContextManager,
-    Dict,
     Generic,
-    Iterable,
-    Iterator,
-    List,
-    MutableSequence,
-    Optional,
     Protocol,
-    Sequence,
-    Sized,
-    Tuple,
-    Type,
     TypeVar,
-    Union,
     cast,
 )
 from urllib.parse import quote, unquote
-import weakref
 
 
 class SupportsLessThan(Protocol):
@@ -76,9 +71,9 @@ class IDisposable(ABC):
 
     def __exit__(
         self,
-        exctype: Optional[Type[BaseException]],
-        excinst: Optional[BaseException],
-        exctb: Optional[TracebackType],
+        exctype: type[BaseException] | None,
+        excinst: BaseException | None,
+        exctb: TracebackType | None,
     ) -> bool:
         """Exit context management."""
 
@@ -247,7 +242,7 @@ def is_iterable(x: Any) -> bool:
     return isinstance(x, Iterable)
 
 
-def compare_dicts(x: Dict[str, Any], y: Dict[str, Any]) -> int:
+def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
     """Compare Python dicts with string keys.
 
     Python cannot do this natively.
@@ -273,7 +268,7 @@ def compare_dicts(x: Dict[str, Any], y: Dict[str, Any]) -> int:
     return 0
 
 
-def compare_arrays(xs: List[Any], ys: List[Any]):
+def compare_arrays(xs: list[Any], ys: list[Any]):
     if xs is None:
         return 0 if ys is None else 1
 
@@ -306,10 +301,10 @@ def compare(a: Any, b: Any) -> int:
         return a.__cmp__(b)
 
     if isinstance(a, dict):
-        return compare_dicts(cast(Dict[str, Any], a), b)
+        return compare_dicts(cast(dict[str, Any], a), b)
 
-    if isinstance(a, List):
-        return compare_arrays(cast(List[Any], a), b)
+    if isinstance(a, list):
+        return compare_arrays(cast(list[Any], a), b)
 
     if is_equatable(a) and a == b:
         return 0
@@ -321,7 +316,7 @@ def compare(a: Any, b: Any) -> int:
 
 
 def equal_arrays_with(
-    xs: Optional[Sequence[_T]], ys: Optional[Sequence[_T]], eq: Callable[[_T, _T], bool]
+    xs: Sequence[_T] | None, ys: Sequence[_T] | None, eq: Callable[[_T, _T], bool]
 ) -> bool:
     if xs is None:
         return ys is None
@@ -366,12 +361,12 @@ def clamp(comparer: Callable[[_T, _T], int], value: _T, min: _T, max: _T):
     )
 
 
-def assert_equal(actual: Any, expected: Any, msg: Optional[str] = None) -> None:
+def assert_equal(actual: Any, expected: Any, msg: str | None = None) -> None:
     if not equals(actual, expected):
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
-def assert_not_equal(actual: _T, expected: _T, msg: Optional[str] = None) -> None:
+def assert_not_equal(actual: _T, expected: _T, msg: str | None = None) -> None:
     if equals(actual, expected):
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
@@ -393,7 +388,7 @@ class Lazy(Generic[_T]):
     def __init__(self, factory: Callable[[], _T]):
         self.factory = factory
         self.is_value_created: bool = False
-        self.created_value: Optional[_T] = None
+        self.created_value: _T | None = None
 
     @property
     def Value(self) -> _T:
@@ -430,14 +425,14 @@ def pad_left_and_right_with_zeros(i: int, length_left: int, length_right: int) -
 
 
 class Atom(Generic[_T], Protocol):
-    def __call__(self, *value: _T) -> Optional[_T]:
+    def __call__(self, *value: _T) -> _T | None:
         ...
 
 
 def create_atom(value: _T) -> Atom[_T]:
     atom = value
 
-    def wrapper(*value: _T) -> Optional[_T]:
+    def wrapper(*value: _T) -> _T | None:
         nonlocal atom
 
         if len(value) == 0:
@@ -449,41 +444,41 @@ def create_atom(value: _T) -> Atom[_T]:
     return wrapper
 
 
-def create_obj(fields: List[Tuple[Any, Any]]):
+def create_obj(fields: list[tuple[Any, Any]]):
     return dict(fields)
 
 
-def tohex(val: int, nbits: Optional[int] = None) -> str:
+def tohex(val: int, nbits: int | None = None) -> str:
     if nbits:
         val = (val + (1 << nbits)) % (1 << nbits)
-    return "{:x}".format(val)
+    return f"{val:x}"
 
 
-def int_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
+def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     if radix == 10:
-        return "{:d}".format(i)
+        return f"{i:d}"
     if radix == 16:
         return tohex(i, bitsize)
     if radix == 2:
-        return "{:b}".format(i)
+        return f"{i:b}"
     if radix == 8:
-        return "{:o}".format(i)
+        return f"{i:o}"
     return str(i)
 
 
-def int8_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
+def int8_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return int_to_string(i, radix, 8)
 
 
-def int16_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
+def int16_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return int_to_string(i, radix, 16)
 
 
-def int32_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
+def int32_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return int_to_string(i, radix, 32)
 
 
-def int64_to_string(i: int, radix: int = 10, bitsize: Optional[int] = None) -> str:
+def int64_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return int_to_string(i, radix, 64)
 
 
@@ -498,8 +493,8 @@ def count(col: Iterable[Any]) -> int:
     return count
 
 
-def clear(col: Optional[Union[Dict[Any, Any], List[Any]]]) -> None:
-    if isinstance(col, (List, Dict)):
+def clear(col: dict[Any, Any] | list[Any] | None) -> None:
+    if isinstance(col, list | dict):
         col.clear()
 
 
@@ -565,7 +560,7 @@ class ICollection(IEnumerable_1[_T], Protocol):
     ...
 
 
-class IDictionary(ICollection[Tuple[_Key, _Value]], Protocol):
+class IDictionary(ICollection[tuple[_Key, _Value]], Protocol):
     @abstractmethod
     def keys(self) -> IEnumerable_1[_Key]:
         ...
@@ -634,6 +629,7 @@ def get_enumerator(o: Iterable[Any]) -> Enumerator[Any]:
     else:
         return Enumerator(iter(o))
 
+
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
 _T3 = TypeVar("_T3")
@@ -648,124 +644,375 @@ _TResult = TypeVar("_TResult")
 
 _curried = weakref.WeakKeyDictionary[Any, Any]()
 
-def uncurry10(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], Callable [[_T9], Callable [[_T10], _TResult]]]]]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]:
-  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult] = lambda a1, a2, a3, a4, a5, a6, a7, a8, a9, a10: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)
-  _curried[f2] = f
-  return f2
 
-def curry10(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], Callable [[_T9], Callable [[_T10], _TResult]]]]]]]]]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: f(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
-  else:
+def uncurry10(
+    f: Callable[
+        [_T1],
+        Callable[
+            [_T2],
+            Callable[
+                [_T3],
+                Callable[
+                    [_T4],
+                    Callable[
+                        [_T5],
+                        Callable[
+                            [_T6],
+                            Callable[
+                                [_T7],
+                                Callable[
+                                    [_T8], Callable[[_T9], Callable[[_T10], _TResult]]
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ]
+) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]:
+    def f2(
+        a1: _T1,
+        a2: _T2,
+        a3: _T3,
+        a4: _T4,
+        a5: _T5,
+        a6: _T6,
+        a7: _T7,
+        a8: _T8,
+        a9: _T9,
+        a10: _T10,
+    ) -> _TResult:
+        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)
+
+    _curried[f2] = f
     return f2
 
-def uncurry9(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], Callable [[_T9], _TResult]]]]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]:
-  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult] = lambda a1, a2, a3, a4, a5, a6, a7, a8, a9: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)
-  _curried[f2] = f
-  return f2
 
-def curry9(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], Callable [[_T9], _TResult]]]]]]]]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: f(a1, a2, a3, a4, a5, a6, a7, a8, a9)
-  else:
+def curry10(
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]
+) -> Callable[
+    [_T1],
+    Callable[
+        [_T2],
+        Callable[
+            [_T3],
+            Callable[
+                [_T4],
+                Callable[
+                    [_T5],
+                    Callable[
+                        [_T6],
+                        Callable[
+                            [_T7],
+                            Callable[
+                                [_T8], Callable[[_T9], Callable[[_T10], _TResult]]
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ],
+]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: f(
+            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
+        )
+    else:
+        return f2
+
+
+def uncurry9(
+    f: Callable[
+        [_T1],
+        Callable[
+            [_T2],
+            Callable[
+                [_T3],
+                Callable[
+                    [_T4],
+                    Callable[
+                        [_T5],
+                        Callable[
+                            [_T6],
+                            Callable[[_T7], Callable[[_T8], Callable[[_T9], _TResult]]],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ]
+) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]:
+    def f2(
+        a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8, a9: _T9
+    ) -> _TResult:
+        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)
+
+    _curried[f2] = f
     return f2
 
-def uncurry8(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], _TResult]]]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]:
-  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult] = lambda a1, a2, a3, a4, a5, a6, a7, a8: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)
-  _curried[f2] = f
-  return f2
 
-def curry8(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], Callable [[_T8], _TResult]]]]]]]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: f(a1, a2, a3, a4, a5, a6, a7, a8)
-  else:
+def curry9(
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]
+) -> Callable[
+    [_T1],
+    Callable[
+        [_T2],
+        Callable[
+            [_T3],
+            Callable[
+                [_T4],
+                Callable[
+                    [_T5],
+                    Callable[
+                        [_T6],
+                        Callable[[_T7], Callable[[_T8], Callable[[_T9], _TResult]]],
+                    ],
+                ],
+            ],
+        ],
+    ],
+]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: f(
+            a1, a2, a3, a4, a5, a6, a7, a8, a9
+        )
+    else:
+        return f2
+
+
+def uncurry8(
+    f: Callable[
+        [_T1],
+        Callable[
+            [_T2],
+            Callable[
+                [_T3],
+                Callable[
+                    [_T4],
+                    Callable[
+                        [_T5],
+                        Callable[[_T6], Callable[[_T7], Callable[[_T8], _TResult]]],
+                    ],
+                ],
+            ],
+        ],
+    ]
+) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]:
+    def f2(
+        a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8
+    ) -> _TResult:
+        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)
+
+    _curried[f2] = f
     return f2
 
-def uncurry7(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], _TResult]]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]:
-  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult] = lambda a1, a2, a3, a4, a5, a6, a7: f(a1)(a2)(a3)(a4)(a5)(a6)(a7)
-  _curried[f2] = f
-  return f2
 
-def curry7(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], Callable [[_T7], _TResult]]]]]]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: f(a1, a2, a3, a4, a5, a6, a7)
-  else:
+def curry8(
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]
+) -> Callable[
+    [_T1],
+    Callable[
+        [_T2],
+        Callable[
+            [_T3],
+            Callable[
+                [_T4],
+                Callable[
+                    [_T5], Callable[[_T6], Callable[[_T7], Callable[[_T8], _TResult]]]
+                ],
+            ],
+        ],
+    ],
+]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: f(
+            a1, a2, a3, a4, a5, a6, a7, a8
+        )
+    else:
+        return f2
+
+
+def uncurry7(
+    f: Callable[
+        [_T1],
+        Callable[
+            [_T2],
+            Callable[
+                [_T3],
+                Callable[
+                    [_T4], Callable[[_T5], Callable[[_T6], Callable[[_T7], _TResult]]]
+                ],
+            ],
+        ],
+    ]
+) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]:
+    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7) -> _TResult:
+        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)
+
+    _curried[f2] = f
     return f2
 
-def uncurry6(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], _TResult]]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]:
-  f2: Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult] = lambda a1, a2, a3, a4, a5, a6: f(a1)(a2)(a3)(a4)(a5)(a6)
-  _curried[f2] = f
-  return f2
 
-def curry6(f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], Callable [[_T6], _TResult]]]]]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: f(a1, a2, a3, a4, a5, a6)
-  else:
+def curry7(
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]
+) -> Callable[
+    [_T1],
+    Callable[
+        [_T2],
+        Callable[
+            [_T3],
+            Callable[
+                [_T4], Callable[[_T5], Callable[[_T6], Callable[[_T7], _TResult]]]
+            ],
+        ],
+    ],
+]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: f(
+            a1, a2, a3, a4, a5, a6, a7
+        )
+    else:
+        return f2
+
+
+def uncurry6(
+    f: Callable[
+        [_T1],
+        Callable[
+            [_T2],
+            Callable[
+                [_T3], Callable[[_T4], Callable[[_T5], Callable[[_T6], _TResult]]]
+            ],
+        ],
+    ]
+) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]:
+    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6) -> _TResult:
+        return f(a1)(a2)(a3)(a4)(a5)(a6)
+
+    _curried[f2] = f
     return f2
 
-def uncurry5(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], _TResult]]]]]) -> Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]:
-  f2: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult] = lambda a1, a2, a3, a4, a5: f(a1)(a2)(a3)(a4)(a5)
-  _curried[f2] = f
-  return f2
 
-def curry5(f: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], Callable [[_T5], _TResult]]]]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(a1, a2, a3, a4, a5)
-  else:
+def curry6(
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]
+) -> Callable[
+    [_T1],
+    Callable[
+        [_T2],
+        Callable[[_T3], Callable[[_T4], Callable[[_T5], Callable[[_T6], _TResult]]]],
+    ],
+]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: f(
+            a1, a2, a3, a4, a5, a6
+        )
+    else:
+        return f2
+
+
+def uncurry5(
+    f: Callable[
+        [_T1],
+        Callable[[_T2], Callable[[_T3], Callable[[_T4], Callable[[_T5], _TResult]]]],
+    ]
+) -> Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]:
+    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5) -> _TResult:
+        return f(a1)(a2)(a3)(a4)(a5)
+
+    _curried[f2] = f
     return f2
 
-def uncurry4(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], _TResult]]]]) -> Callable[[_T1, _T2, _T3, _T4], _TResult]:
-  f2: Callable[[_T1, _T2, _T3, _T4], _TResult] = lambda a1, a2, a3, a4: f(a1)(a2)(a3)(a4)
-  _curried[f2] = f
-  return f2
 
-def curry4(f: Callable[[_T1, _T2, _T3, _T4], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], Callable [[_T4], _TResult]]]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: lambda a3: lambda a4: f(a1, a2, a3, a4)
-  else:
+def curry5(
+    f: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]
+) -> Callable[
+    [_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], Callable[[_T5], _TResult]]]]
+]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(
+            a1, a2, a3, a4, a5
+        )
+    else:
+        return f2
+
+
+def uncurry4(
+    f: Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], _TResult]]]]
+) -> Callable[[_T1, _T2, _T3, _T4], _TResult]:
+    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4) -> _TResult:
+        return f(a1)(a2)(a3)(a4)
+
+    _curried[f2] = f
     return f2
 
-def uncurry3(f: Callable[[_T1], Callable [[_T2], Callable [[_T3], _TResult]]]) -> Callable[[_T1, _T2, _T3], _TResult]:
-  f2: Callable[[_T1, _T2, _T3], _TResult] = lambda a1, a2, a3: f(a1)(a2)(a3)
-  _curried[f2] = f
-  return f2
 
-def curry3(f: Callable[[_T1, _T2, _T3], _TResult]) -> Callable[[_T1], Callable [[_T2], Callable [[_T3], _TResult]]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: lambda a3: f(a1, a2, a3)
-  else:
+def curry4(
+    f: Callable[[_T1, _T2, _T3, _T4], _TResult]
+) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], _TResult]]]]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: lambda a3: lambda a4: f(a1, a2, a3, a4)
+    else:
+        return f2
+
+
+def uncurry3(
+    f: Callable[[_T1], Callable[[_T2], Callable[[_T3], _TResult]]]
+) -> Callable[[_T1, _T2, _T3], _TResult]:
+    def f2(a1: _T1, a2: _T2, a3: _T3) -> _TResult:
+        return f(a1)(a2)(a3)
+
+    _curried[f2] = f
     return f2
 
-def uncurry2(f: Callable[[_T1], Callable [[_T2], _TResult]]) -> Callable[[_T1, _T2], _TResult]:
-  f2: Callable[[_T1, _T2], _TResult] = lambda a1, a2: f(a1)(a2)
-  _curried[f2] = f
-  return f2
 
-def curry2(f: Callable[[_T1, _T2], _TResult]) -> Callable[[_T1], Callable [[_T2], _TResult]]:
-  f2 = _curried.get(f)
-  if f2 is None:
-    return lambda a1: lambda a2: f(a1, a2)
-  else:
+def curry3(
+    f: Callable[[_T1, _T2, _T3], _TResult]
+) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], _TResult]]]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: lambda a3: f(a1, a2, a3)
+    else:
+        return f2
+
+
+def uncurry2(
+    f: Callable[[_T1], Callable[[_T2], _TResult]]
+) -> Callable[[_T1, _T2], _TResult]:
+    def f2(a1: _T1, a2: _T2) -> _TResult:
+        return f(a1)(a2)
+
+    _curried[f2] = f
     return f2
+
+
+def curry2(
+    f: Callable[[_T1, _T2], _TResult]
+) -> Callable[[_T1], Callable[[_T2], _TResult]]:
+    f2 = _curried.get(f)
+    if f2 is None:
+        return lambda a1: lambda a2: f(a1, a2)
+    else:
+        return f2
 
 
 def is_array_like(x: Any) -> bool:
-    return isinstance(x, (list, tuple, set, array, bytes, bytearray))
+    return isinstance(x, list | tuple | set | array | bytes | bytearray)
 
 
 def is_disposable(x: Any) -> bool:
     return x is not None and isinstance(x, IDisposable)
 
 
-def dispose(x: Union[Disposable, ContextManager[Any]]) -> None:
+def dispose(x: Disposable | AbstractContextManager[Any]) -> None:
     """Helper to dispose objects.
 
     Also tries to call `__exit__` if the object turns out to be a Python resource manager.
@@ -803,13 +1050,13 @@ def to_iterator(en: IEnumerator[_T]) -> IEnumerator[_T]:
 
 
 class ObjectRef:
-    id_map: Dict[int, int] = dict()
+    id_map: dict[int, int] = dict()
     count = 0
 
     @staticmethod
     def id(o: Any) -> int:
         _id = id(o)
-        if not _id in ObjectRef.id_map:
+        if _id not in ObjectRef.id_map:
             count = ObjectRef.count + 1
             ObjectRef.id_map[_id] = count
 
@@ -851,7 +1098,7 @@ def identity_hash(x: Any) -> int:
     return physical_hash(x)
 
 
-def combine_hash_codes(hashes: List[int]) -> int:
+def combine_hash_codes(hashes: list[int]) -> int:
     if not hashes:
         return 0
 
@@ -862,8 +1109,8 @@ def structural_hash(x: Any) -> int:
     return hash(x)
 
 
-def array_hash(xs: List[Any]) -> int:
-    hashes: List[int] = []
+def array_hash(xs: list[Any]) -> int:
+    hashes: list[int] = []
     for x in xs:
         hashes.append(structural_hash(x))
 

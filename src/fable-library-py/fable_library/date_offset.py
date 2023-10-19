@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Union
 
 from .types import FSharpRef
 
@@ -31,8 +32,8 @@ def create(
     h: int,
     m: int,
     s: int,
-    ms: Union[int, timedelta],
-    offset: Optional[timedelta] = None,
+    ms: int | timedelta,
+    offset: timedelta | None = None,
 ) -> datetime:
     if isinstance(ms, timedelta):
         offset = ms
@@ -57,9 +58,7 @@ def op_addition(x: datetime, y: timedelta) -> datetime:
     return x + y
 
 
-def op_subtraction(
-    x: datetime, y: Union[datetime, timedelta]
-) -> Union[datetime, timedelta]:
+def op_subtraction(x: datetime, y: datetime | timedelta) -> datetime | timedelta:
     if isinstance(y, timedelta):
         return x - y
 

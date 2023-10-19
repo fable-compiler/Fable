@@ -1,21 +1,17 @@
+from __future__ import annotations
+
 import locale
 import re
-
 from base64 import b64decode, b64encode
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
+from re import Match, Pattern
 from typing import (
     Any,
-    Callable,
-    Iterable,
-    List,
-    Match,
     NoReturn,
-    Optional,
-    Pattern,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -54,7 +50,7 @@ def printf(input: str) -> IPrintfFormat:
     return IPrintfFormat(input=input, cont=format)
 
 
-def continue_print(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -> Any:
+def continue_print(cont: Callable[[str], Any], arg: IPrintfFormat | str) -> Any:
     """Print continuation."""
 
     if isinstance(arg, IPrintfFormat):
@@ -64,20 +60,22 @@ def continue_print(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -
     return cont(arg)
 
 
-def to_console(arg: Union[IPrintfFormat, Any]) -> Any:
+def to_console(arg: IPrintfFormat | Any) -> Any:
     return continue_print(print, arg)
 
 
-def to_console_error(arg: Union[IPrintfFormat, str]):
-    return continue_print(lambda x: print(x), arg)
+def to_console_error(arg: IPrintfFormat | str):
+    return continue_print(lambda x: print(x), arg)  # noqa: T201
 
 
-def to_text(arg: Union[IPrintfFormat, str]) -> Union[str, Callable[..., Any]]:
-    cont: Callable[[str], Any] = lambda x: x
+def to_text(arg: IPrintfFormat | str) -> str | Callable[..., Any]:
+    def cont(x: str) -> Any:
+        return x
+
     return continue_print(cont, arg)
 
 
-def to_fail(arg: Union[IPrintfFormat, str]):
+def to_fail(arg: IPrintfFormat | str):
     def fail(msg: str):
         raise Exception(msg)
 
@@ -91,7 +89,7 @@ def format_replacement(
     flags = flags or ""
     format = format or ""
 
-    if isinstance(rep, (int, float)):
+    if isinstance(rep, int | float):
         if format not in ["x", "X"]:
             if rep < 0:
                 rep = rep * -1
@@ -146,7 +144,7 @@ def format_replacement(
     return rep
 
 
-def interpolate(string: str, values: List[Any]) -> str:
+def interpolate(string: str, values: list[Any]) -> str:
     valIdx = 0
     strIdx = 0
     result = ""
@@ -210,10 +208,10 @@ def format(string: str, *args: Any) -> str:
     def match(m: Match[str]) -> str:
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
-        if isinstance(rep, (int, float)):
-            precision: Optional[int] = None
+        if isinstance(rep, int | float):
+            precision: int | None = None
             try:
-                precision: Optional[int] = int(precision_)
+                precision: int | None = int(precision_)
             except Exception:
                 pass
 
@@ -309,11 +307,11 @@ def insert(string: str, startIndex: int, value: str):
     return string[:startIndex] + value + string[startIndex:]
 
 
-def is_null_or_empty(string: Optional[str]):
+def is_null_or_empty(string: str | None):
     return not isinstance(string, str) or not len(string)
 
 
-def is_null_or_white_space(string: Optional[Any]) -> bool:
+def is_null_or_white_space(string: Any | None) -> bool:
     return not string or not isinstance(string, str) or string.isspace()
 
 
@@ -322,10 +320,10 @@ def concat(*xs: Iterable[Any]) -> str:
 
 
 def join(delimiter: str, xs: Iterable[Any]) -> str:
-    return delimiter.join((str(x) for x in xs))
+    return delimiter.join(str(x) for x in xs)
 
 
-def join_with_indices(delimiter: str, xs: List[str], startIndex: int, count: int):
+def join_with_indices(delimiter: str, xs: list[str], startIndex: int, count: int):
     endIndexPlusOne = startIndex + count
     if endIndexPlusOne > len(xs):
         raise ValueError("Index and count must refer to a location within the buffer.")
@@ -348,7 +346,7 @@ def from_base64string(b64encoded: str) -> bytes:
 
 
 def pad_left(
-    string: str, length: int, ch: Optional[str] = None, isRight: Optional[bool] = False
+    string: str, length: int, ch: str | None = None, isRight: bool | None = False
 ) -> str:
     ch = ch or " "
     length = length - len(string)
@@ -358,11 +356,11 @@ def pad_left(
     return string
 
 
-def pad_right(string: str, len: int, ch: Optional[str] = None) -> str:
+def pad_right(string: str, len: int, ch: str | None = None) -> str:
     return pad_left(string, len, ch, True)
 
 
-def remove(string: str, startIndex: int, count: Optional[int] = None):
+def remove(string: str, startIndex: int, count: int | None = None):
     if startIndex >= len(string):
         raise ValueError("startIndex must be less than length of string")
 
@@ -391,10 +389,10 @@ def get_char_at_index(input: str, index: int):
 
 def split(
     string: str,
-    splitters: Union[str, List[str]],
-    count: Optional[int] = None,
+    splitters: str | list[str],
+    count: int | None = None,
     removeEmpty: int = 0,
-) -> List[str]:
+) -> list[str]:
     """Split string
 
     Returns a string array that contains the substrings in this instance
@@ -416,7 +414,7 @@ def split(
     splitters = [escape(x) for x in splitters] or [" "]
 
     i = 0
-    splits: List[str] = []
+    splits: list[str] = []
     matches = re.finditer("|".join(splitters), string)
     for m in matches:
         if count is not None and count <= 1:
@@ -464,7 +462,7 @@ def filter(pred: Callable[[str], bool], x: str) -> str:
     return "".join(c for c in x if pred(c))
 
 
-def substring(string: str, startIndex: int, length: Optional[int] = None) -> str:
+def substring(string: str, startIndex: int, length: int | None = None) -> str:
     if startIndex + (length or 0) > len(string):
         raise ValueError("Invalid startIndex and/or length")
 
@@ -483,8 +481,8 @@ class StringComparison(IntEnum):
     OrdinalIgnoreCase = 5
 
 
-def cmp(x: str, y: str, ic: Union[bool, StringComparison]) -> int:
-    def is_ignore_case(i: Union[bool, StringComparison]) -> bool:
+def cmp(x: str, y: str, ic: bool | StringComparison) -> int:
+    def is_ignore_case(i: bool | StringComparison) -> bool:
         return (
             i is True
             or i == StringComparison.CurrentCultureIgnoreCase
@@ -492,7 +490,7 @@ def cmp(x: str, y: str, ic: Union[bool, StringComparison]) -> int:
             or i == StringComparison.OrdinalIgnoreCase
         )
 
-    def is_ordinal(i: Union[bool, int]) -> bool:
+    def is_ordinal(i: bool | int) -> bool:
         return i == StringComparison.Ordinal or i == StringComparison.OrdinalIgnoreCase
 
     if not x:
@@ -590,7 +588,7 @@ def starts_with(string: str, pattern: str, ic: int):
     return False
 
 
-def index_of_any(string: str, any_of: List[str], *args: int):
+def index_of_any(string: str, any_of: list[str], *args: int):
     if not string:
         return -1
 

@@ -7,9 +7,9 @@ using Python async / await.
 from __future__ import annotations
 
 import asyncio
-
 from asyncio import AbstractEventLoop, Future
-from typing import Any, Awaitable, Generic, TypeVar
+from collections.abc import Awaitable
+from typing import Any, Generic, TypeVar
 
 
 _T = TypeVar("_T")

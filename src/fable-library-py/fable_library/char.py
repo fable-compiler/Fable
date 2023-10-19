@@ -1,7 +1,7 @@
-import unicodedata
+from __future__ import annotations
 
+import unicodedata
 from enum import IntEnum
-from typing import Dict, Union
 
 
 class UnicodeCategory(IntEnum):
@@ -42,7 +42,7 @@ class UnicodeCategory(IntEnum):
     OtherNotAssigned = 29
 
 
-unicode_category_2_python: Dict[str, UnicodeCategory] = {
+unicode_category_2_python: dict[str, UnicodeCategory] = {
     "Ll": UnicodeCategory.LowercaseLetter,
     "Lu": UnicodeCategory.UppercaseLetter,
     "Nd": UnicodeCategory.DecimalDigitNumber,
@@ -203,7 +203,7 @@ def is_surrogate(s: str, index: int = 0) -> bool:
     return 0xD800 <= cp <= 0xDFFF
 
 
-def is_surrogate_pair(s: str, index: Union[str, int]) -> bool:
+def is_surrogate_pair(s: str, index: str | int) -> bool:
     if isinstance(index, int):
         return is_high_surrogate(s, index) and is_low_surrogate(s, index + 1)
 
