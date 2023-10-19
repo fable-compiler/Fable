@@ -97,7 +97,49 @@ module JS =
         abstract from: arg: obj -> 'T[]
 
     and [<AllowNullLiteral>] NumberConstructor =
-        abstract isNaN: float -> bool
+        /// The value of Number.EPSILON is the difference between 1 and the smallest value greater than 1
+        /// that is representable as a Number value, which is approximately:
+        /// 2.2204460492503130808472633361816 x 10‍−‍16.
+        abstract EPSILON: float
+        /// <summary>
+        /// Returns true if passed value is finite.
+        /// Unlike the global isFinite, Number.isFinite doesn't forcibly convert the parameter to a
+        /// number. Only finite values of the type number, result in true.
+        /// </summary>
+        /// <param name="number">A numeric value.</param>
+        abstract isFinite: number: obj -> bool
+        /// <summary>Returns true if the value passed is an integer, false otherwise.</summary>
+        /// <param name="number">A numeric value.</param>
+        abstract isInteger: number: obj -> bool
+        /// <summary>
+        /// Returns a Boolean value that indicates whether a value is the reserved value NaN (not a
+        /// number). Unlike the global isNaN(), Number.isNaN() doesn't forcefully convert the parameter
+        /// to a number. Only values of the type number, that are also NaN, result in true.
+        /// </summary>
+        /// <param name="number">A numeric value.</param>
+        abstract isNaN: number: obj -> bool
+        /// <summary>Returns true if the value passed is a safe integer.</summary>
+        /// <param name="number">A numeric value.</param>
+        abstract isSafeInteger: number: obj -> bool
+        /// The value of the largest integer n such that n and n + 1 are both exactly representable as
+        /// a Number value.
+        /// The value of Number.MAX_SAFE_INTEGER is 9007199254740991 2^53 − 1.
+        abstract MAX_SAFE_INTEGER: float
+        /// The value of the smallest integer n such that n and n − 1 are both exactly representable as
+        /// a Number value.
+        /// The value of Number.MIN_SAFE_INTEGER is −9007199254740991 (−(2^53 − 1)).
+        abstract MIN_SAFE_INTEGER: float
+        /// <summary>Converts a string to a floating-point number.</summary>
+        /// <param name="string">A string that contains a floating-point number.</param>
+        abstract parseFloat: string: string -> float
+        /// <summary>Converts A string to an integer.</summary>
+        /// <param name="string">A string to convert into a number.</param>
+        /// <param name="radix">
+        /// A value between 2 and 36 that specifies the base of the number in <c>string</c>.
+        /// If this argument is not supplied, strings with a prefix of '0x' are considered hexadecimal.
+        /// All other strings are considered decimal.
+        /// </param>
+        abstract parseInt: string: string * ?radix: float -> float
 
     and [<AllowNullLiteral>] Object =
         abstract toString: unit -> string
