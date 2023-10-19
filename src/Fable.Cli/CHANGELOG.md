@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+#### Python
+
 * Remove support for Python 3.9. Add GH testing for Python 3.12 (by @dbrattli)
 
 ## 4.3.0 - 2023-10-14
