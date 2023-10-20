@@ -1041,8 +1041,8 @@ def uncurry11(
     ]
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11], _TResult]:
     def f2(
-        a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8, a9: _T9, a10: _T10, a11: _T11
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)
 
     _curried[f2] = f
@@ -1118,19 +1118,8 @@ def uncurry12(
     ]
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)
 
     _curried[f2] = f
@@ -1221,20 +1210,8 @@ def uncurry13(
     [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult
 ]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-        a13: _T13,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any, a13: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)
 
     _curried[f2] = f
@@ -1329,21 +1306,8 @@ def uncurry14(
 ) -> Callable[
     [ _T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, ], _TResult, ]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-        a13: _T13,
-        a14: _T14,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any, a13: Any, a14: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)
 
     _curried[f2] = f
@@ -1445,22 +1409,8 @@ def uncurry15(
     [ _T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, _T15] ,_TResult,
 ]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-        a13: _T13,
-        a14: _T14,
-        a15: _T15,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any, a13: Any, a14: Any, a15: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)
 
     _curried[f2] = f
@@ -1568,23 +1518,8 @@ def uncurry16(
     [ _T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, _T15, _T16] ,_TResult,
 ]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-        a13: _T13,
-        a14: _T14,
-        a15: _T15,
-        a16: _T16,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any, a13: Any, a14: Any, a15: Any, a16: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)
 
     _curried[f2] = f
@@ -1694,24 +1629,8 @@ def uncurry17(
     [ _T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, _T15, _T16, _T17] ,_TResult,
 ]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-        a13: _T13,
-        a14: _T14,
-        a15: _T15,
-        a16: _T16,
-        a17: _T17,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any, a13: Any, a14: Any, a15: Any, a16: Any, a17: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(a17)
 
     _curried[f2] = f
@@ -1830,25 +1749,8 @@ def uncurry18(
     [ _T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, _T15, _T16, _T17, _T18] ,_TResult,
 ]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-        a13: _T13,
-        a14: _T14,
-        a15: _T15,
-        a16: _T16,
-        a17: _T17,
-        a18: _T18,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any, a13: Any, a14: Any, a15: Any, a16: Any, a17: Any, a18: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(a17)(a18)
 
     _curried[f2] = f
@@ -1977,26 +1879,8 @@ def uncurry19(
     [ _T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, _T15, _T16, _T17, _T18, _T19] ,_TResult,
 ]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-        a13: _T13,
-        a14: _T14,
-        a15: _T15,
-        a16: _T16,
-        a17: _T17,
-        a18: _T18,
-        a19: _T19,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any, a13: Any, a14: Any, a15: Any, a16: Any, a17: Any, a18: Any, a19: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(a17)(a18)(a19)
 
     _curried[f2] = f
@@ -2129,27 +2013,8 @@ def uncurry20(
     [ _T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, _T15, _T16, _T17, _T18, _T19, _T20] ,_TResult,
 ]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-        a11: _T11,
-        a12: _T12,
-        a13: _T13,
-        a14: _T14,
-        a15: _T15,
-        a16: _T16,
-        a17: _T17,
-        a18: _T18,
-        a19: _T19,
-        a20: _T20,
-    ) -> _TResult:
+        a1: Any, a2: Any, a3: Any, a4: Any, a5: Any, a6: Any, a7: Any, a8: Any, a9: Any, a10: Any, a11: Any, a12: Any, a13: Any, a14: Any, a15: Any, a16: Any, a17: Any, a18: Any, a19: Any, a20: Any,
+    ) -> Any:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(a17)(a18)(a19)(a20)
 
     _curried[f2] = f
