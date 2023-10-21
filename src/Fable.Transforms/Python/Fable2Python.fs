@@ -3763,7 +3763,6 @@ module Util =
                   ]
               let decorators = [Expression.name "staticmethod"]
 
-
               let values =
                 [
                   for field in case.UnionCaseFields do
