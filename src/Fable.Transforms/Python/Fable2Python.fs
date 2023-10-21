@@ -3759,7 +3759,8 @@ module Util =
                 Arguments.arguments
                   [
                     for field in case.UnionCaseFields do
-                      Arg.arg(com.GetIdentifier(ctx, field.Name))
+                      let ta, _ = typeAnnotation com ctx None field.FieldType
+                      Arg.arg(com.GetIdentifier(ctx, field.Name), ta)
                   ]
               let decorators = [Expression.name "staticmethod"]
 

@@ -1,5 +1,6 @@
 module Fable.Tests.UnionTypes
 
+open Fable.Core
 open Util.Testing
 
 type Gender = Male | Female
@@ -205,3 +206,17 @@ let ``test Equality works in filter`` () =
     |> Array.filter (fun r -> r.Case = MyUnion3.Case1)
     |> Array.length
     |> equal 2
+
+#if FABLE_COMPILER
+[<Fact>]
+let ``test constructor exposed to python code`` () =
+  let u0 = MyUnion.Case0
+  let u1 = MyUnion.Case1 "a"
+  let u2 = MyUnion.Case2 ("a","b")
+  let u3 = MyUnion.Case3 ("a","b","c")
+  let v0 : MyUnion = PyInterop.emitPyExpr () "MyUnion.Case0()"
+  let v1 : MyUnion = PyInterop.emitPyExpr "a" "MyUnion.Case1($0)"
+  let v2 : MyUnion = PyInterop.emitPyExpr ("a","b") "MyUnion.Case2($0,$1)"
+  let v3 : MyUnion = PyInterop.emitPyExpr ("a","b","c") "MyUnion.Case3($0,$1,$2)"
+  equal [u0;u1;u2;u3] [v0;v1;v2;v3]
+#endif
