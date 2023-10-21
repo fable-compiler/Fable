@@ -3689,14 +3689,14 @@ module Util =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
 
         let genTypeArgument =
-          let gen =
-            getGenericTypeParams [ fieldIds[1].Type ]
-            |> Set.toList
-            |> List.tryHead
+            let gen =
+                getGenericTypeParams [ fieldIds[1].Type ]
+                |> Set.toList
+                |> List.tryHead
 
-          let ta = Expression.name (gen |> Option.defaultValue "Any")
-          let id = ident com ctx fieldIds[1]
-          Arg.arg (id, annotation = ta)
+            let ta = Expression.name (gen |> Option.defaultValue "Any")
+            let id = ident com ctx fieldIds[1]
+            Arg.arg (id, annotation = ta)
 
         let args, isOptional =
             let args =
@@ -3750,53 +3750,46 @@ module Util =
             Statement.functionDef (name, Arguments.arguments (), body = body, returns = returnType, decoratorList = decorators)
 
         let constructors =
-          [
-
-            for tag, case in ent.UnionCases |> Seq.indexed do
-
-              let name = Identifier case.Name
-              let args =
-                Arguments.arguments
-                  [
-                    for field in case.UnionCaseFields do
-                      let ta, _ = typeAnnotation com ctx None field.FieldType
-                      Arg.arg(com.GetIdentifier(ctx, field.Name), ta)
-                  ]
-              let decorators = [Expression.name "staticmethod"]
-
-              let values =
-                [
-                  for field in case.UnionCaseFields do
-                    let identifier : Fable.Ident =
-                     { Name = field.Name
-                       Type = field.FieldType
-                       IsMutable = false
-                       IsThisArgument = true
-                       IsCompilerGenerated = false
-                       Range = None }
-                    Fable.Expr.IdentExpr identifier
-                ]
-
-              let unionExpr,_ =
-                Fable.Value(Fable.ValueKind.NewUnion(values, tag, ent.Ref, []),None)
-                |> transformAsExpr com ctx
-
-              let body =
-                [Statement.return' unionExpr]
-
-              let returnType =
-                match args.VarArg with
-                | None -> Expression.name entName
-                | Some _ ->
-                  Expression.subscript(Expression.name entName, Expression.name genTypeArgument.Arg)
-
-              Statement.functionDef(name, args, body = body, returns = returnType, decoratorList = decorators)
+            [
+                for tag, case in ent.UnionCases |> Seq.indexed do
+                    let name = Identifier case.Name
+                    let args =
+                        Arguments.arguments
+                            [
+                                for field in case.UnionCaseFields do
+                                    let ta, _ = typeAnnotation com ctx None field.FieldType
+                                    Arg.arg(com.GetIdentifier(ctx, field.Name), ta)
+                            ]
+                    let decorators = [Expression.name "staticmethod"]
+                    let values =
+                      [
+                          for field in case.UnionCaseFields do
+                              let identifier : Fable.Ident =
+                                 { Name = field.Name
+                                   Type = field.FieldType
+                                   IsMutable = false
+                                   IsThisArgument = true
+                                   IsCompilerGenerated = false
+                                   Range = None }
+                              Fable.Expr.IdentExpr identifier
+                      ]
+                    let unionExpr,_ =
+                        Fable.Value(Fable.ValueKind.NewUnion(values, tag, ent.Ref, []),None)
+                        |> transformAsExpr com ctx
+                    let body =
+                        [Statement.return' unionExpr]
+                    let returnType =
+                        match args.VarArg with
+                        | None -> Expression.name entName
+                        | Some _ ->
+                            Expression.subscript(Expression.name entName, Expression.name genTypeArgument.Arg)
+                    Statement.functionDef(name, args, body = body, returns = returnType, decoratorList = decorators)
           ]
         let baseExpr = libValue com ctx "types" "Union" |> Some
         let classMembers = [
-          cases
-          yield! constructors
-          yield! classMembers
+            cases
+            yield! constructors
+            yield! classMembers
         ]
         declareType com ctx ent entName args isOptional body baseExpr classMembers
 
