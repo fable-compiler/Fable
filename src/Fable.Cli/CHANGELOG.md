@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Remove support for Python 3.9. Add GH testing for Python 3.12 (by @dbrattli)
 * Support (un)curry up to 20 arguments (by @MangelMaxime)
+* Expose discriminated union constructors to Python code (by @smoothdeveloper).
 
 #### Dart
 
