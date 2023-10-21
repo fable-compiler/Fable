@@ -3751,7 +3751,9 @@ module Util =
 
         let constructors =
           [
-            for case in ent.UnionCases do
+
+            for tag, case in ent.UnionCases |> Seq.indexed do
+
               let name = Identifier case.Name
               let args =
                 Arguments.arguments
@@ -3760,15 +3762,34 @@ module Util =
                       Arg.arg(com.GetIdentifier(ctx, field.Name))
                   ]
               let decorators = [Expression.name "staticmethod"]
+
+
+              let values =
+                [
+                  for field in case.UnionCaseFields do
+                    let identifier : Fable.Ident =
+                     { Name = field.Name
+                       Type = field.FieldType
+                       IsMutable = false
+                       IsThisArgument = true
+                       IsCompilerGenerated = false
+                       Range = None }
+                    Fable.Expr.IdentExpr identifier
+                ]
+
+              let unionExpr,_ =
+                Fable.Value(Fable.ValueKind.NewUnion(values, tag, ent.Ref, []),None)
+                |> transformAsExpr com ctx
+
               let body =
-                // todo
-                [Statement.return' (Expression.constant 1)]
+                [Statement.return' unionExpr]
 
               let returnType =
                 match args.VarArg with
                 | None -> Expression.name entName
                 | Some _ ->
                   Expression.subscript(Expression.name entName, Expression.name genTypeArgument.Arg)
+
               Statement.functionDef(name, args, body = body, returns = returnType, decoratorList = decorators)
           ]
         let baseExpr = libValue com ctx "types" "Union" |> Some
