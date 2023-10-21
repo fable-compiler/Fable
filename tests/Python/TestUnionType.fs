@@ -1,6 +1,5 @@
 module Fable.Tests.UnionTypes
 
-open Fable.Core
 open Util.Testing
 
 type Gender = Male | Female
@@ -208,6 +207,7 @@ let ``test Equality works in filter`` () =
     |> equal 2
 
 #if FABLE_COMPILER
+open Fable.Core
 [<Fact>]
 let ``test constructor exposed to python code`` () =
     let u0 = MyUnion.Case0
