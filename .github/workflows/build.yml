@@ -84,10 +84,11 @@ jobs:
 
   # Separate build job for Python since we use a test matrix (will run in parallell)
   build-python:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        platform: [ubuntu-latest, windows-latest]
         python-version: ["3.10", 3.11, 3.12]
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - uses: actions/checkout@v2

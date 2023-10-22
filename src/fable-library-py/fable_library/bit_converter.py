@@ -1,8 +1,6 @@
 import struct
 import sys
 
-from typing import Optional
-
 
 def get_bytes_char(value: str) -> bytes:
     return bytes(value, "UTF-8")
@@ -110,7 +108,7 @@ def to_double(bytes: bytearray, offset: int) -> float:
     return number
 
 
-def to_string(bytes: bytearray, offset: int = 0, count: Optional[int] = None) -> str:
+def to_string(bytes: bytearray, offset: int = 0, count: int | None = None) -> str:
     count = len(bytes) if count is None else count
     return "-".join([f"{x:02x}" for x in bytes[offset : offset + count]])
 

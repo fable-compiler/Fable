@@ -56,7 +56,9 @@ module Helpers =
     let inline pushImpl (array: 'T []) (item: 'T) : int = !! array?append (item)
 
     // Typed arrays not supported, only dynamic ones do
-    let inline insertImpl (array: 'T []) (index: int) (item: 'T) : 'T [] = !! array?insert(index, item)
+    let inline insertImpl (array: 'T []) (index: int) (item: 'T) : 'T [] =
+        !! array?insert(index, item)
+        array
 
     // Typed arrays not supported, only dynamic ones do
     let spliceImpl (array: 'T []) (start: int) (deleteCount: int) : 'T [] =

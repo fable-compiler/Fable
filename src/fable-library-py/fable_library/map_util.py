@@ -1,17 +1,13 @@
-import re
+from __future__ import annotations
 
+import re
+from collections.abc import ByteString, Iterable, MutableSequence
 from enum import IntEnum
+from re import Match
 from typing import (
     TYPE_CHECKING,
     Any,
-    ByteString,
-    Dict,
-    Iterable,
-    List,
-    Match,
-    MutableSequence,
     NoReturn,
-    Set,
     TypeVar,
 )
 
@@ -57,14 +53,14 @@ def change_case(string: str, case_rule: CaseRules) -> str:
 
 if TYPE_CHECKING:
 
-    class FSharpMap(Dict[_K, _V]):
+    class FSharpMap(dict[_K, _V]):
         ...
 
 else:
     from .map import FSharpMap
 
 
-def add_to_set(v: _V, st: Set[_V]) -> bool:
+def add_to_set(v: _V, st: set[_V]) -> bool:
     if v in st:
         return False
 
@@ -72,7 +68,7 @@ def add_to_set(v: _V, st: Set[_V]) -> bool:
     return True
 
 
-def add_to_dict(di: Dict[_K, _V], k: _K, v: _V) -> None:
+def add_to_dict(di: dict[_K, _V], k: _K, v: _V) -> None:
     if k in di:
         raise Exception(
             "An item with the same key has already been added. Key: " + str(k)
@@ -81,7 +77,7 @@ def add_to_dict(di: Dict[_K, _V], k: _K, v: _V) -> None:
     di[k] = v
 
 
-def remove_from_dict(di: Dict[_K, Any], k: _K) -> bool:
+def remove_from_dict(di: dict[_K, Any], k: _K) -> bool:
     if k in di:
         del di[k]
         return True
@@ -99,19 +95,19 @@ def try_get_value(
     return False
 
 
-def get_item_from_dict(map: Dict[_K, _V], key: _K) -> _V:
+def get_item_from_dict(map: dict[_K, _V], key: _K) -> _V:
     if key in map:
         return map[key]
     else:
         raise Exception(f"The given key '{key}' was not present in the dictionary.")
 
 
-def contains_value(v: _V, map: Dict[Any, _V]) -> bool:
+def contains_value(v: _V, map: dict[Any, _V]) -> bool:
     return v in map.values()
 
 
 def key_value_list(fields: Iterable[Any], case_rule: CaseRules = CaseRules.Ignore):
-    obj: Dict[str, Any] = {}
+    obj: dict[str, Any] = {}
     defined_case_rule = case_rule
 
     def fail(kvPair: Any) -> NoReturn:
@@ -129,10 +125,10 @@ def key_value_list(fields: Iterable[Any], case_rule: CaseRules = CaseRules.Ignor
         # Deflate unions and use the defined case rule
         if isinstance(kv_pair, Union):
             name = kv_pair.cases()[kv_pair.tag]
-            kv_pair = name if len(kv_pair.fields) == 0 else [name] + kv_pair.fields
+            kv_pair = name if len(kv_pair.fields) == 0 else [name, *kv_pair.fields]
             case_rule = defined_case_rule
 
-        if isinstance(kv_pair, (List, MutableSequence, ByteString)):
+        if isinstance(kv_pair, list | MutableSequence | ByteString):
             length = len(kv_pair)
             if length == 0:
                 fail(kv_pair)
