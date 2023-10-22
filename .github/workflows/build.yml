@@ -115,7 +115,7 @@ jobs:
 
       - name: Fable Library - Python (Windows)
         if: matrix.platform == 'windows-latest'
-        run: build.bat fable-library --python
+        run: .\build.bat fable-library --python
 
       - name: Install dependencies
         run: |
