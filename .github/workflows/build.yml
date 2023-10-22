@@ -109,8 +109,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Fable Library - Python
+      - name: Fable Library - Python (linux)
+        if: matrix.platform == 'ubuntu-latest'
         run: ./build.sh fable-library --python
+
+      - name: Fable Library - Python (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: ./build.cmd fable-library --python
 
       - name: Install dependencies
         run: |
