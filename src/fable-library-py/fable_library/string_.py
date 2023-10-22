@@ -155,7 +155,6 @@ def interpolate(string: str, values: list[Any]) -> str:
         matchIndex = match.start() + len(match[1] or "")
         result += string[strIdx:matchIndex].replace("%%", "%")
         [_, flags, padLength, precision, format] = match.groups()
-        # print(match.groups())
         result += format_replacement(
             values[valIdx], flags, padLength, precision, format
         )

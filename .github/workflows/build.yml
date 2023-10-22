@@ -84,10 +84,11 @@ jobs:
 
   # Separate build job for Python since we use a test matrix (will run in parallell)
   build-python:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        platform: [ubuntu-latest, windows-latest]
         python-version: ["3.10", 3.11, 3.12]
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - uses: actions/checkout@v2
@@ -108,8 +109,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Fable Library - Python
+      - name: Fable Library - Python (linux)
+        if: matrix.platform == 'ubuntu-latest'
         run: ./build.sh fable-library --python
+
+      - name: Fable Library - Python (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: .\build.bat fable-library --python
 
       - name: Install dependencies
         run: |
