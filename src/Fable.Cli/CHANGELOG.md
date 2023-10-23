@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### FCS
+
+* Updated FCS to latest (by @ncave)
+
 #### JavaScript
 
 * Support (un)curry up to 20 arguments (by @MangelMaxime)

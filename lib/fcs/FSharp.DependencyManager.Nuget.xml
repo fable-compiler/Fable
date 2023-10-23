@@ -78,11 +78,6 @@
  (Originally from FSDependencyManager.txt:2)
 </summary>
 </member>
-<member name="M:FSDependencyManager.SR.RunStartupValidation">
-<summary>
- Call this method once to validate that all known resources are valid; throws if not
-</summary>
-</member>
 <member name="P:UtilsStrings.SR.SwallowResourceText(System.Boolean)">
 <summary>
  If set to true, then all error messages will just return the filled &apos;holes&apos; delimited by &apos;,,,&apos;s - this is for language-neutral testing (e.g. localization-invariant baselines).
@@ -103,11 +98,6 @@
 <summary>
  Microsoft (R) F# Compiler version %s
  (Originally from /home/dev/Projects/fsharp/src/Compiler/Facilities/UtilsStrings.txt:1)
-</summary>
-</member>
-<member name="M:UtilsStrings.SR.RunStartupValidation">
-<summary>
- Call this method once to validate that all known resources are valid; throws if not
 </summary>
 </member>
 <member name="T:FSharp.DependencyManager.Nuget.PackageBuildResolutionResult">
