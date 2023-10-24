@@ -6,9 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.4.0 - 2023-10-24
+
 ### Changed
 
-#### FCS
+#### All
 
 * Updated FCS to [bd66d54b1ac4dd0f252c0a37196c2ccd54628356](https://github.com/dotnet/fsharp/commits/bd66d54b1ac4dd0f252c0a37196c2ccd54628356) (by @ncave)
 
