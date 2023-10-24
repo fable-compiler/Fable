@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### FCS
+
+* Updated FCS to [bd66d54b1ac4dd0f252c0a37196c2ccd54628356](https://github.com/dotnet/fsharp/commits/bd66d54b1ac4dd0f252c0a37196c2ccd54628356) (by @ncave)
+
 #### JavaScript
 
 * Support (un)curry up to 20 arguments (by @MangelMaxime)
