@@ -3269,7 +3269,6 @@ module Util =
                 makeLibCall com ctx None "Native" ("fix" + argCount) fixCallArgs
             else
                 fnBody
-        let closureExpr = mkClosureExpr true fnDecl fnBody
         let cloneStmts =
             // clone captured idents (in move closures)
             // skip non-local idents (e.g. module let bindings)
@@ -3283,8 +3282,16 @@ module Util =
                 letExpr |> mkSemiStmt)
             |> Seq.toList
         let closureExpr =
-            if List.isEmpty cloneStmts then closureExpr
-            else mkStmtBlockExpr (cloneStmts @ [closureExpr |> mkExprStmt])
+            if List.isEmpty cloneStmts then
+                mkClosureExpr true fnDecl fnBody
+            else
+                let fnBody =
+                    // additional captured idents cloning for recursive lambdas
+                    if isRecursive && not isTailRec then
+                        mkStmtBlockExpr (cloneStmts @ [fnBody |> mkExprStmt])
+                    else fnBody
+                let closureExpr = mkClosureExpr true fnDecl fnBody
+                mkStmtBlockExpr (cloneStmts @ [closureExpr |> mkExprStmt])
         let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
         makeCall [funcWrap; "new"] None [closureExpr]
 
