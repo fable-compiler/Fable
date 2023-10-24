@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+#### Rust
+
+* Fixed recursive lambda captured idents cloning (by @ncave)
+
 ## 4.4.0 - 2023-10-24
 
 ### Changed
