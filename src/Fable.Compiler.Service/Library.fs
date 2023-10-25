@@ -30,8 +30,7 @@ type BabelWriter
     let sb = StringBuilder()
     // let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
 
-    override x.ToString() =
-        sb.ToString()
+    override x.ToString() = sb.ToString()
 
     interface Printer.Writer with
         // Don't dispose the stream here because we need to access the memory stream to check if file has changed
@@ -98,18 +97,23 @@ type BabelWriter
 //         let sourcePath = defaultArg file sourcePath |> Path.getRelativeFileOrDirPath false targetPath false
 //         mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=displayName)
 
+// TODO: real bad code, refactor
+let mutable checker = Unchecked.defaultof<InteractiveChecker>
+
 let mkCompilerForFile
     (cliArgs: CliArgs)
     (crackerResponse: CrackerResponse)
     (currentFile: string)
     : Async<Compiler> =
     async {
-        let checker = InteractiveChecker.Create(crackerResponse.ProjectOptions)
+        checker <- InteractiveChecker.Create(crackerResponse.ProjectOptions)
         let! assemblies = checker.GetImportedAssemblies()
 
-        let sourceReader _ =
+        let sourceReader fileName =
             let source =
-                Array.last crackerResponse.ProjectOptions.SourceFiles
+                Array.find
+                    (fun sourceFile -> sourceFile = fileName)
+                    crackerResponse.ProjectOptions.SourceFiles
                 |> System.IO.File.ReadAllText
 
             1, lazy source
@@ -119,7 +123,7 @@ let mkCompilerForFile
                 cliArgs.ProjectFile,
                 crackerResponse.ProjectOptions.SourceFiles,
                 sourceReader,
-                Array.last crackerResponse.ProjectOptions.SourceFiles
+                currentFile
             )
 
         ignore checkProjectResult.Diagnostics
@@ -172,5 +176,18 @@ let compileFile (com: Compiler) (pathResolver: PathResolver) (outPath: string) =
             )
 
         do! BabelPrinter.run writer babel
-        return writer.ToString()
+        let output = writer.ToString()
+
+        let sourceReader fileName =
+            let source =
+                Array.find
+                    (fun sourceFile -> sourceFile = fileName)
+                    com.SourceFiles
+                |> System.IO.File.ReadAllText
+
+            1, lazy source
+
+        let! dependentFiles = checker.GetDependentFiles(com.CurrentFile, com.SourceFiles, sourceReader)
+
+        return output, dependentFiles
     }

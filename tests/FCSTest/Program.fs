@@ -26,8 +26,12 @@ module CoolCatProjectCracking =
             |> Array.choose (fun (line: string) ->
                 let filePath = Path.Combine(projectDir, line)
 
-                if isFSharpFile line && File.Exists filePath then
-                    Some filePath
+                if
+                    isFSharpFile line
+                    && File.Exists filePath
+                    && not (filePath.Contains "obj")
+                then
+                    Some (Path.normalizeFullPath filePath)
                 else
                     None
             )
@@ -170,7 +174,7 @@ let compilerForFile =
     mkCompilerForFile
         cliArgs
         crackerResponse
-        @"C:\Users\nojaf\Projects\MyFableApp\App.fs"
+        (Path.normalizeFullPath @"C:\Users\nojaf\Projects\MyFableApp\Lib.fs")
     |> Async.RunSynchronously
 
 let dummyPathResolver =
@@ -179,11 +183,12 @@ let dummyPathResolver =
         member _.GetOrAddDeduplicateTargetDir(_importDir, _addTargetDir) = ""
     }
 
-let javascript =
+let javascript, dependentFiles =
     compileFile
         compilerForFile
         dummyPathResolver
-        @"C:\Users\nojaf\Projects\MyFableApp\App.js"
+        @"C:\Users\nojaf\Projects\MyFableApp\Lib.js"
     |> Async.RunSynchronously
 
 printfn "this is javascript:\n%s" javascript
+printfn "these files need to be reprocessed: %s" (String.concat "," dependentFiles)
