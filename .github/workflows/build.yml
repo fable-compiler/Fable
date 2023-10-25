@@ -122,9 +122,13 @@ jobs:
           pip install poetry
           poetry install
 
-      - name: Fable Tests - Python
-        #
+      - name: Fable Tests - Python (linux)
+        if: matrix.platform == 'ubuntu-latest'
         run: ./build.sh test python --skip-fable-library
+
+      - name: Fable Tests - Python (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: .\build.bat test python --skip-fable-library
 
   # Separate build job for Rust (will run in parallel)
   build-rust:
