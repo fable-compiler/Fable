@@ -37537,6 +37537,11 @@ Get the signature for the value&apos;s XML documentation
  name resolutions and symbol uses for the file requested only, so intellisense etc. works.
 </summary>
 </member>
+<member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.GetDependentFiles(System.String,System.String[],Microsoft.FSharp.Core.FSharpFunc{System.String,System.Tuple{System.Int32,System.Lazy{System.String}}})">
+<summary>
+ Find the dependent files of the current file based on the untyped syntax tree
+</summary>
+</member>
 <member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.Compile(System.String[],Microsoft.FSharp.Core.FSharpFunc{System.String,System.Tuple{System.Int32,System.Lazy{System.String}}},System.String)">
 <summary>
  Compile project to file. If project has already been type checked,
