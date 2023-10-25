@@ -6,9 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.4.1 - 2023-10-25
+
+### Changed
+
 #### All
 
-* Turn off FCS warning 3560 by default (by @vzarytovskii)
+* Fix #3567: Turn off FCS warning 3560 by default (by @vzarytovskii)
+
+### Fixed
 
 #### Rust
 
