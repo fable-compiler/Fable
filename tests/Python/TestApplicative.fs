@@ -1684,3 +1684,32 @@ let ``test Trait call works with multiple inlined functions II`` () = // See #28
 [<Fact>]
 let ``test Identifiers from witnesses don't get duplicated when resolving inline expressions`` () = // See #2855
     NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
+
+module AccessorFunctionShorthand =
+
+    type User =
+        {
+            Name : string
+        }
+
+[<Fact>]
+let ``test Accessor function shorthand works for records`` () =
+    let people : AccessorFunctionShorthand.User list =
+        [
+            { Name = "John" }
+            { Name = "Jane" }
+        ]
+
+    let names = people |> List.map _.Name
+    equal names ["John"; "Jane"]
+
+[<Fact>]
+let ``test Accessor function shorthand works for anonymous records`` () =
+    let people =
+        [
+            {| Name = "John" |}
+            {| Name = "Jane" |}
+        ]
+
+    let names = people |> List.map _.Name
+    equal names ["John"; "Jane"]

@@ -1732,6 +1732,35 @@ module MultipleInlines =
             NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
     ]
 
+module AccessorFunctionShorthand =
+
+    type User =
+        {
+            Name : string
+        }
+
+    let tests =
+        [
+            testCase "Accessor function shorthand works for records" <| fun () ->
+                let people =
+                    [
+                        { Name = "John" }
+                        { Name = "Jane" }
+                    ]
+
+                let names = people |> List.map _.Name
+                equal names ["John"; "Jane"]
+
+            testCase "Accessor function shorthand works for anonymous records" <| fun () ->
+                let people =
+                    [
+                        {| Name = "John" |}
+                        {| Name = "Jane" |}
+                    ]
+
+                let names = people |> List.map _.Name
+                equal names ["John"; "Jane"]
+        ]
 let tests =
     testList "Applicative" (
         tests1
@@ -1745,4 +1774,5 @@ let tests =
         @ Curry.tests
         @ Uncurry.tests
         @ MultipleInlines.tests
+        @ AccessorFunctionShorthand.tests
     )
