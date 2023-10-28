@@ -1,4 +1,4 @@
-﻿module Fable.Compiler.Service.Compiler
+﻿module Fable.Compiler.CodeServices
 
 open System
 open System.Text

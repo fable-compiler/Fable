@@ -10,7 +10,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Fable.Compiler.Service\Fable.Compiler.Service.fsproj"/>
+        <ProjectReference Include="..\..\src\Fable.Compiler\Fable.Compiler.fsproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -62,7 +62,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Spaces", "tests
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Build", "src\Fable.Build\Fable.Build.fsproj", "{F2E323CE-FDF3-4A1E-AE97-B723D2E63763}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Compiler.Service", "src\Fable.Compiler.Service\Fable.Compiler.Service.fsproj", "{942DD29B-07C0-4ACF-891E-85C1235A9BE0}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Compiler", "src\Fable.Compiler\Fable.Compiler.fsproj", "{942DD29B-07C0-4ACF-891E-85C1235A9BE0}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FCSTest", "tests\FCSTest\FCSTest.fsproj", "{81642B88-A7A2-4BBB-8EAD-0584C018D370}"
 EndProject

@@ -4,7 +4,7 @@ open System.IO
 open System.Text.Json
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.CodeAnalysis
-open Fable.Compiler.Service.Compiler
+open Fable.Compiler.CodeServices
 open Fable
 open Fable.Compiler.Service.ProjectCracker
 open Fable.Compiler.Service.Util
