@@ -199,8 +199,17 @@ type FsAbstractSignature(s: FSharpAbstractSignature) =
         member _.DeclaringType = TypeHelpers.makeType Map.empty s.DeclaringType
 
 type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
+    static member CompiledName(m: FSharpMemberOrFunctionOrValue) =
+        if FsMemberFunctionOrValue.IsGetter(m) ||
+            FsMemberFunctionOrValue.IsSetter(m)
+        then Naming.removeGetSetPrefix m.CompiledName
+        else m.CompiledName
+
     static member DisplayName(m: FSharpMemberOrFunctionOrValue) =
-        Naming.removeGetSetPrefix m.DisplayNameCore
+        if FsMemberFunctionOrValue.IsGetter(m) ||
+            FsMemberFunctionOrValue.IsSetter(m)
+        then Naming.removeGetSetPrefix m.DisplayNameCore
+        else m.DisplayNameCore
 
     // We don't consider indexer properties as getters/setters so they're always compiled as methods
     static member IsGetter(m: FSharpMemberOrFunctionOrValue) =
@@ -692,7 +701,7 @@ module Helpers =
             |> Option.defaultValue false
 
         v.IsModuleValueOrMember && not v.HasSignatureFile && parentHasSignatureFile ()
-    
+
     let isNotPrivate (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated then false
         elif topLevelBindingHiddenBySignatureFile memb then false
@@ -1842,19 +1851,11 @@ module Util =
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
             Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)
         else
-            // If the entity is decorated with AttachMembers, we need to remove the get/set prefix
-            // See https://github.com/fable-compiler/Fable/issues/3494
-            let membName =
-                if isAttachMembersEntity com entity then
-                    Naming.removeGetSetPrefix info.name
-                else
-                    info.name
-
             let entityGenParamsCount = entity.GenericParameters.Count
             let callInfo =
                 if callInfo.GenericArgs.Length < entityGenParamsCount then callInfo
                 else { callInfo with GenericArgs = List.skip entityGenParamsCount callInfo.GenericArgs }
-            getField callee membName |> makeCall r typ callInfo
+            getField callee info.name |> makeCall r typ callInfo
 
     let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) (thisArg: Fable.Expr option) =
         let msg =

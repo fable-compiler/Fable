@@ -71,6 +71,19 @@ type TestType7(a1, a2, a3) =
     let arr = [|a1; a2; a3|]
     member _.Value with get(i) = arr[i] and set(i) (v) = arr[i] <- v
 
+[<Fable.Core.AttachMembers>]
+type TestTypeAttached(a1, a2, a3) =
+    let arr = [| a1; a2; a3 |]
+    member _.Value1
+        with get () = arr.[1]
+        and set (v) = arr.[1] <- v
+    member _.Value
+        with get (i) = arr.[i]
+        and set (i) (v) = arr.[i] <- v
+    member _.Item
+        with get (i) = arr.[i]
+        and set (i) (v) = arr.[i] <- v
+
 type A  = { thing: int } with
     member x.show() = string x.thing
     static member show (x: A) = "Static: " + (string x.thing)
@@ -631,6 +644,19 @@ let ``Getter and Setter with indexer work`` () =
     t.Value(1) <- 5
     t.Value(1) |> equal 5
     t.Value(2) |> equal 3
+
+[<Fact>]
+let ``Attached Getters Setters and Indexers work`` () =
+    let t = TestTypeAttached(1, 2, 3)
+    t.Value1 |> equal 2
+    t.Value1 <- 22
+    t.Value1 |> equal 22
+    t.Value(0) |> equal 1
+    t.Value(0) <- 11
+    t.Value(0) |> equal 11
+    t[2] |> equal 3
+    t[2] <- 33
+    t[2] |> equal 33
 
 [<Fact>]
 let ``Statically resolved instance calls work`` () =
