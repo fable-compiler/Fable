@@ -6,6 +6,7 @@ open Fable.Compiler.Service.Util
 open Fable.Compiler.Service.ProjectCracker
 
 val mkCompilerForFile:
+    sourceReader: SourceReader ->
     checker: InteractiveChecker ->
     cliArgs: CliArgs ->
     crackerResponse: CrackerResponse ->
@@ -13,6 +14,7 @@ val mkCompilerForFile:
         Async<Compiler>
 
 val compileFile:
+    sourceReader: SourceReader ->
     com: Compiler ->
     pathResolver: PathResolver ->
     outPath: string ->

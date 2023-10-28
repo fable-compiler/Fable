@@ -32,7 +32,7 @@ module CoolCatProjectCracking =
                     && File.Exists filePath
                     && not (filePath.Contains "obj")
                 then
-                    Some (Path.normalizeFullPath filePath)
+                    Some(Path.normalizeFullPath filePath)
                 else
                     None
             )
@@ -122,7 +122,15 @@ module CoolCatProjectCracking =
                 Directory.Delete(pwd, true)
 
 let fsprojOptions =
-    CoolCatProjectCracking.mkOptionsFromDesignTimeBuild fsprojPath ""
+    let sw = Stopwatch()
+    sw.Start()
+
+    let options =
+        CoolCatProjectCracking.mkOptionsFromDesignTimeBuild fsprojPath ""
+
+    sw.Stop()
+    printfn "Cracking took: %A" sw.Elapsed
+    options
 
 let crackerResponse: CrackerResponse = {
     FableLibDir =
@@ -173,8 +181,17 @@ let cliArgs: CliArgs = {
 
 let checker = InteractiveChecker.Create(crackerResponse.ProjectOptions)
 
+let sourceReader =
+    Fable.Transforms.File.MakeSourceReader(
+        Array.map
+            Fable.Transforms.File
+            crackerResponse.ProjectOptions.SourceFiles
+    )
+    |> snd
+
 let compilerForFile =
     mkCompilerForFile
+        sourceReader
         checker
         cliArgs
         crackerResponse
@@ -189,10 +206,14 @@ let dummyPathResolver =
 
 let javascript, dependentFiles =
     compileFile
+        sourceReader
         compilerForFile
         dummyPathResolver
         @"C:\Users\nojaf\Projects\MyFableApp\Lib.js"
     |> Async.RunSynchronously
 
 printfn "this is javascript:\n%s" javascript
-printfn "these files need to be reprocessed: %s" (String.concat "," dependentFiles)
+
+printfn
+    "these files need to be reprocessed: %s"
+    (String.concat "," dependentFiles)

@@ -5908,7 +5908,8 @@ module Compiler =
                     ?tag = tag
                 )
 
-            member _.GetDependentFiles() = com.GetDependentFiles()
+            member _.GetDependentFiles sourceReader =
+                com.GetDependentFiles sourceReader
 
     let makeCompiler com = PythonCompiler(com)
 

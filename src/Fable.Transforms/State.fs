@@ -468,10 +468,7 @@ type CompilerImpl
             )
             |> logs.Add
 
-        member _.GetDependentFiles() =
-            let sourceReader =
-                File.MakeSourceReader(Array.map File project.SourceFiles) |> snd
-
+        member _.GetDependentFiles sourceReader =
             checker.GetDependentFiles(
                 currentFile,
                 project.SourceFiles,

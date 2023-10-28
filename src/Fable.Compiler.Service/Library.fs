@@ -4,7 +4,6 @@ open System
 open System.Text
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.SourceCodeServices
-open FSharp.Compiler.Text
 open Fable
 open Fable.Compiler.Service.Util
 open Fable.Transforms.State
@@ -100,6 +99,7 @@ type BabelWriter
 //         mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=displayName)
 
 let mkCompilerForFile
+    (sourceReader: SourceReader)
     (checker: InteractiveChecker)
     (cliArgs: CliArgs)
     (crackerResponse: CrackerResponse)
@@ -108,15 +108,6 @@ let mkCompilerForFile
     =
     async {
         let! assemblies = checker.GetImportedAssemblies()
-
-        let sourceReader fileName =
-            let source =
-                Array.find
-                    (fun sourceFile -> sourceFile = fileName)
-                    crackerResponse.ProjectOptions.SourceFiles
-                |> System.IO.File.ReadAllText
-
-            1, lazy source
 
         let! checkProjectResult =
             checker.ParseAndCheckProject(
@@ -156,7 +147,12 @@ let mkCompilerForFile
             )
     }
 
-let compileFile (com: Compiler) (pathResolver: PathResolver) (outPath: string) =
+let compileFile
+    (sourceReader: SourceReader)
+    (com: Compiler)
+    (pathResolver: PathResolver)
+    (outPath: string)
+    =
     async {
         let babel =
             FSharp2Fable.Compiler.transformFile com
@@ -174,17 +170,6 @@ let compileFile (com: Compiler) (pathResolver: PathResolver) (outPath: string) =
 
         do! BabelPrinter.run writer babel
         let output = writer.ToString()
-
-        let sourceReader fileName =
-            let source =
-                Array.find
-                    (fun sourceFile -> sourceFile = fileName)
-                    com.SourceFiles
-                |> System.IO.File.ReadAllText
-
-            1, lazy source
-
-        let! dependentFiles = com.GetDependentFiles()
-
+        let! dependentFiles = com.GetDependentFiles sourceReader
         return output, dependentFiles
     }

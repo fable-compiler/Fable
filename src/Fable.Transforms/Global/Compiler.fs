@@ -62,6 +62,8 @@ type InlineExpr =
 type CompilerPlugins =
     { MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }
 
+type SourceReader = string -> int * Lazy<string>
+
 type Compiler =
     abstract LibraryDir: string
     abstract CurrentFile: string
@@ -93,7 +95,8 @@ type Compiler =
 
     /// Invokes InteractiveChecker.GetDependentFiles
     /// This will find dependent file via the untyped tree graph.
-    abstract GetDependentFiles: unit -> Async<string array>
+    abstract GetDependentFiles:
+        sourceReader: SourceReader -> Async<string array>
 
 type InlineExprLazy(f: Compiler -> InlineExpr) =
     let mutable value: InlineExpr voption = ValueNone
