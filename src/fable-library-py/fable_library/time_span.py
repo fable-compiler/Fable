@@ -146,6 +146,7 @@ def to_string(ts: timedelta, format: str = "c", _provider: Any | None = None) ->
 __all__ = [
     "create",
     "to_milliseconds",
+    "to_string",
     "from_ticks",
     "from_milliseconds",
     "from_hours",

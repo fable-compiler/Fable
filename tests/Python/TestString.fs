@@ -864,4 +864,4 @@ let ``test Can create FormattableString`` () =
 
 [<Fact>]
 let ``test printing strings with unicode characters`` () =
-    printfn "🚀 start running tests ..."
+    printfn "🚀 printing unicode ..."
