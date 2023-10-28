@@ -1079,7 +1079,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
         }
         |> ClassDeclaration
 
-let transformFile (com: Compiler) (file: File) =
+let transformFile (com: Compiler) (file: Fable.AST.Fable.File) =
     let transformations = getTransformations com
 
     let newDecls =
@@ -1087,4 +1087,4 @@ let transformFile (com: Compiler) (file: File) =
             (transformDeclaration transformations com file)
             file.Declarations
 
-    File(newDecls, usedRootNames = file.UsedNamesInRootScope)
+    Fable.AST.Fable.File(newDecls, usedRootNames = file.UsedNamesInRootScope)

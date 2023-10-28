@@ -5874,6 +5874,8 @@ module Compiler =
                     ?tag = tag
                 )
 
+            member _.GetDependentFiles() = com.GetDependentFiles()
+
     let makeCompiler com = BabelCompiler(com)
 
     let transformFile (com: Compiler) (file: Fable.File) =

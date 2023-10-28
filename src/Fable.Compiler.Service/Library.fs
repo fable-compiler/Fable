@@ -18,7 +18,8 @@ type BabelWriter
         projectFile: string,
         sourcePath: string,
         targetPath: string
-    ) =
+    )
+    =
     // In imports *.ts extensions have to be converted to *.js extensions instead
     // TODO: incomplete
     let fileExt = ".js"
@@ -87,7 +88,8 @@ type BabelWriter
                 genCol,
                 file,
                 displayName
-            ) =
+            )
+            =
             //
             ()
 //     if cliArgs.SourceMaps then
@@ -97,16 +99,14 @@ type BabelWriter
 //         let sourcePath = defaultArg file sourcePath |> Path.getRelativeFileOrDirPath false targetPath false
 //         mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=displayName)
 
-// TODO: real bad code, refactor
-let mutable checker = Unchecked.defaultof<InteractiveChecker>
-
 let mkCompilerForFile
+    (checker: InteractiveChecker)
     (cliArgs: CliArgs)
     (crackerResponse: CrackerResponse)
     (currentFile: string)
-    : Async<Compiler> =
+    : Async<Compiler>
+    =
     async {
-        checker <- InteractiveChecker.Create(crackerResponse.ProjectOptions)
         let! assemblies = checker.GetImportedAssemblies()
 
         let sourceReader fileName =
@@ -144,18 +144,15 @@ let mkCompilerForFile
         let fableLibDir =
             Path.getRelativePath currentFile crackerResponse.FableLibDir
 
-        let watchDependencies = None
-        // if cliArgs.IsWatch then Some(HashSet()) else None
-
         return
             CompilerImpl(
+                checker,
                 currentFile,
                 fableProj,
                 opts,
                 fableLibDir,
                 crackerResponse.OutputType,
-                ?outDir = cliArgs.OutDir,
-                ?watchDependencies = watchDependencies
+                ?outDir = cliArgs.OutDir
             )
     }
 
@@ -187,7 +184,7 @@ let compileFile (com: Compiler) (pathResolver: PathResolver) (outPath: string) =
 
             1, lazy source
 
-        let! dependentFiles = checker.GetDependentFiles(com.CurrentFile, com.SourceFiles, sourceReader)
+        let! dependentFiles = com.GetDependentFiles()
 
         return output, dependentFiles
     }

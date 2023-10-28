@@ -2,6 +2,7 @@
 open System.Diagnostics
 open System.IO
 open System.Text.Json
+open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.CodeAnalysis
 open Fable.Compiler.Service.Compiler
 open Fable
@@ -170,8 +171,11 @@ let cliArgs: CliArgs = {
     }
 }
 
+let checker = InteractiveChecker.Create(crackerResponse.ProjectOptions)
+
 let compilerForFile =
     mkCompilerForFile
+        checker
         cliArgs
         crackerResponse
         (Path.normalizeFullPath @"C:\Users\nojaf\Projects\MyFableApp\Lib.fs")

@@ -6083,6 +6083,8 @@ module Compiler =
                     ?tag = tag
                 )
 
+            member _.GetDependentFiles() = com.GetDependentFiles()
+
     let makeCompiler com = RustCompiler(com)
 
     let transformFile (com: Fable.Compiler) (file: Fable.File) =

@@ -433,27 +433,6 @@ type FsWatcher(delayMs: int) =
         |> Observable.throttle delayMs
         |> Observable.map caseInsensitiveSet
 
-// TODO: Check the path is actually normalized?
-type File(normalizedFullPath: string) =
-    let mutable sourceHash = None
-    member _.NormalizedFullPath = normalizedFullPath
-
-    member _.ReadSource() =
-        match sourceHash with
-        | Some h -> h, lazy File.readAllTextNonBlocking normalizedFullPath
-        | _ ->
-            let source = File.readAllTextNonBlocking normalizedFullPath
-            let h = hash source
-            sourceHash <- Some h
-            h, lazy source
-
-    static member MakeSourceReader(files: File[]) =
-        let fileDic =
-            files |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
-
-        let sourceReader f = fileDic[f].ReadSource()
-        files |> Array.map (fun file -> file.NormalizedFullPath), sourceReader
-
 type ProjectCracked
     (cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFiles: File array)
     =
@@ -473,7 +452,14 @@ type ProjectCracked
     member _.FableLibDir = crackerResponse.FableLibDir
     member _.FableModulesDir = crackerResponse.FableModulesDir
 
-    member _.MakeCompiler(currentFile, project, ?triggeredByDependency) =
+    member _.MakeCompiler
+        (
+            checker: InteractiveChecker,
+            currentFile,
+            project,
+            ?triggeredByDependency
+        )
+        =
         let opts =
             match triggeredByDependency with
             | Some t ->
@@ -490,6 +476,7 @@ type ProjectCracked
                 None
 
         CompilerImpl(
+            checker,
             currentFile,
             project,
             opts,
@@ -613,9 +600,9 @@ type FableCompilerState =
 
 and FableCompiler
     (
+        checker: InteractiveChecker,
         projCracked: ProjectCracked,
-        fableProj: Project,
-        checker: InteractiveChecker
+        fableProj: Project
     )
     =
     let agent =
@@ -639,6 +626,7 @@ and FableCompiler
                         async {
                             let com =
                                 projCracked.MakeCompiler(
+                                    checker,
                                     fileName,
                                     fableProj,
                                     triggeredByDependency =
@@ -930,7 +918,7 @@ and FableCompiler
                     getPlugin = loadType projCracked.CliArgs
                 )
 
-            return FableCompiler(projCracked, fableProj, checker)
+            return FableCompiler(checker, projCracked, fableProj)
         }
 
     member _.CompileToFile(outFile: string) =

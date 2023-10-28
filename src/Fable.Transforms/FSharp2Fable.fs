@@ -3431,6 +3431,8 @@ type FableCompiler(com: Compiler) =
                 ?tag = tag
             )
 
+        member _.GetDependentFiles() = com.GetDependentFiles()
+
 
 let rec attachClassMembers (com: FableCompiler) =
     function

@@ -5908,6 +5908,8 @@ module Compiler =
                     ?tag = tag
                 )
 
+            member _.GetDependentFiles() = com.GetDependentFiles()
+
     let makeCompiler com = PythonCompiler(com)
 
     let transformFile (com: Compiler) (file: Fable.File) =

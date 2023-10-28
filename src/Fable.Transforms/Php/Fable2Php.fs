@@ -2653,6 +2653,8 @@ type PhpCompiler(com: Fable.Compiler) =
                 | _ -> false)
                 breakable
 
+        member _.GetDependentFiles() = com.GetDependentFiles()
+
 module Compiler =
 
     let transformFile com (file: Fable.File) =

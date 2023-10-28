@@ -1,5 +1,6 @@
 module Fable.Transforms.State
 
+open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open System.Collections.Concurrent
@@ -314,6 +315,7 @@ type Log =
 /// Not thread-safe, an instance must be created per file
 type CompilerImpl
     (
+        checker: InteractiveChecker,
         currentFile,
         project: Project,
         options,
@@ -367,6 +369,7 @@ type CompilerImpl
                 |> Path.getRelativeFileOrDirPath false file true
 
             CompilerImpl(
+                checker,
                 file,
                 project,
                 options,
@@ -464,3 +467,13 @@ type CompilerImpl
                 ?tag = tag
             )
             |> logs.Add
+
+        member _.GetDependentFiles() =
+            let sourceReader =
+                File.MakeSourceReader(Array.map File project.SourceFiles) |> snd
+
+            checker.GetDependentFiles(
+                currentFile,
+                project.SourceFiles,
+                sourceReader
+            )
