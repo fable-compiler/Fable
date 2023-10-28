@@ -861,3 +861,7 @@ let ``test Can create FormattableString`` () =
 //    let s3: FormattableString = $"""I have no holes"""
 //    s3.GetStrings() |> equal [|"I have no holes"|]
 #endif
+
+[<Fact>]
+let ``test printing strings with unicode characters`` () =
+    printfn "🚀 printing unicode ..."

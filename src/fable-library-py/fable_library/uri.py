@@ -102,13 +102,13 @@ class Uri:
 
     @staticmethod
     def create(
-        uri: str | Uri, kind_or_uri: UriKind | (str | Uri) = UriKind.Absolute
+        uri: str | Uri, kind_or_uri: UriKind | str | Uri = UriKind.Absolute
     ) -> Uri:
         return Uri(uri, kind_or_uri)
 
     @staticmethod
     def try_create(
-        uri: str | Uri, kind_or_uri: UriKind | (str | Uri), out: FSharpRef[Uri]
+        uri: str | Uri, kind_or_uri: UriKind | str | Uri, out: FSharpRef[Uri]
     ) -> bool:
         try:
             out.contents = Uri.create(uri, kind_or_uri)
