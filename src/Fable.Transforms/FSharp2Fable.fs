@@ -1405,7 +1405,7 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
     let name, isMangled =
         match Compiler.Language with
         | Rust -> getMemberDeclarationName com memb |> fst, true
-        | _ -> Naming.removeGetSetPrefix memb.CompiledName, false
+        | _ -> FsMemberFunctionOrValue.CompiledName(memb), false
     com.AddAttachedMember(entFullName, isMangled=false, memb =
         { Name = name
           Body = body
