@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+#### JavaScript
+
+* Fix #3571: `[<AttachMembers>]` not compatible with f# member `this.Item` (by @ncave)
+
 ## 4.4.1 - 2023-10-25
 
 ### Changed
