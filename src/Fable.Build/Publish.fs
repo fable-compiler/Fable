@@ -61,7 +61,12 @@ let private publishNuget (fsprojDir : string) =
     let changelogPath = Path.Combine(fsprojDir, "CHANGELOG.md")
     let lastChangelogVersion =
         Changelog.getLastVersion changelogPath
+    let lastVersion =
+        lastChangelogVersion
         |> fun v -> v.Version.ToString()
+
+    let lastVersionBody =
+        ChangelogParser.Version.bodyAsMarkdown lastChangelogVersion
 
     printfn $"Publishing: %s{fsprojDir}"
 
@@ -70,9 +75,12 @@ let private publishNuget (fsprojDir : string) =
     if nugetKey = null then
         failwithf $"Missing FABLE_NUGET_KEY environment variable"
 
+    if Fsproj.needPublishing fsprojContent lastVersion then
+        let updatedFsprojContent =
+            fsprojContent
+            |> Fsproj.replaceVersion lastVersion
+            |> Fsproj.replacePackageReleaseNotes lastVersionBody
 
-    if Fsproj.needPublishing fsprojContent lastChangelogVersion then
-        let updatedFsprojContent = Fsproj.replaceVersion fsprojContent lastChangelogVersion
         File.WriteAllText(fsprojPath, updatedFsprojContent)
         let nupkgPath = Dotnet.pack fsprojDir
         Dotnet.Nuget.push(nupkgPath, nugetKey)
