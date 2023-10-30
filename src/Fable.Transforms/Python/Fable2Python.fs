@@ -727,7 +727,7 @@ module Annotation =
         | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) ->
             let resolved, stmts = resolveGenerics com ctx [genArg] None
-            Expression.binOp(resolved[0], BinaryOrBitwise, Expression.none), stmts
+            Expression.binOp(resolved[0], BitOr, Expression.none), stmts
         | Fable.Tuple (genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
         | Fable.Array (genArg, _) ->
             match genArg with
@@ -982,9 +982,9 @@ module Annotation =
         // If the only argument is generic, then we make the return type optional as well
         let returnType' =
             // printfn "Generic params: %A" (args, repeatedGenerics, body.Type)
-            match body.Type with
-            | Fable.GenericParam (name = _y) -> //when not (Set.contains y repeatedGenerics) ->
-                com.GetImportExpr(ctx, "typing", "Any")
+            match args, body.Type with
+            | [ { Type = Fable.GenericParam (name = x) } ], Fable.GenericParam (name = y) when x = y && Set.contains x repeatedGenerics ->
+                Expression.binOp(returnType, BinaryOrBitwise, Expression.none)
             | _ -> returnType
 
         args', stmts @ body', returnType'
@@ -3362,7 +3362,7 @@ module Util =
             | [ arg ], true ->
                 let optional =
                     match arg.Annotation with
-                    | Some typeArg -> typeArg |> Some
+                    | Some typeArg -> Expression.binOp (typeArg, BitOr, Expression.name "None") |> Some
                     | None -> None
 
                 let args = [ { arg with Annotation = optional } ]
