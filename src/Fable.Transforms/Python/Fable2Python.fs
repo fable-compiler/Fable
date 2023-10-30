@@ -1039,8 +1039,7 @@ module Util =
             discardUnitArg args
             |> List.map (fun arg ->
                 let name = getUniqueNameInDeclarationScope ctx (arg.Name + "_mut")
-
-                let ta, _ = typeAnnotation com ctx (Some (set [])) arg.Type
+                let ta, _ = typeAnnotation com ctx (Some Set.empty) arg.Type
                 Arg.arg (name, ta))
 
         interface ITailCallOpportunity with
