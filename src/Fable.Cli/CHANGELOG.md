@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Fix #3571: `[<AttachMembers>]` not compatible with f# member `this.Item` (by @ncave)
 
+### Changed
+
+#### Rust
+
+* Support multiple namespaces sharing a prefix in the same file (by @ncave)
+
 ## 4.4.1 - 2023-10-25
 
 ### Changed
