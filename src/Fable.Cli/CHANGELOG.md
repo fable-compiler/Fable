@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Python] Use `Any` type for all non-repeated generic arguments (by @dbrattli)
 - [Python] Don't generate unnecessary type type-vars if generic type is replaced by `Any` (by @dbrattli)
+- [Python] Generate new style `_T | None` instead of `Optional[_T]` (by @dbrattli)
 
 ### Fixed
 
