@@ -4085,6 +4085,39 @@ module Util =
         let isInternal, isPrivate = getVis com ctx memb.DeclaringEntity memb.IsInternal memb.IsPrivate
         memberAssocItem |> mkAssocItemWithVis isInternal isPrivate
 
+    let mergeNamespaceDecls (com: IRustCompiler) ctx decls =
+        // separate namespace decls from the others
+        let namespaceDecls, otherDecls =
+            decls
+            |> List.partition (function
+                | Fable.ModuleDeclaration d ->
+                    let ent = com.GetEntity(d.Entity)
+                    ent.IsNamespace
+                | _ -> false)
+        // merge namespace decls with the same name into a single decl
+        let namespaceDecls =
+            namespaceDecls
+            |> List.groupBy (function
+                | Fable.ModuleDeclaration d -> d.Name
+                | _ -> failwith "unreachable")
+            |> List.map (fun (key, decls) ->
+                match decls with
+                | [d] -> d // no merge needed
+                | _ ->
+                    let members =
+                        decls
+                        |> List.map (function
+                            | Fable.ModuleDeclaration d -> d.Members
+                            | _ -> [])
+                        |> List.concat
+                    match List.head decls with
+                    | Fable.ModuleDeclaration d ->
+                        Fable.ModuleDeclaration { d with Members = members }
+                    | d -> d
+            )
+        // return merged decls
+        List.append namespaceDecls otherDecls
+
     let transformModuleDecl (com: IRustCompiler) ctx (decl: Fable.ModuleDecl) =
         let ctx = { ctx with ModuleDepth = ctx.ModuleDepth + 1 }
         let memberDecls =
@@ -4093,6 +4126,7 @@ module Util =
             // this prioritizes non-module declaration transforms first,
             // so module imports can be properly deduped top to bottom.
             decl.Members
+            |> mergeNamespaceDecls com ctx
             |> List.map (fun decl ->
                 let lazyDecl = lazy (transformDecl com ctx decl)
                 match decl with
@@ -4100,6 +4134,7 @@ module Util =
                 | _ -> lazyDecl.Force() |> ignore // transform other decls first
                 lazyDecl)
             |> List.collect (fun lazyDecl -> lazyDecl.Force())
+
         if List.isEmpty memberDecls then
             [] // don't output empty modules
         else
@@ -4140,6 +4175,11 @@ module Util =
                 transformMemberDecl com ctx decl
         | Fable.ClassDeclaration decl ->
             transformClassDecl com ctx decl
+
+    let transformDeclarations (com: IRustCompiler) ctx decls =
+        decls
+        |> mergeNamespaceDecls com ctx
+        |> List.collect (transformDecl com ctx)
 
     // F# hash function is unstable and gives different results in different runs
     // Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
@@ -4370,12 +4410,12 @@ module Compiler =
                 // mkInnerAttr "feature" ["destructuring_assignment"]
         ]
 
-        let entryPointItems = getEntryPointItems com ctx file.Declarations
+        let entryPointItems = file.Declarations |> getEntryPointItems com ctx
         let importItems = com.GetAllImports(ctx) |> transformImports com ctx
-        let declItems = List.collect (transformDecl com ctx) file.Declarations
+        let declItems = file.Declarations |> transformDeclarations com ctx
         let moduleItems = getModuleItems com ctx // global module imports
         let crateItems = importItems @ declItems @ moduleItems @ entryPointItems
-        let innerAttrs = getInnerAttributes com ctx file.Declarations
+        let innerAttrs = file.Declarations |> getInnerAttributes com ctx
         let crateAttrs = topAttrs @ innerAttrs
         let crate = mkCrate crateAttrs crateItems
         crate
