@@ -579,9 +579,6 @@ module Annotation =
             com.GetImportExpr(ctx, "typing", "Generic")
             |> ignore
 
-            com.GetImportExpr(ctx, "typing", "TypeVar")
-            |> ignore
-
             let genParams =
                 genParams
                 |> Set.toList
@@ -695,7 +692,7 @@ module Annotation =
         |> Helpers.unzipArgs
 
     let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) (t: Fable.Type) : Expression * Statement list =
-        // printfn "typeAnnotation: %A" t
+        // printfn "typeAnnotation: %A" (t, repeatedGenerics)
         match t with
         | Fable.Measure _
         | Fable.Any -> stdlibModuleTypeHint com ctx "typing" "Any" []
@@ -704,16 +701,10 @@ module Annotation =
         | Fable.GenericParam (name = name) ->
             match repeatedGenerics with
             | Some names when names.Contains name ->
-                com.GetImportExpr(ctx, "typing", "TypeVar")
-                |> ignore
-
                 let name = Helpers.clean name
                 com.AddTypeVar(ctx, name), []
             | Some _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
             | None ->
-                com.GetImportExpr(ctx, "typing", "TypeVar")
-                |> ignore
-
                 let name = Helpers.clean name
                 com.AddTypeVar(ctx, name), []
         | Fable.Unit -> Expression.none, []
@@ -726,7 +717,7 @@ module Annotation =
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.Option (genArg, _) ->
-            let resolved, stmts = resolveGenerics com ctx [genArg] None
+            let resolved, stmts = resolveGenerics com ctx [genArg] repeatedGenerics
             Expression.binOp(resolved[0], BitOr, Expression.none), stmts
         | Fable.Tuple (genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
         | Fable.Array (genArg, _) ->
@@ -1049,7 +1040,7 @@ module Util =
             |> List.map (fun arg ->
                 let name = getUniqueNameInDeclarationScope ctx (arg.Name + "_mut")
 
-                let ta, _ = typeAnnotation com ctx None arg.Type
+                let ta, _ = typeAnnotation com ctx (Some (set [])) arg.Type
                 Arg.arg (name, ta))
 
         interface ITailCallOpportunity with
@@ -3288,7 +3279,6 @@ module Util =
                 BoundVars = ctx.BoundVars.EnterScope()
                 ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
 
-        // printfn "Args: %A" args
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
