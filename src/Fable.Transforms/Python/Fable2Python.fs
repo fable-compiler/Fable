@@ -54,7 +54,7 @@ type BoundVars =
         this.LocalScope.Add name |> ignore
 
     member this.Bind(ids: Identifier list) =
-        for (Identifier name) in ids do
+        for Identifier name in ids do
             this.LocalScope.Add name |> ignore
 
     member this.NonLocals(idents: Identifier list) =
@@ -161,7 +161,7 @@ module Reflection =
 
     let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics =
         let fullname = ent.FullName
-        let fullnameExpr = Expression.constant (fullname)
+        let fullnameExpr = Expression.constant fullname
 
         let genMap =
             let genParamNames =
@@ -280,7 +280,7 @@ module Reflection =
 
             List.zip (List.ofArray fieldNames) genArgs
             |> List.map (fun (k, t) ->
-                Expression.tuple [ Expression.constant (k)
+                Expression.tuple [ Expression.constant k
                                    t ])
             |> libReflectionCall com ctx None "anonRecord",
             stmts
@@ -387,7 +387,7 @@ module Reflection =
             exprs |> libReflectionCall com ctx r "class", stmts
 
     let private ofString s = Expression.constant s
-    let private ofArray exprs = Expression.list (exprs)
+    let private ofArray exprs = Expression.list exprs
 
     let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : Expression * Statement list =
         let warnAndEvalToFalse msg =
@@ -419,7 +419,7 @@ module Reflection =
         | Fable.Boolean -> pyTypeof "<class 'bool'>" expr
         | Fable.Char
         | Fable.String -> pyTypeof "<class 'str'>" expr
-        | Fable.Number (kind, b) ->
+        | Fable.Number (kind, _b) ->
             match kind, typ with
             | _, Fable.Type.Number (UInt8, _) -> pyTypeof "<fable_modules.fable_library.types.uint8'>>" expr
             | _, Fable.Type.Number (Int8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int8'>" expr
@@ -550,7 +550,7 @@ module Helpers =
         | Statement.Assign { Targets = [ Name { Id = Identifier x } ]
                              Value = Name { Id = Identifier y } } when x = y -> None
         | Statement.AnnAssign { Target = Name { Id = Identifier x }
-                                Value = Some (Name { Id = Identifier (y) }) } when x = y -> None
+                                Value = Some (Name { Id = Identifier y }) } when x = y -> None
         | Expr expr ->
             if hasNoSideEffects expr.Value then
                 None
@@ -586,7 +586,6 @@ module Annotation =
                 genParams
                 |> Set.toList
                 |> List.map (fun genParam ->
-                    let arg = Util.getUniqueNameInRootScope (ctx: Context) genParam
                     com.AddTypeVar(ctx, genParam))
 
             let generic = Expression.name "Generic"
@@ -612,7 +611,7 @@ module Annotation =
 
             let args =
                 match args with
-                | Expression.Name { Id=Identifier Ellipsis } :: xs -> Expression.ellipsis
+                | Expression.Name { Id=Identifier Ellipsis } :: _xs -> Expression.ellipsis
                 | _ ->
                     args
                     |> List.removeAt (args.Length - 1)
@@ -620,10 +619,10 @@ module Annotation =
                         | Expression.Name { Id = Identifier "None" } when args.Length = 2 -> None
                         | x -> Some x)
                     |> Expression.list
-            Expression.subscript (expr, Expression.tuple ([ args; returnType ]))
+            Expression.subscript (expr, Expression.tuple [ args; returnType ])
         | _, [] -> expr
         | _, [ arg ] -> Expression.subscript (expr, arg)
-        | _, args -> Expression.subscript (expr, Expression.tuple (args))
+        | _, args -> Expression.subscript (expr, Expression.tuple args)
 
     let fableModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics =
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
@@ -695,7 +694,7 @@ module Annotation =
         |> List.map (typeAnnotation com ctx repeatedGenerics)
         |> Helpers.unzipArgs
 
-    let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) t : Expression * Statement list =
+    let typeAnnotation (com: IPythonCompiler) ctx (repeatedGenerics: Set<string> option) (t: Fable.Type) : Expression * Statement list =
         // printfn "typeAnnotation: %A" t
         match t with
         | Fable.Measure _
@@ -726,7 +725,9 @@ module Annotation =
             let argTypes, returnType = uncurryLambdaType -1 [ argType ] returnType
             stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
         | Fable.DelegateType (argTypes, returnType) -> stdlibModuleTypeHint com ctx "typing" "Callable" (argTypes @ [ returnType ])
-        | Fable.Option (genArg, _) -> stdlibModuleTypeHint com ctx "typing" "Optional" [ genArg ]
+        | Fable.Option (genArg, _) ->
+            let resolved, stmts = resolveGenerics com ctx [genArg] None
+            Expression.binOp(resolved[0], BinaryOrBitwise, Expression.none), stmts
         | Fable.Tuple (genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
         | Fable.Array (genArg, _) ->
             match genArg with
@@ -741,7 +742,7 @@ module Annotation =
             | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
-        | Fable.AnonymousRecordType (_, genArgs, _) ->
+        | Fable.AnonymousRecordType (_, _genArgs, _) ->
             let value = Expression.name "dict"
             let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
 
@@ -935,7 +936,7 @@ module Annotation =
                         | "boolean" -> BooleanTypeAnnotation
                         | "string" -> StringTypeAnnotation
                         | _ -> AnyTypeAnnotation*)
-                    | Expression.Name { Id = Identifier id } -> makeGenericTypeAnnotation com ctx id genArgs repeatedGenerics, []
+                    | Expression.Name { Id = Identifier id } -> makeGenericTypeAnnotation com ctx id genArgs repeatedGenerics, stmts
                     // TODO: Resolve references to types in nested modules
                     | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
                 | None -> stdlibModuleTypeHint com ctx "typing" "Any" []
@@ -974,16 +975,16 @@ module Annotation =
         // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
         let repeatedGenerics =
             Util.getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])
-        // printfn "repeatedGenerics: %A" (name, repeatedGenerics, argTypes, body.Type)
 
         let args', body' = com.TransformFunction(ctx, name, args, body, repeatedGenerics)
         let returnType, stmts = typeAnnotation com ctx (Some repeatedGenerics) body.Type
 
         // If the only argument is generic, then we make the return type optional as well
         let returnType' =
-            match args, body.Type with
-            | [ { Type = Fable.GenericParam (name = x) } ], Fable.GenericParam (name = y) when x = y && Set.contains x repeatedGenerics ->
-                stdlibModuleAnnotation com ctx "typing" "Optional" [ returnType ]
+            // printfn "Generic params: %A" (args, repeatedGenerics, body.Type)
+            match body.Type with
+            | Fable.GenericParam (name = _y) -> //when not (Set.contains y repeatedGenerics) ->
+                com.GetImportExpr(ctx, "typing", "Any")
             | _ -> returnType
 
         args', stmts @ body', returnType'
@@ -993,7 +994,7 @@ module Util =
     open Reflection
     open Annotation
 
-    let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
+    let getIdentifier (_com: IPythonCompiler) (_ctx: Context) (name: string) =
         let name = Helpers.clean name
         Identifier name
 
@@ -1128,7 +1129,7 @@ module Util =
 
     let ofString (s: string) = Expression.constant s
 
-    let memberFromName (com: IPythonCompiler) (ctx: Context) (memberName: string) : Expression =
+    let memberFromName (_com: IPythonCompiler) (_ctx: Context) (memberName: string) : Expression =
         // printfn "memberFromName: %A" memberName
         match memberName with
         | "ToString" -> Expression.identifier "__str__"
@@ -1148,7 +1149,7 @@ module Util =
             ||> Naming.sanitizeIdent (fun _ -> false)
             |> Expression.name
 
-    let get (com: IPythonCompiler) ctx r left memberName subscript =
+    let get (com: IPythonCompiler) ctx _r left memberName subscript =
         // printfn "get: %A" (memberName, subscript)
         match subscript with
         | true ->
@@ -1158,7 +1159,7 @@ module Util =
             let expr = com.GetIdentifier(ctx, memberName)
             Expression.attribute (value = left, attr = expr, ctx = Load)
 
-    let getExpr com ctx r (object: Expression) (expr: Expression) =
+    let getExpr _com _ctx _r (object: Expression) (expr: Expression) =
         match expr with
         | Expression.Constant (value = name) when (name :? string) ->
             let name = name :?> string |> Identifier
@@ -1205,7 +1206,7 @@ module Util =
         | _ -> expr |> Expression.list, stmts
 
 
-    let makeArrayAllocated (com: IPythonCompiler) ctx typ kind (size: Fable.Expr) =
+    let makeArrayAllocated (com: IPythonCompiler) ctx _typ _kind (size: Fable.Expr) =
         //printfn "makeArrayAllocated"
         let size, stmts = com.TransformAsExpr(ctx, size)
         let array = Expression.list [ Expression.constant 0 ]
@@ -1237,7 +1238,7 @@ module Util =
 
     let makeStringArray strings =
         strings
-        |> List.map (fun x -> Expression.constant (x))
+        |> List.map (fun x -> Expression.constant x)
         |> Expression.list
 
     let makePyObject (pairs: seq<string * Expression>) =
@@ -1331,7 +1332,7 @@ module Util =
 
         Expression.emit (value, args, ?loc = range)
 
-    let undefined range : Expression = Expression.none
+    let undefined _range : Expression = Expression.none
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams =
@@ -1441,12 +1442,12 @@ module Util =
                 Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
             | _ -> args
 
-        let allDefaultsAreNone = args.Defaults |> List.forall (function Expression.Name ({Id=Identifier "None"}) -> true | _ -> false)
+        let allDefaultsAreNone = args.Defaults |> List.forall (function Expression.Name {Id=Identifier "None"} -> true | _ -> false)
         let (|ImmediatelyApplied|_|) = function
             | Expression.Call {Func=callee; Args=appliedArgs } when args.Args.Length = appliedArgs.Length && allDefaultsAreNone ->
                 // To be sure we're not running side effects when deleting the function check the callee is an identifier
                 match callee with
-                | Expression.Name(_) ->
+                | Expression.Name _ ->
                     let parameters = args.Args |> List.map (fun a -> (Expression.name a.Arg))
                     List.zip parameters appliedArgs
                     |> List.forall (function
@@ -1483,11 +1484,11 @@ module Util =
                 let rec find body : bool =
                     body
                     |> List.tryFind (function
-                        | Statement.Return {Value=Some(Expression.IfExp { Body=Awaitable(_); OrElse=Awaitable(_) }) } -> true
-                        | Statement.Return { Value=Some(Awaitable(_))} -> true
+                        | Statement.Return { Value=Some(Expression.IfExp { Body=Awaitable _; OrElse=Awaitable _ }) } -> true
+                        | Statement.Return { Value=Some(Awaitable _)} -> true
                         | Statement.If { Body=body; Else=orElse } ->
                             find body && find orElse
-                        | stmt -> false)
+                        | _stmt -> false)
                     |> Option.isSome
                 find body
             | _ -> false
@@ -1497,7 +1498,7 @@ module Util =
             |> List.map (function
                 | Statement.Return {Value=Some(Expression.IfExp { Test=test; Body=body; OrElse=orElse }) } ->
                     Statement.return' (Expression.ifExp(test, Expression.Await(body), Expression.Await(orElse)))
-                | Statement.Return { Value=Some(Awaitable(expr))} -> Statement.return' (Expression.Await (expr))
+                | Statement.Return { Value=Some(Awaitable(expr))} -> Statement.return' (Expression.Await expr)
                 | Statement.If { Test=test; Body=body; Else=orElse } -> Statement.if'(test, replace body, orelse=replace orElse)
                 | stmt -> stmt)
 
@@ -1579,7 +1580,7 @@ module Util =
                      |> exprAsStatement ctx)
           yield Statement.continue' (?loc = range) ]
 
-    let transformImport (com: IPythonCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
+    let transformImport (com: IPythonCompiler) ctx (_r: SourceLocation option) (name: string) (moduleName: string) =
         let name, parts =
             let parts = Array.toList (name.Split('.'))
             parts.Head, parts.Tail
@@ -1594,7 +1595,7 @@ module Util =
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType (ent, [ _ ]) ->
             match ent.FullName, e with
-            | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral (exprs, typ) ->
+            | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral (exprs, _typ) ->
                 let expr, stmts =
                     exprs
                     |> List.map (fun e -> com.TransformAsExpr(ctx, e))
@@ -1610,7 +1611,7 @@ module Util =
         com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
 
-    let makeNumber (com: IPythonCompiler) (ctx: Context) r t intName x =
+    let makeNumber (com: IPythonCompiler) (ctx: Context) r _t intName x =
         let cons = libValue com ctx "types" intName
         let value = Expression.constant (x, ?loc = r)
         Expression.call (cons, [ value ], ?loc = r), []
@@ -1632,7 +1633,7 @@ module Util =
             | [part] -> makeStrConst part
             | part::parts ->
                 let acc = makeStrConst part
-                (acc, List.zip values parts) ||> List.fold (fun acc ((MaybeCasted(value)), part) ->
+                (acc, List.zip values parts) ||> List.fold (fun acc (MaybeCasted(value), part) ->
                     let value =
                         match value.Type with
                         | Fable.String -> value
@@ -1697,7 +1698,7 @@ module Util =
                 else
                     e, stmts
             | None -> undefined r, []
-        | Fable.NewRecord (values, ent, genArgs) ->
+        | Fable.NewRecord (values, ent, _genArgs) ->
             let ent = com.GetEntity(ent)
 
             let values, stmts =
@@ -1715,7 +1716,7 @@ module Util =
             List.zip (List.ofArray fieldNames) values
             |> makePyObject,
             stmts
-        | Fable.NewUnion (values, tag, ent, genArgs) ->
+        | Fable.NewUnion (values, tag, ent, _genArgs) ->
             let ent = com.GetEntity(ent)
 
             let values, stmts =
@@ -1754,7 +1755,7 @@ module Util =
                 |> Option.map (fun t -> t.Entity.FullName)
                 |> Option.defaultValue "unknown type"
 
-            sprintf "Ignoring base call for %s" name
+            $"Ignoring base call for %s{name}"
             |> addWarning com [] range
 
             None
@@ -1843,10 +1844,10 @@ module Util =
                 else
                     [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ])
 
-        let baseExpr, classMembers =
+        let _baseExpr, classMembers =
             baseCall
             |> extractBaseExprFromBaseCall com ctx None
-            |> Option.map (fun (baseExpr, (baseArgs, kw, stmts)) ->
+            |> Option.map (fun (baseExpr, (baseArgs, _kw, _stmts)) ->
                 let consBody = [ callSuperAsStatement baseArgs ]
                 let args = Arguments.empty
                 let classCons = makeClassConstructor args false consBody
@@ -1860,7 +1861,6 @@ module Util =
             | _ -> classMembers
 
         let name = Helpers.getUniqueIdentifier "ObjectExpr"
-
         let stmt = Statement.classDef (name, body = classBody, bases = interfaces)
 
         Expression.call (Expression.name name), [ stmt ] @ stmts
@@ -1932,7 +1932,7 @@ module Util =
             //let kw = Statement.assign([ name], objArg)
             args, objArg, stmts @ stmts'
 
-    let resolveExpr (ctx: Context) t strategy pyExpr : Statement list =
+    let resolveExpr (ctx: Context) _t strategy pyExpr : Statement list =
         // printfn "resolveExpr: %A" (pyExpr, strategy)
         match strategy with
         | None
@@ -2139,7 +2139,7 @@ module Util =
 
         [ nonLocal ], body
 
-    let transformBody (com: IPythonCompiler) ctx ret (body: Statement list) : Statement list =
+    let transformBody (_com: IPythonCompiler) ctx _ret (body: Statement list) : Statement list =
         match body with
         | [] -> [ Pass ]
         | _ ->
@@ -2374,7 +2374,7 @@ module Util =
             let actual, stmts = getUnionExprTag com ctx None expr
             Expression.compare (actual, [ Eq ], [ expected ], ?loc = range), stmts
 
-    let transformSwitch (com: IPythonCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase : Statement list =
+    let transformSwitch (com: IPythonCompiler) ctx _useBlocks returnStrategy evalExpr cases defaultCase : Statement list =
         let cases =
             cases
             |> List.collect (fun (guards, expr) ->
@@ -2525,7 +2525,7 @@ module Util =
         boundValues
         : Statement list =
         match returnStrategy with
-        | Some (Target targetId) as target ->
+        | Some (Target targetId) as _target ->
             let idents, _ = getDecisionTarget ctx targetIndex
 
             let assignments =
@@ -2792,7 +2792,7 @@ module Util =
         let name = Expression.name name
         Expression.call name, [ func ]
 
-    let transformSequenceExpr' (com: IPythonCompiler) ctx (exprs: Expression list) (stmts: Statement list) : Expression * Statement list =
+    let transformSequenceExpr' (_com: IPythonCompiler) ctx (exprs: Expression list) (stmts: Statement list) : Expression * Statement list =
         // printfn "transformSequenceExpr2', exprs: %A" exprs.Length
         // printfn "ctx: %A" ctx.BoundVars
         let ctx = { ctx with BoundVars = ctx.BoundVars.EnterScope() }
@@ -2844,15 +2844,15 @@ module Util =
             // printfn "members: %A" (members, typ)
             transformObjectExpr com ctx members typ baseCall
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "has" }, _, _), info, _, range) ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "has" }, _, _), info, _, _range) ->
             let left, stmts = com.TransformAsExpr(ctx, info.Args.Head)
             let value, stmts' = com.TransformAsExpr(ctx, expr)
             Expression.compare (left, [ ComparisonOperator.In ], [ value ]), stmts @ stmts'
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, _, range) ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, _, _range) ->
             transformAsSlice com ctx expr info
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "to_array" }, _, _), info, _, range) ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "to_array" }, _, _), info, _, _range) ->
             transformAsArray com ctx expr info
 
         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = name }, _, _), _info, _, _range) when name.ToLower() = "tostring" ->
@@ -2910,7 +2910,7 @@ module Util =
                 expr', nonLocals @ stmts
             | _ -> expr', stmts
 
-        | Fable.Let (ident, value, body) ->
+        | Fable.Let (_ident, _value, _body) ->
             // printfn "Fable.Let: %A" (ident, value, body)
             iife com ctx expr
 
@@ -3032,7 +3032,7 @@ module Util =
 
         | Fable.Import ({ Selector = selector
                           Path = path
-                          Kind = kind },
+                          Kind = _kind },
                         t,
                         r) ->
             transformImport com ctx r selector path
@@ -3066,10 +3066,10 @@ module Util =
             let expr, stmts = transformObjectExpr com ctx members t baseCall
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
-        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, typ, range) ->
+        | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "slice" }, _, _), info, typ, _range) ->
             let expr, stmts = transformAsSlice com ctx expr info
             stmts @ resolveExpr ctx typ returnStrategy expr
-         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "to_array" }, _, _), info, typ, range) ->
+         | Fable.Call (Fable.Get (expr, Fable.FieldGet { Name = "to_array" }, _, _), info, typ, _range) ->
             let expr, stmts = transformAsArray com ctx expr info
             stmts @ resolveExpr ctx typ returnStrategy expr
         | Fable.Call (callee, info, typ, range) -> transformCallAsStatements com ctx range typ returnStrategy callee info
@@ -3102,12 +3102,12 @@ module Util =
                               Some (Fable.IfThenElse (_,
                                                       Fable.Call (Fable.Get (Fable.TypeCast (Fable.IdentExpr { Name = disposeName }, _),
                                                                              Fable.FieldGet { Name = "Dispose" },
-                                                                             t,
+                                                                             _t,
                                                                              _),
                                                                   _,
                                                                   _,
                                                                   _),
-                                                      elseExpr,
+                                                      _elseExpr,
                                                       _)),
                               _) when valueName = disposeName ->
                 let id = Identifier valueName
@@ -3212,7 +3212,7 @@ module Util =
             stmts
             @ [ Statement.while' (guard, transformBlock com ctx None body, ?loc = range) ]
 
-        | Fable.ForLoop (var, TransformExpr com ctx (start, stmts), TransformExpr com ctx (limit, stmts'), body, isUp, range) ->
+        | Fable.ForLoop (var, TransformExpr com ctx (start, _stmts), TransformExpr com ctx (limit, _stmts'), body, isUp, _range) ->
             let limit, step =
                 if isUp then
                     let limit = Expression.binOp (limit, Add, Expression.constant 1) // Python `range` has exclusive end.
@@ -3262,11 +3262,11 @@ module Util =
                         let annotation =
                             // Cleanup type annotations to avoid non-repeated generics
                             match arg.Annotation with
-                            | Some (Expression.Name {Id = Identifier name}) -> arg.Annotation
+                            | Some (Expression.Name {Id = Identifier _name}) -> arg.Annotation
                             | Some (Expression.Subscript {Value=value; Slice=Expression.Name {Id = Identifier name}}) when name.StartsWith("_") ->
                                 Expression.subscript(value, stdlibModuleAnnotation com ctx "typing" "Any" []) |> Some
                             | _ -> Some (stdlibModuleAnnotation com ctx "typing" "Any" [])
-                        (Arg.arg (name, ?annotation = annotation), Expression.name (name)) |> Some)
+                        (Arg.arg (name, ?annotation = annotation), Expression.name name) |> Some)
                 |> List.unzip
             | _ -> [], []
 
@@ -3362,9 +3362,7 @@ module Util =
             | [ arg ], true ->
                 let optional =
                     match arg.Annotation with
-                    | Some typeArg ->
-                        stdlibModuleAnnotation com ctx "typing" "Optional" [ typeArg ]
-                        |> Some
+                    | Some typeArg -> typeArg |> Some
                     | None -> None
 
                 let args = [ { arg with Annotation = optional } ]
@@ -3379,7 +3377,7 @@ module Util =
         let args = emitExpression None "sys.argv[1:]" []
 
         let test =
-            Expression.compare (Expression.name ("__name__"), [ ComparisonOperator.Eq ], [ Expression.constant ("__main__") ])
+            Expression.compare (Expression.name "__name__", [ ComparisonOperator.Eq ], [ Expression.constant "__main__" ])
 
         let main =
             Expression.call (funcExpr, [ args ])
@@ -3388,7 +3386,7 @@ module Util =
 
         Statement.if' (test, main)
 
-    let declareModuleMember (com: IPythonCompiler) ctx isPublic (membName: Identifier) typ (expr: Expression) =
+    let declareModuleMember (com: IPythonCompiler) ctx _isPublic (membName: Identifier) typ (expr: Expression) =
         let (Identifier name) = membName
         if com.OutputType = OutputType.Library then
             com.AddExport name |> ignore
@@ -3434,11 +3432,11 @@ module Util =
         (ent: Fable.Entity)
         (entName: string)
         (consArgs: Arguments)
-        (isOptional: bool)
-        (consBody: Statement list)
+        (_isOptional: bool)
+        (_consBody: Statement list)
         (baseExpr: Expression option)
         (classMembers: Statement list)
-        slotMembers
+        _slotMembers
         =
         let name = com.GetIdentifier(ctx, entName)
         let props =
@@ -3511,7 +3509,7 @@ module Util =
             |> List.map (fun int ->
                 let genericArgs =
                     match int.GenericArgs with
-                    | [ Fable.DeclaredType({FullName=fullName}, genericArgs)] when Helpers.removeNamespace(fullName) = entName ->
+                    | [ Fable.DeclaredType({FullName=fullName}, _genericArgs)] when Helpers.removeNamespace(fullName) = entName ->
                         [Fable.Type.Any]
                     | args -> args
                 let expr, stmts = makeEntityTypeAnnotation com ctx int.Entity genericArgs None
@@ -3745,9 +3743,7 @@ module Util =
             let name = Identifier("cases")
             let body = stmts @ [ Statement.return' expr ]
             let decorators = [ Expression.name "staticmethod" ]
-            let value = com.GetImportExpr(ctx, "typing", "List")
-
-            let returnType = Expression.subscript (value, Expression.name "str")
+            let returnType = Expression.subscript (Expression.name "list", Expression.name "str")
 
             Statement.functionDef (name, Arguments.arguments (), body = body, returns = returnType, decoratorList = decorators)
 
@@ -3841,7 +3837,7 @@ module Util =
                     Some(libValue com ctx "Types" "Record", ([], [], []))
                 else
                     None)
-            |> Option.map (fun (baseExpr, (baseArgs, kw, stmts)) ->
+            |> Option.map (fun (baseExpr, (baseArgs, _kw, stmts)) ->
                 let consBody =
                     stmts
                     @ [ callSuperAsStatement baseArgs ] @ consBody
@@ -3852,7 +3848,7 @@ module Util =
         [ yield! declareType com ctx classEnt classDecl.Name consArgs isOptional consBody baseExpr classMembers
           exposedCons ]
 
-    let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (classDecl: Fable.ClassDecl) =
+    let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_classDecl: Fable.ClassDecl) =
         // printfn "transformInterface"
         let classIdent = com.GetIdentifier(ctx, Helpers.removeNamespace classEnt.FullName)
 
@@ -3879,7 +3875,7 @@ module Util =
                       [ if memb.IsValue || memb.IsGetter then
                             Expression.name "property"
                         if memb.IsSetter then
-                            Expression.name ($"{name}.setter")
+                            Expression.name $"{name}.setter"
 
                         abstractMethod ] // Must be after @property
 
@@ -3913,7 +3909,7 @@ module Util =
                   let entity = com.TryGetEntity(ref)
                   match entity with
                   | Some entity ->
-                      let expr, stmts = makeEntityTypeAnnotation com ctx entity.Ref [] None
+                      let expr, _stmts = makeEntityTypeAnnotation com ctx entity.Ref [] None
                       expr
                   | None -> ()
 
@@ -4001,7 +3997,7 @@ module Util =
               let value = Expression.call (value, args)
               Statement.assign (targets, value) ]
 
-    let transformExports (com: IPythonCompiler) ctx (exports: HashSet<string>) =
+    let transformExports (_com: IPythonCompiler) _ctx (exports: HashSet<string>) =
         let exports = exports |> List.ofSeq
         match exports with
         | [] -> []
@@ -4011,7 +4007,7 @@ module Util =
 
             [ Statement.assign([all], names) ]
 
-    let transformImports (com: IPythonCompiler) (imports: Import list) : Statement list =
+    let transformImports (_com: IPythonCompiler) (imports: Import list) : Statement list =
         let imports =
             imports
             |> List.map (fun im ->

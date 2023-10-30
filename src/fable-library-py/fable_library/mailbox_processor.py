@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from queue import SimpleQueue
 from threading import RLock
-from typing import Any, Callable, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from .async_ import from_continuations, start_immediate
 from .async_builder import (
@@ -29,7 +30,7 @@ class MailboxProcessor(Generic[_Msg]):
     def __init__(
         self,
         body: Callable[[MailboxProcessor[_Msg]], Async[None]],
-        cancellation_token: Optional[CancellationToken] = None,
+        cancellation_token: CancellationToken | None = None,
     ):
         self.messages: SimpleQueue[_Msg] = SimpleQueue()
         self.token = cancellation_token or CancellationToken()
@@ -71,7 +72,7 @@ class MailboxProcessor(Generic[_Msg]):
             The reply from mailbox processor.
         """
 
-        result: Optional[_Reply] = None
+        result: _Reply | None = None
         continuation: Continuations[
             Any
         ] | None = None  # This is the continuation for the `done` callback of the awaiting poster.
@@ -141,7 +142,7 @@ class MailboxProcessor(Generic[_Msg]):
     def start(
         cls,
         body: Callable[[MailboxProcessor[_Msg]], Async[None]],
-        cancellation_token: Optional[CancellationToken] = None,
+        cancellation_token: CancellationToken | None = None,
     ) -> MailboxProcessor[_Msg]:
         mbox: MailboxProcessor[_Msg] = MailboxProcessor(body, cancellation_token)
         start_immediate(body(mbox))
@@ -163,7 +164,7 @@ def start_instance(mbox: MailboxProcessor[Any]) -> None:
 
 def start(
     body: Callable[[MailboxProcessor[_Msg]], Async[None]],
-    cancellationToken: Optional[CancellationToken] = None,
+    cancellationToken: CancellationToken | None = None,
 ) -> MailboxProcessor[_Msg]:
     mbox = MailboxProcessor(body, cancellationToken)
     start_instance(mbox)
