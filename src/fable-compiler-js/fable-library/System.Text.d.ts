@@ -1,0 +1,30 @@
+import { float64, int32 } from "./Int32.js";
+import { TypeInfo } from "./Reflection.js";
+export declare class StringBuilder {
+    readonly buf: string[];
+    constructor(value: string, capacity: int32);
+    toString(): string;
+}
+export declare function StringBuilder_$reflection(): TypeInfo;
+export declare function StringBuilder_$ctor_Z18115A39(value: string, capacity: int32): StringBuilder;
+export declare function StringBuilder_$ctor_Z524259A4(capacity: int32): StringBuilder;
+export declare function StringBuilder_$ctor_Z721C83C5(value: string): StringBuilder;
+export declare function StringBuilder_$ctor(): StringBuilder;
+export declare function StringBuilder__Append_Z721C83C5(x: StringBuilder, s: string): StringBuilder;
+export declare function StringBuilder__Append_487EF8FB(x: StringBuilder, s: string, startIndex: int32, count: int32): StringBuilder;
+export declare function StringBuilder__Append_244C7CD6(x: StringBuilder, c: string): StringBuilder;
+export declare function StringBuilder__Append_Z524259A4(x: StringBuilder, o: int32): StringBuilder;
+export declare function StringBuilder__Append_5E38073B(x: StringBuilder, o: float64): StringBuilder;
+export declare function StringBuilder__Append_Z1FBCCD16(x: StringBuilder, o: boolean): StringBuilder;
+export declare function StringBuilder__Append_4E60E31B(x: StringBuilder, o: any): StringBuilder;
+export declare function StringBuilder__Append_Z372E4D23(x: StringBuilder, cs: string[]): StringBuilder;
+export declare function StringBuilder__Append_43A65C09(x: StringBuilder, s: StringBuilder): StringBuilder;
+export declare function StringBuilder__AppendFormat_433E080(x: StringBuilder, fmt: string, o: any): StringBuilder;
+export declare function StringBuilder__AppendFormat_Z696D8D1B(x: StringBuilder, provider: any, fmt: string, o: any): StringBuilder;
+export declare function StringBuilder__AppendLine(x: StringBuilder): StringBuilder;
+export declare function StringBuilder__AppendLine_Z721C83C5(x: StringBuilder, s: string): StringBuilder;
+export declare function StringBuilder__Replace_Z766F94C0(x: StringBuilder, oldValue: string, newValue: string): StringBuilder;
+export declare function StringBuilder__Replace_Z384F8060(x: StringBuilder, oldValue: string, newValue: string): StringBuilder;
+export declare function StringBuilder__get_Length(x: StringBuilder): int32;
+export declare function StringBuilder__ToString_Z37302880(x: StringBuilder, firstIndex: int32, length: int32): string;
+export declare function StringBuilder__Clear(x: StringBuilder): StringBuilder;

@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "description": "Assemblies needed to compile F# projects with Fable",
   "main": "index.js",
+  "type": "module",
   "directories": {
     "lib": "lib"
   },
@@ -15,5 +16,8 @@
     "F#"
   ],
   "author": ".NET Foundation and Contributors",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "dirname-filename-esm": "^1.1.1"
+  }
 }

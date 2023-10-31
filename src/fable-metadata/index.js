@@ -1,8 +1,10 @@
 // This file is just a reference to locate the `lib` directory
 
-// path.join(path.dirname(require.resolve("fable-metadata")), "lib")
+import { dirname } from 'dirname-filename-esm';
+import path from 'path';
 
-exports.getAssembliesDir = function () {
-    const path = require("path");
-    return path.join(__dirname, "lib");
+const currentFileDir = dirname(import.meta);
+
+export function getAssembliesDir () {
+    return path.join(currentFileDir, "lib");
 }

@@ -1,0 +1,18 @@
+import { IEqualityComparer } from "./Util.js";
+import { int32 } from "./Int32.js";
+import { FSharpList } from "./List.js";
+export declare function distinct<T>(xs: Iterable<T>, comparer: IEqualityComparer<T>): Iterable<T>;
+export declare function distinctBy<T, Key>(projection: ((arg0: T) => Key), xs: Iterable<T>, comparer: IEqualityComparer<Key>): Iterable<T>;
+export declare function except<T>(itemsToExclude: Iterable<T>, xs: Iterable<T>, comparer: IEqualityComparer<T>): Iterable<T>;
+export declare function countBy<T, Key>(projection: ((arg0: T) => Key), xs: Iterable<T>, comparer: IEqualityComparer<Key>): Iterable<[Key, int32]>;
+export declare function groupBy<T, Key>(projection: ((arg0: T) => Key), xs: Iterable<T>, comparer: IEqualityComparer<Key>): Iterable<[Key, Iterable<T>]>;
+export declare function Array_distinct<T>(xs: T[], comparer: IEqualityComparer<T>): T[];
+export declare function Array_distinctBy<T, Key>(projection: ((arg0: T) => Key), xs: T[], comparer: IEqualityComparer<Key>): T[];
+export declare function Array_except<T>(itemsToExclude: Iterable<T>, xs: T[], comparer: IEqualityComparer<T>): T[];
+export declare function Array_countBy<T, Key>(projection: ((arg0: T) => Key), xs: T[], comparer: IEqualityComparer<Key>): [Key, int32][];
+export declare function Array_groupBy<T, Key>(projection: ((arg0: T) => Key), xs: T[], comparer: IEqualityComparer<Key>): [Key, T[]][];
+export declare function List_distinct<T>(xs: FSharpList<T>, comparer: IEqualityComparer<T>): FSharpList<T>;
+export declare function List_distinctBy<T, Key>(projection: ((arg0: T) => Key), xs: FSharpList<T>, comparer: IEqualityComparer<Key>): FSharpList<T>;
+export declare function List_except<T>(itemsToExclude: Iterable<T>, xs: FSharpList<T>, comparer: IEqualityComparer<T>): FSharpList<T>;
+export declare function List_countBy<T, Key>(projection: ((arg0: T) => Key), xs: FSharpList<T>, comparer: IEqualityComparer<Key>): FSharpList<[Key, int32]>;
+export declare function List_groupBy<T, Key>(projection: ((arg0: T) => Key), xs: FSharpList<T>, comparer: IEqualityComparer<Key>): FSharpList<[Key, FSharpList<T>]>;

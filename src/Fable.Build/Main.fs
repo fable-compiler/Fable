@@ -99,6 +99,7 @@ let main argv =
         | "rust" :: args -> Test.Rust.handle args
         | "integration" :: args -> Test.Integration.handle args
         | "standalone" :: _ -> Test.Standalone.handle args
+        | "compiler-js" :: _ -> Test.CompilerJs.handle args
         | _ -> printHelp ()
     | "quicktest" :: args ->
         match args with
