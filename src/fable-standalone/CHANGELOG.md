@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* Use ESM format
 * Remove `--typescript` options support, use `--lang <target>` instead
 
 ## 3.2.11

@@ -19,12 +19,12 @@ let private distDir = Path.Combine(fableCompilerJsDir, "dist")
 module private FableLib =
 
     let source = Path.Resolve("temp", "fable-library")
-    let destination = Path.Combine(fableCompilerJsDir, "fable-library")
+    let destination = Path.Combine(distDir, "fable-library")
 
 module private FableMetadata =
 
     let source = Path.Resolve("src", "fable-metadata", "lib")
-    let destination = Path.Combine(fableCompilerJsDir, "fable-metadata")
+    let destination = Path.Combine(distDir, "fable-metadata")
 
 let handle (args: string list) =
     let minify = args |> List.contains "--no-minify" |> not
