@@ -2,14 +2,7 @@
   "type": "module",
   "name": "fable-standalone",
   "version": "3.2.11",
-  "main": "./dist/FABLE_STANDALONE.umd.js",
-  "module": "./dist/FABLE_STANDALONE.es.js",
-  "exports": {
-    ".": {
-      "import": "./dist/FABLE_STANDALONE.es.js",
-      "require": "./dist/FABLE_STANDALONE.umd.js"
-    }
-  },
+  "main": "./dist/bundle.min.js",
   "description": "Fable compiler",
   "keywords": [
     "fable",
@@ -28,7 +21,6 @@
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "devDependencies": {
     "esbuild": "^0.19.5",
-    "rollup": "^4.1.5",
-    "vite": "^4.5.0"
+    "rollup": "^4.1.5"
   }
 }
