@@ -1,0 +1,23 @@
+{
+  "sideEffects": false,
+  "type": "module",
+  "name": "fable-library",
+  "version": "1.1.1",
+  "description": "Core library used by F# projects compiled with fable.io",
+  "author": "Fable Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fable-compiler/Fable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "homepage": "https://fable.io",
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ]
+}

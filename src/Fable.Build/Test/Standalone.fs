@@ -31,7 +31,7 @@ let handleStandaloneFast () =
     )
 
     // Make sure the projects are restored
-    // Otherwise, on a first VM dependencies can be missing
+    // Otherwise, on a first VM run dependencies can be missing
     Command.Run("dotnet", $"restore {mainTestProject}")
 
     Command.Run(

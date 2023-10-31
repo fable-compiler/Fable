@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-require("./dist/app.min.js");
+import "./dist/fable-compiler-js.umd.js";

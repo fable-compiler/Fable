@@ -1,0 +1,12 @@
+import { float64 } from "./Int32.js";
+import { Option } from "./Option.js";
+import { uint64, int64 } from "./BigInt.js";
+import { decimal } from "./Decimal.js";
+export declare function makeRangeStepFunction<T>(step: T, stop: T, zero: T, add: ((arg0: T, arg1: T) => T)): ((arg0: T) => Option<[T, T]>);
+export declare function integralRangeStep<T>(start: T, step: T, stop: T, zero: T, add: ((arg0: T, arg1: T) => T)): Iterable<T>;
+export declare function rangeBigInt(start: bigint, step: bigint, stop: bigint): Iterable<bigint>;
+export declare function rangeDecimal(start: decimal, step: decimal, stop: decimal): Iterable<decimal>;
+export declare function rangeDouble(start: float64, step: float64, stop: float64): Iterable<float64>;
+export declare function rangeInt64(start: int64, step: int64, stop: int64): Iterable<int64>;
+export declare function rangeUInt64(start: uint64, step: uint64, stop: uint64): Iterable<uint64>;
+export declare function rangeChar(start: string, stop: string): Iterable<string>;
