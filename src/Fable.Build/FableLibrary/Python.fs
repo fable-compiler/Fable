@@ -32,9 +32,14 @@ type BuildFableLibraryPython() =
 
         Shell.deleteDir (this.BuildDir </> "fable_library/fable-library")
 
+        // Install the python dependencies at the root of the project
+        Command.Run(
+            "poetry",
+            "install"
+        )
+
         // Run Ruff formatter using poetry on all generated files
         Command.Run(
             "poetry",
-            "run ruff format .",
-            this.OutDir
+            $"run ruff format {this.BuildDir}"
         )
