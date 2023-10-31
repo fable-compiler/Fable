@@ -1039,9 +1039,8 @@ module Util =
             discardUnitArg args
             |> List.map (fun arg ->
                 let name = getUniqueNameInDeclarationScope ctx (arg.Name + "_mut")
-                // Use empty repeated generics to avoid creating unnecssary typevars
-                let ta, _ = typeAnnotation com ctx (Some Set.empty) arg.Type
-                Arg.arg (name, ta))
+                // Ignore type annotation here as it generates unnecessary typevars
+                Arg.arg name)
 
         interface ITailCallOpportunity with
             member _.Label = name
