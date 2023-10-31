@@ -39,7 +39,6 @@ let private buildWorker (minify: bool) =
         CmdLine.empty
         |> CmdLine.appendRaw "esbuild"
         |> CmdLine.appendRaw (buildDir </> "worker" </> "bundle.js")
-        |> CmdLine.appendRaw "--bundle"
         |> CmdLine.appendRaw $"""--outfile={(distDir </> "worker.min.js")}"""
         |> CmdLine.appendRaw "--format=iife"
         |> CmdLine.appendIf minify "--minify"
@@ -100,7 +99,6 @@ let build (minify: bool) =
         CmdLine.empty
         |> CmdLine.appendRaw "esbuild"
         |> CmdLine.appendRaw (buildDir </> "bundle.js")
-        |> CmdLine.appendRaw "--bundle"
         |> CmdLine.appendRaw $"""--outfile={(distDir </> "bundle.min.js")}"""
         |> CmdLine.appendRaw "--format=esm"
         |> CmdLine.appendIf minify "--minify"

@@ -99,7 +99,6 @@ let main argv =
         | "rust" :: args -> Test.Rust.handle args
         | "integration" :: args -> Test.Integration.handle args
         | "standalone" :: _ -> Test.Standalone.handle args
-        | "compiler-js" :: _ -> Test.CompilerJs.handle args
         | _ -> printHelp ()
     | "quicktest" :: args ->
         match args with
@@ -110,6 +109,7 @@ let main argv =
         | "rust" :: _ -> Quicktest.Rust.handle args
         | _ -> printHelp ()
     | "standalone" :: args -> Standalone.handle args
+    | "compiler-js" :: args -> CompilerJs.handle args
     | "sync-fcs-repo":: _ -> FcsRepo.sync ()
     | "copy-fcs-repo":: _ -> FcsRepo.copy ()
     | "publish" :: args -> Publish.handle args
