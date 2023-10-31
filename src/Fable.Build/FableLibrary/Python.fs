@@ -3,6 +3,7 @@ namespace Build.FableLibrary
 open System.IO
 open Fake.IO
 open Build.Utils
+open SimpleExec
 
 type BuildFableLibraryPython() =
     inherit
@@ -30,3 +31,10 @@ type BuildFableLibraryPython() =
         Directory.GetFiles(linkedFileFolder, "*") |> Shell.copyFiles this.OutDir
 
         Shell.deleteDir (this.BuildDir </> "fable_library/fable-library")
+
+        // Run Ruff formatter using poetry on all generated files
+        Command.Run(
+            "poetry",
+            "run ruff format .",
+            this.OutDir
+        )
