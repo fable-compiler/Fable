@@ -43,7 +43,7 @@ type BuildFableLibraryPython() =
             "poetry",
             $"run ruff --select I --fix {this.BuildDir}"
         )
-        // Run Ruff formatter using poetry on all generated files
+        // Run Ruff formatter on all generated files
         Command.Run(
             "poetry",
             $"run ruff format {this.BuildDir}"

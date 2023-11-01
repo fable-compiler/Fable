@@ -109,10 +109,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install poetry
         run: |
           pip install poetry
-        # poetry install
 
       - name: Fable Library - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
