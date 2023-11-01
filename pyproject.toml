@@ -15,8 +15,7 @@ python-dateutil = "^2.8.2"
 [tool.poetry.dev-dependencies]
 fable-library = {path = "./temp/fable-library-py", develop = true}
 pytest = "^6.2.4"
-black = {version = "^22.6.0", allow-prereleases = true}
-isort = "^5.10.1"
+ruff = "^0.1.3"
 
 [tool.pyright]
 reportMissingTypeStubs = false
@@ -37,15 +36,12 @@ reportImplicitStringConcatenation = true
 pythonVersion = "3.10"
 typeCheckingMode = "strict"
 
-[tool.isort]
-
 [tool.ruff]
 # Keep in sync with .pre-commit-config.yaml
 line-length = 120
 ignore = []
 target-version = "py310"
 select = ["E", "W",  "F", "I", "T", "RUF", "TID", "UP"]
-exclude = ["tests", "build", "temp", "src/fable_library", "src/fable_library_rust", "src/fable_library_php"]
 include =["*.py"]
 
 [tool.ruff.pydocstyle]
@@ -53,7 +49,6 @@ convention = "google"
 
 [tool.ruff.isort]
 lines-after-imports = 2
-
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

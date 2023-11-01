@@ -1,7 +1,9 @@
-import re
+from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Match, Optional
+from re import Match
+from typing import Any
 
 from .types import FSharpRef
 from .util import DateKind
@@ -22,7 +24,7 @@ def create(
     m: int = 0,
     s: int = 0,
     ms: int = 0,
-    kind: Optional[DateKind] = None,
+    kind: DateKind | None = None,
 ) -> datetime:
     if kind == DateKind.UTC:
         date = datetime(
@@ -132,14 +134,14 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
 #         return dateToStringWithCustomFormat(d, format, True)
 
 
-def date_to_string_with_offset(date: datetime, format: Optional[str] = None) -> str:
+def date_to_string_with_offset(date: datetime, format: str | None = None) -> str:
     if format and len(format) == 1:
         return date_to_string_with_custom_format(date, format, True)
 
     raise NotImplementedError("date_to_string_with_offset")
 
 
-def date_to_string_with_kind(date: datetime, format: Optional[str] = None) -> str:
+def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
     utc = date.tzinfo == timezone.utc
     if not format:
         return date.isoformat() if utc else str(date)
@@ -158,9 +160,7 @@ def date_to_string_with_kind(date: datetime, format: Optional[str] = None) -> st
         return date_to_string_with_custom_format(date, format, utc)
 
 
-def to_string(
-    date: datetime, format: Optional[str] = None, provider: Optional[Any] = None
-) -> str:
+def to_string(date: datetime, format: str | None = None, provider: Any | None = None) -> str:
     if date.tzinfo:
         return date_to_string_with_offset(date, format)
 
@@ -211,9 +211,7 @@ def parse(string: str, detectUTC: bool = False) -> datetime:
     return parser.parse(string)
 
 
-def try_parse(
-    string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]
-) -> bool:
+def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]) -> bool:
     try:
         defValue.contents = parse(string)
         return True

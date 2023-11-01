@@ -114,9 +114,7 @@ def create(
     elif s is None and ms is None:
         return timedelta(hours=d or 0, minutes=h or 0, seconds=m or 0)
 
-    return timedelta(
-        days=d, hours=h or 0, minutes=m or 0, seconds=s or 0, milliseconds=ms or 0
-    )
+    return timedelta(days=d, hours=h or 0, minutes=m or 0, seconds=s or 0, milliseconds=ms or 0)
 
 
 def to_string(ts: timedelta, format: str = "c", _provider: Any | None = None) -> str:

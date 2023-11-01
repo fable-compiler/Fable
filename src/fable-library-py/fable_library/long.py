@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from .types import FSharpRef
 
@@ -31,28 +31,78 @@ def op_unary_negation(value: int) -> int:
     # Note that we cannot negate the smallest negative number
     return -value if value != -0x8000000000000000 else -0x8000000000000000
 
+
 # def op_unary_negation(a: int) -> int: return -a
-def op_unary_plus(a: int) -> int: return +a
-def op_logical_not(a: int) -> int: return ~a
+def op_unary_plus(a: int) -> int:
+    return +a
 
-def op_addition(a: int, b: int) -> int: return a + b
-def op_subtraction(a: int, b: int) -> int: return a - b
-def op_multiply(a: int, b: int) -> int: return a * b
-def op_division(a: int, b: int) -> int: return a // b
-def op_modulus(a: int, b: int) -> int: return a % b
 
-def op_right_shift(a: int, b: int) -> int: return a >> b
-def op_left_shift(a: int, b: int) -> int: return a << b
-def op_bitwise_and(a: int, b: int) -> int: return a & b
-def op_bitwise_or(a: int, b: int) -> int: return a | b
-def op_exclusive_or(a: int, b: int) -> int: return a ^ b
+def op_logical_not(a: int) -> int:
+    return ~a
 
-def op_less_than(a: int, b: int) -> bool: return a < b
-def op_less_than_or_equal(a: int, b: int) -> bool: return a <= b
-def op_greater_than(a: int, b: int) -> bool: return a > b
-def op_greater_than_or_equal(a: int, b: int) -> bool: return a >= b
-def op_equality(a: int, b: int) -> bool: return a == b
-def op_inequality(a: int, b: int) -> bool: return a != b
+
+def op_addition(a: int, b: int) -> int:
+    return a + b
+
+
+def op_subtraction(a: int, b: int) -> int:
+    return a - b
+
+
+def op_multiply(a: int, b: int) -> int:
+    return a * b
+
+
+def op_division(a: int, b: int) -> int:
+    return a // b
+
+
+def op_modulus(a: int, b: int) -> int:
+    return a % b
+
+
+def op_right_shift(a: int, b: int) -> int:
+    return a >> b
+
+
+def op_left_shift(a: int, b: int) -> int:
+    return a << b
+
+
+def op_bitwise_and(a: int, b: int) -> int:
+    return a & b
+
+
+def op_bitwise_or(a: int, b: int) -> int:
+    return a | b
+
+
+def op_exclusive_or(a: int, b: int) -> int:
+    return a ^ b
+
+
+def op_less_than(a: int, b: int) -> bool:
+    return a < b
+
+
+def op_less_than_or_equal(a: int, b: int) -> bool:
+    return a <= b
+
+
+def op_greater_than(a: int, b: int) -> bool:
+    return a > b
+
+
+def op_greater_than_or_equal(a: int, b: int) -> bool:
+    return a >= b
+
+
+def op_equality(a: int, b: int) -> bool:
+    return a == b
+
+
+def op_inequality(a: int, b: int) -> bool:
+    return a != b
 
 
 def from_bits(lowBits: int, highBits: int, unsigned: bool) -> int:
@@ -87,9 +137,7 @@ def to_number(value: int) -> float:
     return float(value)
 
 
-def from_integer(
-    value: int, unsigned: Optional[bool] = None, kind: Optional[int] = None
-) -> int:
+def from_integer(value: int, unsigned: bool | None = None, kind: int | None = None) -> int:
     if unsigned and value < 0:
         return value + 0x10000000000000000
     elif not unsigned and value > 9223372036854775807:
@@ -97,20 +145,14 @@ def from_integer(
     return value
 
 
-def get_range(unsigned: bool) -> Tuple[int, int]:
-    return (
-        (0, 18446744073709551615)
-        if unsigned
-        else (-9223372036854775808, 9223372036854775807)
-    )
+def get_range(unsigned: bool) -> tuple[int, int]:
+    return (0, 18446744073709551615) if unsigned else (-9223372036854775808, 9223372036854775807)
 
 
 AllowHexSpecifier = 0x00000200
 
 
-def parse(
-    string: str, style: int, unsigned: bool, bitsize: int, radix: int = 10
-) -> int:
+def parse(string: str, style: int, unsigned: bool, bitsize: int, radix: int = 10) -> int:
     # const res = isValid(str, style, radix);
     if style & AllowHexSpecifier or string.startswith("0x"):
         radix = 16
@@ -137,9 +179,7 @@ def parse(
     raise ValueError(f"The input string {string} was not in a correct format.")
 
 
-def try_parse(
-    string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]
-) -> bool:
+def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]) -> bool:
     try:
         defValue.contents = parse(string, style, unsigned, bitsize)
         return True
@@ -162,47 +202,39 @@ long = int
 __all__ = [
     "compare",
     "equals",
-
     "abs",
     "sign",
     "max",
     "min",
-
     "op_unary_negation",
     "op_unary_plus",
     "op_logical_not",
-
     "op_addition",
     "op_subtraction",
     "op_multiply",
     "op_division",
     "op_modulus",
-
     "op_right_shift",
     "op_left_shift",
     "op_bitwise_and",
     "op_bitwise_or",
     "op_exclusive_or",
-
     "op_less_than",
     "op_less_than_or_equal",
     "op_greater_than",
     "op_greater_than_or_equal",
     "op_equality",
     "op_inequality",
-
     "from_bits",
     "from_int",
     "from_value",
     "from_number",
     "to_number",
     "from_integer",
-
     "get_range",
     "parse",
     "try_parse",
     "to_string",
     "to_int",
-
     "long",
 ]
