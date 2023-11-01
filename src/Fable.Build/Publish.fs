@@ -7,7 +7,7 @@ open Build.FableLibrary
 open System
 open Build.Workspace
 
-let private updateLibraryVersionInFableTransforms
+let updateLibraryVersionInFableTransforms
     (compilerVersion: string)
     (librariesVersion: {| JavaScript: string |})
     =
@@ -129,7 +129,10 @@ let handle (args: string list) =
 
     // For fable-library, we use the compiled version of the project for publishing
     // This i because we want to publish the JavaScript code and not a mix of F# and TypeScript
+    // Disabled because only Alfonso can publish fable-library
+    // I requested to NPM/Github to give me access to the package, still waiting for an answer
     publishNpm ProjectDir.temp_fable_library
+
     // We need also want to update the original package.json if needed
     // This is to keep the versions consistent across the project
     // and also will be used when updating libraries version inside of Fable compiler
@@ -138,12 +141,11 @@ let handle (args: string list) =
     publishNpm ProjectDir.fable_metadata
 
     // Disabled because standalone terser optimisation seems to never end
-    // Standalone.handle []
-    // publishNpm ProjectDir.fable_standalone
+    Standalone.handle []
+    publishNpm ProjectDir.fable_standalone
 
-    // Disabled as we need standalone
-    // TODO: Build fable compiler js
-    // publishNpm ProjectDir.fable_compiler_js
+    CompilerJs.handle []
+    publishNpm ProjectDir.fable_compiler_js
 
     // Update embedded version (both compiler and libraries)
     let changelogPath = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")

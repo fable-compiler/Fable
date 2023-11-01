@@ -9,9 +9,6 @@ open Build
 open SimpleExec
 open Fake.IO
 
-let private mainTestProject =
-    Path.Resolve("tests", "Js", "Main", "Fable.Tests.fsproj")
-
 let private fableCompilerJsDir = Path.Resolve("src", "fable-compiler-js")
 let private buildDir = Path.Combine(fableCompilerJsDir, "temp")
 let private distDir = Path.Combine(fableCompilerJsDir, "dist")
@@ -32,7 +29,7 @@ let handle (args: string list) =
     // We don't need to build fable-library, because it will be
     // build as part of Standalone.build
 
-    Standalone.build minify
+    Standalone.handle args
 
     // Clean up temp folders
     Directory.clean buildDir

@@ -88,7 +88,9 @@ let build (minify: bool) =
         |> CmdLine.appendRaw "rollup"
         |> CmdLine.appendRaw (buildDir </> "Main.js")
         |> CmdLine.appendPrefix "-o" (buildDir </> "bundle.js")
-        |> CmdLine.appendPrefix "--format" "esm"
+        // We need to use umd format so it can be used inside of web workers
+        // Web workers don't support ES modules (yet)
+        |> CmdLine.appendPrefix "--format" "umd"
         |> CmdLine.appendPrefix "--name" "__FABLE_STANDALONE__"
         |> CmdLine.toString,
         workingDirectory = projectDir
@@ -106,13 +108,9 @@ let build (minify: bool) =
         workingDirectory = projectDir
     )
 
-    buildWorker minify
-
 let handle (args: string list) =
     let minify = args |> List.contains "--no-minify" |> not
     let isWatch = args |> List.contains "--watch"
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
-
-    BuildFableLibraryJavaScript().Run(skipFableLibrary)
 
     build minify
+    WorkerJs.handle args

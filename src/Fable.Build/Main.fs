@@ -57,12 +57,32 @@ Available commands:
             --no_std                Compile and run the tests without the standard library
             --threaded              Compile and run the tests with the threaded runtime
 
-    standalone                      Compile standalone version of Fable running
+    standalone                      Compile standalone + worker version of Fable running
                                     on top of of Node.js
 
         Options:
+            --skip-fable-library    Skip building fable-library if folder already exists
             --no-minify             Don't minify the JavaScript output
             --watch                 Watch for changes and recompile
+
+    worker-js                       Compile the worker for the standalone version of Fable
+
+        Options:
+            --skip-fable-library    Skip building fable-library if folder already exists
+            --no-minify             Don't minify the JavaScript output
+
+    compiler-js                     Compile the Fable compiler to JavaScript
+
+        Options:
+            --skip-fable-library    Skip building fable-library if folder already exists
+            --no-minify             Don't minify the JavaScript output
+
+    package                         Generate local package for Fable.Cli and Fable.Core
+                                    allowing to use this local package for testing
+                                    inside of other projects
+
+        Options:
+            --skip-fable-library    Skip building fable-library if folder already exists
 
     publish                         Publish the different packages to NuGet and NPM
                                     based on the CHANGELOG.md files
@@ -99,6 +119,9 @@ let main argv =
         | "rust" :: args -> Test.Rust.handle args
         | "integration" :: args -> Test.Integration.handle args
         | "standalone" :: _ -> Test.Standalone.handle args
+        // This test is using quicktest project for now,
+        // because it can't compile (yet?) the Main JavaScript tests
+        | "compiler-js" :: _ -> Test.CompilerJs.handle args
         | _ -> printHelp ()
     | "quicktest" :: args ->
         match args with
@@ -110,10 +133,13 @@ let main argv =
         | _ -> printHelp ()
     | "standalone" :: args -> Standalone.handle args
     | "compiler-js" :: args -> CompilerJs.handle args
+    | "worker-js" :: args -> WorkerJs.handle args
     | "sync-fcs-repo":: _ -> FcsRepo.sync ()
     | "copy-fcs-repo":: _ -> FcsRepo.copy ()
     | "publish" :: args -> Publish.handle args
     | "github-release" :: args -> GithubRelease.handle args
+    | "package" :: args -> Package.handle args
+    | "help" :: _
     | "--help" :: _
     | _ -> printHelp ()
 
