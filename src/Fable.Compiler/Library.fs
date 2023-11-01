@@ -5,10 +5,10 @@ open System.Text
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.SourceCodeServices
 open Fable
-open Fable.Compiler.Service.Util
+open Fable.Compiler.Util
 open Fable.Transforms.State
 open Fable.Transforms
-open Fable.Compiler.Service.ProjectCracker
+open Fable.Compiler.ProjectCracker
 
 type BabelWriter
     (

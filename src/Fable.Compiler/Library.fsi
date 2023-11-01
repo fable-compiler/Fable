@@ -2,8 +2,8 @@ module Fable.Compiler.CodeServices
 
 open FSharp.Compiler.SourceCodeServices
 open Fable
-open Fable.Compiler.Service.Util
-open Fable.Compiler.Service.ProjectCracker
+open Fable.Compiler.Util
+open Fable.Compiler.ProjectCracker
 
 /// Does a full type-check of the current project.
 /// And compiles the implementation files to JavaScript.

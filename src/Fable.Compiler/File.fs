@@ -2,8 +2,6 @@
 
 open System.IO
 
-// TODO: move to Fable.Compiler
-
 // TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =
     let mutable sourceHash = None

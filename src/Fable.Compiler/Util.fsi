@@ -1,4 +1,4 @@
-module Fable.Compiler.Service.Util
+module Fable.Compiler.Util
 
 open System
 open System.Threading

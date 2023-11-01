@@ -4,10 +4,10 @@ open System.IO
 open System.Text.Json
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.CodeAnalysis
-open Fable.Compiler.CodeServices
 open Fable
-open Fable.Compiler.Service.ProjectCracker
-open Fable.Compiler.Service.Util
+open Fable.Compiler.Util
+open Fable.Compiler.ProjectCracker
+open Fable.Compiler.CodeServices
 
 let pwd = @"C:\Users\nojaf\Projects\MyFableApp"
 let fsprojPath = Path.Combine(pwd, "App.fsproj")

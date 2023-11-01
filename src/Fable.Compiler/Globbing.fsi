@@ -1,4 +1,4 @@
-module Fable.Compiler.Service.Globbing
+module Fable.Compiler.Globbing
 
 open System.Collections.Generic
 open System.IO

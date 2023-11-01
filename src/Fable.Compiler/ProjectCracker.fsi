@@ -1,9 +1,9 @@
-module Fable.Compiler.Service.ProjectCracker
+module Fable.Compiler.ProjectCracker
 
 open FSharp.Compiler.CodeAnalysis
 open Fable
 open Fable.AST
-open Fable.Compiler.Service.Util
+open Fable.Compiler.Util
 
 type CrackerResponse =
     { FableLibDir: string
