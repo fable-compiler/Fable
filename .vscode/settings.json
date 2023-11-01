@@ -8,7 +8,6 @@
         "**/bin": true,
         "**/obj": true,
         "**/.fake": true,
-        "**/packages": true,
         "**/node_modules": true,
         "**/bower_components": true
     },

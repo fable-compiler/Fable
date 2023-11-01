@@ -20,7 +20,9 @@ module ProjectDir =
 module Fsproj =
 
     let fableCli = Path.Combine(ProjectDir.fableCli, "Fable.Cli.fsproj")
+    let fableCore = Path.Combine(ProjectDir.fableCore, "Fable.Core.fsproj")
 
 module Changelog =
 
     let fableCLi = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
+    let fableCore = Path.Combine(ProjectDir.fableCore, "CHANGELOG.md")
