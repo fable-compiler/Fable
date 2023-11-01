@@ -6,7 +6,6 @@
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="File.fs" />
     <Compile Include="Global/Babel.fs" />
     <Compile Include="Global/Fable.Core.fs" />
     <Compile Include="Global/Metadata.fs" />
@@ -50,7 +49,9 @@
     <ProjectReference Include="Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
-    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+<!--    <Reference Include="../../lib/fcs/FSharp.Core.dll" />-->
+<!--    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />-->
+      <Reference Include="C:\Users\nojaf\Projects\fsharp\artifacts\bin\FSharp.Core\Release\netstandard2.0\FSharp.Core.dll" />
+      <Reference Include="C:\Users\nojaf\Projects\fsharp\artifacts\bin\FSharp.Compiler.Service\Release\netstandard2.0\FSharp.Compiler.Service.dll" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,8 @@
-﻿namespace Fable.Transforms
+﻿namespace Fable.Compiler
 
 open System.IO
+
+// TODO: move to Fable.Compiler
 
 // TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =

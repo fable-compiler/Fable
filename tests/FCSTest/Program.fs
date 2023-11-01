@@ -182,21 +182,12 @@ let cliArgs: CliArgs = {
 let checker = InteractiveChecker.Create(crackerResponse.ProjectOptions)
 
 let sourceReader =
-    Fable.Transforms.File.MakeSourceReader(
+    Fable.Compiler.File.MakeSourceReader(
         Array.map
-            Fable.Transforms.File
+            Fable.Compiler.File
             crackerResponse.ProjectOptions.SourceFiles
     )
     |> snd
-
-let compilerForFile =
-    mkCompilerForFile
-        sourceReader
-        checker
-        cliArgs
-        crackerResponse
-        (Path.normalizeFullPath @"C:\Users\nojaf\Projects\MyFableApp\Lib.fs")
-    |> Async.RunSynchronously
 
 let dummyPathResolver =
     { new PathResolver with
@@ -204,16 +195,16 @@ let dummyPathResolver =
         member _.GetOrAddDeduplicateTargetDir(_importDir, _addTargetDir) = ""
     }
 
-let javascript, dependentFiles =
-    compileFile
+let compiledFiles =
+    compileProjectToJavaScript
         sourceReader
-        compilerForFile
+        checker
         dummyPathResolver
-        @"C:\Users\nojaf\Projects\MyFableApp\Lib.js"
+        cliArgs
+        crackerResponse
     |> Async.RunSynchronously
 
-printfn "this is javascript:\n%s" javascript
+let libKey = compiledFiles.Keys |> Seq.find (fun f -> f.EndsWith("Lib.fs"))
+let javascript = compiledFiles.[libKey]
 
-printfn
-    "these files need to be reprocessed: %s"
-    (String.concat "," dependentFiles)
+printfn "this is javascript:\n%s" javascript

@@ -12,6 +12,7 @@
         <Compile Include="Util.fs" />
         <Compile Include="Globbing.fsi" />
         <Compile Include="Globbing.fs" />
+        <Compile Include="File.fs" />
         <Compile Include="ProjectCracker.fsi" />
         <Compile Include="ProjectCracker.fs" />
         <Compile Include="Library.fsi"/>
@@ -23,8 +24,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Reference Include="../../lib/fcs/FSharp.Core.dll"/>
-        <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll"/>
+<!--        <Reference Include="../../lib/fcs/FSharp.Core.dll"/>-->
+<!--        <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll"/>-->
+        <Reference Include="C:\Users\nojaf\Projects\fsharp\artifacts\bin\FSharp.Core\Release\netstandard2.0\FSharp.Core.dll" />
+        <Reference Include="C:\Users\nojaf\Projects\fsharp\artifacts\bin\FSharp.Compiler.Service\Release\netstandard2.0\FSharp.Compiler.Service.dll" />
     </ItemGroup>
 
     <ItemGroup>

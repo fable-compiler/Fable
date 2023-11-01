@@ -98,61 +98,11 @@ type BabelWriter
 //         let sourcePath = defaultArg file sourcePath |> Path.getRelativeFileOrDirPath false targetPath false
 //         mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=displayName)
 
-let mkCompilerForFile
-    (sourceReader: SourceReader)
-    (checker: InteractiveChecker)
-    (cliArgs: CliArgs)
-    (crackerResponse: CrackerResponse)
-    (currentFile: string)
-    : Async<Compiler>
-    =
-    async {
-        let! assemblies = checker.GetImportedAssemblies()
-
-        let! checkProjectResult =
-            checker.ParseAndCheckProject(
-                cliArgs.ProjectFile,
-                crackerResponse.ProjectOptions.SourceFiles,
-                sourceReader,
-                currentFile
-            )
-
-        ignore checkProjectResult.Diagnostics
-
-        let fableProj =
-            Project.From(
-                cliArgs.ProjectFile,
-                crackerResponse.ProjectOptions.SourceFiles,
-                checkProjectResult.AssemblyContents.ImplementationFiles,
-                assemblies
-            // ?precompiledInfo =
-            //     (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
-            // getPlugin = loadType projCracked.CliArgs
-            )
-
-        let opts = cliArgs.CompilerOptions
-
-        let fableLibDir =
-            Path.getRelativePath currentFile crackerResponse.FableLibDir
-
-        return
-            CompilerImpl(
-                checker,
-                currentFile,
-                fableProj,
-                opts,
-                fableLibDir,
-                crackerResponse.OutputType,
-                ?outDir = cliArgs.OutDir
-            )
-    }
-
-let compileFile
-    (sourceReader: SourceReader)
+let compileFileToJs
     (com: Compiler)
     (pathResolver: PathResolver)
     (outPath: string)
-    =
+    : Async<string> =
     async {
         let babel =
             FSharp2Fable.Compiler.transformFile com
@@ -170,6 +120,147 @@ let compileFile
 
         do! BabelPrinter.run writer babel
         let output = writer.ToString()
-        let! dependentFiles = com.GetDependentFiles sourceReader
-        return output, dependentFiles
+        return output
+    }
+
+let compileProjectToJavaScript
+    (sourceReader: SourceReader)
+    (checker: InteractiveChecker)
+    (pathResolver: PathResolver)
+    (cliArgs: CliArgs)
+    (crackerResponse: CrackerResponse)
+    : Async<Map<string, string>>
+    =
+    async {
+        let! assemblies = checker.GetImportedAssemblies()
+
+        let! checkProjectResult =
+            checker.ParseAndCheckProject(
+                cliArgs.ProjectFile,
+                crackerResponse.ProjectOptions.SourceFiles,
+                sourceReader
+            )
+
+        ignore checkProjectResult.Diagnostics
+
+        let fableProj =
+            Project.From(
+                cliArgs.ProjectFile,
+                crackerResponse.ProjectOptions.SourceFiles,
+                checkProjectResult.AssemblyContents.ImplementationFiles,
+                assemblies
+            // ?precompiledInfo =
+            //     (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
+            // getPlugin = loadType projCracked.CliArgs
+            )
+
+        let opts = cliArgs.CompilerOptions
+
+        let! compiledFiles =
+            crackerResponse.ProjectOptions.SourceFiles
+            |> Array.filter (fun filePath ->
+                not (filePath.EndsWith(".fsi", StringComparison.Ordinal))
+            )
+            |> Array.map (fun currentFile ->
+                async {
+                    let fableLibDir =
+                        Path.getRelativePath
+                            currentFile
+                            crackerResponse.FableLibDir
+
+                    let compiler: Compiler =
+                        CompilerImpl(
+                            checker,
+                            currentFile,
+                            fableProj,
+                            opts,
+                            fableLibDir,
+                            crackerResponse.OutputType,
+                            ?outDir = cliArgs.OutDir
+                        )
+
+                    let outputPath = Path.ChangeExtension(currentFile, ".js")
+                    let! js = compileFileToJs compiler pathResolver outputPath
+                    return currentFile, js
+                }
+            )
+            |> Async.Parallel
+
+        return Map.ofArray compiledFiles
+    }
+
+let compileFileToJavaScript
+    (sourceReader: SourceReader)
+    (checker: InteractiveChecker)
+    (pathResolver: PathResolver)
+    (cliArgs: CliArgs)
+    (crackerResponse: CrackerResponse)
+    (currentFile: string)
+    : Async<Map<string, string>> =
+    async {
+        let! dependentFiles =
+            checker.GetDependentFiles(
+                currentFile,
+                crackerResponse.ProjectOptions.SourceFiles,
+                sourceReader
+            )
+
+        let lastFile =
+            if Array.isEmpty dependentFiles then
+                currentFile
+            else
+                Array.last dependentFiles
+
+        let! assemblies = checker.GetImportedAssemblies()
+
+        // Type-check the project up until the last dependent file.
+        let! checkProjectResult =
+            checker.ParseAndCheckProject(
+                cliArgs.ProjectFile,
+                crackerResponse.ProjectOptions.SourceFiles,
+                sourceReader,
+                lastFile = lastFile
+            )
+
+        let fableProj =
+            Project.From(
+                cliArgs.ProjectFile,
+                crackerResponse.ProjectOptions.SourceFiles,
+                checkProjectResult.AssemblyContents.ImplementationFiles,
+                assemblies
+            )
+
+        let opts = cliArgs.CompilerOptions
+
+        let! compiledFiles =
+            [| yield currentFile; yield! dependentFiles |]
+            |> Array.filter (fun filePath ->
+                not (filePath.EndsWith(".fsi", StringComparison.Ordinal))
+            )
+            |> Array.map (fun currentFile ->
+                async {
+                    let fableLibDir =
+                        Path.getRelativePath
+                            currentFile
+                            crackerResponse.FableLibDir
+
+                    let compiler: Compiler =
+                        CompilerImpl(
+                            checker,
+                            currentFile,
+                            fableProj,
+                            opts,
+                            fableLibDir,
+                            crackerResponse.OutputType,
+                            ?outDir = cliArgs.OutDir
+                        )
+
+                    let outputPath = Path.ChangeExtension(currentFile, ".js")
+                    let! js = compileFileToJs compiler pathResolver outputPath
+                    return currentFile, js
+                }
+            )
+            |> Async.Parallel
+
+        return Map.ofArray compiledFiles
     }
