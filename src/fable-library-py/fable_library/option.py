@@ -53,14 +53,8 @@ def map(mapping: Callable[[_T], _U], opt: _T | None) -> _U | None:
     return some(mapping(value(opt))) if opt is not None else None
 
 
-def map2(
-    mapping: Callable[[_T, _U], _V], opt1: _T | None, opt2: _U | None
-) -> _V | None:
-    return (
-        mapping(value(opt1), value(opt2))
-        if (opt1 is not None and opt2 is not None)
-        else None
-    )
+def map2(mapping: Callable[[_T, _U], _V], opt1: _T | None, opt2: _U | None) -> _V | None:
+    return mapping(value(opt1), value(opt2)) if (opt1 is not None and opt2 is not None) else None
 
 
 def map3(

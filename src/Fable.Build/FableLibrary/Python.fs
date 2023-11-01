@@ -32,6 +32,13 @@ type BuildFableLibraryPython() =
 
         Shell.deleteDir (this.BuildDir </> "fable_library/fable-library")
 
+        // Run Ruff linter checking import sorting and fix any issues
+        Command.Run(
+            "poetry",
+            "run ruff --select I --fix .",
+            this.OutDir
+        )
+
         // Run Ruff formatter using poetry on all generated files
         Command.Run(
             "poetry",

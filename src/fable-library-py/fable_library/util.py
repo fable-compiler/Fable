@@ -178,15 +178,11 @@ class IEqualityComparer(Protocol):
         return self.System_Collections_IEqualityComparer_GetHashCode4E60E31B()
 
     @abstractmethod
-    def System_Collections_IEqualityComparer_Equals541DA560(
-        self, x: Any = None, y: Any = None
-    ) -> bool:
+    def System_Collections_IEqualityComparer_Equals541DA560(self, x: Any = None, y: Any = None) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def System_Collections_IEqualityComparer_GetHashCode4E60E31B(
-        self, x_1: Any = None
-    ) -> int:
+    def System_Collections_IEqualityComparer_GetHashCode4E60E31B(self, x_1: Any = None) -> int:
         raise NotImplementedError
 
 
@@ -315,9 +311,7 @@ def compare(a: Any, b: Any) -> int:
     return 1
 
 
-def equal_arrays_with(
-    xs: Sequence[_T] | None, ys: Sequence[_T] | None, eq: Callable[[_T, _T], bool]
-) -> bool:
+def equal_arrays_with(xs: Sequence[_T] | None, ys: Sequence[_T] | None, eq: Callable[[_T, _T], bool]) -> bool:
     if xs is None:
         return ys is None
 
@@ -351,13 +345,7 @@ def max(comparer: Callable[[_T, _T], int], x: _T, y: _T) -> _T:
 
 
 def clamp(comparer: Callable[[_T, _T], int], value: _T, min: _T, max: _T):
-    return (
-        min
-        if (comparer(value, min) < 0)
-        else max
-        if comparer(value, max) > 0
-        else value
-    )
+    return min if (comparer(value, min) < 0) else max if comparer(value, max) > 0 else value
 
 
 def assert_equal(actual: Any, expected: Any, msg: str | None = None) -> None:
@@ -654,9 +642,7 @@ _TResult = TypeVar("_TResult")
 _curried = weakref.WeakKeyDictionary[Any, Any]()
 
 
-def uncurry2(
-    f: Callable[[_T1], Callable[[_T2], _TResult]]
-) -> Callable[[_T1, _T2], _TResult]:
+def uncurry2(f: Callable[[_T1], Callable[[_T2], _TResult]]) -> Callable[[_T1, _T2], _TResult]:
     def f2(a1: _T1, a2: _T2) -> _TResult:
         return f(a1)(a2)
 
@@ -664,9 +650,7 @@ def uncurry2(
     return f2
 
 
-def curry2(
-    f: Callable[[_T1, _T2], _TResult]
-) -> Callable[[_T1], Callable[[_T2], _TResult]]:
+def curry2(f: Callable[[_T1, _T2], _TResult]) -> Callable[[_T1], Callable[[_T2], _TResult]]:
     f2 = _curried.get(f)
     if f2 is None:
         return lambda a1: lambda a2: f(a1, a2)
@@ -674,9 +658,7 @@ def curry2(
         return f2
 
 
-def uncurry3(
-    f: Callable[[_T1], Callable[[_T2], Callable[[_T3], _TResult]]]
-) -> Callable[[_T1, _T2, _T3], _TResult]:
+def uncurry3(f: Callable[[_T1], Callable[[_T2], Callable[[_T3], _TResult]]]) -> Callable[[_T1, _T2, _T3], _TResult]:
     def f2(a1: _T1, a2: _T2, a3: _T3) -> _TResult:
         return f(a1)(a2)(a3)
 
@@ -684,9 +666,7 @@ def uncurry3(
     return f2
 
 
-def curry3(
-    f: Callable[[_T1, _T2, _T3], _TResult]
-) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], _TResult]]]:
+def curry3(f: Callable[[_T1, _T2, _T3], _TResult]) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], _TResult]]]:
     f2 = _curried.get(f)
     if f2 is None:
         return lambda a1: lambda a2: lambda a3: f(a1, a2, a3)
@@ -718,7 +698,7 @@ def uncurry5(
     f: Callable[
         [_T1],
         Callable[[_T2], Callable[[_T3], Callable[[_T4], Callable[[_T5], _TResult]]]],
-    ]
+    ],
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]:
     def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5) -> _TResult:
         return f(a1)(a2)(a3)(a4)(a5)
@@ -729,14 +709,10 @@ def uncurry5(
 
 def curry5(
     f: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]
-) -> Callable[
-    [_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], Callable[[_T5], _TResult]]]]
-]:
+) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], Callable[[_T5], _TResult]]]]]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(
-            a1, a2, a3, a4, a5
-        )
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(a1, a2, a3, a4, a5)
     else:
         return f2
 
@@ -746,11 +722,9 @@ def uncurry6(
         [_T1],
         Callable[
             [_T2],
-            Callable[
-                [_T3], Callable[[_T4], Callable[[_T5], Callable[[_T6], _TResult]]]
-            ],
+            Callable[[_T3], Callable[[_T4], Callable[[_T5], Callable[[_T6], _TResult]]]],
         ],
-    ]
+    ],
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]:
     def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6) -> _TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)
@@ -770,9 +744,7 @@ def curry6(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: f(
-            a1, a2, a3, a4, a5, a6
-        )
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: f(a1, a2, a3, a4, a5, a6)
     else:
         return f2
 
@@ -784,12 +756,10 @@ def uncurry7(
             [_T2],
             Callable[
                 [_T3],
-                Callable[
-                    [_T4], Callable[[_T5], Callable[[_T6], Callable[[_T7], _TResult]]]
-                ],
+                Callable[[_T4], Callable[[_T5], Callable[[_T6], Callable[[_T7], _TResult]]]],
             ],
         ],
-    ]
+    ],
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]:
     def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7) -> _TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)
@@ -806,9 +776,7 @@ def curry7(
         [_T2],
         Callable[
             [_T3],
-            Callable[
-                [_T4], Callable[[_T5], Callable[[_T6], Callable[[_T7], _TResult]]]
-            ],
+            Callable[[_T4], Callable[[_T5], Callable[[_T6], Callable[[_T7], _TResult]]]],
         ],
     ],
 ]:
@@ -837,11 +805,9 @@ def uncurry8(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]:
-    def f2(
-        a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8
-    ) -> _TResult:
+    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8) -> _TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)
 
     _curried[f2] = f
@@ -858,9 +824,7 @@ def curry8(
             [_T3],
             Callable[
                 [_T4],
-                Callable[
-                    [_T5], Callable[[_T6], Callable[[_T7], Callable[[_T8], _TResult]]]
-                ],
+                Callable[[_T5], Callable[[_T6], Callable[[_T7], Callable[[_T8], _TResult]]]],
             ],
         ],
     ],
@@ -893,11 +857,9 @@ def uncurry9(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]:
-    def f2(
-        a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8, a9: _T9
-    ) -> _TResult:
+    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8, a9: _T9) -> _TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)
 
     _curried[f2] = f
@@ -949,16 +911,14 @@ def uncurry10(
                             [_T6],
                             Callable[
                                 [_T7],
-                                Callable[
-                                    [_T8], Callable[[_T9], Callable[[_T10], _TResult]]
-                                ],
+                                Callable[[_T8], Callable[[_T9], Callable[[_T10], _TResult]]],
                             ],
                         ],
                     ],
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]:
     def f2(
         a1: _T1,
@@ -994,9 +954,7 @@ def curry10(
                         [_T6],
                         Callable[
                             [_T7],
-                            Callable[
-                                [_T8], Callable[[_T9], Callable[[_T10], _TResult]]
-                            ],
+                            Callable[[_T8], Callable[[_T9], Callable[[_T10], _TResult]]],
                         ],
                     ],
                 ],
@@ -1006,8 +964,10 @@ def curry10(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: f(
-            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: f(
+                a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
+            )
         )
     else:
         return f2
@@ -1041,7 +1001,7 @@ def uncurry11(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11], _TResult]:
     def f2(
         a1: Any,
@@ -1080,9 +1040,7 @@ def curry11(
                             [_T7],
                             Callable[
                                 [_T8],
-                                Callable[
-                                    [_T9], Callable[[_T10], Callable[[_T11], _TResult]]
-                                ],
+                                Callable[[_T9], Callable[[_T10], Callable[[_T11], _TResult]]],
                             ],
                         ],
                     ],
@@ -1093,8 +1051,10 @@ def curry11(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: f(
-            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: f(
+                a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11
+            )
         )
     else:
         return f2
@@ -1121,9 +1081,7 @@ def uncurry12(
                                         [_T9],
                                         Callable[
                                             [_T10],
-                                            Callable[
-                                                [_T11], Callable[[_T12], _TResult]
-                                            ],
+                                            Callable[[_T11], Callable[[_T12], _TResult]],
                                         ],
                                     ],
                                 ],
@@ -1133,10 +1091,8 @@ def uncurry12(
                 ],
             ],
         ],
-    ]
-) -> Callable[
-    [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult
-]:
+    ],
+) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult]:
     def f2(
         a1: Any,
         a2: Any,
@@ -1158,9 +1114,7 @@ def uncurry12(
 
 
 def curry12(
-    f: Callable[
-        [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult
-    ]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult]
 ) -> Callable[
     [_T1],
     Callable[
@@ -1194,8 +1148,10 @@ def curry12(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: f(
-            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: f(
+                a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
+            )
         )
     else:
         return f2
@@ -1224,9 +1180,7 @@ def uncurry13(
                                             [_T10],
                                             Callable[
                                                 [_T11],
-                                                Callable[
-                                                    [_T12], Callable[[_T13], _TResult]
-                                                ],
+                                                Callable[[_T12], Callable[[_T13], _TResult]],
                                             ],
                                         ],
                                     ],
@@ -1237,10 +1191,8 @@ def uncurry13(
                 ],
             ],
         ],
-    ]
-) -> Callable[
-    [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult
-]:
+    ],
+) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult]:
     def f2(
         a1: Any,
         a2: Any,
@@ -1263,9 +1215,7 @@ def uncurry13(
 
 
 def curry13(
-    f: Callable[
-        [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult
-    ]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult]
 ) -> Callable[
     [_T1],
     Callable[
@@ -1288,9 +1238,7 @@ def curry13(
                                         [_T10],
                                         Callable[
                                             [_T11],
-                                            Callable[
-                                                [_T12], Callable[[_T13], _TResult]
-                                            ],
+                                            Callable[[_T12], Callable[[_T13], _TResult]],
                                         ],
                                     ],
                                 ],
@@ -1304,8 +1252,10 @@ def curry13(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: f(
-            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: f(
+                a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13
+            )
         )
     else:
         return f2
@@ -1351,7 +1301,7 @@ def uncurry14(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[
     [
         _T1,
@@ -1397,7 +1347,7 @@ def curry14(
     f: Callable[
         [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14],
         _TResult,
-    ]
+    ],
 ) -> Callable[
     [_T1],
     Callable[
@@ -1422,9 +1372,7 @@ def curry14(
                                             [_T11],
                                             Callable[
                                                 [_T12],
-                                                Callable[
-                                                    [_T13], Callable[[_T14], _TResult]
-                                                ],
+                                                Callable[[_T13], Callable[[_T14], _TResult]],
                                             ],
                                         ],
                                     ],
@@ -1439,8 +1387,10 @@ def curry14(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: f(
-            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: f(
+                a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14
+            )
         )
     else:
         return f2
@@ -1489,7 +1439,7 @@ def uncurry15(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[
     [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, _T15],
     _TResult,
@@ -1537,7 +1487,7 @@ def curry15(
             _T15,
         ],
         _TResult,
-    ]
+    ],
 ) -> Callable[
     [_T1],
     Callable[
@@ -1583,8 +1533,10 @@ def curry15(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: f(
-            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: f(
+                a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15
+            )
         )
     else:
         return f2
@@ -1621,9 +1573,7 @@ def uncurry16(
                                                             [_T14],
                                                             Callable[
                                                                 [_T15],
-                                                                Callable[
-                                                                    [_T16], _TResult
-                                                                ],
+                                                                Callable[[_T16], _TResult],
                                                             ],
                                                         ],
                                                     ],
@@ -1638,7 +1588,7 @@ def uncurry16(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[
     [
         _T1,
@@ -1705,7 +1655,7 @@ def curry16(
             _T16,
         ],
         _TResult,
-    ]
+    ],
 ) -> Callable[
     [_T1],
     Callable[
@@ -1754,8 +1704,10 @@ def curry16(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: f(
-            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: f(
+                a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16
+            )
         )
     else:
         return f2
@@ -1794,9 +1746,7 @@ def uncurry17(
                                                                 [_T15],
                                                                 Callable[
                                                                     [_T16],
-                                                                    Callable[
-                                                                        [_T17], _TResult
-                                                                    ],
+                                                                    Callable[[_T17], _TResult],
                                                                 ],
                                                             ],
                                                         ],
@@ -1812,7 +1762,7 @@ def uncurry17(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[
     [
         _T1,
@@ -1854,9 +1804,7 @@ def uncurry17(
         a16: Any,
         a17: Any,
     ) -> Any:
-        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(
-            a17
-        )
+        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(a17)
 
     _curried[f2] = f
     return f2
@@ -1884,7 +1832,7 @@ def curry17(
             _T17,
         ],
         _TResult,
-    ]
+    ],
 ) -> Callable[
     [_T1],
     Callable[
@@ -1917,9 +1865,7 @@ def curry17(
                                                             [_T15],
                                                             Callable[
                                                                 [_T16],
-                                                                Callable[
-                                                                    [_T17], _TResult
-                                                                ],
+                                                                Callable[[_T17], _TResult],
                                                             ],
                                                         ],
                                                     ],
@@ -1938,8 +1884,10 @@ def curry17(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: lambda a17: f(
-            a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: lambda a17: f(
+                a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17
+            )
         )
     else:
         return f2
@@ -2000,7 +1948,7 @@ def uncurry18(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[
     [
         _T1,
@@ -2044,9 +1992,7 @@ def uncurry18(
         a17: Any,
         a18: Any,
     ) -> Any:
-        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(
-            a17
-        )(a18)
+        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(a17)(a18)
 
     _curried[f2] = f
     return f2
@@ -2075,7 +2021,7 @@ def curry18(
             _T18,
         ],
         _TResult,
-    ]
+    ],
 ) -> Callable[
     [_T1],
     Callable[
@@ -2110,9 +2056,7 @@ def curry18(
                                                                 [_T16],
                                                                 Callable[
                                                                     [_T17],
-                                                                    Callable[
-                                                                        [_T18], _TResult
-                                                                    ],
+                                                                    Callable[[_T18], _TResult],
                                                                 ],
                                                             ],
                                                         ],
@@ -2132,25 +2076,27 @@ def curry18(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: lambda a17: lambda a18: f(
-            a1,
-            a2,
-            a3,
-            a4,
-            a5,
-            a6,
-            a7,
-            a8,
-            a9,
-            a10,
-            a11,
-            a12,
-            a13,
-            a14,
-            a15,
-            a16,
-            a17,
-            a18,
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: lambda a17: lambda a18: f(
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
+                a8,
+                a9,
+                a10,
+                a11,
+                a12,
+                a13,
+                a14,
+                a15,
+                a16,
+                a17,
+                a18,
+            )
         )
     else:
         return f2
@@ -2214,7 +2160,7 @@ def uncurry19(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[
     [
         _T1,
@@ -2260,9 +2206,7 @@ def uncurry19(
         a18: Any,
         a19: Any,
     ) -> Any:
-        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(
-            a17
-        )(a18)(a19)
+        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(a17)(a18)(a19)
 
     _curried[f2] = f
     return f2
@@ -2292,7 +2236,7 @@ def curry19(
             _T19,
         ],
         _TResult,
-    ]
+    ],
 ) -> Callable[
     [_T1],
     Callable[
@@ -2353,26 +2297,28 @@ def curry19(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: lambda a17: lambda a18: lambda a19: f(
-            a1,
-            a2,
-            a3,
-            a4,
-            a5,
-            a6,
-            a7,
-            a8,
-            a9,
-            a10,
-            a11,
-            a12,
-            a13,
-            a14,
-            a15,
-            a16,
-            a17,
-            a18,
-            a19,
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: lambda a17: lambda a18: lambda a19: f(
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
+                a8,
+                a9,
+                a10,
+                a11,
+                a12,
+                a13,
+                a14,
+                a15,
+                a16,
+                a17,
+                a18,
+                a19,
+            )
         )
     else:
         return f2
@@ -2418,9 +2364,7 @@ def uncurry20(
                                                                             Callable[
                                                                                 [_T19],
                                                                                 Callable[
-                                                                                    [
-                                                                                        _T20
-                                                                                    ],
+                                                                                    [_T20],
                                                                                     _TResult,
                                                                                 ],
                                                                             ],
@@ -2441,7 +2385,7 @@ def uncurry20(
                 ],
             ],
         ],
-    ]
+    ],
 ) -> Callable[
     [
         _T1,
@@ -2489,9 +2433,7 @@ def uncurry20(
         a19: Any,
         a20: Any,
     ) -> Any:
-        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(
-            a17
-        )(a18)(a19)(a20)
+        return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)(a11)(a12)(a13)(a14)(a15)(a16)(a17)(a18)(a19)(a20)
 
     _curried[f2] = f
     return f2
@@ -2522,7 +2464,7 @@ def curry20(
             _T20,
         ],
         _TResult,
-    ]
+    ],
 ) -> Callable[
     [_T1],
     Callable[
@@ -2586,27 +2528,29 @@ def curry20(
 ]:
     f2 = _curried.get(f)
     if f2 is None:
-        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: lambda a17: lambda a18: lambda a19: lambda a20: f(
-            a1,
-            a2,
-            a3,
-            a4,
-            a5,
-            a6,
-            a7,
-            a8,
-            a9,
-            a10,
-            a11,
-            a12,
-            a13,
-            a14,
-            a15,
-            a16,
-            a17,
-            a18,
-            a19,
-            a20,
+        return (
+            lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: lambda a9: lambda a10: lambda a11: lambda a12: lambda a13: lambda a14: lambda a15: lambda a16: lambda a17: lambda a18: lambda a19: lambda a20: f(
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
+                a8,
+                a9,
+                a10,
+                a11,
+                a12,
+                a13,
+                a14,
+                a15,
+                a16,
+                a17,
+                a18,
+                a19,
+                a20,
+            )
         )
     else:
         return f2
@@ -2672,13 +2616,7 @@ class ObjectRef:
 
 
 def safe_hash(x: Any) -> int:
-    return (
-        0
-        if x is None
-        else x.GetHashCode()
-        if is_hashable(x)
-        else number_hash(ObjectRef.id(x))
-    )
+    return 0 if x is None else x.GetHashCode() if is_hashable(x) else number_hash(ObjectRef.id(x))
 
 
 def string_hash(s: str) -> int:
@@ -2738,11 +2676,7 @@ def round(value: float, digits: int = 0):
     i = math.floor(n)
     f = n - i
     e = 1e-8
-    r = (
-        (i if (i % 2 == 0) else i + 1)
-        if (f > 0.5 - e and f < 0.5 + e)
-        else builtins.round(n)
-    )
+    r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else builtins.round(n)
     return r / m if digits else r
 
 
@@ -2768,9 +2702,7 @@ def ignore(a: Any = None) -> None:
     return
 
 
-def copy_to_array(
-    src: Array[_T], srci: int, trg: Array[_T], trgi: int, cnt: int
-) -> None:
+def copy_to_array(src: Array[_T], srci: int, trg: Array[_T], trgi: int, cnt: int) -> None:
     for i in range(0, cnt, 1):
         trg[trgi + i] = src[srci + i]
 

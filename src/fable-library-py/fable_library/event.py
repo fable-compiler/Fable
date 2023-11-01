@@ -1,15 +1,11 @@
 import inspect
-
 from abc import abstractmethod
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
     Generic,
-    List,
-    Optional,
     Protocol,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -32,7 +28,7 @@ _T_co = TypeVar("_T_co", covariant=True)
 
 Delegate = Callable[[_T], None]
 DotNetDelegate = Callable[[Any, _T], None]
-EventDelegate = Union[Delegate[_T], DotNetDelegate[_T]]
+EventDelegate = Delegate[_T] | DotNetDelegate[_T]
 
 
 class IDelegateEvent(Generic[_T_co], Protocol):
@@ -54,7 +50,7 @@ IEvent = IEvent_2[_T, _T]
 
 class Event(IEvent[_T]):
     def __init__(self) -> None:
-        self.delegates: List[EventDelegate[_T]] = []
+        self.delegates: list[EventDelegate[_T]] = []
 
     def Add(self, f: Delegate[_T]) -> None:
         self._addHandler(f)
@@ -71,15 +67,13 @@ class Event(IEvent[_T]):
     def Trigger(self, sender: Any, value: _T) -> None:
         ...
 
-    def Trigger(
-        self, senderOrValue: Any, valueOrUndefined: Optional[_T] = None
-    ) -> None:
-        if valueOrUndefined is None:
-            value = senderOrValue
+    def Trigger(self, sender_or_value: Any, value_or_undefined: _T | None = None) -> None:
+        if value_or_undefined is None:
+            value = sender_or_value
             sender = None
         else:
-            sender = senderOrValue
-            value = valueOrUndefined
+            sender = sender_or_value
+            value = value_or_undefined
 
         for f in self.delegates:
             if len(inspect.signature(f).parameters) == 1:
@@ -97,7 +91,7 @@ class Event(IEvent[_T]):
 
     # IObservable<T> methods
 
-    def Subscribe(self, __obs: Union[IObserver[_T], Delegate[_T]]) -> IDisposable:
+    def Subscribe(self, __obs: IObserver[_T] | Delegate[_T]) -> IDisposable:
         if callable(__obs):
             callback = __obs
         else:
@@ -125,9 +119,7 @@ def add(callback: Delegate[_T], source_event: IEvent[_T]) -> None:
         source_event.Subscribe(Observer(callback))
 
 
-def choose(
-    chooser: Callable[[_T], Optional[_U]], source_event: IEvent[_T]
-) -> IEvent[_U]:
+def choose(chooser: Callable[[_T], _U | None], source_event: IEvent[_T]) -> IEvent[_U]:
     ev = Event[_U]()
 
     def callback(t):
@@ -158,8 +150,8 @@ def merge(event1: IEvent[_T], event2: IEvent[_T]) -> IEvent[_T]:
     return ev
 
 
-def pairwise(source_event: IEvent[_T]) -> IEvent[List[_T]]:
-    ev = Event[List[_T]]()
+def pairwise(source_event: IEvent[_T]) -> IEvent[list[_T]]:
+    ev = Event[list[_T]]()
     last = None
 
     def fn(next):
@@ -172,9 +164,7 @@ def pairwise(source_event: IEvent[_T]) -> IEvent[List[_T]]:
     return ev
 
 
-def partition(
-    predicate: Callable[[_T], bool], source_event: IEvent[_T]
-) -> List[IEvent[_T]]:
+def partition(predicate: Callable[[_T], bool], source_event: IEvent[_T]) -> list[IEvent[_T]]:
     return [
         filter(predicate, source_event),
         filter(lambda x: not predicate(x), source_event),
@@ -189,9 +179,7 @@ def scan(
     return map(lambda t: collector(state, t), source_event)
 
 
-def split(
-    splitter: Callable[[_T], FSharpChoice_2[_U, _V]], source_event: IEvent[_T]
-) -> List[IEvent[Union[_U, _V]]]:
+def split(splitter: Callable[[_T], FSharpChoice_2[_U, _V]], source_event: IEvent[_T]) -> list[IEvent[_U | _V]]:
     return [
         choose(lambda t: Choice_tryValueIfChoice1Of2(splitter(t)), source_event),
         choose(lambda t: Choice_tryValueIfChoice2Of2(splitter(t)), source_event),

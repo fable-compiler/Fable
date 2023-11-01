@@ -1,5 +1,4 @@
 import math
-
 from math import copysign
 from typing import Any
 
@@ -69,16 +68,4 @@ def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
         return False
 
 
-__all__ = [
-    "abs",
-    "sign",
-    "max",
-    "min",
-
-    "parse",
-    "try_parse",
-    "divide",
-    "log",
-    "sqrt",
-    "is_negative_inf"
-]
+__all__ = ["abs", "sign", "max", "min", "parse", "try_parse", "divide", "log", "sqrt", "is_negative_inf"]

@@ -1,15 +1,11 @@
-from typing import Optional
+from __future__ import annotations
 
 
 class UTF16LE:
-    def get_bytes(
-        self, string: str, index: Optional[int] = None, count: Optional[int] = None
-    ) -> bytes:
+    def get_bytes(self, string: str, index: int | None = None, count: int | None = None) -> bytes:
         return string.encode("utf-16le")
 
-    def get_string(
-        self, bytes: bytes, index: Optional[int] = None, count: Optional[int] = None
-    ) -> str:
+    def get_string(self, bytes: bytes, index: int | None = None, count: int | None = None) -> str:
         if index is None:
             return bytes.decode("utf-8")
         else:
@@ -17,17 +13,13 @@ class UTF16LE:
 
 
 class UTF8:
-    def get_bytes(
-        self, string: str, index: Optional[int] = None, count: Optional[int] = None
-    ) -> bytes:
+    def get_bytes(self, string: str, index: int | None = None, count: int | None = None) -> bytes:
         if index is None:
             return string.encode("utf-8")
         else:
             return string.encode("utf-8")[index:count]
 
-    def get_string(
-        self, bytes: bytes, index: Optional[int] = None, count: Optional[int] = None
-    ) -> str:
+    def get_string(self, bytes: bytes, index: int | None = None, count: int | None = None) -> str:
         if index is None:
             return bytes.decode("utf-8")
         else:

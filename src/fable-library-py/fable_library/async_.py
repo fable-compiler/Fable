@@ -137,9 +137,7 @@ def sequential(computations: Iterable[Async[_T]]) -> Async[list[_T | None]]:
         def _arrow21(__unit: Literal[None] = None) -> Async[list[_T]]:
             return singleton.Return(results)
 
-        return singleton.Combine(
-            singleton.For(computations, _arrow20), singleton.Delay(_arrow21)
-        )
+        return singleton.Combine(singleton.For(computations, _arrow20), singleton.Delay(_arrow21))
 
     return delay(delayed)
 
@@ -152,9 +150,7 @@ def catch_async(work: Async[_T]) -> Async[_T]:
         def on_error(err: Exception):
             ctx.on_success(Choice_makeChoice2Of2(err))  # type: ignore
 
-        ctx_ = IAsyncContext.create(
-            on_success, on_error, ctx.on_cancel, ctx.trampoline, ctx.cancel_token
-        )
+        ctx_ = IAsyncContext.create(on_success, on_error, ctx.on_cancel, ctx.trampoline, ctx.cancel_token)
         work(ctx_)
 
     return protected_cont(cont)
@@ -164,7 +160,7 @@ def from_continuations(
     f: Callable[
         [Continuations[_T]],
         None,
-    ]
+    ],
 ) -> Callable[[IAsyncContext[_T]], None]:
     def cont(ctx: IAsyncContext[_T]) -> None:
         f((ctx.on_success, ctx.on_error, ctx.on_cancel))
@@ -247,9 +243,7 @@ def start_with_continuations(
     run_in_loop(runner)
 
 
-def start_as_task(
-    computation: Async[_T], cancellation_token: CancellationToken | None = None
-) -> Awaitable[_T]:
+def start_as_task(computation: Async[_T], cancellation_token: CancellationToken | None = None) -> Awaitable[_T]:
     """Executes a computation in the thread pool.
 
     If no cancellation token is provided then the default cancellation

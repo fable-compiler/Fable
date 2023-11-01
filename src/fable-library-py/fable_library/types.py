@@ -75,12 +75,7 @@ class Union(IComparable):
         else:
             fields = ", ".join(map(str, self.fields))
 
-        return (
-            self.name
-            + (" (" if with_parens else " ")
-            + fields
-            + (")" if with_parens else "")
-        )
+        return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
 
     def __repr__(self) -> str:
         return str(self)
@@ -155,23 +150,9 @@ def record_equals(self: _T, other: _T) -> bool:
 
 def record_to_string(self: Record) -> str:
     if hasattr(self, "__slots__"):
-        return (
-            "{ "
-            + "\n  ".join(
-                map(
-                    lambda slot: slot + " = " + str(getattr(self, slot)), self.__slots__
-                )
-            )
-            + " }"
-        )
+        return "{ " + "\n  ".join(map(lambda slot: slot + " = " + str(getattr(self, slot)), self.__slots__)) + " }"
     else:
-        return (
-            "{ "
-            + "\n  ".join(
-                map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())
-            )
-            + " }"
-        )
+        return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
 def record_get_hashcode(self: Record) -> int:

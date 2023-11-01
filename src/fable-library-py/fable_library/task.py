@@ -71,7 +71,6 @@ async def from_result(value: _T) -> _T:
 
 
 def get_awaiter(value: Awaitable[_T]) -> Awaitable[_T]:
-
     # Wrap awaitable in coroutine (so we can run it using create_task)
     async def get_value() -> _T:
         return await asyncio.ensure_future(value)

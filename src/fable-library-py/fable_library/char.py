@@ -105,10 +105,7 @@ IS_SEPARATOR_MASK = (
     | 1 << UnicodeCategory.ParagraphSeparator
 )
 IS_NUMBER_MASK = (
-    0
-    | 1 << UnicodeCategory.DecimalDigitNumber
-    | 1 << UnicodeCategory.LetterNumber
-    | 1 << UnicodeCategory.OtherNumber
+    0 | 1 << UnicodeCategory.DecimalDigitNumber | 1 << UnicodeCategory.LetterNumber | 1 << UnicodeCategory.OtherNumber
 )
 IS_SYMBOL_MASK = (
     0

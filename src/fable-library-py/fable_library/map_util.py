@@ -70,9 +70,7 @@ def add_to_set(v: _V, st: set[_V]) -> bool:
 
 def add_to_dict(di: dict[_K, _V], k: _K, v: _V) -> None:
     if k in di:
-        raise Exception(
-            "An item with the same key has already been added. Key: " + str(k)
-        )
+        raise Exception("An item with the same key has already been added. Key: " + str(k))
 
     di[k] = v
 
@@ -85,9 +83,7 @@ def remove_from_dict(di: dict[_K, Any], k: _K) -> bool:
     return False
 
 
-def try_get_value(
-    map: FSharpMap[_K, _V], key: _K, default_value: FSharpRef[_V]
-) -> bool:
+def try_get_value(map: FSharpMap[_K, _V], key: _K, default_value: FSharpRef[_V]) -> bool:
     if key in map.keys():
         default_value.contents = map[key]
         return True
