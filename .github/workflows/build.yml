@@ -109,6 +109,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install dependencies
+        run: |
+          pip install poetry
+        # poetry install
+
       - name: Fable Library - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
         run: ./build.sh fable-library --python
@@ -116,11 +121,6 @@ jobs:
       - name: Fable Library - Python (Windows)
         if: matrix.platform == 'windows-latest'
         run: .\build.bat fable-library --python
-
-      - name: Install dependencies
-        run: |
-          pip install poetry
-          poetry install
 
       - name: Fable Tests - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
