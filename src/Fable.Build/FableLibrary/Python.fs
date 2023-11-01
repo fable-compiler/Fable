@@ -41,8 +41,7 @@ type BuildFableLibraryPython() =
         // Run Ruff linter checking import sorting and fix any issues
         Command.Run(
             "poetry",
-            "run ruff --select I --fix .",
-            this.OutDir
+            $"run ruff --select I --fix {this.BuildDir}"
         )
         // Run Ruff formatter using poetry on all generated files
         Command.Run(
