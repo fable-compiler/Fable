@@ -233,7 +233,7 @@ let compileFileToJavaScript
         let opts = cliArgs.CompilerOptions
 
         let! compiledFiles =
-            [| yield currentFile; yield! dependentFiles |]
+            dependentFiles
             |> Array.filter (fun filePath ->
                 not (filePath.EndsWith(".fsi", StringComparison.Ordinal))
             )
