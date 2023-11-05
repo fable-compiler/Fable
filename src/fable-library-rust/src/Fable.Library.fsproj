@@ -8,6 +8,8 @@
   <ItemGroup>
     <Compile Include="Global.fs" />
     <Compile Include="System.fs" />
+    <Compile Include="System.Collections.Generic.fs" />
+    <Compile Include="System.Text.fs" />
     <Compile Include="Interfaces.fs" />
     <Compile Include="Range.fs" />
     <Compile Include="Set.fs" />
