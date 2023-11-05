@@ -328,10 +328,12 @@ let buildWorker (opts: {| minify: bool; watch: bool |}) =
 
     let projectDir = "src/fable-standalone/src"
     let buildDir = "build/fable-standalone"
+    let fableLib = "./build/fable-library"
     let distDir = "src/fable-standalone/dist"
 
     runFableWithArgs (projectDir + "/Worker") [
         "--outDir " + buildDir + "/worker"
+        "--fableLib " + fableLib
     ]
 
     let rollupTarget =
@@ -360,6 +362,7 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
 
     let projectDir = "src/fable-standalone/src"
     let buildDir = "build/fable-standalone"
+    let fableLib = "./build/fable-library"
     let distDir = "src/fable-standalone/dist"
 
     let rollupTarget =
@@ -386,6 +389,7 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
     // build standalone bundle
     runFableWithArgs projectDir [
         "--outDir " + buildDir </> "bundle"
+        "--fableLib " + fableLib
         if opts.watch then
             "--watch"
             "--run rollup"
@@ -413,6 +417,7 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
 let buildCompilerJs(minify: bool) =
     let projectDir = "src/fable-compiler-js/src"
     let buildDir = "build/fable-compiler-js"
+    let fableLib = "./build/fable-library"
     let distDir = "src/fable-compiler-js/dist"
 
     if not (pathExists "build/fable-standalone") then
@@ -423,6 +428,7 @@ let buildCompilerJs(minify: bool) =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
+        "--fableLib " + fableLib
         "--exclude Fable.Core"
     ]
 
@@ -468,12 +474,14 @@ let testReact() =
 let compileAndRunTestsWithMocha clean projectName =
     let projectDir = "tests/Js/" + projectName
     let buildDir = "build/tests/Js/" + projectName
+    let fableLib = "./build/fable-library"
 
     if clean then
         cleanDirs [buildDir]
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
+        "--fableLib " + fableLib
         "--exclude Fable.Core"
     ]
 
@@ -487,10 +495,12 @@ let testProjectConfigs() =
     ]
     |> List.iter (fun (projectDir, configuration) ->
         let buildDir = "build/"+ projectDir
+        let fableLib = "./build/fable-library"
 
         cleanDirs [ buildDir ]
         runFableWithArgs projectDir [
             "--outDir " + buildDir
+            "--fableLib " + fableLib
             "--exclude Fable.Core"
             if not(String.IsNullOrEmpty configuration) then
                 "--configuration " + configuration
@@ -526,6 +536,7 @@ let testTypeScript isWatch =
     let projectDir = "tests/TypeScript"
     let buildDir = "build/tests/TypeScript"
     let buildDir2 = "build/tests/TypeScriptCompiled"
+    let fableLib = "fable-library-ts"
 
     cleanDirs [buildDir; buildDir2]
 
@@ -535,6 +546,7 @@ let testTypeScript isWatch =
         projectDir
         "--lang ts"
         "--outDir " + buildDir
+        "--fableLib " + fableLib
         "--exclude Fable.Core"
         if isWatch then
             "--watch"
@@ -548,11 +560,13 @@ let testPython() =
 
     let projectDir = "tests/Python"
     let buildDir = "build/tests/Python"
+    let fableLib = "fable-library-py"
 
     cleanDirs [buildDir]
     runInDir projectDir "dotnet test -c Release"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
+        "--fableLib " + fableLib
         "--exclude Fable.Core"
         "--lang Python"
     ]
@@ -573,6 +587,7 @@ let testRust testMode =
     let testAstDir = "src/Fable.Transforms/Rust/AST/Tests"
     let projectDir = "tests/Rust"
     let buildDir = "build/tests/Rust"
+    let fableLib = "fable-library-rust"
 
     // limited cleanup to reduce IO churn, speed up rebuilds,
     // and save the ssd (target folder can get huge)
@@ -593,7 +608,7 @@ let testRust testMode =
         "--outDir " + buildDir
         "--exclude Fable.Core"
         "--lang Rust"
-        "--fableLib fable-library-rust"
+        "--fableLib " + fableLib
         "--noCache"
         if testMode = NoStd then "--define NO_STD_NO_EXCEPTIONS"
     ]
