@@ -1,6 +1,7 @@
 .idea/
 .ionide/
 
+build/
 node_modules/
 temp*/
 *.fs.js
