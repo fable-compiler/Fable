@@ -13,8 +13,6 @@ let private mainTestSourceDir = Path.Resolve("tests", "Js", "Main")
 let private mainTestProject =
     Path.Resolve("tests", "Js", "Main", "Fable.Tests.fsproj")
 
-let private mochaCommand = "npx mocha . --reporter dot -t 10000"
-
 let private testReact (isWatch: bool) =
     let workingDirectoy = Path.Resolve("tests", "React")
 
@@ -51,6 +49,15 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
 
     let destinationDir =
         Path.Resolve("temp", "tests", "JavaScript", folderName)
+
+    let mochaCommand =
+        CmdLine.empty
+        |> CmdLine.appendRaw "npx"
+        |> CmdLine.appendRaw "mocha"
+        |> CmdLine.appendRaw destinationDir
+        |> CmdLine.appendPrefix "--reporter" "dot"
+        |> CmdLine.appendPrefix "-t" "10000"
+        |> CmdLine.toString
 
     Directory.clean destinationDir
 
