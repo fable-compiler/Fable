@@ -6,23 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
 #### Python
 
 * Use `Any` type for all non-repeated generic arguments (by @dbrattli)
 * Don't generate unnecessary type type-vars if generic type is replaced by `Any` (by @dbrattli)
 * Generate new style `_T | None` instead of `Optional[_T]` (by @dbrattli)
 
+#### Rust
+
+* Support multiple namespaces sharing a prefix in the same file (by @ncave)
+* Support imports with the same namespace across multiple files (by @ncave)
+
 ### Fixed
 
 #### JavaScript
 
 * Fix #3571: `[<AttachMembers>]` not compatible with f# member `this.Item` (by @ncave)
-
-### Changed
-
-#### Rust
-
-* Support multiple namespaces sharing a prefix in the same file (by @ncave)
 
 ## 4.4.1 - 2023-10-25
 
