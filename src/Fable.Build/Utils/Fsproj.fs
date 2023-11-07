@@ -36,6 +36,7 @@ let replacePackageReleaseNotes (releaseNotes: string) (fsprojContent: string) =
         fsprojContent,
         "<PackageReleaseNotes>.*?</PackageReleaseNotes>",
         (fun (m: Match) ->
+            let releaseNotes = releaseNotes.Replace("<", "&lt;").Replace(">", "&gt;")
             $"<PackageReleaseNotes>{releaseNotes}</PackageReleaseNotes>"
         ),
         RegexOptions.Singleline

@@ -4,26 +4,29 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.4.1</Version>
-    <PackageReleaseNotes>* Fix #3438: Source maps
-* Fix #3440: Don't curry arity-1 functions
-* Fix #3452: DateTimeOffset conversion to DateTime
-* Fix regression: Don't type test interfaces declared in F# code
-* Rust: Added no_std test build
-* Rust: Added regex support
-* Rust: Fixed no_std support
-* Rust: Fixed uncurried options
-* Rust: Enabled some applicative tests
-* Rust: Enabled some tests
-* Rust: Updated switch transform (#3449)
-* Rust: Updated dependencies (#3447)
-* Rust: Fixed interface properties (#3445)
-* Rust: Updated object equality (#3444)
-* Rust: Enabled some Comparison tests (#3442)
-* Rust: Added DateOnly, TimeOnly tests
-* Rust: Added DateTimeOffset tests
-* Rust: Updated TimeSpan
-* Rust: Added DateTimeOffset</PackageReleaseNotes>
+    <Version>4.5.0</Version>
+    <PackageReleaseNotes>## Changed
+
+
+### Python
+
+- Use `Any` type for all non-repeated generic arguments (by @dbrattli)
+- Don't generate unnecessary type type-vars if generic type is replaced by `Any` (by @dbrattli)
+- Generate new style `_T | None` instead of `Optional[_T]` (by @dbrattli)
+
+### Rust
+
+- Support multiple namespaces sharing a prefix in the same file (by @ncave)
+- Support imports with the same namespace across multiple files (by @ncave)
+
+## Fixed
+
+
+### JavaScript
+
+- Fix #3571: `[&lt;AttachMembers&gt;]` not compatible with f# member `this.Item` (by @ncave)
+
+</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
