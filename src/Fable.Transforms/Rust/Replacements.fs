@@ -2739,15 +2739,19 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
     match i.CompiledName, thisArg, args with
     | ".ctor", None, _ ->
         match args with
-        | [] -> Helper.LibCall(com, "Guid", "empty", t, [], ?loc=r) |> Some
-        | [ExprType String] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc=r) |> Some
+        | [] ->
+            Helper.LibCall(com, "Guid", "empty", t, [], ?loc=r) |> Some
+        | [ExprType String] ->
+            Helper.LibCall(com, "Guid", "parse", t, args, ?loc=r) |> Some
+        | [ExprType(Array(Number(UInt8, _), _))] ->
+            Helper.LibCall(com, "Guid", "new_from_array", t, args, ?loc=r) |> Some
         // TODO: other constructor overrides
         | _ -> None
     // | "Empty", None, [] -> // it's a static field, see tryField
     | "NewGuid", None, [] -> Helper.LibCall(com, "Guid", "new_guid", t, args, ?loc=r) |> Some
     | "Parse", None, [ExprType String] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc=r) |> Some
-    // | None, "TryParse", _ -> Helper.LibCall(com, "Guid", "try_parse", t, args, ?loc=r) |> Some
-    // | Some x, "ToByteArray", [] -> Helper.LibCall(com, "Guid", "to_byte_array", t, args, ?loc=r) |> Some
+    | "TryParse", None, [ExprType String; _] -> Helper.LibCall(com, "Guid", "tryParse", t, args, ?loc=r) |> Some
+    | "ToByteArray", Some x, [] -> Helper.LibCall(com, "Guid", "toByteArray", t, [x], ?loc=r) |> Some
     | "ToString", Some x, [] -> toString com ctx r [x] |> Some
     // TODO: other methods and overrides
     | _ -> None

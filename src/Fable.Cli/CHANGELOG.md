@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+#### Rust
+
+* Added `Guid.TryParse`, `Guid.ToByteArray` (by @ncave)
+
 ## 4.5.0 - 2023-11-07
 
 ### Changed
