@@ -29,6 +29,8 @@ let handle (args: string list) =
     // We don't need to build fable-library, because it will be
     // build as part of Standalone.build
 
+    Command.Run("npm", "install", workingDirectory = fableCompilerJsDir)
+
     Standalone.handle args
 
     // Clean up temp folders
