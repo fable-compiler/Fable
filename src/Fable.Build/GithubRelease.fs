@@ -12,25 +12,37 @@ let private createGithubRelease
     (version: ChangelogParser.Types.Version)
     =
 
-    let githubClient = GitHubClient(ProductHeaderValue("fable-release-tool"))
-    githubClient.Credentials <- Credentials(githubToken)
+    let struct(lastestTag, _) =
+        Command.ReadAsync(
+            "git",
+            "describe --abbrev=0 --tags"
+        )
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
 
-    let newRelease = NewRelease(version.Version.ToString())
-    newRelease.Name <- version.Version.ToString()
-    newRelease.Body <- ChangelogParser.Version.bodyAsMarkdown version
-    newRelease.Draft <- false
-    newRelease.Prerelease <- false // TODO: Detect if this is a prerelease
+    // Only create a Github release if the tag doesn't exist
+    // It can happens that we trigger a release whre Fable.Cli
+    // is already up to date.
+    if lastestTag.Trim() <> version.Version.ToString() then
+        let githubClient = GitHubClient(ProductHeaderValue("fable-release-tool"))
+        githubClient.Credentials <- Credentials(githubToken)
 
-    githubClient.Repository.Release.Create(
-        "fable-compiler",
-        "Fable",
-        newRelease
-    )
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
-    |> ignore
+        let newRelease = NewRelease(version.Version.ToString())
+        newRelease.Name <- version.Version.ToString()
+        newRelease.Body <- ChangelogParser.Version.bodyAsMarkdown version
+        newRelease.Draft <- false
+        newRelease.Prerelease <- false // TODO: Detect if this is a prerelease
 
-let private createTag (version: ChangelogParser.Types.Version) =
+        githubClient.Repository.Release.Create(
+            "fable-compiler",
+            "Fable",
+            newRelease
+        )
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> ignore
+
+let private createReleaseCommitAndPush (version: ChangelogParser.Types.Version) =
     let versionText = version.Version.ToString()
 
     Command.Run(
@@ -68,5 +80,6 @@ let handle (args: string list) =
 
     let versionInfo = Changelog.getLastVersion Changelog.fableCLi
 
-    createTag versionInfo
+    createReleaseCommitAndPush versionInfo
+
     createGithubRelease githubToken versionInfo
