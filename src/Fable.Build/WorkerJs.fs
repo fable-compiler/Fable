@@ -6,6 +6,7 @@ open BlackFox.CommandLine
 open System.IO
 open Build.FableLibrary
 open Fake.IO
+open Build.Workspace
 
 let private projectDir = Path.Resolve("src", "fable-standalone")
 

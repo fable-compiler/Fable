@@ -3,10 +3,10 @@ module Build.Quicktest.Python
 open Build.FableLibrary
 open Build.Quicktest.Core
 open SimpleExec
+open System.IO
+open Build
 
 let handle (args: string list) =
-    Command.Run("poetry", "install")
-
     genericQuicktest
         {
             Language = "python"
