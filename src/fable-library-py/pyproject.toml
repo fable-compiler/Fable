@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fable-library"
-version = "0.8.0"
+version = "0.9.0"
 description = "Fable library for Python"
 authors = ["Dag Brattli <dag@brattli.net>"]
 license = "MIT License"

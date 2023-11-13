@@ -40,22 +40,6 @@ files = [
 ]
 
 [[package]]
-name = "fable-library"
-version = "0.8.0"
-description = "Fable library for Python"
-optional = false
-python-versions = ">= 3.9, < 4.0"
-files = []
-develop = true
-
-[package.dependencies]
-python-dateutil = "^2.8.2"
-
-[package.source]
-type = "directory"
-url = "temp/fable-library-py"
-
-[[package]]
 name = "iniconfig"
 version = "2.0.0"
 description = "brain-dead simple config-ini parsing"
@@ -192,4 +176,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">= 3.10, < 4.0"
-content-hash = "4f2b7eff58e9829e844883c28ab72c2c89782fc2d89befe3eef35099fb10258b"
+content-hash = "788e6fbf03db3fdf20225bb5020125ca10e4ec8417920744fcbc3a14690f75c8"
