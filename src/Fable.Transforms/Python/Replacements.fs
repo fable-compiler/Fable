@@ -141,7 +141,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head :: tail ->
         match head.Type with
-        | Char
+        | Char -> TypeCast(head, String)
         | String -> head
         | Builtin BclGuid when tail.IsEmpty -> Helper.GlobalCall("str", String, [ head ], ?loc = r)
         | Builtin (BclGuid
@@ -466,15 +466,13 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     | CustomOp com ctx r t opName args e -> e
     | _ -> nativeOp opName argTypes args
 
-let isCompatibleWithNativeComparison =
-    function
-    | Builtin (BclGuid
-    | BclTimeSpan)
-    | Boolean
-    | Number _
-    | String
-    | Char -> true
+let isCompatibleWithNativeComparison = function
+    | Builtin (BclGuid|BclTimeSpan|BclTimeOnly)
+    | Boolean | Char | String | Number _ -> true
+    // TODO: Non-record/union declared types without custom equality
+    // should be compatible with Py comparison
     | _ -> false
+
 
 // Overview of hash rules:
 // * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.

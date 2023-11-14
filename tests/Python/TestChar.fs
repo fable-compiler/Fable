@@ -25,6 +25,11 @@ let ``test Char.ToString works`` () =
     Char.ToString('b') |> equal "b"
 
 [<Fact>]
+let ``test Char.ToString type is casted correctly`` () =
+    ('t'.ToString()) + "est" |> equal "test"
+
+
+[<Fact>]
 let ``test Char.GetUnicodeCategory works`` () =
     Char.GetUnicodeCategory('a') |> equal UnicodeCategory.LowercaseLetter
     Char.GetUnicodeCategory('1') |> equal UnicodeCategory.DecimalDigitNumber

@@ -30,6 +30,7 @@
     <Compile Include="TestAsync.fs" />
     <Compile Include="TestApplicative.fs" />
     <Compile Include="TestArithmetic.fs" />
+    <Compile Include="TestAnonRecords.fs" />
     <Compile Include="TestArray.fs" />
     <Compile Include="TestChar.fs" />
     <Compile Include="TestComparison.fs" />
