@@ -251,6 +251,9 @@ type MutatingRecord =
 
 type Id = Id of string
 
+type CarInterior = { Seats: int }
+type Car = { Interior: CarInterior }
+
 //TODO:
 // let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
 //     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
@@ -351,6 +354,27 @@ let ``Mutating records work`` () =
     let x'' = { x' with uniqueA = -10 }
     equal -10 x''.uniqueA
     equal -20 x''.uniqueB
+
+
+[<Fact>]
+let ``test Nested record fiel copy and update works for records`` =
+    let car =
+        { Interior = { Seats = 4 } }
+
+    let car2 =
+        { car with Interior.Seats = 5 }
+
+    equal 5 car2.Interior.Seats
+
+[<Fact>]
+let ``Nested record fiel copy and update works for anonymous records`` =
+    let car =
+        {| Interior = {| Seats = 4 |} |}
+
+    let car2 =
+        {| car with Interior.Seats = 5 |}
+
+    equal 5 car2.Interior.Seats
 
 module ComplexEdgeCases =
     open Common.Imports.Vectors

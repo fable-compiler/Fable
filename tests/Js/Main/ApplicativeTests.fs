@@ -1732,6 +1732,52 @@ module MultipleInlines =
             NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
     ]
 
+module AccessorFunctionShorthand =
+
+    type User =
+        {
+            Name : string
+        }
+
+    type Student =
+        {
+            Name : string
+            Age : int
+        }
+
+    let inline namePropertyGetter<'a when 'a:(member Name: string)> (x: 'a) = x |> _.Name
+
+    let tests =
+        [
+            testCase "Accessor function shorthand works for records" <| fun () ->
+                let people =
+                    [
+                        { Name = "John" }
+                        { Name = "Jane" }
+                    ]
+
+                let names = people |> List.map _.Name
+                equal names ["John"; "Jane"]
+
+            testCase "Accessor function shorthand works for anonymous records" <| fun () ->
+                let people =
+                    [
+                        {| Name = "John" |}
+                        {| Name = "Jane" |}
+                    ]
+
+                let names = people |> List.map _.Name
+                equal names ["John"; "Jane"]
+
+            testCase "Accessor function shorthand works with STRP syntax" <| fun () ->
+                let user =
+                    { Name = "John" }
+                let student =
+                    { Name = "Jane"; Age = 20 }
+
+                equal (namePropertyGetter user) "John"
+                equal (namePropertyGetter student) "Jane"
+        ]
 let tests =
     testList "Applicative" (
         tests1
@@ -1745,4 +1791,5 @@ let tests =
         @ Curry.tests
         @ Uncurry.tests
         @ MultipleInlines.tests
+        @ AccessorFunctionShorthand.tests
     )

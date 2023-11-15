@@ -1761,3 +1761,51 @@ let ``Trait call works with multiple inlined functions II`` () = // See #2809
 [<Fact>]
 let ``Identifiers from witnesses don't get duplicated when resolving inline expressions`` () = // See #2855
     NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
+
+module AccessorFunctionShorthand =
+
+    type User =
+        {
+            Name : string
+        }
+
+    type Student =
+        {
+            Name : string
+            Age : int
+        }
+
+    let inline namePropertyGetter<'a when 'a:(member Name: string)> (x: 'a) = x |> _.Name
+
+[<Fact>]
+let ``test Accessor function shorthand works for records`` () =
+    let people : AccessorFunctionShorthand.User list =
+        [
+            { Name = "John" }
+            { Name = "Jane" }
+        ]
+
+    let names = people |> List.map _.Name
+    equal names ["John"; "Jane"]
+
+[<Fact>]
+let ``test Accessor function shorthand works for anonymous records`` () =
+    let people =
+        [
+            {| Name = "John" |}
+            {| Name = "Jane" |}
+        ]
+
+    let names = people |> List.map _.Name
+    equal names ["John"; "Jane"]
+
+
+[<Fact>]
+let ``Accessor function shorthand works with STRP syntax`` =
+    let user : AccessorFunctionShorthand.User =
+        { Name = "John" }
+    let student : AccessorFunctionShorthand.Student =
+        { Name = "Jane"; Age = 20 }
+
+    equal (AccessorFunctionShorthand.namePropertyGetter user) "John"
+    equal (AccessorFunctionShorthand.namePropertyGetter student) "Jane"

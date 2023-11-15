@@ -19,6 +19,15 @@ let LINE_SEPARATOR = "\u2028"
 let [<Literal>] aLiteral = "foo"
 let notALiteral = "foo"
 
+[<Literal>]
+let formatCoordinateBody = "(%f,%f)"
+
+[<Literal>]
+let formatPrefix = "Person at coordinates"
+
+[<Literal>]
+let fullFormat = formatPrefix + formatCoordinateBody
+
 type MyUnion = Bar of int * int | Foo1 of float | Foo3 | Foo4 of MyUnion
 
 type Test(i: int) =
@@ -160,6 +169,13 @@ let tests =
           sprintf "%d" -1L |> equal "-1"
           sprintf "%.2f" -1. |> equal "-1.00"
 
+      testCase "format string can use and compose string literals" <| fun () ->
+            let renderedCoordinates = sprintf formatCoordinateBody 0.25 0.75
+            let renderedText = sprintf fullFormat 0.25 0.75
+
+            equal "(0.250000,0.750000)" renderedCoordinates
+            equal "Person at coordinates(0.250000,0.750000)" renderedText
+
       testCase "Print.sprintf works" <| fun () -> // See #1216
             let res = Printf.sprintf "%s" "abc"
             equal "res: abc" ("res: " + res)
@@ -287,6 +303,12 @@ let tests =
             let b = B()
             $"b=(%O{b})" |> equal "b=(a=6)"
             $"%O{b}%O{b}" |> equal "a=7a=8"
+
+      testCase "Extended string interpolation syntax" <| fun () ->
+            let classAttr = "item-panel"
+            let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
+
+            cssNew |> equal ".item-panel:hover {background-color: #eee;}"
 
       testCase "sprintf \"%A\" with lists works" <| fun () ->
             let xs = ["Hi"; "Hello"; "Hola"]

@@ -39,6 +39,9 @@ type Time =
     static member inline duration(value: {| from: int; until: int |}) = value.until - value.from
     static member inline duration(value: {| from: int |}) = Time.duration {| value with until = 10 |}
 
+type CarInterior = { Seats: int }
+type Car = { Interior: CarInterior }
+
 [<Fact>]
 let ``test Anonymous records work`` () =
     let r = makeAnonRec()
@@ -125,3 +128,23 @@ let ``test Mutating records work`` () =
     let x'' = { x' with uniqueA = -10 }
     equal -10 x''.uniqueA
     equal -20 x''.uniqueB
+
+[<Fact>]
+let ``test Nested record fiel copy and update works for records`` =
+    let car =
+        { Interior = { Seats = 4 } }
+
+    let car2 =
+        { car with Interior.Seats = 5 }
+
+    equal 5 car2.Interior.Seats
+
+[<Fact>]
+let ``test Nested record fiel copy and update works for anonymous records`` =
+    let car =
+        {| Interior = {| Seats = 4 |} |}
+
+    let car2 =
+        {| car with Interior.Seats = 5 |}
+
+    equal 5 car2.Interior.Seats
