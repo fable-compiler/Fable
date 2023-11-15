@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### All
 
 * Fix #3584: Unit type compiles to undeclared variable (by @ncave)
+* Updated .NET metadata to 8.0.100 (by @ncave)
 
 #### Rust
 
