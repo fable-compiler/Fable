@@ -6,14 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+#### All
+
+* Updated .NET metadata to 8.0.100 (by @ncave)
+
+### Added
+
 #### All
 
 * Fix #3584: Unit type compiles to undeclared variable (by @ncave)
-* Updated .NET metadata to 8.0.100 (by @ncave)
 
 #### Rust
 
 * Added `Guid.TryParse`, `Guid.ToByteArray` (by @ncave)
+
+### Fixed
 
 #### Python
 

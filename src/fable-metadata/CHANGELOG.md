@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* Updated .NET metadata to 8.0.100 (by @ncave)
+
 ## 2.1.0
 
 * Force a release of the package because it seems like new DLLs are missing from the previous release
