@@ -1739,6 +1739,14 @@ module AccessorFunctionShorthand =
             Name : string
         }
 
+    type Student =
+        {
+            Name : string
+            Age : int
+        }
+
+    let inline namePropertyGetter<'a when 'a:(member Name: string)> (x: 'a) = x |> _.Name
+
     let tests =
         [
             testCase "Accessor function shorthand works for records" <| fun () ->
@@ -1760,6 +1768,15 @@ module AccessorFunctionShorthand =
 
                 let names = people |> List.map _.Name
                 equal names ["John"; "Jane"]
+
+            testCase "Accessor function shorthand works with STRP syntax" <| fun () ->
+                let user =
+                    { Name = "John" }
+                let student =
+                    { Name = "Jane"; Age = 20 }
+
+                equal (namePropertyGetter user) "John"
+                equal (namePropertyGetter student) "Jane"
         ]
 let tests =
     testList "Applicative" (
