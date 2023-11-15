@@ -124,22 +124,18 @@ let tests =
         equal -10 x''.uniqueA
         equal -20 x''.uniqueB
 
-    testCase "Nested record fiel opy and update works for records" <| fun () ->
+    testCase "Nested record field copy and update works for records" <| fun () ->
         let car =
             { Interior = { Seats = 4 } }
-
         let car2 =
             { car with Interior.Seats = 5 }
-
         equal 5 car2.Interior.Seats
 
-    testCase "Nested record fiel copy and update works for anonymous records" <| fun () ->
+    testCase "Nested record field copy and update works for anonymous records" <| fun () ->
         let car =
             {| Interior = {| Seats = 4 |} |}
-
         let car2 =
             {| car with Interior.Seats = 5 |}
-
         equal 5 car2.Interior.Seats
 
   ]
