@@ -355,25 +355,20 @@ let ``Mutating records work`` () =
     equal -10 x''.uniqueA
     equal -20 x''.uniqueB
 
-
 [<Fact>]
-let ``test Nested record fiel copy and update works for records`` =
+let ``Nested record field copy and update works for records`` =
     let car =
         { Interior = { Seats = 4 } }
-
     let car2 =
         { car with Interior.Seats = 5 }
-
     equal 5 car2.Interior.Seats
 
 [<Fact>]
-let ``Nested record fiel copy and update works for anonymous records`` =
+let ``Nested record field copy and update works for anonymous records`` =
     let car =
         {| Interior = {| Seats = 4 |} |}
-
     let car2 =
         {| car with Interior.Seats = 5 |}
-
     equal 5 car2.Interior.Seats
 
 module ComplexEdgeCases =
