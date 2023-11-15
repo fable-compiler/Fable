@@ -140,7 +140,7 @@ let ``test Nested record fiel copy and update works for records`` =
     equal 5 car2.Interior.Seats
 
 [<Fact>]
-let ``Nested record fiel copy and update works for anonymous records`` =
+let ``test Nested record fiel copy and update works for anonymous records`` =
     let car =
         {| Interior = {| Seats = 4 |} |}
 

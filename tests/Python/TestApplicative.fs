@@ -1723,7 +1723,7 @@ let ``test Accessor function shorthand works for anonymous records`` () =
     equal names ["John"; "Jane"]
 
 [<Fact>]
-let ``Accessor function shorthand works with STRP syntax`` =
+let ``test Accessor function shorthand works with STRP syntax`` =
     let user : AccessorFunctionShorthand.User =
         { Name = "John" }
     let student : AccessorFunctionShorthand.Student =
