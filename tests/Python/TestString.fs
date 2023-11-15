@@ -113,7 +113,6 @@ let ``test string interpolation works with anonymous records`` () =
 let ``test Extended string interpolation syntax`` =
     let classAttr = "item-panel"
     let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
-
     cssNew |> equal ".item-panel:hover {background-color: #eee;}"
 
 [<Fact>]

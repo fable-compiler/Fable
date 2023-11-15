@@ -1778,6 +1778,7 @@ module AccessorFunctionShorthand =
                 equal (namePropertyGetter user) "John"
                 equal (namePropertyGetter student) "Jane"
         ]
+
 let tests =
     testList "Applicative" (
         tests1
