@@ -361,7 +361,7 @@ let tests =
         ys.[0] + ys.[1]
         |> equal 3.
 
-    testCase "Array.concat works with strings" <| fun test ->
+    testCase "Array.concat works with strings" <| fun () ->
         [| [| "One" |]; [| "Two" |] |]
         |> Array.concat
         |> List.ofArray

@@ -477,8 +477,16 @@ let inline inlineLambdaWithAnonRecord callback =
 
 let sideEffect() = ()
 
+let inline inlineToString (f: 'T -> string): 'T -> string =
+    let unused = f
+    fun a -> $"{a}"
+
 let tests =
   testList "Miscellaneous" [
+
+    testCase "Generic unit args work" <| fun _ -> // #3584
+        let to_str = inlineToString (fun (props: unit) -> "s")
+        to_str () |> equal $"{()}"
 
 #if FABLE_COMPILER
 #if !FABLE_COMPILER_JAVASCRIPT

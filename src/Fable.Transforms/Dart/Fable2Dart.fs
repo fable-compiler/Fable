@@ -110,13 +110,6 @@ module Util =
         let fn = com.GetImportIdent(ctx, memberName, modulePath, Fable.Any)
         Expression.invocationExpression(fn.Expr, args, transformType com ctx t)
 
-    let discardUnitArg (args: Fable.Ident list) =
-        match args with
-        | [] -> []
-        | [unitArg] when unitArg.Type = Fable.Unit -> []
-        | [thisArg; unitArg] when thisArg.IsThisArgument && unitArg.Type = Fable.Unit -> [thisArg]
-        | args -> args
-
     let addErrorAndReturnNull (com: Compiler) (range: SourceLocation option) (error: string) =
         addError com [] range error
         NullLiteral Dynamic |> Literal
@@ -244,8 +237,11 @@ module Util =
     type NamedTailCallOpportunity(_com: IDartCompiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
-        let argIds = discardUnitArg args |> List.map (fun arg ->
-            getUniqueNameInDeclarationScope ctx (arg.Name + "_mut"))
+        let argIds =
+            args
+            |> FSharp2Fable.Util.discardUnitArg
+            |> List.map (fun arg ->
+                getUniqueNameInDeclarationScope ctx (arg.Name + "_mut"))
         interface ITailCallOpportunity with
             member _.Label = name
             member _.Args = argIds
@@ -359,12 +355,16 @@ module Util =
         statements1 @ statements2 @ [Statement.continueStatement(tc.Label)]
 
     let transformCallArgs (com: IDartCompiler) ctx (info: ArgsInfo) =
+
         let paramsInfo, thisArg, args =
             match info with
-            | NoCallInfo args -> None, None, args
+            | NoCallInfo args ->
+                let args = FSharp2Fable.Util.dropUnitCallArg args []
+                None, None, args
             | CallInfo callInfo ->
+                let args = FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
                 let paramsInfo = callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo
-                paramsInfo, callInfo.ThisArg, callInfo.Args
+                paramsInfo, callInfo.ThisArg, args
 
         let unnamedArgs, namedArgs =
             paramsInfo
@@ -383,7 +383,6 @@ module Util =
 
         let unnamedArgs =
             match unnamedArgs, paramsInfo with
-            | [Fable.Value(Fable.UnitConstant,_)], _ -> []
             | args, Some paramsInfo ->
                 let argsLen = args.Length
                 let parameters = paramsInfo.Parameters
@@ -833,7 +832,10 @@ module Util =
             let invocation =
                 match args with
                 | [] -> Expression.invocationExpression(callee, t)
-                | args -> (callee, args) ||> List.fold (fun e arg -> Expression.invocationExpression(e, [arg], t))
+                | args ->
+                    (callee, args)
+                    ||> List.fold (fun expr arg ->
+                        Expression.invocationExpression(expr, [arg], t))
             let statements2, capturedExpr = resolveExpr returnStrategy invocation
             statements @ statements2, capturedExpr
 
@@ -1062,7 +1064,7 @@ module Util =
         let tailcallChance = Option.map (fun name ->
             NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
 
-        let args = discardUnitArg args
+        let args = FSharp2Fable.Util.discardUnitArg args
         let mutable isTailCallOptimized = false
         let varsInScope = args |> List.map (fun a -> a.Name) |> HashSet
         let ctx =
