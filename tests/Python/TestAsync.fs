@@ -486,7 +486,7 @@ let ``test Async.StartChild works`` () =
         let! result2 = result2Async
         x <- x + result1 + result2
         equal x "ABCDEF"
-    }
+    } |> Async.StartImmediate
 
 [<Fact>]
 let ``test Unit arguments are erased`` () = // See #1832
@@ -497,7 +497,7 @@ let ``test Unit arguments are erased`` () = // See #1832
             |> asyncMap (fun x -> token <- x)
         equal 5 token
         res
-    }
+    } |> Async.StartImmediate
 
 [<Fact>]
 let ``test Can use custom exceptions in async workflows #2396`` () =
@@ -515,4 +515,4 @@ let ``test Can use custom exceptions in async workflows #2396`` () =
     async {
         let! res = parentWorkflow()
         equal 7 res
-    }
+    } |> Async.StartImmediate
