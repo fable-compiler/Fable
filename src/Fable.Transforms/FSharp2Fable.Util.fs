@@ -1405,6 +1405,26 @@ module Util =
     open TypeHelpers
     open Identifiers
 
+    let isUnitArg (ident: Fable.Ident) =
+        ident.IsCompilerGenerated
+        && ident.Type = Fable.Unit
+        // && (ident.DisplayName.StartsWith("unitVar") || ident.DisplayName.Contains("@"))
+
+    let discardUnitArg (args: Fable.Ident list) =
+        match args with
+        | [] -> []
+        | [arg] when isUnitArg arg -> []
+        | [thisArg; arg] when thisArg.IsThisArgument && isUnitArg arg -> [thisArg]
+        | args -> args
+
+    let dropUnitCallArg (args: Fable.Expr list) (argTypes: Fable.Type list) =
+        match args, argTypes with
+        // Don't remove unit arg if a generic is expected
+        | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))], [Fable.GenericParam _] -> args
+        | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))], _ -> []
+        | [Fable.IdentExpr ident], _ when isUnitArg ident -> []
+        | _ -> args
+
     let makeFunctionArgs com ctx (args: FSharpMemberOrFunctionOrValue list) =
         let ctx, args =
             ((ctx, []), args)
@@ -2168,10 +2188,10 @@ module Util =
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
-        | _ when typ = Fable.Unit ->
-            if com.Options.Verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
-                $"Value %s{v.DisplayName} is replaced with unit constant"
-                |> addWarning com ctx.InlinePath r
+        | _ when typ = Fable.Unit && v.IsCompilerGenerated ->
+            // if com.Options.Verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
+            //     $"Value %s{v.DisplayName} is replaced with unit constant"
+            //     |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported

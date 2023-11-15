@@ -849,13 +849,6 @@ module Util =
         | Fable.LetRec(bindings, body) -> Some(bindings, body)
         | _ -> None
 
-    let discardUnitArg (args: Fable.Ident list) =
-        match args with
-        | [] -> []
-        | [unitArg] when unitArg.Type = Fable.Unit -> []
-        | [thisArg; unitArg] when thisArg.IsThisArgument && unitArg.Type = Fable.Unit -> [thisArg]
-        | args -> args
-
     let getUniqueNameInRootScope (ctx: Context) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
             ctx.UsedNames.RootScope.Contains(name)
@@ -872,8 +865,11 @@ module Util =
     type NamedTailCallOpportunity(_com: Compiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
-        let argIds = args |> discardUnitArg |> List.map (fun arg ->
-            getUniqueNameInDeclarationScope ctx (arg.Name + "_mut"))
+        let argIds =
+            args
+            |> FSharp2Fable.Util.discardUnitArg
+            |> List.map (fun arg ->
+                getUniqueNameInDeclarationScope ctx (arg.Name + "_mut"))
         interface ITailCallOpportunity with
             member _.Label = name
             member _.Args = argIds
@@ -1516,13 +1512,8 @@ module Util =
             Expression.newExpression(classExpr, [||])
 
     let transformCallArgs (com: IBabelCompiler) ctx (callInfo: Fable.CallInfo) (memberInfo: Fable.MemberFunctionOrValue option) =
-        let args =
-            match callInfo.Args, callInfo.SignatureArgTypes with
-            // Don't remove unit arg if a generic is expected, TypeScript will complain
-            | [Fable.Value(Fable.UnitConstant,_)], [Fable.GenericParam _] -> callInfo.Args
-            | [Fable.Value(Fable.UnitConstant,_)], _ -> []
-            | _ -> callInfo.Args
 
+        let args = FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
         let paramsInfo = Option.map getParamsInfo memberInfo
 
         let args =
@@ -1746,14 +1737,14 @@ module Util =
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         (applied, args)
-        ||> List.fold (fun e arg ->
+        ||> List.fold (fun expr arg ->
             match arg with
             // TODO: If arg type is unit but it's an expression with potential
             // side-effects, we need to extract it and execute it before the call
             | Fable.Value(Fable.UnitConstant,_) -> []
             | Fable.IdentExpr ident when ident.Type = Fable.Unit -> []
             | TransformExpr com ctx arg -> [arg]
-            |> callFunction com ctx range e [])
+            |> callFunction com ctx range expr [])
 
     let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -2402,7 +2393,7 @@ module Util =
         let tailcallChance =
             Option.map (fun name ->
                 NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
-        let args = discardUnitArg args
+        let args = FSharp2Fable.Util.discardUnitArg args
         let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
         let ctx =
@@ -2883,7 +2874,7 @@ module Util =
                 let args =
                     info.CurriedParameterGroups
                     |> List.concat
-                    // |> discardUnitArg
+                    // |> FSharp2Fable.Util.discardUnitArg
                     |> List.toArray
 
                 let argsLen = Array.length args

@@ -1158,24 +1158,19 @@ module Util =
         | _ -> None
 
     let isUnitArg (ident: Fable.Ident) =
-        ident.IsCompilerGenerated &&
-        ident.Type = Fable.Unit &&
-        (ident.DisplayName.StartsWith("unitVar") || ident.DisplayName.Contains("@"))
+        ident.IsCompilerGenerated
+        && ident.Type = Fable.Unit
+        && (ident.DisplayName.StartsWith("unitVar") || ident.DisplayName.Contains("@"))
 
     let discardUnitArg (genArgs: Fable.Type list) (args: Fable.Ident list) =
         match genArgs, args with
         | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
-        | _, [] -> []
-        | _, [arg] when isUnitArg arg -> []
-        | _, [thisArg; arg] when thisArg.IsThisArgument && isUnitArg arg -> [thisArg]
-        | _, args -> args
-
-    let dropUnitCallArg (genArgs: Fable.Type list) (args: Fable.Expr list) =
-        match genArgs, args with
-        | [Fable.Unit], [arg] -> args // don't drop unit arg when generic arg is unit
-        | _, [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
-        | _, [Fable.IdentExpr ident] when isUnitArg ident -> []
-        | _, args -> args
+        | _ ->
+            match args with
+            | [] -> []
+            | [arg] when isUnitArg arg -> []
+            | [thisArg; arg] when thisArg.IsThisArgument && isUnitArg arg -> [thisArg]
+            | args -> args
 
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
     /// Should this be done in FSharp2Fable step?
@@ -2151,7 +2146,7 @@ module Util =
             { ctx with RequiresSendSync = isSendSync
                        IsParamByRefPreferred = isByRefPreferred }
 
-        let args = dropUnitCallArg callInfo.GenericArgs callInfo.Args
+        let args = FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
         let args = transformCallArgs com ctx args callInfo.SignatureArgTypes argParams
 
         match calleeExpr with
@@ -2622,9 +2617,10 @@ module Util =
             optimizeTailCall com ctx r tc args
         | _ ->
             let callee = transformCallee com ctx calleeExpr
-            (callee, args) ||> List.fold (fun c arg ->
-                let args = dropUnitCallArg [] [arg]
-                callFunction com ctx r c args)
+            (callee, args)
+            ||> List.fold (fun expr arg ->
+                let args = FSharp2Fable.Util.dropUnitCallArg [arg] []
+                callFunction com ctx r expr args)
 
     let makeUnionCasePat unionCaseName fields =
         if List.isEmpty fields then

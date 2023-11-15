@@ -997,17 +997,6 @@ module Util =
         | Fable.Delegate (args, body, _, []) -> Some(args, body)
         | _ -> None
 
-    let discardUnitArg (args: Fable.Ident list) =
-        match args with
-        | [] -> []
-        | [ unitArg ] when unitArg.Type = Fable.Unit -> []
-        | [ thisArg; unitArg ] when
-            thisArg.IsThisArgument
-            && unitArg.Type = Fable.Unit
-            ->
-            [ thisArg ]
-        | args -> args
-
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
             (name, Naming.NoMemberPart)
@@ -1036,7 +1025,8 @@ module Util =
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
         // TODO: Local unique ident names
         let argIds =
-            discardUnitArg args
+            args
+            |> FSharp2Fable.Util.discardUnitArg
             |> List.map (fun arg ->
                 let name = getUniqueNameInDeclarationScope ctx (arg.Name + "_mut")
                 // Ignore type annotation here as it generates unnecessary typevars
@@ -1856,8 +1846,9 @@ module Util =
         Expression.call (Expression.name name), [ stmt ] @ stmts
 
     let transformCallArgs (com: IPythonCompiler) ctx (callInfo: Fable.CallInfo) : Expression list * Keyword list * Statement list =
+
+        let args = FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
         let paramsInfo = callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo
-        let args = callInfo.Args
 
         let args, objArg, stmts =
             paramsInfo
@@ -1890,8 +1881,7 @@ module Util =
 
         let args, stmts' =
             match args with
-            | []
-            | [ MaybeCasted (Fable.Value (Fable.UnitConstant, _)) ] -> [], []
+            | [] -> [], []
             | args when hasSpread ->
                 match List.rev args with
                 | [] -> [], []
@@ -2065,8 +2055,10 @@ module Util =
                 match arg with
                 // TODO: If arg type is unit but it's an expression with potential
                 // side-effects, we need to extract it and execute it before the call
-                | Fable.Value(Fable.UnitConstant,_) -> [], []
-                | Fable.IdentExpr ident when ident.Type = Fable.Unit -> [], []
+
+                // TODO: discardUnitArg may still be needed in some cases
+                // | Fable.Value(Fable.UnitConstant,_) -> [], []
+                // | Fable.IdentExpr ident when ident.Type = Fable.Unit -> [], []
                 | TransformExpr com ctx (arg, stmts') -> [arg], stmts'
             callFunction range applied args [], stmts @ stmts')
 
@@ -3232,7 +3224,7 @@ module Util =
         let tailcallChance =
             Option.map (fun name -> NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
 
-        let args = discardUnitArg args
+        let args = FSharp2Fable.Util.discardUnitArg args
 
         /// Removes `_mut` or `_mut_1` suffix from the identifier name
         let cleanName (input: string) = Regex.Replace(input, @"_mut(_\d+)?$", "")
