@@ -355,7 +355,6 @@ let ``Backslash is escaped in interpolated strings`` () = // See #2649
 let ``Extended string interpolation syntax`` =
     let classAttr = "item-panel"
     let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
-
     cssNew |> equal ".item-panel:hover {background-color: #eee;}"
 
 [<Fact>]

@@ -1013,8 +1013,6 @@ let ``test List.allPairs works`` () =
          (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
          (4, 'd'); (4, 'e'); (4, 'f')]
 
-// TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
-// #if FABLE_COMPILER
 [<Fact>]
 let ``test Implicit yields work`` () =
     let makeList condition =
@@ -1026,7 +1024,6 @@ let ``test Implicit yields work`` () =
         ]
     makeList true |> List.sum |> equal 6
     makeList false |> List.sum |> equal 3
-// #endif
 
 [<Fact>]
 let ``test List.splitInto works`` () =

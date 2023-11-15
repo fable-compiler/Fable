@@ -307,7 +307,6 @@ let tests =
       testCase "Extended string interpolation syntax" <| fun () ->
             let classAttr = "item-panel"
             let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
-
             cssNew |> equal ".item-panel:hover {background-color: #eee;}"
 
       testCase "sprintf \"%A\" with lists works" <| fun () ->
