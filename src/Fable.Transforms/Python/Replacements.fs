@@ -2245,7 +2245,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "string", "format", t, [ format; thisArg.Value ], [ format.Type; thisArg.Value.Type ], ?loc = r)
         |> Some
     | "ToString", _ ->
-        Helper.GlobalCall("String", String, [ thisArg.Value ], ?loc = r)
+        Helper.GlobalCall("str", String, [ thisArg.Value ], ?loc = r)
         |> Some
     | _ -> None
 
