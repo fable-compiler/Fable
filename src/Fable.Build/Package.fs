@@ -22,11 +22,8 @@ let handle (args: string list) =
 
     Directory.clean packageDestination
 
-    let fableCliVersionInfo = Changelog.getLastVersion Changelog.fableCLi
-
     let fableCliVersion =
-        fableCliVersionInfo.Version.ToString()
-        + "-local-build-"
+        "900.0.0-local-build-"
         + DateTime.Now.ToString("yyyyMMdd-HHhmm")
 
     let compilerFsPath =
@@ -53,11 +50,8 @@ let handle (args: string list) =
     // This avoid common error of comitting the modified file
     File.WriteAllText(compilerFsPath, compilerFsOriginalContent)
 
-    let fableCoreVersionInfo = Changelog.getLastVersion Changelog.fableCore
-
     let fableCoreVersion =
-        fableCoreVersionInfo.Version.ToString()
-        + "-local-build-"
+        "900.0.0-local-build-"
         + DateTime.Now.ToString("yyyyMMdd-HHhmm")
 
     Command.Run(
