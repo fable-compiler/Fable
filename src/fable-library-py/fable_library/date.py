@@ -133,13 +133,22 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
 #     else:
 #         return dateToStringWithCustomFormat(d, format, True)
 
-
 def date_to_string_with_offset(date: datetime, format: str | None = None) -> str:
-    if format and len(format) == 1:
+    if not format:
+        raise NotImplementedError("date_to_string_with_offset")
+
+    elif format and len(format) == 1:
+        # if format == "D" or format == "d":
+        #     return dateToHalfUTCString(date, "first") if utc else str(date.date())
+        # elif format == "T" or format == "t":
+        #     return dateToHalfUTCString(date, "second") if utc else str(date.time())
+        if format == "O" or format == "o":
+            # return date.isoformat("T", "milliseconds") + "Z"
+            return date.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        else:
+            raise Exception("Unrecognized Date print format")
+    else:
         return date_to_string_with_custom_format(date, format, True)
-
-    raise NotImplementedError("date_to_string_with_offset")
-
 
 def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
     utc = date.tzinfo == timezone.utc
@@ -152,7 +161,7 @@ def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
         elif format == "T" or format == "t":
             return dateToHalfUTCString(date, "second") if utc else str(date.time())
         elif format == "O" or format == "o":
-            return dateToISOString(date, utc)
+            return date.astimezone().isoformat(timespec='milliseconds')
         else:
             raise Exception("Unrecognized Date print format")
 

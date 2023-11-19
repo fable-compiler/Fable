@@ -32,12 +32,14 @@ let ``test DateTime.ToString with milliseconds`` () =
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("ss.fff")
     |> equal "11.345"
 
-// FIXME: missing regex module
-// [<Fact>]
-// let ``test DateTime.ToString with Round-trip format works for Utc`` () =
-//     let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
-//     System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
-//     |> equal "2014-09-11T16:37:02.000Z"
+[<Fact>]
+let ``test DateTime.ToString with Round-trip format works for Utc`` () =
+    let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
+    // FIXME: missing regex module
+    // System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
+    // Hardcode the replace string so we can test that "O" format is supported
+    str.Replace("0000000Z", "000000Z")
+    |> equal "2014-09-11T16:37:02.000000Z"
 
 [<Fact>]
 let ``test DateTime from Year 1 to 99 works`` () =
