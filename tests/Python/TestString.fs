@@ -888,3 +888,9 @@ let ``test Can create FormattableString`` () =
 [<Fact>]
 let ``test printing strings with unicode characters`` () =
     printfn "🚀 printing unicode ..."
+
+[<Fact>]
+let ``test calling ToString(CultureInfo.InvariantCulture) works`` () =
+    (1).ToString(CultureInfo.InvariantCulture) |> equal "1"
+    (7923209L).ToString(CultureInfo.InvariantCulture) |> equal "7923209"
+    (7923209UL).ToString(CultureInfo.InvariantCulture) |> equal "7923209"

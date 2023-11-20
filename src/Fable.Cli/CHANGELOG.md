@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Fixed char to string type regression with binary operator (by @dbrattli)
 * Fix `DateTime(..., DateTimeKind.Local).ToString("O")` (by @MangelMaxime)
+* Fix calling `value.ToString(CultureInfo.InvariantCulture)` (by @MangelMaxime)
 
 ## 4.5.0 - 2023-11-07
 
