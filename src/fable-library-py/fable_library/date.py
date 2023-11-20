@@ -135,10 +135,15 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
 
 
 def date_to_string_with_offset(date: datetime, format: str | None = None) -> str:
-    if format and len(format) == 1:
-        return date_to_string_with_custom_format(date, format, True)
-
-    raise NotImplementedError("date_to_string_with_offset")
+    match format:
+        case None:
+            raise NotImplementedError("date_to_string_with_offset")
+        case "O" | "o":
+            return date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        case _ if len(format) == 1:
+            raise Exception("Unrecognized Date print format")
+        case _:
+            return date_to_string_with_custom_format(date, format, True)
 
 
 def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
@@ -152,7 +157,7 @@ def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
         elif format == "T" or format == "t":
             return dateToHalfUTCString(date, "second") if utc else str(date.time())
         elif format == "O" or format == "o":
-            return dateToISOString(date, utc)
+            return date.astimezone().isoformat(timespec="milliseconds")
         else:
             raise Exception("Unrecognized Date print format")
 

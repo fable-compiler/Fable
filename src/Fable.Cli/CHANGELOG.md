@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Fix #3584: Unit type compiles to undeclared variable (by @ncave)
 
+#### Python
+
+* Support `DateTime(..., DateTimeKind.Utc).ToString("O")` (by @MangelMaxime)
+
 #### Rust
 
 * Added `Guid.TryParse`, `Guid.ToByteArray` (by @ncave)
@@ -27,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Python
 
 * Fixed char to string type regression with binary operator (by @dbrattli)
+* Fix `DateTime(..., DateTimeKind.Local).ToString("O")` (by @MangelMaxime)
 
 ## 4.5.0 - 2023-11-07
 
