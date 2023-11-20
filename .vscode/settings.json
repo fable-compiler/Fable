@@ -23,11 +23,14 @@
         "src/fcs-fable"
     ],
     "rust-analyzer.linkedProjects": [
-        "build/fable-library-rust/Cargo.toml",
-        "build/tests/Rust/Cargo.toml",
         "temp/fable-library-rust/Cargo.toml",
         "temp/tests/Rust/Cargo.toml"
     ],
     "editor.inlayHints.enabled": "offUnlessPressed",
-    "dotnet.defaultSolution": "disable"
+    "dotnet.defaultSolution": "disable",
+    "python.testing.pytestArgs": [
+        "temp"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }
