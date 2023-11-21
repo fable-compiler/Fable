@@ -42,6 +42,9 @@ type Time =
 type CarInterior = { Seats: int }
 type Car = { Interior: CarInterior }
 
+type RecordA =
+    { OptionalField : string option }
+
 [<Fact>]
 let ``test Anonymous records work`` () =
     let r = makeAnonRec()
@@ -144,3 +147,14 @@ let ``test Nested record field copy and update works for anonymous records`` =
     let car2 =
         {| car with Interior.Seats = 5 |}
     equal 5 car2.Interior.Seats
+
+[<Fact>]
+let ``test Record equality when it has optional field`` =
+    let a = { OptionalField = None }
+    let b = { OptionalField = None }
+    let c = { OptionalField = Some "test" }
+
+    equal a b
+    equal true (a = b)
+    equal false (a = c)
+    equal false (c = b)

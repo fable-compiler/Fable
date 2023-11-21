@@ -1,4 +1,5 @@
 from __future__ import annotations
+from types import NoneType
 
 import array
 from abc import abstractmethod
@@ -120,7 +121,13 @@ def record_compare_to(self: Record, other: Record) -> int:
 
     elif hasattr(self, "__dict__") and self.__dict__:
         for name in self.__dict__.keys():
-            if self.__dict__[name] < other.__dict__.get(name):
+            if isinstance(self.__dict__[name], NoneType) and isinstance(other.__dict__.get(name), NoneType):
+                continue
+            elif isinstance(self.__dict__[name], NoneType) and not isinstance(other.__dict__.get(name), NoneType):
+                return -1
+            elif not isinstance(self.__dict__[name], NoneType) and isinstance(other.__dict__.get(name), NoneType):
+                return 1
+            elif self.__dict__[name] < other.__dict__.get(name):
                 return -1
             elif self.__dict__[name] > other.__dict__.get(name):
                 return 1
