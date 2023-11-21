@@ -33,11 +33,11 @@ let handle (args: string list) =
                 CmdLine.empty
                 |> CmdLine.appendRaw "--watch"
                 |> CmdLine.appendRaw "--runWatch"
-                |> CmdLine.appendRaw "poetry run pytest -x"
+                |> CmdLine.appendRaw $"poetry run pytest {buildDir} -x"
             else
                 CmdLine.empty
                 |> CmdLine.appendRaw "--run"
-                |> CmdLine.appendRaw "poetry run pytest -x"
+                |> CmdLine.appendRaw $"poetry run pytest {buildDir} -x"
         ]
 
     if isWatch then
