@@ -1,8 +1,14 @@
 module Fable.Compiler.Util
 
 open System
-open System.Threading
 open Fable
+
+type RunProcess =
+    new: exeFile: string * args: string list * ?watch: bool * ?fast: bool -> RunProcess
+    member ExeFile: string
+    member Args: string list
+    member IsWatch: bool
+    member IsFast: bool
 
 type CliArgs =
     { ProjectFile: string
@@ -21,6 +27,7 @@ type CliArgs =
       SourceMapsRoot: string option
       Exclude: string list
       Replace: Map<string, string>
+      RunProcess: RunProcess option
       CompilerOptions: Fable.CompilerOptions }
 
     member ProjectFileAsRelativePath: string

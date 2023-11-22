@@ -3,6 +3,7 @@ module Fable.Cli.Printers
 open System.IO
 open FSharp.Compiler.Symbols
 open Fable
+open Fable.Compiler.Util
 
 let attribsOfSymbol (s: FSharpSymbol) =
     [

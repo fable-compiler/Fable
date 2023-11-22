@@ -4,6 +4,7 @@ open System
 open Fable
 open Fable.AST
 open Fable.Transforms
+open Fable.Compiler.Util
 
 type Stream =
     static member WriteToFile(memoryStream: IO.Stream, filePath: string) =

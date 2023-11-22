@@ -3,6 +3,7 @@ module Fable.Cli.Entry
 open System
 open Main
 open Fable
+open Fable.Compiler.Util
 
 type CliArgs(args: string list) =
     let argsMap =

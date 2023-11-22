@@ -14,17 +14,6 @@ open Fable.Compiler.Util
 open Globbing.Operators
 open Buildalyzer
 
-open System
-open System.Xml.Linq
-open System.Text.RegularExpressions
-open System.Collections.Generic
-open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.Text
-open Fable
-open Fable.AST
-open Globbing.Operators
-open Buildalyzer
-
 type FablePackage =
     { Id: string
       Version: string

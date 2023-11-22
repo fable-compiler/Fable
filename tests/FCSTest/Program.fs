@@ -177,6 +177,7 @@ let cliArgs: CliArgs = {
         TriggeredByDependency = false
         NoReflection = false
     }
+    RunProcess = None
 }
 
 let crackerOptions = CrackerOptions(cliArgs)
@@ -185,9 +186,7 @@ let checker = InteractiveChecker.Create(crackerResponse.ProjectOptions)
 
 let sourceReader =
     Fable.Compiler.File.MakeSourceReader(
-        Array.map
-            Fable.Compiler.File
-            crackerResponse.ProjectOptions.SourceFiles
+        Array.map Fable.Compiler.File crackerResponse.ProjectOptions.SourceFiles
     )
     |> snd
 

@@ -12,7 +12,8 @@ open Fable
 open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.State
-open ProjectCracker
+open Fable.Compiler.ProjectCracker
+open Fable.Compiler.Util
 
 module private Util =
     type PathResolver with
@@ -122,7 +123,7 @@ module private Util =
     let logErrors rootDir (logs: Log seq) =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
-        |> Seq.iter (fun log -> Log.error (formatLog rootDir log))
+        |> Seq.iter (fun log -> Fable.Compiler.Util.Log.error(formatLog rootDir log))
 
     let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
         diagnostics
