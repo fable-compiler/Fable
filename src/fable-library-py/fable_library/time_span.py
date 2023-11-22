@@ -6,118 +6,155 @@ from typing import Any
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
 
-def total_seconds(ts: timedelta) -> float:
-    return ts.total_seconds()
-
-
-def total_days(ts: timedelta) -> float:
-    return total_seconds(ts) / 86400
-
-
-def total_minutes(ts: timedelta) -> float:
-    return total_seconds(ts) / 60
-
-
-def total_hours(ts: timedelta) -> float:
-    return total_seconds(ts) / 3600
-
-
-def from_milliseconds(msecs: int) -> timedelta:
-    return timedelta(milliseconds=msecs)
-
-
-def from_ticks(ticks: int) -> timedelta:
-    return timedelta(microseconds=ticks // 10)
-
-
-def from_seconds(s: int) -> timedelta:
-    return timedelta(seconds=s)
-
-
-def from_minutes(m: int) -> timedelta:
-    return timedelta(minutes=m)
-
-
-def from_hours(h: int) -> timedelta:
-    return timedelta(hours=h)
-
-
-def from_days(d: int) -> timedelta:
-    return timedelta(days=d)
-
-
-def to_milliseconds(td: timedelta) -> int:
-    return int(td.total_seconds() * 1000)
-
-
-def days(ts: timedelta) -> int:
-    return int(total_seconds(ts) / 86400)
-
-
-def hours(ts: timedelta) -> int:
-    return int(abs(total_seconds(ts)) % 86400 / 3600)
-
-
-def minutes(ts: timedelta) -> int:
-    return int(abs(total_seconds(ts)) % 3600 / 60)
-
-
-def seconds(ts: timedelta) -> int:
-    return int(abs(total_seconds(ts)) % 60)
-
-
-def milliseconds(ts: timedelta) -> int:
-    return int(total_seconds(ts) % 1 * 1000)
-
-
-def ticks(ts: timedelta) -> int:
-    return int(total_seconds(ts) * 10000000)
-
-
-def negate(ts: timedelta) -> timedelta:
-    return -ts
-
-
-def duration(ts: timedelta) -> timedelta:
-    if ts < timedelta(0):
-        return -ts
-
-    return ts
-
-
-def add(ts: timedelta, other: timedelta) -> timedelta:
-    return ts + other
-
-
-def subtract(ts: timedelta, other: timedelta) -> timedelta:
-    return ts - other
-
-
-def multiply(ts: timedelta, factor: int) -> timedelta:
-    return ts * factor
-
-
-def divide(ts: timedelta, divisor: int) -> timedelta:
-    return ts / divisor
+# TimeSpan is represented as an int which is the Tick value
+# We can recompute everything from this value
+class TimeSpan(int):
+    pass
 
 
 def create(
-    d: int = 0,
-    h: int | None = None,
-    m: int | None = None,
-    s: int | None = None,
-    ms: int | None = None,
-) -> timedelta:
-    if h is None and m is None and s is None and ms is None:
-        return from_ticks(d)
+    days: float = 0,
+    hours: float | None = None,
+    minutes: float | None = None,
+    seconds: float | None = None,
+    milliseconds: float | None = None,
+    microseconds: float | None = None,
+) -> TimeSpan:
+    match (days, hours, minutes, seconds, milliseconds, microseconds):
+        # ticks constructor
+        case (_, None, None, None, None, None):
+            return TimeSpan(days)
+        # hours, minutes, seconds constructor
+        case (_, _, _, None, None, None):
+            print("hours, minutes, seconds constructor")
+            seconds = minutes
+            minutes = hours
+            hours = days
+            days = 0
+        # others constructor follows the correct order of arguments
+        case _:
+            pass
 
-    elif s is None and ms is None:
-        return timedelta(hours=d or 0, minutes=h or 0, seconds=m or 0)
+    return TimeSpan(
+        days * 864000000000
+        + (hours or 0) * 36000000000
+        + (minutes or 0) * 600000000
+        + (seconds or 0) * 10000000
+        + (milliseconds or 0) * 10000
+        + (microseconds or 0) * 10
+    )
 
-    return timedelta(days=d, hours=h or 0, minutes=m or 0, seconds=s or 0, milliseconds=ms or 0)
+
+def total_nanoseconds(ts: TimeSpan) -> float:
+    # We store timespan as the Tick value so nanoseconds step is 100
+    return ts * 100
 
 
-def to_string(ts: timedelta, format: str = "c", _provider: Any | None = None) -> str:
+def total_microseconds(ts: TimeSpan) -> float:
+    return ts / 10
+
+
+def total_milliseconds(ts: TimeSpan) -> float:
+    return ts / 10000
+
+
+def total_seconds(ts: TimeSpan) -> float:
+    return ts / 10000000
+
+
+def total_minutes(ts: TimeSpan) -> float:
+    return ts / 600000000
+
+
+def total_hours(ts: TimeSpan) -> float:
+    return ts / 36000000000
+
+
+def total_days(ts: TimeSpan) -> float:
+    return ts / 864000000000
+
+def from_microseconds(micros: float) -> TimeSpan:
+    return create(0,0,0,0,0,micros)
+
+def from_milliseconds(msecs: int) -> TimeSpan:
+    return create(0,0,0,0,msecs)
+
+
+def from_ticks(ticks: int) -> TimeSpan:
+    return create(ticks)
+
+
+def from_seconds(s: int) -> TimeSpan:
+    return create(0, 0, s)
+
+
+def from_minutes(m: int) -> TimeSpan:
+    return create(0, m, 0)
+
+
+def from_hours(h: int) -> TimeSpan:
+    return create(h, 0, 0)
+
+
+def from_days(d: int) -> TimeSpan:
+    return create(d, 0, 0, 0)
+
+
+def ticks(ts: TimeSpan) -> int:
+    return int(ts)
+
+
+def microseconds(ts: TimeSpan) -> int:
+    return int(ts % 10000 / 10)
+
+
+def milliseconds(ts: TimeSpan) -> int:
+    return int(ts % 10000000 / 10000)
+
+
+def seconds(ts: TimeSpan) -> int:
+    return int(ts % 600000000 / 10000000)
+
+
+def minutes(ts: TimeSpan) -> int:
+    return int(ts % 36000000000 / 600000000)
+
+
+def hours(ts: TimeSpan) -> int:
+    return int(ts % 864000000000 / 36000000000)
+
+
+def days(ts: TimeSpan) -> int:
+    return int(ts / 864000000000)
+
+
+def negate(ts: TimeSpan) -> TimeSpan:
+    return TimeSpan(-ts)
+
+
+def duration(ts: TimeSpan) -> TimeSpan:
+    return TimeSpan(abs(int(ts)))
+
+
+def add(ts: TimeSpan, other: TimeSpan) -> TimeSpan:
+    return TimeSpan(ts + other)
+
+
+def subtract(ts: TimeSpan, other: TimeSpan) -> TimeSpan:
+    return TimeSpan(ts - other)
+
+
+def multiply(ts: TimeSpan, factor: float) -> TimeSpan:
+    # We represents TimeSpan as a Tick which can't be a float
+    # This also allows us
+    return TimeSpan(int(ts * factor))
+
+
+def divide(ts: TimeSpan, divisor: float) -> TimeSpan:
+    return TimeSpan(int(ts / divisor))
+
+
+def to_string(ts: TimeSpan, format: str = "c", _provider: Any | None = None) -> str:
     if format not in ["c", "g", "G"]:
         raise ValueError("Custom formats are not supported")
 
@@ -126,7 +163,7 @@ def to_string(ts: timedelta, format: str = "c", _provider: Any | None = None) ->
     m = minutes(ts)
     s = seconds(ts)
     ms = abs(milliseconds(ts))
-    sign: str = "-" if ts < timedelta(0) else ""
+    sign: str = "-" if ts < 0 else ""
 
     ms_str = (
         ""
@@ -143,9 +180,14 @@ def to_string(ts: timedelta, format: str = "c", _provider: Any | None = None) ->
 
 __all__ = [
     "create",
-    "to_milliseconds",
-    "to_string",
+    "total_microseconds",
+    "total_milliseconds",
+    "total_seconds",
+    "total_minutes",
+    "total_hours",
+    "total_days",
     "from_ticks",
+    "from_microseconds",
     "from_milliseconds",
     "from_hours",
     "from_minutes",
