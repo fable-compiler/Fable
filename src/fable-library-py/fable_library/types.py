@@ -118,19 +118,32 @@ def record_compare_to(self: Record, other: Record) -> int:
     if self is other:
         return 0
 
-    elif hasattr(self, "__dict__") and self.__dict__:
-        for name in self.__dict__.keys():
-            if self.__dict__[name] < other.__dict__.get(name):
+    def compare_values(self_value: Any, other_value: Any) -> int:
+        match (self_value, other_value):
+            case (None, None):
+                return 0
+            case (None, _):
                 return -1
-            elif self.__dict__[name] > other.__dict__.get(name):
+            case (_, None):
                 return 1
+            case (self_value, other_value) if self_value < other_value:
+                return -1
+            case (self_value, other_value) if self_value > other_value:
+                return 1
+            case _:
+                return 0
+
+    if hasattr(self, "__dict__") and self.__dict__:
+        for name in self.__dict__.keys():
+            result = compare_values(self.__dict__[name], other.__dict__[name])
+            if result != 0:
+                return result
 
     elif hasattr(self, "__slots__") and self.__slots__:
         for name in self.__slots__:
-            if getattr(self, name) < getattr(other, name):
-                return -1
-            elif getattr(self, name) > getattr(other, name):
-                return 1
+            result = compare_values(getattr(self, name), getattr(other, name))
+            if result != 0:
+                return result
 
     return 0
 
