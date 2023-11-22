@@ -48,7 +48,7 @@ module Log =
 //     val inSameLineIfNotCI: msg: string -> 'a
 //     val alwaysWithColor: color: ConsoleColor -> msg: string -> unit
      val always: msg: string -> unit
-//     val verbose: msg: Lazy<string> -> unit
+     val verbose: msg: Lazy<string> -> unit
 //     val verboseOrIf: condition: bool -> msg: string -> unit
      val warning: msg: string -> unit
 //     val error: msg: string -> unit
@@ -64,7 +64,7 @@ module File =
 //
      val relPathToCurDir: path: string -> string
 //     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-//     val readAllTextNonBlocking: path: string -> string
+     val readAllTextNonBlocking: path: string -> string
 //     val readAllTextNonBlockingAsync: path: string -> Async<string>
 //
      val tryFindNonEmptyDirectoryUpwards:
@@ -74,7 +74,7 @@ module File =
          dir: string ->
              string option
 //
-//     val tryFindUpwards: fileName: string -> dir: string -> string option
+     val tryFindUpwards: fileName: string -> dir: string -> string option
 //     val tryFindPackageJsonDir: dir: string -> string option
 //     val tryNodeModulesBin: workingDir: string -> exeFile: string -> string option
 //     /// System.IO.GetFullPath doesn't change the case of the argument in case insensitive file systems
@@ -82,7 +82,7 @@ module File =
 //     val getExactFullPath: pathName: string -> string
 //     /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
      val isDirectoryEmpty: dir: string -> bool
-//     val safeDelete: path: string -> unit
+     val safeDelete: path: string -> unit
 //     val withLock: dir: string -> action: (unit -> 'T) -> 'T
 //
 [<RequireQualifiedAccess>]

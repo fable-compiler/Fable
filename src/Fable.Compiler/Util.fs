@@ -75,6 +75,9 @@ module Log =
 
     let mutable private verbosity = Fable.Verbosity.Normal
 
+    let isVerbose() =
+        verbosity = Fable.Verbosity.Verbose
+
     let canLog msg =
         verbosity <> Fable.Verbosity.Silent && not (String.IsNullOrEmpty(msg))
 
@@ -87,6 +90,10 @@ module Log =
     let always (msg: string) =
         if canLog msg then
             Console.Out.WriteLine(msg)
+
+    let verbose (msg: Lazy<string>) =
+        if isVerbose() then
+            always msg.Value
 
     let warning (msg: string) =
         if canLog msg then
@@ -145,6 +152,16 @@ module File =
         else
             Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
 
+    /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
+    let readAllTextNonBlocking (path: string) =
+        if File.Exists(path) then
+            use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            use textReader = new StreamReader(fileStream)
+            textReader.ReadToEnd()
+        else
+            Log.always("File does not exist: " + path)
+            ""
+
     let rec tryFindNonEmptyDirectoryUpwards
         (opts:
             {|
@@ -195,6 +212,11 @@ module File =
     let isDirectoryEmpty dir =
         not (Directory.Exists(dir))
         || Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
+
+    let safeDelete path =
+        try
+            File.Delete(path)
+        with _ -> ()
 
 [<RequireQualifiedAccess>]
 module Process =

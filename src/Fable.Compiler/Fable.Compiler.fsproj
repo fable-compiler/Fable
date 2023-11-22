@@ -13,7 +13,6 @@
         <Compile Include="Globbing.fsi" />
         <Compile Include="Globbing.fs" />
         <Compile Include="File.fs" />
-        <Compile Include="ProjectCracker.fsi" />
         <Compile Include="ProjectCracker.fs" />
         <Compile Include="Library.fsi"/>
         <Compile Include="Library.fs"/>
@@ -32,6 +31,7 @@
 
     <ItemGroup>
         <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
+        <PackageReference Include="Buildalyzer" Version="5.0.1" />
     </ItemGroup>
 
 </Project>
