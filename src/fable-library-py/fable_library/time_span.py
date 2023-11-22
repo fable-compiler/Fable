@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any
 
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
+from math import fmod, ceil, floor
 
 
 # TimeSpan is represented as an int which is the Tick value
@@ -105,27 +105,28 @@ def ticks(ts: TimeSpan) -> int:
 
 
 def microseconds(ts: TimeSpan) -> int:
-    return int(ts % 10000 / 10)
+    return int(fmod(ts, 10000) / 10)
 
 
 def milliseconds(ts: TimeSpan) -> int:
-    return int(ts % 10000000 / 10000)
+    return int(fmod(ts, 10000000) / 10000)
 
 
 def seconds(ts: TimeSpan) -> int:
-    return int(ts % 600000000 / 10000000)
+    return int(fmod(ts, 600000000) / 10000000)
 
 
 def minutes(ts: TimeSpan) -> int:
-    return int(ts % 36000000000 / 600000000)
+    return int(fmod(ts, 36000000000) / 600000000)
 
 
 def hours(ts: TimeSpan) -> int:
-    return int(ts % 864000000000 / 36000000000)
+    return int(fmod(ts, 864000000000) / 36000000000)
 
 
 def days(ts: TimeSpan) -> int:
-    return int(ts / 864000000000)
+    res = ts / 864000000000
+    return ceil(res) if res < 0 else floor(res)
 
 
 def negate(ts: TimeSpan) -> TimeSpan:
@@ -159,9 +160,9 @@ def to_string(ts: TimeSpan, format: str = "c", _provider: Any | None = None) -> 
         raise ValueError("Custom formats are not supported")
 
     d = abs(days(ts))
-    h = hours(ts)
-    m = minutes(ts)
-    s = seconds(ts)
+    h = abs(hours(ts))
+    m = abs(minutes(ts))
+    s = abs(seconds(ts))
     ms = abs(milliseconds(ts))
     sign: str = "-" if ts < 0 else ""
 
