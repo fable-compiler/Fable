@@ -20,7 +20,9 @@ type Async =
             exceptionContinuation,
             cancellationContinuation,
             ?cancellationToken
-        ) : unit =
+        )
+        : unit
+        =
         let trampoline = Trampoline()
 
         computation (
@@ -28,11 +30,21 @@ type Async =
                 member this.onSuccess = continuation
                 member this.onError = exceptionContinuation
                 member this.onCancel = cancellationContinuation
-                member this.cancelToken = defaultArg cancellationToken defaultCancellationToken
-                member this.trampoline = trampoline }
+
+                member this.cancelToken =
+                    defaultArg cancellationToken defaultCancellationToken
+
+                member this.trampoline = trampoline
+            }
         )
 
-    static member StartWithContinuations(computation: IAsync<'T>, ?cancellationToken) : unit =
+    static member StartWithContinuations
+        (
+            computation: IAsync<'T>,
+            ?cancellationToken
+        )
+        : unit
+        =
         Async.StartWithContinuations(
             computation,
             emptyContinuation,
@@ -42,11 +54,14 @@ type Async =
         )
 
     static member Start(computation, ?cancellationToken) =
-        Async.StartWithContinuations(computation, ?cancellationToken = cancellationToken)
+        Async.StartWithContinuations(
+            computation,
+            ?cancellationToken = cancellationToken
+        )
 
 
     static member StartImmediate(computation: IAsync<'T>, ?cancellationToken) =
         Async.Start(computation, ?cancellationToken = cancellationToken)
 
-let startImmediate(computation: IAsync<'T>) =
-    Async.StartImmediate(computation, ?cancellationToken=None)
+let startImmediate (computation: IAsync<'T>) =
+    Async.StartImmediate(computation, ?cancellationToken = None)

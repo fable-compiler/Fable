@@ -9,18 +9,15 @@ open Global_
 // A functional language implementation of binary trees
 
 [<NoEquality; NoComparison>]
-type SetTree<'T> = {
-    Height: int
-    Key: 'T
-    Left: Set<'T>
-    Right: Set<'T>
-}
-
-and [<Struct>]
-    [<CompiledName("Set")>]
-    Set<'T> = {
-        root: Option<SetTree<'T>>
+type SetTree<'T> =
+    {
+        Height: int
+        Key: 'T
+        Left: Set<'T>
+        Right: Set<'T>
     }
+
+and [<Struct; CompiledName("Set")>] Set<'T> = { root: Option<SetTree<'T>> }
 
 type 'T set = Set<'T>
 
@@ -32,11 +29,33 @@ let empty: Set<'T> = { root = None }
 
 let isEmpty (s: Set<'T>) = (getRoot s).IsNone
 
-let mkSetTreeLeaf (key: 'T): Set<'T> =
-    Some { Key = key; Left = empty; Right = empty; Height = 1 } |> mkSet
+let mkSetTreeLeaf (key: 'T) : Set<'T> =
+    Some
+        {
+            Key = key
+            Left = empty
+            Right = empty
+            Height = 1
+        }
+    |> mkSet
 
-let mkSetTreeNode (key: 'T, left: Set<'T>, right: Set<'T>, height: int): Set<'T> =
-    Some { Key = key; Left = left; Right = right; Height = height } |> mkSet
+let mkSetTreeNode
+    (
+        key: 'T,
+        left: Set<'T>,
+        right: Set<'T>,
+        height: int
+    )
+    : Set<'T>
+    =
+    Some
+        {
+            Key = key
+            Left = left
+            Right = right
+            Height = height
+        }
+    |> mkSet
 
 let singleton (value: 'T) = mkSetTreeLeaf value
 
@@ -47,7 +66,7 @@ let rec countAux (s: Set<'T>) acc =
         if t.Height = 1 then
             acc + 1
         else
-            countAux t.Left (countAux t.Right (acc+1))
+            countAux t.Left (countAux t.Right (acc + 1))
 
 let count s = countAux s 0
 
@@ -62,49 +81,62 @@ let private tolerance = 2
 let mk l k r : Set<'T> =
     let hl = height l
     let hr = height r
-    let m = if hl < hr then hr else hl
+
+    let m =
+        if hl < hr then
+            hr
+        else
+            hl
+
     if m = 0 then // m=0 ~ isEmpty l && isEmpty r
         mkSetTreeLeaf k
     else
-        mkSetTreeNode (k, l, r, m+1)
+        mkSetTreeNode (k, l, r, m + 1)
 
 let rebalance (t1: Set<'T>) v (t2: Set<'T>) =
     let t1h = height t1
     let t2h = height t2
+
     if t2h > t1h + tolerance then // right is heavier than left
         let t2' = (getRoot t2).Value
         // one of the nodes must have height > height t1 + 1
-        if height t2'.Left > t1h + 1 then  // balance left: combination
+        if height t2'.Left > t1h + 1 then // balance left: combination
             let t2l = (getRoot t2'.Left).Value
             mk (mk t1 v t2l.Left) t2l.Key (mk t2l.Right t2'.Key t2'.Right)
         else // rotate left
             mk (mk t1 v t2'.Left) t2'.Key t2'.Right
+    else if t1h > t2h + tolerance then // left is heavier than right
+        let t1' = (getRoot t1).Value
+        // one of the nodes must have height > height t2 + 1
+        if height t1'.Right > t2h + 1 then
+            // balance right: combination
+            let t1r = (getRoot t1'.Right).Value
+            mk (mk t1'.Left t1'.Key t1r.Left) t1r.Key (mk t1r.Right v t2)
+        else
+            mk t1'.Left t1'.Key (mk t1'.Right v t2)
     else
-        if t1h > t2h + tolerance then // left is heavier than right
-            let t1' = (getRoot t1).Value
-            // one of the nodes must have height > height t2 + 1
-            if height t1'.Right > t2h + 1 then
-                // balance right: combination
-                let t1r = (getRoot t1'.Right).Value
-                mk (mk t1'.Left t1'.Key t1r.Left) t1r.Key (mk t1r.Right v t2)
-            else
-                mk t1'.Left t1'.Key (mk t1'.Right v t2)
-        else mk t1 v t2
+        mk t1 v t2
 
-let rec add k (s: Set<'T>): Set<'T> =
+let rec add k (s: Set<'T>) : Set<'T> =
     match getRoot s with
     | None -> mkSetTreeLeaf k
     | Some t ->
         let c = compare k t.Key
+
         if t.Height = 1 then
             // nb. no check for rebalance needed for small trees, also be sure to reuse node already allocated
-            if   c < 0 then mkSetTreeNode (k, empty, s, 2)
-            elif c = 0 then s
-            else            mkSetTreeNode (k, s, empty, 2)
+            if c < 0 then
+                mkSetTreeNode (k, empty, s, 2)
+            elif c = 0 then
+                s
+            else
+                mkSetTreeNode (k, s, empty, 2)
+        else if c < 0 then
+            rebalance (add k t.Left) t.Key t.Right
+        elif c = 0 then
+            s
         else
-            if   c < 0 then rebalance (add k t.Left) t.Key t.Right
-            elif c = 0 then s
-            else            rebalance t.Left t.Key (add k t.Right)
+            rebalance t.Left t.Key (add k t.Right)
 
 let rec balance (s1: Set<'T>) k (s2: Set<'T>) =
     // Given t1 < k < t2 where t1 and t2 are "balanced",
@@ -116,25 +148,27 @@ let rec balance (s1: Set<'T>) k (s2: Set<'T>) =
         match s2 |> getRoot with
         | None -> add k s1 // drop t2 = empty
         | Some t2 ->
-            if t1.Height = 1 then add k (add t1.Key s2)
+            if t1.Height = 1 then
+                add k (add t1.Key s2)
+            else if t2.Height = 1 then
+                add k (add t2.Key s1)
+            else if
+                // Have:  (t1l < k1 < t1r) < k < (t2l < k2 < t2r)
+                // Either (a) h1, h2 differ by at most 2 - no rebalance needed.
+                //        (b) h1 too small, i.e. h1+2 < h2
+                //        (c) h2 too small, i.e. h2+2 < h1
+                t1.Height + tolerance < t2.Height
+            then
+                // case: b, h1 too small
+                // push t1 into low side of t2, may increase height by 1 so rebalance
+                rebalance (balance s1 k t2.Left) t2.Key t2.Right
+            elif t2.Height + tolerance < t1.Height then
+                // case: c, h2 too small
+                // push t2 into high side of t1, may increase height by 1 so rebalance
+                rebalance t1.Left t1.Key (balance t1.Right k s2)
             else
-                if t2.Height = 1 then add k (add t2.Key s1)
-                else
-                    // Have:  (t1l < k1 < t1r) < k < (t2l < k2 < t2r)
-                    // Either (a) h1, h2 differ by at most 2 - no rebalance needed.
-                    //        (b) h1 too small, i.e. h1+2 < h2
-                    //        (c) h2 too small, i.e. h2+2 < h1
-                    if t1.Height + tolerance < t2.Height then
-                        // case: b, h1 too small
-                        // push t1 into low side of t2, may increase height by 1 so rebalance
-                        rebalance (balance s1 k t2.Left) t2.Key t2.Right
-                    elif t2.Height + tolerance < t1.Height then
-                        // case: c, h2 too small
-                        // push t2 into high side of t1, may increase height by 1 so rebalance
-                        rebalance t1.Left t1.Key (balance t1.Right k s2)
-                    else
-                        // case: a, h1 and h2 meet balance requirement
-                        mk s1 k s2
+                // case: a, h1 and h2 meet balance requirement
+                mk s1 k s2
 
 let rec split pivot (s: Set<'T>) =
     // Given a pivot and a set t
@@ -144,17 +178,22 @@ let rec split pivot (s: Set<'T>) =
     | Some t ->
         if t.Height = 1 then
             let c = compare t.Key pivot
-            if   c < 0 then s, false, empty     // singleton under pivot
-            elif c = 0 then empty, true, empty  // singleton is    pivot
-            else            empty, false, s     // singleton over  pivot
+
+            if c < 0 then
+                s, false, empty // singleton under pivot
+            elif c = 0 then
+                empty, true, empty // singleton is    pivot
+            else
+                empty, false, s // singleton over  pivot
         else
             let c = compare pivot t.Key
-            if   c < 0 then // pivot t1
+
+            if c < 0 then // pivot t1
                 let t11Lo, havePivot, t11Hi = split pivot t.Left
                 t11Lo, havePivot, balance t11Hi t.Key t.Right
             elif c = 0 then // pivot is k1
                 t.Left, true, t.Right
-            else            // pivot t2
+            else // pivot t2
                 let t12Lo, havePivot, t12Hi = split pivot t.Right
                 balance t.Left t.Key t12Lo, havePivot, t12Hi
 
@@ -162,52 +201,69 @@ let rec spliceOutSuccessor (s: Set<'T>) =
     match getRoot s with
     | None -> failwith "internal error: Set.spliceOutSuccessor"
     | Some t ->
-        if t.Height = 1 then t.Key, empty
+        if t.Height = 1 then
+            t.Key, empty
+        else if isEmpty t.Left then
+            t.Key, t.Right
         else
-            if isEmpty t.Left then t.Key, t.Right
-            else let k3, l' = spliceOutSuccessor t.Left in k3, mk l' t.Key t.Right
+            let k3, l' = spliceOutSuccessor t.Left in k3, mk l' t.Key t.Right
 
 let rec remove k (s: Set<'T>) =
     match getRoot s with
     | None -> s
     | Some t ->
         let c = compare k t.Key
+
         if t.Height = 1 then
-            if c = 0 then empty else s
+            if c = 0 then
+                empty
+            else
+                s
+        else if c < 0 then
+            rebalance (remove k t.Left) t.Key t.Right
+        elif c = 0 then
+            if isEmpty t.Left then
+                t.Right
+            elif isEmpty t.Right then
+                t.Left
+            else
+                let sk, r' = spliceOutSuccessor t.Right
+                mk t.Left sk r'
         else
-            if   c < 0 then rebalance (remove k t.Left) t.Key t.Right
-            elif c = 0 then
-                if isEmpty t.Left then t.Right
-                elif isEmpty t.Right then t.Left
-                else
-                    let sk, r' = spliceOutSuccessor t.Right
-                    mk t.Left sk r'
-            else rebalance t.Left t.Key (remove k t.Right)
+            rebalance t.Left t.Key (remove k t.Right)
 
 let rec contains k (s: Set<'T>) =
     match getRoot s with
     | None -> false
     | Some t ->
         let c = compare k t.Key
-        if t.Height = 1 then (c = 0)
+
+        if t.Height = 1 then
+            (c = 0)
+        else if c < 0 then
+            contains k t.Left
+        elif c = 0 then
+            true
         else
-            if   c < 0 then contains k t.Left
-            elif c = 0 then true
-            else contains k t.Right
+            contains k t.Right
 
 let rec iterate f (s: Set<'T>) =
     match getRoot s with
     | None -> ()
     | Some t ->
-        if t.Height = 1 then f t.Key
+        if t.Height = 1 then
+            f t.Key
         else
-            iterate f t.Left; f t.Key; iterate f t.Right
+            iterate f t.Left
+            f t.Key
+            iterate f t.Right
 
 let rec foldBack f (s: Set<'T>) x =
     match getRoot s with
     | None -> x
     | Some t ->
-        if t.Height = 1 then f t.Key x
+        if t.Height = 1 then
+            f t.Key x
         else
             foldBack f t.Left (f t.Key (foldBack f t.Right x))
 
@@ -215,7 +271,8 @@ let rec fold f x (s: Set<'T>) =
     match getRoot s with
     | None -> x
     | Some t ->
-        if t.Height = 1 then f x t.Key
+        if t.Height = 1 then
+            f x t.Key
         else
             let x = fold f x t.Left in
             let x = f x t.Key
@@ -228,7 +285,8 @@ let rec forAll f (s: Set<'T>) =
     match getRoot s with
     | None -> true
     | Some t ->
-        if t.Height = 1 then f t.Key
+        if t.Height = 1 then
+            f t.Key
         else
             f t.Key && forAll f t.Left && forAll f t.Right
 
@@ -236,30 +294,36 @@ let rec exists f (s: Set<'T>) =
     match getRoot s with
     | None -> false
     | Some t ->
-        if t.Height = 1 then f t.Key
+        if t.Height = 1 then
+            f t.Key
         else
             f t.Key || exists f t.Left || exists f t.Right
 
-let isSubset a b =
-    forAll (fun x -> contains x b) a
+let isSubset a b = forAll (fun x -> contains x b) a
 
-let isSuperset a b =
-    isSubset b a
+let isSuperset a b = isSubset b a
 
 let isProperSubset a b =
     forAll (fun x -> contains x b) a && exists (fun x -> not (contains x a)) b
 
-let isProperSuperset a b =
-    isProperSubset b a
+let isProperSuperset a b = isProperSubset b a
 
 let rec filterAux f (s: Set<'T>) acc =
     match getRoot s with
     | None -> acc
     | Some t ->
         if t.Height = 1 then
-            if f t.Key then add t.Key acc else acc
+            if f t.Key then
+                add t.Key acc
+            else
+                acc
         else
-            let acc = if f t.Key then add t.Key acc else acc
+            let acc =
+                if f t.Key then
+                    add t.Key acc
+                else
+                    acc
+
             filterAux f t.Left (filterAux f t.Right acc)
 
 let filter f s = filterAux f s empty
@@ -271,7 +335,8 @@ let rec diffAux (s: Set<'T>) (acc: Set<'T>) =
         match getRoot s with
         | None -> acc
         | Some t ->
-            if t.Height = 1 then remove t.Key acc
+            if t.Height = 1 then
+                remove t.Key acc
             else
                 diffAux t.Left (diffAux t.Right (remove t.Key acc))
 
@@ -285,51 +350,65 @@ let rec union (s1: Set<'T>) (s2: Set<'T>) =
         match s2 |> getRoot with
         | None -> s1
         | Some t2 ->
-            if t1.Height = 1 then add t1.Key s2
+            if t1.Height = 1 then
+                add t1.Key s2
+            else if t2.Height = 1 then
+                add t2.Key s1
+            else if
+                // Divide and Conquer:
+                //   Suppose t1 is largest.
+                //   Split t2 using pivot k1 into lo and hi.
+                //   Union disjoint subproblems and then combine.
+                t1.Height > t2.Height
+            then
+                let lo, _, hi = split t1.Key s2 in
+                balance (union t1.Left lo) t1.Key (union t1.Right hi)
             else
-                if t2.Height = 1 then add t2.Key s1
-                else
-                    // Divide and Conquer:
-                    //   Suppose t1 is largest.
-                    //   Split t2 using pivot k1 into lo and hi.
-                    //   Union disjoint subproblems and then combine.
-                    if t1.Height > t2.Height then
-                        let lo, _, hi = split t1.Key s2 in
-                        balance (union t1.Left lo) t1.Key (union t1.Right hi)
-                    else
-                        let lo, _, hi = split t2.Key s1 in
-                        balance (union t2.Left lo) t2.Key (union t2.Right hi)
+                let lo, _, hi = split t2.Key s1 in
+                balance (union t2.Left lo) t2.Key (union t2.Right hi)
 
-let unionMany (sets: seq<Set<'T>>) =
-    Seq.fold union empty sets
+let unionMany (sets: seq<Set<'T>>) = Seq.fold union empty sets
 
 let rec intersectionAux b (s: Set<'T>) acc =
     match getRoot s with
     | None -> acc
     | Some t ->
         if t.Height = 1 then
-            if contains t.Key b then add t.Key acc else acc
+            if contains t.Key b then
+                add t.Key acc
+            else
+                acc
         else
             let acc = intersectionAux b t.Right acc
-            let acc = if contains t.Key b then add t.Key acc else acc
+
+            let acc =
+                if contains t.Key b then
+                    add t.Key acc
+                else
+                    acc
+
             intersectionAux b t.Left acc
 
 let intersect a b =
-    if isEmpty b then b
-    else intersectionAux b a empty
+    if isEmpty b then
+        b
+    else
+        intersectionAux b a empty
 
-let intersectMany (sets: seq<Set<'T>>) =
-    Seq.reduce intersect sets
+let intersectMany (sets: seq<Set<'T>>) = Seq.reduce intersect sets
 
 let partition1 f k (acc1, acc2) =
-    if f k then (add k acc1, acc2)
-    else (acc1, add k acc2)
+    if f k then
+        (add k acc1, acc2)
+    else
+        (acc1, add k acc2)
 
 let rec partitionAux f (s: Set<'T>) acc =
     match getRoot s with
     | None -> acc
     | Some t ->
-        if t.Height = 1 then partition1 f t.Key acc
+        if t.Height = 1 then
+            partition1 f t.Key acc
         else
             let acc = partitionAux f t.Right acc
             let acc = partition1 f t.Key acc
@@ -341,7 +420,8 @@ let rec minimumElementAux (s: Set<'T>) n =
     match getRoot s with
     | None -> n
     | Some t ->
-        if t.Height = 1 then t.Key
+        if t.Height = 1 then
+            t.Key
         else
             minimumElementAux t.Left t.Key
 
@@ -349,7 +429,8 @@ and minimumElementOpt (s: Set<'T>) =
     match getRoot s with
     | None -> None
     | Some t ->
-        if t.Height = 1 then Some t.Key
+        if t.Height = 1 then
+            Some t.Key
         else
             Some(minimumElementAux t.Left t.Key)
 
@@ -357,7 +438,8 @@ and maximumElementAux (s: Set<'T>) n =
     match getRoot s with
     | None -> n
     | Some t ->
-        if t.Height = 1 then t.Key
+        if t.Height = 1 then
+            t.Key
         else
             maximumElementAux t.Right t.Key
 
@@ -365,7 +447,8 @@ and maximumElementOpt (s: Set<'T>) =
     match getRoot s with
     | None -> None
     | Some t ->
-        if t.Height = 1 then Some t.Key
+        if t.Height = 1 then
+            Some t.Key
         else
             Some(maximumElementAux t.Right t.Key)
 
@@ -381,10 +464,11 @@ let maxElement s =
 
 // Imperative left-to-right iterators.
 [<NoEquality; NoComparison>]
-type SetIterator<'T> when 'T: comparison = {
-    mutable stack: Set<'T> list // invariant: always collapseLHS result
-    mutable started: bool           // true when MoveNext has been called
-}
+type SetIterator<'T> when 'T: comparison =
+    {
+        mutable stack: Set<'T> list // invariant: always collapseLHS result
+        mutable started: bool // true when MoveNext has been called
+    }
 
 // collapseLHS:
 // a) Always returns either [] or a list starting with SetOne.
@@ -396,25 +480,33 @@ let rec collapseLHS (stack: Set<'T> list) =
         match getRoot s with
         | None -> collapseLHS rest
         | Some t ->
-            if t.Height = 1 then stack
+            if t.Height = 1 then
+                stack
             else
                 collapseLHS (t.Left :: mkSetTreeLeaf t.Key :: t.Right :: rest)
 
-let mkIterator s = { stack = collapseLHS [s]; started = false }
+let mkIterator s =
+    {
+        stack = collapseLHS [ s ]
+        started = false
+    }
 
-let notStarted() = failwith SR.enumerationNotStarted
-let alreadyFinished() = failwith SR.enumerationAlreadyFinished
+let notStarted () = failwith SR.enumerationNotStarted
+let alreadyFinished () = failwith SR.enumerationAlreadyFinished
 
 let current (i: SetIterator<'T>) =
     if i.started then
         match i.stack with
         | { root = Some k } :: _ -> k.Key
-        | _ -> alreadyFinished()
+        | _ -> alreadyFinished ()
     else
-        notStarted()
+        notStarted ()
 
-let unexpectedStackForMoveNext() = failwith "Please report error: Set iterator, unexpected stack for moveNext"
-let unexpectedstateInSetTreeCompareStacks() = failwith "unexpected state in SetTree.compareStacks"
+let unexpectedStackForMoveNext () =
+    failwith "Please report error: Set iterator, unexpected stack for moveNext"
+
+let unexpectedstateInSetTreeCompareStacks () =
+    failwith "unexpected state in SetTree.compareStacks"
 
 let rec moveNext (i: SetIterator<'T>) =
     if i.started then
@@ -424,10 +516,10 @@ let rec moveNext (i: SetIterator<'T>) =
                 i.stack <- collapseLHS rest
                 not i.stack.IsEmpty
             else
-                unexpectedStackForMoveNext()
+                unexpectedStackForMoveNext ()
         | _ -> false
     else
-        i.started <- true; // The first call to MoveNext "starts" the enumeration.
+        i.started <- true // The first call to MoveNext "starts" the enumeration.
         not i.stack.IsEmpty
 
 // type SetEnumerator<'T when 'T : comparison>(s) =
@@ -515,12 +607,17 @@ let rec moveNext (i: SetIterator<'T>) =
 //         if isEmpty s2 then 1
 //         else compareStacks [s1] [s2]
 
-let choose s =
-    minElement s
+let choose s = minElement s
 
 let copyToArray s (arr: _[]) i =
     let mutable j = i
-    iterate (fun x -> arr[j] <- x; j <- j + 1) s
+
+    iterate
+        (fun x ->
+            arr[j] <- x
+            j <- j + 1
+        )
+        s
 
 let toArray (s: Set<'T>) =
     let len = count s
@@ -528,8 +625,7 @@ let toArray (s: Set<'T>) =
     iterate (fun x -> res.Add(x)) s
     res |> asArray
 
-let toList (s: Set<'T>) =
-    foldBack (fun k acc -> k::acc) s []
+let toList (s: Set<'T>) = foldBack (fun k acc -> k :: acc) s []
 
 let ofArray xs =
     Array.fold (fun acc k -> add k acc) empty xs
@@ -544,9 +640,11 @@ let toSeq (s: Set<'T>) =
     Seq.delay (fun () ->
         mkIterator s
         |> Seq.unfold (fun i ->
-            if moveNext i
-            then Some(current i, i)
-            else None)
+            if moveNext i then
+                Some(current i, i)
+            else
+                None
+        )
     )
 
 let compareTo (s1: Set<'T>) (s2: Set<'T>) =

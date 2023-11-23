@@ -73,11 +73,12 @@ module token =
         | Err
 
     /// A literal token.
-    type Lit = {
-        kind: LitKind
-        symbol: Symbol
-        suffix: Option<Symbol>
-    }
+    type Lit =
+        {
+            kind: LitKind
+            symbol: Symbol
+            suffix: Option<Symbol>
+        }
 
     [<RequireQualifiedAccess>]
     type TokenKind =
@@ -142,10 +143,11 @@ module token =
 
         | Eof
 
-    type Token = {
-        kind: TokenKind
-        span: Span
-    }
+    type Token =
+        {
+            kind: TokenKind
+            span: Span
+        }
 
     /// For interpolation during macro expansion.
     [<RequireQualifiedAccess>]
@@ -189,10 +191,11 @@ module token =
         | Alone
         | Joint
 
-    type DelimSpan = {
-        open_: Span
-        close: Span
-    }
+    type DelimSpan =
+        {
+            open_: Span
+            close: Span
+        }
 
 type LazyTokenStream = System.Lazy<token.TokenStream>
 
@@ -208,16 +211,15 @@ type LazyTokenStream = System.Lazy<token.TokenStream>
 /// ```
 ///
 /// `'outer` is a label.
-type Label = {
-    ident: Ident
-}
+type Label = { ident: Ident }
 
 /// A "Lifetime" is an annotation of the scope in which variable
 /// can be used, e.g. `'a` in `&'a i32`.
-type Lifetime = {
-    id: NodeId
-    ident: Ident
-}
+type Lifetime =
+    {
+        id: NodeId
+        ident: Ident
+    }
 
 /// A "Path" is essentially Rust's notion of a name.
 ///
@@ -225,31 +227,33 @@ type Lifetime = {
 /// along with a bunch of supporting information.
 ///
 /// E.g., `std::cmp::PartialEq`.
-type Path = {
-    span: Span
-    /// The segments in the path: the things separated by `::`.
-    /// Global paths begin with `kw::PathRoot`.
-    segments: Vec<PathSegment>
-    tokens: Option<LazyTokenStream>
-}
+type Path =
+    {
+        span: Span
+        /// The segments in the path: the things separated by `::`.
+        /// Global paths begin with `kw::PathRoot`.
+        segments: Vec<PathSegment>
+        tokens: Option<LazyTokenStream>
+    }
 
 /// A segment of a path: an identifier, an optional lifetime, and a set of types.
 ///
 /// E.g., `std`, `String` or `Box<T>`.
-type PathSegment = {
-    /// The identifier portion of this path segment.
-    ident: Ident
+type PathSegment =
+    {
+        /// The identifier portion of this path segment.
+        ident: Ident
 
-    id: NodeId
+        id: NodeId
 
-    /// Type/lifetime parameters attached to this path. They come in
-    /// two flavors: `Path<A,B,C>` and `Path(A,B) -> C`.
-    /// `None` means that no parameter list is supplied (`Path`)
-    /// `Some` means that parameter list is supplied (`Path<X, Y>`)
-    /// but it can be empty (`Path<>`).
-    /// `P` is used as a size optimization for the common case with no parameters.
-    args: Option<P<GenericArgs>>
-}
+        /// Type/lifetime parameters attached to this path. They come in
+        /// two flavors: `Path<A,B,C>` and `Path(A,B) -> C`.
+        /// `None` means that no parameter list is supplied (`Path`)
+        /// `Some` means that parameter list is supplied (`Path<X, Y>`)
+        /// but it can be empty (`Path<>`).
+        /// `P` is used as a size optimization for the common case with no parameters.
+        args: Option<P<GenericArgs>>
+    }
 
 /// The arguments of a path segment.
 ///
@@ -272,12 +276,13 @@ type GenericArg =
     | Const of AnonConst
 
 /// A path like `Foo<'a, T>`.
-type AngleBracketedArgs = {
-    /// The overall span.
-    span: Span
-    /// The comma separated parts in the `<...>`.
-    args: Vec<AngleBracketedArg>
-}
+type AngleBracketedArgs =
+    {
+        /// The overall span.
+        span: Span
+        /// The comma separated parts in the `<...>`.
+        args: Vec<AngleBracketedArg>
+    }
 
 /// Either an argument for a parameter e.g., `'a`, `Vec<u8>`, `0`,
 /// or a constraint on an associated item, e.g., `Item = String` or `Item: Bound`.
@@ -289,25 +294,26 @@ type AngleBracketedArg =
     | Constraint of AssocTyConstraint
 
 /// A path like `Foo(A, B) -> C`.
-type ParenthesizedArgs = {
-    /// ```text
-    /// Foo(A, B) -> C
-    /// ^^^^^^^^^^^^^^
-    /// ```
-    span: Span
+type ParenthesizedArgs =
+    {
+        /// ```text
+        /// Foo(A, B) -> C
+        /// ^^^^^^^^^^^^^^
+        /// ```
+        span: Span
 
-    /// `(A, B)`
-    inputs: Vec<P<Ty>>
+        /// `(A, B)`
+        inputs: Vec<P<Ty>>
 
-    /// ```text
-    /// Foo(A, B) -> C
-    ///    ^^^^^^
-    /// ```
-    inputs_span: Span
+        /// ```text
+        /// Foo(A, B) -> C
+        ///    ^^^^^^
+        /// ```
+        inputs_span: Span
 
-    /// `C`
-    output: FnRetTy
-}
+        /// `C`
+        output: FnRetTy
+    }
 
 /// A modifier on a bound, e.g., `?Sized` or `?const Trait`.
 ///
@@ -355,8 +361,7 @@ type ParamKindOrd =
 type GenericParamKind =
     /// A lifetime definition (e.g., `'a: 'b + 'c + 'd`).
     | Lifetime
-    | Type of
-        default_: Option<P<Ty>>
+    | Type of default_: Option<P<Ty>>
     | Const of
         ty: P<Ty> *
         /// Span of the `const` keyword.
@@ -364,33 +369,36 @@ type GenericParamKind =
         /// Optional default value for the const generic param
         default_: Option<AnonConst>
 
-type GenericParam = {
-    id: NodeId
-    ident: Ident
-    attrs: AttrVec
-    bounds: GenericBounds
-    is_placeholder: bool
-    kind: GenericParamKind
-}
+type GenericParam =
+    {
+        id: NodeId
+        ident: Ident
+        attrs: AttrVec
+        bounds: GenericBounds
+        is_placeholder: bool
+        kind: GenericParamKind
+    }
 
 /// Represents lifetime, type and const parameters attached to a declaration of
 /// a function, enum, trait, etc.
-type Generics = {
-    params_: Vec<GenericParam>
-    where_clause: WhereClause
-    span: Span
-}
+type Generics =
+    {
+        params_: Vec<GenericParam>
+        where_clause: WhereClause
+        span: Span
+    }
 
 /// A where-clause in a definition.
-type WhereClause = {
-    /// `true` if we ate a `where` token: this can happen
-    /// if we parsed no predicates (e.g. `struct Foo where {}`).
-    /// This allows us to accurately pretty-print
-    /// in `nt_to_tokenstream`
-    has_where_token: bool
-    predicates: Vec<WherePredicate>
-    span: Span
-}
+type WhereClause =
+    {
+        /// `true` if we ate a `where` token: this can happen
+        /// if we parsed no predicates (e.g. `struct Foo where {}`).
+        /// This allows us to accurately pretty-print
+        /// in `nt_to_tokenstream`
+        has_where_token: bool
+        predicates: Vec<WherePredicate>
+        span: Span
+    }
 
 /// A single predicate in a where-clause.
 [<RequireQualifiedAccess>]
@@ -405,47 +413,51 @@ type WherePredicate =
 /// A type bound.
 ///
 /// E.g., `for<'c> Foo: Send + Clone + 'c`.
-type WhereBoundPredicate = {
-    span: Span
-    /// Any generics from a `for` binding.
-    bound_generic_params: Vec<GenericParam>
-    /// The type being bounded.
-    bounded_ty: P<Ty>
-    /// Trait and lifetime bounds (`Clone + Send + 'static`).
-    bounds: GenericBounds
-}
+type WhereBoundPredicate =
+    {
+        span: Span
+        /// Any generics from a `for` binding.
+        bound_generic_params: Vec<GenericParam>
+        /// The type being bounded.
+        bounded_ty: P<Ty>
+        /// Trait and lifetime bounds (`Clone + Send + 'static`).
+        bounds: GenericBounds
+    }
 
 /// A lifetime predicate.
 ///
 /// E.g., `'a: 'b + 'c`.
-type WhereRegionPredicate = {
-    span: Span
-    lifetime: Lifetime
-    bounds: GenericBounds
-}
+type WhereRegionPredicate =
+    {
+        span: Span
+        lifetime: Lifetime
+        bounds: GenericBounds
+    }
 
 /// An equality predicate (unsupported).
 ///
 /// E.g., `T = int`.
-type WhereEqPredicate = {
-    id: NodeId
-    span: Span
-    lhs_ty: P<Ty>
-    rhs_ty: P<Ty>
-}
+type WhereEqPredicate =
+    {
+        id: NodeId
+        span: Span
+        lhs_ty: P<Ty>
+        rhs_ty: P<Ty>
+    }
 
-type Crate = {
-    attrs: Vec<Attribute>
-    items: Vec<P<Item>>
-    span: Span
-    /// The order of items in the HIR is unrelated to the order of
-    /// items in the AST. However, we generate proc macro harnesses
-    /// based on the AST order, and later refer to these harnesses
-    /// from the HIR. This field keeps track of the order in which
-    /// we generated proc macros harnesses, so that we can map
-    /// HIR proc macros items back to their harness items.
-    proc_macros: Vec<NodeId>
-}
+type Crate =
+    {
+        attrs: Vec<Attribute>
+        items: Vec<P<Item>>
+        span: Span
+        /// The order of items in the HIR is unrelated to the order of
+        /// items in the AST. However, we generate proc macro harnesses
+        /// based on the AST order, and later refer to these harnesses
+        /// from the HIR. This field keeps track of the order in which
+        /// we generated proc macros harnesses, so that we can map
+        /// HIR proc macros items back to their harness items.
+        proc_macros: Vec<NodeId>
+    }
 
 /// Possible values inside of compile-time attribute lists.
 ///
@@ -462,11 +474,12 @@ type NestedMetaItem =
 /// A spanned compile-time attribute item.
 ///
 /// E.g., `#[test]`, `#[derive(..)]`, `#[rustfmt::skip]` or `#[feature = "foo"]`.
-type MetaItem = {
-    path: Path
-    kind: MetaItemKind
-    span: Span
-}
+type MetaItem =
+    {
+        path: Path
+        kind: MetaItemKind
+        span: Span
+    }
 
 /// A compile-time attribute item.
 ///
@@ -489,42 +502,45 @@ type MetaItemKind =
 /// A block (`{ .. }`).
 ///
 /// E.g., `{ .. }` as in `fn foo() { .. }`.
-type Block = {
-    /// The statements in the block.
-    stmts: Vec<Stmt>
-    id: NodeId
-    /// Distinguishes between `unsafe { ... }` and `{ ... }`.
-    rules: BlockCheckMode
-    span: Span
-    tokens: Option<LazyTokenStream>
-}
+type Block =
+    {
+        /// The statements in the block.
+        stmts: Vec<Stmt>
+        id: NodeId
+        /// Distinguishes between `unsafe { ... }` and `{ ... }`.
+        rules: BlockCheckMode
+        span: Span
+        tokens: Option<LazyTokenStream>
+    }
 
 /// A match pattern.
 ///
 /// Patterns appear in match statements and some other contexts, such as `let` and `if let`.
-type Pat = {
-    id: NodeId
-    kind: PatKind
-    span: Span
-    tokens: Option<LazyTokenStream>
-}
+type Pat =
+    {
+        id: NodeId
+        kind: PatKind
+        span: Span
+        tokens: Option<LazyTokenStream>
+    }
 
 /// A single field in a struct pattern.
 ///
 /// Patterns like the fields of `Foo { x, ref y, ref mut z }`
 /// are treated the same as `x: x, y: ref y, z: ref mut z`,
 /// except when `is_shorthand` is true.
-type PatField = {
-    /// The identifier for the field.
-    ident: Ident
-    /// The pattern the field is destructured to.
-    pat: P<Pat>
-    is_shorthand: bool
-    attrs: AttrVec
-    id: NodeId
-    span: Span
-    is_placeholder: bool
-}
+type PatField =
+    {
+        /// The identifier for the field.
+        ident: Ident
+        /// The pattern the field is destructured to.
+        pat: P<Pat>
+        is_shorthand: bool
+        attrs: AttrVec
+        id: NodeId
+        span: Span
+        is_placeholder: bool
+    }
 
 [<RequireQualifiedAccess>]
 type BindingMode =
@@ -681,11 +697,12 @@ type UnOp =
     | Neg
 
 /// A statement
-type Stmt = {
-    id: NodeId
-    kind: StmtKind
-    span: Span
-}
+type Stmt =
+    {
+        id: NodeId
+        kind: StmtKind
+        span: Span
+    }
 
 [<RequireQualifiedAccess>]
 type StmtKind =
@@ -702,12 +719,13 @@ type StmtKind =
     /// Macro.
     | MacCall of P<MacCallStmt>
 
-type MacCallStmt = {
-    mac: MacCall
-    style: MacStmtStyle
-    attrs: AttrVec
-    tokens: Option<LazyTokenStream>
-}
+type MacCallStmt =
+    {
+        mac: MacCall
+        style: MacStmtStyle
+        attrs: AttrVec
+        tokens: Option<LazyTokenStream>
+    }
 
 [<RequireQualifiedAccess>]
 type MacStmtStyle =
@@ -722,16 +740,17 @@ type MacStmtStyle =
     | NoBraces
 
 /// Local represents a `let` statement, e.g., `let <pat>:<ty> = <expr>;`.
-type Local = {
-    id: NodeId
-    pat: P<Pat>
-    ty: Option<P<Ty>>
-    /// Initializer expression to set the value, if any.
-    init: Option<P<Expr>>
-    span: Span
-    attrs: AttrVec
-    tokens: Option<LazyTokenStream>
-}
+type Local =
+    {
+        id: NodeId
+        pat: P<Pat>
+        ty: Option<P<Ty>>
+        /// Initializer expression to set the value, if any.
+        init: Option<P<Expr>>
+        span: Span
+        attrs: AttrVec
+        tokens: Option<LazyTokenStream>
+    }
 
 /// An arm of a 'match'.
 ///
@@ -743,29 +762,31 @@ type Local = {
 ///     _ => { println!("no match!") },
 /// }
 /// ```
-type Arm = {
-    attrs: Vec<Attribute>
-    /// Match arm pattern, e.g. `10` in `match foo { 10 => {}, _ => {} }`
-    pat: P<Pat>
-    /// Match arm guard, e.g. `n > 10` in `match foo { n if n > 10 => {}, _ => {} }`
-    guard: Option<P<Expr>>
-    /// Match arm body.
-    body: P<Expr>
-    span: Span
-    id: NodeId
-    is_placeholder: bool
-}
+type Arm =
+    {
+        attrs: Vec<Attribute>
+        /// Match arm pattern, e.g. `10` in `match foo { 10 => {}, _ => {} }`
+        pat: P<Pat>
+        /// Match arm guard, e.g. `n > 10` in `match foo { n if n > 10 => {}, _ => {} }`
+        guard: Option<P<Expr>>
+        /// Match arm body.
+        body: P<Expr>
+        span: Span
+        id: NodeId
+        is_placeholder: bool
+    }
 
 /// A single field in a struct expression, e.g. `x: value` and `y` in `Foo { x: value, y }`.
-type ExprField = {
-    attrs: AttrVec
-    id: NodeId
-    span: Span
-    ident: Ident
-    expr: P<Expr>
-    is_shorthand: bool
-    is_placeholder: bool
-}
+type ExprField =
+    {
+        attrs: AttrVec
+        id: NodeId
+        span: Span
+        ident: Ident
+        expr: P<Expr>
+        is_shorthand: bool
+        is_placeholder: bool
+    }
 
 [<RequireQualifiedAccess>]
 type BlockCheckMode =
@@ -782,19 +803,21 @@ type UnsafeSource =
 /// These are usually found nested inside types (e.g., array lengths)
 /// or expressions (e.g., repeat counts), and also used to define
 /// explicit discriminant values for enum variants.
-type AnonConst = {
-    id: NodeId
-    value: P<Expr>
-}
+type AnonConst =
+    {
+        id: NodeId
+        value: P<Expr>
+    }
 
 /// An expression.
-type Expr = {
-    id: NodeId
-    kind: ExprKind
-    span: Span
-    attrs: AttrVec
-    tokens: Option<LazyTokenStream>
-}
+type Expr =
+    {
+        id: NodeId
+        kind: ExprKind
+        span: Span
+        attrs: AttrVec
+        tokens: Option<LazyTokenStream>
+    }
 
 /// Limit types of a range (inclusive or exclusive)
 [<RequireQualifiedAccess>]
@@ -813,11 +836,12 @@ type StructRest =
     /// No trailing `..` or expression.
     | None
 
-type StructExpr = {
-    path: Path
-    fields: Vec<ExprField>
-    rest: StructRest
-}
+type StructExpr =
+    {
+        path: Path
+        fields: Vec<ExprField>
+        rest: StructRest
+    }
 
 [<RequireQualifiedAccess>]
 type ExprKind =
@@ -981,15 +1005,16 @@ type ExprKind =
 ///  ^~~~~    ^
 ///  ty       position = 0
 /// ```
-type QSelf = {
-    ty: P<Ty>
+type QSelf =
+    {
+        ty: P<Ty>
 
-    /// The span of `a::b::Trait` in a path like `<Vec<T> as
-    /// a::b::Trait>::AssociatedItem`; in the case where `position ==
-    /// 0`, this is an empty span.
-    path_span: Span
-    position: usize
-}
+        /// The span of `a::b::Trait` in a path like `<Vec<T> as
+        /// a::b::Trait>::AssociatedItem`; in the case where `position ==
+        /// 0`, this is an empty span.
+        path_span: Span
+        position: usize
+    }
 
 /// A capture clause used in closures and `async` blocks.
 [<RequireQualifiedAccess>]
@@ -1010,11 +1035,12 @@ type Movability =
 
 /// Represents a macro invocation. The `path` indicates which macro
 /// is being invoked, and the `args` are arguments passed to it.
-type MacCall = {
-    path: Path
-    args: P<MacArgs>
-    prior_type_ascription: Option<(Span * bool)>
-}
+type MacCall =
+    {
+        path: Path
+        args: P<MacArgs>
+        prior_type_ascription: Option<(Span * bool)>
+    }
 
 /// Arguments passed to an attribute or a function-like macro.
 [<RequireQualifiedAccess>]
@@ -1037,11 +1063,12 @@ type MacDelimiter =
     | Brace
 
 /// Represents a macro definition.
-type MacroDef = {
-    body: P<MacArgs>
-    /// `true` if macro was defined with `macro_rules`.
-    macro_rules: bool
-}
+type MacroDef =
+    {
+        body: P<MacArgs>
+        /// `true` if macro was defined with `macro_rules`.
+        macro_rules: bool
+    }
 
 [<RequireQualifiedAccess>]
 type StrStyle =
@@ -1053,27 +1080,29 @@ type StrStyle =
     | Raw of u16
 
 /// An AST literal.
-type Lit = {
-    /// The original literal token as written in source code.
-    token: token.Lit
-    /// The "semantic" representation of the literal lowered from the original tokens.
-    /// Strings are unescaped, hexadecimal forms are eliminated, etc.
-    /// FIXME: Remove this and only create the semantic representation during lowering to HIR.
-    kind: LitKind
-    span: Span
-}
+type Lit =
+    {
+        /// The original literal token as written in source code.
+        token: token.Lit
+        /// The "semantic" representation of the literal lowered from the original tokens.
+        /// Strings are unescaped, hexadecimal forms are eliminated, etc.
+        /// FIXME: Remove this and only create the semantic representation during lowering to HIR.
+        kind: LitKind
+        span: Span
+    }
 
 /// Same as `Lit`, but restricted to string literals.
-type StrLit = {
-    /// The original literal token as written in source code.
-    style: StrStyle
-    symbol: Symbol
-    suffix: Option<Symbol>
-    span: Span
-    /// The unescaped "semantic" representation of the literal lowered from the original token.
-    /// FIXME: Remove this and only create the semantic representation during lowering to HIR.
-    symbol_unescaped: Symbol
-}
+type StrLit =
+    {
+        /// The original literal token as written in source code.
+        style: StrStyle
+        symbol: Symbol
+        suffix: Option<Symbol>
+        span: Span
+        /// The unescaped "semantic" representation of the literal lowered from the original token.
+        /// FIXME: Remove this and only create the semantic representation during lowering to HIR.
+        symbol_unescaped: Symbol
+    }
 
 /// Type of the integer literal based on provided suffix.
 [<RequireQualifiedAccess>]
@@ -1117,18 +1146,20 @@ type LitKind =
 
 // N.B., If you change this, you'll probably want to change the corresponding
 // type structure in `middle/ty.rs` as well.
-type MutTy = {
-    ty: P<Ty>
-    mutbl: Mutability
-}
+type MutTy =
+    {
+        ty: P<Ty>
+        mutbl: Mutability
+    }
 
 /// Represents a function's signature in a trait declaration,
 /// trait implementation, or free function.
-type FnSig = {
-    header: FnHeader
-    decl: P<FnDecl>
-    span: Span
-}
+type FnSig =
+    {
+        header: FnHeader
+        decl: P<FnDecl>
+        span: Span
+    }
 
 [<RequireQualifiedAccess>]
 type FloatTy =
@@ -1155,13 +1186,14 @@ type UintTy =
 
 /// A constraint on an associated type (e.g., `A = Bar` in `Foo<A = Bar>` or
 /// `A: TraitA + TraitB` in `Foo<A: TraitA + TraitB>`).
-type AssocTyConstraint = {
-    id: NodeId
-    ident: Ident
-    gen_args: Option<GenericArgs>
-    kind: AssocTyConstraintKind
-    span: Span
-}
+type AssocTyConstraint =
+    {
+        id: NodeId
+        ident: Ident
+        gen_args: Option<GenericArgs>
+        kind: AssocTyConstraintKind
+        span: Span
+    }
 
 /// The kinds of an `AssocTyConstraint`.
 [<RequireQualifiedAccess>]
@@ -1171,19 +1203,21 @@ type AssocTyConstraintKind =
     /// E.g. `A: TraitA + TraitB` in `Foo<A: TraitA + TraitB>`.
     | Bound of bounds: GenericBounds
 
-type Ty = {
-    id: NodeId
-    kind: TyKind
-    span: Span
-    tokens: Option<LazyTokenStream>
-}
+type Ty =
+    {
+        id: NodeId
+        kind: TyKind
+        span: Span
+        tokens: Option<LazyTokenStream>
+    }
 
-type BareFnTy = {
-    unsafety: Unsafety
-    ext: Extern
-    generic_params: Vec<GenericParam>
-    decl: P<FnDecl>
-}
+type BareFnTy =
+    {
+        unsafety: Unsafety
+        ext: Extern
+        generic_params: Vec<GenericParam>
+        decl: P<FnDecl>
+    }
 
 /// The various kinds of type recognized by the compiler.
 [<RequireQualifiedAccess>]
@@ -1271,36 +1305,27 @@ type InlineAsmTemplatePiece =
 /// E.g., `out("eax") result` as in `asm!("mov eax, 2", out("eax") result)`.
 [<RequireQualifiedAccess>]
 type InlineAsmOperand =
-    | In of
-        reg: InlineAsmRegOrRegClass *
-        expr: P<Expr>
-    | Out of
-        reg: InlineAsmRegOrRegClass *
-        late: bool *
-        expr: Option<P<Expr>>
-    | InOut of
-        reg: InlineAsmRegOrRegClass *
-        late: bool *
-        expr: P<Expr>
+    | In of reg: InlineAsmRegOrRegClass * expr: P<Expr>
+    | Out of reg: InlineAsmRegOrRegClass * late: bool * expr: Option<P<Expr>>
+    | InOut of reg: InlineAsmRegOrRegClass * late: bool * expr: P<Expr>
     | SplitInOut of
         reg: InlineAsmRegOrRegClass *
         late: bool *
         in_expr: P<Expr> *
         out_expr: Option<P<Expr>>
-    | Const of
-        anon_const: AnonConst
-    | Sym of
-        expr: P<Expr>
+    | Const of anon_const: AnonConst
+    | Sym of expr: P<Expr>
 
 /// Inline assembly.
 ///
 /// E.g., `asm!("NOP");`.
-type InlineAsm = {
-    template: Vec<InlineAsmTemplatePiece>
-    operands: Vec<InlineAsmOperand * Span>
-    options: InlineAsmOptions
-    line_spans: Vec<Span>
-}
+type InlineAsm =
+    {
+        template: Vec<InlineAsmTemplatePiece>
+        operands: Vec<InlineAsmOperand * Span>
+        options: InlineAsmOptions
+        line_spans: Vec<Span>
+    }
 
 /// Inline assembly dialect.
 ///
@@ -1313,38 +1338,41 @@ type LlvmAsmDialect =
 /// LLVM-style inline assembly.
 ///
 /// E.g., `"={eax}"(result)` as in `llvm_asm!("mov eax, 2" : "={eax}"(result) : : : "intel")`.
-type LlvmInlineAsmOutput = {
-    constraint_: Symbol
-    expr: P<Expr>
-    is_rw: bool
-    is_indirect: bool
-}
+type LlvmInlineAsmOutput =
+    {
+        constraint_: Symbol
+        expr: P<Expr>
+        is_rw: bool
+        is_indirect: bool
+    }
 
 /// LLVM-style inline assembly.
 ///
 /// E.g., `llvm_asm!("NOP");`.
-type LlvmInlineAsm = {
-    asm: Symbol
-    asm_str_style: StrStyle
-    outputs: Vec<LlvmInlineAsmOutput>
-    inputs: Vec<Symbol * P<Expr>>
-    clobbers: Vec<Symbol>
-    volatile: bool
-    alignstack: bool
-    dialect: LlvmAsmDialect
-}
+type LlvmInlineAsm =
+    {
+        asm: Symbol
+        asm_str_style: StrStyle
+        outputs: Vec<LlvmInlineAsmOutput>
+        inputs: Vec<Symbol * P<Expr>>
+        clobbers: Vec<Symbol>
+        volatile: bool
+        alignstack: bool
+        dialect: LlvmAsmDialect
+    }
 
 /// A parameter in a function header.
 ///
 /// E.g., `bar: usize` as in `fn foo(bar: usize)`.
-type Param = {
-    attrs: AttrVec
-    ty: P<Ty>
-    pat: P<Pat>
-    id: NodeId
-    span: Span
-    is_placeholder: bool
-}
+type Param =
+    {
+        attrs: AttrVec
+        ty: P<Ty>
+        pat: P<Pat>
+        id: NodeId
+        span: Span
+        is_placeholder: bool
+    }
 
 /// Alternative representation for `Arg`s describing `self` parameter of methods.
 ///
@@ -1366,10 +1394,11 @@ type ExplicitSelf = Spanned<SelfKind>
 ///
 /// Please note that it's different from `FnHeader` structure
 /// which contains metadata about function safety, asyncness, constness and ABI.
-type FnDecl = {
-    inputs: Vec<Param>
-    output: FnRetTy
-}
+type FnDecl =
+    {
+        inputs: Vec<Param>
+        output: FnRetTy
+    }
 
 /// Is the trait definition an auto trait?
 [<RequireQualifiedAccess>]
@@ -1435,44 +1464,43 @@ type ModKind =
 /// Foreign module declaration.
 ///
 /// E.g., `extern { .. }` or `extern "C" { .. }`.
-type ForeignMod = {
-    /// `unsafe` keyword accepted syntactically for macro DSLs, but not
-    /// semantically by Rust.
-    unsafety: Unsafety
-    abi: Option<StrLit>
-    items: Vec<P<ForeignItem>>
-}
+type ForeignMod =
+    {
+        /// `unsafe` keyword accepted syntactically for macro DSLs, but not
+        /// semantically by Rust.
+        unsafety: Unsafety
+        abi: Option<StrLit>
+        items: Vec<P<ForeignItem>>
+    }
 
 /// Global inline assembly.
 ///
 /// Also known as "module-level assembly" or "file-scoped assembly".
-type GlobalAsm = {
-    asm: Symbol
-}
+type GlobalAsm = { asm: Symbol }
 
-type EnumDef = {
-    variants: Vec<Variant>
-}
+type EnumDef = { variants: Vec<Variant> }
+
 /// Enum variant.
-type Variant = {
-    /// Attributes of the variant.
-    attrs: Vec<Attribute>
-    /// Id of the variant (not the constructor, see `VariantData::ctor_id()`).
-    id: NodeId
-    /// Span
-    span: Span
-    /// The visibility of the variant. Syntactically accepted but not semantically.
-    vis: Visibility
-    /// Name of the variant.
-    ident: Ident
+type Variant =
+    {
+        /// Attributes of the variant.
+        attrs: Vec<Attribute>
+        /// Id of the variant (not the constructor, see `VariantData::ctor_id()`).
+        id: NodeId
+        /// Span
+        span: Span
+        /// The visibility of the variant. Syntactically accepted but not semantically.
+        vis: Visibility
+        /// Name of the variant.
+        ident: Ident
 
-    /// Fields and constructor id of the variant.
-    data: VariantData
-    /// Explicit discriminant, e.g., `Foo = 1`.
-    disr_expr: Option<AnonConst>
-    /// Is a macro placeholder
-    is_placeholder: bool
-}
+        /// Fields and constructor id of the variant.
+        data: VariantData
+        /// Explicit discriminant, e.g., `Foo = 1`.
+        disr_expr: Option<AnonConst>
+        /// Is a macro placeholder
+        is_placeholder: bool
+    }
 
 /// Part of `use` item to the right of its prefix.
 [<RequireQualifiedAccess>]
@@ -1489,11 +1517,12 @@ type UseTreeKind =
 
 /// A tree of paths sharing common prefixes.
 /// Used in `use` items both at top-level and inside of braces in import groups.
-type UseTree = {
-    prefix: Path
-    kind: UseTreeKind
-    span: Span
-}
+type UseTree =
+    {
+        prefix: Path
+        kind: UseTreeKind
+        span: Span
+    }
 
 /// Distinguishes between `Attribute`s that decorate items and Attributes that
 /// are contained as statements within items. These two cases need to be
@@ -1510,24 +1539,26 @@ type AttrId = u32
 //         DEBUG_FORMAT = "AttrId({})"
 //     }
 
-type AttrItem = {
-    path: Path
-    args: MacArgs
-    tokens: Option<LazyTokenStream>
-}
+type AttrItem =
+    {
+        path: Path
+        args: MacArgs
+        tokens: Option<LazyTokenStream>
+    }
 
 /// A list of attributes.
 type AttrVec = Vec<Attribute>
 
 /// Metadata associated with an item.
-type Attribute = {
-    kind: AttrKind
-    id: AttrId
-    /// Denotes if the attribute decorates the following construct (outer)
-    /// or the construct this attribute is contained within (inner).
-    style: AttrStyle
-    span: Span
-}
+type Attribute =
+    {
+        kind: AttrKind
+        id: AttrId
+        /// Denotes if the attribute decorates the following construct (outer)
+        /// or the construct this attribute is contained within (inner).
+        style: AttrStyle
+        span: Span
+    }
 
 [<RequireQualifiedAccess>]
 type AttrKind =
@@ -1545,20 +1576,22 @@ type AttrKind =
 /// that the `ref_id` is for. The `impl_id` maps to the "self type" of this impl.
 /// If this impl is an `ItemKind::Impl`, the `impl_id` is redundant (it could be the
 /// same as the impl's `NodeId`).
-type TraitRef = {
-    path: Path
-    ref_id: NodeId
-}
+type TraitRef =
+    {
+        path: Path
+        ref_id: NodeId
+    }
 
-type PolyTraitRef = {
-    /// The `'a` in `<'a> Foo<&'a T>`.
-    bound_generic_params: Vec<GenericParam>
+type PolyTraitRef =
+    {
+        /// The `'a` in `<'a> Foo<&'a T>`.
+        bound_generic_params: Vec<GenericParam>
 
-    /// The `Foo<&'a T>` in `<'a> Foo<&'a T>`.
-    trait_ref: TraitRef
+        /// The `Foo<&'a T>` in `<'a> Foo<&'a T>`.
+        trait_ref: TraitRef
 
-    span: Span
-}
+        span: Span
+    }
 
 [<RequireQualifiedAccess>]
 type CrateSugar =
@@ -1568,11 +1601,12 @@ type CrateSugar =
     /// Source is (just) `crate`.
     | JustCrate
 
-type Visibility = {
-    kind: VisibilityKind
-    span: Span
-    tokens: Option<LazyTokenStream>
-}
+type Visibility =
+    {
+        kind: VisibilityKind
+        span: Span
+        tokens: Option<LazyTokenStream>
+    }
 
 [<RequireQualifiedAccess>]
 type VisibilityKind =
@@ -1584,16 +1618,17 @@ type VisibilityKind =
 /// Field definition in a struct, variant or union.
 ///
 /// E.g., `bar: usize` as in `struct Foo { bar: usize }`.
-type FieldDef = {
-    attrs: Vec<Attribute>
-    id: NodeId
-    span: Span
-    vis: Visibility
-    ident: Option<Ident>
+type FieldDef =
+    {
+        attrs: Vec<Attribute>
+        id: NodeId
+        span: Span
+        vis: Visibility
+        ident: Option<Ident>
 
-    ty: P<Ty>
-    is_placeholder: bool
-}
+        ty: P<Ty>
+        is_placeholder: bool
+    }
 
 /// Fields and constructor ids of enum variants and structs.
 [<RequireQualifiedAccess>]
@@ -1612,26 +1647,27 @@ type VariantData =
     | Unit of NodeId
 
 /// An item definition.
-type Item<'K> = { // when 'K: ItemKind
-    attrs: Vec<Attribute>
-    id: NodeId
-    span: Span
-    vis: Visibility
-    /// The name of the item.
-    /// It might be a dummy name in case of anonymous items.
-    ident: Ident
+type Item<'K> =
+    { // when 'K: ItemKind
+        attrs: Vec<Attribute>
+        id: NodeId
+        span: Span
+        vis: Visibility
+        /// The name of the item.
+        /// It might be a dummy name in case of anonymous items.
+        ident: Ident
 
-    kind: 'K
+        kind: 'K
 
-    /// Original tokens this item was parsed from. This isn't necessarily
-    /// available for all items, although over time more and more items should
-    /// have this be `Some`. Right now this is primarily used for procedural
-    /// macros, notably custom attributes.
-    ///
-    /// Note that the tokens here do not include the outer attributes, but will
-    /// include inner attributes.
-    tokens: Option<LazyTokenStream>
-}
+        /// Original tokens this item was parsed from. This isn't necessarily
+        /// available for all items, although over time more and more items should
+        /// have this be `Some`. Right now this is primarily used for procedural
+        /// macros, notably custom attributes.
+        ///
+        /// Note that the tokens here do not include the outer attributes, but will
+        /// include inner attributes.
+        tokens: Option<LazyTokenStream>
+    }
 
 type Item = Item<ItemKind>
 
@@ -1646,35 +1682,33 @@ type Extern =
 ///
 /// All the information between the visibility and the name of the function is
 /// included in this struct (e.g., `async unsafe fn` or `const extern "C" fn`).
-type FnHeader = {
-    unsafety: Unsafety
-    asyncness: Asyncness
-    constness: Constness
-    ext: Extern
-}
+type FnHeader =
+    {
+        unsafety: Unsafety
+        asyncness: Asyncness
+        constness: Constness
+        ext: Extern
+    }
 
 type TraitKind =
-    IsAuto *
-    Unsafety *
-    Generics *
-    GenericBounds *
-    Vec<P<AssocItem>>
+    IsAuto * Unsafety * Generics * GenericBounds * Vec<P<AssocItem>>
 
 type TyAliasKind = Defaultness * Generics * GenericBounds * Option<P<Ty>>
 
-type ImplKind = {
-    unsafety: Unsafety
-    polarity: ImplPolarity
-    defaultness: Defaultness
-    constness: Constness
-    generics: Generics
+type ImplKind =
+    {
+        unsafety: Unsafety
+        polarity: ImplPolarity
+        defaultness: Defaultness
+        constness: Constness
+        generics: Generics
 
-    /// The trait being implemented, if any.
-    of_trait: Option<TraitRef>
+        /// The trait being implemented, if any.
+        of_trait: Option<TraitRef>
 
-    self_ty: P<Ty>
-    items: Vec<P<AssocItem>>
-}
+        self_ty: P<Ty>
+        items: Vec<P<AssocItem>>
+    }
 
 type FnKind = Defaultness * FnSig * Generics * Option<P<Block>>
 

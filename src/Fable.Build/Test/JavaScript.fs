@@ -19,20 +19,21 @@ let private testReact (isWatch: bool) =
     Command.Run("npm", "install", workingDirectory = workingDirectoy)
 
     if isWatch then
-        Async.Parallel [
-            Command.WatchFableAsync(
-                CmdLine.appendRaw "--noCache",
-                workingDirectory = workingDirectoy
-            )
-            |> Async.AwaitTask
+        Async.Parallel
+            [
+                Command.WatchFableAsync(
+                    CmdLine.appendRaw "--noCache",
+                    workingDirectory = workingDirectoy
+                )
+                |> Async.AwaitTask
 
-            Command.RunAsync(
-                "npx",
-                "jest --watch",
-                workingDirectory = workingDirectoy
-            )
-            |> Async.AwaitTask
-        ]
+                Command.RunAsync(
+                    "npx",
+                    "jest --watch",
+                    workingDirectory = workingDirectoy
+                )
+                |> Async.AwaitTask
+            ]
         |> Async.RunSynchronously
         |> ignore
     else
@@ -47,8 +48,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
     let folderName = "Main"
     let sourceDir = Path.Resolve("tests", "Js", folderName)
 
-    let destinationDir =
-        Path.Resolve("temp", "tests", "JavaScript", folderName)
+    let destinationDir = Path.Resolve("temp", "tests", "JavaScript", folderName)
 
     let mochaCommand =
         CmdLine.empty
@@ -62,42 +62,44 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
     Directory.clean destinationDir
 
     let fableArgs =
-        CmdLine.concat [
-            CmdLine.empty
-            |> CmdLine.appendRaw sourceDir
-            |> CmdLine.appendPrefix "--outDir" destinationDir
-            |> CmdLine.appendPrefix "--lang" "javascript"
-            |> CmdLine.appendPrefix "--exclude" "Fable.Core"
-            |> CmdLine.appendRaw "--noCache"
+        CmdLine.concat
+            [
+                CmdLine.empty
+                |> CmdLine.appendRaw sourceDir
+                |> CmdLine.appendPrefix "--outDir" destinationDir
+                |> CmdLine.appendPrefix "--lang" "javascript"
+                |> CmdLine.appendPrefix "--exclude" "Fable.Core"
+                |> CmdLine.appendRaw "--noCache"
 
-            if isWatch then
-                CmdLine.empty
-                |> CmdLine.appendRaw "--watch"
-                |> CmdLine.appendRaw "--runWatch"
-                |> CmdLine.appendRaw mochaCommand
-            else
-                CmdLine.empty
-                |> CmdLine.appendRaw "--run"
-                |> CmdLine.appendRaw mochaCommand
-        ]
+                if isWatch then
+                    CmdLine.empty
+                    |> CmdLine.appendRaw "--watch"
+                    |> CmdLine.appendRaw "--runWatch"
+                    |> CmdLine.appendRaw mochaCommand
+                else
+                    CmdLine.empty
+                    |> CmdLine.appendRaw "--run"
+                    |> CmdLine.appendRaw mochaCommand
+            ]
 
     if isWatch then
         // In watch mode, we only test the Main tests to not pollute the logs too much
-        Async.Parallel [
-            if not noDotnet then
-                Command.RunAsync(
-                    "dotnet",
-                    "watch run -c Release",
-                    workingDirectory = Path.Combine("tests", "Js", "Main")
+        Async.Parallel
+            [
+                if not noDotnet then
+                    Command.RunAsync(
+                        "dotnet",
+                        "watch run -c Release",
+                        workingDirectory = Path.Combine("tests", "Js", "Main")
+                    )
+                    |> Async.AwaitTask
+
+                Command.WatchFableAsync(
+                    fableArgs,
+                    workingDirectory = destinationDir
                 )
                 |> Async.AwaitTask
-
-            Command.WatchFableAsync(
-                fableArgs,
-                workingDirectory = destinationDir
-            )
-            |> Async.AwaitTask
-        ]
+            ]
         |> Async.RunSynchronously
         |> ignore
     else
@@ -112,11 +114,11 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
 
         testReact false
 
-        // let isCI = Environment.GetEnvironmentVariable("CI") |> Option.ofObj
+// let isCI = Environment.GetEnvironmentVariable("CI") |> Option.ofObj
 
-        // standalone will be tested by a separate CI job
-        // if isCI.IsSome then
-        //     Standalone.handleStandaloneFast ()
+// standalone will be tested by a separate CI job
+// if isCI.IsSome then
+//     Standalone.handleStandaloneFast ()
 
 let handle (args: string list) =
     let isReactOnly = args |> List.contains "--react-only"

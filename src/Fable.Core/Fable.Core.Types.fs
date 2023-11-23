@@ -17,7 +17,7 @@ type CaseRules =
 /// other interfaces, but will make interop with native code more difficult.
 type MangleAttribute(mangle: bool) =
     inherit Attribute()
-    new () = MangleAttribute(true)
+    new() = MangleAttribute(true)
 
 /// Used on a class to attach all members, useful when you want to use the class from JS.
 [<AttributeUsage(AttributeTargets.Class)>]
@@ -28,26 +28,28 @@ type AttachMembersAttribute() =
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
 type EraseAttribute() =
     inherit Attribute()
-    new (caseRules: CaseRules) = EraseAttribute()
+    new(caseRules: CaseRules) = EraseAttribute()
 
 /// Used for "tagged" union types, which is commonly used in TypeScript.
 type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
     inherit Attribute()
-    new (tagName: string) = TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
+
+    new(tagName: string) =
+        TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
 
 /// Used in place of `CompiledNameAttribute` if the target is not a string.
 type CompiledValueAttribute private () =
     inherit Attribute()
-    new (value: int) = CompiledValueAttribute()
-    new (value: float) = CompiledValueAttribute()
-    new (value: bool) = CompiledValueAttribute()
-    new (value: Enum) = CompiledValueAttribute()
+    new(value: int) = CompiledValueAttribute()
+    new(value: float) = CompiledValueAttribute()
+    new(value: bool) = CompiledValueAttribute()
+    new(value: Enum) = CompiledValueAttribute()
 
 /// The module, type, function... is globally accessible in JS.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#type-safety-with-imports-and-interfaces
 type GlobalAttribute() =
     inherit Attribute()
-    new (name: string) = GlobalAttribute()
+    new(name: string) = GlobalAttribute()
 
 /// References to the module, type, function... will be replaced by import statements.
 /// Use `[<Import("default", "my-package")>] to import the default member.
@@ -75,7 +77,7 @@ type ExportDefaultAttribute() =
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#emit-when-f-is-not-enough
 type EmitAttribute(macro: string, isStatement: bool) =
     inherit Attribute()
-    new (macro: string) = EmitAttribute(macro, isStatement=false)
+    new(macro: string) = EmitAttribute(macro, isStatement = false)
 
 /// Same as `Emit("$0.methodName($1...)")`
 type EmitMethodAttribute(methodName: string) =
@@ -98,7 +100,7 @@ type EmitPropertyAttribute(propertyName: string) =
 [<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute(caseRules: CaseRules) =
     inherit Attribute()
-    new () = StringEnumAttribute(CaseRules.LowerFirst)
+    new() = StringEnumAttribute(CaseRules.LowerFirst)
 
 /// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
 [<AttributeUsage(AttributeTargets.Parameter)>]
@@ -112,7 +114,7 @@ type ParamSeqAttribute = ParamListAttribute
 [<AttributeUsage(AttributeTargets.Constructor ||| AttributeTargets.Method)>]
 type ParamObjectAttribute(fromIndex: int) =
     inherit Attribute()
-    new () = ParamObjectAttribute(0)
+    new() = ParamObjectAttribute(0)
 
 /// Alias for ParamObjectAttribute.
 type NamedParamsAttribute = ParamObjectAttribute
@@ -124,67 +126,78 @@ type InjectAttribute() =
 
 /// Erased union type to represent one of two possible values.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
-type [<Erase>] U2<'a, 'b> =
+[<Erase>]
+type U2<'a, 'b> =
     | Case1 of 'a
     | Case2 of 'b
-    static member op_ErasedCast(x:'a) = Case1 x
-    static member op_ErasedCast(x:'b) = Case2 x
+
+    static member op_ErasedCast(x: 'a) = Case1 x
+    static member op_ErasedCast(x: 'b) = Case2 x
 
 /// Erased union type to represent one of three possible values.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
-type [<Erase>] U3<'a, 'b, 'c> =
+[<Erase>]
+type U3<'a, 'b, 'c> =
     | Case1 of 'a
     | Case2 of 'b
     | Case3 of 'c
-    static member op_ErasedCast(x:'a) = Case1 x
-    static member op_ErasedCast(x:'b) = Case2 x
-    static member op_ErasedCast(x:'c) = Case3 x
+
+    static member op_ErasedCast(x: 'a) = Case1 x
+    static member op_ErasedCast(x: 'b) = Case2 x
+    static member op_ErasedCast(x: 'c) = Case3 x
 
 /// Erased union type to represent one of four possible values.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
-type [<Erase>] U4<'a, 'b, 'c, 'd> =
+[<Erase>]
+type U4<'a, 'b, 'c, 'd> =
     | Case1 of 'a
     | Case2 of 'b
     | Case3 of 'c
     | Case4 of 'd
-    static member op_ErasedCast(x:'a) = Case1 x
-    static member op_ErasedCast(x:'b) = Case2 x
-    static member op_ErasedCast(x:'c) = Case3 x
-    static member op_ErasedCast(x:'d) = Case4 x
+
+    static member op_ErasedCast(x: 'a) = Case1 x
+    static member op_ErasedCast(x: 'b) = Case2 x
+    static member op_ErasedCast(x: 'c) = Case3 x
+    static member op_ErasedCast(x: 'd) = Case4 x
 
 /// Erased union type to represent one of five possible values.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
-type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> =
+[<Erase>]
+type U5<'a, 'b, 'c, 'd, 'e> =
     | Case1 of 'a
     | Case2 of 'b
     | Case3 of 'c
     | Case4 of 'd
     | Case5 of 'e
-    static member op_ErasedCast(x:'a) = Case1 x
-    static member op_ErasedCast(x:'b) = Case2 x
-    static member op_ErasedCast(x:'c) = Case3 x
-    static member op_ErasedCast(x:'d) = Case4 x
-    static member op_ErasedCast(x:'e) = Case5 x
+
+    static member op_ErasedCast(x: 'a) = Case1 x
+    static member op_ErasedCast(x: 'b) = Case2 x
+    static member op_ErasedCast(x: 'c) = Case3 x
+    static member op_ErasedCast(x: 'd) = Case4 x
+    static member op_ErasedCast(x: 'e) = Case5 x
 
 /// Erased union type to represent one of six possible values.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
-type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> =
+[<Erase>]
+type U6<'a, 'b, 'c, 'd, 'e, 'f> =
     | Case1 of 'a
     | Case2 of 'b
     | Case3 of 'c
     | Case4 of 'd
     | Case5 of 'e
     | Case6 of 'f
-    static member op_ErasedCast(x:'a) = Case1 x
-    static member op_ErasedCast(x:'b) = Case2 x
-    static member op_ErasedCast(x:'c) = Case3 x
-    static member op_ErasedCast(x:'d) = Case4 x
-    static member op_ErasedCast(x:'e) = Case5 x
-    static member op_ErasedCast(x:'f) = Case6 x
+
+    static member op_ErasedCast(x: 'a) = Case1 x
+    static member op_ErasedCast(x: 'b) = Case2 x
+    static member op_ErasedCast(x: 'c) = Case3 x
+    static member op_ErasedCast(x: 'd) = Case4 x
+    static member op_ErasedCast(x: 'e) = Case5 x
+    static member op_ErasedCast(x: 'f) = Case6 x
 
 /// Erased union type to represent one of seven possible values.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
-type [<Erase>] U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> =
+[<Erase>]
+type U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> =
     | Case1 of 'a
     | Case2 of 'b
     | Case3 of 'c
@@ -192,17 +205,19 @@ type [<Erase>] U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> =
     | Case5 of 'e
     | Case6 of 'f
     | Case7 of 'g
-    static member op_ErasedCast(x:'a) = Case1 x
-    static member op_ErasedCast(x:'b) = Case2 x
-    static member op_ErasedCast(x:'c) = Case3 x
-    static member op_ErasedCast(x:'d) = Case4 x
-    static member op_ErasedCast(x:'e) = Case5 x
-    static member op_ErasedCast(x:'f) = Case6 x
-    static member op_ErasedCast(x:'g) = Case7 x
+
+    static member op_ErasedCast(x: 'a) = Case1 x
+    static member op_ErasedCast(x: 'b) = Case2 x
+    static member op_ErasedCast(x: 'c) = Case3 x
+    static member op_ErasedCast(x: 'd) = Case4 x
+    static member op_ErasedCast(x: 'e) = Case5 x
+    static member op_ErasedCast(x: 'f) = Case6 x
+    static member op_ErasedCast(x: 'g) = Case7 x
 
 /// Erased union type to represent one of eight possible values.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
-type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
+[<Erase>]
+type U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     | Case1 of 'a
     | Case2 of 'b
     | Case3 of 'c
@@ -211,18 +226,20 @@ type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     | Case6 of 'f
     | Case7 of 'g
     | Case8 of 'h
-    static member op_ErasedCast(x:'a) = Case1 x
-    static member op_ErasedCast(x:'b) = Case2 x
-    static member op_ErasedCast(x:'c) = Case3 x
-    static member op_ErasedCast(x:'d) = Case4 x
-    static member op_ErasedCast(x:'e) = Case5 x
-    static member op_ErasedCast(x:'f) = Case6 x
-    static member op_ErasedCast(x:'g) = Case7 x
-    static member op_ErasedCast(x:'h) = Case8 x
+
+    static member op_ErasedCast(x: 'a) = Case1 x
+    static member op_ErasedCast(x: 'b) = Case2 x
+    static member op_ErasedCast(x: 'c) = Case3 x
+    static member op_ErasedCast(x: 'd) = Case4 x
+    static member op_ErasedCast(x: 'e) = Case5 x
+    static member op_ErasedCast(x: 'f) = Case6 x
+    static member op_ErasedCast(x: 'g) = Case7 x
+    static member op_ErasedCast(x: 'h) = Case8 x
 
 /// Erased union type to represent one of nine or more possible values.
 /// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
-type [<Erase>] U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
+[<Erase>]
+type U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
     | Case1 of 'a
     | Case2 of 'b
     | Case3 of 'c
@@ -232,14 +249,16 @@ type [<Erase>] U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
     | Case7 of 'g
     | Case8 of 'h
     | Case9 of 'i
-    static member op_ErasedCast(x:'a) = Case1 x
-    static member op_ErasedCast(x:'b) = Case2 x
-    static member op_ErasedCast(x:'c) = Case3 x
-    static member op_ErasedCast(x:'d) = Case4 x
-    static member op_ErasedCast(x:'e) = Case5 x
-    static member op_ErasedCast(x:'f) = Case6 x
-    static member op_ErasedCast(x:'g) = Case7 x
-    static member op_ErasedCast(x:'h) = Case8 x
-    static member op_ErasedCast(x:'i) = Case9 x
-    static member inline op_ErasedCast(x:'t) : U9<_, _, _, _, _, _, _, _, ^U> =
-        Case9 (^U: (static member op_ErasedCast: 't -> ^U) x)
+
+    static member op_ErasedCast(x: 'a) = Case1 x
+    static member op_ErasedCast(x: 'b) = Case2 x
+    static member op_ErasedCast(x: 'c) = Case3 x
+    static member op_ErasedCast(x: 'd) = Case4 x
+    static member op_ErasedCast(x: 'e) = Case5 x
+    static member op_ErasedCast(x: 'f) = Case6 x
+    static member op_ErasedCast(x: 'g) = Case7 x
+    static member op_ErasedCast(x: 'h) = Case8 x
+    static member op_ErasedCast(x: 'i) = Case9 x
+
+    static member inline op_ErasedCast(x: 't) : U9<_, _, _, _, _, _, _, _, ^U> =
+        Case9(^U: (static member op_ErasedCast: 't -> ^U) x)

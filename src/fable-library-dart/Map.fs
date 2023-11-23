@@ -13,8 +13,16 @@ type MapTree<'Key, 'Value> = Option<MapTreeLeaf<'Key, 'Value>>
 
 [<NoEquality; NoComparison>]
 [<Sealed>]
-type MapTreeNode<'Key, 'Value>(k:'Key, v:'Value, left: MapTree<'Key, 'Value>, right: MapTree<'Key, 'Value>, h: int) =
-    inherit MapTreeLeaf<'Key,'Value>(k, v)
+type MapTreeNode<'Key, 'Value>
+    (
+        k: 'Key,
+        v: 'Value,
+        left: MapTree<'Key, 'Value>,
+        right: MapTree<'Key, 'Value>,
+        h: int
+    )
+    =
+    inherit MapTreeLeaf<'Key, 'Value>(k, v)
 
     member _.Left = left
     member _.Right = right
@@ -32,48 +40,49 @@ module MapTree =
         | None -> acc
         | Some m2 ->
             match m2 with
-            | :? MapTreeNode<'Key, 'Value> as mn -> sizeAux (sizeAux (acc+1) mn.Left) mn.Right
+            | :? MapTreeNode<'Key, 'Value> as mn ->
+                sizeAux (sizeAux (acc + 1) mn.Left) mn.Right
             | _ -> acc + 1
 
     let size x = sizeAux 0 x
 
-// #if TRACE_SETS_AND_MAPS
-//     let mutable traceCount = 0
-//     let mutable numOnes = 0
-//     let mutable numNodes = 0
-//     let mutable numAdds = 0
-//     let mutable numRemoves = 0
-//     let mutable numLookups = 0
-//     let mutable numUnions = 0
-//     let mutable totalSizeOnNodeCreation = 0.0
-//     let mutable totalSizeOnMapAdd = 0.0
-//     let mutable totalSizeOnMapLookup = 0.0
-//     let mutable largestMapSize = 0
-//     let mutable largestMapStackTrace = Unchecked.defaultof<_>
+    // #if TRACE_SETS_AND_MAPS
+    //     let mutable traceCount = 0
+    //     let mutable numOnes = 0
+    //     let mutable numNodes = 0
+    //     let mutable numAdds = 0
+    //     let mutable numRemoves = 0
+    //     let mutable numLookups = 0
+    //     let mutable numUnions = 0
+    //     let mutable totalSizeOnNodeCreation = 0.0
+    //     let mutable totalSizeOnMapAdd = 0.0
+    //     let mutable totalSizeOnMapLookup = 0.0
+    //     let mutable largestMapSize = 0
+    //     let mutable largestMapStackTrace = Unchecked.defaultof<_>
 
-//     let report() =
-//        traceCount <- traceCount + 1
-//        if traceCount % 1000000 = 0 then
-//            System.Console.WriteLine(
-//                "#MapOne = {0}, #MapNode = {1}, #Add = {2}, #Remove = {3}, #Unions = {4}, #Lookups = {5}, avMapTreeSizeOnNodeCreation = {6}, avMapSizeOnCreation = {7}, avMapSizeOnLookup = {8}",
-//                numOnes, numNodes, numAdds, numRemoves, numUnions, numLookups,
-//                (totalSizeOnNodeCreation / float (numNodes + numOnes)), (totalSizeOnMapAdd / float numAdds),
-//                (totalSizeOnMapLookup / float numLookups))
-//            System.Console.WriteLine("#largestMapSize = {0}, largestMapStackTrace = {1}", largestMapSize, largestMapStackTrace)
+    //     let report() =
+    //        traceCount <- traceCount + 1
+    //        if traceCount % 1000000 = 0 then
+    //            System.Console.WriteLine(
+    //                "#MapOne = {0}, #MapNode = {1}, #Add = {2}, #Remove = {3}, #Unions = {4}, #Lookups = {5}, avMapTreeSizeOnNodeCreation = {6}, avMapSizeOnCreation = {7}, avMapSizeOnLookup = {8}",
+    //                numOnes, numNodes, numAdds, numRemoves, numUnions, numLookups,
+    //                (totalSizeOnNodeCreation / float (numNodes + numOnes)), (totalSizeOnMapAdd / float numAdds),
+    //                (totalSizeOnMapLookup / float numLookups))
+    //            System.Console.WriteLine("#largestMapSize = {0}, largestMapStackTrace = {1}", largestMapSize, largestMapStackTrace)
 
-//     let MapOne n =
-//         report()
-//         numOnes <- numOnes + 1
-//         totalSizeOnNodeCreation <- totalSizeOnNodeCreation + 1.0
-//         MapTree n
+    //     let MapOne n =
+    //         report()
+    //         numOnes <- numOnes + 1
+    //         totalSizeOnNodeCreation <- totalSizeOnNodeCreation + 1.0
+    //         MapTree n
 
-//     let MapNode (x, l, v, r, h) =
-//         report()
-//         numNodes <- numNodes + 1
-//         let n = MapTreeNode (x, l, v, r, h)
-//         totalSizeOnNodeCreation <- totalSizeOnNodeCreation + float (size n)
-//         n
-// #endif
+    //     let MapNode (x, l, v, r, h) =
+    //         report()
+    //         numNodes <- numNodes + 1
+    //         let n = MapTreeNode (x, l, v, r, h)
+    //         totalSizeOnNodeCreation <- totalSizeOnNodeCreation + float (size n)
+    //         n
+    // #endif
 
     let inline height (m: MapTree<'Key, 'Value>) =
         match m with
@@ -89,15 +98,28 @@ module MapTree =
     let mk l k v r : MapTree<'Key, 'Value> =
         let hl = height l
         let hr = height r
-        let m = if hl < hr then hr else hl
-        if m = 0 then // m=0 ~ isEmpty l && isEmpty r
-            MapTreeLeaf (k,v) |> Some
-        else
-            MapTreeNode(k,v,l,r,m+1) :> MapTreeLeaf<'Key, 'Value> |> Some // new map is higher by 1 than the highest
 
-    let rebalance (t1: MapTree<'Key, 'Value>) (k: 'Key) (v: 'Value) (t2: MapTree<'Key, 'Value>) : MapTree<'Key, 'Value> =
+        let m =
+            if hl < hr then
+                hr
+            else
+                hl
+
+        if m = 0 then // m=0 ~ isEmpty l && isEmpty r
+            MapTreeLeaf(k, v) |> Some
+        else
+            MapTreeNode(k, v, l, r, m + 1) :> MapTreeLeaf<'Key, 'Value> |> Some // new map is higher by 1 than the highest
+
+    let rebalance
+        (t1: MapTree<'Key, 'Value>)
+        (k: 'Key)
+        (v: 'Value)
+        (t2: MapTree<'Key, 'Value>)
+        : MapTree<'Key, 'Value>
+        =
         let t1h = height t1
         let t2h = height t2
+
         if t2h > t1h + tolerance then // right is heavier than left
             match t2.Value with
             | :? MapTreeNode<'Key, 'Value> as t2' ->
@@ -105,51 +127,92 @@ module MapTree =
                 if height t2'.Left > t1h + 1 then // balance left: combination
                     match t2'.Left.Value with
                     | :? MapTreeNode<'Key, 'Value> as t2l ->
-                        mk (mk t1 k v t2l.Left) t2l.Key t2l.Value (mk t2l.Right t2'.Key t2'.Value t2'.Right)
+                        mk
+                            (mk t1 k v t2l.Left)
+                            t2l.Key
+                            t2l.Value
+                            (mk t2l.Right t2'.Key t2'.Value t2'.Right)
                     | _ -> failwith "internal error: Map.rebalance"
                 else // rotate left
                     mk (mk t1 k v t2'.Left) t2'.Key t2'.Value t2'.Right
             | _ -> failwith "internal error: Map.rebalance"
+        else if t1h > t2h + tolerance then // left is heavier than right
+            match t1.Value with
+            | :? MapTreeNode<'Key, 'Value> as t1' ->
+                // one of the nodes must have height > height t2 + 1
+                if height t1'.Right > t2h + 1 then // balance right: combination
+                    match t1'.Right.Value with
+                    | :? MapTreeNode<'Key, 'Value> as t1r ->
+                        mk
+                            (mk t1'.Left t1'.Key t1'.Value t1r.Left)
+                            t1r.Key
+                            t1r.Value
+                            (mk t1r.Right k v t2)
+                    | _ -> failwith "internal error: Map.rebalance"
+                else
+                    mk t1'.Left t1'.Key t1'.Value (mk t1'.Right k v t2)
+            | _ -> failwith "internal error: Map.rebalance"
         else
-            if t1h > t2h + tolerance then // left is heavier than right
-                match t1.Value with
-                | :? MapTreeNode<'Key, 'Value> as t1' ->
-                    // one of the nodes must have height > height t2 + 1
-                    if height t1'.Right > t2h + 1 then // balance right: combination
-                        match t1'.Right.Value with
-                        | :? MapTreeNode<'Key, 'Value> as t1r ->
-                            mk (mk t1'.Left t1'.Key t1'.Value t1r.Left) t1r.Key t1r.Value (mk t1r.Right k v t2)
-                        | _ -> failwith "internal error: Map.rebalance"
-                    else
-                        mk t1'.Left t1'.Key t1'.Value (mk t1'.Right k v t2)
-                | _ -> failwith "internal error: Map.rebalance"
-            else mk t1 k v t2
+            mk t1 k v t2
 
-    let rec add (comparer: IComparer<'Key>) k (v: 'Value) (m: MapTree<'Key, 'Value>) : MapTree<'Key, 'Value> =
+    let rec add
+        (comparer: IComparer<'Key>)
+        k
+        (v: 'Value)
+        (m: MapTree<'Key, 'Value>)
+        : MapTree<'Key, 'Value>
+        =
         match m with
-        | None -> MapTreeLeaf (k,v) |> Some
+        | None -> MapTreeLeaf(k, v) |> Some
         | Some m2 ->
             let c = comparer.Compare(k, m2.Key)
+
             match m2 with
             | :? MapTreeNode<'Key, 'Value> as mn ->
-                if c < 0 then rebalance (add comparer k v mn.Left) mn.Key mn.Value mn.Right
-                elif c = 0 then MapTreeNode(k,v,mn.Left,mn.Right,mn.Height) :> MapTreeLeaf<'Key, 'Value> |> Some
-                else rebalance mn.Left mn.Key mn.Value (add comparer k v mn.Right)
+                if c < 0 then
+                    rebalance
+                        (add comparer k v mn.Left)
+                        mn.Key
+                        mn.Value
+                        mn.Right
+                elif c = 0 then
+                    MapTreeNode(k, v, mn.Left, mn.Right, mn.Height)
+                    :> MapTreeLeaf<'Key, 'Value>
+                    |> Some
+                else
+                    rebalance
+                        mn.Left
+                        mn.Key
+                        mn.Value
+                        (add comparer k v mn.Right)
             | _ ->
-                if c < 0   then MapTreeNode (k,v,empty,m,2) :> MapTreeLeaf<'Key, 'Value> |> Some
-                elif c = 0 then MapTreeLeaf (k,v) |> Some
-                else            MapTreeNode (k,v,m,empty,2) :> MapTreeLeaf<'Key, 'Value> |> Some
+                if c < 0 then
+                    MapTreeNode(k, v, empty, m, 2) :> MapTreeLeaf<'Key, 'Value>
+                    |> Some
+                elif c = 0 then
+                    MapTreeLeaf(k, v) |> Some
+                else
+                    MapTreeNode(k, v, m, empty, 2) :> MapTreeLeaf<'Key, 'Value>
+                    |> Some
 
     let rec tryFind (comparer: IComparer<'Key>) k (m: MapTree<'Key, 'Value>) =
         match m with
         | None -> None
         | Some m2 ->
             let c = comparer.Compare(k, m2.Key)
-            if c = 0 then Some m2.Value
+
+            if c = 0 then
+                Some m2.Value
             else
                 match m2 with
                 | :? MapTreeNode<'Key, 'Value> as mn ->
-                    tryFind comparer k (if c < 0 then mn.Left else mn.Right)
+                    tryFind
+                        comparer
+                        k
+                        (if c < 0 then
+                             mn.Left
+                         else
+                             mn.Right)
                 | _ -> None
 
     let find (comparer: IComparer<'Key>) k (m: MapTree<'Key, 'Value>) =
@@ -157,10 +220,26 @@ module MapTree =
         | Some v -> v
         | None -> raise (KeyNotFoundException())
 
-    let partition1 (comparer: IComparer<'Key>) (f: 'Key -> 'a -> bool) (k: 'Key) (v: 'a) ((acc1, acc2): MapTree<'Key,'a> * MapTree<'Key,'a>): MapTree<'Key,'a> * MapTree<'Key,'a> =
-        if f k v then (add comparer k v acc1, acc2) else (acc1, add comparer k v acc2)
+    let partition1
+        (comparer: IComparer<'Key>)
+        (f: 'Key -> 'a -> bool)
+        (k: 'Key)
+        (v: 'a)
+        ((acc1, acc2): MapTree<'Key, 'a> * MapTree<'Key, 'a>)
+        : MapTree<'Key, 'a> * MapTree<'Key, 'a>
+        =
+        if f k v then
+            (add comparer k v acc1, acc2)
+        else
+            (acc1, add comparer k v acc2)
 
-    let rec partitionAux (comparer: IComparer<'Key>) (f: 'Key -> 'Value -> bool) (m: MapTree<'Key, 'Value>) (acc: MapTree<'Key,'Value> * MapTree<'Key,'Value>): MapTree<'Key,'Value> * MapTree<'Key,'Value> =
+    let rec partitionAux
+        (comparer: IComparer<'Key>)
+        (f: 'Key -> 'Value -> bool)
+        (m: MapTree<'Key, 'Value>)
+        (acc: MapTree<'Key, 'Value> * MapTree<'Key, 'Value>)
+        : MapTree<'Key, 'Value> * MapTree<'Key, 'Value>
+        =
         match m with
         | None -> acc
         | Some m2 ->
@@ -171,13 +250,34 @@ module MapTree =
                 partitionAux comparer f mn.Left acc
             | _ -> partition1 comparer f m2.Key m2.Value acc
 
-    let partition (comparer: IComparer<'Key>) (f: 'Key -> 'a -> bool) (m: MapTree<'Key,'a>): MapTree<'Key,'a> * MapTree<'Key,'a> =
+    let partition
+        (comparer: IComparer<'Key>)
+        (f: 'Key -> 'a -> bool)
+        (m: MapTree<'Key, 'a>)
+        : MapTree<'Key, 'a> * MapTree<'Key, 'a>
+        =
         partitionAux comparer f m (empty, empty)
 
-    let filter1 (comparer: IComparer<'Key>) (f: 'Key -> 'a -> bool) (k: 'Key) (v: 'a) (acc: MapTree<'Key,'a>): MapTree<'Key,'a> =
-        if f k v then add comparer k v acc else acc
+    let filter1
+        (comparer: IComparer<'Key>)
+        (f: 'Key -> 'a -> bool)
+        (k: 'Key)
+        (v: 'a)
+        (acc: MapTree<'Key, 'a>)
+        : MapTree<'Key, 'a>
+        =
+        if f k v then
+            add comparer k v acc
+        else
+            acc
 
-    let rec filterAux (comparer: IComparer<'Key>) (f: 'Key -> 'Value -> bool) (m: MapTree<'Key, 'Value>) (acc: MapTree<'Key,'Value>): MapTree<'Key,'Value> =
+    let rec filterAux
+        (comparer: IComparer<'Key>)
+        (f: 'Key -> 'Value -> bool)
+        (m: MapTree<'Key, 'Value>)
+        (acc: MapTree<'Key, 'Value>)
+        : MapTree<'Key, 'Value>
+        =
         match m with
         | None -> acc
         | Some m2 ->
@@ -188,98 +288,175 @@ module MapTree =
                 filterAux comparer f mn.Right acc
             | _ -> filter1 comparer f m2.Key m2.Value acc
 
-    let filter (comparer: IComparer<'Key>) (f: 'Key -> 'a -> bool) (m: MapTree<'Key,'a>): MapTree<'Key,'a> =
+    let filter
+        (comparer: IComparer<'Key>)
+        (f: 'Key -> 'a -> bool)
+        (m: MapTree<'Key, 'a>)
+        : MapTree<'Key, 'a>
+        =
         filterAux comparer f m empty
 
-    let rec spliceOutSuccessor (m: MapTree<'Key, 'Value>): 'Key * 'Value * MapTree<'Key,'Value> =
+    let rec spliceOutSuccessor
+        (m: MapTree<'Key, 'Value>)
+        : 'Key * 'Value * MapTree<'Key, 'Value>
+        =
         match m with
         | None -> failwith "internal error: Map.spliceOutSuccessor"
         | Some m2 ->
             match m2 with
             | :? MapTreeNode<'Key, 'Value> as mn ->
-                if isEmpty mn.Left then mn.Key, mn.Value, mn.Right
-                else let k3, v3, l' = spliceOutSuccessor mn.Left in k3, v3, mk l' mn.Key mn.Value mn.Right
+                if isEmpty mn.Left then
+                    mn.Key, mn.Value, mn.Right
+                else
+                    let k3, v3, l' = spliceOutSuccessor mn.Left in
+                    k3, v3, mk l' mn.Key mn.Value mn.Right
             | _ -> m2.Key, m2.Value, empty
 
-    let rec remove (comparer: IComparer<'Key>) (k: 'Key) (m: MapTree<'Key, 'Value>): MapTree<'Key,'Value> =
+    let rec remove
+        (comparer: IComparer<'Key>)
+        (k: 'Key)
+        (m: MapTree<'Key, 'Value>)
+        : MapTree<'Key, 'Value>
+        =
         match m with
         | None -> empty
         | Some m2 ->
             let c = comparer.Compare(k, m2.Key)
+
             match m2 with
             | :? MapTreeNode<'Key, 'Value> as mn ->
-                if c < 0 then rebalance (remove comparer k mn.Left) mn.Key mn.Value mn.Right
+                if c < 0 then
+                    rebalance
+                        (remove comparer k mn.Left)
+                        mn.Key
+                        mn.Value
+                        mn.Right
                 elif c = 0 then
-                    if isEmpty mn.Left then mn.Right
-                    elif isEmpty mn.Right then mn.Left
+                    if isEmpty mn.Left then
+                        mn.Right
+                    elif isEmpty mn.Right then
+                        mn.Left
                     else
                         let sk, sv, r' = spliceOutSuccessor mn.Right
                         mk mn.Left sk sv r'
-                else rebalance mn.Left mn.Key mn.Value (remove comparer k mn.Right)
+                else
+                    rebalance
+                        mn.Left
+                        mn.Key
+                        mn.Value
+                        (remove comparer k mn.Right)
             | _ ->
-                if c = 0 then empty else m
+                if c = 0 then
+                    empty
+                else
+                    m
 
-    let rec change (comparer: IComparer<'Key>) (k: 'Key) (u: 'Value option -> 'Value option) (m: MapTree<'Key, 'Value>) : MapTree<'Key,'Value> =
+    let rec change
+        (comparer: IComparer<'Key>)
+        (k: 'Key)
+        (u: 'Value option -> 'Value option)
+        (m: MapTree<'Key, 'Value>)
+        : MapTree<'Key, 'Value>
+        =
         match m with
         | None ->
             match u None with
             | None -> m
-            | Some v -> MapTreeLeaf (k, v) |> Some
+            | Some v -> MapTreeLeaf(k, v) |> Some
         | Some m2 ->
             match m2 with
             | :? MapTreeNode<'Key, 'Value> as mn ->
                 let c = comparer.Compare(k, mn.Key)
+
                 if c < 0 then
-                    rebalance (change comparer k u mn.Left) mn.Key mn.Value mn.Right
+                    rebalance
+                        (change comparer k u mn.Left)
+                        mn.Key
+                        mn.Value
+                        mn.Right
                 elif c = 0 then
                     match u (Some mn.Value) with
                     | None ->
-                        if isEmpty mn.Left then mn.Right
-                        elif isEmpty mn.Right then mn.Left
+                        if isEmpty mn.Left then
+                            mn.Right
+                        elif isEmpty mn.Right then
+                            mn.Left
                         else
                             let sk, sv, r' = spliceOutSuccessor mn.Right
                             mk mn.Left sk sv r'
-                    | Some v -> MapTreeNode (k, v, mn.Left, mn.Right, mn.Height) :> MapTreeLeaf<'Key,'Value> |> Some
+                    | Some v ->
+                        MapTreeNode(k, v, mn.Left, mn.Right, mn.Height)
+                        :> MapTreeLeaf<'Key, 'Value>
+                        |> Some
                 else
-                    rebalance mn.Left mn.Key mn.Value (change comparer k u mn.Right)
+                    rebalance
+                        mn.Left
+                        mn.Key
+                        mn.Value
+                        (change comparer k u mn.Right)
             | _ ->
                 let c = comparer.Compare(k, m2.Key)
+
                 if c < 0 then
                     match u None with
                     | None -> m
-                    | Some v -> MapTreeNode (k, v, empty, m, 2) :> MapTreeLeaf<'Key,'Value> |> Some
+                    | Some v ->
+                        MapTreeNode(k, v, empty, m, 2)
+                        :> MapTreeLeaf<'Key, 'Value>
+                        |> Some
                 elif c = 0 then
                     match u (Some m2.Value) with
                     | None -> empty
-                    | Some v -> MapTreeLeaf (k, v) |> Some
+                    | Some v -> MapTreeLeaf(k, v) |> Some
                 else
                     match u None with
                     | None -> m
-                    | Some v -> MapTreeNode (k, v, m, empty, 2) :> MapTreeLeaf<'Key,'Value> |> Some
+                    | Some v ->
+                        MapTreeNode(k, v, m, empty, 2)
+                        :> MapTreeLeaf<'Key, 'Value>
+                        |> Some
 
-    let rec mem (comparer: IComparer<'Key>) (k: 'Key) (m: MapTree<'Key, 'Value>): bool =
+    let rec mem
+        (comparer: IComparer<'Key>)
+        (k: 'Key)
+        (m: MapTree<'Key, 'Value>)
+        : bool
+        =
         match m with
         | None -> false
         | Some m2 ->
             let c = comparer.Compare(k, m2.Key)
+
             match m2 with
             | :? MapTreeNode<'Key, 'Value> as mn ->
-                if c < 0 then mem comparer k mn.Left
-                else (c = 0 || mem comparer k mn.Right)
+                if c < 0 then
+                    mem comparer k mn.Left
+                else
+                    (c = 0 || mem comparer k mn.Right)
             | _ -> c = 0
 
-    let rec iterOpt (f: 'Key -> 'Value -> unit) (m: MapTree<'Key, 'Value>): unit =
+    let rec iterOpt
+        (f: 'Key -> 'Value -> unit)
+        (m: MapTree<'Key, 'Value>)
+        : unit
+        =
         match m with
         | None -> ()
         | Some m2 ->
             match m2 with
-            | :? MapTreeNode<'Key, 'Value> as mn -> iterOpt f mn.Left; f mn.Key mn.Value; iterOpt f mn.Right
+            | :? MapTreeNode<'Key, 'Value> as mn ->
+                iterOpt f mn.Left
+                f mn.Key mn.Value
+                iterOpt f mn.Right
             | _ -> f m2.Key m2.Value
 
-    let iter (f: 'a -> 'b -> unit) (m: MapTree<'a,'b>): unit =
-        iterOpt f m
+    let iter (f: 'a -> 'b -> unit) (m: MapTree<'a, 'b>) : unit = iterOpt f m
 
-    let rec tryPickOpt (f: 'Key -> 'Value -> 'a option) (m: MapTree<'Key, 'Value>): 'a option =
+    let rec tryPickOpt
+        (f: 'Key -> 'Value -> 'a option)
+        (m: MapTree<'Key, 'Value>)
+        : 'a option
+        =
         match m with
         | None -> None
         | Some m2 ->
@@ -288,38 +465,48 @@ module MapTree =
                 match tryPickOpt f mn.Left with
                 | Some _ as res -> res
                 | None ->
-                match f mn.Key mn.Value with
-                | Some _ as res -> res
-                | None ->
-                tryPickOpt f mn.Right
+                    match f mn.Key mn.Value with
+                    | Some _ as res -> res
+                    | None -> tryPickOpt f mn.Right
             | _ -> f m2.Key m2.Value
 
-    let tryPick f m =
-        tryPickOpt f m
+    let tryPick f m = tryPickOpt f m
 
-    let rec existsOpt (f: 'Key -> 'Value -> bool) (m: MapTree<'Key, 'Value>): bool =
+    let rec existsOpt
+        (f: 'Key -> 'Value -> bool)
+        (m: MapTree<'Key, 'Value>)
+        : bool
+        =
         match m with
         | None -> false
         | Some m2 ->
             match m2 with
-            | :? MapTreeNode<'Key, 'Value> as mn -> existsOpt f mn.Left || f mn.Key mn.Value || existsOpt f mn.Right
+            | :? MapTreeNode<'Key, 'Value> as mn ->
+                existsOpt f mn.Left || f mn.Key mn.Value || existsOpt f mn.Right
             | _ -> f m2.Key m2.Value
 
-    let exists (f: 'a -> 'b -> bool) (m: MapTree<'a,'b>): bool =
-        existsOpt f m
+    let exists (f: 'a -> 'b -> bool) (m: MapTree<'a, 'b>) : bool = existsOpt f m
 
-    let rec forallOpt (f: 'Key -> 'Value -> bool) (m: MapTree<'Key, 'Value>): bool =
+    let rec forallOpt
+        (f: 'Key -> 'Value -> bool)
+        (m: MapTree<'Key, 'Value>)
+        : bool
+        =
         match m with
         | None -> true
         | Some m2 ->
             match m2 with
-            | :? MapTreeNode<'Key, 'Value> as mn -> forallOpt f mn.Left && f mn.Key mn.Value && forallOpt f mn.Right
+            | :? MapTreeNode<'Key, 'Value> as mn ->
+                forallOpt f mn.Left && f mn.Key mn.Value && forallOpt f mn.Right
             | _ -> f m2.Key m2.Value
 
-    let forall (f: 'a -> 'b -> bool) (m: MapTree<'a,'b>): bool =
-        forallOpt f m
+    let forall (f: 'a -> 'b -> bool) (m: MapTree<'a, 'b>) : bool = forallOpt f m
 
-    let rec map (f:'Value -> 'Result) (m: MapTree<'Key, 'Value>) : MapTree<'Key, 'Result> =
+    let rec map
+        (f: 'Value -> 'Result)
+        (m: MapTree<'Key, 'Value>)
+        : MapTree<'Key, 'Result>
+        =
         match m with
         | None -> empty
         | Some m2 ->
@@ -328,10 +515,17 @@ module MapTree =
                 let l2 = map f mn.Left
                 let v2 = f mn.Value
                 let r2 = map f mn.Right
-                MapTreeNode (mn.Key, v2, l2, r2, mn.Height) :> MapTreeLeaf<'Key, 'Result> |> Some
-            | _ -> MapTreeLeaf (m2.Key, f m2.Value) |> Some
 
-    let rec mapiOpt (f: 'Key -> 'Value -> 'Result) (m: MapTree<'Key, 'Value>): MapTree<'Key,'Result> =
+                MapTreeNode(mn.Key, v2, l2, r2, mn.Height)
+                :> MapTreeLeaf<'Key, 'Result>
+                |> Some
+            | _ -> MapTreeLeaf(m2.Key, f m2.Value) |> Some
+
+    let rec mapiOpt
+        (f: 'Key -> 'Value -> 'Result)
+        (m: MapTree<'Key, 'Value>)
+        : MapTree<'Key, 'Result>
+        =
         match m with
         | None -> empty
         | Some m2 ->
@@ -340,13 +534,21 @@ module MapTree =
                 let l2 = mapiOpt f mn.Left
                 let v2 = f mn.Key mn.Value
                 let r2 = mapiOpt f mn.Right
-                MapTreeNode (mn.Key, v2, l2, r2, mn.Height) :> MapTreeLeaf<'Key, 'Result> |> Some
-            | _ -> MapTreeLeaf (m2.Key, f m2.Key m2.Value) |> Some
 
-    let mapi (f: 'a -> 'b -> 'c) (m: MapTree<'a,'b>): MapTree<'a,'c> =
+                MapTreeNode(mn.Key, v2, l2, r2, mn.Height)
+                :> MapTreeLeaf<'Key, 'Result>
+                |> Some
+            | _ -> MapTreeLeaf(m2.Key, f m2.Key m2.Value) |> Some
+
+    let mapi (f: 'a -> 'b -> 'c) (m: MapTree<'a, 'b>) : MapTree<'a, 'c> =
         mapiOpt f m
 
-    let rec foldBackOpt (f: 'Key -> 'Value -> 'a -> 'a) (m: MapTree<'Key, 'Value>) (x: 'a): 'a =
+    let rec foldBackOpt
+        (f: 'Key -> 'Value -> 'a -> 'a)
+        (m: MapTree<'Key, 'Value>)
+        (x: 'a)
+        : 'a
+        =
         match m with
         | None -> x
         | Some m2 ->
@@ -357,10 +559,15 @@ module MapTree =
                 foldBackOpt f mn.Left x
             | _ -> f m2.Key m2.Value x
 
-    let foldBack (f: 'a -> 'b -> 'c -> 'c) (m: MapTree<'a,'b>) (x: 'c): 'c =
+    let foldBack (f: 'a -> 'b -> 'c -> 'c) (m: MapTree<'a, 'b>) (x: 'c) : 'c =
         foldBackOpt f m x
 
-    let rec foldOpt (f: 'a -> 'Key -> 'Value -> 'a) (x: 'a) (m: MapTree<'Key, 'Value>): 'a =
+    let rec foldOpt
+        (f: 'a -> 'Key -> 'Value -> 'a)
+        (x: 'a)
+        (m: MapTree<'Key, 'Value>)
+        : 'a
+        =
         match m with
         | None -> x
         | Some m2 ->
@@ -371,11 +578,24 @@ module MapTree =
                 foldOpt f x mn.Right
             | _ -> f x m2.Key m2.Value
 
-    let fold (f: 'a -> 'b -> 'c -> 'a) (x: 'a) (m: MapTree<'b,'c>): 'a =
+    let fold (f: 'a -> 'b -> 'c -> 'a) (x: 'a) (m: MapTree<'b, 'c>) : 'a =
         foldOpt f x m
 
-    let foldSectionOpt (comparer: IComparer<'Key>) (lo: 'Key) (hi: 'Key) (f: 'Key -> 'Value -> 'a -> 'a) (m: MapTree<'Key, 'Value>) (x: 'a): 'a =
-        let rec foldFromTo (f: 'Key -> 'Value -> 'b -> 'b) (m: MapTree<'Key, 'Value>) (x: 'b): 'b =
+    let foldSectionOpt
+        (comparer: IComparer<'Key>)
+        (lo: 'Key)
+        (hi: 'Key)
+        (f: 'Key -> 'Value -> 'a -> 'a)
+        (m: MapTree<'Key, 'Value>)
+        (x: 'a)
+        : 'a
+        =
+        let rec foldFromTo
+            (f: 'Key -> 'Value -> 'b -> 'b)
+            (m: MapTree<'Key, 'Value>)
+            (x: 'b)
+            : 'b
+            =
             match m with
             | None -> x
             | Some m2 ->
@@ -383,51 +603,108 @@ module MapTree =
                 | :? MapTreeNode<'Key, 'Value> as mn ->
                     let cLoKey = comparer.Compare(lo, mn.Key)
                     let cKeyHi = comparer.Compare(mn.Key, hi)
-                    let x = if cLoKey < 0 then foldFromTo f mn.Left x else x
-                    let x = if cLoKey <= 0 && cKeyHi <= 0 then f mn.Key mn.Value x else x
-                    let x = if cKeyHi < 0 then foldFromTo f mn.Right x else x
+
+                    let x =
+                        if cLoKey < 0 then
+                            foldFromTo f mn.Left x
+                        else
+                            x
+
+                    let x =
+                        if cLoKey <= 0 && cKeyHi <= 0 then
+                            f mn.Key mn.Value x
+                        else
+                            x
+
+                    let x =
+                        if cKeyHi < 0 then
+                            foldFromTo f mn.Right x
+                        else
+                            x
+
                     x
                 | _ ->
                     let cLoKey = comparer.Compare(lo, m2.Key)
                     let cKeyHi = comparer.Compare(m2.Key, hi)
-                    let x = if cLoKey <= 0 && cKeyHi <= 0 then f m2.Key m2.Value x else x
+
+                    let x =
+                        if cLoKey <= 0 && cKeyHi <= 0 then
+                            f m2.Key m2.Value x
+                        else
+                            x
+
                     x
 
-        if comparer.Compare(lo, hi) = 1 then x else foldFromTo f m x
+        if comparer.Compare(lo, hi) = 1 then
+            x
+        else
+            foldFromTo f m x
 
-    let foldSection (comparer: IComparer<'Key>) (lo: 'Key) (hi: 'Key) (f: 'Key -> 'a -> 'b -> 'b) (m: MapTree<'Key,'a>) (x: 'b): 'b =
+    let foldSection
+        (comparer: IComparer<'Key>)
+        (lo: 'Key)
+        (hi: 'Key)
+        (f: 'Key -> 'a -> 'b -> 'b)
+        (m: MapTree<'Key, 'a>)
+        (x: 'b)
+        : 'b
+        =
         foldSectionOpt comparer lo hi f m x
 
-    let toList (m: MapTree<'Key, 'Value>): ('Key * 'Value) list =
+    let toList (m: MapTree<'Key, 'Value>) : ('Key * 'Value) list =
         let rec loop (m: MapTree<'Key, 'Value>) acc =
             match m with
             | None -> acc
             | Some m2 ->
                 match m2 with
-                | :? MapTreeNode<'Key, 'Value> as mn -> loop mn.Left ((mn.Key, mn.Value) :: loop mn.Right acc)
+                | :? MapTreeNode<'Key, 'Value> as mn ->
+                    loop mn.Left ((mn.Key, mn.Value) :: loop mn.Right acc)
                 | _ -> (m2.Key, m2.Value) :: acc
+
         loop m []
 
-    let copyToArray (m: MapTree<'a,'b>) (arr: _[]) (i: int): unit =
+    let copyToArray (m: MapTree<'a, 'b>) (arr: _[]) (i: int) : unit =
         let mutable j = i
-        iter (fun x y -> arr[j] <- KeyValuePair(x, y); j <- j + 1) m
 
-    let ofList (comparer: IComparer<'a>) (l: ('a * 'b) list): MapTree<'a,'b> =
+        iter
+            (fun x y ->
+                arr[j] <- KeyValuePair(x, y)
+                j <- j + 1
+            )
+            m
+
+    let ofList (comparer: IComparer<'a>) (l: ('a * 'b) list) : MapTree<'a, 'b> =
         List.fold (fun acc (k, v) -> add comparer k v acc) empty l
 
-    let rec mkFromEnumerator (comparer: IComparer<'a>) (acc: MapTree<'a,'b>) (e : IEnumerator<_>): MapTree<'a,'b> =
+    let rec mkFromEnumerator
+        (comparer: IComparer<'a>)
+        (acc: MapTree<'a, 'b>)
+        (e: IEnumerator<_>)
+        : MapTree<'a, 'b>
+        =
         if e.MoveNext() then
             let (x, y) = e.Current
             mkFromEnumerator comparer (add comparer x y acc) e
-        else acc
+        else
+            acc
 
-    let ofArray (comparer: IComparer<'Key>) (arr: array<'Key * 'Value>): MapTree<'Key,'Value> =
+    let ofArray
+        (comparer: IComparer<'Key>)
+        (arr: array<'Key * 'Value>)
+        : MapTree<'Key, 'Value>
+        =
         let mutable res = empty
+
         for (x, y) in arr do
             res <- add comparer x y res
+
         res
 
-    let ofSeq (comparer: IComparer<'Key>) (c: seq<'Key * 'Value>): MapTree<'Key,'Value> =
+    let ofSeq
+        (comparer: IComparer<'Key>)
+        (c: seq<'Key * 'Value>)
+        : MapTree<'Key, 'Value>
+        =
         match c with
         | :? array<'Key * 'Value> as xs -> ofArray comparer xs
         | :? list<'Key * 'Value> as xs -> ofList comparer xs
@@ -437,17 +714,22 @@ module MapTree =
 
     /// Imperative left-to-right iterators.
     [<NoEquality; NoComparison>]
-    type MapIterator<'Key, 'Value when 'Key : comparison > =
-         { /// invariant: always collapseLHS result
-           mutable stack: MapTree<'Key, 'Value> list
+    type MapIterator<'Key, 'Value when 'Key: comparison> =
+        {
+            /// invariant: always collapseLHS result
+            mutable stack: MapTree<'Key, 'Value> list
 
-           /// true when MoveNext has been called
-           mutable started : bool }
+            /// true when MoveNext has been called
+            mutable started: bool
+        }
 
     // collapseLHS:
     // a) Always returns either [] or a list starting with MapOne.
     // b) The "fringe" of the set stack is unchanged.
-    let rec collapseLHS (stack: MapTree<'Key, 'Value> list): MapTree<'Key,'Value> list =
+    let rec collapseLHS
+        (stack: MapTree<'Key, 'Value> list)
+        : MapTree<'Key, 'Value> list
+        =
         match stack with
         | [] -> []
         | m :: rest ->
@@ -456,71 +738,93 @@ module MapTree =
             | Some m2 ->
                 match m2 with
                 | :? MapTreeNode<'Key, 'Value> as mn ->
-                    collapseLHS (mn.Left :: (MapTreeLeaf (mn.Key, mn.Value) |> Some) :: mn.Right :: rest)
+                    collapseLHS (
+                        mn.Left
+                        :: (MapTreeLeaf(mn.Key, mn.Value) |> Some)
+                        :: mn.Right
+                        :: rest
+                    )
                 | _ -> stack
 
     let mkIterator m =
-        { stack = collapseLHS [m]; started = false }
+        {
+            stack = collapseLHS [ m ]
+            started = false
+        }
 
-    let notStarted() = failwith "enumeration not started"
+    let notStarted () = failwith "enumeration not started"
 
-    let alreadyFinished() = failwith "enumeration already finished"
+    let alreadyFinished () = failwith "enumeration already finished"
 
     let current i =
         if i.started then
             match i.stack with
-            | []     -> alreadyFinished()
+            | [] -> alreadyFinished ()
             | None :: _ ->
-                failwith "Please report error: Map iterator, unexpected stack for current"
+                failwith
+                    "Please report error: Map iterator, unexpected stack for current"
             | Some m :: _ ->
                 match m with
                 | :? MapTreeNode<'Key, 'Value> ->
-                    failwith "Please report error: Map iterator, unexpected stack for current"
+                    failwith
+                        "Please report error: Map iterator, unexpected stack for current"
                 | _ -> KeyValuePair<_, _>(m.Key, m.Value)
         else
-            notStarted()
+            notStarted ()
 
     let rec moveNext i =
         if i.started then
             match i.stack with
             | [] -> false
             | None :: rest ->
-                failwith "Please report error: Map iterator, unexpected stack for moveNext"
+                failwith
+                    "Please report error: Map iterator, unexpected stack for moveNext"
             | Some m :: rest ->
                 match m with
                 | :? MapTreeNode<'Key, 'Value> ->
-                    failwith "Please report error: Map iterator, unexpected stack for moveNext"
+                    failwith
+                        "Please report error: Map iterator, unexpected stack for moveNext"
                 | _ ->
                     i.stack <- collapseLHS rest
                     not i.stack.IsEmpty
         else
-            i.started <- true  // The first call to MoveNext "starts" the enumeration.
+            i.started <- true // The first call to MoveNext "starts" the enumeration.
             not i.stack.IsEmpty
 
-    type MapEnumerator<'a, 'b when 'a : comparison>(m) =
+    type MapEnumerator<'a, 'b when 'a: comparison>(m) =
         let mutable i = mkIterator m
-        interface IEnumerator<KeyValuePair<'a,'b>> with
-              member _.Current: KeyValuePair<'a,'b> = current i
-              member _.Current: obj = box (current i)
-              member _.MoveNext() = moveNext i
-              member _.Reset() = i <- mkIterator m
-              member _.Dispose() = ()
 
-    let mkIEnumerator m = new MapEnumerator<_,_>(m) :> IEnumerator<_>
+        interface IEnumerator<KeyValuePair<'a, 'b>> with
+            member _.Current: KeyValuePair<'a, 'b> = current i
+            member _.Current: obj = box (current i)
+            member _.MoveNext() = moveNext i
+            member _.Reset() = i <- mkIterator m
+            member _.Dispose() = ()
+
+    let mkIEnumerator m =
+        new MapEnumerator<_, _>(m) :> IEnumerator<_>
 
     let toSeq s =
         let en = mkIEnumerator s
-        en |> Seq.unfold (fun en ->
-            if en.MoveNext()
-            then Some(en.Current, en)
-            else None)
 
-    let toArray (m: MapTree<'a,'b>): KeyValuePair<'a,'b>[] =
+        en
+        |> Seq.unfold (fun en ->
+            if en.MoveNext() then
+                Some(en.Current, en)
+            else
+                None
+        )
+
+    let toArray (m: MapTree<'a, 'b>) : KeyValuePair<'a, 'b>[] =
         let n = size m
         let e = mkIEnumerator m
-        ArrayModule.Native.generate n (fun _ ->
-            e.MoveNext() |> ignore
-            e.Current)
+
+        ArrayModule.Native.generate
+            n
+            (fun _ ->
+                e.MoveNext() |> ignore
+                e.Current
+            )
 
     let rec leftmost (m: MapTree<'Key, 'Value>) =
         match m with
@@ -532,8 +836,7 @@ module MapTree =
                     (nd.Key, nd.Value)
                 else
                     leftmost nd.Left
-            | _ ->
-                (m2.Key, m2.Value)
+            | _ -> (m2.Key, m2.Value)
 
     let rec rightmost (m: MapTree<'Key, 'Value>) =
         match m with
@@ -545,14 +848,17 @@ module MapTree =
                     (nd.Key, nd.Value)
                 else
                     rightmost nd.Right
-            | _ ->
-                (m2.Key, m2.Value)
+            | _ -> (m2.Key, m2.Value)
 
 open Fable.Core
 
 [<Sealed>]
 [<CompiledName("FSharpMap")>]
-type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key, 'Value>) =
+type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn;
+                                           ComparisonConditionalOn>] 'Value
+    when 'Key: comparison>
+    (comparer: IComparer<'Key>, tree: MapTree<'Key, 'Value>)
+    =
 
     // [<System.NonSerialized>]
     // This type is logically immutable. This field is only mutated during deserialization.
@@ -570,9 +876,9 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
 
     // We use .NET generics per-instantiation static fields to avoid allocating a new object for each empty
     // set (it is just a lookup into a .NET table of type-instantiation-indexed static fields).
-//    static let empty =
-//        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-//        new Map<'Key, 'Value>(comparer, MapTree.empty)
+    //    static let empty =
+    //        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
+    //        new Map<'Key, 'Value>(comparer, MapTree.empty)
 
     // [<System.Runtime.Serialization.OnSerializingAttribute>]
     // member _.OnSerializing(context: System.Runtime.Serialization.StreamingContext) =
@@ -591,12 +897,12 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     //     tree <- serializedData |> Array.map (fun (KeyValue(k, v)) -> (k, v)) |> MapTree.ofArray comparer
     //     serializedData <- null
 
-    static member Empty comparer: Map<'Key, 'Value> =
+    static member Empty comparer : Map<'Key, 'Value> =
         Map<'Key, 'Value>(comparer, MapTree.empty)
 
-//    static member Create(ie : IEnumerable<_>) : Map<'Key, 'Value> =
-//        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-//        new Map<_, _>(comparer, MapTree.ofSeq comparer ie)
+    //    static member Create(ie : IEnumerable<_>) : Map<'Key, 'Value> =
+    //        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
+    //        new Map<_, _>(comparer, MapTree.ofSeq comparer ie)
 
     // [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal m.Comparer = comparer
@@ -605,15 +911,15 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member internal m.Tree = tree
 
     member m.Add(key, value) : Map<'Key, 'Value> =
-// #if TRACE_SETS_AND_MAPS
-//         MapTree.report()
-//         MapTree.numAdds <- MapTree.numAdds + 1
-//         let size = MapTree.size m.Tree + 1
-//         MapTree.totalSizeOnMapAdd <- MapTree.totalSizeOnMapAdd + float size
-//         if size > MapTree.largestMapSize then
-//             MapTree.largestMapSize <- size
-//             MapTree.largestMapStackTrace <- System.Diagnostics.StackTrace().ToString()
-// #endif
+        // #if TRACE_SETS_AND_MAPS
+        //         MapTree.report()
+        //         MapTree.numAdds <- MapTree.numAdds + 1
+        //         let size = MapTree.size m.Tree + 1
+        //         MapTree.totalSizeOnMapAdd <- MapTree.totalSizeOnMapAdd + float size
+        //         if size > MapTree.largestMapSize then
+        //             MapTree.largestMapSize <- size
+        //             MapTree.largestMapStackTrace <- System.Diagnostics.StackTrace().ToString()
+        // #endif
         new Map<'Key, 'Value>(comparer, MapTree.add comparer key value tree)
 
     member m.Change(key, f) : Map<'Key, 'Value> =
@@ -623,36 +929,31 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member m.IsEmpty = MapTree.isEmpty tree
 
     member m.Item
-     with get(key : 'Key) =
-// #if TRACE_SETS_AND_MAPS
-//         MapTree.report()
-//         MapTree.numLookups <- MapTree.numLookups + 1
-//         MapTree.totalSizeOnMapLookup <- MapTree.totalSizeOnMapLookup + float (MapTree.size tree)
-// #endif
-        MapTree.find comparer key tree
+        with get (key: 'Key) =
+            // #if TRACE_SETS_AND_MAPS
+            //         MapTree.report()
+            //         MapTree.numLookups <- MapTree.numLookups + 1
+            //         MapTree.totalSizeOnMapLookup <- MapTree.totalSizeOnMapLookup + float (MapTree.size tree)
+            // #endif
+            MapTree.find comparer key tree
 
-    member m.TryPick f =
-        MapTree.tryPick f tree
+    member m.TryPick f = MapTree.tryPick f tree
 
-    member m.Exists predicate =
-        MapTree.exists predicate tree
+    member m.Exists predicate = MapTree.exists predicate tree
 
     member m.Filter predicate =
         new Map<'Key, 'Value>(comparer, MapTree.filter comparer predicate tree)
 
-    member m.ForAll predicate =
-        MapTree.forall predicate tree
+    member m.ForAll predicate = MapTree.forall predicate tree
 
-    member m.Fold f acc =
-        MapTree.foldBack f tree acc
+    member m.Fold f acc = MapTree.foldBack f tree acc
 
-    member m.FoldSection (lo:'Key) (hi:'Key) f (acc:'z) =
+    member m.FoldSection (lo: 'Key) (hi: 'Key) f (acc: 'z) =
         MapTree.foldSection comparer lo hi f tree acc
 
-    member m.Iterate f =
-        MapTree.iter f tree
+    member m.Iterate f = MapTree.iter f tree
 
-    member m.MapRange (f:'Value->'Result) =
+    member m.MapRange(f: 'Value -> 'Result) =
         new Map<'Key, 'Result>(comparer, MapTree.map f tree)
 
     member m.Map f =
@@ -662,25 +963,24 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         let r1, r2 = MapTree.partition comparer predicate tree
         new Map<'Key, 'Value>(comparer, r1), new Map<'Key, 'Value>(comparer, r2)
 
-    member m.Count =
-        MapTree.size tree
+    member m.Count = MapTree.size tree
 
     member m.ContainsKey key =
-// #if TRACE_SETS_AND_MAPS
-//         MapTree.report()
-//         MapTree.numLookups <- MapTree.numLookups + 1
-//         MapTree.totalSizeOnMapLookup <- MapTree.totalSizeOnMapLookup + float (MapTree.size tree)
-// #endif
+        // #if TRACE_SETS_AND_MAPS
+        //         MapTree.report()
+        //         MapTree.numLookups <- MapTree.numLookups + 1
+        //         MapTree.totalSizeOnMapLookup <- MapTree.totalSizeOnMapLookup + float (MapTree.size tree)
+        // #endif
         MapTree.mem comparer key tree
 
     member m.Remove key =
         new Map<'Key, 'Value>(comparer, MapTree.remove comparer key tree)
 
     // TODO
-//    member _.TryGetValue(key: 'Key, value: byref<'Value>) =
-//        match MapTree.tryFind comparer key tree with
-//        | Some v -> value <- v; true
-//        | None -> false
+    //    member _.TryGetValue(key: 'Key, value: byref<'Value>) =
+    //        match MapTree.tryFind comparer key tree with
+    //        | Some v -> value <- v; true
+    //        | None -> false
 
     member _.Keys: ICollection<'Key> =
         MapTree.toArray tree |> Array.map (fun kvp -> kvp.Key) :> _
@@ -692,18 +992,16 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member m.MaxKeyValue = MapTree.rightmost tree
 
     member m.TryFind key =
-// #if TRACE_SETS_AND_MAPS
-//         MapTree.report()
-//         MapTree.numLookups <- MapTree.numLookups + 1
-//         MapTree.totalSizeOnMapLookup <- MapTree.totalSizeOnMapLookup + float (MapTree.size tree)
-// #endif
+        // #if TRACE_SETS_AND_MAPS
+        //         MapTree.report()
+        //         MapTree.numLookups <- MapTree.numLookups + 1
+        //         MapTree.totalSizeOnMapLookup <- MapTree.totalSizeOnMapLookup + float (MapTree.size tree)
+        // #endif
         MapTree.tryFind comparer key tree
 
-    member m.ToList() =
-        MapTree.toList tree
+    member m.ToList() = MapTree.toList tree
 
-    member m.ToArray() =
-        MapTree.toArray tree
+    member m.ToArray() = MapTree.toArray tree
 
     // static member ofList l : Map<'Key, 'Value> =
     //    let comparer = LanguagePrimitives.FastGenericComparer<'Key>
@@ -712,9 +1010,11 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member this.ComputeHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
         let mutable res = 0
+
         for (KeyValue(x, y)) in this do
             res <- combineHash res (hash x)
             res <- combineHash res (Unchecked.hash y)
+
         res
 
     override this.GetHashCode() = this.ComputeHashCode()
@@ -724,27 +1024,42 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         | :? Map<'Key, 'Value> as that ->
             use e1 = (this :> seq<_>).GetEnumerator()
             use e2 = (that :> seq<_>).GetEnumerator()
+
             let rec loop () =
                 let m1 = e1.MoveNext()
                 let m2 = e2.MoveNext()
-                (m1 = m2) && (not m1 ||
-                                 (let e1c = e1.Current
-                                  let e2c = e2.Current
-                                  ((e1c.Key = e2c.Key) && (Unchecked.equals e1c.Value e2c.Value) && loop())))
-            loop()
+
+                (m1 = m2)
+                && (not m1
+                    || (let e1c = e1.Current
+                        let e2c = e2.Current
+
+                        ((e1c.Key = e2c.Key)
+                         && (Unchecked.equals e1c.Value e2c.Value)
+                         && loop ())))
+
+            loop ()
         | _ -> false
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member _.GetEnumerator() = MapTree.mkIEnumerator tree
-        member _.GetEnumerator() = MapTree.mkIEnumerator tree :> System.Collections.IEnumerator
+
+        member _.GetEnumerator() =
+            MapTree.mkIEnumerator tree :> System.Collections.IEnumerator
 
     interface System.IComparable<Map<'Key, 'Value>> with
         member m.CompareTo(m2: Map<'Key, 'Value>) =
             Seq.compareWith
-               (fun (kvp1 : KeyValuePair<_, _>) (kvp2 : KeyValuePair<_, _>)->
-                   let c = comparer.Compare(kvp1.Key, kvp2.Key) in
-                   if c <> 0 then c else Unchecked.compare kvp1.Value kvp2.Value)
-               m m2
+                (fun (kvp1: KeyValuePair<_, _>) (kvp2: KeyValuePair<_, _>) ->
+                    let c = comparer.Compare(kvp1.Key, kvp2.Key) in
+
+                    if c <> 0 then
+                        c
+                    else
+                        Unchecked.compare kvp1.Value kvp2.Value
+                )
+                m
+                m2
 
     // interface IDictionary<'Key, 'Value> with
     //     member m.Item
@@ -759,17 +1074,17 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     //     member m.TryGetValue(k, r) = m.TryGetValue(k, &r)
     //     member m.Remove(k : 'Key) = ignore k; (raise (System.NotSupportedException("Map cannot be mutated")) : bool)
 
-//    interface ICollection<KeyValuePair<'Key, 'Value>> with
-//        member m.Add x = ignore x; raise (System.NotSupportedException("Map cannot be mutated"))
-//        member m.Clear() = raise (System.NotSupportedException("Map cannot be mutated"))
-//        member m.Remove x = ignore x; raise (System.NotSupportedException("Map cannot be mutated"))
-//        member m.Contains x = m.ContainsKey x.Key && Unchecked.equals m[x.Key] x.Value
-//        member m.CopyTo(arr, i) = MapTree.copyToArray tree arr i
-//        member m.IsReadOnly = true
-//        member m.Count = m.Count
-//
-//    interface IReadOnlyCollection<KeyValuePair<'Key, 'Value>> with
-//        member m.Count = m.Count
+    //    interface ICollection<KeyValuePair<'Key, 'Value>> with
+    //        member m.Add x = ignore x; raise (System.NotSupportedException("Map cannot be mutated"))
+    //        member m.Clear() = raise (System.NotSupportedException("Map cannot be mutated"))
+    //        member m.Remove x = ignore x; raise (System.NotSupportedException("Map cannot be mutated"))
+    //        member m.Contains x = m.ContainsKey x.Key && Unchecked.equals m[x.Key] x.Value
+    //        member m.CopyTo(arr, i) = MapTree.copyToArray tree arr i
+    //        member m.IsReadOnly = true
+    //        member m.Count = m.Count
+    //
+    //    interface IReadOnlyCollection<KeyValuePair<'Key, 'Value>> with
+    //        member m.Count = m.Count
 
     // interface IReadOnlyDictionary<'Key, 'Value> with
     //     member m.Item with get key = m[key]
@@ -778,20 +1093,22 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     //     member m.Values = seq { for kvp in m -> kvp.Value }
     //     member m.ContainsKey key = m.ContainsKey key
 
-//    interface JS.Map<'Key,'Value> with
-//        member m.size = m.Count
-//        member m.clear() = failwith "Map cannot be mutated"; ()
-//        member m.delete(_) = failwith "Map cannot be mutated"; false
-//        member m.entries() = m |> Seq.map (fun p -> p.Key, p.Value)
-//        member m.get(k) = m.Item(k)
-//        member m.has(k) = m.ContainsKey(k)
-//        member m.keys() = m |> Seq.map (fun p -> p.Key)
-//        member m.set(k, v) = failwith "Map cannot be mutated"; m :> JS.Map<'Key,'Value>
-//        member m.values() = m |> Seq.map (fun p -> p.Value)
-//        member m.forEach(f, ?thisArg) = m |> Seq.iter (fun p -> f p.Value p.Key m)
+    //    interface JS.Map<'Key,'Value> with
+    //        member m.size = m.Count
+    //        member m.clear() = failwith "Map cannot be mutated"; ()
+    //        member m.delete(_) = failwith "Map cannot be mutated"; false
+    //        member m.entries() = m |> Seq.map (fun p -> p.Key, p.Value)
+    //        member m.get(k) = m.Item(k)
+    //        member m.has(k) = m.ContainsKey(k)
+    //        member m.keys() = m |> Seq.map (fun p -> p.Key)
+    //        member m.set(k, v) = failwith "Map cannot be mutated"; m :> JS.Map<'Key,'Value>
+    //        member m.values() = m |> Seq.map (fun p -> p.Value)
+    //        member m.forEach(f, ?thisArg) = m |> Seq.iter (fun p -> f p.Value p.Key m)
 
     override this.ToString() =
-        let inline toStr (kv: KeyValuePair<'Key,'Value>) = $"({kv.Key}, {kv.Value})"
+        let inline toStr (kv: KeyValuePair<'Key, 'Value>) =
+            $"({kv.Key}, {kv.Value})"
+
         let str = this |> Seq.map toStr |> String.concat "; "
         "map [" + str + "]"
 
@@ -800,40 +1117,38 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
 // module Map =
 
 // [<CompiledName("IsEmpty")>]
-let isEmpty (table: Map<_, _>): bool =
-    table.IsEmpty
+let isEmpty (table: Map<_, _>) : bool = table.IsEmpty
 
 // [<CompiledName("Add")>]
-let add (key: 'a) (value: 'b) (table: Map<_, _>): Map<'a,'b> =
-    table.Add (key, value)
+let add (key: 'a) (value: 'b) (table: Map<_, _>) : Map<'a, 'b> =
+    table.Add(key, value)
 
 // [<CompiledName("Change")>]
-let change (key: 'a) (f: 'b option -> 'b option) (table: Map<_, _>): Map<'a,'b> =
-    table.Change (key, f)
+let change
+    (key: 'a)
+    (f: 'b option -> 'b option)
+    (table: Map<_, _>)
+    : Map<'a, 'b>
+    =
+    table.Change(key, f)
 
 // [<CompiledName("Find")>]
-let find (key: 'a) (table: Map<_, _>): 'b =
-    table[key]
+let find (key: 'a) (table: Map<_, _>) : 'b = table[key]
 
 // [<CompiledName("TryFind")>]
-let tryFind (key: 'a) (table: Map<_, _>): 'b option =
-    table.TryFind key
+let tryFind (key: 'a) (table: Map<_, _>) : 'b option = table.TryFind key
 
 // [<CompiledName("Remove")>]
-let remove key (table: Map<_, _>) =
-    table.Remove key
+let remove key (table: Map<_, _>) = table.Remove key
 
 // [<CompiledName("ContainsKey")>]
-let containsKey key (table: Map<_, _>) =
-    table.ContainsKey key
+let containsKey key (table: Map<_, _>) = table.ContainsKey key
 
 // [<CompiledName("Iterate")>]
-let iterate action (table: Map<_, _>) =
-    table.Iterate action
+let iterate action (table: Map<_, _>) = table.Iterate action
 
 // [<CompiledName("TryPick")>]
-let tryPick chooser (table: Map<_, _>) =
-    table.TryPick chooser
+let tryPick chooser (table: Map<_, _>) = table.TryPick chooser
 
 // [<CompiledName("Pick")>]
 let pick chooser (table: Map<_, _>) =
@@ -842,31 +1157,34 @@ let pick chooser (table: Map<_, _>) =
     | Some res -> res
 
 // [<CompiledName("Exists")>]
-let exists predicate (table: Map<_, _>) =
-    table.Exists predicate
+let exists predicate (table: Map<_, _>) = table.Exists predicate
 
 // [<CompiledName("Filter")>]
-let filter predicate (table: Map<_, _>) =
-    table.Filter predicate
+let filter predicate (table: Map<_, _>) = table.Filter predicate
 
 // [<CompiledName("Partition")>]
-let partition predicate (table: Map<_, _>) =
-    table.Partition predicate
+let partition predicate (table: Map<_, _>) = table.Partition predicate
 
 // [<CompiledName("ForAll")>]
-let forAll predicate (table: Map<_, _>) =
-    table.ForAll predicate
+let forAll predicate (table: Map<_, _>) = table.ForAll predicate
 
 // [<CompiledName("Map")>]
-let map mapping (table: Map<_, _>) =
-    table.Map mapping
+let map mapping (table: Map<_, _>) = table.Map mapping
 
 // [<CompiledName("Fold")>]
-let fold<'Key, 'T, 'State when 'Key : comparison> folder (state:'State) (table: Map<'Key, 'T>) =
+let fold<'Key, 'T, 'State when 'Key: comparison>
+    folder
+    (state: 'State)
+    (table: Map<'Key, 'T>)
+    =
     MapTree.fold folder state table.Tree
 
 // [<CompiledName("FoldBack")>]
-let foldBack<'Key, 'T, 'State  when 'Key : comparison> folder (table: Map<'Key, 'T>) (state:'State) =
+let foldBack<'Key, 'T, 'State when 'Key: comparison>
+    folder
+    (table: Map<'Key, 'T>)
+    (state: 'State)
+    =
     MapTree.foldBack folder table.Tree state
 
 // [<CompiledName("ToSeq")>]
@@ -874,15 +1192,34 @@ let toSeq (table: Map<_, _>) =
     table |> Seq.map (fun kvp -> kvp.Key, kvp.Value)
 
 // [<CompiledName("FindKey")>]
-let findKey predicate (table : Map<_, _>) =
-    table |> Seq.pick (fun kvp -> let k = kvp.Key in if predicate k kvp.Value then Some k else None)
+let findKey predicate (table: Map<_, _>) =
+    table
+    |> Seq.pick (fun kvp ->
+        let k = kvp.Key in
+
+        if predicate k kvp.Value then
+            Some k
+        else
+            None
+    )
 
 // [<CompiledName("TryFindKey")>]
-let tryFindKey predicate (table : Map<_, _>) =
-    table |> Seq.tryPick (fun kvp -> let k = kvp.Key in if predicate k kvp.Value then Some k else None)
+let tryFindKey predicate (table: Map<_, _>) =
+    table
+    |> Seq.tryPick (fun kvp ->
+        let k = kvp.Key in
+
+        if predicate k kvp.Value then
+            Some k
+        else
+            None
+    )
 
 // [<CompiledName("OfList")>]
-let ofList (elements: ('Key * 'Value) list) ([<Inject>] comparer: IComparer<'Key>) =
+let ofList
+    (elements: ('Key * 'Value) list)
+    ([<Inject>] comparer: IComparer<'Key>)
+    =
     Map<_, _>(comparer, MapTree.ofSeq comparer elements)
 
 // [<CompiledName("OfSeq")>]
@@ -890,37 +1227,37 @@ let ofSeq elements ([<Inject>] comparer: IComparer<'T>) =
     Map<_, _>(comparer, MapTree.ofSeq comparer elements)
 
 // [<CompiledName("OfArray")>]
-let ofArray (elements: ('Key * 'Value) array) ([<Inject>] comparer: IComparer<'Key>) =
+let ofArray
+    (elements: ('Key * 'Value) array)
+    ([<Inject>] comparer: IComparer<'Key>)
+    =
     Map<_, _>(comparer, MapTree.ofSeq comparer elements)
 
 // [<CompiledName("ToList")>]
-let toList (table: Map<_, _>) =
-    table.ToList()
+let toList (table: Map<_, _>) = table.ToList()
 
 // [<CompiledName("ToArray")>]
 let toArray (table: Map<_, _>) =
     table.ToArray() |> Array.map (fun kv -> kv.Key, kv.Value)
 
 // [<CompiledName("Keys")>]
-let keys (table: Map<'K, 'V>): ICollection<'K> =
-    table.Keys
+let keys (table: Map<'K, 'V>) : ICollection<'K> = table.Keys
 
 // [<CompiledName("Values")>]
-let values (table: Map<'K, 'V>): ICollection<'V> =
-    table.Values
+let values (table: Map<'K, 'V>) : ICollection<'V> = table.Values
 
 // [<CompiledName("MinKeyValue")>]
-let minKeyValue (table: Map<_, _>) =
-    table.MinKeyValue
+let minKeyValue (table: Map<_, _>) = table.MinKeyValue
 
 // [<CompiledName("MaxKeyValue")>]
-let maxKeyValue (table: Map<_, _>) =
-    table.MaxKeyValue
+let maxKeyValue (table: Map<_, _>) = table.MaxKeyValue
 
 // [<CompiledName("Empty")>]
-let empty<'Key, 'Value  when 'Key : comparison> ([<Inject>] comparer: IComparer<'Key>) : Map<'Key, 'Value> =
+let empty<'Key, 'Value when 'Key: comparison>
+    ([<Inject>] comparer: IComparer<'Key>)
+    : Map<'Key, 'Value>
+    =
     Map<'Key, 'Value>.Empty comparer
 
 // [<CompiledName("Count")>]
-let count (table: Map<_, _>) =
-    table.Count
+let count (table: Map<_, _>) = table.Count

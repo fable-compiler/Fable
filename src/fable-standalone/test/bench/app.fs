@@ -22,10 +22,14 @@ let metadataPath = "../../../fable-metadata/lib/" // .NET BCL binaries
 [<EntryPoint>]
 let main argv =
     let testScriptPath = "test_script_50k.fsx"
+
     let metadataPath, testScriptPath, compiledScriptPath =
         match argv with
-        | [|metadataPath; testScriptPath; compiledScriptPath|] -> metadataPath, testScriptPath, compiledScriptPath
-        | _ -> metadataPath, testScriptPath, testScriptPath.Replace(".fsx", ".js")
+        | [| metadataPath; testScriptPath; compiledScriptPath |] ->
+            metadataPath, testScriptPath, compiledScriptPath
+        | _ ->
+            metadataPath, testScriptPath, testScriptPath.Replace(".fsx", ".js")
+
     try
         let optimize = false
         // let fsAstFile = Fable.Path.ChangeExtension(testScriptPath, ".fsharp.ast.txt")
@@ -35,20 +39,44 @@ let main argv =
         let source = readAllText testScriptPath
         let fable = Fable.Standalone.Main.init ()
         let readAllBytes dllName = readAllBytes (metadataPath + dllName)
-        let optimizeFlag = "--optimize" + (if optimize then "+" else "-")
+
+        let optimizeFlag =
+            "--optimize"
+            + (if optimize then
+                   "+"
+               else
+                   "-")
+
         let otherOptions = [| optimizeFlag |]
-        let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
+
+        let createChecker () =
+            fable.CreateChecker(references, readAllBytes, otherOptions)
+
         let checker, ms0 = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         // let parseFSharpScript () = fable.ParseFSharpScript(checker, fileName, source)
-        let parseFSharpScript () = fable.ParseAndCheckFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
+        let parseFSharpScript () =
+            fable.ParseAndCheckFileInProject(
+                checker,
+                fileName,
+                projectFileName,
+                [| fileName |],
+                [| source |]
+            )
+
         let fableLibraryDir = "fable-library"
-        let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName)
+
+        let parseFable (res, fileName) =
+            fable.CompileToBabelAst(fableLibraryDir, res, fileName)
+
         let bench i =
             let parseRes, ms1 = measureTime parseFSharpScript ()
             let errors = fable.GetErrors parseRes
             errors |> Array.iter (printfn "Error: %A")
-            if errors.Length > 0 then failwith "Too many errors."
+
+            if errors.Length > 0 then
+                failwith "Too many errors."
+
             let babelAst, ms2 = measureTime parseFable (parseRes, fileName)
             // if i = 1 then
             //     // let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
@@ -58,7 +86,9 @@ let main argv =
             //     writeAllText babelAstFile (toJson babelAst)
             //     // writeJs compiledScriptPath babelAst
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2
-        [1..10] |> List.iter bench
+
+        [ 1..10 ] |> List.iter bench
     with ex ->
         printfn "Error: %A" ex.Message
+
     0

@@ -1,7 +1,7 @@
 namespace System
 
 type SystemException() =
-  inherit Exception()
+    inherit Exception()
 
 type TimeoutException() =
-  inherit SystemException()
+    inherit SystemException()

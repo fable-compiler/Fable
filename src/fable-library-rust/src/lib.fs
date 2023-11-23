@@ -2,7 +2,7 @@ module Fable_Library_Rust
 
 open Fable.Core.Rust
 
-let _imports() =
+let _imports () =
     importAll "./Async.rs"
     importAll "./BigInt.rs"
     importAll "./BitConverter.rs"

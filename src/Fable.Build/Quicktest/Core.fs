@@ -9,13 +9,14 @@ type RunMode =
     | RunScript
     | RunCommand of string
 
-type QuicktestConfig = {
-    Language: string
-    FableLibBuilder: BuildFableLibrary
-    ProjectDir: string
-    Extension: string
-    RunMode: RunMode
-}
+type QuicktestConfig =
+    {
+        Language: string
+        FableLibBuilder: BuildFableLibrary
+        ProjectDir: string
+        Extension: string
+        RunMode: RunMode
+    }
 
 let genericQuicktest (config: QuicktestConfig) (args: string list) =
     let skipFableLibrary = args |> List.contains "--skip-fable-library"
@@ -39,8 +40,8 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
         |> CmdLine.appendRaw projectDir
         |> CmdLine.appendPrefix "--lang" config.Language
         |> CmdLine.appendPrefix "--extension" config.Extension
-        |> CmdLine.appendRaw "--yes"
-        , workingDirectory = projectDir
+        |> CmdLine.appendRaw "--yes",
+        workingDirectory = projectDir
     )
 
     Command.WatchFableAsync(

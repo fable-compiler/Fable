@@ -11,6 +11,7 @@ module Regex =
 
 let tryGetVersion (fsprojContent: string) =
     let m = Regex.Match(fsprojContent, Regex.VERSION)
+
     if m.Success then
         Some m.Groups.["version"].Value
     else
@@ -18,17 +19,14 @@ let tryGetVersion (fsprojContent: string) =
 
 let needPublishing (fsprojContent: string) (versionToCheck: string) =
     match tryGetVersion fsprojContent with
-    | Some currentVersion ->
-        currentVersion <> versionToCheck
+    | Some currentVersion -> currentVersion <> versionToCheck
     | None -> failwith "Could not find <Version>...</Version> in fsproj file"
 
 let replaceVersion (version: string) (fsprojContent: string) =
     Regex.Replace(
         fsprojContent,
         Regex.VERSION,
-        (fun (m: Match) ->
-            $"<Version>{version}</Version>"
-        )
+        (fun (m: Match) -> $"<Version>{version}</Version>")
     )
 
 let replacePackageReleaseNotes (releaseNotes: string) (fsprojContent: string) =
@@ -36,7 +34,9 @@ let replacePackageReleaseNotes (releaseNotes: string) (fsprojContent: string) =
         fsprojContent,
         "<PackageReleaseNotes>.*?</PackageReleaseNotes>",
         (fun (m: Match) ->
-            let releaseNotes = releaseNotes.Replace("<", "&lt;").Replace(">", "&gt;")
+            let releaseNotes =
+                releaseNotes.Replace("<", "&lt;").Replace(">", "&gt;")
+
             $"<PackageReleaseNotes>{releaseNotes}</PackageReleaseNotes>"
         ),
         RegexOptions.Singleline

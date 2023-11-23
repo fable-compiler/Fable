@@ -74,41 +74,47 @@ let handle (args: string list) =
                 "cargo test"
 
         let fableArgs =
-            CmdLine.concat [
-                CmdLine.empty
-                |> CmdLine.appendRaw mainTestsProjectDir
-                |> CmdLine.appendPrefix "--outDir" mainTestsDestinationDir
-                |> CmdLine.appendPrefix "--lang" "rust"
-                |> CmdLine.appendPrefix "--exclude" "Fable.Core"
-                |> CmdLine.appendRaw "--noCache"
-                |> CmdLine.appendPrefixIf noStd "--define" "NO_STD_NO_EXCEPTIONS"
+            CmdLine.concat
+                [
+                    CmdLine.empty
+                    |> CmdLine.appendRaw mainTestsProjectDir
+                    |> CmdLine.appendPrefix "--outDir" mainTestsDestinationDir
+                    |> CmdLine.appendPrefix "--lang" "rust"
+                    |> CmdLine.appendPrefix "--exclude" "Fable.Core"
+                    |> CmdLine.appendRaw "--noCache"
+                    |> CmdLine.appendPrefixIf
+                        noStd
+                        "--define"
+                        "NO_STD_NO_EXCEPTIONS"
 
-                if isWatch then
-                    CmdLine.empty
-                    |> CmdLine.appendRaw "--watch"
-                    |> CmdLine.appendRaw "--runWatch"
-                    |> CmdLine.appendRaw cargoTestArgs
-                else
-                    CmdLine.empty
-                    |> CmdLine.appendRaw "--run"
-                    |> CmdLine.appendRaw cargoTestArgs
-            ]
+                    if isWatch then
+                        CmdLine.empty
+                        |> CmdLine.appendRaw "--watch"
+                        |> CmdLine.appendRaw "--runWatch"
+                        |> CmdLine.appendRaw cargoTestArgs
+                    else
+                        CmdLine.empty
+                        |> CmdLine.appendRaw "--run"
+                        |> CmdLine.appendRaw cargoTestArgs
+                ]
 
         if isWatch then
-            Async.Parallel [
-                if not noDotnet then
-                    Command.RunAsync(
-                        "dotnet",
-                        "watch test -c Release",
-                        workingDirectory = mainTestsProjectDir
+            Async.Parallel
+                [
+                    if not noDotnet then
+                        Command.RunAsync(
+                            "dotnet",
+                            "watch test -c Release",
+                            workingDirectory = mainTestsProjectDir
+                        )
+                        |> Async.AwaitTask
+
+                    Command.WatchFableAsync(
+                        fableArgs,
+                        workingDirectory = mainTestsDestinationDir
                     )
                     |> Async.AwaitTask
-
-                Command.WatchFableAsync(
-                    fableArgs, workingDirectory = mainTestsDestinationDir
-                )
-                |> Async.AwaitTask
-            ]
+                ]
             |> Async.RunSynchronously
             |> ignore
         else
@@ -120,16 +126,16 @@ let handle (args: string list) =
 
             Command.Fable(fableArgs, workingDirectory = mainTestsDestinationDir)
 
-            // Old build system was running cargo fmt and cargo build
-            // Is it still needed?
-            // Command.Run(
-            //     "cargo",
-            //     "fmt",
-            //     workingDirectory = mainTestsDestinationDir
-            // )
+// Old build system was running cargo fmt and cargo build
+// Is it still needed?
+// Command.Run(
+//     "cargo",
+//     "fmt",
+//     workingDirectory = mainTestsDestinationDir
+// )
 
-            // Command.Run(
-            //     "cargo",
-            //     "temp",
-            //     workingDirectory = mainTestsDestinationDir
-            // )
+// Command.Run(
+//     "cargo",
+//     "temp",
+//     workingDirectory = mainTestsDestinationDir
+// )

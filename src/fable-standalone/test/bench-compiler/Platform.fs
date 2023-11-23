@@ -1,24 +1,29 @@
 module Fable.Compiler.Platform
 
-type CmdLineOptions = {
-    outDir: string option
-    libDir: string option
-    benchmark: bool
-    optimize: bool
-    sourceMaps: bool
-    typedArrays: bool option
-    language: string
-    printAst: bool
+type CmdLineOptions =
+    {
+        outDir: string option
+        libDir: string option
+        benchmark: bool
+        optimize: bool
+        sourceMaps: bool
+        typedArrays: bool option
+        language: string
+        printAst: bool
     // watch: bool
-}
+    }
 
 #if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
 
 open System.IO
 
 let readAllBytes (filePath: string) = File.ReadAllBytes(filePath)
-let readAllText (filePath: string) = File.ReadAllText(filePath, System.Text.Encoding.UTF8)
-let writeAllText (filePath: string) (text: string) = File.WriteAllText(filePath, text)
+
+let readAllText (filePath: string) =
+    File.ReadAllText(filePath, System.Text.Encoding.UTF8)
+
+let writeAllText (filePath: string) (text: string) =
+    File.WriteAllText(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -26,26 +31,38 @@ let measureTime (f: 'a -> 'b) x =
     sw.Stop()
     res, sw.ElapsedMilliseconds
 
-let ensureDirExists (path: string): unit =
+let ensureDirExists (path: string) : unit =
     Directory.CreateDirectory(path) |> ignore
 
-let normalizePath (path: string) =
-    path.Replace('\\', '/')
+let normalizePath (path: string) = path.Replace('\\', '/')
 
 let normalizeFullPath (path: string) =
-    let path = if System.String.IsNullOrWhiteSpace path then "." else path
+    let path =
+        if System.String.IsNullOrWhiteSpace path then
+            "."
+        else
+            path
+
     Path.GetFullPath(path).Replace('\\', '/')
 
 let getRelativePath (path: string) (pathTo: string) =
     let relPath = Path.GetRelativePath(path, pathTo).Replace('\\', '/')
-    if relPath.StartsWith('.') then relPath else "./" + relPath
+
+    if relPath.StartsWith('.') then
+        relPath
+    else
+        "./" + relPath
 
 let getHomePath () =
-    System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile)
+    System.Environment.GetFolderPath(
+        System.Environment.SpecialFolder.UserProfile
+    )
 
 let getDirFiles (path: string) (extension: string) =
-    if not (Directory.Exists(path)) then [||]
-    else Directory.GetFiles(path, "*" + extension, SearchOption.AllDirectories)
+    if not (Directory.Exists(path)) then
+        [||]
+    else
+        Directory.GetFiles(path, "*" + extension, SearchOption.AllDirectories)
     |> Array.map (fun x -> x.Replace('\\', '/'))
     |> Array.sort
 
@@ -54,11 +71,18 @@ let getGlobFiles (path: string) =
         let normPath = path.Replace('\\', '/')
         let i = normPath.LastIndexOf('/')
         let pattern = normPath.Substring(i + 1)
-        let dirPath = if i < 0 then "" else normPath.Substring(0, i)
+
+        let dirPath =
+            if i < 0 then
+                ""
+            else
+                normPath.Substring(0, i)
+
         Directory.GetFiles(dirPath, pattern, SearchOption.AllDirectories)
         |> Array.map (fun x -> x.Replace('\\', '/'))
         |> Array.sort
-    else [| path |]
+    else
+        [| path |]
 
 let serializeToJson (value: obj) =
     System.Text.Json.JsonSerializer.Serialize(value)
@@ -80,7 +104,7 @@ module JS =
         abstract arch: unit -> string
 
     type IProcess =
-        abstract hrtime: unit -> float []
+        abstract hrtime: unit -> float[]
         abstract hrtime: float[] -> float[]
 
     type IPath =
@@ -105,11 +129,15 @@ module JS =
     let path: IPath = importAll "path"
     // let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
-    // let performance: IPerformance = importMember "perf_hooks"
+// let performance: IPerformance = importMember "perf_hooks"
 
-let readAllBytes (filePath: string) = JS.fs.readFileSync(filePath)
-let readAllText (filePath: string) = JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
-let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePath, text)
+let readAllBytes (filePath: string) = JS.fs.readFileSync (filePath)
+
+let readAllText (filePath: string) =
+    JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
+
+let writeAllText (filePath: string) (text: string) =
+    JS.fs.writeFileSync (filePath, text)
 
 // let measureTime (f: 'a -> 'b) x =
 //     let t0 = JS.performance.now()
@@ -118,29 +146,31 @@ let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePat
 //     res, int64 (t1 - t0)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.proc.hrtime()
+    let startTime = JS.proc.hrtime ()
     let res = f x
-    let elapsed = JS.proc.hrtime(startTime)
+    let elapsed = JS.proc.hrtime (startTime)
     res, int64 (elapsed[0] * 1e3 + elapsed[1] / 1e6)
 
-let ensureDirExists (dir: string) = JS.util.ensureDirExists(dir)
-let serializeToJson (data: obj) = JS.util.serializeToJson(data)
+let ensureDirExists (dir: string) = JS.util.ensureDirExists (dir)
+let serializeToJson (data: obj) = JS.util.serializeToJson (data)
 
-let normalizePath (path: string) =
-    path.Replace('\\', '/')
+let normalizePath (path: string) = path.Replace('\\', '/')
 
 let normalizeFullPath (path: string) =
     JS.path.resolve(path).Replace('\\', '/')
 
 let getRelativePath (path: string) (pathTo: string) =
     let relPath = JS.path.relative(path, pathTo).Replace('\\', '/')
-    if relPath.StartsWith('.') then relPath else "./" + relPath
 
-let getHomePath () =
-    JS.os.homedir()
+    if relPath.StartsWith('.') then
+        relPath
+    else
+        "./" + relPath
+
+let getHomePath () = JS.os.homedir ()
 
 let getDirFiles (path: string) (extension: string) =
-    JS.util.getDirFiles(path)
+    JS.util.getDirFiles (path)
     |> Array.filter (fun x -> x.EndsWith(extension))
     |> Array.map (fun x -> x.Replace('\\', '/'))
     |> Array.sort
@@ -152,9 +182,15 @@ let getGlobFiles (path: string) =
         let dirPath =
             let normPath = path.Replace('\\', '/')
             let i = normPath.LastIndexOf('/')
-            if i < 0 then "" else normPath.Substring(0, i)
+
+            if i < 0 then
+                ""
+            else
+                normPath.Substring(0, i)
+
         getDirFiles dirPath ".fs"
-    else [| path |]
+    else
+        [| path |]
 
 #endif
 
@@ -162,14 +198,30 @@ module Path =
 
     let Combine (path1: string, path2: string) =
         let path1 =
-            if path1.Length = 0 then path1
-            else (path1.TrimEnd [|'\\';'/'|]) + "/"
-        path1 + (path2.TrimStart [|'\\';'/'|])
+            if path1.Length = 0 then
+                path1
+            else
+                (path1.TrimEnd
+                    [|
+                        '\\'
+                        '/'
+                    |])
+                + "/"
+
+        path1
+        + (path2.TrimStart
+            [|
+                '\\'
+                '/'
+            |])
 
     let ChangeExtension (path: string, ext: string) =
         let i = path.LastIndexOf(".")
-        if i < 0 then path
-        else path.Substring(0, i) + ext
+
+        if i < 0 then
+            path
+        else
+            path.Substring(0, i) + ext
 
     let GetFileName (path: string) =
         let normPath = path.Replace('\\', '/').TrimEnd('/')
@@ -184,5 +236,8 @@ module Path =
     let GetDirectoryName (path: string) =
         let normPath = path.Replace('\\', '/')
         let i = normPath.LastIndexOf('/')
-        if i < 0 then ""
-        else normPath.Substring(0, i)
+
+        if i < 0 then
+            ""
+        else
+            normPath.Substring(0, i)

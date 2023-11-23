@@ -1,4 +1,3 @@
-
 // Source: https://github.com/rust-lang/rust/blob/master/compiler/rustc_span/src/symbol.rs
 
 module Fable.Transforms.Rust.AST.Symbols
@@ -8,176 +7,205 @@ module Fable.Transforms.Rust.AST.Symbols
 module kw =
     // Special reserved identifiers used internally for elided lifetimes
     // unnamed method parameters crate root module error recovery etc.
-    let Empty =              ""
-    let PathRoot =           "{{root}}"
-    let DollarCrate =        "$crate"
-    let Underscore =         "_"
+    let Empty = ""
+    let PathRoot = "{{root}}"
+    let DollarCrate = "$crate"
+    let Underscore = "_"
 
     // Keywords that are used in stable Rust.
-    let As =                 "as"
-    let Break =              "break"
-    let Const =              "const"
-    let Continue =           "continue"
-    let Crate =              "crate"
-    let Else =               "else"
-    let Enum =               "enum"
-    let Extern =             "extern"
-    let False =              "false"
-    let Fn =                 "fn"
-    let For =                "for"
-    let If =                 "if"
-    let Impl =               "impl"
-    let In =                 "in"
-    let Let =                "let"
-    let Loop =               "loop"
-    let Match =              "match"
-    let Mod =                "mod"
-    let Move =               "move"
-    let Mut =                "mut"
-    let Pub =                "pub"
-    let Ref =                "ref"
-    let Return =             "return"
-    let SelfLower =          "self"
-    let SelfUpper =          "Self"
-    let Static =             "static"
-    let Struct =             "struct"
-    let Super =              "super"
-    let Trait =              "trait"
-    let True =               "true"
-    let Type =               "type"
-    let Unsafe =             "unsafe"
-    let Use =                "use"
-    let Where =              "where"
-    let While =              "while"
+    let As = "as"
+    let Break = "break"
+    let Const = "const"
+    let Continue = "continue"
+    let Crate = "crate"
+    let Else = "else"
+    let Enum = "enum"
+    let Extern = "extern"
+    let False = "false"
+    let Fn = "fn"
+    let For = "for"
+    let If = "if"
+    let Impl = "impl"
+    let In = "in"
+    let Let = "let"
+    let Loop = "loop"
+    let Match = "match"
+    let Mod = "mod"
+    let Move = "move"
+    let Mut = "mut"
+    let Pub = "pub"
+    let Ref = "ref"
+    let Return = "return"
+    let SelfLower = "self"
+    let SelfUpper = "Self"
+    let Static = "static"
+    let Struct = "struct"
+    let Super = "super"
+    let Trait = "trait"
+    let True = "true"
+    let Type = "type"
+    let Unsafe = "unsafe"
+    let Use = "use"
+    let Where = "where"
+    let While = "while"
 
     // Keywords that are used in unstable Rust or reserved for future use.
-    let Abstract =           "abstract"
-    let Become =             "become"
-    let Box =                "box"
-    let Do =                 "do"
-    let Final =              "final"
-    let Macro =              "macro"
-    let Override =           "override"
-    let Priv =               "priv"
-    let Typeof =             "typeof"
-    let Unsized =            "unsized"
-    let Virtual =            "virtual"
-    let Yield =              "yield"
+    let Abstract = "abstract"
+    let Become = "become"
+    let Box = "box"
+    let Do = "do"
+    let Final = "final"
+    let Macro = "macro"
+    let Override = "override"
+    let Priv = "priv"
+    let Typeof = "typeof"
+    let Unsized = "unsized"
+    let Virtual = "virtual"
+    let Yield = "yield"
 
     // Edition-specific keywords that are used in stable Rust.
-    let Async =              "async" // >=  2018 Edition only
-    let Await =              "await" // >=  2018 Edition only
-    let Dyn =                "dyn"   // >=  2018 Edition only
+    let Async = "async" // >=  2018 Edition only
+    let Await = "await" // >=  2018 Edition only
+    let Dyn = "dyn" // >=  2018 Edition only
 
     // Edition-specific keywords that are used in unstable Rust or reserved for future use.
-    let Try =                "try" // >=  2018 Edition only
+    let Try = "try" // >=  2018 Edition only
 
     // Special lifetime names
     let UnderscoreLifetime = "'_"
-    let StaticLifetime =     "'static"
+    let StaticLifetime = "'static"
 
     // Weak keywords have special meaning only in specific contexts.
-    let Auto =               "auto"
-    let Catch =              "catch"
-    let Default =            "default"
-    let MacroRules =         "macro_rules"
-    let Raw =                "raw"
-    let Union =              "union"
+    let Auto = "auto"
+    let Catch = "catch"
+    let Default = "default"
+    let MacroRules = "macro_rules"
+    let Raw = "raw"
+    let Union = "union"
 
-    let RustKeywords = [
-        // Special reserved identifiers used internally for elided lifetimes
-        // unnamed method parameters crate root module error recovery etc.
-        Empty
-        PathRoot
-        DollarCrate
-        Underscore
+    let RustKeywords =
+        [
+            // Special reserved identifiers used internally for elided lifetimes
+            // unnamed method parameters crate root module error recovery etc.
+            Empty
+            PathRoot
+            DollarCrate
+            Underscore
 
-        // Keywords that are used in stable Rust.
-        As
-        Break
-        Const
-        Continue
-        Crate
-        Else
-        Enum
-        Extern
-        False
-        Fn
-        For
-        If
-        Impl
-        In
-        Let
-        Loop
-        Match
-        Mod
-        Move
-        Mut
-        Pub
-        Ref
-        Return
-        SelfLower
-        SelfUpper
-        Static
-        Struct
-        Super
-        Trait
-        True
-        Type
-        Unsafe
-        Use
-        Where
-        While
+            // Keywords that are used in stable Rust.
+            As
+            Break
+            Const
+            Continue
+            Crate
+            Else
+            Enum
+            Extern
+            False
+            Fn
+            For
+            If
+            Impl
+            In
+            Let
+            Loop
+            Match
+            Mod
+            Move
+            Mut
+            Pub
+            Ref
+            Return
+            SelfLower
+            SelfUpper
+            Static
+            Struct
+            Super
+            Trait
+            True
+            Type
+            Unsafe
+            Use
+            Where
+            While
 
-        // Keywords that are used in unstable Rust or reserved for future use.
-        Abstract
-        Become
-        Box
-        Do
-        Final
-        Macro
-        Override
-        Priv
-        Typeof
-        Unsized
-        Virtual
-        Yield
+            // Keywords that are used in unstable Rust or reserved for future use.
+            Abstract
+            Become
+            Box
+            Do
+            Final
+            Macro
+            Override
+            Priv
+            Typeof
+            Unsized
+            Virtual
+            Yield
 
-        // Edition-specific keywords that are used in stable Rust.
-        Async
-        Await
-        Dyn
+            // Edition-specific keywords that are used in stable Rust.
+            Async
+            Await
+            Dyn
 
-        // Edition-specific keywords that are used in unstable Rust or reserved for future use.
-        Try
+            // Edition-specific keywords that are used in unstable Rust or reserved for future use.
+            Try
 
-        // Special lifetime names
-        UnderscoreLifetime
-        StaticLifetime
+            // Special lifetime names
+            UnderscoreLifetime
+            StaticLifetime
 
-        // Weak keywords have special meaning only in specific contexts.
-        Auto
-        Catch
-        Default
-        MacroRules
-        Raw
-        Union
-    ]
+            // Weak keywords have special meaning only in specific contexts.
+            Auto
+            Catch
+            Default
+            MacroRules
+            Raw
+            Union
+        ]
 
-    let RustPrelude = [
-        "Copy"; "Send"; "Sized"; "Sync"; "Unpin";
-        "drop"; "Drop"; "Fn"; "FnMut"; "FnOnce";
-        "Box"; "ToOwned"; "Clone";
-        "PartialEq"; "PartialOrd"; "Eq"; "Ord";
-        "AsRef"; "AsMut"; "Into"; "From"; "Default"
-        "Iterator"; "Extend"; "IntoIterator";
-        "DoubleEndedIterator"; "ExactSizeIterator";
-        "Option"; "Some"; "None";
-        "Result"; "Ok"; "Err";
-        "String"; "ToString";
-        "TryFrom"; "TryInto";
-        "Vec"; "FromIterator";
-    ]
+    let RustPrelude =
+        [
+            "Copy"
+            "Send"
+            "Sized"
+            "Sync"
+            "Unpin"
+            "drop"
+            "Drop"
+            "Fn"
+            "FnMut"
+            "FnOnce"
+            "Box"
+            "ToOwned"
+            "Clone"
+            "PartialEq"
+            "PartialOrd"
+            "Eq"
+            "Ord"
+            "AsRef"
+            "AsMut"
+            "Into"
+            "From"
+            "Default"
+            "Iterator"
+            "Extend"
+            "IntoIterator"
+            "DoubleEndedIterator"
+            "ExactSizeIterator"
+            "Option"
+            "Some"
+            "None"
+            "Result"
+            "Ok"
+            "Err"
+            "String"
+            "ToString"
+            "TryFrom"
+            "TryInto"
+            "Vec"
+            "FromIterator"
+        ]
 
 // Pre-interned symbols that can be referred to with `rustc_span::sym::*`.
 //
@@ -457,7 +485,10 @@ module sym =
     let const_evaluatable_checked = "const_evaluatable_checked"
     let const_extern_fn = "const_extern_fn"
     let const_fn = "const_fn"
-    let const_fn_floating_point_arithmetic = "const_fn_floating_point_arithmetic"
+
+    let const_fn_floating_point_arithmetic =
+        "const_fn_floating_point_arithmetic"
+
     let const_fn_fn_ptr_basics = "const_fn_fn_ptr_basics"
     let const_fn_transmute = "const_fn_transmute"
     let const_fn_union = "const_fn_union"
@@ -717,7 +748,10 @@ module sym =
     let index = "index"
     let index_mut = "index_mut"
     let infer_outlives_requirements = "infer_outlives_requirements"
-    let infer_static_outlives_requirements = "infer_static_outlives_requirements"
+
+    let infer_static_outlives_requirements =
+        "infer_static_outlives_requirements"
+
     let inherent_associated_types = "inherent_associated_types"
     let inlateout = "inlateout"
     let ``inline`` = "inline"
@@ -1078,12 +1112,20 @@ module sym =
     let rustc_if_this_changed = "rustc_if_this_changed"
     let rustc_inherit_overflow_checks = "rustc_inherit_overflow_checks"
     let rustc_layout = "rustc_layout"
-    let rustc_layout_scalar_valid_range_end = "rustc_layout_scalar_valid_range_end"
-    let rustc_layout_scalar_valid_range_start = "rustc_layout_scalar_valid_range_start"
+
+    let rustc_layout_scalar_valid_range_end =
+        "rustc_layout_scalar_valid_range_end"
+
+    let rustc_layout_scalar_valid_range_start =
+        "rustc_layout_scalar_valid_range_start"
+
     let rustc_legacy_const_generics = "rustc_legacy_const_generics"
     let rustc_macro_transparency = "rustc_macro_transparency"
     let rustc_mir = "rustc_mir"
-    let rustc_nonnull_optimization_guaranteed = "rustc_nonnull_optimization_guaranteed"
+
+    let rustc_nonnull_optimization_guaranteed =
+        "rustc_nonnull_optimization_guaranteed"
+
     let rustc_object_lifetime_default = "rustc_object_lifetime_default"
     let rustc_on_unimplemented = "rustc_on_unimplemented"
     let rustc_outlives = "rustc_outlives"
@@ -1110,7 +1152,10 @@ module sym =
     let rustc_synthetic = "rustc_synthetic"
     let rustc_test_marker = "rustc_test_marker"
     let rustc_then_this_would_need = "rustc_then_this_would_need"
-    let rustc_unsafe_specialization_marker = "rustc_unsafe_specialization_marker"
+
+    let rustc_unsafe_specialization_marker =
+        "rustc_unsafe_specialization_marker"
+
     let rustc_variance = "rustc_variance"
     let rustdoc = "rustdoc"
     let rustfmt = "rustfmt"
@@ -1364,7 +1409,10 @@ module sym =
     let visible_private_types = "visible_private_types"
     let volatile = "volatile"
     let volatile_copy_memory = "volatile_copy_memory"
-    let volatile_copy_nonoverlapping_memory = "volatile_copy_nonoverlapping_memory"
+
+    let volatile_copy_nonoverlapping_memory =
+        "volatile_copy_nonoverlapping_memory"
+
     let volatile_load = "volatile_load"
     let volatile_set_memory = "volatile_set_memory"
     let volatile_store = "volatile_store"
