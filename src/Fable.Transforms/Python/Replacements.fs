@@ -5231,20 +5231,7 @@ let timeSpans
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" ->
-        let meth =
-            match args with
-            | [ ticks ] -> "fromTicks"
-            | _ -> "create"
-
-        Helper.LibCall(
-            com,
-            "time_span",
-            meth,
-            t,
-            args,
-            i.SignatureArgTypes,
-            ?loc = r
-        )
+        Helper.LibCall(com, "time_span", "create", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
