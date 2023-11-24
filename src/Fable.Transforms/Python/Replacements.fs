@@ -5229,9 +5229,18 @@ let timeSpans
     (args: Expr list)
     =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
+
     match i.CompiledName with
     | ".ctor" ->
-        Helper.LibCall(com, "time_span", "create", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(
+            com,
+            "time_span",
+            "create",
+            t,
+            args,
+            i.SignatureArgTypes,
+            ?loc = r
+        )
         |> Some
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
@@ -5259,6 +5268,8 @@ let timeSpans
             |> addError com ctx.InlinePath r
 
             None
+    | "get_Nanoseconds"
+    | "get_TotalNanoseconds" -> None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
