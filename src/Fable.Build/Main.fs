@@ -101,6 +101,9 @@ Available commands:
 let main argv =
     let argv = argv |> Array.map (fun x -> x.ToLower()) |> Array.toList
 
+    SimpleExec.Command.Run(name = "dotnet", args = "tool restore")
+    SimpleExec.Command.Run(name = "dotnet", args = "husky install")
+
     match argv with
     | "fable-library" :: args ->
         match args with
