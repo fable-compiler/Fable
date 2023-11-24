@@ -26,7 +26,6 @@ def create(
             return TimeSpan(days)
         # hours, minutes, seconds constructor
         case (_, _, _, None, None, None):
-            print("hours, minutes, seconds constructor")
             seconds = minutes
             minutes = hours
             hours = days
