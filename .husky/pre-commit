@@ -19,4 +19,4 @@
 ## or put your custom commands -------------------
 #echo 'Husky.Net is awesome!'
 
-dotnet fantomas . --check
+dotnet husky run --name fantomas-format-staged-files
