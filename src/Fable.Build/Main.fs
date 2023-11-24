@@ -101,6 +101,9 @@ Available commands:
 let main argv =
     let argv = argv |> Array.map (fun x -> x.ToLower()) |> Array.toList
 
+    SimpleExec.Command.Run(name = "dotnet", args = "tool restore")
+    SimpleExec.Command.Run(name = "dotnet", args = "husky install")
+
     match argv with
     | "fable-library" :: args ->
         match args with
@@ -134,8 +137,8 @@ let main argv =
     | "standalone" :: args -> Standalone.handle args
     | "compiler-js" :: args -> CompilerJs.handle args
     | "worker-js" :: args -> WorkerJs.handle args
-    | "sync-fcs-repo":: _ -> FcsRepo.sync ()
-    | "copy-fcs-repo":: _ -> FcsRepo.copy ()
+    | "sync-fcs-repo" :: _ -> FcsRepo.sync ()
+    | "copy-fcs-repo" :: _ -> FcsRepo.copy ()
     | "publish" :: args -> Publish.handle args
     | "github-release" :: args -> GithubRelease.handle args
     | "package" :: args -> Package.handle args

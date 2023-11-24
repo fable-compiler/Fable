@@ -16,7 +16,7 @@ let private quicktestProject =
 let private quicktestBuildDir =
     Path.Resolve("temp", "tests", "fable-compiler-js", "quicktest")
 
-let handle (args : string list) =
+let handle (args: string list) =
     Command.Run(
         "npm",
         "link ../fable-standalone ../fable-metadata",

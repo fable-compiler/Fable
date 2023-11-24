@@ -1,4 +1,3 @@
-src/**
+src/fcs-fable
 tests/**
 tests_external/**
-!src/Fable.Build/**

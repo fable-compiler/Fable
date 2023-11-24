@@ -12,11 +12,8 @@ let private createGithubRelease
     (version: ChangelogParser.Types.Version)
     =
 
-    let struct(lastestTag, _) =
-        Command.ReadAsync(
-            "git",
-            "describe --abbrev=0 --tags"
-        )
+    let struct (lastestTag, _) =
+        Command.ReadAsync("git", "describe --abbrev=0 --tags")
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
@@ -24,7 +21,9 @@ let private createGithubRelease
     // It can happens that we trigger a release whre Fable.Cli
     // is already up to date.
     if lastestTag.Trim() <> version.Version.ToString() then
-        let githubClient = GitHubClient(ProductHeaderValue("fable-release-tool"))
+        let githubClient =
+            GitHubClient(ProductHeaderValue("fable-release-tool"))
+
         githubClient.Credentials <- Credentials(githubToken)
 
         let newRelease = NewRelease(version.Version.ToString())
@@ -42,7 +41,9 @@ let private createGithubRelease
         |> Async.RunSynchronously
         |> ignore
 
-let private createReleaseCommitAndPush (version: ChangelogParser.Types.Version) =
+let private createReleaseCommitAndPush
+    (version: ChangelogParser.Types.Version)
+    =
     let versionText = version.Version.ToString()
 
     Command.Run(
@@ -53,18 +54,12 @@ let private createReleaseCommitAndPush (version: ChangelogParser.Types.Version) 
         |> CmdLine.toString
     )
 
-    Command.Run(
-        "git",
-        "push"
-    )
+    Command.Run("git", "push")
 
 
 let handle (args: string list) =
     let struct (currentBranch, _) =
-        Command.ReadAsync(
-            "git",
-            "rev-parse --abbrev-ref HEAD"
-        )
+        Command.ReadAsync("git", "rev-parse --abbrev-ref HEAD")
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
@@ -73,7 +68,8 @@ let handle (args: string list) =
 
     Publish.handle args
 
-    let githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
+    let githubToken =
+        Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
 
     if githubToken = null then
         failwith "Missing GITHUB_TOKEN_FABLE_ORG environment variable"

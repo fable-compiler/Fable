@@ -7,10 +7,21 @@ open Fable.AST
 
 type Writer =
     inherit IDisposable
-    abstract AddSourceMapping: srcLine: int * srcCol: int * genLine: int * genCol: int * file: string option * displayName: string option -> unit
+
+    abstract AddSourceMapping:
+        srcLine: int *
+        srcCol: int *
+        genLine: int *
+        genCol: int *
+        file: string option *
+        displayName: string option ->
+            unit
+
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
-    abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
+
+    abstract AddLog:
+        msg: string * severity: Fable.Severity * ?range: SourceLocation -> unit
 
 type Printer =
     abstract Line: int
@@ -21,7 +32,9 @@ type Printer =
     abstract PrintNewLine: unit -> unit
     abstract AddLocation: SourceLocation option -> unit
     abstract MakeImportPath: string -> string
-    abstract AddLog: msg:string * severity: Fable.Severity * ?range: SourceLocation -> unit
+
+    abstract AddLog:
+        msg: string * severity: Fable.Severity * ?range: SourceLocation -> unit
 
 // TODO: Line comments
 type PrinterImpl(writer: Writer, ?indent: string) =
@@ -36,14 +49,15 @@ type PrinterImpl(writer: Writer, ?indent: string) =
         | None -> ()
         | Some loc ->
             writer.AddSourceMapping(
-                srcLine=loc.start.line,
-                srcCol=loc.start.column,
-                genLine=line,
-                genCol=column,
-                file=loc.File,
-                displayName=loc.DisplayName)
+                srcLine = loc.start.line,
+                srcCol = loc.start.column,
+                genLine = line,
+                genCol = column,
+                file = loc.File,
+                displayName = loc.DisplayName
+            )
 
-    member _.Flush(): Async<unit> =
+    member _.Flush() : Async<unit> =
         async {
             if builder.Length > 0 then
                 do! writer.Write(builder.ToString())
@@ -62,17 +76,16 @@ type PrinterImpl(writer: Writer, ?indent: string) =
             line <- line + 1
             column <- 0
 
-        member _.PushIndentation() =
-            indent <- indent + 1
+        member _.PushIndentation() = indent <- indent + 1
 
         member _.PopIndentation() =
-            if indent > 0 then indent <- indent - 1
+            if indent > 0 then
+                indent <- indent - 1
 
-        member _.AddLocation(loc) =
-            addLoc loc
+        member _.AddLocation(loc) = addLoc loc
 
         member _.Print(str: string, ?loc) =
-            if not(String.IsNullOrEmpty(str)) then
+            if not (String.IsNullOrEmpty(str)) then
                 addLoc loc
 
                 if column = 0 then
@@ -83,8 +96,7 @@ type PrinterImpl(writer: Writer, ?indent: string) =
                 builder.Append(str) |> ignore
                 column <- column + str.Length
 
-        member _.MakeImportPath(path) =
-            writer.MakeImportPath(path)
+        member _.MakeImportPath(path) = writer.MakeImportPath(path)
 
         member _.AddLog(msg, severity, ?range) =
-            writer.AddLog(msg, severity, ?range=range)
+            writer.AddLog(msg, severity, ?range = range)

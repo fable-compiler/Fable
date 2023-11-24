@@ -27,21 +27,22 @@ let handle (args: string list) =
     let mochaArgs = "mocha temp/tests/TypeScript --reporter dot -t 10000"
 
     let fableArgs =
-        CmdLine.concat [
-            CmdLine.empty
-            |> CmdLine.appendRaw projectDir
-            |> CmdLine.appendPrefix "--outDir" fableDest
-            |> CmdLine.appendPrefix "--lang" "typescript"
-            |> CmdLine.appendPrefix "--exclude" "Fable.Core"
-            |> CmdLine.appendRaw "--noCache"
-
-            // Let Fable handle the TypeScript invocation
-            if isWatch then
+        CmdLine.concat
+            [
                 CmdLine.empty
-                |> CmdLine.appendRaw "--watch"
-                |> CmdLine.appendRaw "--runWatch"
-                |> CmdLine.appendRaw $"npx {tscArgs}"
-        ]
+                |> CmdLine.appendRaw projectDir
+                |> CmdLine.appendPrefix "--outDir" fableDest
+                |> CmdLine.appendPrefix "--lang" "typescript"
+                |> CmdLine.appendPrefix "--exclude" "Fable.Core"
+                |> CmdLine.appendRaw "--noCache"
+
+                // Let Fable handle the TypeScript invocation
+                if isWatch then
+                    CmdLine.empty
+                    |> CmdLine.appendRaw "--watch"
+                    |> CmdLine.appendRaw "--runWatch"
+                    |> CmdLine.appendRaw $"npx {tscArgs}"
+            ]
 
     let nodemonArgs =
         CmdLine.empty
@@ -57,21 +58,22 @@ let handle (args: string list) =
         |> CmdLine.toString
 
     if isWatch then
-        Async.Parallel [
-            if not noDotnet then
-                Command.RunAsync(
-                    "dotnet",
-                    "watch test -c Release",
-                    workingDirectory = projectDir
-                )
+        Async.Parallel
+            [
+                if not noDotnet then
+                    Command.RunAsync(
+                        "dotnet",
+                        "watch test -c Release",
+                        workingDirectory = projectDir
+                    )
+                    |> Async.AwaitTask
+
+                Command.WatchFableAsync(fableArgs, workingDirectory = fableDest)
                 |> Async.AwaitTask
 
-            Command.WatchFableAsync(fableArgs, workingDirectory = fableDest)
-            |> Async.AwaitTask
-
-            Command.RunAsync("npx", nodemonArgs, workingDirectory = tscDest)
-            |> Async.AwaitTask
-        ]
+                Command.RunAsync("npx", nodemonArgs, workingDirectory = tscDest)
+                |> Async.AwaitTask
+            ]
         |> Async.RunSynchronously
         |> ignore
     else

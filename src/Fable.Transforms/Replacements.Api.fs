@@ -36,13 +36,28 @@ let tryField (com: ICompiler) returnTyp ownerTyp fieldName =
     | Dart -> Dart.Replacements.tryField com returnTyp ownerTyp fieldName
     | _ -> JS.Replacements.tryField com returnTyp ownerTyp fieldName
 
-let tryBaseConstructor (com: ICompiler) ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
+let tryBaseConstructor
+    (com: ICompiler)
+    ctx
+    (ent: EntityRef)
+    (argTypes: Lazy<Type list>)
+    genArgs
+    args
+    =
     match com.Options.Language with
-    | Python -> Py.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
-    | Dart -> Dart.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
+    | Python ->
+        Py.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
+    | Dart ->
+        Dart.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
     | _ -> JS.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
 
-let makeMethodInfo (com: ICompiler) r (name: string) (parameters: (string * Type) list) (returnType: Type) =
+let makeMethodInfo
+    (com: ICompiler)
+    r
+    (name: string)
+    (parameters: (string * Type) list)
+    (returnType: Type)
+    =
     match com.Options.Language with
     | _ -> JS.Replacements.makeMethodInfo com r name parameters returnType
 
@@ -77,8 +92,11 @@ let defaultof (com: ICompiler) ctx r typ =
 let createMutablePublicValue (com: ICompiler) value =
     match com.Options.Language with
     | Python -> Py.Replacements.createAtom com value
-    | JavaScript | TypeScript -> JS.Replacements.createAtom com value
-    | Rust | Php | Dart -> value
+    | JavaScript
+    | TypeScript -> JS.Replacements.createAtom com value
+    | Rust
+    | Php
+    | Dart -> value
 
 let getRefCell (com: ICompiler) r typ (expr: Expr) =
     match com.Options.Language with

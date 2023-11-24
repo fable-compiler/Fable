@@ -3,9 +3,15 @@
   "isRoot": true,
   "tools": {
     "fantomas": {
-      "version": "6.2.0",
+      "version": "6.2.3",
       "commands": [
         "fantomas"
+      ]
+    },
+    "husky": {
+      "version": "0.6.3",
+      "commands": [
+        "husky"
       ]
     }
   }

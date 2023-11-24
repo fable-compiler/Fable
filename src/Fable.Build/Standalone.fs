@@ -60,19 +60,20 @@ let private buildWorker (minify: bool) =
 let build (minify: bool) =
 
     let fableArgs =
-        CmdLine.concat [
-            CmdLine.empty
-            |> CmdLine.appendRaw "src"
-            |> CmdLine.appendPrefix "--outDir" buildDir
-            |> CmdLine.appendPrefix "--lang" "javascript"
+        CmdLine.concat
+            [
+                CmdLine.empty
+                |> CmdLine.appendRaw "src"
+                |> CmdLine.appendPrefix "--outDir" buildDir
+                |> CmdLine.appendPrefix "--lang" "javascript"
 
-        // if isWatch then
-        //     CmdLine.empty
-        //     |> CmdLine.appendRaw "--watch"
-        //     |> CmdLine.appendPrefix "--run" "rollup"
-        //     // |> CmdLine.appendRaw rollupArgs
-        //     |> CmdLine.appendRaw "--watch"
-        ]
+            // if isWatch then
+            //     CmdLine.empty
+            //     |> CmdLine.appendRaw "--watch"
+            //     |> CmdLine.appendPrefix "--run" "rollup"
+            //     // |> CmdLine.appendRaw rollupArgs
+            //     |> CmdLine.appendRaw "--watch"
+            ]
 
     // Clean destination folders and ensure they exist
     Directory.clean buildDir

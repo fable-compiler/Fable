@@ -14,41 +14,46 @@ module Types =
         | Text of string
         | Section of string
 
-    type OtherItem = {
-        ListItem: string
-        TextBody: string option
-    }
-
-    type Categories = {
-        Added: CategoryBody list
-        Changed: CategoryBody list
-        Deprecated: CategoryBody list
-        Removed: CategoryBody list
-        Improved: CategoryBody list
-        Fixed: CategoryBody list
-        Security: CategoryBody list
-        Custom: Map<string, CategoryBody list>
-    }
-
-    type Version = {
-        Version: SemVersion
-        Title: string
-        Date: DateTime option
-        Categories: Categories
-        OtherItems: OtherItem list
-    }
-
-    type Changelog = {
-        Title: string
-        Description: string
-        Versions: Version list
-    } with
-
-        static member Empty = {
-            Title = ""
-            Description = ""
-            Versions = []
+    type OtherItem =
+        {
+            ListItem: string
+            TextBody: string option
         }
+
+    type Categories =
+        {
+            Added: CategoryBody list
+            Changed: CategoryBody list
+            Deprecated: CategoryBody list
+            Removed: CategoryBody list
+            Improved: CategoryBody list
+            Fixed: CategoryBody list
+            Security: CategoryBody list
+            Custom: Map<string, CategoryBody list>
+        }
+
+    type Version =
+        {
+            Version: SemVersion
+            Title: string
+            Date: DateTime option
+            Categories: Categories
+            OtherItems: OtherItem list
+        }
+
+    type Changelog =
+        {
+            Title: string
+            Description: string
+            Versions: Version list
+        }
+
+        static member Empty =
+            {
+                Title = ""
+                Description = ""
+                Versions = []
+            }
 
     [<RequireQualifiedAccess>]
     type Symbols =
@@ -68,7 +73,11 @@ module Lexer =
 
     let private (|Match|_|) pattern input =
         let m = Regex.Match(input, pattern)
-        if m.Success then Some m else None
+
+        if m.Success then
+            Some m
+        else
+            None
 
     let private (|Title|_|) (input: string) =
         match input with
@@ -246,37 +255,38 @@ module Transform =
             parse tail changelog
 
         | Symbols.SectionHeader(title, version, date) :: tail ->
-            let version = {
-                Version =
-                    match version with
-                    | Some version ->
-                        SemVersion.Parse(version, SemVersionStyles.Strict)
-                    | None ->
-                        // If no version is provided, use a dummy version
-                        // This happens when handling the unreleased section
-                        SemVersion.Parse(
-                            "0.0.0-Unreleased",
-                            SemVersionStyles.Strict
-                        )
-                Title = title
-                Date = date |> Option.map DateTime.Parse
-                Categories = {
-                    Added = []
-                    Changed = []
-                    Deprecated = []
-                    Removed = []
-                    Improved = []
-                    Fixed = []
-                    Security = []
-                    Custom = Map.empty
+            let version =
+                {
+                    Version =
+                        match version with
+                        | Some version ->
+                            SemVersion.Parse(version, SemVersionStyles.Strict)
+                        | None ->
+                            // If no version is provided, use a dummy version
+                            // This happens when handling the unreleased section
+                            SemVersion.Parse(
+                                "0.0.0-Unreleased",
+                                SemVersionStyles.Strict
+                            )
+                    Title = title
+                    Date = date |> Option.map DateTime.Parse
+                    Categories =
+                        {
+                            Added = []
+                            Changed = []
+                            Deprecated = []
+                            Removed = []
+                            Improved = []
+                            Fixed = []
+                            Security = []
+                            Custom = Map.empty
+                        }
+                    OtherItems = []
                 }
-                OtherItems = []
-            }
 
-            parse tail {
-                changelog with
-                    Versions = version :: changelog.Versions
-            }
+            parse
+                tail
+                { changelog with Versions = version :: changelog.Versions }
 
         | Symbols.SubSection tag :: tail ->
             let (unparsedSymbols, categoryBody) = parseCategoryBody tail []
@@ -285,58 +295,55 @@ module Transform =
             | currentVersion :: otherVersions ->
                 let updatedCategories =
                     match tag.ToLower() with
-                    | "added" -> {
-                        currentVersion.Categories with
+                    | "added" ->
+                        { currentVersion.Categories with
                             Added =
                                 currentVersion.Categories.Added @ categoryBody
-                      }
-                    | "changed" -> {
-                        currentVersion.Categories with
+                        }
+                    | "changed" ->
+                        { currentVersion.Categories with
                             Changed =
                                 currentVersion.Categories.Changed @ categoryBody
-                      }
-                    | "deprecated" -> {
-                        currentVersion.Categories with
+                        }
+                    | "deprecated" ->
+                        { currentVersion.Categories with
                             Deprecated =
                                 currentVersion.Categories.Deprecated
                                 @ categoryBody
-                      }
-                    | "removed" -> {
-                        currentVersion.Categories with
+                        }
+                    | "removed" ->
+                        { currentVersion.Categories with
                             Removed =
                                 currentVersion.Categories.Removed @ categoryBody
-                      }
-                    | "improved" -> {
-                        currentVersion.Categories with
+                        }
+                    | "improved" ->
+                        { currentVersion.Categories with
                             Improved =
                                 currentVersion.Categories.Improved
                                 @ categoryBody
-                      }
-                    | "fixed" -> {
-                        currentVersion.Categories with
+                        }
+                    | "fixed" ->
+                        { currentVersion.Categories with
                             Fixed =
                                 currentVersion.Categories.Fixed @ categoryBody
-                      }
-                    | "security" -> {
-                        currentVersion.Categories with
+                        }
+                    | "security" ->
+                        { currentVersion.Categories with
                             Security =
                                 currentVersion.Categories.Security
                                 @ categoryBody
-                      }
-                    | unknown -> {
-                        currentVersion.Categories with
+                        }
+                    | unknown ->
+                        { currentVersion.Categories with
                             Custom =
                                 currentVersion.Categories.Custom.Add(
                                     unknown,
                                     categoryBody
                                 )
-                      }
+                        }
 
                 let versions =
-                    {
-                        currentVersion with
-                            Categories = updatedCategories
-                    }
+                    { currentVersion with Categories = updatedCategories }
                     :: otherVersions
 
                 parse unparsedSymbols { changelog with Versions = versions }
@@ -373,13 +380,16 @@ module Transform =
             | currentVersion :: otherVersions ->
                 let (unparsedSymbols, textBody) = tryEatRawText tail
 
-                let otherItemItem = { ListItem = text; TextBody = textBody }
+                let otherItemItem =
+                    {
+                        ListItem = text
+                        TextBody = textBody
+                    }
 
                 let versions =
-                    {
-                        currentVersion with
-                            OtherItems =
-                                currentVersion.OtherItems @ [ otherItemItem ]
+                    { currentVersion with
+                        OtherItems =
+                            currentVersion.OtherItems @ [ otherItemItem ]
                     }
                     :: otherVersions
 
@@ -391,16 +401,17 @@ module Transform =
                     text
                 |> Error
 
-        | [] ->
-            Ok {
-                changelog with
-                    Versions = changelog.Versions |> List.rev
-            }
+        | [] -> Ok { changelog with Versions = changelog.Versions |> List.rev }
 
     let fromSymbols (symbols: Symbols list) = parse symbols Changelog.Empty
 
 let parse (changelogContent: string) =
-    changelogContent.Split([| '\r'; '\n' |])
+    changelogContent.Split(
+        [|
+            '\r'
+            '\n'
+        |]
+    )
     |> Array.toList
     |> Lexer.toSymbols
     |> Transform.fromSymbols

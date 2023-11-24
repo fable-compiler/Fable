@@ -7,7 +7,7 @@ module Dotnet =
 
     type Nuget =
 
-        static member push(nupkgPath: string, nugetKey : string) =
+        static member push(nupkgPath: string, nugetKey: string) =
             Command.Run(
                 "dotnet",
                 $"nuget push {nupkgPath} -s https://api.nuget.org/v3/index.json -k {nugetKey}"
@@ -23,7 +23,11 @@ module Dotnet =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-        let m = Regex.Match(standardOutput, "Successfully created package '(?'nupkgPath'.*\.nupkg)'")
+        let m =
+            Regex.Match(
+                standardOutput,
+                "Successfully created package '(?'nupkgPath'.*\.nupkg)'"
+            )
 
         if m.Success then
             m.Groups.["nupkgPath"].Value

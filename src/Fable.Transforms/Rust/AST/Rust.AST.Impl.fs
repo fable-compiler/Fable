@@ -34,19 +34,36 @@ open type Macros
 //         | _ -> false
 
 type token.Lit with
-    static member new_(kind: token.LitKind, symbol: Symbol, suffix: Option<Symbol>): token.Lit = {
-        kind = kind
-        symbol = symbol
-        suffix = suffix
-    }
+
+    static member new_
+        (
+            kind: token.LitKind,
+            symbol: Symbol,
+            suffix: Option<Symbol>
+        )
+        : token.Lit
+        =
+        {
+            kind = kind
+            symbol = symbol
+            suffix = suffix
+        }
 
 type token.Token with
-    member self.clone() =
-        self
+
+    member self.clone() = self
 
 type token.TokenKind with
-    static member lit(kind: token.LitKind, symbol: Symbol, suffix: Option<Symbol>): token.TokenKind =
-        token.TokenKind.Literal(token.Lit.new_(kind, symbol, suffix))
+
+    static member lit
+        (
+            kind: token.LitKind,
+            symbol: Symbol,
+            suffix: Option<Symbol>
+        )
+        : token.TokenKind
+        =
+        token.TokenKind.Literal(token.Lit.new_ (kind, symbol, suffix))
 
 (*
 type Path with
@@ -110,14 +127,19 @@ type GenericBound with
 *)
 
 type Generics with
+
     /// Creates an instance of `Generics`.
-    static member default_(): Generics = {
-        params_ = Vec()
-        where_clause = {
-            has_where_token = false
-            predicates = Vec()
-            span = DUMMY_SP }
-        span = DUMMY_SP }
+    static member default_() : Generics =
+        {
+            params_ = Vec()
+            where_clause =
+                {
+                    has_where_token = false
+                    predicates = Vec()
+                    span = DUMMY_SP
+                }
+            span = DUMMY_SP
+        }
 
 (*
 type WherePredicate with
@@ -140,33 +162,35 @@ type Mutability with
 *)
 
 type BinOpKind with
-    member self.to_string(): string =
+
+    member self.to_string() : string =
         match self with
-            | BinOpKind.Add -> "+"
-            | BinOpKind.Sub -> "-"
-            | BinOpKind.Mul -> "*"
-            | BinOpKind.Div -> "/"
-            | BinOpKind.Rem -> "%"
-            | BinOpKind.And -> "&&"
-            | BinOpKind.Or -> "||"
-            | BinOpKind.BitXor -> "^"
-            | BinOpKind.BitAnd -> "&"
-            | BinOpKind.BitOr -> "|"
-            | BinOpKind.Shl -> "<<"
-            | BinOpKind.Shr -> ">>"
-            | BinOpKind.Eq -> "=="
-            | BinOpKind.Lt -> "<"
-            | BinOpKind.Le -> "<="
-            | BinOpKind.Ne -> "!="
-            | BinOpKind.Ge -> ">="
-            | BinOpKind.Gt -> ">"
+        | BinOpKind.Add -> "+"
+        | BinOpKind.Sub -> "-"
+        | BinOpKind.Mul -> "*"
+        | BinOpKind.Div -> "/"
+        | BinOpKind.Rem -> "%"
+        | BinOpKind.And -> "&&"
+        | BinOpKind.Or -> "||"
+        | BinOpKind.BitXor -> "^"
+        | BinOpKind.BitAnd -> "&"
+        | BinOpKind.BitOr -> "|"
+        | BinOpKind.Shl -> "<<"
+        | BinOpKind.Shr -> ">>"
+        | BinOpKind.Eq -> "=="
+        | BinOpKind.Lt -> "<"
+        | BinOpKind.Le -> "<="
+        | BinOpKind.Ne -> "!="
+        | BinOpKind.Ge -> ">="
+        | BinOpKind.Gt -> ">"
 
 type UnOp with
-    static member to_string(op: UnOp): string =
+
+    static member to_string(op: UnOp) : string =
         match op with
-            | UnOp.Deref -> "*"
-            | UnOp.Not -> "!"
-            | UnOp.Neg -> "-"
+        | UnOp.Deref -> "*"
+        | UnOp.Not -> "!"
+        | UnOp.Neg -> "-"
 
 (*
 type Stmt with
@@ -211,6 +235,7 @@ type Stmt with
 *)
 
 type Expr with
+
     /// Does this expression require a semicolon to be treated
     /// as a statement? The negation of this: 'can this expression
     /// be used as a statement without a semicolon' -- is used
@@ -218,18 +243,18 @@ type Expr with
     ///     if true then...else...}
     ///      |x| 5
     /// isn't parsed as (if true then...else...} | x) | 5
-    member self.expr_requires_semi_to_be_stmt(): bool =
+    member self.expr_requires_semi_to_be_stmt() : bool =
         match self.kind with
-            | ExprKind.If(_)
-            | ExprKind.Match(_)
-            | ExprKind.Block(_)
-            | ExprKind.While(_)
-            | ExprKind.Loop(_)
-            | ExprKind.ForLoop(_)
-            | ExprKind.TryBlock(_) -> false
-            | _ -> true
+        | ExprKind.If(_)
+        | ExprKind.Match(_)
+        | ExprKind.Block(_)
+        | ExprKind.While(_)
+        | ExprKind.Loop(_)
+        | ExprKind.ForLoop(_)
+        | ExprKind.TryBlock(_) -> false
+        | _ -> true
 
-(*
+    (*
     /// Returns `true` if this expression would be valid somewhere that expects a value
     /// for example, an `if` condition.
     member self.returns(): bool =
@@ -314,104 +339,114 @@ type Expr with
         Some(P(Ty { kind, id: self.id, span: self.span, tokens: None }))
 *)
 
-    member self.precedence(): ExprPrecedence =
+    member self.precedence() : ExprPrecedence =
         match self.kind with
-            | ExprKind.Box(_) -> ExprPrecedence.Box
-            | ExprKind.Array(_) -> ExprPrecedence.Array
-            | ExprKind.ConstBlock(_) -> ExprPrecedence.ConstBlock
-            | ExprKind.Call(_) -> ExprPrecedence.Call
-            | ExprKind.MethodCall(_) -> ExprPrecedence.MethodCall
-            | ExprKind.Tup(_) -> ExprPrecedence.Tup
-            | ExprKind.Binary(op, _, _) -> ExprPrecedence.Binary(op.node)
-            | ExprKind.Unary(_) -> ExprPrecedence.Unary
-            | ExprKind.Lit(_) -> ExprPrecedence.Lit
-            | ExprKind.Type(_) | ExprKind.Cast(_) -> ExprPrecedence.Cast
-            | ExprKind.Let(_) -> ExprPrecedence.Let
-            | ExprKind.If(_) -> ExprPrecedence.If
-            | ExprKind.While(_) -> ExprPrecedence.While
-            | ExprKind.ForLoop(_) -> ExprPrecedence.ForLoop
-            | ExprKind.Loop(_) -> ExprPrecedence.Loop
-            | ExprKind.Match(_) -> ExprPrecedence.Match
-            | ExprKind.Closure(_) -> ExprPrecedence.Closure
-            | ExprKind.Block(_) -> ExprPrecedence.Block
-            | ExprKind.TryBlock(_) -> ExprPrecedence.TryBlock
-            | ExprKind.Async(_) -> ExprPrecedence.Async
-            | ExprKind.Await(_) -> ExprPrecedence.Await
-            | ExprKind.Assign(_) -> ExprPrecedence.Assign
-            | ExprKind.AssignOp(_) -> ExprPrecedence.AssignOp
-            | ExprKind.Field(_) -> ExprPrecedence.Field
-            | ExprKind.Index(_) -> ExprPrecedence.Index
-            | ExprKind.Range(_) -> ExprPrecedence.Range
-            | ExprKind.Underscore -> ExprPrecedence.Path
-            | ExprKind.Path(_) -> ExprPrecedence.Path
-            | ExprKind.AddrOf(_) -> ExprPrecedence.AddrOf
-            | ExprKind.Break(_) -> ExprPrecedence.Break
-            | ExprKind.Continue(_) -> ExprPrecedence.Continue
-            | ExprKind.Ret(_) -> ExprPrecedence.Ret
-            | ExprKind.InlineAsm(_) | ExprKind.LlvmInlineAsm(_) -> ExprPrecedence.InlineAsm
-            | ExprKind.MacCall(_) -> ExprPrecedence.Mac
-            | ExprKind.Struct(_) -> ExprPrecedence.Struct
-            | ExprKind.Repeat(_) -> ExprPrecedence.Repeat
-            | ExprKind.Paren(_) -> ExprPrecedence.Paren
-            | ExprKind.Try(_) -> ExprPrecedence.Try
-            | ExprKind.Yield(_) -> ExprPrecedence.Yield
-            | ExprKind.Err -> ExprPrecedence.Err
-            | ExprKind.EmitExpression(_) -> ExprPrecedence.Err
+        | ExprKind.Box(_) -> ExprPrecedence.Box
+        | ExprKind.Array(_) -> ExprPrecedence.Array
+        | ExprKind.ConstBlock(_) -> ExprPrecedence.ConstBlock
+        | ExprKind.Call(_) -> ExprPrecedence.Call
+        | ExprKind.MethodCall(_) -> ExprPrecedence.MethodCall
+        | ExprKind.Tup(_) -> ExprPrecedence.Tup
+        | ExprKind.Binary(op, _, _) -> ExprPrecedence.Binary(op.node)
+        | ExprKind.Unary(_) -> ExprPrecedence.Unary
+        | ExprKind.Lit(_) -> ExprPrecedence.Lit
+        | ExprKind.Type(_)
+        | ExprKind.Cast(_) -> ExprPrecedence.Cast
+        | ExprKind.Let(_) -> ExprPrecedence.Let
+        | ExprKind.If(_) -> ExprPrecedence.If
+        | ExprKind.While(_) -> ExprPrecedence.While
+        | ExprKind.ForLoop(_) -> ExprPrecedence.ForLoop
+        | ExprKind.Loop(_) -> ExprPrecedence.Loop
+        | ExprKind.Match(_) -> ExprPrecedence.Match
+        | ExprKind.Closure(_) -> ExprPrecedence.Closure
+        | ExprKind.Block(_) -> ExprPrecedence.Block
+        | ExprKind.TryBlock(_) -> ExprPrecedence.TryBlock
+        | ExprKind.Async(_) -> ExprPrecedence.Async
+        | ExprKind.Await(_) -> ExprPrecedence.Await
+        | ExprKind.Assign(_) -> ExprPrecedence.Assign
+        | ExprKind.AssignOp(_) -> ExprPrecedence.AssignOp
+        | ExprKind.Field(_) -> ExprPrecedence.Field
+        | ExprKind.Index(_) -> ExprPrecedence.Index
+        | ExprKind.Range(_) -> ExprPrecedence.Range
+        | ExprKind.Underscore -> ExprPrecedence.Path
+        | ExprKind.Path(_) -> ExprPrecedence.Path
+        | ExprKind.AddrOf(_) -> ExprPrecedence.AddrOf
+        | ExprKind.Break(_) -> ExprPrecedence.Break
+        | ExprKind.Continue(_) -> ExprPrecedence.Continue
+        | ExprKind.Ret(_) -> ExprPrecedence.Ret
+        | ExprKind.InlineAsm(_)
+        | ExprKind.LlvmInlineAsm(_) -> ExprPrecedence.InlineAsm
+        | ExprKind.MacCall(_) -> ExprPrecedence.Mac
+        | ExprKind.Struct(_) -> ExprPrecedence.Struct
+        | ExprKind.Repeat(_) -> ExprPrecedence.Repeat
+        | ExprKind.Paren(_) -> ExprPrecedence.Paren
+        | ExprKind.Try(_) -> ExprPrecedence.Try
+        | ExprKind.Yield(_) -> ExprPrecedence.Yield
+        | ExprKind.Err -> ExprPrecedence.Err
+        | ExprKind.EmitExpression(_) -> ExprPrecedence.Err
 
 type MacCall with
-    member self.span(): Span =
-        self.path.span.to_(self.args.span().unwrap_or(self.path.span))
+
+    member self.span() : Span =
+        self.path.span.to_ (self.args.span().unwrap_or (self.path.span))
 
 type MacArgs with
-    member self.delim(): token.DelimToken =
-        match self with
-            | MacArgs.Delimited(_, delim, _) -> delim.to_token()
-            | MacArgs.Empty | MacArgs.Eq(_) -> token.DelimToken.NoDelim
 
-    member self.span(): Option<Span> =
+    member self.delim() : token.DelimToken =
         match self with
-            | MacArgs.Empty -> None
-            | MacArgs.Delimited(dspan, _, _) -> Some(dspan.entire())
-            | MacArgs.Eq(eq_span, token_) -> Some(eq_span.to_(token_.span))
+        | MacArgs.Delimited(_, delim, _) -> delim.to_token ()
+        | MacArgs.Empty
+        | MacArgs.Eq(_) -> token.DelimToken.NoDelim
+
+    member self.span() : Option<Span> =
+        match self with
+        | MacArgs.Empty -> None
+        | MacArgs.Delimited(dspan, _, _) -> Some(dspan.entire ())
+        | MacArgs.Eq(eq_span, token_) -> Some(eq_span.to_ (token_.span))
 
     /// Tokens inside the delimiters or after `=`.
     /// Proc macros see these tokens, for example.
-    member self.inner_tokens(): token.TokenStream =
+    member self.inner_tokens() : token.TokenStream =
         match self with
-            | MacArgs.Empty -> token.TokenStream()
-            | MacArgs.Delimited(_, _, tokens) -> tokens.clone()
-            | MacArgs.Eq(_, token_) ->
-                token.TokenStream([token.TokenTree.Token(token_.clone()), token.Spacing.Alone])
+        | MacArgs.Empty -> token.TokenStream()
+        | MacArgs.Delimited(_, _, tokens) -> tokens.clone ()
+        | MacArgs.Eq(_, token_) ->
+            token.TokenStream(
+                [ token.TokenTree.Token(token_.clone ()), token.Spacing.Alone ]
+            )
 
     /// Whether a macro with these arguments needs a semicolon
     /// when used as a standalone item or statement.
-    member self.need_semicolon(): bool =
+    member self.need_semicolon() : bool =
         match self with
-            | MacArgs.Delimited(_, MacDelimiter.Brace, _) -> false
-            | _ -> true
+        | MacArgs.Delimited(_, MacDelimiter.Brace, _) -> false
+        | _ -> true
 
 type MacDelimiter with
-    member self.to_token(): token.DelimToken =
-        match self with
-            | MacDelimiter.Parenthesis -> token.DelimToken.Paren
-            | MacDelimiter.Bracket -> token.DelimToken.Bracket
-            | MacDelimiter.Brace -> token.DelimToken.Brace
 
-    static member from_token(delim: token.DelimToken): Option<MacDelimiter> =
+    member self.to_token() : token.DelimToken =
+        match self with
+        | MacDelimiter.Parenthesis -> token.DelimToken.Paren
+        | MacDelimiter.Bracket -> token.DelimToken.Bracket
+        | MacDelimiter.Brace -> token.DelimToken.Brace
+
+    static member from_token(delim: token.DelimToken) : Option<MacDelimiter> =
         match delim with
-            | token.DelimToken.Paren -> Some(MacDelimiter.Parenthesis)
-            | token.DelimToken.Bracket -> Some(MacDelimiter.Bracket)
-            | token.DelimToken.Brace -> Some(MacDelimiter.Brace)
-            | token.DelimToken.NoDelim -> None
+        | token.DelimToken.Paren -> Some(MacDelimiter.Parenthesis)
+        | token.DelimToken.Bracket -> Some(MacDelimiter.Bracket)
+        | token.DelimToken.Brace -> Some(MacDelimiter.Brace)
+        | token.DelimToken.NoDelim -> None
 
 type StrLit with
-    member self.as_lit(): Lit =
+
+    member self.as_lit() : Lit =
         let token_kind =
             match self.style with
             | StrStyle.Cooked -> token.LitKind.Str
             | StrStyle.Raw(n) -> token.LitKind.StrRaw(n)
+
         {
-            token = token.Lit.new_(token_kind, self.symbol, self.suffix)
+            token = token.Lit.new_ (token_kind, self.symbol, self.suffix)
             span = self.span
             kind = LitKind.Str(self.symbol_unescaped, self.style)
         }
@@ -502,8 +537,8 @@ type UintTy with
 *)
 
 type Ty with
-    member self.clone() =
-        self
+
+    member self.clone() = self
 
 //     member self.peel_refs() =
 //         let mutable final_ty = self
@@ -512,42 +547,57 @@ type Ty with
 //         final_ty
 
 type TyKind with
-    member self.is_implicit_self(): bool =
+
+    member self.is_implicit_self() : bool =
         match self with
         | TyKind.ImplicitSelf -> true
         | _ -> false
 
-    member self.is_unit(): bool =
+    member self.is_unit() : bool =
         match self with
-        | TyKind.Tup(tys) when tys.is_empty() -> true
+        | TyKind.Tup(tys) when tys.is_empty () -> true
         | _ -> false
 
 type InlineAsmTemplatePiece with
+
     /// Rebuilds the asm template string from its pieces.
-    static member to_string(s: Vec<InlineAsmTemplatePiece>): string =
-        let mutable out = String.new_()
+    static member to_string(s: Vec<InlineAsmTemplatePiece>) : string =
+        let mutable out = String.new_ ()
+
         for p in s do
-            write(out, "{}", p)
-        out.as_str()
+            write (out, "{}", p)
+
+        out.as_str ()
 
 type InlineAsmOptions with
-    member self.is_empty() =
-        self = InlineAsmOptions.NONE
-    member self.contains(opt: InlineAsmOptions) =
-        (self &&& opt) = opt
+
+    member self.is_empty() = self = InlineAsmOptions.NONE
+    member self.contains(opt: InlineAsmOptions) = (self &&& opt) = opt
 
 type Param with
+
     /// Attempts to cast parameter to `ExplicitSelf`.
-    member self.to_self(): Option<ExplicitSelf> =
+    member self.to_self() : Option<ExplicitSelf> =
         match self.pat.kind with
-        | PatKind.Ident(BindingMode.ByValue(mutbl), ident, _) when ident.name = kw.SelfLower ->
+        | PatKind.Ident(BindingMode.ByValue(mutbl), ident, _) when
+            ident.name = kw.SelfLower
+            ->
             match self.ty.kind with
-            | TyKind.ImplicitSelf -> Some(respan(self.pat.span, SelfKind.Value(mutbl)))
-            | TyKind.Rptr(lt, { ty=ty; mutbl=mutbl }) when ty.kind.is_implicit_self() ->
-                Some(respan(self.pat.span, SelfKind.Region(lt, mutbl)))
+            | TyKind.ImplicitSelf ->
+                Some(respan (self.pat.span, SelfKind.Value(mutbl)))
+            | TyKind.Rptr(lt,
+                          {
+                              ty = ty
+                              mutbl = mutbl
+                          }) when ty.kind.is_implicit_self () ->
+                Some(respan (self.pat.span, SelfKind.Region(lt, mutbl)))
             | _ ->
-                Some(respan(self.pat.span.to_(self.ty.span),
-                            SelfKind.Explicit(self.ty.clone(), mutbl)))
+                Some(
+                    respan (
+                        self.pat.span.to_ (self.ty.span),
+                        SelfKind.Explicit(self.ty.clone (), mutbl)
+                    )
+                )
         | _ -> None
 
 (*
@@ -596,15 +646,17 @@ type FnDecl with
 *)
 
 type Asyncness with
-    member self.is_async(): bool =
+
+    member self.is_async() : bool =
         match self with
         | Asyncness.Yes _ -> true
         | Asyncness.No -> false
 
     /// In this case this is an `async` return, the `NodeId` for the generated `impl Trait` item.
-    member self.opt_return_id(): Option<NodeId> =
+    member self.opt_return_id() : Option<NodeId> =
         match self with
-        | Asyncness.Yes (_, _, return_impl_trait_id) -> Some(return_impl_trait_id)
+        | Asyncness.Yes(_, _, return_impl_trait_id) ->
+            Some(return_impl_trait_id)
         | Asyncness.No -> None
 
 (*
@@ -635,17 +687,20 @@ type VisibilityKind with
 *)
 
 type VariantData with
+
     /// Return the fields of this variant.
-    member self.fields(): Vec<FieldDef> =
+    member self.fields() : Vec<FieldDef> =
         match self with
-            | VariantData.Struct(fields, _) | VariantData.Tuple(fields, _) -> fields
-            | _ -> Vec()
+        | VariantData.Struct(fields, _)
+        | VariantData.Tuple(fields, _) -> fields
+        | _ -> Vec()
 
     /// Return the `NodeId` of this variant's constructor, if it has one.
-    member self.ctor_id(): Option<NodeId> =
+    member self.ctor_id() : Option<NodeId> =
         match self with
-            | VariantData.Struct(_, _) -> None
-            | VariantData.Tuple(_, id) | VariantData.Unit(id) -> Some(id)
+        | VariantData.Struct(_, _) -> None
+        | VariantData.Tuple(_, id)
+        | VariantData.Unit(id) -> Some(id)
 
 (*
 
@@ -670,12 +725,13 @@ type FnHeader with
     //         || not(matches(ext), Extern.None)
 
     // interface Default with // for FnHeader
-    static member default_(): FnHeader = {
-        unsafety = Unsafety.No
-        asyncness = Asyncness.No
-        constness = Constness.No
-        ext = Extern.None
-    }
+    static member default_() : FnHeader =
+        {
+            unsafety = Unsafety.No
+            asyncness = Asyncness.No
+            constness = Constness.No
+            ext = Extern.None
+        }
 
 (*
 type ItemKind with

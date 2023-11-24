@@ -14,186 +14,237 @@ type IEnumerator<'T> = System.Collections.Generic.IEnumerator<'T>
 
 type 'T seq = IEnumerable<'T>
 
-let inline indexNotFound() = failwith SR.keyNotFoundAlt
+let inline indexNotFound () = failwith SR.keyNotFoundAlt
 
 module Enumerable =
 
-    let inline noReset() = failwith SR.resetNotSupported
-    let inline notStarted() = failwith SR.enumerationNotStarted
-    let inline alreadyFinished() = failwith SR.enumerationAlreadyFinished
+    let inline noReset () = failwith SR.resetNotSupported
+    let inline notStarted () = failwith SR.enumerationNotStarted
+    let inline alreadyFinished () = failwith SR.enumerationAlreadyFinished
 
     // [<Sealed>]
     [<CompiledName("Seq")>]
     type Enumerable<'T>(f) =
         interface IEnumerable<'T> with
-            member _.GetEnumerator() = f()
-        // interface System.Collections.IEnumerable with
-        //     member _.GetEnumerator() = f() :> System.Collections.IEnumerator
-        // override xs.ToString() =
-        //     let maxCount = 4
-        //     let mutable i = 0
-        //     let mutable str = "seq ["
-        //     use e: IEnumerator<'T> = f() // (xs :> IEnumerable<'T>).GetEnumerator()
-        //     while (i < maxCount && e.MoveNext()) do
-        //         if i > 0 then str <- str + "; "
-        //         str <- str + (string e.Current)
-        //         i <- i + 1
-        //     if i = maxCount then
-        //         str <- str + "; ..."
-        //     str + "]"
+            member _.GetEnumerator() = f ()
+    // interface System.Collections.IEnumerable with
+    //     member _.GetEnumerator() = f() :> System.Collections.IEnumerator
+    // override xs.ToString() =
+    //     let maxCount = 4
+    //     let mutable i = 0
+    //     let mutable str = "seq ["
+    //     use e: IEnumerator<'T> = f() // (xs :> IEnumerable<'T>).GetEnumerator()
+    //     while (i < maxCount && e.MoveNext()) do
+    //         if i > 0 then str <- str + "; "
+    //         str <- str + (string e.Current)
+    //         i <- i + 1
+    //     if i = maxCount then
+    //         str <- str + "; ..."
+    //     str + "]"
 
     [<CompiledName("Enumerator")>]
     type FromFunctions<'T>(next: unit -> 'T option, dispose: unit -> unit) =
         let mutable curr: 'T option = None
+
         interface IEnumerator<'T> with
-            member _.Current =
-                curr.Value
+            member _.Current = curr.Value
+
             member _.MoveNext() =
-                curr <- next()
+                curr <- next ()
                 curr.IsSome
+
             member _.Reset() = ()
-            member _.Dispose() = dispose()
-        // interface System.Collections.IEnumerator with
-        //     member _.Current =
-        //         curr.Value
-        //     member _.MoveNext() =
-        //         curr <- next()
-        //         curr.IsSome
-        //     member _.Reset() = ()
-        //     member _.Dispose() = dispose()
-        // interface System.IDisposable with
-        //     member _.Dispose() = dispose()
+            member _.Dispose() = dispose ()
+    // interface System.Collections.IEnumerator with
+    //     member _.Current =
+    //         curr.Value
+    //     member _.MoveNext() =
+    //         curr <- next()
+    //         curr.IsSome
+    //     member _.Reset() = ()
+    //     member _.Dispose() = dispose()
+    // interface System.IDisposable with
+    //     member _.Dispose() = dispose()
 
-    let fromFunction next: IEnumerator<'T> =
-        let dispose() = ()
+    let fromFunction next : IEnumerator<'T> =
+        let dispose () = ()
         new FromFunctions<'T>(next, dispose) :> IEnumerator<'T>
 
-    let fromFunctions next dispose: IEnumerator<'T> =
+    let fromFunctions next dispose : IEnumerator<'T> =
         new FromFunctions<'T>(next, dispose) :> IEnumerator<'T>
 
-    let empty<'T>(): IEnumerator<'T> =
-        let next(): 'T option = None
+    let empty<'T> () : IEnumerator<'T> =
+        let next () : 'T option = None
         fromFunction next
 
-    let singleton (x: 'T): IEnumerator<'T> =
+    let singleton (x: 'T) : IEnumerator<'T> =
         let mutable i = 0
-        let next() =
+
+        let next () =
             if i < 1 then
                 i <- i + 1
                 Some x
             else
                 None
+
         fromFunction next
 
-    let ofArray (arr: 'T[]): IEnumerator<'T> =
+    let ofArray (arr: 'T[]) : IEnumerator<'T> =
         let len = arr.Length
         let mutable i = 0
-        let next() =
+
+        let next () =
             if i < len then
                 i <- i + 1
                 Some(arr[i - 1])
             else
                 None
+
         fromFunction next
 
-    let ofList (xs: 'T list): IEnumerator<'T> =
+    let ofList (xs: 'T list) : IEnumerator<'T> =
         let mutable it = xs
-        let next() =
+
+        let next () =
             match it with
-            | head::tail ->
+            | head :: tail ->
                 it <- tail
                 Some head
             | _ -> None
+
         fromFunction next
 
-    let append (xs: 'T seq) (ys: 'T seq): IEnumerator<'T> =
+    let append (xs: 'T seq) (ys: 'T seq) : IEnumerator<'T> =
         let mutable i = -1
         let mutable innerOpt: IEnumerator<'T> option = None
         let mutable finished = false
-        let next() =
+
+        let next () =
             let mutable moveNext = false
+
             while not finished && not moveNext do
                 match innerOpt with
                 | Some inner ->
-                    if inner.MoveNext()
-                    then moveNext <- true
-                    else innerOpt <- None
+                    if inner.MoveNext() then
+                        moveNext <- true
+                    else
+                        innerOpt <- None
                 | None ->
                     if i < 1 then
                         i <- i + 1
-                        let it = if i = 0 then xs else ys
-                        innerOpt <- Some (it.GetEnumerator())
+
+                        let it =
+                            if i = 0 then
+                                xs
+                            else
+                                ys
+
+                        innerOpt <- Some(it.GetEnumerator())
                     else
                         finished <- true
-            if not finished && moveNext
-            then Some (innerOpt.Value.Current)
-            else None
+
+            if not finished && moveNext then
+                Some(innerOpt.Value.Current)
+            else
+                None
+
         fromFunction next
 
-    let concat (sources: 'T seq seq): IEnumerator<'T> =
+    let concat (sources: 'T seq seq) : IEnumerator<'T> =
         let mutable outerOpt: IEnumerator<'T seq> option = None
         let mutable innerOpt: IEnumerator<'T> option = None
         let mutable finished = false
-        let next() =
+
+        let next () =
             let mutable moveNext = false
+
             while not finished && not moveNext do
                 match outerOpt with
                 | Some outer ->
                     match innerOpt with
                     | Some inner ->
-                        if inner.MoveNext()
-                        then moveNext <- true
-                        else innerOpt <- None
+                        if inner.MoveNext() then
+                            moveNext <- true
+                        else
+                            innerOpt <- None
                     | None ->
                         if outer.MoveNext() then
                             let it = outer.Current
-                            innerOpt <- Some (it.GetEnumerator())
+                            innerOpt <- Some(it.GetEnumerator())
                         else
                             finished <- true
-                | None ->
-                    outerOpt <- Some (sources.GetEnumerator())
-            if not finished && moveNext
-            then Some (innerOpt.Value.Current)
-            else None
+                | None -> outerOpt <- Some(sources.GetEnumerator())
+
+            if not finished && moveNext then
+                Some(innerOpt.Value.Current)
+            else
+                None
+
         fromFunction next
 
-    let enumerateThenFinally f (e: IEnumerator<'T>): IEnumerator<'T> =
-        let next() =
-            if e.MoveNext()
-            then Some (e.Current)
-            else None
-        let dispose() = try e.Dispose() finally f()
+    let enumerateThenFinally f (e: IEnumerator<'T>) : IEnumerator<'T> =
+        let next () =
+            if e.MoveNext() then
+                Some(e.Current)
+            else
+                None
+
+        let dispose () =
+            try
+                e.Dispose()
+            finally
+                f ()
+
         fromFunctions next dispose
 
-    let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit): IEnumerator<'U> =
+    let generateWhileSome
+        (openf: unit -> 'T)
+        (compute: 'T -> 'U option)
+        (closef: 'T -> unit)
+        : IEnumerator<'U>
+        =
         let mutable finished = false
         let mutable state = None
-        let dispose() =
+
+        let dispose () =
             match state with
             | None -> ()
             | Some x ->
-                try closef x
-                finally state <- None
-        let next() =
+                try
+                    closef x
+                finally
+                    state <- None
+
+        let next () =
             if finished then
                 None
             else
                 if Option.isNone state then
-                    state <- Some (openf())
+                    state <- Some(openf ())
+
                 let res = compute state.Value
+
                 if Option.isNone res then
                     finished <- true
+
                 res
+
         fromFunctions next dispose
 
-    let unfold (f: 'State -> ('T * 'State) option) (state: 'State): IEnumerator<'T> =
+    let unfold
+        (f: 'State -> ('T * 'State) option)
+        (state: 'State)
+        : IEnumerator<'T>
+        =
         let mutable acc: 'State = state
-        let next() =
+
+        let next () =
             match f acc with
-            | Some (x, st) ->
+            | Some(x, st) ->
                 acc <- st
                 Some x
             | None -> None
+
         fromFunction next
 
 (*
@@ -390,10 +441,10 @@ module Enumerable =
 
 // let checkNonNull argName arg = () //if isNull arg then nullArg argName
 
-let mkSeq (f: unit -> IEnumerator<'T>): 'T seq =
+let mkSeq (f: unit -> IEnumerator<'T>) : 'T seq =
     Enumerable.Enumerable(f) :> 'T seq
 
-let ofSeq (xs: 'T seq): IEnumerator<'T> =
+let ofSeq (xs: 'T seq) : IEnumerator<'T> =
     // checkNonNull "source" xs
     xs.GetEnumerator()
 
@@ -408,7 +459,7 @@ let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
 
 let empty () =
     // delay (fun () -> Array.empty :> 'T seq)
-    mkSeq (fun () -> Enumerable.empty())
+    mkSeq (fun () -> Enumerable.empty ())
 
 let singleton (x: 'T) =
     // delay (fun () -> (Array.singleton x) :> 'T seq)
@@ -428,7 +479,14 @@ let generate create compute dispose =
 let generateIndexed create compute dispose =
     mkSeq (fun () ->
         let mutable i = -1
-        Enumerable.generateWhileSome create (fun x -> i <- i + 1; compute i x) dispose
+
+        Enumerable.generateWhileSome
+            create
+            (fun x ->
+                i <- i + 1
+                compute i x
+            )
+            dispose
     )
 
 // // let inline generateUsing (openf: unit -> ('U :> System.IDisposable)) compute =
@@ -450,26 +508,36 @@ let choose (chooser: 'T -> 'U option) (xs: 'T seq) =
         (fun () -> ofSeq xs)
         (fun e ->
             let mutable curr = None
+
             while (Option.isNone curr && e.MoveNext()) do
                 curr <- chooser e.Current
-            curr)
+
+            curr
+        )
         (fun e -> e.Dispose())
 
-let compareWith (comparer: 'T -> 'T -> int) (xs: 'T seq) (ys: 'T seq): int =
+let compareWith (comparer: 'T -> 'T -> int) (xs: 'T seq) (ys: 'T seq) : int =
     use e1 = ofSeq xs
     use e2 = ofSeq ys
     let mutable c = 0
     let mutable b1 = e1.MoveNext()
     let mutable b2 = e2.MoveNext()
+
     while c = 0 && b1 && b2 do
         c <- comparer e1.Current e2.Current
+
         if c = 0 then
             b1 <- e1.MoveNext()
             b2 <- e2.MoveNext()
-    if c <> 0 then c
-    elif b1 then 1
-    elif b2 then -1
-    else 0
+
+    if c <> 0 then
+        c
+    elif b1 then
+        1
+    elif b2 then
+        -1
+    else
+        0
 
 let compareTo (xs: 'T seq) (ys: 'T seq) =
     // LanguagePrimitives.GenericComparison xs ys
@@ -482,11 +550,14 @@ let equals (xs: 'T seq) (ys: 'T seq) =
     let mutable res = true
     let mutable b1 = e1.MoveNext()
     let mutable b2 = e2.MoveNext()
+
     while res && b1 && b2 do
         res <- e1.Current = e2.Current
+
         if res then
             b1 <- e1.MoveNext()
             b2 <- e2.MoveNext()
+
     res
 
 // let enumerateFromFunctions create moveNext current =
@@ -498,105 +569,144 @@ let equals (xs: 'T seq) (ys: 'T seq) =
 let finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> 'T seq) =
     mkSeq (fun () ->
         try
-            let e = restf() |> ofSeq
+            let e = restf () |> ofSeq
             Enumerable.enumerateThenFinally compensation e
         with ex ->
-            compensation()
+            compensation ()
             // reraise()
             failwith ex.Message
     )
 
 let enumerateThenFinally (source: 'T seq) (compensation: unit -> unit) =
-    finallyEnumerable(compensation, (fun () -> source))
+    finallyEnumerable (compensation, (fun () -> source))
 
-let enumerateUsing (resource: 'T :> System.IDisposable) (sourceGen: 'T -> 'U seq) =
-    finallyEnumerable(
+let enumerateUsing
+    (resource: 'T :> System.IDisposable)
+    (sourceGen: 'T -> 'U seq)
+    =
+    finallyEnumerable (
         (fun () -> resource.Dispose()),
-        (fun () -> sourceGen resource :> seq<_>))
+        (fun () -> sourceGen resource :> seq<_>)
+    )
 
 let enumerateWhile (guard: unit -> bool) (xs: 'T seq) =
-    concat (unfold (fun i -> if guard() then Some(xs, i + 1) else None) 0)
+    concat (
+        unfold
+            (fun i ->
+                if guard () then
+                    Some(xs, i + 1)
+                else
+                    None
+            )
+            0
+    )
 
 let exactlyOne (xs: 'T seq) =
     use e = ofSeq xs
+
     if e.MoveNext() then
         let v = e.Current
-        if e.MoveNext()
-        then invalidArg "source" SR.inputSequenceTooLong
-        else v
+
+        if e.MoveNext() then
+            invalidArg "source" SR.inputSequenceTooLong
+        else
+            v
     else
         invalidArg "source" SR.inputSequenceEmpty
 
 let tryExactlyOne (xs: 'T seq) =
     use e = ofSeq xs
+
     if e.MoveNext() then
         let v = e.Current
-        if e.MoveNext()
-        then None
-        else Some v
+
+        if e.MoveNext() then
+            None
+        else
+            Some v
     else
         None
 
 let exists predicate (xs: 'T seq) =
     use e = ofSeq xs
     let mutable found = false
+
     while (not found && e.MoveNext()) do
         found <- predicate e.Current
+
     found
 
 let exists2 (predicate: 'T1 -> 'T2 -> bool) (xs: 'T1 seq) (ys: 'T2 seq) =
     use e1 = ofSeq xs
     use e2 = ofSeq ys
     let mutable found = false
+
     while (not found && e1.MoveNext() && e2.MoveNext()) do
         found <- predicate e1.Current e2.Current
+
     found
 
-let contains (value: 'T) (xs: 'T seq) =
-    xs |> exists (fun x -> x = value)
+let contains (value: 'T) (xs: 'T seq) = xs |> exists (fun x -> x = value)
 
 let filter f (xs: 'T seq) =
-    xs |> choose (fun x -> if f x then Some x else None)
+    xs
+    |> choose (fun x ->
+        if f x then
+            Some x
+        else
+            None
+    )
 
-let tryFind predicate (xs: 'T seq)  =
+let tryFind predicate (xs: 'T seq) =
     use e = ofSeq xs
     let mutable res = None
+
     while (Option.isNone res && e.MoveNext()) do
         let c = e.Current
-        if predicate c then res <- Some c
+
+        if predicate c then
+            res <- Some c
+
     res
 
 let find predicate (xs: 'T seq) =
     match tryFind predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound ()
 
 let tryFindIndex predicate (xs: 'T seq) =
     let rec inner_loop i predicate (e: IEnumerator<'T>) =
         if e.MoveNext() then
-            if predicate e.Current then Some i
-            else inner_loop (i + 1) predicate e
+            if predicate e.Current then
+                Some i
+            else
+                inner_loop (i + 1) predicate e
         else
             None
+
     use e = ofSeq xs
     inner_loop 0 predicate e
 
 let findIndex predicate (xs: 'T seq) =
     match tryFindIndex predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound ()
 
 let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T seq) =
     let mutable acc = state
+
     for x in xs do
         acc <- folder acc x
+
     acc
 
 // Redirected from Array.ofSeq (see Replacements)
-let toArray (xs: 'T seq): 'T[] =
+let toArray (xs: 'T seq) : 'T[] =
     let res = ResizeArray<_>()
+
     for x in xs do
         res.Add(x)
+
     res |> asArray
 
 // Redirected to List.ofSeq (see Replacements)
@@ -610,15 +720,27 @@ let toArray (xs: 'T seq): 'T[] =
 let foldBack folder (xs: 'T seq) state =
     Array.foldBack folder (toArray xs) state
 
-let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 seq) (ys: 'T2 seq) =
+let fold2
+    (folder: 'State -> 'T1 -> 'T2 -> 'State)
+    (state: 'State)
+    (xs: 'T1 seq)
+    (ys: 'T2 seq)
+    =
     use e1 = ofSeq xs
     use e2 = ofSeq ys
     let mutable acc = state
+
     while e1.MoveNext() && e2.MoveNext() do
         acc <- folder acc e1.Current e2.Current
+
     acc
 
-let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 seq) (ys: 'T2 seq) (state: 'State) =
+let foldBack2
+    (folder: 'T1 -> 'T2 -> 'State -> 'State)
+    (xs: 'T1 seq)
+    (ys: 'T2 seq)
+    (state: 'State)
+    =
     Array.foldBack2 folder (toArray xs) (toArray ys) state
 
 let forAll predicate (xs: 'T seq) =
@@ -628,24 +750,20 @@ let forAll2 predicate (xs: 'T1 seq) (ys: 'T2 seq) =
     not (exists2 (fun x y -> not (predicate x y)) xs ys)
 
 let tryFindBack predicate (xs: 'T seq) =
-    xs
-    |> toArray
-    |> Array.tryFindBack predicate
+    xs |> toArray |> Array.tryFindBack predicate
 
 let findBack predicate (xs: 'T seq) =
     match tryFindBack predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound ()
 
 let tryFindIndexBack predicate (xs: 'T seq) =
-    xs
-    |> toArray
-    |> Array.tryFindIndexBack predicate
+    xs |> toArray |> Array.tryFindIndexBack predicate
 
 let findIndexBack predicate (xs: 'T seq) =
     match tryFindIndexBack predicate xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound ()
 
 let tryHead (xs: 'T seq) =
     match xs with
@@ -653,9 +771,11 @@ let tryHead (xs: 'T seq) =
     // | :? list<'T> as a -> List.tryHead a
     | _ ->
         use e = ofSeq xs
-        if e.MoveNext()
-        then Some (e.Current)
-        else None
+
+        if e.MoveNext() then
+            Some(e.Current)
+        else
+            None
 
 let head (xs: 'T seq) =
     match tryHead xs with
@@ -664,13 +784,14 @@ let head (xs: 'T seq) =
 
 let initialize count f =
     let gen i =
-        if (i < count)
-        then Some(f i, i + 1)
-        else None
+        if (i < count) then
+            Some(f i, i + 1)
+        else
+            None
+
     unfold gen 0
 
-let initializeInfinite f =
-    initialize (System.Int32.MaxValue) f
+let initializeInfinite f = initialize (System.Int32.MaxValue) f
 
 let isEmpty (xs: 'T seq) =
     match xs with
@@ -686,37 +807,60 @@ let tryItem index (xs: 'T seq) =
     // | :? list<'T> as a -> List.tryItem index a
     | _ ->
         let mutable i = index
-        if i < 0 then None
+
+        if i < 0 then
+            None
         else
             use e = ofSeq xs
+
             while i >= 0 && e.MoveNext() do
                 i <- i - 1
-            if i >= 0 then None
-            else Some e.Current
+
+            if i >= 0 then
+                None
+            else
+                Some e.Current
 
 let item index (xs: 'T seq) =
     match tryItem index xs with
     | Some x -> x
     | None -> invalidArg "index" SR.notEnoughElements
 
-let iterate action (xs: 'T seq) =
-    fold (fun () x -> action x) () xs
+let iterate action (xs: 'T seq) = fold (fun () x -> action x) () xs
 
 let iterate2 action (xs: 'T1 seq) (ys: 'T2 seq) =
     fold2 (fun () x y -> action x y) () xs ys
 
 let iterateIndexed action (xs: 'T seq) =
-    fold (fun i x -> action i x; i + 1) 0 xs |> ignore
+    fold
+        (fun i x ->
+            action i x
+            i + 1
+        )
+        0
+        xs
+    |> ignore
 
 let iterateIndexed2 action (xs: 'T1 seq) (ys: 'T2 seq) =
-    fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
+    fold2
+        (fun i x y ->
+            action i x y
+            i + 1
+        )
+        0
+        xs
+        ys
+    |> ignore
 
 let tryLast (xs: 'T seq) =
     use e = ofSeq xs
+
     if e.MoveNext() then
         let mutable acc = e.Current
+
         while e.MoveNext() do
             acc <- e.Current
+
         Some acc
     else
         None
@@ -733,51 +877,91 @@ let length (xs: 'T seq) =
     | _ ->
         let mutable count = 0
         use e = ofSeq xs
+
         while e.MoveNext() do
             count <- count + 1
+
         count
 
 let map (mapping: 'T -> 'U) (xs: 'T seq) =
     generate
         (fun () -> ofSeq xs)
-        (fun e -> if e.MoveNext() then Some (mapping e.Current) else None)
+        (fun e ->
+            if e.MoveNext() then
+                Some(mapping e.Current)
+            else
+                None
+        )
         (fun e -> e.Dispose())
 
 let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T seq) =
     generateIndexed
         (fun () -> ofSeq xs)
-        (fun i e -> if e.MoveNext() then Some (mapping i e.Current) else None)
+        (fun i e ->
+            if e.MoveNext() then
+                Some(mapping i e.Current)
+            else
+                None
+        )
         (fun e -> e.Dispose())
 
-let indexed (xs: 'T seq) =
-    xs |> mapIndexed (fun i x -> (i, x))
+let indexed (xs: 'T seq) = xs |> mapIndexed (fun i x -> (i, x))
 
 let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 seq) (ys: 'T2 seq) =
     generate
         (fun () -> (ofSeq xs, ofSeq ys))
         (fun (e1, e2) ->
-            if e1.MoveNext() && e2.MoveNext()
-            then Some (mapping e1.Current e2.Current)
-            else None)
-        (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
+            if e1.MoveNext() && e2.MoveNext() then
+                Some(mapping e1.Current e2.Current)
+            else
+                None
+        )
+        (fun (e1, e2) ->
+            try
+                e1.Dispose()
+            finally
+                e2.Dispose()
+        )
 
 let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 seq) (ys: 'T2 seq) =
     generateIndexed
         (fun () -> (ofSeq xs, ofSeq ys))
         (fun i (e1, e2) ->
-            if e1.MoveNext() && e2.MoveNext()
-            then Some (mapping i e1.Current e2.Current)
-            else None)
-        (fun (e1, e2) -> try e1.Dispose() finally e2.Dispose())
+            if e1.MoveNext() && e2.MoveNext() then
+                Some(mapping i e1.Current e2.Current)
+            else
+                None
+        )
+        (fun (e1, e2) ->
+            try
+                e1.Dispose()
+            finally
+                e2.Dispose()
+        )
 
-let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 seq) (ys: 'T2 seq) (zs: 'T3 seq) =
+let map3
+    (mapping: 'T1 -> 'T2 -> 'T3 -> 'U)
+    (xs: 'T1 seq)
+    (ys: 'T2 seq)
+    (zs: 'T3 seq)
+    =
     generate
         (fun () -> (ofSeq xs, ofSeq ys, ofSeq zs))
         (fun (e1, e2, e3) ->
-            if e1.MoveNext() && e2.MoveNext() && e3.MoveNext()
-            then Some (mapping e1.Current e2.Current e3.Current)
-            else None)
-        (fun (e1, e2, e3) -> try e1.Dispose() finally try e2.Dispose() finally e3.Dispose())
+            if e1.MoveNext() && e2.MoveNext() && e3.MoveNext() then
+                Some(mapping e1.Current e2.Current e3.Current)
+            else
+                None
+        )
+        (fun (e1, e2, e3) ->
+            try
+                e1.Dispose()
+            finally
+                try
+                    e2.Dispose()
+                finally
+                    e3.Dispose()
+        )
 
 let readOnly (xs: 'T seq) =
     // checkNonNull "source" xs
@@ -792,36 +976,38 @@ let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T seq) state =
     readOnly (ofArray arr), state
 
 let collect (mapping: 'T -> 'U seq) (xs: 'T seq) =
-    delay (fun () ->
-        concat (map mapping xs)
-    )
+    delay (fun () -> concat (map mapping xs))
 
 // Adapted from https://github.com/dotnet/fsharp/blob/eb1337f218275da5294b5fbab2cf77f35ca5f717/src/fsharp/FSharp.Core/seq.fs#L971
-let cache (xs: 'T seq): 'T seq =
+let cache (xs: 'T seq) : 'T seq =
     let prefix = ResizeArray<_>()
     let mutable enumOpt = None
     let mutable finished = false
+
     let result i =
         // TODO: enable lock in multi-threading context
         // lock prefix <| fun () ->
         if i < prefix.Count then
-            Some (prefix[i], i + 1)
+            Some(prefix[i], i + 1)
         else
             if enumOpt.IsNone then
-                enumOpt <- Some (xs.GetEnumerator())
+                enumOpt <- Some(xs.GetEnumerator())
+
             match enumOpt with
             | Some e when not finished ->
                 if e.MoveNext() then
                     prefix.Add(e.Current)
-                    Some (e.Current, i + 1)
+                    Some(e.Current, i + 1)
                 else
                     finished <- true
                     None
             | _ -> None
+
     unfold result 0
 
-let allPairs (xs: 'T1 seq) (ys: 'T2 seq): seq<'T1 * 'T2> =
+let allPairs (xs: 'T1 seq) (ys: 'T2 seq) : seq<'T1 * 'T2> =
     let ysCache = cache ys
+
     delay (fun () ->
         let mapping (x: 'T1) = ysCache |> map (fun y -> (x, y))
         concat (map mapping xs)
@@ -830,63 +1016,72 @@ let allPairs (xs: 'T1 seq) (ys: 'T2 seq): seq<'T1 * 'T2> =
 let tryPick chooser (xs: 'T seq) =
     use e = ofSeq xs
     let mutable res = None
+
     while (Option.isNone res && e.MoveNext()) do
         res <- chooser e.Current
+
     res
 
 let pick chooser (xs: 'T seq) =
     match tryPick chooser xs with
     | Some x -> x
-    | None -> indexNotFound()
+    | None -> indexNotFound ()
 
 let reduce folder (xs: 'T seq) =
     use e = ofSeq xs
+
     if e.MoveNext() then
         let mutable acc = e.Current
+
         while e.MoveNext() do
             acc <- folder acc e.Current
+
         acc
     else
         invalidOp SR.inputSequenceEmpty
 
 let reduceBack folder (xs: 'T seq) =
     let arr = toArray xs
-    if arr.Length > 0
-    then Array.reduceBack folder arr
-    else invalidOp SR.inputSequenceEmpty
 
-let replicate n x =
-    initialize n (fun _ -> x)
+    if arr.Length > 0 then
+        Array.reduceBack folder arr
+    else
+        invalidOp SR.inputSequenceEmpty
+
+let replicate n x = initialize n (fun _ -> x)
 
 let reverse (xs: 'T seq) =
-    delay (fun () ->
-        xs
-        |> toArray
-        |> Array.rev
-        |> ofArray
-    )
+    delay (fun () -> xs |> toArray |> Array.rev |> ofArray)
 
 let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T seq) =
     delay (fun () ->
         let first = singleton state
         let mutable acc = state
-        let rest = xs |> map (fun x -> acc <- folder acc x; acc)
+
+        let rest =
+            xs
+            |> map (fun x ->
+                acc <- folder acc x
+                acc
+            )
+
         append first rest
     )
 
 let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T seq) (state: 'State) =
     delay (fun () ->
         let arr = toArray xs
-        Array.scanBack folder arr state
-        |> ofArray
+        Array.scanBack folder arr state |> ofArray
     )
 
 let skip count (xs: 'T seq) =
     mkSeq (fun () ->
         let e = ofSeq xs
+
         for i = 1 to count do
             if not (e.MoveNext()) then
                 invalidArg "source" SR.notEnoughElements
+
         e
     )
 
@@ -907,15 +1102,17 @@ let skip count (xs: 'T seq) =
 let skipWhile predicate (xs: 'T seq) =
     delay (fun () ->
         let mutable skipped = true
-        xs |> filter (fun x ->
+
+        xs
+        |> filter (fun x ->
             if skipped then
                 skipped <- predicate x
+
             not skipped
         )
     )
 
-let tail (xs: 'T seq) =
-    skip 1 xs
+let tail (xs: 'T seq) = skip 1 xs
 
 let take count (xs: 'T seq) =
     generateIndexed
@@ -924,60 +1121,50 @@ let take count (xs: 'T seq) =
             if i < count then
                 if not (e.MoveNext()) then
                     invalidArg "source" SR.notEnoughElements
-                Some (e.Current)
-            else None)
+
+                Some(e.Current)
+            else
+                None
+        )
         (fun e -> e.Dispose())
 
 let takeWhile predicate (xs: 'T seq) =
     generate
         (fun () -> ofSeq xs)
         (fun e ->
-            if e.MoveNext() && predicate e.Current
-            then Some (e.Current)
-            else None)
+            if e.MoveNext() && predicate e.Current then
+                Some(e.Current)
+            else
+                None
+        )
         (fun e -> e.Dispose())
 
 let truncate count (xs: 'T seq) =
     generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
-            if i < count && e.MoveNext()
-            then Some (e.Current)
-            else None)
+            if i < count && e.MoveNext() then
+                Some(e.Current)
+            else
+                None
+        )
         (fun e -> e.Dispose())
 
-let zip (xs: 'T1 seq) (ys: 'T2 seq) =
-    map2 (fun x y -> (x, y)) xs ys
+let zip (xs: 'T1 seq) (ys: 'T2 seq) = map2 (fun x y -> (x, y)) xs ys
 
 let zip3 (xs: 'T1 seq) (ys: 'T2 seq) (zs: 'T3 seq) =
     map3 (fun x y z -> (x, y, z)) xs ys zs
 
 let pairwise (xs: 'T seq) =
-    delay (fun () ->
-        xs
-        |> toArray
-        |> Array.pairwise
-        |> ofArray
-    )
+    delay (fun () -> xs |> toArray |> Array.pairwise |> ofArray)
 
-let splitInto (chunks: int) (xs: 'T seq): 'T[] seq =
-    delay (fun () ->
-        xs
-        |> toArray
-        |> Array.splitInto chunks
-        |> ofArray
-    )
+let splitInto (chunks: int) (xs: 'T seq) : 'T[] seq =
+    delay (fun () -> xs |> toArray |> Array.splitInto chunks |> ofArray)
 
-let where predicate (xs: 'T seq) =
-    filter predicate xs
+let where predicate (xs: 'T seq) = filter predicate xs
 
-let windowed windowSize (xs: 'T seq): 'T[] seq =
-    delay (fun () ->
-        xs
-        |> toArray
-        |> Array.windowed windowSize
-        |> ofArray
-    )
+let windowed windowSize (xs: 'T seq) : 'T[] seq =
+    delay (fun () -> xs |> toArray |> Array.windowed windowSize |> ofArray)
 
 // let transpose (xss: seq<#'T seq>) = //TODO:
 let transpose (xss: 'T seq seq) =
@@ -997,8 +1184,7 @@ let sortWith (comparer: 'T -> 'T -> int) (xs: 'T seq) =
         ofArray arr
     )
 
-let sort (xs: 'T seq) =
-    sortWith compare xs
+let sort (xs: 'T seq) = sortWith compare xs
 
 let sortBy (projection: 'T -> 'U) (xs: 'T seq) =
     sortWith (fun x y -> compare (projection x) (projection y)) xs
@@ -1010,60 +1196,92 @@ let sortByDescending (projection: 'T -> 'U) (xs: 'T seq) =
     sortWith (fun x y -> (compare (projection x) (projection y)) * -1) xs
 
 [<CompiledName("sum")>]
-let inline sum (xs: 'T seq): 'T =
+let inline sum (xs: 'T seq) : 'T =
     let zero = LanguagePrimitives.GenericZero
     fold (fun acc x -> acc + x) zero xs
 
 [<CompiledName("sumBy")>]
-let inline sumBy (projection: 'T -> 'U) (xs: 'T seq): 'U =
+let inline sumBy (projection: 'T -> 'U) (xs: 'T seq) : 'U =
     let zero = LanguagePrimitives.GenericZero
     fold (fun acc x -> acc + (projection x)) zero xs
 
-let maxBy (projection: 'T -> 'U) (xs: 'T seq): 'T =
-    reduce (fun x y -> if (projection x) > (projection y) then x else y) xs
+let maxBy (projection: 'T -> 'U) (xs: 'T seq) : 'T =
+    reduce
+        (fun x y ->
+            if (projection x) > (projection y) then
+                x
+            else
+                y
+        )
+        xs
 
-let max (xs: 'T seq): 'T =
-    reduce (fun x y -> if x > y then x else y) xs
+let max (xs: 'T seq) : 'T =
+    reduce
+        (fun x y ->
+            if x > y then
+                x
+            else
+                y
+        )
+        xs
 
-let minBy (projection: 'T -> 'U) (xs: 'T seq): 'T =
-    reduce (fun x y -> if (projection x) < (projection y) then x else y) xs
+let minBy (projection: 'T -> 'U) (xs: 'T seq) : 'T =
+    reduce
+        (fun x y ->
+            if (projection x) < (projection y) then
+                x
+            else
+                y
+        )
+        xs
 
-let min (xs: 'T seq): 'T =
-    reduce (fun x y -> if x < y then x else y) xs
+let min (xs: 'T seq) : 'T =
+    reduce
+        (fun x y ->
+            if x < y then
+                x
+            else
+                y
+        )
+        xs
 
 [<CompiledName("average")>]
-let inline average (xs: 'T seq): 'T =
+let inline average (xs: 'T seq) : 'T =
     let mutable count = 0
     let zero = LanguagePrimitives.GenericZero
-    let folder acc x = count <- count + 1; acc + x
+
+    let folder acc x =
+        count <- count + 1
+        acc + x
+
     let total = fold folder zero xs
-    if count = 0 then invalidOp SR.inputSequenceEmpty
+
+    if count = 0 then
+        invalidOp SR.inputSequenceEmpty
+
     LanguagePrimitives.DivideByInt total count
 
 [<CompiledName("averageBy")>]
-let inline averageBy (projection: 'T -> 'U) (xs: 'T seq): 'U =
+let inline averageBy (projection: 'T -> 'U) (xs: 'T seq) : 'U =
     let mutable count = 0
     let zero = LanguagePrimitives.GenericZero
-    let folder acc x = count <- count + 1; acc + (projection x)
+
+    let folder acc x =
+        count <- count + 1
+        acc + (projection x)
+
     let total = fold folder zero xs
-    if count = 0 then invalidOp SR.inputSequenceEmpty
+
+    if count = 0 then
+        invalidOp SR.inputSequenceEmpty
+
     LanguagePrimitives.DivideByInt total count
 
 let permute f (xs: 'T seq) =
-    delay (fun () ->
-        xs
-        |> toArray
-        |> Array.permute f
-        |> ofArray
-    )
+    delay (fun () -> xs |> toArray |> Array.permute f |> ofArray)
 
-let chunkBySize (chunkSize: int) (xs: 'T seq): 'T[] seq =
-    delay (fun () ->
-        xs
-        |> toArray
-        |> Array.chunkBySize chunkSize
-        |> ofArray
-    )
+let chunkBySize (chunkSize: int) (xs: 'T seq) : 'T[] seq =
+    delay (fun () -> xs |> toArray |> Array.chunkBySize chunkSize |> ofArray)
 
 let distinct<'T when 'T: equality> (xs: 'T seq) =
     delay (fun () ->
@@ -1071,7 +1289,10 @@ let distinct<'T when 'T: equality> (xs: 'T seq) =
         xs |> filter (fun x -> hashSet.Add(x))
     )
 
-let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) =
+let distinctBy<'T, 'Key when 'Key: equality>
+    (projection: 'T -> 'Key)
+    (xs: 'T seq)
+    =
     delay (fun () ->
         let hashSet = System.Collections.Generic.HashSet<'Key>()
         xs |> filter (fun x -> hashSet.Add(projection x))
@@ -1079,143 +1300,191 @@ let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T se
 
 let except<'T when 'T: equality> (itemsToExclude: 'T seq) (xs: 'T seq) =
     delay (fun () ->
-        let hashSet = System.Collections.Generic.HashSet<'T>(toArray itemsToExclude)
+        let hashSet =
+            System.Collections.Generic.HashSet<'T>(toArray itemsToExclude)
+
         xs |> filter (fun x -> hashSet.Add(x))
     )
 
-let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq): ('Key * int) seq =
+let countBy<'T, 'Key when 'Key: equality>
+    (projection: 'T -> 'Key)
+    (xs: 'T seq)
+    : ('Key * int) seq
+    =
     delay (fun () ->
         let dict = System.Collections.Generic.Dictionary<'Key, int>()
         let keys = ResizeArray<'Key>()
+
         for x in xs do
             let key = projection x
+
             match dict.TryGetValue(key) with
-            | true, prev ->
-                dict[key] <- prev + 1
+            | true, prev -> dict[key] <- prev + 1
             | false, _ ->
                 dict[key] <- 1
                 keys.Add(key)
-        keys
-        |> asArray
-        |> Array.map (fun key -> key, dict[key])
-        |> ofArray
+
+        keys |> asArray |> Array.map (fun key -> key, dict[key]) |> ofArray
     )
 
-let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq): ('Key * 'T seq) seq =
+let groupBy<'T, 'Key when 'Key: equality>
+    (projection: 'T -> 'Key)
+    (xs: 'T seq)
+    : ('Key * 'T seq) seq
+    =
     delay (fun () ->
-        let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
+        let dict =
+            System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
+
         let keys = ResizeArray<'Key>()
+
         for x in xs do
             let key = projection x
+
             match dict.TryGetValue(key) with
-            | true, prev ->
-                prev.Add(x)
+            | true, prev -> prev.Add(x)
             | false, _ ->
-                dict.Add(key, ResizeArray [|x|])
+                dict.Add(key, ResizeArray [| x |])
                 keys.Add(key)
+
         keys
         |> asArray
         |> Array.map (fun key -> key, dict[key] |> asArray |> ofArray)
         |> ofArray
     )
 
-let insertAt (index: int) (y: 'T) (xs: 'T seq): 'T seq =
+let insertAt (index: int) (y: 'T) (xs: 'T seq) : 'T seq =
     let mutable isDone = false
+
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
+
     generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
-            if (isDone || i < index) && e.MoveNext()
-            then Some e.Current
+            if (isDone || i < index) && e.MoveNext() then
+                Some e.Current
             elif i = index then
                 isDone <- true
                 Some y
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds
-                None)
+
+                None
+        )
         (fun e -> e.Dispose())
 
-let insertManyAt (index: int) (ys: 'T seq) (xs: 'T seq): 'T seq =
+let insertManyAt (index: int) (ys: 'T seq) (xs: 'T seq) : 'T seq =
     // incomplete -1, in-progress 0, complete 1
     let mutable status = -1
+
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
+
     generateIndexed
         (fun () -> ofSeq xs, ofSeq ys)
         (fun i (e1, e2) ->
             if i = index then
                 status <- 0
+
             let inserted =
                 if status = 0 then
-                    if e2.MoveNext() then Some e2.Current
-                    else status <- 1; None
-                else None
+                    if e2.MoveNext() then
+                        Some e2.Current
+                    else
+                        status <- 1
+                        None
+                else
+                    None
+
             match inserted with
             | Some inserted -> Some inserted
             | None ->
-                if e1.MoveNext() then Some e1.Current
+                if e1.MoveNext() then
+                    Some e1.Current
                 else
                     if status < 1 then
                         invalidArg "index" SR.indexOutOfBounds
-                    None)
+
+                    None
+        )
         (fun (e1, e2) ->
             e1.Dispose()
-            e2.Dispose())
+            e2.Dispose()
+        )
 
-let removeAt (index: int) (xs: 'T seq): 'T seq =
+let removeAt (index: int) (xs: 'T seq) : 'T seq =
     let mutable isDone = false
+
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
+
     generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
-            if (isDone || i < index) && e.MoveNext()
-            then Some e.Current
+            if (isDone || i < index) && e.MoveNext() then
+                Some e.Current
             elif i = index && e.MoveNext() then
                 isDone <- true
-                if e.MoveNext() then Some e.Current else None
+
+                if e.MoveNext() then
+                    Some e.Current
+                else
+                    None
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds
-                None)
+
+                None
+        )
         (fun e -> e.Dispose())
 
-let removeManyAt (index: int) (count: int) (xs: 'T seq): 'T seq =
+let removeManyAt (index: int) (count: int) (xs: 'T seq) : 'T seq =
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
+
     generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
             if i < index then
-                if e.MoveNext() then Some e.Current
-                else invalidArg "index" SR.indexOutOfBounds
+                if e.MoveNext() then
+                    Some e.Current
+                else
+                    invalidArg "index" SR.indexOutOfBounds
             else
                 if i = index then
                     for _i = 1 to count do
-                        if not(e.MoveNext()) then
+                        if not (e.MoveNext()) then
                             invalidArg "count" SR.indexOutOfBounds
-                if e.MoveNext() then Some e.Current
-                else None)
+
+                if e.MoveNext() then
+                    Some e.Current
+                else
+                    None
+        )
         (fun e -> e.Dispose())
 
-let updateAt (index: int) (y: 'T) (xs: 'T seq): 'T seq =
+let updateAt (index: int) (y: 'T) (xs: 'T seq) : 'T seq =
     let mutable isDone = false
+
     if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
+
     generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
-            if (isDone || i < index) && e.MoveNext()
-            then Some e.Current
+            if (isDone || i < index) && e.MoveNext() then
+                Some e.Current
             elif i = index && e.MoveNext() then
                 isDone <- true
                 Some y
             else
                 if not isDone then
                     invalidArg "index" SR.indexOutOfBounds
-                None)
+
+                None
+        )
         (fun e -> e.Dispose())
 
 // // let init = initialize

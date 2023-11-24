@@ -34,46 +34,47 @@ module SetTree =
         | None -> acc
         | Some t2 ->
             match t2 with
-            | :? SetTreeNode<'T> as tn -> countAux tn.Left (countAux tn.Right (acc+1))
-            | _ -> acc+1
+            | :? SetTreeNode<'T> as tn ->
+                countAux tn.Left (countAux tn.Right (acc + 1))
+            | _ -> acc + 1
 
     let count s = countAux s 0
 
-// #if TRACE_SETS_AND_MAPS
-//     let mutable traceCount = 0
-//     let mutable numOnes = 0
-//     let mutable numNodes = 0
-//     let mutable numAdds = 0
-//     let mutable numRemoves = 0
-//     let mutable numLookups = 0
-//     let mutable numUnions = 0
-//     let mutable totalSizeOnNodeCreation = 0.0
-//     let mutable totalSizeOnSetAdd = 0.0
-//     let mutable totalSizeOnSetLookup = 0.0
+    // #if TRACE_SETS_AND_MAPS
+    //     let mutable traceCount = 0
+    //     let mutable numOnes = 0
+    //     let mutable numNodes = 0
+    //     let mutable numAdds = 0
+    //     let mutable numRemoves = 0
+    //     let mutable numLookups = 0
+    //     let mutable numUnions = 0
+    //     let mutable totalSizeOnNodeCreation = 0.0
+    //     let mutable totalSizeOnSetAdd = 0.0
+    //     let mutable totalSizeOnSetLookup = 0.0
 
-//     let report() =
-//        traceCount <- traceCount + 1
-//        if traceCount % 10000 = 0 then
-//            System.Console.WriteLine(
-//                 "#SetOne = {0}, #SetNode = {1}, #Add = {2}, #Remove = {3}, #Unions = {4}, #Lookups = {5}, avSetSizeOnNodeCreation = {6}, avSetSizeOnSetCreation = {7}, avSetSizeOnSetLookup = {8}",
-//                 numOnes, numNodes, numAdds, numRemoves, numUnions, numLookups,
-//                 (totalSizeOnNodeCreation / float (numNodes + numOnes)),
-//                 (totalSizeOnSetAdd / float numAdds),
-//                 (totalSizeOnSetLookup / float numLookups))
+    //     let report() =
+    //        traceCount <- traceCount + 1
+    //        if traceCount % 10000 = 0 then
+    //            System.Console.WriteLine(
+    //                 "#SetOne = {0}, #SetNode = {1}, #Add = {2}, #Remove = {3}, #Unions = {4}, #Lookups = {5}, avSetSizeOnNodeCreation = {6}, avSetSizeOnSetCreation = {7}, avSetSizeOnSetLookup = {8}",
+    //                 numOnes, numNodes, numAdds, numRemoves, numUnions, numLookups,
+    //                 (totalSizeOnNodeCreation / float (numNodes + numOnes)),
+    //                 (totalSizeOnSetAdd / float numAdds),
+    //                 (totalSizeOnSetLookup / float numLookups))
 
-//     let SetTreeLeaf n =
-//         report()
-//         numOnes <- numOnes + 1
-//         totalSizeOnNodeCreation <- totalSizeOnNodeCreation + 1.0
-//         SetTreeLeaf n
+    //     let SetTreeLeaf n =
+    //         report()
+    //         numOnes <- numOnes + 1
+    //         totalSizeOnNodeCreation <- totalSizeOnNodeCreation + 1.0
+    //         SetTreeLeaf n
 
-//     let SetTreeNode (x, l, r, h) =
-//         report()
-//         numNodes <- numNodes + 1
-//         let n = SetTreeNode (x, l, r, h)
-//         totalSizeOnNodeCreation <- totalSizeOnNodeCreation + float (count n)
-//         n
-// #endif
+    //     let SetTreeNode (x, l, r, h) =
+    //         report()
+    //         numNodes <- numNodes + 1
+    //         let n = SetTreeNode (x, l, r, h)
+    //         totalSizeOnNodeCreation <- totalSizeOnNodeCreation + float (count n)
+    //         n
+    // #endif
 
     let inline height (t: SetTree<'T>) =
         match t with
@@ -83,19 +84,19 @@ module SetTree =
             | :? SetTreeNode<'T> as tn -> tn.Height
             | _ -> 1
 
-// #if CHECKED
-//     let rec checkInvariant (t: SetTree<'T>) =
-//         // A good sanity check, loss of balance can hit perf
-//         match t with
-//         | None -> true
-//         | Some t2 ->
-//             match t2 with
-//             | :? SetTreeNode<'T> as tn  ->
-//                 let h1 = height tn.Left
-//                 let h2 = height tn.Right
-//                 (-2 <= (h1 - h2) && (h1 - h2) <= 2) && checkInvariant tn.Left && checkInvariant tn.Right
-//             | _ -> true
-// #endif
+    // #if CHECKED
+    //     let rec checkInvariant (t: SetTree<'T>) =
+    //         // A good sanity check, loss of balance can hit perf
+    //         match t with
+    //         | None -> true
+    //         | Some t2 ->
+    //             match t2 with
+    //             | :? SetTreeNode<'T> as tn  ->
+    //                 let h1 = height tn.Left
+    //                 let h2 = height tn.Right
+    //                 (-2 <= (h1 - h2) && (h1 - h2) <= 2) && checkInvariant tn.Left && checkInvariant tn.Right
+    //             | _ -> true
+    // #endif
 
     [<Literal>]
     let private tolerance = 2
@@ -103,15 +104,22 @@ module SetTree =
     let mk l k r : SetTree<'T> =
         let hl = height l
         let hr = height r
-        let m = if hl < hr then hr else hl
+
+        let m =
+            if hl < hr then
+                hr
+            else
+                hl
+
         if m = 0 then // m=0 ~ isEmpty l && isEmpty r
             SetTreeLeaf k |> Some
         else
-            SetTreeNode (k, l, r, m+1) :> SetTreeLeaf<'T> |> Some
+            SetTreeNode(k, l, r, m + 1) :> SetTreeLeaf<'T> |> Some
 
     let rebalance (t1: SetTree<'T>) v (t2: SetTree<'T>) =
         let t1h = height t1
         let t2h = height t2
+
         if t2h > t1h + tolerance then // right is heavier than left
             match t2.Value with
             | :? SetTreeNode<'T> as t2' ->
@@ -119,42 +127,56 @@ module SetTree =
                 if height t2'.Left > t1h + 1 then // balance left: combination
                     match t2'.Left.Value with
                     | :? SetTreeNode<'T> as t2l ->
-                        mk (mk t1 v t2l.Left) t2l.Key (mk t2l.Right t2'.Key t2'.Right)
+                        mk
+                            (mk t1 v t2l.Left)
+                            t2l.Key
+                            (mk t2l.Right t2'.Key t2'.Right)
                     | _ -> failwith "internal error: Set.rebalance"
                 else // rotate left
                     mk (mk t1 v t2'.Left) t2'.Key t2'.Right
             | _ -> failwith "internal error: Set.rebalance"
+        else if t1h > t2h + tolerance then // left is heavier than right
+            match t1.Value with
+            | :? SetTreeNode<'T> as t1' ->
+                // one of the nodes must have height > height t2 + 1
+                if height t1'.Right > t2h + 1 then // balance right: combination
+                    match t1'.Right.Value with
+                    | :? SetTreeNode<'T> as t1r ->
+                        mk
+                            (mk t1'.Left t1'.Key t1r.Left)
+                            t1r.Key
+                            (mk t1r.Right v t2)
+                    | _ -> failwith "internal error: Set.rebalance"
+                else
+                    mk t1'.Left t1'.Key (mk t1'.Right v t2)
+            | _ -> failwith "internal error: Set.rebalance"
         else
-            if t1h > t2h + tolerance then // left is heavier than right
-                match t1.Value with
-                | :? SetTreeNode<'T> as t1' ->
-                    // one of the nodes must have height > height t2 + 1
-                    if height t1'.Right > t2h + 1 then // balance right: combination
-                        match t1'.Right.Value with
-                        | :? SetTreeNode<'T> as t1r ->
-                            mk (mk t1'.Left t1'.Key t1r.Left) t1r.Key (mk t1r.Right v t2)
-                        | _ -> failwith "internal error: Set.rebalance"
-                    else
-                        mk t1'.Left t1'.Key (mk t1'.Right v t2)
-                | _ -> failwith "internal error: Set.rebalance"
-            else mk t1 v t2
+            mk t1 v t2
 
     let rec add (comparer: IComparer<'T>) k (t: SetTree<'T>) : SetTree<'T> =
         match t with
         | None -> SetTreeLeaf k |> Some
         | Some t2 ->
             let c = comparer.Compare(k, t2.Key)
+
             match t2 with
             | :? SetTreeNode<'T> as tn ->
-                if   c < 0 then rebalance (add comparer k tn.Left) tn.Key tn.Right
-                elif c = 0 then t
-                else            rebalance tn.Left tn.Key (add comparer k tn.Right)
+                if c < 0 then
+                    rebalance (add comparer k tn.Left) tn.Key tn.Right
+                elif c = 0 then
+                    t
+                else
+                    rebalance tn.Left tn.Key (add comparer k tn.Right)
             | _ ->
                 // nb. no check for rebalance needed for small trees, also be sure to reuse node already allocated
                 let c = comparer.Compare(k, t2.Key)
-                if c < 0   then SetTreeNode (k, empty, t, 2) :> SetTreeLeaf<'T> |> Some
-                elif c = 0 then t
-                else            SetTreeNode (k, t, empty, 2) :> SetTreeLeaf<'T> |> Some
+
+                if c < 0 then
+                    SetTreeNode(k, empty, t, 2) :> SetTreeLeaf<'T> |> Some
+                elif c = 0 then
+                    t
+                else
+                    SetTreeNode(k, t, empty, 2) :> SetTreeLeaf<'T> |> Some
 
     let rec balance comparer (t1: SetTree<'T>) k (t2: SetTree<'T>) =
         // Given t1 < k < t2 where t1 and t2 are "balanced",
@@ -177,11 +199,17 @@ module SetTree =
                         if t1n.Height + tolerance < t2n.Height then
                             // case: b, h1 too small
                             // push t1 into low side of t2, may increase height by 1 so rebalance
-                            rebalance (balance comparer t1 k t2n.Left) t2n.Key t2n.Right
+                            rebalance
+                                (balance comparer t1 k t2n.Left)
+                                t2n.Key
+                                t2n.Right
                         elif t2n.Height + tolerance < t1n.Height then
                             // case: c, h2 too small
                             // push t2 into high side of t1, may increase height by 1 so rebalance
-                            rebalance t1n.Left t1n.Key (balance comparer t1n.Right k t2)
+                            rebalance
+                                t1n.Left
+                                t1n.Key
+                                (balance comparer t1n.Right k t2)
                         else
                             // case: a, h1 and h2 meet balance requirement
                             mk t1 k t2
@@ -197,19 +225,24 @@ module SetTree =
             match t2 with
             | :? SetTreeNode<'T> as tn ->
                 let c = comparer.Compare(pivot, tn.Key)
-                if   c < 0 then // pivot t1
+
+                if c < 0 then // pivot t1
                     let t11Lo, havePivot, t11Hi = split comparer pivot tn.Left
                     t11Lo, havePivot, balance comparer t11Hi tn.Key tn.Right
                 elif c = 0 then // pivot is k1
                     tn.Left, true, tn.Right
-                else            // pivot t2
+                else // pivot t2
                     let t12Lo, havePivot, t12Hi = split comparer pivot tn.Right
                     balance comparer tn.Left tn.Key t12Lo, havePivot, t12Hi
             | _ ->
                 let c = comparer.Compare(t2.Key, pivot)
-                if   c < 0 then t, false, empty // singleton under pivot
-                elif c = 0 then empty, true, empty // singleton is    pivot
-                else            empty, false, t        // singleton over  pivot
+
+                if c < 0 then
+                    t, false, empty // singleton under pivot
+                elif c = 0 then
+                    empty, true, empty // singleton is    pivot
+                else
+                    empty, false, t // singleton over  pivot
 
     let rec spliceOutSuccessor (t: SetTree<'T>) =
         match t with
@@ -217,8 +250,11 @@ module SetTree =
         | Some t2 ->
             match t2 with
             | :? SetTreeNode<'T> as tn ->
-                if isEmpty tn.Left then tn.Key, tn.Right
-                else let k3, l' = spliceOutSuccessor tn.Left in k3, mk l' tn.Key tn.Right
+                if isEmpty tn.Left then
+                    tn.Key, tn.Right
+                else
+                    let k3, l' = spliceOutSuccessor tn.Left in
+                    k3, mk l' tn.Key tn.Right
             | _ -> t2.Key, empty
 
     let rec remove (comparer: IComparer<'T>) k (t: SetTree<'T>) =
@@ -226,30 +262,41 @@ module SetTree =
         | None -> t
         | Some t2 ->
             let c = comparer.Compare(k, t2.Key)
+
             match t2 with
             | :? SetTreeNode<'T> as tn ->
-                if   c < 0 then rebalance (remove comparer k tn.Left) tn.Key tn.Right
+                if c < 0 then
+                    rebalance (remove comparer k tn.Left) tn.Key tn.Right
                 elif c = 0 then
-                    if isEmpty tn.Left then tn.Right
-                    elif isEmpty tn.Right then tn.Left
+                    if isEmpty tn.Left then
+                        tn.Right
+                    elif isEmpty tn.Right then
+                        tn.Left
                     else
                         let sk, r' = spliceOutSuccessor tn.Right
                         mk tn.Left sk r'
-                else rebalance tn.Left tn.Key (remove comparer k tn.Right)
+                else
+                    rebalance tn.Left tn.Key (remove comparer k tn.Right)
             | _ ->
-                if   c = 0 then empty
-                else t
+                if c = 0 then
+                    empty
+                else
+                    t
 
     let rec mem (comparer: IComparer<'T>) k (t: SetTree<'T>) =
         match t with
         | None -> false
         | Some t2 ->
             let c = comparer.Compare(k, t2.Key)
+
             match t2 with
             | :? SetTreeNode<'T> as tn ->
-                if   c < 0 then mem comparer k tn.Left
-                elif c = 0 then true
-                else mem comparer k tn.Right
+                if c < 0 then
+                    mem comparer k tn.Left
+                elif c = 0 then
+                    true
+                else
+                    mem comparer k tn.Right
             | _ -> (c = 0)
 
     let rec iter f (t: SetTree<'T>) =
@@ -257,20 +304,36 @@ module SetTree =
         | None -> ()
         | Some t2 ->
             match t2 with
-            | :? SetTreeNode<'T> as tn -> iter f tn.Left; f tn.Key; iter f tn.Right
+            | :? SetTreeNode<'T> as tn ->
+                iter f tn.Left
+                f tn.Key
+                iter f tn.Right
             | _ -> f t2.Key
 
-    let rec foldBackOpt (f: OptimizedClosures.FSharpFunc<_, _, _>) (t: SetTree<'T>) x =
+    let rec foldBackOpt
+        (f: OptimizedClosures.FSharpFunc<_, _, _>)
+        (t: SetTree<'T>)
+        x
+        =
         match t with
         | None -> x
         | Some t2 ->
             match t2 with
-            | :? SetTreeNode<'T> as tn -> foldBackOpt f tn.Left (f.Invoke(tn.Key, (foldBackOpt f tn.Right x)))
+            | :? SetTreeNode<'T> as tn ->
+                foldBackOpt
+                    f
+                    tn.Left
+                    (f.Invoke(tn.Key, (foldBackOpt f tn.Right x)))
             | _ -> f.Invoke(t2.Key, x)
 
-    let foldBack f m x = foldBackOpt (OptimizedClosures.FSharpFunc<_, _, _>.Adapt f) m x
+    let foldBack f m x =
+        foldBackOpt (OptimizedClosures.FSharpFunc<_, _, _>.Adapt f) m x
 
-    let rec foldOpt (f: OptimizedClosures.FSharpFunc<_, _, _>) x (t: SetTree<'T>) =
+    let rec foldOpt
+        (f: OptimizedClosures.FSharpFunc<_, _, _>)
+        x
+        (t: SetTree<'T>)
+        =
         match t with
         | None -> x
         | Some t2 ->
@@ -281,14 +344,16 @@ module SetTree =
                 foldOpt f x tn.Right
             | _ -> f.Invoke(x, t2.Key)
 
-    let fold f x m = foldOpt (OptimizedClosures.FSharpFunc<_, _, _>.Adapt f) x m
+    let fold f x m =
+        foldOpt (OptimizedClosures.FSharpFunc<_, _, _>.Adapt f) x m
 
     let rec forall f (t: SetTree<'T>) =
         match t with
         | None -> true
         | Some t2 ->
             match t2 with
-            | :? SetTreeNode<'T> as tn -> f tn.Key && forall f tn.Left && forall f tn.Right
+            | :? SetTreeNode<'T> as tn ->
+                f tn.Key && forall f tn.Left && forall f tn.Right
             | _ -> f t2.Key
 
     let rec exists f (t: SetTree<'T>) =
@@ -296,14 +361,15 @@ module SetTree =
         | None -> false
         | Some t2 ->
             match t2 with
-            | :? SetTreeNode<'T> as tn -> f tn.Key || exists f tn.Left || exists f tn.Right
+            | :? SetTreeNode<'T> as tn ->
+                f tn.Key || exists f tn.Left || exists f tn.Right
             | _ -> f t2.Key
 
-    let subset comparer a b  =
-        forall (fun x -> mem comparer x b) a
+    let subset comparer a b = forall (fun x -> mem comparer x b) a
 
-    let properSubset comparer a b  =
-        forall (fun x -> mem comparer x b) a && exists (fun x -> not (mem comparer x a)) b
+    let properSubset comparer a b =
+        forall (fun x -> mem comparer x b) a
+        && exists (fun x -> not (mem comparer x a)) b
 
     let rec filterAux comparer f (t: SetTree<'T>) acc =
         match t with
@@ -311,20 +377,34 @@ module SetTree =
         | Some t2 ->
             match t2 with
             | :? SetTreeNode<'T> as tn ->
-                let acc = if f tn.Key then add comparer tn.Key acc else acc
+                let acc =
+                    if f tn.Key then
+                        add comparer tn.Key acc
+                    else
+                        acc
+
                 filterAux comparer f tn.Left (filterAux comparer f tn.Right acc)
-            | _ -> if f t2.Key then add comparer t2.Key acc else acc
+            | _ ->
+                if f t2.Key then
+                    add comparer t2.Key acc
+                else
+                    acc
 
     let filter comparer f s = filterAux comparer f s empty
 
     let rec diffAux comparer (t: SetTree<'T>) acc =
-        if isEmpty acc then acc
+        if isEmpty acc then
+            acc
         else
             match t with
             | None -> acc
             | Some t2 ->
                 match t2 with
-                | :? SetTreeNode<'T> as tn -> diffAux comparer tn.Left (diffAux comparer tn.Right (remove comparer tn.Key acc))
+                | :? SetTreeNode<'T> as tn ->
+                    diffAux
+                        comparer
+                        tn.Left
+                        (diffAux comparer tn.Right (remove comparer tn.Key acc))
                 | _ -> remove comparer t2.Key acc
 
     let diff comparer a b = diffAux comparer b a
@@ -347,10 +427,20 @@ module SetTree =
                         //   Union disjoint subproblems and then combine.
                         if t1n.Height > t2n.Height then
                             let lo, _, hi = split comparer t1n.Key t2 in
-                            balance comparer (union comparer t1n.Left lo) t1n.Key (union comparer t1n.Right hi)
+
+                            balance
+                                comparer
+                                (union comparer t1n.Left lo)
+                                t1n.Key
+                                (union comparer t1n.Right hi)
                         else
                             let lo, _, hi = split comparer t2n.Key t1 in
-                            balance comparer (union comparer t2n.Left lo) t2n.Key (union comparer t2n.Right hi)
+
+                            balance
+                                comparer
+                                (union comparer t2n.Left lo)
+                                t2n.Key
+                                (union comparer t2n.Right hi)
                     | _ -> add comparer t2'.Key t1
                 | _ -> add comparer t1'.Key t2
 
@@ -361,14 +451,27 @@ module SetTree =
             match t2 with
             | :? SetTreeNode<'T> as tn ->
                 let acc = intersectionAux comparer b tn.Right acc
-                let acc = if mem comparer tn.Key b then add comparer tn.Key acc else acc
+
+                let acc =
+                    if mem comparer tn.Key b then
+                        add comparer tn.Key acc
+                    else
+                        acc
+
                 intersectionAux comparer b tn.Left acc
             | _ ->
-                if mem comparer t2.Key b then add comparer t2.Key acc else acc
+                if mem comparer t2.Key b then
+                    add comparer t2.Key acc
+                else
+                    acc
 
     let intersection comparer a b = intersectionAux comparer b a empty
 
-    let partition1 comparer f k (acc1, acc2) = if f k then (add comparer k acc1, acc2) else (acc1, add comparer k acc2)
+    let partition1 comparer f k (acc1, acc2) =
+        if f k then
+            (add comparer k acc1, acc2)
+        else
+            (acc1, add comparer k acc2)
 
     let rec partitionAux comparer f (t: SetTree<'T>) acc =
         match t with
@@ -381,7 +484,8 @@ module SetTree =
                 partitionAux comparer f tn.Left acc
             | _ -> partition1 comparer f t2.Key acc
 
-    let partition comparer f s = partitionAux comparer f s (empty, empty)
+    let partition comparer f s =
+        partitionAux comparer f s (empty, empty)
 
     let rec minimumElementAux (t: SetTree<'T>) n =
         match t with
@@ -412,7 +516,8 @@ module SetTree =
         | None -> None
         | Some t2 ->
             match t2 with
-            | :? SetTreeNode<'T> as tn -> Some(maximumElementAux tn.Right tn.Key)
+            | :? SetTreeNode<'T> as tn ->
+                Some(maximumElementAux tn.Right tn.Key)
             | _ -> Some t2.Key
 
     let minimumElement s =
@@ -427,15 +532,16 @@ module SetTree =
 
     // Imperative left-to-right iterators.
     [<NoEquality; NoComparison>]
-    type SetIterator<'T> when 'T: comparison  =
-        { mutable stack: SetTree<'T> list; // invariant: always collapseLHS result
-          mutable started: bool           // true when MoveNext has been called
+    type SetIterator<'T> when 'T: comparison =
+        {
+            mutable stack: SetTree<'T> list // invariant: always collapseLHS result
+            mutable started: bool // true when MoveNext has been called
         }
 
     // collapseLHS:
     // a) Always returns either [] or a list starting with SetOne.
     // b) The "fringe" of the set stack is unchanged.
-    let rec collapseLHS (stack: SetTree<'T> list)  =
+    let rec collapseLHS (stack: SetTree<'T> list) =
         match stack with
         | [] -> []
         | x :: rest ->
@@ -443,35 +549,48 @@ module SetTree =
             | None -> collapseLHS rest
             | Some x2 ->
                 match x2 with
-                | :? SetTreeNode<'T> as xn-> collapseLHS (xn.Left :: (SetTreeLeaf xn.Key |> Some) :: xn.Right :: rest)
+                | :? SetTreeNode<'T> as xn ->
+                    collapseLHS (
+                        xn.Left
+                        :: (SetTreeLeaf xn.Key |> Some)
+                        :: xn.Right
+                        :: rest
+                    )
                 | _ -> stack
 
-    let mkIterator s = { stack = collapseLHS [s]; started = false }
+    let mkIterator s =
+        {
+            stack = collapseLHS [ s ]
+            started = false
+        }
 
-    let notStarted() = failwith "Enumeration not started"
+    let notStarted () = failwith "Enumeration not started"
 
-    let alreadyFinished() = failwith "Enumeration already started"
+    let alreadyFinished () = failwith "Enumeration already started"
 
     let current i =
         if i.started then
             match i.stack with
             | None :: _ ->
-                failwith "Please report error: Set iterator, unexpected stack for current"
+                failwith
+                    "Please report error: Set iterator, unexpected stack for current"
             | Some t :: _ -> t.Key
-            | []     -> alreadyFinished()
+            | [] -> alreadyFinished ()
         else
-            notStarted()
+            notStarted ()
 
     let rec moveNext i =
         if i.started then
             match i.stack with
             | [] -> false
             | None :: rest ->
-                failwith "Please report error: Set iterator, unexpected stack for moveNext"
+                failwith
+                    "Please report error: Set iterator, unexpected stack for moveNext"
             | Some t :: rest ->
                 match t with
                 | :? SetTreeNode<'T> ->
-                    failwith "Please report error: Set iterator, unexpected stack for moveNext"
+                    failwith
+                        "Please report error: Set iterator, unexpected stack for moveNext"
                 | _ ->
                     i.stack <- collapseLHS rest
                     not i.stack.IsEmpty
@@ -481,72 +600,131 @@ module SetTree =
 
     let mkIEnumerator s =
         let mutable i = mkIterator s
+
         { new IEnumerator<'a> with
-              member _.Current: 'a = current i
-              member _.Current: obj = box (current i)
-              member _.MoveNext() = moveNext i
-              member _.Reset() = i <- mkIterator s
-              member _.Dispose() = () }
+            member _.Current: 'a = current i
+            member _.Current: obj = box (current i)
+            member _.MoveNext() = moveNext i
+            member _.Reset() = i <- mkIterator s
+            member _.Dispose() = ()
+        }
 
     /// Set comparison.  Note this can be expensive.
-    let rec compareStacks (comparer: IComparer<'T>) (l1:SetTree<'T> list) (l2:SetTree<'T> list) : int =
+    let rec compareStacks
+        (comparer: IComparer<'T>)
+        (l1: SetTree<'T> list)
+        (l2: SetTree<'T> list)
+        : int
+        =
         // This must be inlined to activate tail call recursion in Fable
-        let inline cont() =
+        let inline cont () =
             match l1, l2 with
             | (Some x1 :: t1), _ ->
                 match x1 with
                 | :? SetTreeNode<'T> as x1n ->
-                    compareStacks comparer (x1n.Left :: (SetTreeNode (x1n.Key, empty, x1n.Right, 0) :> SetTreeLeaf<'T> |> Some) :: t1) l2
-                | _ -> compareStacks comparer (empty :: (SetTreeLeaf x1.Key |> Some) :: t1) l2
+                    compareStacks
+                        comparer
+                        (x1n.Left
+                         :: (SetTreeNode(x1n.Key, empty, x1n.Right, 0)
+                             :> SetTreeLeaf<'T>
+                             |> Some)
+                         :: t1)
+                        l2
+                | _ ->
+                    compareStacks
+                        comparer
+                        (empty :: (SetTreeLeaf x1.Key |> Some) :: t1)
+                        l2
             | _, (Some x2 :: t2) ->
                 match x2 with
                 | :? SetTreeNode<'T> as x2n ->
-                    compareStacks comparer l1 (x2n.Left :: (SetTreeNode (x2n.Key, empty, x2n.Right, 0) :> SetTreeLeaf<'T> |> Some) :: t2)
-                | _ -> compareStacks comparer l1 (empty :: (SetTreeLeaf x2.Key |> Some) :: t2)
+                    compareStacks
+                        comparer
+                        l1
+                        (x2n.Left
+                         :: (SetTreeNode(x2n.Key, empty, x2n.Right, 0)
+                             :> SetTreeLeaf<'T>
+                             |> Some)
+                         :: t2)
+                | _ ->
+                    compareStacks
+                        comparer
+                        l1
+                        (empty :: (SetTreeLeaf x2.Key |> Some) :: t2)
             | _ -> failwith "unexpected state in SetTree.compareStacks"
 
         match l1, l2 with
-        | [], [] ->  0
-        | [], _  -> -1
-        | _, [] ->  1
+        | [], [] -> 0
+        | [], _ -> -1
+        | _, [] -> 1
         | (None :: t1), (None :: t2) -> compareStacks comparer t1 t2
-        | (None :: t1), (Some x2 :: t2) -> cont()
-        | (Some x1 :: t1), (None :: t2) -> cont()
+        | (None :: t1), (Some x2 :: t2) -> cont ()
+        | (Some x1 :: t1), (None :: t2) -> cont ()
         | (Some x1 :: t1), (Some x2 :: t2) ->
-                match x1 with
-                | :? SetTreeNode<'T> as x1n ->
-                    if isEmpty x1n.Left then
-                        match x2 with
-                        | :? SetTreeNode<'T> as x2n ->
-                            if isEmpty x2n.Left then
-                                let c = comparer.Compare(x1n.Key, x2n.Key)
-                                if c <> 0 then c else compareStacks comparer (x1n.Right :: t1) (x2n.Right :: t2)
-                            else cont()
-                        | _ ->
-                            let c = comparer.Compare(x1n.Key, x2.Key)
-                            if c <> 0 then c else compareStacks comparer (x1n.Right :: t1) (empty :: t2)
-                    else cont()
-                | _ ->
+            match x1 with
+            | :? SetTreeNode<'T> as x1n ->
+                if isEmpty x1n.Left then
                     match x2 with
                     | :? SetTreeNode<'T> as x2n ->
                         if isEmpty x2n.Left then
-                            let c = comparer.Compare(x1.Key, x2n.Key)
-                            if c <> 0 then c else compareStacks comparer (empty :: t1) (x2n.Right :: t2)
-                        else cont()
+                            let c = comparer.Compare(x1n.Key, x2n.Key)
+
+                            if c <> 0 then
+                                c
+                            else
+                                compareStacks
+                                    comparer
+                                    (x1n.Right :: t1)
+                                    (x2n.Right :: t2)
+                        else
+                            cont ()
                     | _ ->
-                        let c = comparer.Compare(x1.Key, x2.Key)
-                        if c <> 0 then c else compareStacks comparer t1 t2
+                        let c = comparer.Compare(x1n.Key, x2.Key)
+
+                        if c <> 0 then
+                            c
+                        else
+                            compareStacks
+                                comparer
+                                (x1n.Right :: t1)
+                                (empty :: t2)
+                else
+                    cont ()
+            | _ ->
+                match x2 with
+                | :? SetTreeNode<'T> as x2n ->
+                    if isEmpty x2n.Left then
+                        let c = comparer.Compare(x1.Key, x2n.Key)
+
+                        if c <> 0 then
+                            c
+                        else
+                            compareStacks
+                                comparer
+                                (empty :: t1)
+                                (x2n.Right :: t2)
+                    else
+                        cont ()
+                | _ ->
+                    let c = comparer.Compare(x1.Key, x2.Key)
+
+                    if c <> 0 then
+                        c
+                    else
+                        compareStacks comparer t1 t2
 
     let compare comparer (t1: SetTree<'T>) (t2: SetTree<'T>) =
         if isEmpty t1 then
-            if isEmpty t2 then 0
-            else -1
+            if isEmpty t2 then
+                0
+            else
+                -1
+        else if isEmpty t2 then
+            1
         else
-            if isEmpty t2 then 1
-            else compareStacks comparer [t1] [t2]
+            compareStacks comparer [ t1 ] [ t2 ]
 
-    let choose s =
-        minimumElement s
+    let choose s = minimumElement s
 
     let toList (t: SetTree<'T>) =
         let rec loop (t': SetTree<'T>) acc =
@@ -554,13 +732,21 @@ module SetTree =
             | None -> acc
             | Some t2 ->
                 match t2 with
-                | :? SetTreeNode<'T> as tn -> loop tn.Left (tn.Key :: loop tn.Right acc)
-                | _ ->  t2.Key :: acc
+                | :? SetTreeNode<'T> as tn ->
+                    loop tn.Left (tn.Key :: loop tn.Right acc)
+                | _ -> t2.Key :: acc
+
         loop t []
 
     let copyToArray s (arr: _[]) i =
         let mutable j = i
-        iter (fun x -> arr.[j] <- x; j <- j + 1) s
+
+        iter
+            (fun x ->
+                arr.[j] <- x
+                j <- j + 1
+            )
+            s
 
     let toArray s =
         let n = count s
@@ -571,7 +757,8 @@ module SetTree =
     let rec mkFromEnumerator comparer acc (e: IEnumerator<_>) =
         if e.MoveNext() then
             mkFromEnumerator comparer (add comparer e.Current acc) e
-        else acc
+        else
+            acc
 
     let ofArray comparer l =
         Array.fold (fun acc k -> add comparer k acc) empty l
@@ -595,7 +782,9 @@ open Fable.Core
 // [<DebuggerTypeProxy(typedefof<SetDebugView<_>>)>]
 // [<DebuggerDisplay("Count = {Count}")>]
 // [<CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1710:IdentifiersShouldHaveCorrectSuffix")>]
-type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T>, tree: SetTree<'T>) =
+type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>
+    (comparer: IComparer<'T>, tree: SetTree<'T>)
+    =
 
     // [<System.NonSerialized>]
     // NOTE: This type is logically immutable. This field is only mutated during deserialization.
@@ -636,100 +825,111 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     member internal set.Tree: SetTree<'T> = tree
 
     // [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
-    static member Empty comparer: Set<'T> =
-        Set<'T>(comparer, SetTree.empty)
+    static member Empty comparer : Set<'T> = Set<'T>(comparer, SetTree.empty)
 
-    member s.Add value: Set<'T> =
-// #if TRACE_SETS_AND_MAPS
-//         SetTree.report()
-//         SetTree.numAdds <- SetTree.numAdds + 1
-//         SetTree.totalSizeOnSetAdd <- SetTree.totalSizeOnSetAdd + float (SetTree.count s.Tree)
-// #endif
-        Set<'T>(s.Comparer, SetTree.add s.Comparer value s.Tree )
+    member s.Add value : Set<'T> =
+        // #if TRACE_SETS_AND_MAPS
+        //         SetTree.report()
+        //         SetTree.numAdds <- SetTree.numAdds + 1
+        //         SetTree.totalSizeOnSetAdd <- SetTree.totalSizeOnSetAdd + float (SetTree.count s.Tree)
+        // #endif
+        Set<'T>(s.Comparer, SetTree.add s.Comparer value s.Tree)
 
-    member s.Remove value: Set<'T> =
-// #if TRACE_SETS_AND_MAPS
-//         SetTree.report()
-//         SetTree.numRemoves <- SetTree.numRemoves + 1
-// #endif
+    member s.Remove value : Set<'T> =
+        // #if TRACE_SETS_AND_MAPS
+        //         SetTree.report()
+        //         SetTree.numRemoves <- SetTree.numRemoves + 1
+        // #endif
         Set<'T>(s.Comparer, SetTree.remove s.Comparer value s.Tree)
 
-    member s.Count =
-        SetTree.count s.Tree
+    member s.Count = SetTree.count s.Tree
 
     member s.Contains value =
-// #if TRACE_SETS_AND_MAPS
-//         SetTree.report()
-//         SetTree.numLookups <- SetTree.numLookups + 1
-//         SetTree.totalSizeOnSetLookup <- SetTree.totalSizeOnSetLookup + float (SetTree.count s.Tree)
-// #endif
-        SetTree.mem s.Comparer  value s.Tree
+        // #if TRACE_SETS_AND_MAPS
+        //         SetTree.report()
+        //         SetTree.numLookups <- SetTree.numLookups + 1
+        //         SetTree.totalSizeOnSetLookup <- SetTree.totalSizeOnSetLookup + float (SetTree.count s.Tree)
+        // #endif
+        SetTree.mem s.Comparer value s.Tree
 
-    member s.Iterate x =
-        SetTree.iter x s.Tree
+    member s.Iterate x = SetTree.iter x s.Tree
 
-    member s.Fold f z  =
+    member s.Fold f z =
         let f = OptimizedClosures.FSharpFunc<_, _, _>.Adapt f
         SetTree.fold (fun x z -> f.Invoke(z, x)) z s.Tree
 
     // [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
-    member s.IsEmpty =
-        SetTree.isEmpty s.Tree
+    member s.IsEmpty = SetTree.isEmpty s.Tree
 
-    member s.Partition f : Set<'T> *  Set<'T> =
-        if SetTree.isEmpty s.Tree then s,s
+    member s.Partition f : Set<'T> * Set<'T> =
+        if SetTree.isEmpty s.Tree then
+            s, s
         else
-            let t1, t2 = SetTree.partition s.Comparer f s.Tree in Set(s.Comparer, t1), Set(s.Comparer, t2)
+            let t1, t2 = SetTree.partition s.Comparer f s.Tree in
+            Set(s.Comparer, t1), Set(s.Comparer, t2)
 
     member s.Filter f : Set<'T> =
-        if SetTree.isEmpty s.Tree then s
+        if SetTree.isEmpty s.Tree then
+            s
         else
             Set(s.Comparer, SetTree.filter s.Comparer f s.Tree)
 
     member s.Map(f, [<Inject>] comparer: IComparer<'U>) : Set<'U> =
-        Set(comparer, SetTree.fold (fun acc k -> SetTree.add comparer (f k) acc) (SetTree.empty) s.Tree)
+        Set(
+            comparer,
+            SetTree.fold
+                (fun acc k -> SetTree.add comparer (f k) acc)
+                (SetTree.empty)
+                s.Tree
+        )
 
-    member s.Exists f =
-        SetTree.exists f s.Tree
+    member s.Exists f = SetTree.exists f s.Tree
 
-    member s.ForAll f =
-        SetTree.forall f s.Tree
+    member s.ForAll f = SetTree.forall f s.Tree
 
-    [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates")>]
-    static member (-) (set1: Set<'T>, set2: Set<'T>) =
-        if SetTree.isEmpty set1.Tree then set1 (* 0 - B = 0 *)
+    [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",
+                                                      "CA2225:OperatorOverloadsHaveNamedAlternates")>]
+    static member (-)(set1: Set<'T>, set2: Set<'T>) =
+        if SetTree.isEmpty set1.Tree then
+            set1 (* 0 - B = 0 *)
+        else if SetTree.isEmpty set2.Tree then
+            set1 (* A - 0 = A *)
         else
-            if SetTree.isEmpty set2.Tree then set1 (* A - 0 = A *)
-            else Set(set1.Comparer, SetTree.diff set1.Comparer set1.Tree set2.Tree)
+            Set(set1.Comparer, SetTree.diff set1.Comparer set1.Tree set2.Tree)
 
-    [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates")>]
-    static member (+) (set1: Set<'T>, set2: Set<'T>) =
-// #if TRACE_SETS_AND_MAPS
-//         SetTree.report()
-//         SetTree.numUnions <- SetTree.numUnions + 1
-// #endif
-        if SetTree.isEmpty set2.Tree then set1  (* A U 0 = A *)
+    [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage",
+                                                      "CA2225:OperatorOverloadsHaveNamedAlternates")>]
+    static member (+)(set1: Set<'T>, set2: Set<'T>) =
+        // #if TRACE_SETS_AND_MAPS
+        //         SetTree.report()
+        //         SetTree.numUnions <- SetTree.numUnions + 1
+        // #endif
+        if SetTree.isEmpty set2.Tree then
+            set1 (* A U 0 = A *)
+        else if SetTree.isEmpty set1.Tree then
+            set2 (* 0 U B = B *)
         else
-            if SetTree.isEmpty set1.Tree then set2  (* 0 U B = B *)
-            else Set(set1.Comparer, SetTree.union set1.Comparer set1.Tree set2.Tree)
+            Set(set1.Comparer, SetTree.union set1.Comparer set1.Tree set2.Tree)
 
-    static member Intersection(a: Set<'T>, b: Set<'T>) : Set<'T>  =
-        if SetTree.isEmpty b.Tree then b  (* A INTER 0 = 0 *)
+    static member Intersection(a: Set<'T>, b: Set<'T>) : Set<'T> =
+        if SetTree.isEmpty b.Tree then
+            b (* A INTER 0 = 0 *)
+        else if SetTree.isEmpty a.Tree then
+            a (* 0 INTER B = 0 *)
         else
-            if SetTree.isEmpty a.Tree then a (* 0 INTER B = 0 *)
-            else Set(a.Comparer, SetTree.intersection a.Comparer a.Tree b.Tree)
+            Set(a.Comparer, SetTree.intersection a.Comparer a.Tree b.Tree)
 
     // static member Union(sets:seq<Set<'T>>) : Set<'T>  =
     //     Seq.fold (fun s1 s2 -> s1 + s2) Set<'T>.Empty sets
 
-    static member IntersectionMany(sets:seq<Set<'T>>) : Set<'T>  =
+    static member IntersectionMany(sets: seq<Set<'T>>) : Set<'T> =
         Seq.reduce (fun s1 s2 -> Set.Intersection(s1, s2)) sets
 
     static member Equality(a: Set<'T>, b: Set<'T>) =
-        (SetTree.compare a.Comparer  a.Tree b.Tree = 0)
+        (SetTree.compare a.Comparer a.Tree b.Tree = 0)
 
     static member Compare(a: Set<'T>, b: Set<'T>) =
-        SetTree.compare a.Comparer  a.Tree b.Tree
+        SetTree.compare a.Comparer a.Tree b.Tree
 
     // [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member x.Choose = SetTree.choose x.Tree
@@ -752,15 +952,17 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     member x.IsProperSupersetOf(otherSet: Set<'T>) =
         SetTree.properSubset x.Comparer otherSet.Tree x.Tree
 
-    member x.ToList () = SetTree.toList x.Tree
+    member x.ToList() = SetTree.toList x.Tree
 
-    member x.ToArray () = SetTree.toArray x.Tree
+    member x.ToArray() = SetTree.toArray x.Tree
 
     member this.ComputeHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
         let mutable res = 0
+
         for x in this do
             res <- combineHash res (hash x)
+
         abs res
 
     override this.GetHashCode() = this.ComputeHashCode()
@@ -775,16 +977,24 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
         member _.``Symbol.toStringTag`` = "FSharpSet"
 
     interface IJsonSerializable with
-        member this.toJSON() =
-            Helpers.arrayFrom(this) |> box
+        member this.toJSON() = Helpers.arrayFrom (this) |> box
 
     interface System.IComparable with
-        member s.CompareTo(that: obj) = SetTree.compare s.Comparer s.Tree ((that :?> Set<'T>).Tree)
+        member s.CompareTo(that: obj) =
+            SetTree.compare s.Comparer s.Tree ((that :?> Set<'T>).Tree)
 
     interface ICollection<'T> with
-        member s.Add x = ignore x; raise (System.NotSupportedException("ReadOnlyCollection"))
-        member s.Clear() = raise (System.NotSupportedException("ReadOnlyCollection"))
-        member s.Remove x = ignore x; raise (System.NotSupportedException("ReadOnlyCollection"))
+        member s.Add x =
+            ignore x
+            raise (System.NotSupportedException("ReadOnlyCollection"))
+
+        member s.Clear() =
+            raise (System.NotSupportedException("ReadOnlyCollection"))
+
+        member s.Remove x =
+            ignore x
+            raise (System.NotSupportedException("ReadOnlyCollection"))
+
         member s.Contains x = SetTree.mem s.Comparer x s.Tree
         member s.CopyTo(arr, i) = SetTree.copyToArray s.Tree arr i
         member s.IsReadOnly = true
@@ -797,18 +1007,29 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
         member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree
 
     interface System.Collections.IEnumerable with
-        member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree :> System.Collections.IEnumerator
+        member s.GetEnumerator() =
+            SetTree.mkIEnumerator s.Tree :> System.Collections.IEnumerator
 
     interface JS.Set<'T> with
         member s.size = s.Count
-        member s.add(k) = failwith "Set cannot be mutated"; s :> JS.Set<'T>
-        member s.clear() = failwith "Set cannot be mutated"; ()
-        member s.delete(k) = failwith "Set cannot be mutated"; false
+
+        member s.add(k) =
+            failwith "Set cannot be mutated"
+            s :> JS.Set<'T>
+
+        member s.clear() =
+            failwith "Set cannot be mutated"
+            ()
+
+        member s.delete(k) =
+            failwith "Set cannot be mutated"
+            false
+
         member s.has(k) = s.Contains(k)
         member s.keys() = s |> Seq.map id
         member s.values() = s |> Seq.map id
         member s.entries() = s |> Seq.map (fun v -> (v, v))
-        member s.forEach (f, ?thisArg) = s |> Seq.iter (fun x -> f x x s)
+        member s.forEach(f, ?thisArg) = s |> Seq.iter (fun x -> f x x s)
 
     // new (elements : seq<'T>) =
     //     let comparer = LanguagePrimitives.FastGenericComparer<'T>
@@ -846,23 +1067,27 @@ let singleton (value: 'T) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
 let remove value (set: Set<'T>) = set.Remove value
 
 // [<CompiledName("Union")>]
-let union (set1: Set<'T>) (set2: Set<'T>)  = set1 + set2
+let union (set1: Set<'T>) (set2: Set<'T>) = set1 + set2
 
 // [<CompiledName("UnionMany")>]
 let unionMany (sets: seq<Set<'T>>) ([<Inject>] comparer: IComparer<'T>) =
     Seq.fold (fun s1 s2 -> s1 + s2) (Set<'T>.Empty comparer) sets
 
 // [<CompiledName("Intersect")>]
-let intersect (set1: Set<'T>) (set2: Set<'T>)  = Set<'T>.Intersection(set1, set2)
+let intersect (set1: Set<'T>) (set2: Set<'T>) = Set<'T>.Intersection(set1, set2)
 
 // [<CompiledName("IntersectMany")>]
-let intersectMany (sets: seq<Set<'T>>)  = Set.IntersectionMany sets
+let intersectMany (sets: seq<Set<'T>>) = Set.IntersectionMany sets
 
 // [<CompiledName("Iterate")>]
-let iterate action (set: Set<'T>)  = set.Iterate action
+let iterate action (set: Set<'T>) = set.Iterate action
 
 // [<CompiledName("Empty")>]
-let empty<'T when 'T : comparison> ([<Inject>] comparer: IComparer<'T>): Set<'T> = Set<'T>.Empty comparer
+let empty<'T when 'T: comparison>
+    ([<Inject>] comparer: IComparer<'T>)
+    : Set<'T>
+    =
+    Set<'T>.Empty comparer
 
 // [<CompiledName("ForAll")>]
 let forAll predicate (set: Set<'T>) = set.ForAll predicate
@@ -877,13 +1102,20 @@ let filter predicate (set: Set<'T>) = set.Filter predicate
 let partition predicate (set: Set<'T>) = set.Partition predicate
 
 // [<CompiledName("Fold")>]
-let fold<'T, 'State  when 'T : comparison> folder (state:'State) (set: Set<'T>) = SetTree.fold folder state set.Tree
+let fold<'T, 'State when 'T: comparison> folder (state: 'State) (set: Set<'T>) =
+    SetTree.fold folder state set.Tree
 
 // [<CompiledName("FoldBack")>]
-let foldBack<'T, 'State when 'T : comparison> folder (set: Set<'T>) (state:'State) = SetTree.foldBack folder set.Tree state
+let foldBack<'T, 'State when 'T: comparison>
+    folder
+    (set: Set<'T>)
+    (state: 'State)
+    =
+    SetTree.foldBack folder set.Tree state
 
 // [<CompiledName("Map")>]
-let map mapping (set: Set<'T>) ([<Inject>] comparer: IComparer<'U>) = set.Map(mapping, comparer)
+let map mapping (set: Set<'T>) ([<Inject>] comparer: IComparer<'U>) =
+    set.Map(mapping, comparer)
 
 // [<CompiledName("Count")>]
 let count (set: Set<'T>) = set.Count
@@ -913,16 +1145,20 @@ let ofSeq (elements: seq<_>) ([<Inject>] comparer: IComparer<'T>) =
 let difference (set1: Set<'T>) (set2: Set<'T>) = set1 - set2
 
 // [<CompiledName("IsSubset")>]
-let isSubset (set1:Set<'T>) (set2: Set<'T>) = SetTree.subset set1.Comparer set1.Tree set2.Tree
+let isSubset (set1: Set<'T>) (set2: Set<'T>) =
+    SetTree.subset set1.Comparer set1.Tree set2.Tree
 
 // [<CompiledName("IsSuperset")>]
-let isSuperset (set1:Set<'T>) (set2: Set<'T>) = SetTree.subset set1.Comparer set2.Tree set1.Tree
+let isSuperset (set1: Set<'T>) (set2: Set<'T>) =
+    SetTree.subset set1.Comparer set2.Tree set1.Tree
 
 // [<CompiledName("IsProperSubset")>]
-let isProperSubset (set1:Set<'T>) (set2: Set<'T>) = SetTree.properSubset set1.Comparer set1.Tree set2.Tree
+let isProperSubset (set1: Set<'T>) (set2: Set<'T>) =
+    SetTree.properSubset set1.Comparer set1.Tree set2.Tree
 
 // [<CompiledName("IsProperSuperset")>]
-let isProperSuperset (set1:Set<'T>) (set2: Set<'T>) = SetTree.properSubset set1.Comparer set2.Tree set1.Tree
+let isProperSuperset (set1: Set<'T>) (set2: Set<'T>) =
+    SetTree.properSubset set1.Comparer set2.Tree set1.Tree
 
 // [<CompiledName("MinElement")>]
 let minElement (set: Set<'T>) = set.MinimumElement
@@ -944,24 +1180,25 @@ let newMutableSetWith (s1: JS.Set<'T>) (s2: 'T seq) =
 
 let intersectWith (s1: JS.Set<'T>) (s2: 'T seq) =
     let s2 = newMutableSetWith s1 s2
-    s1.values() |> Seq.iter (fun x ->
-        if not (s2.has(x)) then
-            s1.delete x |> ignore)
+
+    s1.values ()
+    |> Seq.iter (fun x ->
+        if not (s2.has (x)) then
+            s1.delete x |> ignore
+    )
 
 let exceptWith (s1: JS.Set<'T>) (s2: 'T seq) =
-    s2 |> Seq.iter (fun x ->
-        s1.delete x |> ignore)
+    s2 |> Seq.iter (fun x -> s1.delete x |> ignore)
 
 let isSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) =
     let s2 = newMutableSetWith s1 s2
-    s1.values() |> Seq.forall s2.has
+    s1.values () |> Seq.forall s2.has
 
-let isSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) =
-    s2 |> Seq.forall s1.has
+let isSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) = s2 |> Seq.forall s1.has
 
 let isProperSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) =
     let s2 = newMutableSetWith s1 s2
-    s2.size > s1.size && s1.values() |> Seq.forall s2.has
+    s2.size > s1.size && s1.values () |> Seq.forall s2.has
 
 let isProperSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) =
     let s2 = Seq.cache s2

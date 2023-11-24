@@ -7,6 +7,23 @@ on:
     branches: [ main ]
 
 jobs:
+  # Separate job that verifies if all code was formatted correctly
+  # Run `dotnet fantomas .` to format all code.
+  verify-linting:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Check F# code
+        run: dotnet fantomas . --check
+
   # Separate build job for JavaScript
   build-javascript:
     runs-on: ubuntu-latest

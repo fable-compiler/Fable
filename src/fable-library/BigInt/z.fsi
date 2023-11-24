@@ -4,62 +4,62 @@
 namespace BigInt
 #if FX_NO_BIGINT
 
-    open System
-    open Microsoft.FSharp.Collections
-    open Microsoft.FSharp.Core
-    
-    /// The type of arbitrary-sized integers
-    [<Struct>]
-    [<CustomEquality; CustomComparison>]
-    type BigInteger =
-        /// Return the sum of two big integers
-        static member ( + )      : x:BigInteger * y:BigInteger -> BigInteger
-        /// Return the modulus of big integers
-        static member ( % )      : x:BigInteger * y:BigInteger -> BigInteger
-        /// Return the product of big integers
-        static member ( * )      : x:BigInteger * y:BigInteger -> BigInteger
-        /// Return the difference of two big integers
-        static member ( - )      : x:BigInteger * y:BigInteger -> BigInteger
-        /// Return the ratio of two big integers
-        static member ( / )      : x:BigInteger * y:BigInteger -> BigInteger
-        /// Return the negation of a big integer
-        static member (~-)       : x:BigInteger -> BigInteger
-        /// Return the given big integer
-        static member (~+)       : x:BigInteger -> BigInteger
+open System
+open Microsoft.FSharp.Collections
+open Microsoft.FSharp.Core
 
-        /// Return the bitwise right-shift of big integer
-        static member (>>>)      : x:BigInteger * y:int32 -> BigInteger
-        /// Return the bitwise left-shift of big integer
-        static member (<<<)      : x:BigInteger * y:int32 -> BigInteger
-        /// Return the bitwise and of two big integers
-        static member (&&&)      : x:BigInteger * y:BigInteger -> BigInteger
-        /// Return the bitwise or of two big integers
-        static member (|||)      : x:BigInteger * y:BigInteger -> BigInteger
-        /// Return the bitwise xor of two big integers
-        static member (^^^)      : x:BigInteger * y:BigInteger -> BigInteger
+/// The type of arbitrary-sized integers
+[<Struct>]
+[<CustomEquality; CustomComparison>]
+type BigInteger =
+    /// Return the sum of two big integers
+    static member (+): x: BigInteger * y: BigInteger -> BigInteger
+    /// Return the modulus of big integers
+    static member (%): x: BigInteger * y: BigInteger -> BigInteger
+    /// Return the product of big integers
+    static member (*): x: BigInteger * y: BigInteger -> BigInteger
+    /// Return the difference of two big integers
+    static member (-): x: BigInteger * y: BigInteger -> BigInteger
+    /// Return the ratio of two big integers
+    static member (/): x: BigInteger * y: BigInteger -> BigInteger
+    /// Return the negation of a big integer
+    static member (~-): x: BigInteger -> BigInteger
+    /// Return the given big integer
+    static member (~+): x: BigInteger -> BigInteger
 
-        /// Convert a big integer to a 8-bit signed integer
-        member ToSByte : sbyte
-        /// Convert a big integer to a 8-bit unsigned integer
-        member ToByte : byte
-        /// Convert a big integer to a 16-bit signed integer
-        member ToInt16 : int16
-        /// Convert a big integer to a 16-bit unsigned integer
-        member ToUInt16 : uint16
-        /// Convert a big integer to a 32-bit signed integer
-        member ToInt32 : int32
-        /// Convert a big integer to a 32-bit unsigned integer
-        member ToUInt32 : uint32
-        /// Convert a big integer to a 64-bit signed integer
-        member ToInt64 : int64
-        /// Convert a big integer to a 64-bit unsigned integer
-        member ToUInt64 : uint64
-        /// Convert a big integer to a 32-bit floating point number
-        member ToSingle : single
-        /// Convert a big integer to a 64-bit floating point number
-        member ToDouble : double
-        /// Convert a big integer to a decimal number
-        member ToDecimal : decimal
+    /// Return the bitwise right-shift of big integer
+    static member (>>>): x: BigInteger * y: int32 -> BigInteger
+    /// Return the bitwise left-shift of big integer
+    static member (<<<): x: BigInteger * y: int32 -> BigInteger
+    /// Return the bitwise and of two big integers
+    static member (&&&): x: BigInteger * y: BigInteger -> BigInteger
+    /// Return the bitwise or of two big integers
+    static member (|||): x: BigInteger * y: BigInteger -> BigInteger
+    /// Return the bitwise xor of two big integers
+    static member (^^^): x: BigInteger * y: BigInteger -> BigInteger
+
+    /// Convert a big integer to a 8-bit signed integer
+    member ToSByte: sbyte
+    /// Convert a big integer to a 8-bit unsigned integer
+    member ToByte: byte
+    /// Convert a big integer to a 16-bit signed integer
+    member ToInt16: int16
+    /// Convert a big integer to a 16-bit unsigned integer
+    member ToUInt16: uint16
+    /// Convert a big integer to a 32-bit signed integer
+    member ToInt32: int32
+    /// Convert a big integer to a 32-bit unsigned integer
+    member ToUInt32: uint32
+    /// Convert a big integer to a 64-bit signed integer
+    member ToInt64: int64
+    /// Convert a big integer to a 64-bit unsigned integer
+    member ToUInt64: uint64
+    /// Convert a big integer to a 32-bit floating point number
+    member ToSingle: single
+    /// Convert a big integer to a 64-bit floating point number
+    member ToDouble: double
+    /// Convert a big integer to a decimal number
+    member ToDecimal: decimal
 
     //    /// Convert a big integer to a 8-bit signed integer
     //     static member op_Explicit : x:BigInteger -> sbyte
@@ -83,53 +83,57 @@ namespace BigInt
     //     static member op_Explicit : x:BigInteger -> double
     //     /// Convert a big integer to a decimal number
     //     static member op_Explicit : x:BigInteger -> decimal
- 
-        /// Parse a big integer from a string format
-        static member Parse    : text:string -> BigInteger
-        /// Return the sign of a big integer: 0, +1 or -1
-        member Sign    : int
-        /// Compute the ratio and remainder of two big integers
-        static member DivRem : x:BigInteger * y:BigInteger -> BigInteger * BigInteger
 
-        /// This operator is for consistency when this type be used from other CLI languages
-        static member op_LessThan           : x:BigInteger * y:BigInteger -> bool
-        /// This operator is for consistency when this type be used from other CLI languages
-        static member op_LessThanOrEqual    : x:BigInteger * y:BigInteger -> bool
-        /// This operator is for consistency when this type be used from other CLI languages
-        static member op_GreaterThan        : x:BigInteger * y:BigInteger -> bool
-        /// This operator is for consistency when this type be used from other CLI languages
-        static member op_GreaterThanOrEqual : x:BigInteger * y:BigInteger -> bool
-        /// This operator is for consistency when this type be used from other CLI languages
-        static member op_Equality             : x:BigInteger * y:BigInteger -> bool
-        /// This operator is for consistency when this type be used from other CLI languages
-        static member op_Inequality           : x:BigInteger * y:BigInteger -> bool
+    /// Parse a big integer from a string format
+    static member Parse: text: string -> BigInteger
+    /// Return the sign of a big integer: 0, +1 or -1
+    member Sign: int
 
-        /// Return the greatest common divisor of two big integers
-        static member GreatestCommonDivisor : x:BigInteger * y:BigInteger -> BigInteger
-        /// Return n^m for two big integers
-        static member Pow    : x:BigInteger * y:int32 -> BigInteger
-        /// Compute the absolute value of a big integer 
-        static member Abs    : x:BigInteger -> BigInteger
-        /// Get the big integer for zero
-        static member Zero    : BigInteger 
-        /// Get the big integer for one
-        static member One     : BigInteger 
-        /// Get the big integer for two
-        static member Two     : BigInteger 
+    /// Compute the ratio and remainder of two big integers
+    static member DivRem:
+        x: BigInteger * y: BigInteger -> BigInteger * BigInteger
 
-        /// Return true if a big integer is 'zero'
-        member IsZero : bool
-        /// Return true if a big integer is 'one'
-        member IsOne : bool
-        interface System.IComparable
-        override Equals : obj -> bool
-        override GetHashCode : unit -> int
-        override ToString : unit -> string
+    /// This operator is for consistency when this type be used from other CLI languages
+    static member op_LessThan: x: BigInteger * y: BigInteger -> bool
+    /// This operator is for consistency when this type be used from other CLI languages
+    static member op_LessThanOrEqual: x: BigInteger * y: BigInteger -> bool
+    /// This operator is for consistency when this type be used from other CLI languages
+    static member op_GreaterThan: x: BigInteger * y: BigInteger -> bool
+    /// This operator is for consistency when this type be used from other CLI languages
+    static member op_GreaterThanOrEqual: x: BigInteger * y: BigInteger -> bool
+    /// This operator is for consistency when this type be used from other CLI languages
+    static member op_Equality: x: BigInteger * y: BigInteger -> bool
+    /// This operator is for consistency when this type be used from other CLI languages
+    static member op_Inequality: x: BigInteger * y: BigInteger -> bool
 
-        /// Construct a BigInteger value for the given integer
-        new : x:int32 -> BigInteger
-        /// Construct a BigInteger value for the given 64-bit integer
-        new : x:int64 -> BigInteger
+    /// Return the greatest common divisor of two big integers
+    static member GreatestCommonDivisor:
+        x: BigInteger * y: BigInteger -> BigInteger
+
+    /// Return n^m for two big integers
+    static member Pow: x: BigInteger * y: int32 -> BigInteger
+    /// Compute the absolute value of a big integer
+    static member Abs: x: BigInteger -> BigInteger
+    /// Get the big integer for zero
+    static member Zero: BigInteger
+    /// Get the big integer for one
+    static member One: BigInteger
+    /// Get the big integer for two
+    static member Two: BigInteger
+
+    /// Return true if a big integer is 'zero'
+    member IsZero: bool
+    /// Return true if a big integer is 'one'
+    member IsOne: bool
+    interface System.IComparable
+    override Equals: obj -> bool
+    override GetHashCode: unit -> int
+    override ToString: unit -> string
+
+    /// Construct a BigInteger value for the given integer
+    new: x: int32 -> BigInteger
+    /// Construct a BigInteger value for the given 64-bit integer
+    new: x: int64 -> BigInteger
 #endif
 
 (*

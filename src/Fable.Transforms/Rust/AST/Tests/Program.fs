@@ -2,5 +2,5 @@ module Program
 
 [<EntryPoint>]
 let main _args =
-    Tests.run()
+    Tests.run ()
     0

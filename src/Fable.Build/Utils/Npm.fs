@@ -32,7 +32,11 @@ Error:
 
     let tryGetVersion (packageJsonContent: string) (version: string) =
         let m = Regex.Match(packageJsonContent, Regex.VERSION)
-        if m.Success then Some m.Groups.["version"].Value else None
+
+        if m.Success then
+            Some m.Groups.["version"].Value
+        else
+            None
 
     let needPublishing (packageJsonContent: string) (versionToCheck: string) =
         let version = getVersion packageJsonContent
@@ -46,7 +50,5 @@ Error:
         Regex.Replace(
             packageJsonContent,
             Regex.VERSION,
-            (fun (m: Match) ->
-                $"\"version\": \"{version}\""
-            )
+            (fun (m: Match) -> $"\"version\": \"{version}\"")
         )

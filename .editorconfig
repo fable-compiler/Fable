@@ -10,8 +10,17 @@ insert_final_newline = true
 [*.ts]
 indent_size = 2
 
-# Fantomas (see https://github.com/fsprojects/fantomas/blob/master/docs/Documentation.md)
+# Fantomas (see https://fsprojects.github.io/fantomas/docs/end-users/Configuration.html)
 [*.{fs,fsx,fsi}]
 max_line_length = 80
+end_of_line = lf
+fsharp_alternative_long_member_definitions = true
 fsharp_multi_line_lambda_closing_newline = true
-fsharp_multiline_bracket_style = stroustrup
+fsharp_bar_before_discriminated_union_declaration = true
+fsharp_multiline_bracket_style = aligned
+fsharp_keep_max_number_of_blank_lines = 2
+fsharp_record_multiline_formatter = number_of_items
+fsharp_array_or_list_multiline_formatter = number_of_items
+fsharp_align_function_signature_to_indentation = true
+fsharp_multi_line_lambda_closing_newline = true
+fsharp_max_if_then_else_short_width = 0

@@ -22,7 +22,8 @@ type BuildFableLibrary
         buildDir: string,
         outDir: string,
         ?fableLibArg: string
-    ) =
+    )
+    =
 
     // It seems like the different target have a different way of supporting
     // --fableLib argument.
@@ -55,7 +56,7 @@ type BuildFableLibrary
     abstract member CopyStage: unit -> unit
     default _.CopyStage() = ()
 
-    member this.Run(?skipIfExist : bool) =
+    member this.Run(?skipIfExist: bool) =
         let skipIfExist = defaultArg skipIfExist false
 
         if skipIfExist && Directory.Exists outDir then

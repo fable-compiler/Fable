@@ -49,21 +49,17 @@ let updateLibraryVersionInFableTransforms
     // Save changes on the disk
     File.WriteAllText(filePath, fileContent)
 
-let private publishNuget (fsprojDir : string) =
+let private publishNuget (fsprojDir: string) =
     let fsprojFiles = Directory.GetFiles(fsprojDir, "*.fsproj")
 
     if Array.length fsprojFiles <> 1 then
-        failwithf
-            $"Expected to find exactly one fsproj file in %s{fsprojDir}"
+        failwithf $"Expected to find exactly one fsproj file in %s{fsprojDir}"
 
     let fsprojPath = fsprojFiles[0]
     let fsprojContent = File.ReadAllText fsprojPath
     let changelogPath = Path.Combine(fsprojDir, "CHANGELOG.md")
-    let lastChangelogVersion =
-        Changelog.getLastVersion changelogPath
-    let lastVersion =
-        lastChangelogVersion
-        |> fun v -> v.Version.ToString()
+    let lastChangelogVersion = Changelog.getLastVersion changelogPath
+    let lastVersion = lastChangelogVersion |> fun v -> v.Version.ToString()
 
     let lastVersionBody =
         ChangelogParser.Version.bodyAsMarkdown lastChangelogVersion
@@ -83,23 +79,25 @@ let private publishNuget (fsprojDir : string) =
 
         File.WriteAllText(fsprojPath, updatedFsprojContent)
         let nupkgPath = Dotnet.pack fsprojDir
-        Dotnet.Nuget.push(nupkgPath, nugetKey)
+        Dotnet.Nuget.push (nupkgPath, nugetKey)
         printfn $"Published!"
     else
         printfn $"Already up-to-date, skipping..."
 
-let private publishNpm (projectDir : string) =
+let private publishNpm (projectDir: string) =
     let packageJsonPath = Path.Combine(projectDir, "package.json")
     let packageJsonContent = File.ReadAllText(packageJsonPath)
     let changelogPath = Path.Combine(projectDir, "CHANGELOG.md")
+
     let lastChangelogVersion =
-        Changelog.getLastVersion changelogPath
-        |> fun v -> v.Version.ToString()
+        Changelog.getLastVersion changelogPath |> fun v -> v.Version.ToString()
 
     printfn $"Publishing: %s{projectDir}"
 
     if Npm.needPublishing packageJsonContent lastChangelogVersion then
-        let updatedPackageJsonContent = Npm.replaceVersion packageJsonContent lastChangelogVersion
+        let updatedPackageJsonContent =
+            Npm.replaceVersion packageJsonContent lastChangelogVersion
+
         File.WriteAllText(packageJsonPath, updatedPackageJsonContent)
         Npm.publish projectDir
         printfn $"Published!"
@@ -110,11 +108,13 @@ let private updateFableLibraryPackageJsonVersion () =
     let packageJsonPath = Path.Combine(ProjectDir.fable_library, "package.json")
     let packageJsonContent = File.ReadAllText(packageJsonPath)
     let changelogPath = Path.Combine(ProjectDir.fable_library, "CHANGELOG.md")
-    let lastChangelogVersion =
-        Changelog.getLastVersion changelogPath
-        |> fun v -> v.Version.ToString()
 
-    let updatedPackageJsonContent = Npm.replaceVersion packageJsonContent lastChangelogVersion
+    let lastChangelogVersion =
+        Changelog.getLastVersion changelogPath |> fun v -> v.Version.ToString()
+
+    let updatedPackageJsonContent =
+        Npm.replaceVersion packageJsonContent lastChangelogVersion
+
     File.WriteAllText(packageJsonPath, updatedPackageJsonContent)
 
 let handle (args: string list) =
@@ -151,13 +151,16 @@ let handle (args: string list) =
 
     // Update embedded version (both compiler and libraries)
     let changelogPath = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
-    let compilerVersion =
-        Changelog.getLastVersion changelogPath
-        |> fun v -> v.Version.ToString()
 
-    updateLibraryVersionInFableTransforms compilerVersion {|
-        JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library
-    |}
+    let compilerVersion =
+        Changelog.getLastVersion changelogPath |> fun v -> v.Version.ToString()
+
+    updateLibraryVersionInFableTransforms
+        compilerVersion
+        {|
+            JavaScript =
+                Npm.getVersionFromProjectDir ProjectDir.temp_fable_library
+        |}
 
     publishNuget ProjectDir.fableAst
     publishNuget ProjectDir.fableCore

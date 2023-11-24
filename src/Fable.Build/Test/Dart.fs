@@ -31,38 +31,40 @@ let handle (args: string list) =
     let testCmd = $"dart test {buildDir}/main.dart"
 
     let fableArgs =
-        CmdLine.concat [
-            CmdLine.empty
-            |> CmdLine.appendRaw testsFsprojFolder
-            |> CmdLine.appendPrefix "--outDir" (buildDir </> "src")
-            |> CmdLine.appendPrefix "--lang" "dart"
-            |> CmdLine.appendPrefix "--exclude" "Fable.Core"
-            |> CmdLine.appendRaw "--noCache"
+        CmdLine.concat
+            [
+                CmdLine.empty
+                |> CmdLine.appendRaw testsFsprojFolder
+                |> CmdLine.appendPrefix "--outDir" (buildDir </> "src")
+                |> CmdLine.appendPrefix "--lang" "dart"
+                |> CmdLine.appendPrefix "--exclude" "Fable.Core"
+                |> CmdLine.appendRaw "--noCache"
 
-            if isWatch then
-                CmdLine.empty
-                |> CmdLine.appendRaw "--watch"
-                |> CmdLine.appendRaw "--runWatch"
-                |> CmdLine.appendRaw testCmd
-            else
-                CmdLine.empty
-                |> CmdLine.appendRaw "--run"
-                |> CmdLine.appendRaw testCmd
-        ]
+                if isWatch then
+                    CmdLine.empty
+                    |> CmdLine.appendRaw "--watch"
+                    |> CmdLine.appendRaw "--runWatch"
+                    |> CmdLine.appendRaw testCmd
+                else
+                    CmdLine.empty
+                    |> CmdLine.appendRaw "--run"
+                    |> CmdLine.appendRaw testCmd
+            ]
 
     if isWatch then
-        Async.Parallel [
-            if not noDotnet then
-                Command.RunAsync(
-                    "dotnet",
-                    "watch test -c Release",
-                    workingDirectory = testsFsprojFolder
-                )
-                |> Async.AwaitTask
+        Async.Parallel
+            [
+                if not noDotnet then
+                    Command.RunAsync(
+                        "dotnet",
+                        "watch test -c Release",
+                        workingDirectory = testsFsprojFolder
+                    )
+                    |> Async.AwaitTask
 
-            Command.WatchFableAsync(fableArgs, workingDirectory = buildDir)
-            |> Async.AwaitTask
-        ]
+                Command.WatchFableAsync(fableArgs, workingDirectory = buildDir)
+                |> Async.AwaitTask
+            ]
         |> Async.RunSynchronously
         |> ignore
     else

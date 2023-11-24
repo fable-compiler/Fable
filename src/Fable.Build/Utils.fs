@@ -15,7 +15,16 @@ type Path =
     /// Resolve a path relative to the repository root
     /// </summary>
     static member Resolve([<ParamArray>] segments: string array) : string =
-        let paths = Array.concat [ [| __SOURCE_DIRECTORY__; ".."; ".." |]; segments ]
+        let paths =
+            Array.concat
+                [
+                    [|
+                        __SOURCE_DIRECTORY__
+                        ".."
+                        ".."
+                    |]
+                    segments
+                ]
 
         // Use GetFullPath to clean the path
         Path.GetFullPath(Path.Combine(paths))
@@ -35,11 +44,12 @@ type Cmd =
         (
             ?argsBuilder: CmdLine -> CmdLine,
             ?watchMode: bool
-        ) : CmdLine =
+        )
+        : CmdLine
+        =
         let argsBuilder = defaultArg argsBuilder id
         // Use absolute path so we can invoke the command from anywhere
-        let localFableDir =
-            __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
+        let localFableDir = __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
 
         let watchMode = defaultArg watchMode false
 
@@ -116,7 +126,7 @@ module Directory =
     /// <returns></returns>
     let clean (dir: string) : unit =
         if Directory.Exists(dir) then
-                Directory.Delete(dir, true)
+            Directory.Delete(dir, true)
 
         Directory.CreateDirectory(dir) |> ignore
 
@@ -125,4 +135,6 @@ module Environment =
     open System.Runtime
 
     let isWindows () =
-        InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
+        InteropServices.RuntimeInformation.IsOSPlatform(
+            InteropServices.OSPlatform.Windows
+        )
