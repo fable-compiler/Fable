@@ -5229,46 +5229,16 @@ let timeSpans
     (args: Expr list)
     =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
+
     match i.CompiledName with
     | ".ctor" ->
-        let meth =
-            match args with
-            | [ ticks ] -> "fromTicks"
-            | _ -> "create"
-
         Helper.LibCall(
             com,
             "time_span",
-            meth,
+            "create",
             t,
             args,
             i.SignatureArgTypes,
-            ?loc = r
-        )
-        |> Some
-    | "FromMilliseconds" ->
-        //TypeCast(args.Head, t) |> Some
-        Helper.LibCall(
-            com,
-            "time_span",
-            "from_milliseconds",
-            t,
-            args,
-            i.SignatureArgTypes,
-            ?thisArg = thisArg,
-            ?loc = r
-        )
-        |> Some
-    | "get_TotalMilliseconds" ->
-        //TypeCast(thisArg.Value, t) |> Some
-        Helper.LibCall(
-            com,
-            "time_span",
-            "to_milliseconds",
-            t,
-            args,
-            i.SignatureArgTypes,
-            ?thisArg = thisArg,
             ?loc = r
         )
         |> Some
@@ -5298,6 +5268,8 @@ let timeSpans
             |> addError com ctx.InlinePath r
 
             None
+    | "get_Nanoseconds"
+    | "get_TotalNanoseconds" -> None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 

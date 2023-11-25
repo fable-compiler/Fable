@@ -11,12 +11,12 @@ let ``test TimeSpan.ToString() works`` () =
     TimeSpan.FromSeconds(12345.).ToString() |> equal "03:25:45"
     TimeSpan.FromDays(18.).ToString() |> equal "18.00:00:00"
     TimeSpan.FromMilliseconds(25.).ToString() |> equal "00:00:00.0250000"
-    
+
 [<Fact>]
 let ``test TimeSpan.ToString() works for negative TimeSpan`` () =
     TimeSpan.FromSeconds(-5.).ToString() |> equal "-00:00:05"
     TimeSpan.FromDays(-5.23).ToString() |> equal "-5.05:31:12"
-    
+
 [<Fact>]
 let ``test TimeSpan.ToString(\"c\", CultureInfo.InvariantCulture) works`` () =
     TimeSpan(0L).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00"
@@ -37,7 +37,7 @@ let ``test TimeSpan.ToString(\"General long\", CultureInfo.InvariantCulture) wor
     TimeSpan.FromSeconds(12345.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:03:25:45.0000000"
     TimeSpan.FromDays(18.).ToString("G", CultureInfo.InvariantCulture) |> equal "18:00:00:00.0000000"
     TimeSpan.FromMilliseconds(25.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0250000"
-    
+
 [<Fact>]
 let ``test TimeSpan constructors work`` () =
     let t1 = TimeSpan(20000L)
@@ -124,6 +124,53 @@ let ``test TimeSpan Addition works`` () =
     test -2000. 0. -2000.
     test 0. 0. 0.
 
+[<Fact>]
+let ``test TimeSpan implementation coherence`` () =
+    TimeSpan.FromTicks(1L).Ticks |> equal 1L
+    TimeSpan.FromMilliseconds(1).Milliseconds |> equal 1
+    TimeSpan.FromMilliseconds(1).TotalMilliseconds |> equal 1.
+    TimeSpan.FromSeconds(1).Seconds |> equal 1
+    TimeSpan.FromSeconds(1).TotalSeconds |> equal 1.
+    TimeSpan.FromMinutes(1).Minutes |> equal 1
+    TimeSpan.FromMinutes(1).TotalMinutes |> equal 1.
+    TimeSpan.FromHours(1).Hours |> equal 1
+    TimeSpan.FromHours(1).TotalHours |> equal 1.
+    TimeSpan.FromDays(1).Days |> equal 1
+    TimeSpan.FromDays(1).TotalDays |> equal 1.
+
+    TimeSpan.FromMilliseconds(-1).Milliseconds |> equal -1
+    TimeSpan.FromMilliseconds(-1).TotalMilliseconds |> equal -1.
+    TimeSpan.FromSeconds(-1).Seconds |> equal -1
+    TimeSpan.FromSeconds(-1).TotalSeconds |> equal -1.
+    TimeSpan.FromMinutes(-1).Minutes |> equal -1
+    TimeSpan.FromMinutes(-1).TotalMinutes |> equal -1.
+    TimeSpan.FromHours(-1).Hours |> equal -1
+    TimeSpan.FromHours(-1).TotalHours |> equal -1.
+    TimeSpan.FromDays(-1).Days |> equal -1
+    TimeSpan.FromDays(-1).TotalDays |> equal -1.
+
+    TimeSpan(49, 0, 0).Days |> equal 2
+    TimeSpan(0, 200, 0).Hours |> equal 3
+    TimeSpan(0, 0, 300).Minutes |> equal 5
+    TimeSpan(0, 0, 0, 0, 5089).Seconds |> equal 5
+    TimeSpan(0, 0, 0, 0, 0, 5999).Milliseconds |> equal 5
+
+    let t1 = TimeSpan(10, 20, 39, 42, 57, 589)
+
+    t1.Days |> equal 10
+    t1.Hours |> equal 20
+    t1.Minutes |> equal 39
+    t1.Seconds |> equal 42
+    t1.Milliseconds |> equal 57
+    t1.Ticks |> equal 9383820575890L
+    t1.TotalDays |> equal 10.86090344431713
+    t1.TotalHours |> equal 260.6616826636111
+    t1.TotalMinutes |> equal 15639.700959816666
+    t1.TotalSeconds |> equal 938382.057589
+    t1.TotalMilliseconds |> equal 938382057.589
+    t1.TotalMicroseconds |> equal 938382057589.0
+
+
 //[<Theory>]
 //[<InlineData(1000., 2000., -1000.)>]
 //[<InlineData(200., -2000., 2200.)>]
@@ -139,7 +186,7 @@ let ``test TimeSpan Addition works`` () =
 //    let res2 = (t1 - t2).TotalMilliseconds
 //    equal true (res1 = res2)
 //    equal expected res1
-//    
+//
 //[<Theory>]
 //[<InlineData(1000., -1., -1000.)>]
 //[<InlineData(200., 11., 2200.)>]
@@ -154,7 +201,7 @@ let ``test TimeSpan Addition works`` () =
 //    equal res1 res2
 //    equal true (res1 = res2)
 //    equal expected res1
-    
+
 
 //[<Fact>]
 //let ``test TimeSpan Division works" [
