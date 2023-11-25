@@ -14,8 +14,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Reference Include="../../lib/fcs/FSharp.Core.dll"/>
-        <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll"/>
+<!--        <Reference Include="../../lib/fcs/FSharp.Core.dll"/>-->
+<!--        <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll"/>-->
+        <Reference Include="../../lib/fcs/nojaf/Debug/FSharp.Core.dll"/>
+        <Reference Include="../../lib/fcs/nojaf/Debug/FSharp.Compiler.Service.dll"/>
     </ItemGroup>
 
 </Project>
