@@ -39,15 +39,15 @@ def create(
     ms: int | TimeSpan,
     offset: TimeSpan | None = None,
 ) -> datetime:
-    pythonOffset: timedelta | None = None
+    python_offset: timedelta | None = None
     if isinstance(ms, TimeSpan):
-        pythonOffset = timedelta(microseconds=time_span.total_microseconds(ms))
+        python_offset = timedelta(microseconds=time_span.total_microseconds(ms))
         ms = 0
 
-    if pythonOffset is None:
+    if python_offset is None:
         return datetime(year, month, day, h, m, s, ms)
 
-    tzinfo = timezone(pythonOffset)
+    tzinfo = timezone(python_offset)
     return datetime(year, month, day, h, m, s, ms, tzinfo=tzinfo)
 
 

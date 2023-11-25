@@ -17,8 +17,8 @@ def op_subtraction(x: datetime, y: datetime) -> TimeSpan:
     delta = x - y
     # ts.microseconds only contains the microseconds provided to the constructor
     # so we need to calculate the total microseconds ourselves
-    deltaMicroseconds = delta.days * (24*3600) + delta.seconds * 10**6 + delta.microseconds
-    return create_time_span(0,0,0,0,0,deltaMicroseconds)
+    delta_microseconds = delta.days * (24*3600) + delta.seconds * 10**6 + delta.microseconds
+    return create_time_span(0,0,0,0,0,delta_microseconds)
 
 
 def create(
