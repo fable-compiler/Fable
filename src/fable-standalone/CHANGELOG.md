@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 3.4.0 - 2023-11-27
+
+### Changed
+
+* Fable 4.6.0
+
 ## 3.3.0 - 2023-11-10
 
 ### Changed
