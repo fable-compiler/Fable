@@ -51,7 +51,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Contributors.fs" />
-    <Compile Include="Globbing.fs" />
     <Compile Include="Printers.fs" />
     <Compile Include="FileWatchers.fsi" />
     <Compile Include="FileWatchers.fs" />
