@@ -4,27 +4,39 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.5.0</Version>
-    <PackageReleaseNotes>## Changed
+    <Version>4.6.0</Version>
+    <PackageReleaseNotes>## Added
 
+
+### All
+
+- Fix #3584: Unit type compiles to undeclared variable (by @ncave)
 
 ### Python
 
-- Use `Any` type for all non-repeated generic arguments (by @dbrattli)
-- Don't generate unnecessary type type-vars if generic type is replaced by `Any` (by @dbrattli)
-- Generate new style `_T | None` instead of `Optional[_T]` (by @dbrattli)
+- Support `DateTime(..., DateTimeKind.Utc).ToString("O")` (by @MangelMaxime)
 
 ### Rust
 
-- Support multiple namespaces sharing a prefix in the same file (by @ncave)
-- Support imports with the same namespace across multiple files (by @ncave)
+- Added `Guid.TryParse`, `Guid.ToByteArray` (by @ncave)
+
+## Changed
+
+
+### All
+
+- Updated .NET metadata to 8.0.100 (by @ncave)
 
 ## Fixed
 
 
-### JavaScript
+### Python
 
-- Fix #3571: `[&lt;AttachMembers&gt;]` not compatible with f# member `this.Item` (by @ncave)
+- Fixed char to string type regression with binary operator (by @dbrattli)
+- Fix `DateTime(..., DateTimeKind.Local).ToString("O")` (by @MangelMaxime)
+- Fix calling `value.ToString(CultureInfo.InvariantCulture)` (by @MangelMaxime)
+- Fix #3605: Fix record equality comparison to works with optional fields (by @MangelMaxime and @dbrattli)
+- PR #3608: Rewrite `time_span.py` allowing for better precision by using a number representation intead of native `timedelta`. (by @MangelMaxime)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
