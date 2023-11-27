@@ -1,13 +1,10 @@
 namespace Fable.Tests.Compiler.Util
 
 open System
-open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.Diagnostics
-open FSharp.Compiler.SourceCodeServices
 open Fable
-open Fable.Cli
 open Fable.Cli.Main
 open Fable.Transforms.State
+open Fable.Compiler.Util
 
 module Compiler =
 
