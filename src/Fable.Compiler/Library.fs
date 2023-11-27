@@ -1,7 +1,7 @@
 ﻿module Fable.Compiler.CodeServices
 
 open System
-open System.Text
+open System.IO
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.SourceCodeServices
 open Fable
@@ -24,24 +24,29 @@ type BabelWriter
     let fileExt = ".js"
     let sourceDir = Path.GetDirectoryName(sourcePath)
     let targetDir = Path.GetDirectoryName(targetPath)
-    let memoryStream = new IO.MemoryStream()
-    let stream = new IO.StreamWriter(memoryStream)
+    let memoryStream = new MemoryStream()
+    let streamWriter = new StreamWriter(memoryStream)
+    do streamWriter.NewLine <- "\n"
 
-    let sb = StringBuilder()
     // let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
 
-    override x.ToString() = sb.ToString()
+    member x.ReadContentAsString() : Async<string> =
+        async {
+            do! streamWriter.FlushAsync() |> Async.AwaitTask
+            memoryStream.Position <- 0L
+            let streamReader = new StreamReader(memoryStream)
+            return! (streamReader.ReadToEndAsync() |> Async.AwaitTask)
+        }
 
     interface Printer.Writer with
         // Don't dispose the stream here because we need to access the memory stream to check if file has changed
         member _.Dispose() = ()
 
         member _.Write(str) =
-            sb.Append(str) |> ignore
-            stream.WriteAsync(str) |> Async.AwaitTask
+            streamWriter.WriteAsync(str) |> Async.AwaitTask
 
         member _.MakeImportPath(path) =
-            let projDir = IO.Path.GetDirectoryName(projectFile)
+            let projDir = Path.GetDirectoryName(projectFile)
 
             let path =
                 // TODO: Check precompiled out path for other languages too
@@ -120,7 +125,7 @@ let compileFileToJs
             )
 
         do! BabelPrinter.run writer babel
-        let output = writer.ToString()
+        let! output = writer.ReadContentAsString()
         return output
     }
 
