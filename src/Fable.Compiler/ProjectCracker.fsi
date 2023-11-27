@@ -23,20 +23,22 @@ open Buildalyzer
 //       Dependencies: Set<string> }
 //
 type CacheInfo =
-    { Version: string
-      FableOptions: CompilerOptions
-      ProjectPath: string
-      SourcePaths: string array
-      FSharpOptions: string array
-      References: string list
-      OutDir: string option
-      FableLibDir: string
-      FableModulesDir: string
-      OutputType: OutputType
-      TargetFramework: string
-      Exclude: string list
-      SourceMaps: bool
-      SourceMapsRoot: string option }
+    {
+        Version: string
+        FableOptions: CompilerOptions
+        ProjectPath: string
+        SourcePaths: string array
+        FSharpOptions: string array
+        References: string list
+        OutDir: string option
+        FableLibDir: string
+        FableModulesDir: string
+        OutputType: OutputType
+        TargetFramework: string
+        Exclude: string list
+        SourceMaps: bool
+        SourceMapsRoot: string option
+    }
 //
 //     static member GetPath: fableModulesDir: string * isDebug: bool -> string
 //     member GetTimestamp: unit -> DateTime
@@ -63,17 +65,21 @@ type CrackerOptions =
     member SourceMapsRoot: string option
     member BuildDll: normalizedDllPath: string -> unit
     static member GetFableModulesFromDir: baseDir: string -> string
-    static member GetFableModulesFromProject: projDir: string * outDir: string option * noCache: bool -> string
+
+    static member GetFableModulesFromProject:
+        projDir: string * outDir: string option * noCache: bool -> string
 
 type CrackerResponse =
-    { FableLibDir: string
-      FableModulesDir: string
-      References: string list
-      ProjectOptions: FSharpProjectOptions
-      OutputType: OutputType
-      TargetFramework: string
-      PrecompiledInfo: PrecompiledInfoImpl option
-      CanReuseCompiledFiles: bool }
+    {
+        FableLibDir: string
+        FableModulesDir: string
+        References: string list
+        ProjectOptions: FSharpProjectOptions
+        OutputType: OutputType
+        TargetFramework: string
+        PrecompiledInfo: PrecompiledInfoImpl option
+        CanReuseCompiledFiles: bool
+    }
 //
 // val isSystemPackage: pkgName: string -> bool
 //

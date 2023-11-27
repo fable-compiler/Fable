@@ -102,7 +102,8 @@ let compileFileToJs
     (com: Compiler)
     (pathResolver: PathResolver)
     (outPath: string)
-    : Async<string> =
+    : Async<string>
+    =
     async {
         let babel =
             FSharp2Fable.Compiler.transformFile com
@@ -196,7 +197,8 @@ let compileFileToJavaScript
     (cliArgs: CliArgs)
     (crackerResponse: CrackerResponse)
     (currentFile: string)
-    : Async<Map<string, string>> =
+    : Async<Map<string, string>>
+    =
     async {
         let! dependentFiles =
             checker.GetDependentFiles(

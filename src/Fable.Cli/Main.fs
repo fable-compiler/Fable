@@ -123,7 +123,9 @@ module private Util =
     let logErrors rootDir (logs: Log seq) =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
-        |> Seq.iter (fun log -> Fable.Compiler.Util.Log.error(formatLog rootDir log))
+        |> Seq.iter (fun log ->
+            Fable.Compiler.Util.Log.error (formatLog rootDir log)
+        )
 
     let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
         diagnostics
@@ -435,7 +437,11 @@ type FsWatcher(delayMs: int) =
         |> Observable.map caseInsensitiveSet
 
 type ProjectCracked
-    (cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFiles: Fable.Compiler.File array)
+    (
+        cliArgs: CliArgs,
+        crackerResponse: CrackerResponse,
+        sourceFiles: Fable.Compiler.File array
+    )
     =
 
     member _.CliArgs = cliArgs
@@ -520,7 +526,9 @@ OUTPUT TYPE: {result.OutputType}
                 "Compiling project as Library. If you intend to run the code directly, please set OutputType to Exe."
         | _ -> ()
 
-        let sourceFiles = result.ProjectOptions.SourceFiles |> Array.map Fable.Compiler.File
+        let sourceFiles =
+            result.ProjectOptions.SourceFiles |> Array.map Fable.Compiler.File
+
         ProjectCracked(cliArgs, result, sourceFiles)
 
 type FableCompileResult =
@@ -695,7 +703,8 @@ and FableCompiler
                             FSharpCompilationFinished
                             (fun () ->
                                 let filePaths, sourceReader =
-                                    Fable.Compiler.File.MakeSourceReader sourceFiles
+                                    Fable.Compiler.File.MakeSourceReader
+                                        sourceFiles
 
                                 let subscriber =
                                     if

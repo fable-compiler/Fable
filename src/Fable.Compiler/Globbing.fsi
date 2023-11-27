@@ -33,18 +33,22 @@ type IGlobbingPattern =
     abstract Excludes: string list
 
 type LazyGlobbingPattern =
-    { BaseDirectory: string
-      Includes: string list
-      Excludes: string list }
+    {
+        BaseDirectory: string
+        Includes: string list
+        Excludes: string list
+    }
 
     interface IGlobbingPattern
     interface IEnumerable<string>
 
 type ResolvedGlobbingPattern =
-    { BaseDirectory: string
-      Includes: string list
-      Excludes: string list
-      Results: string list }
+    {
+        BaseDirectory: string
+        Includes: string list
+        Excludes: string list
+        Results: string list
+    }
 
     interface IGlobbingPattern
     interface IEnumerable<string>
@@ -70,8 +74,11 @@ module GlobbingPattern =
     val create: x: string -> IGlobbingPattern
     /// Start an empty globbing pattern from the specified directory
     val createFrom: dir: string -> IGlobbingPattern
+
     /// Sets a directory as baseDirectory for fileIncludes.
-    val setBaseDir: dir: string -> fileIncludes: IGlobbingPattern -> IGlobbingPattern
+    val setBaseDir:
+        dir: string -> fileIncludes: IGlobbingPattern -> IGlobbingPattern
+
     /// Get base include directories.
     ///
     /// Used to get a smaller set of directories from a globbing pattern.

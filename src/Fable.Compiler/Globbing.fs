@@ -45,7 +45,10 @@ module Glob =
                 else
                     new DirectoryInfo(path)
 
-            if di.Exists then [ di.FullName ] else []
+            if di.Exists then
+                [ di.FullName ]
+            else
+                []
 
     let rec private buildPaths acc (input: SearchOption list) =
         match input with
@@ -115,7 +118,10 @@ module Glob =
 
         let patternParts =
             normPattern.Split(
-                [| '/'; '\\' |],
+                [|
+                    '/'
+                    '\\'
+                |],
                 StringSplitOptions.RemoveEmptyEntries
             )
 
@@ -165,7 +171,14 @@ module Glob =
 
         let filePattern = Path.GetFileName(input)
 
-        let splits = input.Split([| '/'; '\\' |], StringSplitOptions.None)
+        let splits =
+            input.Split(
+                [|
+                    '/'
+                    '\\'
+                |],
+                StringSplitOptions.None
+            )
 
         let baseItems =
             let start, rest =
@@ -283,11 +296,12 @@ type IGlobbingPattern =
     abstract Includes: string list
     abstract Excludes: string list
 
-type LazyGlobbingPattern = {
-    BaseDirectory: string
-    Includes: string list
-    Excludes: string list
-} with
+type LazyGlobbingPattern =
+    {
+        BaseDirectory: string
+        Includes: string list
+        Excludes: string list
+    }
 
     interface IGlobbingPattern with
         member this.BaseDirectory = this.BaseDirectory
@@ -320,12 +334,13 @@ type LazyGlobbingPattern = {
             (this :> IEnumerable<string>).GetEnumerator()
             :> System.Collections.IEnumerator
 
-type ResolvedGlobbingPattern = {
-    BaseDirectory: string
-    Includes: string list
-    Excludes: string list
-    Results: string list
-} with
+type ResolvedGlobbingPattern =
+    {
+        BaseDirectory: string
+        Includes: string list
+        Excludes: string list
+        Results: string list
+    }
 
     interface IGlobbingPattern with
         member this.BaseDirectory = this.BaseDirectory
@@ -347,11 +362,12 @@ module GlobbingPatternExtensions =
         member internal this.Pattern =
             match this with
             | :? LazyGlobbingPattern as l -> l
-            | _ -> {
-                BaseDirectory = this.BaseDirectory
-                Includes = this.Includes
-                Excludes = this.Excludes
-              }
+            | _ ->
+                {
+                    BaseDirectory = this.BaseDirectory
+                    Includes = this.Includes
+                    Excludes = this.Excludes
+                }
 
         member this.Resolve() =
             match this with
@@ -369,25 +385,18 @@ module GlobbingPatternExtensions =
 
         /// Adds the given pattern to the file includes
         member this.And pattern =
-            {
-                this.Pattern with
-                    Includes = this.Includes @ [ pattern ]
-            }
+            { this.Pattern with Includes = this.Includes @ [ pattern ] }
             :> IGlobbingPattern
 
         /// Ignores files with the given pattern
         member this.ButNot pattern =
-            {
-                this.Pattern with
-                    Excludes = pattern :: this.Excludes
-            }
+            { this.Pattern with Excludes = pattern :: this.Excludes }
             :> IGlobbingPattern
 
         /// Sets a directory as BaseDirectory.
         member this.SetBaseDirectory(dir: string) =
-            {
-                this.Pattern with
-                    BaseDirectory = dir.TrimEnd(Path.DirectorySeparatorChar)
+            { this.Pattern with
+                BaseDirectory = dir.TrimEnd(Path.DirectorySeparatorChar)
             }
             :> IGlobbingPattern
 
