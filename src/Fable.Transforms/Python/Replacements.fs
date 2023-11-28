@@ -4625,7 +4625,8 @@ let exceptions
     | ".ctor", _ ->
         Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc = r)
         |> Some
-    | "get_Message", Some e -> getFieldWith r t e "message" |> Some
+    | "get_Message", Some e ->
+        Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None
 

@@ -3082,14 +3082,6 @@ module Util =
         // printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
-        | Fable.FieldGet { Name = "message" } ->
-            let func = Expression.name "str"
-            let left, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.call (func, [ left ]), stmts
-        // | Fable.FieldGet { Name = "push" } ->
-        //     let attr = Identifier("append")
-        //     let value, stmts = com.TransformAsExpr(ctx, fableExpr)
-        //     Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
             let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts'' = getExpr com ctx range expr prop
