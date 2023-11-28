@@ -3959,14 +3959,6 @@ module Util =
                      _,
                      _range) -> transformAsArray com ctx expr info
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = name }, _, _),
-                     _info,
-                     _,
-                     _range) when name.ToLower() = "tostring" ->
-            let func = Expression.name "str"
-            let left, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.call (func, [ left ]), stmts
-
         | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "Equals" }, _, _),
                      { Args = [ arg ] },
                      _,
@@ -3974,25 +3966,6 @@ module Util =
             let right, stmts = com.TransformAsExpr(ctx, arg)
             let left, stmts' = com.TransformAsExpr(ctx, expr)
             Expression.compare (left, [ Eq ], [ right ]), stmts @ stmts'
-
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "split" }, _, _),
-                     { Args = [ Fable.Value(kind = Fable.StringConstant "") ] },
-                     _,
-                     _range) ->
-            let func = Expression.name "list"
-            let value, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.call (func, [ value ]), stmts
-
-        | Fable.Call(Fable.Get(expr,
-                               Fable.FieldGet { Name = "charCodeAt" },
-                               _,
-                               _),
-                     _info,
-                     _,
-                     _range) ->
-            let func = Expression.name "ord"
-            let value, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.call (func, [ value ]), stmts
 
         | Fable.Call(callee, info, _, range) ->
             transformCall com ctx range callee info

@@ -648,7 +648,9 @@ let toList com returnType expr =
     Helper.LibCall(com, "list", "ofSeq", returnType, [ expr ])
 
 let stringToCharArray t e =
-    Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
+    //Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
+    // Write as global call `list` instead
+    Helper.GlobalCall("list", t, [ e ])
 
 let toSeq t (e: Expr) =
     match e.Type with
