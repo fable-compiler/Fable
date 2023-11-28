@@ -5,9 +5,10 @@ from datetime import datetime, timedelta, timezone
 from re import Match
 from typing import Any
 
+from .time_span import TimeSpan
+from .time_span import create as create_time_span
 from .types import FSharpRef
 from .util import DateKind
-from .time_span import TimeSpan, create as create_time_span
 
 
 formatRegExp = re.compile(r"(\w)\1*")
@@ -17,8 +18,8 @@ def op_subtraction(x: datetime, y: datetime) -> TimeSpan:
     delta = x - y
     # ts.microseconds only contains the microseconds provided to the constructor
     # so we need to calculate the total microseconds ourselves
-    delta_microseconds = delta.days * (24*3600) + delta.seconds * 10**6 + delta.microseconds
-    return create_time_span(0,0,0,0,0,delta_microseconds)
+    delta_microseconds = delta.days * (24 * 3600) + delta.seconds * 10**6 + delta.microseconds
+    return create_time_span(0, 0, 0, 0, 0, delta_microseconds)
 
 
 def create(

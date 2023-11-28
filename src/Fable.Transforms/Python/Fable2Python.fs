@@ -1525,6 +1525,7 @@ module Util =
         | "set" -> Expression.identifier "__setitem__"
         | "get" -> Expression.identifier "__getitem__"
         | "has" -> Expression.identifier "__contains__"
+        | "delete" -> Expression.identifier "__delitem__"
         | n when n.EndsWith "get_Count" -> Expression.identifier "__len__" // TODO: find a better way
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
@@ -1859,7 +1860,6 @@ module Util =
 
     let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-
         let expr, stmts' = getExpr com ctx r expr (Expression.constant "tag")
 
         expr, stmts @ stmts'
@@ -3934,7 +3934,7 @@ module Util =
             transformFunctionWithAnnotations com ctx name args body
             |||> makeArrowFunctionExpression com ctx name
 
-        | Fable.ObjectExpr([], _typ, None) -> Expression.none, []
+        | Fable.ObjectExpr([], _typ, None) -> Expression.dict (), []
         | Fable.ObjectExpr(members, typ, baseCall) ->
             // printfn "members: %A" (members, typ)
             transformObjectExpr com ctx members typ baseCall
