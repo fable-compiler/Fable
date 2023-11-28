@@ -2702,7 +2702,7 @@ let stringModule
     | "Length", [ arg ] -> getFieldWith r t arg "length" |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
         // Cast the string to char[], see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e)
+        let args = args |> List.replaceLast stringToCharArray
 
         Helper.LibCall(
             com,
@@ -2717,7 +2717,7 @@ let stringModule
         |> Some
     | ("Map" | "MapIndexed" | "Collect"), _ ->
         // Cast the string to char[], see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e)
+        let args = args |> List.replaceLast stringToCharArray
         let name = Naming.lowerFirst i.CompiledName
 
         emitExpr

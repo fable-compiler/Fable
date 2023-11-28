@@ -201,11 +201,7 @@ type Project
     =
 
     let inlineExprsDic =
-        implFiles
-        |> Map.values
-        |> Seq.map (fun f -> f.InlineExprs)
-        |> Seq.concat
-        |> dict
+        implFiles |> Map.values |> Seq.collect (fun f -> f.InlineExprs) |> dict
 
     let precompiledInfo =
         precompiledInfo

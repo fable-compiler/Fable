@@ -3234,9 +3234,9 @@ type FableCompiler(com: Compiler) =
     let onlyOnceWarnings = HashSet<string>()
 
     member _.ReplaceAttachedMembers(entityFullName, f) =
-        if attachedMembers.ContainsKey(entityFullName) then
-            attachedMembers[entityFullName] <- f attachedMembers[entityFullName]
-        else
+        match attachedMembers.TryGetValue entityFullName with
+        | true, members -> attachedMembers[entityFullName] <- f members
+        | false, _ ->
             let members =
                 {|
                     NonMangledNames = HashSet()

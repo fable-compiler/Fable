@@ -637,7 +637,7 @@ let fold<'T, 'State> folder (state: 'State) (array: 'T[]) =
     //         acc <- folder acc array.[i]
     //     acc
     // else
-    foldImpl (fun acc x -> folder acc x) state array
+    foldImpl folder state array
 
 let iterate action (array: 'T[]) =
     for i = 0 to array.Length - 1 do

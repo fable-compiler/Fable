@@ -2193,7 +2193,7 @@ let operators
                 ?loc = r
             )
             |> Some
-        | ExprType(Number(_, _)) :: _ ->
+        | ExprType(Number(_)) :: _ ->
             Helper.LibCall(
                 com,
                 "long",
