@@ -1048,6 +1048,8 @@ module PythonExtensions =
             }
             |> Dict
 
+        static member dict() : Expression = Expression.dict ([], [])
+
         static member tuple(elts, ?loc) : Expression =
             {
                 Elements = elts

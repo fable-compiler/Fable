@@ -479,23 +479,27 @@ module PrinterExtensions =
 
         member printer.Print(node: Dict) =
             printer.Print("{")
-            printer.PrintNewLine()
-            printer.PushIndentation()
 
-            let nodes =
-                List.zip node.Keys node.Values |> List.mapi (fun i n -> (i, n))
+            if not node.Keys.IsEmpty then
+                printer.PrintNewLine()
+                printer.PushIndentation()
 
-            for i, (key, value) in nodes do
-                printer.Print(key)
-                printer.Print(": ")
-                printer.Print(value)
+                let nodes =
+                    List.zip node.Keys node.Values
+                    |> List.mapi (fun i n -> (i, n))
 
-                if i < nodes.Length - 1 then
-                    printer.Print(",")
-                    printer.PrintNewLine()
+                for i, (key, value) in nodes do
+                    printer.Print(key)
+                    printer.Print(": ")
+                    printer.Print(value)
 
-            printer.PrintNewLine()
-            printer.PopIndentation()
+                    if i < nodes.Length - 1 then
+                        printer.Print(",")
+                        printer.PrintNewLine()
+
+                printer.PrintNewLine()
+                printer.PopIndentation()
+
             printer.Print("}")
 
         member printer.Print(node: Name) =
