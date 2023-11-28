@@ -54,7 +54,7 @@ let ``test Can test untyped enumerables`` () =
     sumEnumerable xs |> equal 3
     sumEnumerable ys |> equal 7
     sumEnumerable zs |> equal -1
-    
+
 [<Fact>]
 let ``test Seq.length works`` () =
     let xs = [1.; 2.; 3.; 4.]
@@ -216,7 +216,7 @@ let ``test Seq.find works`` () =
 [<Fact>]
 let ``test Seq.findIndex works`` () =
     let xs = [1.; 2.; 3.; 4.]
-    xs |> Seq.findIndex ((=) 2.)
+    xs |> Seq.findIndex ((=) 2.) |> equal 1
 
 [<Fact>]
 let ``test Seq.findBack works`` () =

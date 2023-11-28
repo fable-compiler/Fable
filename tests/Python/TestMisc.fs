@@ -1329,7 +1329,7 @@ let ``test conditional expressions`` () = // See #2782
         | U2.Case2 s when s.t1 <> "" -> s.t1
         | _ -> ""
 
-    equal(test (U2.Case1 "x"), "x")
+    test (U2.Case1 "x") |> equal "x"
 
 type Æøå =
     | Union1 of string
