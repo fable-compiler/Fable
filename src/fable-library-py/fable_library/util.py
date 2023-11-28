@@ -217,13 +217,20 @@ class DateKind(IntEnum):
 
 
 def equals(a: Any, b: Any) -> bool:
-    if a is b:
-        return True
-
-    if is_array_like(a):
-        return equal_arrays(a, b)
-
-    return a == b
+    match (a, b):
+        case (a, b) if a is b:
+            return True
+        # Don't test (None, None) here, because a is b already covers that
+        # case (None, None):
+        #     return True
+        case (None, _):
+            return False
+        case (_, None):
+            return False
+        case (a, b) if is_array_like(a):
+            return equal_arrays(a, b)
+        case _:
+            return a == b
 
 
 def is_comparable(x: Any) -> bool:
