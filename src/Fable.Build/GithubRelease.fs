@@ -71,7 +71,7 @@ let handle (args: string list) =
     let githubToken =
         Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
 
-    if githubToken = null then
+    if isNull githubToken then
         failwith "Missing GITHUB_TOKEN_FABLE_ORG environment variable"
 
     let versionInfo = Changelog.getLastVersion Changelog.fableCLi

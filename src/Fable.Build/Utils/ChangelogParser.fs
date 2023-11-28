@@ -71,30 +71,35 @@ module Types =
 [<RequireQualifiedAccess>]
 module Lexer =
 
+    [<return: Struct>]
     let private (|Match|_|) pattern input =
         let m = Regex.Match(input, pattern)
 
         if m.Success then
-            Some m
+            ValueSome m
         else
-            None
+            ValueNone
 
+    [<return: Struct>]
     let private (|Title|_|) (input: string) =
         match input with
-        | Match "^# ?[^#]" _ -> input.Substring(1).Trim() |> Some
-        | _ -> None
+        | Match "^# ?[^#]" _ -> input.Substring(1).Trim() |> ValueSome
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let private (|Semver|_|) (input: string) =
         match input with
         | Match "\\[?v?([\\w\\d.-]+\\.[\\w\\d.-]+[a-zA-Z0-9])\\]?" m ->
-            Some m.Groups.[1].Value
-        | _ -> None
+            ValueSome m.Groups.[1].Value
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let private (|Date|_|) (input: string) =
         match input with
-        | Match "(\\d{4}-\\d{2}-\\d{2})" m -> Some m.Groups.[0].Value
-        | _ -> None
+        | Match "(\\d{4}-\\d{2}-\\d{2})" m -> ValueSome m.Groups.[0].Value
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let private (|Version|_|) (input: string) =
         match input with
         | Match "^##? ?[^#]" _ ->
@@ -110,24 +115,27 @@ module Lexer =
 
             let title = input.Substring(2).Trim()
 
-            Some(title, version, date)
+            ValueSome(title, version, date)
 
-        | _ -> None
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let private (|SubSection|_|) (input: string) =
         match input with
-        | Match "^### ?[^#]" _ -> input.Substring(3).Trim() |> Some
-        | _ -> None
+        | Match "^### ?[^#]" _ -> input.Substring(3).Trim() |> ValueSome
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let private (|SubSubSection|_|) (input: string) =
         match input with
-        | Match "^#### ?[^#]" _ -> input.Substring(4).Trim() |> Some
-        | _ -> None
+        | Match "^#### ?[^#]" _ -> input.Substring(4).Trim() |> ValueSome
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let private (|ListItem|_|) (input: string) =
         match input with
-        | Match "^[*-]" _ -> input.Substring(1).Trim() |> Some
-        | _ -> None
+        | Match "^[*-]" _ -> input.Substring(1).Trim() |> ValueSome
+        | _ -> ValueNone
 
     let toSymbols (lines: string list) =
         lines

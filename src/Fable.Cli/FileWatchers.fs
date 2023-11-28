@@ -118,10 +118,9 @@ type PollingFileWatcher(watchedDirectoryPath, ignoredDirectoryNameRegexes) =
             (fun f ->
                 let fullFilePath = f.FullName
 
-                if not <| knownEntities.ContainsKey(fullFilePath) then
-                    recordChange f // New file
-                else
-                    let fileMeta = knownEntities.[fullFilePath]
+                match knownEntities.TryGetValue fullFilePath with
+                | false, _ -> recordChange f // New file
+                | true, fileMeta ->
 
                     try
                         if

@@ -1920,7 +1920,7 @@ and findCasesNames evalExpr tree =
 
 and hasGroupedCases indices tree =
     match tree with
-    | Fable.IfThenElse(Fable.Test(_, _, _),
+    | Fable.IfThenElse(Fable.Test(_),
                        Fable.DecisionTreeSuccess(index, _, _),
                        elseExpr,
                        _) ->
@@ -1933,18 +1933,18 @@ and hasGroupedCases indices tree =
             true
         else
             false
-    | Fable.IfThenElse(Fable.Test(_, _, _), _, _, _) -> false
+    | Fable.IfThenElse(Fable.Test(_), _, _, _) -> false
     | _ -> failwithf "Invalid Condition AST"
 
 and getCases cases tree =
     match tree with
-    | Fable.IfThenElse(Fable.Test(_, _, _),
+    | Fable.IfThenElse(Fable.Test(_),
                        Fable.DecisionTreeSuccess(index, boundValues, _),
                        elseExpr,
                        _) -> getCases (Map.add index boundValues cases) elseExpr
     | Fable.DecisionTreeSuccess(index, boundValues, _) ->
         Map.add index boundValues cases
-    | Fable.IfThenElse(Fable.Test(_, _, _), _, _, _) -> cases
+    | Fable.IfThenElse(Fable.Test(_), _, _, _) -> cases
     | _ -> failwithf "Invalid Condition AST"
 
 

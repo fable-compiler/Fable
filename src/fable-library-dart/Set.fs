@@ -1041,7 +1041,7 @@ let union (set1: Set<'T>) (set2: Set<'T>) = set1 + set2
 
 // [<CompiledName("UnionMany")>]
 let unionMany (sets: seq<Set<'T>>) ([<Inject>] comparer: IComparer<'T>) =
-    Seq.fold (fun s1 s2 -> s1 + s2) (Set<'T>.Empty comparer) sets
+    Seq.fold (+) (Set<'T>.Empty comparer) sets
 
 // [<CompiledName("Intersect")>]
 let intersect (set1: Set<'T>) (set2: Set<'T>) = Set<'T>.Intersection(set1, set2)

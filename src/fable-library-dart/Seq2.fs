@@ -47,9 +47,9 @@ let countBy
         for x in xs do
             let key = projection x
 
-            if dict.ContainsKey(key) then
-                dict[key] <- dict[key] + 1
-            else
+            match dict.TryGetValue key with
+            | true, v -> dict[key] <- v + 1
+            | false, _ ->
                 dict[key] <- 1
                 keys.Add(key)
 

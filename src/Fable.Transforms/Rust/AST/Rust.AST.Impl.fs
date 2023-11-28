@@ -698,7 +698,7 @@ type VariantData with
     /// Return the `NodeId` of this variant's constructor, if it has one.
     member self.ctor_id() : Option<NodeId> =
         match self with
-        | VariantData.Struct(_, _) -> None
+        | VariantData.Struct(_) -> None
         | VariantData.Tuple(_, id)
         | VariantData.Unit(id) -> Some(id)
 

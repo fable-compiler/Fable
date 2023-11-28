@@ -68,7 +68,7 @@ let private publishNuget (fsprojDir: string) =
 
     let nugetKey = Environment.GetEnvironmentVariable("FABLE_NUGET_KEY")
 
-    if nugetKey = null then
+    if isNull nugetKey then
         failwithf $"Missing FABLE_NUGET_KEY environment variable"
 
     if Fsproj.needPublishing fsprojContent lastVersion then
