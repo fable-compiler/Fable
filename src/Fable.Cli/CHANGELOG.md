@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+#### Python
+
+* Fix #3617: Fix comparaison between list option when one is None
+
 ## 4.6.0 - 2023-11-27
 
 ### Changed

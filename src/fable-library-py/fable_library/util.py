@@ -220,6 +220,18 @@ def equals(a: Any, b: Any) -> bool:
     if a is b:
         return True
 
+    # Check for NoneTypes (ex Some [1] = None)
+    match (a, b):
+        # Don't test (None, None) here, because a is b already covers that
+        # case (None, None):
+        #     return True
+        case (None, _):
+            return False
+        case (_, None):
+            return False
+        case (_, _):
+            pass
+
     if is_array_like(a):
         return equal_arrays(a, b)
 
