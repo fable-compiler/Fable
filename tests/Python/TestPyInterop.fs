@@ -52,6 +52,7 @@ type Props =
 
 [<Global("Array")>]
 type PyArray =
+    [<Emit("$0.append($1)")>]
     abstract push: item: obj -> unit
     [<Emit("len($0)")>]
     abstract length: int

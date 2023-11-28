@@ -2829,7 +2829,7 @@ let resizeArrays
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [ arg ] ->
         "void ($0)"
-        |> emitExpr r t [ Helper.InstanceCall(ar, "push", t, [ arg ]) ]
+        |> emitExpr r t [ Helper.InstanceCall(ar, "append", t, [ arg ]) ]
         |> Some
     | "Remove", Some ar, [ arg ] ->
         let args =
@@ -4625,7 +4625,8 @@ let exceptions
     | ".ctor", _ ->
         Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc = r)
         |> Some
-    | "get_Message", Some e -> getFieldWith r t e "message" |> Some
+    | "get_Message", Some e ->
+        Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None
 
