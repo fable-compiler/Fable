@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Python
 
 * Fix #3617: Fix comparaison between list option when one is None
+* Fix #3615: Fix remove from dictionary with tuple as key
+* Fix #3598: Using obj () now generated an empty dict instead of None
 
 ## 4.6.0 - 2023-11-27
 
