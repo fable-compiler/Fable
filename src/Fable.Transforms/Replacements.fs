@@ -2554,6 +2554,14 @@ let strings
         | [ ExprType String
             ExprType(Number(Int32, NumberInfo.Empty))
             StringComparisonEnumValue ] ->
+            let args =
+                args
+                |> List.filter (
+                    function
+                    | StringComparisonEnumValue -> false
+                    | _ -> true
+                )
+
             Helper.InstanceCall(
                 c,
                 Naming.lowerFirst i.CompiledName,
