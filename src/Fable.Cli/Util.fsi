@@ -83,7 +83,7 @@ module File =
     /// System.IO.GetFullPath doesn't change the case of the argument in case insensitive file systems
     /// even if it doesn't match the actual path, causing unexpected issues when comparing files later.
     val getExactFullPath: pathName: string -> string
-    //     /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
+    /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
     val isDirectoryEmpty: dir: string -> bool
     val safeDelete: path: string -> unit
     val withLock: dir: string -> action: (unit -> 'T) -> 'T
@@ -159,10 +159,6 @@ module Json =
 module Performance =
     val measure: f: (unit -> 'a) -> 'a * int64
     val measureAsync: f: (unit -> Async<'a>) -> Async<'a * int64>
-
-// type StringOrdinalComparer =
-//     new: unit -> StringOrdinalComparer
-//     interface System.Collections.Generic.IComparer<string>
 
 type PrecompiledFileJson =
     {
