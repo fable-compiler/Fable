@@ -1,7 +1,5 @@
 namespace Fable.AST
 
-open System
-
 /// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
 type Position =
     {
@@ -26,7 +24,7 @@ type SourceLocation =
     member this.DisplayName =
         this.identifierName
         |> Option.bind (fun name ->
-            match name.IndexOf(";file:", StringComparison.Ordinal) with
+            match name.IndexOf(";file:") with
             | -1 -> Some name
             | 0 -> None
             | i -> name.Substring(0, i) |> Some
@@ -35,7 +33,7 @@ type SourceLocation =
     member this.File =
         this.identifierName
         |> Option.bind (fun name ->
-            match name.IndexOf(";file:", StringComparison.Ordinal) with
+            match name.IndexOf(";file:") with
             | -1 -> None
             | i -> name.Substring(i + ";file:".Length) |> Some
         )
