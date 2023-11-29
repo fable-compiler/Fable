@@ -16,7 +16,6 @@
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen</OtherFlags>
-        <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
     </PropertyGroup>
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)\..\fable_logo.png" Pack="true" Visible="false" PackagePath="" />
