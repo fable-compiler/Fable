@@ -27,7 +27,7 @@ let throwsAnyError (f: unit -> 'a) : unit =
             f () |> ignore
             true
         with e ->
-            print $"Got expected error: %s{string e}"
+            print $"Got expected error: %s{string<exn> e}"
             false
 
     if success then

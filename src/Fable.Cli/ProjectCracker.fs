@@ -185,9 +185,9 @@ type CrackerResponse =
     }
 
 let isSystemPackage (pkgName: string) =
-    pkgName.StartsWith("System.")
-    || pkgName.StartsWith("Microsoft.")
-    || pkgName.StartsWith("runtime.")
+    pkgName.StartsWith("System.", StringComparison.Ordinal)
+    || pkgName.StartsWith("Microsoft.", StringComparison.Ordinal)
+    || pkgName.StartsWith("runtime.", StringComparison.Ordinal)
     || pkgName = "NETStandard.Library"
     || pkgName = "FSharp.Core"
     || pkgName = "Fable.Core"
@@ -295,7 +295,9 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
             let fsprojPath =
                 match Map.tryFind pkgId opts.Replace with
                 | Some replaced ->
-                    if replaced.EndsWith(".fsproj") then
+                    if
+                        replaced.EndsWith(".fsproj", StringComparison.Ordinal)
+                    then
                         replaced
                     else
                         tryFileWithPattern replaced "*.fsproj"
@@ -468,18 +470,24 @@ let private extractUsefulOptionsAndSources
     (line: string)
     (accSources: string list, accOptions: string list)
     =
-    if line.StartsWith("-") then
+    if line.StartsWith('-') then
         //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
-        if line.StartsWith("--langversion:") && isMainProj then
+        if
+            line.StartsWith("--langversion:", StringComparison.Ordinal)
+            && isMainProj
+        then
             let v = line.Substring("--langversion:".Length).ToLowerInvariant()
 
             if v = "preview" then
                 accSources, line :: accOptions
             else
                 accSources, accOptions
-        elif line.StartsWith("--nowarn") || line.StartsWith("--warnon") then
+        elif
+            line.StartsWith("--nowarn", StringComparison.Ordinal)
+            || line.StartsWith("--warnon", StringComparison.Ordinal)
+        then
             accSources, line :: accOptions
-        elif line.StartsWith("--define:") then
+        elif line.StartsWith("--define:", StringComparison.Ordinal) then
             // When parsing the project as .csproj there will be multiple defines in the same line,
             // but the F# compiler seems to accept only one per line
             let defines =
@@ -533,7 +541,7 @@ let getCrackedMainFsproj
     let sourceFiles, otherOpts =
         (projOpts, ([], []))
         ||> Array.foldBack (fun line (src, otherOpts) ->
-            if line.StartsWith("-r:") then
+            if line.StartsWith("-r:", StringComparison.Ordinal) then
                 let line = Path.normalizePath (line[3..])
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
@@ -663,7 +671,12 @@ let getProjectOptionsFromProjectFile =
                             r.CompilerArguments
                             |> Array.map (fun line ->
                                 if reg.IsMatch(line) then
-                                    if line.StartsWith("/reference") then
+                                    if
+                                        line.StartsWith(
+                                            "/reference",
+                                            StringComparison.Ordinal
+                                        )
+                                    then
                                         "-r" + line.Substring(10)
                                     else
                                         "--" + line.Substring(1)
@@ -708,9 +721,12 @@ let getProjectOptionsFromProjectFile =
 
         let projOpts =
             compilerArgs
-            |> Array.skipWhile (fun line -> not (line.StartsWith("-")))
+            |> Array.skipWhile (fun line -> not (line.StartsWith('-')))
             |> Array.map (fun f ->
-                if f.EndsWith(".fs") || f.EndsWith(".fsi") then
+                if
+                    f.EndsWith(".fs", StringComparison.Ordinal)
+                    || f.EndsWith(".fsi", StringComparison.Ordinal)
+                then
                     if Path.IsPathRooted f then
                         f
                     else
@@ -810,7 +826,7 @@ let retryGetCrackedProjects opts =
 // Replace the .fsproj extension with .fableproj for files in fable_modules
 // We do this to avoid conflicts with other F# tooling that scan for .fsproj files
 let changeFsprojToFableproj (path: string) =
-    if path.EndsWith(".fsproj") then
+    if path.EndsWith(".fsproj", StringComparison.Ordinal) then
         IO.Path.ChangeExtension(path, Naming.fableProjExt)
     else
         path
@@ -857,7 +873,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
         | Python, Some Py.Naming.sitePackages ->
             "fable-library-py", "fable-library"
         | _, Some path ->
-            if path.StartsWith("./") then
+            if path.StartsWith("./", StringComparison.Ordinal) then
                 "", Path.normalizeFullPath path
             elif IO.Path.IsPathRooted(path) then
                 "", Path.normalizePath path
@@ -968,7 +984,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
     // (e.g. fable_modules/Fable.Promise.2.1.0/Promise.fs) so we assume they're the same wherever they are
     // TODO: Check if this holds true also for Python which may not include the version number in the path
     let normalizePath (path: string) =
-        let i = path.IndexOf(Naming.fableModules)
+        let i = path.IndexOf(Naming.fableModules, StringComparison.Ordinal)
 
         if i >= 0 then
             path[i..]
@@ -1237,7 +1253,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
                 if
                     ignoredRefs.Contains(name)
-                    || (name.StartsWith("System.")
+                    || (name.StartsWith("System.", StringComparison.Ordinal)
                         && not (coreRefs.Contains(name)))
                 then
                     None

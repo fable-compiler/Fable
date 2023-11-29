@@ -37,7 +37,7 @@ module Enumerator =
                 if i > 0 then
                     str <- str + "; "
 
-                str <- str + (string e.Current)
+                str <- str + (string<'T> e.Current)
                 i <- i + 1
 
             if i = maxCount then

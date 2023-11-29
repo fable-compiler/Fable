@@ -1,5 +1,6 @@
 module rec Fable.Transforms.Fable2Babel
 
+open System
 open Fable
 open Fable.AST
 open Fable.AST.Babel
@@ -1386,7 +1387,7 @@ module Util =
             match line.Trim() with
             | "" -> true
             | Naming.Regex IMPORT_REGEX (_ :: selector :: path :: _) ->
-                if selector.StartsWith("{") then
+                if selector.StartsWith("{", StringComparison.Ordinal) then
                     for selector in
                         selector.TrimStart('{').TrimEnd('}').Split(',') do
                         com.GetImportExpr(
@@ -1401,7 +1402,9 @@ module Util =
                     true
                 else
                     let selector =
-                        if selector.StartsWith("*") then
+                        if
+                            selector.StartsWith("*", StringComparison.Ordinal)
+                        then
                             selector
                         else
                             $"default as {selector}"
@@ -1555,7 +1558,7 @@ module Util =
         =
         match memberName with
         | "ToString" -> Expression.identifier ("toString"), false
-        | n when n.StartsWith("Symbol.") ->
+        | n when n.StartsWith("Symbol.", StringComparison.Ordinal) ->
             Expression.memberExpression (
                 Expression.identifier ("Symbol"),
                 Expression.identifier (n[7..]),
@@ -2185,7 +2188,8 @@ module Util =
             Expression.nullLiteral (?loc = r)
         | Fable.UnitConstant -> undefined r None
         | Fable.BoolConstant x -> Expression.booleanLiteral (x, ?loc = r)
-        | Fable.CharConstant x -> Expression.stringLiteral (string x, ?loc = r)
+        | Fable.CharConstant x ->
+            Expression.stringLiteral (string<char> x, ?loc = r)
         | Fable.StringConstant x -> Expression.stringLiteral (x, ?loc = r)
         | Fable.StringTemplate(tag, parts, values) ->
             let tag = tag |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
@@ -2200,17 +2204,17 @@ module Util =
                 JS.Replacements.makeDecimal com r value.Type x
                 |> transformAsExpr com ctx
             | BigInt, (:? bigint as x) ->
-                Expression.bigintLiteral (string x, ?loc = r)
+                Expression.bigintLiteral (string<bigint> x, ?loc = r)
             | Int64, (:? int64 as x) ->
-                Expression.bigintLiteral (string x, ?loc = r)
+                Expression.bigintLiteral (string<int64> x, ?loc = r)
             | UInt64, (:? uint64 as x) ->
-                Expression.bigintLiteral (string x, ?loc = r)
+                Expression.bigintLiteral (string<uint64> x, ?loc = r)
             // | Int128,  (:? System.Int128 as x) -> Expression.bigintLiteral(string x, ?loc=r)
             // | UInt128, (:? System.UInt128 as x) -> Expression.bigintLiteral(string x, ?loc=r)
             | NativeInt, (:? nativeint as x) ->
-                Expression.bigintLiteral (string x, ?loc = r)
+                Expression.bigintLiteral (string<nativeint> x, ?loc = r)
             | UNativeInt, (:? unativeint as x) ->
-                Expression.bigintLiteral (string x, ?loc = r)
+                Expression.bigintLiteral (string<unativeint> x, ?loc = r)
             | Int8, (:? int8 as x) ->
                 Expression.numericLiteral (float x, ?loc = r)
             | UInt8, (:? uint8 as x) ->
@@ -4556,7 +4560,7 @@ module Util =
         let genArgs =
             Array.init
                 (ent.GenericParameters.Length)
-                (fun i -> "gen" + string i |> makeIdent)
+                (fun i -> "gen" + string<int> i |> makeIdent)
 
         let generics = genArgs |> Array.map identAsExpr
         let body = transformReflectionInfo com ctx None ent generics

@@ -102,7 +102,7 @@ module Js =
         let fileExt =
             let fileExt = cliArgs.CompilerOptions.FileExtension
 
-            if fileExt.EndsWith(".ts") then
+            if fileExt.EndsWith(".ts", StringComparison.Ordinal) then
                 Path.ChangeExtension(fileExt, ".js")
             else
                 fileExt
@@ -172,7 +172,7 @@ module Js =
                         cliArgs.OutDir
                         path
 
-                if path.EndsWith(".fs") then
+                if path.EndsWith(".fs", StringComparison.Ordinal) then
                     let isInFableModules =
                         Path.Combine(targetDir, path) |> Naming.isInFableModules
 
@@ -488,7 +488,7 @@ module Php =
                         cliArgs.OutDir
                         path
 
-                if path.EndsWith(".fs") then
+                if path.EndsWith(".fs", StringComparison.Ordinal) then
                     Path.ChangeExtension(path, fileExt)
                 else
                     path
@@ -546,7 +546,7 @@ module Dart =
                         cliArgs.OutDir
                         path
 
-                if path.EndsWith(".fs") then
+                if path.EndsWith(".fs", StringComparison.Ordinal) then
                     Path.ChangeExtension(path, fileExt)
                 else
                     path
@@ -607,7 +607,7 @@ module Rust =
                         cliArgs.OutDir
                         path
 
-                if path.EndsWith(".fs") then
+                if path.EndsWith(".fs", StringComparison.Ordinal) then
                     Path.ChangeExtension(path, fileExt)
                 else
                     path

@@ -9,13 +9,13 @@ module Naming =
     open System.Text.RegularExpressions
 
     let (|StartsWith|_|) (pattern: string) (txt: string) =
-        if txt.StartsWith(pattern) then
+        if txt.StartsWith(pattern, StringComparison.Ordinal) then
             txt.Substring(pattern.Length) |> Some
         else
             None
 
     let (|EndsWith|_|) (pattern: string) (txt: string) =
-        if txt.EndsWith(pattern) then
+        if txt.EndsWith(pattern, StringComparison.Ordinal) then
             txt.Substring(0, txt.Length - pattern.Length) |> Some
         else
             None
@@ -91,7 +91,7 @@ module Naming =
                     let c = ident.[i]
 
                     if isIdentChar i c then
-                        string c
+                        string<char> c
                     else
                         replace c
                 )
@@ -109,30 +109,33 @@ module Naming =
         Regex.Replace(input, pattern, value)
 
     let replacePrefix (prefix: string) (value: string) (input: string) =
-        if input.StartsWith(prefix) then
+        if input.StartsWith(prefix, StringComparison.Ordinal) then
             value + (input.Substring(prefix.Length))
         else
             input
 
     let replaceSuffix (suffix: string) (value: string) (input: string) =
-        if input.EndsWith(suffix) then
+        if input.EndsWith(suffix, StringComparison.Ordinal) then
             (input.Substring(0, input.Length - suffix.Length)) + value
         else
             input
 
     let removeGetSetPrefix (s: string) =
-        if s.StartsWith("get_") || s.StartsWith("set_") then
+        if
+            s.StartsWith("get_", StringComparison.Ordinal)
+            || s.StartsWith("set_", StringComparison.Ordinal)
+        then
             s.Substring(4)
         else
             s
 
     let extensionMethodName (s: string) =
-        let i1 = s.IndexOf(".")
+        let i1 = s.IndexOf(".", StringComparison.Ordinal)
 
         if i1 < 0 then
             s
         else
-            let i2 = s.IndexOf(".", i1 + 1)
+            let i2 = s.IndexOf(".", i1 + 1, StringComparison.Ordinal)
 
             if i2 < 0 then
                 s
@@ -358,7 +361,7 @@ module Naming =
         let rec check originalName n =
             let name =
                 if n > 0 then
-                    originalName + "_" + (string n)
+                    originalName + "_" + (string<int> n)
                 else
                     originalName
 

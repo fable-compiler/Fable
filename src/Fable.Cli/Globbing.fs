@@ -1,5 +1,6 @@
 ﻿namespace Fable.Cli
 
+open System
 open System.Collections.Generic
 open System.IO
 
@@ -141,7 +142,7 @@ module Globbing =
 
             let globRoot =
                 // If we dropped "/" from the beginning of the path in the 'Split' call, put it back!
-                if normPattern.StartsWith("/") then
+                if normPattern.StartsWith('/') then
                     "/" + globRoot
                 else
                     globRoot
@@ -163,9 +164,9 @@ module Globbing =
                     // names (as one folder name could be a substring of the other)
                     let start =
                         baseDir.TrimEnd([| Path.DirectorySeparatorChar |])
-                        + string Path.DirectorySeparatorChar
+                        + string<char> Path.DirectorySeparatorChar
                     // See https://github.com/fsharp/FAKE/issues/1925
-                    if input.StartsWith start then
+                    if input.StartsWith(start, StringComparison.Ordinal) then
                         input.Substring start.Length
                     else
                         input
@@ -183,7 +184,10 @@ module Globbing =
 
             let baseItems =
                 let start, rest =
-                    if input.StartsWith "\\\\" && splits.Length >= 4 then
+                    if
+                        input.StartsWith("\\\\", StringComparison.Ordinal)
+                        && splits.Length >= 4
+                    then
                         let serverName = splits.[2]
                         let share = splits.[3]
 
@@ -198,12 +202,12 @@ module Globbing =
                     elif
                         splits.Length >= 2
                         && Path.IsPathRooted input
-                        && input.StartsWith "/"
+                        && input.StartsWith '/'
                     then
                         [ Directory("/") ], splits |> Array.toSeq
                     else
                         if Path.IsPathRooted input then
-                            if input.StartsWith "\\" then
+                            if input.StartsWith '\\' then
                                 failwithf
                                     "Please remove the leading '\\' or '/' and replace them with \
                                            '.\\' or './' if you want to use a relative path. Leading \
@@ -415,13 +419,13 @@ module Globbing =
 
                 let included =
                     this.Includes
-                    |> Seq.exists (fun fileInclude ->
+                    |> List.exists (fun fileInclude ->
                         Glob.isMatch (fullDir fileInclude) fullPath
                     )
 
                 let excluded =
                     this.Excludes
-                    |> Seq.exists (fun fileExclude ->
+                    |> List.exists (fun fileExclude ->
                         Glob.isMatch (fullDir fileExclude) fullPath
                     )
 
@@ -468,7 +472,10 @@ module Globbing =
             |> Seq.filter (fun d ->
                 directoryIncludes
                 |> Seq.exists (fun p ->
-                    d.StartsWith(p + string Path.DirectorySeparatorChar)
+                    d.StartsWith(
+                        p + string<char> Path.DirectorySeparatorChar,
+                        StringComparison.Ordinal
+                    )
                     && p <> d
                 )
                 |> not

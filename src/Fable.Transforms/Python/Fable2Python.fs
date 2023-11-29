@@ -942,7 +942,9 @@ module Annotation =
         match t with
         | Fable.Measure _
         | Fable.Any -> stdlibModuleTypeHint com ctx "typing" "Any" []
-        | Fable.GenericParam(name = name) when name.StartsWith("$$") ->
+        | Fable.GenericParam(name = name) when
+            name.StartsWith("$$", StringComparison.Ordinal)
+            ->
             stdlibModuleTypeHint com ctx "typing" "Any" []
         | Fable.GenericParam(name = name) ->
             match repeatedGenerics with
@@ -1526,8 +1528,9 @@ module Util =
         | "get" -> Expression.identifier "__getitem__"
         | "has" -> Expression.identifier "__contains__"
         | "delete" -> Expression.identifier "__delitem__"
-        | n when n.EndsWith "get_Count" -> Expression.identifier "__len__" // TODO: find a better way
-        | n when n.StartsWith("Symbol.iterator") ->
+        | n when n.EndsWith("get_Count", StringComparison.Ordinal) ->
+            Expression.identifier "__len__" // TODO: find a better way
+        | n when n.StartsWith("Symbol.iterator", StringComparison.Ordinal) ->
             let name = Identifier "__iter__"
             Expression.name name
         | n ->
@@ -2205,7 +2208,8 @@ module Util =
         | Fable.Null _t -> Expression.none, []
         | Fable.UnitConstant -> undefined r, []
         | Fable.BoolConstant x -> Expression.constant (x, ?loc = r), []
-        | Fable.CharConstant x -> Expression.constant (string x, ?loc = r), []
+        | Fable.CharConstant x ->
+            Expression.constant (string<char> x, ?loc = r), []
         | Fable.StringConstant x -> Expression.constant (x, ?loc = r), []
         | Fable.StringTemplate(_, parts, values) ->
             match parts with
@@ -2791,7 +2795,7 @@ module Util =
 
         let exprs, _, stmts' = transformCallArgs com ctx info
 
-        if macro.StartsWith("functools") then
+        if macro.StartsWith("functools", StringComparison.Ordinal) then
             com.GetImportExpr(ctx, "functools") |> ignore
 
         let args = exprs |> List.append thisArg
@@ -4487,7 +4491,7 @@ module Util =
                                                                                         Id = Identifier name
                                                                                     }
                                                         }) when
-                                name.StartsWith("_")
+                                name.StartsWith("_", StringComparison.Ordinal)
                                 ->
                                 Expression.subscript (
                                     value,
@@ -4960,7 +4964,7 @@ module Util =
             let genArgs =
                 Array.init
                     ent.GenericParameters.Length
-                    (fun i -> "gen" + string i |> makeIdent)
+                    (fun i -> "gen" + string<int> i |> makeIdent)
 
             let args =
                 genArgs
@@ -5701,9 +5705,12 @@ module Util =
                     | _ -> ""
 
                 match name with
-                | name when name.StartsWith("__") -> "A" + name
-                | name when name.StartsWith("fable") -> "C" + name
-                | name when name.StartsWith(".") -> "D" + name
+                | name when name.StartsWith("__", StringComparison.Ordinal) ->
+                    "A" + name
+                | name when name.StartsWith("fable", StringComparison.Ordinal) ->
+                    "C" + name
+                | name when name.StartsWith(".", StringComparison.Ordinal) ->
+                    "D" + name
                 | _ -> "B" + name
             )
 

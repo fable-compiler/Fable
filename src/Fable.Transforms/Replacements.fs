@@ -2,6 +2,7 @@ module Fable.Transforms.JS.Replacements
 
 #nowarn "1182"
 
+open System
 open System.Text.RegularExpressions
 open Fable
 open Fable.AST
@@ -1435,12 +1436,14 @@ let fableCoreLib
     =
     let fixDynamicImportPath =
         function
-        | Value(StringConstant path, r) when path.EndsWith(".fs") ->
+        | Value(StringConstant path, r) when
+            path.EndsWith(".fs", StringComparison.Ordinal)
+            ->
             // In imports *.ts extensions have to be converted to *.js extensions instead
             let fileExt = com.Options.FileExtension
 
             let fileExt =
-                if fileExt.EndsWith(".ts") then
+                if fileExt.EndsWith(".ts", StringComparison.Ordinal) then
                     Path.ChangeExtension(fileExt, ".js")
                 else
                     fileExt
@@ -3261,7 +3264,12 @@ let tuples
 
     match i.CompiledName, thisArg with
     | (".ctor" | "Create"), _ ->
-        let isStruct = i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
+        let isStruct =
+            i.DeclaringEntityFullName.StartsWith(
+                "System.ValueTuple",
+                StringComparison.Ordinal
+            )
+
         Value(NewTuple(args, isStruct), r) |> Some
     | "get_Item1", Some x -> Get(x, TupleIndex 0, t, r) |> Some
     | "get_Item2", Some x -> Get(x, TupleIndex 1, t, r) |> Some
@@ -6283,7 +6291,7 @@ let guids
     =
     let parseGuid (literalGuid: string) =
         try
-            System.Guid.Parse(literalGuid) |> string |> makeStrConst
+            System.Guid.Parse(literalGuid) |> string<Guid> |> makeStrConst
         with e ->
             e.Message |> addErrorAndReturnNull com ctx.InlinePath r
         |> Some
@@ -7042,7 +7050,9 @@ let tryCall
     | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
         // In netcore F# Reflection methods become extensions
         // with names like `FSharpType.GetExceptionFields.Static`
-        let isFSharpType = info.CompiledName.StartsWith("FSharpType")
+        let isFSharpType =
+            info.CompiledName.StartsWith("FSharpType", StringComparison.Ordinal)
+
         let methName = info.CompiledName |> Naming.extensionMethodName
 
         if isFSharpType then
@@ -7108,7 +7118,8 @@ let tryBaseConstructor
     | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | fullName when
-        fullName.StartsWith("Fable.Core.") && fullName.EndsWith("Attribute")
+        fullName.StartsWith("Fable.Core.", StringComparison.Ordinal)
+        && fullName.EndsWith("Attribute", StringComparison.Ordinal)
         ->
         Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->

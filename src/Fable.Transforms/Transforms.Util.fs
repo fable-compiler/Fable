@@ -1,5 +1,7 @@
 namespace Fable.Transforms
 
+open System
+
 [<RequireQualifiedAccess>]
 module Atts =
     [<Literal>]
@@ -663,7 +665,7 @@ module Log =
 
     let attachRange (range: SourceLocation option) msg =
         match range with
-        | Some range -> msg + " " + (string range)
+        | Some range -> msg + " " + (string<SourceLocation> range)
         | None -> msg
 
     let attachRangeAndFile
@@ -672,7 +674,8 @@ module Log =
         msg
         =
         match range with
-        | Some range -> msg + " " + (string range) + " (" + fileName + ")"
+        | Some range ->
+            msg + " " + (string<SourceLocation> range) + " (" + fileName + ")"
         | None -> msg + " (" + fileName + ")"
 
 
@@ -1141,7 +1144,11 @@ module AST =
             match com.Options.Language with
             | Rust ->
                 if
-                    moduleName = "System" || moduleName.StartsWith("System.")
+                    moduleName = "System"
+                    || moduleName.StartsWith(
+                        "System.",
+                        StringComparison.Ordinal
+                    )
                 then
                     moduleName + "::" + memberName
                 else

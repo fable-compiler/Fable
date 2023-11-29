@@ -9,17 +9,17 @@ type CliArgs(args: string list) =
         let args =
             // Assume last arg has true value in case it's a flag
             match List.tryLast args with
-            | Some key when key.StartsWith("-") -> args @ [ "true" ]
+            | Some key when key.StartsWith('-') -> args @ [ "true" ]
             | _ -> args
 
         (Map.empty, List.windowed 2 args)
         ||> List.fold (fun map pair ->
             match pair with
-            | [ key; value ] when key.StartsWith("-") ->
+            | [ key; value ] when key.StartsWith('-') ->
                 let key = key.ToLower()
 
                 let value =
-                    if value.StartsWith("-") then
+                    if value.StartsWith('-') then
                         "true"
                     else
                         value
@@ -279,11 +279,15 @@ type Runner =
                         |> Seq.toList
 
                     files
-                    |> List.filter (fun file -> file.EndsWith(".fsproj"))
+                    |> List.filter (fun file ->
+                        file.EndsWith(".fsproj", StringComparison.Ordinal)
+                    )
                     |> function
                         | [] ->
                             files
-                            |> List.filter (fun file -> file.EndsWith(".fsx"))
+                            |> List.filter (fun file ->
+                                file.EndsWith(".fsx", StringComparison.Ordinal)
+                            )
                         | candidates -> candidates
                     |> function
                         | [] ->
@@ -388,7 +392,7 @@ type Runner =
             let fileExt =
                 args.Value("-e", "--extension")
                 |> Option.map (fun e ->
-                    if e.StartsWith(".") then
+                    if e.StartsWith('.') then
                         e
                     else
                         "." + e
@@ -537,7 +541,7 @@ let clean (args: CliArgs) language rootDir =
             "No files have been deleted. If Fable output is in another directory, pass it as argument."
         )
     else
-        Log.always ("Clean completed! Files deleted: " + string fileCount)
+        Log.always ("Clean completed! Files deleted: " + string<int> fileCount)
 
 let getStatus =
     function
@@ -563,7 +567,9 @@ let main argv =
         let! argv, runProc =
             argv
             |> List.ofArray
-            |> List.splitWhile (fun a -> not (a.StartsWith("--run")))
+            |> List.splitWhile (fun a ->
+                not (a.StartsWith("--run", StringComparison.Ordinal))
+            )
             |> function
                 | argv, flag :: runArgs ->
                     match flag, runArgs with
@@ -584,7 +590,7 @@ let main argv =
             | ("help" | "--help" | "-h") :: _ -> [ "--help" ], []
             | "--version" :: _ -> [ "--version" ], []
             | argv ->
-                argv |> List.splitWhile (fun x -> x.StartsWith("-") |> not)
+                argv |> List.splitWhile (fun x -> x.StartsWith('-') |> not)
 
         let! args = parseCliArgs args
         let! language = argLanguage args

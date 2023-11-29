@@ -9,7 +9,10 @@ module Extensions =
     type String with
 
         member str.StartsWithAny([<ParamArray>] patterns: string[]) =
-            patterns |> Array.exists (fun p -> str.StartsWith(p))
+            patterns
+            |> Array.exists (fun p ->
+                str.StartsWith(p, StringComparison.Ordinal)
+            )
 
 module Dictionary =
     open System.Collections.Generic
@@ -359,7 +362,7 @@ module Path =
 
     /// If path belongs to a signature file (.fsi), replace the extension with .fs
     let ensureFsExtension (path: string) =
-        if path.EndsWith(".fsi") then
+        if path.EndsWith(".fsi", StringComparison.Ordinal) then
             path.Substring(0, path.Length - 1)
         else
             path

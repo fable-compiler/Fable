@@ -3,6 +3,7 @@ module Fable.Transforms.Py.Replacements
 
 #nowarn "1182"
 
+open System
 open Fable
 open Fable.AST
 open Fable.AST.Fable
@@ -3188,7 +3189,11 @@ let tuples
 
     match i.CompiledName, thisArg with
     | (".ctor" | "Create"), _ ->
-        let isStruct = i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
+        let isStruct =
+            i.DeclaringEntityFullName.StartsWith(
+                "System.ValueTuple",
+                StringComparison.Ordinal
+            )
 
         Value(NewTuple(args, isStruct), r) |> Some
     | "get_Item1", Some x -> Get(x, TupleIndex 0, t, r) |> Some
@@ -4129,7 +4134,7 @@ let bigints
             ?loc = r
         )
         |> Some
-    | None, meth when meth.StartsWith("get_") ->
+    | None, meth when meth.StartsWith("get_", StringComparison.Ordinal) ->
         Helper.LibValue(com, "big_int", meth, t) |> Some
     | callee, meth ->
         let args =
@@ -6910,7 +6915,9 @@ let tryCall
     | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
         // In netcore F# Reflection methods become extensions
         // with names like `FSharpType.GetExceptionFields.Static`
-        let isFSharpType = info.CompiledName.StartsWith("FSharpType")
+        let isFSharpType =
+            info.CompiledName.StartsWith("FSharpType", StringComparison.Ordinal)
+
         let methName = info.CompiledName |> Naming.extensionMethodName
 
         if isFSharpType then

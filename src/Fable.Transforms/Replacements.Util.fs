@@ -2,6 +2,7 @@ module Fable.Transforms.Replacements.Util
 
 #nowarn "1182"
 
+open System
 open System.Text.RegularExpressions
 
 open Fable
@@ -296,7 +297,7 @@ let str txt = Value(StringConstant txt, None)
 let genArg (com: ICompiler) (ctx: Context) r i (genArgs: Type list) =
     List.tryItem i genArgs
     |> Option.defaultWith (fun () ->
-        "Couldn't find generic argument in position " + (string i)
+        "Couldn't find generic argument in position " + (string<int> i)
         |> addError com ctx.InlinePath r
 
         Any
@@ -436,7 +437,7 @@ let changeRangeToCallSite
 
 let splitFullName (fullname: string) =
     let fullname =
-        match fullname.IndexOf("[") with
+        match fullname.IndexOf("[", StringComparison.Ordinal) with
         | -1 -> fullname
         | i -> fullname[.. i - 1]
 
@@ -446,7 +447,7 @@ let splitFullName (fullname: string) =
 
 let getTypeNameFromFullName (fullname: string) =
     let fullname =
-        match fullname.IndexOf("[") with
+        match fullname.IndexOf("[", StringComparison.Ordinal) with
         | -1 -> fullname
         | i -> fullname[.. i - 1]
 

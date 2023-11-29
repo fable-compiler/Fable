@@ -2,6 +2,7 @@ module Fable.Transforms.Dart.Replacements
 
 #nowarn "1182"
 
+open System
 open System.Text.RegularExpressions
 open Fable
 open Fable.AST
@@ -96,7 +97,7 @@ let toChar (arg: Expr) =
 
 let charToString =
     function
-    | Value(CharConstant v, r) -> Value(StringConstant(string v), r)
+    | Value(CharConstant v, r) -> Value(StringConstant(string<char> v), r)
     | e -> Helper.GlobalCall("String", String, [ e ], memb = "fromCharCode")
 
 let toString com (ctx: Context) r (args: Expr list) =
@@ -953,7 +954,7 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
         let entFullName = entFullName[entFullName.LastIndexOf(".") + 1 ..]
 
         let entFullName =
-            match entFullName.IndexOf("`") with
+            match entFullName.IndexOf("`", StringComparison.Ordinal) with
             | -1 -> entFullName
             | i -> entFullName[0 .. i - 1]
 
@@ -2370,7 +2371,10 @@ let formattableString
                     |}
                 )
 
-            printJsTaggedTemplate str holes (fun i -> "$" + string (i + offset))
+            printJsTaggedTemplate
+                str
+                holes
+                (fun i -> "$" + string<int> (i + offset))
 
         emitExpr r t args (callMacro + jsTaggedTemplate) |> Some
     | "get_Format", Some x, _ ->
@@ -2695,7 +2699,12 @@ let tuples
 
     match i.CompiledName, thisArg with
     | (".ctor" | "Create"), _ ->
-        let isStruct = i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
+        let isStruct =
+            i.DeclaringEntityFullName.StartsWith(
+                "System.ValueTuple",
+                StringComparison.Ordinal
+            )
+
         Value(NewTuple(args, isStruct), r) |> Some
     | "get_Item1", Some x -> Get(x, TupleIndex 0, t, r) |> Some
     | "get_Item2", Some x -> Get(x, TupleIndex 1, t, r) |> Some
@@ -3636,7 +3645,7 @@ let bigints
             ?loc = r
         )
         |> Some
-    | None, meth when meth.StartsWith("get_") ->
+    | None, meth when meth.StartsWith("get_", StringComparison.Ordinal) ->
         Helper.LibValue(com, "BigInt", meth, t) |> Some
     | callee, meth ->
         let args =
@@ -5682,7 +5691,7 @@ let guids
     =
     let parseGuid (literalGuid: string) =
         try
-            System.Guid.Parse(literalGuid) |> string |> makeStrConst
+            System.Guid.Parse(literalGuid) |> string<Guid> |> makeStrConst
         with e ->
             e.Message |> addErrorAndReturnNull com ctx.InlinePath r
         |> Some
@@ -6439,7 +6448,9 @@ let tryCall
     | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
         // In netcore F# Reflection methods become extensions
         // with names like `FSharpType.GetExceptionFields.Static`
-        let isFSharpType = info.CompiledName.StartsWith("FSharpType")
+        let isFSharpType =
+            info.CompiledName.StartsWith("FSharpType", StringComparison.Ordinal)
+
         let methName = info.CompiledName |> Naming.extensionMethodName
 
         if isFSharpType then
@@ -6505,7 +6516,8 @@ let tryBaseConstructor
     | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | fullName when
-        fullName.StartsWith("Fable.Core.") && fullName.EndsWith("Attribute")
+        fullName.StartsWith("Fable.Core.", StringComparison.Ordinal)
+        && fullName.EndsWith("Attribute", StringComparison.Ordinal)
         ->
         Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->

@@ -1,5 +1,6 @@
 module rec Fable.Transforms.Rust.Fable2Rust
 
+open System
 open Fable
 open Fable.AST
 open Fable.Transforms
@@ -393,11 +394,11 @@ module TypeInfo =
     let hasMutableFields (com: IRustCompiler) (ent: Fable.Entity) =
         if ent.IsFSharpUnion then
             ent.UnionCases
-            |> Seq.exists (fun uci ->
+            |> List.exists (fun uci ->
                 uci.UnionCaseFields |> List.exists (fun fi -> fi.IsMutable)
             )
         else
-            ent.FSharpFields |> Seq.exists (fun fi -> fi.IsMutable)
+            ent.FSharpFields |> List.exists (fun fi -> fi.IsMutable)
 
     let isEntityOfType
         (com: IRustCompiler)
@@ -839,7 +840,7 @@ module TypeInfo =
             | [ Fable.Unit ] -> []
             | _ -> argTypes
 
-        let argCount = string (List.length argTypes)
+        let argCount = string<int> (List.length argTypes)
         let genArgs = argTypes @ [ returnType ]
         transformImportType com ctx genArgs "Native" ("Func" + argCount)
 
@@ -989,7 +990,12 @@ module TypeInfo =
     let (|HasEmitAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes
         |> Seq.tryPick (fun att ->
-            if att.Entity.FullName.StartsWith(Atts.emit) then
+            if
+                att.Entity.FullName.StartsWith(
+                    Atts.emit,
+                    StringComparison.Ordinal
+                )
+            then
                 match att.ConstructorArgs with
                 | [ :? string as macro ] -> Some macro
                 | _ -> None
@@ -1006,7 +1012,12 @@ module TypeInfo =
     let (|HasReferenceTypeAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes
         |> Seq.tryPick (fun att ->
-            if att.Entity.FullName.StartsWith(Atts.referenceType) then
+            if
+                att.Entity.FullName.StartsWith(
+                    Atts.referenceType,
+                    StringComparison.Ordinal
+                )
+            then
                 match att.ConstructorArgs with
                 | [ :? int as ptrType ] ->
                     match ptrType with
@@ -1058,7 +1069,7 @@ module TypeInfo =
         transformGenericType com ctx genArgs (rawIdent "Result")
 
     let transformChoiceType com ctx genArgs : Rust.Ty =
-        let argCount = string (List.length genArgs)
+        let argCount = string<int> (List.length genArgs)
         transformImportType com ctx genArgs "Choice" ("Choice`" + argCount)
 
     let transformRefCellType com ctx genArg : Rust.Ty =
@@ -1368,7 +1379,7 @@ module Util =
     let isUnitArg (ident: Fable.Ident) =
         ident.IsCompilerGenerated
         && ident.Type = Fable.Unit
-        && (ident.DisplayName.StartsWith("unitVar")
+        && (ident.DisplayName.StartsWith("unitVar", StringComparison.Ordinal)
             || ident.DisplayName.Contains("@"))
 
     let discardUnitArg (genArgs: Fable.Type list) (args: Fable.Ident list) =
@@ -1753,7 +1764,7 @@ module Util =
             | [ Fable.Unit ] -> []
             | _ -> argTypes
 
-        let argCount = string (List.length argTypes)
+        let argCount = string<int> (List.length argTypes)
         let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
         let expr = transformIdent com ctx None ident
 
@@ -2007,35 +2018,35 @@ module Util =
                 None
 
         | NativeInt, (:? nativeint as x) ->
-            let expr = mkIsizeLitExpr (abs x |> string)
+            let expr = mkIsizeLitExpr (abs x |> string<nativeint>)
 
             if x < 0n then
                 expr |> mkNegExpr
             else
                 expr
         | Int8, (:? int8 as x) ->
-            let expr = mkInt8LitExpr (abs x |> string)
+            let expr = mkInt8LitExpr (abs x |> string<int8>)
 
             if x < 0y then
                 expr |> mkNegExpr
             else
                 expr
         | Int16, (:? int16 as x) ->
-            let expr = mkInt16LitExpr (abs x |> string)
+            let expr = mkInt16LitExpr (abs x |> string<int16>)
 
             if x < 0s then
                 expr |> mkNegExpr
             else
                 expr
         | Int32, (:? int32 as x) ->
-            let expr = mkInt32LitExpr (abs x |> string)
+            let expr = mkInt32LitExpr (abs x |> string<int32>)
 
             if x < 0 then
                 expr |> mkNegExpr
             else
                 expr
         | Int64, (:? int64 as x) ->
-            let expr = mkInt64LitExpr (abs x |> string)
+            let expr = mkInt64LitExpr (abs x |> string<int64>)
 
             if x < 0 then
                 expr |> mkNegExpr
@@ -2044,36 +2055,37 @@ module Util =
         | Int128, x -> // (:? System.Int128 as x) ->
             // let expr = mkInt128LitExpr (System.Int128.Abs(x) |> string)
             // if x < 0 then expr |> mkNegExpr else expr
-            let s = string x
+            let s = string<obj> x
             let expr = mkInt128LitExpr (s.TrimStart('-'))
 
-            if s.StartsWith("-") then
+            if s.StartsWith("-", StringComparison.Ordinal) then
                 expr |> mkNegExpr
             else
                 expr
-        | UNativeInt, (:? unativeint as x) -> mkUsizeLitExpr (x |> string)
-        | UInt8, (:? uint8 as x) -> mkUInt8LitExpr (x |> string)
-        | UInt16, (:? uint16 as x) -> mkUInt16LitExpr (x |> string)
-        | UInt32, (:? uint32 as x) -> mkUInt32LitExpr (x |> string)
-        | UInt64, (:? uint64 as x) -> mkUInt64LitExpr (x |> string)
+        | UNativeInt, (:? unativeint as x) ->
+            mkUsizeLitExpr (x |> string<unativeint>)
+        | UInt8, (:? uint8 as x) -> mkUInt8LitExpr (x |> string<uint8>)
+        | UInt16, (:? uint16 as x) -> mkUInt16LitExpr (x |> string<uint16>)
+        | UInt32, (:? uint32 as x) -> mkUInt32LitExpr (x |> string<uint32>)
+        | UInt64, (:? uint64 as x) -> mkUInt64LitExpr (x |> string<uint64>)
         | UInt128, x -> // (:? System.UInt128 as x) ->
-            mkUInt128LitExpr (x |> string)
+            mkUInt128LitExpr (x |> string<obj>)
         | Float16, (:? float32 as x) ->
-            let expr = mkFloat32LitExpr (abs x |> string)
+            let expr = mkFloat32LitExpr (abs x |> string<float32>)
 
             if x < 0.0f then
                 expr |> mkNegExpr
             else
                 expr
         | Float32, (:? float32 as x) ->
-            let expr = mkFloat32LitExpr (abs x |> string)
+            let expr = mkFloat32LitExpr (abs x |> string<float32>)
 
             if x < 0.0f then
                 expr |> mkNegExpr
             else
                 expr
         | Float64, (:? float as x) ->
-            let expr = mkFloat64LitExpr (abs x |> string)
+            let expr = mkFloat64LitExpr (abs x |> string<float>)
 
             if x < 0.0 then
                 expr |> mkNegExpr
@@ -2085,7 +2097,7 @@ module Util =
             $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
             |> addError com [] r
 
-            mkFloat64LitExpr (string 0.)
+            mkFloat64LitExpr (string<float> 0.)
 
     let makeStaticString com ctx (value: Rust.Expr) =
         makeLibCall com ctx None "String" "string" [ value ]
@@ -2245,7 +2257,12 @@ module Util =
         | "FSharp.Core.FSharpResult`2.Ok" -> rawIdent "Ok" |> Some
         | "FSharp.Core.FSharpResult`2.Error" -> rawIdent "Err" |> Some
         | _ ->
-            if fullName.StartsWith("FSharp.Core.FSharpChoice`") then
+            if
+                fullName.StartsWith(
+                    "FSharp.Core.FSharpChoice`",
+                    StringComparison.Ordinal
+                )
+            then
                 fullName
                 |> Fable.Naming.replacePrefix "FSharp.Core.FSharp" ""
                 |> Some
@@ -2674,7 +2691,7 @@ module Util =
         let info = emitInfo.CallInfo
         let macro = emitInfo.Macro
         // if it ends with '!', it's a Rust macro
-        if macro.EndsWith("!") then
+        if macro.EndsWith("!", StringComparison.Ordinal) then
             transformMacro com ctx range emitInfo
         else // otherwise it's an Emit
             let thisArg =
@@ -4392,7 +4409,7 @@ module Util =
             ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableIdents
 
         let ctx = { ctx with ScopedSymbols = scopedSymbols } //; HasMultipleUses = true }
-        let argCount = args |> List.length |> string
+        let argCount = args |> List.length |> string<int>
         let fnBody = transformFunctionBody com ctx args body
 
         let fnBody =
@@ -4665,11 +4682,16 @@ module Util =
                 | [ :? string as name; :? string as value ] ->
                     [ mkEqAttr name value ]
                 | [ :? string as name; :? (obj[]) as items ] ->
-                    [ mkAttr name (items |> Array.map string) ]
+                    [ mkAttr name (items |> Array.map string<obj>) ]
                 | _ -> []
             // translate test methods attributes
             // TODO: support more test frameworks
-            elif a.Entity.FullName.EndsWith(".FactAttribute") then
+            elif
+                a.Entity.FullName.EndsWith(
+                    ".FactAttribute",
+                    StringComparison.Ordinal
+                )
+            then
                 [ mkAttr "test" [] ]
             else
                 []
@@ -4686,7 +4708,7 @@ module Util =
                 | [ :? string as name; :? string as value ] ->
                     [ mkInnerEqAttr name value ]
                 | [ :? string as name; :? (obj[]) as items ] ->
-                    [ mkInnerAttr name (items |> Array.map string) ]
+                    [ mkInnerAttr name (items |> Array.map string<obj>) ]
                 | _ -> []
             else
                 []
@@ -5827,13 +5849,14 @@ module Util =
 
     let isFableLibraryPath (com: IRustCompiler) (path: string) =
         not (isFableLibrary com)
-        && (path.StartsWith(com.LibraryDir) || path = "fable_library_rust")
+        && (path.StartsWith(com.LibraryDir, StringComparison.Ordinal)
+            || path = "fable_library_rust")
 
     let getImportModulePath (com: IRustCompiler) (path: string) =
         let isAbsolutePath =
-            path.StartsWith("/")
-            || path.StartsWith("\\")
-            || path.IndexOf(":") = 1
+            path.StartsWith("/", StringComparison.Ordinal)
+            || path.StartsWith("\\", StringComparison.Ordinal)
+            || path.IndexOf(":", StringComparison.Ordinal) = 1
 
         let modulePath =
             if isAbsolutePath || (isFableLibraryPath com path) then
@@ -5900,7 +5923,7 @@ module Util =
         |> getUniqueNameInRootScope ctx
 
     let fixFileExtension (com: IRustCompiler) (path: string) =
-        if path.EndsWith(".fs") then
+        if path.EndsWith(".fs", StringComparison.Ordinal) then
             let fileExt = com.Options.FileExtension
             Path.ChangeExtension(path, fileExt)
         else
@@ -5930,7 +5953,7 @@ module Compiler =
                     "`importMember` must be assigned to a variable"
                     |> addError com [] r
 
-                let isMacro = selector.EndsWith("!")
+                let isMacro = selector.EndsWith("!", StringComparison.Ordinal)
                 let selector = selector |> Fable.Naming.replaceSuffix "!" ""
                 let path = fixFileExtension self path
 

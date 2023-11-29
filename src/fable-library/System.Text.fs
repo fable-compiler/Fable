@@ -22,23 +22,23 @@ type StringBuilder(value: string, capacity: int) =
         x
 
     member x.Append(c: char) =
-        buf.Add(string c)
+        buf.Add(string<char> c)
         x
 
     member x.Append(o: int) =
-        buf.Add(string o)
+        buf.Add(string<int> o)
         x
 
     member x.Append(o: float) =
-        buf.Add(string o)
+        buf.Add(string<float> o)
         x
 
     member x.Append(o: bool) =
-        buf.Add(string o)
+        buf.Add(string<bool> o)
         x
 
     member x.Append(o: obj) =
-        buf.Add(string o)
+        buf.Add(string<obj> o)
         x
 
     member x.Append(cs: char[]) =
