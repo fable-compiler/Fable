@@ -2550,6 +2550,7 @@ let strings
         | [ ExprType String ]
         | [ ExprType Char; ExprType(Number(Int32, NumberInfo.Empty)) ]
         | [ ExprType String; ExprType(Number(Int32, NumberInfo.Empty)) ]
+        | [ ExprType String; StringComparisonEnumValue ]
         | [ ExprType String
             ExprType(Number(Int32, NumberInfo.Empty))
             StringComparisonEnumValue ] ->

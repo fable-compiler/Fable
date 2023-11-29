@@ -720,6 +720,10 @@ let tests =
             |> equal 4
 
       testCase "String.IndexOf with StringComparison" <| fun () ->
+            "abcdbc".IndexOf("b", StringComparison.Ordinal)
+            |> equal 1
+
+      testCase "String.IndexOf with index and StringComparison" <| fun () ->
             "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
             |> equal 4
 
@@ -732,6 +736,10 @@ let tests =
             |> equal 1
 
       testCase "String.LastIndexOf with StringComparison" <| fun () ->
+            "abcdbc".LastIndexOf("b", StringComparison.Ordinal)
+            |> equal 4
+
+      testCase "String.LastIndexOf with index and StringComparison" <| fun () ->
             "abcdbc".LastIndexOf("b", 3, StringComparison.Ordinal)
             |> equal 1
 
