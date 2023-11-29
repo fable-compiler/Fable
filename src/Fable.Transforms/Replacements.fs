@@ -2549,7 +2549,10 @@ let strings
         | [ ExprType Char ]
         | [ ExprType String ]
         | [ ExprType Char; ExprType(Number(Int32, NumberInfo.Empty)) ]
-        | [ ExprType String; ExprType(Number(Int32, NumberInfo.Empty)) ] ->
+        | [ ExprType String; ExprType(Number(Int32, NumberInfo.Empty)) ]
+        | [ ExprType String
+            ExprType(Number(Int32, NumberInfo.Empty))
+            StringComparisonEnumValue ] ->
             Helper.InstanceCall(
                 c,
                 Naming.lowerFirst i.CompiledName,

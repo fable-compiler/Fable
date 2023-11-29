@@ -854,6 +854,15 @@ module AST =
         | MaybeCasted(Value(Null _, _)) -> Some()
         | _ -> None
 
+    let (|StringComparisonEnumValue|_|) e =
+        match e with
+        | Expr.Value(
+            kind = NumberConstant(
+                info = NumberInfo.IsEnum({
+                                             FullName = "System.StringComparison"
+                                         }))) -> Some()
+        | _ -> None
+
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     // This is mainly used for inlining so a computation or a reference to a mutable value are understood
     // as a side effects too (because we don't want to duplicate or change the order of execution)
