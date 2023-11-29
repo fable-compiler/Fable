@@ -1,0 +1,11 @@
+<Project>
+    <PropertyGroup>
+        <FSharpAnalyzersOtherFlags>--analyzers-path &quot;$(PkgG-Research_FSharp_Analyzers)/analyzers/dotnet/fs&quot;</FSharpAnalyzersOtherFlags>
+        <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --analyzers-path &quot;$(PkgIonide_Analyzers)/analyzers/dotnet/fs&quot;</FSharpAnalyzersOtherFlags>
+        <CodeRoot>$([System.IO.Path]::GetDirectoryName($(DirectoryBuildTargetsPath)))</CodeRoot>
+        <SarifOutput>$(CodeRoot)/reports/</SarifOutput>
+        <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --code-root &quot;$(CodeRoot)&quot;</FSharpAnalyzersOtherFlags>
+        <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --report &quot;$(SarifOutput)$(MSBuildProjectName)-$(TargetFramework).sarif&quot;</FSharpAnalyzersOtherFlags>
+        <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --exclude-analyzer PartialAppAnalyzer</FSharpAnalyzersOtherFlags>
+    </PropertyGroup>
+</Project>

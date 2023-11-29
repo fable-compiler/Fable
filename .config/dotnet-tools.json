@@ -13,6 +13,12 @@
       "commands": [
         "husky"
       ]
+    },
+    "fsharp-analyzers": {
+      "version": "0.21.0",
+      "commands": [
+        "fsharp-analyzers"
+      ]
     }
   }
 }

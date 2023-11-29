@@ -218,3 +218,6 @@ __pycache__/
 
 # Compilation tests
 tests/**/*.actual
+
+# Analyzers
+*.sarif
