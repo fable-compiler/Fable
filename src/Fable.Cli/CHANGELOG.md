@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Fix #3598: Using obj () now generated an empty dict instead of None
 * Fix #3597: Do not translate .toString methods to str
 * Fix #3610: Cleanup Python regex handling
+* Fix #3628: System.DateTime.Substract not correctly transpiled
 
 ## 4.6.0 - 2023-11-27
 
