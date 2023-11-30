@@ -56,28 +56,15 @@ def unescape(string: str) -> str:
     return re.sub(r"\\(.)", r"\1", string)
 
 
-def match(reg: Pattern[str] | str, input: str, start_at: int = 0) -> Match[str] | None:
-    if isinstance(reg, str):
-        flags = _options_to_flags(start_at)
-        return re.search(input, reg, flags)
+def match(reg: Pattern[str], input: str, start_at: int = 0) -> Match[str] | None:
     return reg.search(input, pos=start_at)
 
 
 def matches(reg: Pattern[str], input: str, start_at: int = 0) -> list[Match[str]]:
-    if isinstance(reg, str):
-        flags = _options_to_flags(start_at)
-        input = input.replace("?<", "?P<")
-        return list(re.finditer(input, reg, flags=flags))
-
     return list(reg.finditer(input, pos=start_at))
 
 
-def is_match(reg: Pattern[str] | str, input: str, start_at: int = 0) -> bool:
-    if isinstance(reg, str):
-        # Note: input is the pattern here
-        flags = _options_to_flags(start_at)
-        return re.search(input, reg, flags=flags) is not None
-
+def is_match(reg: Pattern[str], input: str, start_at: int = 0) -> bool:
     return reg.search(input, pos=start_at) is not None
 
 
