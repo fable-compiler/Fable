@@ -74,6 +74,33 @@ let ``test DateTime.MinValue works in pattern match`` () =
     | Some date when date <> DateTime.MinValue -> ()
     | _ -> failwith "expected pattern match above"
 
+[<Fact>]
+let ``test DateTime Subtraction with TimeSpan works`` () =
+    let test ms expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
+        let ts = TimeSpan.FromMilliseconds(ms)
+        let res1 = dt.Subtract(ts) |> thatYearSeconds
+        let res2 = (dt - ts) |> thatYearSeconds
+        equal true (res1 = res2)
+        equal expected res1
+    test 1000. 21945599.0
+    test -1000. 21945601.0
+    test 0. 21945600.0
+
+[<Fact>]
+let ``test DateTime Subtraction with DateTime works`` () =
+    let test ms expected =
+        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+        let dt2 = dt1.AddMilliseconds(ms)
+        let res1 = dt1.Subtract(dt2).TotalSeconds
+        let res2 = (dt1 - dt2).TotalSeconds
+        equal true (res1 = res2)
+        equal expected res1
+    test 1000. -1.0
+    test -1000. 1.0
+    test 0. 0.0
+
+
 // [<Fact>]
 // let ``test DateTime.ToLocalTime works`` () =
 //     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
