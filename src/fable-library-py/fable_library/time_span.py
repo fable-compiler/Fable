@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from math import ceil, floor, fmod
 from typing import Any
 
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
-from math import fmod, ceil, floor
 
 
 # TimeSpan is represented as an int which is the Tick value

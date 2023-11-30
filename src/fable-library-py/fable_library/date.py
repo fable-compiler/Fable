@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from re import Match
 from typing import Any
 
-from .time_span import TimeSpan
+from .time_span import TimeSpan, total_microseconds
 from .time_span import create as create_time_span
 from .types import FSharpRef
 from .util import DateKind
@@ -14,12 +14,19 @@ from .util import DateKind
 formatRegExp = re.compile(r"(\w)\1*")
 
 
-def op_subtraction(x: datetime, y: datetime) -> TimeSpan:
-    delta = x - y
-    # ts.microseconds only contains the microseconds provided to the constructor
-    # so we need to calculate the total microseconds ourselves
-    delta_microseconds = delta.days * (24 * 3600) + delta.seconds * 10**6 + delta.microseconds
-    return create_time_span(0, 0, 0, 0, 0, delta_microseconds)
+def subtract(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
+    if isinstance(y, datetime):
+        delta = x - y
+        # ts.microseconds only contains the microseconds provided to the constructor
+        # so we need to calculate the total microseconds ourselves
+        delta_microseconds = delta.days * (24 * 3600) + delta.seconds * 10**6 + delta.microseconds
+        return create_time_span(0, 0, 0, 0, 0, delta_microseconds)
+
+    return x - timedelta(microseconds=total_microseconds(y))
+
+
+def op_subtraction(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
+    return subtract(x, y)
 
 
 def create(
@@ -228,3 +235,40 @@ def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: F
         return True
     except Exception:
         return False
+
+
+def add(d: datetime, ts: int) -> datetime:
+    new_date = d + timedelta(milliseconds=ts)
+    if d.tzinfo:
+        old_tz_offset = d.utcoffset()
+        new_tz_offset = new_date.utcoffset()
+        if old_tz_offset is not None and new_tz_offset is not None and old_tz_offset != new_tz_offset:
+            return new_date + (new_tz_offset - old_tz_offset)
+
+    return new_date
+
+
+def add_milliseconds(d: datetime, v: int) -> datetime:
+    return d + timedelta(milliseconds=v)
+
+
+__all__ = [
+    "op_subtraction",
+    "subtract",
+    "create",
+    "year",
+    "date_to_string_with_custom_format",
+    "date_to_string_with_offset",
+    "date_to_string_with_kind",
+    "to_string",
+    "now",
+    "utc_now",
+    "to_local_time",
+    "compare",
+    "equals",
+    "max_value",
+    "min_value",
+    "op_addition",
+    "parse",
+    "try_parse",
+]
