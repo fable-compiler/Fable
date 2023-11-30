@@ -5530,11 +5530,7 @@ let regex
         | _ -> false
 
     let createRegex r t args =
-        match args with
-        //| [ StringConst pattern ] -> makeRegexConst r pattern []
-        // | StringConst pattern :: (RegexFlags flags) :: _ ->
-        //     makeRegexConst r pattern flags
-        | _ -> Helper.LibCall(com, "RegExp", "create", t, args, ?loc = r)
+        Helper.LibCall(com, "RegExp", "create", t, args, ?loc = r)
 
     match i.CompiledName with
     // TODO: Use RegexConst if no options have been passed?
