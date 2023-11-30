@@ -11,7 +11,7 @@ from .types import FSharpRef
 from .util import DateKind
 
 
-formatRegExp = re.compile(r"(\w)\1*")
+FORMAT_REGEXP = re.compile(r"(\w)\1*")
 
 
 def subtract(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
@@ -86,7 +86,7 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
 
         return group
 
-    ret = formatRegExp.sub(match, format)
+    ret = FORMAT_REGEXP.sub(match, format)
     return ret
 
     # return format.replace(/(\w)\1*/g, (match) => {
