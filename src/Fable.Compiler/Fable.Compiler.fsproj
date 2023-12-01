@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-<!--        <Compile Include="Util.fsi" />-->
+        <Compile Include="Util.fsi" />
         <Compile Include="Util.fs" />
         <Compile Include="Globbing.fsi" />
         <Compile Include="Globbing.fs" />
