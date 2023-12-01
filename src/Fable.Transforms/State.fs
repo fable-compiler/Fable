@@ -467,10 +467,3 @@ type CompilerImpl
                 ?tag = tag
             )
             |> logs.Add
-
-        member _.GetDependentFiles sourceReader =
-            checker.GetDependentFiles(
-                currentFile,
-                project.SourceFiles,
-                sourceReader
-            )

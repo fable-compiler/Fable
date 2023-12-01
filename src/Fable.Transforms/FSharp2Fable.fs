@@ -3431,10 +3431,6 @@ type FableCompiler(com: Compiler) =
                 ?tag = tag
             )
 
-        member _.GetDependentFiles sourceReader =
-            com.GetDependentFiles sourceReader
-
-
 let rec attachClassMembers (com: FableCompiler) =
     function
     | Fable.ModuleDeclaration decl ->

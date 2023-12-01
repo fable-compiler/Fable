@@ -4208,9 +4208,6 @@ module Compiler =
                     ?tag = tag
                 )
 
-            member _.GetDependentFiles sourceReader =
-                com.GetDependentFiles sourceReader
-
     let makeCompiler com = DartCompiler(com)
 
     let transformFile (com: Compiler) (file: Fable.File) =

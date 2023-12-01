@@ -64,7 +64,7 @@ type BabelWriter
                     (Some targetDir)
                     path
 
-            if path.EndsWith(".fs") then
+            if path.EndsWith(".fs", StringComparison.Ordinal) then
                 let isInFableModules =
                     Path.Combine(targetDir, path) |> Naming.isInFableModules
 

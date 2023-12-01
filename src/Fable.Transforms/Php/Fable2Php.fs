@@ -2653,8 +2653,6 @@ type PhpCompiler(com: Fable.Compiler) =
                 | _ -> false)
                 breakable
 
-        member _.GetDependentFiles sourceReader =
-            com.GetDependentFiles sourceReader
 
 module Compiler =
 

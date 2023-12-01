@@ -93,11 +93,6 @@ type Compiler =
         ?tag: string ->
             unit
 
-    /// Invokes InteractiveChecker.GetDependentFiles
-    /// This will find dependent file via the untyped tree graph.
-    abstract GetDependentFiles:
-        sourceReader: SourceReader -> Async<string array>
-
 type InlineExprLazy(f: Compiler -> InlineExpr) =
     let mutable value: InlineExpr voption = ValueNone
 
