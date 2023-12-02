@@ -315,7 +315,6 @@ type Log =
 /// Not thread-safe, an instance must be created per file
 type CompilerImpl
     (
-        checker: InteractiveChecker,
         currentFile,
         project: Project,
         options,
@@ -369,7 +368,6 @@ type CompilerImpl
                 |> Path.getRelativeFileOrDirPath false file true
 
             CompilerImpl(
-                checker,
                 file,
                 project,
                 options,

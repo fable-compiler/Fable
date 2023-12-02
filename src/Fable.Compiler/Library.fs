@@ -176,7 +176,6 @@ let compileProjectToJavaScript
 
                     let compiler: Compiler =
                         CompilerImpl(
-                            checker,
                             currentFile,
                             fableProj,
                             opts,
@@ -253,7 +252,6 @@ let compileFileToJavaScript
 
                     let compiler: Compiler =
                         CompilerImpl(
-                            checker,
                             currentFile,
                             fableProj,
                             opts,

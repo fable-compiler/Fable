@@ -459,14 +459,7 @@ type ProjectCracked
     member _.FableLibDir = crackerResponse.FableLibDir
     member _.FableModulesDir = crackerResponse.FableModulesDir
 
-    member _.MakeCompiler
-        (
-            checker: InteractiveChecker,
-            currentFile,
-            project,
-            ?triggeredByDependency
-        )
-        =
+    member _.MakeCompiler(currentFile, project, ?triggeredByDependency) =
         let opts =
             match triggeredByDependency with
             | Some t ->
@@ -483,7 +476,6 @@ type ProjectCracked
                 None
 
         CompilerImpl(
-            checker,
             currentFile,
             project,
             opts,
@@ -635,7 +627,6 @@ and FableCompiler
                         async {
                             let com =
                                 projCracked.MakeCompiler(
-                                    checker,
                                     fileName,
                                     fableProj,
                                     triggeredByDependency =
