@@ -27,7 +27,7 @@ type Expression =
     /// A constant value. The value attribute of the Constant literal contains the Python object it represents. The
     /// values represented can be simple types such as a number, string or None, but also immutable container types
     /// (tuples and frozensets) if all of their elements are constant.
-    | Constant of value: obj * loc: SourceLocation option
+    | Constant of value: Literal * loc: SourceLocation option
     | Call of Call
     | Compare of Compare
     | Lambda of Lambda
@@ -42,6 +42,16 @@ type Expression =
         lower: Expression option *
         upper: Expression option *
         step: Expression option
+
+type Literal =
+    | FloatLiteral of float
+    | IntLiteral of obj
+    | BoolLiteral of bool
+    | BytesLiteral of byte[]
+    | StringLiteral of string
+    | NoneLiteral
+    | TupleLiteral of Literal list
+    | FrozensetLiteral of Literal list
 
 type Operator =
     | Add
@@ -1193,10 +1203,19 @@ module PythonExtensions =
 
             Expression.boolOp (op, values, ?loc = loc)
 
-        static member constant(value: obj, ?loc) : Expression =
-            Constant(value = value, loc = loc)
+        static member boolConstant(value: bool, ?loc) : Expression =
+            Constant(value = BoolLiteral value, loc = loc)
 
-        static member string(value: string, ?loc) : Expression =
+        static member intConstant(value: obj, ?loc) : Expression =
+            Constant(value = IntLiteral value, loc = loc)
+
+        static member floatConstant(value: float, ?loc) : Expression =
+            Constant(value = FloatLiteral value, loc = loc)
+
+        static member stringConstant(value: string, ?loc) : Expression =
+            Constant(value = StringLiteral value, loc = loc)
+
+        static member constant(value: Literal, ?loc) : Expression =
             Constant(value = value, loc = loc)
 
         static member starred
