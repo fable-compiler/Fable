@@ -23,6 +23,7 @@ from threading import RLock
 from types import TracebackType
 from typing import (
     Any,
+    ClassVar,
     Generic,
     Protocol,
     TypeVar,
@@ -2609,21 +2610,29 @@ def to_iterator(en: IEnumerator[_T]) -> IEnumerator[_T]:
 
 
 class ObjectRef:
-    id_map: dict[int, int] = dict()
-    count = 0
+    id_map: ClassVar = dict[int, int]()
+    count: ClassVar = 0
 
     @staticmethod
     def id(o: Any) -> int:
         _id = id(o)
         if _id not in ObjectRef.id_map:
-            count = ObjectRef.count + 1
-            ObjectRef.id_map[_id] = count
+            ObjectRef.count += 1
+            ObjectRef.id_map[_id] = ObjectRef.count
 
         return ObjectRef.id_map[_id]
 
 
 def safe_hash(x: Any) -> int:
-    return 0 if x is None else x.GetHashCode() if is_hashable(x) else number_hash(ObjectRef.id(x))
+    return (
+        0
+        if x is None
+        else x.GetHashCode()
+        if is_hashable(x)
+        else hash(x)
+        if is_hashable_py(x)
+        else number_hash(ObjectRef.id(x))
+    )
 
 
 def string_hash(s: str) -> int:

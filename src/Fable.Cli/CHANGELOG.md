@@ -10,12 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Python
 
-* Fix #3617: Fix comparaison between list option when one is None
-* Fix #3615: Fix remove from dictionary with tuple as key
-* Fix #3598: Using obj () now generated an empty dict instead of None
-* Fix #3597: Do not translate .toString methods to str
-* Fix #3610: Cleanup Python regex handling
-* Fix #3628: System.DateTime.Substract not correctly transpiled
+* Fix #3617: Fix comparaison between list option when one is None (by @mangelmaxime)
+* Fix #3615: Fix remove from dictionary with tuple as key (by @dbrattli)
+* Fix #3598: Using obj () now generated an empty dict instead of None (by @dbrattli)
+* Fix #3597: Do not translate .toString methods to str (by @dbrattli)
+* Fix #3610: Cleanup Python regex handling (by @dbrattli)
+* Fix #3628: System.DateTime.Substract not correctly transpiled (by @dbrattli)
+* Fix #3640: All union cases return the same hash code (by @dbrattli)
 
 ## 4.6.0 - 2023-11-27
 
