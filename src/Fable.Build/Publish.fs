@@ -140,15 +140,6 @@ let handle (args: string list) =
 
     publishNpm ProjectDir.fable_metadata
 
-    // Trigger fable-compiler-js target to make sure everything is ready for publish
-    // Note: fable-standalone is built as part of fable-compiler-js
-    // so no need to build it separately
-    // Note 2: We already built fable-library, so we skip it here
-    CompilerJs.handle [ "--skip-fable-library" ]
-
-    publishNpm ProjectDir.fable_standalone
-    publishNpm ProjectDir.fable_compiler_js
-
     // Update embedded version (both compiler and libraries)
     let changelogPath = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
 
@@ -166,3 +157,15 @@ let handle (args: string list) =
     publishNuget ProjectDir.fableCore
     publishNuget ProjectDir.fableCli
     publishNuget ProjectDir.fablePublishUtils
+
+    // Release fable-compiler-js and fable-standalone after Fable.Cli
+    // otherwise the reported version for Fable will be wrong
+
+    // Trigger fable-compiler-js target to make sure everything is ready for publish
+    // Note: fable-standalone is built as part of fable-compiler-js
+    // so no need to build it separately
+    // Note 2: We already built fable-library, so we skip it here
+    CompilerJs.handle [ "--skip-fable-library" ]
+
+    publishNpm ProjectDir.fable_standalone
+    publishNpm ProjectDir.fable_compiler_js
