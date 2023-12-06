@@ -4,39 +4,32 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.6.0</Version>
+    <Version>4.7.0</Version>
     <PackageReleaseNotes>## Added
 
 
 ### All
 
-- Fix #3584: Unit type compiles to undeclared variable (by @ncave)
-
-### Python
-
-- Support `DateTime(..., DateTimeKind.Utc).ToString("O")` (by @MangelMaxime)
-
-### Rust
-
-- Added `Guid.TryParse`, `Guid.ToByteArray` (by @ncave)
-
-## Changed
-
-
-### All
-
-- Updated .NET metadata to 8.0.100 (by @ncave)
+- Overall performance improvements
+    * [GH-3620](https://github.com/fable-compiler/Fable/pull/3620) Removed double-dictionary lookups (by @Thorium)
+    * [GH-3624](https://github.com/fable-compiler/Fable/pull/3624) Add G-Research analyzers and fix reported issues (by @nojaf)
 
 ## Fixed
 
 
+### All
+
+- [GH-3603](https://github.com/fable-compiler/Fable/issues/3603) Missing ``.gitignore`` file in the generated `fable_modules/`` folder (by @MangelMaxime)
+
 ### Python
 
-- Fixed char to string type regression with binary operator (by @dbrattli)
-- Fix `DateTime(..., DateTimeKind.Local).ToString("O")` (by @MangelMaxime)
-- Fix calling `value.ToString(CultureInfo.InvariantCulture)` (by @MangelMaxime)
-- Fix #3605: Fix record equality comparison to works with optional fields (by @MangelMaxime and @dbrattli)
-- PR #3608: Rewrite `time_span.py` allowing for better precision by using a number representation intead of native `timedelta`. (by @MangelMaxime)
+- [GH-3617](https://github.com/fable-compiler/Fable/issues/3617): Fix comparaison between list option when one is None (by @mangelmaxime)
+- [GH-3615](https://github.com/fable-compiler/Fable/issues/3615): Fix remove from dictionary with tuple as key (by @dbrattli)
+- [GH-3598](https://github.com/fable-compiler/Fable/issues/3598): Using obj () now generated an empty dict instead of None (by @dbrattli)
+- [GH-3597](https://github.com/fable-compiler/Fable/issues/3597): Do not translate .toString methods to str (by @dbrattli)
+- [GH-3610](https://github.com/fable-compiler/Fable/issues/3610): Cleanup Python regex handling (by @dbrattli)
+- [GH-3628](https://github.com/fable-compiler/Fable/issues/3628): System.DateTime.Substract not correctly transpiled (by @dbrattli)
+- [GH-3640](https://github.com/fable-compiler/Fable/issues/3640): All union cases return the same hash code (by @dbrattli)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
