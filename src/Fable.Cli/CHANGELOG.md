@@ -11,20 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### All
 
 * Overall performance improvements
-    * [PR 3620](https://github.com/fable-compiler/Fable/pull/3620) Removed double-dictionary lookups (by @Thorium)
-    * [PR 3624](https://github.com/fable-compiler/Fable/pull/3624) Add G-Research analyzers and fix reported issues (by @nojaf)
+    * [GH-3620](https://github.com/fable-compiler/Fable/pull/3620) Removed double-dictionary lookups (by @Thorium)
+    * [GH-3624](https://github.com/fable-compiler/Fable/pull/3624) Add G-Research analyzers and fix reported issues (by @nojaf)
 
 ### Fixed
 
+#### All
+
+* [GH-3603](https://github.com/fable-compiler/Fable/issues/3603) Missing ``.gitignore`` file in the generated `fable_modules/`` folder (by @MangelMaxime)
+
 #### Python
 
-* Fix #3617: Fix comparaison between list option when one is None (by @mangelmaxime)
-* Fix #3615: Fix remove from dictionary with tuple as key (by @dbrattli)
-* Fix #3598: Using obj () now generated an empty dict instead of None (by @dbrattli)
-* Fix #3597: Do not translate .toString methods to str (by @dbrattli)
-* Fix #3610: Cleanup Python regex handling (by @dbrattli)
-* Fix #3628: System.DateTime.Substract not correctly transpiled (by @dbrattli)
-* Fix #3640: All union cases return the same hash code (by @dbrattli)
+* [GH-3617](https://github.com/fable-compiler/Fable/issues/3617): Fix comparaison between list option when one is None (by @mangelmaxime)
+* [GH-3615](https://github.com/fable-compiler/Fable/issues/3615): Fix remove from dictionary with tuple as key (by @dbrattli)
+* [GH-3598](https://github.com/fable-compiler/Fable/issues/3598): Using obj () now generated an empty dict instead of None (by @dbrattli)
+* [GH-3597](https://github.com/fable-compiler/Fable/issues/3597): Do not translate .toString methods to str (by @dbrattli)
+* [GH-3610](https://github.com/fable-compiler/Fable/issues/3610): Cleanup Python regex handling (by @dbrattli)
+* [GH-3628](https://github.com/fable-compiler/Fable/issues/3628): System.DateTime.Substract not correctly transpiled (by @dbrattli)
+* [GH-3640](https://github.com/fable-compiler/Fable/issues/3640): All union cases return the same hash code (by @dbrattli)
 
 ## 4.6.0 - 2023-11-27
 
