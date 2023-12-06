@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+#### All
+
+* Overall performance improvements
+    * [PR 3620](https://github.com/fable-compiler/Fable/pull/3620) Removed double-dictionary lookups (by @Thorium)
+    * [PR 3624](https://github.com/fable-compiler/Fable/pull/3624) Add G-Research analyzers and fix reported issues (by @nojaf)
+
 ### Fixed
 
 #### Python

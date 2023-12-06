@@ -2226,7 +2226,7 @@ module Util =
         | Fable.UnitConstant -> undefined r, []
         | Fable.BoolConstant x -> Expression.boolConstant (x, ?loc = r), []
         | Fable.CharConstant x ->
-            Expression.stringConstant (string x, ?loc = r), []
+            Expression.stringConstant (string<char> x, ?loc = r), []
         | Fable.StringConstant x -> Expression.stringConstant (x, ?loc = r), []
         | Fable.StringTemplate(_, parts, values) ->
             match parts with
