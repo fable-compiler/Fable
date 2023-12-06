@@ -164,7 +164,7 @@ module Reflection =
         =
         // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
         let fullname = ent.FullName
-        let fullnameExpr = Expression.constant fullname
+        let fullnameExpr = Expression.stringConstant fullname
 
         let genMap =
             let genParamNames =
@@ -180,11 +180,11 @@ module Reflection =
                 let typeInfo, stmts =
                     transformTypeInfo com ctx r genMap fi.FieldType
 
+                let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
+
                 (Expression.tuple
                     [
-                        Expression.constant (
-                            fi.Name |> Naming.toSnakeCase |> Helpers.clean
-                        )
+                        Expression.stringConstant (name)
                         typeInfo
                     ]),
                 stmts
@@ -214,7 +214,7 @@ module Reflection =
         generics
         =
         let fullname = ent.FullName
-        let fullnameExpr = Expression.constant fullname
+        let fullnameExpr = Expression.stringConstant fullname
 
         let genMap =
             let genParamNames =
@@ -231,7 +231,7 @@ module Reflection =
                 |> List.map (fun fi ->
                     Expression.tuple
                         [
-                            fi.Name |> Expression.constant
+                            fi.Name |> Expression.stringConstant
                             let expr, _stmts =
                                 transformTypeInfo
                                     com
@@ -276,7 +276,7 @@ module Reflection =
             getNumberKindName kind |> primitiveTypeInfo
 
         let nonGenericTypeInfo fullname =
-            [ Expression.constant fullname ]
+            [ Expression.stringConstant fullname ]
             |> libReflectionCall com ctx None "class"
 
         let resolveGenerics generics : Expression list * Statement list =
@@ -296,7 +296,7 @@ module Reflection =
                 None
                 "class"
                 [
-                    Expression.constant fullname
+                    Expression.stringConstant fullname
                     if not (List.isEmpty generics) then
                         Expression.list generics
                 ]
@@ -333,8 +333,8 @@ module Reflection =
 
                             Expression.tuple
                                 [
-                                    Expression.constant name
-                                    Expression.constant value
+                                    Expression.stringConstant name
+                                    Expression.floatConstant value
                                 ]
                             |> Some
                     )
@@ -342,7 +342,7 @@ module Reflection =
                     |> Expression.list
 
                 [
-                    Expression.constant entRef.FullName
+                    Expression.stringConstant entRef.FullName
                     numberInfo kind
                     cases
                 ]
@@ -377,7 +377,7 @@ module Reflection =
             |> List.map (fun (k, t) ->
                 Expression.tuple
                     [
-                        Expression.constant k
+                        Expression.stringConstant k
                         t
                     ]
             )
@@ -488,7 +488,7 @@ module Reflection =
 
             let exprs, stmts =
                 [
-                    yield Expression.constant fullname, []
+                    yield Expression.stringConstant fullname, []
                     match generics with
                     | [] -> yield Util.undefined None, []
                     | generics -> yield Expression.list generics, []
@@ -511,7 +511,7 @@ module Reflection =
 
             exprs |> libReflectionCall com ctx r "class", stmts
 
-    let private ofString s = Expression.constant s
+    let private ofString s = Expression.stringConstant s
     let private ofArray exprs = Expression.list exprs
 
     let transformTypeTest
@@ -526,7 +526,7 @@ module Reflection =
             "Cannot type test (evals to false): " + msg
             |> addWarning com [] range
 
-            Expression.constant false
+            Expression.boolConstant false
 
         let pyTypeof
             (primitiveType: string)
@@ -542,7 +542,7 @@ module Reflection =
             Expression.compare (
                 typeof,
                 [ Eq ],
-                [ Expression.constant primitiveType ],
+                [ Expression.stringConstant primitiveType ],
                 ?loc = range
             ),
             stmts
@@ -564,7 +564,7 @@ module Reflection =
 
         match typ with
         | Fable.Measure _ // Dummy, shouldn't be possible to test against a measure type
-        | Fable.Any -> Expression.constant true, []
+        | Fable.Any -> Expression.boolConstant true, []
         | Fable.Unit ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
 
@@ -637,7 +637,7 @@ module Reflection =
                     com.GetEntity(ent2)
                     |> FSharp2Fable.Util.hasInterface Types.idisposable
                     ->
-                    Expression.constant true, []
+                    Expression.boolConstant true, []
                 | _ ->
                     let expr, stmts = com.TransformAsExpr(ctx, expr)
                     libCall com ctx None "util" "isDisposable" [ expr ], stmts
@@ -1074,8 +1074,8 @@ module Annotation =
 
                         Expression.tuple
                             [
-                                Expression.constant name
-                                Expression.constant value
+                                Expression.stringConstant name
+                                Expression.floatConstant value
                             ]
                         |> Some
                 )
@@ -1083,7 +1083,7 @@ module Annotation =
                 |> Expression.list
 
             [
-                Expression.constant entRef.FullName
+                Expression.stringConstant entRef.FullName
                 numberInfo kind
                 cases
             ]
@@ -1509,9 +1509,9 @@ module Util =
 
     let thisExpr = Expression.name "self"
 
-    let ofInt (i: int) = Expression.constant (int i)
+    let ofInt (i: int) = Expression.intConstant (int i)
 
-    let ofString (s: string) = Expression.constant s
+    let ofString (s: string) = Expression.stringConstant s
 
     let memberFromName
         (_com: IPythonCompiler)
@@ -1544,7 +1544,7 @@ module Util =
         // printfn "get: %A" (memberName, subscript)
         match subscript with
         | true ->
-            let expr = Expression.constant memberName
+            let expr = Expression.stringConstant memberName
             Expression.subscript (value = left, slice = expr, ctx = Load)
         | _ ->
             let expr = com.GetIdentifier(ctx, memberName)
@@ -1552,8 +1552,8 @@ module Util =
 
     let getExpr _com _ctx _r (object: Expression) (expr: Expression) =
         match expr with
-        | Expression.Constant(value = name) when (name :? string) ->
-            let name = name :?> string |> Identifier
+        | Expression.Constant(value = StringLiteral name) ->
+            let name = name |> Identifier
             Expression.attribute (value = object, attr = name, ctx = Load), []
         | e -> Expression.subscript (value = object, slice = e, ctx = Load), []
 
@@ -1600,7 +1600,7 @@ module Util =
 
             Expression.call (
                 array,
-                Expression.constant l :: [ Expression.list expr ]
+                Expression.stringConstant l :: [ Expression.list expr ]
             ),
             stmts
         | _ -> expr |> Expression.list, stmts
@@ -1615,7 +1615,7 @@ module Util =
         =
         //printfn "makeArrayAllocated"
         let size, stmts = com.TransformAsExpr(ctx, size)
-        let array = Expression.list [ Expression.constant 0 ]
+        let array = Expression.list [ Expression.intConstant 0 ]
         Expression.binOp (array, Mult, size), stmts
 
     let makeArrayFrom
@@ -1651,12 +1651,14 @@ module Util =
         expr |> Expression.tuple, stmts
 
     let makeStringArray strings =
-        strings |> List.map (fun x -> Expression.constant x) |> Expression.list
+        strings
+        |> List.map (fun x -> Expression.stringConstant x)
+        |> Expression.list
 
     let makePyObject (pairs: seq<string * Expression>) =
         pairs
         |> Seq.map (fun (name, value) ->
-            let prop = Expression.constant name
+            let prop = Expression.stringConstant name
             prop, value
         )
         |> Seq.toList
@@ -1863,7 +1865,9 @@ module Util =
 
     let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-        let expr, stmts' = getExpr com ctx r expr (Expression.constant "tag")
+
+        let expr, stmts' =
+            getExpr com ctx r expr (Expression.stringConstant "tag")
 
         expr, stmts @ stmts'
 
@@ -1876,7 +1880,7 @@ module Util =
                 BoolOperator.Or,
                 [
                     e
-                    Expression.constant 0
+                    Expression.intConstant 0
                 ]
             )
         | _ -> e
@@ -2187,10 +2191,23 @@ module Util =
         )
 
 
-    let makeNumber (com: IPythonCompiler) (ctx: Context) r _t intName x =
+    let makeInteger
+        (com: IPythonCompiler)
+        (ctx: Context)
+        r
+        _t
+        intName
+        (x: obj)
+        =
         let cons = libValue com ctx "types" intName
-        let value = Expression.constant (x, ?loc = r)
+        let value = Expression.intConstant (x, ?loc = r)
         Expression.call (cons, [ value ], ?loc = r), []
+
+    let makeFloat (com: IPythonCompiler) (ctx: Context) r _t floatName x =
+        let cons = libValue com ctx "types" floatName
+        let value = Expression.floatConstant (x, ?loc = r)
+        Expression.call (cons, [ value ], ?loc = r), []
+
 
     let transformValue
         (com: IPythonCompiler)
@@ -2207,10 +2224,10 @@ module Util =
         | Fable.TypeInfo(t, _) -> transformTypeInfo com ctx r Map.empty t
         | Fable.Null _t -> Expression.none, []
         | Fable.UnitConstant -> undefined r, []
-        | Fable.BoolConstant x -> Expression.constant (x, ?loc = r), []
+        | Fable.BoolConstant x -> Expression.boolConstant (x, ?loc = r), []
         | Fable.CharConstant x ->
-            Expression.constant (string<char> x, ?loc = r), []
-        | Fable.StringConstant x -> Expression.constant (x, ?loc = r), []
+            Expression.stringConstant (string x, ?loc = r), []
+        | Fable.StringConstant x -> Expression.stringConstant (x, ?loc = r), []
         | Fable.StringTemplate(_, parts, values) ->
             match parts with
             | [] -> makeStrConst ""
@@ -2241,19 +2258,19 @@ module Util =
                 Py.Replacements.makeDecimal com r value.Type x
                 |> transformAsExpr com ctx
             | Int64, (:? int64 as x) ->
-                makeNumber com ctx r value.Type "int64" x
+                makeInteger com ctx r value.Type "int64" x
             | UInt64, (:? uint64 as x) ->
-                makeNumber com ctx r value.Type "uint64" x
-            | Int8, (:? int8 as x) -> makeNumber com ctx r value.Type "int8" x
+                makeInteger com ctx r value.Type "uint64" x
+            | Int8, (:? int8 as x) -> makeInteger com ctx r value.Type "int8" x
             | UInt8, (:? uint8 as x) ->
-                makeNumber com ctx r value.Type "uint8" x
+                makeInteger com ctx r value.Type "uint8" x
             | Int16, (:? int16 as x) ->
-                makeNumber com ctx r value.Type "int16" x
+                makeInteger com ctx r value.Type "int16" x
             | UInt16, (:? uint16 as x) ->
-                makeNumber com ctx r value.Type "uint16" x
-            | Int32, (:? int32 as x) -> Expression.constant (x, ?loc = r), []
+                makeInteger com ctx r value.Type "uint16" x
+            | Int32, (:? int32 as x) -> Expression.intConstant (x, ?loc = r), []
             | UInt32, (:? uint32 as x) ->
-                makeNumber com ctx r value.Type "uint32" x
+                makeInteger com ctx r value.Type "uint32" x
             //| _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
             | _, x when x = infinity -> Expression.name "float('inf')", []
             | _, x when x = -infinity -> Expression.name "float('-inf')", []
@@ -2266,12 +2283,12 @@ module Util =
                     r
                     "types"
                     "float32"
-                    [ Expression.constant "nan" ],
+                    [ Expression.stringConstant "nan" ],
                 []
             | _, (:? float32 as x) ->
-                makeNumber com ctx r value.Type "float32" x
-            | _, (:? float as x) -> Expression.constant (x, ?loc = r), []
-            | _ -> Expression.constant (x, ?loc = r), []
+                makeFloat com ctx r value.Type "float32" (float x)
+            | _, (:? float as x) -> Expression.floatConstant (x, ?loc = r), []
+            | _ -> Expression.intConstant (x, ?loc = r), []
         | Fable.NewArray(newKind, typ, kind) ->
             match newKind with
             | Fable.ArrayValues values -> makeArray com ctx values kind typ
@@ -3033,11 +3050,8 @@ module Util =
         let expr, stmts = com.TransformAsExpr(ctx, guardExpr)
 
         match expr with
-        | Constant(value = value) when (value :? bool) ->
-            match value with
-            | :? bool as value when value ->
-                stmts @ com.TransformAsStatements(ctx, ret, thenStmnt)
-            | _ -> stmts @ com.TransformAsStatements(ctx, ret, elseStmnt)
+        | Constant(value = BoolLiteral value) ->
+            stmts @ com.TransformAsStatements(ctx, ret, thenStmnt)
         | guardExpr ->
             let thenStmnt, stmts' =
                 transformBlock com ctx ret thenStmnt
@@ -3151,7 +3165,7 @@ module Util =
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
 
             let expr, stmts' =
-                getExpr com ctx None expr (Expression.constant "fields")
+                getExpr com ctx None expr (Expression.stringConstant "fields")
 
             let expr, stmts'' = getExpr com ctx range expr (ofInt i.FieldIndex)
 
@@ -4117,7 +4131,10 @@ module Util =
             | Some l ->
                 let array = com.GetImportExpr(ctx, "array", "array")
 
-                Expression.call (array, Expression.constant l :: [ value ]),
+                Expression.call (
+                    array,
+                    Expression.stringConstant l :: [ value ]
+                ),
                 stmts
             | _ -> transformAsSlice com ctx expr info
         | _ -> transformAsSlice com ctx expr info
@@ -4417,16 +4434,16 @@ module Util =
             let limit, step =
                 if isUp then
                     let limit =
-                        Expression.binOp (limit, Add, Expression.constant 1) // Python `range` has exclusive end.
+                        Expression.binOp (limit, Add, Expression.intConstant 1) // Python `range` has exclusive end.
 
                     limit, 1
                 else
                     let limit =
-                        Expression.binOp (limit, Sub, Expression.constant 1) // Python `range` has exclusive end.
+                        Expression.binOp (limit, Sub, Expression.intConstant 1) // Python `range` has exclusive end.
 
                     limit, -1
 
-            let step = Expression.constant step
+            let step = Expression.intConstant step
 
             let iter =
                 Expression.call (
@@ -4589,7 +4606,7 @@ module Util =
 
                 args',
                 [],
-                Statement.while' (Expression.constant true, body)
+                Statement.while' (Expression.boolConstant true, body)
                 |> List.singleton
             | _ ->
                 // Make sure all of the last optional arguments will accept None as their default value
@@ -4671,7 +4688,7 @@ module Util =
             Expression.compare (
                 Expression.name "__name__",
                 [ ComparisonOperator.Eq ],
-                [ Expression.constant "__main__" ]
+                [ Expression.stringConstant "__main__" ]
             )
 
         let main =
@@ -4793,11 +4810,11 @@ module Util =
                         [
                             Keyword.keyword (
                                 Identifier "eq",
-                                Expression.constant false
+                                Expression.boolConstant false
                             )
                             Keyword.keyword (
                                 Identifier "repr",
-                                Expression.constant false
+                                Expression.boolConstant false
                             )
                         ]
                 )
@@ -4902,7 +4919,9 @@ module Util =
             let elements =
                 getEntityFieldsAsProps com ctx classEnt
                 |> Array.map (
-                    nameFromKey com ctx >> strFromIdent >> Expression.string
+                    nameFromKey com ctx
+                    >> strFromIdent
+                    >> Expression.stringConstant
                 )
                 |> Array.toList
 
@@ -5037,10 +5056,8 @@ module Util =
     let nameFromKey (com: IPythonCompiler) (ctx: Context) key =
         match key with
         | Expression.Name { Id = ident } -> ident
-        | Expression.Constant(value = value) ->
-            match value with
-            | :? string as name -> com.GetIdentifier(ctx, name)
-            | _ -> failwith $"Not a valid value: {value}"
+        | Expression.Constant(value = StringLiteral name) ->
+            com.GetIdentifier(ctx, name)
         | name -> failwith $"Not a valid name: {name}"
 
     let transformAttachedProperty
@@ -5198,7 +5215,7 @@ module Util =
                                     BoolOperator.Or,
                                     [
                                         identAsExpr com ctx id
-                                        Expression.constant 0
+                                        Expression.intConstant 0
                                     ]
                                 )
                             | Fable.Array _ ->
@@ -5639,7 +5656,7 @@ module Util =
             for var in typeVars do
                 let targets = Expression.name var |> List.singleton
                 let value = com.GetImportExpr(ctx, "typing", "TypeVar")
-                let args = Expression.constant var |> List.singleton
+                let args = Expression.stringConstant var |> List.singleton
                 let value = Expression.call (value, args)
                 Statement.assign (targets, value)
         ]
@@ -5657,7 +5674,7 @@ module Util =
             let all = Expression.name "__all__"
 
             let names =
-                exports |> List.map Expression.constant |> Expression.list
+                exports |> List.map Expression.stringConstant |> Expression.list
 
             [ Statement.assign ([ all ], names) ]
 

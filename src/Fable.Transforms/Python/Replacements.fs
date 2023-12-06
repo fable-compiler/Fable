@@ -5534,6 +5534,9 @@ let regex
         | Some(ExprType(DeclaredTypeFullName Types.regexGroup)) -> true
         | _ -> false
 
+    let createRegex r t args =
+        Helper.LibCall(com, "RegExp", "create", t, args, ?loc = r)
+
     match i.CompiledName with
     // TODO: Use RegexConst if no options have been passed?
     | ".ctor" ->
@@ -5616,6 +5619,36 @@ let regex
     | "get_Count" ->
         Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
+    | "IsMatch"
+    | "Match"
+    | "Matches" as meth ->
+        match thisArg, args with
+        | Some thisArg, args ->
+            if args.Length > 2 then
+                $"Regex.{meth} doesn't support more than 2 arguments"
+                |> addError com ctx.InlinePath r
+
+            thisArg :: args |> Some
+        | None, input :: pattern :: args ->
+            let reg = createRegex None Any (pattern :: args)
+
+            [
+                reg
+                input
+            ]
+            |> Some
+        | _ -> None
+        |> Option.map (fun args ->
+            Helper.LibCall(
+                com,
+                "RegExp",
+                Naming.lowerFirst meth,
+                t,
+                args,
+                i.SignatureArgTypes,
+                ?loc = r
+            )
+        )
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
