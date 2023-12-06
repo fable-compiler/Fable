@@ -624,7 +624,8 @@ module Imports =
         path.Replace("../", "").Replace("./", "").Replace(":", "")
 
     let isRelativePath (path: string) =
-        path.StartsWith("./") || path.StartsWith("../")
+        path.StartsWith("./", StringComparison.Ordinal)
+        || path.StartsWith("../", StringComparison.Ordinal)
 
     let isAbsolutePath (path: string) =
         path.StartsWith('/') || path.IndexOf(':') = 1
@@ -735,7 +736,7 @@ module Imports =
                     importPath
 
             if isAbsolutePath importPath then
-                if importPath.EndsWith(".fs") then
+                if importPath.EndsWith(".fs", StringComparison.Ordinal) then
                     getTargetRelativePath
                         pathResolver
                         importPath
