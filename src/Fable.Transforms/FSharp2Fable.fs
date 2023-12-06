@@ -3431,6 +3431,7 @@ type FableCompiler(com: Compiler) =
                 ?tag = tag
             )
 
+
 let rec attachClassMembers (com: FableCompiler) =
     function
     | Fable.ModuleDeclaration decl ->

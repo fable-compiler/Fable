@@ -5908,7 +5908,6 @@ module Compiler =
                     ?tag = tag
                 )
 
-
     let makeCompiler com = PythonCompiler(com)
 
     let transformFile (com: Compiler) (file: Fable.File) =

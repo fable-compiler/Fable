@@ -1,6 +1,5 @@
 module Fable.Transforms.State
 
-open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open System.Collections.Concurrent
