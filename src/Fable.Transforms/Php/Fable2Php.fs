@@ -1,5 +1,6 @@
 ﻿module Fable.Transforms.Fable2Php
 
+open System
 open FSharp.Compiler.Symbols
 open Fable
 open Fable.AST
@@ -1552,7 +1553,9 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
                 PhpGlobal(name)
             | _ ->
                 com.AddRequire(info.Path)
-                let sepPos = info.Selector.IndexOf("__")
+
+                let sepPos =
+                    info.Selector.IndexOf("__", StringComparison.Ordinal)
 
                 if sepPos >= 0 then
                     PhpIdent(
@@ -1829,7 +1832,7 @@ and convertValue (com: IPhpCompiler) (value: Fable.ValueKind) range =
     | Fable.StringConstant(s) -> PhpConst(PhpConstString s)
     | Fable.BoolConstant(b) -> PhpConst(PhpConstBool b)
     | Fable.UnitConstant -> PhpConst(PhpConstNull)
-    | Fable.CharConstant(c) -> PhpConst(PhpConstString(string c))
+    | Fable.CharConstant(c) -> PhpConst(PhpConstString(string<char> c))
     | Fable.Null _ -> PhpConst(PhpConstNull)
     | Fable.NewList(Some(head, tail), _) ->
         libCall
@@ -2472,7 +2475,7 @@ type PhpCompiler(com: Fable.Compiler) =
 
     member this.MakeUniqueVar(name) =
         id <- id + 1
-        "_" + name + "__" + string id
+        "_" + name + "__" + string<int> id
 
     member this.NewScope() =
         let oldScope = scope
@@ -2524,7 +2527,7 @@ type PhpCompiler(com: Fable.Compiler) =
                             basePath
                             (fullPhpPath (fixExt file))
 
-                    if p.StartsWith "./" then
+                    if p.StartsWith("./", StringComparison.Ordinal) then
                         p.Substring 2
                     else
                         p

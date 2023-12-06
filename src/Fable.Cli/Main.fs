@@ -31,7 +31,8 @@ module private Util =
             }
 
     let isImplementationFile (fileName: string) =
-        fileName.EndsWith(".fs") || fileName.EndsWith(".fsx")
+        fileName.EndsWith(".fs", StringComparison.Ordinal)
+        || fileName.EndsWith(".fsx", StringComparison.Ordinal)
 
     let caseInsensitiveSet (items: string seq) : ISet<string> =
         let s = HashSet(items)
@@ -312,7 +313,7 @@ module FileWatcherUtil =
         // See https://github.com/fable-compiler/Fable/pull/2725#issuecomment-1015123642
         |> List.filter (fun file ->
             not (
-                file.EndsWith(".fsproj.fsx")
+                file.EndsWith(".fsproj.fsx", StringComparison.Ordinal)
                 // It looks like latest F# compiler puts generated files for resolution of packages
                 // in scripts in $HOME/.packagemanagement. See #3222
                 || file.Contains(".packagemanagement")
@@ -334,7 +335,8 @@ module FileWatcherUtil =
                     if
                         restDirs
                         |> List.forall (fun d ->
-                            (withTrailingSep d).StartsWith dir'
+                            (withTrailingSep d)
+                                .StartsWith(dir', StringComparison.Ordinal)
                         )
                     then
                         dir
@@ -800,8 +802,14 @@ and FableCompiler
                                 let filesToCompile =
                                     state.FilesToCompile
                                     |> Array.filter (fun file ->
-                                        file.EndsWith(".fs")
-                                        || file.EndsWith(".fsx")
+                                        file.EndsWith(
+                                            ".fs",
+                                            StringComparison.Ordinal
+                                        )
+                                        || file.EndsWith(
+                                            ".fsx",
+                                            StringComparison.Ordinal
+                                        )
                                     )
 
                                 (state, filesToCompile)
@@ -1084,7 +1092,8 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
         let upToDate =
             filesToCompile
             |> Array.filter (fun file ->
-                file.EndsWith(".fs") || file.EndsWith(".fsx")
+                file.EndsWith(".fs", StringComparison.Ordinal)
+                || file.EndsWith(".fsx", StringComparison.Ordinal)
             )
             |> Array.forall (fun source ->
                 let outPath = getOutPath state.CliArgs pathResolver source
@@ -1208,7 +1217,10 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
             | Some(projCracked, fableCompiler) ->
                 // For performance reasons, don't crack .fsx scripts for every change
                 let fsprojChanged =
-                    changes |> Seq.exists (fun c -> c.EndsWith(".fsproj"))
+                    changes
+                    |> Seq.exists (fun c ->
+                        c.EndsWith(".fsproj", StringComparison.Ordinal)
+                    )
 
                 if fsprojChanged then
                     let oldProjCracked = projCracked

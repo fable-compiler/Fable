@@ -1,5 +1,6 @@
 module rec Fable.Transforms.FSharp2Fable.Compiler
 
+open System
 open System.Collections.Generic
 open FSharp.Compiler.Symbols
 
@@ -278,7 +279,7 @@ let private transformTraitCall
         )
 
     sourceTypes
-    |> Seq.tryPick (fun t ->
+    |> List.tryPick (fun t ->
         let typeOpt = Replacements.Api.tryType com t
 
         match typeOpt with
@@ -299,7 +300,7 @@ let private transformTraitCall
                     let fieldName = Naming.removeGetSetPrefix traitName
 
                     entity.FSharpFields
-                    |> Seq.tryPick (fun fi ->
+                    |> List.tryPick (fun fi ->
                         if fi.Name = fieldName then
                             let kind =
                                 Fable.FieldInfo.Create(
@@ -442,12 +443,12 @@ let private getImplementedSignatureInfo
     )
     |> Option.defaultWith (fun () ->
         let isGetter =
-            sign.Name.StartsWith("get_")
+            sign.Name.StartsWith("get_", StringComparison.Ordinal)
             && countNonCurriedParamsForSignature sign = 0
 
         let isSetter =
             not isGetter
-            && sign.Name.StartsWith("set_")
+            && sign.Name.StartsWith("set_", StringComparison.Ordinal)
             && countNonCurriedParamsForSignature sign = 1
 
         let name =

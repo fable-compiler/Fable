@@ -370,7 +370,7 @@ module PrinterExtensions =
                         let i = int m.Groups[1].Value
 
                         for j = i to node.Args.Length - 1 do
-                            rep.Add("$" + string j)
+                            rep.Add("$" + string<int> j)
 
                         String.concat ", " rep
                     )
@@ -598,7 +598,7 @@ module PrinterExtensions =
                 printer.Print(Naming.escapeString (fun _ -> false) value)
                 printer.Print("\"")
             | Constant(value = FloatLiteral value) ->
-                let value = string value
+                let value = string<float> value
                 printer.Print(value)
 
                 // Make sure it's a valid Python float (not int)
@@ -615,8 +615,9 @@ module PrinterExtensions =
                     else
                         "False"
                 )
-            | Constant(value = IntLiteral value) -> printer.Print(string value)
-            | Constant(value = value) -> printer.Print(string value)
+            | Constant(value = IntLiteral value) ->
+                printer.Print(string<obj> value)
+            | Constant(value = value) -> printer.Print(string<obj> value)
 
             | IfExp ex -> printer.Print(ex)
             | Call ex -> printer.Print(ex)

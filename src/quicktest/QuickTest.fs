@@ -42,7 +42,9 @@ let testCase (msg: string) f : unit =
         printfn "%s" ex.Message
 
         if
-            ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not
+            ex.Message <> null
+            && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal)
+               |> not
         then
             printfn "%s" (ex.StackTrace ??= "")
 
@@ -60,7 +62,11 @@ let testCaseAsync msg f =
 
                     if
                         ex.Message <> null
-                        && ex.Message.StartsWith("[ASSERT ERROR]") |> not
+                        && ex.Message.StartsWith(
+                            "[ASSERT ERROR]",
+                            StringComparison.Ordinal
+                           )
+                           |> not
                     then
                         printfn "%s" (ex.StackTrace ??= "")
             }

@@ -1,5 +1,7 @@
 namespace Fable
 
+open System
+
 module Literals =
     [<Literal>]
     let VERSION = "4.5.0"
@@ -222,7 +224,12 @@ module CompilerExt =
                                 file
 
                         let relPath =
-                            if relPath.StartsWith("./") then
+                            if
+                                relPath.StartsWith(
+                                    "./",
+                                    StringComparison.Ordinal
+                                )
+                            then
                                 relPath[2..]
                             else
                                 relPath

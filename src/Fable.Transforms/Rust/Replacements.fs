@@ -3,6 +3,7 @@ module Fable.Transforms.Rust.Replacements
 
 #nowarn "1182"
 
+open System
 open System.Text.RegularExpressions
 open Fable
 open Fable.AST
@@ -3116,7 +3117,12 @@ let tuples
 
     match i.CompiledName, thisArg with
     | (".ctor" | "Create"), _ ->
-        let isStruct = i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
+        let isStruct =
+            i.DeclaringEntityFullName.StartsWith(
+                "System.ValueTuple",
+                StringComparison.Ordinal
+            )
+
         Value(NewTuple(args, isStruct), r) |> Some
     | "get_Item1", Some x -> Get(x, TupleIndex 0, t, r) |> Some
     | "get_Item2", Some x -> Get(x, TupleIndex 1, t, r) |> Some
@@ -4087,7 +4093,7 @@ let bigints
             ?loc = r
         )
         |> Some
-    | meth, None, _ when meth.StartsWith("get_") ->
+    | meth, None, _ when meth.StartsWith("get_", StringComparison.Ordinal) ->
         let meth = meth |> Naming.removeGetSetPrefix |> Naming.lowerFirst
         Helper.LibCall(com, "BigInt", meth, t, []) |> Some
     | meth, None, _ ->
@@ -6569,7 +6575,9 @@ let tryCall
     | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
         // In netcore F# Reflection methods become extensions
         // with names like `FSharpType.GetExceptionFields.Static`
-        let isFSharpType = info.CompiledName.StartsWith("FSharpType")
+        let isFSharpType =
+            info.CompiledName.StartsWith("FSharpType", StringComparison.Ordinal)
+
         let methName = info.CompiledName |> Naming.extensionMethodName
 
         if isFSharpType then

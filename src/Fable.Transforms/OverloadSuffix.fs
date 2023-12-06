@@ -184,7 +184,7 @@ let getHash
             // and implementation files, use the position instead
             let genParams =
                 entityGenericParams
-                |> List.mapi (fun i p -> p, string i)
+                |> List.mapi (fun i p -> p, string<int> i)
                 |> dict
 
             getHashPrivate paramTypes genParams

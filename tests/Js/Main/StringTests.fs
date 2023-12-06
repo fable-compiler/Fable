@@ -719,12 +719,28 @@ let tests =
             "abcdbc".IndexOf('b', 3)
             |> equal 4
 
+      testCase "String.IndexOf with StringComparison" <| fun () ->
+            "abcdbc".IndexOf("b", StringComparison.Ordinal)
+            |> equal 1
+
+      testCase "String.IndexOf with index and StringComparison" <| fun () ->
+            "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
+            |> equal 4
+
       testCase "String.LastIndexOf char works" <| fun () ->
             "abcdbc".LastIndexOf('b') * 100 + "abcd".LastIndexOf('e')
             |> equal 399
 
       testCase "String.LastIndexOf char works with offset" <| fun () ->
             "abcdbcebc".LastIndexOf('b', 3)
+            |> equal 1
+
+      testCase "String.LastIndexOf with StringComparison" <| fun () ->
+            "abcdbc".LastIndexOf("b", StringComparison.Ordinal)
+            |> equal 4
+
+      testCase "String.LastIndexOf with index and StringComparison" <| fun () ->
+            "abcdbc".LastIndexOf("b", 3, StringComparison.Ordinal)
             |> equal 1
 
       testCase "String.IndexOf works" <| fun () ->

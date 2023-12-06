@@ -105,7 +105,7 @@ module PrinterExtensions =
                         let i = int m.Groups[1].Value
 
                         for j = i to args.Length - 1 do
-                            rep.Add("$" + string j)
+                            rep.Add("$" + string<int> j)
 
                         String.concat ", " rep
                     )

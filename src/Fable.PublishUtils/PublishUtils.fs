@@ -403,7 +403,7 @@ module Publish =
     let VERSION_HEADER = "#+ " + VERSION
 
     let splitPrerelease (version: string) =
-        let i = version.IndexOf("-")
+        let i = version.IndexOf('-')
 
         if i > 0 then
             version.Substring(0, i), Some(version.Substring(i + 1))
@@ -519,8 +519,8 @@ module Publish =
 
     let private findFileWithExt (dir: string) (ext: string) =
         IO.Directory.GetFiles(dir)
-        |> Seq.tryPick (fun path ->
-            if path.EndsWith(ext) then
+        |> Array.tryPick (fun path ->
+            if path.EndsWith(ext, StringComparison.Ordinal) then
                 Some(dir </> path)
             else
                 None
@@ -723,7 +723,7 @@ let getDotNetSDKVersionFromGlobalJson () : string =
 
 let getNpmVersion (projDir: string) =
     let pkgJsonPath =
-        if projDir.EndsWith("package.json") then
+        if projDir.EndsWith("package.json", StringComparison.Ordinal) then
             projDir
         else
             projDir </> "package.json"

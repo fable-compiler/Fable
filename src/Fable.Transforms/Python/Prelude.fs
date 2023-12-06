@@ -169,7 +169,7 @@ module Naming =
         let rec check originalName n =
             let name =
                 if n > 0 then
-                    originalName + "_" + (string n)
+                    originalName + "_" + (string<int> n)
                 else
                     originalName
 
@@ -200,7 +200,7 @@ module Naming =
                         let c = ident.[i]
 
                         if isIdentChar i c then
-                            string c
+                            string<char> c
                         elif
                             c = '$'
                             || c = '_'
@@ -250,7 +250,7 @@ module Naming =
 
     let sanitizeIdent conflicts (name: string) part =
         let name =
-            if name.EndsWith("@") then
+            if name.EndsWith("@", StringComparison.Ordinal) then
                 $"_{name.Substring(0, name.Length - 1)}"
             else
                 name

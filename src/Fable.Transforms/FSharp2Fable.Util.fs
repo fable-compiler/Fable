@@ -111,7 +111,7 @@ type FsField(fi: FSharpField) =
         | Some ent ->
             match countConflictingCases 0 ent name with
             | 0 -> name
-            | n -> name + "_" + (string n)
+            | n -> name + "_" + (string<int> n)
 
 [<RequireQualifiedAccess>]
 type CompiledValue =
@@ -126,7 +126,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
         uci.Attributes
         |> Helpers.tryFindAttrib Atts.compiledName
         |> Option.map (fun (att: FSharpAttribute) ->
-            att.ConstructorArguments[0] |> snd |> string
+            att.ConstructorArguments[0] |> snd |> string<obj>
         )
 
     static member FullName(uci: FSharpUnionCase) =
@@ -353,7 +353,7 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
         if ent.IsArrayType then
             let rank =
                 match ent.ArrayRank with
-                | rank when rank > 1 -> "`" + string rank
+                | rank when rank > 1 -> "`" + string<int> rank
                 | _ -> ""
 
             Some("System.Array" + rank)
@@ -648,7 +648,7 @@ module Helpers =
           (Fable.SourcePath sourcePath | Fable.PrecompiledLib(sourcePath, _)) ->
             let rootMod = com.GetRootModule(sourcePath)
 
-            if fullName.StartsWith(rootMod) then
+            if fullName.StartsWith(rootMod, StringComparison.Ordinal) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
             else
                 fullName
@@ -946,7 +946,9 @@ module Helpers =
         let parentHasSignatureFile () =
             v.DeclaringEntity
             |> Option.bind (fun p -> p.SignatureLocation)
-            |> Option.map (fun m -> m.FileName.EndsWith(".fsi"))
+            |> Option.map (fun m ->
+                m.FileName.EndsWith(".fsi", StringComparison.Ordinal)
+            )
             |> Option.defaultValue false
 
         v.IsModuleValueOrMember
@@ -1468,7 +1470,7 @@ module Patterns =
                 Some(memb, None, "toString", membArgTypes, membArgs)
             // work-around for optimized hash operator (Operators.hash)
             | Call(Some expr, memb, _, [], [ Call(None, comp, [], [], []) ]) when
-                memb.FullName.EndsWith(".GetHashCode")
+                memb.FullName.EndsWith(".GetHashCode", StringComparison.Ordinal)
                 && comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityERComparer"
                 ->
                 Some(memb, Some comp, "GenericHash", [ expr.Type ], [ expr ])
@@ -1478,7 +1480,7 @@ module Patterns =
                    _,
                    [],
                    [ Coerce(t2, e2); Call(None, comp, [], [], []) ]) when
-                memb.FullName.EndsWith(".Equals")
+                memb.FullName.EndsWith(".Equals", StringComparison.Ordinal)
                 && t2.HasTypeDefinition
                 && t2.TypeDefinition.CompiledName = "obj"
                 && comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityComparer"
@@ -2367,7 +2369,13 @@ module Util =
             |> Some
 
         match attributes with
-        | _ when entRef.FullName.StartsWith("Fable.Core.JS.") -> globalRef None
+        | _ when
+            entRef.FullName.StartsWith(
+                "Fable.Core.JS.",
+                StringComparison.Ordinal
+            )
+            ->
+            globalRef None
         | GlobalAtt customName -> globalRef customName
         | ImportAtt(selector, path) ->
             let selector =
@@ -2464,15 +2472,23 @@ module Util =
 
     let private isReplacementCandidatePrivate isFromDll (entFullName: string) =
         if
-            entFullName.StartsWith("System.")
-            || entFullName.StartsWith("Microsoft.FSharp.")
+            entFullName.StartsWith("System.", StringComparison.Ordinal)
+            || entFullName.StartsWith(
+                "Microsoft.FSharp.",
+                StringComparison.Ordinal
+            )
         then
             isFromDll ()
         // When compiling Fable itself, Fable.Core entities will be part of the code base, but still need to be replaced
         else
-            entFullName.StartsWith("Fable.Core.")
-            && (not (entFullName.StartsWith("Fable.Core.JS."))
-                || entFullName.EndsWith("Attribute"))
+            entFullName.StartsWith("Fable.Core.", StringComparison.Ordinal)
+            && (not (
+                    entFullName.StartsWith(
+                        "Fable.Core.JS.",
+                        StringComparison.Ordinal
+                    )
+                )
+                || entFullName.EndsWith("Attribute", StringComparison.Ordinal))
 
     let isReplacementCandidate (ent: Fable.EntityRef) =
         let isFromDll () = isFromDllNotPrecompiled ent
@@ -2691,7 +2707,9 @@ module Util =
         match ent.TryFullName with
         // By default mangle interfaces in System namespace as they are not meant to interact with JS
         // except those that are used in fable-library Typescript files
-        | Some fullName when fullName.StartsWith("System.") ->
+        | Some fullName when
+            fullName.StartsWith("System.", StringComparison.Ordinal)
+            ->
             match fullName with
             | Types.object
             | Types.idisposable
@@ -2825,7 +2843,12 @@ module Util =
         (thisArg: Fable.Expr option)
         =
         let msg =
-            if info.DeclaringEntityFullName.StartsWith("Fable.Core.") then
+            if
+                info.DeclaringEntityFullName.StartsWith(
+                    "Fable.Core.",
+                    StringComparison.Ordinal
+                )
+            then
                 $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported, try updating fable tool"
             else
                 com.WarnOnlyOnce(

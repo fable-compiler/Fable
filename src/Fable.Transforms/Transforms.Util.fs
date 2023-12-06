@@ -1,5 +1,7 @@
 namespace Fable.Transforms
 
+open System
+
 [<RequireQualifiedAccess>]
 module Atts =
     [<Literal>]
@@ -663,7 +665,7 @@ module Log =
 
     let attachRange (range: SourceLocation option) msg =
         match range with
-        | Some range -> msg + " " + (string range)
+        | Some range -> msg + " " + (string<SourceLocation> range)
         | None -> msg
 
     let attachRangeAndFile
@@ -672,7 +674,8 @@ module Log =
         msg
         =
         match range with
-        | Some range -> msg + " " + (string range) + " (" + fileName + ")"
+        | Some range ->
+            msg + " " + (string<SourceLocation> range) + " (" + fileName + ")"
         | None -> msg + " (" + fileName + ")"
 
 
@@ -849,6 +852,15 @@ module AST =
     let (|NullConst|_|) =
         function
         | MaybeCasted(Value(Null _, _)) -> Some()
+        | _ -> None
+
+    let (|StringComparisonEnumValue|_|) e =
+        match e with
+        | Expr.Value(
+            kind = NumberConstant(
+                info = NumberInfo.IsEnum({
+                                             FullName = "System.StringComparison"
+                                         }))) -> Some()
         | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
@@ -1141,7 +1153,11 @@ module AST =
             match com.Options.Language with
             | Rust ->
                 if
-                    moduleName = "System" || moduleName.StartsWith("System.")
+                    moduleName = "System"
+                    || moduleName.StartsWith(
+                        "System.",
+                        StringComparison.Ordinal
+                    )
                 then
                     moduleName + "::" + memberName
                 else
