@@ -46,9 +46,9 @@ let myComplexAdder x y = x + y
 type NameProp =
     { Name: string }
 
-type Props =
-    | Names of NameProp array
-    | [<Erase>] Custom of key:string * value:obj
+// type Props =
+//     | Names of NameProp array
+//     | [<Erase>] Custom of key:string * value:obj
 
 [<Global("Array")>]
 type PyArray =
