@@ -34,6 +34,7 @@ module Immutable =
     type ImmutableArray<'T> =
         static member CreateBuilder() = ResizeArray<'T>()
 
+    [<Sealed>]
     type ImmutableHashSet<'T>(values: 'T seq) =
         let xs = HashSet<'T>(values)
 
@@ -62,13 +63,21 @@ module Immutable =
             member _.GetEnumerator(): IEnumerator<'T> =
                 xs.GetEnumerator()
 
-    type ImmutableDictionary<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Value> seq) =
-        let xs = Dictionary<'Key, 'Value>()
-        do for pair in pairs do xs.Add(pair.Key, pair.Value)
+    [<Sealed>]
+    type ImmutableDictionary<'Key, 'Value when 'Key: equality>(xs: Dictionary<'Key, 'Value>) =
+        static member Create(comparer: IEqualityComparer<'Key>) =
+            ImmutableDictionary<'Key, 'Value>(Dictionary(comparer))
 
-        static member CreateRange(items) = ImmutableDictionary<'Key, 'Value>(items)
-        static member Empty = ImmutableDictionary<'Key, 'Value>(Array.empty)
+        static member CreateRange(items: IEnumerable<KeyValuePair<'Key, 'Value>>) =
+            let xs = Dictionary<'Key, 'Value>()
+            for pair in items do
+                xs.Add(pair.Key, pair.Value)
+            ImmutableDictionary<'Key, 'Value>(xs)
 
+        static member Empty =
+            ImmutableDictionary<'Key, 'Value>(Dictionary())
+
+        member _.IsEmpty = xs.Count = 0
         member _.Item with get (key: 'Key): 'Value = xs[key]
         member _.ContainsKey (key: 'Key) = xs.ContainsKey(key)
 

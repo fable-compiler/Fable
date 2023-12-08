@@ -1066,7 +1066,7 @@ and SolveAnonInfoEqualsAnonInfo (csenv: ConstraintSolverEnv) m2 (anonInfo1: Anon
             if not (ccuEq anonInfo1.Assembly anonInfo2.Assembly) then
                 do! ErrorD (ConstraintSolverError(FSComp.SR.tcAnonRecdCcuMismatch(anonInfo1.Assembly.AssemblyName, anonInfo2.Assembly.AssemblyName), csenv.m,m2))
                 
-            if not (anonInfo1.SortedNames = anonInfo2.SortedNames) then 
+            if anonInfo1.SortedNames <> anonInfo2.SortedNames then 
                 let (|Subset|Superset|Overlap|CompletelyDifferent|) (first, second) =
                     let first = Set first
                     let second = Set second
@@ -2359,7 +2359,7 @@ and SolveTypeSupportsComparison (csenv: ConstraintSolverEnv) ndeep m2 trace ty =
                // Give a good error for structural types excluded from the comparison relation because of their fields
                elif (isAppTy g ty && 
                      let tcref = tcrefOfAppTy g ty 
-                     AugmentWithHashCompare.TyconIsCandidateForAugmentationWithCompare g tcref.Deref && 
+                     AugmentTypeDefinitions.TyconIsCandidateForAugmentationWithCompare g tcref.Deref && 
                      Option.isNone tcref.GeneratedCompareToWithComparerValues) then
  
                    ErrorD (ConstraintSolverError(FSComp.SR.csTypeDoesNotSupportComparison3(NicePrint.minimalStringOfType denv ty), m, m2))
@@ -2389,7 +2389,7 @@ and SolveTypeSupportsEquality (csenv: ConstraintSolverEnv) ndeep m2 trace ty =
                match ty with
                | AppTy g (tcref, tinst) ->
                    // Give a good error for structural types excluded from the equality relation because of their fields
-                   if AugmentWithHashCompare.TyconIsCandidateForAugmentationWithEquals g tcref.Deref && 
+                   if AugmentTypeDefinitions.TyconIsCandidateForAugmentationWithEquals g tcref.Deref && 
                        Option.isNone tcref.GeneratedHashAndEqualsWithComparerValues 
                    then
                        ErrorD (ConstraintSolverError(FSComp.SR.csTypeDoesNotSupportEquality3(NicePrint.minimalStringOfType denv ty), m, m2))
