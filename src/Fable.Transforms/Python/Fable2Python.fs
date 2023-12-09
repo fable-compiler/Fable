@@ -4816,6 +4816,10 @@ module Util =
                                 Identifier "repr",
                                 Expression.boolConstant false
                             )
+                            Keyword.keyword (
+                                Identifier "slots",
+                                Expression.boolConstant true
+                            )
                         ]
                 )
             ]
