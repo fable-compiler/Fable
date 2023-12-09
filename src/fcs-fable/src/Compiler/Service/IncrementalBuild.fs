@@ -741,7 +741,7 @@ module IncrementalBuilderHelpers =
       }
 
     /// Finish up the typechecking to produce outputs for the rest of the compilation process
-    let FinalizeTypeCheckTask (tcConfig: TcConfig) tcGlobals partialCheck assemblyName outfile (initialErrors: SingleFileDiagnostics) (boundModels: GraphNode<BoundModel> seq) =
+    let FinalizeTypeCheckTask (tcConfig: TcConfig) tcGlobals partialCheck assemblyName outfile (boundModels: GraphNode<BoundModel> seq) =
       node {
         let diagnosticsLogger = CompilationDiagnosticLogger("FinalizeTypeCheckTask", tcConfig.diagnosticsOptions)
         use _ = new CompilationGlobalsScope(diagnosticsLogger, BuildPhase.TypeCheck)
@@ -836,7 +836,6 @@ module IncrementalBuilderHelpers =
         let diagnostics = [
             diagnosticsLogger.GetDiagnostics()
             yield! partialDiagnostics |> Seq.rev
-            initialErrors
         ]
 
         let! finalBoundModelWithErrors = finalBoundModel.Finish(diagnostics, Some topAttrs)
@@ -943,7 +942,6 @@ type IncrementalBuilderState =
     {
         slots: Slot list
         stampedReferencedAssemblies: ImmutableArray<DateTime>
-        initialBoundModel: GraphNode<BoundModel>
         finalizedBoundModel: GraphNode<(ILAssemblyRef * ProjectAssemblyDataResult * CheckedImplFile list option * BoundModel) * DateTime>
     }
     member this.stampedFileNames = this.slots |> List.map (fun s -> s.Stamp)
@@ -965,7 +963,6 @@ module IncrementalBuilderStateHelpers =
     let createFinalizeBoundModelGraphNode (initialState: IncrementalBuilderInitialState) (boundModels: GraphNode<BoundModel> seq) =
         GraphNode(node {
             use _ = Activity.start "GetCheckResultsAndImplementationsForProject" [|Activity.Tags.project, initialState.outfile|]
-            let! initialErrors = initialState.initialBoundModel.Diagnostics.GetOrComputeValue()
             let! result = 
                 FinalizeTypeCheckTask 
                     initialState.tcConfig 
@@ -973,7 +970,6 @@ module IncrementalBuilderStateHelpers =
                     initialState.enablePartialTypeChecking
                     initialState.assemblyName 
                     initialState.outfile 
-                    initialErrors
                     boundModels
             return result, DateTime.UtcNow
         })
@@ -1076,11 +1072,10 @@ type IncrementalBuilderState with
         let boundModels = 
             syntaxTrees
             |> Seq.scan createBoundModelGraphNode initialBoundModel
-            |> Seq.skip 1
 
         let slots =
             [
-                for model, syntaxTree, hasSignature in Seq.zip3 boundModels syntaxTrees hasSignature do
+                for model, syntaxTree, hasSignature in Seq.zip3 (boundModels |> Seq.skip 1) syntaxTrees hasSignature do
                     {
                         HasSignature = hasSignature
                         Stamp = DateTime.MinValue
@@ -1095,7 +1090,6 @@ type IncrementalBuilderState with
             {
                 slots = slots
                 stampedReferencedAssemblies = ImmutableArray.init referencedAssemblies.Length (fun _ -> DateTime.MinValue)
-                initialBoundModel = initialBoundModel
                 finalizedBoundModel = createFinalizeBoundModelGraphNode initialState boundModels
             }
         let state = computeStampedReferencedAssemblies initialState state false cache

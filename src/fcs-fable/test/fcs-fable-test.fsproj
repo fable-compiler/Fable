@@ -20,7 +20,7 @@
   <ItemGroup>
     <!-- <PackageReference Include="FSharp.Core" Version="8.0.0" /> -->
     <!-- <Reference Include="../../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" /> -->
-    <PackageReference Include="Fable.Core" Version="4.1.0" />
+    <PackageReference Include="Fable.Core" Version="4.2.0" />
   </ItemGroup>
 
 </Project>

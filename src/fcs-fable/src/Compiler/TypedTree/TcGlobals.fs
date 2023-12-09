@@ -461,7 +461,7 @@ type TcGlobals(
   let makeIntrinsicValRefGeneral isKnown (enclosingEntity, logicalName, memberParentName, compiledNameOpt, typars, (argTys, retTy))  =
       let ty = mkForallTyIfNeeded typars (mkIteratedFunTy (List.map mkSmallRefTupledTy argTys) retTy)
       let isMember = Option.isSome memberParentName
-      let argCount = if isMember then List.sum (List.map List.length argTys) else 0
+      let argCount = if isMember then List.sumBy List.length argTys else 0
       let linkageType = if isMember then Some ty else None
       let key = ValLinkageFullKey({ MemberParentMangledName=memberParentName; MemberIsOverride=false; LogicalName=logicalName; TotalArgCount= argCount }, linkageType)
       let vref = IntrinsicValRef(enclosingEntity, logicalName, isMember, ty, key)
@@ -880,11 +880,15 @@ type TcGlobals(
   let v_check_this_info            = makeIntrinsicValRef(fslib_MFIntrinsicFunctions_nleref,                    "CheckThis"                            , None                 , None                          , [vara],      ([[varaTy]], varaTy))
   let v_quote_to_linq_lambda_info  = makeIntrinsicValRef(fslib_MFLinqRuntimeHelpersQuotationConverter_nleref,  "QuotationToLambdaExpression"          , None                 , None                          , [vara],      ([[mkQuotedExprTy varaTy]], mkLinqExpressionTy varaTy))
 
+  let tref_DebuggerNonUserCodeAttribute = findSysILTypeRef tname_DebuggerNonUserCodeAttribute
+  let v_DebuggerNonUserCodeAttribute_tcr = splitILTypeName tname_DebuggerNonUserCodeAttribute ||> findSysTyconRef
+
   let tref_DebuggableAttribute = findSysILTypeRef tname_DebuggableAttribute
-  let tref_CompilerGeneratedAttribute = findSysILTypeRef tname_CompilerGeneratedAttribute
+  let tref_CompilerGeneratedAttribute  = findSysILTypeRef tname_CompilerGeneratedAttribute
+  let v_CompilerGeneratedAttribute_tcr = splitILTypeName tname_CompilerGeneratedAttribute ||> findSysTyconRef
   let tref_InternalsVisibleToAttribute = findSysILTypeRef tname_InternalsVisibleToAttribute
 
-  let debuggerNonUserCodeAttribute = mkILCustomAttribute (findSysILTypeRef tname_DebuggerNonUserCodeAttribute, [], [], [])
+  let debuggerNonUserCodeAttribute = mkILCustomAttribute (tref_DebuggerNonUserCodeAttribute, [], [], [])
   let compilerGeneratedAttribute = mkILCustomAttribute (tref_CompilerGeneratedAttribute, [], [], [])
   let generatedAttributes = if noDebugAttributes then [||] else [| compilerGeneratedAttribute; debuggerNonUserCodeAttribute |]
   let compilerGlobalState = CompilerGlobalState()
@@ -897,6 +901,18 @@ type TcGlobals(
           match attrs.AsArray() with
           | [||] -> mkILCustomAttrsFromArray generatedAttributes
           | attrs -> mkILCustomAttrsFromArray (Array.append attrs generatedAttributes)
+
+  let addValGeneratedAttrs (v: Val) m =
+      if not noDebugAttributes then
+          let attrs = [
+              Attrib(v_CompilerGeneratedAttribute_tcr, ILAttrib compilerGeneratedAttribute.Method.MethodRef, [], [], false, None, m)
+              Attrib(v_DebuggerNonUserCodeAttribute_tcr, ILAttrib debuggerNonUserCodeAttribute.Method.MethodRef, [], [], false, None, m)
+              Attrib(v_DebuggerNonUserCodeAttribute_tcr, ILAttrib debuggerNonUserCodeAttribute.Method.MethodRef, [], [], true, None, m)
+          ]
+
+          match v.Attribs with
+          | [] -> v.SetAttribs attrs
+          | _ -> v.SetAttribs (attrs @ v.Attribs)
 
   let addMethodGeneratedAttrs (mdef:ILMethodDef)   = mdef.With(customAttrs = addGeneratedAttrs mdef.CustomAttrs)
 
@@ -1063,7 +1079,7 @@ type TcGlobals(
 #if FABLE_COMPILER
       for key in embeddedILTypeDefs.Keys do
 #else
-      for key in embeddedILTypeDefs.Keys.OrderBy(fun k -> k) do
+      for key in embeddedILTypeDefs.Keys.OrderBy id do
 #endif
         match (embeddedILTypeDefs.TryRemove(key)) with
         | true, ilTypeDef -> yield ilTypeDef
@@ -1429,6 +1445,7 @@ type TcGlobals(
   member val attrib_ParamArrayAttribute = findSysAttrib "System.ParamArrayAttribute"
   member val attrib_IDispatchConstantAttribute = tryFindSysAttrib "System.Runtime.CompilerServices.IDispatchConstantAttribute"
   member val attrib_IUnknownConstantAttribute = tryFindSysAttrib "System.Runtime.CompilerServices.IUnknownConstantAttribute"
+  member val attrib_RequiresLocationAttribute = findSysAttrib "System.Runtime.CompilerServices.RequiresLocationAttribute"
 
   // We use 'findSysAttrib' here because lookup on attribute is done by name comparison, and can proceed
   // even if the type is not found in a system assembly.
@@ -1823,6 +1840,8 @@ type TcGlobals(
   member _.TryFindSysAttrib nm = tryFindSysAttrib nm
 
   member _.AddGeneratedAttributes attrs = addGeneratedAttrs attrs
+
+  member _.AddValGeneratedAttributes v = addValGeneratedAttrs v
 
   member _.AddMethodGeneratedAttributes mdef = addMethodGeneratedAttrs mdef
 

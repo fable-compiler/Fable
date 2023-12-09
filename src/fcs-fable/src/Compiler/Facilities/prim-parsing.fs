@@ -16,13 +16,11 @@ exception Accept of obj
 
 [<Sealed>]
 type internal IParseState
-    (
-        ruleStartPoss: Position[],
-        ruleEndPoss: Position[],
-        lhsPos: Position[],
-        ruleValues: obj[],
-        lexbuf: LexBuffer<LexBufferChar>
-    ) =
+#if FABLE_COMPILER
+    (ruleStartPoss: Position[], ruleEndPoss: Position[], lhsPos: Position[], ruleValues: obj[], lexbuf: LexBuffer<LexBufferChar>) =
+#else
+    (ruleStartPoss: Position[], ruleEndPoss: Position[], lhsPos: Position[], ruleValues: obj[], lexbuf: LexBuffer<char>) =
+#endif
     member _.LexBuffer = lexbuf
 
     member _.InputRange index =
@@ -287,8 +285,8 @@ module internal Implementation =
         let actionTableCache = Array.zeroCreate<int> (cacheSize * 2)
         let gotoTableCache = Array.zeroCreate<int> (cacheSize * 2)
 #else
-        let actionTableCache = ArrayPool<int>.Shared.Rent (cacheSize * 2)
-        let gotoTableCache = ArrayPool<int>.Shared.Rent (cacheSize * 2)
+        let actionTableCache = ArrayPool<int>.Shared.Rent(cacheSize * 2)
+        let gotoTableCache = ArrayPool<int>.Shared.Rent(cacheSize * 2)
         // Clear the arrays since ArrayPool does not
         Array.Clear(actionTableCache, 0, actionTableCache.Length)
         Array.Clear(gotoTableCache, 0, gotoTableCache.Length)
@@ -343,7 +341,7 @@ module internal Implementation =
                 actionKind action = shiftFlag
                 && (match tokenOpt with
                     | None -> true
-                    | Some (token) ->
+                    | Some(token) ->
                         let nextState = actionValue action
                         actionKind (actionTable.Read(nextState, tables.tagOfToken (token))) = shiftFlag)
             then
@@ -380,7 +378,7 @@ module internal Implementation =
                 let action =
                     let immediateAction = int tables.immediateActions[state]
 
-                    if not (immediateAction = anyMarker) then
+                    if immediateAction <> anyMarker then
                         // Action has been pre-determined, no need to lookahead
                         // Expecting it to be a Reduce action on a non-fakeStartNonTerminal ?
                         immediateAction
