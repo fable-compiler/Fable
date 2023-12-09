@@ -374,7 +374,7 @@ def get_record_fields(v: Any) -> list[str]:
     if isinstance(v, dict):
         return list(cast(dict[str, Any], v).values())
 
-    return [getattr(v, k) for k in v.__dict__.keys()]
+    return [getattr(v, k) for k in v.__slots__]
 
 
 def get_record_field(v: Any, field: FieldInfo) -> Any:

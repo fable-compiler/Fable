@@ -22,10 +22,32 @@ module Issue3640 =
       | A of int
       | B of string
 
+module Issue3648 =
+  type X = { A: int; B: string }
+
 [<Fact>]
 let ``test hashcodes are unique`` () =
   let x = Issue3640.A 1
   let y = Issue3640.B "hello"
+
+  let xHash = x.GetHashCode()
+  let yHash = y.GetHashCode()
+
+  notEqual xHash yHash
+
+  // In Python we need to make sure that both the objects x and y exist
+  // at the same time or else they may end up with the same hash code.
+  // The code above may be optimized to only create one object at a time
+  // and then the hash code will be the same. So we need to reuse the
+  // objects to make sure they are not optimized away.
+  let xHash = x.GetHashCode()
+  let yHash = y.GetHashCode()
+  assert (xHash > 0)
+  assert (yHash > 0)
+
+let ``test record hashcodes are unique`` () =
+  let x = { Issue3648.A = 1; Issue3648.B = "hello" }
+  let y = { Issue3648.A = 2; Issue3648.B = "world" }
 
   let xHash = x.GetHashCode()
   let yHash = y.GetHashCode()
