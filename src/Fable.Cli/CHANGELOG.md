@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Python
 
+* [GH-3648](https://github.com/fable-compiler/Fable/issues/3648) Records containing different values return the same hash code (by @dbrattli)
+
+#### Python
+
 * [GH-3617](https://github.com/fable-compiler/Fable/issues/3617): Fix comparaison between list option when one is None (by @mangelmaxime)
 * [GH-3615](https://github.com/fable-compiler/Fable/issues/3615): Fix remove from dictionary with tuple as key (by @dbrattli)
 * [GH-3598](https://github.com/fable-compiler/Fable/issues/3598): Using obj () now generated an empty dict instead of None (by @dbrattli)
