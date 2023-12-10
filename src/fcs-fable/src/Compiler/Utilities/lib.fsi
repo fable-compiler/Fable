@@ -252,7 +252,7 @@ val inline tryGetCacheValue: cache: cache<'a> -> NonNullSlot<'a> voption
 [<RequireQualifiedAccess>]
 type MaybeLazy<'T> =
     | Strict of 'T
-    | Lazy of System.Lazy<'T>
+    | Lazy of InterruptibleLazy<'T>
 
     member Force: unit -> 'T
     member Value: 'T

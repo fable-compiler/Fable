@@ -767,6 +767,12 @@ let resources =
       ( "OverrideDoesntOverride4",
         "The member '{0}' is specialized with 'unit' but 'unit' can't be used as return type of an abstract method parameterized on return type."
       );
+      ( "OverrideShouldBeStatic",
+        " Static member is expected."
+      );
+      ( "OverrideShouldBeInstance",
+        " Non-static member is expected."
+      );
       ( "UnionCaseWrongArguments",
         "This constructor is applied to {0} argument(s) but expects {1}"
       );

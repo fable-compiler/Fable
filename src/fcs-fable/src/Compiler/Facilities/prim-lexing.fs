@@ -218,12 +218,7 @@ type internal Position =
 type internal LexBufferFiller<'Char> = LexBuffer<'Char> -> unit
 
 and [<Sealed>] internal LexBuffer<'Char>
-    (
-        filler: LexBufferFiller<'Char>,
-        reportLibraryOnlyFeatures: bool,
-        langVersion: LanguageVersion,
-        strictIndentation: bool option
-    ) =
+    (filler: LexBufferFiller<'Char>, reportLibraryOnlyFeatures: bool, langVersion: LanguageVersion, strictIndentation: bool option) =
     let context = Dictionary<string, obj>(1)
     let mutable buffer = [||]
     /// number of valid characters beyond bufferScanStart.
@@ -365,7 +360,9 @@ and [<Sealed>] internal LexBuffer<'Char>
     // Important: this method does copy the array
     static member FromArray(reportLibraryOnlyFeatures, langVersion, strictIndentation, s: 'Char[]) : LexBuffer<'Char> =
         let buffer = Array.copy s
-        LexBuffer<'Char>.FromArrayNoCopy (reportLibraryOnlyFeatures, langVersion, strictIndentation, buffer)
+
+        LexBuffer<'Char>
+            .FromArrayNoCopy(reportLibraryOnlyFeatures, langVersion, strictIndentation, buffer)
 
     // Important: This method takes ownership of the array
     static member FromChars(reportLibraryOnlyFeatures, langVersion, strictIndentation, arr: char[]) =
@@ -378,23 +375,25 @@ and [<Sealed>] internal LexBuffer<'Char>
 #else
         let mutable currentSourceIndex = 0
 
-        LexBuffer<char>.FromFunction
-            (reportLibraryOnlyFeatures,
-             langVersion,
-             strictIndentation,
-             fun (chars, start, length) ->
-                 let lengthToCopy =
-                     if currentSourceIndex + length <= sourceText.Length then
-                         length
-                     else
-                         sourceText.Length - currentSourceIndex
+        LexBuffer<char>
+            .FromFunction(
+                reportLibraryOnlyFeatures,
+                langVersion,
+                strictIndentation,
+                fun (chars, start, length) ->
+                    let lengthToCopy =
+                        if currentSourceIndex + length <= sourceText.Length then
+                            length
+                        else
+                            sourceText.Length - currentSourceIndex
 
-                 if lengthToCopy <= 0 then
-                     0
-                 else
-                     sourceText.CopyTo(currentSourceIndex, chars, start, lengthToCopy)
-                     currentSourceIndex <- currentSourceIndex + lengthToCopy
-                     lengthToCopy)
+                    if lengthToCopy <= 0 then
+                        0
+                    else
+                        sourceText.CopyTo(currentSourceIndex, chars, start, lengthToCopy)
+                        currentSourceIndex <- currentSourceIndex + lengthToCopy
+                        lengthToCopy
+            )
 #endif //!FABLE_COMPILER
 
     static member FromString (reportLibraryOnlyFeatures, langVersion, strictIndentation, s: string) =

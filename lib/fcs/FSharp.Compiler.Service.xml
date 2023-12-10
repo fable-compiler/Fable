@@ -11,43 +11,43 @@
 <member name="M:FSComp.SR.xmlDocUnresolvedCrossReference(System.String)">
 <summary>
  This XML comment is invalid: unresolved cross-reference &apos;%s&apos;
- (Originally from FSComp.txt:1642)
+ (Originally from FSComp.txt:1646)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocMissingParameterName">
 <summary>
  This XML comment is invalid: missing &apos;name&apos; attribute for parameter or parameter reference
- (Originally from FSComp.txt:1638)
+ (Originally from FSComp.txt:1642)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocMissingParameter(System.String)">
 <summary>
  This XML comment is incomplete: no documentation for parameter &apos;%s&apos;
- (Originally from FSComp.txt:1643)
+ (Originally from FSComp.txt:1647)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocMissingCrossReference">
 <summary>
  This XML comment is invalid: missing &apos;cref&apos; attribute for cross-reference
- (Originally from FSComp.txt:1639)
+ (Originally from FSComp.txt:1643)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocInvalidParameterName(System.String)">
 <summary>
  This XML comment is invalid: unknown parameter &apos;%s&apos;
- (Originally from FSComp.txt:1640)
+ (Originally from FSComp.txt:1644)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocDuplicateParameter(System.String)">
 <summary>
  This XML comment is invalid: multiple documentation entries for parameter &apos;%s&apos;
- (Originally from FSComp.txt:1641)
+ (Originally from FSComp.txt:1645)
 </summary>
 </member>
 <member name="M:FSComp.SR.xmlDocBadlyFormed(System.String)">
 <summary>
  This XML comment is invalid: &apos;%s&apos;
- (Originally from FSComp.txt:1637)
+ (Originally from FSComp.txt:1641)
 </summary>
 </member>
 <member name="M:FSComp.SR.writeToReadOnlyByref">
@@ -72,6 +72,12 @@
 <summary>
  This attribute is currently unsupported by the F# compiler. Applying it will not achieve its intended effect.
  (Originally from FSComp.txt:42)
+</summary>
+</member>
+<member name="M:FSComp.SR.unnecessaryParentheses">
+<summary>
+ Parentheses can be removed.
+ (Originally from FSComp.txt:1732)
 </summary>
 </member>
 <member name="M:FSComp.SR.unionCasesAreNotAccessible(System.String)">
@@ -269,7 +275,7 @@
 <member name="M:FSComp.SR.typrelNeverRefinedAwayFromTop">
 <summary>
  A type has been implicitly inferred as &apos;obj&apos;, which may be unintended. Consider adding explicit type annotations. You can disable this warning by using &apos;#nowarn \&quot;3559\&quot;&apos; or &apos;--nowarn:3559&apos;.
- (Originally from FSComp.txt:1703)
+ (Originally from FSComp.txt:1707)
 </summary>
 </member>
 <member name="M:FSComp.SR.typrelNeedExplicitImplementation(System.String)">
@@ -347,13 +353,13 @@
 <member name="M:FSComp.SR.typrelInterfaceWithConcreteAndVariableObjectExpression(System.String,System.String,System.String)">
 <summary>
  You cannot implement the interface &apos;%s&apos; with the two instantiations &apos;%s&apos; and &apos;%s&apos; because they may unify.
- (Originally from FSComp.txt:1596)
+ (Originally from FSComp.txt:1600)
 </summary>
 </member>
 <member name="M:FSComp.SR.typrelInterfaceWithConcreteAndVariable(System.String,System.String,System.String,System.String)">
 <summary>
  &apos;%s&apos; cannot implement the interface &apos;%s&apos; with the two instantiations &apos;%s&apos; and &apos;%s&apos; because they may unify.
- (Originally from FSComp.txt:1595)
+ (Originally from FSComp.txt:1599)
 </summary>
 </member>
 <member name="M:FSComp.SR.typrelInterfaceMemberNoMostSpecificImplementation(System.String)">
@@ -593,13 +599,13 @@
 <member name="M:FSComp.SR.tcUsingInterfacesWithStaticAbstractMethods">
 <summary>
  Declaring \&quot;interfaces with static abstract methods\&quot; is an advanced feature. See https://aka.ms/fsharp-iwsams for guidance. You can disable this warning by using &apos;#nowarn \&quot;3535\&quot;&apos; or &apos;--nowarn:3535&apos;.
- (Originally from FSComp.txt:1685)
+ (Originally from FSComp.txt:1689)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcUsingInterfaceWithStaticAbstractMethodAsType(System.String)">
 <summary>
  &apos;%s&apos; is normally used as a type constraint in generic code, e.g. \&quot;&apos;T when ISomeInterface&lt;&apos;T&gt;\&quot; or \&quot;let f (x: #ISomeInterface&lt;_&gt;)\&quot;. See https://aka.ms/fsharp-iwsams for guidance. You can disable this warning by using &apos;#nowarn \&quot;3536\&quot;&apos; or &apos;--nowarn:3536&apos;.
- (Originally from FSComp.txt:1686)
+ (Originally from FSComp.txt:1690)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcUseYieldBangForMultipleResults">
@@ -749,7 +755,7 @@
 <member name="M:FSComp.SR.tcUnexpectedFunTypeInUnionCaseField">
 <summary>
  Unexpected function type in union case field definition. If you intend the field to be a function, consider wrapping the function signature with parens, e.g. | Case of a -&gt; b into | Case of (a -&gt; b).
- (Originally from FSComp.txt:1726)
+ (Originally from FSComp.txt:1729)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcUnexpectedExprAtRecInfPoint">
@@ -791,7 +797,7 @@
 <member name="M:FSComp.SR.tcUnableToParseInterpolatedString(System.String)">
 <summary>
  Invalid interpolated string. %s
- (Originally from FSComp.txt:1622)
+ (Originally from FSComp.txt:1626)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcUnableToParseFormatString(System.String)">
@@ -1055,31 +1061,31 @@
 <member name="M:FSComp.SR.tcTraitMayNotUseComplexThings">
 <summary>
  A trait may not specify optional, in, out, ParamArray, CallerInfo or Quote arguments
- (Originally from FSComp.txt:1682)
+ (Originally from FSComp.txt:1686)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcTraitIsStatic(System.String)">
 <summary>
  Trait &apos;%s&apos; is static
- (Originally from FSComp.txt:1680)
+ (Originally from FSComp.txt:1684)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcTraitIsNotStatic(System.String)">
 <summary>
  Trait &apos;%s&apos; is not static
- (Originally from FSComp.txt:1681)
+ (Originally from FSComp.txt:1685)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcTraitInvocationShouldUseTick">
 <summary>
  Invocation of a static constraint should use \&quot;&apos;T.Ident\&quot; and not \&quot;^T.Ident\&quot;, even for statically resolved type parameters.
- (Originally from FSComp.txt:1684)
+ (Originally from FSComp.txt:1688)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcTraitHasMultipleSupportTypes(System.String)">
 <summary>
  The trait &apos;%s&apos; invoked by this call has multiple support types. This invocation syntax is not permitted for such traits. See https://aka.ms/fsharp-srtp for guidance.
- (Originally from FSComp.txt:1687)
+ (Originally from FSComp.txt:1691)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcThreadStaticAndContextStaticMustBeStatic">
@@ -1127,13 +1133,13 @@
 <member name="M:FSComp.SR.tcSynTypeOrInvalidInDeclaration">
 <summary>
  SynType.Or is not permitted in this declaration
- (Originally from FSComp.txt:1692)
+ (Originally from FSComp.txt:1696)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcSubsumptionImplicitConversionUsed(System.String,System.String)">
 <summary>
  This expression implicitly converts type &apos;%s&apos; to type &apos;%s&apos;. See https://aka.ms/fsharp-implicit-convs.
- (Originally from FSComp.txt:1635)
+ (Originally from FSComp.txt:1639)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcStructuralEqualityNotSatisfied2(System.String,System.String)">
@@ -1196,6 +1202,12 @@
  (Originally from FSComp.txt:514)
 </summary>
 </member>
+<member name="M:FSComp.SR.tcStructUnionMultiCaseFieldsSameType">
+<summary>
+ If a multicase union type is a struct, then all fields with the same name must be of the same type. This rule applies also to the generated &apos;Item&apos; name in case of unnamed fields.
+ (Originally from FSComp.txt:1734)
+</summary>
+</member>
 <member name="M:FSComp.SR.tcStructUnionMultiCaseDistinctFields">
 <summary>
  If a multicase union type is a struct, then all union cases must have unique names. For example: &apos;type A = B of b: int | C of c: int&apos;.
@@ -1228,7 +1240,7 @@
 </member>
 <member name="M:FSComp.SR.tcStaticLetBindingsRequireClassesWithImplicitConstructors">
 <summary>
- For F#7 and lower, static value definitions may only be used in types with a primary constructor (&apos;type X(args) = ...&apos;). To enable them in all other types, use language version &apos;preview&apos;.
+ For F#7 and lower, static &apos;let&apos;,&apos;do&apos; and &apos;member val&apos; definitions may only be used in types with a primary constructor (&apos;type X(args) = ...&apos;). To enable them in all other types, use language version &apos;8&apos; or higher.
  (Originally from FSComp.txt:753)
 </summary>
 </member>
@@ -1253,7 +1265,7 @@
 <member name="M:FSComp.SR.tcStaticBindingInExtrinsicAugmentation">
 <summary>
  Static bindings cannot be added to extrinsic augmentations. Consider using a &apos;static member&apos; instead.
- (Originally from FSComp.txt:1720)
+ (Originally from FSComp.txt:1723)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcSimpleMethodNameRequired">
@@ -1301,37 +1313,37 @@
 <member name="M:FSComp.SR.tcResumableCodeNotSupported">
 <summary>
  Using resumable code or resumable state machines requires /langversion:preview
- (Originally from FSComp.txt:1656)
+ (Originally from FSComp.txt:1660)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcResumableCodeInvocation">
 <summary>
  Resumable code invocation. Suppress this warning if you are defining new low-level resumable code in terms of existing resumable code.
- (Originally from FSComp.txt:1660)
+ (Originally from FSComp.txt:1664)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcResumableCodeFunctionMustBeInline">
 <summary>
  Invalid resumable code. Any method of function accepting or returning resumable code must be marked &apos;inline&apos;
- (Originally from FSComp.txt:1652)
+ (Originally from FSComp.txt:1656)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcResumableCodeContainsLetRec">
 <summary>
  Invalid resumable code. A &apos;let rec&apos; occured in the resumable code specification
- (Originally from FSComp.txt:1655)
+ (Originally from FSComp.txt:1659)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcResumableCodeArgMustHaveRightName">
 <summary>
  Invalid resumable code. Resumable code parameter must have name beginning with &apos;__expand&apos;
- (Originally from FSComp.txt:1653)
+ (Originally from FSComp.txt:1657)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcResumableCodeArgMustHaveRightKind">
 <summary>
  Invalid resumable code. A resumable code parameter must be of delegate or function type
- (Originally from FSComp.txt:1654)
+ (Originally from FSComp.txt:1658)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcReservedSyntaxForAugmentation">
@@ -1445,13 +1457,13 @@
 <member name="M:FSComp.SR.tcParenThenAdjacentListArgumentReserved">
 <summary>
  The syntax &apos;(expr1)[expr2]&apos; is now reserved for indexing and is ambiguous when used as an argument. See https://aka.ms/fsharp-index-notation. If calling a function with multiple curried arguments, add a space between them, e.g. &apos;someFunction (expr1) [expr2]&apos;.
- (Originally from FSComp.txt:1604)
+ (Originally from FSComp.txt:1608)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcParenThenAdjacentListArgumentNeedsAdjustment">
 <summary>
  The syntax &apos;(expr1)[expr2]&apos; is ambiguous when used as an argument. See https://aka.ms/fsharp-index-notation. If you intend indexing or slicing then you must use &apos;(expr1).[expr2]&apos; in argument position. If calling a function with multiple curried arguments, add a space between them, e.g. &apos;someFunction (expr1) [expr2]&apos;.
- (Originally from FSComp.txt:1607)
+ (Originally from FSComp.txt:1611)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcParameterRequiresName">
@@ -1481,7 +1493,7 @@
 <member name="M:FSComp.SR.tcOverrideUsesMultipleArgumentsInsteadOfTuple">
 <summary>
  This override takes a tuple instead of multiple arguments. Try to add an additional layer of parentheses at the method definition (e.g. &apos;member _.Foo((x, y))&apos;), or remove parentheses at the abstract method declaration (e.g. &apos;abstract member Foo: &apos;a * &apos;b -&gt; &apos;c&apos;).
- (Originally from FSComp.txt:1722)
+ (Originally from FSComp.txt:1725)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcOverrideArityMismatch(System.String)">
@@ -1499,13 +1511,13 @@
 <member name="M:FSComp.SR.tcOtherThenAdjacentListArgumentReserved">
 <summary>
  The syntax &apos;expr1[expr2]&apos; is now reserved for indexing and is ambiguous when used as an argument. See https://aka.ms/fsharp-index-notation. If calling a function with multiple curried arguments, add a space between them, e.g. &apos;someFunction expr1 [expr2]&apos;.
- (Originally from FSComp.txt:1606)
+ (Originally from FSComp.txt:1610)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcOtherThenAdjacentListArgumentNeedsAdjustment">
 <summary>
  The syntax &apos;expr1[expr2]&apos; is ambiguous when used as an argument. See https://aka.ms/fsharp-index-notation. If you intend indexing or slicing then you must use &apos;expr1.[expr2]&apos; in argument position. If calling a function with multiple curried arguments, add a space between them, e.g. &apos;someFunction expr1 [expr2]&apos;.
- (Originally from FSComp.txt:1609)
+ (Originally from FSComp.txt:1613)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcOptionalArgumentsCannotBeUsedInCustomAttribute">
@@ -1673,13 +1685,13 @@
 <member name="M:FSComp.SR.tcNotAnIndexerNamedIndexingNotYetEnabled(System.String)">
 <summary>
  The value &apos;%s&apos; is not a function and does not support index notation.
- (Originally from FSComp.txt:1593)
+ (Originally from FSComp.txt:1597)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcNotAnIndexerIndexingNotYetEnabled">
 <summary>
  This expression is not a function and does not support index notation.
- (Originally from FSComp.txt:1594)
+ (Originally from FSComp.txt:1598)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcNotAnException">
@@ -1691,13 +1703,13 @@
 <member name="M:FSComp.SR.tcNotAFunctionButIndexerNamedIndexingNotYetEnabled(System.String,System.String)">
 <summary>
  This value supports indexing, e.g. &apos;%s.[index]&apos;. The syntax &apos;%s[index]&apos; requires /langversion:preview. See https://aka.ms/fsharp-index-notation.
- (Originally from FSComp.txt:1591)
+ (Originally from FSComp.txt:1595)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcNotAFunctionButIndexerIndexingNotYetEnabled">
 <summary>
  This expression supports indexing, e.g. &apos;expr.[index]&apos;. The syntax &apos;expr[index]&apos; requires /langversion:preview. See https://aka.ms/fsharp-index-notation.
- (Originally from FSComp.txt:1592)
+ (Originally from FSComp.txt:1596)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcNonZeroConstantCannotHaveGenericUnit">
@@ -1734,6 +1746,18 @@
 <summary>
  &apos;try/finally&apos; expressions may not be used in queries
  (Originally from FSComp.txt:1312)
+</summary>
+</member>
+<member name="M:FSComp.SR.tcNoStaticPropertyFoundForOverride">
+<summary>
+ No static abstract property was found that corresponds to this override
+ (Originally from FSComp.txt:1737)
+</summary>
+</member>
+<member name="M:FSComp.SR.tcNoStaticMemberFoundForOverride">
+<summary>
+ No static abstract member was found that corresponds to this override
+ (Originally from FSComp.txt:1736)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcNoPropertyFoundForOverride">
@@ -1775,7 +1799,7 @@
 <member name="M:FSComp.SR.tcNoEagerConstraintApplicationAttribute">
 <summary>
  Using methods with &apos;NoEagerConstraintApplicationAttribute&apos; requires /langversion:6.0 or later
- (Originally from FSComp.txt:1657)
+ (Originally from FSComp.txt:1661)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcNoComparisonNeeded2(System.String,System.String,System.String)">
@@ -1913,7 +1937,7 @@
 <member name="M:FSComp.SR.tcMultipleRecdTypeChoice(System.String,System.String,System.String)">
 <summary>
  Multiple type matches were found:\n%s\nThe type &apos;%s&apos; was used. Due to the overlapping field names\n%s\nconsider using type annotations or change the order of open statements.
- (Originally from FSComp.txt:1712)
+ (Originally from FSComp.txt:1716)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcMultipleFieldsInRecord(System.String)">
@@ -1943,7 +1967,7 @@
 <member name="M:FSComp.SR.tcMissingRequiredMembers(System.String)">
 <summary>
  The following required properties have to be initalized:%s
- (Originally from FSComp.txt:1688)
+ (Originally from FSComp.txt:1692)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcMissingCustomOperation(System.String)">
@@ -2057,13 +2081,13 @@
 <member name="M:FSComp.SR.tcLiteralFieldAssignmentWithArg(System.String)">
 <summary>
  Cannot assign &apos;%s&apos; to a value marked literal
- (Originally from FSComp.txt:1598)
+ (Originally from FSComp.txt:1602)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcLiteralFieldAssignmentNoArg">
 <summary>
  Cannot assign a value to another value marked literal
- (Originally from FSComp.txt:1599)
+ (Originally from FSComp.txt:1603)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcLiteralDoesNotTakeArguments">
@@ -2099,19 +2123,19 @@
 <member name="M:FSComp.SR.tcLiteralAttributeCannotUseActivePattern">
 <summary>
  A [&lt;Literal&gt;] declaration cannot use an active pattern for its identifier
- (Originally from FSComp.txt:1649)
+ (Originally from FSComp.txt:1653)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcListThenAdjacentListArgumentReserved">
 <summary>
  The syntax &apos;[expr1][expr2]&apos; is now reserved for indexing and is ambiguous when used as an argument. See https://aka.ms/fsharp-index-notation. If calling a function with multiple curried arguments, add a space between them, e.g. &apos;someFunction [expr1] [expr2]&apos;.
- (Originally from FSComp.txt:1605)
+ (Originally from FSComp.txt:1609)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcListThenAdjacentListArgumentNeedsAdjustment">
 <summary>
  The syntax &apos;[expr1][expr2]&apos; is ambiguous when used as an argument. See https://aka.ms/fsharp-index-notation. If you intend indexing or slicing then you must use &apos;(expr1).[expr2]&apos; in argument position. If calling a function with multiple curried arguments, add a space between them, e.g. &apos;someFunction [expr1] [expr2]&apos;.
- (Originally from FSComp.txt:1608)
+ (Originally from FSComp.txt:1612)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcListLiteralMaxSize">
@@ -2159,7 +2183,7 @@
 <member name="M:FSComp.SR.tcInvalidUseOfReverseIndex">
 <summary>
  Invalid use of reverse index in list expression.
- (Originally from FSComp.txt:1600)
+ (Originally from FSComp.txt:1604)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInvalidUseOfInterfaceType">
@@ -2237,7 +2261,7 @@
 <member name="M:FSComp.SR.tcInvalidStructReturn">
 <summary>
  The use of &apos;[&lt;Struct&gt;]&apos; on values, functions and methods is only allowed on partial active pattern definitions
- (Originally from FSComp.txt:1633)
+ (Originally from FSComp.txt:1637)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInvalidSignatureForSet">
@@ -2255,13 +2279,13 @@
 <member name="M:FSComp.SR.tcInvalidSelfConstraint">
 <summary>
  Invalid constraint. Valid constraint forms include \&quot;&apos;T :&gt; ISomeInterface\&quot; for interface constraints and \&quot;SomeConstrainingType&lt;&apos;T&gt;\&quot; for self-constraints. See https://aka.ms/fsharp-type-constraints.
- (Originally from FSComp.txt:1683)
+ (Originally from FSComp.txt:1687)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInvalidResumableConstruct(System.String)">
 <summary>
  The construct &apos;%s&apos; may only be used in valid resumable code.
- (Originally from FSComp.txt:1651)
+ (Originally from FSComp.txt:1655)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInvalidRelationInJoin(System.String)">
@@ -2393,7 +2417,7 @@
 <member name="M:FSComp.SR.tcInvalidMemberDeclNameMissingOrHasParen">
 <summary>
  Invalid member declaration. The name of the member is missing or has parentheses.
- (Originally from FSComp.txt:1676)
+ (Originally from FSComp.txt:1680)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInvalidInlineSpecification">
@@ -2477,7 +2501,7 @@
 <member name="M:FSComp.SR.tcInvalidAlignmentInInterpolatedString">
 <summary>
  Invalid alignment in interpolated string
- (Originally from FSComp.txt:1619)
+ (Originally from FSComp.txt:1623)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInvalidActivePatternName">
@@ -2495,7 +2519,7 @@
 <member name="M:FSComp.SR.tcInterpolationMixedWithPercent">
 <summary>
  Mismatch in interpolated string. Interpolated strings may not use &apos;%%&apos; format specifiers unless each is given an expression, e.g. &apos;%%d{1+1}&apos;
- (Originally from FSComp.txt:1618)
+ (Originally from FSComp.txt:1622)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInterfacesShouldUseInheritNotInterface">
@@ -2525,7 +2549,7 @@
 <member name="M:FSComp.SR.tcInlineIfLambdaUsedOnNonInlineFunctionOrMethod">
 <summary>
  The &apos;InlineIfLambda&apos; attribute may only be used on parameters of inlined functions of methods whose type is a function or F# delegate type.
- (Originally from FSComp.txt:1674)
+ (Originally from FSComp.txt:1678)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInitOnlyPropertyCannotBeSet1(System.String)">
@@ -2567,7 +2591,7 @@
 <member name="M:FSComp.SR.tcInfoIfFunctionShadowsUnionCase">
 <summary>
  This is a function definition that shadows a union case. If this is what you want, ignore or suppress this warning. If you want it to be a union case deconstruction, add parentheses.
- (Originally from FSComp.txt:1727)
+ (Originally from FSComp.txt:1731)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcInferredGenericTypeGivesRiseToInconsistency(System.String,System.String)">
@@ -2579,7 +2603,7 @@
 <member name="M:FSComp.SR.tcIndexNotationDeprecated">
 <summary>
  The syntax &apos;arr.[idx]&apos; is now revised to &apos;arr[idx]&apos;. Please update your code.
- (Originally from FSComp.txt:1602)
+ (Originally from FSComp.txt:1606)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcImplicitMeasureFollowingSlash">
@@ -2591,13 +2615,13 @@
 <member name="M:FSComp.SR.tcImplicitConversionUsedForNonMethodArg(System.String,System.String,System.String)">
 <summary>
  This expression uses the implicit conversion &apos;%s&apos; to convert type &apos;%s&apos; to type &apos;%s&apos;. See https://aka.ms/fsharp-implicit-convs. This warning may be disabled using &apos;#nowarn \&quot;3391\&quot;.
- (Originally from FSComp.txt:1644)
+ (Originally from FSComp.txt:1648)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcImplicitConversionUsedForMethodArg(System.String,System.String,System.String)">
 <summary>
  This expression uses the implicit conversion &apos;%s&apos; to convert type &apos;%s&apos; to type &apos;%s&apos;.
- (Originally from FSComp.txt:1648)
+ (Originally from FSComp.txt:1652)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcImplementsIStructuralEquatableExplicitly(System.String)">
@@ -2681,13 +2705,13 @@
 <member name="M:FSComp.SR.tcHighPrecedenceFunctionApplicationToListReserved">
 <summary>
  The syntax &apos;expr1[expr2]&apos; is now reserved for indexing. See https://aka.ms/fsharp-index-notation. If calling a function, add a space between the function and argument, e.g. &apos;someFunction [expr]&apos;.
- (Originally from FSComp.txt:1603)
+ (Originally from FSComp.txt:1607)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcHighPrecedenceFunctionApplicationToListDeprecated">
 <summary>
  The syntax &apos;expr1[expr2]&apos; is used for indexing. Consider adding a type annotation to enable indexing, or if calling a function add a space, e.g. &apos;expr1 [expr2]&apos;.
- (Originally from FSComp.txt:1601)
+ (Originally from FSComp.txt:1605)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcGlobalsSystemTypeNotFound(System.String)">
@@ -2978,6 +3002,12 @@
  (Originally from FSComp.txt:741)
 </summary>
 </member>
+<member name="M:FSComp.SR.tcDotLambdaAtNotSupportedExpression">
+<summary>
+ Shorthand lambda syntax is only supported for atomic expressions, such as method, property, field or indexer on the implied &apos;_&apos; argument. For example: &apos;let f = _.Length&apos;.
+ (Originally from FSComp.txt:1733)
+</summary>
+</member>
 <member name="M:FSComp.SR.tcDoesNotAllowExplicitTypeArguments(System.String)">
 <summary>
  The method or function &apos;%s&apos; should not be given explicit type argument(s) because it does not declare its type parameters explicitly
@@ -3131,7 +3161,7 @@
 <member name="M:FSComp.SR.tcCopyAndUpdateRecordChangesAllFields(System.String)">
 <summary>
  This copy-and-update record expression changes all fields of record type &apos;%s&apos;. Consider using the record construction syntax instead.
- (Originally from FSComp.txt:1704)
+ (Originally from FSComp.txt:1708)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcCopyAndUpdateNeedsRecordType">
@@ -3347,7 +3377,7 @@
 <member name="M:FSComp.SR.tcBuiltInImplicitConversionUsed(System.String,System.String)">
 <summary>
  This expression uses a built-in implicit conversion to convert type &apos;%s&apos; to type &apos;%s&apos;. See https://aka.ms/fsharp-implicit-convs.
- (Originally from FSComp.txt:1636)
+ (Originally from FSComp.txt:1640)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcBindingCannotBeUseAndRec">
@@ -3467,7 +3497,7 @@
 <member name="M:FSComp.SR.tcAnonRecdTypeDuplicateFieldId(System.String)">
 <summary>
  The field &apos;%s&apos; appears multiple times in this anonymous record type.
- (Originally from FSComp.txt:1678)
+ (Originally from FSComp.txt:1682)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcAnonRecdSingleFieldNameSuperset(System.String)">
@@ -3533,7 +3563,7 @@
 <member name="M:FSComp.SR.tcAnonRecdDuplicateFieldId(System.String)">
 <summary>
  The field &apos;%s&apos; appears multiple times in this record expression.
- (Originally from FSComp.txt:1677)
+ (Originally from FSComp.txt:1681)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcAnonRecdCcuMismatch(System.String,System.String)">
@@ -3551,13 +3581,13 @@
 <member name="M:FSComp.SR.tcAmbiguousImplicitConversion(System.String,System.String,System.String)">
 <summary>
  This expression has type &apos;%s&apos; and is only made compatible with type &apos;%s&apos; through an ambiguous implicit conversion. Consider using an explicit call to &apos;op_Implicit&apos;. The applicable implicit conversions are:%s
- (Originally from FSComp.txt:1634)
+ (Originally from FSComp.txt:1638)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcAmbiguousDiscardDotLambda">
 <summary>
  The meaning of _ is ambiguous here. It cannot be used for a discarded variable and a function shorthand in the same scope.
- (Originally from FSComp.txt:1716)
+ (Originally from FSComp.txt:1720)
 </summary>
 </member>
 <member name="M:FSComp.SR.tcAllowNullTypesMayOnlyInheritFromAllowNullTypes">
@@ -3820,19 +3850,19 @@
 <member name="M:FSComp.SR.scriptSdkNotDeterminedUnexpected(System.String)">
 <summary>
  The .NET SDK for this script could not be determined. If the script is in a directory using a &apos;global.json&apos; then ensure the relevant .NET SDK is installed. Unexpected error &apos;%s&apos;.
- (Originally from FSComp.txt:1631)
+ (Originally from FSComp.txt:1635)
 </summary>
 </member>
 <member name="M:FSComp.SR.scriptSdkNotDeterminedNoHost">
 <summary>
  The .NET SDK for this script could not be determined. dotnet.exe could not be found ensure a .NET SDK is installed.
- (Originally from FSComp.txt:1632)
+ (Originally from FSComp.txt:1636)
 </summary>
 </member>
 <member name="M:FSComp.SR.scriptSdkNotDetermined(System.String,System.String,System.String,System.Int32)">
 <summary>
  The .NET SDK for this script could not be determined. If the script is in a directory using a &apos;global.json&apos; then ensure the relevant .NET SDK is installed. The output from &apos;%s --version&apos; in the directory &apos;%s&apos; was: &apos;%s&apos; and the exit code was &apos;%d&apos;.
- (Originally from FSComp.txt:1630)
+ (Originally from FSComp.txt:1634)
 </summary>
 </member>
 <member name="M:FSComp.SR.returnUsedInsteadOfReturnBang">
@@ -3844,73 +3874,73 @@
 <member name="M:FSComp.SR.reprStateMachineNotCompilableNoAlternative(System.String)">
 <summary>
  This state machine is not statically compilable and no alternative is available. %s. Use an &apos;if __useResumableCode then &lt;state-machine&gt; else &lt;alternative&gt;&apos; to give an alternative.
- (Originally from FSComp.txt:1659)
+ (Originally from FSComp.txt:1663)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprStateMachineNotCompilable(System.String)">
 <summary>
  This state machine is not statically compilable. %s. An alternative dynamic implementation will be used, which may be slower. Consider adjusting your code to ensure this state machine is statically compilable, or else suppress this warning.
- (Originally from FSComp.txt:1658)
+ (Originally from FSComp.txt:1662)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprStateMachineInvalidForm">
 <summary>
  The state machine has an unexpected form
- (Originally from FSComp.txt:1671)
+ (Originally from FSComp.txt:1675)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeValueHasNoDefinition(System.String)">
 <summary>
  The resumable code value(s) &apos;%s&apos; does not have a definition
- (Originally from FSComp.txt:1669)
+ (Originally from FSComp.txt:1673)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeInvokeNotReduced(System.String)">
 <summary>
  A resumable code invocation at &apos;%s&apos; could not be reduced
- (Originally from FSComp.txt:1662)
+ (Originally from FSComp.txt:1666)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeDefinitionWasGeneric">
 <summary>
  A delegate or function producing resumable code in a state machine has type parameters
- (Originally from FSComp.txt:1670)
+ (Originally from FSComp.txt:1674)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeContainsResumptionInTryFinally">
 <summary>
  A try/finally may not contain resumption points
- (Originally from FSComp.txt:1666)
+ (Originally from FSComp.txt:1670)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeContainsResumptionInHandlerOrFilter">
 <summary>
  The &apos;with&apos; block of a try/with may not contain resumption points
- (Originally from FSComp.txt:1667)
+ (Originally from FSComp.txt:1671)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeContainsLetRec">
 <summary>
  A &apos;let rec&apos; occured in the resumable code specification
- (Originally from FSComp.txt:1663)
+ (Originally from FSComp.txt:1667)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeContainsFastIntegerForLoop">
 <summary>
  A fast integer for loop may not contain resumption points
- (Originally from FSComp.txt:1668)
+ (Originally from FSComp.txt:1672)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeContainsDynamicResumeAtInBody">
 <summary>
  A target label for __resumeAt was not statically determined. A __resumeAt with a non-static target label may only appear at the start of a resumable code method
- (Originally from FSComp.txt:1665)
+ (Originally from FSComp.txt:1669)
 </summary>
 </member>
 <member name="M:FSComp.SR.reprResumableCodeContainsConstrainedGenericLet">
 <summary>
  A constrained generic construct occured in the resumable code specification
- (Originally from FSComp.txt:1664)
+ (Originally from FSComp.txt:1668)
 </summary>
 </member>
 <member name="M:FSComp.SR.replaceWithSuggestion(System.String)">
@@ -3982,7 +4012,7 @@
 <member name="M:FSComp.SR.pickleFsharpCoreBackwardsCompatible(System.String,System.String)">
 <summary>
  Newly added pickle state cannot be used in FSharp.Core, since it must be working in older compilers+tooling as well. The time window is at least 3 years after feature introduction. Violation: %s . Context: \n %s 
- (Originally from FSComp.txt:1721)
+ (Originally from FSComp.txt:1724)
 </summary>
 </member>
 <member name="M:FSComp.SR.pickleErrorReadingWritingMetadata(System.String,System.String)">
@@ -4282,7 +4312,7 @@
 <member name="M:FSComp.SR.parsUnexpectedEndOfFileElif">
 <summary>
  Unexpected end of input in &apos;else if&apos; or &apos;elif&apos; branch of conditional expression. Expected &apos;elif &lt;expr&gt; then &lt;expr&gt;&apos; or &apos;else if &lt;expr&gt; then &lt;expr&gt;&apos;.
- (Originally from FSComp.txt:1706)
+ (Originally from FSComp.txt:1710)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsUnexpectedEndOfFileDefinition">
@@ -4307,12 +4337,6 @@
 <summary>
  &apos;_&apos; cannot be used as field name
  (Originally from FSComp.txt:1343)
-</summary>
-</member>
-<member name="M:FSComp.SR.parsUnderScoreDotLambdaNonAtomic">
-<summary>
-  _. shorthand syntax for lambda functions can only be used with atomic expressions. That means expressions with no whitespace unless enclosed in parentheses.
- (Originally from FSComp.txt:1717)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsUnClosedBlockInHashLight">
@@ -4373,6 +4397,12 @@
 <summary>
  Successive arguments should be separated by spaces or tupled, and arguments involving function or method applications should be parenthesized
  (Originally from FSComp.txt:456)
+</summary>
+</member>
+<member name="M:FSComp.SR.parsStaticMemberImcompleteSyntax">
+<summary>
+ Incomplete declaration of a static construct. Use &apos;static let&apos;,&apos;static do&apos;,&apos;static member&apos; or &apos;static val&apos; for declaration.
+ (Originally from FSComp.txt:1740)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsSetterAtMostTwoArguments">
@@ -4456,7 +4486,7 @@
 <member name="M:FSComp.SR.parsNewExprMemberAccess">
 <summary>
  This member access is ambiguous. Please use parentheses around the object creation, e.g. &apos;(new SomeType(args)).MemberName&apos;
- (Originally from FSComp.txt:1647)
+ (Originally from FSComp.txt:1651)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsNamespaceOrModuleNotBoth">
@@ -4504,7 +4534,7 @@
 <member name="M:FSComp.SR.parsMissingUnionCaseName">
 <summary>
  Missing union case name
- (Originally from FSComp.txt:1708)
+ (Originally from FSComp.txt:1712)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsMissingTypeArgs">
@@ -4522,13 +4552,13 @@
 <member name="M:FSComp.SR.parsMissingMemberBody">
 <summary>
  Expecting member body
- (Originally from FSComp.txt:1713)
+ (Originally from FSComp.txt:1717)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsMissingKeyword(System.String)">
 <summary>
  Missing keyword &apos;%s&apos;
- (Originally from FSComp.txt:1714)
+ (Originally from FSComp.txt:1718)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsMissingGreaterThan">
@@ -4744,19 +4774,25 @@
 <member name="M:FSComp.SR.parsExpectingType">
 <summary>
  Expecting type
- (Originally from FSComp.txt:1709)
+ (Originally from FSComp.txt:1713)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsExpectingPattern">
 <summary>
  Expecting pattern
- (Originally from FSComp.txt:1689)
+ (Originally from FSComp.txt:1693)
+</summary>
+</member>
+<member name="M:FSComp.SR.parsExpectingField">
+<summary>
+ Expecting record field
+ (Originally from FSComp.txt:1741)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsExpectingExpression">
 <summary>
  Expecting expression
- (Originally from FSComp.txt:1679)
+ (Originally from FSComp.txt:1683)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsExpectedTypeAfterToken">
@@ -4768,7 +4804,7 @@
 <member name="M:FSComp.SR.parsExpectedPatternAfterToken">
 <summary>
  Expected a pattern after this point
- (Originally from FSComp.txt:1690)
+ (Originally from FSComp.txt:1694)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsExpectedNameAfterToken">
@@ -4840,25 +4876,25 @@
 <member name="M:FSComp.SR.parsEofInInterpolatedVerbatimString">
 <summary>
  Incomplete interpolated verbatim string begun at or before here
- (Originally from FSComp.txt:1626)
+ (Originally from FSComp.txt:1630)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsEofInInterpolatedTripleQuoteString">
 <summary>
  Incomplete interpolated triple-quote string begun at or before here
- (Originally from FSComp.txt:1627)
+ (Originally from FSComp.txt:1631)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsEofInInterpolatedStringFill">
 <summary>
  Incomplete interpolated string expression fill begun at or before here
- (Originally from FSComp.txt:1624)
+ (Originally from FSComp.txt:1628)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsEofInInterpolatedString">
 <summary>
  Incomplete interpolated string begun at or before here
- (Originally from FSComp.txt:1625)
+ (Originally from FSComp.txt:1629)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsEofInIfOcaml">
@@ -4906,7 +4942,7 @@
 <member name="M:FSComp.SR.parsEmptyFillInInterpolatedString">
 <summary>
  Invalid interpolated string. This interpolated string expression fill is empty, an expression was expected.
- (Originally from FSComp.txt:1628)
+ (Originally from FSComp.txt:1632)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsDoCannotHaveVisibilityDeclarations(System.String)">
@@ -4918,7 +4954,7 @@
 <member name="M:FSComp.SR.parsConstraintIntersectionSyntaxUsedWithNonFlexibleType">
 <summary>
  Constraint intersection syntax may only be used with flexible types, e.g. &apos;#IDisposable &amp; #ISomeInterface&apos;.
- (Originally from FSComp.txt:1719)
+ (Originally from FSComp.txt:1722)
 </summary>
 </member>
 <member name="M:FSComp.SR.parsConsiderUsingSeparateRecordType">
@@ -5007,7 +5043,7 @@
 </member>
 <member name="M:FSComp.SR.packageManagerUnknown(System.String,System.String,System.String)">
 <summary>
- Package manager key &apos;%s&apos; was not registered in %s. Currently registered: %s. To learn more about extensions, visit: https://aka.ms/dotnetdepmanager
+ Package manager key &apos;%s&apos; was not registered in %s. Currently registered: %s. You can provide extra path(s) by passing &apos;--compilertool:&lt;extensionsfolder&gt;&apos; to the command line. To learn more about extensions, visit: https://aka.ms/dotnetdepmanager
  (Originally from FSComp.txt:842)
 </summary>
 </member>
@@ -5734,7 +5770,7 @@
 <member name="M:FSComp.SR.optFailedToInlineSuggestedValue(System.String)">
 <summary>
  The value &apos;%s&apos; was marked &apos;InlineIfLambda&apos; but was not determined to have a lambda value. This warning is for informational purposes only.
- (Originally from FSComp.txt:1672)
+ (Originally from FSComp.txt:1676)
 </summary>
 </member>
 <member name="M:FSComp.SR.nrUnionTypeNeedsQualifiedAccess(System.String,System.String)">
@@ -5979,7 +6015,7 @@
 <member name="M:FSComp.SR.matchNotAllowedForUnionCaseWithNoData">
 <summary>
  Pattern discard is not allowed for union case that takes no data.
- (Originally from FSComp.txt:1691)
+ (Originally from FSComp.txt:1695)
 </summary>
 </member>
 <member name="M:FSComp.SR.loadingDescription">
@@ -6051,7 +6087,7 @@
 <member name="M:FSComp.SR.lexTripleQuoteInTripleQuote">
 <summary>
  Invalid interpolated string. Triple quote string literals may not be used in interpolated expressions. Consider using an explicit &apos;let&apos; binding for the interpolation expression.
- (Originally from FSComp.txt:1621)
+ (Originally from FSComp.txt:1625)
 </summary>
 </member>
 <member name="M:FSComp.SR.lexTooManyPercentsInTripleQuote">
@@ -6087,13 +6123,13 @@
 <member name="M:FSComp.SR.lexSingleQuoteInSingleQuote">
 <summary>
  Invalid interpolated string. Single quote or verbatim string literals may not be used in interpolated expressions in single quote or verbatim strings. Consider using an explicit &apos;let&apos; binding for the interpolation expression or use a triple quote string as the outer string literal.
- (Originally from FSComp.txt:1620)
+ (Originally from FSComp.txt:1624)
 </summary>
 </member>
 <member name="M:FSComp.SR.lexRBraceInInterpolatedString">
 <summary>
  A &apos;}&apos; character must be escaped (by doubling) in an interpolated string.
- (Originally from FSComp.txt:1629)
+ (Originally from FSComp.txt:1633)
 </summary>
 </member>
 <member name="M:FSComp.SR.lexOutsideThirtyTwoBitUnsigned">
@@ -6201,7 +6237,7 @@
 <member name="M:FSComp.SR.lexInvalidIdentifier">
 <summary>
  This is not a valid identifier
- (Originally from FSComp.txt:1707)
+ (Originally from FSComp.txt:1711)
 </summary>
 </member>
 <member name="M:FSComp.SR.lexInvalidFloat">
@@ -6303,7 +6339,7 @@
 <member name="M:FSComp.SR.lexByteStringMayNotBeInterpolated">
 <summary>
  a byte string may not be interpolated
- (Originally from FSComp.txt:1623)
+ (Originally from FSComp.txt:1627)
 </summary>
 </member>
 <member name="M:FSComp.SR.lexByteArrayCannotEncode">
@@ -6795,7 +6831,7 @@
 <member name="M:FSComp.SR.invalidXmlDocPosition">
 <summary>
  XML comment is not placed on a valid language element.
- (Originally from FSComp.txt:1675)
+ (Originally from FSComp.txt:1679)
 </summary>
 </member>
 <member name="M:FSComp.SR.invalidPlatformTarget">
@@ -6837,7 +6873,7 @@
 <member name="M:FSComp.SR.implMissingInlineIfLambda">
 <summary>
  The &apos;InlineIfLambda&apos; attribute is present in the signature but not the implementation.
- (Originally from FSComp.txt:1673)
+ (Originally from FSComp.txt:1677)
 </summary>
 </member>
 <member name="M:FSComp.SR.impTypeRequiredUnavailable(System.String,System.String)">
@@ -6897,13 +6933,13 @@
 <member name="M:FSComp.SR.ilxgenInvalidConstructInStateMachineDuringCodegen(System.String)">
 <summary>
  The resumable code construct &apos;%s&apos; may only be used in inlined code protected by &apos;if __useResumableCode then ...&apos; and the overall composition must form valid resumable code.
- (Originally from FSComp.txt:1650)
+ (Originally from FSComp.txt:1654)
 </summary>
 </member>
 <member name="M:FSComp.SR.ilxGenUnknownDebugPoint(System.String,System.String)">
 <summary>
  Unknown debug point &apos;%s&apos;. The available debug points are &apos;%s&apos;.
- (Originally from FSComp.txt:1661)
+ (Originally from FSComp.txt:1665)
 </summary>
 </member>
 <member name="M:FSComp.SR.ilwriteErrorCreatingPdb(System.String)">
@@ -7352,25 +7388,25 @@
 <member name="M:FSComp.SR.forFormatInvalidForInterpolated4">
 <summary>
  Interpolated strings used as type IFormattable or type FormattableString may not use &apos;%%&apos; specifiers, only .NET-style interpolands such as &apos;{expr}&apos;, &apos;{expr,3}&apos; or &apos;{expr:N5}&apos; may be used.
- (Originally from FSComp.txt:1617)
+ (Originally from FSComp.txt:1621)
 </summary>
 </member>
 <member name="M:FSComp.SR.forFormatInvalidForInterpolated3">
 <summary>
  The &apos;%%P&apos; specifier may not be used explicitly.
- (Originally from FSComp.txt:1616)
+ (Originally from FSComp.txt:1620)
 </summary>
 </member>
 <member name="M:FSComp.SR.forFormatInvalidForInterpolated2">
 <summary>
  .NET-style format specifiers such as &apos;{x,3}&apos; or &apos;{x:N5}&apos; may not be mixed with &apos;%%&apos; format specifiers.
- (Originally from FSComp.txt:1615)
+ (Originally from FSComp.txt:1619)
 </summary>
 </member>
 <member name="M:FSComp.SR.forFormatInvalidForInterpolated">
 <summary>
  Interpolated strings may not use &apos;%%&apos; format specifiers unless each is given an expression, e.g. &apos;%%d{1+1}&apos;.
- (Originally from FSComp.txt:1614)
+ (Originally from FSComp.txt:1618)
 </summary>
 </member>
 <member name="M:FSComp.SR.forFormatDoesntSupportPrecision(System.String)">
@@ -7475,10 +7511,22 @@
  (Originally from FSComp.txt:1578)
 </summary>
 </member>
+<member name="M:FSComp.SR.featureWarningIndexedPropertiesGetSetSameType">
+<summary>
+ Indexed properties getter and setter must have the same type
+ (Originally from FSComp.txt:1592)
+</summary>
+</member>
 <member name="M:FSComp.SR.featureUnmanagedConstraintCsharpInterop">
 <summary>
  Interop between C#&apos;s and F#&apos;s unmanaged generic constraint (emit additional modreq)
- (Originally from FSComp.txt:1723)
+ (Originally from FSComp.txt:1726)
+</summary>
+</member>
+<member name="M:FSComp.SR.featureUnionIsPropertiesVisible">
+<summary>
+ Union case test properties
+ (Originally from FSComp.txt:1594)
 </summary>
 </member>
 <member name="M:FSComp.SR.featureTryWithInSeqExpressions">
@@ -7514,7 +7562,7 @@
 <member name="M:FSComp.SR.featureStaticLetInRecordsDusEmptyTypes">
 <summary>
  Allow static let bindings in union, record, struct, non-incremental-class types
- (Originally from FSComp.txt:1711)
+ (Originally from FSComp.txt:1715)
 </summary>
 </member>
 <member name="M:FSComp.SR.featureSingleUnderscorePattern">
@@ -7527,6 +7575,12 @@
 <summary>
  self type constraints
  (Originally from FSComp.txt:1567)
+</summary>
+</member>
+<member name="M:FSComp.SR.featureReuseSameFieldsInStructUnions">
+<summary>
+ Share underlying fields in a [&lt;Struct&gt;] discriminated union as long as they have same name and type
+ (Originally from FSComp.txt:1735)
 </summary>
 </member>
 <member name="M:FSComp.SR.featureResumableStateMachines">
@@ -7575,6 +7629,12 @@
 <summary>
  prefer String.GetPinnableReference in fixed bindings
  (Originally from FSComp.txt:1590)
+</summary>
+</member>
+<member name="M:FSComp.SR.featurePreferExtensionMethodOverPlainProperty">
+<summary>
+ prefer extension method over plain property
+ (Originally from FSComp.txt:1591)
 </summary>
 </member>
 <member name="M:FSComp.SR.featurePackageManagement">
@@ -7646,7 +7706,7 @@
 <member name="M:FSComp.SR.featureInterfacesWithMultipleGenericInstantiation">
 <summary>
  interfaces with multiple generic instantiation
- (Originally from FSComp.txt:1597)
+ (Originally from FSComp.txt:1601)
 </summary>
 </member>
 <member name="M:FSComp.SR.featureInterfacesWithAbstractStaticMembers">
@@ -7664,7 +7724,7 @@
 <member name="M:FSComp.SR.featureInformationalObjInferenceDiagnostic">
 <summary>
  Diagnostic 3559 (warn when obj inferred) at informational level, off by default
- (Originally from FSComp.txt:1710)
+ (Originally from FSComp.txt:1714)
 </summary>
 </member>
 <member name="M:FSComp.SR.featureIndexerNotationWithoutDot">
@@ -7718,7 +7778,7 @@
 <member name="M:FSComp.SR.featureEscapeBracesInFormattableString">
 <summary>
  Escapes curly braces before calling FormattableStringFactory.Create when interpolated string literal is typed as FormattableString
- (Originally from FSComp.txt:1694)
+ (Originally from FSComp.txt:1698)
 </summary>
 </member>
 <member name="M:FSComp.SR.featureErrorReportingOnStaticClasses">
@@ -7769,6 +7829,12 @@
  (Originally from FSComp.txt:1586)
 </summary>
 </member>
+<member name="M:FSComp.SR.featureChkTailCallAttrOnNonRec">
+<summary>
+ Raises warnings if the &apos;TailCall&apos; attribute is used on non-recursive functions.
+ (Originally from FSComp.txt:1593)
+</summary>
+</member>
 <member name="M:FSComp.SR.featureChkNotTailRecursive">
 <summary>
  Raises warnings if a member or function has the &apos;TailCall&apos; attribute, but is not being used in a tail recursive way.
@@ -7814,7 +7880,7 @@
 <member name="M:FSComp.SR.featureAccessorFunctionShorthand">
 <summary>
  underscore dot shorthand for accessor only function
- (Originally from FSComp.txt:1718)
+ (Originally from FSComp.txt:1721)
 </summary>
 </member>
 <member name="M:FSComp.SR.expressionHasNoName">
@@ -8870,13 +8936,13 @@
 <member name="M:FSComp.SR.containerSigningUnsupportedOnThisPlatform">
 <summary>
  Key container signing is not supported on this platform.
- (Originally from FSComp.txt:1646)
+ (Originally from FSComp.txt:1650)
 </summary>
 </member>
 <member name="M:FSComp.SR.containerDeprecated">
 <summary>
  The &apos;AssemblyKeyNameAttribute&apos; has been deprecated. Use &apos;AssemblyKeyFileAttribute&apos; instead.
- (Originally from FSComp.txt:1645)
+ (Originally from FSComp.txt:1649)
 </summary>
 </member>
 <member name="M:FSComp.SR.considerUpcastOperator(System.String,System.String)">
@@ -8945,6 +9011,12 @@
  (Originally from FSComp.txt:1336)
 </summary>
 </member>
+<member name="M:FSComp.SR.chkTailCallAttrOnNonRec">
+<summary>
+ The TailCall attribute should only be applied to recursive functions.
+ (Originally from FSComp.txt:1739)
+</summary>
+</member>
 <member name="M:FSComp.SR.chkSystemVoidOnlyInTypeof">
 <summary>
  &apos;System.Void&apos; can only be used as &apos;typeof&lt;System.Void&gt;&apos; in F#
@@ -8955,6 +9027,12 @@
 <summary>
  Struct members cannot return the address of fields of the struct by reference
  (Originally from FSComp.txt:1507)
+</summary>
+</member>
+<member name="M:FSComp.SR.chkStaticMembersOnObjectExpressions">
+<summary>
+ Object expressions cannot implement interfaces with static abstract members or declare static members.
+ (Originally from FSComp.txt:1738)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkSplicingOnlyInQuotations">
@@ -8996,7 +9074,7 @@
 <member name="M:FSComp.SR.chkNotTailRecursive(System.String)">
 <summary>
  The member or function &apos;%s&apos; has the &apos;TailCallAttribute&apos; attribute, but is not being used in a tail recursive way.
- (Originally from FSComp.txt:1715)
+ (Originally from FSComp.txt:1719)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkNoWriteToLimitedSpan(System.String)">
@@ -9152,43 +9230,49 @@
 <member name="M:FSComp.SR.chkInstanceMemberOnStaticClasses">
 <summary>
  If a type uses both [&lt;Sealed&gt;] and [&lt;AbstractClass&gt;] attributes, it means it is static. Instance members are not allowed.
- (Originally from FSComp.txt:1698)
+ (Originally from FSComp.txt:1702)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkInstanceLetBindingOnStaticClasses">
 <summary>
  If a type uses both [&lt;Sealed&gt;] and [&lt;AbstractClass&gt;] attributes, it means it is static. Instance let bindings are not allowed.
- (Originally from FSComp.txt:1699)
+ (Originally from FSComp.txt:1703)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkInfoRefcellIncr">
 <summary>
  The use of &apos;incr&apos; from the F# library is deprecated. See https://aka.ms/fsharp-refcell-ops. For example, please change &apos;incr cell&apos; to &apos;cell.Value &lt;- cell.Value + 1&apos;.
- (Originally from FSComp.txt:1612)
+ (Originally from FSComp.txt:1616)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkInfoRefcellDeref">
 <summary>
  The use of &apos;!&apos; from the F# library is deprecated. See https://aka.ms/fsharp-refcell-ops. For example, please change &apos;!cell&apos; to &apos;cell.Value&apos;.
- (Originally from FSComp.txt:1610)
+ (Originally from FSComp.txt:1614)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkInfoRefcellDecr">
 <summary>
  The use of &apos;decr&apos; from the F# library is deprecated. See https://aka.ms/fsharp-refcell-ops. For example, please change &apos;decr cell&apos; to &apos;cell.Value &lt;- cell.Value - 1&apos;.
- (Originally from FSComp.txt:1613)
+ (Originally from FSComp.txt:1617)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkInfoRefcellAssign">
 <summary>
  The use of &apos;:=&apos; from the F# library is deprecated. See https://aka.ms/fsharp-refcell-ops. For example, please change &apos;cell := expr&apos; to &apos;cell.Value &lt;- expr&apos;.
- (Originally from FSComp.txt:1611)
+ (Originally from FSComp.txt:1615)
+</summary>
+</member>
+<member name="M:FSComp.SR.chkIndexedGetterAndSetterHaveSamePropertyType(System.String,System.String,System.String)">
+<summary>
+ An indexed property&apos;s getter and setter must have the same type. Property &apos;%s&apos; has getter of type &apos;%s&apos; but setter of type &apos;%s&apos;.
+ (Originally from FSComp.txt:1730)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkImplementingInterfacesOnStaticClasses">
 <summary>
  If a type uses both [&lt;Sealed&gt;] and [&lt;AbstractClass&gt;] attributes, it means it is static. Implementing interfaces is not allowed.
- (Originally from FSComp.txt:1700)
+ (Originally from FSComp.txt:1704)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkGetterSetterDoNotMatchAbstract(System.String,System.String)">
@@ -9230,7 +9314,7 @@
 <member name="M:FSComp.SR.chkExplicitFieldsDeclarationsOnStaticClasses">
 <summary>
  If a type uses both [&lt;Sealed&gt;] and [&lt;AbstractClass&gt;] attributes, it means it is static. Explicit field declarations are not allowed.
- (Originally from FSComp.txt:1702)
+ (Originally from FSComp.txt:1706)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkErrorUseOfByref">
@@ -9254,7 +9338,7 @@
 <member name="M:FSComp.SR.chkDuplicatedMethodParameter(System.String)">
 <summary>
  Duplicate parameter. The parameter &apos;%s&apos; has been used more that once in this method.
- (Originally from FSComp.txt:1693)
+ (Originally from FSComp.txt:1697)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkDuplicatePropertyWithSuffix(System.String,System.String)">
@@ -9308,13 +9392,13 @@
 <member name="M:FSComp.SR.chkCopyUpdateSyntaxInAnonRecords">
 <summary>
  This expression is an anonymous record, use {|...|} instead of {...}.
- (Originally from FSComp.txt:1724)
+ (Originally from FSComp.txt:1727)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkConstructorWithArgumentsOnStaticClasses">
 <summary>
  If a type uses both [&lt;Sealed&gt;] and [&lt;AbstractClass&gt;] attributes, it means it is static. Constructor with arguments is not allowed.
- (Originally from FSComp.txt:1696)
+ (Originally from FSComp.txt:1700)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkCantStoreByrefValue">
@@ -9338,7 +9422,7 @@
 <member name="M:FSComp.SR.chkAutoOpenAttributeInTypeAbbrev">
 <summary>
  FSharp.Core.AutoOpenAttribute should not be aliased.
- (Originally from FSComp.txt:1705)
+ (Originally from FSComp.txt:1709)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkAttrHasAllowMultiFalse(System.String)">
@@ -9350,13 +9434,13 @@
 <member name="M:FSComp.SR.chkAdditionalConstructorOnStaticClasses">
 <summary>
  If a type uses both [&lt;Sealed&gt;] and [&lt;AbstractClass&gt;] attributes, it means it is static. Additional constructor is not allowed.
- (Originally from FSComp.txt:1697)
+ (Originally from FSComp.txt:1701)
 </summary>
 </member>
 <member name="M:FSComp.SR.chkAbstractMembersDeclarationsOnStaticClasses">
 <summary>
  If a type uses both [&lt;Sealed&gt;] and [&lt;AbstractClass&gt;] attributes, it means it is static. Abstract member declarations are not allowed.
- (Originally from FSComp.txt:1701)
+ (Originally from FSComp.txt:1705)
 </summary>
 </member>
 <member name="M:FSComp.SR.checkRaiseFamilyFunctionArgumentCount(System.String,System.Int32,System.Int32)">
@@ -9596,7 +9680,7 @@
 <member name="M:FSComp.SR.buildDuplicateFile(System.String,System.Int32,System.Int32,System.Int32,System.Int32)">
 <summary>
  The source file &apos;%s&apos; (at position %d/%d) already appeared in the compilation list (at position %d/%d). Please verify that it is included only once in the project file.
- (Originally from FSComp.txt:1695)
+ (Originally from FSComp.txt:1699)
 </summary>
 </member>
 <member name="M:FSComp.SR.buildDirectivesInModulesAreIgnored">
@@ -9770,7 +9854,7 @@
 <member name="M:FSComp.SR.alwaysUseTypedStringInterpolation">
 <summary>
  Interpolated string contains untyped identifiers. Adding typed format specifiers is recommended.
- (Originally from FSComp.txt:1725)
+ (Originally from FSComp.txt:1728)
 </summary>
 </member>
 <member name="M:FSComp.SR.addIndexerDot">
@@ -11510,14 +11594,6 @@
  Generates unique stamps
 </summary>
 </member>
-<member name="T:Internal.Utilities.Library.Cancellable`1">
-<summary>
- Represents a synchronous, cold-start, cancellable computation with explicit representation of a cancelled result.
-
- A cancellable computation may be cancelled via a CancellationToken, which is propagated implicitly.
- If cancellation occurs, it is propagated as data rather than by raising an OperationCanceledException.
-</summary>
-</member>
 <member name="T:Internal.Utilities.Library.Lock`1">
 <summary>
  Encapsulates a lock associated with a particular token-type representing the acquisition of that lock.
@@ -11550,6 +11626,14 @@
  Represents a permission active at this point in execution
 </summary>
 </member>
+<member name="T:Internal.Utilities.Library.Cancellable`1">
+<summary>
+ Represents a synchronous, cold-start, cancellable computation with explicit representation of a cancelled result.
+
+ A cancellable computation may be cancelled via a CancellationToken, which is propagated implicitly.
+ If cancellation occurs, it is propagated as data rather than by raising an OperationCanceledException.
+</summary>
+</member>
 <member name="M:Internal.Utilities.Library.NameMap.subfold2``4(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,``2}},Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``3,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``2,``2}}}},Microsoft.FSharp.Collections.FSharpMap{``0,``3},Microsoft.FSharp.Collections.FSharpMap{``0,``1},``2)">
 <summary>
  For every entry in m2 find an entry in m1 and fold
@@ -11578,22 +11662,6 @@
 <member name="T:Internal.Utilities.Library.Tables">
 <summary>
  Intern tables to save space.
-</summary>
-</member>
-<member name="M:Internal.Utilities.Library.Cancellable.token">
-<summary>
- Bind the cancellation token associated with the computation
-</summary>
-</member>
-<member name="M:Internal.Utilities.Library.Cancellable.runWithoutCancellation``1(Internal.Utilities.Library.Cancellable{``0})">
-<summary>
- Run the computation in a mode where it may not be cancelled. The computation never results in a
- ValueOrCancelled.Cancelled.
-</summary>
-</member>
-<member name="M:Internal.Utilities.Library.Cancellable.run``1(System.Threading.CancellationToken,Internal.Utilities.Library.Cancellable{``0})">
-<summary>
- Run a cancellable computation using the given cancellation token
 </summary>
 </member>
 <member name="M:Internal.Utilities.Library.LockAutoOpens.AssumeCompilationThreadWithoutEvidence">
@@ -11735,6 +11803,22 @@
 <summary>
  Logical shift right treating int32 as unsigned integer.
  Code that uses this should probably be adjusted to use unsigned integer types.
+</summary>
+</member>
+<member name="M:Internal.Utilities.Library.Cancellable.token">
+<summary>
+ Bind the cancellation token associated with the computation
+</summary>
+</member>
+<member name="M:Internal.Utilities.Library.Cancellable.runWithoutCancellation``1(Internal.Utilities.Library.Cancellable{``0})">
+<summary>
+ Run the computation in a mode where it may not be cancelled. The computation never results in a
+ ValueOrCancelled.Cancelled.
+</summary>
+</member>
+<member name="M:Internal.Utilities.Library.Cancellable.run``1(System.Threading.CancellationToken,Internal.Utilities.Library.Cancellable{``0})">
+<summary>
+ Run a cancellable computation using the given cancellation token
 </summary>
 </member>
 <member name="M:Internal.Utilities.Library.Extras.DisposablesTracker.Register(System.IDisposable)">
@@ -12797,6 +12881,11 @@
 <member name="T:FSharp.Compiler.Features.LanguageVersion">
 <summary>
  LanguageVersion management
+</summary>
+</member>
+<member name="T:FSharp.Compiler.Features.LanguageFeature.PreferExtensionMethodOverPlainProperty">
+<summary>
+ RFC-1137
 </summary>
 </member>
 <member name="T:FSharp.Compiler.Features.LanguageFeature">
@@ -14144,6 +14233,11 @@
 <member name="T:FSharp.Compiler.SyntaxTrivia.SynTypeOrTrivia">
 <summary>
  Represents additional information for SynType.Or
+</summary>
+</member>
+<member name="P:FSharp.Compiler.SyntaxTrivia.SynFieldTrivia.MutableKeyword">
+<summary>
+ The syntax range of the `mutable` keyword
 </summary>
 </member>
 <member name="P:FSharp.Compiler.SyntaxTrivia.SynFieldTrivia.LeadingKeyword">
@@ -17071,6 +17165,11 @@
  Indicates if this is a constructor member generated from the de-sugaring of implicit constructor for a class type?
 </summary>
 </member>
+<member name="P:FSharp.Compiler.TypedTree.ValRef.IsImplied">
+<summary>
+ Determines if the values is implied by another construct, e.g. a `IsA` property is implied by the union case for A
+</summary>
+</member>
 <member name="P:FSharp.Compiler.TypedTree.ValRef.IsExtensionMember">
 <summary>
  Indicates if this is an F#-defined extension member
@@ -18076,6 +18175,11 @@ Get the signature for the value&apos;s XML documentation
 <member name="P:FSharp.Compiler.TypedTree.Val.IsIncrClassConstructor">
 <summary>
  Indicates if this is a constructor member generated from the de-sugaring of implicit constructor for a class type?
+</summary>
+</member>
+<member name="P:FSharp.Compiler.TypedTree.Val.IsImplied">
+<summary>
+ Determines if the values is implied by another construct, e.g. a `IsA` property is implied by the union case for A
 </summary>
 </member>
 <member name="P:FSharp.Compiler.TypedTree.Val.IsFixed">
@@ -21061,9 +21165,14 @@ Get the signature for the value&apos;s XML documentation
  Serialize an entity to a very basic json structure.
 </summary>
 </member>
-<member name="M:FSharp.Compiler.TypedTreeOps.tryAddExtensionAttributeIfNotAlreadyPresent(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.Attrib},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.Attrib}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.Attrib}},FSharp.Compiler.TypedTree.Entity)">
+<member name="M:FSharp.Compiler.TypedTreeOps.tryAddExtensionAttributeIfNotAlreadyPresentForType(FSharp.Compiler.TcGlobals.TcGlobals,Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.Attrib},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.Attrib}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.Attrib}},Microsoft.FSharp.Core.FSharpRef{FSharp.Compiler.TypedTree.ModuleOrNamespaceType},FSharp.Compiler.TypedTree.Entity)">
 <summary>
- Add an System.Runtime.CompilerServices.ExtensionAttribute to the Entity if found via predicate and not already present.
+ Add an System.Runtime.CompilerServices.ExtensionAttribute to the type Entity if found via predicate and not already present.
+</summary>
+</member>
+<member name="M:FSharp.Compiler.TypedTreeOps.tryAddExtensionAttributeIfNotAlreadyPresentForModule(FSharp.Compiler.TcGlobals.TcGlobals,Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.Attrib},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.Attrib}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.Attrib}},FSharp.Compiler.TypedTree.Entity)">
+<summary>
+ Add an System.Runtime.CompilerServices.ExtensionAttribute to the module Entity if found via predicate and not already present.
 </summary>
 </member>
 <member name="M:FSharp.Compiler.TypedTreeOps.|EmptyModuleOrNamespaces|_|(FSharp.Compiler.TypedTree.ModuleOrNamespaceContents)">
@@ -22289,6 +22398,11 @@ Get the signature for the value&apos;s XML documentation
 <member name="M:FSharp.Compiler.TypedTreeOps.mkUnionCaseProof(FSharp.Compiler.TypedTree.Expr,FSharp.Compiler.TypedTree.UnionCaseRef,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.TType},FSharp.Compiler.Text.Range)">
 <summary>
  Make a &apos;TOp.UnionCaseProof&apos; expression, which proves a union value is over a particular case (used only for ref-unions, not struct-unions)
+</summary>
+</member>
+<member name="M:FSharp.Compiler.TypedTreeOps.mkUnionCaseTest(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.Expr,FSharp.Compiler.TypedTree.UnionCaseRef,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.TType},FSharp.Compiler.Text.Range)">
+<summary>
+ Make an expression which tests that a union value is of a particular union case.
 </summary>
 </member>
 <member name="M:FSharp.Compiler.TypedTreeOps.mkUnionCaseTagGetViaExprAddr(FSharp.Compiler.TypedTree.Expr,FSharp.Compiler.TypedTree.EntityRef,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.TType},FSharp.Compiler.Text.Range)">
@@ -23532,6 +23646,11 @@ Get the signature for the value&apos;s XML documentation
  For an extension property, this indicates if the property extends a struct type.
 </summary>
 </member>
+<member name="P:FSharp.Compiler.Infos.PropInfo.IsUnionCaseTester">
+<summary>
+ Indicates if the property is a IsABC union case tester implied by a union case definition
+</summary>
+</member>
 <member name="P:FSharp.Compiler.Infos.PropInfo.IsStatic">
 <summary>
  Indicates if this property is static.
@@ -23555,6 +23674,11 @@ Get the signature for the value&apos;s XML documentation
 <member name="P:FSharp.Compiler.Infos.PropInfo.IsIndexer">
 <summary>
  Indicates if this property is an indexer property, i.e. a property with arguments.
+ &lt;code lang=&quot;fsharp&quot;&gt;
+ member x.Prop with
+     get (indexPiece1:int,indexPiece2: string) = ...
+     and set (indexPiece1:int,indexPiece2: string) value = ...
+ &lt;/code&gt;
 </summary>
 </member>
 <member name="P:FSharp.Compiler.Infos.PropInfo.IsFSharpEventProperty">
@@ -24052,6 +24176,11 @@ Get the signature for the value&apos;s XML documentation
 <member name="P:FSharp.Compiler.Infos.MethInfo.LogicalName">
 <summary>
  Get the method name in LogicalName form, i.e. the name as it would be stored in .NET metadata
+</summary>
+</member>
+<member name="P:FSharp.Compiler.Infos.MethInfo.IsUnionCaseTester">
+<summary>
+ Indicates if the method is a get_IsABC union case tester implied by a union case definition
 </summary>
 </member>
 <member name="P:FSharp.Compiler.Infos.MethInfo.IsStruct">
@@ -25059,15 +25188,20 @@ Get the signature for the value&apos;s XML documentation
  Print Signatures/Types, for signatures, intellisense, quick info, FSI responses
 </summary>
 </member>
-<member name="M:FSharp.Compiler.AugmentWithHashCompare.TypeDefinitelyHasEquality(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.TType)">
+<member name="M:FSharp.Compiler.AugmentTypeDefinitions.TypeDefinitelyHasEquality(FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.TypedTree.TType)">
 <summary>
  This predicate can be used once type inference is complete, before then it is an approximation
  that doesn&apos;t assert any new constraints
 </summary>
 </member>
-<member name="T:FSharp.Compiler.AugmentWithHashCompare">
+<member name="T:FSharp.Compiler.AugmentTypeDefinitions">
 <summary>
  Generate the hash/compare functions we add to user-defined types by default.
+</summary>
+</member>
+<member name="T:FSharp.Compiler.NameResolution.ShouldNotifySink">
+<summary>
+ Indicates whether we want to report found items to the name resolution sink
 </summary>
 </member>
 <member name="T:FSharp.Compiler.NameResolution.AfterResolution.RecordResolution">
@@ -25684,12 +25818,12 @@ Get the signature for the value&apos;s XML documentation
  A generator of type instantiations used when no more specific type instantiation is known.
 </summary>
 </member>
-<member name="M:FSharp.Compiler.NameResolution.ResolveExprDotLongIdentAndComputeRange(FSharp.Compiler.NameResolution.TcResultsSink,FSharp.Compiler.NameResolution.NameResolver,FSharp.Compiler.Text.Range,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.TypedTree.TType,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident},FSharp.Compiler.NameResolution.TypeNameResolutionInfo,FSharp.Compiler.InfoReader.FindMemberFlag,System.Boolean)">
+<member name="M:FSharp.Compiler.NameResolution.ResolveExprDotLongIdentAndComputeRange(FSharp.Compiler.NameResolution.TcResultsSink,FSharp.Compiler.NameResolution.NameResolver,FSharp.Compiler.Text.Range,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.TypedTree.TType,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident},FSharp.Compiler.NameResolution.TypeNameResolutionInfo,FSharp.Compiler.InfoReader.FindMemberFlag,System.Boolean,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.Syntax.SynExpr})">
 <summary>
  Resolve a long identifier occurring in an expression position, qualified by a type.
 </summary>
 </member>
-<member name="M:FSharp.Compiler.NameResolution.ResolveLongIdentAsExprAndComputeRange(FSharp.Compiler.NameResolution.TcResultsSink,FSharp.Compiler.NameResolution.NameResolver,FSharp.Compiler.Text.Range,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.NameResolution.TypeNameResolutionInfo,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident})">
+<member name="M:FSharp.Compiler.NameResolution.ResolveLongIdentAsExprAndComputeRange(FSharp.Compiler.NameResolution.TcResultsSink,FSharp.Compiler.NameResolution.NameResolver,FSharp.Compiler.Text.Range,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.NameResolution.TypeNameResolutionInfo,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.Syntax.SynExpr})">
 <summary>
  Resolve a long identifier occurring in an expression position.
 </summary>
@@ -25704,7 +25838,7 @@ Get the signature for the value&apos;s XML documentation
  Resolve a (possibly incomplete) long identifier to a loist of possible class or record fields
 </summary>
 </member>
-<member name="M:FSharp.Compiler.NameResolution.ResolveExprLongIdent(FSharp.Compiler.NameResolution.TcResultsSink,FSharp.Compiler.NameResolution.NameResolver,FSharp.Compiler.Text.Range,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.NameResolution.TypeNameResolutionInfo,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident})">
+<member name="M:FSharp.Compiler.NameResolution.ResolveExprLongIdent(FSharp.Compiler.NameResolution.TcResultsSink,FSharp.Compiler.NameResolution.NameResolver,FSharp.Compiler.Text.Range,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.NameResolution.TypeNameResolutionInfo,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.Syntax.SynExpr})">
 <summary>
  Resolve a long identifier occurring in an expression position
 </summary>
@@ -25744,7 +25878,7 @@ Get the signature for the value&apos;s XML documentation
  Resolve a long identifier to an object constructor.
 </summary>
 </member>
-<member name="M:FSharp.Compiler.NameResolution.ResolveLongIdentAsModuleOrNamespace(FSharp.Compiler.NameResolution.TcResultsSink,FSharp.Compiler.Import.ImportMap,FSharp.Compiler.Text.Range,System.Boolean,FSharp.Compiler.NameResolution.FullyQualifiedFlag,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.Syntax.Ident,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident},System.Boolean)">
+<member name="M:FSharp.Compiler.NameResolution.ResolveLongIdentAsModuleOrNamespace(FSharp.Compiler.NameResolution.TcResultsSink,FSharp.Compiler.Import.ImportMap,FSharp.Compiler.Text.Range,System.Boolean,FSharp.Compiler.NameResolution.FullyQualifiedFlag,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.Syntax.Ident,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident},System.Boolean,FSharp.Compiler.NameResolution.ShouldNotifySink)">
 <summary>
  Resolve a long identifier to a namespace, module.
 </summary>
@@ -25941,7 +26075,7 @@ Get the signature for the value&apos;s XML documentation
  The overall information about a method implementation in a class or object expression
 </summary>
 </member>
-<member name="M:FSharp.Compiler.MethodOverrides.GetAbstractPropInfosForSynPropertyDecl(FSharp.Compiler.InfoReader.InfoReader,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.Syntax.Ident,FSharp.Compiler.Text.Range,System.Tuple{FSharp.Compiler.TypedTree.TType,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.MethodOverrides.SlotImplSet}})">
+<member name="M:FSharp.Compiler.MethodOverrides.GetAbstractPropInfosForSynPropertyDecl(FSharp.Compiler.InfoReader.InfoReader,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.Syntax.Ident,FSharp.Compiler.Text.Range,System.Tuple{FSharp.Compiler.TypedTree.TType,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.MethodOverrides.SlotImplSet}},FSharp.Compiler.Syntax.SynMemberFlags)">
 <summary>
  Get the properties relevant to determining if a uniquely-identified-override exists based on the syntactic information
  at the member signature prior to type inference. This is used to pre-assign type information if it does
@@ -25968,7 +26102,7 @@ Get the signature for the value&apos;s XML documentation
  Check all implementations implement some dispatch slot.
 </summary>
 </member>
-<member name="M:FSharp.Compiler.MethodOverrides.DispatchSlotChecking.CheckDispatchSlotsAreImplemented(FSharp.Compiler.TypedTreeOps.DisplayEnv,FSharp.Compiler.InfoReader.InfoReader,FSharp.Compiler.Text.Range,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.NameResolution.TcResultsSink,System.Boolean,FSharp.Compiler.TypedTree.TType,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.MethodOverrides.RequiredSlot},Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.MethodOverrides.OverrideInfo},Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.MethodOverrides.OverrideInfo})">
+<member name="M:FSharp.Compiler.MethodOverrides.DispatchSlotChecking.CheckDispatchSlotsAreImplemented(FSharp.Compiler.TypedTreeOps.DisplayEnv,FSharp.Compiler.InfoReader.InfoReader,FSharp.Compiler.Text.Range,FSharp.Compiler.NameResolution.NameResolutionEnv,FSharp.Compiler.NameResolution.TcResultsSink,System.Boolean,System.Boolean,FSharp.Compiler.TypedTree.TType,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.MethodOverrides.RequiredSlot},Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.MethodOverrides.OverrideInfo},Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.MethodOverrides.OverrideInfo})">
 <summary>
  Check all dispatch slots are implemented by some override.
 </summary>
@@ -27189,6 +27323,11 @@ Get the signature for the value&apos;s XML documentation
  Mark a typar as no longer being an inference type variable
 </summary>
 </member>
+<member name="M:FSharp.Compiler.CheckExpressions.PublishValueDefnMaybeInclCompilerGenerated(FSharp.Compiler.CheckBasics.TcFileState,FSharp.Compiler.CheckBasics.TcEnv,System.Boolean,FSharp.Compiler.CheckExpressions.DeclKind,FSharp.Compiler.TypedTree.Val)">
+<summary>
+ Publish a value definition to the module/namespace type accumulator.
+</summary>
+</member>
 <member name="M:FSharp.Compiler.CheckExpressions.PublishValueDefn(FSharp.Compiler.CheckBasics.TcFileState,FSharp.Compiler.CheckBasics.TcEnv,FSharp.Compiler.CheckExpressions.DeclKind,FSharp.Compiler.TypedTree.Val)">
 <summary>
  Publish a value definition to the module/namespace type accumulator.
@@ -27638,7 +27777,7 @@ Get the signature for the value&apos;s XML documentation
  Check if an expression has an effect
 </summary>
 </member>
-<member name="M:FSharp.Compiler.Optimizer.UnionOptimizationInfos(System.Collections.Generic.IEnumerable{System.Lazy{FSharp.Compiler.Optimizer.ModuleInfo}})">
+<member name="M:FSharp.Compiler.Optimizer.UnionOptimizationInfos(System.Collections.Generic.IEnumerable{Internal.Utilities.Library.InterruptibleLazy{FSharp.Compiler.Optimizer.ModuleInfo}})">
 <summary>
  Combine optimization infos
 </summary>
@@ -27653,7 +27792,7 @@ Get the signature for the value&apos;s XML documentation
  Rewrite the module info using the export remapping
 </summary>
 </member>
-<member name="M:FSharp.Compiler.Optimizer.p_CcuOptimizationInfo(System.Lazy{FSharp.Compiler.Optimizer.ModuleInfo},FSharp.Compiler.TypedTreePickle.WriterState)">
+<member name="M:FSharp.Compiler.Optimizer.p_CcuOptimizationInfo(Internal.Utilities.Library.InterruptibleLazy{FSharp.Compiler.Optimizer.ModuleInfo},FSharp.Compiler.TypedTreePickle.WriterState)">
 <summary>
  Saving and re-reading optimization information
 </summary>
@@ -27663,7 +27802,7 @@ Get the signature for the value&apos;s XML documentation
  Optimize one implementation file in the given environment
 </summary>
 </member>
-<member name="M:FSharp.Compiler.Optimizer.BindCcu(FSharp.Compiler.TypedTree.CcuThunk,System.Lazy{FSharp.Compiler.Optimizer.ModuleInfo},FSharp.Compiler.Optimizer.IncrementalOptimizationEnv,FSharp.Compiler.TcGlobals.TcGlobals)">
+<member name="M:FSharp.Compiler.Optimizer.BindCcu(FSharp.Compiler.TypedTree.CcuThunk,Internal.Utilities.Library.InterruptibleLazy{FSharp.Compiler.Optimizer.ModuleInfo},FSharp.Compiler.Optimizer.IncrementalOptimizationEnv,FSharp.Compiler.TcGlobals.TcGlobals)">
 <summary>
  For building optimization environments incrementally
 </summary>
@@ -28157,17 +28296,17 @@ Get the signature for the value&apos;s XML documentation
  Some methods are marked &quot;HasSecurity&quot; even if there are no permissions attached, e.g. if they use SuppressUnmanagedCodeSecurityAttribute
 </summary>
 </member>
-<member name="M:FSharp.Compiler.AbstractIL.IL.ILMethodDef.With(Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{System.Reflection.MethodAttributes},Microsoft.FSharp.Core.FSharpOption{System.Reflection.MethodImplAttributes},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.AbstractIL.IL.ILCallingConv},Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILParameter}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.AbstractIL.IL.ILReturn},Microsoft.FSharp.Core.FSharpOption{System.Lazy{FSharp.Compiler.AbstractIL.IL.MethodBody}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.AbstractIL.IL.ILSecurityDecls},Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILGenericParameterDef}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.AbstractIL.IL.ILAttributes})">
+<member name="M:FSharp.Compiler.AbstractIL.IL.ILMethodDef.With(Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{System.Reflection.MethodAttributes},Microsoft.FSharp.Core.FSharpOption{System.Reflection.MethodImplAttributes},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.AbstractIL.IL.ILCallingConv},Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILParameter}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.AbstractIL.IL.ILReturn},Microsoft.FSharp.Core.FSharpOption{Internal.Utilities.Library.InterruptibleLazy{FSharp.Compiler.AbstractIL.IL.MethodBody}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.AbstractIL.IL.ILSecurityDecls},Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILGenericParameterDef}},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.AbstractIL.IL.ILAttributes})">
 <summary>
  Functional update of the value
 </summary>
 </member>
-<member name="M:FSharp.Compiler.AbstractIL.IL.ILMethodDef.#ctor(System.String,System.Reflection.MethodAttributes,System.Reflection.MethodImplAttributes,FSharp.Compiler.AbstractIL.IL.ILCallingConv,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILParameter},FSharp.Compiler.AbstractIL.IL.ILReturn,System.Lazy{FSharp.Compiler.AbstractIL.IL.MethodBody},System.Boolean,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILGenericParameterDef},FSharp.Compiler.AbstractIL.IL.ILSecurityDecls,FSharp.Compiler.AbstractIL.IL.ILAttributes)">
+<member name="M:FSharp.Compiler.AbstractIL.IL.ILMethodDef.#ctor(System.String,System.Reflection.MethodAttributes,System.Reflection.MethodImplAttributes,FSharp.Compiler.AbstractIL.IL.ILCallingConv,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILParameter},FSharp.Compiler.AbstractIL.IL.ILReturn,Internal.Utilities.Library.InterruptibleLazy{FSharp.Compiler.AbstractIL.IL.MethodBody},System.Boolean,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILGenericParameterDef},FSharp.Compiler.AbstractIL.IL.ILSecurityDecls,FSharp.Compiler.AbstractIL.IL.ILAttributes)">
 <summary>
  Functional creation of a value, immediate
 </summary>
 </member>
-<member name="M:FSharp.Compiler.AbstractIL.IL.ILMethodDef.#ctor(System.String,System.Reflection.MethodAttributes,System.Reflection.MethodImplAttributes,FSharp.Compiler.AbstractIL.IL.ILCallingConv,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILParameter},FSharp.Compiler.AbstractIL.IL.ILReturn,System.Lazy{FSharp.Compiler.AbstractIL.IL.MethodBody},System.Boolean,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILGenericParameterDef},FSharp.Compiler.AbstractIL.IL.ILSecurityDeclsStored,FSharp.Compiler.AbstractIL.IL.ILAttributesStored,System.Int32)">
+<member name="M:FSharp.Compiler.AbstractIL.IL.ILMethodDef.#ctor(System.String,System.Reflection.MethodAttributes,System.Reflection.MethodImplAttributes,FSharp.Compiler.AbstractIL.IL.ILCallingConv,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILParameter},FSharp.Compiler.AbstractIL.IL.ILReturn,Internal.Utilities.Library.InterruptibleLazy{FSharp.Compiler.AbstractIL.IL.MethodBody},System.Boolean,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.AbstractIL.IL.ILGenericParameterDef},FSharp.Compiler.AbstractIL.IL.ILSecurityDeclsStored,FSharp.Compiler.AbstractIL.IL.ILAttributesStored,System.Int32)">
 <summary>
  Functional creation of a value, with delayed reading of some elements via a metadata index
 </summary>
@@ -31235,6 +31374,11 @@ Get the signature for the value&apos;s XML documentation
  Indicates if the member, function or value is in an unresolved assembly
 </summary>
 </member>
+<member name="P:FSharp.Compiler.Symbols.FSharpMemberOrFunctionOrValue.IsUnionCaseTester">
+<summary>
+ Indicates if the property or getter method is part of a IsABC union case tester implied by a union case definition
+</summary>
+</member>
 <member name="P:FSharp.Compiler.Symbols.FSharpMemberOrFunctionOrValue.IsTypeFunction">
 <summary>
  Indicates if this is an F# type function
@@ -34265,6 +34409,11 @@ Get the signature for the value&apos;s XML documentation
  always empty.
 </summary>
 </member>
+<member name="P:FSharp.Compiler.Syntax.SynField.Range">
+<summary>
+ Gets the syntax range of this construct
+</summary>
+</member>
 <member name="T:FSharp.Compiler.Syntax.SynField">
 <summary>
  Represents the syntax tree for a field declaration in a record or class
@@ -34517,12 +34666,6 @@ Get the signature for the value&apos;s XML documentation
 <member name="T:FSharp.Compiler.Syntax.SynBinding">
 <summary>
  Represents a binding for a &apos;let&apos; or &apos;member&apos; declaration
-</summary>
-</member>
-<member name="P:FSharp.Compiler.Syntax.SynValData.SynValData.transformedFromProperty">
-<summary>
- Is only populated during type-checking when an property has both a getter and setter.
- It is used to track the fact that the getter and setter are part of the same property when they are desugared.
 </summary>
 </member>
 <member name="T:FSharp.Compiler.Syntax.SynValData">
@@ -36938,6 +37081,17 @@ Get the signature for the value&apos;s XML documentation
  Returns outlining ranges for given parsed input.
 </summary>
 </member>
+<member name="M:FSharp.Compiler.EditorServices.UnnecessaryParentheses.getUnnecessaryParentheses(Microsoft.FSharp.Core.FSharpFunc{System.Int32,System.String},FSharp.Compiler.Syntax.ParsedInput)">
+<summary>
+ Gets the ranges of all unnecessary pairs of parentheses in a file.
+
+ Note that this may include pairs of nested ranges each of whose
+ lack of necessity depends on the other&apos;s presence, such
+ that it is valid to remove either set of parentheses but not both, e.g.:
+
+ (x.M(y)).N → (x.M y).N ↮ x.M(y).N
+</summary>
+</member>
 <member name="M:FSharp.Compiler.EditorServices.UnusedDeclarations.getUnusedDeclarations(FSharp.Compiler.CodeAnalysis.FSharpCheckFileResults,System.Boolean)">
 <summary>
  Get all unused declarations in a file
@@ -37539,7 +37693,7 @@ Get the signature for the value&apos;s XML documentation
 </member>
 <member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.GetDependentFiles(System.String,System.String[],Microsoft.FSharp.Core.FSharpFunc{System.String,System.Tuple{System.Int32,System.Lazy{System.String}}})">
 <summary>
- Find the dependent files of the current file based on the untyped syntax tree
+ Find the transitive dependent files of the current file based on the untyped syntax tree.
 </summary>
 </member>
 <member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.Compile(System.String[],Microsoft.FSharp.Core.FSharpFunc{System.String,System.Tuple{System.Int32,System.Lazy{System.String}}},System.String)">

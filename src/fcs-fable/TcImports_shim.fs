@@ -176,7 +176,7 @@ module TcImports =
                     XmlDocumentationInfo = None
                   }
 
-            let optdata = lazy (
+            let optdata = InterruptibleLazy(fun _ ->
                 match memoize_opt.Apply ccuName with 
                 | None -> None
                 | Some data ->

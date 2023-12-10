@@ -24,7 +24,7 @@ let isEnvVarSet (s: string) = ignore s; false
 let GetEnvInteger (e: string) (dflt: int) = ignore e; dflt
 #else
 let isEnvVarSet s =
-    try (Environment.GetEnvironmentVariable(s) <> null) with _ -> false
+    try not(isNull(Environment.GetEnvironmentVariable s)) with _ -> false
 
 let GetEnvInteger e dflt = match Environment.GetEnvironmentVariable(e) with null -> dflt | t -> try int t with _ -> dflt
 #endif
@@ -390,7 +390,7 @@ type Dumper(x:obj) =
 [<RequireQualifiedAccess>]
 type MaybeLazy<'T> =
     | Strict of 'T
-    | Lazy of Lazy<'T>
+    | Lazy of InterruptibleLazy<'T>
 
     member this.Value: 'T =
         match this with
