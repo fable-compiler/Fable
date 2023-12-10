@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from math import ceil, floor, fmod, isnan
+from math import ceil, floor, fmod
 from typing import Any
 
 from .types import FSharpRef
@@ -194,8 +194,9 @@ def parse(string: str, _: Any | None = None) -> TimeSpan:
     if first_dot == -1 and first_colon == -1:
         # There is only a day ex: 4
         # parse as int
-        d = int(string)
-        if isnan(d):
+        try:
+            d = int(string)
+        except Exception:
             raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
         return from_days(d)
     if first_colon > 0:  # process time part
@@ -247,9 +248,10 @@ def try_parse(
 
     try:
         out_value.contents = parse(string)
-        return True
     except Exception:
         return False
+
+    return True
 
 
 __all__ = [
