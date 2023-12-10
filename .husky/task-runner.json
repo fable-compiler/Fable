@@ -1,11 +1,32 @@
 {
-   "tasks": [
-     {
-       "name": "fantomas-format-staged-files",
-       "group": "pre-commit-operations",
-       "command": "dotnet",
-       "args": ["fantomas", "${staged}"],
-       "include": ["**/*.fs", "**/*.fsx", "**/*.fsi"]
-     }
-   ]
+  "tasks": [
+    {
+      "name": "fantomas-format-staged-files",
+      "group": "pre-commit-operations",
+      "command": "dotnet",
+      "args": [
+        "fantomas",
+        "${staged}"
+      ],
+      "include": [
+        "**/*.fs",
+        "**/*.fsx",
+        "**/*.fsi"
+      ]
+    },
+    {
+      "name": "ruff-format-staged-files",
+      "group": "pre-commit-operations",
+      "command": "poetry",
+      "args": [
+        "run",
+        "ruff",
+        "format",
+        "${staged}"
+      ],
+      "include": [
+        "**/*.py"
+      ]
+    }
+  ]
 }

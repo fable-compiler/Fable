@@ -213,7 +213,7 @@ def parse(string: str, _: Any | None = None) -> TimeSpan:
                 s = int(r.group(7))
             if r.group(8) is not None:
                 # Depending on the number of decimals passed, we need to adapt the numbers
-                g_8 : str = r.group(8)
+                g_8: str = r.group(8)
                 match len(g_8):
                     case 1:
                         ms = int(g_8) * 100
@@ -235,9 +235,11 @@ def parse(string: str, _: Any | None = None) -> TimeSpan:
     raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
 
 
-def try_parse(string: str, def_value_or_format_provider: FSharpRef[TimeSpan] | Any, def_value : FSharpRef[TimeSpan] | None = None) -> bool:
+def try_parse(
+    string: str, def_value_or_format_provider: FSharpRef[TimeSpan] | Any, def_value: FSharpRef[TimeSpan] | None = None
+) -> bool:
     # Find where the out_value is
-    out_value : FSharpRef[TimeSpan] = def_value_or_format_provider
+    out_value: FSharpRef[TimeSpan] = def_value_or_format_provider
 
     # If we have 3 arguments, it means that the second argument is the format provider
     if def_value is not None:
