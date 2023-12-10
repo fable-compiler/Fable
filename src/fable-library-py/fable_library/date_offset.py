@@ -6,10 +6,12 @@ from . import time_span
 from .time_span import TimeSpan
 from .types import FSharpRef
 
+
 def timedelta_total_microseconds(td: timedelta) -> int:
     # timedelta doesn't expose total_microseconds
     # so we need to calculate it ourselves
-    return td.days * (24*3600) + td.seconds * 10**6 + td.microseconds
+    return td.days * (24 * 3600) + td.seconds * 10**6 + td.microseconds
+
 
 def add(d: datetime, ts: timedelta) -> datetime:
     return d + ts
@@ -67,7 +69,7 @@ def op_subtraction(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
     if isinstance(y, TimeSpan):
         return x - timedelta(microseconds=time_span.total_microseconds(y))
 
-    return time_span.create(0,0,0,0,0,timedelta_total_microseconds(x - y))
+    return time_span.create(0, 0, 0, 0, 0, timedelta_total_microseconds(x - y))
 
 
 def min_value() -> datetime:
