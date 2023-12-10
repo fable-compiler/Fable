@@ -20,3 +20,4 @@
 #echo 'Husky.Net is awesome!'
 
 dotnet husky run --name fantomas-format-staged-files
+dotnet husky run --name ruff-format-staged-files

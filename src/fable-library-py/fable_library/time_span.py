@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import re
 from math import ceil, floor, fmod
 from typing import Any
 
+from .types import FSharpRef
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
 
@@ -72,11 +74,13 @@ def total_hours(ts: TimeSpan) -> float:
 def total_days(ts: TimeSpan) -> float:
     return ts / 864000000000
 
+
 def from_microseconds(micros: float) -> TimeSpan:
-    return create(0,0,0,0,0,micros)
+    return create(0, 0, 0, 0, 0, micros)
+
 
 def from_milliseconds(msecs: int) -> TimeSpan:
-    return create(0,0,0,0,msecs)
+    return create(0, 0, 0, 0, msecs)
 
 
 def from_ticks(ticks: int) -> TimeSpan:
@@ -178,6 +182,78 @@ def to_string(ts: TimeSpan, format: str = "c", _provider: Any | None = None) -> 
     return f"{sign}{day_str}{hour_str}:{pad_with_zeros(m, 2)}:{pad_with_zeros(s, 2)}{ms_str}"
 
 
+_time_span_parse_regex = re.compile(
+    r"^(-?)((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$"
+)
+
+
+# Second argument is to not crash when using provides CultureInfo.InvariantCulture
+def parse(string: str, _: Any | None = None) -> TimeSpan:
+    first_dot = string.find(".")
+    first_colon = string.find(":")
+    if first_dot == -1 and first_colon == -1:
+        # There is only a day ex: 4
+        # parse as int
+        try:
+            d = int(string)
+        except Exception:
+            raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
+        return from_days(d)
+    if first_colon > 0:  # process time part
+        r = _time_span_parse_regex.match(string)
+        if r is not None and r.group(4) is not None and r.group(5) is not None:
+            d = 0
+            ms = 0
+            s = 0
+            sign = -1 if r.group(1) == "-" else 1
+            h = int(r.group(4))
+            m = int(r.group(5))
+            if r.group(3) is not None:
+                d = int(r.group(3))
+            if r.group(7) is not None:
+                s = int(r.group(7))
+            if r.group(8) is not None:
+                # Depending on the number of decimals passed, we need to adapt the numbers
+                g_8: str = r.group(8)
+                match len(g_8):
+                    case 1:
+                        ms = int(g_8) * 100
+                    case 2:
+                        ms = int(g_8) * 10
+                    case 3:
+                        ms = int(g_8)
+                    case 4:
+                        ms = int(g_8) / 10
+                    case 5:
+                        ms = int(g_8) / 100
+                    case 6:
+                        ms = int(g_8) / 1000
+                    case 7:
+                        ms = int(g_8) / 10000
+                    case _:
+                        raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
+            return multiply(create(d, h, m, s, ms), sign)
+    raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
+
+
+def try_parse(
+    string: str, def_value_or_format_provider: FSharpRef[TimeSpan] | Any, def_value: FSharpRef[TimeSpan] | None = None
+) -> bool:
+    # Find where the out_value is
+    out_value: FSharpRef[TimeSpan] = def_value_or_format_provider
+
+    # If we have 3 arguments, it means that the second argument is the format provider
+    if def_value is not None:
+        out_value = def_value
+
+    try:
+        out_value.contents = parse(string)
+    except Exception:
+        return False
+
+    return True
+
+
 __all__ = [
     "create",
     "total_microseconds",
@@ -202,4 +278,6 @@ __all__ = [
     "subtract",
     "divide",
     "multiply",
+    "parse",
+    "try_parse",
 ]

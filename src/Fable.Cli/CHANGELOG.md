@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Updated FCS to [fce0cf00585c12174fa3e51e4fc34afe784b9b4e](https://github.com/dotnet/fsharp/commits/fce0cf00585c12174fa3e51e4fc34afe784b9b4e) (by @ncave)
 
+### Added
+
+#### Python
+
+* [GH-3645](https://github.com/fable-compiler/Fable/pull/3645) Add `TimeSpan.Parse` and `TimeSpan.TryParse` support to Python (by @MangelMaxime)
+
 ## 4.7.0 - 2023-12-06
 
 ### Added
