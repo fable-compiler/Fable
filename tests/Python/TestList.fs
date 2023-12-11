@@ -432,13 +432,12 @@ let ``test List.sort with tuples works`` () =
     let ys = ["a"; "c"; "B"; "d"]
     (xs, ys) ||> List.zip |> List.sort |> List.item 1 |> equal (1, "B")
 
-// TODO: Python sort cannot take arguments
-// [<Fact>]
-// let ``test List.sortBy works`` () =
-//     let xs = [3; 1; 4; 2]
-//     let ys = xs |> List.sortBy (fun x -> -x)
-//     ys.Head + ys.Tail.Head
-//     |> equal 7
+[<Fact>]
+let ``test List.sortBy works`` () =
+    let xs = [3; 1; 4; 2]
+    let ys = xs |> List.sortBy (fun x -> -x)
+    ys.Head + ys.Tail.Head
+    |> equal 7
 
 [<Fact>]
 let ``test List.sortWith works`` () =
