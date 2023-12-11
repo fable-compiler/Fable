@@ -49,9 +49,8 @@
     <ProjectReference Include="Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
   <ItemGroup>
-      <Reference Include="../../lib/fcs/nojaf/Debug/FSharp.Core.dll"/>
-      <Reference Include="../../lib/fcs/nojaf/Debug/FSharp.Compiler.Service.dll"/>
-<!--      <Reference Include="C:\Users\nojaf\Projects\fsharp\artifacts\bin\FSharp.Core\Release\netstandard2.0\FSharp.Core.dll" />-->
-<!--      <Reference Include="C:\Users\nojaf\Projects\fsharp\artifacts\bin\FSharp.Compiler.Service\Release\netstandard2.0\FSharp.Compiler.Service.dll" />-->
+      <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+      <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
+      <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
 </Project>

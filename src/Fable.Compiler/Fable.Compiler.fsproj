@@ -32,11 +32,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Reference Include="../../lib/fcs/nojaf/$(Configuration)/FSharp.Core.dll"/>
-        <Reference Include="../../lib/fcs/nojaf/$(Configuration)/FSharp.Compiler.Service.dll"/>
-        <Reference Include="../../lib/fcs/nojaf/$(Configuration)/FSharp.DependencyManager.Nuget.dll"/>
-<!--        <Reference Include="C:/Users/nojaf/Projects/fsharp/artifacts/bin/FSharp.Core/Release/netstandard2.0/FSharp.Core.dll" />-->
-<!--        <Reference Include="C:/Users/nojaf/Projects/fsharp/artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Compiler.Service.dll" />-->
+        <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+        <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
+        <Reference Include="../../lib/fcs/FSharp.Core.dll" />
     </ItemGroup>
 
     <ItemGroup>
@@ -48,10 +46,8 @@
         <None Include="$(OutputPath)FSharp.Core.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)FSharp.Compiler.Service.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)FSharp.Compiler.Service.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
-        <None Include="$(OutputPath)FSharp.Compiler.Service.pdb" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)FSharp.DependencyManager.Nuget.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)FSharp.DependencyManager.Nuget.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
-        <None Include="$(OutputPath)FSharp.DependencyManager.Nuget.pdb" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)Fable.Transforms.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)Fable.Transforms.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)Fable.Transforms.pdb" Pack="true" PackagePath="lib/$(TargetFramework)" />
