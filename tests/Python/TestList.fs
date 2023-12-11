@@ -446,13 +446,12 @@ let ``test List.sortWith works`` () =
     ys.Head + ys.Tail.Head
     |> equal 3
 
-// FIXME:
-// [<Fact>]
-// let ``test List.sortDescending works`` () =
-//     let xs = [3; 4; 1; -3; 2; 10]
-//     xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
-//     let ys = ["a"; "c"; "B"; "d"]
-//     ys |> List.sortDescending |> List.item 1 |> equal "c"
+[<Fact>]
+let ``test List.sortDescending works`` () =
+    let xs = [3; 4; 1; -3; 2; 10]
+    xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
+    let ys = ["a"; "c"; "B"; "d"]
+    ys |> List.sortDescending |> List.item 1 |> equal "c"
 
 [<Fact>]
 let ``test List.sortByDescending works`` () =

@@ -3346,22 +3346,6 @@ let arrayModule
             (Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r))
             (makeIntConst 0)
         |> Some
-
-    // | "SortInPlaceWith", args ->
-    //     let args, thisArg = List.splitLast args
-    //     //let argTypes = List.take (List.length args) i.SignatureArgTypes
-    //     //let meth = "sort"
-
-    //     Helper.LibCall(
-    //         com,
-    //         "array",
-    //         "sort",
-    //         t,
-    //         thisArg::args,
-    //         argTypes,
-    //         ?loc = r
-    //     ) |> Some
-
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes

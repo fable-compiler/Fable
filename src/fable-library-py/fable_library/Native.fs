@@ -146,6 +146,12 @@ module Helpers =
     let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : unit =
         nativeOnly
 
+    [<Emit("sorted($1, key=functools.cmp_to_key($0))")>]
+    let sortWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : 'T[] =
+        nativeOnly
+
+    [<Emit("$1.sort(key=functools.cmp_to_key($0))")>]
+
     let copyToTypedArray
         (src: 'T[])
         (srci: int)

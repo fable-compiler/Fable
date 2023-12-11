@@ -738,7 +738,7 @@ let sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]) =
     xs
 
 let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) : 'T[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (copyImpl xs)
+    sortWithImpl (fun x y -> comparer.Compare(x, y)) (xs)
 
 let sortBy
     (projection: 'a -> 'b)
@@ -746,12 +746,10 @@ let sortBy
     ([<Inject>] comparer: IComparer<'b>)
     : 'a[]
     =
-    sortInPlaceWith
-        (fun x y -> comparer.Compare(projection x, projection y))
-        (copyImpl xs)
+    sortWithImpl (fun x y -> comparer.Compare(projection x, projection y)) xs
 
 let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) : 'T[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (copyImpl xs)
+    sortWithImpl (fun x y -> comparer.Compare(x, y) * -1) xs
 
 let sortByDescending
     (projection: 'a -> 'b)
@@ -759,12 +757,12 @@ let sortByDescending
     ([<Inject>] comparer: IComparer<'b>)
     : 'a[]
     =
-    sortInPlaceWith
+    sortWithImpl
         (fun x y -> comparer.Compare(projection x, projection y) * -1)
-        (copyImpl xs)
+        xs
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]) : 'T[] =
-    sortInPlaceWith comparer (copyImpl xs)
+    sortWithImpl comparer xs
 
 let allPairs (xs: 'T1[]) (ys: 'T2[]) : ('T1 * 'T2)[] =
     let len1 = xs.Length
