@@ -155,6 +155,7 @@ let handle (args: string list) =
 
     publishNuget ProjectDir.fableAst
     publishNuget ProjectDir.fableCore
+    publishNuget ProjectDir.fableCompiler
     publishNuget ProjectDir.fableCli
     publishNuget ProjectDir.fablePublishUtils
 
