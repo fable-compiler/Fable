@@ -141,10 +141,16 @@ module Helpers =
         nativeOnly
 
     // Inlining in combination with dynamic application may cause problems with uncurrying
-    // Using Emit keeps the argument signature. Note: Python cannot take an argument here.
-    [<Emit("$1.sort()")>]
+    // Using Emit keeps the argument signature.
+    [<Emit("$1.sort(key=functools.cmp_to_key($0))")>]
     let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : unit =
         nativeOnly
+
+    [<Emit("sorted($1, key=functools.cmp_to_key($0))")>]
+    let sortWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : 'T[] =
+        nativeOnly
+
+    [<Emit("$1.sort(key=functools.cmp_to_key($0))")>]
 
     let copyToTypedArray
         (src: 'T[])
