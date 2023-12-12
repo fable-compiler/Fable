@@ -53,8 +53,7 @@
     <ProjectReference Include="Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
   <ItemGroup>
-      <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
-      <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
-      <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
 </Project>
