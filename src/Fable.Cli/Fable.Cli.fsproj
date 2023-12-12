@@ -4,32 +4,33 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.7.0</Version>
+    <Version>4.8.0</Version>
     <PackageReleaseNotes>## Added
 
 
-### All
+### Python
 
-- Overall performance improvements
-    * [GH-3620](https://github.com/fable-compiler/Fable/pull/3620) Removed double-dictionary lookups (by @Thorium)
-    * [GH-3624](https://github.com/fable-compiler/Fable/pull/3624) Add G-Research analyzers and fix reported issues (by @nojaf)
+- [GH-3645](https://github.com/fable-compiler/Fable/pull/3645) Add `TimeSpan.Parse` and `TimeSpan.TryParse` support to Python (by @MangelMaxime)
+- [GH-3649](https://github.com/fable-compiler/Fable/issues/3649) Fixes for `List.sortBy` (by @dbrattli)
+- [GH-3638](https://github.com/fable-compiler/Fable/issues/3638) Fixes for `Array.sort` and `Array.sortDescending` (by @dbrattli)
 
-## Fixed
+### Fixed
 
 
-### All
+### JavaScript
 
-- [GH-3603](https://github.com/fable-compiler/Fable/issues/3603) Missing ``.gitignore`` file in the generated `fable_modules/`` folder (by @MangelMaxime)
+- [GH-3465](https://github.com/fable-compiler/Fable/issues/3465) Fix `string.IndexOfAny` (by @pkese)
 
 ### Python
 
-- [GH-3617](https://github.com/fable-compiler/Fable/issues/3617): Fix comparaison between list option when one is None (by @mangelmaxime)
-- [GH-3615](https://github.com/fable-compiler/Fable/issues/3615): Fix remove from dictionary with tuple as key (by @dbrattli)
-- [GH-3598](https://github.com/fable-compiler/Fable/issues/3598): Using obj () now generated an empty dict instead of None (by @dbrattli)
-- [GH-3597](https://github.com/fable-compiler/Fable/issues/3597): Do not translate .toString methods to str (by @dbrattli)
-- [GH-3610](https://github.com/fable-compiler/Fable/issues/3610): Cleanup Python regex handling (by @dbrattli)
-- [GH-3628](https://github.com/fable-compiler/Fable/issues/3628): System.DateTime.Substract not correctly transpiled (by @dbrattli)
-- [GH-3640](https://github.com/fable-compiler/Fable/issues/3640): All union cases return the same hash code (by @dbrattli)
+- [GH-3465](https://github.com/fable-compiler/Fable/issues/3465) Fix `string.IndexOfAny` (by @pkese)
+
+## Changed
+
+
+### All
+
+- Updated FCS to [fce0cf00585c12174fa3e51e4fc34afe784b9b4e](https://github.com/dotnet/fsharp/commits/fce0cf00585c12174fa3e51e4fc34afe784b9b4e) (by @ncave)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

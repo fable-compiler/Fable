@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.8.0 - 2023-12-12
+
 ### Changed
 
 #### All
@@ -19,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [GH-3645](https://github.com/fable-compiler/Fable/pull/3645) Add `TimeSpan.Parse` and `TimeSpan.TryParse` support to Python (by @MangelMaxime)
 * [GH-3649](https://github.com/fable-compiler/Fable/issues/3649) Fixes for `List.sortBy` (by @dbrattli)
 * [GH-3638](https://github.com/fable-compiler/Fable/issues/3638) Fixes for `Array.sort` and `Array.sortDescending` (by @dbrattli)
+
+#### Fixed
+
+#### JavaScript
+
+* [GH-3465](https://github.com/fable-compiler/Fable/issues/3465) Fix `string.IndexOfAny` (by @pkese)
+
+#### Python
+
+* [GH-3465](https://github.com/fable-compiler/Fable/issues/3465) Fix `string.IndexOfAny` (by @pkese)
 
 ## 4.7.0 - 2023-12-06
 
