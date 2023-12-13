@@ -551,9 +551,10 @@ def index_of_any(string: str, any_of: list[str], *args: int):
         raise ValueError("Invalid start_index and length")
 
     string = string[start_index:length]
-    for c in any_of:
-        index = string.find(c)
+    any_of_str = "".join(any_of)
+    for i,c in enumerate(string):
+        index = any_of_str.find(c)
         if index > -1:
-            return index + start_index
+            return i + start_index
 
     return -1

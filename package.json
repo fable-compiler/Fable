@@ -28,5 +28,8 @@
     "terser": "^5.24.0",
     "tslint": "^6.1.3",
     "typescript": "^5.2.2"
+  },
+  "devDependencies": {
+    "markdownlint-cli": "^0.38.0"
   }
 }

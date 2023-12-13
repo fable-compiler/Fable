@@ -1,10 +1,21 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## 4.8.1 - 2023-12-12
+
+### Fixed
+
+#### All
+
+* Fix the version reported by Fable (@MangelMaxime)
+
+## 4.8.0 - 2023-12-12
 
 ### Changed
 
@@ -20,6 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [GH-3649](https://github.com/fable-compiler/Fable/issues/3649) Fixes for `List.sortBy` (by @dbrattli)
 * [GH-3638](https://github.com/fable-compiler/Fable/issues/3638) Fixes for `Array.sort` and `Array.sortDescending` (by @dbrattli)
 * [GH-3655](https://github.com/fable-compiler/Fable/issues/3655) Fixes for Python output file names (by @dbrattli)
+* [GH-3660](https://github.com/fable-compiler/Fable/issues/3660) Fixes for decimal to string with culture (by @dbrattli)
+
+#### Fixed
+
+#### JavaScript
+
+* [GH-3465](https://github.com/fable-compiler/Fable/issues/3465) Fix `string.IndexOfAny` (by @pkese)
+
+#### Python
+
+* [GH-3465](https://github.com/fable-compiler/Fable/issues/3465) Fix `string.IndexOfAny` (by @pkese)
 
 ## 4.7.0 - 2023-12-06
 
@@ -929,7 +951,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 3.2.2 - 2021-06-03
 
-* Check for correct types in Anonymous Record when assigning to Interface with [<EmitIndexer>] via !! @Booksbaum
+* Check for correct types in Anonymous Record when assigning to Interface with `[<EmitIndexer>]` via !! @Booksbaum
 * Fix #1973: FormattableString support
 
 ## 3.2.1 - 2021-05-28
