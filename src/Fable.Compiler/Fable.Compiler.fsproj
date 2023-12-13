@@ -7,10 +7,6 @@
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
         <Version>0.1.0</Version>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-        <!-- Generate PDB files in release mode -->
         <DebugType>embedded</DebugType>
     </PropertyGroup>
 
@@ -50,7 +46,6 @@
         <None Include="$(OutputPath)FSharp.DependencyManager.Nuget.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)Fable.Transforms.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)Fable.Transforms.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
-        <None Include="$(OutputPath)Fable.Transforms.pdb" Pack="true" PackagePath="lib/$(TargetFramework)" />
     </ItemGroup>
 
 </Project>

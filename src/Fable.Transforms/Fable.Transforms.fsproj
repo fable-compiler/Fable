@@ -4,10 +4,7 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <TargetFramework>netstandard2.0</TargetFramework>
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-      <!-- Generate PDB files in release mode -->
-      <DebugType>embedded</DebugType>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Babel.fs" />
