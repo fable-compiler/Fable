@@ -4044,8 +4044,7 @@ let decimals
         )
         |> Some
     | "ToString", _ ->
-        Helper.InstanceCall(thisArg.Value, "toString", String, [], ?loc = r)
-        |> Some
+        Helper.GlobalCall("str", String, [ thisArg.Value ], ?loc = r) |> Some
     | _, _ -> None
 
 let bigints

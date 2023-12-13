@@ -257,6 +257,12 @@ let ``test System.Decimal.ToString works`` () =
     5592405M.ToString() |> equal "5592405"
 
 [<Fact>]
+let ``test System.Decimal.ToString with culture works`` () =
+    let actual = 0.7833M
+    let parsed_string = actual.ToString(CultureInfo.InvariantCulture)
+    equal "0.7833" parsed_string
+
+[<Fact>]
 let ``test System.Convert.ToSByte works`` () =
     let x = 1y
     sbyte(1y) |> equal x
