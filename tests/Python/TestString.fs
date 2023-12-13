@@ -490,6 +490,7 @@ let ``test String.IndexOfAny works`` () =
     "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
     "abcdbcebc".IndexOfAny([|'f';'e'|], 2) |> equal 6
     "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
+    "abcdbcebc".IndexOfAny([|'c';'b'|]) |> equal 1
 
 [<Fact>]
 let ``test String.StartsWith works`` () =

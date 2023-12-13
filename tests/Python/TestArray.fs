@@ -673,7 +673,6 @@ let ``test Array.scanBack works`` () =
     ys.[2] + ys.[3]
     |> equal 3.
 
-(*
 [<Fact>]
 let ``test Array.sort works`` () =
     let xs = [|3; 4; 1; -3; 2; 10|]
@@ -686,7 +685,7 @@ let ``test Array.sort with tuples works`` () =
     let xs = [|3; 1; 1; -3|]
     let ys = [|"a"; "c"; "B"; "d"|]
     (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
-*)
+
 [<Fact>]
 let ``test Array.truncate works`` () =
     let xs = [|1.; 2.; 3.; 4.; 5.|]
@@ -700,7 +699,6 @@ let ``test Array.truncate works`` () =
     try xs |> Array.truncate 20 |> Array.length with _ -> -1
     |> equal 5
 
-(*
 [<Fact>]
 let ``test Array.sortDescending works`` () =
     let xs = [|3; 4; 1; -3; 2; 10|]
@@ -731,6 +729,7 @@ let ``test Array.sortWith works`` () =
     ys.[0] + ys.[1]
     |> equal 3.
 
+(*
 [<Fact>]
 let ``test Array.sortInPlace works`` () =
     let xs = [|3.; 4.; 1.; 2.; 10.|]
@@ -1144,7 +1143,6 @@ let ``test Array.removeManyAt works`` () =
     throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
     throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
 
-// Wait for main sync before enbling this test
 // [<Fact>]
 // let ``test Array.compareWith works`` () = // See #2961
 //     let a = [|1;3|]

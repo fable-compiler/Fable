@@ -967,14 +967,14 @@ module Annotation =
             stdlibModuleTypeHint
                 com
                 ctx
-                "typing"
+                "collections.abc"
                 "Callable"
                 (argTypes @ [ returnType ])
         | Fable.DelegateType(argTypes, returnType) ->
             stdlibModuleTypeHint
                 com
                 ctx
-                "typing"
+                "collections.abc"
                 "Callable"
                 (argTypes @ [ returnType ])
         | Fable.Option(genArg, _) ->
@@ -1247,7 +1247,8 @@ module Annotation =
                     any
                 ]
 
-            stdlibModuleAnnotation com ctx "typing" "Callable" genArgs, stmts
+            stdlibModuleAnnotation com ctx "collections.abc" "Callable" genArgs,
+            stmts
         | _ ->
             let ent = com.GetEntity(entRef)
             // printfn "DeclaredType: %A" ent.FullName

@@ -21,3 +21,4 @@
 
 dotnet husky run --name fantomas-format-staged-files
 dotnet husky run --name ruff-format-staged-files
+dotnet husky run --name lint-markdown-staged-files

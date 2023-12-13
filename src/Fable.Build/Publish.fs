@@ -22,10 +22,10 @@ let updateLibraryVersionInFableTransforms
     fileContent <-
         Regex.Replace(
             fileContent,
-            $@"^(?'indentation'\s*)let \[<Literal>\] VERSION = ""(?'version'.*?)""",
+            $@"^(?'indentation'\s*)let VERSION = ""(?'version'.*?)""",
             (fun (m: Match) ->
                 m.Groups.["indentation"].Value
-                + $"let [<Literal>] VERSION = \"{compilerVersion}\""
+                + $"let VERSION = \"{compilerVersion}\""
             ),
             RegexOptions.Multiline
         )
@@ -36,10 +36,10 @@ let updateLibraryVersionInFableTransforms
         fileContent <-
             Regex.Replace(
                 fileContent,
-                $@"^(?'indentation'\s*)let \[<Literal>\] {prefix}_LIBRARY_VERSION = ""(?'version'.*?)""",
+                $@"^(?'indentation'\s*)let {prefix}_LIBRARY_VERSION = ""(?'version'.*?)""",
                 (fun (m: Match) ->
                     m.Groups.["indentation"].Value
-                    + $"let [<Literal>] {prefix}_LIBRARY_VERSION = \"{version}\""
+                    + $"let {prefix}_LIBRARY_VERSION = \"{version}\""
                 ),
                 RegexOptions.Multiline
             )
