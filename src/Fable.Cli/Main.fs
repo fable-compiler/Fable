@@ -180,7 +180,9 @@ module private Util =
                         projDir
                         outDir
 
-                let fileName = IO.Path.GetFileName(file)
+                let fileName =
+                    IO.Path.GetFileName(file)
+                    |> Pipeline.Python.getTargetPath cliArgs
 
                 let modules =
                     absPath
@@ -219,7 +221,7 @@ module private Util =
                         modules
                         |> List.map (fun m ->
                             match m with
-                            | "." -> m
+                            | "." -> ""
                             | m -> m.Replace(".", "_")
                         )
                     |> List.toArray
