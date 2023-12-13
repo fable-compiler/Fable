@@ -444,8 +444,6 @@ module Python =
                 |> Fable2Python.Compiler.transformFile com
 
             if not (isSilent || PythonPrinter.isEmpty python) then
-                let outPath = getTargetPath cliArgs outPath
-
                 let writer =
                     new PythonFileWriter(com, cliArgs, pathResolver, outPath)
 
