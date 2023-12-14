@@ -27,11 +27,7 @@
     <Content Include="..\fable-library-php\**\*.*" PackagePath="fable-library-php\" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util.fsi" />
-    <Compile Include="Util.fs" />
     <Compile Include="Contributors.fs" />
-    <Compile Include="Globbing.fs" />
-    <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
     <Compile Include="FileWatchers.fsi" />
     <Compile Include="FileWatchers.fs" />
@@ -42,6 +38,7 @@
     <Content Include="Properties\launchSettings.json" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj" />
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
     <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />

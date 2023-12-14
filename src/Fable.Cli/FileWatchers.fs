@@ -12,7 +12,7 @@ open System.Threading
 open System.Collections.Generic
 open System.Diagnostics
 open System.Text.RegularExpressions
-open Fable.Cli.Globbing
+open Fable.Compiler.Globbing
 
 type IFileSystemWatcher =
     inherit IDisposable

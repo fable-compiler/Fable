@@ -62,6 +62,8 @@ type InlineExpr =
 type CompilerPlugins =
     { MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }
 
+type SourceReader = string -> int * Lazy<string>
+
 type Compiler =
     abstract LibraryDir: string
     abstract CurrentFile: string

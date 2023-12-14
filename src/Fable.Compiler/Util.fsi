@@ -1,6 +1,4 @@
-namespace Fable.Cli
-
-#nowarn "3391"
+module Fable.Compiler.Util
 
 open System
 

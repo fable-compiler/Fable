@@ -1,0 +1,51 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <RootNamespace>Fable.Compiler</RootNamespace>
+        <Version>0.1.0</Version>
+        <DebugType>embedded</DebugType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Util.fsi" />
+        <Compile Include="Util.fs" />
+        <Compile Include="Globbing.fsi" />
+        <Compile Include="Globbing.fs" />
+        <Compile Include="File.fs" />
+        <Compile Include="ProjectCracker.fsi" />
+        <Compile Include="ProjectCracker.fs" />
+        <Compile Include="Library.fsi"/>
+        <Compile Include="Library.fs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Fable.AST/Fable.AST.fsproj" />
+        <ProjectReference Include="../Fable.Transforms/Fable.Transforms.fsproj" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+        <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
+        <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
+        <PackageReference Include="Buildalyzer" Version="5.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(OutputPath)FSharp.Core.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+        <None Include="$(OutputPath)FSharp.Compiler.Service.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+        <None Include="$(OutputPath)FSharp.Compiler.Service.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
+        <None Include="$(OutputPath)FSharp.DependencyManager.Nuget.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+        <None Include="$(OutputPath)FSharp.DependencyManager.Nuget.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
+        <None Include="$(OutputPath)Fable.Transforms.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+        <None Include="$(OutputPath)Fable.Transforms.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    </ItemGroup>
+
+</Project>

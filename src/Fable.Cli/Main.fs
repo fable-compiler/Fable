@@ -12,7 +12,8 @@ open Fable
 open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.State
-open ProjectCracker
+open Fable.Compiler.ProjectCracker
+open Fable.Compiler.Util
 
 module private Util =
     type PathResolver with
@@ -122,7 +123,9 @@ module private Util =
     let logErrors rootDir (logs: Log seq) =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
-        |> Seq.iter (fun log -> Log.error (formatLog rootDir log))
+        |> Seq.iter (fun log ->
+            Fable.Compiler.Util.Log.error (formatLog rootDir log)
+        )
 
     let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
         diagnostics
@@ -435,29 +438,12 @@ type FsWatcher(delayMs: int) =
         |> Observable.throttle delayMs
         |> Observable.map caseInsensitiveSet
 
-// TODO: Check the path is actually normalized?
-type File(normalizedFullPath: string) =
-    let mutable sourceHash = None
-    member _.NormalizedFullPath = normalizedFullPath
-
-    member _.ReadSource() =
-        match sourceHash with
-        | Some h -> h, lazy File.readAllTextNonBlocking normalizedFullPath
-        | _ ->
-            let source = File.readAllTextNonBlocking normalizedFullPath
-            let h = hash source
-            sourceHash <- Some h
-            h, lazy source
-
-    static member MakeSourceReader(files: File[]) =
-        let fileDic =
-            files |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
-
-        let sourceReader f = fileDic[f].ReadSource()
-        files |> Array.map (fun file -> file.NormalizedFullPath), sourceReader
-
 type ProjectCracked
-    (cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFiles: File array)
+    (
+        cliArgs: CliArgs,
+        crackerResponse: CrackerResponse,
+        sourceFiles: Fable.Compiler.File array
+    )
     =
 
     member _.CliArgs = cliArgs
@@ -534,7 +520,9 @@ OUTPUT TYPE: {result.OutputType}
                 "Compiling project as Library. If you intend to run the code directly, please set OutputType to Exe."
         | _ -> ()
 
-        let sourceFiles = result.ProjectOptions.SourceFiles |> Array.map File
+        let sourceFiles =
+            result.ProjectOptions.SourceFiles |> Array.map Fable.Compiler.File
+
         ProjectCracked(cliArgs, result, sourceFiles)
 
 type FableCompileResult =
@@ -555,7 +543,7 @@ type ReplyChannel =
 type FableCompilerMsg =
     | GetFableProject of replyChannel: AsyncReplyChannel<Project>
     | StartCompilation of
-        sourceFiles: File[] *
+        sourceFiles: Fable.Compiler.File[] *
         filesToCompile: string[] *
         pathResolver: PathResolver *
         isSilent: bool *
@@ -615,9 +603,9 @@ type FableCompilerState =
 
 and FableCompiler
     (
+        checker: InteractiveChecker,
         projCracked: ProjectCracked,
-        fableProj: Project,
-        checker: InteractiveChecker
+        fableProj: Project
     )
     =
     let agent =
@@ -708,7 +696,8 @@ and FableCompiler
                             FSharpCompilationFinished
                             (fun () ->
                                 let filePaths, sourceReader =
-                                    File.MakeSourceReader sourceFiles
+                                    Fable.Compiler.File.MakeSourceReader
+                                        sourceFiles
 
                                 let subscriber =
                                     if
@@ -932,12 +921,12 @@ and FableCompiler
                     getPlugin = loadType projCracked.CliArgs
                 )
 
-            return FableCompiler(projCracked, fableProj, checker)
+            return FableCompiler(checker, projCracked, fableProj)
         }
 
     member _.CompileToFile(outFile: string) =
         let filePaths, sourceReader =
-            File.MakeSourceReader projCracked.SourceFiles
+            Fable.Compiler.File.MakeSourceReader projCracked.SourceFiles
 
         checker.Compile(filePaths, sourceReader, outFile)
 
@@ -1051,7 +1040,7 @@ type State =
 let private getFilesToCompile
     (state: State)
     (changes: ISet<string>)
-    (oldFiles: IDictionary<string, File> option)
+    (oldFiles: IDictionary<string, Fable.Compiler.File> option)
     (projCracked: ProjectCracked)
     =
     let pendingFiles = set state.PendingFiles
@@ -1060,7 +1049,7 @@ let private getFilesToCompile
     let projCracked =
         projCracked.MapSourceFiles(fun file ->
             if changes.Contains(file.NormalizedFullPath) then
-                File(file.NormalizedFullPath)
+                Fable.Compiler.File(file.NormalizedFullPath)
             else
                 file
         )

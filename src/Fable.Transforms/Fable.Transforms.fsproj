@@ -4,6 +4,7 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <TargetFramework>netstandard2.0</TargetFramework>
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Babel.fs" />

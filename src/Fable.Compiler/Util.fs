@@ -1,4 +1,4 @@
-namespace Fable.Cli
+﻿module Fable.Compiler.Util
 
 #nowarn "3391"
 
