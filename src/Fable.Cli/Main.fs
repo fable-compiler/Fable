@@ -180,9 +180,7 @@ module private Util =
                         projDir
                         outDir
 
-                let fileName =
-                    IO.Path.GetFileName(file)
-                    |> Pipeline.Python.getTargetPath cliArgs
+                let fileName = IO.Path.GetFileName(file)
 
                 let modules =
                     absPath
@@ -226,6 +224,8 @@ module private Util =
                         )
                     |> List.toArray
                     |> IO.Path.Join
+
+                let fileName = fileName |> Pipeline.Python.getTargetPath cliArgs
 
                 IO.Path.Join(outDir, modules, fileName)
 
