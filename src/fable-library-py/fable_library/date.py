@@ -92,6 +92,14 @@ def to_universal_time(d: datetime) -> datetime:
     return d.astimezone(timezone.utc)
 
 
+def day_of_week(d: datetime) -> int:
+    return (d.weekday() + 1) % 7
+
+
+def day_of_year(d: datetime) -> int:
+    return d.timetuple().tm_yday
+
+
 def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) -> str:
     def match(match: Match[str]) -> str:
         group = match.group()
@@ -306,6 +314,8 @@ __all__ = [
     "minute",
     "second",
     "millisecond",
+    "day_of_week",
+    "day_of_year",
     "date_to_string_with_custom_format",
     "date_to_string_with_offset",
     "date_to_string_with_kind",

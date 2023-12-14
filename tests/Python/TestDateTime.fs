@@ -149,7 +149,75 @@ let ``test DateTime.Parse with time-only string works`` () = // See #1045
     let d = DateTime.Parse("15:5:34 PM", CultureInfo.InvariantCulture)
     d.Hour + d.Minute + d.Second |> equal 54
 
+// [<Fact>]
+// let ``test DateTime.Ticks works`` () =
+//     let d = DateTime(2014, 10, 9, 13, 23, 30, 999, DateTimeKind.Utc)
+//     d.Ticks |> equal 635484578109990000L
+//     let d = DateTime(2014, 10, 9, 13, 23, 30, 999, DateTimeKind.Local)
+//     d.Ticks |> equal 635484578109990000L
+//     let d = DateTime(2014, 10, 9, 13, 23, 30, 999)
+//     d.Ticks |> equal 635484578109990000L
 
+[<Fact>]
+let ``test DateTime.Year works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    let d' = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    d.Year + d'.Year
+    |> equal 4028
+
+[<Fact>]
+let ``test DateTime.Day works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    let d' = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    d.Day + d'.Day |> equal 18
+
+[<Fact>]
+let ``test DateTime.Month works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    let d' = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    d.Month + d'.Month
+    |> equal 20
+
+[<Fact>]
+let ``test DateTime.Hour works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    d.Hour |> equal 13
+
+[<Fact>]
+let ``test DateTime.Minute works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    let d' = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    d.Minute + d'.Minute
+    |> equal 46
+
+[<Fact>]
+let ``test DateTime.Second works`` () =
+    let d = DateTime(2014,9,12,0,0,30)
+    let d' = DateTime(2014,9,12,0,0,59)
+    d.Second + d'.Second
+    |> equal 89
+
+[<Fact>]
+let ``test DateTime.Millisecond works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, 999)
+    d.Millisecond |> equal 999
+
+[<Fact>]
+let ``DateTime.DayOfWeek works`` () =
+    DateTime(2014, 10, 5).DayOfWeek |> equal DayOfWeek.Sunday
+    DateTime(2014, 10, 6).DayOfWeek |> equal DayOfWeek.Monday
+    DateTime(2014, 10, 7).DayOfWeek |> equal DayOfWeek.Tuesday
+    DateTime(2014, 10, 8).DayOfWeek |> equal DayOfWeek.Wednesday
+    DateTime(2014, 10, 9).DayOfWeek |> equal DayOfWeek.Thursday
+    DateTime(2014, 10, 10).DayOfWeek |> equal DayOfWeek.Friday
+    DateTime(2014, 10, 11).DayOfWeek |> equal DayOfWeek.Saturday
+
+[<Fact>]
+let ``test DateTime.DayOfYear works`` () =
+    // Standard year
+    DateTime(2014, 10, 9).DayOfYear |> equal 282
+    // Leap year
+    DateTime(2020, 10, 9).DayOfYear |> equal 283
 
 // [<Fact>]
 // let ``test DateTime.ToLocalTime works`` () =
