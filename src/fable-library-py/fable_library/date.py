@@ -64,6 +64,34 @@ def to_universal_time(d: datetime) -> datetime:
     return d.astimezone(timezone.utc)
 
 
+def month(d: datetime) -> int:
+    return d.month
+
+
+def day(d: datetime) -> int:
+    return d.day
+
+
+def hour(d: datetime) -> int:
+    return d.hour
+
+
+def minute(d: datetime) -> int:
+    return d.minute
+
+
+def second(d: datetime) -> int:
+    return d.second
+
+
+def millisecond(d: datetime) -> int:
+    return d.microsecond // 1000
+
+
+def to_universal_time(d: datetime) -> datetime:
+    return d.astimezone(timezone.utc)
+
+
 def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) -> str:
     def match(match: Match[str]) -> str:
         group = match.group()
@@ -232,9 +260,26 @@ def add(x: datetime, y: TimeSpan) -> datetime:
 
 
 def parse(string: str, detectUTC: bool = False) -> datetime:
-    from dateutil import parser
+    try:
+        return datetime.fromisoformat(string).astimezone()
+    except ValueError:
+        formats = {
+            # Matches a time string in 24-hour format "HH:MM:SS"
+            r"\d{1,2}:\d{1,2}:\d{2}": "%H:%M:%S",
+            # # Matches a time string in 12-hour format with AM/PM "HH:MM:SS AM" or "HH:MM:SS PM"
+            r"(0?[1-9]|1[0-2]):([0-5][1-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M": "%I:%M:%S %p",
+            r"\d{1,2}:\d{1,2}:\d{2} [AP]M": "%H:%M:%S %p",
+            # 9/10/2014 1:50:34 PM
+            r"(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M": "%m/%d/%Y %I:%M:%S %p",
+            # 9/10/2014 1:50:34
+            r"(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9])": "%m/%d/%Y %H:%M:%S",
+        }
 
-    return parser.parse(string)
+        for pattern, format in formats.items():
+            if re.fullmatch(pattern, string):
+                return datetime.strptime(string, format)
+
+        raise ValueError("Unsupported format by Fable: %s" % (string))
 
 
 def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]) -> bool:
@@ -255,6 +300,12 @@ __all__ = [
     "subtract",
     "create",
     "year",
+    "month",
+    "day",
+    "hour",
+    "minute",
+    "second",
+    "millisecond",
     "date_to_string_with_custom_format",
     "date_to_string_with_offset",
     "date_to_string_with_kind",

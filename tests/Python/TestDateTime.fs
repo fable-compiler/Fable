@@ -1,6 +1,7 @@
 module Fable.Tests.DateTime
 
 open System
+open System.Globalization
 open Util.Testing
 open Fable.Tests
 
@@ -99,6 +100,55 @@ let ``test DateTime Subtraction with DateTime works`` () =
     test 1000. -1.0
     test -1000. 1.0
     test 0. 0.0
+
+[<Fact>]
+let ``test DateTime.Parse works`` () =
+
+    let d =
+        DateTime.Parse(
+            "2014-09-10T13:50:34.0000000",
+            CultureInfo.InvariantCulture
+        )
+
+    d.Year + d.Month + d.Day + d.Hour + d.Minute |> equal 2096
+
+    let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
+    d.Year + d.Month + d.Day + d.Hour + d.Minute
+    |> equal 2096
+
+    let d = DateTime.Parse("9/10/2014 1:50:34 AM", CultureInfo.InvariantCulture)
+    d.Year + d.Month + d.Day + d.Hour + d.Minute
+    |> equal 2084
+
+    let d = DateTime.Parse("9/10/2014 13:50:34", CultureInfo.InvariantCulture)
+    d.Year + d.Month + d.Day + d.Hour + d.Minute
+    |> equal 2096
+
+    let d = DateTime.Parse("9/10/2014 1:50:34", CultureInfo.InvariantCulture)
+    d.Year + d.Month + d.Day + d.Hour + d.Minute
+    |> equal 2084
+
+    // Disabled because it is timezone dependent
+    // I left it here in case, we need to test it in the future
+    // Currently, it is setup for Europe/Paris timezone
+    // let d = DateTime.Parse("2016-07-07T01:00:00.000Z", CultureInfo.InvariantCulture)
+    // d.Year + d.Month + d.Day + d.Hour + d.Minute
+    // |> equal 2033
+
+[<Fact>]
+let ``test DateTime.Parse with time-only string works`` () = // See #1045
+    let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
+    d.Hour + d.Minute + d.Second |> equal 97
+
+    let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
+    d.Hour + d.Minute + d.Second |> equal 40
+
+    let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
+    d.Hour + d.Minute + d.Second |> equal 52
+
+    let d = DateTime.Parse("15:5:34 PM", CultureInfo.InvariantCulture)
+    d.Hour + d.Minute + d.Second |> equal 54
+
 
 
 // [<Fact>]

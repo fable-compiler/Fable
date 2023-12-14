@@ -5,6 +5,7 @@ open Fable.Core.Testing
 open Fable.Core.PyInterop
 open Fable.Python.Builtins
 open System
+open System.Globalization
 
 let equal expected actual =
     // According the console log arguments are reversed
