@@ -4,9 +4,14 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.8.1</Version>
-    <PackageReleaseNotes>
-- Fix the version reported by Fable (@MangelMaxime)
+    <Version>4.9.0</Version>
+    <PackageReleaseNotes>## Fixed
+
+
+### Python
+
+- [GH-3655](https://github.com/fable-compiler/Fable/issues/3655) Fix for Python output file names (by @dbrattli)
+- [GH-3660](https://github.com/fable-compiler/Fable/issues/3660) Fix for decimal to string with culture (by @dbrattli)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

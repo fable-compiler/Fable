@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
@@ -6,7 +6,11 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>0.1.0</Version>
+        <Version>4.0.0-beta-001</Version>
+        <PackageReleaseNotes>
+- Initial release
+
+</PackageReleaseNotes>
         <DebugType>embedded</DebugType>
     </PropertyGroup>
 
