@@ -232,20 +232,9 @@ def add(x: datetime, y: TimeSpan) -> datetime:
 
 
 def parse(string: str, detectUTC: bool = False) -> datetime:
-    formats = {
-        # Matches a date-time string in the format "YYYY-MM-DDTHH:MM:SS"
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}": "%Y-%m-%dT%H:%M:%S",
-        # Matches a time string in 24-hour format "HH:MM:SS"
-        r"\d{2}:\d{2}:\d{2}": "%H:%M:%S",
-        # Matches a time string in 12-hour format with AM/PM "HH:MM:SS AM" or "HH:MM:SS PM"
-        r"\d{2}:\d{2}:\d{2} [AP]M": "%I:%M:%S %p",
-    }
+    from dateutil import parser
 
-    for pattern, format in formats.items():
-        if re.fullmatch(pattern, string):
-            return datetime.strptime(string, format)
-
-    raise ValueError("Unsupported format by Fable")
+    return parser.parse(string)
 
 
 def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]) -> bool:
