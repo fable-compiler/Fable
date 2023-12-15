@@ -261,6 +261,7 @@ def add_milliseconds(d: datetime, v: int) -> datetime:
 
 
 __all__ = [
+    "add",
     "op_subtraction",
     "subtract",
     "create",
