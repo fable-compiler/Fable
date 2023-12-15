@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+#### Rust
+
+* Fixed unary negation for signed integer MinValue (by @ncave)
+
 ## 4.9.0 - 2023-12-14
 
 ### Fixed

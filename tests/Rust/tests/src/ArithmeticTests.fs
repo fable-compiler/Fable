@@ -27,12 +27,12 @@ let ``Int32 literal addition is optimized`` () =
 let ``Unary negation with negative literal values works`` () =
     -negLiteral |> equal 345
 
-// [<Fact>]
-// let ``Unary negation with integer MinValue works`` () =
-//     -(-128y) |> equal SByte.MinValue
-//     -(-32768s) |> equal Int16.MinValue
-//     -(-2147483648) |> equal Int32.MinValue
-//     -(-9223372036854775808L) |> equal Int64.MinValue
+[<Fact>]
+let ``Unary negation with integer MinValue works`` () =
+    -(-128y) |> equal SByte.MinValue
+    -(-32768s) |> equal Int16.MinValue
+    -(-2147483648) |> equal Int32.MinValue
+    -(-9223372036854775808L) |> equal Int64.MinValue
 
 [<Fact>]
 let ``Infix subtract can be generated`` () =

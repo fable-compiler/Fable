@@ -1869,199 +1869,91 @@ module Util =
         else
             expr |> mkAddrOfExpr
 
+    let negateWhen isNegative expr =
+        if isNegative then
+            expr |> mkNegExpr
+        else
+            expr
+
     let makeNumber com ctx r t kind (x: obj) =
         match kind, x with
 
         | Int8, (:? int8 as x) when x = System.SByte.MinValue ->
-            mkGenericPathExpr
-                [
-                    "i8"
-                    "MIN"
-                ]
-                None
+            mkGenericPathExpr ("i8" :: "MIN" :: []) None
         | Int8, (:? int8 as x) when x = System.SByte.MaxValue ->
-            mkGenericPathExpr
-                [
-                    "i8"
-                    "MAX"
-                ]
-                None
+            mkGenericPathExpr ("i8" :: "MAX" :: []) None
         | Int16, (:? int16 as x) when x = System.Int16.MinValue ->
-            mkGenericPathExpr
-                [
-                    "i16"
-                    "MIN"
-                ]
-                None
+            mkGenericPathExpr ("i16" :: "MIN" :: []) None
         | Int16, (:? int16 as x) when x = System.Int16.MaxValue ->
-            mkGenericPathExpr
-                [
-                    "i16"
-                    "MAX"
-                ]
-                None
+            mkGenericPathExpr ("i16" :: "MAX" :: []) None
         | Int32, (:? int32 as x) when x = System.Int32.MinValue ->
-            mkGenericPathExpr
-                [
-                    "i32"
-                    "MIN"
-                ]
-                None
+            mkGenericPathExpr ("i32" :: "MIN" :: []) None
         | Int32, (:? int32 as x) when x = System.Int32.MaxValue ->
-            mkGenericPathExpr
-                [
-                    "i32"
-                    "MAX"
-                ]
-                None
+            mkGenericPathExpr ("i32" :: "MAX" :: []) None
         | Int64, (:? int64 as x) when x = System.Int64.MinValue ->
-            mkGenericPathExpr
-                [
-                    "i64"
-                    "MIN"
-                ]
-                None
+            mkGenericPathExpr ("i64" :: "MIN" :: []) None
         | Int64, (:? int64 as x) when x = System.Int64.MaxValue ->
-            mkGenericPathExpr
-                [
-                    "i64"
-                    "MAX"
-                ]
-                None
+            mkGenericPathExpr ("i64" :: "MAX" :: []) None
         // | Int128, (:? System.Int128 as x) when x = System.Int128.MinValue ->
-        //     mkGenericPathExpr ["i128";"MIN"] None
+        //     mkGenericPathExpr ("i128"::"MIN"::[]) None
         // | Int128, (:? System.Int128 as x) when x = System.Int128.MaxValue ->
-        //     mkGenericPathExpr ["i128";"MAX"] None
+        //     mkGenericPathExpr ("i128"::"MAX"::[]) None
 
         // | UInt8, (:? uint8 as x) when x = System.Byte.MinValue ->
-        //     mkGenericPathExpr ["u8";"MIN"] None
+        //     mkGenericPathExpr ("u8"::"MIN"::[]) None
         | UInt8, (:? uint8 as x) when x = System.Byte.MaxValue ->
-            mkGenericPathExpr
-                [
-                    "u8"
-                    "MAX"
-                ]
-                None
+            mkGenericPathExpr ("u8" :: "MAX" :: []) None
         // | UInt16, (:? uint16 as x) when x = System.UInt16.MinValue ->
-        //     mkGenericPathExpr ["u16";"MIN"] None
+        //     mkGenericPathExpr ("u16"::"MIN"::[]) None
         | UInt16, (:? uint16 as x) when x = System.UInt16.MaxValue ->
-            mkGenericPathExpr
-                [
-                    "u16"
-                    "MAX"
-                ]
-                None
+            mkGenericPathExpr ("u16" :: "MAX" :: []) None
         // | UInt32, (:? uint32 as x) when x = System.UInt32.MinValue ->
-        //     mkGenericPathExpr ["u32";"MIN"] None
+        //     mkGenericPathExpr ("u32"::"MIN"::[]) None
         | UInt32, (:? uint32 as x) when x = System.UInt32.MaxValue ->
-            mkGenericPathExpr
-                [
-                    "u32"
-                    "MAX"
-                ]
-                None
+            mkGenericPathExpr ("u32" :: "MAX" :: []) None
         // | UInt64, (:? uint64 as x) when x = System.UInt64.MinValue ->
-        //     mkGenericPathExpr ["u64";"MIN"] None
+        //     mkGenericPathExpr ("u64"::"MIN"::[]) None
         | UInt64, (:? uint64 as x) when x = System.UInt64.MaxValue ->
-            mkGenericPathExpr
-                [
-                    "u64"
-                    "MAX"
-                ]
-                None
+            mkGenericPathExpr ("u64" :: "MAX" :: []) None
         // | UInt128, (:? System.UInt128 as x) when x = System.UInt128.MinValue ->
-        //     mkGenericPathExpr ["u128";"MIN"] None
+        //     mkGenericPathExpr ("u128"::"MIN"::[]) None
         // | UInt128, (:? System.UInt128 as x) when x = System.UInt128.MaxValue ->
-        //     mkGenericPathExpr ["u128";"MAX"] None
+        //     mkGenericPathExpr ("u128"::"MAX"::[]) None
 
         | Float32, (:? float32 as x) when System.Single.IsNaN(x) ->
-            mkGenericPathExpr
-                [
-                    "f32"
-                    "NAN"
-                ]
-                None
+            mkGenericPathExpr ("f32" :: "NAN" :: []) None
         | Float64, (:? float as x) when System.Double.IsNaN(x) ->
-            mkGenericPathExpr
-                [
-                    "f64"
-                    "NAN"
-                ]
-                None
+            mkGenericPathExpr ("f64" :: "NAN" :: []) None
         | Float32, (:? float32 as x) when System.Single.IsPositiveInfinity(x) ->
-            mkGenericPathExpr
-                [
-                    "f32"
-                    "INFINITY"
-                ]
-                None
+            mkGenericPathExpr ("f32" :: "INFINITY" :: []) None
         | Float64, (:? float as x) when System.Double.IsPositiveInfinity(x) ->
-            mkGenericPathExpr
-                [
-                    "f64"
-                    "INFINITY"
-                ]
-                None
+            mkGenericPathExpr ("f64" :: "INFINITY" :: []) None
         | Float32, (:? float32 as x) when System.Single.IsNegativeInfinity(x) ->
-            mkGenericPathExpr
-                [
-                    "f32"
-                    "NEG_INFINITY"
-                ]
-                None
+            mkGenericPathExpr ("f32" :: "NEG_INFINITY" :: []) None
         | Float64, (:? float as x) when System.Double.IsNegativeInfinity(x) ->
-            mkGenericPathExpr
-                [
-                    "f64"
-                    "NEG_INFINITY"
-                ]
-                None
+            mkGenericPathExpr ("f64" :: "NEG_INFINITY" :: []) None
 
         | NativeInt, (:? nativeint as x) ->
             let expr = mkIsizeLitExpr (abs x |> string<nativeint>)
-
-            if x < 0n then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (x < 0n)
         | Int8, (:? int8 as x) ->
             let expr = mkInt8LitExpr (abs x |> string<int8>)
-
-            if x < 0y then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (x < 0y)
         | Int16, (:? int16 as x) ->
             let expr = mkInt16LitExpr (abs x |> string<int16>)
-
-            if x < 0s then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (x < 0s)
         | Int32, (:? int32 as x) ->
             let expr = mkInt32LitExpr (abs x |> string<int32>)
-
-            if x < 0 then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (x < 0)
         | Int64, (:? int64 as x) ->
             let expr = mkInt64LitExpr (abs x |> string<int64>)
-
-            if x < 0 then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (x < 0L)
         | Int128, x -> // (:? System.Int128 as x) ->
             // let expr = mkInt128LitExpr (System.Int128.Abs(x) |> string)
-            // if x < 0 then expr |> mkNegExpr else expr
+            // expr |> negateWhen (System.Int128.IsNegative(x))
             let s = string<obj> x
             let expr = mkInt128LitExpr (s.TrimStart('-'))
-
-            if s.StartsWith("-", StringComparison.Ordinal) then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (s.StartsWith("-", StringComparison.Ordinal))
         | UNativeInt, (:? unativeint as x) ->
             mkUsizeLitExpr (x |> string<unativeint>)
         | UInt8, (:? uint8 as x) -> mkUInt8LitExpr (x |> string<uint8>)
@@ -2072,25 +1964,13 @@ module Util =
             mkUInt128LitExpr (x |> string<obj>)
         | Float16, (:? float32 as x) ->
             let expr = mkFloat32LitExpr (abs x |> string<float32>)
-
-            if x < 0.0f then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (x < 0.0f)
         | Float32, (:? float32 as x) ->
             let expr = mkFloat32LitExpr (abs x |> string<float32>)
-
-            if x < 0.0f then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (x < 0.0f)
         | Float64, (:? float as x) ->
             let expr = mkFloat64LitExpr (abs x |> string<float>)
-
-            if x < 0.0 then
-                expr |> mkNegExpr
-            else
-                expr
+            expr |> negateWhen (x < 0.0)
         | Decimal, (:? decimal as x) ->
             Replacements.makeDecimal com r t x |> transformExpr com ctx
         | kind, x ->
@@ -2588,10 +2468,16 @@ module Util =
             transformIdent com ctx range ident |> mkAddrOfExpr
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
-            | UnaryOperator.UnaryMinus -> mkNegExpr expr //?loc=range)
+            | UnaryOperator.UnaryMinus ->
+                match typ with
+                | Fable.Number((Int8 | Int16 | Int32 | Int64 | Int128 | NativeInt),
+                               _) ->
+                    // use wrapping negate to properly handle MinValue
+                    mkMethodCallExpr "wrapping_neg" None expr []
+                | _ -> mkNegExpr expr
             | UnaryOperator.UnaryPlus -> expr // no unary plus
-            | UnaryOperator.UnaryNot -> mkNotExpr expr //?loc=range)
-            | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr //?loc=range)
+            | UnaryOperator.UnaryNot -> mkNotExpr expr // ?loc=range)
+            | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr // ?loc=range)
             | UnaryOperator.UnaryAddressOf -> expr |> mkAddrOfExpr
 
         | Fable.Binary(op, leftExpr, rightExpr) ->
@@ -2639,7 +2525,7 @@ module Util =
                         left
                         right
                     ]
-            | _ -> mkBinaryExpr (mkBinOp kind) left right //?loc=range)
+            | _ -> mkBinaryExpr (mkBinOp kind) left right // ?loc=range)
 
         | Fable.Logical(op,
                         TransformExpr com ctx left,
@@ -2649,7 +2535,7 @@ module Util =
                 | LogicalOperator.LogicalOr -> Rust.BinOpKind.Or
                 | LogicalOperator.LogicalAnd -> Rust.BinOpKind.And
 
-            mkBinaryExpr (mkBinOp kind) left right //?loc=range)
+            mkBinaryExpr (mkBinOp kind) left right // ?loc=range)
 
     let transformMacro
         (com: IRustCompiler)
@@ -3049,7 +2935,7 @@ module Util =
                 mkAssignExpr left value
             | _ ->
                 let left = getExpr range expr prop
-                mkAssignExpr left value //?loc=range)
+                mkAssignExpr left value // ?loc=range)
         | Fable.FieldSet(fieldName) ->
             match fableExpr.Type with
             | t when isInterface com t ->
@@ -3261,15 +3147,15 @@ module Util =
         let thenExpr = transformLeaveContext com ctx None thenBody
 
         match elseBody with
-        | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr guardExpr thenExpr //?loc=range)
+        | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr guardExpr thenExpr // ?loc=range)
         | _ ->
             let elseExpr = transformLeaveContext com ctx None elseBody
-            mkIfThenElseExpr guardExpr thenExpr elseExpr //?loc=range)
+            mkIfThenElseExpr guardExpr thenExpr elseExpr // ?loc=range)
 
     let transformWhileLoop (com: IRustCompiler) ctx range guard body =
         let guardExpr = transformExpr com ctx guard
         let bodyExpr = com.TransformExpr(ctx, body)
-        mkWhileExpr None guardExpr bodyExpr //?loc=range)
+        mkWhileExpr None guardExpr bodyExpr // ?loc=range)
 
     let transformForLoop
         (com: IRustCompiler)
@@ -3298,7 +3184,7 @@ module Util =
 
                 mkMethodCallExpr "rev" None rangeExpr []
 
-        mkForLoopExpr None varPat rangeExpr bodyExpr //?loc=range)
+        mkForLoopExpr None varPat rangeExpr bodyExpr // ?loc=range)
 
     let makeLocalLambda com ctx (args: Fable.Ident list) (body: Fable.Expr) =
         let args = args |> discardUnitArg []
