@@ -60,6 +60,10 @@ def year(d: datetime) -> int:
     return d.year
 
 
+def to_universal_time(d: datetime) -> datetime:
+    return d.astimezone(timezone.utc)
+
+
 def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) -> str:
     def match(match: Match[str]) -> str:
         group = match.group()
@@ -219,8 +223,12 @@ def min_value() -> datetime:
     return datetime.min
 
 
-def op_addition(x: datetime, y: timedelta) -> datetime:
-    return x + y
+def op_addition(x: datetime, y: TimeSpan) -> datetime:
+    return x + timedelta(microseconds=total_microseconds(y))
+
+
+def add(x: datetime, y: TimeSpan) -> datetime:
+    return op_addition(x, y)
 
 
 def parse(string: str, detectUTC: bool = False) -> datetime:
@@ -242,6 +250,7 @@ def add_milliseconds(d: datetime, v: int) -> datetime:
 
 
 __all__ = [
+    "add",
     "op_subtraction",
     "subtract",
     "create",
@@ -259,5 +268,6 @@ __all__ = [
     "min_value",
     "op_addition",
     "parse",
+    "to_universal_time",
     "try_parse",
 ]

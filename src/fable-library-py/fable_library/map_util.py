@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import ByteString, Iterable, MutableSequence
+from collections.abc import Iterable
 from enum import IntEnum
 from re import Match
 from typing import (
@@ -12,6 +12,7 @@ from typing import (
 )
 
 from .types import FSharpRef, Union
+from .util import Array
 
 
 _K = TypeVar("_K")
@@ -124,7 +125,7 @@ def key_value_list(fields: Iterable[Any], case_rule: CaseRules = CaseRules.Ignor
             kv_pair = name if len(kv_pair.fields) == 0 else [name, *kv_pair.fields]
             case_rule = defined_case_rule
 
-        if isinstance(kv_pair, list | MutableSequence | ByteString):
+        if isinstance(kv_pair, Array):
             length = len(kv_pair)
             if length == 0:
                 fail(kv_pair)

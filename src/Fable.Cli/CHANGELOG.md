@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [GH-3655](https://github.com/fable-compiler/Fable/issues/3655) Fix for Python output file names (by @dbrattli)
 * [GH-3660](https://github.com/fable-compiler/Fable/issues/3660) Fix for decimal to string with culture (by @dbrattli)
+* [GH-3666](https://github.com/fable-compiler/Fable/pull/3666) Fix for `DateTime` and `TimeSpan` addition (by @dbrattli)
 
 ## 4.8.1 - 2023-12-12
 
