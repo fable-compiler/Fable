@@ -60,6 +60,10 @@ def year(d: datetime) -> int:
     return d.year
 
 
+def to_universal_time(d: datetime) -> datetime:
+    return d.astimezone(timezone.utc)
+
+
 def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) -> str:
     def match(match: Match[str]) -> str:
         group = match.group()
@@ -219,14 +223,29 @@ def min_value() -> datetime:
     return datetime.min
 
 
-def op_addition(x: datetime, y: timedelta) -> datetime:
-    return x + y
+def op_addition(x: datetime, y: TimeSpan) -> datetime:
+    return x + timedelta(microseconds=total_microseconds(y))
+
+
+def add(x: datetime, y: TimeSpan) -> datetime:
+    return op_addition(x, y)
 
 
 def parse(string: str, detectUTC: bool = False) -> datetime:
-    from dateutil import parser
+    formats = {
+        # Matches a date-time string in the format "YYYY-MM-DDTHH:MM:SS"
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}": "%Y-%m-%dT%H:%M:%S",
+        # Matches a time string in 24-hour format "HH:MM:SS"
+        r"\d{2}:\d{2}:\d{2}": "%H:%M:%S",
+        # Matches a time string in 12-hour format with AM/PM "HH:MM:SS AM" or "HH:MM:SS PM"
+        r"\d{2}:\d{2}:\d{2} [AP]M": "%I:%M:%S %p",
+    }
 
-    return parser.parse(string)
+    for pattern, format in formats.items():
+        if re.fullmatch(pattern, string):
+            return datetime.strptime(string, format)
+
+    raise ValueError("Unsupported format by Fable")
 
 
 def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]) -> bool:
@@ -259,5 +278,6 @@ __all__ = [
     "min_value",
     "op_addition",
     "parse",
+    "to_universal_time",
     "try_parse",
 ]

@@ -125,6 +125,19 @@ let ``test TimeSpan Addition works`` () =
     test 0. 0. 0.
 
 [<Fact>]
+let ``test DateTime and TimeSpan Addition works`` () =
+    let test ms expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
+        let ts = TimeSpan.FromMilliseconds(ms)
+        let res1 = dt.Add(ts).ToUniversalTime()
+        let res2 = (dt + ts).ToUniversalTime()
+        equal true (res1 = res2)
+        equal expected res1
+
+    DateTime(2014,9,12,0,0,1,DateTimeKind.Utc) |> test 1000.
+    DateTime(2014,9,11,23,59,59,DateTimeKind.Utc) |> test -1000.
+
+[<Fact>]
 let ``test TimeSpan implementation coherence`` () =
     TimeSpan.FromTicks(1L).Ticks |> equal 1L
     TimeSpan.FromMilliseconds(1).Milliseconds |> equal 1
