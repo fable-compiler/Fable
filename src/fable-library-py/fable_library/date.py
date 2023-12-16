@@ -271,23 +271,28 @@ def parse(string: str, detectUTC: bool = False) -> datetime:
     try:
         return datetime.fromisoformat(string).astimezone()
     except ValueError:
-        formats = {
-            # Matches a time string in 24-hour format "HH:MM:SS"
-            r"\d{1,2}:\d{1,2}:\d{2}": "%H:%M:%S",
-            # # Matches a time string in 12-hour format with AM/PM "HH:MM:SS AM" or "HH:MM:SS PM"
-            r"(0?[1-9]|1[0-2]):([0-5][1-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M": "%I:%M:%S %p",
-            r"\d{1,2}:\d{1,2}:\d{2} [AP]M": "%H:%M:%S %p",
-            # 9/10/2014 1:50:34 PM
-            r"(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M": "%m/%d/%Y %I:%M:%S %p",
-            # 9/10/2014 1:50:34
-            r"(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9])": "%m/%d/%Y %H:%M:%S",
-        }
+        pass
 
-        for pattern, format in formats.items():
-            if re.fullmatch(pattern, string):
-                return datetime.strptime(string, format)
+    formats = {
+        # Matches a time string in 24-hour format "HH:MM:SS"
+        r"\d{1,2}:\d{1,2}:\d{2}": "%H:%M:%S",
+        # # Matches a time string in 12-hour format with AM/PM "HH:MM:SS AM" or "HH:MM:SS PM"
+        r"(0?[1-9]|1[0-2]):([0-5][1-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M": "%I:%M:%S %p",
+        r"\d{1,2}:\d{1,2}:\d{2} [AP]M": "%H:%M:%S %p",
+        # 9/10/2014 1:50:34 PM
+        r"(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M": "%m/%d/%Y %I:%M:%S %p",
+        # 9/10/2014 1:50:34
+        r"(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9])": "%m/%d/%Y %H:%M:%S",
+        # Matches a datetime string in the format "YYYY-MM-DDTHH:MM:SS.ffffff". This format usually parses with
+        # `fromisoformat`, but not with Python 3.10
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}": "%Y-%m-%dT%H:%M:%S.%f000",
+    }
 
-        raise ValueError("Unsupported format by Fable: %s" % (string))
+    for pattern, format in formats.items():
+        if re.fullmatch(pattern, string):
+            return datetime.strptime(string, format)
+
+    raise ValueError("Unsupported format by Fable: %s" % (string))
 
 
 def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]) -> bool:
