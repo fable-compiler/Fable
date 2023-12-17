@@ -26,7 +26,10 @@ jobs:
 
   # Separate build job for JavaScript
   build-javascript:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
 
     steps:
     - uses: actions/checkout@v2
@@ -39,8 +42,13 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
-    - name: Fable Tests - JavaScript
+    - name: Fable Tests - JavaScript (linux)
+      if: matrix.platform == 'ubuntu-latest'
       run: ./build.sh test javascript
+
+    - name: Fable Tests - JavaScript (Windows)
+      if: matrix.platform == 'windows-latest'
+      run: .\build.bat test javascript
 
   # Separate build job for TypeScript
   build-typescript:
