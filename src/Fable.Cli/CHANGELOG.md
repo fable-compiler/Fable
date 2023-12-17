@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### All
+
+* [GH-3668](https://github.com/fable-compiler/Fable/pull/3668) Normalize fable-library argument (by @nojaf)
+
 #### Rust
 
 * Fixed unary negation for signed integer MinValue (by @ncave)
