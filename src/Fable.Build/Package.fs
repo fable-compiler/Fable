@@ -73,5 +73,5 @@ let handle (args: string list) =
 Use the following commands to install them:
 
 - Fable.Cli: dotnet tool update fable --version {fableCliVersion} --add-source {packageDestination}
-- Fable.Core: dotnet add package Fable.Core --version {fableCoreVersion} --add-source {packageDestination}
+- Fable.Core: dotnet add package Fable.Core --version {fableCoreVersion} --source {packageDestination}
     """
