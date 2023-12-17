@@ -167,10 +167,10 @@ let ``Parse parses valid DateOnly`` () =
     // test (DateOnly (2000, 11, 30)) "11/30/2000"
     // test (DateOnly (2020, 1, 3)) "01/03/20"
     // test (DateOnly (1999, 1, 3)) "01,03,99"
-    // #if NET8_0_OR_GREATER
-    //     test (DateOnly (2030, 1, 3)) "01 -03- 30"
-    // #elif FABLE_COMPILER
+    // #if FABLE_COMPILER
     //     test (DateOnly (1930, 1, 3)) "01 -03- 30"
+    // #else //NET8_0_OR_GREATER
+    //     test (DateOnly (2030, 1, 3)) "01 -03- 30"
     // #endif
     // test (DateOnly (2000, 12, 3)) "12.03.00"
     // test (DateOnly (2000, 1, 12)) "01-12-00"

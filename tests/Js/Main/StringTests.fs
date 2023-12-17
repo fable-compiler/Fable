@@ -1112,11 +1112,7 @@ let tests =
           let s4: FormattableString = $"I have `backticks`"
           s4.Format |> equal "I have `backticks`"
           let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
-#if NET8_0_OR_GREATER
           s5.Format |> equal "I have {{escaped braces}} and %percentage%"
-#elif FABLE_COMPILER
-          s5.Format |> equal "I have {escaped braces} and %percentage%"
-#endif
           ()
 
 #if FABLE_COMPILER

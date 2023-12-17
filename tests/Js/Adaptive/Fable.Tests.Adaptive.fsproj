@@ -9,7 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../src/Fable.Core/Fable.Core.fsproj" />
-    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.3" />
-    <PackageReference Include="Expecto" Version="9.0.4" />
+    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.14" />
+    <PackageReference Include="Expecto" Version="10.1.0" />
   </ItemGroup>
 </Project>
