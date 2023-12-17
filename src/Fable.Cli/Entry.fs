@@ -316,7 +316,8 @@ type Runner =
                 args.Value("--precompiledLib")
                 |> Option.map normalizeAbsolutePath
 
-            let fableLib = args.Value "--fableLib"
+            let fableLib =
+                args.Value "--fableLib" |> Option.map Path.normalizePath
 
             do!
                 match watch, outDir, fableLib with
