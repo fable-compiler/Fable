@@ -4,6 +4,8 @@
 
 open System
 open System.Threading
+open Microsoft.Extensions.Logging
+open Microsoft.Extensions.Logging.Abstractions
 
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
     member _.ExeFile = exeFile
@@ -82,29 +84,20 @@ type Agent<'T>
 
 [<RequireQualifiedAccess>]
 module Log =
+    let mutable logger: ILogger = NullLogger.Instance
+    let setLogger newLogger = logger <- newLogger
     let newLine = Environment.NewLine
-
-    let isCi =
-        String.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")) |> not
-
     let mutable private verbosity = Fable.Verbosity.Normal
-
-    /// To be called only at the beginning of the app
-    let makeVerbose () = verbosity <- Fable.Verbosity.Verbose
-
-    let makeSilent () = verbosity <- Fable.Verbosity.Silent
-
     let isVerbose () = verbosity = Fable.Verbosity.Verbose
-
-    let canLog msg =
-        verbosity <> Fable.Verbosity.Silent && not (String.IsNullOrEmpty(msg))
 
     let inSameLineIfNotCI (msg: string) =
         match verbosity with
         | Fable.Verbosity.Silent -> ()
-        | Fable.Verbosity.Verbose -> Console.Out.WriteLine(msg)
-        | Fable.Verbosity.Normal ->
-            // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
+        | Fable.Verbosity.Verbose -> logger.LogDebug msg
+        | Fable.Verbosity.Normal -> logger.LogInformation msg
+
+    (* TODO: move this check to Fable.Cli?
+                        // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
             // the same line as it seems to cause problems, see #2727
             if not isCi && not Console.IsOutputRedirected then
                 // If the message is longer than the terminal width it will jump to next line
@@ -122,36 +115,17 @@ module Log =
                 if diff > 0 then
                     Console.Out.Write(String.replicate diff " ")
                     Console.SetCursorPosition(msg.Length, Console.CursorTop)
+            *)
 
-    let alwaysWithColor color (msg: string) =
-        if canLog msg then
-            Console.ForegroundColor <- color
-            Console.Out.WriteLine(msg)
-            Console.ResetColor()
-
-    let always (msg: string) =
-        if canLog msg then
-            Console.Out.WriteLine(msg)
+    let always (msg: string) = logger.LogInformation msg
 
     let verbose (msg: Lazy<string>) =
         if isVerbose () then
             always msg.Value
 
-    let verboseOrIf condition (msg: string) =
-        if canLog msg && (condition || verbosity = Fable.Verbosity.Verbose) then
-            always msg
+    let warning (msg: string) = logger.LogWarning msg
 
-    let warning (msg: string) =
-        if canLog msg then
-            Console.ForegroundColor <- ConsoleColor.DarkYellow
-            Console.Out.WriteLine(msg)
-            Console.ResetColor()
-
-    let error (msg: string) =
-        if canLog msg then
-            Console.ForegroundColor <- ConsoleColor.DarkRed
-            Console.Error.WriteLine(msg)
-            Console.ResetColor()
+    let error (msg: string) = logger.LogError msg
 
     let info (msg: string) =
         if canLog msg then
@@ -173,7 +147,7 @@ module Log =
                 femtoMsgShown <- true
 
                 "Some Nuget packages contain information about NPM dependencies that can be managed by Femto: https://github.com/Zaid-Ajaj/Femto"
-                |> alwaysWithColor ConsoleColor.Blue
+                |> logger.LogInformation
 
 module File =
     open System.IO

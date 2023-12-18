@@ -52,6 +52,7 @@
   <ItemGroup>
     <PackageReference Include="Buildalyzer" Version="5.0.1" />
     <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.9" />
   </ItemGroup>
 </Project>

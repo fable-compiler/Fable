@@ -39,10 +39,12 @@ type CliArgs =
 
 [<RequireQualifiedAccess>]
 module Log =
-    val newLine: string
+    open Microsoft.Extensions.Logging
+
     /// To be called only at the beginning of the app
-    val makeVerbose: unit -> unit
-    val makeSilent: unit -> unit
+    val setLogger: ILogger -> unit
+
+    val newLine: string
     val inSameLineIfNotCI: msg: string -> unit
     val always: msg: string -> unit
     val verbose: msg: Lazy<string> -> unit

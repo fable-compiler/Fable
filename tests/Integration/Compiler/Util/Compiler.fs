@@ -32,7 +32,6 @@ module Compiler =
     let sourceFile = IO.Path.Join(projDir, "Program.fs" ) |> Path.normalizeFullPath
 
     let cliArgs =
-        Log.makeSilent()
         let compilerOptions = CompilerOptionsHelper.Make()
         { CliArgs.ProjectFile = projFile
           FableLibraryPath = None
