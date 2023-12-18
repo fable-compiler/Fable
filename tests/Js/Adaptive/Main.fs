@@ -38,6 +38,6 @@ open Expecto
 let main args =
     Array.toList allTests
     |> testList "All"
-    |> runTestsWithArgs defaultConfig args
+    |> runTestsWithCLIArgs [] args
 
 #endif

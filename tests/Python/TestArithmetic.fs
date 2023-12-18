@@ -145,11 +145,11 @@ let ``test UInt64 multiplication with 0 returns uint`` () = // See #1480
 
 [<Fact>]
 let ``test Decimal literals can be generated`` () =
-    0M |> equal System.Decimal.Zero
-    1M |> equal System.Decimal.One
-    -1M |> equal System.Decimal.MinusOne
-    // FIXME: 79228162514264337593543950335M |> equal System.Decimal.MaxValue
-    // FIXME: -79228162514264337593543950335M |> equal System.Decimal.MinValue
+    0M |> equal Decimal.Zero
+    1M |> equal Decimal.One
+    -1M |> equal Decimal.MinusOne
+    // FIXME: 79228162514264337593543950335M |> equal Decimal.MaxValue
+    // FIXME: -79228162514264337593543950335M |> equal Decimal.MinValue
 
 [<Fact>]
 let ``test Decimal.ToString works`` () =
@@ -624,7 +624,7 @@ let ``test log works`` () =
 
 // https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L239
 [<Fact>]
-let ``test Math.log with base works`` () =
+let ``test Math.Log with base works`` () =
     Math.Log(8.0, 2.0) |> equal 3.0
     Math.Log(3.0, 3.0) |> equal 1.0
     Math.Log(14., 3.0) |> checkTo3dp 2402.
@@ -647,19 +647,19 @@ let ``test Math.E works`` () =
     checkTo3dp 2718. Math.E
 
 [<Fact>]
-let ``test Math.abs works`` () =
+let ``test Math.Abs works`` () =
     Math.Abs -4 |> equal 4
 
 [<Fact>]
-let ``test Math.pow works`` () =
+let ``test Math.Pow works`` () =
     Math.Pow(2.2, 3.0) |> checkTo3dp 10648.
 
 [<Fact>]
-let ``test Math.sqrt works`` () =
+let ``test Math.Sqrt works`` () =
     Math.Sqrt 4.5 |> checkTo3dp 2121.
 
 [<Fact>]
-let ``test Math.round works`` () =
+let ``test Math.Round works`` () =
     Math.Round -12.5 |> equal -12.
     Math.Round 1.425 |> equal 1.
     Math.Round -1.425 |> equal -1.
@@ -667,14 +667,14 @@ let ``test Math.round works`` () =
     Math.Round -1.546 |> equal -2.
 
 [<Fact>]
-let ``test Math.round with digits works`` () =
+let ``test Math.Round with digits works`` () =
     Math.Round(1.426, 2) |> equal 1.43
     Math.Round(1.426, 1) |> equal 1.4
     Math.Round(-1.426, 2) |> equal -1.43
     Math.Round(-1.426, 1) |> equal -1.4
 
 [<Fact>]
-let ``test Math.truncate works`` () =
+let ``test Math.Truncate works`` () =
     Math.Truncate -12.5 |> equal -12.
     Math.Truncate 1.425 |> equal 1.
     Math.Truncate -1.425 |> equal -1.
@@ -682,55 +682,55 @@ let ``test Math.truncate works`` () =
     Math.Truncate -1.546 |> equal -1.
 
 [<Fact>]
-let ``test Math.ceil works`` () =
+let ``test Math.Ceil works`` () =
     Math.Ceiling 11.25 |> equal 12.
 
 [<Fact>]
-let ``test Math.floor works`` () =
+let ``test Math.Floor works`` () =
     Math.Floor 11.75 |> equal 11.
 
 [<Fact>]
-let ``test Math.acos works`` () =
+let ``test Math.Acos works`` () =
     Math.Acos 0.25 |> checkTo3dp 1318.
 
 [<Fact>]
-let ``test Math.asin works`` () =
+let ``test Math.Asin works`` () =
     Math.Asin 0.25 |> checkTo3dp 252.
 
 [<Fact>]
-let ``test Math.atan works`` () =
+let ``test Math.Atan works`` () =
     Math.Atan 0.25 |> checkTo3dp 244.
 
 [<Fact>]
-let ``test Math.atan2 works`` () =
+let ``test Math.Atan2 works`` () =
     Math.Atan2(90., 15.) |> checkTo3dp 1405.
 
 [<Fact>]
-let ``test Math.cos works`` () =
+let ``test Math.Cos works`` () =
     Math.Cos(0.1 * Math.PI) |> checkTo3dp 951.
 
 [<Fact>]
-let ``test Math.sin works`` () =
+let ``test Math.Sin works`` () =
     Math.Sin(0.25 * Math.PI) |> checkTo3dp 707.
 
 [<Fact>]
-let ``test Math.tan works`` () =
+let ``test Math.Tan works`` () =
     Math.Tan(0.5) |> checkTo3dp 546.
 
 [<Fact>]
-let ``test Math.exp works`` () =
+let ``test Math.Exp works`` () =
     Math.Exp 8.0 |> checkTo3dp 2980957.
 
 [<Fact>]
-let ``test Math.log works`` () =
+let ``test Math.Log works`` () =
     Math.Log 232.12 |> checkTo3dp 5447.
 
 // [<Fact>]
-// let ``test Math.log2 works`` () =
+// let ``test Math.Log2 works`` () =
 //     Math.Log2 8.0 |> checkTo3dp 3000.
 
 [<Fact>]
-let ``test Math.log10 works`` () =
+let ``test Math.Log10 works`` () =
     Math.Log10 232.12 |> checkTo3dp 2365.
 
 // [<Fact>]
@@ -745,106 +745,100 @@ let ``test Math.log10 works`` () =
 // let ``test BigInt.Log10 works`` () =
 //     bigint.Log10 123I |> checkTo3dp 2089.
 
-// // TODO: enable for .NET 7.0/8.0
 // [<Fact>]
 // let ``test Numeric Log2 works`` () =
-//     System.SByte.Log2 8y |> equal 3y
-//     System.Int16.Log2 8s |> equal 3s
-//     System.Int32.Log2 8  |> equal 3
-//     System.Int64.Log2 8L |> equal 3L
-//     System.Byte.Log2 8uy |> equal 3uy
-//     System.UInt16.Log2 8us |> equal 3us
-//     System.UInt32.Log2 8u  |> equal 3u
-//     System.UInt64.Log2 8UL |> equal 3UL
-//     System.Double.Log2 8.0 |> equal 3.0
-//     System.Single.Log2 8.0f |> equal 3.0f
+//     SByte.Log2 8y |> equal 3y
+//     Int16.Log2 8s |> equal 3s
+//     Int32.Log2 8  |> equal 3
+//     Int64.Log2 8L |> equal 3L
+//     Byte.Log2 8uy |> equal 3uy
+//     UInt16.Log2 8us |> equal 3us
+//     UInt32.Log2 8u  |> equal 3u
+//     UInt64.Log2 8UL |> equal 3UL
+//     Double.Log2 8.0 |> equal 3.0
+//     Single.Log2 8.0f |> equal 3.0f
 //     bigint.Log2 8I |> equal 3I
 
-// // TODO: enable for .NET 7.0/8.0
 // [<Fact>]
 // let ``test Numeric Min works`` () =
-//     System.SByte.Min(-4y, 3y) |> equal -4y
-//     System.Int16.Min(-4s, 3s) |> equal -4s
-//     System.Int32.Min(-4, 3)  |> equal -4
-//     System.Int64.Min(-4L, 3L) |> equal -4L
-//     System.Byte.Min(4uy, 3uy) |> equal 3uy
-//     System.UInt16.Min(4us, 3us) |> equal 3us
-//     System.UInt32.Min(4u, 3u)  |> equal 3u
-//     System.UInt64.Min(4UL, 3UL) |> equal 3UL
-//     System.Double.Min(-4.0, 3.0) |> equal -4.0
-//     System.Single.Min(-4.0f, 3.0f) |> equal -4.0f
-//     System.Decimal.Min(-4.0M, 3.0M) |> equal -4.0M
+//     SByte.Min(-4y, 3y) |> equal -4y
+//     Int16.Min(-4s, 3s) |> equal -4s
+//     Int32.Min(-4, 3)  |> equal -4
+//     Int64.Min(-4L, 3L) |> equal -4L
+//     Byte.Min(4uy, 3uy) |> equal 3uy
+//     UInt16.Min(4us, 3us) |> equal 3us
+//     UInt32.Min(4u, 3u)  |> equal 3u
+//     UInt64.Min(4UL, 3UL) |> equal 3UL
+//     Double.Min(-4.0, 3.0) |> equal -4.0
+//     Single.Min(-4.0f, 3.0f) |> equal -4.0f
+//     Decimal.Min(-4.0M, 3.0M) |> equal -4.0M
 //     bigint.Min(-4I, 3I) |> equal -4I
 
-// // TODO: enable for .NET 7.0/8.0
 // [<Fact>]
 // let ``test Numeric Max works`` () =
-//     System.SByte.Max(-4y, 3y) |> equal 3y
-//     System.Int16.Max(-4s, 3s) |> equal 3s
-//     System.Int32.Max(-4, 3)  |> equal 3
-//     System.Int64.Max(-4L, 3L) |> equal 3L
-//     System.Byte.Max(4uy, 3uy) |> equal 4uy
-//     System.UInt16.Max(4us, 3us) |> equal 4us
-//     System.UInt32.Max(4u, 3u)  |> equal 4u
-//     System.UInt64.Max(4UL, 3UL) |> equal 4UL
-//     System.Double.Max(-4.0, 3.0) |> equal 3.0
-//     System.Single.Max(-4.0f, 3.0f) |> equal 3.0f
-//     System.Decimal.Max(-4.0M, 3.0M) |> equal 3.0M
+//     SByte.Max(-4y, 3y) |> equal 3y
+//     Int16.Max(-4s, 3s) |> equal 3s
+//     Int32.Max(-4, 3)  |> equal 3
+//     Int64.Max(-4L, 3L) |> equal 3L
+//     Byte.Max(4uy, 3uy) |> equal 4uy
+//     UInt16.Max(4us, 3us) |> equal 4us
+//     UInt32.Max(4u, 3u)  |> equal 4u
+//     UInt64.Max(4UL, 3UL) |> equal 4UL
+//     Double.Max(-4.0, 3.0) |> equal 3.0
+//     Single.Max(-4.0f, 3.0f) |> equal 3.0f
+//     Decimal.Max(-4.0M, 3.0M) |> equal 3.0M
 //     bigint.Max(-4I, 3I) |> equal 3I
 
-// // TODO: enable for .NET 7.0/8.0
 // [<Fact>]
 // let ``test Numeric MinMagnitude works`` () =
-//     System.SByte.MinMagnitude(-4y, 3y) |> equal 3y
-//     System.Int16.MinMagnitude(-4s, 3s) |> equal 3s
-//     System.Int32.MinMagnitude(-4, 3)  |> equal 3
-//     System.Int64.MinMagnitude(-4L, 3L) |> equal 3L
-//     System.Double.MinMagnitude(-4.0, 3.0) |> equal 3.0
-//     System.Single.MinMagnitude(-4.0f, 3.0f) |> equal 3.0f
-//     System.Decimal.MinMagnitude(-4.0M, 3.0M) |> equal 3.0M
+//     SByte.MinMagnitude(-4y, 3y) |> equal 3y
+//     Int16.MinMagnitude(-4s, 3s) |> equal 3s
+//     Int32.MinMagnitude(-4, 3)  |> equal 3
+//     Int64.MinMagnitude(-4L, 3L) |> equal 3L
+//     Double.MinMagnitude(-4.0, 3.0) |> equal 3.0
+//     Single.MinMagnitude(-4.0f, 3.0f) |> equal 3.0f
+//     Decimal.MinMagnitude(-4.0M, 3.0M) |> equal 3.0M
 //     bigint.MinMagnitude(-4I, 3I) |> equal 3I
 
-// // TODO: enable for .NET 7.0/8.0
 // [<Fact>]
 // let ``test Numeric MaxMagnitude works`` () =
-//     System.SByte.MaxMagnitude(-4y, 3y) |> equal -4y
-//     System.Int16.MaxMagnitude(-4s, 3s) |> equal -4s
-//     System.Int32.MaxMagnitude(-4, 3)  |> equal -4
-//     System.Int64.MaxMagnitude(-4L, 3L) |> equal -4L
-//     System.Double.MaxMagnitude(-4.0, 3.0) |> equal -4.0
-//     System.Single.MaxMagnitude(-4.0f, 3.0f) |> equal -4.0f
-//     System.Decimal.MaxMagnitude(-4.0M, 3.0M) |> equal -4.0M
+//     SByte.MaxMagnitude(-4y, 3y) |> equal -4y
+//     Int16.MaxMagnitude(-4s, 3s) |> equal -4s
+//     Int32.MaxMagnitude(-4, 3)  |> equal -4
+//     Int64.MaxMagnitude(-4L, 3L) |> equal -4L
+//     Double.MaxMagnitude(-4.0, 3.0) |> equal -4.0
+//     Single.MaxMagnitude(-4.0f, 3.0f) |> equal -4.0f
+//     Decimal.MaxMagnitude(-4.0M, 3.0M) |> equal -4.0M
 //     bigint.MaxMagnitude(-4I, 3I) |> equal -4I
 
-// // TODO: enable for .NET 7.0/8.0
 // [<Fact>]
 // let ``test Numeric Clamp works`` () =
-//     System.SByte.Clamp(5y, -4y, 3y) |> equal 3y
-//     System.Int16.Clamp(5s, -4s, 3s) |> equal 3s
-//     System.Int32.Clamp(5, -4, 3)  |> equal 3
-//     System.Int64.Clamp(5L, -4L, 3L) |> equal 3L
-//     System.Byte.Clamp(5uy, 3uy, 4uy) |> equal 4uy
-//     System.UInt16.Clamp(5us, 3us, 4us) |> equal 4us
-//     System.UInt32.Clamp(5u, 3u, 4u)  |> equal 4u
-//     System.UInt64.Clamp(5UL, 3UL, 4UL) |> equal 4UL
-//     System.Double.Clamp(5.0, -4.0, 3.0) |> equal 3.0
-//     System.Single.Clamp(5.0f, -4.0f, 3.0f) |> equal 3.0f
-//     System.Decimal.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
+//     SByte.Clamp(5y, -4y, 3y) |> equal 3y
+//     Int16.Clamp(5s, -4s, 3s) |> equal 3s
+//     Int32.Clamp(5, -4, 3)  |> equal 3
+//     Int64.Clamp(5L, -4L, 3L) |> equal 3L
+//     Byte.Clamp(5uy, 3uy, 4uy) |> equal 4uy
+//     UInt16.Clamp(5us, 3us, 4us) |> equal 4us
+//     UInt32.Clamp(5u, 3u, 4u)  |> equal 4u
+//     UInt64.Clamp(5UL, 3UL, 4UL) |> equal 4UL
+//     Double.Clamp(5.0, -4.0, 3.0) |> equal 3.0
+//     Single.Clamp(5.0f, -4.0f, 3.0f) |> equal 3.0f
+//     Decimal.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
 //     bigint.Clamp(5I, -4I, 3I) |> equal 3I
 
 [<Fact>]
 let ``test Math.Clamp works`` () =
-    System.Math.Clamp(5y, -4y, 3y) |> equal 3y
-    System.Math.Clamp(5s, -4s, 3s) |> equal 3s
-    System.Math.Clamp(5, -4, 3)  |> equal 3
-    System.Math.Clamp(5L, -4L, 3L) |> equal 3L
-    System.Math.Clamp(5uy, 3uy, 4uy) |> equal 4uy
-    System.Math.Clamp(5us, 3us, 4us) |> equal 4us
-    System.Math.Clamp(5u, 3u, 4u)  |> equal 4u
-    System.Math.Clamp(5UL, 3UL, 4UL) |> equal 4UL
-    System.Math.Clamp(5.0, -4.0, 3.0) |> equal 3.0
-    System.Math.Clamp(5.0f, -4.0f, 3.0f) |> equal 3.0f
-    System.Math.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
+    Math.Clamp(5y, -4y, 3y) |> equal 3y
+    Math.Clamp(5s, -4s, 3s) |> equal 3s
+    Math.Clamp(5, -4, 3)  |> equal 3
+    Math.Clamp(5L, -4L, 3L) |> equal 3L
+    Math.Clamp(5uy, 3uy, 4uy) |> equal 4uy
+    Math.Clamp(5us, 3us, 4us) |> equal 4us
+    Math.Clamp(5u, 3u, 4u)  |> equal 4u
+    Math.Clamp(5UL, 3UL, 4UL) |> equal 4UL
+    Math.Clamp(5.0, -4.0, 3.0) |> equal 3.0
+    Math.Clamp(5.0f, -4.0f, 3.0f) |> equal 3.0f
+    Math.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
 
 [<Fact>]
 let ``test Math.Min works`` () =
@@ -884,20 +878,47 @@ let ``test decr works`` () =
     i.Value <- i.Value - 1
     i.Value |> equal 2
 
-// [<Fact>]
-// let ``test System.Random works`` () =
-//     let rnd = Random()
-//     let x = rnd.Next(5)
-//     (x >= 0 && x < 5) |> equal true
-//     let y = rnd.NextDouble()
-//     (y >= 0.0 && y < 1.0) |> equal true
+[<Fact>]
+let ``test System.Random works`` () =
+    let rnd = Random()
+    let x = rnd.Next()
+    x >= 0 |> equal true
+    let x = rnd.Next(5)
+    (x >= 0 && x < 5) |> equal true
+    let x = rnd.Next(14, 20)
+    (x >= 14 && x < 20) |> equal true
+    let x = rnd.Next(-14, -10)
+    (x >= -14 && x < -10) |> equal true
+    let x = rnd.NextDouble()
+    (x >= 0.0 && x < 1.0) |> equal true
+    throwsAnyError <| fun () -> rnd.Next(-10)
+    throwsAnyError <| fun () -> rnd.Next(14, 10)
 
 // // Note: Test could fail sometime during life of universe, if it picks all zeroes.
 // [<Fact>]
 // let ``test System.Random.NextBytes works`` () =
 //     let buffer = Array.create 16 0uy // guid-sized buffer
 //     Random().NextBytes(buffer)
+//     buffer.Length |> equal 16
 //     buffer = Array.create 16 0uy |> equal false
+//     throwsAnyError <| fun () -> Random().NextBytes(null)
+
+// [<Fact>]
+// let ``test System.Random seeded works`` () =
+//     let rnd = Random(1234)
+//     rnd.Next() |> equal 857019877
+//     rnd.Next(100) |> equal 89
+//     rnd.Next(1000, 10000) |> equal 3872
+//     rnd.NextDouble() |> equal 0.9467375338760845
+//     throwsAnyError <| fun () -> rnd.Next(-10)
+//     throwsAnyError <| fun () -> rnd.Next(14, 10)
+
+// [<Fact>]
+// let ``test System.Random.NextBytes seeded works`` () =
+//     let buffer = Array.create 4 0uy // guid-sized buffer
+//     Random(5432).NextBytes(buffer)
+//     buffer |> equal [|152uy; 238uy; 227uy; 30uy|]
+//     throwsAnyError <| fun () -> Random().NextBytes(null)
 
 [<Fact>]
 let ``test Long integer equality works`` () =
@@ -1080,27 +1101,6 @@ let ``test Sign operator works with bigints`` () =
 //         let b = { x = 3f<m>; y = 1f<m> }
 //         let res = a + b
 //         equal { x = 5f<m>; y = 2f<m> } res
-
-[<Fact>]
-let ``test System.Random works`` () =
-    let rnd = System.Random()
-    let x = rnd.Next()
-    x >= 0 |> equal true
-
-    let x = rnd.Next(5)
-    (x >= 0 && x < 5) |> equal true
-
-    let x = rnd.Next(14, 20)
-    (x >= 14 && x < 20) |> equal true
-
-    let x = rnd.Next(-14, -10)
-    (x >= -14 && x < -10) |> equal true
-
-    let x = rnd.NextDouble()
-    (x >= 0.0 && x < 1.0) |> equal true
-
-    throwsAnyError <| fun () -> rnd.Next(-10)
-    throwsAnyError <| fun () -> rnd.Next(14, 10)
 
 [<Fact>]
 let ``test extreme values work`` () =

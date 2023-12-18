@@ -12,8 +12,8 @@ let allTests =
 
 [<EntryPoint>]
 let main args =
-    let config = { defaultConfig with runInParallel = false }
+    let config = [ Sequenced ]
 
     allTests
     |> testList "All"
-    |> runTestsWithArgs config args
+    |> runTestsWithCLIArgs config args

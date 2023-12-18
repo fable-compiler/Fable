@@ -8,7 +8,7 @@
     <Compile Include="__tests__/Tests.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="4.0.0-snake-island-alpha-007" />
+    <PackageReference Include="Fable.Core" Version="4.2.0" />
     <PackageReference Include="Fable.FluentUI" Version="0.7.0" />
     <PackageReference Include="Fable.Jester" Version="0.33.0" />
     <PackageReference Include="Fable.React" Version="8.0.1" />

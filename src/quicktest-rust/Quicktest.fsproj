@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/main.fs" />
   </ItemGroup>
-  <!-- <ItemGroup>
-    <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />
-  </ItemGroup> -->
+  <ItemGroup>
+    <!-- <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" /> -->
+  </ItemGroup>
 </Project>
