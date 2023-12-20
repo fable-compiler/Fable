@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### All
 
 * Updated FCS to [fce0cf00585c12174fa3e51e4fc34afe784b9b4e](https://github.com/dotnet/fsharp/commits/fce0cf00585c12174fa3e51e4fc34afe784b9b4e) (by @ncave)
+* [GH-3675](https://github.com/fable-compiler/Fable/issues/3675) **Breaking Change** `static` members always require `static member`, disregarding FCS from F# v7.0 and early v8.0 supported dismissing the `member` keyword.
 
 ### Added
 
