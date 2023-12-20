@@ -89,34 +89,6 @@ module Log =
     let newLine = Environment.NewLine
     let mutable private verbosity = Fable.Verbosity.Normal
     let isVerbose () = verbosity = Fable.Verbosity.Verbose
-
-    let inSameLineIfNotCI (msg: string) =
-        match verbosity with
-        | Fable.Verbosity.Silent -> ()
-        | Fable.Verbosity.Verbose -> logger.LogDebug msg
-        | Fable.Verbosity.Normal -> logger.LogInformation msg
-
-    (* TODO: move this check to Fable.Cli?
-                        // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
-            // the same line as it seems to cause problems, see #2727
-            if not isCi && not Console.IsOutputRedirected then
-                // If the message is longer than the terminal width it will jump to next line
-                let msg =
-                    if msg.Length > 80 then
-                        msg.[..80] + "..."
-                    else
-                        msg
-
-                let curCursorLeft = Console.CursorLeft
-                Console.SetCursorPosition(0, Console.CursorTop)
-                Console.Out.Write(msg)
-                let diff = curCursorLeft - msg.Length
-
-                if diff > 0 then
-                    Console.Out.Write(String.replicate diff " ")
-                    Console.SetCursorPosition(msg.Length, Console.CursorTop)
-            *)
-
     let always (msg: string) = logger.LogInformation msg
 
     let verbose (msg: Lazy<string>) =

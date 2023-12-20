@@ -43,9 +43,7 @@ module Log =
 
     /// To be called only at the beginning of the app
     val setLogger: ILogger -> unit
-
     val newLine: string
-    val inSameLineIfNotCI: msg: string -> unit
     val always: msg: string -> unit
     val verbose: msg: Lazy<string> -> unit
     val warning: msg: string -> unit

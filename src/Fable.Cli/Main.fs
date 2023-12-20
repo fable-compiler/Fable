@@ -834,10 +834,7 @@ and FableCompiler
 
                                 $"Compiled {state.FableFilesCompiledCount}/{state.FableFilesToCompileExpectedCount}: {fileName}"
 
-                            if projCracked.CliArgs.NoParallelTypeCheck then
-                                Log.always msg
-                            else
-                                Log.inSameLineIfNotCI msg
+                            Log.always msg
 
                         FableCompiler.CheckIfCompilationIsFinished(state)
                         return! loop state
@@ -899,7 +896,6 @@ and FableCompiler
             state.ReplyChannel
         with
         | true, true, Some channel ->
-            Log.inSameLineIfNotCI ""
             // Fable results are not guaranteed to be in order but revert them to make them closer to the original order
             let fableResults = state.FableResults |> List.rev
             Ok(state.FSharpLogs, fableResults) |> channel.Reply
