@@ -33,6 +33,7 @@ type CliArgs =
         Replace: Map<string, string>
         RunProcess: RunProcess option
         CompilerOptions: Fable.CompilerOptions
+        Verbosity: Fable.Verbosity
     }
 
     member this.ProjectFileAsRelativePath =

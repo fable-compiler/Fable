@@ -440,6 +440,7 @@ type Runner =
                         |> Map
                     RunProcess = runProc
                     CompilerOptions = compilerOptions
+                    Verbosity = verbosity
                 }
 
             let watchDelay =
@@ -611,7 +612,11 @@ let main argv =
 
                     use factory =
                         LoggerFactory.Create(fun builder ->
-                            builder.SetMinimumLevel(level).AddConsole()
+                            builder
+                                .SetMinimumLevel(level)
+                                .AddSimpleConsole(fun options ->
+                                    options.SingleLine <- true
+                                )
                             |> ignore
                         )
 
