@@ -7,10 +7,14 @@ type DisposableAction(f) =
     interface System.IDisposable with
         member _.Dispose() = f ()
 
+let runSynchronously<'T> (tsk: Task<'T>) : 'T =
+    //tsk.GetAwaiter().GetResult()
+    tsk.Result
+
 [<Fact>]
 let ``Simple task translates without exception`` () =
     let tsk = task { return () }
-    tsk.GetAwaiter().GetResult()
+    tsk |> runSynchronously
 
 [<Fact>]
 let ``Simple task result translates without exception`` () =
@@ -31,7 +35,7 @@ let ``task while binding works correctly`` () =
             while result < 10 do
                 result <- result + 1
         }
-    tsk.GetAwaiter().GetResult()
+    tsk |> runSynchronously
     result |> equal 10
 
 [<Fact>]
@@ -43,7 +47,7 @@ let ``Task for binding works correctly`` () =
             for inp in inputs do
                 result <- result + inp
         }
-    tsk.GetAwaiter().GetResult()
+    tsk |> runSynchronously
     result |> equal 6
 
 [<Fact>]
@@ -60,7 +64,7 @@ let ``Task exceptions are handled correctly`` () =
                 with
                 | _ -> result <- 10
             }
-        tsk.GetAwaiter().GetResult()
+        tsk |> runSynchronously
         result
     f true + f false |> equal 22
 
@@ -73,7 +77,7 @@ let ``Simple task is executed correctly`` () =
         let y = 99
         result <- x = y
     }
-    |> (fun tsk -> tsk.GetAwaiter().GetResult())
+    |> runSynchronously
     result |> equal true
 
 [<Fact>]
@@ -89,7 +93,7 @@ let ``task use statements should dispose of resources when they go out of scope`
         use! r = resource
         step1ok <- not isDisposed
     }
-    |> (fun tsk -> tsk.GetAwaiter().GetResult())
+    |> runSynchronously
 
     step2ok <- isDisposed
     (step1ok && step2ok) |> equal true
@@ -120,7 +124,7 @@ let ``Try ... with ... expressions inside async expressions work the same`` () =
         | _ -> append "2"
         append "f"
     }
-    |> (fun tsk -> tsk.GetAwaiter().GetResult())
+    |> runSynchronously
 
     result |> equal "abcdef"
 
@@ -133,5 +137,5 @@ let ``TaskCompletionSource is executed correctly`` () =
             return! tcs.Task
         }
     let result =
-        x |> (fun tsk -> tsk.GetAwaiter().GetResult())
+        x |> runSynchronously
     result |> equal 42
