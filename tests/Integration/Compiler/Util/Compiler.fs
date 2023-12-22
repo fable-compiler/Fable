@@ -50,7 +50,8 @@ module Compiler =
           Exclude = ["Fable.Core"]
           Replace = Map.empty
           RunProcess = None
-          CompilerOptions = compilerOptions }
+          CompilerOptions = compilerOptions
+          Verbosity = Verbosity.Normal }
 
     let mutable private state = State.Create(cliArgs, recompileAllFiles=true)
 
