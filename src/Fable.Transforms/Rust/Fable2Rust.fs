@@ -3911,8 +3911,11 @@ module Util =
 
     let getModuleItems (com: IRustCompiler) ctx =
         if isLastFileInProject com then
-            // add all other source files as module imports
+            // add all other source files (except signatures) as module imports
             com.SourceFiles
+            |> Array.filter (fun x ->
+                not (x.EndsWith(".fsi", StringComparison.Ordinal))
+            )
             |> Array.iter (fun filePath ->
                 if filePath <> com.CurrentFile then
                     let relPath = Path.getRelativePath com.CurrentFile filePath

@@ -7,7 +7,7 @@ pub mod Exception_ {
     #[cfg(feature = "no_std")]
     pub fn try_catch<F, G, R>(try_f: F, catch_f: G) -> R
     where
-        F: FnOnce() -> R + core::panic::UnwindSafe,
+        F: FnOnce() -> R,
         G: FnOnce(LrcPtr<Exception>) -> R,
     {
         try_f() // no catching when no_std
@@ -16,7 +16,7 @@ pub mod Exception_ {
     #[cfg(not(feature = "no_std"))]
     pub fn try_catch<F, G, R>(try_f: F, catch_f: G) -> R
     where
-        F: FnOnce() -> R + core::panic::UnwindSafe,
+        F: FnOnce() -> R,
         G: FnOnce(LrcPtr<Exception>) -> R,
     {
         fn get_ex(err: Box<dyn Any>) -> LrcPtr<Exception> {
@@ -33,7 +33,7 @@ pub mod Exception_ {
         }
         let prev_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
-        let result = std::panic::catch_unwind(try_f);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(try_f));
         std::panic::set_hook(prev_hook);
         match result {
             Ok(res) => res,
