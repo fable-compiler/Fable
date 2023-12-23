@@ -1523,6 +1523,7 @@ module Util =
         // printfn "memberFromName: %A" memberName
         match memberName with
         | "ToString" -> Expression.identifier "__str__"
+        | "GetHashCode" -> Expression.identifier "__hash__"
         | "Equals" -> Expression.identifier "__eq__"
         | "CompareTo" -> Expression.identifier "__cmp__"
         | "set" -> Expression.identifier "__setitem__"
