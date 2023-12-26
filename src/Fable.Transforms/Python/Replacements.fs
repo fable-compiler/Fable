@@ -2094,7 +2094,11 @@ let operators
     | "Sin", _
     | "Sinh", _
     | "Tan", _
-    | "Tanh", _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
+    | "Tanh", _ ->
+        match args with
+        | ExprType(Number(_, _)) :: _ ->
+            math r t args i.SignatureArgTypes i.CompiledName |> Some
+        | _ -> applyOp com ctx r t i.CompiledName args |> Some
     | "Log", _
     | "Sqrt", _ ->
         Helper.LibCall(

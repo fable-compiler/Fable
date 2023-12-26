@@ -16,6 +16,8 @@ type MyRecord =
     static member (+) (x: MyRecord, y: int) = { value = x.value + y }
     static member (+) (x: int, y: MyRecord) = x + y.value + 2
 
+    static member Exp (x: MyRecord) = { value = x.value + 1}
+
 type CustomPow =
     { Ok: bool }
     static member Pow(x: CustomPow, n: int) = { Ok = true }
@@ -40,6 +42,14 @@ let typeOperators = [
     testCase "Custom Pow works" <| fun () -> // See #2496
         let x = { Ok = false }
         x ** 2 |> equal { Ok = true }
+
+    testCase "Custom Exp works" <| fun () ->
+        let x = { value=10 }
+        exp x |> equal { value= 11 }
+
+    testCase "Float Exp works" <| fun () ->
+        let x = 0.0
+        exp x |> equal 1.
 ]
 
 let (+) (x: int) (y: int) = x * y
