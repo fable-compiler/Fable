@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+#### JavaScript
+
+* Add `DataView.getBigInt64` by (@PierreYvesR)
+* Add `DataView.getBigUint64` by (@PierreYvesR)
+* Add `DataView.setBigInt64` by (@PierreYvesR)
+* Add `DataView.setBigUint64` by (@PierreYvesR)
+
 ## 4.2.0 - 2021-10-24
 
 ### Added

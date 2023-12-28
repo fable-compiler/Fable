@@ -462,9 +462,11 @@ module JS =
         abstract getInt8: byteOffset: int -> sbyte
         abstract getInt16: byteOffset: int * ?littleEndian: bool -> int16
         abstract getInt32: byteOffset: int * ?littleEndian: bool -> int32
+        abstract getBigInt64: byteOffset: int * ?littleEndian: bool -> int64
         abstract getUint8: byteOffset: int -> byte
         abstract getUint16: byteOffset: int * ?littleEndian: bool -> uint16
         abstract getUint32: byteOffset: int * ?littleEndian: bool -> uint32
+        abstract getBigUint64: byteOffset: int * ?littleEndian: bool -> uint64
 
         abstract setFloat32:
             byteOffset: int * value: float32 * ?littleEndian: bool -> unit
@@ -480,6 +482,9 @@ module JS =
         abstract setInt32:
             byteOffset: int * value: int32 * ?littleEndian: bool -> unit
 
+        abstract setBigInt64:
+            byteOffset: int * value: int64 * ?littleEndian: bool -> unit
+
         abstract setUint8: byteOffset: int * value: byte -> unit
 
         abstract setUint16:
@@ -487,6 +492,9 @@ module JS =
 
         abstract setUint32:
             byteOffset: int * value: uint32 * ?littleEndian: bool -> unit
+
+        abstract setBigUint64:
+            byteOffset: int * value: uint64 * ?littleEndian: bool -> unit
 
     and [<AllowNullLiteral>] DataViewConstructor =
         [<Emit("new $0($1...)")>]
