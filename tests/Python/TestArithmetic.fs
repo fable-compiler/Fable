@@ -1118,5 +1118,13 @@ let ``test extreme values work`` () =
     |> Double.IsNegativeInfinity
     |> equal false
 
+    1.0 / 0.0
+    |> Double.IsPositiveInfinity
+    |> equal true
+
+    1.0 / (-0.0)
+    |> Double.IsPositiveInfinity
+    |> equal false
+
     -infinity < infinity |> equal true
     (-0.0) < 0.0 |> equal false
