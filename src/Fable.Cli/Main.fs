@@ -1054,18 +1054,28 @@ let private getFilesToCompile
                 file
         )
 
+    let pathResolver = state.GetPathResolver()
+
     let filesToCompile =
         projCracked.SourceFilePaths
         |> Array.filter (fun path ->
             changes.Contains path
             || pendingFiles.Contains path
             || state.TriggeredByDependency(path, changes)
-            // TODO: If files have been deleted, we should likely recompile after first deletion
             || (
                 match oldFiles with
                 | Some oldFiles -> not (oldFiles.ContainsKey(path))
                 | None -> false
             )
+            || (
+                // If files have been deleted, we should likely recompile after first deletion
+                let outPath = getOutPath state.CliArgs pathResolver path
+
+                let wasDeleted =
+                    (path.EndsWith(".fs") || path.EndsWith(".fsx"))
+                    && not (IO.File.Exists outPath)
+
+                wasDeleted)
         )
 
     Log.verbose (
