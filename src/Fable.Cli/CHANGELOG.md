@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Python
 
 * Fixed nested type with custom hashcode (by @dbrattli)
+* Add 'Double.IsPositiveInfinity' (by @PierreYvesR)
 
 #### Rust
 

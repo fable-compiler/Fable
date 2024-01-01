@@ -3850,6 +3850,17 @@ let parseNum
             ?loc = r
         )
         |> Some
+    | "IsPositiveInfinity", [ _ ] when isFloat ->
+        Helper.LibCall(
+            com,
+            "double",
+            "is_positive_inf",
+            t,
+            args,
+            i.SignatureArgTypes,
+            ?loc = r
+        )
+        |> Some
     | ("Parse" | "TryParse") as meth,
       str :: NumberConst(:? int as style, _, _) :: _ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
