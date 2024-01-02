@@ -4,6 +4,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from re import Match
 from typing import Any
+from math import fmod
 
 from .time_span import TimeSpan, total_microseconds
 from .time_span import create as create_time_span
@@ -82,6 +83,10 @@ def second(d: datetime) -> int:
 
 def millisecond(d: datetime) -> int:
     return d.microsecond // 1000
+
+
+def microsecond(d: datetime) -> int:
+    return d.microsecond
 
 
 def to_universal_time(d: datetime) -> datetime:
@@ -229,6 +234,10 @@ def utc_now() -> datetime:
     return datetime.utcnow()
 
 
+def today() -> datetime:
+    return datetime.replace(now(), hour=0, minute=0, second=0, microsecond=0)
+
+
 def to_local_time(date: datetime) -> datetime:
     return date.astimezone()
 
@@ -269,19 +278,36 @@ def parse(string: str) -> datetime:
     except ValueError:
         pass
 
-    formats = {
+    # For the time-only formats, needs a special treatment
+    # because in Python, they are set in 1900-01-01 while
+    # in F# they are set in the current date
+    hoursFormats = {
         # Matches a time string in 24-hour format "HH:MM:SS"
-        r"\d{1,2}:\d{1,2}:\d{2}": "%H:%M:%S",
-        # # Matches a time string in 12-hour format with AM/PM "HH:MM:SS AM" or "HH:MM:SS PM"
-        r"(0?[1-9]|1[0-2]):([0-5][1-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M": "%I:%M:%S %p",
-        r"\d{1,2}:\d{1,2}:\d{2} [AP]M": "%H:%M:%S %p",
+        r"^\d{1,2}:\d{1,2}:\d{2}$": "%H:%M:%S",
+        # Matches a time string in 12-hour format with AM/PM "HH:MM:SS AM" or "HH:MM:SS PM"
+        r"^(0?[1-9]|1[0-2]):([0-5][1-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M$": "%I:%M:%S %p",
+        r"^\d{1,2}:\d{1,2}:\d{2} [AP]M$": "%H:%M:%S %p",
+    }
+
+    for pattern, format in hoursFormats.items():
+        if re.fullmatch(pattern, string):
+            hourDate = datetime.strptime(string, format)
+            return datetime.replace(
+                now(),
+                hour=hourDate.hour,
+                minute=hourDate.minute,
+                second=hourDate.second,
+                microsecond=0,
+            )
+
+    formats = {
         # 9/10/2014 1:50:34 PM
-        r"(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M": "%m/%d/%Y %I:%M:%S %p",
+        r"^(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M$": "%m/%d/%Y %I:%M:%S %p",
         # 9/10/2014 1:50:34
-        r"(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9])": "%m/%d/%Y %H:%M:%S",
+        r"^(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9])$": "%m/%d/%Y %H:%M:%S",
         # Matches a datetime string in the format "YYYY-MM-DDTHH:MM:SS.ffffff". This format usually parses with
         # `fromisoformat`, but not with Python 3.10
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}": "%Y-%m-%dT%H:%M:%S.%f000",
+        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}$": "%Y-%m-%dT%H:%M:%S.%f000",
     }
 
     for pattern, format in formats.items():
@@ -299,8 +325,71 @@ def try_parse(string: str, defValue: FSharpRef[datetime]) -> bool:
         return False
 
 
+def date(d: datetime) -> datetime:
+    # TODO: Should forward d.kind
+    return create(d.year, d.month, d.day)
+
+
+def days_in_month(year: int, month: int) -> int:
+    if month == 2:
+        return 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28
+
+    if month in (4, 6, 9, 11):
+        return 30
+
+    return 31
+
+
+def add_years(d: datetime, v: int) -> datetime:
+    new_month = month(d)
+    new_year = year(d) + v
+    _days_in_month = days_in_month(new_year, new_month)
+    new_day = min(_days_in_month, day(d))
+    # TODO: Should forward d.kind
+    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d))
+
+
+def add_months(d: datetime, v: int) -> datetime:
+    new_month = month(d) + v
+    new_month_ = 0
+    year_offset = 0
+    if new_month > 12:
+        new_month_ = int(fmod(new_month, 12))
+        year_offset = new_month // 12
+        new_month = new_month_
+    elif new_month < 1:
+        new_month_ = 12 + int(fmod(new_month, 12))
+        year_offset = new_month // 12 + (-1 if new_month_ == 12 else 0)
+        new_month = new_month_
+    new_year = year(d) + year_offset
+    _days_in_month = days_in_month(new_year, new_month)
+    new_day = min(_days_in_month, day(d))
+    # TODO: Should forward d.kind
+    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d))
+
+
+def add_days(d: datetime, v: int) -> datetime:
+    return d + timedelta(days=v)
+
+
+def add_hours(d: datetime, v: int) -> datetime:
+    return d + timedelta(hours=v)
+
+
+def add_minutes(d: datetime, v: int) -> datetime:
+    return d + timedelta(minutes=v)
+
+
+def add_seconds(d: datetime, v: int) -> datetime:
+    return d + timedelta(seconds=v)
+
+
 def add_milliseconds(d: datetime, v: int) -> datetime:
     return d + timedelta(milliseconds=v)
+
+
+def add_microseconds(d: datetime, v: int) -> datetime:
+    return d + timedelta(microseconds=v)
 
 
 __all__ = [
@@ -315,6 +404,7 @@ __all__ = [
     "minute",
     "second",
     "millisecond",
+    "microsecond",
     "day_of_week",
     "day_of_year",
     "date_to_string_with_custom_format",
@@ -323,6 +413,7 @@ __all__ = [
     "to_string",
     "now",
     "utc_now",
+    "today",
     "to_local_time",
     "compare",
     "equals",
@@ -332,4 +423,13 @@ __all__ = [
     "parse",
     "to_universal_time",
     "try_parse",
+    "date",
+    "add_years",
+    "add_months",
+    "add_days",
+    "add_hours",
+    "add_minutes",
+    "add_seconds",
+    "add_milliseconds",
+    "add_microseconds",
 ]

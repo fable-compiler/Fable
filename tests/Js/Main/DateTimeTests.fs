@@ -264,11 +264,16 @@ let tests =
 
     testCase "DateTime.Parse with time-only string works" <| fun () -> // See #1045
         let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
-        d.Hour + d.Minute + d.Second |> equal 97
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2124
+
         let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
-        d.Hour + d.Minute + d.Second |> equal 40
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2067
+
         let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
-        d.Hour + d.Minute + d.Second |> equal 52
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2079
+
+        let d = DateTime.Parse("15:5:34 PM", CultureInfo.InvariantCulture)
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2081
 
     testCase "DateTime.TryParse works" <| fun () ->
         let f (d: string) =

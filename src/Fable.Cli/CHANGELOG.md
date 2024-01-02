@@ -34,15 +34,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Python
 
-* [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Add several missing `DateTime` methods (by @MangelMaxime)
-    * `dt.Month`
-    * `dt.Day`
-    * `dt.Hour`
-    * `dt.Minute`
-    * `dt.Second`
-    * `dt.Millisecond`
-    * `dt.DayOfWeek`
-    * `dt.DayOfYear`
+* [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Add several missing `DateTime` API (by @MangelMaxime)
+    * Instance methods:
+        * `dt.Month`
+        * `dt.Day`
+        * `dt.Hour`
+        * `dt.Minute`
+        * `dt.Second`
+        * `dt.Millisecond`
+        * `dt.Microsecond`
+        * `dt.DayOfWeek`
+        * `dt.DayOfYear`
+        * `dt.Date`
+        * `dt.AddYears`
+        * `dt.AddMonths`
+        * `dt.AddDays`
+        * `dt.AddHours`
+        * `dt.AddMinutes`
+        * `dt.AddSeconds`
+        * `dt.AddMilliseconds`
+        * `dt.AddMicroseconds`
+    * Static methods:
+        * `DateTime.Today`
 
 ## 4.9.0 - 2023-12-14
 

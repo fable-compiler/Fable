@@ -20,20 +20,25 @@ let main argv =
     // use file = builtins.``open``(StringPath "data.txt")
     // file.read() |> printfn "File contents: %s"
 
-    DateTime(2014, 10, 5).DayOfWeek |> equal DayOfWeek.Sunday
-    DateTime(2014, 10, 6).DayOfWeek |> equal DayOfWeek.Monday
-    DateTime(2014, 10, 7).DayOfWeek |> equal DayOfWeek.Tuesday
-    DateTime(2014, 10, 8).DayOfWeek |> equal DayOfWeek.Wednesday
-    DateTime(2014, 10, 9).DayOfWeek |> equal DayOfWeek.Thursday
-    DateTime(2014, 10, 10).DayOfWeek |> equal DayOfWeek.Friday
-    DateTime(2014, 10, 11).DayOfWeek |> equal DayOfWeek.Saturday
+    let thatYearSeconds (dt: DateTime) =
+        (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds
 
+    let test ms expected =
+        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+        let dt2 = dt1.AddMilliseconds(ms)
+        let res1 = compare dt1 dt2
+        let res2 = dt1.CompareTo(dt2)
+        let res3 = DateTime.Compare(dt1, dt2)
+        equal true (res1 = res2 && res2 = res3)
+        equal expected res1
 
-    // let t = DayOfWeek.Thursday
-
-    let d = DateTime(2014, 10, 9)
-    DateTime(2014, 10, 9).DayOfYear |> equal 282
-
-    DateTime(2020, 10, 9).DayOfYear |> equal 283
+    test 1000. -1
+    test -1000. 1
+    test 0. 0
 
     0
+
+
+// TryParse(String, DateTime)
+// TryParse(String, IFormatProvider, DateTime)
+// TryParse(String, IFormatProvider, DateTimeStyles, DateTime)

@@ -110,44 +110,44 @@ let ``test DateTime.Parse works`` () =
             CultureInfo.InvariantCulture
         )
 
-    d.Year + d.Month + d.Day + d.Hour + d.Minute |> equal 2096
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2130
 
     let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
-    d.Year + d.Month + d.Day + d.Hour + d.Minute
-    |> equal 2096
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+    |> equal 2130
 
     let d = DateTime.Parse("9/10/2014 1:50:34 AM", CultureInfo.InvariantCulture)
-    d.Year + d.Month + d.Day + d.Hour + d.Minute
-    |> equal 2084
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+    |> equal 2118
 
     let d = DateTime.Parse("9/10/2014 13:50:34", CultureInfo.InvariantCulture)
-    d.Year + d.Month + d.Day + d.Hour + d.Minute
-    |> equal 2096
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+    |> equal 2130
 
     let d = DateTime.Parse("9/10/2014 1:50:34", CultureInfo.InvariantCulture)
-    d.Year + d.Month + d.Day + d.Hour + d.Minute
-    |> equal 2084
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+    |> equal 2118
 
     // Disabled because it is timezone dependent
     // I left it here in case, we need to test it in the future
     // Currently, it is setup for Europe/Paris timezone
     // let d = DateTime.Parse("2016-07-07T01:00:00.000Z", CultureInfo.InvariantCulture)
-    // d.Year + d.Month + d.Day + d.Hour + d.Minute
+    // d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
     // |> equal 2033
 
 [<Fact>]
 let ``test DateTime.Parse with time-only string works`` () = // See #1045
     let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
-    d.Hour + d.Minute + d.Second |> equal 97
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2124
 
     let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
-    d.Hour + d.Minute + d.Second |> equal 40
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2067
 
     let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
-    d.Hour + d.Minute + d.Second |> equal 52
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2079
 
     let d = DateTime.Parse("15:5:34 PM", CultureInfo.InvariantCulture)
-    d.Hour + d.Minute + d.Second |> equal 54
+    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2081
 
 // [<Fact>]
 // let ``test DateTime.Ticks works`` () =
@@ -202,6 +202,11 @@ let ``test DateTime.Millisecond works`` () =
     let d = DateTime(2014, 10, 9, 13, 23, 30, 999)
     d.Millisecond |> equal 999
 
+// [<Fact>]
+// let ``test DateTime.Microsecond works`` () =
+//     let d = DateTime(2014, 10, 9, 13, 23, 30, 999).AddMicroseconds(2)
+//     d.Microsecond |> equal 2
+
 [<Fact>]
 let ``DateTime.DayOfWeek works`` () =
     DateTime(2014, 10, 5).DayOfWeek |> equal DayOfWeek.Sunday
@@ -226,34 +231,168 @@ let ``test DateTime.TryParse works`` () =
 
     let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture, DateTimeStyles.None)
     isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 2130
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
 
     let (isSuccess, dateTime) = DateTime.TryParse("1:50:34", CultureInfo.InvariantCulture, DateTimeStyles.None)
     isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 1987
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2112
 
     let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture)
     isSuccess |> equal false
 
     let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
     isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 2130
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
 
     let (isSuccess, dateTime) = DateTime.TryParse("1:50:34", CultureInfo.InvariantCulture)
     isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 1987
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2112
 
     let (isSuccess, _) = DateTime.TryParse("foo")
     isSuccess |> equal false
 
     let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM")
     isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 2130
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
 
     let (isSuccess, dateTime) = DateTime.TryParse("1:50:34")
     isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 1987
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2112
 
+[<Fact>]
+let ``test "Parsing doesn't succeed for invalid dates`` () =
+    let invalidAmericanDate = "13/1/2020"
+    let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
+    r |> equal false
+
+
+[<Fact>]
+let ``test DateTime.Today works`` () =
+    let d = DateTime.Today
+    equal 0 d.Hour
+    equal 0 d.Minute
+    equal 0 d.Second
+    equal 0 d.Millisecond
+
+[<Fact>]
+let ``test DateTime.Date works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30)
+    d.Date.Hour |> equal 0
+    d.Date.Minute |> equal 0
+    d.Date.Second |> equal 0
+    d.Date.Millisecond |> equal 0
+    d.Date.Day |> equal 9
+    d.Date.Month |> equal 10
+    d.Date.Year |> equal 2014
+
+[<Fact>]
+let ``test DateTime.DaysInMonth works`` () =
+    DateTime.DaysInMonth(2014, 1) |> equal 31
+    DateTime.DaysInMonth(2014, 2) |> equal 28
+    DateTime.DaysInMonth(2014, 4) |> equal 30
+    DateTime.DaysInMonth(2016, 2) |> equal 29
+
+[<Fact>]
+let ``test DateTime.Now works`` () =
+    let d = DateTime.Now
+    d > DateTime.MinValue |> equal true
+
+[<Fact>]
+let ``test DateTime.UtcNow works`` () =
+    let d = DateTime.UtcNow
+    d > DateTime.MinValue |> equal true
+
+
+[<Fact>]
+let ``test DateTime.AddYears works`` () =
+    let test v expected =
+        let dt = DateTime(2016,2,29,0,0,0,DateTimeKind.Utc).AddYears(v)
+        equal expected (dt.Month + dt.Day)
+    test 100 31
+    test 1 30
+    test -1 30
+    test -100 31
+    test 0 31
+
+[<Fact>]
+let ``test DateTime.AddMonths works`` () =
+    let test v expected =
+        let dt = DateTime(2016,1,31,0,0,0,DateTimeKind.Utc).AddMonths(v)
+        dt.Year + dt.Month + dt.Day
+        |> equal expected
+    test 100 2060
+    test 20 2056
+    test 6 2054
+    test 5 2052
+    test 1 2047
+    test 0 2048
+    test -1 2058
+    test -5 2054
+    test -20 2050
+    test -100 2046
+
+[<Fact>]
+let ``test DateTime.AddDays works`` () =
+    let test v expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddDays(v)
+        thatYearSeconds dt
+        |> equal expected
+    test 100. 30585600.0
+    test -100. 13305600.0
+    test 0. 21945600.0
+
+[<Fact>]
+let ``test DateTime.AddHours works`` () =
+    let test v expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddHours(v)
+        thatYearSeconds dt
+        |> equal expected
+    test 100. 22305600.0
+    test -100. 21585600.0
+    test 0. 21945600.0
+
+[<Fact>]
+let ``test DateTime.AddMinutes works`` () =
+    let test v expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddMinutes(v)
+        thatYearSeconds dt
+        |> equal expected
+    test 100. 21951600.0
+    test -100. 21939600.0
+    test 0. 21945600.0
+
+[<Fact>]
+let ``test DateTime.AddSeconds works`` () =
+    let test v expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddSeconds(v)
+        thatYearSeconds dt
+        |> equal expected
+    test 100. 21945700.0
+    test -100. 21945500.0
+    test 0. 21945600.0
+
+[<Fact>]
+let ``test DateTime.AddMilliseconds works`` () =
+    let test v expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddMilliseconds(v)
+        thatYearMilliseconds dt
+        |> equal expected
+    test 100. 2.19456001e+10
+    test -100. 2.19455999e+10
+    test 0. 2.19456e+10
+
+[<Fact>]
+let ``test DateTime Addition works`` () =
+    let test ms expected =
+        let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
+        let ts = TimeSpan.FromMilliseconds(ms)
+        let res1 = dt.Add(ts) |> thatYearSeconds
+        let res2 = (dt + ts) |> thatYearSeconds
+        equal true (res1 = res2)
+        equal expected res1
+    test 1000. 21945601.0
+    test -1000. 21945599.0
+    test 0. 21945600.0
 
 // [<Fact>]
 // let ``test DateTime.ToLocalTime works`` () =
