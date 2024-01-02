@@ -60,10 +60,6 @@ def year(d: datetime) -> int:
     return d.year
 
 
-def to_universal_time(d: datetime) -> datetime:
-    return d.astimezone(timezone.utc)
-
-
 def month(d: datetime) -> int:
     return d.month
 
@@ -267,7 +263,7 @@ def add(x: datetime, y: TimeSpan) -> datetime:
     return op_addition(x, y)
 
 
-def parse(string: str, detectUTC: bool = False) -> datetime:
+def parse(string: str) -> datetime:
     try:
         return datetime.fromisoformat(string).astimezone()
     except ValueError:
@@ -295,7 +291,7 @@ def parse(string: str, detectUTC: bool = False) -> datetime:
     raise ValueError("Unsupported format by Fable: %s" % (string))
 
 
-def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[datetime]) -> bool:
+def try_parse(string: str, defValue: FSharpRef[datetime]) -> bool:
     try:
         defValue.contents = parse(string)
         return True

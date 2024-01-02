@@ -219,6 +219,42 @@ let ``test DateTime.DayOfYear works`` () =
     // Leap year
     DateTime(2020, 10, 9).DayOfYear |> equal 283
 
+[<Fact>]
+let ``test DateTime.TryParse works`` () =
+    let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture, DateTimeStyles.None)
+    isSuccess |> equal false
+
+    let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture, DateTimeStyles.None)
+    isSuccess |> equal true
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 2130
+
+    let (isSuccess, dateTime) = DateTime.TryParse("1:50:34", CultureInfo.InvariantCulture, DateTimeStyles.None)
+    isSuccess |> equal true
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 1987
+
+    let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture)
+    isSuccess |> equal false
+
+    let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
+    isSuccess |> equal true
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 2130
+
+    let (isSuccess, dateTime) = DateTime.TryParse("1:50:34", CultureInfo.InvariantCulture)
+    isSuccess |> equal true
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 1987
+
+    let (isSuccess, _) = DateTime.TryParse("foo")
+    isSuccess |> equal false
+
+    let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM")
+    isSuccess |> equal true
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 2130
+
+    let (isSuccess, dateTime) = DateTime.TryParse("1:50:34")
+    isSuccess |> equal true
+    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second + dateTime.Millisecond |> equal 1987
+
+
 // [<Fact>]
 // let ``test DateTime.ToLocalTime works`` () =
 //     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
