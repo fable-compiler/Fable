@@ -17,12 +17,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Fixed nested type with custom hashcode (by @dbrattli)
 * Add 'Double.IsPositiveInfinity' (by @PierreYvesR)
+* [GH-3666](https://github.com/fable-compiler/Fable/pull/3666) Fix for `DateTime` and `TimeSpan` addition (by @dbrattli)
+* [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Fix `DateTime.Parse` and `DateTime.TryParse` (by @MangelMaxime)
 
 #### Rust
 
 * Fixed unary negation for signed integer MinValue (by @ncave)
 * Fixed excluding signature files from imports (by @ncave)
 * Fixed generic try_catch closure trait (by @ncave)
+
+#### Dart
+
+* Fix `DateTime.DayOfWeek` (by @MangelMaxime)
+
+### Added
+
+#### Python
+
+* [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Add several missing `DateTime` methods (by @MangelMaxime)
+    * `dt.Month`
+    * `dt.Day`
+    * `dt.Hour`
+    * `dt.Minute`
+    * `dt.Second`
+    * `dt.Millisecond`
+    * `dt.DayOfWeek`
+    * `dt.DayOfYear`
 
 ## 4.9.0 - 2023-12-14
 
@@ -32,11 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [GH-3655](https://github.com/fable-compiler/Fable/issues/3655) Fix for Python output file names (by @dbrattli)
 * [GH-3660](https://github.com/fable-compiler/Fable/issues/3660) Fix for decimal to string with culture (by @dbrattli)
-* [GH-3666](https://github.com/fable-compiler/Fable/pull/3666) Fix for `DateTime` and `TimeSpan` addition (by @dbrattli)
-
-#### Dart
-
-* Fix `DateTime.DayOfWeek` (by @MangelMaxime)
 
 ## 4.8.1 - 2023-12-12
 
