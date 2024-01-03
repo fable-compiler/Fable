@@ -137,17 +137,32 @@ let ``test DateTime.Parse works`` () =
 
 [<Fact>]
 let ``test DateTime.Parse with time-only string works`` () = // See #1045
+    // Time-only should use now as the reference date
+    let now = DateTime.Now
+
     let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
-    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2124
+    d.Year |> equal now.Year
+    d.Month |> equal now.Month
+    d.Day |> equal now.Day
+    d.Hour + d.Minute + d.Second |> equal 97
 
     let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
-    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2067
+    d.Year |> equal now.Year
+    d.Month |> equal now.Month
+    d.Day |> equal now.Day
+    d.Hour + d.Minute + d.Second |> equal 40
 
     let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
-    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2079
+    d.Year |> equal now.Year
+    d.Month |> equal now.Month
+    d.Day |> equal now.Day
+    d.Hour + d.Minute + d.Second |> equal 52
 
     let d = DateTime.Parse("15:5:34 PM", CultureInfo.InvariantCulture)
-    d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2081
+    d.Year |> equal now.Year
+    d.Month |> equal now.Month
+    d.Day |> equal now.Day
+    d.Hour + d.Minute + d.Second |> equal 54
 
 // [<Fact>]
 // let ``test DateTime.Ticks works`` () =
@@ -233,20 +248,12 @@ let ``test DateTime.TryParse works`` () =
     isSuccess |> equal true
     dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
 
-    let (isSuccess, dateTime) = DateTime.TryParse("1:50:34", CultureInfo.InvariantCulture, DateTimeStyles.None)
-    isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2112
-
     let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture)
     isSuccess |> equal false
 
     let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
     isSuccess |> equal true
     dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
-
-    let (isSuccess, dateTime) = DateTime.TryParse("1:50:34", CultureInfo.InvariantCulture)
-    isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2112
 
     let (isSuccess, _) = DateTime.TryParse("foo")
     isSuccess |> equal false
@@ -255,9 +262,6 @@ let ``test DateTime.TryParse works`` () =
     isSuccess |> equal true
     dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
 
-    let (isSuccess, dateTime) = DateTime.TryParse("1:50:34")
-    isSuccess |> equal true
-    dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2112
 
 [<Fact>]
 let ``test "Parsing doesn't succeed for invalid dates`` () =

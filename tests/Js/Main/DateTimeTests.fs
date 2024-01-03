@@ -263,18 +263,32 @@ let tests =
         |> equal 2096
 
     testCase "DateTime.Parse with time-only string works" <| fun () -> // See #1045
+        // Time-only should use now as the reference date
+        let now = DateTime.Now
+
         let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
-        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2124
+        d.Year |> equal now.Year
+        d.Month |> equal now.Month
+        d.Day |> equal now.Day
+        d.Hour + d.Minute + d.Second |> equal 97
 
         let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
-        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2067
+        d.Year |> equal now.Year
+        d.Month |> equal now.Month
+        d.Day |> equal now.Day
+        d.Hour + d.Minute + d.Second |> equal 40
 
         let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
-        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2079
+        d.Year |> equal now.Year
+        d.Month |> equal now.Month
+        d.Day |> equal now.Day
+        d.Hour + d.Minute + d.Second |> equal 52
 
         let d = DateTime.Parse("15:5:34 PM", CultureInfo.InvariantCulture)
-        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2081
-
+        d.Year |> equal now.Year
+        d.Month |> equal now.Month
+        d.Day |> equal now.Day
+        d.Hour + d.Minute + d.Second |> equal 54
     testCase "DateTime.TryParse works" <| fun () ->
         let f (d: string) =
             match DateTime.TryParse(d, CultureInfo.InvariantCulture, DateTimeStyles.None) with
