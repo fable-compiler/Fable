@@ -292,9 +292,13 @@ def parse(string: str) -> datetime:
     for pattern, format in hoursFormats.items():
         if re.fullmatch(pattern, string):
             hourDate = datetime.strptime(string, format)
+
+            # If the hour is 0 PM, then in .NET it is 12 PM (python keeps it as 0)
+            hourOffset = 12 if hourDate.hour == 0 and string.endswith(" PM") else 0
+
             return datetime.replace(
                 now(),
-                hour=hourDate.hour,
+                hour=hourDate.hour + hourOffset,
                 minute=hourDate.minute,
                 second=hourDate.second,
                 microsecond=0,

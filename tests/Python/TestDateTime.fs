@@ -168,7 +168,7 @@ let ``test DateTime.Parse with time-only string works`` () = // See #1045
     d2.Hour + d2.Minute + d2.Second |> equal 54
 
     let d3 = DateTime.Parse("15:5:34 PM")
-    d2.Hour + d2.Minute + d2.Second |> equal 54
+    d3.Hour + d3.Minute + d3.Second |> equal 54
 
 // [<Fact>]
 // let ``test DateTime.Ticks works`` () =
