@@ -55,6 +55,12 @@ let tests =
             q.Count |> equal 4
             q |> Seq.toList |> equal [1;2;3;4]
 
+        testCase "Can dequeue then enqueue to queue constructed from list" <| fun () ->
+            let q = Queue<int>([0])
+            q.Dequeue() |> ignore
+            q.Enqueue(42)
+            q.Dequeue() |> equal 42
+
         testCase "Enqueue / Dequeue works" <| fun () ->
             let q = Queue<int>()
             q.Enqueue(1)
