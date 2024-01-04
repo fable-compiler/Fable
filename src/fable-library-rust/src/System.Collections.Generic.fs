@@ -110,7 +110,12 @@ type Queue<'T when 'T: equality> private (initialContents, initialCount) =
     let mutable contents: 'T array = initialContents
     let mutable count = initialCount
     let mutable head = 0
-    let mutable tail = initialCount
+
+    let mutable tail =
+        if initialCount = contents.Length then
+            0
+        else
+            initialCount
 
     let size () = contents.Length
 
@@ -126,8 +131,13 @@ type Queue<'T when 'T: equality> private (initialContents, initialCount) =
             Array.blit contents 0 newBuffer (size () - head) tail
 
         head <- 0
-        tail <- count
         contents <- newBuffer
+
+        tail <-
+            if count = size () then
+                0
+            else
+                count
 
     let toSeq () =
         let head = head
