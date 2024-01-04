@@ -158,11 +158,17 @@ let ``test DateTime.Parse with time-only string works`` () = // See #1045
     d.Day |> equal now.Day
     d.Hour + d.Minute + d.Second |> equal 52
 
-    let d = DateTime.Parse("15:5:34 PM", CultureInfo.InvariantCulture)
-    d.Year |> equal now.Year
-    d.Month |> equal now.Month
-    d.Day |> equal now.Day
-    d.Hour + d.Minute + d.Second |> equal 54
+    let d = DateTime.Parse("0:5:34 PM")
+    d.Hour + d.Minute + d.Second |> equal 51
+
+    let d1 = DateTime.Parse("12:5:34 PM")
+    d1.Hour + d1.Minute + d1.Second |> equal 51
+
+    let d2 = DateTime.Parse("3:5:34 PM")
+    d2.Hour + d2.Minute + d2.Second |> equal 54
+
+    let d3 = DateTime.Parse("15:5:34 PM")
+    d2.Hour + d2.Minute + d2.Second |> equal 54
 
 // [<Fact>]
 // let ``test DateTime.Ticks works`` () =

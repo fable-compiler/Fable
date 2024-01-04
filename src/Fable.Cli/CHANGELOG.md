@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [GH-3666](https://github.com/fable-compiler/Fable/pull/3666) Fix for `DateTime` and `TimeSpan` addition (by @dbrattli)
 * [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Fix `DateTime.Parse` and `DateTime.TryParse` (by @MangelMaxime)
 
+#### JavaScript
+
+* Fix `DateTime.Parse` when providing a 1 digit hour for PM times (`3:5:34 PM`) (by @MangelMaxime)
+
 #### Rust
 
 * Fixed unary negation for signed integer MinValue (by @ncave)
