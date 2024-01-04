@@ -56,6 +56,13 @@ let ``Can enqueue to queue constructed from list`` () =
     q.ToArray() |> equal [|1;2;3;4|]
 
 [<Fact>]
+let ``Can dequeue then enqueue to queue constructed from list`` () =
+    let q = Queue<int>([0])
+    q.Dequeue() |> ignore
+    q.Enqueue(42)
+    q.Dequeue() |> equal 42
+
+[<Fact>]
 let ``Enqueue / Dequeue works`` () =
     let q = Queue<int>()
     q.Enqueue(1)
