@@ -101,9 +101,15 @@ let ``test DateTime Subtraction with DateTime works`` () =
     test 0. 0.0
 
 
-// [<Fact>]
-// let ``test DateTime.ToLocalTime works`` () =
-//     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//     let d' = d.ToLocalTime()
-//     d.Kind <> d'.Kind
-//     |> equal true
+[<Fact>]
+let ``test DateTime.ToLocalTime works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    let d' = d.ToLocalTime()
+    d.Kind <> d'.Kind
+    |> equal true
+
+[<Fact>]
+let ``test DateTime.ToUniversalTime works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    d.ToUniversalTime().Kind <> d.Kind
+    |> equal true
