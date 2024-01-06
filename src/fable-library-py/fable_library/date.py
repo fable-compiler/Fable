@@ -198,7 +198,7 @@ def utc_now() -> datetime:
 
 
 def to_local_time(date: datetime) -> datetime:
-    return date.astimezone()
+    return date.astimezone().replace(tzinfo=None)
 
 
 def compare(x: datetime, y: datetime) -> int:
