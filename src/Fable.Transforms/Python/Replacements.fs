@@ -5103,7 +5103,6 @@ let dates
             ?loc = r
         )
         |> Some
-    | "get_Kind"
     | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName
         |> Naming.lowerFirst
@@ -5196,17 +5195,6 @@ let dates
                 [ ms ]
 
         Helper.LibCall(com, "Long", "fromNumber", t, args, ?loc = r) |> Some
-    | "get_Ticks" ->
-        Helper.LibCall(
-            com,
-            "Date",
-            "getTicks",
-            t,
-            [ thisArg.Value ],
-            [ thisArg.Value.Type ],
-            ?loc = r
-        )
-        |> Some
     | "get_UtcTicks" ->
         Helper.LibCall(
             com,

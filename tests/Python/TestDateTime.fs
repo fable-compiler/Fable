@@ -20,7 +20,7 @@ let thatYearMilliseconds (dt: DateTime) =
 
 [<Fact>]
 let ``test DateTime.ToString with custom format works`` () =
-    DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+    DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
     |> equal "16:37"
 
 [<Fact>]
@@ -32,6 +32,28 @@ let ``test DateTime.ToString without separator works`` () =
 let ``test DateTime.ToString with milliseconds`` () =
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("ss.fff")
     |> equal "11.345"
+
+[<Fact>]
+let ``test DateTime.ToString("d") works`` () =
+    DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("d")
+    |> equal "9/11/2014"
+
+[<Fact>]
+let ``test DateTime.ToString("T") works`` () =
+    DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("T")
+    |> equal "3:37:11 AM"
+
+    DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("T")
+    |> equal "4:37:11 PM"
+
+[<Fact>]
+let ``test DateTime.ToString("t") works`` () =
+    DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("t")
+    |> equal "3:37 AM"
+
+    DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("t")
+    |> equal "4:37 PM"
+
 
 [<Fact>]
 let ``test DateTime.ToString with Round-trip format works for Utc`` () =
@@ -403,6 +425,89 @@ let ``test DateTime Addition works`` () =
     test 1000. 21945601.0
     test -1000. 21945599.0
     test 0. 21945600.0
+
+[<Fact>]
+let ``test DateTime constructors works`` () =
+    let d1 = DateTime(2014, 10, 9)
+    let d2 = DateTime(2014, 10, 9, 13, 23, 30)
+    let d3 = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    let d4 = DateTime(2014, 10, 9, 13, 23, 30, 500)
+    let d5 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+    d1.Day + d2.Second + d3.Second + d4.Millisecond + d5.Millisecond
+    |> equal 1069
+
+[<Fact>]
+let ``test DateTime constructor from Ticks works`` () =
+    let d = DateTime(624059424000000000L, DateTimeKind.Utc)
+    equal 1978 d.Year
+    equal 7 d.Month
+    equal 27 d.Day
+    equal 0 d.Hour
+    equal 0 d.Minute
+
+    let d = DateTime(624059424000000000L, DateTimeKind.Local)
+    equal 1978 d.Year
+    equal 7 d.Month
+    equal 27 d.Day
+    equal 0 d.Hour
+    equal 0 d.Minute
+
+    let d = DateTime(624059424000000000L)
+    equal 1978 d.Year
+    equal 7 d.Month
+    equal 27 d.Day
+    equal 0 d.Hour
+    equal 0 d.Minute
+
+[<Fact>]
+let ``test DateTime.Ticks does not care about kind`` () =
+    let d1 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Local)
+    let d2 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+    let d3 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
+    equal d1.Ticks d2.Ticks
+    equal d1.Ticks d3.Ticks
+    equal d2.Ticks d3.Ticks
+
+    let t = DateTime.UtcNow.Ticks
+    let d1 = DateTime(t, DateTimeKind.Local)
+    let d2 = DateTime(t, DateTimeKind.Utc)
+    let d3 = DateTime(t, DateTimeKind.Unspecified)
+    equal d1.Ticks d2.Ticks
+    equal d1.Ticks d3.Ticks
+    equal d2.Ticks d3.Ticks
+
+// [<Fact>]
+// let ``test DateTime <-> Ticks isomorphism`` () =
+//     let checkIsomorphism (d: DateTime) =
+//         try
+//             let ticks = d.Ticks
+//             let kind = d.Kind
+//             let fromTicks = DateTime ticks
+//             let fromTicksWithKind = DateTime (ticks, kind)
+
+//             equal d fromTicks
+//             equal ticks fromTicks.Ticks
+//             equal d fromTicksWithKind
+//             equal ticks fromTicksWithKind.Ticks
+//             equal kind fromTicksWithKind.Kind
+//         with e ->
+//             failwithf "%A: %O" d e
+
+//         try
+//             equal d.Ticks (DateTime d.Ticks).Ticks
+//         with e ->
+//             failwithf "%s%O" "replacement bug. " e
+
+//     checkIsomorphism DateTime.MinValue
+//     checkIsomorphism DateTime.MaxValue
+//     checkIsomorphism DateTime.Now
+//     checkIsomorphism DateTime.UtcNow
+//     checkIsomorphism <| DateTime(2014, 10, 9)
+//     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30)
+//     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+//     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500)
+//     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+
 
 // [<Fact>]
 // let ``test DateTime.ToLocalTime works`` () =

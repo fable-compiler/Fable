@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
+from math import fmod
 from re import Match
 from typing import Any
-from math import fmod
 
 from .time_span import TimeSpan, total_microseconds
 from .time_span import create as create_time_span
@@ -53,6 +53,8 @@ def create(
         )
     else:
         date = datetime(year, month, day, h, m, s, ms * 1000)
+        if kind == DateKind.Local:
+            date = date.astimezone()
 
     return date
 
@@ -202,14 +204,16 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
 
 def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
     utc = date.tzinfo == timezone.utc
+
     if not format:
         return date.isoformat() if utc else str(date)
-
     elif len(format) == 1:
-        if format == "D" or format == "d":
-            return dateToHalfUTCString(date, "first") if utc else str(date.date())
-        elif format == "T" or format == "t":
-            return dateToHalfUTCString(date, "second") if utc else str(date.time())
+        if format == "d":
+            return datetime.strftime(date, "%m/%d/%Y").lstrip("0").replace("/0", "/")
+        elif format == "T":
+            return datetime.strftime(date, "%I:%M:%S %p").lstrip("0").replace(":0", ":")
+        elif format == "t":
+            return datetime.strftime(date, "%I:%M %p").lstrip("0").replace(":0", ":")
         elif format == "O" or format == "o":
             return date.astimezone().isoformat(timespec="milliseconds")
         else:
@@ -330,13 +334,16 @@ def try_parse(string: str, defValue: FSharpRef[datetime]) -> bool:
 
 
 def date(d: datetime) -> datetime:
-    # TODO: Should forward d.kind
-    return create(d.year, d.month, d.day)
+    return create(d.year, d.month, d.day, 0, 0, 0, 0, kind(d))
+
+
+def is_leap_year(year: int) -> bool:
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 
 
 def days_in_month(year: int, month: int) -> int:
     if month == 2:
-        return 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28
+        return 29 if is_leap_year(year) else 28
 
     if month in (4, 6, 9, 11):
         return 30
@@ -349,8 +356,7 @@ def add_years(d: datetime, v: int) -> datetime:
     new_year = year(d) + v
     _days_in_month = days_in_month(new_year, new_month)
     new_day = min(_days_in_month, day(d))
-    # TODO: Should forward d.kind
-    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d))
+    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d), kind(d))
 
 
 def add_months(d: datetime, v: int) -> datetime:
@@ -368,8 +374,7 @@ def add_months(d: datetime, v: int) -> datetime:
     new_year = year(d) + year_offset
     _days_in_month = days_in_month(new_year, new_month)
     new_day = min(_days_in_month, day(d))
-    # TODO: Should forward d.kind
-    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d))
+    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d), kind(d))
 
 
 def add_days(d: datetime, v: int) -> datetime:
@@ -394,6 +399,77 @@ def add_milliseconds(d: datetime, v: int) -> datetime:
 
 def add_microseconds(d: datetime, v: int) -> datetime:
     return d + timedelta(microseconds=v)
+
+
+def kind(d: datetime) -> DateKind:
+    if d.tzinfo == timezone.utc:
+        return DateKind.UTC
+
+    elif d.tzinfo is None:
+        return DateKind.Unspecified
+
+    # Should we do an actual check against the local timezone?
+    return DateKind.Local
+
+
+def specify_kind(d: datetime, kind: DateKind) -> datetime:
+    return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), kind)
+
+
+def ticks(d: datetime) -> int:
+    return unix_epoch_milliseconds_to_ticks(int(d.timestamp() * 1000), date_offset(d))
+
+
+def unix_epoch_milliseconds_to_ticks(ms: int, offset: int) -> int:
+    return int(((ms + 62135596800000) + offset) * 10000)
+
+
+def ticks_to_unix_epoch_milliseconds(ticks: int) -> int:
+    return int((ticks - 621355968000000000) // 10000)
+
+
+def date_offset(d: datetime) -> int:
+    if d.tzinfo == timezone.utc:
+        return 0
+    else:
+        utc_offset = d.utcoffset()
+
+        # Is it correct to force an offset to local time
+        # for DateKind.Unspecified?
+        if utc_offset is None:
+            forced_utc_offset = d.astimezone().utcoffset()
+            assert forced_utc_offset is not None
+            return int(forced_utc_offset.total_seconds() * 1000)
+        else:
+            return int(utc_offset.total_seconds() * 1000)
+
+    # return 0 if d.tzinfo == timezone.utc else
+
+
+def create_from_epoch_milliseconds(ms: int, kind: DateKind | None = None) -> datetime:
+    print("create_from_epoch_milliseconds", ms, kind)
+    if kind == DateKind.UTC:
+        date = datetime.fromtimestamp(ms / 1000, timezone.utc)
+    else:
+        date = datetime.fromtimestamp(ms / 1000)
+        if kind == DateKind.Local:
+            date = date.astimezone()
+
+    return date
+
+
+def from_ticks(ticks: int, kind: DateKind | None = None) -> datetime:
+    # Better default than Unspecified
+    kind = kind or DateKind.Local
+    date = create_from_epoch_milliseconds(ticks_to_unix_epoch_milliseconds(ticks), kind)
+
+    # Ticks are local to offset (in this case, either UTC or Local/Unknown).
+    # If kind is anything but UTC, that means that the tick number was not
+    # in utc, thus getTime() cannot return UTC, and needs to be shifted.
+    if kind != DateKind.UTC:
+        date = create_from_epoch_milliseconds(int(date.timestamp() * 1000 - date_offset(date)), kind)
+
+    return date
 
 
 __all__ = [
@@ -436,4 +512,10 @@ __all__ = [
     "add_seconds",
     "add_milliseconds",
     "add_microseconds",
+    "kind",
+    "specify_kind",
+    "ticks",
+    "date_offset",
+    "from_ticks",
+    "is_leap_year",
 ]
