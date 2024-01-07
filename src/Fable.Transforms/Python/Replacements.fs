@@ -5053,9 +5053,7 @@ let dates
             ?loc = r
         )
         |> Some
-    | "get_Kind" ->
-        Helper.LibCall(com, "date", "get_kind", t, [ thisArg.Value ], ?loc = r)
-        |> Some
+    | "get_Kind"
     | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName
         |> Naming.lowerFirst
