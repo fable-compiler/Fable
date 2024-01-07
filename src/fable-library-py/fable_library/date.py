@@ -198,7 +198,7 @@ def utc_now() -> datetime:
 
 
 def to_local_time(date: datetime) -> datetime:
-    return date.astimezone().replace(tzinfo=None)
+    return date.astimezone()
 
 
 def compare(x: datetime, y: datetime) -> int:
@@ -249,13 +249,6 @@ def add_milliseconds(d: datetime, v: int) -> datetime:
     return d + timedelta(milliseconds=v)
 
 
-def get_kind(d: datetime) -> DateKind:
-    if d.tzinfo == timezone.utc:
-        return DateKind.UTC
-
-    return DateKind.Local
-
-
 __all__ = [
     "add",
     "op_subtraction",
@@ -265,7 +258,6 @@ __all__ = [
     "date_to_string_with_custom_format",
     "date_to_string_with_offset",
     "date_to_string_with_kind",
-    "get_kind",
     "to_string",
     "now",
     "utc_now",
