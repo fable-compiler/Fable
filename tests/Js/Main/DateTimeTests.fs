@@ -258,9 +258,36 @@ let tests =
         d > DateTime.MinValue |> equal true
 
     testCase "DateTime.Parse works" <| fun () ->
+        let d =
+            DateTime.Parse(
+                "2014-09-10T13:50:34.0000000",
+                CultureInfo.InvariantCulture
+            )
+
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2130
+
         let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
-        d.Year + d.Month + d.Day + d.Hour + d.Minute
-        |> equal 2096
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        |> equal 2130
+
+        let d = DateTime.Parse("9/10/2014 1:50:34 AM", CultureInfo.InvariantCulture)
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        |> equal 2118
+
+        let d = DateTime.Parse("9/10/2014 13:50:34", CultureInfo.InvariantCulture)
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        |> equal 2130
+
+        let d = DateTime.Parse("9/10/2014 1:50:34", CultureInfo.InvariantCulture)
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        |> equal 2118
+
+        // Disabled because it is timezone dependent
+        // I left it here in case, we need to test it in the future
+        // Currently, it is setup for Europe/Paris timezone
+        // let d = DateTime.Parse("2016-07-07T01:00:00.000Z", CultureInfo.InvariantCulture)
+        // d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        // |> equal 2033
 
     testCase "DateTime.Parse with time-only string works" <| fun () -> // See #1045
         // Time-only should use now as the reference date

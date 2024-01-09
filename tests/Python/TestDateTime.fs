@@ -225,7 +225,12 @@ let ``test DateTime.Month works`` () =
 
 [<Fact>]
 let ``test DateTime.Hour works`` () =
+    // Summer time (allowed to detect invalid utcoffset for Europe/Paris)
     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    d.Hour |> equal 13
+
+    // Winter time
+    let d = DateTime(2014, 1, 9, 13, 23, 30, DateTimeKind.Local)
     d.Hour |> equal 13
 
 [<Fact>]

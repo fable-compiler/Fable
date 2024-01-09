@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, tzinfo
-
 import time as _time
+from datetime import datetime, timedelta, tzinfo
 
 
 class LocalTimezone(tzinfo):
     def utcoffset(self, dt: datetime | None = None):
         # Return offset of local timezone from UTC
-        return timedelta(seconds=-_time.timezone)
+        if dt is not None and self._isdst(dt):
+            return timedelta(seconds=-_time.altzone)
+        else:
+            return timedelta(seconds=-_time.timezone)
 
     def dst(self, dt: datetime | None = None):
         # Return the daylight saving time (DST) adjustment
