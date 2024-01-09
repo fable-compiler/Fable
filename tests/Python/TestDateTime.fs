@@ -38,26 +38,43 @@ let ``test DateTime.ToString("d") works`` () =
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("d")
     |> equal "9/11/2014"
 
+    DateTime(2014, 9, 1, 16, 37, 11, 345).ToString("d")
+    |> equal "9/1/2014"
+
 // Needs to add (upper) and (lower) in the test name because
 // the names of the function are lowered making them equal
 
 [<Fact>]
 let ``test DateTime.ToString("T") (upper) works`` () =
-    printfn "Current culture info: %A" CultureInfo.CurrentCulture
-
+    #if FABLE_COMPILER
     DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("T")
-    |> equal "3:37:11 AM"
+    #else
+    DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("T", CultureInfo.InvariantCulture)
+    #endif
+    |> equal "03:37:11"
 
+    #if FABLE_COMPILER
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("T")
-    |> equal "4:37:11 PM"
+    #else
+    DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("T", CultureInfo.InvariantCulture)
+    #endif
+    |> equal "16:37:11"
 
 [<Fact>]
 let ``test DateTime.ToString("t") (lower) works`` () =
+    #if FABLE_COMPILER
     DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("t")
-    |> equal "3:37 AM"
+    #else
+    DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("t", CultureInfo.InvariantCulture)
+    #endif
+    |> equal "03:37"
 
+    #if FABLE_COMPILER
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("t")
-    |> equal "4:37 PM"
+    #else
+    DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("t", CultureInfo.InvariantCulture)
+    #endif
+    |> equal "16:37"
 
 
 [<Fact>]

@@ -212,9 +212,9 @@ def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
         if format == "d":
             return datetime.strftime(date, "%m/%d/%Y").lstrip("0").replace("/0", "/")
         elif format == "T":
-            return datetime.strftime(date, "%I:%M:%S %p").lstrip("0").replace(":0", ":")
+            return datetime.strftime(date, "%H:%M:%S")
         elif format == "t":
-            return datetime.strftime(date, "%I:%M %p").lstrip("0").replace(":0", ":")
+            return datetime.strftime(date, "%H:%M")
         elif format == "O" or format == "o":
             return date.astimezone().isoformat(timespec="milliseconds")
         else:
