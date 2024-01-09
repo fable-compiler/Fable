@@ -43,6 +43,8 @@ let ``test DateTime.ToString("d") works`` () =
 
 [<Fact>]
 let ``test DateTime.ToString("T") (upper) works`` () =
+    printfn "Current culture info: %A" CultureInfo.CurrentCulture
+
     DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("T")
     |> equal "3:37:11 AM"
 
