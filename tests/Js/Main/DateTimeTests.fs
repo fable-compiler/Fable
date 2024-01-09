@@ -298,13 +298,27 @@ let tests =
 
 
     testCase "DateTime.TryParse works" <| fun () ->
-        let f (d: string) =
-            match DateTime.TryParse(d, CultureInfo.InvariantCulture, DateTimeStyles.None) with
-            | true, _ -> true
-            | false, _ -> false
-        f "foo" |> equal false
-        f "9/10/2014 1:50:34 PM" |> equal true
-        f "1:50:34" |> equal true
+        let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture, DateTimeStyles.None)
+        isSuccess |> equal false
+
+        let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture, DateTimeStyles.None)
+        isSuccess |> equal true
+        dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
+
+        let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture)
+        isSuccess |> equal false
+
+        let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
+        isSuccess |> equal true
+        dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
+
+        let (isSuccess, _) = DateTime.TryParse("foo")
+        isSuccess |> equal false
+
+        let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM")
+        isSuccess |> equal true
+        dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
+
 
     testCase "Parsing doesn't succeed for invalid dates" <| fun () ->
         let invalidAmericanDate = "13/1/2020"

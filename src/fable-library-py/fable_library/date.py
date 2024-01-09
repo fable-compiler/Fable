@@ -6,6 +6,7 @@ from math import fmod
 from re import Match
 from typing import Any
 
+from .singleton_local_time_zone import local_time_zone
 from .time_span import TimeSpan, total_microseconds
 from .time_span import create as create_time_span
 from .types import FSharpRef
@@ -54,7 +55,7 @@ def create(
     else:
         date = datetime(year, month, day, h, m, s, ms * 1000)
         if kind == DateKind.Local:
-            date = date.astimezone()
+            date = date.astimezone(local_time_zone)
 
     return date
 
@@ -211,9 +212,9 @@ def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
         if format == "d":
             return datetime.strftime(date, "%m/%d/%Y").lstrip("0").replace("/0", "/")
         elif format == "T":
-            return datetime.strftime(date, "%I:%M:%S %p").lstrip("0").replace(":0", ":")
+            return datetime.strftime(date, "%I:%M:%S %p").lstrip("0").replace(":0", ":")
         elif format == "t":
-            return datetime.strftime(date, "%I:%M %p").lstrip("0").replace(":0", ":")
+            return datetime.strftime(date, "%I:%M %p").lstrip("0").replace(":0", ":")
         elif format == "O" or format == "o":
             return date.astimezone().isoformat(timespec="milliseconds")
         else:
@@ -243,7 +244,7 @@ def today() -> datetime:
 
 
 def to_local_time(date: datetime) -> datetime:
-    return date.astimezone()
+    return date.astimezone().replace(tzinfo=local_time_zone)
 
 
 def compare(x: datetime, y: datetime) -> int:
@@ -408,7 +409,7 @@ def kind(d: datetime) -> DateKind:
     elif d.tzinfo is None:
         return DateKind.Unspecified
 
-    # Should we do an actual check against the local timezone?
+    # Should we check that tzinfo is local_time_zone?
     return DateKind.Local
 
 

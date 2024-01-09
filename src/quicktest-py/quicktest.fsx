@@ -20,21 +20,6 @@ let main argv =
     // use file = builtins.``open``(StringPath "data.txt")
     // file.read() |> printfn "File contents: %s"
 
-    let thatYearSeconds (dt: DateTime) =
-        (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds
-
-    let test ms expected =
-        let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-        let dt2 = dt1.AddMilliseconds(ms)
-        let res1 = compare dt1 dt2
-        let res2 = dt1.CompareTo(dt2)
-        let res3 = DateTime.Compare(dt1, dt2)
-        equal true (res1 = res2 && res2 = res3)
-        equal expected res1
-
-    test 1000. -1
-    test -1000. 1
-    test 0. 0
 
     0
 

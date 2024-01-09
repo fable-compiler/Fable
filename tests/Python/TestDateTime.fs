@@ -38,21 +38,24 @@ let ``test DateTime.ToString("d") works`` () =
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("d")
     |> equal "9/11/2014"
 
+// Needs to add (upper) and (lower) in the test name because
+// the names of the function are lowered making them equal
+
 [<Fact>]
-let ``test DateTime.ToString("T") works`` () =
+let ``test DateTime.ToString("T") (upper) works`` () =
     DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("T")
-    |> equal "3:37:11 AM"
+    |> equal "3:37:11 AM"
 
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("T")
-    |> equal "4:37:11 PM"
+    |> equal "4:37:11 PM"
 
 [<Fact>]
-let ``test DateTime.ToString("t") works`` () =
+let ``test DateTime.ToString("t") (lower) works`` () =
     DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("t")
-    |> equal "3:37 AM"
+    |> equal "3:37 AM"
 
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("t")
-    |> equal "4:37 PM"
+    |> equal "4:37 PM"
 
 
 [<Fact>]
@@ -125,7 +128,6 @@ let ``test DateTime Subtraction with DateTime works`` () =
 
 [<Fact>]
 let ``test DateTime.Parse works`` () =
-
     let d =
         DateTime.Parse(
             "2014-09-10T13:50:34.0000000",
@@ -476,6 +478,28 @@ let ``test DateTime.Ticks does not care about kind`` () =
     equal d1.Ticks d3.Ticks
     equal d2.Ticks d3.Ticks
 
+[<Fact>]
+let ``test DateTime.ToLocalTime works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    let d' = d.ToLocalTime()
+    d.Kind <> d'.Kind
+    |> equal true
+
+[<Fact>]
+let ``test DateTime.ToUniversalTime works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    d.ToUniversalTime().Kind <> d.Kind
+    |> equal true
+
+[<Fact>]
+let ``test DateTime.SpecifyKind works`` () = // See #1844
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+    let d2 = DateTime.SpecifyKind(d, DateTimeKind.Utc)
+    d2.Kind |> equal DateTimeKind.Utc
+    d.Ticks = d2.Ticks |> equal true
+    let d3 = d.ToUniversalTime()
+    d.Ticks = d3.Ticks |> equal false
+
 // [<Fact>]
 // let ``test DateTime <-> Ticks isomorphism`` () =
 //     let checkIsomorphism (d: DateTime) =
@@ -507,11 +531,3 @@ let ``test DateTime.Ticks does not care about kind`` () =
 //     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
 //     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500)
 //     checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
-
-
-// [<Fact>]
-// let ``test DateTime.ToLocalTime works`` () =
-//     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//     let d' = d.ToLocalTime()
-//     d.Kind <> d'.Kind
-//     |> equal true
