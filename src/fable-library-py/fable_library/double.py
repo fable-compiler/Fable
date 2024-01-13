@@ -49,6 +49,10 @@ def sqrt(x: float) -> float:
         return float("nan")
 
 
+def is_positive_inf(value: float) -> bool:
+    return math.isinf(value) and value > 0
+
+
 def is_negative_inf(value: float) -> bool:
     return math.isinf(value) and value < 0
 
@@ -68,4 +72,16 @@ def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
         return False
 
 
-__all__ = ["abs", "sign", "max", "min", "parse", "try_parse", "divide", "log", "sqrt", "is_negative_inf"]
+__all__ = [
+    "abs",
+    "sign",
+    "max",
+    "min",
+    "parse",
+    "try_parse",
+    "divide",
+    "log",
+    "sqrt",
+    "is_negative_inf",
+    "is_positive_inf",
+]

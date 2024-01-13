@@ -14,23 +14,23 @@ let private mainTestProject =
     Path.Resolve("tests", "Js", "Main", "Fable.Tests.fsproj")
 
 let private testReact (isWatch: bool) =
-    let workingDirectoy = Path.Resolve("tests", "React")
+    let workingDirectory = Path.Resolve("tests", "React")
 
-    Command.Run("npm", "install", workingDirectory = workingDirectoy)
+    Command.Run("npm", "install", workingDirectory = workingDirectory)
 
     if isWatch then
         Async.Parallel
             [
                 Command.WatchFableAsync(
                     CmdLine.appendRaw "--noCache",
-                    workingDirectory = workingDirectoy
+                    workingDirectory = workingDirectory
                 )
                 |> Async.AwaitTask
 
                 Command.RunAsync(
                     "npx",
                     "jest --watch",
-                    workingDirectory = workingDirectoy
+                    workingDirectory = workingDirectory
                 )
                 |> Async.AwaitTask
             ]
@@ -39,10 +39,10 @@ let private testReact (isWatch: bool) =
     else
         Command.Fable(
             CmdLine.appendRaw "--noCache",
-            workingDirectory = workingDirectoy
+            workingDirectory = workingDirectory
         )
 
-        Command.Run("npx", "jest", workingDirectory = workingDirectoy)
+        Command.Run("npx", "jest", workingDirectory = workingDirectory)
 
 let private handleMainTests (isWatch: bool) (noDotnet: bool) =
     let folderName = "Main"
