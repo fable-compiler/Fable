@@ -1454,9 +1454,8 @@ module Util =
             varAttrs.UsageCount <- varAttrs.UsageCount - 1
         | None -> ()
 
-        if
-            ident.IsThisArgument && ctx.IsAssocMember // prevents emitting self on inlined code
-        then
+        // prevents emitting self on inlined code
+        if ident.IsThisArgument && ctx.IsAssocMember then
             makeThis com ctx r ident.Type
         else
             mkGenericPathExpr (splitNameParts ident.Name) None
@@ -2171,8 +2170,10 @@ module Util =
 
         expr |> maybeWrapSmartPtr com ctx ent
 
+    let selfName = rawIdent "_self_"
+
     let makeThis (com: IRustCompiler) ctx r _typ =
-        mkGenericPathExpr [ rawIdent "self" ] None
+        mkGenericPathExpr [ selfName ] None
 
     let makeFormat (parts: string list) =
         let sb = System.Text.StringBuilder()
@@ -4033,13 +4034,13 @@ module Util =
                     | Box -> ty |> makeBoxTy com ctx
                     |> mkRefTy None
 
-                mkParamFromType (rawIdent "self") ty false false
+                mkTypedSelfParam ty false false
             | _ -> mkImplSelfParam false false
         elif ctx.IsLambda && ident.Type = Fable.Any then
             mkInferredParam ident.Name false false
         else
             let ty = transformType com ctx ident.Type
-            mkParamFromType ident.Name ty false false
+            mkTypedParam ident.Name ty false false
 
     let transformFunctionDecl
         (com: IRustCompiler)
@@ -4074,14 +4075,12 @@ module Util =
 
     let shouldBeCloned com ctx typ =
         (isWrappedType com typ)
-        ||
         // Closures may capture Ref counted vars, so by cloning
         // the actual closure, all attached ref counted var are cloned too
-        (shouldBeRefCountWrapped com ctx typ |> Option.isSome)
+        || (shouldBeRefCountWrapped com ctx typ |> Option.isSome)
 
     let isClosedOverIdent com ctx (ident: Fable.Ident) =
         not (ident.IsCompilerGenerated && ident.Name = "matchValue")
-        && not (ident.IsThisArgument && ctx.IsAssocMember)
         && (ident.IsMutable
             || isValueScoped ctx ident.Name
             || isRefScoped ctx ident.Name
@@ -4169,7 +4168,13 @@ module Util =
         let addClosedOver expr =
             tryFindClosedOverIdent com ctx ignoredNames expr
             |> Option.iter (fun ident ->
-                capturedIdents <- capturedIdents |> Map.add ident.Name ident
+                let identName =
+                    if ident.IsThisArgument && ctx.IsAssocMember then
+                        selfName
+                    else
+                        ident.Name
+
+                capturedIdents <- capturedIdents |> Map.add identName ident
             )
 
             false
@@ -4377,13 +4382,7 @@ module Util =
             let ty = mkGenericPathTy [ argName ] None
             let genArgsOpt = mkConstraintArgs [] [ "Output", ty ]
 
-            mkTypeTraitGenericBound
-                [
-                    "core"
-                    "ops"
-                    op
-                ]
-                genArgsOpt
+            mkTypeTraitGenericBound ("core" :: "ops" :: op :: []) genArgsOpt
 
         let makeConstraint =
             function
@@ -4405,25 +4404,11 @@ module Util =
             | Fable.Constraint.CoercesTo(targetType) ->
                 match targetType with
                 | IFormattable ->
-                    [
-                        makeGenBound
-                            [
-                                "core"
-                                "fmt"
-                                "Display"
-                            ]
-                            []
-                    ]
+                    [ makeGenBound ("core" :: "fmt" :: "Display" :: []) [] ]
                 | IEquatable _ ->
                     [
                         makeRawBound "Eq"
-                        makeGenBound
-                            [
-                                "core"
-                                "hash"
-                                "Hash"
-                            ]
-                            []
+                        makeGenBound ("core" :: "hash" :: "Hash" :: []) []
                     ]
                 | Fable.DeclaredType(entRef, genArgs) ->
                     let ent = com.GetEntity(entRef)
@@ -4447,16 +4432,10 @@ module Util =
             | Fable.Constraint.IsReferenceType -> []
             | Fable.Constraint.HasDefaultConstructor -> []
             | Fable.Constraint.HasComparison -> [ makeRawBound "PartialOrd" ]
-            | Fable.Constraint.HasEquality -> //[makeRawBound "PartialEq"]
+            | Fable.Constraint.HasEquality ->
                 [
-                    makeRawBound "Eq"
-                    makeGenBound
-                        [
-                            "core"
-                            "hash"
-                            "Hash"
-                        ]
-                        []
+                    makeRawBound "Eq" // "PartialEq"
+                    makeGenBound ("core" :: "hash" :: "Hash" :: []) []
                 ]
             | Fable.Constraint.IsUnmanaged -> []
             | Fable.Constraint.IsEnum -> []
@@ -4798,6 +4777,14 @@ module Util =
         let ctx = { ctx with IsAssocMember = true }
         let name = splitLast membName
 
+        let body =
+            if memb.IsInstance && not (memb.IsConstructor) then
+                let ident = makeIdent selfName
+                let thisArg = makeIdentExpr (rawIdent "self")
+                Fable.Let(ident, thisArg, body)
+            else
+                body
+
         let fnDecl, fnBody, genArgs =
             let parameters = memb.CurriedParameterGroups |> List.concat
             transformFunc com ctx (Some name) parameters args body
@@ -4857,8 +4844,8 @@ module Util =
                     rawIdent "Hash"
                 if isEquatable && isHashable then
                     rawIdent "Eq"
-                if isComparable && isHashable then
-                    rawIdent "Ord"
+            // if isComparable && isHashable then
+            //     rawIdent "Ord"
             ]
 
         derivedFrom
@@ -4959,6 +4946,7 @@ module Util =
                 entName,
                 paramTypes,
                 body.Type,
+                isInstance = false,
                 entRef = ent.Ref
             )
 
@@ -5093,7 +5081,10 @@ module Util =
 
                 let bodyOpt =
                     if hasBody then
-                        let thisExpr = makeThis com ctx None ifcTyp
+                        // let thisExpr = makeThis com ctx None ifcTyp
+                        let thisExpr =
+                            mkGenericPathExpr [ rawIdent "self" ] None
+
                         let callee = thisExpr |> mkDerefExpr |> mkDerefExpr
 
                         let args =
@@ -5205,16 +5196,10 @@ module Util =
         let fnDecl =
             let inputs =
                 let ty =
-                    mkGenericPathTy
-                        [
-                            "core"
-                            "fmt"
-                            "Formatter"
-                        ]
-                        None
+                    mkGenericPathTy ("core" :: "fmt" :: "Formatter" :: []) None
 
                 let p1 = mkImplSelfParam false false
-                let p2 = mkParamFromType "f" (ty |> mkMutRefTy None) false false
+                let p2 = mkTypedParam "f" (ty |> mkMutRefTy None) false false
 
                 [
                     p1
@@ -5224,11 +5209,7 @@ module Util =
             let output =
                 let ty =
                     mkGenericPathTy
-                        [
-                            "core"
-                            "fmt"
-                            rawIdent "Result"
-                        ]
+                        ("core" :: "fmt" :: (rawIdent "Result") :: [])
                         None
 
                 ty |> mkFnRetTy
