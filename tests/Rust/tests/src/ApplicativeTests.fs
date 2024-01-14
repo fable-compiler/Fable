@@ -889,14 +889,14 @@ let adder () =
 
 let ADD = adder ()
 
-// type Foo3() =
-//     let mutable z = 5
-//     member _.GetLambda() =
-//         fun x y -> x + y + z
-//     member _.GetCurriedLambda() =
-//         fun x ->
-//             z <- z + 3
-//             fun y -> x + y + z
+type Foo3() =
+    let mutable z = 5
+    member _.GetLambda() =
+        fun x y -> x + y + z
+    member _.GetCurriedLambda() =
+        fun x ->
+            z <- z + 3
+            fun y -> x + y + z
 
 let apply f x =
     match f, x with
@@ -1155,19 +1155,19 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 //     result |> equal 6
 //     counter |> equal 1
 
-// [<Fact>]
-// let ``Partially applied lambdas capture this`` () =
-//     let foo = Foo3()
-//     let f = foo.GetLambda()
-//     let f2 = f 2
-//     f2 3 |> equal 10
+[<Fact>]
+let ``Partially applied lambdas capture this`` () =
+    let foo = Foo3()
+    let f = foo.GetLambda()
+    let f2 = f 2
+    f2 3 |> equal 10
 
-// [<Fact>]
-// let ``Partially applied curried lambdas capture this`` () =
-//     let foo = Foo3()
-//     let f = foo.GetCurriedLambda()
-//     let f2 = f 2
-//     f2 4 |> equal 14
+[<Fact>]
+let ``Partially applied curried lambdas capture this`` () =
+    let foo = Foo3()
+    let f = foo.GetCurriedLambda()
+    let f2 = f 2
+    f2 4 |> equal 14
 
 [<Fact>]
 let ``Curried function options work`` () =

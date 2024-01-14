@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Fixed unary negation for signed integer MinValue (by @ncave)
 * Fixed excluding signature files from imports (by @ncave)
 * Fixed generic try_catch closure trait (by @ncave)
+* Fixed `self` arg capture in methods (by @ncave)
 * Fixed 'System.Collections.Generic.Queue' bug (by @PierreYvesR)
 
 ## 4.9.0 - 2023-12-14

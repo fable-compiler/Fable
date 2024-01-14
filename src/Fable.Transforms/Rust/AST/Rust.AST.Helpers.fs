@@ -1195,15 +1195,18 @@ module Params =
             kind = kind
         }
 
-    let mkParamFromType name ty isRef isMut : Param =
+    let mkTypedParam name ty isRef isMut : Param =
         let attrs = []
         let is_placeholder = false
         let pat = mkIdentPat name isRef isMut
         mkParam attrs ty pat is_placeholder
 
+    let mkTypedSelfParam ty isRef isMut : Param =
+        mkTypedParam (rawIdent "self") ty isRef isMut
+
     let mkInferredParam name isRef isMut : Param =
         let ty = mkInferTy ()
-        mkParamFromType name ty isRef isMut
+        mkTypedParam name ty isRef isMut
 
     let mkImplSelfParam isRef isMut : Param =
         let ty = mkImplSelfTy () |> mkRefTy None
