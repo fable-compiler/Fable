@@ -207,16 +207,13 @@ jobs:
 
   # Separate job to run F# analyzers
   analyzers:
-      runs-on: ubuntu-latest
+      runs-on: windows-latest
 
       steps:
       - uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
-
-      - name: Build Transforms
-        run: dotnet build -c Release src/Fable.Transforms/Fable.Transforms.fsproj -v:d
 
       - name: Build solution
         run: dotnet build -c Release Fable.sln
