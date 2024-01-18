@@ -64,6 +64,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Build", "src\Fable.Bu
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Compiler", "src\Fable.Compiler\Fable.Compiler.fsproj", "{942DD29B-07C0-4ACF-891E-85C1235A9BE0}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Analyzers", "src\Fable.Analyzers\Fable.Analyzers.fsproj", "{75B5084B-C267-47EC-B4A1-7764A1F2A2FF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -166,6 +168,10 @@ Global
 		{942DD29B-07C0-4ACF-891E-85C1235A9BE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{942DD29B-07C0-4ACF-891E-85C1235A9BE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{942DD29B-07C0-4ACF-891E-85C1235A9BE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{75B5084B-C267-47EC-B4A1-7764A1F2A2FF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{75B5084B-C267-47EC-B4A1-7764A1F2A2FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{75B5084B-C267-47EC-B4A1-7764A1F2A2FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{75B5084B-C267-47EC-B4A1-7764A1F2A2FF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -196,6 +202,7 @@ Global
 		{C90E23AF-4B5B-44A7-ADCC-3BF89547395B} = {DA29278E-3808-42DE-8333-964F129F295D}
 		{F2E323CE-FDF3-4A1E-AE97-B723D2E63763} = {C8CB96CF-68A8-4083-A0F8-319275CF8097}
 		{942DD29B-07C0-4ACF-891E-85C1235A9BE0} = {C8CB96CF-68A8-4083-A0F8-319275CF8097}
+		{75B5084B-C267-47EC-B4A1-7764A1F2A2FF} = {C8CB96CF-68A8-4083-A0F8-319275CF8097}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {58DF9285-8523-4EAC-B598-BE5B02A76A00}
