@@ -215,6 +215,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
 
+      - name: Build Transforms
+        run: dotnet build -c Release src/Fable.Transforms/Fable.Transforms.fsproj -v:d
+
       - name: Build solution
         run: dotnet build -c Release Fable.sln
 
