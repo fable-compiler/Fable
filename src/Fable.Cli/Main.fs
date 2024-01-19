@@ -123,9 +123,7 @@ module private Util =
     let logErrors rootDir (logs: LogEntry seq) =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
-        |> Seq.iter (fun log ->
-            Fable.Compiler.Util.Log.error (formatLog rootDir log)
-        )
+        |> Seq.iter (fun log -> Log.error (formatLog rootDir log))
 
     let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
         diagnostics

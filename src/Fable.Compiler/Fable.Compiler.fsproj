@@ -40,7 +40,6 @@
     <ItemGroup>
         <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
         <PackageReference Include="Buildalyzer" Version="5.0.1" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
     </ItemGroup>
 
     <ItemGroup>
