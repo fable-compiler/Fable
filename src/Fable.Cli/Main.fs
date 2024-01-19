@@ -43,36 +43,6 @@ module private Util =
 
         s :> _
 
-    let loadType (cliArgs: CliArgs) (r: PluginRef) : Type =
-        /// Prevent ReflectionTypeLoadException
-        /// From http://stackoverflow.com/a/7889272
-        let getTypes (asm: System.Reflection.Assembly) =
-            let mutable types: Option<Type[]> = None
-
-            try
-                types <- Some(asm.GetTypes())
-            with :? System.Reflection.ReflectionTypeLoadException as e ->
-                types <- Some e.Types
-
-            match types with
-            | None -> Seq.empty
-            | Some types -> types |> Seq.filter ((<>) null)
-
-        // The assembly may be already loaded, so use `LoadFrom` which takes
-        // the copy in memory unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
-        System.Reflection.Assembly.LoadFrom(r.DllPath)
-        |> getTypes
-        // Normalize type name
-        |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
-        |> function
-            | Some t ->
-                $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, r.DllPath)}"
-                |> Log.always
-
-                t
-            | None ->
-                failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"
-
     let splitVersion (version: string) =
         match Version.TryParse(version) with
         | true, v -> v.Major, v.Minor, v.Revision
@@ -961,7 +931,7 @@ and FableCompiler
                     ?precompiledInfo =
                         (projCracked.PrecompiledInfo
                          |> Option.map (fun i -> i :> _)),
-                    getPlugin = loadType projCracked.CliArgs
+                    getPlugin = Reflection.loadType projCracked.CliArgs
                 )
 
             return FableCompiler(checker, projCracked, fableProj)

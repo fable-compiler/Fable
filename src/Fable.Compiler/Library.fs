@@ -153,10 +153,10 @@ let compileProjectToJavaScript
                 crackerResponse.ProjectOptions.SourceFiles,
                 checkProjectResult.AssemblyContents.ImplementationFiles,
                 assemblies,
-                Log.log
+                Log.log,
+                getPlugin = Reflection.loadType cliArgs
             // ?precompiledInfo =
             //     (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
-            // getPlugin = loadType projCracked.CliArgs
             )
 
         let opts = cliArgs.CompilerOptions

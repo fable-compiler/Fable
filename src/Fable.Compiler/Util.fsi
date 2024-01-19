@@ -203,3 +203,7 @@ type PrecompiledInfoImpl =
         fableModulesDir: string *
         fableLibDir: string ->
             unit
+
+module Reflection =
+    val loadType:
+        cliArgs: CliArgs -> r: Fable.Transforms.State.PluginRef -> Type

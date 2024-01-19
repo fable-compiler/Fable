@@ -1081,3 +1081,38 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
             InlineExprHeaders = inlineExprHeaders
         }
         |> Json.write precompiledInfoPath
+
+module Reflection =
+    let loadType
+        (cliArgs: CliArgs)
+        (r: Fable.Transforms.State.PluginRef)
+        : Type
+        =
+        /// Prevent ReflectionTypeLoadException
+        /// From http://stackoverflow.com/a/7889272
+        let getTypes (asm: System.Reflection.Assembly) =
+            let mutable types: Option<Type[]> = None
+
+            try
+                types <- Some(asm.GetTypes())
+            with :? System.Reflection.ReflectionTypeLoadException as e ->
+                types <- Some e.Types
+
+            match types with
+            | None -> Seq.empty
+            | Some types -> types |> Seq.filter ((<>) null)
+
+        // The assembly may be already loaded, so use `LoadFrom` which takes
+        // the copy in memory unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
+        System.Reflection.Assembly.LoadFrom(r.DllPath)
+        |> getTypes
+        // Normalize type name
+        |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
+        |> function
+            | Some t ->
+                $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, r.DllPath)}"
+                |> Log.always
+
+                t
+            | None ->
+                failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"
