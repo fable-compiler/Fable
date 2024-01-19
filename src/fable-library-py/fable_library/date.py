@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 from math import fmod
-from re import Match
 from typing import Any
 
 from .singleton_local_time_zone import local_time_zone
@@ -13,7 +12,39 @@ from .types import FSharpRef
 from .util import DateKind
 
 
-FORMAT_REGEXP = re.compile(r"(\w)\1*")
+short_days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+long_days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+short_months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
+
+long_months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+]
 
 
 def subtract(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
@@ -104,94 +135,281 @@ def day_of_year(d: datetime) -> int:
     return d.timetuple().tm_yday
 
 
+def to_short_date_string(date: datetime) -> str:
+    return datetime.strftime(date, "%m/%d/%Y")
+
+
+def to_long_date_string(date: datetime) -> str:
+    return datetime.strftime(date, "%A, %d %B %Y")
+
+
+def to_short_time_string(date: datetime) -> str:
+    return datetime.strftime(date, "%H:%M")
+
+
+def to_long_time_string(date: datetime) -> str:
+    return datetime.strftime(date, "%H:%M:%S")
+
+
+def parse_repeat_token(format: str, pos: int, pattern_char: str) -> int:
+    token_length = 0
+    internal_pos = pos
+    while internal_pos < len(format) and format[internal_pos] == pattern_char:
+        internal_pos += 1
+        token_length += 1
+
+    return token_length
+
+
+# Get the next character at the index of 'pos' in the 'format' string.
+# Return value of -1 means 'pos' is already at the end of the 'format' string.
+# Otherwise, return value is the int value of the next character.
+def parse_next_char(format: str, pos: int) -> int:
+    if pos >= len(format) - 1:
+        return -1
+
+    return ord(format[pos + 1])
+
+
+def parse_quoted_string(format: str, pos: int) -> tuple[str, int]:
+    begin_pos = pos
+    format_length = len(format)
+    # Get the character used to quote the string
+    quote_char = format[pos]
+
+    result = ""
+    found_quote = False
+
+    while pos < format_length:
+        pos += 1
+        current_char = format[pos]
+        if current_char == quote_char:
+            found_quote = True
+            break
+        elif current_char == "\\":
+            if pos < format_length:
+                pos += 1
+                result += format[pos]
+            else:
+                # This means that '\'is the last character in the format string.
+                raise Exception("Invalid string format")
+        else:
+            result += current_char
+
+    if not found_quote:
+        # We couldn't find the matching quote
+        raise Exception(f"Invalid string format could not find matching quote for {quote_char}")
+
+    return (result, pos - begin_pos + 1)
+
+
 def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) -> str:
-    def match(match: Match[str]) -> str:
-        group = match.group()
-        m = group[:1]
-        rep = None
+    cursor_pos = 0
+    token_length = 0
+    result = ""
+    localized_date = date.astimezone(timezone.utc) if utc else date
 
-        if m == "y":
-            y = date.astimezone(timezone.utc).year if utc else date.year
-            rep = y % 100 if len(group) < 4 else y
-        elif m == "M":
-            rep = date.astimezone(timezone.utc).month if utc else date.month
-        elif m == "H":
-            rep = date.astimezone(timezone.utc).hour if utc else date.hour
-        elif m == "m":
-            rep = date.astimezone(timezone.utc).minute if utc else date.minute
-        elif m == "s":
-            rep = date.astimezone(timezone.utc).second if utc else date.second
-        elif m == "f":
-            rep = date.astimezone(timezone.utc).microsecond if utc else date.microsecond
-            rep = rep // 1000
+    while cursor_pos < len(format):
+        token = format[cursor_pos]
 
-        if rep:
-            return f"0{rep}" if (rep < 10 and len(group) > 1) else f"{rep}"
+        match token:
+            case "d":
+                token_length = parse_repeat_token(format, cursor_pos, "d")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        result += str(localized_date.day)
+                    case 2:
+                        result += localized_date.strftime("%d")
+                    case 3:
+                        result += short_days[day_of_week(localized_date)]
+                    case 4:
+                        result += long_days[day_of_week(localized_date)]
+                    case _:
+                        pass
+            case "f":
+                token_length = parse_repeat_token(format, cursor_pos, "f")
+                cursor_pos += token_length
+                match token_length:
+                    case 1 | 2 | 3 | 4 | 5 | 6:
+                        precision = 10 ** (6 - token_length)
+                        result += str(localized_date.microsecond // precision).zfill(token_length)
+                    # Python datetime only support precision up to the microsecond
+                    # so we can't support fffffff
+                    case _:
+                        pass
+            case "F":
+                token_length = parse_repeat_token(format, cursor_pos, "F")
+                cursor_pos += token_length
+                match token_length:
+                    case 1 | 2 | 3 | 4 | 5 | 6:
+                        precision = 10 ** (6 - token_length)
+                        value = localized_date.microsecond // precision
+                        if value != 0:
+                            result += str(value).zfill(token_length)
+                    # Python datetime only support precision up to the microsecond
+                    # so we can't support FFFFFFF
+                    case _:
+                        pass
+            case "g":
+                token_length = parse_repeat_token(format, cursor_pos, "g")
+                cursor_pos += token_length
+                match token_length:
+                    case 1 | 2:
+                        result += "A.D."
+                    case _:
+                        pass
 
-        return group
+            case "h":
+                token_length = parse_repeat_token(format, cursor_pos, "h")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        result += str(localized_date.hour % 12)
+                    case 2:
+                        result += localized_date.strftime("%I")
+                    case _:
+                        pass
+            case "H":
+                token_length = parse_repeat_token(format, cursor_pos, "H")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        result += str(localized_date.hour)
+                    case 2:
+                        result += localized_date.strftime("%H")
+                    case _:
+                        pass
+            case "K":
+                token_length = parse_repeat_token(format, cursor_pos, "K")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        match kind(date):
+                            case DateKind.UTC:
+                                result += "Z"
+                            case DateKind.Local:
+                                # %:z is not a perfect match for the .NET equivalent
+                                # but it seems to do the job
+                                # If needed we can probably compute the offset manually
+                                # and format it ourselves
+                                result += date.strftime("%:z")
+                            case DateKind.Unspecified:
+                                result += ""
+                    case _:
+                        pass
+            case "m":
+                token_length = parse_repeat_token(format, cursor_pos, "m")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        result += str(localized_date.minute)
+                    case 2:
+                        result += localized_date.strftime("%M")
+                    case _:
+                        pass
+            case "M":
+                token_length = parse_repeat_token(format, cursor_pos, "M")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        result += str(localized_date.month)
+                    case 2:
+                        result += localized_date.strftime("%m")
+                    case 3:
+                        result += short_months[month(localized_date) - 1]
+                    case 4:
+                        result += long_months[month(localized_date) - 1]
+                    case _:
+                        pass
+            case "s":
+                token_length = parse_repeat_token(format, cursor_pos, "s")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        result += str(localized_date.second)
+                    case 2:
+                        result += localized_date.strftime("%S")
+                    case _:
+                        pass
+            case "t":
+                token_length = parse_repeat_token(format, cursor_pos, "t")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        result += localized_date.strftime("%p")[:1]
+                    case 2:
+                        result += localized_date.strftime("%p")
+                    case _:
+                        pass
+            case "y":
+                token_length = parse_repeat_token(format, cursor_pos, "y")
+                cursor_pos += token_length
+                match token_length:
+                    case 1:
+                        result += str(localized_date.year % 100)
+                    case 2:
+                        result += localized_date.strftime("%y")
+                    case length:
+                        result += str(localized_date.year).zfill(length)
+            case "z":
+                token_length = parse_repeat_token(format, cursor_pos, "z")
+                cursor_pos += token_length
 
-    ret = FORMAT_REGEXP.sub(match, format)
-    return ret
+                match kind(date):
+                    case DateKind.UTC:
+                        utc_offet_text = localized_date.strftime("%z")
+                    case DateKind.Local:
+                        utc_offet_text = localized_date.strftime("%z")
+                    case DateKind.Unspecified:
+                        utc_offet_text = to_local_time(date).strftime("%z")
 
-    # return format.replace(/(\w)\1*/g, (match) => {
-    #     let rep = Number.NaN;
-    #     switch (match.substring(0, 1)) {
-    #         case "y":
-    #             const y = utc ? date.getUTCFullYear() : date.getFullYear();
-    #             rep = match.length < 4 ? y % 100 : y;
-    #             break;
-    #         case "M":
-    #             rep = (utc ? date.getUTCMonth() : date.getMonth()) + 1;
-    #             break;
-    #         case "d":
-    #             rep = utc ? date.getUTCDate() : date.getDate();
-    #             break;
-    #         case "H":
-    #             rep = utc ? date.getUTCHours() : date.getHours();
-    #             break;
-    #         case "h":
-    #             const h = utc ? date.getUTCHours() : date.getHours();
-    #             rep = h > 12 ? h % 12 : h;
-    #             break;
-    #         case "m":
-    #             rep = utc ? date.getUTCMinutes() : date.getMinutes();
-    #             break;
-    #         case "s":
-    #             rep = utc ? date.getUTCSeconds() : date.getSeconds();
-    #             break;
-    #         case "f":
-    #             rep = utc ? date.getUTCMilliseconds() : date.getMilliseconds();
-    #             break;
-    #     }
-    #     if (Number.isNaN(rep)) {
-    #         return match;
-    #     }
-    #     else {
-    #         return (rep < 10 && match.length > 1) ? "0" + rep : "" + rep;
-    #     }
+                sign = utc_offet_text[:1]
+                hours = int(utc_offet_text[1:3])
+                minutes = int(utc_offet_text[3:5])
 
+                match token_length:
+                    case 1:
+                        result += f"{sign}{hours}"
+                    case 2:
+                        result += f"{sign}{hours:02}"
+                    case 3 | _:
+                        result += f"{sign}{hours:02}:{minutes:02}"
+            case ":":
+                cursor_pos += 1
+                result += ":"
+            case "/":
+                cursor_pos += 1
+                result += "/"
+            case "'" | '"':
+                quoted_string, quoted_string_length = parse_quoted_string(format, cursor_pos)
+                cursor_pos += quoted_string_length
+                result += quoted_string
+            case "%":
+                next_char = parse_next_char(format, cursor_pos)
+                if next_char >= 0 and next_char != ord("%"):
+                    cursor_pos += 2
+                    result += date_to_string_with_custom_format(date, chr(next_char), utc)
+                else:
+                    raise Exception("Invalid string format")
+            case "\\":
+                next_char = parse_next_char(format, cursor_pos)
+                if next_char >= 0:
+                    result += chr(next_char)
+                    cursor_pos += 2
+                else:
+                    raise Exception("Invalid string format")
+            case _:
+                cursor_pos += 1
+                result += token
+                pass
 
-# def dateToStringWithOffset(date, format=None):
-#     d = new Date(date.getTime() + ((_a = date.offset) !== null && _a !== void 0 ? _a : 0));
-#     if (typeof format !== "string") {
-#         return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString(((_b = date.offset) !== null && _b !== void 0 ? _b : 0));
-#     }
-#     else if (format.length === 1) {
-#         switch (format) {
-#             case "D":
-#             case "d": return dateToHalfUTCString(d, "first");
-#             case "T":
-#             case "t": return dateToHalfUTCString(d, "second");
-#             case "O":
-#             case "o": return dateToISOStringWithOffset(d, ((_c = date.offset) !== null && _c !== void 0 ? _c : 0));
-#             default: throw new Error("Unrecognized Date print format");
-#         }
-
-#     else:
-#         return dateToStringWithCustomFormat(d, format, True)
+    return result
 
 
 def date_to_string_with_offset(date: datetime, format: str | None = None) -> str:
+    utc = date.tzinfo == timezone.utc
+
     match format:
         case None:
             raise NotImplementedError("date_to_string_with_offset")
@@ -200,7 +418,7 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
         case _ if len(format) == 1:
             raise Exception("Unrecognized Date print format")
         case _:
-            return date_to_string_with_custom_format(date, format, True)
+            return date_to_string_with_custom_format(date, format, utc)
 
 
 def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
@@ -210,11 +428,13 @@ def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
         return date.isoformat() if utc else str(date)
     elif len(format) == 1:
         if format == "d":
-            return datetime.strftime(date, "%m/%d/%Y").lstrip("0").replace("/0", "/")
+            return to_short_date_string(date)
+        elif format == "D":
+            return to_long_date_string(date)
         elif format == "T":
-            return datetime.strftime(date, "%H:%M:%S")
+            return to_long_time_string(date)
         elif format == "t":
-            return datetime.strftime(date, "%H:%M")
+            return to_short_time_string(date)
         elif format == "O" or format == "o":
             return date.astimezone().isoformat(timespec="milliseconds")
         else:
@@ -492,6 +712,8 @@ __all__ = [
     "date_to_string_with_offset",
     "date_to_string_with_kind",
     "to_string",
+    "to_long_time_string",
+    "to_short_time_string",
     "now",
     "utc_now",
     "today",
