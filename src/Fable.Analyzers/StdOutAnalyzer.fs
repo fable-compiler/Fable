@@ -13,9 +13,8 @@ let namesToAvoid =
             "System.Console.WriteLine"
             "System.Console.WriteAsync"
             "System.Console.WriteLineAsync"
-            "Microsoft.FSharp.Core.Operators.print"
-            "Microsoft.FSharp.Core.Operators.printf"
-            "Microsoft.FSharp.Core.Operators.println"
+            "Microsoft.FSharp.Core.ExtraTopLevelOperators.printf"
+            "Microsoft.FSharp.Core.ExtraTopLevelOperators.printfn"
         ]
 
 [<CliAnalyzer "StdOutAnalyzer">]
