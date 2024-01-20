@@ -980,12 +980,19 @@ module TypeInfo =
         genArgs
         : Rust.Ty
         =
-        let nameParts =
-            getAbstractClassImportName com ctx entRef |> splitNameParts
-
+        let entName = getAbstractClassImportName com ctx entRef
+        let nameParts = entName |> splitNameParts
         let genArgsOpt = transformGenArgs com ctx genArgs
         let traitBound = mkTypeTraitGenericBound nameParts genArgsOpt
-        mkDynTraitTy [ traitBound ]
+
+        match entRef.FullName with
+        | "System.Collections.Generic.Comparer`1"
+        | "System.Collections.Generic.EqualityComparer`1" ->
+            // some abstract classes are implemented as non-abstract
+            makeFullNamePathTy entName genArgsOpt
+        | _ ->
+            // abstract classes implemented as interfaces
+            mkDynTraitTy [ traitBound ]
 
     let (|HasEmitAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes

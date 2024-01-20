@@ -81,17 +81,17 @@ type MyClass(v) =
 //             x - 2 <= y && y <= x + 2
 //         | _ -> false
 
-// let genericEquals (a:'T) (b:'T) : bool =
-//     let cmp = EqualityComparer<'T>.Default
-//     cmp.Equals(a,b)
+let genericEquals<'T when 'T: equality> (a: 'T) (b: 'T) : bool =
+    let cmp = EqualityComparer<'T>.Default
+    cmp.Equals(a, b)
 
-// let genericHash (x:'T) : int =
-//     let cmp = EqualityComparer<'T>.Default
-//     cmp.GetHashCode(x)
+let genericHash<'T when 'T: equality> (x: 'T) : int =
+    let cmp = EqualityComparer<'T>.Default
+    cmp.GetHashCode(x)
 
-// let genericCompare (a:'T) (b:'T) : int =
-//     let cmp = Comparer<'T>.Default
-//     cmp.Compare(a,b)
+let genericCompare<'T when 'T: comparison> (a: 'T) (b: 'T) : int =
+    let cmp = Comparer<'T>.Default
+    cmp.Compare(a, b)
 
 [<Fact>]
 let ``Typed array equality works`` () =
@@ -761,20 +761,33 @@ let ``LanguagePrimitives.DecimalWithMeasure works`` () =
     let distance: decimal<m> = LanguagePrimitives.DecimalWithMeasure 1.0m
     distance |> equal 1.0m<m>
 
-// [<Fact>]
-// let ``EqualityComparer.Equals works`` () =
-//     genericEquals 1 1 |> equal true
-//     genericEquals 1 2 |> equal false
-//     genericEquals "1" "1" |> equal true
-//     genericEquals "1" "2" |> equal false
+[<Fact>]
+let ``EqualityComparer.Create works`` () =
+    let cmp = EqualityComparer<'T>.Create((<>), hash)
+    cmp.Equals(1, 1) |> equal false
+    cmp.Equals(1, 2) |> equal true
 
-// [<Fact>]
-// let ``EqualityComparer.GetHashCode works`` () =
-//     genericHash 1 |> equal ((1).GetHashCode())
-//     genericHash "1" |> equal ("1".GetHashCode())
+[<Fact>]
+let ``EqualityComparer.Equals works`` () =
+    genericEquals 1 1 |> equal true
+    genericEquals 1 2 |> equal false
+    genericEquals "1" "1" |> equal true
+    genericEquals "1" "2" |> equal false
 
-// [<Fact>]
-// let ``Comparer.Compare works`` () =
-//     genericCompare 1 1 |> equal 0
-//     genericCompare 1 2 |> equal -1
-//     genericCompare 2 1 |> equal 1
+[<Fact>]
+let ``EqualityComparer.GetHashCode works`` () =
+    genericHash 1 |> equal ((1).GetHashCode())
+    genericHash "1" |> equal ("1".GetHashCode())
+
+[<Fact>]
+let ``Comparer.Compare works`` () =
+    genericCompare 1 1 |> equal 0
+    genericCompare 1 2 |> equal -1
+    genericCompare 2 1 |> equal 1
+
+[<Fact>]
+let ``Comparer.Create works`` () =
+    let cmp = Comparer<'T>.Create(fun x y -> -(compare x y))
+    cmp.Compare(1, 1) |> equal 0
+    cmp.Compare(1, 2) |> equal 1
+    cmp.Compare(2, 1) |> equal -1
