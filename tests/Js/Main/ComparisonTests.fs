@@ -85,17 +85,17 @@ type FuzzyInt =
             x - 2 <= y && y <= x + 2
         | _ -> false
 
-let genericEquals (a:'T) (b:'T) : bool =
+let genericEquals (a: 'T) (b: 'T) : bool =
     let cmp = EqualityComparer<'T>.Default
-    cmp.Equals(a,b)
+    cmp.Equals(a, b)
 
-let genericHash (x:'T) : int =
+let genericHash (x: 'T) : int =
     let cmp = EqualityComparer<'T>.Default
     cmp.GetHashCode(x)
 
-let genericCompare (a:'T) (b:'T) : int =
+let genericCompare (a: 'T) (b: 'T) : int =
     let cmp = Comparer<'T>.Default
-    cmp.Compare(a,b)
+    cmp.Compare(a, b)
 
 let tests =
   testList "Comparison" [
@@ -714,6 +714,11 @@ let tests =
         let distance: decimal<m> = LanguagePrimitives.DecimalWithMeasure 1.0m
         distance |> equal 1.0m<m>
 
+    testCase "EqualityComparer.Create works" <| fun () ->
+        let cmp = EqualityComparer<'T>.Create((<>), hash)
+        cmp.Equals(1, 1) |> equal false
+        cmp.Equals(1, 2) |> equal true
+
     testCase "EqualityComparer.Equals works" <| fun () ->
         genericEquals 1 1 |> equal true
         genericEquals 1 2 |> equal false
@@ -728,5 +733,11 @@ let tests =
         genericCompare 1 1 |> equal 0
         genericCompare 1 2 |> equal -1
         genericCompare 2 1 |> equal 1
+
+    testCase "Comparer.Create works" <| fun () ->
+        let cmp = Comparer<'T>.Create(fun x y -> -(compare x y))
+        cmp.Compare(1, 1) |> equal 0
+        cmp.Compare(1, 2) |> equal 1
+        cmp.Compare(2, 1) |> equal -1
 
   ]

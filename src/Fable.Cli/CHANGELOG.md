@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Javascript
 
 * Fixed 'System.Collections.Generic.Queue' bug (by @PierreYvesR)
+* Fixed instance calls for generic comparers (by @ncave)
 
 #### Python
 
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Fixed generic try_catch closure trait (by @ncave)
 * Fixed `self` arg capture in methods (by @ncave)
 * Fixed 'System.Collections.Generic.Queue' bug (by @PierreYvesR)
+* Added support for generic comparers (by @ncave)
 
 ## 4.9.0 - 2023-12-14
 
