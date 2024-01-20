@@ -1,6 +1,7 @@
 module Fable.Tests.ComparisonTests
 
 open Util.Testing
+open System.Collections.Generic
 open FSharp.Data.UnitSystems.SI.UnitSymbols
 
 type UTest = A of int | B of int
@@ -54,14 +55,14 @@ type OTest(a) = member val A = a with get, set
 //             y.Value + 1 = x.Value
 
 type Status =
-| CreateScenePicture
-| ReadingOldDevice
-| CreateOldMeterReadingPicture
-| SelectingNewDevice
-| ReadingNewDevice
-| CreateNewMeterReadingPicture
-| GetSignature
-| Done
+    | CreateScenePicture
+    | ReadingOldDevice
+    | CreateOldMeterReadingPicture
+    | SelectingNewDevice
+    | ReadingNewDevice
+    | CreateNewMeterReadingPicture
+    | GetSignature
+    | Done
 
 type MyClass(v) =
     member val Value: int = v with get, set
@@ -79,6 +80,18 @@ type MyClass(v) =
 //             let (FuzzyInt y) = y
 //             x - 2 <= y && y <= x + 2
 //         | _ -> false
+
+// let genericEquals (a:'T) (b:'T) : bool =
+//     let cmp = EqualityComparer<'T>.Default
+//     cmp.Equals(a,b)
+
+// let genericHash (x:'T) : int =
+//     let cmp = EqualityComparer<'T>.Default
+//     cmp.GetHashCode(x)
+
+// let genericCompare (a:'T) (b:'T) : int =
+//     let cmp = Comparer<'T>.Default
+//     cmp.Compare(a,b)
 
 [<Fact>]
 let ``Typed array equality works`` () =
@@ -747,3 +760,21 @@ let ``LanguagePrimitives.FloatWithMeasure works`` () =
 let ``LanguagePrimitives.DecimalWithMeasure works`` () =
     let distance: decimal<m> = LanguagePrimitives.DecimalWithMeasure 1.0m
     distance |> equal 1.0m<m>
+
+// [<Fact>]
+// let ``EqualityComparer.Equals works`` () =
+//     genericEquals 1 1 |> equal true
+//     genericEquals 1 2 |> equal false
+//     genericEquals "1" "1" |> equal true
+//     genericEquals "1" "2" |> equal false
+
+// [<Fact>]
+// let ``EqualityComparer.GetHashCode works`` () =
+//     genericHash 1 |> equal ((1).GetHashCode())
+//     genericHash "1" |> equal ("1".GetHashCode())
+
+// [<Fact>]
+// let ``Comparer.Compare works`` () =
+//     genericCompare 1 1 |> equal 0
+//     genericCompare 1 2 |> equal -1
+//     genericCompare 2 1 |> equal 1

@@ -58,14 +58,14 @@ type Test(i: int) =
             y.Value + 1 = x.Value
 
 type Status =
-| CreateScenePicture
-| ReadingOldDevice
-| CreateOldMeterReadingPicture
-| SelectingNewDevice
-| ReadingNewDevice
-| CreateNewMeterReadingPicture
-| GetSignature
-| Done
+    | CreateScenePicture
+    | ReadingOldDevice
+    | CreateOldMeterReadingPicture
+    | SelectingNewDevice
+    | ReadingNewDevice
+    | CreateNewMeterReadingPicture
+    | GetSignature
+    | Done
 
 type MyClass(v) =
     member val Value: int = v with get, set
@@ -84,6 +84,18 @@ type FuzzyInt =
             let (FuzzyInt y) = y
             x - 2 <= y && y <= x + 2
         | _ -> false
+
+let genericEquals (a:'T) (b:'T) : bool =
+    let cmp = EqualityComparer<'T>.Default
+    cmp.Equals(a,b)
+
+let genericHash (x:'T) : int =
+    let cmp = EqualityComparer<'T>.Default
+    cmp.GetHashCode(x)
+
+let genericCompare (a:'T) (b:'T) : int =
+    let cmp = Comparer<'T>.Default
+    cmp.Compare(a,b)
 
 let tests =
   testList "Comparison" [
@@ -701,4 +713,20 @@ let tests =
     testCase "LanguagePrimitives.DecimalWithMeasure works" <| fun () ->
         let distance: decimal<m> = LanguagePrimitives.DecimalWithMeasure 1.0m
         distance |> equal 1.0m<m>
+
+    testCase "EqualityComparer.Equals works" <| fun () ->
+        genericEquals 1 1 |> equal true
+        genericEquals 1 2 |> equal false
+        genericEquals "1" "1" |> equal true
+        genericEquals "1" "2" |> equal false
+
+    testCase "EqualityComparer.GetHashCode works" <| fun () ->
+        genericHash 1 |> equal ((1).GetHashCode())
+        genericHash "1" |> equal ("1".GetHashCode())
+
+    testCase "Comparer.Compare works" <| fun () ->
+        genericCompare 1 1 |> equal 0
+        genericCompare 1 2 |> equal -1
+        genericCompare 2 1 |> equal 1
+
   ]

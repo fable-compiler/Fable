@@ -1,28 +1,35 @@
 namespace System.Collections.Generic
 
-open System
+type Comparer<'T when 'T: comparison>(comparison: 'T -> 'T -> int) =
 
-type Comparer<'T when 'T: comparison>() =
-    static member Default =
-        { new IComparer<'T> with
-            member _.Compare(x, y) =
-                LanguagePrimitives.GenericComparison x y
-        }
+    static member Default = Comparer<'T>(LanguagePrimitives.GenericComparison)
+
+    static member Create(comparison) = Comparer<'T>(comparison)
+
+    member _.Compare(x, y) = comparison x y
 
     interface IComparer<'T> with
-        member _.Compare(x, y) =
-            LanguagePrimitives.GenericComparison x y
+        member _.Compare(x, y) = comparison x y
 
-type EqualityComparer<'T when 'T: equality>() =
+type EqualityComparer<'T when 'T: equality>
+    (equals: 'T -> 'T -> bool, getHashCode: 'T -> int)
+    =
+
     static member Default =
-        { new IEqualityComparer<'T> with
-            member _.Equals(x, y) = LanguagePrimitives.GenericEquality x y
-            member _.GetHashCode(x) = LanguagePrimitives.GenericHash x
-        }
+        EqualityComparer<'T>(
+            LanguagePrimitives.GenericEquality,
+            LanguagePrimitives.GenericHash
+        )
+
+    static member Create(equals, getHashCode) =
+        EqualityComparer<'T>(equals, getHashCode)
+
+    member _.Equals(x, y) = equals x y
+    member _.GetHashCode(x) = getHashCode x
 
     interface IEqualityComparer<'T> with
-        member _.Equals(x, y) = LanguagePrimitives.GenericEquality x y
-        member _.GetHashCode(x) = LanguagePrimitives.GenericHash x
+        member _.Equals(x, y) = equals x y
+        member _.GetHashCode(x) = getHashCode x
 
 type Stack<'T> private (initialContents, initialCount) =
     let mutable contents = initialContents
@@ -58,7 +65,7 @@ type Stack<'T> private (initialContents, initialCount) =
         let mutable i = 0
 
         while i < count && not found do
-            if Object.Equals(x, contents.[i]) then
+            if System.Object.Equals(x, contents.[i]) then
                 found <- true
             else
                 i <- i + 1
@@ -107,7 +114,8 @@ type Stack<'T> private (initialContents, initialCount) =
                 .GetEnumerator()
 
         member this.GetEnumerator() =
-            (this :> IEnumerable<'T>).GetEnumerator() :> Collections.IEnumerator
+            (this :> IEnumerable<'T>).GetEnumerator()
+            :> System.Collections.IEnumerator
 
 type Queue<'T> private (initialContents, initialCount) =
     let mutable contents: 'T array = initialContents
@@ -153,7 +161,9 @@ type Queue<'T> private (initialContents, initialCount) =
 
     new(initialCapacity: int) =
         if initialCapacity < 0 then
-            raise (ArgumentOutOfRangeException("capacity is less than 0"))
+            raise (
+                System.ArgumentOutOfRangeException("capacity is less than 0")
+            )
 
         Queue<'T>(Array.zeroCreate<'T> (initialCapacity), 0)
 
@@ -207,7 +217,7 @@ type Queue<'T> private (initialContents, initialCount) =
         let mutable i = 0
 
         while i < count && not found do
-            if Object.Equals(x, contents.[i |> toIndex]) then
+            if System.Object.Equals(x, contents.[i |> toIndex]) then
                 found <- true
             else
                 i <- i + 1
@@ -237,4 +247,5 @@ type Queue<'T> private (initialContents, initialCount) =
         member _.GetEnumerator() = toSeq().GetEnumerator()
 
         member this.GetEnumerator() =
-            (this :> IEnumerable<'T>).GetEnumerator() :> Collections.IEnumerator
+            (this :> IEnumerable<'T>).GetEnumerator()
+            :> System.Collections.IEnumerator

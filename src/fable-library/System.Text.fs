@@ -1,7 +1,5 @@
 namespace System.Text
 
-open System
-
 type StringBuilder(value: string, capacity: int) =
     let buf = ResizeArray<string>(capacity)
 
@@ -53,7 +51,13 @@ type StringBuilder(value: string, capacity: int) =
         buf.Add(System.String.Format(fmt, o))
         x
 
-    member x.AppendFormat(provider: IFormatProvider, fmt: string, o: obj) =
+    member x.AppendFormat
+        (
+            provider: System.IFormatProvider,
+            fmt: string,
+            o: obj
+        )
+        =
         buf.Add(System.String.Format(provider, fmt, o))
         x
 
