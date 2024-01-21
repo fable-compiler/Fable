@@ -244,7 +244,8 @@ let compileFileToJavaScript
                 crackerResponse.ProjectOptions.SourceFiles,
                 checkProjectResult.AssemblyContents.ImplementationFiles,
                 assemblies,
-                Log.log
+                Log.log,
+                getPlugin = Reflection.loadType cliArgs
             )
 
         let opts = cliArgs.CompilerOptions
