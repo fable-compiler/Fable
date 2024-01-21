@@ -10,8 +10,8 @@ module Compiler =
 
   type Result = Log list
   module Result =
-    let errors = List.filter (fun (m: Log) -> m.Severity = Severity.Error)
-    let warnings = List.filter (fun (m: Log) -> m.Severity = Severity.Warning)
+    let errors = List.filter (fun (m: LogEntry) -> m.Severity = Severity.Error)
+    let warnings = List.filter (fun (m: LogEntry) -> m.Severity = Severity.Warning)
     let wasFailure = errors >> List.isEmpty >> not
 
   type Settings = {
@@ -123,8 +123,8 @@ module Compiler =
 
     module private Test =
       module Is =
-        let error (msg: Log) = msg.Severity = Severity.Error
-        let warning (msg: Log) = msg.Severity = Severity.Warning
+        let error (msg: LogEntry) = msg.Severity = Severity.Error
+        let warning (msg: LogEntry) = msg.Severity = Severity.Warning
         let single = function | [_] -> true | _ -> false
         let zero = List.isEmpty
         let count n = List.length >> (=) n
@@ -142,7 +142,7 @@ module Compiler =
         let withMsg (txt: string) = List.exists (fun m -> m.Message.Contains txt)
       module Text =
         let contains (txt: string) msg = msg.Message.Contains(txt, StringComparison.InvariantCultureIgnoreCase)
-        let isMatch (regex: System.Text.RegularExpressions.Regex) (msg: Log) =
+        let isMatch (regex: System.Text.RegularExpressions.Regex) (msg: LogEntry) =
           regex.IsMatch msg.Message
     let private (>&>) a b = fun actual -> a actual && b actual
 

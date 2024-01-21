@@ -48,6 +48,8 @@ module Log =
     val verbose: msg: Lazy<string> -> unit
     val warning: msg: string -> unit
     val error: msg: string -> unit
+    val info: msg: string -> unit
+    val log: sev: Fable.Severity -> msg: string -> unit
     val showFemtoMsg: show: (unit -> bool) -> unit
 
 module File =

@@ -153,6 +153,18 @@ module Log =
             Console.Error.WriteLine(msg)
             Console.ResetColor()
 
+    let info (msg: string) =
+        if canLog msg then
+            Console.ForegroundColor <- ConsoleColor.Gray
+            Console.Out.WriteLine(msg)
+            Console.ResetColor()
+
+    let log (sev: Fable.Severity) (msg: string) =
+        match sev with
+        | Fable.Severity.Info -> info msg
+        | Fable.Severity.Warning -> warning msg
+        | Fable.Severity.Error -> error msg
+
     let mutable private femtoMsgShown = false
 
     let showFemtoMsg (show: unit -> bool) : unit =
