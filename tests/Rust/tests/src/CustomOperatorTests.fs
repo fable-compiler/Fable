@@ -19,6 +19,8 @@ type MyStruct =
     static member (<<<) (x: MyStruct, n: int) = { value = pown x.value n }
     static member (~-) (x: MyStruct) = { value = -x.value }
 
+    static member Exp (x: MyStruct) = { value = exp x.value}
+
 type MyRecord =
     { value: int }
     static member (+) (x: MyRecord, y: int) = { value = x.value + y }
@@ -59,6 +61,11 @@ let ``Custom operator overloads work II`` () =
 let ``Custom Pow works`` () = // See #2496
     let x = { Ok = false }
     x ** 2 |> equal { Ok = true }
+
+[<Fact>]
+let ``Custom Exp works`` () =
+    let x = { MyStruct.value = 0. }
+    x |> exp |> equal { MyStruct.value = 1.0 }
 
 let (+) (x: int) (y: int) = x * y
 let (-) (x: int) (y: int) = x / y

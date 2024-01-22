@@ -1697,7 +1697,11 @@ let operators
     | "Sinh", _
     | "Sqrt", _
     | "Tan", _
-    | "Tanh", _ -> math r t args i.SignatureArgTypes [] i.CompiledName |> Some
+    | "Tanh", _ ->
+        match args with
+        | ExprType(Number(_, _)) :: _ ->
+            math r t args i.SignatureArgTypes [] i.CompiledName |> Some
+        | _ -> applyOp com ctx r t i.CompiledName args |> Some
     | "Round", _ ->
         match args with
         | ExprType(Number(Decimal, _)) :: _ ->
