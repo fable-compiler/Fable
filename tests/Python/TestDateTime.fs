@@ -127,7 +127,7 @@ let ``test DateTime.ToString with custom format works`` () =
     DateTime.Parse("2009-06-15T13:45:30.0000005").ToString("r FFFFFF", CultureInfo.InvariantCulture)
     |> equal "r "
     // We only have a precision up to the microsecond
-    // DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r fffffff", CultureInfo.InvariantCulture)
+    // DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r FFFFFFF", CultureInfo.InvariantCulture)
     // |> equal "r 6175425"
 
     DateTime(2014, 7, 1, 16, 37, 0).ToString("r g", CultureInfo.InvariantCulture)

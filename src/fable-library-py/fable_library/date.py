@@ -559,6 +559,7 @@ def parse(string: str) -> datetime:
 
     if re.fullmatch(iso_format_regex, string):
         adapted_string = re.sub(iso_format_regex, adapt_microseconds, string)
+        print(f"{string} is transformed to {adapted_string}")
         return datetime.strptime(adapted_string, "%Y-%m-%dT%H:%M:%S.%f")
 
     raise ValueError("Unsupported format by Fable: %s" % (string))
@@ -573,7 +574,7 @@ def try_parse(string: str, defValue: FSharpRef[datetime]) -> bool:
 
 
 def date(d: datetime) -> datetime:
-    return create(d.year, d.month, d.day, 0, 0, 0, 0, kind(d))
+    return create(d.year, d.month, d.day, 0, 0, 0, 0, 0, kind(d))
 
 
 def is_leap_year(year: int) -> bool:
@@ -595,7 +596,7 @@ def add_years(d: datetime, v: int) -> datetime:
     new_year = year(d) + v
     _days_in_month = days_in_month(new_year, new_month)
     new_day = min(_days_in_month, day(d))
-    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d), kind(d))
+    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d), microsecond(d), kind(d))
 
 
 def add_months(d: datetime, v: int) -> datetime:
@@ -613,7 +614,7 @@ def add_months(d: datetime, v: int) -> datetime:
     new_year = year(d) + year_offset
     _days_in_month = days_in_month(new_year, new_month)
     new_day = min(_days_in_month, day(d))
-    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d), kind(d))
+    return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d), microsecond(d), kind(d))
 
 
 def add_days(d: datetime, v: int) -> datetime:
@@ -719,9 +720,8 @@ def from_ticks(ticks: int, kind: DateKind | None = None) -> datetime:
 
 
 __all__ = [
-    "add",
-    "op_subtraction",
     "subtract",
+    "op_subtraction",
     "create",
     "year",
     "month",
@@ -731,14 +731,14 @@ __all__ = [
     "second",
     "millisecond",
     "microsecond",
+    "to_universal_time",
     "day_of_week",
     "day_of_year",
-    "date_to_string_with_custom_format",
-    "date_to_string_with_offset",
-    "date_to_string_with_kind",
-    "to_string",
-    "to_long_time_string",
+    "to_short_date_string",
+    "to_long_date_string",
     "to_short_time_string",
+    "to_long_time_string",
+    "to_string",
     "now",
     "utc_now",
     "today",
@@ -748,10 +748,12 @@ __all__ = [
     "max_value",
     "min_value",
     "op_addition",
+    "add",
     "parse",
-    "to_universal_time",
     "try_parse",
     "date",
+    "is_leap_year",
+    "days_in_month",
     "add_years",
     "add_months",
     "add_days",
@@ -765,5 +767,4 @@ __all__ = [
     "ticks",
     "date_offset",
     "from_ticks",
-    "is_leap_year",
 ]
