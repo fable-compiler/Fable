@@ -350,7 +350,7 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                     case 1:
                         result += str(localized_date.year % 100)
                     case 2:
-                        result += localized_date.strftime("%y")
+                        result += str(localized_date.year)[-2:].zfill(2)
                     case length:
                         result += str(localized_date.year).zfill(length)
             case "z":
