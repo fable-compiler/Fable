@@ -32,6 +32,7 @@ type CliArgs =
         Replace: Map<string, string>
         RunProcess: RunProcess option
         CompilerOptions: Fable.CompilerOptions
+        Verbosity: Fable.Verbosity
     }
 
     member ProjectFileAsRelativePath: string
@@ -39,11 +40,11 @@ type CliArgs =
 
 [<RequireQualifiedAccess>]
 module Log =
-    val newLine: string
+    open Microsoft.Extensions.Logging
+
     /// To be called only at the beginning of the app
-    val makeVerbose: unit -> unit
-    val makeSilent: unit -> unit
-    val inSameLineIfNotCI: msg: string -> unit
+    val setLogger: ILogger -> unit
+    val newLine: string
     val always: msg: string -> unit
     val verbose: msg: Lazy<string> -> unit
     val warning: msg: string -> unit
@@ -202,3 +203,7 @@ type PrecompiledInfoImpl =
         fableModulesDir: string *
         fableLibDir: string ->
             unit
+
+module Reflection =
+    val loadType:
+        cliArgs: CliArgs -> r: Fable.Transforms.State.PluginRef -> Type

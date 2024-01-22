@@ -4,6 +4,7 @@ open System
 open Main
 open Fable
 open Fable.Compiler.Util
+open Microsoft.Extensions.Logging
 
 type CliArgs(args: string list) =
     let argsMap =
@@ -249,6 +250,7 @@ type Runner =
             language: Language,
             rootDir: string,
             runProc: RunProcess option,
+            verbosity: Fable.Verbosity,
             ?fsprojPath: string,
             ?watch,
             ?precompile
@@ -355,13 +357,6 @@ type Runner =
                 else
                     Ok()
 
-            let verbosity =
-                if args.FlagEnabled "--verbose" then
-                    Log.makeVerbose ()
-                    Verbosity.Verbose
-                else
-                    Verbosity.Normal
-
             let configuration =
                 let defaultConfiguration =
                     if watch then
@@ -445,6 +440,7 @@ type Runner =
                         |> Map
                     RunProcess = runProc
                     CompilerOptions = compilerOptions
+                    Verbosity = verbosity
                 }
 
             let watchDelay =
@@ -603,12 +599,29 @@ let main argv =
             | Some rootDir -> File.getExactFullPath rootDir
             | None -> IO.Directory.GetCurrentDirectory()
 
-        do
+        let verbosity =
             match commands with
-            | [ "--version" ] -> ()
+            | [ "--version" ] -> Verbosity.Normal
             | _ ->
-                if args.FlagEnabled "--verbose" then
-                    Log.makeVerbose ()
+                let verbosity =
+                    let level, verbosity =
+                        if args.FlagEnabled "--verbose" then
+                            LogLevel.Debug, Fable.Verbosity.Verbose
+                        else
+                            LogLevel.Information, Fable.Verbosity.Normal
+
+                    use factory =
+                        LoggerFactory.Create(fun builder ->
+                            builder
+                                .SetMinimumLevel(level)
+                                .AddSimpleConsole(fun options ->
+                                    options.SingleLine <- true
+                                )
+                            |> ignore
+                        )
+
+                    Log.setLogger (factory.CreateLogger(""))
+                    verbosity
 
                 let status =
                     match getStatus language with
@@ -636,6 +649,8 @@ let main argv =
                     + "\n"
                 )
 
+                verbosity
+
         match commands with
         | [ "--help" ] -> return printHelp ()
         | [ "--version" ] -> return Log.always Literals.VERSION
@@ -648,11 +663,20 @@ let main argv =
                     language,
                     rootDir,
                     runProc,
+                    verbosity,
                     fsprojPath = path,
                     watch = true
                 )
         | [ "watch" ] ->
-            return! Runner.Run(args, language, rootDir, runProc, watch = true)
+            return!
+                Runner.Run(
+                    args,
+                    language,
+                    rootDir,
+                    runProc,
+                    verbosity,
+                    watch = true
+                )
         | [ "precompile"; path ] ->
             return!
                 Runner.Run(
@@ -660,12 +684,20 @@ let main argv =
                     language,
                     rootDir,
                     runProc,
+                    verbosity,
                     fsprojPath = path,
                     precompile = true
                 )
         | [ "precompile" ] ->
             return!
-                Runner.Run(args, language, rootDir, runProc, precompile = true)
+                Runner.Run(
+                    args,
+                    language,
+                    rootDir,
+                    runProc,
+                    verbosity,
+                    precompile = true
+                )
         | [ path ] ->
             return!
                 Runner.Run(
@@ -673,6 +705,7 @@ let main argv =
                     language,
                     rootDir,
                     runProc,
+                    verbosity,
                     fsprojPath = path,
                     watch = args.FlagEnabled("--watch")
                 )
@@ -683,6 +716,7 @@ let main argv =
                     language,
                     rootDir,
                     runProc,
+                    verbosity,
                     watch = args.FlagEnabled("--watch")
                 )
         | _ ->

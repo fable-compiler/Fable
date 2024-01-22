@@ -16,12 +16,13 @@ type BabelWriter
         pathResolver: PathResolver,
         projectFile: string,
         sourcePath: string,
-        targetPath: string
+        targetPath: string,
+        ?fileExt: string
     )
     =
     // In imports *.ts extensions have to be converted to *.js extensions instead
     // TODO: incomplete
-    let fileExt = ".js"
+    let fileExt = Option.defaultValue ".js" fileExt
     let sourceDir = Path.GetDirectoryName(sourcePath)
     let targetDir = Path.GetDirectoryName(targetPath)
     let memoryStream = new MemoryStream()
@@ -64,15 +65,10 @@ type BabelWriter
                     (Some targetDir)
                     path
 
+            // Here, we deviate from what the regular compiler does as we are never writing to disk.
+            // We don't have the original file name collision problem.
             if path.EndsWith(".fs", StringComparison.Ordinal) then
-                let isInFableModules =
-                    Path.Combine(targetDir, path) |> Naming.isInFableModules
-
-                File.changeExtensionButUseDefaultExtensionInFableModules
-                    JavaScript
-                    isInFableModules
-                    path
-                    fileExt
+                Fable.Path.ChangeExtension(path, fileExt)
             else
                 path
 
@@ -107,6 +103,7 @@ let compileFileToJs
     (com: Compiler)
     (pathResolver: PathResolver)
     (outPath: string)
+    (fileExt: string)
     : Async<string>
     =
     async {
@@ -121,7 +118,8 @@ let compileFileToJs
                 pathResolver,
                 com.ProjectFile,
                 com.CurrentFile,
-                outPath
+                outPath,
+                fileExt = fileExt
             )
 
         do! BabelPrinter.run writer babel
@@ -155,10 +153,10 @@ let compileProjectToJavaScript
                 crackerResponse.ProjectOptions.SourceFiles,
                 checkProjectResult.AssemblyContents.ImplementationFiles,
                 assemblies,
-                Log.log
+                Log.log,
+                getPlugin = Reflection.loadType cliArgs
             // ?precompiledInfo =
             //     (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
-            // getPlugin = loadType projCracked.CliArgs
             )
 
         let opts = cliArgs.CompilerOptions
@@ -185,8 +183,19 @@ let compileProjectToJavaScript
                             ?outDir = cliArgs.OutDir
                         )
 
-                    let outputPath = Path.ChangeExtension(currentFile, ".js")
-                    let! js = compileFileToJs compiler pathResolver outputPath
+                    let outputPath =
+                        Path.ChangeExtension(
+                            currentFile,
+                            cliArgs.CompilerOptions.FileExtension
+                        )
+
+                    let! js =
+                        compileFileToJs
+                            compiler
+                            pathResolver
+                            outputPath
+                            cliArgs.CompilerOptions.FileExtension
+
                     return currentFile, js
                 }
             )
@@ -235,7 +244,8 @@ let compileFileToJavaScript
                 crackerResponse.ProjectOptions.SourceFiles,
                 checkProjectResult.AssemblyContents.ImplementationFiles,
                 assemblies,
-                Log.log
+                Log.log,
+                getPlugin = Reflection.loadType cliArgs
             )
 
         let opts = cliArgs.CompilerOptions
@@ -263,7 +273,14 @@ let compileFileToJavaScript
                         )
 
                     let outputPath = Path.ChangeExtension(currentFile, ".js")
-                    let! js = compileFileToJs compiler pathResolver outputPath
+
+                    let! js =
+                        compileFileToJs
+                            compiler
+                            pathResolver
+                            outputPath
+                            cliArgs.CompilerOptions.FileExtension
+
                     return currentFile, js
                 }
             )

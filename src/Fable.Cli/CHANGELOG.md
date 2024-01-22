@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Fixed 'System.Collections.Generic.Queue' bug (by @PierreYvesR)
 * Added support for generic comparers (by @ncave)
 
+### Changed
+
+#### All
+
+* [GH-3671](https://github.com/fable-compiler/Fable/pull/3671) Use `Microsoft.Extensions.Logging` (by @nojaf)
+
 ## 4.9.0 - 2023-12-14
 
 ### Fixed

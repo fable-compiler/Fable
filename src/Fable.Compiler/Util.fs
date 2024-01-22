@@ -31,6 +31,7 @@ type CliArgs =
         Replace: Map<string, string>
         RunProcess: RunProcess option
         CompilerOptions: Fable.CompilerOptions
+        Verbosity: Fable.Verbosity
     }
 
     member this.ProjectFileAsRelativePath =
@@ -82,82 +83,27 @@ type Agent<'T>
 
 [<RequireQualifiedAccess>]
 module Log =
+    open Microsoft.Extensions.Logging
+    open Microsoft.Extensions.Logging.Abstractions
+
+    let mutable logger: ILogger = NullLogger.Instance
+    let setLogger newLogger = logger <- newLogger
     let newLine = Environment.NewLine
-
-    let isCi =
-        String.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")) |> not
-
     let mutable private verbosity = Fable.Verbosity.Normal
-
-    /// To be called only at the beginning of the app
-    let makeVerbose () = verbosity <- Fable.Verbosity.Verbose
-
-    let makeSilent () = verbosity <- Fable.Verbosity.Silent
-
     let isVerbose () = verbosity = Fable.Verbosity.Verbose
-
-    let canLog msg =
-        verbosity <> Fable.Verbosity.Silent && not (String.IsNullOrEmpty(msg))
-
-    let inSameLineIfNotCI (msg: string) =
-        match verbosity with
-        | Fable.Verbosity.Silent -> ()
-        | Fable.Verbosity.Verbose -> Console.Out.WriteLine(msg)
-        | Fable.Verbosity.Normal ->
-            // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
-            // the same line as it seems to cause problems, see #2727
-            if not isCi && not Console.IsOutputRedirected then
-                // If the message is longer than the terminal width it will jump to next line
-                let msg =
-                    if msg.Length > 80 then
-                        msg.[..80] + "..."
-                    else
-                        msg
-
-                let curCursorLeft = Console.CursorLeft
-                Console.SetCursorPosition(0, Console.CursorTop)
-                Console.Out.Write(msg)
-                let diff = curCursorLeft - msg.Length
-
-                if diff > 0 then
-                    Console.Out.Write(String.replicate diff " ")
-                    Console.SetCursorPosition(msg.Length, Console.CursorTop)
-
-    let alwaysWithColor color (msg: string) =
-        if canLog msg then
-            Console.ForegroundColor <- color
-            Console.Out.WriteLine(msg)
-            Console.ResetColor()
-
-    let always (msg: string) =
-        if canLog msg then
-            Console.Out.WriteLine(msg)
+    let always (msg: string) = logger.LogInformation msg
 
     let verbose (msg: Lazy<string>) =
         if isVerbose () then
             always msg.Value
 
-    let verboseOrIf condition (msg: string) =
-        if canLog msg && (condition || verbosity = Fable.Verbosity.Verbose) then
-            always msg
+    let warning (msg: string) = logger.LogWarning msg
 
-    let warning (msg: string) =
-        if canLog msg then
-            Console.ForegroundColor <- ConsoleColor.DarkYellow
-            Console.Out.WriteLine(msg)
-            Console.ResetColor()
+    let error (msg: string) = logger.LogError msg
 
-    let error (msg: string) =
-        if canLog msg then
-            Console.ForegroundColor <- ConsoleColor.DarkRed
-            Console.Error.WriteLine(msg)
-            Console.ResetColor()
+    let mutable private femtoMsgShown = false
 
-    let info (msg: string) =
-        if canLog msg then
-            Console.ForegroundColor <- ConsoleColor.Gray
-            Console.Out.WriteLine(msg)
-            Console.ResetColor()
+    let info (msg: string) = logger.LogInformation msg
 
     let log (sev: Fable.Severity) (msg: string) =
         match sev with
@@ -165,15 +111,13 @@ module Log =
         | Fable.Severity.Warning -> warning msg
         | Fable.Severity.Error -> error msg
 
-    let mutable private femtoMsgShown = false
-
     let showFemtoMsg (show: unit -> bool) : unit =
         if not femtoMsgShown && verbosity <> Fable.Verbosity.Silent then
             if show () then
                 femtoMsgShown <- true
 
                 "Some Nuget packages contain information about NPM dependencies that can be managed by Femto: https://github.com/Zaid-Ajaj/Femto"
-                |> alwaysWithColor ConsoleColor.Blue
+                |> logger.LogInformation
 
 module File =
     open System.IO
@@ -1134,3 +1078,38 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
             InlineExprHeaders = inlineExprHeaders
         }
         |> Json.write precompiledInfoPath
+
+module Reflection =
+    let loadType
+        (cliArgs: CliArgs)
+        (r: Fable.Transforms.State.PluginRef)
+        : Type
+        =
+        /// Prevent ReflectionTypeLoadException
+        /// From http://stackoverflow.com/a/7889272
+        let getTypes (asm: System.Reflection.Assembly) =
+            let mutable types: Option<Type[]> = None
+
+            try
+                types <- Some(asm.GetTypes())
+            with :? System.Reflection.ReflectionTypeLoadException as e ->
+                types <- Some e.Types
+
+            match types with
+            | None -> Seq.empty
+            | Some types -> types |> Seq.filter ((<>) null)
+
+        // The assembly may be already loaded, so use `LoadFrom` which takes
+        // the copy in memory unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
+        System.Reflection.Assembly.LoadFrom(r.DllPath)
+        |> getTypes
+        // Normalize type name
+        |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
+        |> function
+            | Some t ->
+                $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, r.DllPath)}"
+                |> Log.always
+
+                t
+            | None ->
+                failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"

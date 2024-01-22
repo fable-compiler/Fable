@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+    id-token: write
+    security-events: write
+
 jobs:
   # Separate job that verifies if all code was formatted correctly
   # Run `dotnet fantomas .` to format all code.
@@ -200,3 +204,40 @@ jobs:
 
     - name: Fable Tests - Dart
       run: ./build.sh test dart
+
+  # Separate job to run F# analyzers
+  analyzers:
+      runs-on: windows-latest
+
+      steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Build solution
+        run: dotnet build -c Release Fable.sln
+
+      - name: Run analyzers for Fable.AST
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.AST/Fable.AST.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers for Rust.AST
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Rust/AST/Rust.AST.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers Fable.Transforms
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Fable.Transforms.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers Fable.Compiler
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Compiler/Fable.Compiler.fsproj
+        continue-on-error: true
+
+      - name: Upload SARIF files
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+            sarif_file: src/reports

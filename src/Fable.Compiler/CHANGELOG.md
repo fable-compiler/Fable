@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* Respect file extension from `CliArgs`
+* Use `Microsoft.Extensions.Logging`
+* Load Fable plugins
+
 ## 4.0.0-alpha-001 - 2023-12-14
 
 * Initial release

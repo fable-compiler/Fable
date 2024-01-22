@@ -43,36 +43,6 @@ module private Util =
 
         s :> _
 
-    let loadType (cliArgs: CliArgs) (r: PluginRef) : Type =
-        /// Prevent ReflectionTypeLoadException
-        /// From http://stackoverflow.com/a/7889272
-        let getTypes (asm: System.Reflection.Assembly) =
-            let mutable types: Option<Type[]> = None
-
-            try
-                types <- Some(asm.GetTypes())
-            with :? System.Reflection.ReflectionTypeLoadException as e ->
-                types <- Some e.Types
-
-            match types with
-            | None -> Seq.empty
-            | Some types -> types |> Seq.filter ((<>) null)
-
-        // The assembly may be already loaded, so use `LoadFrom` which takes
-        // the copy in memory unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
-        System.Reflection.Assembly.LoadFrom(r.DllPath)
-        |> getTypes
-        // Normalize type name
-        |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
-        |> function
-            | Some t ->
-                $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, r.DllPath)}"
-                |> Log.always
-
-                t
-            | None ->
-                failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"
-
     let splitVersion (version: string) =
         match Version.TryParse(version) with
         | true, v -> v.Major, v.Minor, v.Revision
@@ -123,9 +93,7 @@ module private Util =
     let logErrors rootDir (logs: LogEntry seq) =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
-        |> Seq.iter (fun log ->
-            Fable.Compiler.Util.Log.error (formatLog rootDir log)
-        )
+        |> Seq.iter (fun log -> Log.error (formatLog rootDir log))
 
     let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
         diagnostics
@@ -837,7 +805,51 @@ and FableCompiler
                             if projCracked.CliArgs.NoParallelTypeCheck then
                                 Log.always msg
                             else
-                                Log.inSameLineIfNotCI msg
+                                let isCi =
+                                    String.IsNullOrEmpty(
+                                        Environment.GetEnvironmentVariable(
+                                            "CI"
+                                        )
+                                    )
+                                    |> not
+
+                                match projCracked.CliArgs.Verbosity with
+                                | Verbosity.Silent -> ()
+                                | Verbosity.Verbose ->
+                                    Console.Out.WriteLine(msg)
+                                | Verbosity.Normal ->
+                                    // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
+                                    // the same line as it seems to cause problems, see #2727
+                                    if
+                                        not isCi
+                                        && not Console.IsOutputRedirected
+                                    then
+                                        // If the message is longer than the terminal width it will jump to next line
+                                        let msg =
+                                            if msg.Length > 80 then
+                                                msg.[..80] + "..."
+                                            else
+                                                msg
+
+                                        let curCursorLeft = Console.CursorLeft
+
+                                        Console.SetCursorPosition(
+                                            0,
+                                            Console.CursorTop
+                                        )
+
+                                        Console.Out.Write(msg)
+                                        let diff = curCursorLeft - msg.Length
+
+                                        if diff > 0 then
+                                            Console.Out.Write(
+                                                String.replicate diff " "
+                                            )
+
+                                            Console.SetCursorPosition(
+                                                msg.Length,
+                                                Console.CursorTop
+                                            )
 
                         FableCompiler.CheckIfCompilationIsFinished(state)
                         return! loop state
@@ -899,7 +911,6 @@ and FableCompiler
             state.ReplyChannel
         with
         | true, true, Some channel ->
-            Log.inSameLineIfNotCI ""
             // Fable results are not guaranteed to be in order but revert them to make them closer to the original order
             let fableResults = state.FableResults |> List.rev
             Ok(state.FSharpLogs, fableResults) |> channel.Reply
@@ -920,7 +931,7 @@ and FableCompiler
                     ?precompiledInfo =
                         (projCracked.PrecompiledInfo
                          |> Option.map (fun i -> i :> _)),
-                    getPlugin = loadType projCracked.CliArgs
+                    getPlugin = Reflection.loadType projCracked.CliArgs
                 )
 
             return FableCompiler(checker, projCracked, fableProj)
