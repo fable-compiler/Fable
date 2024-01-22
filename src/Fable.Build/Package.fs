@@ -23,7 +23,7 @@ let handle (args: string list) =
     Directory.clean packageDestination
 
     let fableCliVersion =
-        "900.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHhmm")
+        "4.999.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHhmm")
 
     let compilerFsPath =
         Path.Resolve("src", "Fable.Transforms", "Global", "Compiler.fs")
@@ -53,7 +53,7 @@ let handle (args: string list) =
     File.WriteAllText(compilerFsPath, compilerFsOriginalContent)
 
     let fableCoreVersion =
-        "900.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHhmm")
+        "4.999.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHhmm")
 
     Command.Run(
         "dotnet",
