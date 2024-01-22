@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### All
 
 * [GH-3668](https://github.com/fable-compiler/Fable/pull/3668) Normalize fable-library argument (by @nojaf)
-* Support some custom unary math operors (Acos, Asin, Atan, Atan2, Cos, Cosh, Exp, Log, Log2, Log10, Sin, Sinh, Sqrt, Tan, Tanh) (by @PierreYvesR)
+* [GH-3682](https://github.com/fable-compiler/Fable/pull/3682)Support some custom unary math operors (Acos, Asin, Atan, Atan2, Cos, Cosh, Exp, Log, Log2, Log10, Sin, Sinh, Sqrt, Tan, Tanh) (by @PierreYvesR)
 
 #### Python
 
