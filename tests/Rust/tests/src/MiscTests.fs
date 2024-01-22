@@ -293,8 +293,8 @@ module NestedModule =
     type AnotherClass(value: int) =
         member x.Value = value + 5
 
-// type INum = abstract member Num: int
-// let inline makeNum f = { new INum with member _.Num = f() }
+type INum = abstract member Num: int
+let inline makeNum f = { new INum with member _.Num = f() }
 
 // type TestClass(n) =
 //     let addOne x = x + 4
@@ -308,16 +308,16 @@ module NestedModule =
 //     member _.Add2(i) = self.MultiplyFoo(i) + 2
 //     member _.MultiplyFoo(i) = i * foo
 
-// type InliningMutationTest(l: int, r: int) =
-//     let mutable left = 0
+type InliningMutationTest(l: int, r: int) =
+    let mutable left = 0
 
-//     let call() =
-//         left <- l
-//         r
+    let call() =
+        left <- l
+        r
 
-//     member _.Run() =
-//         let right = call()
-//         left + right
+    member _.Run() =
+        let right = call()
+        left + right
 
 // module Extensions =
 //     type IDisposable with
@@ -1020,20 +1020,21 @@ let ``Modules don't conflict with JS names`` () =
 
 // Modules and TestFixtures bind values in a slightly different way
 // Test both cases
-// [<Fact>]
-// let ``Binding doesn't shadow top-level values`` () = // See #130
-//     equal 10 Util.B.c
-//     equal 20 Util.B.D.d
+
+[<Fact>]
+let ``Binding doesn't shadow top-level values`` () = // See #130
+    equal 10 Util.B.c
+    equal 20 Util.B.D.d
 
 // [<Fact>]
 // let ``Binding doesn't shadow top-level values (TestFixture)`` () = // See #130
 //     equal 10 B.c
 //     equal 20 B.D.d
 
-// [<Fact>]
-// let ``Binding doesn't shadow top-level functions`` () = // See #130
-//     equal 4 Util.B.d
-//     equal 0 Util.B.D.e
+[<Fact>]
+let ``Binding doesn't shadow top-level functions`` () = // See #130
+    equal 4 Util.B.d
+    equal 0 Util.B.D.e
 
 // [<Fact>]
 // let ``Binding doesn't shadow top-level functions (TestFixture)`` () = // See #130
@@ -1106,6 +1107,7 @@ let ``Type of try-with expression is correctly determined when exception handler
             try 7 with | _ -> failwith "error"
         f () |> equal 7
     )
+
 [<Fact>]
 let ``use doesn't return on finally clause`` () = // See #211
     let foo() =
@@ -1388,16 +1390,16 @@ let ``Mutating variables is not postponed (functions)`` () =
     for (l, r, ``l + r``) in ``inlineData PR #2683`` do
         runCase l r ``l + r``
 
-// [<Fact>]
-// let ``Mutating variables is not postponed (classes)`` () =
-//     let ``inlineData PR #2683`` =  [3, 2, 5; 5, 10, 15; 10, 20, 30]
+[<Fact>]
+let ``Mutating variables is not postponed (classes)`` () =
+    let ``inlineData PR #2683`` =  [3, 2, 5; 5, 10, 15; 10, 20, 30]
 
-//     let runCase (l: int) (r: int) (expect: int) =
-//         InliningMutationTest(l, r).Run() |> equal expect
-//         InliningMutationTest(l, r).Run() |> equal expect
+    let runCase (l: int) (r: int) (expect: int) =
+        InliningMutationTest(l, r).Run() |> equal expect
+        InliningMutationTest(l, r).Run() |> equal expect
 
-//     for (l, r, ``l + r``) in ``inlineData PR #2683`` do
-//         runCase l r ``l + r``
+    for (l, r, ``l + r``) in ``inlineData PR #2683`` do
+        runCase l r ``l + r``
 
 [<Fact>]
 let ``References captured by >> are eagerly evaluated`` () = // See #2851

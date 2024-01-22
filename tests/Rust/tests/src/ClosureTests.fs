@@ -25,10 +25,11 @@ let testLocalFunction () =
 let testInlineLambda () =
     1 |> fun x -> x + 1 |> fun x -> x - 3 |> equal (-1)
 
-// let add42 = addFn 42
-// [<Fact>]
-// let testPartialApply () =
-//     add42 3 |> equal 45
+let add42 = addFn 42
+
+[<Fact>]
+let testPartialApply () =
+    add42 3 |> equal 45
 
 let test a = a, (fun b c -> a, b, c)
 

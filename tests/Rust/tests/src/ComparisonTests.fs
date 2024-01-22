@@ -763,7 +763,7 @@ let ``LanguagePrimitives.DecimalWithMeasure works`` () =
 
 [<Fact>]
 let ``EqualityComparer.Create works`` () =
-    let cmp = EqualityComparer<'T>.Create((<>), hash)
+    let cmp = EqualityComparer.Create((<>), hash)
     cmp.Equals(1, 1) |> equal false
     cmp.Equals(1, 2) |> equal true
 
@@ -787,7 +787,7 @@ let ``Comparer.Compare works`` () =
 
 [<Fact>]
 let ``Comparer.Create works`` () =
-    let cmp = Comparer<'T>.Create(fun x y -> -(compare x y))
+    let cmp = Comparer.Create(fun x y -> -(compare x y))
     cmp.Compare(1, 1) |> equal 0
     cmp.Compare(1, 2) |> equal 1
     cmp.Compare(2, 1) |> equal -1

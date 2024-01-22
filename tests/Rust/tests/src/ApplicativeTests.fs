@@ -442,7 +442,7 @@ type Id = Id of string
 
 type Ideable =
     { Id: Id; Name: string }
-    // with override this.ToString() = this.Name
+    with override this.ToString() = this.Name
 
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
@@ -1079,11 +1079,11 @@ let findThing (things:Thing list) =
 // //     static member inline Return (_: 'Y) = Const LanguagePrimitives.GenericZero : Const<'X,'Y>
 // //     static member run (Const a) = a
 
-// [<Fact>]
-// let ``SRTP with ActivePattern works`` () =
-//     (lengthWrapper []) |> equal 0
-//     (lengthWrapper [1;2;3;4]) |> equal 4
-//     lengthFixed |> equal 3
+[<Fact>]
+let ``SRTP with ActivePattern works`` () =
+    (lengthWrapper []) |> equal 0
+    (lengthWrapper [1;2;3;4]) |> equal 4
+    lengthFixed |> equal 3
 
 // // [<Fact>]
 // // let ``SRTP with inlined functions relying on generic info works`` () = // See #2135
@@ -1302,23 +1302,23 @@ let ``Sequence of functions is uncurried in folding`` () =
 // //     equal expected actual
 // // #endif
 
-// // [<Fact>]
-// // let ``failwithf is not compiled as function`` () =
-// //     let makeFn value =
-// //         if value then
-// //             // When one of the branches is a function
-// //             // failwithf can be compiled to a function
-// //             // because of optimizations
-// //             fun x -> x + x
-// //         else
-// //             failwithf "Boom!"
-// //     let mutable x = ""
-// //     try
-// //         // It should fail even if `f` is not called
-// //         let f = makeFn false
-// //         ()
-// //     with ex -> x <- ex.Message
-// //     equal "Boom!" x
+// [<Fact>]
+// let ``failwithf is not compiled as function`` () =
+//     let makeFn value =
+//         if value then
+//             // When one of the branches is a function
+//             // failwithf can be compiled to a function
+//             // because of optimizations
+//             fun x -> x + x
+//         else
+//             failwithf "Boom!"
+//     let mutable x = ""
+//     try
+//         // It should fail even if `f` is not called
+//         let f = makeFn false
+//         ()
+//     with ex -> x <- ex.Message
+//     equal "Boom!" x
 
 // [<Fact>]
 // let ``Partial Applying caches side-effects`` () = // See #1836
@@ -1429,14 +1429,14 @@ let ``Uncurrying works with generic anonymous records returning lambdas`` () =
     let f = applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5.
     f 3. |> equal 125.
 
-// [<Fact>]
-// let ``Curried functions being mangled via DU, List.fold and match combination #2356`` () =
-//     let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]
+[<Fact>]
+let ``Curried functions being mangled via DU, List.fold and match combination #2356`` () =
+    let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]
 
-//     let test = match findThing testData with
-//                         | Some f -> f true 1
-//                         | None -> "nothing"
-//     test |> equal "fly"
+    let test = match findThing testData with
+                        | Some f -> f true 1
+                        | None -> "nothing"
+    test |> equal "fly"
 
 [<Fact>]
 let ``Option uncurrying #2116`` () =
