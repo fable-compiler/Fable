@@ -605,7 +605,7 @@ type Printer with
     member self.print_string(s: string) =
         let len = s.len ()
         debug ("print String({0})", s)
-        // assert(len <= space)
+        // assert (len <= space)
         self.space_left <- self.space_left - len
 
         // Write the pending indent. A more concise way of doing this would be:

@@ -148,7 +148,7 @@ type MultipleCons(x: int, y: int) =
 // type ConcreteClass3() =
 //     inherit AbstractClass3()
 //     let mutable v = 5
-//     override __.MyProp with get() = v and set(v2) = v <- v + v2
+//     override _.MyProp with get() = v and set(v2) = v <- v + v2
 
 type ISomeInterface =
     abstract OnlyGetProp: int with get
@@ -203,14 +203,14 @@ let mangleFoo(x: IFoo) = x.Foo()
 
 // type BaseClass (x: int) =
 //     abstract member Init: unit -> int
-//     default __.Init () = x
+//     default _.Init () = x
 //     abstract member Prop: string
-//     default __.Prop = "base"
+//     default _.Prop = "base"
 
 // type ExtendedClass () =
 //     inherit BaseClass(5)
-//     override __.Init() = base.Init() + 2
-//     override __.Prop = base.Prop + "-extension"
+//     override _.Init() = base.Init() + 2
+//     override _.Prop = base.Prop + "-extension"
 
 // type BaseClass2() =
 //     let field = 1
@@ -410,8 +410,8 @@ type TypeWithClassAttribute =
 //                 member _.Value = y
 //                 member this2.Add() = this1.Value + this2.Value }
 
-let areEqual (x: obj) (y: obj) =
-    x = y
+// let areEqual (x: obj) (y: obj) = x = y
+let inline areEqual x y = x = y //TODO: non-inline
 
 type MyUnion1 = Foo of int * int | Bar of float | Baz
 type MyUnion2 = Foo of int * int
@@ -838,11 +838,11 @@ let ``Value Type records work`` () = // See #568
     foo1.value |> equal "foo"
     foo1 = foo2 |> equal true
 
-// [<Fact>]
-// let ``Value Type unions work`` () =
-//     let du1 = StructUnion.Value "du"
-//     let du2 = StructUnion.Value "du"
-//     du1 = du2 |> equal true
+[<Fact>]
+let ``Value Type unions work`` () =
+    let du1 = StructUnion.Value "du"
+    let du2 = StructUnion.Value "du"
+    du1 = du2 |> equal true
 
 [<Fact>]
 let ``Value Type tuples work`` () =

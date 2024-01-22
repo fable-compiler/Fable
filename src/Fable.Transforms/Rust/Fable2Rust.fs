@@ -952,7 +952,7 @@ module TypeInfo =
         |> Seq.tryFind (fun ifc -> ifc.Entity.FullName = fullName)
 
     let transformInterfaceType
-        (com: IRustCompiler)
+        com
         ctx
         (entRef: Fable.EntityRef)
         genArgs
@@ -963,18 +963,14 @@ module TypeInfo =
         let traitBound = mkTypeTraitGenericBound nameParts genArgsOpt
         mkDynTraitTy [ traitBound ]
 
-    let getAbstractClassImportName
-        (com: IRustCompiler)
-        ctx
-        (entRef: Fable.EntityRef)
-        =
+    let getAbstractClassImportName com ctx (entRef: Fable.EntityRef) =
         match entRef.FullName with
         | "System.Text.Encoding" ->
             getLibraryImportName com ctx "Encoding" "Encoding"
         | _ -> getEntityFullName com ctx entRef
 
     let transformAbstractClassType
-        (com: IRustCompiler)
+        com
         ctx
         (entRef: Fable.EntityRef)
         genArgs
@@ -1052,10 +1048,10 @@ module TypeInfo =
                 None
         | _ -> None
 
-    let transformDeclaredType
+    let transformEntityType
         (com: IRustCompiler)
         ctx
-        entRef
+        (entRef: Fable.EntityRef)
         genArgs
         : Rust.Ty
         =
@@ -1290,7 +1286,7 @@ module TypeInfo =
 
             // other declared types
             | Fable.DeclaredType(entRef, genArgs) ->
-                transformDeclaredType com ctx entRef genArgs
+                transformEntityType com ctx entRef genArgs
 
         let ty =
             match shouldBeRefCountWrapped com ctx typ with
@@ -1487,16 +1483,13 @@ module Util =
             expr
 
     let transformIdentSet com ctx r (ident: Fable.Ident) (value: Rust.Expr) =
+        // assert (ident.IsMutable)
         let expr = transformIdent com ctx r ident
-        // assert(ident.IsMutable)
         mutableSet expr value
 
     let memberFromName (memberName: string) : Rust.Expr * bool =
         match memberName with
         | "ToString" -> (mkGenericPathExpr [ "ToString" ] None), false
-        // | n when n.StartsWith("Symbol.") ->
-        //     Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n[7..]), false), true
-        // | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral(n), true
         | n -> (mkGenericPathExpr [ n ] None), false
 
     let getField r (expr: Rust.Expr) (fieldName: string) =
@@ -1605,8 +1598,7 @@ module Util =
         match typ with
         | IsNonErasedInterface com (entRef, genArgs) ->
             let ifcTy =
-                transformDeclaredType com ctx entRef genArgs
-                |> makeCastTy com ctx
+                transformEntityType com ctx entRef genArgs |> makeCastTy com ctx
 
             let macroName =
                 getLibraryImportName com ctx "Native" "interface_cast"
@@ -5145,8 +5137,8 @@ module Util =
         //     }
         // }
         if ent.IsFSharpExceptionDeclaration then
-            let entName =
-                Fable.Value(Fable.StringConstant(splitLast ent.FullName), None)
+            let entName = splitLast ent.FullName
+            let entNameExpr = Fable.Value(Fable.StringConstant(entName), None)
 
             let thisArg = Fable.Value(Fable.ThisValue Fable.Any, None)
 
@@ -5170,7 +5162,7 @@ module Util =
                     ctx
                     "{} {:?}"
                     [
-                        entName
+                        entNameExpr
                         fieldsAsTuple
                     ]
 
@@ -5428,7 +5420,7 @@ module Util =
 
         let entType = FSharp2Fable.Util.getEntityType ent
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
-        let self_ty = transformDeclaredType com ctx entRef genArgs
+        let self_ty = transformEntityType com ctx entRef genArgs
         let genArgTys = transformGenTypes com ctx genArgs
 
         let ctx = { ctx with ScopedEntityGenArgs = getEntityGenParamNames ent }
