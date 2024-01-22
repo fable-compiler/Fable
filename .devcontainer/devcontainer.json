@@ -24,16 +24,7 @@
 				"tamasfe.even-better-toml"
 			],
 			"settings": {
-				"terminal.integrated.defaultProfile.linux": "zsh",
-				// I don't know why but Ionide and C# extension don't find
-				// the installed dotnet version.
-				// For Ionide, we guide it using the following setting
-				"FSharp.dotnetRoot": "/home/vscode/.dotnet",
-				// For C#, we disable the warning as we don't seems to need it.
-				// If this is a problem, we can probably use the C#/F# dockerfile
-				// as the base and keep our way to install the different target version
-				// .NET included to respect the global.json requirements
-				"csharp.suppressDotnetInstallWarning": true
+				"terminal.integrated.defaultProfile.linux": "zsh"
 			}
 		}
 	},
