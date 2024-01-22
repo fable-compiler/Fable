@@ -70,6 +70,7 @@ def create(
     m: int = 0,
     s: int = 0,
     ms: int = 0,
+    mc: int = 0,
     kind: DateKind | None = None,
 ) -> datetime:
     if kind == DateKind.UTC:
@@ -80,11 +81,11 @@ def create(
             hour=h,
             minute=m,
             second=s,
-            microsecond=ms * 1000,
+            microsecond=mc + ms * 1_000,
             tzinfo=timezone.utc,
         )
     else:
-        date = datetime(year, month, day, h, m, s, ms * 1000)
+        date = datetime(year, month, day, h, m, s, mc + ms * 1_000)
         if kind == DateKind.Local:
             date = date.astimezone(local_time_zone)
 
@@ -116,7 +117,7 @@ def second(d: datetime) -> int:
 
 
 def millisecond(d: datetime) -> int:
-    return d.microsecond // 1000
+    return d.microsecond // 1_000
 
 
 def microsecond(d: datetime) -> int:
@@ -634,19 +635,27 @@ def kind(d: datetime) -> DateKind:
 
 
 def specify_kind(d: datetime, kind: DateKind) -> datetime:
-    return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), kind)
+    return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), microsecond(d), kind)
 
 
 def ticks(d: datetime) -> int:
-    return unix_epoch_milliseconds_to_ticks(int(d.timestamp() * 1000), date_offset(d))
+    # Note: It can happens that Ticks differs a little bit from the .NET implementation
+    # because of some rounding/precision issues in Python
+    # DateTime(1, 1, 1, 0, 0, 0, 0, 99, DateTimeKind.Utc).Ticks should be 990
+    # but Python returns 1040
+    # because d.timestamp():
+    # - returns     -62135596799.9999
+    # - instead of  -62135596800000
+    # compute timestamp in microseconds
+    return unix_epoch_microseconds_to_ticks(int(d.timestamp() * 1_000_000), date_offset(d) * 1_000)
 
 
-def unix_epoch_milliseconds_to_ticks(ms: int, offset: int) -> int:
-    return int(((ms + 62135596800000) + offset) * 10000)
+def unix_epoch_microseconds_to_ticks(us: int, offset: int) -> int:
+    return int(((us + 62135596800000000) + offset) * 10)
 
 
-def ticks_to_unix_epoch_milliseconds(ticks: int) -> int:
-    return int((ticks - 621355968000000000) // 10000)
+def ticks_to_unix_epoch_microseconds(ticks: int) -> int:
+    return int((ticks - 621355968000000000) // 10)
 
 
 def date_offset(d: datetime) -> int:
@@ -660,19 +669,18 @@ def date_offset(d: datetime) -> int:
         if utc_offset is None:
             forced_utc_offset = d.astimezone().utcoffset()
             assert forced_utc_offset is not None
-            return int(forced_utc_offset.total_seconds() * 1000)
+            return int(forced_utc_offset.total_seconds() * 1_000)
         else:
-            return int(utc_offset.total_seconds() * 1000)
+            return int(utc_offset.total_seconds() * 1_000)
 
     # return 0 if d.tzinfo == timezone.utc else
 
 
-def create_from_epoch_milliseconds(ms: int, kind: DateKind | None = None) -> datetime:
-    print("create_from_epoch_milliseconds", ms, kind)
+def create_from_epoch_microseconds(us: int, kind: DateKind | None = None) -> datetime:
     if kind == DateKind.UTC:
-        date = datetime.fromtimestamp(ms / 1000, timezone.utc)
+        date = datetime.fromtimestamp(us / 1_000_000, timezone.utc)
     else:
-        date = datetime.fromtimestamp(ms / 1000)
+        date = datetime.fromtimestamp(us / 1_000_000)
         if kind == DateKind.Local:
             date = date.astimezone()
 
@@ -682,13 +690,13 @@ def create_from_epoch_milliseconds(ms: int, kind: DateKind | None = None) -> dat
 def from_ticks(ticks: int, kind: DateKind | None = None) -> datetime:
     # Better default than Unspecified
     kind = kind or DateKind.Local
-    date = create_from_epoch_milliseconds(ticks_to_unix_epoch_milliseconds(ticks), kind)
+    date = create_from_epoch_microseconds(ticks_to_unix_epoch_microseconds(ticks), kind)
 
     # Ticks are local to offset (in this case, either UTC or Local/Unknown).
     # If kind is anything but UTC, that means that the tick number was not
     # in utc, thus getTime() cannot return UTC, and needs to be shifted.
     if kind != DateKind.UTC:
-        date = create_from_epoch_milliseconds(int(date.timestamp() * 1000 - date_offset(date)), kind)
+        date = create_from_epoch_microseconds(int(date.timestamp() * 1_000_000 - date_offset(date) * 1_000), kind)
 
     return date
 

@@ -19,6 +19,20 @@ let thatYearMilliseconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds
 
 [<Fact>]
+let ``test DateTime constructor replacements adaptation works`` () =
+    // Fable detects when a DateTime constructor is called with 7 or 8 arguments
+    // and the last one is DateTimeKind and adapt the call to the
+    // call the 9 arguments constructor with the DateTimeKind as the last
+    DateTime(2014, 7, 1, 16, 37, 3, DateTimeKind.Utc).Kind
+    |> equal DateTimeKind.Utc
+
+    DateTime(2014, 7, 1, 16, 37, 3, 7, DateTimeKind.Utc).Kind
+    |> equal DateTimeKind.Utc
+
+    DateTime(2014, 7, 1, 16, 37, 3, 7, 8, DateTimeKind.Utc).Kind
+    |> equal DateTimeKind.Utc
+
+[<Fact>]
 let ``test DateTime.ToString with custom format works`` () =
     DateTime(2014, 7, 1, 16, 37, 1, 2, 3).ToString("r d", CultureInfo.InvariantCulture)
     |> equal "r 1"

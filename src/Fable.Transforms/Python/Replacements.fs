@@ -5060,11 +5060,40 @@ let dates
                     (List.take 6 args)
                     @ [
                         makeIntConst 0
+                        makeIntConst 0
                         last
                     ]
 
                 let argTypes =
                     (List.take 6 i.SignatureArgTypes)
+                    @ [
+                        Int32.Number
+                        Int32.Number
+                        last.Type
+                    ]
+
+                Helper.LibCall(
+                    com,
+                    "Date",
+                    "create",
+                    t,
+                    args,
+                    argTypes,
+                    ?loc = r
+                )
+                |> Some
+            | 8, Number(_, NumberInfo.IsEnum ent) when
+                ent.FullName = "System.DateTimeKind"
+                ->
+                let args =
+                    (List.take 7 args)
+                    @ [
+                        makeIntConst 0
+                        last
+                    ]
+
+                let argTypes =
+                    (List.take 7 i.SignatureArgTypes)
                     @ [
                         Int32.Number
                         last.Type
