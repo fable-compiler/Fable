@@ -179,11 +179,14 @@ let makeProject
         else
             checkResults.AssemblyContents.ImplementationFiles
 
+    let addLog (severity: Fable.Severity) (msg: string) = () //TODO: log loading errors
+
     Project.From(
         projectOptions.ProjectFileName,
         projectOptions.SourceFiles,
         implFiles,
-        checkResults.ProjectContext.GetReferencedAssemblies()
+        checkResults.ProjectContext.GetReferencedAssemblies(),
+        addLog
     )
 
 let parseAndCheckProject
@@ -339,7 +342,7 @@ let getCompletionsAtLocation
         )
     | None -> [||]
 
-let mapFableError (com: Compiler) (log: Log) =
+let mapFableError (com: Compiler) (log: LogEntry) =
     let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
 
     {

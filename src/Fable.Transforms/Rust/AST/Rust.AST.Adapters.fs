@@ -248,12 +248,10 @@ type Macros =
 
     static member write(buf: String, fmt: string, [<System.ParamArray>] args) =
         buf.push_str (Macros.format (fmt, args))
-#if false //DEBUG
-    static member debug(fmt: string, [<System.ParamArray>] args) =
-        System.Console.WriteLine(fmt, args)
-#else
+
+    // static member debug(fmt: string, [<System.ParamArray>] args) =
+    //     System.Console.WriteLine(fmt, args)
     static member debug _ = ()
-#endif
 
 [<AutoOpen>]
 module ArrayHelpers =

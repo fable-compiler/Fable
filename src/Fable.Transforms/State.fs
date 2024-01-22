@@ -13,7 +13,13 @@ type PluginRef =
         TypeFullName: string
     }
 
-type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
+type Assemblies
+    (
+        getPlugin,
+        fsharpAssemblies: FSharpAssembly list,
+        addLog: Severity -> string -> unit
+    )
+    =
     let assemblies = Dictionary()
     let coreAssemblies = Dictionary()
     let entities = ConcurrentDictionary()
@@ -46,13 +52,7 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                             let errorMessage =
                                 $"Could not scan {path} for Fable plugins, skipping this assembly"
 
-#if !FABLE_COMPILER
-                            Console.ForegroundColor <- ConsoleColor.Gray
-#endif
-                            Console.WriteLine(errorMessage)
-#if !FABLE_COMPILER
-                            Console.ResetColor()
-#endif
+                            addLog Severity.Info errorMessage
 
                             hasSkippedAssembly <- true
                             false
@@ -83,20 +83,12 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
                                             $"Error while loading plugin: {e.FullName}"
                                             ""
                                             "This error often happens if you are trying to use a plugin that is not compatible with the current version of Fable."
-
                                             "If you see this error please open an issue at https://github.com/fable-compiler/Fable/"
                                             "so we can check if we can improve the plugin detection mechanism."
                                         ]
-                                        |> String.concat "\n"
+                                        |> String.concat Environment.NewLine
 
-#if !FABLE_COMPILER
-                                    Console.ForegroundColor <-
-                                        ConsoleColor.DarkRed
-#endif
-                                    Console.WriteLine(errorMessage)
-#if !FABLE_COMPILER
-                                    Console.ResetColor()
-#endif
+                                    addLog Severity.Error errorMessage
 
                                     raise ex
 
@@ -105,7 +97,7 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list) =
 
         // Add a blank line to separate the error message from the rest of the output
         if hasSkippedAssembly then
-            Console.WriteLine()
+            addLog Severity.Info "" // or Environment.NewLine
 
         ({ MemberDeclarationPlugins = Map.empty }, plugins)
         ||> Seq.fold (fun acc kv ->
@@ -219,6 +211,7 @@ type Project
             sourceFiles: string[],
             fsharpFiles: FSharpImplementationFileContents list,
             fsharpAssemblies: FSharpAssembly list,
+            addLog: Severity -> string -> unit,
             ?getPlugin: PluginRef -> System.Type,
             ?precompiledInfo: PrecompiledInfo
         )
@@ -227,7 +220,7 @@ type Project
         let getPlugin =
             defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
 
-        let assemblies = Assemblies(getPlugin, fsharpAssemblies)
+        let assemblies = Assemblies(getPlugin, fsharpAssemblies, addLog)
 
         let implFilesMap =
             fsharpFiles
@@ -283,7 +276,7 @@ type Project
     member _.Assemblies = assemblies
     member _.PrecompiledInfo = precompiledInfo
 
-type Log =
+type LogEntry =
     {
         Message: string
         Tag: string
@@ -302,7 +295,7 @@ type Log =
         }
 
     static member MakeError(msg, ?fileName, ?range, ?tag) =
-        Log.Make(
+        LogEntry.Make(
             Severity.Error,
             msg,
             ?fileName = fileName,
@@ -321,7 +314,7 @@ type CompilerImpl
         ?outType: OutputType,
         ?outDir: string,
         ?watchDependencies: HashSet<string>,
-        ?logs: ResizeArray<Log>,
+        ?logs: ResizeArray<LogEntry>,
         ?isPrecompilingInlineFunction: bool
     )
     =
@@ -456,7 +449,7 @@ type CompilerImpl
                 ?tag: string
             )
             =
-            Log.Make(
+            LogEntry.Make(
                 severity,
                 msg,
                 ?range = range,

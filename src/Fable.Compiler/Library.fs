@@ -5,10 +5,10 @@ open System.IO
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.SourceCodeServices
 open Fable
-open Fable.Compiler.Util
 open Fable.Transforms.State
 open Fable.Transforms
 open Fable.Compiler.ProjectCracker
+open Fable.Compiler.Util
 
 type BabelWriter
     (
@@ -154,7 +154,8 @@ let compileProjectToJavaScript
                 cliArgs.ProjectFile,
                 crackerResponse.ProjectOptions.SourceFiles,
                 checkProjectResult.AssemblyContents.ImplementationFiles,
-                assemblies
+                assemblies,
+                Log.log
             // ?precompiledInfo =
             //     (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
             // getPlugin = loadType projCracked.CliArgs
@@ -233,7 +234,8 @@ let compileFileToJavaScript
                 cliArgs.ProjectFile,
                 crackerResponse.ProjectOptions.SourceFiles,
                 checkProjectResult.AssemblyContents.ImplementationFiles,
-                assemblies
+                assemblies,
+                Log.log
             )
 
         let opts = cliArgs.CompilerOptions

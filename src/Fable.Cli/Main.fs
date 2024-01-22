@@ -98,7 +98,7 @@ module private Util =
         let stack = innerStack ex
         $"[ERROR] %s{file}{Log.newLine}%s{ex.Message}{Log.newLine}%s{stack}"
 
-    let formatLog rootDir (log: Log) =
+    let formatLog rootDir (log: LogEntry) =
         match log.FileName with
         | None -> log.Message
         | Some file ->
@@ -120,7 +120,7 @@ module private Util =
             | None ->
                 $"%s{file}(1,1): %s{severity} %s{log.Tag}: %s{log.Message}"
 
-    let logErrors rootDir (logs: Log seq) =
+    let logErrors rootDir (logs: LogEntry seq) =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
         |> Seq.iter (fun log ->
@@ -153,7 +153,7 @@ module private Util =
 
             let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
 
-            Log.Make(
+            LogEntry.Make(
                 severity,
                 msg,
                 fileName = er.FileName,
@@ -529,7 +529,7 @@ type FableCompileResult =
     Result<{|
         File: string
         OutPath: string
-        Logs: Log[]
+        Logs: LogEntry[]
         InlineExprs: (string * InlineExpr)[]
         WatchDependencies: string[]
     |}, {|
@@ -538,7 +538,8 @@ type FableCompileResult =
     |}>
 
 type ReplyChannel =
-    AsyncReplyChannel<Result< (* fsharpLogs *) Log[] * FableCompileResult list, exn>>
+    AsyncReplyChannel<Result< (* fsharpLogs *) LogEntry[] *
+    FableCompileResult list, exn>>
 
 type FableCompilerMsg =
     | GetFableProject of replyChannel: AsyncReplyChannel<Project>
@@ -565,7 +566,7 @@ type FableCompilerState =
         FilesCheckedButNotCompiled: Set<string>
         FableFilesToCompileExpectedCount: int
         FableFilesCompiledCount: int
-        FSharpLogs: Log[]
+        FSharpLogs: LogEntry[]
         FableResults: FableCompileResult list
         HasFSharpCompilationFinished: bool
         ReplyChannel: ReplyChannel option
@@ -915,6 +916,7 @@ and FableCompiler
                     projCracked.ProjectOptions.SourceFiles,
                     [],
                     assemblies,
+                    Log.log,
                     ?precompiledInfo =
                         (projCracked.PrecompiledInfo
                          |> Option.map (fun i -> i :> _)),
@@ -1330,12 +1332,12 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                         let log =
                             match e.Exception with
                             | Fable.FableError msg ->
-                                Log.MakeError(msg, fileName = e.File)
+                                LogEntry.MakeError(msg, fileName = e.File)
                             | ex ->
                                 let msg =
                                     ex.Message + Log.newLine + ex.StackTrace
 
-                                Log.MakeError(
+                                LogEntry.MakeError(
                                     msg,
                                     fileName = e.File,
                                     tag = "EXCEPTION"
