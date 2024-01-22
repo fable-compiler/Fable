@@ -8,7 +8,7 @@ open Fable.Compiler.Util
 
 module Compiler =
 
-  type Result = Log list
+  type Result = LogEntry list
   module Result =
     let errors = List.filter (fun (m: LogEntry) -> m.Severity = Severity.Error)
     let warnings = List.filter (fun (m: LogEntry) -> m.Severity = Severity.Warning)
