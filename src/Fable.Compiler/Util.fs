@@ -4,8 +4,6 @@
 
 open System
 open System.Threading
-open Microsoft.Extensions.Logging
-open Microsoft.Extensions.Logging.Abstractions
 
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
     member _.ExeFile = exeFile
@@ -85,6 +83,9 @@ type Agent<'T>
 
 [<RequireQualifiedAccess>]
 module Log =
+    open Microsoft.Extensions.Logging
+    open Microsoft.Extensions.Logging.Abstractions
+
     let mutable logger: ILogger = NullLogger.Instance
     let setLogger newLogger = logger <- newLogger
     let newLine = Environment.NewLine
@@ -100,19 +101,15 @@ module Log =
 
     let error (msg: string) = logger.LogError msg
 
-    let info (msg: string) =
-        if canLog msg then
-            Console.ForegroundColor <- ConsoleColor.Gray
-            Console.Out.WriteLine(msg)
-            Console.ResetColor()
+    let mutable private femtoMsgShown = false
+
+    let info (msg: string) = logger.LogInformation msg
 
     let log (sev: Fable.Severity) (msg: string) =
         match sev with
         | Fable.Severity.Info -> info msg
         | Fable.Severity.Warning -> warning msg
         | Fable.Severity.Error -> error msg
-
-    let mutable private femtoMsgShown = false
 
     let showFemtoMsg (show: unit -> bool) : unit =
         if not femtoMsgShown && verbosity <> Fable.Verbosity.Silent then

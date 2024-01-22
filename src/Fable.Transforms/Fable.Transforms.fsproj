@@ -7,7 +7,6 @@
     <DebugType>embedded</DebugType>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Log.fs" />
     <Compile Include="Global/Babel.fs" />
     <Compile Include="Global/Fable.Core.fs" />
     <Compile Include="Global/Metadata.fs" />
