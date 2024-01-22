@@ -535,14 +535,31 @@ def parse(string: str) -> datetime:
         r"^(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M$": "%m/%d/%Y %I:%M:%S %p",
         # 9/10/2014 1:50:34
         r"^(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9])$": "%m/%d/%Y %H:%M:%S",
-        # Matches a datetime string in the format "YYYY-MM-DDTHH:MM:SS.ffffff". This format usually parses with
-        # `fromisoformat`, but not with Python 3.10
-        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}$": "%Y-%m-%dT%H:%M:%S.%f000",
     }
 
     for pattern, format in formats.items():
         if re.fullmatch(pattern, string):
             return datetime.strptime(string, format)
+
+    # Matches a datetime string in the format "YYYY-MM-DDTHH:MM:SS.ffffff". This format usually parses with
+    # `fromisoformat`, but not with Python 3.10
+    iso_format_regex = r"(?P<header>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.)(?P<microseconds>\d{0,7})"
+
+    # In Python %f only supports exactly 6 digits so we need to adapt the string
+    # If microseconds has 7 digits, we remove the last one
+    # If microseconds has less than 6 digits, we pad it with 0
+    def adapt_microseconds(m: re.Match[str]) -> str:
+        microseconds = m.group("microseconds")
+        header_text = m.group("header")
+
+        if len(microseconds) == 7:
+            microseconds = microseconds[:-1]
+
+        return header_text + microseconds.ljust(6, "0")
+
+    if re.fullmatch(iso_format_regex, string):
+        adapted_string = re.sub(iso_format_regex, adapt_microseconds, string)
+        return datetime.strptime(adapted_string, "%Y-%m-%dT%H:%M:%S.%f")
 
     raise ValueError("Unsupported format by Fable: %s" % (string))
 
