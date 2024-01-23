@@ -4,6 +4,7 @@ open System
 open Main
 open Fable
 open Fable.Compiler.Util
+open Fable.Cli.CustomLogging
 open Microsoft.Extensions.Logging
 
 type CliArgs(args: string list) =
@@ -614,8 +615,8 @@ let main argv =
                         LoggerFactory.Create(fun builder ->
                             builder
                                 .SetMinimumLevel(level)
-                                .AddSimpleConsole(fun options ->
-                                    options.SingleLine <- true
+                                .AddCustomConsole(fun options ->
+                                    options.UseNoPrefixMsgStyle <- true
                                 )
                             |> ignore
                         )
