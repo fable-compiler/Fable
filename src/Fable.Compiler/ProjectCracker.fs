@@ -655,13 +655,27 @@ let getProjectOptionsFromProjectFile =
         // Because Buildalyzer works better with .csproj, we first "dress up" the project as if it were a C# one
         // and try to adapt the results. If it doesn't work, we try again to analyze the .fsproj directly
         let csprojResult =
-            let csprojFile = projFile.Replace(".fsproj", ".csproj")
+            let csprojFile = projFile.Replace(".fsproj", ".fable-temp.csproj")
 
             if IO.File.Exists(csprojFile) then
                 None
             else
                 try
                     IO.File.Copy(projFile, csprojFile)
+
+                    let xmlDocument = XDocument.Load(csprojFile)
+
+                    let xmlComment =
+                        XComment(
+                            """This is a temporary file used by Fable to restore dependencies.
+If you see this file in your project, you can delete it safely"""
+                        )
+
+                    // An fsproj/csproj should always have a root element
+                    // so it should be safe to add the comment as first child
+                    // of the root element
+                    xmlDocument.Root.AddFirst(xmlComment)
+                    xmlDocument.Save(csprojFile)
 
                     tryGetResult isMain opts manager csprojFile
                     |> Option.map (fun (r: IAnalyzerResult) ->
