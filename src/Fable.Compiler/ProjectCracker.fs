@@ -49,7 +49,7 @@ type CacheInfo =
             else
                 ""
 
-        IO.Path.Combine(fableModulesDir, $"project_cracked{suffix}.json")
+        IO.Path.Combine(fableModulesDir, $"project_cracked%s{suffix}.json")
 
     member this.GetTimestamp() =
         CacheInfo.GetPath(this.FableModulesDir, this.FableOptions.DebugMode)
