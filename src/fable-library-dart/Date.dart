@@ -176,7 +176,7 @@ int day(DateTime d) => d.day;
 int hour(DateTime d) => d.hour;
 int minute(DateTime d) => d.minute;
 int millisecond(DateTime d) => d.millisecond;
-int dayOfWeek(DateTime d) => d.weekday;
+int dayOfWeek(DateTime d) => d.weekday % 7;
 
 int dayOfYear(DateTime d) {
   final _year = d.year;

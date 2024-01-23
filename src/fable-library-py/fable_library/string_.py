@@ -552,7 +552,7 @@ def index_of_any(string: str, any_of: list[str], *args: int):
 
     string = string[start_index:length]
     any_of_str = "".join(any_of)
-    for i,c in enumerate(string):
+    for i, c in enumerate(string):
         index = any_of_str.find(c)
         if index > -1:
             return i + start_index

@@ -683,7 +683,7 @@ def curry3(f: Callable[[_T1, _T2, _T3], _TResult]) -> Callable[[_T1], Callable[[
 
 
 def uncurry4(
-    f: Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], _TResult]]]]
+    f: Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], _TResult]]]],
 ) -> Callable[[_T1, _T2, _T3, _T4], _TResult]:
     def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4) -> _TResult:
         return f(a1)(a2)(a3)(a4)
@@ -693,7 +693,7 @@ def uncurry4(
 
 
 def curry4(
-    f: Callable[[_T1, _T2, _T3, _T4], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4], _TResult],
 ) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], _TResult]]]]:
     f2 = _curried.get(f)
     if f2 is None:
@@ -716,7 +716,7 @@ def uncurry5(
 
 
 def curry5(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult],
 ) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], Callable[[_T5], _TResult]]]]]:
     f2 = _curried.get(f)
     if f2 is None:
@@ -742,7 +742,7 @@ def uncurry6(
 
 
 def curry6(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult],
 ) -> Callable[
     [_T1],
     Callable[
@@ -777,7 +777,7 @@ def uncurry7(
 
 
 def curry7(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult],
 ) -> Callable[
     [_T1],
     Callable[
@@ -823,7 +823,7 @@ def uncurry8(
 
 
 def curry8(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult],
 ) -> Callable[
     [_T1],
     Callable[
@@ -875,7 +875,7 @@ def uncurry9(
 
 
 def curry9(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult],
 ) -> Callable[
     [_T1],
     Callable[
@@ -947,7 +947,7 @@ def uncurry10(
 
 
 def curry10(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult],
 ) -> Callable[
     [_T1],
     Callable[
@@ -1031,7 +1031,7 @@ def uncurry11(
 
 
 def curry11(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11], _TResult],
 ) -> Callable[
     [_T1],
     Callable[
@@ -1122,7 +1122,7 @@ def uncurry12(
 
 
 def curry12(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult],
 ) -> Callable[
     [_T1],
     Callable[
@@ -1223,7 +1223,7 @@ def uncurry13(
 
 
 def curry13(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult]
+    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult],
 ) -> Callable[
     [_T1],
     Callable[

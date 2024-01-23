@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Fixed nested type with custom hashcode (by @dbrattli)
 * Add 'Double.IsPositiveInfinity' (by @PierreYvesR)
+* [GH-3666](https://github.com/fable-compiler/Fable/pull/3666) Fix for `DateTime` and `TimeSpan` addition (by @dbrattli)
+* [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Fix `DateTime.Parse` and `DateTime.TryParse` (by @MangelMaxime)
+
+#### JavaScript
+
+* Fix `DateTime.Parse` when providing a 1 digit hour for PM times (`3:5:34 PM`) (by @MangelMaxime)
 
 #### Rust
 
@@ -40,6 +46,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [GH-3671](https://github.com/fable-compiler/Fable/pull/3671) Use `Microsoft.Extensions.Logging` (by @nojaf)
 
+#### Dart
+
+* Fix `DateTime.DayOfWeek` (by @MangelMaxime)
+
+### Added
+
+#### Python
+
+* [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Complete rewrite of `DateTime` supports (by @MangelMaxime)
+
+    *Special thanks to @dbrattli and @ncave for their help*
+
+    * Constructors
+        * From `(year, month, day)` up to `(year, month, day, hour, minute, second, millisecond, microsecond)` (with and without `DateTimeKind`)
+        * From `ticks` (with and without `DateTimeKind`)
+    * Instance methods:
+        * `dt.Year`
+        * `dt.Month`
+        * `dt.Day`
+        * `dt.Hour`
+        * `dt.Minute`
+        * `dt.Second`
+        * `dt.Millisecond`
+        * `dt.Microsecond`
+        * `dt.ToUniversalTime`
+        * `dt.DayOfWeek`
+        * `dt.DayOfYear`
+        * `dt.ToShortDateString`
+        * `dt.ToShortTimeString`
+        * `dt.ToLongDateString`
+        * `dt.ToLongTimeString`
+        * `dt.ToString`
+        * `dt.ToLocalTime`
+        * `dt.Date`
+        * `dt.AddYears`
+        * `dt.AddMonths`
+        * `dt.AddDays`
+        * `dt.AddHours`
+        * `dt.AddMinutes`
+        * `dt.AddSeconds`
+        * `dt.AddMilliseconds`
+        * `dt.AddMicroseconds`
+        * `dt.Kind`
+    * Static methods:
+        * `DateTime.Today`
+        * `DateTime.Now`
+        * `DateTime.Now`
+        * `DateTime.UtcNow`
+        * `DateTime.MinValue`
+        * `DateTime.MaxValue`
+        * `DateTime.Parse`
+        * `DateTime.TryParse`
+        * `DateTime.SpecifyKind`
+
 ## 4.9.0 - 2023-12-14
 
 ### Fixed
@@ -48,7 +108,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [GH-3655](https://github.com/fable-compiler/Fable/issues/3655) Fix for Python output file names (by @dbrattli)
 * [GH-3660](https://github.com/fable-compiler/Fable/issues/3660) Fix for decimal to string with culture (by @dbrattli)
-* [GH-3666](https://github.com/fable-compiler/Fable/pull/3666) Fix for `DateTime` and `TimeSpan` addition (by @dbrattli)
 
 ## 4.8.1 - 2023-12-12
 

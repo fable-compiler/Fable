@@ -4957,6 +4957,56 @@ let debug
             IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
+let private ignoreFormatProvider
+    com
+    (ctx: Context)
+    r
+    (moduleName: string)
+    meth
+    args
+    =
+    match meth, args with
+    // Ignore IFormatProvider
+    | "Parse", arg :: _culture :: _styles :: _ ->
+        addWarning
+            com
+            ctx.InlinePath
+            r
+            $"%s{moduleName}.Parse will ignore culture and styles"
+
+        [ arg ]
+    | "Parse", arg :: _culture :: _ ->
+        addWarning
+            com
+            ctx.InlinePath
+            r
+            $"%s{moduleName}.Parse will ignore culture"
+
+        [ arg ]
+    | "TryParse", input :: _culture :: _styles :: defVal :: _ ->
+        addWarning
+            com
+            ctx.InlinePath
+            r
+            $"%s{moduleName}.TryParse will ignore culture and styles"
+
+        [
+            input
+            defVal
+        ]
+    | "TryParse", input :: _culture :: defVal :: _ ->
+        addWarning
+            com
+            ctx.InlinePath
+            r
+            $"%s{moduleName}.TryParse will ignore culture"
+
+        [
+            input
+            defVal
+        ]
+    | _ -> args
+
 let dates
     (com: ICompiler)
     (ctx: Context)
@@ -5014,11 +5064,40 @@ let dates
                     (List.take 6 args)
                     @ [
                         makeIntConst 0
+                        makeIntConst 0
                         last
                     ]
 
                 let argTypes =
                     (List.take 6 i.SignatureArgTypes)
+                    @ [
+                        Int32.Number
+                        Int32.Number
+                        last.Type
+                    ]
+
+                Helper.LibCall(
+                    com,
+                    "Date",
+                    "create",
+                    t,
+                    args,
+                    argTypes,
+                    ?loc = r
+                )
+                |> Some
+            | 8, Number(_, NumberInfo.IsEnum ent) when
+                ent.FullName = "System.DateTimeKind"
+                ->
+                let args =
+                    (List.take 7 args)
+                    @ [
+                        makeIntConst 0
+                        last
+                    ]
+
+                let argTypes =
+                    (List.take 7 i.SignatureArgTypes)
                     @ [
                         Int32.Number
                         last.Type
@@ -5057,7 +5136,6 @@ let dates
             ?loc = r
         )
         |> Some
-    | "get_Kind"
     | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName
         |> Naming.lowerFirst
@@ -5150,17 +5228,6 @@ let dates
                 [ ms ]
 
         Helper.LibCall(com, "Long", "fromNumber", t, args, ?loc = r) |> Some
-    | "get_Ticks" ->
-        Helper.LibCall(
-            com,
-            "Date",
-            "getTicks",
-            t,
-            [ thisArg.Value ],
-            [ thisArg.Value.Type ],
-            ?loc = r
-        )
-        |> Some
     | "get_UtcTicks" ->
         Helper.LibCall(
             com,
@@ -5219,6 +5286,9 @@ let dates
             |> Some
         | _ -> None
     | meth ->
+        let args =
+            ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
+
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
         Helper.LibCall(

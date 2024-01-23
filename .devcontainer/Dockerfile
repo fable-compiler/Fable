@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y xz-utils
 # Let it here to avoid conflicts with Microsoft options !!!
 ARG DOTNET_VERSION=8.0.100
 ARG NODE_VERSION=18.8.0
-ARG PYTHON_VERSION=3.11.5
+ARG PYTHON_VERSION=3.10.0
 ARG DART_VERSION=3.1.2
 
 USER vscode
@@ -38,8 +38,20 @@ SHELL ["/bin/zsh", "-c"]
 WORKDIR /home/vscode
 RUN sudo apt install wget
 RUN wget -qO- https://dot.net/v1/dotnet-install.sh | bash -s - --version $DOTNET_VERSION
+# Because .NET doesn't setup the path for us, we need to do it
+# Bash is the default shell for the dev container, we need it for the extensions
+# to work properly
+RUN echo "# Load dotnet path" >> .bashrc
+RUN echo "export DOTNET_ROOT=/home/vscode/.dotnet" >> .bashrc
+RUN echo 'export PATH=$PATH:$DOTNET_ROOT:~/.dotnet/tools' >> .bashrc
+RUN echo 'export DOTNET_RUNNING_IN_CONTAINER=true' >> .bashrc
+Run echo 'export DOTNET_USE_POLLING_FILE_WATCHER=true' >> .bashrc
+# Zsh is the shell used by the user, so we need to setup the path for it too
 RUN echo "# Load dotnet path" >> .zshrc
-RUN echo "export PATH=$PATH:/home/vscode/.dotnet" >> .zshrc
+RUN echo "export DOTNET_ROOT=/home/vscode/.dotnet" >> .zshrc
+RUN echo 'export PATH=$PATH:$DOTNET_ROOT:~/.dotnet/tools' >> .zshrc
+RUN echo 'export DOTNET_RUNNING_IN_CONTAINER=true' >> .zshrc
+Run echo 'export DOTNET_USE_POLLING_FILE_WATCHER=true' >> .zshrc
 # Trigger the dotnet first run experience by running a command
 RUN source .zshrc && dotnet --help
 # Add dotnet zsh completion
@@ -60,10 +72,6 @@ RUN echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # 
 RUN source .zshrc && nvm install $NODE_VERSION
 
 # Install python
-# Install Python build dependencies
-RUN sudo apt-get install -y build-essential libssl-dev zlib1g-dev \
-libbz2-dev libreadline-dev libsqlite3-dev curl \
-libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 # Install pyenv
 RUN curl https://pyenv.run | bash
 RUN echo "# Load pyenv path" >> .zshrc

@@ -258,26 +258,94 @@ let tests =
         d > DateTime.MinValue |> equal true
 
     testCase "DateTime.Parse works" <| fun () ->
+        let d =
+            DateTime.Parse(
+                "2014-09-10T13:50:34.0000000",
+                CultureInfo.InvariantCulture
+            )
+
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second |> equal 2130
+
         let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
-        d.Year + d.Month + d.Day + d.Hour + d.Minute
-        |> equal 2096
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        |> equal 2130
+
+        let d = DateTime.Parse("9/10/2014 1:50:34 AM", CultureInfo.InvariantCulture)
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        |> equal 2118
+
+        let d = DateTime.Parse("9/10/2014 13:50:34", CultureInfo.InvariantCulture)
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        |> equal 2130
+
+        let d = DateTime.Parse("9/10/2014 1:50:34", CultureInfo.InvariantCulture)
+        d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        |> equal 2118
+
+        // Disabled because it is timezone dependent
+        // I left it here in case, we need to test it in the future
+        // Currently, it is setup for Europe/Paris timezone
+        // let d = DateTime.Parse("2016-07-07T01:00:00.000Z", CultureInfo.InvariantCulture)
+        // d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second
+        // |> equal 2033
 
     testCase "DateTime.Parse with time-only string works" <| fun () -> // See #1045
+        // Time-only should use now as the reference date
+        let now = DateTime.Now
+
         let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
+        d.Year |> equal now.Year
+        d.Month |> equal now.Month
+        d.Day |> equal now.Day
         d.Hour + d.Minute + d.Second |> equal 97
+
         let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
+        d.Year |> equal now.Year
+        d.Month |> equal now.Month
+        d.Day |> equal now.Day
         d.Hour + d.Minute + d.Second |> equal 40
+
         let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
+        d.Year |> equal now.Year
+        d.Month |> equal now.Month
+        d.Day |> equal now.Day
         d.Hour + d.Minute + d.Second |> equal 52
 
+        let d = DateTime.Parse("0:5:34 PM")
+        d.Hour + d.Minute + d.Second |> equal 51
+
+        let d1 = DateTime.Parse("12:5:34 PM")
+        d1.Hour + d1.Minute + d1.Second |> equal 51
+
+        let d2 = DateTime.Parse("3:5:34 PM")
+        d2.Hour + d2.Minute + d2.Second |> equal 54
+
+        let d3 = DateTime.Parse("15:5:34 PM")
+        d3.Hour + d3.Minute + d3.Second |> equal 54
+
+
     testCase "DateTime.TryParse works" <| fun () ->
-        let f (d: string) =
-            match DateTime.TryParse(d, CultureInfo.InvariantCulture, DateTimeStyles.None) with
-            | true, _ -> true
-            | false, _ -> false
-        f "foo" |> equal false
-        f "9/10/2014 1:50:34 PM" |> equal true
-        f "1:50:34" |> equal true
+        let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture, DateTimeStyles.None)
+        isSuccess |> equal false
+
+        let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture, DateTimeStyles.None)
+        isSuccess |> equal true
+        dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
+
+        let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture)
+        isSuccess |> equal false
+
+        let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
+        isSuccess |> equal true
+        dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
+
+        let (isSuccess, _) = DateTime.TryParse("foo")
+        isSuccess |> equal false
+
+        let (isSuccess, dateTime) = DateTime.TryParse("9/10/2014 1:50:34 PM")
+        isSuccess |> equal true
+        dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
+
 
     testCase "Parsing doesn't succeed for invalid dates" <| fun () ->
         let invalidAmericanDate = "13/1/2020"
@@ -312,12 +380,19 @@ let tests =
         d.Day + d'.Day |> equal 18
 
     testCase "DateTime.DayOfWeek works" <| fun () ->
-        let d = DateTime(2014, 10, 9)
-        d.DayOfWeek |> equal DayOfWeek.Thursday
+        DateTime(2014, 10, 5).DayOfWeek |> equal DayOfWeek.Sunday
+        DateTime(2014, 10, 6).DayOfWeek |> equal DayOfWeek.Monday
+        DateTime(2014, 10, 7).DayOfWeek |> equal DayOfWeek.Tuesday
+        DateTime(2014, 10, 8).DayOfWeek |> equal DayOfWeek.Wednesday
+        DateTime(2014, 10, 9).DayOfWeek |> equal DayOfWeek.Thursday
+        DateTime(2014, 10, 10).DayOfWeek |> equal DayOfWeek.Friday
+        DateTime(2014, 10, 11).DayOfWeek |> equal DayOfWeek.Saturday
 
     testCase "DateTime.DayOfYear works" <| fun () ->
-        let d = DateTime(2014, 10, 9)
-        d.DayOfYear |> equal 282
+        // Standard year
+        DateTime(2014, 10, 9).DayOfYear |> equal 282
+        // Leap year
+        DateTime(2020, 10, 9).DayOfYear |> equal 283
 
     testCase "DateTime.Millisecond works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, 999)

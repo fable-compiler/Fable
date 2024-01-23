@@ -202,11 +202,12 @@ export function parseRaw(input: string): [Date, Offset] {
       let timeInSeconds = 0;
       if (m[2] != null) {
         const timeParts = m[2].split(":");
+        const hourPart = parseInt(timeParts[0], 10);
         timeInSeconds =
-          parseInt(timeParts[0], 10) * 3600 +
+          hourPart * 3600 +
           parseInt(timeParts[1] || "0", 10) * 60 +
           parseFloat(timeParts[2] || "0");
-        if (m[3] != null && m[3].toUpperCase() === "PM") {
+        if (m[3] != null && m[3].toUpperCase() === "PM" && hourPart < 12) {
           timeInSeconds += 720;
         }
       }
