@@ -943,7 +943,12 @@ let private transformExpr
                     && com.Options.Language <> Rust
                 then
                     // Getting byref value is compiled as FSharpRef op_Dereference
-                    return Replacements.Api.getRefCell com r v.Type v
+                    return
+                        Replacements.Api.getRefCell
+                            com
+                            r
+                            (List.head v.Type.Generics)
+                            v
                 else
                     return v
 
