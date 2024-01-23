@@ -50,7 +50,12 @@ Available commands:
             --no-dotnet             When in watch mode, do not run the .NET tests
 
         Options for JavaScript:
-            --reat-only             Run only the tests for React (can be run in watch mode)
+            --react-only             Run only the tests for React (can be run in watch mode)
+            --standalone-only        Run only the tests for the standalone version of Fable
+                                     (can be run in watch mode)
+            --adaptive-only          Run only the tests for the adaptive version of Fable
+                                     (can be run in watch mode)
+
 
         Options for Rust:
             --ast-only              Run only the tests for the AST (can be run in watch mode)

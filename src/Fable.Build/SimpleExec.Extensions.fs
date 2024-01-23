@@ -155,3 +155,36 @@ type Command with
             ?noEcho = noEcho,
             ?echoPrefix = echoPrefix
         )
+
+    static member WatchFable
+        (
+            args: CmdLine,
+            ?workingDirectory,
+            ?noEcho,
+            ?echoPrefix
+        )
+        =
+        let localFableDir = __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
+
+        let args =
+            CmdLine.concat
+                [
+                    CmdLine.empty
+                    |> CmdLine.appendRaw "watch"
+                    |> CmdLine.appendPrefix "--project" localFableDir
+                    |> CmdLine.appendRaw "run"
+                    // Without the release mode, Fable stack overflow when compiling the tests
+                    |> CmdLine.appendPrefix "-c" "Release"
+                    |> CmdLine.appendRaw "--"
+
+                    args
+                ]
+            |> CmdLine.toString
+
+        Command.Run(
+            "dotnet",
+            args,
+            ?workingDirectory = workingDirectory,
+            ?noEcho = noEcho,
+            ?echoPrefix = echoPrefix
+        )
