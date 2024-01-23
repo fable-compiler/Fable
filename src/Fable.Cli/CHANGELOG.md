@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Fixed function composition types (by @ncave)
 * [GH-3668](https://github.com/fable-compiler/Fable/pull/3668) Normalize fable-library argument (by @nojaf)
-* [GH-3682](https://github.com/fable-compiler/Fable/pull/3682)Support some custom unary math operors (Acos, Asin, Atan, Atan2, Cos, Cosh, Exp, Log, Log2, Log10, Sin, Sinh, Sqrt, Tan, Tanh) (by @PierreYvesR)
+* [GH-3682](https://github.com/fable-compiler/Fable/pull/3682) Support some custom unary math operors (Acos, Asin, Atan, Atan2, Cos, Cosh, Exp, Log, Log2, Log10, Sin, Sinh, Sqrt, Tan, Tanh) (by @PierreYvesR)
 
 #### Javascript
 
@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### All
 
 * [GH-3671](https://github.com/fable-compiler/Fable/pull/3671) Use `Microsoft.Extensions.Logging` (by @nojaf)
+* [GH-3634](https://github.com/fable-compiler/Fable/issues/3634) Suffix temporary `csproj` with `.fable-temp.csproj` and include a comment in the file (by @MangelMaxime)
 
 #### Dart
 
