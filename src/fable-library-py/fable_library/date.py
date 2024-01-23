@@ -193,13 +193,13 @@ def parse_quoted_string(format: str, pos: int) -> tuple[str, int]:
                 result += format[pos]
             else:
                 # This means that '\'is the last character in the format string.
-                raise Exception("Invalid string format")
+                raise ValueError("Invalid string format")
         else:
             result += current_char
 
     if not found_quote:
         # We couldn't find the matching quote
-        raise Exception(f"Invalid string format could not find matching quote for {quote_char}")
+        raise ValueError(f"Invalid string format could not find matching quote for {quote_char}")
 
     return (result, pos - begin_pos + 1)
 
@@ -559,15 +559,14 @@ def parse(string: str) -> datetime:
 
     if re.fullmatch(iso_format_regex, string):
         adapted_string = re.sub(iso_format_regex, adapt_microseconds, string)
-        print(f"{string} is transformed to {adapted_string}")
         return datetime.strptime(adapted_string, "%Y-%m-%dT%H:%M:%S.%f")
 
     raise ValueError("Unsupported format by Fable: %s" % (string))
 
 
-def try_parse(string: str, defValue: FSharpRef[datetime]) -> bool:
+def try_parse(string: str, def_value: FSharpRef[datetime]) -> bool:
     try:
-        defValue.contents = parse(string)
+        def_value.contents = parse(string)
         return True
     except Exception:
         return False
