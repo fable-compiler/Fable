@@ -43,13 +43,13 @@ type CacheInfo =
     }
 
     static member GetPath(fableModulesDir: string, isDebug: bool) =
-        IO.Path.Combine(
-            fableModulesDir,
-            $"""project_cracked{if isDebug then
-                                    "_debug"
-                                else
-                                    ""}.json"""
-        )
+        let suffix =
+            if isDebug then
+                "_debug"
+            else
+                ""
+
+        IO.Path.Combine(fableModulesDir, $"project_cracked{suffix}.json")
 
     member this.GetTimestamp() =
         CacheInfo.GetPath(this.FableModulesDir, this.FableOptions.DebugMode)
@@ -172,6 +172,17 @@ type CrackerOptions(cliArgs: CliArgs) =
             )
 
         fableModulesDir
+
+    member _.ResetFableModulesDir() =
+        if IO.Directory.Exists(fableModulesDir) then
+            IO.Directory.Delete(fableModulesDir, recursive = true)
+
+        IO.Directory.CreateDirectory(fableModulesDir) |> ignore
+
+        IO.File.WriteAllText(
+            IO.Path.Combine(fableModulesDir, ".gitignore"),
+            "**/*"
+        )
 
 type CrackerResponse =
     {
@@ -1196,8 +1207,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         // The cache was considered outdated / invalid so it is better to make
         // make sure we have are in a clean state
-        if IO.Directory.Exists(opts.FableModulesDir) then
-            IO.Directory.Delete(opts.FableModulesDir, true)
+        opts.ResetFableModulesDir()
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
