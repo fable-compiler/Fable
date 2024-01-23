@@ -38,8 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Python
 
-* [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Add several missing `DateTime` API (by @MangelMaxime)
+* [GH-3663](https://github.com/fable-compiler/Fable/pull/3663) Complete rewrite of `DateTime` supports (by @MangelMaxime)
+
+    *Special thanks to @dbrattli and @ncave for their help*
+
+    * Constructors
+        * From `(year, month, day)` up to `(year, month, day, hour, minute, second, millisecond, microsecond)` (with and without `DateTimeKind`)
+        * From `ticks` (with and without `DateTimeKind`)
     * Instance methods:
+        * `dt.Year`
         * `dt.Month`
         * `dt.Day`
         * `dt.Hour`
@@ -47,8 +54,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         * `dt.Second`
         * `dt.Millisecond`
         * `dt.Microsecond`
+        * `dt.ToUniversalTime`
         * `dt.DayOfWeek`
         * `dt.DayOfYear`
+        * `dt.ToShortDateString`
+        * `dt.ToShortTimeString`
+        * `dt.ToLongDateString`
+        * `dt.ToLongTimeString`
+        * `dt.ToString`
+        * `dt.ToLocalTime`
         * `dt.Date`
         * `dt.AddYears`
         * `dt.AddMonths`
@@ -58,8 +72,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         * `dt.AddSeconds`
         * `dt.AddMilliseconds`
         * `dt.AddMicroseconds`
+        * `dt.Kind`
     * Static methods:
         * `DateTime.Today`
+        * `DateTime.Now`
+        * `DateTime.Now`
+        * `DateTime.UtcNow`
+        * `DateTime.MinValue`
+        * `DateTime.MaxValue`
+        * `DateTime.Parse`
+        * `DateTime.TryParse`
+        * `DateTime.SpecifyKind`
 
 ## 4.9.0 - 2023-12-14
 
