@@ -4968,7 +4968,7 @@ let private ignoreFormatProvider
             com
             ctx.InlinePath
             r
-            $"{moduleName}.Parse will ignore culture and styles"
+            $"%s{moduleName}.Parse will ignore culture and styles"
 
         [ arg ]
     | "Parse", arg :: _culture :: _ ->
@@ -4976,7 +4976,7 @@ let private ignoreFormatProvider
             com
             ctx.InlinePath
             r
-            $"{moduleName}.Parse will ignore culture"
+            $"%s{moduleName}.Parse will ignore culture"
 
         [ arg ]
     | "TryParse", input :: _culture :: _styles :: defVal :: _ ->
@@ -4984,7 +4984,7 @@ let private ignoreFormatProvider
             com
             ctx.InlinePath
             r
-            $"{moduleName}.TryParse will ignore culture and styles"
+            $"%s{moduleName}.TryParse will ignore culture and styles"
 
         [
             input
@@ -4995,7 +4995,7 @@ let private ignoreFormatProvider
             com
             ctx.InlinePath
             r
-            $"{moduleName}.TryParse will ignore culture"
+            $"%s{moduleName}.TryParse will ignore culture"
 
         [
             input
