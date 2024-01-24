@@ -1405,3 +1405,29 @@ let updateAt
                 xs.[i]
 
     target
+
+let resize
+    (xs: byref<'T[]>)
+    (newSize: int)
+    ([<OptionalArgument>] zero: 'T option)
+    ([<OptionalArgument; Inject>] cons: Cons<'T>)
+    : unit
+    =
+    if newSize < 0 then
+        invalidArg "newSize" "The input must be non-negative."
+
+    let len = xs.Length
+
+    if newSize < len then
+        xs <- subArrayImpl xs 0 newSize
+
+    elif newSize > len then
+        let target = allocateArrayFromCons cons newSize
+        copyTo xs 0 target 0 len
+
+        xs <-
+            fillImpl
+                target
+                (defaultArg zero Unchecked.defaultof<_>)
+                len
+                (newSize - len)

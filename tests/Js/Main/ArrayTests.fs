@@ -1190,4 +1190,13 @@ let tests =
         equal c1 true
         equal c2 -1
         equal c3 1
+
+    testCase "Array.Resize works" <| fun () ->
+        let mutable xs = [|1; 2; 3; 4; 5|]
+        Array.Resize(&xs, 3)
+        xs |> equal [|1; 2; 3|]
+        Array.Resize(&xs, 7)
+        xs |> equal [|1; 2; 3; 0; 0; 0; 0|]
+        Array.Resize(&xs, 0)
+        xs |> equal [||]
   ]

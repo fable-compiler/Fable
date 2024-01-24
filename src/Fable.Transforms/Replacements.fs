@@ -3369,6 +3369,22 @@ let arrays
         )
         |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
+    | "Resize", None, args ->
+        let args =
+            args @ [ getZero com ctx (List.head i.GenericArgs) ]
+            |> injectArg com ctx r "Array" "resize" i.GenericArgs
+
+        Helper.LibCall(
+            com,
+            "Array",
+            "resize",
+            Unit,
+            args,
+            i.SignatureArgTypes,
+            genArgs = i.GenericArgs,
+            ?loc = r
+        )
+        |> Some
     | _ -> None
 
 let arrayModule
