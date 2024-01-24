@@ -28,6 +28,21 @@ jobs:
       - name: Check F# code
         run: dotnet fantomas . --check
 
+  # Verify that Fable.sln can be restored
+  # See: https://github.com/fable-compiler/Fable/issues/3687
+  restore-project:
+    name: Check that solution can be restored
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+
+      - name: Restore project
+        run: dotnet restore Fable.sln
+
   # Separate build job for JavaScript
   build-javascript:
     strategy:

@@ -11,6 +11,9 @@ indent_size = 4
 [*.ts]
 indent_size = 2
 
+[*.yml]
+indent_size = 2
+
 # Fantomas (see https://fsprojects.github.io/fantomas/docs/end-users/Configuration.html)
 [*.{fs,fsx,fsi}]
 max_line_length = 80
