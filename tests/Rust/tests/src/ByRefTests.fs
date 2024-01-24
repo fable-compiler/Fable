@@ -141,6 +141,12 @@ let ``pass obj by ref using ByRef attr works`` () =
 //     let f = &n
 //     byrefFunc &f
 
+let inline inlinedFunc(n: 't[]) =
+    n.Length
+
+let genericByrefFunc(n: byref<'t[]>) =
+    inlinedFunc n
+
 // [<Fact>]
 // let ``SRTP works with byref`` () =
 //     let result = doubleIntByRef (TypeWithByRefMember()) 7
@@ -159,3 +165,9 @@ let ``pass obj by ref using ByRef attr works`` () =
 //     ignore intRef
 //     callWithByrefCreatedFromByrefInlined &intRef
 //     an_int |> equal 66
+
+[<Fact>]
+let ``inline with generic byref works`` () =
+    let mutable arr = [| 1; 2; 3 |]
+    let result = genericByrefFunc &arr
+    result |> equal 3
