@@ -161,6 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### All
 
 * [GH-3603](https://github.com/fable-compiler/Fable/issues/3603) Missing `.gitignore` file in the generated `fable_modules/` folder (by @MangelMaxime)
+* [GH-3712](https://github.com/fable-compiler/Fable/pull/3712) Fix type of dereferenced byref (by @chkn)
 
 #### Python
 
