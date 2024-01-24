@@ -11,6 +11,8 @@ from .time_span import create as create_time_span
 from .types import FSharpRef
 from .util import DateKind
 
+# Some of the code in this file has been adapted from
+# https://github.com/microsoft/referencesource/blob/51cf7850defa8a17d815b4700b67116e3fa283c2/mscorlib/system/globalization/datetimeformat.cs
 
 short_days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
