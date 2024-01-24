@@ -503,6 +503,12 @@ let inline callWithByrefCreatedFromByrefInlined(n: byref<int>) =
     let f = &n
     byrefFunc &f
 
+let inline inlinedFunc(n: 't[]) =
+    n.Length
+
+let genericByrefFunc(n: byref<'t[]>) =
+    inlinedFunc n
+
 let tests =
   testList "Types" [
     // TODO: This test produces different results in Fable and .NET
@@ -1100,4 +1106,9 @@ let tests =
         ignore intRef
         callWithByrefCreatedFromByrefInlined &intRef
         an_int |> equal 66
+
+    testCase "inline with generic byref works" <| fun () ->
+        let mutable arr = [| 1; 2; 3 |]
+        let result = genericByrefFunc &arr
+        result |> equal 3
   ]
