@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [GH-3668](https://github.com/fable-compiler/Fable/pull/3668) Normalize fable-library argument (by @nojaf)
 * [GH-3682](https://github.com/fable-compiler/Fable/pull/3682) Support some custom unary math operors (Acos, Asin, Atan, Atan2, Cos, Cosh, Exp, Log, Log2, Log10, Sin, Sinh, Sqrt, Tan, Tanh) (by @PierreYvesR)
 * [GH-3603](https://github.com/fable-compiler/Fable/issues/3603) Port back fixes for missing `.gitignore` file in the generated `fable_modules/` folder (by @MangelMaxime)
+* [GH-3684](https://github.com/fable-compiler/Fable/pull/3684) Re-compile files from `fable_modules` after changing the project file in watch mode (by @OrfeasZ)
 
 #### Javascript
 
