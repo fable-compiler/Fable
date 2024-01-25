@@ -103,6 +103,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         * `DateTime.TryParse`
         * `DateTime.SpecifyKind`
 
+#### JavaScript
+
+* [GH-3715](https://github.com/fable-compiler/Fable/pull/3715) Add support for System.Array.Resize (by @chkn)
+
 ## 4.9.0 - 2023-12-14
 
 ### Fixed
