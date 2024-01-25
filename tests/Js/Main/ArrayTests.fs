@@ -1199,4 +1199,9 @@ let tests =
         xs |> equal [|1; 2; 3; 0; 0; 0; 0|]
         Array.Resize(&xs, 0)
         xs |> equal [||]
+        Array.Resize(&xs, 3)
+        xs |> equal [|0; 0; 0|]
+        xs <- null
+        Array.Resize(&xs, 1)
+        xs |> equal [|0|]
   ]
