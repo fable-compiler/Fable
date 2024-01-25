@@ -6,9 +6,12 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-001</Version>
-        <PackageReleaseNotes>
-- Initial release
+        <Version>4.0.0-alpha-002</Version>
+        <PackageReleaseNotes>## Changed
+
+- Respect file extension from `CliArgs`
+- Use `Microsoft.Extensions.Logging`
+- Load Fable plugins
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

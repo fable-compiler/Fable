@@ -2,15 +2,33 @@ namespace Build.Utils
 
 open SimpleExec
 open System.Text.RegularExpressions
+open BlackFox.CommandLine
 
 module Dotnet =
 
     type Nuget =
 
-        static member push(nupkgPath: string, nugetKey: string) =
+        static member push
+            (
+                nupkgPath: string,
+                nugetKey: string,
+                ?noSymbols: bool
+            )
+            =
+            let noSymbols = defaultArg noSymbols false
+
             Command.Run(
                 "dotnet",
-                $"nuget push {nupkgPath} -s https://api.nuget.org/v3/index.json -k {nugetKey}"
+                CmdLine.empty
+                |> CmdLine.appendRaw "nuget"
+                |> CmdLine.appendRaw "push"
+                |> CmdLine.appendRaw nupkgPath
+                |> CmdLine.appendPrefix
+                    "-s"
+                    "https://api.nuget.org/v3/index.json"
+                |> CmdLine.appendPrefix "-k" nugetKey
+                |> CmdLine.appendIf noSymbols "--no-symbols"
+                |> CmdLine.toString
             )
 
     let pack (projectDir: string) =

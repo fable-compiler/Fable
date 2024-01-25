@@ -49,7 +49,7 @@ let updateLibraryVersionInFableTransforms
     // Save changes on the disk
     File.WriteAllText(filePath, fileContent)
 
-let private publishNuget (fsprojDir: string) =
+let private publishNuget (fsprojDir: string) (noSymbols: bool) =
     let fsprojFiles = Directory.GetFiles(fsprojDir, "*.fsproj")
 
     if Array.length fsprojFiles <> 1 then
@@ -79,7 +79,7 @@ let private publishNuget (fsprojDir: string) =
 
         File.WriteAllText(fsprojPath, updatedFsprojContent)
         let nupkgPath = Dotnet.pack fsprojDir
-        Dotnet.Nuget.push (nupkgPath, nugetKey)
+        Dotnet.Nuget.push (nupkgPath, nugetKey, noSymbols = noSymbols)
         printfn $"Published!"
     else
         printfn $"Already up-to-date, skipping..."
@@ -153,11 +153,11 @@ let handle (args: string list) =
                 Npm.getVersionFromProjectDir ProjectDir.temp_fable_library
         |}
 
-    publishNuget ProjectDir.fableAst
-    publishNuget ProjectDir.fableCore
-    publishNuget ProjectDir.fableCompiler
-    publishNuget ProjectDir.fableCli
-    publishNuget ProjectDir.fablePublishUtils
+    publishNuget ProjectDir.fableAst false
+    publishNuget ProjectDir.fableCore false
+    publishNuget ProjectDir.fableCompiler true
+    publishNuget ProjectDir.fableCli false
+    publishNuget ProjectDir.fablePublishUtils false
 
     // Release fable-compiler-js and fable-standalone after Fable.Cli
     // otherwise the reported version for Fable will be wrong
