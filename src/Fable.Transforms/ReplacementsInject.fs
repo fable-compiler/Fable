@@ -50,6 +50,7 @@ let fableReplacementsModules =
                     "insertAt", (Types.arrayCons, 0)
                     "insertManyAt", (Types.arrayCons, 0)
                     "updateAt", (Types.arrayCons, 0)
+                    "resize", (Types.arrayCons, 0)
                 ]
             "List",
             Map
