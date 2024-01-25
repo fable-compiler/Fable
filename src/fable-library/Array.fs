@@ -1418,6 +1418,9 @@ let resize
 
     let len =
         if isNull xs then
+            if newSize = 0 then
+                xs <- allocateArrayFromCons cons 0
+
             0
         else
             xs.Length
