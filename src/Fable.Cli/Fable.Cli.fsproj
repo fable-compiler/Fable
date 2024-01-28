@@ -137,7 +137,6 @@
     <Compile Include="Entry.fs" />
     <Content Include="CHANGELOG.md" />
     <Content Include="Properties\launchSettings.json" />
-
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj" />
