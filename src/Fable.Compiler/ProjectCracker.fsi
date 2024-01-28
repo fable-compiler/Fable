@@ -2,6 +2,7 @@
 /// Fable-specific tasks like tracking the sources of Fable Nuget packages
 module Fable.Compiler.ProjectCracker
 
+open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open Fable
 open Fable.AST
@@ -59,4 +60,25 @@ type CrackerResponse =
         CanReuseCompiledFiles: bool
     }
 
-val getFullProjectOpts: opts: CrackerOptions -> CrackerResponse
+type ProjectOptionsResponse =
+    {
+        ProjectOptions: string array
+        ProjectReferences: string array
+        // TODO: refactor to the ones that are actually being used.
+        Properties: IReadOnlyDictionary<string, string>
+        TargetFramework: string
+    }
+
+[<Interface>]
+type ProjectCrackerResolver =
+    abstract member GetProjectOptionsFromProjectFile:
+        isMain: bool * options: CrackerOptions * projectFile: string ->
+            ProjectOptionsResponse
+
+[<Class>]
+type BuildAnalyzerCrackerResolver =
+    new: unit -> BuildAnalyzerCrackerResolver
+    interface ProjectCrackerResolver
+
+val getFullProjectOpts:
+    resolver: ProjectCrackerResolver -> opts: CrackerOptions -> CrackerResponse
