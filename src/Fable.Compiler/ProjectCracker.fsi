@@ -20,7 +20,7 @@ type CacheInfo =
         FableLibDir: string
         FableModulesDir: string
         OutputType: OutputType
-        TargetFramework: string
+        TargetFramework: string option
         Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
@@ -55,7 +55,7 @@ type CrackerResponse =
         References: string list
         ProjectOptions: FSharpProjectOptions
         OutputType: OutputType
-        TargetFramework: string
+        TargetFramework: string option
         PrecompiledInfo: PrecompiledInfoImpl option
         CanReuseCompiledFiles: bool
     }
@@ -64,9 +64,8 @@ type ProjectOptionsResponse =
     {
         ProjectOptions: string array
         ProjectReferences: string array
-        // TODO: refactor to the ones that are actually being used.
-        Properties: IReadOnlyDictionary<string, string>
-        TargetFramework: string
+        OutputType: string option
+        TargetFramework: string option
     }
 
 [<Interface>]

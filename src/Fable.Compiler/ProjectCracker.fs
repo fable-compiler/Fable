@@ -36,7 +36,7 @@ type CacheInfo =
         FableLibDir: string
         FableModulesDir: string
         OutputType: OutputType
-        TargetFramework: string
+        TargetFramework: string option
         Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
@@ -191,7 +191,7 @@ type CrackerResponse =
         References: string list
         ProjectOptions: FSharpProjectOptions
         OutputType: OutputType
-        TargetFramework: string
+        TargetFramework: string option
         PrecompiledInfo: PrecompiledInfoImpl option
         CanReuseCompiledFiles: bool
     }
@@ -200,9 +200,8 @@ type ProjectOptionsResponse =
     {
         ProjectOptions: string array
         ProjectReferences: string array
-        // TODO: refactor to the ones that are actually being used.
-        Properties: IReadOnlyDictionary<string, string>
-        TargetFramework: string
+        OutputType: string option
+        TargetFramework: string option
     }
 
 type ProjectCrackerResolver =
@@ -375,11 +374,14 @@ type BuildAnalyzerCrackerResolver() =
                         f
                 )
 
+            let outputType =
+                ReadOnlyDictionary.tryFind "OutputType" result.Properties
+
             {
                 ProjectOptions = projOpts
                 ProjectReferences = Seq.toArray result.ProjectReferences
-                Properties = result.Properties
-                TargetFramework = result.TargetFramework
+                OutputType = outputType
+                TargetFramework = Some result.TargetFramework
             }
 
 let isSystemPackage (pkgName: string) =
@@ -399,7 +401,7 @@ type CrackedFsproj =
         PackageReferences: FablePackage list
         OtherCompilerOptions: string list
         OutputType: string option
-        TargetFramework: string
+        TargetFramework: string option
     }
 
 let makeProjectOptions
@@ -730,19 +732,14 @@ let excludeProjRef
 
 let getCrackedMainFsproj
     (opts: CrackerOptions)
-    {
-        ProjectOptions = projOpts
-        ProjectReferences = projRefs
-        Properties = msbuildProps
-        TargetFramework = targetFramework
-    }
+    (projectOptionsResponse: ProjectOptionsResponse)
     =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
 
     let sourceFiles, otherOpts =
-        (projOpts, ([], []))
+        (projectOptionsResponse.ProjectOptions, ([], []))
         ||> Array.foldBack (fun line (src, otherOpts) ->
             if line.StartsWith("-r:", StringComparison.Ordinal) then
                 let line = Path.normalizePath (line[3..])
@@ -772,14 +769,14 @@ let getCrackedMainFsproj
         ProjectFile = opts.ProjFile
         SourceFiles = sourceFiles
         ProjectReferences =
-            projRefs
+            projectOptionsResponse.ProjectReferences
             |> Array.choose (excludeProjRef opts dllRefs)
             |> Array.toList
         DllReferences = dllRefs
         PackageReferences = fablePkgs
         OtherCompilerOptions = otherOpts
-        OutputType = ReadOnlyDictionary.tryFind "OutputType" msbuildProps
-        TargetFramework = targetFramework
+        OutputType = projectOptionsResponse.OutputType
+        TargetFramework = projectOptionsResponse.TargetFramework
     }
 
 let getProjectOptionsFromScript (opts: CrackerOptions) : CrackedFsproj =
@@ -805,8 +802,8 @@ let getProjectOptionsFromScript (opts: CrackerOptions) : CrackedFsproj =
         {
             ProjectOptions = projOpts
             ProjectReferences = Array.empty
-            Properties = Dictionary(0)
-            TargetFramework = ""
+            TargetFramework = None
+            OutputType = None
         }
 
     getCrackedMainFsproj opts optionsResponse
@@ -827,29 +824,27 @@ let crackReferenceProject
     (projFile: string)
     : CrackedFsproj
     =
-    let {
-            ProjectOptions = projOpts
-            ProjectReferences = projRefs
-            Properties = msbuildProps
-            TargetFramework = targetFramework
-        } =
+    let projectOptionsResponse =
         resolver.GetProjectOptionsFromProjectFile(false, opts, projFile)
 
     let sourceFiles, otherOpts =
-        Array.foldBack (extractUsefulOptionsAndSources false) projOpts ([], [])
+        Array.foldBack
+            (extractUsefulOptionsAndSources false)
+            projectOptionsResponse.ProjectOptions
+            ([], [])
 
     {
         ProjectFile = projFile
         SourceFiles = sourceFiles
         ProjectReferences =
-            projRefs
+            projectOptionsResponse.ProjectReferences
             |> Array.choose (excludeProjRef opts dllRefs)
             |> Array.toList
         DllReferences = Dictionary()
         PackageReferences = []
         OtherCompilerOptions = otherOpts
-        OutputType = ReadOnlyDictionary.tryFind "OutputType" msbuildProps
-        TargetFramework = targetFramework
+        OutputType = projectOptionsResponse.OutputType
+        TargetFramework = projectOptionsResponse.TargetFramework
     }
 
 let getCrackedProjectsFromMainFsproj
