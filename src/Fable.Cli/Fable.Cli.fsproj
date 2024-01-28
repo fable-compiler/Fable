@@ -131,11 +131,13 @@
     <Compile Include="FileWatchers.fsi" />
     <Compile Include="FileWatchers.fs" />
     <Compile Include="Pipeline.fs" />
+    <Compile Include="BuildalyzerCrackerResolver.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="CustomLogging.fs" />
     <Compile Include="Entry.fs" />
     <Content Include="CHANGELOG.md" />
     <Content Include="Properties\launchSettings.json" />
+
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj" />

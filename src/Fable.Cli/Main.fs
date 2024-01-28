@@ -465,7 +465,7 @@ type ProjectCracked
             Performance.measure
             <| fun () ->
                 CrackerOptions(cliArgs)
-                |> getFullProjectOpts (BuildAnalyzerCrackerResolver())
+                |> getFullProjectOpts (BuildalyzerCrackerResolver())
 
         // We display "parsed" because "cracked" may not be understood by users
         Log.always

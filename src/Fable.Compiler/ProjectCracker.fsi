@@ -2,7 +2,6 @@
 /// Fable-specific tasks like tracking the sources of Fable Nuget packages
 module Fable.Compiler.ProjectCracker
 
-open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open Fable
 open Fable.AST
@@ -73,11 +72,6 @@ type ProjectCrackerResolver =
     abstract member GetProjectOptionsFromProjectFile:
         isMain: bool * options: CrackerOptions * projectFile: string ->
             ProjectOptionsResponse
-
-[<Class>]
-type BuildAnalyzerCrackerResolver =
-    new: unit -> BuildAnalyzerCrackerResolver
-    interface ProjectCrackerResolver
 
 val getFullProjectOpts:
     resolver: ProjectCrackerResolver -> opts: CrackerOptions -> CrackerResponse
