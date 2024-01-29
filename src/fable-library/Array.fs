@@ -1416,18 +1416,21 @@ let resize
     if newSize < 0 then
         invalidArg "newSize" "The input must be non-negative."
 
-    let len = xs.Length
+    let zero = defaultArg zero Unchecked.defaultof<_>
 
-    if newSize < len then
-        xs <- subArrayImpl xs 0 newSize
+    if isNull xs then
+        xs <- fillImpl (allocateArrayFromCons cons newSize) zero 0 newSize
 
-    elif newSize > len then
-        let target = allocateArrayFromCons cons newSize
-        copyTo xs 0 target 0 len
+    else
+        let len = xs.Length
 
-        xs <-
-            fillImpl
-                target
-                (defaultArg zero Unchecked.defaultof<_>)
-                len
-                (newSize - len)
+        if newSize < len then
+            xs <- subArrayImpl xs 0 newSize
+
+        elif newSize > len then
+            let target = allocateArrayFromCons cons newSize
+
+            if len > 0 then
+                copyTo xs 0 target 0 len
+
+            xs <- fillImpl target zero len (newSize - len)

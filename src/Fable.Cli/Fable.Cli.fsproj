@@ -132,6 +132,7 @@
     <Compile Include="FileWatchers.fs" />
     <Compile Include="Pipeline.fs" />
     <Compile Include="MSBuildCrackerResolver.fs" />
+    <Compile Include="BuildalyzerCrackerResolver.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="CustomLogging.fs" />
     <Compile Include="Entry.fs" />

@@ -26,7 +26,7 @@ type CacheInfo =
     }
 
 type CrackerOptions =
-    new: cliArgs: CliArgs -> CrackerOptions
+    new: cliArgs: CliArgs * evaluateOnly: bool -> CrackerOptions
     member NoCache: bool
     member CacheInfo: CacheInfo option
     member FableModulesDir: string
@@ -41,11 +41,16 @@ type CrackerOptions =
     member ProjFile: string
     member SourceMaps: bool
     member SourceMapsRoot: string option
+    member EvaluateOnly: bool
     member BuildDll: normalizedDllPath: string -> unit
     static member GetFableModulesFromDir: baseDir: string -> string
 
     static member GetFableModulesFromProject:
-        projDir: string * outDir: string option * noCache: bool -> string
+        projDir: string *
+        outDir: string option *
+        noCache: bool *
+        evaluateOnly: bool ->
+            string
 
 type CrackerResponse =
     {

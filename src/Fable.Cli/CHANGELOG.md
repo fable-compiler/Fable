@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+#### All
+
+* [GH-3719](https://github.com/fable-compiler/Fable/issues/3719) Restore dependencies against the `.fsproj` after evaluating the `fable-temp.csproj` file (Improves IDE supports) (by @MangelMaxime)
+* Don't delete `fable_modules` when re-evaluating the project file after a changes has been detected (Improves HMR experience) (by @MangelMaxime)
+
+#### JavaScript
+
+* [GH-3716](https://github.com/fable-compiler/Fable/pull/3716) System.Array.Resize: also handle the case where the array is null (by @chkn)
+
 ## 4.10.0 - 2024-01-25
 
 ### Fixed
