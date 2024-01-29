@@ -14,10 +14,37 @@ open System.Diagnostics
 open System.Text.Json
 
 
+let private fsharpFiles =
+    set
+        [|
+            ".fs"
+            ".fsi"
+            ".fsx"
+        |]
+
+let private isFSharpFile (file: string) =
+    Set.exists
+        (fun (ext: string) -> file.EndsWith(ext, StringComparison.Ordinal))
+        fsharpFiles
+
+
 /// Add additional Fable arguments
-let private mkOptions (compilerArgs: string array) : string array =
+let private mkOptions
+    (projectFile: FileInfo)
+    (compilerArgs: string array)
+    : string array
+    =
+    let arguments =
+        compilerArgs
+        |> Array.map (fun (line: string) ->
+            if not (isFSharpFile line) then
+                line
+            else
+                Path.Combine(projectFile.DirectoryName, line)
+        )
+
     [|
-        yield! compilerArgs
+        yield! arguments
         yield "--define:FABLE_COMPILER"
         yield "--define:FABLE_COMPILER_4"
         yield "--define:FABLE_COMPILER_JAVASCRIPT"
@@ -29,7 +56,10 @@ let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
     backgroundTask {
         let psi = ProcessStartInfo "dotnet"
         let pwd = Assembly.GetEntryAssembly().Location |> Path.GetDirectoryName
-        psi.WorkingDirectory <- "/Users/mmangel"
+
+        psi.WorkingDirectory <-
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+
         psi.Arguments <- $"msbuild \"%s{fsproj}\" %s{args}"
         psi.RedirectStandardOutput <- true
         psi.RedirectStandardError <- true
@@ -111,7 +141,7 @@ let mkOptionsFromDesignTimeBuildAux
                     $"Design time build for %s{fsproj.FullName} failed. CoreCompile was most likely skipped. `dotnet clean` might help here."
         else
 
-            let options = mkOptions options
+            let options = mkOptions fsproj options
 
             let projectReferences =
                 items.GetProperty("ProjectReference").EnumerateArray()
