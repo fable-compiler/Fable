@@ -31,7 +31,6 @@ let private isFSharpFile (file: string) =
 /// Add additional Fable arguments
 let private mkOptions
     (projectFile: FileInfo)
-    (additionalDefines: string list)
     (compilerArgs: string array)
     : string array
     =
@@ -44,16 +43,13 @@ let private mkOptions
                 Path.Combine(projectFile.DirectoryName, line)
         )
 
-    [|
-        yield! List.map (sprintf "--define:%s") additionalDefines
-        yield! arguments
-    |]
+    arguments
 
 type FullPath = string
 
 let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
     backgroundTask {
-        let psi = ProcessStartInfo "dotnet"
+        let psi = ProcessStartInfo "/home/nojaf/.dotnet/dotnet"
         let pwd = Assembly.GetEntryAssembly().Location |> Path.GetDirectoryName
 
         psi.WorkingDirectory <-
@@ -70,8 +66,10 @@ let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
         let error = ps.StandardError.ReadToEnd()
         do! ps.WaitForExitAsync()
 
+        let fullCommand = $"dotnet msbuild %s{fsproj} %s{args}"
+
         if not (String.IsNullOrWhiteSpace error) then
-            failwithf $"In %s{pwd}:\ndotnet %s{args} failed with\n%s{error}"
+            failwithf $"In %s{pwd}:\n%s{fullCommand}\nfailed with\n%s{error}"
 
         return output.Trim()
     }
@@ -79,8 +77,7 @@ let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
 
 let mkOptionsFromDesignTimeBuildAux
     (fsproj: FileInfo)
-    (additionalDefines: string list)
-    (additionalArguments: string)
+    (options: CrackerOptions)
     : Async<ProjectOptionsResponse>
     =
     async {
@@ -102,11 +99,21 @@ let mkOptionsFromDesignTimeBuildAux
             else
                 tfs.Split ';' |> Array.head
 
+        let defines =
+            options.FableOptions.Define
+            |> List.map (fun s -> s.Trim())
+            // Escaped `;`
+            |> String.concat "%3B"
+
         let version = DateTime.UtcNow.Ticks % 3600L
 
         let properties =
             [
-                "/p:Telplin=True"
+                "/p:Fable=True"
+                if not (String.IsNullOrWhiteSpace options.Configuration) then
+                    $"/p:Configuration=%s{options.Configuration}"
+                if not (String.IsNullOrWhiteSpace defines) then
+                    $"/p:DefineConstants=\"%s{defines}\""
                 $"/p:TargetFramework=%s{targetFramework}"
                 "/p:DesignTimeBuild=True"
                 "/p:SkipCompilerExecution=True"
@@ -128,7 +135,7 @@ let mkOptionsFromDesignTimeBuildAux
             "ResolveAssemblyReferencesDesignTime,ResolveProjectReferencesDesignTime,ResolvePackageDependenciesDesignTime,FindReferenceAssembliesForReferences,_GenerateCompileDependencyCache,_ComputeNonExistentFileProperty,BeforeBuild,BeforeCompile,CoreCompile"
 
         let arguments =
-            $"/restore /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs %s{additionalArguments} --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
+            $"/restore /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
 
         let! json = dotnet_msbuild fsproj.FullName arguments
         let jsonDocument = JsonDocument.Parse json
@@ -146,7 +153,7 @@ let mkOptionsFromDesignTimeBuildAux
                     $"Design time build for %s{fsproj.FullName} failed. CoreCompile was most likely skipped. `dotnet clean` might help here."
         else
 
-            let options = mkOptions fsproj additionalDefines options
+            let options = mkOptions fsproj options
 
             let projectReferences =
                 items.GetProperty("ProjectReference").EnumerateArray()
@@ -188,10 +195,7 @@ type MsBuildCrackerResolver() =
 
             // Bad I know...
             let result =
-                mkOptionsFromDesignTimeBuildAux
-                    fsproj
-                    options.FableOptions.Define
-                    ""
+                mkOptionsFromDesignTimeBuildAux fsproj options
                 |> Async.RunSynchronously
 
             result
