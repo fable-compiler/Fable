@@ -19,7 +19,7 @@ type CacheInfo =
         FableLibDir: string
         FableModulesDir: string
         OutputType: OutputType
-        TargetFramework: string
+        TargetFramework: string option
         Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
@@ -54,9 +54,24 @@ type CrackerResponse =
         References: string list
         ProjectOptions: FSharpProjectOptions
         OutputType: OutputType
-        TargetFramework: string
+        TargetFramework: string option
         PrecompiledInfo: PrecompiledInfoImpl option
         CanReuseCompiledFiles: bool
     }
 
-val getFullProjectOpts: opts: CrackerOptions -> CrackerResponse
+type ProjectOptionsResponse =
+    {
+        ProjectOptions: string array
+        ProjectReferences: string array
+        OutputType: string option
+        TargetFramework: string option
+    }
+
+[<Interface>]
+type ProjectCrackerResolver =
+    abstract member GetProjectOptionsFromProjectFile:
+        isMain: bool * options: CrackerOptions * projectFile: string ->
+            ProjectOptionsResponse
+
+val getFullProjectOpts:
+    resolver: ProjectCrackerResolver -> opts: CrackerOptions -> CrackerResponse
