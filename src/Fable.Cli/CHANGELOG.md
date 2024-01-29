@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+#### JavaScript
+
+* [GH-3716](https://github.com/fable-compiler/Fable/pull/3716) System.Array.Resize: also handle the case where the array is null (by @chkn)
+
 ## 4.10.0 - 2024-01-25
 
 ### Fixed
