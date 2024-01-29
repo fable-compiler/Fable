@@ -67,6 +67,7 @@ let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
         do! ps.WaitForExitAsync()
 
         let fullCommand = $"dotnet msbuild %s{fsproj} %s{args}"
+        // printfn "%s" fullCommand
 
         if not (String.IsNullOrWhiteSpace error) then
             failwithf $"In %s{pwd}:\n%s{fullCommand}\nfailed with\n%s{error}"
@@ -82,28 +83,40 @@ let mkOptionsFromDesignTimeBuildAux
     =
     async {
         let! targetFrameworkJson =
+            let configuration =
+                if String.IsNullOrWhiteSpace options.Configuration then
+                    ""
+                else
+                    $"/p:Configuration=%s{options.Configuration} "
+
             dotnet_msbuild
                 fsproj.FullName
-                "--getProperty:TargetFrameworks --getProperty:TargetFramework"
+                $"%s{configuration} --getProperty:TargetFrameworks --getProperty:TargetFramework --getProperty:DefineConstants"
 
-        let targetFramework =
-            let tf, tfs =
+        let defineConstants, targetFramework =
+            let properties =
                 JsonDocument.Parse targetFrameworkJson
                 |> fun json -> json.RootElement.GetProperty "Properties"
-                |> fun properties ->
-                    properties.GetProperty("TargetFramework").GetString(),
-                    properties.GetProperty("TargetFrameworks").GetString()
+
+            let defineConstants =
+                properties.GetProperty("DefineConstants").GetString().Split(';')
+                |> Array.filter (fun c -> c <> "DEBUG" || c <> "RELEASE")
+
+            let tf, tfs =
+                properties.GetProperty("TargetFramework").GetString(),
+                properties.GetProperty("TargetFrameworks").GetString()
 
             if not (String.IsNullOrWhiteSpace tf) then
-                tf
+                defineConstants, tf
             else
-                tfs.Split ';' |> Array.head
+                defineConstants, tfs.Split ';' |> Array.head
 
         let defines =
             [
                 "TRACE"
                 if not (String.IsNullOrWhiteSpace options.Configuration) then
                     options.Configuration.ToUpper()
+                yield! defineConstants
                 yield! options.FableOptions.Define
             ]
 
