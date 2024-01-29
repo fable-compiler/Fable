@@ -150,7 +150,12 @@ let mkOptionsFromDesignTimeBuildAux
 
             let projectReferences =
                 items.GetProperty("ProjectReference").EnumerateArray()
-                |> Seq.map (fun arg -> arg.GetProperty("FullPath").GetString())
+                |> Seq.map (fun arg ->
+                    let relativePath = arg.GetProperty("Identity").GetString()
+
+                    Path.Combine(fsproj.DirectoryName, relativePath)
+                    |> Path.GetFullPath
+                )
                 |> Seq.toArray
 
             let outputType = properties.GetProperty("OutputType").GetString()
