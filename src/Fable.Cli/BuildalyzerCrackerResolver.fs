@@ -88,7 +88,7 @@ type BuildalyzerCrackerResolver() =
                         let xmlComment =
                             XComment(
                                 """This is a temporary file used by Fable to restore dependencies.
-                    If you see this file in your project, you can delete it safely"""
+If you see this file in your project, you can delete it safely"""
                             )
 
                         // An fsproj/csproj should always have a root element
@@ -137,6 +137,21 @@ type BuildalyzerCrackerResolver() =
                         )
                     finally
                         File.safeDelete csprojFile
+                        // Restore the original fsproj because when restoring/analyzing the
+                        // csproj implicit references added by F# SDKs are not included
+                        // See https://github.com/fable-compiler/Fable/issues/3719
+                        // Restoring the F# project should restore the bin/obj folders
+                        // to their expected state
+                        let projDir = IO.Path.GetDirectoryName projectFile
+
+                        Process.runSync
+                            projDir
+                            "dotnet"
+                            [
+                                "restore"
+                                projectFile
+                            ]
+                        |> ignore
 
             let compilerArgs, result =
                 csprojResult
