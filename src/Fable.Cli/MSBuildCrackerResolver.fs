@@ -1,4 +1,4 @@
-module Fable.Cli.MsBuildCrackerResolver
+module Fable.Cli.MSBuildCrackerResolver
 
 open System
 open System.Xml.Linq
@@ -195,7 +195,7 @@ let mkOptionsFromDesignTimeBuildAux
                 }
     }
 
-type MsBuildCrackerResolver() =
+type MSBuildCrackerResolver() =
 
     interface ProjectCrackerResolver with
         member _.GetProjectOptionsFromProjectFile

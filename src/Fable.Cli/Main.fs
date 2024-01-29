@@ -14,7 +14,7 @@ open Fable.Transforms
 open Fable.Transforms.State
 open Fable.Compiler.ProjectCracker
 open Fable.Compiler.Util
-open Fable.Cli.MsBuildCrackerResolver
+open Fable.Cli.MSBuildCrackerResolver
 
 module private Util =
     type PathResolver with
@@ -466,7 +466,7 @@ type ProjectCracked
             Performance.measure
             <| fun () ->
                 CrackerOptions(cliArgs)
-                |> getFullProjectOpts (MsBuildCrackerResolver())
+                |> getFullProjectOpts (MSBuildCrackerResolver())
 
         // We display "parsed" because "cracked" may not be understood by users
         Log.always
