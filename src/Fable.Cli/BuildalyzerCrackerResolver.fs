@@ -1,4 +1,4 @@
-namespace Fable.Cli
+module Fable.Cli.MsBuildCrackerResolver
 
 open System
 open System.Xml.Linq
@@ -8,178 +8,147 @@ open Fable.AST
 open Fable.Compiler.Util
 open Fable.Compiler.ProjectCracker
 open Buildalyzer
+open System.Reflection
+open System.IO
+open System.Diagnostics
+open System.Text.Json
 
-/// Use Buildalyzer to invoke MSBuild and get F# compiler args from an .fsproj file.
-/// As we'll merge this later with other projects we'll only take the sources and
-/// the references, checking if some .dlls correspond to Fable libraries
-type BuildalyzerCrackerResolver() =
-    let mutable manager = None
 
-    let tryGetResult
-        (isMain: bool)
-        (opts: CrackerOptions)
-        (manager: AnalyzerManager)
-        (maybeCsprojFile: string)
-        =
-        if isMain && not opts.NoRestore then
-            Process.runSync
-                (IO.Path.GetDirectoryName opts.ProjFile)
-                "dotnet"
-                [
-                    "restore"
-                    IO.Path.GetFileName maybeCsprojFile
-                    // $"-p:TargetFramework={opts.TargetFramework}"
-                    for constant in opts.FableOptions.Define do
-                        $"-p:{constant}=true"
-                ]
-            |> ignore
+/// Add additional Fable arguments
+let private mkOptions (compilerArgs: string array) : string array =
+    [|
+        yield! compilerArgs
+        yield "--define:FABLE_COMPILER"
+        yield "--define:FABLE_COMPILER_4"
+        yield "--define:FABLE_COMPILER_JAVASCRIPT"
+    |]
 
-        let analyzer = manager.GetProject(maybeCsprojFile)
+type FullPath = string
 
-        let env =
-            analyzer.EnvironmentFactory.GetBuildEnvironment(
-                Environment.EnvironmentOptions(
-                    DesignTime = true,
-                    Restore = false
-                )
-            )
-        // If the project targets multiple frameworks, multiple results will be returned
-        // For now we just take the first one with non-empty command
-        let results = analyzer.Build(env)
-        results |> Seq.tryFind (fun r -> String.IsNullOrEmpty(r.Command) |> not)
+let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
+    backgroundTask {
+        let psi = ProcessStartInfo "dotnet"
+        let pwd = Assembly.GetEntryAssembly().Location |> Path.GetDirectoryName
+        psi.WorkingDirectory <- "/Users/mmangel"
+        psi.Arguments <- $"msbuild \"%s{fsproj}\" %s{args}"
+        psi.RedirectStandardOutput <- true
+        psi.RedirectStandardError <- true
+        psi.UseShellExecute <- false
+        use ps = new Process()
+        ps.StartInfo <- psi
+        ps.Start() |> ignore
+        let output = ps.StandardOutput.ReadToEnd()
+        let error = ps.StandardError.ReadToEnd()
+        do! ps.WaitForExitAsync()
+
+        if not (String.IsNullOrWhiteSpace error) then
+            failwithf $"In %s{pwd}:\ndotnet %s{args} failed with\n%s{error}"
+
+        return output.Trim()
+    }
+    |> Async.AwaitTask
+
+let mkOptionsFromDesignTimeBuildAux
+    (fsproj: FileInfo)
+    (additionalArguments: string)
+    : Async<ProjectOptionsResponse>
+    =
+    async {
+        let targets =
+            "Restore,ResolveAssemblyReferencesDesignTime,ResolveProjectReferencesDesignTime,ResolvePackageDependenciesDesignTime,FindReferenceAssembliesForReferences,_GenerateCompileDependencyCache,_ComputeNonExistentFileProperty,BeforeBuild,BeforeCompile,CoreCompile"
+
+        let! targetFrameworkJson =
+            dotnet_msbuild
+                fsproj.FullName
+                "--getProperty:TargetFrameworks --getProperty:TargetFramework"
+
+        let targetFramework =
+            let tf, tfs =
+                JsonDocument.Parse targetFrameworkJson
+                |> fun json -> json.RootElement.GetProperty "Properties"
+                |> fun properties ->
+                    properties.GetProperty("TargetFramework").GetString(),
+                    properties.GetProperty("TargetFrameworks").GetString()
+
+            if not (String.IsNullOrWhiteSpace tf) then
+                tf
+            else
+                tfs.Split ';' |> Array.head
+
+        let version = DateTime.UtcNow.Ticks % 3600L
+
+        let properties =
+            [
+                "/p:Telplin=True"
+                $"/p:TargetFramework=%s{targetFramework}"
+                "/p:DesignTimeBuild=True"
+                "/p:SkipCompilerExecution=True"
+                "/p:ProvideCommandLineArgs=True"
+                // See https://github.com/NuGet/Home/issues/13046
+                "/p:RestoreUseStaticGraphEvaluation=False"
+                // Pass in a fake version to avoid skipping the CoreCompile target
+                $"/p:Version=%i{version}"
+            ]
+            |> List.filter (String.IsNullOrWhiteSpace >> not)
+            |> String.concat " "
+
+        let arguments =
+            $"/t:%s{targets} %s{properties} --getItem:FscCommandLineArgs %s{additionalArguments} --getItem:ProjectReference --getProperty:OutputType"
+
+        let! json = dotnet_msbuild fsproj.FullName arguments
+        let jsonDocument = JsonDocument.Parse json
+        let items = jsonDocument.RootElement.GetProperty "Items"
+        let properties = jsonDocument.RootElement.GetProperty "Properties"
+
+        let options =
+            items.GetProperty("FscCommandLineArgs").EnumerateArray()
+            |> Seq.map (fun arg -> arg.GetProperty("Identity").GetString())
+            |> Seq.toArray
+
+        if Array.isEmpty options then
+            return
+                failwithf
+                    $"Design time build for %s{fsproj.FullName} failed. CoreCompile was most likely skipped. `dotnet clean` might help here."
+        else
+
+            let options = mkOptions options
+
+            let projectReferences =
+                items.GetProperty("ProjectReference").EnumerateArray()
+                |> Seq.map (fun arg -> arg.GetProperty("FullPath").GetString())
+                |> Seq.toArray
+
+            let outputType = properties.GetProperty("OutputType").GetString()
+
+            return
+                {
+                    ProjectOptions = options
+                    ProjectReferences = projectReferences
+                    OutputType = Some outputType
+                    TargetFramework = Some targetFramework
+                }
+    }
+
+type MsBuildCrackerResolver() =
 
     interface ProjectCrackerResolver with
-        member x.GetProjectOptionsFromProjectFile
+        member _.GetProjectOptionsFromProjectFile
             (
                 isMain,
                 options: CrackerOptions,
                 projectFile
             )
             =
-            let manager =
-                match manager with
-                | Some m -> m
-                | None ->
-                    let log = new System.IO.StringWriter()
-                    let amo = AnalyzerManagerOptions(LogWriter = log)
-                    let m = AnalyzerManager(amo)
-                    m.SetGlobalProperty("Configuration", options.Configuration)
-                    // m.SetGlobalProperty("TargetFramework", opts.TargetFramework)
-                    for define in options.FableOptions.Define do
-                        m.SetGlobalProperty(define, "true")
+            let fsproj = FileInfo projectFile
 
-                    manager <- Some m
-                    m
+            if not fsproj.Exists then
+                invalidArg
+                    (nameof fsproj)
+                    $"\"%s{fsproj.FullName}\" does not exist."
 
-            // Because BuildAnalyzer works better with .csproj, we first "dress up" the project as if it were a C# one
-            // and try to adapt the results. If it doesn't work, we try again to analyze the .fsproj directly
-            let csprojResult =
-                let csprojFile =
-                    projectFile.Replace(".fsproj", ".fable-temp.csproj")
+            // Bad I know...
+            let result =
+                mkOptionsFromDesignTimeBuildAux fsproj ""
+                |> Async.RunSynchronously
 
-                if IO.File.Exists(csprojFile) then
-                    None
-                else
-                    try
-                        IO.File.Copy(projectFile, csprojFile)
-
-                        let xmlDocument = XDocument.Load(csprojFile)
-
-                        let xmlComment =
-                            XComment(
-                                """This is a temporary file used by Fable to restore dependencies.
-                    If you see this file in your project, you can delete it safely"""
-                            )
-
-                        // An fsproj/csproj should always have a root element
-                        // so it should be safe to add the comment as first child
-                        // of the root element
-                        xmlDocument.Root.AddFirst(xmlComment)
-                        xmlDocument.Save(csprojFile)
-
-                        tryGetResult isMain options manager csprojFile
-                        |> Option.map (fun (r: IAnalyzerResult) ->
-                            // Careful, options for .csproj start with / but so do root paths in unix
-                            let reg = Regex(@"^\/[^\/]+?(:?:|$)")
-
-                            let comArgs =
-                                r.CompilerArguments
-                                |> Array.map (fun line ->
-                                    if reg.IsMatch(line) then
-                                        if
-                                            line.StartsWith(
-                                                "/reference",
-                                                StringComparison.Ordinal
-                                            )
-                                        then
-                                            "-r" + line.Substring(10)
-                                        else
-                                            "--" + line.Substring(1)
-                                    else
-                                        line
-                                )
-
-                            let comArgs =
-                                match
-                                    r.Properties.TryGetValue("OtherFlags")
-                                with
-                                | false, _ -> comArgs
-                                | true, otherFlags ->
-                                    let otherFlags =
-                                        otherFlags.Split(
-                                            ' ',
-                                            StringSplitOptions.RemoveEmptyEntries
-                                        )
-
-                                    Array.append otherFlags comArgs
-
-                            comArgs, r
-                        )
-                    finally
-                        File.safeDelete csprojFile
-
-            let compilerArgs, result =
-                csprojResult
-                |> Option.orElseWith (fun () ->
-                    tryGetResult isMain options manager projectFile
-                    |> Option.map (fun r ->
-                        // result.CompilerArguments doesn't seem to work well in Linux
-                        let comArgs = Regex.Split(r.Command, @"\r?\n")
-                        comArgs, r
-                    )
-                )
-                |> function
-                    | Some result -> result
-                    // TODO: Get Buildalyzer errors from the log
-                    | None ->
-                        $"Cannot parse {projectFile}"
-                        |> Fable.FableError
-                        |> raise
-
-            let projDir = IO.Path.GetDirectoryName(projectFile)
-
-            let projOpts =
-                compilerArgs
-                |> Array.skipWhile (fun line -> not (line.StartsWith('-')))
-                |> Array.map (fun f ->
-                    if
-                        f.EndsWith(".fs", StringComparison.Ordinal)
-                        || f.EndsWith(".fsi", StringComparison.Ordinal)
-                    then
-                        if Path.IsPathRooted f then
-                            f
-                        else
-                            Path.Combine(projDir, f)
-                    else
-                        f
-                )
-
-            let outputType =
-                ReadOnlyDictionary.tryFind "OutputType" result.Properties
-
-            {
-                ProjectOptions = projOpts
-                ProjectReferences = Seq.toArray result.ProjectReferences
-                OutputType = outputType
-                TargetFramework = Some result.TargetFramework
-            }
+            result

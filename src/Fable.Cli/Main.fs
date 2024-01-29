@@ -14,6 +14,7 @@ open Fable.Transforms
 open Fable.Transforms.State
 open Fable.Compiler.ProjectCracker
 open Fable.Compiler.Util
+open Fable.Cli.MsBuildCrackerResolver
 
 module private Util =
     type PathResolver with
@@ -465,7 +466,7 @@ type ProjectCracked
             Performance.measure
             <| fun () ->
                 CrackerOptions(cliArgs)
-                |> getFullProjectOpts (BuildalyzerCrackerResolver())
+                |> getFullProjectOpts (MsBuildCrackerResolver())
 
         // We display "parsed" because "cracked" may not be understood by users
         Log.always
@@ -1200,6 +1201,10 @@ let private checkRunProcess
             | _, exeFile -> exeFile, runProc.Args
 
         if Option.isSome state.Watcher then
+            printfn "cliArgs.RunProcessEnv: %A" cliArgs.RunProcessEnv
+            printfn "workingDir: %A" workingDir
+            printfn "exeFile: %A" exeFile
+            printfn "args: %A" args
             Process.startWithEnv cliArgs.RunProcessEnv workingDir exeFile args
 
             let runProc =
