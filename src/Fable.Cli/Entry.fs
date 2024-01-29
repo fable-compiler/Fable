@@ -560,6 +560,35 @@ let getLibPkgVersion =
     | Dart
     | Php -> None
 
+let private logPrelude commands language =
+    match commands with
+    | [ "--version" ] -> ()
+    | _ ->
+        let status =
+            match getStatus language with
+            | "stable"
+            | "" -> ""
+            | status -> $" (status: {status})"
+
+        Log.always (
+            $"Fable {Literals.VERSION}: F# to {language} compiler{status}"
+        )
+
+        match getLibPkgVersion language with
+        | Some(repository, pkgName, version) ->
+            Log.always (
+                $"Minimum {pkgName} version (when installed from {repository}): {version}"
+            )
+        | None -> ()
+
+        Log.always (
+            "\nThanks to the contributor! @" + Contributors.getRandom ()
+        )
+
+        Log.always (
+            "Stand with Ukraine! https://standwithukraine.com.ua/" + "\n"
+        )
+
 [<EntryPoint>]
 let main argv =
     result {
@@ -600,57 +629,30 @@ let main argv =
             | Some rootDir -> File.getExactFullPath rootDir
             | None -> IO.Directory.GetCurrentDirectory()
 
-        let verbosity =
+        let level, verbosity =
             match commands with
-            | [ "--version" ] -> Verbosity.Normal
+            | [ "--version" ] -> LogLevel.Information, Verbosity.Normal
             | _ ->
-                let verbosity =
-                    let level, verbosity =
-                        if args.FlagEnabled "--verbose" then
-                            LogLevel.Debug, Fable.Verbosity.Verbose
-                        else
-                            LogLevel.Information, Fable.Verbosity.Normal
+                if args.FlagEnabled "--verbose" then
+                    LogLevel.Debug, Verbosity.Verbose
+                else
+                    LogLevel.Information, Verbosity.Normal
 
-                    use factory =
-                        LoggerFactory.Create(fun builder ->
-                            builder
-                                .SetMinimumLevel(level)
-                                .AddCustomConsole(fun options ->
-                                    options.UseNoPrefixMsgStyle <- true
-                                )
-                            |> ignore
-                        )
-
-                    Log.setLogger (factory.CreateLogger(""))
-                    verbosity
-
-                let status =
-                    match getStatus language with
-                    | "stable"
-                    | "" -> ""
-                    | status -> $" (status: {status})"
-
-                Log.always (
-                    $"Fable {Literals.VERSION}: F# to {language} compiler{status}"
-                )
-
-                match getLibPkgVersion language with
-                | Some(repository, pkgName, version) ->
-                    Log.always (
-                        $"Minimum {pkgName} version (when installed from {repository}): {version}"
+        // Initialize logging
+        let factory =
+            LoggerFactory.Create(fun builder ->
+                builder
+                    .SetMinimumLevel(level)
+                    .AddCustomConsole(fun options ->
+                        options.UseNoPrefixMsgStyle <- true
                     )
-                | None -> ()
+                |> ignore
+            )
 
-                Log.always (
-                    "\nThanks to the contributor! @" + Contributors.getRandom ()
-                )
+        Log.setLogger (factory.CreateLogger(""))
+        factory.Dispose()
 
-                Log.always (
-                    "Stand with Ukraine! https://standwithukraine.com.ua/"
-                    + "\n"
-                )
-
-                verbosity
+        logPrelude commands language
 
         match commands with
         | [ "--help" ] -> return printHelp ()
