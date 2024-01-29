@@ -49,7 +49,7 @@ type FullPath = string
 
 let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
     backgroundTask {
-        let psi = ProcessStartInfo "/home/nojaf/.dotnet/dotnet"
+        let psi = ProcessStartInfo "dotnet"
         let pwd = Assembly.GetEntryAssembly().Location |> Path.GetDirectoryName
 
         psi.WorkingDirectory <-
