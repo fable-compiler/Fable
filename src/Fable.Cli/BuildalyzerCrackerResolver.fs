@@ -100,7 +100,13 @@ let mkOptionsFromDesignTimeBuildAux
                 tfs.Split ';' |> Array.head
 
         let defines =
-            options.FableOptions.Define
+            [
+                "TRACE"
+                if not (String.IsNullOrWhiteSpace options.Configuration) then
+                    options.Configuration.ToUpper()
+                yield! options.FableOptions.Define
+            ]
+
             |> List.map (fun s -> s.Trim())
             // Escaped `;`
             |> String.concat "%3B"
