@@ -31,6 +31,7 @@ let private isFSharpFile (file: string) =
 /// Add additional Fable arguments
 let private mkOptions
     (projectFile: FileInfo)
+    (additionalDefines: string list)
     (compilerArgs: string array)
     : string array
     =
@@ -44,10 +45,8 @@ let private mkOptions
         )
 
     [|
+        yield! List.map (sprintf "--define:%s") additionalDefines
         yield! arguments
-        yield "--define:FABLE_COMPILER"
-        yield "--define:FABLE_COMPILER_4"
-        yield "--define:FABLE_COMPILER_JAVASCRIPT"
     |]
 
 type FullPath = string
@@ -80,6 +79,7 @@ let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
 
 let mkOptionsFromDesignTimeBuildAux
     (fsproj: FileInfo)
+    (additionalDefines: string list)
     (additionalArguments: string)
     : Async<ProjectOptionsResponse>
     =
@@ -141,7 +141,7 @@ let mkOptionsFromDesignTimeBuildAux
                     $"Design time build for %s{fsproj.FullName} failed. CoreCompile was most likely skipped. `dotnet clean` might help here."
         else
 
-            let options = mkOptions fsproj options
+            let options = mkOptions fsproj additionalDefines options
 
             let projectReferences =
                 items.GetProperty("ProjectReference").EnumerateArray()
@@ -178,7 +178,10 @@ type MsBuildCrackerResolver() =
 
             // Bad I know...
             let result =
-                mkOptionsFromDesignTimeBuildAux fsproj ""
+                mkOptionsFromDesignTimeBuildAux
+                    fsproj
+                    options.FableOptions.Define
+                    ""
                 |> Async.RunSynchronously
 
             result
