@@ -84,14 +84,15 @@ type CacheInfo =
         | None -> true
         | Some other -> this.GetTimestamp() > other.GetTimestamp()
 
-type CrackerOptions(cliArgs: CliArgs) =
+type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
     let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
 
     let fableModulesDir =
         CrackerOptions.GetFableModulesFromProject(
             projDir,
             cliArgs.OutDir,
-            cliArgs.NoCache
+            cliArgs.NoCache,
+            evaluateOnly
         )
 
     let builtDlls = HashSet()
@@ -119,6 +120,7 @@ type CrackerOptions(cliArgs: CliArgs) =
     member _.ProjFile: string = cliArgs.ProjectFile
     member _.SourceMaps: bool = cliArgs.SourceMaps
     member _.SourceMapsRoot: string option = cliArgs.SourceMapsRoot
+    member _.EvaluateOnly: bool = evaluateOnly
 
     member _.BuildDll(normalizedDllPath: string) =
         if not (builtDlls.Contains(normalizedDllPath)) then
@@ -149,7 +151,8 @@ type CrackerOptions(cliArgs: CliArgs) =
         (
             projDir: string,
             outDir: string option,
-            noCache: bool
+            noCache: bool,
+            evaluateOnly: bool
         )
         : string
         =
@@ -158,9 +161,13 @@ type CrackerOptions(cliArgs: CliArgs) =
             |> Option.defaultWith (fun () -> projDir)
             |> CrackerOptions.GetFableModulesFromDir
 
-        if noCache then
-            if IO.Directory.Exists(fableModulesDir) then
-                IO.Directory.Delete(fableModulesDir, recursive = true)
+        // If we are only evaluating the project, we don't want to delete the fable_modules folder
+        // in theory we should not have to create it either, but it seems harmless
+        // to let the check for empty folder
+        if not evaluateOnly then
+            if noCache then
+                if IO.Directory.Exists(fableModulesDir) then
+                    IO.Directory.Delete(fableModulesDir, recursive = true)
 
         if File.isDirectoryEmpty fableModulesDir then
             IO.Directory.CreateDirectory(fableModulesDir) |> ignore
@@ -1094,7 +1101,8 @@ let getFullProjectOpts
 
         // The cache was considered outdated / invalid so it is better to make
         // make sure we have are in a clean state
-        opts.ResetFableModulesDir()
+        if not opts.EvaluateOnly then
+            opts.ResetFableModulesDir()
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
@@ -1209,7 +1217,7 @@ let getFullProjectOpts
                 SourceMapsRoot = opts.SourceMapsRoot
             }
 
-        if not opts.NoCache then
+        if not opts.EvaluateOnly && not opts.NoCache then
             cacheInfo.Write()
 
         let precompiledInfo, otherOptions, sourcePaths =

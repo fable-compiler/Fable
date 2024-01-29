@@ -458,13 +458,14 @@ type ProjectCracked
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
 
-    static member Init(cliArgs: CliArgs) =
+    static member Init(cliArgs: CliArgs, ?evaluateOnly: bool) =
+        let evaluateOnly = defaultArg evaluateOnly false
         Log.always $"Parsing {cliArgs.ProjectFileAsRelativePath}..."
 
         let result, ms =
             Performance.measure
             <| fun () ->
-                CrackerOptions(cliArgs)
+                CrackerOptions(cliArgs, evaluateOnly)
                 |> getFullProjectOpts (BuildalyzerCrackerResolver())
 
         // We display "parsed" because "cracked" may not be understood by users
@@ -1242,7 +1243,10 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     let oldProjCracked = projCracked
 
                     let newProjCracked =
-                        ProjectCracked.Init({ cliArgs with NoCache = true })
+                        ProjectCracked.Init(
+                            { cliArgs with NoCache = true },
+                            evaluateOnly = true
+                        )
 
                     // If only source files have changed, keep the project checker to speed up recompilation
                     let fableCompiler =

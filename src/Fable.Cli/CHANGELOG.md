@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Fixed
+### Changed
+
+#### All
+
+* [GH-3719](https://github.com/fable-compiler/Fable/issues/3719) Restore dependencies against the `.fsproj` after evaluating the `fable-temp.csproj` file (Improves IDE supports) (by @MangelMaxime)
+* Don't delete `fable_modules` when re-evaluating the project file after a changes has been detected (Improves HMR experience) (by @MangelMaxime)
 
 #### JavaScript
 
