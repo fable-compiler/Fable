@@ -123,7 +123,7 @@ let mkOptionsFromDesignTimeBuildAux
             |> String.concat " "
 
         let arguments =
-            $"/t:%s{targets} %s{properties} --getItem:FscCommandLineArgs %s{additionalArguments} --getItem:ProjectReference --getProperty:OutputType"
+            $"/t:%s{targets} %s{properties} --getItem:FscCommandLineArgs %s{additionalArguments} --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
 
         let! json = dotnet_msbuild fsproj.FullName arguments
         let jsonDocument = JsonDocument.Parse json
