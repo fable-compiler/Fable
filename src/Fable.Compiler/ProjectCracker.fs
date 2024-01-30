@@ -180,9 +180,6 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
 
             builtDlls.Add(normalizedDllPath) |> ignore
 
-    static member GetFableModulesFromDir(baseDir: string) : string =
-        IO.Path.Combine(baseDir, Naming.fableModules) |> Path.normalizePath
-
     member _.ResetFableModulesDir() =
         if IO.Directory.Exists(fableModulesDir) then
             IO.Directory.Delete(fableModulesDir, recursive = true)
