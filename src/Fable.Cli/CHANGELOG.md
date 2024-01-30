@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.11.0 - 2024-01-30
+
 ### Changed
 
 #### All
@@ -18,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### All
 
-* [GH-3723](https://github.com/fable-compiler/Fable/pull/3723) Fix logging initialisation to allow `--version` to work (by @MangelMaxime)
+* [GH-3723](https://github.com/fable-compiler/Fable/pull/3723) Fix logger initialisation to allow `--version` to work (by @MangelMaxime)
 
 #### JavaScript
 
