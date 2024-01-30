@@ -84,11 +84,47 @@ type CacheInfo =
         | None -> true
         | Some other -> this.GetTimestamp() > other.GetTimestamp()
 
+/// Combine the `baseDir` with `fable_modules`
+let getFableModulesFromDir (baseDir: string) : string =
+    IO.Path.Combine(baseDir, Naming.fableModules) |> Path.normalizePath
+
+let getFableModulesFromProject
+    (
+        projDir: string,
+        outDir: string option,
+        noCache: bool,
+        evaluateOnly: bool
+    )
+    : string
+    =
+    let fableModulesDir =
+        outDir
+        |> Option.defaultWith (fun () -> projDir)
+        |> getFableModulesFromDir
+
+    // If we are only evaluating the project, we don't want to delete the fable_modules folder
+    // in theory we should not have to create it either, but it seems harmless
+    // to let the check for empty folder
+    if not evaluateOnly then
+        if noCache then
+            if IO.Directory.Exists(fableModulesDir) then
+                IO.Directory.Delete(fableModulesDir, recursive = true)
+
+    if File.isDirectoryEmpty fableModulesDir then
+        IO.Directory.CreateDirectory(fableModulesDir) |> ignore
+
+        IO.File.WriteAllText(
+            IO.Path.Combine(fableModulesDir, ".gitignore"),
+            "**/*"
+        )
+
+    fableModulesDir
+
 type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
     let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
 
     let fableModulesDir =
-        CrackerOptions.GetFableModulesFromProject(
+        getFableModulesFromProject (
             projDir,
             cliArgs.OutDir,
             cliArgs.NoCache,
@@ -143,41 +179,6 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
             |> ignore
 
             builtDlls.Add(normalizedDllPath) |> ignore
-
-    static member GetFableModulesFromDir(baseDir: string) : string =
-        IO.Path.Combine(baseDir, Naming.fableModules) |> Path.normalizePath
-
-    static member GetFableModulesFromProject
-        (
-            projDir: string,
-            outDir: string option,
-            noCache: bool,
-            evaluateOnly: bool
-        )
-        : string
-        =
-        let fableModulesDir =
-            outDir
-            |> Option.defaultWith (fun () -> projDir)
-            |> CrackerOptions.GetFableModulesFromDir
-
-        // If we are only evaluating the project, we don't want to delete the fable_modules folder
-        // in theory we should not have to create it either, but it seems harmless
-        // to let the check for empty folder
-        if not evaluateOnly then
-            if noCache then
-                if IO.Directory.Exists(fableModulesDir) then
-                    IO.Directory.Delete(fableModulesDir, recursive = true)
-
-        if File.isDirectoryEmpty fableModulesDir then
-            IO.Directory.CreateDirectory(fableModulesDir) |> ignore
-
-            IO.File.WriteAllText(
-                IO.Path.Combine(fableModulesDir, ".gitignore"),
-                "**/*"
-            )
-
-        fableModulesDir
 
     member _.ResetFableModulesDir() =
         if IO.Directory.Exists(fableModulesDir) then
@@ -911,8 +912,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
     | Some precompiledLib ->
         // Load PrecompiledInfo
         let info =
-            CrackerOptions.GetFableModulesFromDir(precompiledLib)
-            |> PrecompiledInfoImpl.Load
+            getFableModulesFromDir precompiledLib |> PrecompiledInfoImpl.Load
 
         // Check if precompiled compiler version and options match
         if info.CompilerVersion <> Literals.VERSION then
