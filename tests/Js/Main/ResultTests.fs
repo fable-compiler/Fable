@@ -50,4 +50,12 @@ let tests =
     testCase "Nesting Result in pattern matching works" <| fun () -> // See #816
         Ok 5 |> Foo |> foo |> equal true
         Error "error" |> Foo |> foo |> equal false
+
+    testCase "isOk function can be generated" <| fun () ->
+        Ok 10 |> Result.isOk |> equal true
+        Error 10 |> Result.isOk |> equal false
+
+    testCase "isError function can be generated" <| fun () ->
+        Ok 10 |> Result.isError |> equal false
+        Error 10 |> Result.isError |> equal true
   ]
