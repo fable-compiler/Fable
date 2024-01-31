@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for `Result.isOk` and `Result.isError` (by @zprobinson)
+
+* Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
+* [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for `Result.isOk` and `Result.isError` (by @zprobinson)
+
+### Added
+
+#### JavaScript
+
+* [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for `Result.isOk` and `Result.isError` (by @zprobinson)
+
+#### TypeScript
+
+* [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for `Result.isOk` and `Result.isError` (by @zprobinson)
+
 ### Removed
 
 #### JavaScript
