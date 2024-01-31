@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Removed
+
+#### JavaScript
+
+* Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
+
+#### TypeScript
+
+* Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
+
 ## 4.11.0 - 2024-01-30
 
 ### Changed
