@@ -3772,7 +3772,8 @@ let results
     (args: Expr list)
     =
     match i.CompiledName with
-    | ("Bind" | "Map" | "MapError") as meth -> Some("Result_" + meth)
+    | ("Bind" | "Map" | "MapError" | "IsOk" | "IsError") as meth ->
+        Some("Result_" + meth)
     | _ -> None
     |> Option.map (fun meth ->
         Helper.LibCall(
