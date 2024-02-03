@@ -24,6 +24,18 @@ module Result =
         | Error e -> Error e
         | Ok x -> binder x
 
+    [<CompiledName("IsOk")>]
+    let isOk (result: Result<'a, 'b>) : bool =
+        match result with
+        | Error _ -> false
+        | Ok _ -> true
+
+    [<CompiledName("IsError")>]
+    let isError (result: Result<'a, 'b>) : bool =
+        match result with
+        | Error _ -> true
+        | Ok _ -> false
+
 [<CompiledName("FSharpChoice`2")>]
 type Choice<'T1, 'T2> =
     | Choice1Of2 of 'T1
