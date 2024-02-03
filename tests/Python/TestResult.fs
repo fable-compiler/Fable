@@ -51,3 +51,13 @@ let ``test bind function can be generated`` () =
 let ``test Nesting Result in pattern matching works`` () =
     Ok 5 |> Foo |> foo |> equal true
     Error "error" |> Foo |> foo |> equal false
+
+[<Fact>]
+let ``test isOk function can be generated`` () =
+    Ok 5 |> Result.isOk |> equal true
+    Error "error" |> Result.isOk |> equal false
+
+[<Fact>]
+let ``test isError function can be generated`` () =
+    Ok 5 |> Result.isError |> equal false
+    Error "error" |> Result.isError |> equal true
