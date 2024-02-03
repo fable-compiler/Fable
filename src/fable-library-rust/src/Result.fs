@@ -14,3 +14,13 @@ let bind binder result =
     match result with
     | Ok x -> binder x
     | Error e -> Error e
+
+let isOk result =
+    match result with
+    | Error _ -> false
+    | Ok _ -> true
+
+let isError result : bool =
+    match result with
+    | Error _ -> true
+    | Ok _ -> false

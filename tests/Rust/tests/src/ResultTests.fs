@@ -54,6 +54,20 @@ let ``Nesting Result in pattern matching works`` () =
     Error "error" |> Foo |> foo |> equal false
 
 [<Fact>]
+let ``isOk function can be generated`` () =
+    let ok: Result<int, string> = Ok 5
+    let err: Result<int, string> = Error "error"
+    ok |> Result.isOk |> equal true
+    err |> Result.isOk |> equal false
+
+[<Fact>]
+let ``isError function can be generated`` () =
+    let ok: Result<int, string> = Ok 5
+    let err: Result<int, string> = Error "error"
+    ok |> Result.isError |> equal false
+    err |> Result.isError |> equal true
+
+[<Fact>]
 let ``Choice matching works`` () =
     let ok: Choice<string, int> = Choice1Of2 "foo"
     match ok with

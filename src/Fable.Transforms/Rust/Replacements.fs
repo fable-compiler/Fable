@@ -3631,7 +3631,7 @@ let results
     (args: Expr list)
     =
     match i.CompiledName with
-    | ("Bind" | "Map" | "MapError") as meth ->
+    | ("Bind" | "Map" | "MapError" | "IsOk" | "IsError") as meth ->
         Helper.LibCall(
             com,
             "Result",

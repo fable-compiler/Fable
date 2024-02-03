@@ -2156,10 +2156,10 @@ module Util =
 
     let makeUnion (com: IRustCompiler) ctx r values tag entRef genArgs =
         let ent = com.GetEntity(entRef)
-        // let genArgsOpt = transformGenArgs com ctx genArgs
+        let genArgsOpt = transformGenArgs com ctx genArgs
         let unionCase = ent.UnionCases |> List.item tag
         let unionCaseName = getUnionCaseName com ctx entRef unionCase
-        let callee = makeFullNamePathExpr unionCaseName None //genArgsOpt
+        let callee = makeFullNamePathExpr unionCaseName genArgsOpt
 
         let expr =
             if List.isEmpty values then
