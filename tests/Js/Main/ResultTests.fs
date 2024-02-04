@@ -58,4 +58,96 @@ let tests =
     testCase "isError function can be generated" <| fun () ->
         Ok 10 |> Result.isError |> equal false
         Error 10 |> Result.isError |> equal true
+
+    testCase "contains works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.contains 42 |> equal true
+        ok |> Result.contains 43 |> equal false
+        err |> Result.contains 42 |> equal false
+
+    testCase "count works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.count |> equal 1
+        err |> Result.count |> equal 0
+
+    testCase "defaultValue works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.defaultValue 0 |> equal 42
+        err |> Result.defaultValue 0 |> equal 0
+
+    testCase "defaultWith works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.defaultWith (fun e -> e.Length) |> equal 42
+        err |> Result.defaultWith (fun e -> e.Length) |> equal 5
+
+    testCase "exists works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.exists ((=) 42) |> equal true
+        ok |> Result.exists ((=) 43) |> equal false
+        err |> Result.exists ((=) 42) |> equal false
+
+    testCase "fold works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.fold (fun s x -> s || x % 2 = 0) false |> equal true
+        err |> Result.fold (fun s x -> s || x % 2 = 0) false |> equal false
+
+    testCase "foldBack works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        (ok, false) ||> Result.foldBack (fun x s -> s || x % 2 = 0) |> equal true
+        (err, false) ||> Result.foldBack (fun x s -> s || x % 2 = 0) |> equal false
+
+    testCase "forAll works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.forall ((=) 42) |> equal true
+        ok |> Result.forall ((=) 43) |> equal false
+        err |> Result.forall ((=) 42) |> equal true
+
+    testCase "iter works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        let mutable count = 0
+        ok |> Result.iter (fun x -> count <- count + x)
+        equal 42 count
+
+        count <- 0
+        err |> Result.iter (fun x -> count <- count + x)
+        equal 0 count
+
+    testCase "toArray works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.toArray |> equal [| 42 |]
+        err |> Result.toArray |> equal [||]
+
+    testCase "toList works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.toList |> equal [ 42 ]
+        err |> Result.toList |> equal []
+
+    testCase "toOption works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.toOption |> Option.get |> equal 42
+        err |> Result.toOption |> Option.isNone |> equal true
   ]

@@ -2713,7 +2713,8 @@ let disposables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg
 
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ("Bind" | "Map" | "MapError" | "IsOk" | "IsError") as meth -> Some("Result_" + meth)
+    | ("Bind" | "Map" | "MapError" | "IsOk" | "IsError" | "Contains" | "Count" | "DefaultValue" | "DefaultWith" | "Exists" | "Fold" | "FoldBack" | "ForAll" | "Iterate" | "ToArray" | "ToList" | "ToOption") as meth ->
+        Some("Result_" + meth)
     | _ -> None
     |> Option.map (fun meth ->
         Helper.LibCall(com, "Choice", meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
