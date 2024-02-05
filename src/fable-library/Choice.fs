@@ -67,23 +67,13 @@ module Result =
         | Ok x -> predicate x
 
     [<CompiledName("Fold")>]
-    let fold<'a, 'b, 's>
-        (folder: 's -> 'a -> 's)
-        (state: 's)
-        (result: Result<'a, 'b>)
-        : 's
-        =
+    let fold<'a, 'b, 's> (folder: 's -> 'a -> 's) (state: 's) (result: Result<'a, 'b>) : 's =
         match result with
         | Error _ -> state
         | Ok x -> folder state x
 
     [<CompiledName("FoldBack")>]
-    let foldBack<'a, 'b, 's>
-        (folder: 'a -> 's -> 's)
-        (result: Result<'a, 'b>)
-        (state: 's)
-        : 's
-        =
+    let foldBack<'a, 'b, 's> (folder: 'a -> 's -> 's) (result: Result<'a, 'b>) (state: 's) : 's =
         match result with
         | Error _ -> state
         | Ok x -> folder x state
