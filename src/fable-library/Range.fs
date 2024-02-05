@@ -1,11 +1,6 @@
 module FSharp.Core.OperatorIntrinsics
 
-let makeRangeStepFunction<'T when 'T: comparison>
-    (step: 'T)
-    (stop: 'T)
-    (zero: 'T)
-    (add: 'T -> 'T -> 'T)
-    =
+let makeRangeStepFunction<'T when 'T: comparison> (step: 'T) (stop: 'T) (zero: 'T) (add: 'T -> 'T -> 'T) =
     let stepComparedWithZero = compare step zero
 
     if stepComparedWithZero = 0 then
@@ -24,13 +19,7 @@ let makeRangeStepFunction<'T when 'T: comparison>
         else
             None
 
-let integralRangeStep<'T when 'T: comparison>
-    (start: 'T)
-    (step: 'T)
-    (stop: 'T)
-    (zero: 'T)
-    (add: 'T -> 'T -> 'T)
-    =
+let integralRangeStep<'T when 'T: comparison> (start: 'T) (step: 'T) (stop: 'T) (zero: 'T) (add: 'T -> 'T -> 'T) =
     let stepFn = makeRangeStepFunction step stop zero add
     Seq.delay (fun () -> Seq.unfold stepFn start)
 

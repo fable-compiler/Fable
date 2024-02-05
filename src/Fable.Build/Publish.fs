@@ -7,12 +7,8 @@ open Build.FableLibrary
 open System
 open Build.Workspace
 
-let updateLibraryVersionInFableTransforms
-    (compilerVersion: string)
-    (librariesVersion: {| JavaScript: string |})
-    =
-    let filePath =
-        Path.Resolve("src", "Fable.Transforms", "Global", "Compiler.fs")
+let updateLibraryVersionInFableTransforms (compilerVersion: string) (librariesVersion: {| JavaScript: string |}) =
+    let filePath = Path.Resolve("src", "Fable.Transforms", "Global", "Compiler.fs")
 
     // Use a mutable variable for simplicity
     // Allows to keep track of successive replacements
@@ -23,10 +19,7 @@ let updateLibraryVersionInFableTransforms
         Regex.Replace(
             fileContent,
             $@"^(?'indentation'\s*)let VERSION = ""(?'version'.*?)""",
-            (fun (m: Match) ->
-                m.Groups.["indentation"].Value
-                + $"let VERSION = \"{compilerVersion}\""
-            ),
+            (fun (m: Match) -> m.Groups.["indentation"].Value + $"let VERSION = \"{compilerVersion}\""),
             RegexOptions.Multiline
         )
 
@@ -37,10 +30,7 @@ let updateLibraryVersionInFableTransforms
             Regex.Replace(
                 fileContent,
                 $@"^(?'indentation'\s*)let {prefix}_LIBRARY_VERSION = ""(?'version'.*?)""",
-                (fun (m: Match) ->
-                    m.Groups.["indentation"].Value
-                    + $"let {prefix}_LIBRARY_VERSION = \"{version}\""
-                ),
+                (fun (m: Match) -> m.Groups.["indentation"].Value + $"let {prefix}_LIBRARY_VERSION = \"{version}\""),
                 RegexOptions.Multiline
             )
 
@@ -61,8 +51,7 @@ let private publishNuget (fsprojDir: string) (noSymbols: bool) =
     let lastChangelogVersion = Changelog.getLastVersion changelogPath
     let lastVersion = lastChangelogVersion |> fun v -> v.Version.ToString()
 
-    let lastVersionBody =
-        ChangelogParser.Version.bodyAsMarkdown lastChangelogVersion
+    let lastVersionBody = ChangelogParser.Version.bodyAsMarkdown lastChangelogVersion
 
     printfn $"Publishing: %s{fsprojDir}"
 
@@ -148,10 +137,7 @@ let handle (args: string list) =
 
     updateLibraryVersionInFableTransforms
         compilerVersion
-        {|
-            JavaScript =
-                Npm.getVersionFromProjectDir ProjectDir.temp_fable_library
-        |}
+        {| JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library |}
 
     publishNuget ProjectDir.fableAst false
     publishNuget ProjectDir.fableCore false

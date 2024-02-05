@@ -258,8 +258,7 @@ module PrinterExtensions =
                     printer.Print(")")
 
         member printer.Print(im: ImportFrom) =
-            let (Identifier path) =
-                im.Module |> Option.defaultValue (Identifier ".")
+            let (Identifier path) = im.Module |> Option.defaultValue (Identifier ".")
 
             printer.Print("from ")
             printer.Print(path)
@@ -294,8 +293,7 @@ module PrinterExtensions =
 
             match node.Slice with
             | Tuple { Elements = [] } -> printer.Print("()")
-            | Tuple { Elements = elems } ->
-                printer.PrintCommaSeparatedList(elems)
+            | Tuple { Elements = elems } -> printer.PrintCommaSeparatedList(elems)
             | _ -> printer.Print(node.Slice)
 
             printer.Print("]")
@@ -323,8 +321,7 @@ module PrinterExtensions =
             printer.Print(node.Op)
             printer.ComplexExpressionWithParens(node.Operand)
 
-        member printer.Print(_node: FormattedValue) =
-            printer.Print("(FormattedValue)")
+        member printer.Print(_node: FormattedValue) = printer.Print("(FormattedValue)")
 
         member printer.Print(node: Call) =
             printer.ComplexExpressionWithParens(node.Func)
@@ -340,19 +337,10 @@ module PrinterExtensions =
             printer.Print(")")
 
         member printer.Print(node: Emit) =
-            let inline replace
-                pattern
-                (f: System.Text.RegularExpressions.Match -> string)
-                input
-                =
+            let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
                 System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
 
-            let printSegment
-                (printer: Printer)
-                (value: string)
-                segmentStart
-                segmentEnd
-                =
+            let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
                 let segmentLength = segmentEnd - segmentStart
 
                 if segmentLength > 0 then
@@ -381,8 +369,7 @@ module PrinterExtensions =
                         let i = int m.Groups[1].Value
 
                         match node.Args[i] with
-                        | Constant(value = BoolLiteral value) when value ->
-                            m.Groups[2].Value
+                        | Constant(value = BoolLiteral value) when value -> m.Groups[2].Value
                         | _ -> m.Groups[3].Value
                     )
 
@@ -407,8 +394,7 @@ module PrinterExtensions =
                         | _ -> ""
                     )
 
-            let matches =
-                System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+            let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
 
             if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
@@ -437,11 +423,7 @@ module PrinterExtensions =
 
                 let lastMatch = matches[matches.Count - 1]
 
-                printSegment
-                    printer
-                    value
-                    (lastMatch.Index + lastMatch.Length)
-                    value.Length
+                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
             else
                 printSegment printer value 0 value.Length
 
@@ -484,9 +466,7 @@ module PrinterExtensions =
                 printer.PrintNewLine()
                 printer.PushIndentation()
 
-                let nodes =
-                    List.zip node.Keys node.Values
-                    |> List.mapi (fun i n -> (i, n))
+                let nodes = List.zip node.Keys node.Values |> List.mapi (fun i n -> (i, n))
 
                 for i, (key, value) in nodes do
                     printer.Print(key)
@@ -602,11 +582,7 @@ module PrinterExtensions =
                 printer.Print(value)
 
                 // Make sure it's a valid Python float (not int)
-                if
-                    String.forall
-                        (fun char -> char = '-' || Char.IsDigit char)
-                        value
-                then
+                if String.forall (fun char -> char = '-' || Char.IsDigit char) value then
                     printer.Print(".0")
             | Constant(value = BoolLiteral value) ->
                 printer.Print(
@@ -615,8 +591,7 @@ module PrinterExtensions =
                     else
                         "False"
                 )
-            | Constant(value = IntLiteral value) ->
-                printer.Print(string<obj> value)
+            | Constant(value = IntLiteral value) -> printer.Print(string<obj> value)
             | Constant(value = value) -> printer.Print(string<obj> value)
 
             | IfExp ex -> printer.Print(ex)
@@ -701,10 +676,7 @@ module PrinterExtensions =
         member printer.PrintStatements(statements: Statement list) =
 
             for stmt in statements do
-                printer.PrintStatement(
-                    stmt,
-                    (fun p -> p.PrintStatementSeparator())
-                )
+                printer.PrintStatement(stmt, (fun p -> p.PrintStatementSeparator()))
 
         member printer.PrintBlock(nodes: Statement list, ?skipNewLineAtEnd) =
             printer.PrintBlock(
@@ -721,13 +693,7 @@ module PrinterExtensions =
                 printer.Print(before)
                 printer.Print(node)
 
-        member printer.PrintOptional
-            (
-                before: string,
-                node: AST option,
-                after: string
-            )
-            =
+        member printer.PrintOptional(before: string, node: AST option, after: string) =
             match node with
             | None -> ()
             | Some node ->
@@ -748,13 +714,7 @@ module PrinterExtensions =
             | None -> ()
             | Some node -> printer.Print(node)
 
-        member printer.PrintList
-            (
-                nodes: 'a list,
-                printNode: Printer -> 'a -> unit,
-                printSeparator: Printer -> unit
-            )
-            =
+        member printer.PrintList(nodes: 'a list, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
             for i = 0 to nodes.Length - 1 do
                 printNode printer nodes[i]
 
@@ -762,18 +722,10 @@ module PrinterExtensions =
                     printSeparator printer
 
         member printer.PrintCommaSeparatedList(nodes: AST list) =
-            printer.PrintList(
-                nodes,
-                (fun p x -> p.Print(x)),
-                (fun p -> p.Print(", "))
-            )
+            printer.PrintList(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
         member printer.PrintCommaSeparatedList(nodes: Expression list) =
-            printer.PrintList(
-                nodes,
-                (fun _ -> printer.Print),
-                (fun p -> p.Print(", "))
-            )
+            printer.PrintList(nodes, (fun _ -> printer.Print), (fun p -> p.Print(", ")))
 
         member printer.PrintCommaSeparatedList(nodes: Arg list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.Arg)

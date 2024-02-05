@@ -34,16 +34,11 @@ let getXmlTagAttributes1 tag attr1 xml =
 
 let getXmlTagAttributes2 tag attr1 attr2 xml =
     let pattern =
-        sprintf
-            """<%s\s+[^>]*%s\s*=\s*("[^"]*|'[^']*)[^>]*%s\s*=\s*("[^"]*|'[^']*)"""
-            tag
-            attr1
-            attr2
+        sprintf """<%s\s+[^>]*%s\s*=\s*("[^"]*|'[^']*)[^>]*%s\s*=\s*("[^"]*|'[^']*)""" tag attr1 attr2
 
     Regex.Matches(xml, pattern)
     |> Seq.map (fun m ->
-        m.Groups[1].Value.TrimStart('"').TrimStart(''').Trim(),
-        m.Groups[2].Value.TrimStart('"').TrimStart(''').Trim()
+        m.Groups[1].Value.TrimStart('"').TrimStart(''').Trim(), m.Groups[2].Value.TrimStart('"').TrimStart(''').Trim()
     )
 
 let isSystemPackage (pkgName: string) =
@@ -83,11 +78,9 @@ let resolvePackage (pkgName, pkgVersion) =
 
         let binaryOpt = binaryPaths |> Array.tryLast
 
-        let dependOpt =
-            nuspecPaths |> Array.tryLast |> Option.map parsePackageSpec
+        let dependOpt = nuspecPaths |> Array.tryLast |> Option.map parsePackageSpec
 
-        let fsprojOpt =
-            fsprojPaths |> Array.tryLast |> Option.map ProjectReference
+        let fsprojOpt = fsprojPaths |> Array.tryLast |> Option.map ProjectReference
 
         let pkgRefs, dllPaths =
             match binaryOpt, dependOpt, fsprojOpt with
@@ -103,11 +96,9 @@ let parseCompilerOptions projectXml =
     // get project settings,
     let target = projectXml |> getXmlTagContentsFirstOrDefault "OutputType" ""
 
-    let langVersion =
-        projectXml |> getXmlTagContentsFirstOrDefault "LangVersion" ""
+    let langVersion = projectXml |> getXmlTagContentsFirstOrDefault "LangVersion" ""
 
-    let warnLevel =
-        projectXml |> getXmlTagContentsFirstOrDefault "WarningLevel" ""
+    let warnLevel = projectXml |> getXmlTagContentsFirstOrDefault "WarningLevel" ""
 
     let treatWarningsAsErrors =
         projectXml |> getXmlTagContentsFirstOrDefault "TreatWarningsAsErrors" ""
@@ -216,21 +207,16 @@ let parseProjectScript projectFilePath =
         (([||], [||]), projectXml.Split('\n'))
         ||> Array.fold (fun (dllRefs, srcFiles) line ->
             match line.Trim() with
-            | Regex @"^#r\s+""(.*?)""$" [ _; path ] when
-                not (path.EndsWith("Fable.Core.dll"))
-                ->
-                Array.append [| Path.Combine(projectDir, path) |] dllRefs,
-                srcFiles
+            | Regex @"^#r\s+""(.*?)""$" [ _; path ] when not (path.EndsWith("Fable.Core.dll")) ->
+                Array.append [| Path.Combine(projectDir, path) |] dllRefs, srcFiles
             | Regex @"^#load\s+""(.*?)""$" [ _; path ] ->
-                dllRefs,
-                Array.append [| Path.Combine(projectDir, path) |] srcFiles
+                dllRefs, Array.append [| Path.Combine(projectDir, path) |] srcFiles
             | _ -> dllRefs, srcFiles
         )
 
     let projectRefs = [||]
 
-    let sourceFiles =
-        Array.append srcFiles [| Path.GetFileName projectFilePath |]
+    let sourceFiles = Array.append srcFiles [| Path.GetFileName projectFilePath |]
 
     let otherOptions =
         [|
@@ -267,19 +253,13 @@ let parseProjectFile projectFilePath =
         projectXml |> getXmlTagContentsFirstOrDefault "FSharpSourcesRoot" ""
 
     let projectXml =
-        projectXml.Replace(
-            "$(FSharpSourcesRoot)",
-            sourceRoot.Replace('\\', '/')
-        )
+        projectXml.Replace("$(FSharpSourcesRoot)", sourceRoot.Replace('\\', '/'))
 
     let yaccOutput =
         projectXml |> getXmlTagContentsFirstOrDefault "FsYaccOutputFolder" ""
 
     let projectXml =
-        projectXml.Replace(
-            "$(FsYaccOutputFolder)",
-            yaccOutput.Replace('\\', '/')
-        )
+        projectXml.Replace("$(FsYaccOutputFolder)", yaccOutput.Replace('\\', '/'))
 
     // get source files
     let sourceFiles =
@@ -331,21 +311,16 @@ let parseProject projectFilePath =
 
         // parse and combine all referenced projects into one big project
         let parseResult =
-            projectRefs
-            |> dedupReferences refSet
-            |> Array.map (parseProject refSet)
+            projectRefs |> dedupReferences refSet |> Array.map (parseProject refSet)
 
         let dllPaths =
-            dllPaths
-            |> Array.append (parseResult |> Array.collect (fun (x, _, _) -> x))
+            dllPaths |> Array.append (parseResult |> Array.collect (fun (x, _, _) -> x))
 
         let sourcePaths =
-            sourcePaths
-            |> Array.append (parseResult |> Array.collect (fun (_, x, _) -> x))
+            sourcePaths |> Array.append (parseResult |> Array.collect (fun (_, x, _) -> x))
 
         let otherOptions =
-            otherOptions
-            |> Array.append (parseResult |> Array.collect (fun (_, _, x) -> x))
+            otherOptions |> Array.append (parseResult |> Array.collect (fun (_, _, x) -> x))
 
         (dllPaths, sourcePaths, otherOptions)
 
@@ -353,6 +328,4 @@ let parseProject projectFilePath =
     let projectRef = ProjectReference projectFilePath
     let dllPaths, sourcePaths, otherOptions = parseProject refSet projectRef
 
-    (dllPaths |> Array.distinct,
-     sourcePaths |> Array.distinct,
-     otherOptions |> Array.distinct)
+    (dllPaths |> Array.distinct, sourcePaths |> Array.distinct, otherOptions |> Array.distinct)

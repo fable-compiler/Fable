@@ -9,19 +9,13 @@ type Writer =
     inherit IDisposable
 
     abstract AddSourceMapping:
-        srcLine: int *
-        srcCol: int *
-        genLine: int *
-        genCol: int *
-        file: string option *
-        displayName: string option ->
+        srcLine: int * srcCol: int * genLine: int * genCol: int * file: string option * displayName: string option ->
             unit
 
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
 
-    abstract AddLog:
-        msg: string * severity: Fable.Severity * ?range: SourceLocation -> unit
+    abstract AddLog: msg: string * severity: Fable.Severity * ?range: SourceLocation -> unit
 
 type Printer =
     abstract Line: int
@@ -33,8 +27,7 @@ type Printer =
     abstract AddLocation: SourceLocation option -> unit
     abstract MakeImportPath: string -> string
 
-    abstract AddLog:
-        msg: string * severity: Fable.Severity * ?range: SourceLocation -> unit
+    abstract AddLog: msg: string * severity: Fable.Severity * ?range: SourceLocation -> unit
 
 // TODO: Line comments
 type PrinterImpl(writer: Writer, ?indent: string) =

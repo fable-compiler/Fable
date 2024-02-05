@@ -10,9 +10,7 @@ and ConsList<'T>(head: 'T, tail: LinkedList<'T>) =
     inherit LinkedList<'T>(Some tail)
     member _.GetHead() = head
 
-and [<CompiledName("FSharpList"); AbstractClass>] LinkedList<'T>
-    (tail_: 'T list option)
-    =
+and [<CompiledName("FSharpList"); AbstractClass>] LinkedList<'T>(tail_: 'T list option) =
     let mutable tail = tail_
     static member Empty: 'T list = EmptyList<'T>()
     static member Cons(x: 'T, xs: 'T list) : 'T list = ConsList<'T>(x, xs)
@@ -120,8 +118,7 @@ and [<CompiledName("FSharpList"); AbstractClass>] LinkedList<'T>
             new ListEnumerator<'T>(xs) :> IEnumerator<'T>
 
         member xs.GetEnumerator() : System.Collections.IEnumerator =
-            ((xs :> IEnumerable<'T>).GetEnumerator()
-            :> System.Collections.IEnumerator)
+            ((xs :> IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
 
 and ListEnumerator<'T>(xs: 'T list) =
     let mutable it = xs
@@ -219,11 +216,7 @@ let toArray (xs: 'T list) =
 //     if xs.IsEmpty then state
 //     else fold folder (folder state xs.Head) xs.Tail
 
-let fold<'T, 'State>
-    (folder: 'State -> 'T -> 'State)
-    (state: 'State)
-    (xs: 'T list)
-    =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     let mutable acc = state
     let mutable li = xs
 
@@ -236,19 +229,11 @@ let fold<'T, 'State>
 let reverse (xs: 'T list) =
     fold (fun acc x -> List.Cons(x, acc)) List.Empty xs
 
-let foldBack<'T, 'State>
-    (folder: 'T -> 'State -> 'State)
-    (xs: 'T list)
-    (state: 'State)
-    =
+let foldBack<'T, 'State> (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     // fold (fun acc x -> folder x acc) state (reverse xs)
     Array.foldBack folder (toArray xs) state
 
-let foldIndexed<'T, 'State>
-    (folder: int -> 'State -> 'T -> 'State)
-    (state: 'State)
-    (xs: 'T list)
-    =
+let foldIndexed<'T, 'State> (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     let rec loop i acc (xs: 'T list) =
         if xs.IsEmpty then
             acc
@@ -261,12 +246,7 @@ let foldIndexed<'T, 'State>
 //     if xs.IsEmpty || ys.IsEmpty then state
 //     else fold2 folder (folder state xs.Head ys.Head) xs.Tail ys.Tail
 
-let fold2<'T1, 'T2, 'State>
-    (folder: 'State -> 'T1 -> 'T2 -> 'State)
-    (state: 'State)
-    (xs: 'T1 list)
-    (ys: 'T2 list)
-    =
+let fold2<'T1, 'T2, 'State> (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
     let mutable acc = state
     let mutable xs = xs
     let mutable ys = ys
@@ -278,12 +258,7 @@ let fold2<'T1, 'T2, 'State>
 
     acc
 
-let foldBack2<'T1, 'T2, 'State>
-    (folder: 'T1 -> 'T2 -> 'State -> 'State)
-    (xs: 'T1 list)
-    (ys: 'T2 list)
-    (state: 'State)
-    =
+let foldBack2<'T1, 'T2, 'State> (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
     // fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
     Array.foldBack2 folder (toArray xs) (toArray ys) state
 
@@ -367,11 +342,7 @@ let concat (lists: seq<'T list>) =
     node.SetConsTail List.Empty
     root.Tail
 
-let scan<'T, 'State>
-    (folder: 'State -> 'T -> 'State)
-    (state: 'State)
-    (xs: 'T list)
-    =
+let scan<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
     let root = List.Empty
     let mutable node = root.AppendConsNoTail state
     let mutable acc = state
@@ -385,11 +356,7 @@ let scan<'T, 'State>
     node.SetConsTail List.Empty
     root.Tail
 
-let scanBack<'T, 'State>
-    (folder: 'T -> 'State -> 'State)
-    (xs: 'T list)
-    (state: 'State)
-    =
+let scanBack<'T, 'State> (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     Array.scanBack folder (toArray xs) state |> ofArray
 
 let append (xs: 'T list) (ys: 'T list) =
@@ -435,11 +402,7 @@ let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
     node.SetConsTail List.Empty
     root.Tail
 
-let mapIndexed2
-    (mapping: int -> 'T1 -> 'T2 -> 'U)
-    (xs: 'T1 list)
-    (ys: 'T2 list)
-    =
+let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
     let rec loop i (acc: 'U list) (xs: 'T1 list) (ys: 'T2 list) =
         if xs.IsEmpty || ys.IsEmpty then
             acc
@@ -452,12 +415,7 @@ let mapIndexed2
     node.SetConsTail List.Empty
     root.Tail
 
-let map3
-    (mapping: 'T1 -> 'T2 -> 'T3 -> 'U)
-    (xs: 'T1 list)
-    (ys: 'T2 list)
-    (zs: 'T3 list)
-    =
+let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
     let rec loop (acc: 'U list) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
         if xs.IsEmpty || ys.IsEmpty || zs.IsEmpty then
             acc
@@ -470,11 +428,7 @@ let map3
     node.SetConsTail List.Empty
     root.Tail
 
-let mapFold<'T, 'State, 'Result>
-    (mapping: 'State -> 'T -> 'Result * 'State)
-    (state: 'State)
-    (xs: 'T list)
-    =
+let mapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (xs: 'T list) =
     let folder (node: 'Result list, st) x =
         let r, st = mapping st x
         node.AppendConsNoTail r, st
@@ -484,11 +438,7 @@ let mapFold<'T, 'State, 'Result>
     node.SetConsTail List.Empty
     root.Tail, state
 
-let mapFoldBack<'T, 'State, 'Result>
-    (mapping: 'T -> 'State -> 'Result * 'State)
-    (xs: 'T list)
-    (state: 'State)
-    =
+let mapFoldBack<'T, 'State, 'Result> (mapping: 'T -> 'State -> 'Result * 'State) (xs: 'T list) (state: 'State) =
     mapFold (fun acc x -> mapping x acc) state (reverse xs)
 
 let tryPick f xs =
@@ -646,16 +596,11 @@ let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
     | _ -> invalidArg "list2" SR.differentLengths
 
 let unzip xs =
-    foldBack
-        (fun (x, y) (lacc, racc) -> List.Cons(x, lacc), List.Cons(y, racc))
-        xs
-        (List.Empty, List.Empty)
+    foldBack (fun (x, y) (lacc, racc) -> List.Cons(x, lacc), List.Cons(y, racc)) xs (List.Empty, List.Empty)
 
 let unzip3 xs =
     foldBack
-        (fun (x, y, z) (lacc, macc, racc) ->
-            List.Cons(x, lacc), List.Cons(y, macc), List.Cons(z, racc)
-        )
+        (fun (x, y, z) (lacc, macc, racc) -> List.Cons(x, lacc), List.Cons(y, macc), List.Cons(z, racc))
         xs
         (List.Empty, List.Empty, List.Empty)
 
@@ -671,32 +616,19 @@ let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list) =
 let sort (xs: 'T list) ([<Inject>] comparer: IComparer<'T>) =
     sortWith (fun x y -> comparer.Compare(x, y)) xs
 
-let sortBy
-    (projection: 'T -> 'U)
-    (xs: 'T list)
-    ([<Inject>] comparer: IComparer<'U>)
-    =
+let sortBy (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: IComparer<'U>) =
     sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
 
 let sortDescending (xs: 'T list) ([<Inject>] comparer: IComparer<'T>) =
     sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
 
-let sortByDescending
-    (projection: 'T -> 'U)
-    (xs: 'T list)
-    ([<Inject>] comparer: IComparer<'U>)
-    =
+let sortByDescending (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: IComparer<'U>) =
     sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
 
 let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>) : 'T =
     fold (fun acc x -> adder.Add(acc, x)) (adder.GetZero()) xs
 
-let sumBy
-    (f: 'T -> 'U)
-    (xs: 'T list)
-    ([<Inject>] adder: IGenericAdder<'U>)
-    : 'U
-    =
+let sumBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'U>) : 'U =
     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
 let maxBy (projection: 'T -> 'U) xs ([<Inject>] comparer: IComparer<'U>) : 'T =
@@ -749,12 +681,7 @@ let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>) : 'T =
     let total = fold folder (averager.GetZero()) xs
     averager.DivideByInt(total, count)
 
-let averageBy
-    (f: 'T -> 'U)
-    (xs: 'T list)
-    ([<Inject>] averager: IGenericAverager<'U>)
-    : 'U
-    =
+let averageBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] averager: IGenericAverager<'U>) : 'U =
     let mutable count = 0
 
     let inline folder acc x =
@@ -774,9 +701,7 @@ let allPairs (xs: 'T1 list) (ys: 'T2 list) : ('T1 * 'T2) list =
     let root = List.Empty
     let mutable node = root
 
-    iterate
-        (fun x -> iterate (fun y -> node <- node.AppendConsNoTail(x, y)) ys)
-        xs
+    iterate (fun x -> iterate (fun y -> node <- node.AppendConsNoTail(x, y)) ys) xs
 
     node.SetConsTail List.Empty
     root.Tail

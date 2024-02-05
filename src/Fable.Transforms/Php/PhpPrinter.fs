@@ -140,8 +140,7 @@ module Output =
         write ctx id.Name
 
     let withPrecedence ctx prec f =
-        let useParens =
-            prec > ctx.Precedence || (prec = 14 && ctx.Precedence = 14)
+        let useParens = prec > ctx.Precedence || (prec = 14 && ctx.Precedence = 14)
 
         let subCtx = { ctx with Precedence = prec }
 
@@ -336,8 +335,7 @@ module Output =
             else
                 write ctx " }"
         | PhpMacro(macro, args) ->
-            let regex =
-                System.Text.RegularExpressions.Regex("\$(?<n>\d)(?<s>\.\.\.)?")
+            let regex = System.Text.RegularExpressions.Regex("\$(?<n>\d)(?<s>\.\.\.)?")
 
             let matches = regex.Matches(macro)
             let mutable pos = 0

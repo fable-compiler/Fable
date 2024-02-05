@@ -10,14 +10,10 @@ module HashIdentity =
         }
 
     let Structural<'T when 'T: equality> : IEqualityComparer<'T> =
-        FromFunctions
-            LanguagePrimitives.GenericHash
-            LanguagePrimitives.GenericEquality
+        FromFunctions LanguagePrimitives.GenericHash LanguagePrimitives.GenericEquality
 
     let Reference<'T when 'T: not struct> : IEqualityComparer<'T> =
-        FromFunctions
-            LanguagePrimitives.PhysicalHash
-            LanguagePrimitives.PhysicalEquality
+        FromFunctions LanguagePrimitives.PhysicalHash LanguagePrimitives.PhysicalEquality
 
 module ComparisonIdentity =
     let FromFunction comparer : IComparer<'T> =

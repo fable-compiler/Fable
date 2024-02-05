@@ -15,12 +15,8 @@ type BuildFableLibraryDart() =
         )
 
     override this.CopyStage() =
-        Directory.GetFiles(this.SourceDir, "pubspec.*")
-        |> Shell.copyFiles this.BuildDir
+        Directory.GetFiles(this.SourceDir, "pubspec.*") |> Shell.copyFiles this.BuildDir
 
-        Shell.copyFile
-            this.BuildDir
-            (Path.Combine(this.LibraryDir, "analysis_options.yaml"))
+        Shell.copyFile this.BuildDir (Path.Combine(this.LibraryDir, "analysis_options.yaml"))
 
-        Directory.GetFiles(this.SourceDir, "*.dart")
-        |> Shell.copyFiles this.OutDir
+        Directory.GetFiles(this.SourceDir, "*.dart") |> Shell.copyFiles this.OutDir

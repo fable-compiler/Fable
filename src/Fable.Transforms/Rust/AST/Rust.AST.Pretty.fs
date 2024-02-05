@@ -202,15 +202,7 @@ type Token with
 
         fmt.Result.Ok()
 
-let buf_str
-    (
-        buf: Vec<BufEntry>,
-        left: usize,
-        right: usize,
-        lim: usize
-    )
-    : String
-    =
+let buf_str (buf: Vec<BufEntry>, left: usize, right: usize, lim: usize) : String =
     let n = buf.len ()
     let mutable i = left
     let mutable l = lim
@@ -331,12 +323,7 @@ type Printer with
         else
             self.advance_right ()
 
-        debug (
-            "pp Begin({0})/buffer Vec<{1},{2}>",
-            b.offset,
-            self.left,
-            self.right
-        )
+        debug ("pp Begin({0})/buffer Vec<{1},{2}>", b.offset, self.left, self.right)
 
         self.scan_push (
             {
@@ -369,12 +356,7 @@ type Printer with
         else
             self.advance_right ()
 
-        debug (
-            "pp Break({0})/buffer Vec<{1},{2}>",
-            b.offset,
-            self.left,
-            self.right
-        )
+        debug ("pp Break({0})/buffer Vec<{1},{2}>", b.offset, self.left, self.right)
 
         self.check_stack (0)
 
@@ -389,21 +371,11 @@ type Printer with
 
     member self.scan_string(s: string) =
         if self.scan_stack.is_empty () then
-            debug (
-                "pp String('{0}')/print Vec<{1},{2}>",
-                s,
-                self.left,
-                self.right
-            )
+            debug ("pp String('{0}')/print Vec<{1},{2}>", s, self.left, self.right)
 
             self.print_string (s)
         else
-            debug (
-                "pp String('{0}')/buffer Vec<{1},{2}>",
-                s,
-                self.left,
-                self.right
-            )
+            debug ("pp String('{0}')/buffer Vec<{1},{2}>", s, self.left, self.right)
 
             self.advance_right ()
             let len = s.len ()
@@ -464,13 +436,7 @@ type Printer with
         assert_ne (self.right, self.left)
 
     member self.advance_left() =
-        debug (
-            "advance_left Vec<{0},{1}>, sizeof({2})={3}",
-            self.left,
-            self.right,
-            self.left,
-            self.buf[self.left].size
-        )
+        debug ("advance_left Vec<{0},{1}>, sizeof({2})={3}", self.left, self.right, self.left, self.buf[self.left].size)
 
         let mutable left_size = self.buf[self.left].size
         let mutable finished = false
@@ -575,29 +541,18 @@ type Printer with
             self.space_left <- self.space_left - b.blank_space
             self.indent (b.blank_space)
         | PrintStackBreak.Broken(Breaks.Consistent) ->
-            debug (
-                "print Break({0}+{1}) in consistent block",
-                top.offset,
-                b.offset
-            )
+            debug ("print Break({0}+{1}) in consistent block", top.offset, b.offset)
 
             self.print_newline (top.offset + b.offset)
             self.space_left <- self.margin - (top.offset + b.offset)
         | PrintStackBreak.Broken(Breaks.Inconsistent) ->
             if l > self.space_left then
-                debug (
-                    "print Break({0}+{1}) w/ newline in inconsistent",
-                    top.offset,
-                    b.offset
-                )
+                debug ("print Break({0}+{1}) w/ newline in inconsistent", top.offset, b.offset)
 
                 self.print_newline (top.offset + b.offset)
                 self.space_left <- self.margin - (top.offset + b.offset)
             else
-                debug (
-                    "print Break({0}) w/o newline in inconsistent",
-                    b.blank_space
-                )
+                debug ("print Break({0}) w/o newline in inconsistent", b.blank_space)
 
                 self.indent (b.blank_space)
                 self.space_left <- self.space_left - b.blank_space
@@ -623,12 +578,7 @@ type Printer with
         self.out.push_str (s)
 
     member self.print(token: Token, l: isize) =
-        debug (
-            "print {0} {1} (remaining line space={2})",
-            token,
-            l,
-            self.space_left
-        )
+        debug ("print {0} {1} (remaining line space={2})", token, l, self.space_left)
 
         debug ("{0}", buf_str (self.buf, self.left, self.right, 6))
 

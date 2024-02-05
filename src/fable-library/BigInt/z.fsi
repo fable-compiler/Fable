@@ -90,8 +90,7 @@ type BigInteger =
     member Sign: int
 
     /// Compute the ratio and remainder of two big integers
-    static member DivRem:
-        x: BigInteger * y: BigInteger -> BigInteger * BigInteger
+    static member DivRem: x: BigInteger * y: BigInteger -> BigInteger * BigInteger
 
     /// This operator is for consistency when this type be used from other CLI languages
     static member op_LessThan: x: BigInteger * y: BigInteger -> bool
@@ -107,8 +106,7 @@ type BigInteger =
     static member op_Inequality: x: BigInteger * y: BigInteger -> bool
 
     /// Return the greatest common divisor of two big integers
-    static member GreatestCommonDivisor:
-        x: BigInteger * y: BigInteger -> BigInteger
+    static member GreatestCommonDivisor: x: BigInteger * y: BigInteger -> BigInteger
 
     /// Return n^m for two big integers
     static member Pow: x: BigInteger * y: int32 -> BigInteger

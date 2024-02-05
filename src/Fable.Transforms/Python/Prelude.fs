@@ -24,9 +24,7 @@ module Naming =
                 if m.Value.Length = 1 then
                     m.Value.ToLowerInvariant()
                 else
-                    m.Value.Substring(0, 1)
-                    + separator
-                    + m.Value.Substring(1, 1).ToLowerInvariant()
+                    m.Value.Substring(0, 1) + separator + m.Value.Substring(1, 1).ToLowerInvariant()
         )
 
     let applyCaseRule caseRule name =
@@ -201,14 +199,7 @@ module Naming =
 
                         if isIdentChar i c then
                             string<char> c
-                        elif
-                            c = '$'
-                            || c = '_'
-                            || c = ' '
-                            || c = '*'
-                            || c = '.'
-                            || c = '`'
-                        then
+                        elif c = '$' || c = '_' || c = ' ' || c = '*' || c = '.' || c = '`' then
                             "_"
                         else
                             "_" + String.Format("{0:X}", int c).PadLeft(4, '0')

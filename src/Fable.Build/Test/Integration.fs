@@ -11,24 +11,14 @@ open SimpleExec
 let private integrationProjectDir =
     Path.Resolve("tests", "Integration", "Integration")
 
-let private compilerProjectDir =
-    Path.Resolve("tests", "Integration", "Compiler")
+let private compilerProjectDir = Path.Resolve("tests", "Integration", "Compiler")
 
-let private testProjectConfig
-    (projectDirName: string)
-    (configuration: string option)
-    =
+let private testProjectConfig (projectDirName: string) (configuration: string option) =
     let projectDir =
         Path.Resolve("tests", "Integration", "ProjectConfigs", projectDirName)
 
     let destinationDir =
-        Path.Resolve(
-            "temp",
-            "tests",
-            "Integration",
-            "ProjectConfigs",
-            projectDirName
-        )
+        Path.Resolve("temp", "tests", "Integration", "ProjectConfigs", projectDirName)
 
     Directory.clean destinationDir
 
@@ -41,26 +31,14 @@ let private testProjectConfig
 
     Command.Fable(fableArgs)
 
-    Command.Run(
-        "npx",
-        "npx mocha . --reporter dot -t 10000",
-        workingDirectory = destinationDir
-    )
+    Command.Run("npx", "npx mocha . --reporter dot -t 10000", workingDirectory = destinationDir)
 
 let handle (args: string list) =
     BuildFableLibraryJavaScript().Run()
 
-    Command.Run(
-        "dotnet",
-        "run -c Release",
-        workingDirectory = integrationProjectDir
-    )
+    Command.Run("dotnet", "run -c Release", workingDirectory = integrationProjectDir)
 
-    Command.Run(
-        "dotnet",
-        "run -c Release",
-        workingDirectory = compilerProjectDir
-    )
+    Command.Run("dotnet", "run -c Release", workingDirectory = compilerProjectDir)
 
     testProjectConfig "DebugWithExtraDefines" (Some "Debug")
     testProjectConfig "CustomConfiguration" (Some "Test")

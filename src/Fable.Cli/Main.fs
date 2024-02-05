@@ -22,13 +22,7 @@ module private Util =
             { new PathResolver with
                 member _.TryPrecompiledOutPath(_sourceDir, _relativePath) = None
 
-                member _.GetOrAddDeduplicateTargetDir
-                    (
-                        _importDir,
-                        _addTargetDir
-                    )
-                    =
-                    ""
+                member _.GetOrAddDeduplicateTargetDir(_importDir, _addTargetDir) = ""
             }
 
     let isImplementationFile (fileName: string) =
@@ -87,8 +81,7 @@ module private Util =
             match log.Range with
             | Some r ->
                 $"%s{file}(%i{r.start.line},%i{r.start.column}): (%i{r.``end``.line},%i{r.``end``.column}) %s{severity} %s{log.Tag}: %s{log.Message}"
-            | None ->
-                $"%s{file}(1,1): %s{severity} %s{log.Tag}: %s{log.Message}"
+            | None -> $"%s{file}(1,1): %s{severity} %s{log.Tag}: %s{log.Message}"
 
     let logErrors rootDir (logs: LogEntry seq) =
         logs
@@ -121,13 +114,7 @@ module private Util =
 
             let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
 
-            LogEntry.Make(
-                severity,
-                msg,
-                fileName = er.FileName,
-                range = range,
-                tag = "FSHARP"
-            )
+            LogEntry.Make(severity, msg, fileName = er.FileName, range = range, tag = "FSHARP")
         )
 
     let getOutPath (cliArgs: CliArgs) pathResolver file =
@@ -144,21 +131,13 @@ module private Util =
                 | None -> IO.Path.GetDirectoryName cliArgs.ProjectFile
 
             let absPath =
-                let absPath =
-                    Imports.getTargetAbsolutePath
-                        pathResolver
-                        file
-                        projDir
-                        outDir
+                let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
 
                 let fileName = IO.Path.GetFileName(file)
 
                 let modules =
                     absPath
-                        .Substring(
-                            outDir.Length,
-                            absPath.Length - outDir.Length - fileName.Length
-                        )
+                        .Substring(outDir.Length, absPath.Length - outDir.Length - fileName.Length)
                         .Trim(
                             [|
                                 '/'
@@ -174,18 +153,13 @@ module private Util =
 
                 let modules =
                     match Array.toList modules, cliArgs.FableLibraryPath with
-                    | Naming.fableModules :: package :: modules,
-                      Some Py.Naming.sitePackages ->
+                    | Naming.fableModules :: package :: modules, Some Py.Naming.sitePackages ->
                         // When building packages we generate Python snake_case module within the kebab-case package
                         let packageModule = package.Replace("-", "_")
                         // Make sure all modules (subdirs) we create within outDir are lower case (PEP8)
-                        let modules =
-                            modules |> List.map (fun m -> m.ToLowerInvariant())
+                        let modules = modules |> List.map (fun m -> m.ToLowerInvariant())
 
-                        Naming.fableModules
-                        :: package
-                        :: packageModule
-                        :: modules
+                        Naming.fableModules :: package :: packageModule :: modules
                     | modules, _ ->
                         modules
                         |> List.map (fun m ->
@@ -208,11 +182,7 @@ module private Util =
                 | TypeScript ->
                     let isInFableModules = Naming.isInFableModules file
 
-                    File.changeExtensionButUseDefaultExtensionInFableModules
-                        lang
-                        isInFableModules
-                        path
-                        fileExt
+                    File.changeExtensionButUseDefaultExtensionInFableModules lang isInFableModules path fileExt
                 | _ -> Path.ChangeExtension(path, fileExt)
 
             let fileExt = cliArgs.CompilerOptions.FileExtension
@@ -221,22 +191,12 @@ module private Util =
             | Some outDir ->
                 let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
 
-                let absPath =
-                    Imports.getTargetAbsolutePath
-                        pathResolver
-                        file
-                        projDir
-                        outDir
+                let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
 
                 changeExtension absPath fileExt
             | None -> changeExtension file fileExt
 
-    let compileFile
-        (com: CompilerImpl)
-        (cliArgs: CliArgs)
-        pathResolver
-        isSilent
-        =
+    let compileFile (com: CompilerImpl) (cliArgs: CliArgs) pathResolver isSilent =
         async {
             let fileName = (com :> Compiler).CurrentFile
 
@@ -249,13 +209,7 @@ module private Util =
                 if not (IO.Directory.Exists dir) then
                     IO.Directory.CreateDirectory dir |> ignore
 
-                do!
-                    Pipeline.compileFile
-                        com
-                        cliArgs
-                        pathResolver
-                        isSilent
-                        outPath
+                do! Pipeline.compileFile com cliArgs pathResolver isSilent outPath
 
                 return
                     Ok
@@ -307,17 +261,12 @@ module FileWatcherUtil =
 
                     if
                         restDirs
-                        |> List.forall (fun d ->
-                            (withTrailingSep d)
-                                .StartsWith(dir', StringComparison.Ordinal)
-                        )
+                        |> List.forall (fun d -> (withTrailingSep d).StartsWith(dir', StringComparison.Ordinal))
                     then
                         dir
                     else
                         match IO.Path.GetDirectoryName(dir) with
-                        | null ->
-                            failwith
-                                "No common base dir, please run again with --verbose option and report"
+                        | null -> failwith "No common base dir, please run again with --verbose option and report"
                         | dir -> getCommonDir dir
 
                 getCommonDir dir
@@ -338,10 +287,7 @@ type FsWatcher(delayMs: int) =
     let createWatcher () =
         let usePolling =
             // This is the same variable used by dotnet watch
-            let envVar =
-                Environment.GetEnvironmentVariable(
-                    "DOTNET_USE_POLLING_FILE_WATCHER"
-                )
+            let envVar = Environment.GetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER")
 
             not (isNull envVar)
             && (envVar.Equals("1", StringComparison.OrdinalIgnoreCase)
@@ -359,11 +305,7 @@ type FsWatcher(delayMs: int) =
                         "\..+"
                     ]
 
-                upcast
-                    new ResetablePollingFileWatcher(
-                        globFilters,
-                        ignoredDirectoryNameRegexes
-                    )
+                upcast new ResetablePollingFileWatcher(globFilters, ignoredDirectoryNameRegexes)
             else
                 upcast new DotnetFileWatcher(globFilters)
 
@@ -372,16 +314,12 @@ type FsWatcher(delayMs: int) =
     let watcher = createWatcher ()
 
     let observable =
-        Observable.SingleObservable(fun () ->
-            watcher.EnableRaisingEvents <- false
-        )
+        Observable.SingleObservable(fun () -> watcher.EnableRaisingEvents <- false)
 
     do
         watcher.OnFileChange.Add(fun path -> observable.Trigger(path))
 
-        watcher.OnError.Add(fun ev ->
-            Log.verbose (lazy $"[WATCHER] {ev.GetException().Message}")
-        )
+        watcher.OnError.Add(fun ev -> Log.verbose (lazy $"[WATCHER] {ev.GetException().Message}"))
 
     member _.BasePath = watcher.BasePath
 
@@ -406,13 +344,7 @@ type FsWatcher(delayMs: int) =
         |> Observable.throttle delayMs
         |> Observable.map caseInsensitiveSet
 
-type ProjectCracked
-    (
-        cliArgs: CliArgs,
-        crackerResponse: CrackerResponse,
-        sourceFiles: Fable.Compiler.File array
-    )
-    =
+type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFiles: Fable.Compiler.File array) =
 
     member _.CliArgs = cliArgs
     member _.ProjectFile = cliArgs.ProjectFile
@@ -423,8 +355,7 @@ type ProjectCracked
     member _.CanReuseCompiledFiles = crackerResponse.CanReuseCompiledFiles
     member _.SourceFiles = sourceFiles
 
-    member _.SourceFilePaths =
-        sourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
+    member _.SourceFilePaths = sourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
 
     member _.FableLibDir = crackerResponse.FableLibDir
     member _.FableModulesDir = crackerResponse.FableModulesDir
@@ -432,12 +363,10 @@ type ProjectCracked
     member _.MakeCompiler(currentFile, project, ?triggeredByDependency) =
         let opts =
             match triggeredByDependency with
-            | Some t ->
-                { cliArgs.CompilerOptions with TriggeredByDependency = t }
+            | Some t -> { cliArgs.CompilerOptions with TriggeredByDependency = t }
             | None -> cliArgs.CompilerOptions
 
-        let fableLibDir =
-            Path.getRelativePath currentFile crackerResponse.FableLibDir
+        let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
 
         let watchDependencies =
             if cliArgs.IsWatch then
@@ -491,8 +420,7 @@ OUTPUT TYPE: {result.OutputType}
                 "Compiling project as Library. If you intend to run the code directly, please set OutputType to Exe."
         | _ -> ()
 
-        let sourceFiles =
-            result.ProjectOptions.SourceFiles |> Array.map Fable.Compiler.File
+        let sourceFiles = result.ProjectOptions.SourceFiles |> Array.map Fable.Compiler.File
 
         ProjectCracked(cliArgs, result, sourceFiles)
 
@@ -508,9 +436,7 @@ type FableCompileResult =
         Exception: exn
     |}>
 
-type ReplyChannel =
-    AsyncReplyChannel<Result< (* fsharpLogs *) LogEntry[] *
-    FableCompileResult list, exn>>
+type ReplyChannel = AsyncReplyChannel<Result< (* fsharpLogs *) LogEntry[] * FableCompileResult list, exn>>
 
 type FableCompilerMsg =
     | GetFableProject of replyChannel: AsyncReplyChannel<Project>
@@ -557,15 +483,11 @@ type FableCompilerState =
             FableProj = fableProj
             PathResolver = defaultArg pathResolver PathResolver.Dummy
             IsSilent = defaultArg isSilent false
-            TriggeredByDependency =
-                defaultArg triggeredByDependency (fun _ -> false)
+            TriggeredByDependency = defaultArg triggeredByDependency (fun _ -> false)
             FilesToCompile = filesToCompile
             FilesToCompileSet = set filesToCompile
             FilesCheckedButNotCompiled = Set.empty
-            FableFilesToCompileExpectedCount =
-                filesToCompile
-                |> Array.filter isImplementationFile
-                |> Array.length
+            FableFilesToCompileExpectedCount = filesToCompile |> Array.filter isImplementationFile |> Array.length
             FableFilesCompiledCount = 0
             FSharpLogs = [||]
             FableResults = []
@@ -573,13 +495,7 @@ type FableCompilerState =
             ReplyChannel = replyChannel
         }
 
-and FableCompiler
-    (
-        checker: InteractiveChecker,
-        projCracked: ProjectCracked,
-        fableProj: Project
-    )
-    =
+and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fableProj: Project) =
     let agent =
         MailboxProcessor<FableCompilerMsg>.Start(fun agent ->
             let startInThreadPool toMsg work =
@@ -603,16 +519,10 @@ and FableCompiler
                                 projCracked.MakeCompiler(
                                     fileName,
                                     fableProj,
-                                    triggeredByDependency =
-                                        state.TriggeredByDependency(fileName)
+                                    triggeredByDependency = state.TriggeredByDependency(fileName)
                                 )
 
-                            let! res =
-                                compileFile
-                                    com
-                                    projCracked.CliArgs
-                                    state.PathResolver
-                                    state.IsSilent
+                            let! res = compileFile com projCracked.CliArgs state.PathResolver state.IsSilent
 
                             let res =
                                 if not projCracked.CliArgs.Precompile then
@@ -620,29 +530,19 @@ and FableCompiler
                                 else
                                     res
                                     |> Result.map (fun res ->
-                                        {| res with
-                                            InlineExprs =
-                                                fableProj.GetFileInlineExprs(
-                                                    com
-                                                )
-                                        |}
+                                        {| res with InlineExprs = fableProj.GetFileInlineExprs(com) |}
                                     )
 
                             return fileName, res
                         }
                     )
 
-                { state with
-                    FilesCheckedButNotCompiled =
-                        Set.add fileName state.FilesCheckedButNotCompiled
-                }
+                { state with FilesCheckedButNotCompiled = Set.add fileName state.FilesCheckedButNotCompiled }
 
             let rec loop state =
                 async {
                     match! agent.Receive() with
-                    | UnexpectedError er ->
-                        state.ReplyChannel
-                        |> Option.iter (fun ch -> Error er |> ch.Reply)
+                    | UnexpectedError er -> state.ReplyChannel |> Option.iter (fun ch -> Error er |> ch.Reply)
 
                     | GetFableProject channel ->
                         channel.Reply(state.FableProj)
@@ -667,20 +567,13 @@ and FableCompiler
                         startInThreadPool
                             FSharpCompilationFinished
                             (fun () ->
-                                let filePaths, sourceReader =
-                                    Fable.Compiler.File.MakeSourceReader
-                                        sourceFiles
+                                let filePaths, sourceReader = Fable.Compiler.File.MakeSourceReader sourceFiles
 
                                 let subscriber =
-                                    if
-                                        projCracked.CliArgs.NoParallelTypeCheck
-                                    then
+                                    if projCracked.CliArgs.NoParallelTypeCheck then
                                         None
                                     else
-                                        Some(
-                                            FSharpFileTypeChecked
-                                            >> agent.Post
-                                        )
+                                        Some(FSharpFileTypeChecked >> agent.Post)
 
                                 checker.ParseAndCheckProject(
                                     projCracked.ProjectFile,
@@ -695,40 +588,24 @@ and FableCompiler
 
                     | FSharpFileTypeChecked file ->
                         Log.verbose (
-                            lazy
-                                $"Type checked: {IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, file.FileName)}"
+                            lazy $"Type checked: {IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, file.FileName)}"
                         )
 
                         // Print F# AST to file
                         if projCracked.CliArgs.PrintAst then
-                            let outPath =
-                                getOutPath
-                                    projCracked.CliArgs
-                                    state.PathResolver
-                                    file.FileName
+                            let outPath = getOutPath projCracked.CliArgs state.PathResolver file.FileName
 
                             let outDir = IO.Path.GetDirectoryName(outPath)
                             Printers.printAst outDir [ file ]
 
                         // It seems when there's a pair .fsi/.fs the F# compiler gives the .fsi extension to the implementation file
-                        let fileName =
-                            file.FileName
-                            |> Path.normalizePath
-                            |> Path.ensureFsExtension
+                        let fileName = file.FileName |> Path.normalizePath |> Path.ensureFsExtension
 
                         let state =
-                            if
-                                not (
-                                    state.FilesToCompileSet.Contains(fileName)
-                                )
-                            then
+                            if not (state.FilesToCompileSet.Contains(fileName)) then
                                 state
                             else
-                                let state =
-                                    { state with
-                                        FableProj =
-                                            state.FableProj.Update([ file ])
-                                    }
+                                let state = { state with FableProj = state.FableProj.Update([ file ]) }
 
                                 fableCompile state fileName
 
@@ -739,44 +616,28 @@ and FableCompiler
 
                         let state =
                             { state with
-                                FSharpLogs =
-                                    getFSharpDiagnostics results.Diagnostics
+                                FSharpLogs = getFSharpDiagnostics results.Diagnostics
                                 HasFSharpCompilationFinished = true
                             }
 
                         let state =
                             if projCracked.CliArgs.NoParallelTypeCheck then
                                 let implFiles =
-                                    if
-                                        projCracked.CliArgs.CompilerOptions.OptimizeFSharpAst
-                                    then
-                                        results
-                                            .GetOptimizedAssemblyContents()
-                                            .ImplementationFiles
+                                    if projCracked.CliArgs.CompilerOptions.OptimizeFSharpAst then
+                                        results.GetOptimizedAssemblyContents().ImplementationFiles
                                     else
                                         results.AssemblyContents.ImplementationFiles
 
-                                let state =
-                                    { state with
-                                        FableProj =
-                                            state.FableProj.Update(implFiles)
-                                    }
+                                let state = { state with FableProj = state.FableProj.Update(implFiles) }
 
                                 let filesToCompile =
                                     state.FilesToCompile
                                     |> Array.filter (fun file ->
-                                        file.EndsWith(
-                                            ".fs",
-                                            StringComparison.Ordinal
-                                        )
-                                        || file.EndsWith(
-                                            ".fsx",
-                                            StringComparison.Ordinal
-                                        )
+                                        file.EndsWith(".fs", StringComparison.Ordinal)
+                                        || file.EndsWith(".fsx", StringComparison.Ordinal)
                                     )
 
-                                (state, filesToCompile)
-                                ||> Array.fold fableCompile
+                                (state, filesToCompile) ||> Array.fold fableCompile
                             else
                                 state
 
@@ -787,46 +648,28 @@ and FableCompiler
                         let state =
                             { state with
                                 FableResults = result :: state.FableResults
-                                FableFilesCompiledCount =
-                                    state.FableFilesCompiledCount + 1
-                                FilesCheckedButNotCompiled =
-                                    Set.remove
-                                        fileName
-                                        state.FilesCheckedButNotCompiled
+                                FableFilesCompiledCount = state.FableFilesCompiledCount + 1
+                                FilesCheckedButNotCompiled = Set.remove fileName state.FilesCheckedButNotCompiled
                             }
 
                         if not state.IsSilent then
                             let msg =
-                                let fileName =
-                                    IO.Path.GetRelativePath(
-                                        projCracked.CliArgs.RootDir,
-                                        fileName
-                                    )
+                                let fileName = IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, fileName)
 
                                 $"Compiled {state.FableFilesCompiledCount}/{state.FableFilesToCompileExpectedCount}: {fileName}"
 
                             if projCracked.CliArgs.NoParallelTypeCheck then
                                 Log.always msg
                             else
-                                let isCi =
-                                    String.IsNullOrEmpty(
-                                        Environment.GetEnvironmentVariable(
-                                            "CI"
-                                        )
-                                    )
-                                    |> not
+                                let isCi = String.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")) |> not
 
                                 match projCracked.CliArgs.Verbosity with
                                 | Verbosity.Silent -> ()
-                                | Verbosity.Verbose ->
-                                    Console.Out.WriteLine(msg)
+                                | Verbosity.Verbose -> Console.Out.WriteLine(msg)
                                 | Verbosity.Normal ->
                                     // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
                                     // the same line as it seems to cause problems, see #2727
-                                    if
-                                        not isCi
-                                        && not Console.IsOutputRedirected
-                                    then
+                                    if not isCi && not Console.IsOutputRedirected then
                                         // If the message is longer than the terminal width it will jump to next line
                                         let msg =
                                             if msg.Length > 80 then
@@ -836,23 +679,15 @@ and FableCompiler
 
                                         let curCursorLeft = Console.CursorLeft
 
-                                        Console.SetCursorPosition(
-                                            0,
-                                            Console.CursorTop
-                                        )
+                                        Console.SetCursorPosition(0, Console.CursorTop)
 
                                         Console.Out.Write(msg)
                                         let diff = curCursorLeft - msg.Length
 
                                         if diff > 0 then
-                                            Console.Out.Write(
-                                                String.replicate diff " "
-                                            )
+                                            Console.Out.Write(String.replicate diff " ")
 
-                                            Console.SetCursorPosition(
-                                                msg.Length,
-                                                Console.CursorTop
-                                            )
+                                            Console.SetCursorPosition(msg.Length, Console.CursorTop)
 
                         FableCompiler.CheckIfCompilationIsFinished(state)
                         return! loop state
@@ -864,15 +699,7 @@ and FableCompiler
     member _.GetFableProject() =
         agent.PostAndAsyncReply(GetFableProject)
 
-    member _.StartCompilation
-        (
-            sourceFiles,
-            filesToCompile,
-            pathResolver,
-            isSilent,
-            isTriggeredByDependency
-        )
-        =
+    member _.StartCompilation(sourceFiles, filesToCompile, pathResolver, isSilent, isTriggeredByDependency) =
         async {
             if Array.isEmpty filesToCompile then
                 return [||], []
@@ -897,22 +724,14 @@ and FableCompiler
                 return
                     match results with
                     | Ok results ->
-                        Log.always
-                            $"Fable compilation finished in %i{ms}ms{Log.newLine}"
+                        Log.always $"Fable compilation finished in %i{ms}ms{Log.newLine}"
 
                         results
-                    | Error e ->
-                        e.Message + Log.newLine + e.StackTrace
-                        |> Fable.FableError
-                        |> raise
+                    | Error e -> e.Message + Log.newLine + e.StackTrace |> Fable.FableError |> raise
         }
 
     static member CheckIfCompilationIsFinished(state: FableCompilerState) =
-        match
-            state.HasFSharpCompilationFinished,
-            Set.isEmpty state.FilesCheckedButNotCompiled,
-            state.ReplyChannel
-        with
+        match state.HasFSharpCompilationFinished, Set.isEmpty state.FilesCheckedButNotCompiled, state.ReplyChannel with
         | true, true, Some channel ->
             // Fable results are not guaranteed to be in order but revert them to make them closer to the original order
             let fableResults = state.FableResults |> List.rev
@@ -931,9 +750,7 @@ and FableCompiler
                     [],
                     assemblies,
                     Log.log,
-                    ?precompiledInfo =
-                        (projCracked.PrecompiledInfo
-                         |> Option.map (fun i -> i :> _)),
+                    ?precompiledInfo = (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
                     getPlugin = Reflection.loadType projCracked.CliArgs
                 )
 
@@ -1010,8 +827,7 @@ type State =
     member this.TriggeredByDependency(path: string, changes: ISet<string>) =
         match Map.tryFind path this.WatchDependencies with
         | None -> false
-        | Some watchDependencies ->
-            watchDependencies |> Array.exists changes.Contains
+        | Some watchDependencies -> watchDependencies |> Array.exists changes.Contains
 
     member this.GetPathResolver(?precompiledInfo: PrecompiledInfoImpl) =
         { new PathResolver with
@@ -1019,26 +835,16 @@ type State =
                 match precompiledInfo with
                 | None -> None
                 | Some precompiledInfo ->
-                    let fullPath =
-                        IO.Path.Combine(sourceDir, relativePath)
-                        |> Path.normalizeFullPath
+                    let fullPath = IO.Path.Combine(sourceDir, relativePath) |> Path.normalizeFullPath
 
                     precompiledInfo.TryPrecompiledOutPath(fullPath)
 
-            member _.GetOrAddDeduplicateTargetDir
-                (
-                    importDir: string,
-                    addTargetDir
-                )
-                =
+            member _.GetOrAddDeduplicateTargetDir(importDir: string, addTargetDir) =
                 // importDir must be trimmed and normalized by now, but lower it just in case
                 // as some OS use case insensitive paths
                 let importDir = importDir.ToLower()
 
-                this.DeduplicateDic.GetOrAdd(
-                    importDir,
-                    fun _ -> set this.DeduplicateDic.Values |> addTargetDir
-                )
+                this.DeduplicateDic.GetOrAdd(importDir, (fun _ -> set this.DeduplicateDic.Values |> addTargetDir))
         }
 
     static member Create(cliArgs, ?watchDelay, ?recompileAllFiles) =
@@ -1088,16 +894,12 @@ let private getFilesToCompile
                 let outPath = getOutPath state.CliArgs pathResolver path
 
                 let wasDeleted =
-                    (path.EndsWith(".fs") || path.EndsWith(".fsx"))
-                    && not (IO.File.Exists outPath)
+                    (path.EndsWith(".fs") || path.EndsWith(".fsx")) && not (IO.File.Exists outPath)
 
                 wasDeleted)
         )
 
-    Log.verbose (
-        lazy
-            $"""Files to compile:{Log.newLine}    {filesToCompile |> String.concat $"{Log.newLine}    "}"""
-    )
+    Log.verbose (lazy $"""Files to compile:{Log.newLine}    {filesToCompile |> String.concat $"{Log.newLine}    "}""")
 
     projCracked, filesToCompile
 
@@ -1118,10 +920,7 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
                 if IO.File.Exists(outPath) then
                     foundCompiledFile <- true
 
-                    let upToDate =
-                        IO.File.GetLastWriteTime(source) < IO
-                            .File
-                            .GetLastWriteTime(outPath)
+                    let upToDate = IO.File.GetLastWriteTime(source) < IO.File.GetLastWriteTime(outPath)
 
                     if not upToDate then
                         Log.verbose (
@@ -1149,11 +948,7 @@ let private runProcessAndForget (cliArgs: CliArgs) (runProc: RunProcess) =
     Process.startWithEnv cliArgs.RunProcessEnv workingDir exeFile runProc.Args
     { cliArgs with RunProcess = None }
 
-let private checkRunProcess
-    (state: State)
-    (projCracked: ProjectCracked)
-    (compilationExitCode: int)
-    =
+let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compilationExitCode: int) =
     let cliArgs = state.CliArgs
 
     match cliArgs.RunProcess with
@@ -1170,8 +965,7 @@ let private checkRunProcess
 
         // Fable's getRelativePath version ensures there's always a period in front of the path: ./
         let findLastFileRelativePath () =
-            findLastFileFullPath ()
-            |> Path.getRelativeFileOrDirPath true workingDir false
+            findLastFileFullPath () |> Path.getRelativeFileOrDirPath true workingDir false
 
         let exeFile, args =
             match cliArgs.CompilerOptions.Language, runProc.ExeFile with
@@ -1179,8 +973,7 @@ let private checkRunProcess
                 let lastFilePath = findLastFileRelativePath ()
                 "python", lastFilePath :: runProc.Args
             | Rust, Naming.placeholder ->
-                let lastFileDir =
-                    IO.Path.GetDirectoryName(findLastFileFullPath ())
+                let lastFileDir = IO.Path.GetDirectoryName(findLastFileFullPath ())
 
                 let args =
                     match File.tryFindUpwards "Cargo.toml" lastFileDir with
@@ -1195,9 +988,7 @@ let private checkRunProcess
                 let lastFilePath = findLastFileRelativePath ()
                 "node", lastFilePath :: runProc.Args
             | (JavaScript | TypeScript), exeFile ->
-                File.tryNodeModulesBin workingDir exeFile
-                |> Option.defaultValue exeFile,
-                runProc.Args
+                File.tryNodeModulesBin workingDir exeFile |> Option.defaultValue exeFile, runProc.Args
             | _, exeFile -> exeFile, runProc.Args
 
         if Option.isSome state.Watcher then
@@ -1212,12 +1003,7 @@ let private checkRunProcess
             0, { state with CliArgs = { cliArgs with RunProcess = runProc } }
         else
             // TODO: When not in watch mode, run process out of this scope to free memory used by Fable/F# compiler
-            let exitCode =
-                Process.runSyncWithEnv
-                    cliArgs.RunProcessEnv
-                    workingDir
-                    exeFile
-                    args
+            let exitCode = Process.runSyncWithEnv cliArgs.RunProcessEnv workingDir exeFile args
 
             exitCode, state
 
@@ -1234,25 +1020,17 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
             | Some(projCracked, fableCompiler) ->
                 // For performance reasons, don't crack .fsx scripts for every change
                 let fsprojChanged =
-                    changes
-                    |> Seq.exists (fun c ->
-                        c.EndsWith(".fsproj", StringComparison.Ordinal)
-                    )
+                    changes |> Seq.exists (fun c -> c.EndsWith(".fsproj", StringComparison.Ordinal))
 
                 if fsprojChanged then
                     let oldProjCracked = projCracked
 
                     let newProjCracked =
-                        ProjectCracked.Init(
-                            { cliArgs with NoCache = true },
-                            evaluateOnly = true
-                        )
+                        ProjectCracked.Init({ cliArgs with NoCache = true }, evaluateOnly = true)
 
                     // If only source files have changed, keep the project checker to speed up recompilation
                     let fableCompiler =
-                        if
-                            oldProjCracked.ProjectOptions.OtherOptions = newProjCracked.ProjectOptions.OtherOptions
-                        then
+                        if oldProjCracked.ProjectOptions.OtherOptions = newProjCracked.ProjectOptions.OtherOptions then
                             Some fableCompiler
                         else
                             None
@@ -1264,19 +1042,13 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
                     let newProjCracked =
                         newProjCracked.MapSourceFiles(fun f ->
-                            match
-                                oldFiles.TryGetValue(f.NormalizedFullPath)
-                            with
+                            match oldFiles.TryGetValue(f.NormalizedFullPath) with
                             | true, f -> f
                             | false, _ -> f
                         )
 
                     let newProjCracked, filesToCompile =
-                        getFilesToCompile
-                            state
-                            changes
-                            (Some oldFiles)
-                            newProjCracked
+                        getFilesToCompile state changes (Some oldFiles) newProjCracked
 
                     newProjCracked, fableCompiler, filesToCompile
                 else
@@ -1286,18 +1058,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                         else
                             changes
 
-                    let projCracked, filesToCompile =
-                        getFilesToCompile state changes None projCracked
+                    let projCracked, filesToCompile = getFilesToCompile state changes None projCracked
 
                     projCracked, Some fableCompiler, filesToCompile
 
         // Update the watcher (it will restart if the fsproj has changed)
         // so changes while compiling get enqueued
         let state =
-            { state with
-                Watcher =
-                    state.Watcher |> Option.map (fun w -> w.Watch(projCracked))
-            }
+            { state with Watcher = state.Watcher |> Option.map (fun w -> w.Watch(projCracked)) }
 
         // If not in watch mode and projCracked.CanReuseCompiledFiles, skip compilation if compiled files are up-to-date
         // NOTE: Don't skip Fable compilation in watch mode because we need to calculate watch dependencies
@@ -1306,8 +1074,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
             && projCracked.CanReuseCompiledFiles
             && areCompiledFilesUpToDate state filesToCompile
         then
-            Log.always
-                "Skipped compilation because all generated files are up-to-date!"
+            Log.always "Skipped compilation because all generated files are up-to-date!"
 
             let exitCode, state = checkRunProcess state projCracked 0
             return state, [||], exitCode
@@ -1340,9 +1107,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                 fableCompiler.StartCompilation(
                     projCracked.SourceFiles, // Make sure to pass the up-to-date source files (with cleared hashes for changed files)
                     filesToCompile,
-                    state.GetPathResolver(
-                        ?precompiledInfo = projCracked.PrecompiledInfo
-                    ),
+                    state.GetPathResolver(?precompiledInfo = projCracked.PrecompiledInfo),
                     state.SilentCompilation,
                     fun f -> state.TriggeredByDependency(f, changes)
                 )
@@ -1358,17 +1123,11 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     | Error e ->
                         let log =
                             match e.Exception with
-                            | Fable.FableError msg ->
-                                LogEntry.MakeError(msg, fileName = e.File)
+                            | Fable.FableError msg -> LogEntry.MakeError(msg, fileName = e.File)
                             | ex ->
-                                let msg =
-                                    ex.Message + Log.newLine + ex.StackTrace
+                                let msg = ex.Message + Log.newLine + ex.StackTrace
 
-                                LogEntry.MakeError(
-                                    msg,
-                                    fileName = e.File,
-                                    tag = "EXCEPTION"
-                                )
+                                LogEntry.MakeError(msg, fileName = e.File, tag = "EXCEPTION")
 
                         Array.append logs [| log |], deps
                 )
@@ -1394,8 +1153,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                         // Ignore warnings from packages in `fable_modules` folder
                         match log.FileName with
                         | Some filename when
-                            Naming.isInFableModules (filename)
-                            || not (filesToCompile.Contains(filename))
+                            Naming.isInFableModules (filename) || not (filesToCompile.Contains(filename))
                             ->
                             ()
                         | _ ->
@@ -1406,8 +1164,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                             else
                                 Log.always formatted
 
-            let errorLogs =
-                logs |> Array.filter (fun log -> log.Severity = Severity.Error)
+            let errorLogs = logs |> Array.filter (fun log -> log.Severity = Severity.Error)
 
             errorLogs |> Array.iter (formatLog cliArgs.RootDir >> Log.error)
             let hasError = Array.isEmpty errorLogs |> not
@@ -1422,10 +1179,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                             ||> List.fold (fun acc res ->
                                 match acc, res with
                                 | Some(outPaths, inlineExprs), Ok res ->
-                                    Some(
-                                        Map.add res.File res.OutPath outPaths,
-                                        res.InlineExprs :: inlineExprs
-                                    )
+                                    Some(Map.add res.File res.OutPath outPaths, res.InlineExprs :: inlineExprs)
                                 | _ -> None
                             )
 
@@ -1434,22 +1188,17 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                         | Some(outPaths, inlineExprs) ->
                             // Assembly generation is single threaded but I couldn't make it work in parallel with serialization
                             // (if I use Async.StartChild, assembly generation doesn't seem to start until serialization is finished)
-                            let dllPath =
-                                PrecompiledInfoImpl.GetDllPath(
-                                    projCracked.FableModulesDir
-                                )
+                            let dllPath = PrecompiledInfoImpl.GetDllPath(projCracked.FableModulesDir)
 
                             Log.always ("Generating assembly...")
 
                             let! (diagnostics, exitCode), ms =
-                                Performance.measureAsync
-                                <| fun _ -> fableCompiler.CompileToFile(dllPath)
+                                Performance.measureAsync <| fun _ -> fableCompiler.CompileToFile(dllPath)
 
                             Log.always ($"Assembly generated in {ms}ms")
 
                             if exitCode <> 0 then
-                                getFSharpDiagnostics diagnostics
-                                |> logErrors cliArgs.RootDir
+                                getFSharpDiagnostics diagnostics |> logErrors cliArgs.RootDir
 
                                 return exitCode
                             else
@@ -1459,39 +1208,28 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                                 let _, ms =
                                     Performance.measure
                                     <| fun _ ->
-                                        let inlineExprs =
-                                            inlineExprs
-                                            |> List.rev
-                                            |> Array.concat
+                                        let inlineExprs = inlineExprs |> List.rev |> Array.concat
 
                                         let files =
                                             fableProj.ImplementationFiles
                                             |> Map.map (fun k v ->
-                                                match
-                                                    Map.tryFind k outPaths
-                                                with
+                                                match Map.tryFind k outPaths with
                                                 | Some outPath ->
                                                     {
-                                                        RootModule =
-                                                            v.RootModule
+                                                        RootModule = v.RootModule
                                                         OutPath = outPath
                                                     }
                                                 | None ->
-                                                    Fable.FableError(
-                                                        $"Cannot find out path for precompiled file {k}"
-                                                    )
+                                                    Fable.FableError($"Cannot find out path for precompiled file {k}")
                                                     |> raise
                                             )
 
                                         PrecompiledInfoImpl.Save(
                                             files = files,
                                             inlineExprs = inlineExprs,
-                                            compilerOptions =
-                                                cliArgs.CompilerOptions,
-                                            fableModulesDir =
-                                                projCracked.FableModulesDir,
-                                            fableLibDir =
-                                                projCracked.FableLibDir
+                                            compilerOptions = cliArgs.CompilerOptions,
+                                            fableModulesDir = projCracked.FableModulesDir,
+                                            fableLibDir = projCracked.FableLibDir
                                         )
 
                                 Log.always ($"Precompiled info saved in {ms}ms")
@@ -1509,13 +1247,10 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
             let state =
                 { state with
-                    ProjectCrackedAndFableCompiler =
-                        Some(projCracked, fableCompiler)
+                    ProjectCrackedAndFableCompiler = Some(projCracked, fableCompiler)
                     PendingFiles =
                         if state.PendingFiles.Length = 0 then
-                            errorLogs
-                            |> Array.choose (fun l -> l.FileName)
-                            |> Array.distinct
+                            errorLogs |> Array.choose (fun l -> l.FileName) |> Array.distinct
                         else
                             state.PendingFiles
                 }
@@ -1530,10 +1265,7 @@ let startCompilation state =
         try
             let state =
                 match state.CliArgs.RunProcess with
-                | Some runProc when runProc.IsFast ->
-                    { state with
-                        CliArgs = runProcessAndForget state.CliArgs runProc
-                    }
+                | Some runProc when runProc.IsFast -> { state with CliArgs = runProcessAndForget state.CliArgs runProc }
                 | _ -> state
 
             // Initialize changes with an empty set
@@ -1559,11 +1291,9 @@ let startCompilation state =
                                                         $"""Changes:{Log.newLine}    {changes |> String.concat $"{Log.newLine}    "}"""
                                                 )
 
-                                            let! state, _logs, _exitCode =
-                                                compilationCycle state changes
+                                            let! state, _logs, _exitCode = compilationCycle state changes
 
-                                            Log.always
-                                                $"Watching {File.relPathToCurDir w.Watcher.BasePath}"
+                                            Log.always $"Watching {File.relPathToCurDir w.Watcher.BasePath}"
 
                                             return! loop state
                                         | _ -> return! loop state
@@ -1572,25 +1302,13 @@ let startCompilation state =
                             let onChange changes =
                                 Changes(DateTime.UtcNow, changes) |> agent.Post
 
-                            loop
-                                { state with
-                                    Watcher =
-                                        Some
-                                            { watcher with
-                                                OnChange = onChange
-                                            }
-                                }
+                            loop { state with Watcher = Some { watcher with OnChange = onChange } }
                         )
 
                     // The watcher will remain active so we don't really need the reply channel, but leave loop on fatal errors
-                    agent.PostAndAsyncReply(fun _ ->
-                        Changes(DateTime.UtcNow, changes)
-                    )
-                    |> ignore
+                    agent.PostAndAsyncReply(fun _ -> Changes(DateTime.UtcNow, changes)) |> ignore
 
-                    Async.FromContinuations(fun (_onSuccess, onError, _onCancel) ->
-                        agent.Error.Add(onError)
-                    )
+                    Async.FromContinuations(fun (_onSuccess, onError, _onCancel) -> agent.Error.Add(onError))
 
             match exitCode with
             | 0 -> return Ok(state, logs)

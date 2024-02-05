@@ -40,13 +40,7 @@ type Cmd =
     /// <returns>
     /// Returns the command line with the arguments to invoke Fable
     /// </returns>
-    static member fable
-        (
-            ?argsBuilder: CmdLine -> CmdLine,
-            ?watchMode: bool
-        )
-        : CmdLine
-        =
+    static member fable(?argsBuilder: CmdLine -> CmdLine, ?watchMode: bool) : CmdLine =
         let argsBuilder = defaultArg argsBuilder id
         // Use absolute path so we can invoke the command from anywhere
         let localFableDir = __SOURCE_DIRECTORY__ </> ".." </> "Fable.Cli"
@@ -135,6 +129,4 @@ module Environment =
     open System.Runtime
 
     let isWindows () =
-        InteropServices.RuntimeInformation.IsOSPlatform(
-            InteropServices.OSPlatform.Windows
-        )
+        InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)

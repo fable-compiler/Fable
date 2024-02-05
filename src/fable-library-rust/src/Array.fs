@@ -20,8 +20,7 @@ let inline length (source: 'T[]) : int = Array.length source
 let inline item (index: int) (source: 'T[]) : 'T = Array.item index source
 let inline get (source: 'T[]) (index: int) : 'T = Array.get source index
 
-let inline set (source: 'T[]) (index: int) (value: 'T) : unit =
-    Array.set source index value
+let inline set (source: 'T[]) (index: int) (value: 'T) : unit = Array.set source index value
 
 let inline copy (source: 'T[]) : 'T[] = Array.copy source
 
@@ -207,12 +206,7 @@ let map (mapping: 'T -> 'U) (source: 'T[]) : 'U[] =
 
     res |> asArray
 
-let mapIndexed2
-    (mapping: int -> 'T1 -> 'T2 -> 'U)
-    (source1: 'T1[])
-    (source2: 'T2[])
-    : 'U[]
-    =
+let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (source1: 'T1[]) (source2: 'T2[]) : 'U[] =
     if source1.Length <> source2.Length then
         differentLengths ()
 
@@ -236,13 +230,7 @@ let map2 (mapping: 'T1 -> 'T2 -> 'U) (source1: 'T1[]) (source2: 'T2[]) : 'U[] =
 
     res |> asArray
 
-let map3
-    (mapping: 'T1 -> 'T2 -> 'T3 -> 'U)
-    (source1: 'T1[])
-    (source2: 'T2[])
-    (source3: 'T3[])
-    : 'U[]
-    =
+let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) : 'U[] =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then
         differentLengths ()
 
@@ -254,12 +242,7 @@ let map3
 
     res |> asArray
 
-let mapFold
-    (mapping: 'State -> 'T -> 'U * 'State)
-    state
-    (source: 'T[])
-    : 'U[] * 'State
-    =
+let mapFold (mapping: 'State -> 'T -> 'U * 'State) state (source: 'T[]) : 'U[] * 'State =
     let mutable acc = state
     let len = source.Length
     let res = ResizeArray<'U>(len)
@@ -271,12 +254,7 @@ let mapFold
 
     res |> asArray, acc
 
-let mapFoldBack
-    (mapping: 'T -> 'State -> 'U * 'State)
-    (source: 'T[])
-    state
-    : 'U[] * 'State
-    =
+let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (source: 'T[]) state : 'U[] * 'State =
     let mutable acc = state
     let len = source.Length
     let res = ResizeArray<'U>(len)
@@ -313,8 +291,7 @@ let concat (sources: 'T[][]) : 'T[] =
 
     res |> asArray
 
-let collect (mapping: 'T -> 'U[]) (source: 'T[]) : 'U[] =
-    concat (map mapping source)
+let collect (mapping: 'T -> 'U[]) (source: 'T[]) : 'U[] = concat (map mapping source)
 
 let exists predicate (source: 'T[]) : bool =
     let mutable i = 0
@@ -339,8 +316,7 @@ let exists2 predicate (source1: 'T1[]) (source2: 'T2[]) : bool =
 
     res
 
-let contains (value: 'T) (source: 'T[]) : bool =
-    exists (fun x -> x = value) source
+let contains (value: 'T) (source: 'T[]) : bool = exists (fun x -> x = value) source
 
 let filter (predicate: 'T -> bool) (source: 'T[]) =
     let res = ResizeArray<_>()
@@ -651,13 +627,7 @@ let fold2 folder (state: 'State) (source1: 'T1[]) (source2: 'T2[]) : 'State =
 
     acc
 
-let foldBack2
-    folder
-    (source1: 'T1[])
-    (source2: 'T2[])
-    (state: 'State)
-    : 'State
-    =
+let foldBack2 folder (source1: 'T1[]) (source2: 'T2[]) (state: 'State) : 'State =
     let mutable acc = state
 
     if source1.Length <> source2.Length then
@@ -739,13 +709,7 @@ let permute (indexMap: int -> int) (source: 'T[]) : 'T[] =
 
     res
 
-let inline private setSubArray
-    (target: 'T[])
-    (start: int)
-    (count: int)
-    (source: 'T[])
-    : unit
-    =
+let inline private setSubArray (target: 'T[]) (start: int) (count: int) (source: 'T[]) : unit =
     for i = 0 to count - 1 do
         target[start + i] <- source[i]
 
@@ -766,19 +730,12 @@ let getSlice (source: 'T[]) (lower: int option) (upper: int option) : 'T[] =
     let start, stop = computeSlice 0 lower upper source.Length
     getSubArray source start (stop - start + 1)
 
-let setSlice
-    (target: 'T[])
-    (lower: int option)
-    (upper: int option)
-    (source: 'T[])
-    : unit
-    =
+let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) : unit =
     let start = defaultArg lower 0
     let stop = defaultArg upper (target.Length - 1)
     setSubArray target start (stop - start + 1) source
 
-let sortInPlaceWith (comparer: 'T -> 'T -> int) (source: 'T[]) : unit =
-    System.Array.Sort(source, comparer)
+let sortInPlaceWith (comparer: 'T -> 'T -> int) (source: 'T[]) : unit = System.Array.Sort(source, comparer)
 
 let sortInPlace (source: 'T[]) : unit = sortInPlaceWith compare source
 
@@ -820,11 +777,7 @@ let allPairs (xs: 'T1[]) (ys: 'T2[]) : ('T1 * 'T2)[] =
 
     res |> asArray
 
-let unfold<'T, 'State>
-    (generator: 'State -> ('T * 'State) option)
-    (state: 'State)
-    : 'T[]
-    =
+let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'State) : 'T[] =
     let rec inner_loop generator (state: 'State) (res: ResizeArray<'T>) =
         match generator state with
         | None -> ()
@@ -866,15 +819,9 @@ let unzip3 (source: ('T1 * 'T2 * 'T3)[]) : 'T1[] * 'T2[] * 'T3[] =
 
     res1 |> asArray, res2 |> asArray, res3 |> asArray
 
-let zip (source1: 'T1[]) (source2: 'T2[]) : ('T1 * 'T2)[] =
-    map2 (fun x y -> x, y) source1 source2
+let zip (source1: 'T1[]) (source2: 'T2[]) : ('T1 * 'T2)[] = map2 (fun x y -> x, y) source1 source2
 
-let zip3
-    (source1: 'T1[])
-    (source2: 'T2[])
-    (source3: 'T3[])
-    : ('T1 * 'T2 * 'T3)[]
-    =
+let zip3 (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) : ('T1 * 'T2 * 'T3)[] =
     map3 (fun x y z -> x, y, z) source1 source2 source3
 
 let chunkBySize (chunkSize: int) (source: 'T[]) : 'T[][] =
@@ -1033,8 +980,7 @@ let splitInto (chunks: int) (source: 'T[]) : 'T[][] =
                 else
                     minChunkSize
 
-            let start =
-                i * minChunkSize + (System.Math.Min(chunksWithExtraItem, i))
+            let start = i * minChunkSize + (System.Math.Min(chunksWithExtraItem, i))
 
             let slice = getSubArray source start chunkSize
             res.Add(slice)
@@ -1070,11 +1016,7 @@ let distinct<'T when 'T: equality> (xs: 'T[]) : 'T[] =
     let hashSet = System.Collections.Generic.HashSet<'T>()
     xs |> filter (fun x -> hashSet.Add(x))
 
-let distinctBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T[])
-    : 'T[]
-    =
+let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]) : 'T[] =
     let hashSet = System.Collections.Generic.HashSet<'Key>()
     xs |> filter (fun x -> hashSet.Add(projection x))
 
@@ -1082,11 +1024,7 @@ let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T[]) : 'T[] =
     let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude)
     xs |> filter (fun x -> hashSet.Add(x))
 
-let countBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T[])
-    : ('Key * int)[]
-    =
+let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]) : ('Key * int)[] =
     let dict = System.Collections.Generic.Dictionary<'Key, int>()
     let keys = ResizeArray<'Key>()
 
@@ -1101,11 +1039,7 @@ let countBy<'T, 'Key when 'Key: equality>
 
     keys |> asArray |> map (fun key -> key, dict[key])
 
-let groupBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T[])
-    : ('Key * 'T[])[]
-    =
+let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]) : ('Key * 'T[])[] =
     let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
     let keys = ResizeArray<'Key>()
 

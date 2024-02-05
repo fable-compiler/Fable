@@ -73,9 +73,7 @@ let findLongIdents (col, lineStr) =
 let findLongIdentsAndResidue (col: int, lineStr: string) =
     let lineStr = lineStr.Substring(0, col)
 
-    match
-        Lexer.getSymbol 0 col lineStr Lexer.SymbolLookupKind.ByLongIdent [||]
-    with
+    match Lexer.getSymbol 0 col lineStr Lexer.SymbolLookupKind.ByLongIdent [||] with
     | Some sym ->
         match sym.Text with
         | "" -> [], ""
@@ -133,15 +131,7 @@ let makeProjOptions projectFileName fileNames otherFSharpOptions =
 
     projOptions
 
-let makeCompiler
-    fableLibrary
-    typedArrays
-    language
-    fsharpOptions
-    project
-    fileName
-    : CompilerImpl
-    =
+let makeCompiler fableLibrary typedArrays language fsharpOptions project fileName : CompilerImpl =
     let define =
         fsharpOptions
         |> Array.choose (fun (x: string) ->
@@ -164,14 +154,10 @@ let makeCompiler
 
     CompilerImpl(fileName, project, options, fableLibrary)
 
-let makeProject
-    (projectOptions: FSharpProjectOptions)
-    (checkResults: FSharpCheckProjectResults)
-    =
+let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpCheckProjectResults) =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
-    let optimize =
-        projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
+    let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
 
     let implFiles =
         if optimize then
@@ -189,18 +175,10 @@ let makeProject
         addLog
     )
 
-let parseAndCheckProject
-    (checker: InteractiveChecker)
-    projectFileName
-    fileNames
-    sources
-    otherFSharpOptions
-    =
-    let checkResults =
-        checker.ParseAndCheckProject(projectFileName, fileNames, sources)
+let parseAndCheckProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
+    let checkResults = checker.ParseAndCheckProject(projectFileName, fileNames, sources)
 
-    let projectOptions =
-        makeProjOptions projectFileName fileNames otherFSharpOptions
+    let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
 
     let project = lazy (makeProject projectOptions checkResults)
     ParseAndCheckResults(project, None, None, checkResults, otherFSharpOptions)
@@ -214,25 +192,13 @@ let parseAndCheckFileInProject
     otherFSharpOptions
     =
     let results, checkResults, projectResults =
-        checker.ParseAndCheckFileInProject(
-            fileName,
-            projectFileName,
-            fileNames,
-            sources
-        )
+        checker.ParseAndCheckFileInProject(fileName, projectFileName, fileNames, sources)
 
-    let projectOptions =
-        makeProjOptions projectFileName fileNames otherFSharpOptions
+    let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
 
     let project = lazy (makeProject projectOptions projectResults)
 
-    ParseAndCheckResults(
-        project,
-        Some results,
-        Some checkResults,
-        projectResults,
-        otherFSharpOptions
-    )
+    ParseAndCheckResults(project, Some results, Some checkResults, projectResults, otherFSharpOptions)
 
 let tooltipToString (el: ToolTipElement) : string[] =
     let dataToString (data: ToolTipElementData) =
@@ -268,12 +234,7 @@ let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
         | None -> None
         | Some(col, identIsland) ->
             let (declarations: FindDeclResult) =
-                checkFile.GetDeclarationLocation(
-                    line,
-                    col,
-                    lineText,
-                    identIsland
-                )
+                checkFile.GetDeclarationLocation(line, col, lineText, identIsland)
 
             match declarations with
             | FindDeclResult.DeclNotFound _
@@ -307,12 +268,7 @@ let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
             Seq.map tooltipToString els |> Array.concat
     | None -> [||]
 
-let getCompletionsAtLocation
-    (results: ParseAndCheckResults)
-    (line: int)
-    (col: int)
-    lineText
-    =
+let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: int) lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
         let ln, residue = findLongIdentsAndResidue (col - 1, lineText)
@@ -325,13 +281,7 @@ let getCompletionsAtLocation
             }
 
         let decls =
-            checkFile.GetDeclarationListInfo(
-                results.ParseFileResultsOpt,
-                line,
-                lineText,
-                longName,
-                fun () -> []
-            )
+            checkFile.GetDeclarationListInfo(results.ParseFileResultsOpt, line, lineText, longName, (fun () -> []))
 
         decls.Items
         |> Array.map (fun decl ->
@@ -397,8 +347,7 @@ let transformToFableAst (com: Compiler) : Fable.File =
     let fileName = com.CurrentFile
 
     try
-        FSharp2Fable.Compiler.transformFile com
-        |> FableTransforms.transformFile com
+        FSharp2Fable.Compiler.transformFile com |> FableTransforms.transformFile com
     with
     | Fable.FableError msg ->
         com.AddLog(msg, Severity.Error, fileName = fileName)
@@ -408,11 +357,7 @@ let transformToFableAst (com: Compiler) : Fable.File =
         com.AddLog(msg, Severity.Error, fileName = fileName, tag = "EXCEPTION")
         Fable.File([])
 
-let transformToTargetAst
-    (com: CompilerImpl)
-    (fableAst: Fable.File)
-    : IFableResult
-    =
+let transformToTargetAst (com: CompilerImpl) (fableAst: Fable.File) : IFableResult =
     // get errors
     let errors = com.Logs |> Array.map (mapFableError com)
 
@@ -435,25 +380,12 @@ let transformToTargetAst
         let ast = Rust.Fable2Rust.Compiler.transformFile com fableAst
         upcast RustResult(ast, errors)
 
-let compileToTargetAst
-    (results: IParseAndCheckResults)
-    fileName
-    fableLibrary
-    typedArrays
-    language
-    : IFableResult
-    =
+let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language : IFableResult =
     let res = results :?> ParseAndCheckResults
     let project = res.GetProject()
 
     let com =
-        makeCompiler
-            fableLibrary
-            typedArrays
-            language
-            results.OtherFSharpOptions
-            project
-            fileName
+        makeCompiler fableLibrary typedArrays language results.OtherFSharpOptions project fileName
 
     let fableAst = transformToFableAst com
     fableAst |> transformToTargetAst com
@@ -464,23 +396,8 @@ let makeWriter (writer: IWriter) =
         member _.MakeImportPath(path) = writer.MakeImportPath(path)
         member _.AddLog(msg, severity, ?range) = ()
 
-        member _.AddSourceMapping
-            (
-                srcLine,
-                srcCol,
-                genLine,
-                genCol,
-                _file,
-                displayName
-            )
-            =
-            writer.AddSourceMapping(
-                srcLine,
-                srcCol,
-                genLine,
-                genCol,
-                displayName
-            )
+        member _.AddSourceMapping(srcLine, srcCol, genLine, genCol, _file, displayName) =
+            writer.AddSourceMapping(srcLine, srcCol, genLine, genCol, displayName)
 
         member _.Write(str) = writer.Write(str)
     }
@@ -503,36 +420,19 @@ let init () =
         member _.Version = Fable.Literals.VERSION
 
         member _.CreateChecker(references, readAllBytes, otherOptions) =
-            let otherOptions =
-                Array.append [| "--define:FABLE_STANDALONE" |] otherOptions
+            let otherOptions = Array.append [| "--define:FABLE_STANDALONE" |] otherOptions
 
-            InteractiveChecker.Create(references, readAllBytes, otherOptions)
-            |> CheckerImpl
-            :> IChecker
+            InteractiveChecker.Create(references, readAllBytes, otherOptions) |> CheckerImpl :> IChecker
 
         member _.ClearCache(checker) =
             let c = checker :?> CheckerImpl
             c.Checker.ClearCache()
 
-        member _.ParseAndCheckProject
-            (
-                checker,
-                projectFileName,
-                fileNames,
-                sources,
-                ?otherFSharpOptions
-            )
-            =
+        member _.ParseAndCheckProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
 
-            parseAndCheckProject
-                c.Checker
-                projectFileName
-                fileNames
-                sources
-                otherFSharpOptions
-            :> IParseAndCheckResults
+            parseAndCheckProject c.Checker projectFileName fileNames sources otherFSharpOptions :> IParseAndCheckResults
 
         member _.ParseAndCheckFileInProject
             (
@@ -547,47 +447,20 @@ let init () =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
 
-            parseAndCheckFileInProject
-                c.Checker
-                fileName
-                projectFileName
-                fileNames
-                sources
-                otherFSharpOptions
+            parseAndCheckFileInProject c.Checker fileName projectFileName fileNames sources otherFSharpOptions
             :> IParseAndCheckResults
 
         member _.GetErrors(results: IParseAndCheckResults) = results.Errors
 
-        member _.GetDeclarationLocation
-            (
-                results: IParseAndCheckResults,
-                line: int,
-                col: int,
-                lineText: string
-            )
-            =
+        member _.GetDeclarationLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
             getDeclarationLocation res line col lineText
 
-        member _.GetToolTipText
-            (
-                results: IParseAndCheckResults,
-                line: int,
-                col: int,
-                lineText: string
-            )
-            =
+        member _.GetToolTipText(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
             getToolTipAtLocation res line col lineText
 
-        member _.GetCompletionsAtLocation
-            (
-                results: IParseAndCheckResults,
-                line: int,
-                col: int,
-                lineText: string
-            )
-            =
+        member _.GetCompletionsAtLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
             getCompletionsAtLocation res line col lineText
 
@@ -608,12 +481,7 @@ let init () =
                 else
                     None // only used for JS
 
-            compileToTargetAst
-                results
-                fileName
-                fableLibrary
-                typedArrays
-                language
+            compileToTargetAst results fileName fableLibrary typedArrays language
 
         member _.PrintTargetAst(fableResult, writer) =
             let writer = makeWriter writer
@@ -626,16 +494,10 @@ let init () =
             | :? RustResult as rust -> Rust.RustPrinter.run writer rust.Ast
             | _ -> failwith "Unexpected Fable result"
 
-        member _.FSharpAstToString
-            (
-                results: IParseAndCheckResults,
-                fileName: string
-            )
-            =
+        member _.FSharpAstToString(results: IParseAndCheckResults, fileName: string) =
             let res = results :?> ParseAndCheckResults
             let project = res.GetProject()
             let implFile = project.ImplementationFiles.Item(fileName)
 
-            AstPrint.printFSharpDecls "" implFile.Declarations
-            |> String.concat "\n"
+            AstPrint.printFSharpDecls "" implFile.Declarations |> String.concat "\n"
     }

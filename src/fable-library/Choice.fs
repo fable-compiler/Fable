@@ -19,11 +19,7 @@ module Result =
         | Ok x -> Ok x
 
     [<CompiledName("Bind")>]
-    let bind
-        (binder: 'a -> Result<'b, 'c>)
-        (result: Result<'a, 'c>)
-        : Result<'b, 'c>
-        =
+    let bind (binder: 'a -> Result<'b, 'c>) (result: Result<'a, 'c>) : Result<'b, 'c> =
         match result with
         | Error e -> Error e
         | Ok x -> binder x

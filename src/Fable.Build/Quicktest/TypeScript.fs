@@ -35,10 +35,7 @@ let handle (args: string list) =
         |> CmdLine.toString
 
     let appendQuotedCommand (arg: string) (cmd: CmdLine) =
-        cmd
-        |> CmdLine.appendRaw "\""
-        |> CmdLine.appendRaw arg
-        |> CmdLine.appendRaw "\""
+        cmd |> CmdLine.appendRaw "\"" |> CmdLine.appendRaw arg |> CmdLine.appendRaw "\""
 
     let runCommand =
         CmdLine.empty

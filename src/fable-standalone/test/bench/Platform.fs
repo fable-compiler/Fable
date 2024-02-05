@@ -9,8 +9,7 @@ let readAllBytes (filePath: string) = File.ReadAllBytes(filePath)
 let readAllText (filePath: string) =
     File.ReadAllText(filePath, System.Text.Encoding.UTF8)
 
-let writeAllText (filePath: string) (text: string) =
-    File.WriteAllText(filePath, text)
+let writeAllText (filePath: string) (text: string) = File.WriteAllText(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -40,8 +39,7 @@ let readAllBytes (filePath: string) = JS.fs.readFileSync (filePath)
 let readAllText (filePath: string) =
     JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
 
-let writeAllText (filePath: string) (text: string) =
-    JS.fs.writeFileSync (filePath, text)
+let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync (filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let startTime = JS.``process``.hrtime ()

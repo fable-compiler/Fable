@@ -24,11 +24,7 @@ module Naming =
         let m = reg.Match(str)
 
         if m.Success then
-            m.Groups
-            |> Seq.cast<Group>
-            |> Seq.map (fun g -> g.Value)
-            |> Seq.toList
-            |> Some
+            m.Groups |> Seq.cast<Group> |> Seq.map (fun g -> g.Value) |> Seq.toList |> Some
         else
             None
 
@@ -101,12 +97,9 @@ module Naming =
 
     let sanitizeIdentForbiddenChars (ident: string) =
         ident
-        |> sanitizeIdentForbiddenCharsWith (fun c ->
-            "$" + String.Format("{0:X}", int c).PadLeft(4, '0')
-        )
+        |> sanitizeIdentForbiddenCharsWith (fun c -> "$" + String.Format("{0:X}", int c).PadLeft(4, '0'))
 
-    let replaceRegex (pattern: string) (value: string) (input: string) =
-        Regex.Replace(input, pattern, value)
+    let replaceRegex (pattern: string) (value: string) (input: string) = Regex.Replace(input, pattern, value)
 
     let replacePrefix (prefix: string) (value: string) (input: string) =
         if input.StartsWith(prefix, StringComparison.Ordinal) then
@@ -156,9 +149,7 @@ module Naming =
                 if m.Value.Length = 1 then
                     m.Value.ToLowerInvariant()
                 else
-                    m.Value.Substring(0, 1)
-                    + separator
-                    + m.Value.Substring(1, 1).ToLowerInvariant()
+                    m.Value.Substring(0, 1) + separator + m.Value.Substring(1, 1).ToLowerInvariant()
         )
 
     let applyCaseRule caseRule name =
@@ -374,8 +365,8 @@ module Naming =
 
     // TODO: Move this to FSharp2Fable.Util
     type MemberPart =
-        | InstanceMemberPart of string * overloadSuffix: string
-        | StaticMemberPart of string * overloadSuffix: string
+        | InstanceMemberPart of memberCompiledName: string * overloadSuffix: string
+        | StaticMemberPart of memberCompiledName: string * overloadSuffix: string
         | NoMemberPart
 
         member this.Replace(f: string -> string) =
@@ -414,12 +405,7 @@ module Naming =
     let buildNameWithoutSanitation name part = buildName id name part
 
     /// This helper is intended for instance and static members in fable-library library compiled from F# (FSharpSet, FSharpMap...)
-    let buildNameWithoutSanitationFrom
-        (entityName: string)
-        isStatic
-        memberCompiledName
-        overloadSuffix
-        =
+    let buildNameWithoutSanitationFrom (entityName: string) isStatic memberCompiledName overloadSuffix =
         (if isStatic then
              entityName, StaticMemberPart(memberCompiledName, overloadSuffix)
          else

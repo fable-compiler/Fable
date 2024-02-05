@@ -69,16 +69,14 @@ type BigInteger(signInt: int, v: BigNat) =
         | -1, 0 -> BigNatModule.isZero x.V
         | _ -> invalidArg "x" "signs should be +/- 1 or 0"
 
-    static member op_Inequality(x: BigInteger, y: BigInteger) =
-        not (BigInteger.op_Equality (x, y)) // CA2226: OperatorsShouldHaveSymmetricalOverloads
+    static member op_Inequality(x: BigInteger, y: BigInteger) = not (BigInteger.op_Equality (x, y)) // CA2226: OperatorsShouldHaveSymmetricalOverloads
 
     static member op_LessThan(x: BigInteger, y: BigInteger) =
         match x.SignInt, y.SignInt with
         | 1, 1 -> BigNatModule.lt x.V y.V //  1.xv <  1.yv iff xv < yv
         | -1, -1 -> BigNatModule.lt y.V x.V // -1.xv < -1.yv iff yv < xv
         | 1, -1 -> false //  1.xv < -1.yv iff 0 <= 1.xv < -1.yv <= 0 iff false
-        | -1, 1 ->
-            not (BigNatModule.isZero x.V) || not (BigNatModule.isZero y.V)
+        | -1, 1 -> not (BigNatModule.isZero x.V) || not (BigNatModule.isZero y.V)
         // -1.xv <  1.yv
         // (a) xv=0 and yv=0,  then false
         // (b) xv<>0,          -1.xv <  0 <= 1.yv, so true
@@ -94,8 +92,7 @@ type BigInteger(signInt: int, v: BigNat) =
         match x.SignInt, y.SignInt with
         | 1, 1 -> BigNatModule.gt x.V y.V
         | -1, -1 -> BigNatModule.gt y.V x.V
-        | 1, -1 ->
-            not (BigNatModule.isZero x.V) || not (BigNatModule.isZero y.V)
+        | 1, -1 -> not (BigNatModule.isZero x.V) || not (BigNatModule.isZero y.V)
         | -1, 1 -> false
         | 0, 0 -> false
         | 0, 1 -> false
@@ -161,11 +158,7 @@ type BigInteger(signInt: int, v: BigNat) =
         elif (n = System.Int64.MinValue) then
             BigInteger(
                 -1,
-                BigInteger.nat (
-                    BigNatModule.add
-                        (BigNatModule.ofInt64 System.Int64.MaxValue)
-                        BigNatModule.one
-                )
+                BigInteger.nat (BigNatModule.add (BigNatModule.ofInt64 System.Int64.MaxValue) BigNatModule.one)
             )
         else
             BigInteger(-1, BigInteger.nat (BigNatModule.ofInt64 (-n)))
@@ -257,17 +250,13 @@ type BigInteger(signInt: int, v: BigNat) =
             | -1, 1 -> BigInteger.negn d, BigInteger.negn r // -1.xv = -1.d.( 1.yv) + (-1.r)
             | _ -> invalidArg "x" "signs should be +/- 1"
 
-    static member (/)(x: BigInteger, y: BigInteger) =
-        BigInteger.DivRem(x, y) |> fst
+    static member (/)(x: BigInteger, y: BigInteger) = BigInteger.DivRem(x, y) |> fst
 
-    static member (%)(x: BigInteger, y: BigInteger) =
-        BigInteger.DivRem(x, y) |> snd
+    static member (%)(x: BigInteger, y: BigInteger) = BigInteger.DivRem(x, y) |> snd
 
-    static member (>>>)(x: BigInteger, y: int32) =
-        x / BigInteger.Pow(BigInteger.Two, y)
+    static member (>>>)(x: BigInteger, y: int32) = x / BigInteger.Pow(BigInteger.Two, y)
 
-    static member (<<<)(x: BigInteger, y: int32) =
-        x * BigInteger.Pow(BigInteger.Two, y)
+    static member (<<<)(x: BigInteger, y: int32) = x * BigInteger.Pow(BigInteger.Two, y)
 
     static member (&&&)(x: BigInteger, y: BigInteger) =
         BigInteger.posn (BigNatModule.bitAnd x.V y.V) // sign is ignored
@@ -335,11 +324,7 @@ type BigInteger(signInt: int, v: BigNat) =
             let yval = BigInteger(y)
 
             BigInteger.create (
-                (if
-                     BigNatModule.isZero (
-                         BigNatModule.rem yval.V BigNatModule.two
-                     )
-                 then
+                (if BigNatModule.isZero (BigNatModule.rem yval.V BigNatModule.two) then
                      1
                  else
                      x.SignInt),

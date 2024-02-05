@@ -22,8 +22,7 @@ type Native =
     static member generate (len: int) (f: int -> 'T) : 'T[] = jsNative
 
     [<Emit("List.generate($0, $1)")>]
-    static member generateResize (len: int) (f: int -> 'T) : ResizeArray<'T> =
-        jsNative
+    static member generateResize (len: int) (f: int -> 'T) : ResizeArray<'T> = jsNative
 
     [<Emit("$1.where($0).toList(growable: false)")>]
     static member where (f: 'T -> bool) (xs: 'T[]) : 'T[] = jsNative
@@ -38,31 +37,13 @@ type Native =
     static member filled (len: int) (x: 'T) : 'T[] = jsNative
 
     [<Emit("$0.fillRange($1, $2, $3)")>]
-    static member fillRange
-        (xs: 'T[])
-        (start: int)
-        (end_: int)
-        (fill: 'T)
-        : unit
-        =
-        jsNative
+    static member fillRange (xs: 'T[]) (start: int) (end_: int) (fill: 'T) : unit = jsNative
 
     [<Emit("$0.sublist($1...)")>]
-    static member sublist(xs: 'T[], start: int, [<Optional>] end_: int) : 'T[] =
-        jsNative
+    static member sublist(xs: 'T[], start: int, [<Optional>] end_: int) : 'T[] = jsNative
 
     [<Emit("List.copyRange($0...)")>]
-    static member copyRange
-        (
-            target: 'T[],
-            at: int,
-            source: 'T[],
-            start: int,
-            [<Optional>] end_: int
-        )
-        : unit
-        =
-        jsNative
+    static member copyRange(target: 'T[], at: int, source: 'T[], start: int, [<Optional>] end_: int) : unit = jsNative
 
     [<Emit("$0.toList(growable: false)")>]
     static member toList(xs: 'T seq) : 'T[] = nativeOnly
@@ -80,8 +61,7 @@ type Native =
     static member insert (xs: 'T[]) (index: int) (x: 'T) : unit = nativeOnly
 
     [<Emit("$0.insertAll($1...)")>]
-    static member insertAll (xs: 'T[]) (index: int) (range: 'T seq) : unit =
-        nativeOnly
+    static member insertAll (xs: 'T[]) (index: int) (range: 'T seq) : unit = nativeOnly
 
     [<Emit("$0.remove($1)")>]
     static member remove (xs: 'T[]) (value: obj) : bool = nativeOnly
@@ -93,64 +73,35 @@ type Native =
     static member removeLast(xs: 'T[]) : 'T = nativeOnly
 
     [<Emit("$0.removeRange($1...)")>]
-    static member removeRange (xs: 'T[]) (start: int) (end_: int) : unit =
-        nativeOnly
+    static member removeRange (xs: 'T[]) (start: int) (end_: int) : unit = nativeOnly
 
     [<Emit("$0.removeWhere($1...)")>]
-    static member removeWhere (xs: 'T[]) (predicate: 'T -> bool) : unit =
-        nativeOnly
+    static member removeWhere (xs: 'T[]) (predicate: 'T -> bool) : unit = nativeOnly
 
     [<Emit("$0.sort($1...)")>]
-    static member sort(xs: 'T[], [<Optional>] compare: 'T -> 'T -> int) : unit =
-        nativeOnly
+    static member sort(xs: 'T[], [<Optional>] compare: 'T -> 'T -> int) : unit = nativeOnly
 
     [<Emit("$0.contains($1)")>]
     static member contains (xs: 'T[]) (value: obj) : bool = nativeOnly
 
     [<Emit("$0.indexOf($1...)")>]
-    static member indexOf(xs: 'T[], item: 'T, [<Optional>] start: int) : int =
-        jsNative
+    static member indexOf(xs: 'T[], item: 'T, [<Optional>] start: int) : int = jsNative
 
     [<Emit("$0.indexWhere($1...)")>]
-    static member indexWhere
-        (
-            xs: 'T[],
-            predicate: 'T -> bool,
-            [<Optional>] start: int
-        )
-        : int
-        =
-        jsNative
+    static member indexWhere(xs: 'T[], predicate: 'T -> bool, [<Optional>] start: int) : int = jsNative
 
     [<Emit("$0.lastIndexOf($1...)")>]
-    static member lastIndexOf
-        (
-            xs: 'T[],
-            item: 'T,
-            [<Optional>] start: int
-        )
-        : 'T[]
-        =
-        jsNative
+    static member lastIndexOf(xs: 'T[], item: 'T, [<Optional>] start: int) : 'T[] = jsNative
 
     [<Emit("$0.lastIndexWhere($1...)")>]
-    static member lastIndexWhere
-        (
-            xs: 'T[],
-            predicate: 'T -> bool,
-            [<Optional>] start: int
-        )
-        : 'T[]
-        =
-        jsNative
+    static member lastIndexWhere(xs: 'T[], predicate: 'T -> bool, [<Optional>] start: int) : 'T[] = jsNative
 
     // Dart's native function includes a named argument `orElse` for an alternative predicate
     [<Emit("$0.firstWhere($1...)")>]
     static member firstWhere(xs: 'T[], predicate: 'T -> bool) : 'T = jsNative
 
 let private indexNotFound () =
-    failwith
-        "An index satisfying the predicate was not found in the collection."
+    failwith "An index satisfying the predicate was not found in the collection."
 
 let private differentLengths () = failwith "Arrays had different lengths"
 
@@ -215,12 +166,7 @@ let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) : 'U[] =
 let map (f: 'T -> 'U) (source: 'T[]) : 'U[] =
     Native.generate source.Length (fun i -> f source[i])
 
-let mapIndexed2
-    (f: int -> 'T1 -> 'T2 -> 'U)
-    (source1: 'T1[])
-    (source2: 'T2[])
-    : 'U[]
-    =
+let mapIndexed2 (f: int -> 'T1 -> 'T2 -> 'U) (source1: 'T1[]) (source2: 'T2[]) : 'U[] =
     if source1.Length <> source2.Length then
         failwith "Arrays had different lengths"
 
@@ -232,27 +178,13 @@ let map2 (f: 'T1 -> 'T2 -> 'U) (source1: 'T1[]) (source2: 'T2[]) : 'U[] =
 
     Native.generate source1.Length (fun i -> f source1[i] source2[i])
 
-let mapIndexed3
-    (f: int -> 'T1 -> 'T2 -> 'T3 -> 'U)
-    (source1: 'T1[])
-    (source2: 'T2[])
-    (source3: 'T3[])
-    : 'U[]
-    =
+let mapIndexed3 (f: int -> 'T1 -> 'T2 -> 'T3 -> 'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) : 'U[] =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then
         failwith "Arrays had different lengths"
 
-    Native.generate
-        source1.Length
-        (fun i -> f i source1[i] source2[i] source3[i])
+    Native.generate source1.Length (fun i -> f i source1[i] source2[i] source3[i])
 
-let map3
-    (f: 'T1 -> 'T2 -> 'T3 -> 'U)
-    (source1: 'T1[])
-    (source2: 'T2[])
-    (source3: 'T3[])
-    : 'U[]
-    =
+let map3 (f: 'T1 -> 'T2 -> 'T3 -> 'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) : 'U[] =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then
         failwith "Arrays had different lengths"
 
@@ -342,14 +274,11 @@ let concatArrays (arrays: 'T[][]) : 'T[] =
 
 let concat (arrays: 'T[] seq) : 'T[] = Native.toList arrays |> concatArrays
 
-let collect (mapping: 'T -> 'U[]) (array: 'T[]) : 'U[] =
-    map mapping array |> concatArrays
+let collect (mapping: 'T -> 'U[]) (array: 'T[]) : 'U[] = map mapping array |> concatArrays
 
 let initialize (count: int) (initializer: int -> 'a) : 'a[] =
     if count < 0 then
-        invalidArg
-            "count"
-            LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
+        invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
 
     Native.generate count initializer
 
@@ -374,9 +303,7 @@ let contains<'T when 'T: equality> (value: 'T) (array: 'T[]) : bool =
 let replicate (count: int) (initial: 'T) : 'T array =
     // Shorthand version: = initialize count (fun _ -> initial)
     if count < 0 then
-        invalidArg
-            "count"
-            LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
+        invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
 
     Native.generate count (fun _ -> initial)
 
@@ -384,12 +311,7 @@ let copy (array: 'T[]) : 'T[] = Native.sublist (array, 0)
 
 let reverse (array: 'T[]) : 'T[] = Native.reversed array
 
-let scan<'T, 'State>
-    (folder: 'State -> 'T -> 'State)
-    (state: 'State)
-    (array: 'T[])
-    : 'State[]
-    =
+let scan<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]) : 'State[] =
     let mutable state = state
 
     Native.generate
@@ -402,12 +324,7 @@ let scan<'T, 'State>
                 state
         )
 
-let scanBack<'T, 'State>
-    (folder: 'T -> 'State -> 'State)
-    (array: 'T[])
-    (state: 'State)
-    : 'State[]
-    =
+let scanBack<'T, 'State> (folder: 'T -> 'State -> 'State) (array: 'T[]) (state: 'State) : 'State[] =
     let len = array.Length
     let mutable state = state
 
@@ -447,9 +364,7 @@ let skipWhile predicate (array: 'T[]) =
 
 let take count (array: 'T[]) =
     if count < 0 then
-        invalidArg
-            "count"
-            LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
+        invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
 
     if count > array.Length then
         invalidArg "count" "count is greater than array length"
@@ -472,11 +387,9 @@ let takeWhile predicate (array: 'T[]) =
 
 let addInPlace (x: 'T) (array: 'T[]) : unit = Native.add array x
 
-let addRangeInPlace (range: seq<'T>) (array: 'T[]) : unit =
-    Native.addAll array range
+let addRangeInPlace (range: seq<'T>) (array: 'T[]) : unit = Native.addAll array range
 
-let insertRangeInPlace (index: int) (range: seq<'T>) (array: 'T[]) : unit =
-    Native.insertAll array index range
+let insertRangeInPlace (index: int) (range: seq<'T>) (array: 'T[]) : unit = Native.insertAll array index range
 
 //let removeInPlace (item: 'T) (array: 'T[]): bool =
 //    Native.remove array item
@@ -487,29 +400,10 @@ let removeAllInPlace (predicate: 'T -> bool) (array: 'T[]) : int =
     len - array.Length
 
 // TODO: Check array lengths
-let copyTo
-    (source: 'T[])
-    (sourceIndex: int)
-    (target: 'T[])
-    (targetIndex: int)
-    (count: int)
-    : unit
-    =
-    Native.copyRange (
-        target,
-        targetIndex,
-        source,
-        sourceIndex,
-        sourceIndex + count
-    )
+let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int) : unit =
+    Native.copyRange (target, targetIndex, source, sourceIndex, sourceIndex + count)
 
-let indexOf
-    (array: 'T[])
-    (item: 'T)
-    (start: int option)
-    (count: int option)
-    : int
-    =
+let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) : int =
     let start = defaultArg start 0
     let i = Native.indexOf (array, item, start)
 
@@ -529,8 +423,7 @@ let partition (f: 'T -> bool) (source: 'T[]) =
 
     Native.asFixed res1, Native.asFixed res2
 
-let find (predicate: 'T -> bool) (array: 'T[]) : 'T =
-    Native.firstWhere (array, predicate)
+let find (predicate: 'T -> bool) (array: 'T[]) : 'T = Native.firstWhere (array, predicate)
 
 let tryFind (predicate: 'T -> bool) (array: 'T[]) : 'T option =
     try
@@ -635,12 +528,7 @@ let choose (chooser: 'T -> 'U option) (array: 'T[]) : 'U[] =
 
     Native.asFixed res
 
-let fold<'T, 'State>
-    (folder: 'State -> 'T -> 'State)
-    (state: 'State)
-    (array: 'T[])
-    : 'State
-    =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]) : 'State =
     let mutable state = state
 
     for x in array do
@@ -656,32 +544,21 @@ let iterateIndexed (action: int -> 'T -> unit) (array: 'T[]) : unit =
     for i = 0 to array.Length - 1 do
         action i array[i]
 
-let iterate2
-    (action: 'T1 -> 'T2 -> unit)
-    (array1: 'T1[])
-    (array2: 'T2[])
-    : unit
-    =
+let iterate2 (action: 'T1 -> 'T2 -> unit) (array1: 'T1[]) (array2: 'T2[]) : unit =
     if array1.Length <> array2.Length then
         differentLengths ()
 
     for i = 0 to array1.Length - 1 do
         action array1[i] array2[i]
 
-let iterateIndexed2
-    (action: int -> 'T1 -> 'T2 -> unit)
-    (array1: 'T1[])
-    (array2: 'T2[])
-    : unit
-    =
+let iterateIndexed2 (action: int -> 'T1 -> 'T2 -> unit) (array1: 'T1[]) (array2: 'T2[]) : unit =
     if array1.Length <> array2.Length then
         differentLengths ()
 
     for i = 0 to array1.Length - 1 do
         action i array1[i] array2[i]
 
-let forAll (predicate: 'T -> bool) (array: 'T[]) : bool =
-    Native.every predicate array
+let forAll (predicate: 'T -> bool) (array: 'T[]) : bool = Native.every predicate array
 
 let permute (f: int -> int) (array: 'T[]) : 'T[] =
     let size = array.Length
@@ -707,13 +584,7 @@ let permute (f: int -> int) (array: 'T[]) : 'T[] =
 
     res
 
-let setSlice
-    (target: 'T[])
-    (lower: int option)
-    (upper: int option)
-    (source: 'T[])
-    : unit
-    =
+let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) : unit =
     let lower = defaultArg lower 0
     let upper = defaultArg upper -1
 
@@ -727,12 +598,7 @@ let setSlice
     for i = 0 to length do
         target[i + lower] <- source[i]
 
-let sortInPlaceBy
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : unit
-    =
+let sortInPlaceBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : unit =
     Native.sort (xs, (fun x y -> comparer.Compare(projection x, projection y)))
 
 let sortInPlace (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) =
@@ -747,12 +613,7 @@ let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) : 'T[] =
     Native.sort (xs, (fun x y -> comparer.Compare(x, y)))
     xs
 
-let sortBy
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : 'a[]
-    =
+let sortBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a[] =
     Native.sublist (xs, 0)
     |> sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y))
 
@@ -760,16 +621,9 @@ let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) : 'T[] =
     Native.sublist (xs, 0)
     |> sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1)
 
-let sortByDescending
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : 'a[]
-    =
+let sortByDescending (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a[] =
     Native.sublist (xs, 0)
-    |> sortInPlaceWith (fun x y ->
-        comparer.Compare(projection x, projection y) * -1
-    )
+    |> sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1)
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]) : 'T[] =
     Native.sublist (xs, 0) |> sortInPlaceWith comparer
@@ -786,11 +640,7 @@ let allPairs (xs: 'T1[]) (ys: 'T2[]) : ('T1 * 'T2)[] =
             (x, y)
         )
 
-let unfold<'T, 'State>
-    (generator: 'State -> ('T * 'State) option)
-    (state: 'State)
-    : 'T[]
-    =
+let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'State) : 'T[] =
     let res = ResizeArray()
 
     let rec loop state =
@@ -863,12 +713,7 @@ let splitAt (index: int) (array: 'T[]) : 'T[] * 'T[] =
 
     Native.sublist (array, 0, index), Native.sublist (array, index)
 
-let compareWith
-    (comparer: 'T -> 'T -> int)
-    (array1: 'T[])
-    (array2: 'T[])
-    : int
-    =
+let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) : int =
     // Null checks not necessary because Dart provides null safety
     //    if isNull array1 then
     //        if isNull array2 then 0 else -1
@@ -918,9 +763,7 @@ let exactlyOne (array: 'T[]) : 'T =
     if array.Length = 1 then
         array[0]
     elif Array.isEmpty array then
-        invalidArg
-            "array"
-            LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
     else
         invalidArg "array" "Input array too long"
 
@@ -956,12 +799,7 @@ let tryItem (index: int) (array: 'T[]) : 'T option =
     else
         Some array[index]
 
-let foldBack<'T, 'State>
-    (folder: 'T -> 'State -> 'State)
-    (array: 'T[])
-    (state: 'State)
-    : 'State
-    =
+let foldBack<'T, 'State> (folder: 'T -> 'State -> 'State) (array: 'T[]) (state: 'State) : 'State =
     let mutable acc = state
 
     for i = array.Length - 1 downto 0 do
@@ -1053,12 +891,7 @@ let sum (array: 'T[]) ([<Inject>] adder: IGenericAdder<'T>) : 'T =
 
     acc
 
-let sumBy
-    (projection: 'T -> 'T2)
-    (array: 'T[])
-    ([<Inject>] adder: IGenericAdder<'T2>)
-    : 'T2
-    =
+let sumBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] adder: IGenericAdder<'T2>) : 'T2 =
     let mutable acc = adder.GetZero()
 
     for i = 0 to array.Length - 1 do
@@ -1066,12 +899,7 @@ let sumBy
 
     acc
 
-let maxBy
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : 'a
-    =
+let maxBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a =
     reduce
         (fun x y ->
             if comparer.Compare(projection y, projection x) > 0 then
@@ -1091,12 +919,7 @@ let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
         )
         xs
 
-let minBy
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : 'a
-    =
+let minBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a =
     reduce
         (fun x y ->
             if comparer.Compare(projection y, projection x) > 0 then
@@ -1127,12 +950,7 @@ let average (array: 'T[]) ([<Inject>] averager: IGenericAverager<'T>) : 'T =
 
     averager.DivideByInt(total, array.Length)
 
-let averageBy
-    (projection: 'T -> 'T2)
-    (array: 'T[])
-    ([<Inject>] averager: IGenericAverager<'T2>)
-    : 'T2
-    =
+let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGenericAverager<'T2>) : 'T2 =
     if Array.isEmpty array then
         invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
 
@@ -1196,9 +1014,7 @@ let transpose (arrays: 'T[] seq) : 'T[][] =
         if arrays |> forAll (fun a -> a.Length = lenInner) |> not then
             differentLengths ()
 
-        Native.generate
-            lenInner
-            (fun i -> Native.generate len (fun j -> arrays[j][i]))
+        Native.generate lenInner (fun i -> Native.generate len (fun j -> arrays[j][i]))
 
 let insertAt (index: int) (y: 'T) (xs: 'T[]) : 'T[] =
     let len = xs.Length

@@ -23,12 +23,9 @@ type CustomFormatter(options: IOptionsMonitor<CustomOptions>) as this =
     let mutable formatterOptions = options.CurrentValue
     let origColor = Console.ForegroundColor
 
-    do
-        optionsReloadToken <-
-            options.OnChange(fun x -> this.ReloadLoggerOptions(x))
+    do optionsReloadToken <- options.OnChange(fun x -> this.ReloadLoggerOptions(x))
 
-    member private _.ReloadLoggerOptions(opts: CustomOptions) =
-        formatterOptions <- opts
+    member private _.ReloadLoggerOptions(opts: CustomOptions) = formatterOptions <- opts
 
     override this.Write<'TState>
         (
@@ -37,8 +34,7 @@ type CustomFormatter(options: IOptionsMonitor<CustomOptions>) as this =
             textWriter: TextWriter
         )
         =
-        let message =
-            logEntry.Formatter.Invoke(logEntry.State, logEntry.Exception)
+        let message = logEntry.Formatter.Invoke(logEntry.State, logEntry.Exception)
 
         if formatterOptions.UseNoPrefixMsgStyle then
             this.SetColor(textWriter, logEntry.LogLevel)
@@ -80,13 +76,7 @@ type CustomFormatter(options: IOptionsMonitor<CustomOptions>) as this =
 type ConsoleLoggerExtensions =
 
     [<Extension>]
-    static member AddCustomConsole
-        (
-            builder: ILoggingBuilder,
-            configure: Action<CustomOptions>
-        )
-        : ILoggingBuilder
-        =
+    static member AddCustomConsole(builder: ILoggingBuilder, configure: Action<CustomOptions>) : ILoggingBuilder =
         builder
             .AddConsole(fun options -> options.FormatterName <- "customName")
             .AddConsoleFormatter<CustomFormatter, CustomOptions>(configure)

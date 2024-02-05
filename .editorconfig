@@ -16,7 +16,6 @@ indent_size = 2
 
 # Fantomas (see https://fsprojects.github.io/fantomas/docs/end-users/Configuration.html)
 [*.{fs,fsx,fsi}]
-max_line_length = 80
 end_of_line = lf
 fsharp_alternative_long_member_definitions = true
 fsharp_multi_line_lambda_closing_newline = true

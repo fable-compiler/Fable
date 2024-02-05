@@ -190,15 +190,9 @@ type Type =
     | List of genericArg: Type
     | LambdaType of argType: Type * returnType: Type
     | DelegateType of argTypes: Type list * returnType: Type
-    | GenericParam of
-        name: string *
-        isMeasure: bool *
-        constraints: Constraint list
+    | GenericParam of name: string * isMeasure: bool * constraints: Constraint list
     | DeclaredType of ref: EntityRef * genericArgs: Type list
-    | AnonymousRecordType of
-        fieldNames: string[] *
-        genericArgs: Type list *
-        isStruct: bool
+    | AnonymousRecordType of fieldNames: string[] * genericArgs: Type list * isStruct: bool
 
     member this.Generics =
         match this with
@@ -232,12 +226,10 @@ type Type =
         | Array(gen, kind) -> Array(f gen, kind)
         | List gen -> List(f gen)
         | LambdaType(argType, returnType) -> LambdaType(f argType, f returnType)
-        | DelegateType(argTypes, returnType) ->
-            DelegateType(List.map f argTypes, f returnType)
+        | DelegateType(argTypes, returnType) -> DelegateType(List.map f argTypes, f returnType)
         | Tuple(gen, isStruct) -> Tuple(List.map f gen, isStruct)
         | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen)
-        | AnonymousRecordType(e, gen, isStruct) ->
-            AnonymousRecordType(e, List.map f gen, isStruct)
+        | AnonymousRecordType(e, gen, isStruct) -> AnonymousRecordType(e, List.map f gen, isStruct)
         | MetaType
         | Any
         | Unit
@@ -266,16 +258,7 @@ type GeneratedMember =
     | GeneratedGetter of info: GeneratedMemberInfo
     | GeneratedSetter of info: GeneratedMemberInfo
 
-    static member Function
-        (
-            name,
-            paramTypes,
-            returnType,
-            ?isInstance,
-            ?hasSpread,
-            ?entRef
-        )
-        =
+    static member Function(name, paramTypes, returnType, ?isInstance, ?hasSpread, ?entRef) =
         {
             Name = name
             ParamTypes = paramTypes
@@ -367,20 +350,17 @@ type GeneratedMember =
         member this.FullName = this.Info.Name
 
         member this.GenericParameters =
-            this.Info.ParamTypes
-            |> List.collect (fun t -> GeneratedMember.GenericParams(t))
+            this.Info.ParamTypes |> List.collect (fun t -> GeneratedMember.GenericParams(t))
 
         member this.CurriedParameterGroups =
             [
                 this.Info.ParamTypes
-                |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a{i}"))
+                |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a%d{i}"))
             ]
 
-        member this.ReturnParameter =
-            GeneratedMember.Param(this.Info.ReturnType)
+        member this.ReturnParameter = GeneratedMember.Param(this.Info.ReturnType)
 
-        member this.IsConstructor =
-            this.Info.Name = ".ctor" || this.Info.Name = ".cctor"
+        member this.IsConstructor = this.Info.Name = ".ctor" || this.Info.Name = ".cctor"
 
         member this.IsInstance = this.Info.IsInstance
         member this.HasSpread = this.Info.HasSpread
@@ -468,8 +448,7 @@ and Declaration =
 
     member this.UsedNames =
         match this with
-        | ModuleDeclaration d ->
-            d.Members |> List.map (fun d -> d.UsedNames) |> Set.unionMany
+        | ModuleDeclaration d -> d.Members |> List.map (fun d -> d.UsedNames) |> Set.unionMany
         | ActionDeclaration d -> d.UsedNames
         | MemberDeclaration d -> d.UsedNames
         | ClassDeclaration d ->
@@ -482,8 +461,7 @@ and Declaration =
 type File(decls, ?usedRootNames) =
     member _.Declarations: Declaration list = decls
 
-    member _.UsedNamesInRootScope: Set<string> =
-        defaultArg usedRootNames Set.empty
+    member _.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
 
 type Ident =
     {
@@ -496,9 +474,7 @@ type Ident =
     }
 
     member x.DisplayName =
-        x.Range
-        |> Option.bind (fun r -> r.DisplayName)
-        |> Option.defaultValue x.Name
+        x.Range |> Option.bind (fun r -> r.DisplayName) |> Option.defaultValue x.Name
 
 type NewArrayKind =
     | ArrayValues of values: Expr list
@@ -524,10 +500,7 @@ type ValueKind =
     | StringConstant of value: string
     /// String interpolation with support for JS tagged templates
     /// String parts length should always be values.Length + 1
-    | StringTemplate of
-        tag: Expr option *
-        parts: string list *
-        values: Expr list
+    | StringTemplate of tag: Expr option * parts: string list * values: Expr list
     | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
@@ -535,16 +508,8 @@ type ValueKind =
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
     | NewTuple of values: Expr list * isStruct: bool
     | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
-    | NewAnonymousRecord of
-        values: Expr list *
-        fieldNames: string[] *
-        genArgs: Type list *
-        isStruct: bool
-    | NewUnion of
-        values: Expr list *
-        tag: int *
-        ref: EntityRef *
-        genArgs: Type list
+    | NewAnonymousRecord of values: Expr list * fieldNames: string[] * genArgs: Type list * isStruct: bool
+    | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list
 
     member this.Type =
         match this with
@@ -562,11 +527,9 @@ type ValueKind =
         | NewOption(_, t, isStruct) -> Option(t, isStruct)
         | NewArray(_, t, k) -> Array(t, k)
         | NewList(_, t) -> List t
-        | NewTuple(exprs, isStruct) ->
-            Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
+        | NewTuple(exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
         | NewRecord(_, ent, genArgs) -> DeclaredType(ent, genArgs)
-        | NewAnonymousRecord(_, fieldNames, genArgs, isStruct) ->
-            AnonymousRecordType(fieldNames, genArgs, isStruct)
+        | NewAnonymousRecord(_, fieldNames, genArgs, isStruct) -> AnonymousRecordType(fieldNames, genArgs, isStruct)
         | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
 
 type CallInfo =
@@ -679,15 +642,7 @@ type FieldInfo =
 
     member this.CanHaveSideEffects = this.IsMutable || this.MaybeCalculated
 
-    static member Create
-        (
-            name,
-            ?fieldType: Type,
-            ?isMutable: bool,
-            ?maybeCalculated: bool,
-            ?tag: string
-        )
-        =
+    static member Create(name, ?fieldType: Type, ?isMutable: bool, ?maybeCalculated: bool, ?tag: string) =
         {
             Name = name
             FieldType = fieldType
@@ -778,11 +733,7 @@ type UnresolvedExpr =
         args: Expr list *
         info: ReplaceCallInfo *
         attachedCall: Expr option
-    | UnresolvedInlineCall of
-        memberUniqueName: string *
-        witnesses: Witness list *
-        callee: Expr option *
-        info: CallInfo
+    | UnresolvedInlineCall of memberUniqueName: string * witnesses: Witness list * callee: Expr option * info: CallInfo
 
 type Expr =
     /// Identifiers that reference another expression
@@ -795,40 +746,21 @@ type Expr =
     /// Lambdas are curried, they always have a single argument (which can be unit)
     | Lambda of arg: Ident * body: Expr * name: string option
     /// Delegates are uncurried functions, can have none or multiple arguments
-    | Delegate of
-        args: Ident list *
-        body: Expr *
-        name: string option *
-        tags: string list
-    | ObjectExpr of
-        members: ObjectExprMember list *
-        typ: Type *
-        baseCall: Expr option
+    | Delegate of args: Ident list * body: Expr * name: string option * tags: string list
+    | ObjectExpr of members: ObjectExprMember list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
-    | TypeCast of expr: Expr * Type
+    | TypeCast of expr: Expr * typ: Type
     | Test of expr: Expr * kind: TestKind * range: SourceLocation option
 
     // Operations
 
     /// Call to a type/module member, function arguments will be uncurried
-    | Call of
-        callee: Expr *
-        info: CallInfo *
-        typ: Type *
-        range: SourceLocation option
+    | Call of callee: Expr * info: CallInfo * typ: Type * range: SourceLocation option
     /// Application to local lambdas, function arguments will NOT be uncurried
-    | CurriedApply of
-        applied: Expr *
-        args: Expr list *
-        typ: Type *
-        range: SourceLocation option
+    | CurriedApply of applied: Expr * args: Expr list * typ: Type * range: SourceLocation option
     /// Operations that can be defined with native operators
-    | Operation of
-        kind: OperationKind *
-        tags: string list *
-        typ: Type *
-        range: SourceLocation option
+    | Operation of kind: OperationKind * tags: string list * typ: Type * range: SourceLocation option
 
     // Imports and code emissions
     | Import of info: ImportInfo * typ: Type * range: SourceLocation option
@@ -836,51 +768,22 @@ type Expr =
 
     // Pattern matching
     | DecisionTree of expr: Expr * targets: (Ident list * Expr) list
-    | DecisionTreeSuccess of
-        targetIndex: int *
-        boundValues: Expr list *
-        typ: Type
+    | DecisionTreeSuccess of targetIndex: int * boundValues: Expr list * typ: Type
 
     // Getters, setters and bindings
     | Let of ident: Ident * value: Expr * body: Expr
     | LetRec of bindings: (Ident * Expr) list * body: Expr
-    | Get of
-        expr: Expr *
-        kind: GetKind *
-        typ: Type *
-        range: SourceLocation option
-    | Set of
-        expr: Expr *
-        kind: SetKind *
-        typ: Type *
-        value: Expr *
-        range: SourceLocation option
+    | Get of expr: Expr * kind: GetKind * typ: Type * range: SourceLocation option
+    | Set of expr: Expr * kind: SetKind * typ: Type * value: Expr * range: SourceLocation option
 
     // Control flow
     | Sequential of exprs: Expr list
     | WhileLoop of guard: Expr * body: Expr * range: SourceLocation option
-    | ForLoop of
-        ident: Ident *
-        start: Expr *
-        limit: Expr *
-        body: Expr *
-        isUp: bool *
-        range: SourceLocation option
-    | TryCatch of
-        body: Expr *
-        catch: (Ident * Expr) option *
-        finalizer: Expr option *
-        range: SourceLocation option
-    | IfThenElse of
-        guardExpr: Expr *
-        thenExpr: Expr *
-        elseExpr: Expr *
-        range: SourceLocation option
+    | ForLoop of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool * range: SourceLocation option
+    | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
+    | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
-    | Unresolved of
-        expr: UnresolvedExpr *
-        typ: Type *
-        range: SourceLocation option
+    | Unresolved of expr: UnresolvedExpr * typ: Type * range: SourceLocation option
     | Extended of expr: ExtendedSet * range: SourceLocation option
 
     member this.Type =
@@ -902,18 +805,14 @@ type Expr =
         | Set _
         | WhileLoop _
         | ForLoop _ -> Unit
-        | Sequential exprs ->
-            List.tryLast exprs
-            |> Option.map (fun e -> e.Type)
-            |> Option.defaultValue Unit
+        | Sequential exprs -> List.tryLast exprs |> Option.map (fun e -> e.Type) |> Option.defaultValue Unit
         | Let(_, _, expr)
         | LetRec(_, expr)
         | TryCatch(expr, _, _, _)
         | IfThenElse(_, expr, _, _)
         | DecisionTree(expr, _) -> expr.Type
         | Lambda(arg, body, _) -> LambdaType(arg.Type, body.Type)
-        | Delegate(args, body, _, _) ->
-            DelegateType(args |> List.map (fun a -> a.Type), body.Type)
+        | Delegate(args, body, _, _) -> DelegateType(args |> List.map (fun a -> a.Type), body.Type)
 
     member this.Range: SourceLocation option =
         match this with

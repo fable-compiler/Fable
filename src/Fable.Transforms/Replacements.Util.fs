@@ -26,12 +26,7 @@ type Helper =
         )
         =
         let info =
-            CallInfo.Create(
-                args = args,
-                ?sigArgTypes = argTypes,
-                ?genArgs = genArgs,
-                isCons = true
-            )
+            CallInfo.Create(args = args, ?sigArgTypes = argTypes, ?genArgs = genArgs, isCons = true)
 
         Call(consExpr, info, returnType, loc)
 
@@ -48,12 +43,7 @@ type Helper =
         =
         let callee = getField callee memb
 
-        let info =
-            CallInfo.Create(
-                args = args,
-                ?sigArgTypes = argTypes,
-                ?genArgs = genArgs
-            )
+        let info = CallInfo.Create(args = args, ?sigArgTypes = argTypes, ?genArgs = genArgs)
 
         Call(callee, info, returnType, loc)
 
@@ -69,14 +59,7 @@ type Helper =
         let info = defaultArg argTypes [] |> makeCallInfo None args
         Call(callee, info, returnType, loc)
 
-    static member LibValue
-        (
-            com,
-            coreModule: string,
-            coreMember: string,
-            returnType: Type
-        )
-        =
+    static member LibValue(com, coreModule: string, coreMember: string, returnType: Type) =
         makeImportLib com returnType coreMember coreModule
 
     static member LibCall
@@ -99,20 +82,14 @@ type Helper =
         let isModuleMember = defaultArg isModuleMember (not isInstanceMember)
 
         let callee =
-            LibraryImportInfo.Create(
-                isInstanceMember = isInstanceMember,
-                isModuleMember = isModuleMember
-            )
+            LibraryImportInfo.Create(isInstanceMember = isInstanceMember, isModuleMember = isModuleMember)
             |> makeImportLibWithInfo com Any coreMember coreModule
 
         let memberRef =
             match hasSpread with
             | Some true ->
                 let argTypes =
-                    argTypes
-                    |> Option.defaultWith (fun () ->
-                        args |> List.map (fun a -> a.Type)
-                    )
+                    argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
 
                 GeneratedMember.Function(
                     coreMember,
@@ -137,14 +114,7 @@ type Helper =
 
         Call(callee, info, returnType, loc)
 
-    static member ImportedValue
-        (
-            com,
-            coreModule: string,
-            coreMember: string,
-            returnType: Type
-        )
-        =
+    static member ImportedValue(com, coreModule: string, coreMember: string, returnType: Type) =
         makeImportUserGenerated None Any coreMember coreModule
 
     static member ImportedCall
@@ -167,18 +137,9 @@ type Helper =
             match hasSpread with
             | Some true ->
                 let argTypes =
-                    argTypes
-                    |> Option.defaultWith (fun () ->
-                        args |> List.map (fun a -> a.Type)
-                    )
+                    argTypes |> Option.defaultWith (fun () -> args |> List.map (fun a -> a.Type))
 
-                GeneratedMember.Function(
-                    selector,
-                    argTypes,
-                    returnType,
-                    isInstance = false,
-                    hasSpread = true
-                )
+                GeneratedMember.Function(selector, argTypes, returnType, isInstance = false, hasSpread = true)
                 |> Some
             | Some false
             | None -> None
@@ -213,23 +174,11 @@ type Helper =
             | None -> makeIdentExpr ident
 
         let info =
-            CallInfo.Create(
-                args = args,
-                ?sigArgTypes = argTypes,
-                ?genArgs = genArgs,
-                ?isCons = isConstructor
-            )
+            CallInfo.Create(args = args, ?sigArgTypes = argTypes, ?genArgs = genArgs, ?isCons = isConstructor)
 
         Call(callee, info, returnType, loc)
 
-    static member GlobalIdent
-        (
-            ident: string,
-            memb: string,
-            typ: Type,
-            ?loc: SourceLocation
-        )
-        =
+    static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getFieldWith loc typ (makeIdentExpr ident) memb
 
 type NumberKind with
@@ -242,8 +191,7 @@ let makeUniqueIdent ctx t name =
 let withTag tag =
     function
     | Call(e, i, t, r) -> Call(e, { i with Tags = tag :: i.Tags }, t, r)
-    | Get(e, FieldGet i, t, r) ->
-        Get(e, FieldGet { i with Tags = tag :: i.Tags }, t, r)
+    | Get(e, FieldGet i, t, r) -> Get(e, FieldGet { i with Tags = tag :: i.Tags }, t, r)
     | e -> e
 
 let getTags =
@@ -285,12 +233,7 @@ let nullCheck r isNull expr =
         else
             BinaryUnequal
 
-    Operation(
-        Binary(op, expr, Value(Null expr.Type, None)),
-        Tags.empty,
-        Boolean,
-        r
-    )
+    Operation(Binary(op, expr, Value(Null expr.Type, None)), Tags.empty, Boolean, r)
 
 let str txt = Value(StringConstant txt, None)
 
@@ -367,7 +310,7 @@ type BuiltinType =
     | FSharpSet of Type
     | FSharpMap of key: Type * value: Type
     | FSharpChoice of Type list
-    | FSharpResult of Type * Type
+    | FSharpResult of arg1: Type * arg2: Type
     | FSharpReference of Type
 
 let (|BuiltinDefinition|_|) =
@@ -389,8 +332,7 @@ let (|BuiltinDefinition|_|) =
     | Types.byref -> Some(FSharpReference(Any))
     | Types.byref2 -> Some(FSharpReference(Any))
     | Types.refCell -> Some(FSharpReference(Any))
-    | Naming.StartsWith Types.choiceNonGeneric genArgs ->
-        List.replicate (int genArgs[1..]) Any |> FSharpChoice |> Some
+    | Naming.StartsWith Types.choiceNonGeneric genArgs -> List.replicate (int genArgs[1..]) Any |> FSharpChoice |> Some
     | _ -> None
 
 let (|BuiltinEntity|_|) (ent: string, genArgs) =
@@ -399,8 +341,7 @@ let (|BuiltinEntity|_|) (ent: string, genArgs) =
     | BuiltinDefinition(FSharpMap _), [ k; v ] -> Some(FSharpMap(k, v))
     | BuiltinDefinition(BclHashSet _), [ t ] -> Some(BclHashSet(t))
     | BuiltinDefinition(BclDictionary _), [ k; v ] -> Some(BclDictionary(k, v))
-    | BuiltinDefinition(BclKeyValuePair _), [ k; v ] ->
-        Some(BclKeyValuePair(k, v))
+    | BuiltinDefinition(BclKeyValuePair _), [ k; v ] -> Some(BclKeyValuePair(k, v))
     | BuiltinDefinition(FSharpResult _), [ k; v ] -> Some(FSharpResult(k, v))
     | BuiltinDefinition(FSharpReference _), [ t ] -> Some(FSharpReference(t))
     | BuiltinDefinition(FSharpReference _), [ t; _ ] -> Some(FSharpReference(t))
@@ -427,10 +368,7 @@ let genericTypeInfoError (name: string) =
     $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
 // This is mainly intended for typeof errors because we want to show the user where the function is originally called
-let changeRangeToCallSite
-    (inlinePath: InlinePath list)
-    (range: SourceLocation option)
-    =
+let changeRangeToCallSite (inlinePath: InlinePath list) (range: SourceLocation option) =
     List.tryLast inlinePath
     |> Option.bind (fun i -> i.FromRange)
     |> Option.orElse range
@@ -519,8 +457,7 @@ let makeStringTemplateFrom simpleFormats values =
             | Some acc ->
                 // TODO: If arguments need format, format them individually
                 let doesNotNeedFormat =
-                    not m.Groups[1].Success
-                    || (Array.contains m.Groups[1].Value simpleFormats)
+                    not m.Groups[1].Success || (Array.contains m.Groups[1].Value simpleFormats)
 
                 if doesNotNeedFormat then
                     {|
@@ -540,8 +477,7 @@ let makeStringTemplateFrom simpleFormats values =
 
 let rec namesof com ctx acc e =
     match acc, e with
-    | acc, Get(e, ExprGet(StringConst prop), _, _) ->
-        namesof com ctx (prop :: acc) e
+    | acc, Get(e, ExprGet(StringConst prop), _, _) -> namesof com ctx (prop :: acc) e
     | acc, Get(e, FieldGet i, _, _) -> namesof com ctx (i.Name :: acc) e
     | [], IdentExpr ident -> ident.DisplayName :: acc |> Some
     | [], NestedLambda(args, Call(IdentExpr ident, info, _, _), c) ->
@@ -594,13 +530,7 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
 
     Let(capturedFun1Var, f1, Let(capturedFun2Var, f2, Lambda(arg, body, None)))
 
-let partialApplyAtRuntime
-    (com: Compiler)
-    t
-    arity
-    (expr: Expr)
-    (partialArgs: Expr list)
-    =
+let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Expr list) =
     match com.Options.Language with
     | JavaScript
     | TypeScript
@@ -612,13 +542,7 @@ let partialApplyAtRuntime
             let curriedType = makeLambdaType argTypes returnType
 
             let curried =
-                Helper.LibCall(
-                    com,
-                    "Util",
-                    $"curry{argTypes.Length}",
-                    curriedType,
-                    [ expr ]
-                )
+                Helper.LibCall(com, "Util", $"curry{argTypes.Length}", curriedType, [ expr ])
 
             match partialArgs with
             | [] -> curried
@@ -678,13 +602,7 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
         | Python ->
             let uncurriedType = DelegateType(argTypes, returnType)
 
-            Helper.LibCall(
-                com,
-                "Util",
-                $"uncurry{arity}",
-                uncurriedType,
-                [ expr ]
-            )
+            Helper.LibCall(com, "Util", $"uncurry{arity}", uncurriedType, [ expr ])
         | _ ->
             // let makeArgIdent typ = makeTypedIdent typ $"a{com.IncrementCounter()}$"
             // let argIdents = argTypes |> List.map makeArgIdent
@@ -703,10 +621,8 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
             // Delegate(argIdents1, body, None, Tags.empty)
             let argTypes, returnType =
                 match expr.Type with
-                | Fable.LambdaType(argType, returnType) ->
-                    uncurryLambdaType arity [] expr.Type
-                | Fable.DelegateType(argTypes, returnType) ->
-                    argTypes, returnType
+                | Fable.LambdaType(argType, returnType) -> uncurryLambdaType arity [] expr.Type
+                | Fable.DelegateType(argTypes, returnType) -> argTypes, returnType
                 | _ -> [], expr.Type
 
             let makeArgIdent i typ = makeTypedIdent typ $"b{i}" // $"a{com.IncrementCounter()}$"
@@ -775,10 +691,7 @@ let (|IsInRefType|_|) (com: Compiler) =
         let ent = com.GetEntity(entRef)
 
         match ent.IsByRef, genArgs with
-        | true, [ genArg; DeclaredType(byRefKind, _) ] when
-            byRefKind.FullName = Types.byrefKindIn
-            ->
-            Some genArg
+        | true, [ genArg; DeclaredType(byRefKind, _) ] when byRefKind.FullName = Types.byrefKindIn -> Some genArg
         | _ -> None
     | _ -> None
 
@@ -810,8 +723,7 @@ let (|ListLiteral|_|) expr =
 
 let (|ArrayOrListLiteral|_|) =
     function
-    | MaybeCasted(Value((NewArray(ArrayValues vals, t, _) | ListLiteral(vals, t)),
-                        _)) -> Some(vals, t)
+    | MaybeCasted(Value((NewArray(ArrayValues vals, t, _) | ListLiteral(vals, t)), _)) -> Some(vals, t)
     | _ -> None
 
 let (|IsEntity|_|) fullName =
@@ -848,8 +760,7 @@ let (|Enumerator|Other|) =
     | "System.Collections.Generic.HashSet`1.Enumerator"
     | "System.Collections.Generic.Dictionary`2.Enumerator"
     | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
-    | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator" ->
-        Enumerator
+    | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator" -> Enumerator
     | _ -> Other
 
 let (|IsEnumerator|_|) =
@@ -863,12 +774,7 @@ let (|IsEnumerator|_|) =
 let (|IsNewAnonymousRecord|_|) =
     function
     // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
-    | NestedRevLets(bindings,
-                    Value(NewAnonymousRecord(exprs,
-                                             fieldNames,
-                                             genArgs,
-                                             isStruct),
-                          r)) ->
+    | NestedRevLets(bindings, Value(NewAnonymousRecord(exprs, fieldNames, genArgs, isStruct), r)) ->
         Some(List.rev bindings, exprs, fieldNames, genArgs, isStruct, r)
     | Value(NewAnonymousRecord(exprs, fieldNames, genArgs, isStruct), r) ->
         Some([], exprs, fieldNames, genArgs, isStruct, r)
@@ -883,8 +789,7 @@ let tryFindInScope (ctx: Context) identName =
         | (_, ident2: Ident, expr) :: prevScope ->
             if identName = ident2.Name then
                 match expr with
-                | Some(MaybeCasted(IdentExpr ident)) ->
-                    findInScopeInner prevScope ident.Name
+                | Some(MaybeCasted(IdentExpr ident)) -> findInScopeInner prevScope ident.Name
                 | expr -> expr
                 |> Option.map (fun e ->
                     if not (isNull ctx.CapturedBindings) then
@@ -910,26 +815,20 @@ let rec (|MaybeInScopeStringConst|_|) ctx =
     | MaybeInScope ctx expr ->
         match expr with
         | StringConst s -> Some s
-        | Operation(Binary(BinaryPlus,
-                           (MaybeInScopeStringConst ctx s1),
-                           (MaybeInScopeStringConst ctx s2)),
-                    _,
-                    _,
-                    _) -> Some(s1 + s2)
+        | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _, _) ->
+            Some(s1 + s2)
         | Value(StringTemplate(None, start :: parts, values), _) ->
             (Some [], values)
             ||> List.fold (fun acc value ->
                 match acc, value with
                 | None, _ -> None
-                | Some acc, MaybeInScopeStringConst ctx value ->
-                    Some(value :: acc)
+                | Some acc, MaybeInScopeStringConst ctx value -> Some(value :: acc)
                 | _ -> None
             )
             |> Option.map (fun values ->
                 let valuesAndParts = List.zip (List.rev values) parts
 
-                (start, valuesAndParts)
-                ||> List.fold (fun acc (v, p) -> acc + v + p)
+                (start, valuesAndParts) ||> List.fold (fun acc (v, p) -> acc + v + p)
             )
         | _ -> None
 
@@ -950,15 +849,7 @@ let rec (|RequireStringConstOrTemplate|) com (ctx: Context) r e =
         addError com ctx.InlinePath r "Expecting string literal"
         [ "" ], []
 
-let (|CustomOp|_|)
-    (com: ICompiler)
-    (ctx: Context)
-    r
-    t
-    opName
-    (argExprs: Expr list)
-    sourceTypes
-    =
+let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr list) sourceTypes =
     let argTypes = argExprs |> List.map (fun a -> a.Type)
 
     match FSharp2Fable.TypeHelpers.tryFindWitness ctx argTypes false opName with
@@ -972,17 +863,10 @@ let (|CustomOp|_|)
             | DeclaredType(ent, _) ->
                 let ent = com.GetEntity(ent)
 
-                FSharp2Fable.TypeHelpers.tryFindMember
-                    ent
-                    ctx.GenericArgs
-                    opName
-                    false
-                    argTypes
+                FSharp2Fable.TypeHelpers.tryFindMember ent ctx.GenericArgs opName false argTypes
             | _ -> None
         )
-        |> Option.map (
-            FSharp2Fable.Util.makeCallFrom com ctx r t [] None argExprs
-        )
+        |> Option.map (FSharp2Fable.Util.makeCallFrom com ctx r t [] None argExprs)
 
 let (|RegexFlags|_|) e =
     let rec getFlags =
@@ -1003,15 +887,7 @@ let (|RegexFlags|_|) e =
 
     getFlags e
 
-let (|UniversalFableCoreHelpers|_|)
-    (com: ICompiler)
-    (ctx: Context)
-    r
-    t
-    (i: CallInfo)
-    args
-    error
-    =
+let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: CallInfo) args error =
     function
     | "op_ErasedCast" -> List.tryHead args
     | ".ctor" -> typedObjExpr t [] |> Some
@@ -1054,8 +930,7 @@ let (|UniversalFableCoreHelpers|_|)
     | "nameofLambda"
     | "namesofLambda" as meth ->
         match args with
-        | [ MaybeInScope ctx (Lambda(_, (Namesof com ctx names), _)) ] ->
-            Some names
+        | [ MaybeInScope ctx (Lambda(_, (Namesof com ctx names), _)) ] -> Some names
         | _ -> None
         |> Option.defaultWith (fun () ->
             "Cannot infer name of expression" |> addError com ctx.InlinePath r
@@ -1071,12 +946,9 @@ let (|UniversalFableCoreHelpers|_|)
     | "casenameWithFieldIndex" as meth ->
         let rec inferCasename =
             function
-            | Lambda(arg,
-                     IfThenElse(Test(IdentExpr arg2, UnionCaseTest tag, _),
-                                thenExpr,
-                                _,
-                                _),
-                     _) when arg.Name = arg2.Name ->
+            | Lambda(arg, IfThenElse(Test(IdentExpr arg2, UnionCaseTest tag, _), thenExpr, _, _), _) when
+                arg.Name = arg2.Name
+                ->
                 match arg.Type with
                 | DeclaredType(e, _) ->
                     let e = com.GetEntity(e)
@@ -1093,15 +965,11 @@ let (|UniversalFableCoreHelpers|_|)
                                 bindings
                                 |> List.tryPick (fun (i2, v) ->
                                     match v with
-                                    | Get(_, UnionField unionInfo, _, _) when
-                                        i.Name = i2.Name
-                                        ->
+                                    | Get(_, UnionField unionInfo, _, _) when i.Name = i2.Name ->
                                         Some unionInfo.FieldIndex
                                     | _ -> None
                                 )
-                                |> Option.map (fun fieldIdx ->
-                                    caseName, fieldIdx
-                                )
+                                |> Option.map (fun fieldIdx -> caseName, fieldIdx)
                             | _ -> None
                     else
                         None
@@ -1112,8 +980,7 @@ let (|UniversalFableCoreHelpers|_|)
         | [ MaybeInScope ctx e ] -> inferCasename e
         | _ -> None
         |> Option.orElseWith (fun () ->
-            "Cannot infer case name of expression"
-            |> addError com ctx.InlinePath r
+            "Cannot infer case name of expression" |> addError com ctx.InlinePath r
 
             Some(Naming.unknown, -1)
         )
@@ -1162,8 +1029,7 @@ module AnonRecords =
     let private unreachable () = failwith "unreachable"
     let private formatType = getTypeFullName true
 
-    let private formatTypes =
-        List.map (formatType >> quote) >> String.concat "; "
+    let private formatTypes = List.map (formatType >> quote) >> String.concat "; "
 
     /// Returns for:
     /// * `Ux<...>`: extracted types from `<....>`: `U2<string,int>` -> `[String; Int]`
@@ -1184,19 +1050,15 @@ module AnonRecords =
         match ty with
         | UType tys -> tys |> List.map makeType |> List.distinct
         | OptionType(UType tys, isStruct) ->
-            tys
-            |> List.map (fun t -> Fable.Option(makeType t, isStruct))
-            |> List.distinct
+            tys |> List.map (fun t -> Fable.Option(makeType t, isStruct)) |> List.distinct
         | _ -> makeType ty |> List.singleton
 
     and private (|OptionType|_|) (ty: FSharpType) =
         match ty with
         | Patterns.TypeDefinition tdef ->
             match FsEnt.FullName tdef with
-            | Types.valueOption ->
-                Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], true)
-            | Types.option ->
-                Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], false)
+            | Types.valueOption -> Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], true)
+            | Types.option -> Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], false)
             | _ -> None
         | _ -> None
 
@@ -1212,33 +1074,21 @@ module AnonRecords =
                 None
 
         match ty with
-        | Patterns.TypeDefinition UName ->
-            ty.GenericArguments
-            |> Seq.mapToList Helpers.nonAbbreviatedType
-            |> Some
+        | Patterns.TypeDefinition UName -> ty.GenericArguments |> Seq.mapToList Helpers.nonAbbreviatedType |> Some
         | _ -> None
 
     /// Special Rules mostly for Indexers:
     ///     For direct interface member implementation we want to be precise (-> exact_ish match)
     ///     But for indexer allow a bit more types like erased union with string field when indexer is string
-    let private fitsInto
-        (rules: Allow)
-        (expected: Fable.Type list)
-        (actual: Fable.Type)
-        =
+    let private fitsInto (rules: Allow) (expected: Fable.Type list) (actual: Fable.Type) =
         assert (expected |> List.isEmpty |> not)
 
         let (|IntNumber|_|) =
             function
-            | Fable.Number((Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32), _) ->
-                Some()
+            | Fable.Number((Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32), _) -> Some()
             | _ -> None
 
-        let fitsIntoSingle
-            (rules: Allow)
-            (expected: Fable.Type)
-            (actual: Fable.Type)
-            =
+        let fitsIntoSingle (rules: Allow) (expected: Fable.Type) (actual: Fable.Type) =
             match expected, actual with
             | Fable.Any, _ -> true
             | _, Fable.Any when rules.HasFlag Allow.AlwaysAny ->
@@ -1246,9 +1096,7 @@ module AnonRecords =
                 // -> cannot distinguish between 'normal' Any (like 'obj')
                 // and Erased Union (like Erased Union with string field)
                 true
-            | IntNumber, Fable.Number(_, Fable.NumberInfo.IsEnum _) when
-                rules.HasFlag Allow.EnumIntoInt
-                ->
+            | IntNumber, Fable.Number(_, Fable.NumberInfo.IsEnum _) when rules.HasFlag Allow.EnumIntoInt ->
                 // the underlying type of enum in F# is uint32
                 // For practicality: allow in all uint & int fields
                 true
@@ -1256,11 +1104,7 @@ module AnonRecords =
             | Fable.Option(t1, _), t2
             | t1, t2 -> typeEquals false t1 t2
 
-        let fitsIntoMulti
-            (rules: Allow)
-            (expected: Fable.Type list)
-            (actual: Fable.Type)
-            =
+        let fitsIntoMulti (rules: Allow) (expected: Fable.Type list) (actual: Fable.Type) =
             expected |> List.contains Fable.Any
             || (
             // special treatment for actual=Any & multiple expected:
@@ -1270,10 +1114,7 @@ module AnonRecords =
             //rules.HasFlag Allow.AnyIntoErased
             //&&
             expected |> List.isMultiple && actual = Fable.Any)
-            || expected
-               |> List.exists (fun expected ->
-                   fitsIntoSingle rules expected actual
-               )
+            || expected |> List.exists (fun expected -> fitsIntoSingle rules expected actual)
 
         fitsIntoMulti rules expected actual
 
@@ -1332,10 +1173,7 @@ module AnonRecords =
             | Some indexers ->
                 assert (indexers |> List.isEmpty |> not)
 
-                let indexers =
-                    indexers
-                    |> List.map (fun i -> i.DisplayName)
-                    |> List.distinct
+                let indexers = indexers |> List.map (fun i -> i.DisplayName) |> List.distinct
 
                 match indexers with
                 | [] -> unreachable ()
@@ -1349,8 +1187,7 @@ module AnonRecords =
                         let expectedTypes = expectedTypes |> formatTypes
                         $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
                 | _ ->
-                    let indexerNames =
-                        indexers |> List.map (quote) |> String.concat "; "
+                    let indexerNames = indexers |> List.map (quote) |> String.concat "; "
 
                     match expectedTypes with
                     | [] -> unreachable ()
@@ -1376,9 +1213,7 @@ module AnonRecords =
         =
 
         interfaceMembers
-        |> List.filter (fun m ->
-            not (m.Attributes |> Helpers.hasAttrib Atts.emitIndexer)
-        )
+        |> List.filter (fun m -> not (m.Attributes |> Helpers.hasAttrib Atts.emitIndexer))
         |> List.filter (fun m -> m.IsPropertyGetterMethod)
         |> List.choose (fun m ->
             if fieldsToIgnore |> Set.contains m.DisplayName then
@@ -1400,32 +1235,15 @@ module AnonRecords =
                         then
                             None // Optional fields can be missing
                         else
-                            formatMissingFieldError
-                                range
-                                interface_
-                                m.DisplayName
-                                expectedTypes
-                            |> Some
+                            formatMissingFieldError range interface_ m.DisplayName expectedTypes |> Some
                     | Some i ->
                         let expr = List.item i argExprs
                         let ty = expr.Type
 
-                        if
-                            ty
-                            |> fitsInto
-                                (Allow.TheUsual (*||| Allow.AnyIntoErased*) )
-                                expectedTypes
-                        then
+                        if ty |> fitsInto (Allow.TheUsual (*||| Allow.AnyIntoErased*) ) expectedTypes then
                             None
                         else
-                            formatUnexpectedTypeError
-                                range
-                                interface_
-                                None
-                                m.DisplayName
-                                expectedTypes
-                                ty
-                                expr.Range
+                            formatUnexpectedTypeError range interface_ None m.DisplayName expectedTypes ty expr.Range
                             |> Some
         )
 
@@ -1442,9 +1260,7 @@ module AnonRecords =
         // Note: Indexers are assumed to be "valid" index properties (like `string` and/or `int` input (TS rules))
         let indexers =
             interfaceMembers
-            |> List.filter (fun m ->
-                m.Attributes |> Helpers.hasAttrib Atts.emitIndexer
-            )
+            |> List.filter (fun m -> m.Attributes |> Helpers.hasAttrib Atts.emitIndexer)
             // Indexer:
             // * with explicit get: IsPropertyGetterMethod
             // * with explicit set: IsPropertySetterMetod
@@ -1462,29 +1278,14 @@ module AnonRecords =
         | _ when validTypes |> List.contains Fable.Any -> []
         | _ ->
             List.zip (fieldNames |> Array.toList) argExprs
-            |> List.filter (fun (fieldName, _) ->
-                fieldsToIgnore |> Set.contains fieldName |> not
-            )
+            |> List.filter (fun (fieldName, _) -> fieldsToIgnore |> Set.contains fieldName |> not)
             |> List.choose (fun (name, expr) ->
                 let ty = expr.Type
 
-                if
-                    fitsInto
-                        (Allow.TheUsual
-                         ||| Allow.EnumIntoInt (*||| Allow.AnyIntoErased*) )
-                        validTypes
-                        ty
-                then
+                if fitsInto (Allow.TheUsual ||| Allow.EnumIntoInt (*||| Allow.AnyIntoErased*) ) validTypes ty then
                     None
                 else
-                    formatUnexpectedTypeError
-                        range
-                        interface_
-                        (Some indexers)
-                        name
-                        validTypes
-                        ty
-                        expr.Range
+                    formatUnexpectedTypeError range interface_ (Some indexers) name validTypes ty expr.Range
                     |> Some
             )
 
@@ -1507,18 +1308,11 @@ module AnonRecords =
         | :? FsEnt as fsEnt ->
             let interface_ = fsEnt.FSharpEntity
 
-            let interfaceMembers =
-                Helpers.getAllInterfaceMembers interface_ |> Seq.toList
+            let interfaceMembers = Helpers.getAllInterfaceMembers interface_ |> Seq.toList
 
             // TODO: Check also if there are extra fields in the record not present in the interface?
             let fieldErrors =
-                fitsInterfaceMembers
-                    range
-                    argExprs
-                    fieldNames
-                    interface_
-                    Set.empty
-                    interfaceMembers
+                fitsInterfaceMembers range argExprs fieldNames interface_ Set.empty interfaceMembers
 
             let indexerErrors =
                 fitsInterfaceIndexers
@@ -1527,9 +1321,7 @@ module AnonRecords =
                     fieldNames
                     interface_
                     // don't check already errored fields
-                    (fieldErrors
-                     |> List.map (fun (_, fieldName, _) -> fieldName)
-                     |> Set.ofList)
+                    (fieldErrors |> List.map (fun (_, fieldName, _) -> fieldName) |> Set.ofList)
                     interfaceMembers
 
             List.append fieldErrors indexerErrors

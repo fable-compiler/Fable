@@ -3,9 +3,7 @@ module Fable.Compiler.Util
 open System
 
 type RunProcess =
-    new:
-        exeFile: string * args: string list * ?watch: bool * ?fast: bool ->
-            RunProcess
+    new: exeFile: string * args: string list * ?watch: bool * ?fast: bool -> RunProcess
 
     member ExeFile: string
     member Args: string list
@@ -57,11 +55,7 @@ module File =
     val defaultFileExt: usesOutDir: bool -> language: Fable.Language -> string
 
     val changeExtensionButUseDefaultExtensionInFableModules:
-        lang: Fable.Language ->
-        isInFableModules: bool ->
-        filePath: string ->
-        fileExt: string ->
-            string
+        lang: Fable.Language -> isInFableModules: bool -> filePath: string -> fileExt: string -> string
 
     val relPathToCurDir: path: string -> string
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
@@ -78,8 +72,7 @@ module File =
 
     val tryFindUpwards: fileName: string -> dir: string -> string option
 
-    val tryNodeModulesBin:
-        workingDir: string -> exeFile: string -> string option
+    val tryNodeModulesBin: workingDir: string -> exeFile: string -> string option
 
     /// System.IO.GetFullPath doesn't change the case of the argument in case insensitive file systems
     /// even if it doesn't match the actual path, causing unexpected issues when comparing files later.
@@ -91,36 +84,23 @@ module File =
 
 [<RequireQualifiedAccess>]
 module Process =
-    val startWithEnv:
-        envVars: (string * string) list ->
-            (string -> string -> string list -> unit)
+    val startWithEnv: envVars: (string * string) list -> (string -> string -> string list -> unit)
 
     val runSyncWithEnv:
-        envVars: (string * string) list ->
-        workingDir: string ->
-        exePath: string ->
-        args: string list ->
-            int
+        envVars: (string * string) list -> workingDir: string -> exePath: string -> args: string list -> int
 
-    val runSync:
-        workingDir: string -> exePath: string -> args: string list -> int
+    val runSync: workingDir: string -> exePath: string -> args: string list -> int
 
 type PathResolver =
-    abstract TryPrecompiledOutPath:
-        sourceDir: string * relativePath: string -> string option
+    abstract TryPrecompiledOutPath: sourceDir: string * relativePath: string -> string option
 
-    abstract GetOrAddDeduplicateTargetDir:
-        importDir: string * addTargetDir: (Set<string> -> string) -> string
+    abstract GetOrAddDeduplicateTargetDir: importDir: string * addTargetDir: (Set<string> -> string) -> string
 
 module Imports =
     val getRelativePath: path: string -> pathTo: string -> string
 
     val getTargetAbsolutePath:
-        pathResolver: PathResolver ->
-        importPath: string ->
-        projDir: string ->
-        outDir: string ->
-            string
+        pathResolver: PathResolver -> importPath: string -> projDir: string -> outDir: string -> string
 
     val getImportPath:
         pathResolver: PathResolver ->
@@ -145,8 +125,7 @@ module ResultCE =
         new: unit -> ResultBuilder
         member Zero: Result<unit, obj>
 
-        member Bind:
-            v: Result<'d, 'e> * f: ('d -> Result<'f, 'e>) -> Result<'f, 'e>
+        member Bind: v: Result<'d, 'e> * f: ('d -> Result<'f, 'e>) -> Result<'f, 'e>
 
         member Return: v: 'b -> Result<'b, 'c>
         member ReturnFrom: v: 'a -> 'a
@@ -177,9 +156,7 @@ type PrecompiledInfoJson =
     }
 
 type PrecompiledInfoImpl =
-    new:
-        fableModulesDir: string * info: PrecompiledInfoJson ->
-            PrecompiledInfoImpl
+    new: fableModulesDir: string * info: PrecompiledInfoJson -> PrecompiledInfoImpl
 
     member CompilerVersion: string
     member CompilerOptions: Fable.CompilerOptions
@@ -191,8 +168,7 @@ type PrecompiledInfoImpl =
     interface Fable.Transforms.State.PrecompiledInfo
     static member GetPath: fableModulesDir: string -> string
 
-    static member GetInlineExprsPath:
-        fableModulesDir: string * index: int -> string
+    static member GetInlineExprsPath: fableModulesDir: string * index: int -> string
 
     static member Load: fableModulesDir: string -> PrecompiledInfoImpl
 
@@ -205,5 +181,4 @@ type PrecompiledInfoImpl =
             unit
 
 module Reflection =
-    val loadType:
-        cliArgs: CliArgs -> r: Fable.Transforms.State.PluginRef -> Type
+    val loadType: cliArgs: CliArgs -> r: Fable.Transforms.State.PluginRef -> Type

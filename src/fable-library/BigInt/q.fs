@@ -45,8 +45,7 @@ type BigRationalLarge =
     static member Equals(Q(ap, aq), Q(bp, bq)) =
         BigInteger.(=) (ap, bp) && BigInteger.(=) (aq, bq) // normal form, so structural equality
 
-    static member LessThan(Q(ap, aq), Q(bp, bq)) =
-        BigInteger.(<) (ap * bq, bp * aq)
+    static member LessThan(Q(ap, aq), Q(bp, bq)) = BigInteger.(<) (ap * bq, bp * aq)
 
     // note: performance improvement possible here
     static member Compare(p, q) =
@@ -60,8 +59,7 @@ type BigRationalLarge =
     interface System.IComparable with
         member this.CompareTo(obj: obj) =
             match obj with
-            | :? BigRationalLarge as that ->
-                BigRationalLarge.Compare(this, that)
+            | :? BigRationalLarge as that -> BigRationalLarge.Compare(this, that)
             | _ -> invalidArg "obj" "the object does not have the correct type"
 
     override this.Equals(that: obj) =
@@ -244,10 +242,8 @@ type BigRational =
         match n, nn with
         | Z z, Z zz -> BigInteger.(=) (z, zz)
         | Q q, Q qq -> (BigRationalLarge.equal q qq)
-        | Z z, Q qq ->
-            (BigRationalLarge.equal (BigRationalLarge.of_bigint z) qq)
-        | Q q, Z zz ->
-            (BigRationalLarge.equal q (BigRationalLarge.of_bigint zz))
+        | Z z, Q qq -> (BigRationalLarge.equal (BigRationalLarge.of_bigint z) qq)
+        | Q q, Z zz -> (BigRationalLarge.equal q (BigRationalLarge.of_bigint zz))
 
     static member op_Inequality(n, nn) = not (BigRational.op_Equality (n, nn))
 

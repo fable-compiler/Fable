@@ -37,11 +37,9 @@ module Experimental =
 
 module Testing =
     type Assert =
-        static member AreEqual(actual: 'T, expected: 'T, ?msg: string) : unit =
-            nativeOnly
+        static member AreEqual(actual: 'T, expected: 'T, ?msg: string) : unit = nativeOnly
 
-        static member NotEqual(actual: 'T, expected: 'T, ?msg: string) : unit =
-            nativeOnly
+        static member NotEqual(actual: 'T, expected: 'T, ?msg: string) : unit = nativeOnly
 
 
 module Reflection =

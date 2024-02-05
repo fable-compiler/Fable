@@ -10,8 +10,7 @@ type Continuation<'T> = 'T -> unit
 type OperationCanceledError() =
     inherit Exception("The operation was canceled")
 
-type Continuations<'T> =
-    Continuation<'T> * Continuation<exn> * Continuation<OperationCanceledError>
+type Continuations<'T> = Continuation<'T> * Continuation<exn> * Continuation<OperationCanceledError>
 
 
 type CancellationToken(cancelled: bool) =
@@ -133,20 +132,10 @@ type IAsyncBuilder =
 type AsyncBuilder() =
     interface IAsyncBuilder with
 
-        member this.Bind<'T, 'U>
-            (
-                computation: IAsync<'T>,
-                binder: 'T -> IAsync<'U>
-            )
-            =
+        member this.Bind<'T, 'U>(computation: IAsync<'T>, binder: 'T -> IAsync<'U>) =
             protectedBind (computation, binder)
 
-        member this.Combine<'T>
-            (
-                computation1: IAsync<unit>,
-                computation2: IAsync<'T>
-            )
-            =
+        member this.Combine<'T>(computation1: IAsync<unit>, computation2: IAsync<'T>) =
             let self = this :> IAsyncBuilder
             self.Bind(computation1, (fun () -> computation2))
 
@@ -164,8 +153,7 @@ type AsyncBuilder() =
         //     }));
         //   }
 
-        member this.Return<'T>(value: 'T) : IAsync<'T> =
-            protectedReturn (unbox value)
+        member this.Return<'T>(value: 'T) : IAsync<'T> = protectedReturn (unbox value)
         // member this.Return<'T>([<ParamArray>] value: 'T []) : IAsync<'T> =
         //     match value with
         //     | [||] -> protectedReturn (unbox null)
@@ -220,20 +208,11 @@ type AsyncBuilder() =
         //     return this.TryFinally(binder(resource), () => resource.Dispose());
         //   }
 
-        member this.While
-            (
-                guard: unit -> bool,
-                computation: IAsync<unit>
-            )
-            : IAsync<unit>
-            =
+        member this.While(guard: unit -> bool, computation: IAsync<unit>) : IAsync<unit> =
             let self = this :> IAsyncBuilder
 
             if guard () then
-                self.Bind(
-                    computation,
-                    (fun () -> self.While(guard, computation))
-                )
+                self.Bind(computation, (fun () -> self.While(guard, computation)))
             else
                 self.Return()
 

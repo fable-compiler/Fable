@@ -109,8 +109,7 @@ module internal BigNatModule =
             let inline madd (x: fp) (y: fp) : fp = (x + y) % p
             let inline msub (x: fp) (y: fp) : fp = (x + p - y) % p
 
-            let inline mmul (x: fp) (y: fp) : fp =
-                uint32 ((uint64 x * uint64 y) % p64)
+            let inline mmul (x: fp) (y: fp) : fp = uint32 ((uint64 x * uint64 y) % p64)
 
             let rec mpow x n =
                 if n = 0 then
@@ -1245,11 +1244,7 @@ module internal BigNatModule =
                     x_result
                     (sub
                         x
-                        (add
-                            (shiftUp (j + n) (embed64 z))
-                            (mul
-                                (embed f)
-                                (shiftUp (j + 1 + n) (shiftDown (j + 1) a)))))
+                        (add (shiftUp (j + n) (embed64 z)) (mul (embed f) (shiftUp (j + 1 + n) (shiftDown (j + 1) a)))))
 
             let P2 = z < baseNi64 * baseNi64 - 1L
             check P1 "P1"
@@ -1265,8 +1260,7 @@ module internal BigNatModule =
 
         while (z > 0L || j < ad) do
             if j > xd then
-                failwith
-                    "scaleSubInPlace: pre-condition did not apply, result would be -ve"
+                failwith "scaleSubInPlace: pre-condition did not apply, result would be -ve"
 #if CHECKED
             invariant (z, j, n) // P1,P2 hold
 #endif
@@ -1363,11 +1357,7 @@ module internal BigNatModule =
                     x_result
                     (add
                         x
-                        (add
-                            (shiftUp (j + n) (embed64 z))
-                            (mul
-                                (embed f)
-                                (shiftUp (j + 1 + n) (shiftDown (j + 1) a)))))
+                        (add (shiftUp (j + n) (embed64 z)) (mul (embed f) (shiftUp (j + 1 + n) (shiftDown (j + 1) a)))))
 
             let P2 = z < baseNi64 * baseNi64 - 1L
             check P1 "P1"
@@ -1383,8 +1373,7 @@ module internal BigNatModule =
 
         while (z > 0L || j < ad) do
             if j > xd then
-                failwith
-                    "scaleSubInPlace: pre-condition did not apply, result would be -ve"
+                failwith "scaleSubInPlace: pre-condition did not apply, result would be -ve"
 #if CHECKED
             invariant (z, j, n) // P1,P2 hold
 #endif
@@ -1459,9 +1448,7 @@ module internal BigNatModule =
 #if CHECKED
                          check (degx = n + 1) "removeFactor degx#1"
 #endif
-                         let f64 =
-                             (int64 xa.[degx] * baseNi64 + int64 xa.[degx - 1])
-                             / int64 aa.[0]
+                         let f64 = (int64 xa.[degx] * baseNi64 + int64 xa.[degx - 1]) / int64 aa.[0]
 
                          int32 f64)
                 else if // a = sumR 0 dega (\i.digitsi.B^i)
@@ -1474,8 +1461,7 @@ module internal BigNatModule =
                      check (degx = dega + n + 1) "removeFactor degx#2"
 #endif
                      let f64 =
-                         (int64 xa.[degx] * baseNi64 + int64 xa.[degx - 1])
-                         / (int64 aa.[dega] + 1L) // +1 to bound above a
+                         (int64 xa.[degx] * baseNi64 + int64 xa.[degx - 1]) / (int64 aa.[dega] + 1L) // +1 to bound above a
 
                      int32 f64)
 
@@ -1724,8 +1710,7 @@ module internal BigNatModule =
             if xB > baseMask32B then
                 raise (System.OverflowException())
 
-            (uint32 (xA &&& baseMask32A))
-            + ((uint32 (xB &&& baseMask32B)) <<< baseShift32B)
+            (uint32 (xA &&& baseMask32A)) + ((uint32 (xB &&& baseMask32B)) <<< baseShift32B)
         | _ -> raise (System.OverflowException())
 
     /// Convert BigNat to uint64 otherwise OverflowException.
@@ -1736,8 +1721,7 @@ module internal BigNatModule =
         | 2 ->
             let xA, xB = n.digits.[0], n.digits.[1]
 
-            (uint64 (xA &&& baseMask64A))
-            + ((uint64 (xB &&& baseMask64B)) <<< baseShift64B)
+            (uint64 (xA &&& baseMask64A)) + ((uint64 (xB &&& baseMask64B)) <<< baseShift64B)
         | 3 ->
             let xA, xB, xC = n.digits.[0], n.digits.[1], n.digits.[2]
 

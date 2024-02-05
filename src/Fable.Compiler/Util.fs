@@ -50,9 +50,7 @@ type private TypeInThisAssembly =
     class
     end
 
-type Agent<'T>
-    private (mbox: MailboxProcessor<'T>, cts: CancellationTokenSource)
-    =
+type Agent<'T> private (mbox: MailboxProcessor<'T>, cts: CancellationTokenSource) =
     static member Start(f: 'T -> unit) =
         let cts = new CancellationTokenSource()
 
@@ -140,12 +138,7 @@ module File =
     // Some Fable JS packages have native files with same name as the F# file
     // so we need to use the default extension .fs.js to prevent conflicts.
     // We should avoid this practice for other languages (Rust, Python...).
-    let changeExtensionButUseDefaultExtensionInFableModules
-        lang
-        isInFableModules
-        filePath
-        fileExt
-        =
+    let changeExtensionButUseDefaultExtensionInFableModules lang isInFableModules filePath fileExt =
         let fileExt =
             if isInFableModules then
                 defaultFileExt false lang
@@ -164,12 +157,7 @@ module File =
     let readAllTextNonBlocking (path: string) =
         if File.Exists(path) then
             use fileStream =
-                new FileStream(
-                    path,
-                    FileMode.Open,
-                    FileAccess.Read,
-                    FileShare.ReadWrite
-                )
+                new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
 
             use textReader = new StreamReader(fileStream)
             textReader.ReadToEnd()
@@ -181,12 +169,7 @@ module File =
         async {
             if File.Exists(path) then
                 use fileStream =
-                    new FileStream(
-                        path,
-                        FileMode.Open,
-                        FileAccess.Read,
-                        FileShare.ReadWrite
-                    )
+                    new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
 
                 use textReader = new StreamReader(fileStream)
                 let! text = textReader.ReadToEndAsync() |> Async.AwaitTask
@@ -216,9 +199,7 @@ module File =
 
         if
             opts.exclude
-            |> List.exists (fun e ->
-                String.Equals(curDir, e, StringComparison.OrdinalIgnoreCase)
-            )
+            |> List.exists (fun e -> String.Equals(curDir, e, StringComparison.OrdinalIgnoreCase))
         then
             tryParent ()
         else
@@ -253,8 +234,7 @@ module File =
     let tryNodeModulesBin workingDir exeFile =
         tryFindPackageJsonDir workingDir
         |> Option.bind (fun pkgJsonDir ->
-            let nodeModulesBin =
-                Path.Join(pkgJsonDir, "node_modules", ".bin", exeFile)
+            let nodeModulesBin = Path.Join(pkgJsonDir, "node_modules", ".bin", exeFile)
 
             if File.Exists(nodeModulesBin) then
                 Path.GetRelativePath(workingDir, nodeModulesBin) |> Some
@@ -275,10 +255,7 @@ module File =
                 let di = DirectoryInfo(pathName)
 
                 if not (isNull di.Parent) then
-                    Path.Combine(
-                        getExactPath di.Parent.FullName,
-                        di.Parent.GetFileSystemInfos(di.Name).[0].Name
-                    )
+                    Path.Combine(getExactPath di.Parent.FullName, di.Parent.GetFileSystemInfos(di.Name).[0].Name)
                 else
                     di.Name.ToUpper()
 
@@ -318,23 +295,17 @@ module File =
                             // If the lock is too old assume it's there because of a failed compilation
                             let creationTime = File.GetCreationTime(lockFile)
 
-                            if
-                                (DateTime.Now - creationTime).TotalMilliseconds > float
-                                    timeoutMs
-                            then
-                                Log.always
-                                    $"Found old lock file {relPathToCurDir lockFile} ({creationTime})"
+                            if (DateTime.Now - creationTime).TotalMilliseconds > float timeoutMs then
+                                Log.always $"Found old lock file {relPathToCurDir lockFile} ({creationTime})"
 
                                 try
                                     File.Delete(lockFile)
                                 with _ ->
                                     ()
                             else
-                                Log.always
-                                    $"Directory is locked, waiting for max {timeoutMs / 1000}s"
+                                Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
 
-                                Log.always
-                                    $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
+                                Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
                         elif waitedMs >= timeoutMs then
                             Fable.AST.Fable.FableError "LockTimeOut" |> raise
 
@@ -357,8 +328,7 @@ module File =
                 if fileCreated then
                     File.Delete(lockFile)
             with e ->
-                Log.always
-                    $"Could not delete lock file: {lockFile} ({e.Message})"
+                Log.always $"Could not delete lock file: {lockFile} ({e.Message})"
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -366,9 +336,7 @@ module Process =
     open System.Diagnostics
 
     let isWindows () =
-        InteropServices.RuntimeInformation.IsOSPlatform(
-            InteropServices.OSPlatform.Windows
-        )
+        InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
 
     // Adapted from https://stackoverflow.com/a/22210859
     let tryFindInPath (exec: string) =
@@ -415,13 +383,7 @@ module Process =
         + currentPath
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let private startProcess
-        redirectOutput
-        (envVars: (string * string) list)
-        workingDir
-        exePath
-        (args: string list)
-        =
+    let private startProcess redirectOutput (envVars: (string * string) list) workingDir exePath (args: string list) =
         let exePath, args =
             if isWindows () then
                 "cmd", "/C" :: exePath :: args
@@ -431,8 +393,7 @@ module Process =
         // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
         // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
         if not redirectOutput then
-            Log.always
-                $"""{File.relPathToCurDir workingDir}> {exePath} {String.concat " " args}"""
+            Log.always $"""{File.relPathToCurDir workingDir}> {exePath} {String.concat " " args}"""
 
         let psi = ProcessStartInfo(exePath)
 
@@ -462,19 +423,12 @@ module Process =
         // In Windows, terminating the main process doesn't kill the spawned ones so we need
         // to listen for the Console.CancelKeyPress and AssemblyLoadContext.Unloading events
         if isWindows () then
-            Console.CancelKeyPress.AddHandler(
-                ConsoleCancelEventHandler(fun _ _ ->
-                    runningProcess |> Option.iter kill
-                )
-            )
+            Console.CancelKeyPress.AddHandler(ConsoleCancelEventHandler(fun _ _ -> runningProcess |> Option.iter kill))
 
             let assemblyLoadContext =
-                getCurrentAssembly ()
-                |> Loader.AssemblyLoadContext.GetLoadContext
+                getCurrentAssembly () |> Loader.AssemblyLoadContext.GetLoadContext
 
-            assemblyLoadContext.add_Unloading (fun _ ->
-                runningProcess |> Option.iter kill
-            )
+            assemblyLoadContext.add_Unloading (fun _ -> runningProcess |> Option.iter kill)
 
         fun (workingDir: string) (exePath: string) (args: string list) ->
             try
@@ -484,15 +438,9 @@ module Process =
             with ex ->
                 Log.always ("Cannot run: " + ex.Message)
 
-    let start (workingDir: string) (exePath: string) (args: string list) =
-        startWithEnv [] workingDir exePath args
+    let start (workingDir: string) (exePath: string) (args: string list) = startWithEnv [] workingDir exePath args
 
-    let runSyncWithEnv
-        envVars
-        (workingDir: string)
-        (exePath: string)
-        (args: string list)
-        =
+    let runSyncWithEnv envVars (workingDir: string) (exePath: string) (args: string list) =
         try
             let p = startProcess false envVars workingDir exePath args
             p.WaitForExit()
@@ -566,11 +514,9 @@ module Async =
     let ignore (_: 'a) = async { return () }
 
 type PathResolver =
-    abstract TryPrecompiledOutPath:
-        sourceDir: string * relativePath: string -> string option
+    abstract TryPrecompiledOutPath: sourceDir: string * relativePath: string -> string option
 
-    abstract GetOrAddDeduplicateTargetDir:
-        importDir: string * addTargetDir: (Set<string> -> string) -> string
+    abstract GetOrAddDeduplicateTargetDir: importDir: string * addTargetDir: (Set<string> -> string) -> string
 
 module Imports =
     open System.Text.RegularExpressions
@@ -594,22 +540,12 @@ module Imports =
         else
             "./" + relPath
 
-    let getTargetAbsolutePath
-        (pathResolver: PathResolver)
-        importPath
-        projDir
-        outDir
-        =
+    let getTargetAbsolutePath (pathResolver: PathResolver) importPath projDir outDir =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
         // It may happen the importPath is already in outDir, for example package sources in fable_modules folder.
         // (Case insensitive comparison because in some Windows build servers paths can start with C:/ or c:/)
-        if
-            importPath.StartsWith(
-                outDir + "/",
-                StringComparison.OrdinalIgnoreCase
-            )
-        then
+        if importPath.StartsWith(outDir + "/", StringComparison.OrdinalIgnoreCase) then
             importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
@@ -618,8 +554,7 @@ module Imports =
                 pathResolver.GetOrAddDeduplicateTargetDir(
                     importDir,
                     fun currentTargetDirs ->
-                        let relDir =
-                            getRelativePath projDir importDir |> trimPath
+                        let relDir = getRelativePath projDir importDir |> trimPath
 
                         Path.Combine(outDir, relDir)
                         |> Naming.preventConflicts currentTargetDirs.Contains
@@ -628,15 +563,8 @@ module Imports =
             let importFile = Path.GetFileName(importPath)
             Path.Combine(targetDir, importFile)
 
-    let getTargetRelativePath
-        pathResolver
-        (importPath: string)
-        targetDir
-        projDir
-        (outDir: string)
-        =
-        let absPath =
-            getTargetAbsolutePath pathResolver importPath projDir outDir
+    let getTargetRelativePath pathResolver (importPath: string) targetDir projDir (outDir: string) =
+        let absPath = getTargetAbsolutePath pathResolver importPath projDir outDir
 
         let relPath = getRelativePath targetDir absPath
 
@@ -645,14 +573,7 @@ module Imports =
         else
             "./" + relPath
 
-    let getImportPath
-        pathResolver
-        sourcePath
-        targetPath
-        projDir
-        outDir
-        (importPath: string)
-        =
+    let getImportPath pathResolver sourcePath targetPath projDir outDir (importPath: string) =
         let macro, importPath =
             let m = Regex.Match(importPath, @"^\${(\w+)}[\/\\]?")
 
@@ -686,19 +607,13 @@ module Imports =
 
             let importPath =
                 if isRelativePath importPath then
-                    Path.Combine(sourceDir, importPath)
-                    |> Path.normalizeFullPath
+                    Path.Combine(sourceDir, importPath) |> Path.normalizeFullPath
                 else
                     importPath
 
             if isAbsolutePath importPath then
                 if importPath.EndsWith(".fs", StringComparison.Ordinal) then
-                    getTargetRelativePath
-                        pathResolver
-                        importPath
-                        targetDir
-                        projDir
-                        outDir
+                    getTargetRelativePath pathResolver importPath targetDir projDir outDir
                 else
                     getRelativePath targetDir importPath
             else
@@ -781,9 +696,7 @@ module Json =
                     | :? float as v -> (Float v) :: acc |> Ok
                     | :? bool as v -> (Bool v) :: acc |> Ok
                     | :? string as v -> (String v) :: acc |> Ok
-                    | _ ->
-                        Error
-                            $"Cannot serialize attribute param of type %s{v.GetType().FullName}"
+                    | _ -> Error $"Cannot serialize attribute param of type %s{v.GetType().FullName}"
                 )
             )
             |> function
@@ -840,8 +753,7 @@ module Json =
             |> Array.sortBy (fun kv -> kv.Value)
             |> Array.map (fun kv -> kv.Key)
 
-        override _.Read(reader, _typeToConvert, _options) =
-            failwith "Write only"
+        override _.Read(reader, _typeToConvert, _options) = failwith "Write only"
 
         override _.Write(writer, value, _options) =
             let i =
@@ -861,9 +773,7 @@ module Json =
         let jsonOptions = JsonSerializerOptions(MaxDepth = 1024)
         jsonOptions.Converters.Add(DoubleConverter())
         // JsonUnionEncoding.InternalTag serializes unions in a more compact way, as Thoth.Json
-        jsonOptions.Converters.Add(
-            JsonFSharpConverter(unionEncoding = JsonUnionEncoding.InternalTag)
-        )
+        jsonOptions.Converters.Add(JsonFSharpConverter(unionEncoding = JsonUnionEncoding.InternalTag))
 
         jsonOptions
 
@@ -880,8 +790,7 @@ module Json =
         let strings =
             let ext = Path.GetExtension(path)
 
-            let path =
-                path.[0 .. path.Length - ext.Length - 1] + "_strings.json"
+            let path = path.[0 .. path.Length - ext.Length - 1] + "_strings.json"
 
             let jsonReadOnlySpan: ReadOnlySpan<byte> = File.ReadAllBytes(path)
             JsonSerializer.Deserialize<string[]>(jsonReadOnlySpan)
@@ -905,8 +814,7 @@ module Json =
             let pool = pool.GetPool()
             let ext = Path.GetExtension(path)
 
-            let path =
-                path.[0 .. path.Length - ext.Length - 1] + "_strings.json"
+            let path = path.[0 .. path.Length - ext.Length - 1] + "_strings.json"
 
             use fileStream = new FileStream(path, FileMode.Create)
             use writer = new Utf8JsonWriter(fileStream)
@@ -932,8 +840,7 @@ module Performance =
 // and in Array.BinarySearch below
 type StringOrdinalComparer() =
     interface System.Collections.Generic.IComparer<string> with
-        member _.Compare(x: string, y: string) : int =
-            String.CompareOrdinal(x, y)
+        member _.Compare(x: string, y: string) : int = String.CompareOrdinal(x, y)
 
 type PrecompiledFileJson =
     {
@@ -964,8 +871,7 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
     member _.DllPath = dllPath
 
     member _.TryPrecompiledOutPath(normalizedFullPath: string) =
-        Map.tryFind normalizedFullPath info.Files
-        |> Option.map (fun f -> f.OutPath)
+        Map.tryFind normalizedFullPath info.Files |> Option.map (fun f -> f.OutPath)
 
     static member GetDllPath(fableModulesDir: string) : string =
         IO.Path.Combine(fableModulesDir, Fable.Naming.fablePrecompile + ".dll")
@@ -975,16 +881,10 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
         member _.DllPath = dllPath
 
         member _.TryGetRootModule(normalizedFullPath) =
-            Map.tryFind normalizedFullPath info.Files
-            |> Option.map (fun f -> f.RootModule)
+            Map.tryFind normalizedFullPath info.Files |> Option.map (fun f -> f.RootModule)
 
         member _.TryGetInlineExpr(memberUniqueName) =
-            let index =
-                Array.BinarySearch(
-                    info.InlineExprHeaders,
-                    memberUniqueName,
-                    comparer
-                )
+            let index = Array.BinarySearch(info.InlineExprHeaders, memberUniqueName, comparer)
 
             let index =
                 if index < 0 then
@@ -998,12 +898,8 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
                     index,
                     fun _ ->
                         lazy
-                            PrecompiledInfoImpl.GetInlineExprsPath(
-                                fableModulesDir,
-                                index
-                            )
-                            |> Json.readWithStringPool<(string *
-                            Fable.InlineExpr)[]>
+                            PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, index)
+                            |> Json.readWithStringPool<(string * Fable.InlineExpr)[]>
                             |> Map
                 )
 
@@ -1013,37 +909,21 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
         IO.Path.Combine(fableModulesDir, "precompiled_info.json")
 
     static member GetInlineExprsPath(fableModulesDir, index: int) =
-        IO.Path.Combine(
-            fableModulesDir,
-            "inline_exprs",
-            $"inline_exprs_{index}.json"
-        )
+        IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_{index}.json")
 
     static member Load(fableModulesDir: string) =
         try
-            let precompiledInfoPath =
-                PrecompiledInfoImpl.GetPath(fableModulesDir)
+            let precompiledInfoPath = PrecompiledInfoImpl.GetPath(fableModulesDir)
 
             let info = Json.read<PrecompiledInfoJson> precompiledInfoPath
             PrecompiledInfoImpl(fableModulesDir, info)
         with e ->
-            Fable.AST.Fable.FableError(
-                $"Cannot load precompiled info from %s{fableModulesDir}: %s{e.Message}"
-            )
+            Fable.AST.Fable.FableError($"Cannot load precompiled info from %s{fableModulesDir}: %s{e.Message}")
             |> raise
 
-    static member Save
-        (
-            files,
-            inlineExprs,
-            compilerOptions,
-            fableModulesDir,
-            fableLibDir
-        )
-        =
+    static member Save(files, inlineExprs, compilerOptions, fableModulesDir, fableLibDir) =
         let comparer =
-            StringOrdinalComparer()
-            :> System.Collections.Generic.IComparer<string>
+            StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>
 
         let inlineExprs =
             inlineExprs
@@ -1059,16 +939,14 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
 
         inlineExprs
         |> Array.Parallel.iter (fun (i, chunk) ->
-            let path =
-                PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, i)
+            let path = PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, i)
 
             Json.writeWithStringPool path chunk
         )
 
         let precompiledInfoPath = PrecompiledInfoImpl.GetPath(fableModulesDir)
 
-        let inlineExprHeaders =
-            inlineExprs |> Array.map (snd >> Array.head >> fst)
+        let inlineExprHeaders = inlineExprs |> Array.map (snd >> Array.head >> fst)
 
         {
             CompilerVersion = Fable.Literals.VERSION
@@ -1080,11 +958,7 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
         |> Json.write precompiledInfoPath
 
 module Reflection =
-    let loadType
-        (cliArgs: CliArgs)
-        (r: Fable.Transforms.State.PluginRef)
-        : Type
-        =
+    let loadType (cliArgs: CliArgs) (r: Fable.Transforms.State.PluginRef) : Type =
         /// Prevent ReflectionTypeLoadException
         /// From http://stackoverflow.com/a/7889272
         let getTypes (asm: System.Reflection.Assembly) =
@@ -1111,5 +985,4 @@ module Reflection =
                 |> Log.always
 
                 t
-            | None ->
-                failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"
+            | None -> failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"

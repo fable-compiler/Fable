@@ -18,8 +18,7 @@ type MapTree<'K, 'V> =
         Right: Map<'K, 'V>
     }
 
-and [<Struct; CompiledName("Map")>] Map<'K, 'V> =
-    { root: Option<MapTree<'K, 'V>> }
+and [<Struct; CompiledName("Map")>] Map<'K, 'V> = { root: Option<MapTree<'K, 'V>> }
 
 let inline private getRoot m = m.root
 
@@ -40,15 +39,7 @@ let mkMapTreeLeaf (k: 'K, v: 'V) =
         }
     |> mkMap
 
-let mkMapTreeNode
-    (
-        k: 'K,
-        v: 'V,
-        left: Map<'K, 'V>,
-        right: Map<'K, 'V>,
-        h: int
-    )
-    =
+let mkMapTreeNode (k: 'K, v: 'V, left: Map<'K, 'V>, right: Map<'K, 'V>, h: int) =
     Some
         {
             Key = k
@@ -105,11 +96,7 @@ let rebalance t1 (k: 'K) (v: 'V) t2 : Map<'K, 'V> =
         if height t2'.Left > t1h + 1 then // balance left: combination
             let t2l = (getRoot t2'.Left).Value
 
-            mk
-                (mk t1 k v t2l.Left)
-                t2l.Key
-                t2l.Value
-                (mk t2l.Right t2'.Key t2'.Value t2'.Right)
+            mk (mk t1 k v t2l.Left) t2l.Key t2l.Value (mk t2l.Right t2'.Key t2'.Value t2'.Right)
         else // rotate left
             mk (mk t1 k v t2'.Left) t2'.Key t2'.Value t2'.Right
     else if t1h > t2h + tolerance then // left is heavier than right
@@ -119,11 +106,7 @@ let rebalance t1 (k: 'K) (v: 'V) t2 : Map<'K, 'V> =
             // balance right: combination
             let t1r = (getRoot t1'.Right).Value
 
-            mk
-                (mk t1'.Left t1'.Key t1'.Value t1r.Left)
-                t1r.Key
-                t1r.Value
-                (mk t1r.Right k v t2)
+            mk (mk t1'.Left t1'.Key t1'.Value t1r.Left) t1r.Key t1r.Value (mk t1r.Right k v t2)
         else
             mk t1'.Left t1'.Key t1'.Value (mk t1'.Right k v t2)
     else
@@ -238,8 +221,7 @@ let rec spliceOutSuccessor (m: Map<'K, 'V>) =
         else if isEmpty t.Left then
             t.Key, t.Value, t.Right
         else
-            let k3, v3, l' = spliceOutSuccessor t.Left in
-            k3, v3, mk l' t.Key t.Value t.Right
+            let k3, v3, l' = spliceOutSuccessor t.Left in k3, v3, mk l' t.Key t.Value t.Right
 
 let rec remove k (m: Map<'K, 'V>) =
     match getRoot m with
@@ -541,9 +523,7 @@ let rec collapseLHS (stack: Map<'K, 'V> list) =
             if t.Height = 1 then
                 stack
             else
-                collapseLHS (
-                    t.Left :: mkMapTreeLeaf (t.Key, t.Value) :: t.Right :: rest
-                )
+                collapseLHS (t.Left :: mkMapTreeLeaf (t.Key, t.Value) :: t.Right :: rest)
 
 let mkIterator m =
     {

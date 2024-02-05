@@ -20,43 +20,15 @@ type WorkerRequest =
         refsExtraSuffix: string option *
         otherFSharpOptions: string[]
     | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
-    | ParseFile of
-        file: string *
-        fsharpCode: FSharpCodeFile[] *
-        otherFSharpOptions: string[]
-    | CompileCode of
-        fsharpCode: string *
-        language: string *
-        otherFSharpOptions: string[]
-    | CompileFiles of
-        fsharpCode: FSharpCodeFile[] *
-        language: string *
-        otherFSharpOptions: string[]
+    | ParseFile of file: string * fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
+    | CompileCode of fsharpCode: string * language: string * otherFSharpOptions: string[]
+    | CompileFiles of fsharpCode: FSharpCodeFile[] * language: string * otherFSharpOptions: string[]
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
-    | GetDeclarationLocation of
-        id: Guid *
-        line: int *
-        column: int *
-        lineText: string
-    | GetTooltipForFile of
-        id: Guid *
-        file: string *
-        line: int *
-        column: int *
-        lineText: string
-    | GetCompletionsForFile of
-        id: Guid *
-        file: string *
-        line: int *
-        column: int *
-        lineText: string
-    | GetDeclarationLocationForFile of
-        id: Guid *
-        file: string *
-        line: int *
-        column: int *
-        lineText: string
+    | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string
+    | GetTooltipForFile of id: Guid * file: string * line: int * column: int * lineText: string
+    | GetCompletionsForFile of id: Guid * file: string * line: int * column: int * lineText: string
+    | GetDeclarationLocationForFile of id: Guid * file: string * line: int * column: int * lineText: string
 
     static member Decoder = Decode.Auto.generateDecoder<WorkerRequest> ()
 
@@ -71,28 +43,16 @@ type WorkerAnswer =
     | Loaded of version: string
     | LoadFailed
     | ParsedCode of errors: Fable.Standalone.Error[]
-    | CompilationFinished of
-        code: string *
-        language: string *
-        errors: Fable.Standalone.Error[] *
-        stats: CompileStats
-    | CompilationsFinished of
-        code: string[] *
-        language: string *
-        errors: Fable.Standalone.Error[] *
-        stats: CompileStats
+    | CompilationFinished of code: string * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
+    | CompilationsFinished of code: string[] * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilerCrashed of message: string
     | FoundTooltip of id: Guid * lines: string[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
-    | FoundDeclarationLocation of
-        id: Guid (* line1, col1, line2, col2 *) *
-        (int * int * int * int) option
+    | FoundDeclarationLocation of id: Guid (* line1, col1, line2, col2 *) * (int * int * int * int) option
 
     static member Decoder = Decode.Auto.generateDecoder<WorkerAnswer> ()
 
-type ObservableWorker<'InMsg>
-    (worker: obj, decoder: Decoder<'InMsg>, ?name: string)
-    =
+type ObservableWorker<'InMsg>(worker: obj, decoder: Decoder<'InMsg>, ?name: string) =
     let name = defaultArg name "FABLE WORKER"
     let listeners = Dictionary<Guid, IObserver<'InMsg>>()
 
@@ -107,8 +67,7 @@ type ObservableWorker<'InMsg>
                         // JS.console.log("[" + name + "] Received:", msg)
                         for listener in listeners.Values do
                             listener.OnNext(msg)
-                    | Error err ->
-                        JS.console.error ("[" + name + "] Cannot decode:", err)
+                    | Error err -> JS.console.error ("[" + name + "] Cannot decode:", err)
                 | _ -> ()
         )
 
@@ -118,13 +77,7 @@ type ObservableWorker<'InMsg>
     member inline this.Post(msg: 'OutMsg) : unit =
         this.Worker?postMessage(Encode.Auto.toString (0, msg))
 
-    member inline this.PostAndAwaitResponse
-        (
-            msg: 'OutMsg,
-            picker: 'InMsg -> 'Res option
-        )
-        : Async<'Res>
-        =
+    member inline this.PostAndAwaitResponse(msg: 'OutMsg, picker: 'InMsg -> 'Res option) : Async<'Res> =
         Async.FromContinuations(fun (cont, _err, _cancel) ->
             let mutable disp = Unchecked.defaultof<IDisposable>
 

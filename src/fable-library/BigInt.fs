@@ -152,31 +152,17 @@ let toByteArray (value: bigint) =
                     let b2 = currValue >>> 16 |> byte
                     let b3 = currValue >>> 24 |> byte
 
-                    loop
-                        (b3 :: b2 :: b1 :: b0 :: accumBytes)
-                        (consumeValue >>> 32)
-                        false
+                    loop (b3 :: b2 :: b1 :: b0 :: accumBytes) (consumeValue >>> 32) false
                 else
-                    let b0, lowBitFound =
-                        flipTwosComplement (currValue |> byte) lowBitFound
+                    let b0, lowBitFound = flipTwosComplement (currValue |> byte) lowBitFound
 
-                    let b1, lowBitFound =
-                        flipTwosComplement (currValue >>> 8 |> byte) lowBitFound
+                    let b1, lowBitFound = flipTwosComplement (currValue >>> 8 |> byte) lowBitFound
 
-                    let b2, lowBitFound =
-                        flipTwosComplement
-                            (currValue >>> 16 |> byte)
-                            lowBitFound
+                    let b2, lowBitFound = flipTwosComplement (currValue >>> 16 |> byte) lowBitFound
 
-                    let b3, lowBitFound =
-                        flipTwosComplement
-                            (currValue >>> 24 |> byte)
-                            lowBitFound
+                    let b3, lowBitFound = flipTwosComplement (currValue >>> 24 |> byte) lowBitFound
 
-                    loop
-                        (b3 :: b2 :: b1 :: b0 :: accumBytes)
-                        (consumeValue >>> 32)
-                        lowBitFound
+                    loop (b3 :: b2 :: b1 :: b0 :: accumBytes) (consumeValue >>> 32) lowBitFound
 
         loop [] value false
 
@@ -194,19 +180,10 @@ let fromByteArray (bytes: byte array) =
         let isPositive = bytes.[bytes.Length - 1] &&& 0b10000000uy = 0uy
         let buffer = Array.create 4 0uy
 
-        let rec loop
-            (accumUInt32: uint32 list)
-            currIndex
-            bytesRemaining
-            lowBitFound
-            =
+        let rec loop (accumUInt32: uint32 list) currIndex bytesRemaining lowBitFound =
             if bytesRemaining = 0 then
                 accumUInt32
-                |> List.fold
-                    (fun acc value ->
-                        (acc <<< 32) + (value |> int64 |> fromInt64)
-                    )
-                    zero
+                |> List.fold (fun acc value -> (acc <<< 32) + (value |> int64 |> fromInt64)) zero
                 |> fun value ->
                     if isPositive then
                         value
@@ -227,31 +204,20 @@ let fromByteArray (bytes: byte array) =
                         ||| (uint32 buffer.[2] <<< 16)
                         ||| (uint32 buffer.[3] <<< 24)
 
-                    loop
-                        (value :: accumUInt32)
-                        (currIndex + bytesToProcess)
-                        (bytesRemaining - bytesToProcess)
-                        false
+                    loop (value :: accumUInt32) (currIndex + bytesToProcess) (bytesRemaining - bytesToProcess) false
                 else
                     Array.fill buffer bytesToProcess (4 - bytesToProcess) 255uy // clear any unfilled bytes in buffer (255 for two's complement)
 
-                    let b0, lowBitFound =
-                        flipTwosComplement buffer.[0] lowBitFound
+                    let b0, lowBitFound = flipTwosComplement buffer.[0] lowBitFound
 
-                    let b1, lowBitFound =
-                        flipTwosComplement buffer.[1] lowBitFound
+                    let b1, lowBitFound = flipTwosComplement buffer.[1] lowBitFound
 
-                    let b2, lowBitFound =
-                        flipTwosComplement buffer.[2] lowBitFound
+                    let b2, lowBitFound = flipTwosComplement buffer.[2] lowBitFound
 
-                    let b3, lowBitFound =
-                        flipTwosComplement buffer.[3] lowBitFound
+                    let b3, lowBitFound = flipTwosComplement buffer.[3] lowBitFound
 
                     let value =
-                        uint32 b0
-                        ||| (uint32 b1 <<< 8)
-                        ||| (uint32 b2 <<< 16)
-                        ||| (uint32 b3 <<< 24)
+                        uint32 b0 ||| (uint32 b1 <<< 8) ||| (uint32 b2 <<< 16) ||| (uint32 b3 <<< 24)
 
                     loop
                         (value :: accumUInt32)

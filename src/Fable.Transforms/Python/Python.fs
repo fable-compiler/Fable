@@ -38,10 +38,7 @@ type Expression =
     | Tuple of Tuple
     | Starred of value: Expression * ctx: ExpressionContext
     | List of elts: Expression list * ctx: ExpressionContext
-    | Slice of
-        lower: Expression option *
-        upper: Expression option *
-        step: Expression option
+    | Slice of lower: Expression option * upper: Expression option * step: Expression option
 
 type Literal =
     | FloatLiteral of float
@@ -489,16 +486,7 @@ type AsyncFunctionDef =
         TypeComment: string option
     }
 
-    static member Create
-        (
-            name,
-            args,
-            body,
-            decoratorList,
-            ?returns,
-            ?typeComment
-        )
-        =
+    static member Create(name, args, body, decoratorList, ?returns, ?typeComment) =
         {
             Name = name
             Args = args
@@ -877,23 +865,8 @@ module PythonExtensions =
             }
             |> Raise
 
-        static member try'
-            (
-                body,
-                ?handlers,
-                ?orElse,
-                ?finalBody,
-                ?loc
-            )
-            : Statement
-            =
-            Try.try' (
-                body,
-                ?handlers = handlers,
-                ?orElse = orElse,
-                ?finalBody = finalBody,
-                ?loc = loc
-            )
+        static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc) : Statement =
+            Try.try' (body, ?handlers = handlers, ?orElse = orElse, ?finalBody = finalBody, ?loc = loc)
             |> Try
 
         static member with'(items, ?body, ?typeComment) : Statement =
@@ -904,17 +877,7 @@ module PythonExtensions =
             }
             |> With
 
-        static member classDef
-            (
-                name,
-                ?bases,
-                ?keywords,
-                ?body,
-                ?decoratorList,
-                ?loc
-            )
-            : Statement
-            =
+        static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) : Statement =
             {
                 Name = name
                 Bases = defaultArg bases []
@@ -925,17 +888,7 @@ module PythonExtensions =
             }
             |> ClassDef
 
-        static member functionDef
-            (
-                name,
-                args,
-                body,
-                ?decoratorList,
-                ?returns,
-                ?typeComment
-            )
-            : Statement
-            =
+        static member functionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
             {
                 FunctionDef.Name = name
                 Args = args
@@ -946,17 +899,7 @@ module PythonExtensions =
             }
             |> FunctionDef
 
-        static member asyncFunctionDef
-            (
-                name,
-                args,
-                body,
-                ?decoratorList,
-                ?returns,
-                ?typeComment
-            )
-            : Statement
-            =
+        static member asyncFunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
             {
                 AsyncFunctionDef.Name = name
                 Args = args
@@ -986,23 +929,8 @@ module PythonExtensions =
 
         static member return'(?value) : Statement = Return { Value = value }
 
-        static member for'
-            (
-                target,
-                iter,
-                ?body,
-                ?orelse,
-                ?typeComment
-            )
-            : Statement
-            =
-            For.for' (
-                target,
-                iter,
-                ?body = body,
-                ?orelse = orelse,
-                ?typeComment = typeComment
-            )
+        static member for'(target, iter, ?body, ?orelse, ?typeComment) : Statement =
+            For.for' (target, iter, ?body = body, ?orelse = orelse, ?typeComment = typeComment)
             |> For
 
         static member while'(test, body, ?orelse, ?loc) : Statement =
@@ -1024,8 +952,7 @@ module PythonExtensions =
             |> If
 
         static member importFrom(``module``, names, ?level) =
-            ImportFrom.importFrom (``module``, names, ?level = level)
-            |> ImportFrom
+            ImportFrom.importFrom (``module``, names, ?level = level) |> ImportFrom
 
         static member nonLocal(ids) =
             NonLocal.Create ids |> Statement.NonLocal
@@ -1067,8 +994,7 @@ module PythonExtensions =
             }
             |> Tuple
 
-        static member slice(?lower, ?upper, ?slice) : Expression =
-            Slice(lower, upper, slice)
+        static member slice(?lower, ?upper, ?slice) : Expression = Slice(lower, upper, slice)
 
         static member ifExp(test, body, orElse, ?loc) : Expression =
             {
@@ -1215,25 +1141,12 @@ module PythonExtensions =
         static member stringConstant(value: string, ?loc) : Expression =
             Constant(value = StringLiteral value, loc = loc)
 
-        static member constant(value: Literal, ?loc) : Expression =
-            Constant(value = value, loc = loc)
+        static member constant(value: Literal, ?loc) : Expression = Constant(value = value, loc = loc)
 
-        static member starred
-            (
-                value: Expression,
-                ?ctx: ExpressionContext
-            )
-            : Expression
-            =
+        static member starred(value: Expression, ?ctx: ExpressionContext) : Expression =
             Starred(value, ctx |> Option.defaultValue Load)
 
-        static member list
-            (
-                elts: Expression list,
-                ?ctx: ExpressionContext
-            )
-            : Expression
-            =
+        static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression =
             List(elts, ctx |> Option.defaultValue Load)
 
     type List with
@@ -1305,11 +1218,7 @@ module PythonExtensions =
             }
 
         static member arg(arg, ?annotation, ?typeComment) =
-            Arg.arg (
-                Identifier(arg),
-                ?annotation = annotation,
-                ?typeComment = typeComment
-            )
+            Arg.arg (Identifier(arg), ?annotation = annotation, ?typeComment = typeComment)
 
     type Keyword with
 
@@ -1326,17 +1235,7 @@ module PythonExtensions =
 
     type Arguments with
 
-        static member arguments
-            (
-                ?args,
-                ?posonlyargs,
-                ?vararg,
-                ?kwonlyargs,
-                ?kwDefaults,
-                ?kwarg,
-                ?defaults
-            )
-            =
+        static member arguments(?args, ?posonlyargs, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?defaults) =
             {
                 PosOnlyArgs = defaultArg posonlyargs []
                 Args = defaultArg args []
