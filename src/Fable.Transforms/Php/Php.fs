@@ -34,22 +34,22 @@ type PhpIdentity =
 
 and PhpExpr =
     // Php Variable name (without the $)
-    | PhpVar of string * typ: PhpType option
+    | PhpVar of name: string * typ: PhpType option
     // Php Identifier for functions and class names
     | PhpIdent of PhpIdentity
     // Php global (rendered as $GLOBLAS['name']
     | PhpGlobal of string
     | PhpConst of PhpConst
-    | PhpUnaryOp of string * PhpExpr
-    | PhpBinaryOp of string * PhpExpr * PhpExpr
-    | PhpField of PhpExpr * Prop * typ: PhpType option
-    | PhpArrayAccess of PhpExpr * PhpExpr
+    | PhpUnaryOp of op: string * expr: PhpExpr
+    | PhpBinaryOp of op: string * left: PhpExpr * right: PhpExpr
+    | PhpField of left: PhpExpr * right: Prop * typ: PhpType option
+    | PhpArrayAccess of array: PhpExpr * index: PhpExpr
     | PhpNew of ty: PhpTypeRef * args: PhpExpr list
     | PhpNewArray of args: (PhpArrayIndex * PhpExpr) list
     | PhpFunctionCall of f: PhpExpr * args: PhpExpr list
     | PhpMethodCall of this: PhpExpr * func: PhpExpr * args: PhpExpr list
     | PhpTernary of gard: PhpExpr * thenExpr: PhpExpr * elseExpr: PhpExpr
-    | PhpInstanceOf of expr: PhpExpr * PhpTypeRef
+    | PhpInstanceOf of expr: PhpExpr * ty: PhpTypeRef
     | PhpAnonymousFunc of args: string list * uses: Capture list * body: PhpStatement list
     | PhpMacro of macro: string * args: PhpExpr list
     | PhpParent
@@ -57,7 +57,7 @@ and PhpExpr =
 and PhpStatement =
     | PhpReturn of PhpExpr
     | PhpExpr of PhpExpr
-    | PhpSwitch of PhpExpr * (PhpCase * PhpStatement list) list
+    | PhpSwitch of expr: PhpExpr * cases: (PhpCase * PhpStatement list) list
     | PhpBreak of int option
     | PhpAssign of target: PhpExpr * value: PhpExpr
     | PhpIf of guard: PhpExpr * thenCase: PhpStatement list * elseCase: PhpStatement list
@@ -112,7 +112,7 @@ and PhpType =
 
 type PhpDecl =
     | PhpFun of PhpFun
-    | PhpDeclValue of name: string * PhpExpr
+    | PhpDeclValue of name: string * expr: PhpExpr
     | PhpAction of PhpStatement list
     | PhpType of PhpType
 

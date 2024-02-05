@@ -942,13 +942,13 @@ module Helpers =
         hasParamArray memb || hasParamSeq memb
 
     type UnionPattern =
-        | OptionUnion of FSharpType * isStruct: bool
+        | OptionUnion of typ: FSharpType * isStruct: bool
         | ListUnion of FSharpType
-        | ErasedUnion of FSharpEntity * IList<FSharpType> * CaseRules
+        | ErasedUnion of tdef: FSharpEntity * genArgs: IList<FSharpType> * rule: CaseRules
         | ErasedUnionCase
-        | TypeScriptTaggedUnion of FSharpEntity * IList<FSharpType> * tagName: string * CaseRules
-        | StringEnum of FSharpEntity * CaseRules
-        | DiscriminatedUnion of FSharpEntity * IList<FSharpType>
+        | TypeScriptTaggedUnion of tdef: FSharpEntity * genArgs: IList<FSharpType> * tagName: string * rule: CaseRules
+        | StringEnum of tdef: FSharpEntity * rule: CaseRules
+        | DiscriminatedUnion of tdef: FSharpEntity * genArgs: IList<FSharpType>
 
     let getUnionPattern (typ: FSharpType) (unionCase: FSharpUnionCase) : UnionPattern =
         let typ = nonAbbreviatedType typ

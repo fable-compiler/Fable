@@ -365,8 +365,8 @@ module Naming =
 
     // TODO: Move this to FSharp2Fable.Util
     type MemberPart =
-        | InstanceMemberPart of string * overloadSuffix: string
-        | StaticMemberPart of string * overloadSuffix: string
+        | InstanceMemberPart of memberCompiledName: string * overloadSuffix: string
+        | StaticMemberPart of memberCompiledName: string * overloadSuffix: string
         | NoMemberPart
 
         member this.Replace(f: string -> string) =

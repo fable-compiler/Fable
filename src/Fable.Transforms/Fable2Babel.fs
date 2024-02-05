@@ -59,7 +59,7 @@ type ModuleDecl(name, ?isPublic, ?isMutable, ?typ, ?doc) =
 type IBabelCompiler =
     inherit Compiler
     abstract IsTypeScript: bool
-    abstract GetAllImports: unit -> seq<Import>
+    abstract GetAllImports: unit -> Import seq
 
     abstract GetImportExpr:
         Context * selector: string * path: string * range: SourceLocation option * ?noMangle: bool -> Expression

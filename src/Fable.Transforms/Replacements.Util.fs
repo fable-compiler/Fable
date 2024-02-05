@@ -310,7 +310,7 @@ type BuiltinType =
     | FSharpSet of Type
     | FSharpMap of key: Type * value: Type
     | FSharpChoice of Type list
-    | FSharpResult of Type * Type
+    | FSharpResult of arg1: Type * arg2: Type
     | FSharpReference of Type
 
 let (|BuiltinDefinition|_|) =

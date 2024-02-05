@@ -513,7 +513,7 @@ type TypeAnnotation =
     | TupleTypeAnnotation of types: TypeAnnotation array
     | KeyofTypeAnnotation of TypeAnnotation
     | TypeofTypeAnnotation of Expression
-    | IndexedTypeAnnotation of TypeAnnotation * prop: TypeAnnotation
+    | IndexedTypeAnnotation of typ: TypeAnnotation * prop: TypeAnnotation
     | LiteralTypeAnnotation of Literal
 
 type TypeParameter = | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotation option

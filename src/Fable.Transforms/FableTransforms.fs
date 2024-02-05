@@ -726,7 +726,7 @@ module private Transforms =
         mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
 
     let uncurrySendingArgs (com: Compiler) e =
-        let uncurryConsArgs args (fields: seq<Field>) =
+        let uncurryConsArgs args (fields: Field seq) =
             let argTypes = fields |> Seq.map (fun fi -> fi.FieldType) |> Seq.toList
 
             uncurryArgs com false argTypes args

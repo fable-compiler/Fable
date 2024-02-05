@@ -52,7 +52,7 @@ let stdOutAnalyzer: Analyzer<CliContext> =
                         Message =
                             $"Writing to the standard output from this location should absolutely be avoided. Replace `%s{name}` with an ILogger call."
                         Code = "FABLE_001"
-                        Severity = Error
+                        Severity = Severity.Error
                         Range = m
                         Fixes = []
                     }

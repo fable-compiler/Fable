@@ -42,7 +42,7 @@ type Type =
     | Nullable of Type
 
     | Generic of name: string
-    | TypeReference of Ident * generics: Type list * info: TypeInfo
+    | TypeReference of ident: Ident * generics: Type list * info: TypeInfo
     | Function of argTypes: Type list * returnType: Type
 
     member this.Generics =

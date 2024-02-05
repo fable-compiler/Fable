@@ -147,7 +147,7 @@ module CompilerExt =
                     | Fable.PrecompiledLib _ -> "precompiled"
                     | Fable.SourcePath _ -> "user"
 
-                failwith $"Cannot find {category} entity %s{entityRef.FullName}"
+                failwith $"Cannot find %s{category} entity %s{entityRef.FullName}"
 
         member com.TryGetMember(memberRef: Fable.MemberRef) : Fable.MemberFunctionOrValue option =
             match memberRef with

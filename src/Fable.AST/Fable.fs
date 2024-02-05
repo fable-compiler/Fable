@@ -353,7 +353,10 @@ type GeneratedMember =
             this.Info.ParamTypes |> List.collect (fun t -> GeneratedMember.GenericParams(t))
 
         member this.CurriedParameterGroups =
-            [ this.Info.ParamTypes |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a{i}")) ]
+            [
+                this.Info.ParamTypes
+                |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a%d{i}"))
+            ]
 
         member this.ReturnParameter = GeneratedMember.Param(this.Info.ReturnType)
 
@@ -747,7 +750,7 @@ type Expr =
     | ObjectExpr of members: ObjectExprMember list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
-    | TypeCast of expr: Expr * Type
+    | TypeCast of expr: Expr * typ: Type
     | Test of expr: Expr * kind: TestKind * range: SourceLocation option
 
     // Operations
