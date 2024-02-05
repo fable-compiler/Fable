@@ -137,8 +137,8 @@ let ``test nested type with custom equality works`` () =
     // Should all be equal according to custom equality of inner type
     let y1 = {Issue3717.X = x1}
     let y2 = {Issue3717.X = x2}
-    //let y3 = {Issue3717.X = x1}
+    let y3 = {Issue3717.X = x1}
 
-    //equal x1 x2
+    equal x1 x2
     equal y1 y2
-    //equal y1 y3
+    equal y1 y3
