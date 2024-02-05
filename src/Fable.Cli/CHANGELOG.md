@@ -7,20 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-* [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for `Result.isOk` and `Result.isError` (by @zprobinson)
-
-* Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
-* [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for `Result.isOk` and `Result.isError` (by @zprobinson)
-
 ### Added
 
-#### JavaScript
+#### All
 
-* [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for `Result.isOk` and `Result.isError` (by @zprobinson)
-
-#### TypeScript
-
-* [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for `Result.isOk` and `Result.isError` (by @zprobinson)
+* [GH-3733](https://github.com/fable-compiler/Fable/pull/3733) [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for more `Result` API (by @zprobinson)
+    * `Result.isOk`
+    * `Result.isError`
+    * `Result.Contains`
+    * `Result.Count`
+    * `Result.DefaultValue`
+    * `Result.DefaultWith`
+    * `Result.Exists`
+    * `Result.Fold`
+    * `Result.FoldBack`
+    * `Result.ForAll`
+    * `Result.Iterate`
+    * `Result.ToArray`
+    * `Result.ToList`
+    * `Result.ToOption`
 
 ### Removed
 
