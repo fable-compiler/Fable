@@ -3276,17 +3276,9 @@ module Util =
             | Fable.Throw(expr, _) ->
                 match expr with
                 | None -> failwith "TODO: rethrow"
-                | Some(TransformExpr com ctx (e, stmts)) ->
-                    stmts @ [ Statement.raise e ]
+                | Some(TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.raise e ]
             | Fable.Debugger ->
-                [
-                    Statement.assert' (
-                        Expression.boolOp (
-                            op = Or,
-                            values = [ Expression.boolConstant true ]
-                        )
-                    )
-                ]
+                [ Statement.assert' (Expression.boolOp (op = Or, values = [ Expression.boolConstant true ])) ]
 
         | Fable.TypeCast(e, t) ->
             let expr, stmts = transformCast com ctx t e
@@ -3430,8 +3422,7 @@ module Util =
             | _ -> stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
         | Fable.IfThenElse(guardExpr,
                            Fable.Expr.Extended(Fable.ExtendedSet.Debugger, _),
-                           Fable.Expr.Value(Fable.ValueKind.Null Fable.Type.Unit,
-                                            None),
+                           Fable.Expr.Value(Fable.ValueKind.Null Fable.Type.Unit, None),
                            r) ->
             // Rewrite `if (guard) { Debugger; null }` to assert (guard)
             let guardExpr', stmts = transformAsExpr com ctx guardExpr
