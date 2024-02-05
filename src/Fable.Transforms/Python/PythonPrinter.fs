@@ -21,6 +21,7 @@ module PrinterExtensions =
             | AsyncFor st -> printer.Print(st)
             | Return rtn -> printer.Print(rtn)
             | Global st -> printer.Print(st)
+            | Assert st -> printer.Print(st)
             | Import im -> printer.Print(im)
             | Assign st -> printer.Print(st)
             | AnnAssign st -> printer.Print(st)
@@ -59,6 +60,14 @@ module PrinterExtensions =
                 printer.Print(": ")
                 printer.Print(ann)
             | _ -> ()
+
+        member printer.Print(st: Assert) =
+            printer.Print("assert ")
+            printer.Print(st.Test)
+
+            if st.Msg.IsSome then
+                printer.Print(", ")
+                printer.Print(st.Msg.Value)
 
         member printer.Print(kw: Keyword) =
             let (Identifier name) = kw.Arg

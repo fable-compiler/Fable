@@ -112,6 +112,7 @@ type Statement =
     | While of While
     | Raise of Raise
     | Import of Import
+    | Assert of Assert
     | Assign of Assign
     | Return of Return
     | Global of Global
@@ -511,6 +512,12 @@ type AsyncFunctionDef =
 /// `````
 type Import = { Names: Alias list }
 
+/// An assertion. test holds the condition, such as a Compare node. msg holds the failure message.
+type Assert =
+    {
+        Test: Expression
+        Msg: Expression option
+    }
 
 /// Represents from x import y. module is a raw string of the ‘from’ name, without any leading dots, or None for
 /// statements such as from . import foo. level is an integer holding the level of the relative import (0 means absolute
@@ -851,6 +858,13 @@ module PythonExtensions =
     let Ellipsis = "..."
 
     type Statement with
+
+        static member assert'(test, ?msg) : Statement =
+            {
+                Test = test
+                Msg = msg
+            }
+            |> Assert
 
         static member break'() : Statement = Break
         static member continue' ?loc : Statement = Continue

@@ -3201,7 +3201,7 @@ module Util =
             else
                 transformEmit com ctx range info
 
-        // These cannot appear in expression position in JS, must be wrapped in a lambda
+        // These cannot appear in expression position in Python, must be wrapped in a lambda
         | Fable.WhileLoop _
         | Fable.ForLoop _
         | Fable.TryCatch _ -> iife com ctx expr
@@ -3276,8 +3276,17 @@ module Util =
             | Fable.Throw(expr, _) ->
                 match expr with
                 | None -> failwith "TODO: rethrow"
-                | Some(TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.raise e ]
-            | Fable.Debugger -> []
+                | Some(TransformExpr com ctx (e, stmts)) ->
+                    stmts @ [ Statement.raise e ]
+            | Fable.Debugger ->
+                [
+                    Statement.assert' (
+                        Expression.boolOp (
+                            op = Or,
+                            values = [ Expression.boolConstant true ]
+                        )
+                    )
+                ]
 
         | Fable.TypeCast(e, t) ->
             let expr, stmts = transformCast com ctx t e
@@ -3419,7 +3428,14 @@ module Util =
 
                 nonLocals @ stmts @ assignment
             | _ -> stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
-
+        | Fable.IfThenElse(guardExpr,
+                           Fable.Expr.Extended(Fable.ExtendedSet.Debugger, _),
+                           Fable.Expr.Value(Fable.ValueKind.Null Fable.Type.Unit,
+                                            None),
+                           r) ->
+            // Rewrite `if (guard) { Debugger; null }` to assert (guard)
+            let guardExpr', stmts = transformAsExpr com ctx guardExpr
+            stmts @ [ Statement.assert' guardExpr' ]
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
             let asStatement =
                 match returnStrategy with
