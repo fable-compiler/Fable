@@ -25,8 +25,7 @@ let handle (args: string list) =
 
     Shell.copyFile buildDir (testsFolder </> "analysis_options.yaml")
 
-    Directory.GetFiles(testsFolder, "*.dart")
-    |> Seq.iter (Shell.copyFile buildDir)
+    Directory.GetFiles(testsFolder, "*.dart") |> Seq.iter (Shell.copyFile buildDir)
 
     let testCmd = $"dart test {buildDir}/main.dart"
 
@@ -46,20 +45,14 @@ let handle (args: string list) =
                     |> CmdLine.appendRaw "--runWatch"
                     |> CmdLine.appendRaw testCmd
                 else
-                    CmdLine.empty
-                    |> CmdLine.appendRaw "--run"
-                    |> CmdLine.appendRaw testCmd
+                    CmdLine.empty |> CmdLine.appendRaw "--run" |> CmdLine.appendRaw testCmd
             ]
 
     if isWatch then
         Async.Parallel
             [
                 if not noDotnet then
-                    Command.RunAsync(
-                        "dotnet",
-                        "watch test -c Release",
-                        workingDirectory = testsFsprojFolder
-                    )
+                    Command.RunAsync("dotnet", "watch test -c Release", workingDirectory = testsFsprojFolder)
                     |> Async.AwaitTask
 
                 Command.WatchFableAsync(fableArgs, workingDirectory = buildDir)
@@ -68,10 +61,6 @@ let handle (args: string list) =
         |> Async.RunSynchronously
         |> ignore
     else
-        Command.Run(
-            "dotnet",
-            "test -c Release",
-            workingDirectory = testsFsprojFolder
-        )
+        Command.Run("dotnet", "test -c Release", workingDirectory = testsFsprojFolder)
 
         Command.Fable(fableArgs, workingDirectory = buildDir)

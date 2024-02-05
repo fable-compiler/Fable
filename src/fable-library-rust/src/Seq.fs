@@ -197,12 +197,7 @@ module Enumerable =
 
         fromFunctions next dispose
 
-    let generateWhileSome
-        (openf: unit -> 'T)
-        (compute: 'T -> 'U option)
-        (closef: 'T -> unit)
-        : IEnumerator<'U>
-        =
+    let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit) : IEnumerator<'U> =
         let mutable finished = false
         let mutable state = None
 
@@ -231,11 +226,7 @@ module Enumerable =
 
         fromFunctions next dispose
 
-    let unfold
-        (f: 'State -> ('T * 'State) option)
-        (state: 'State)
-        : IEnumerator<'T>
-        =
+    let unfold (f: 'State -> ('T * 'State) option) (state: 'State) : IEnumerator<'T> =
         let mutable acc: 'State = state
 
         let next () =
@@ -441,8 +432,7 @@ module Enumerable =
 
 // let checkNonNull argName arg = () //if isNull arg then nullArg argName
 
-let mkSeq (f: unit -> IEnumerator<'T>) : 'T seq =
-    Enumerable.Enumerable(f) :> 'T seq
+let mkSeq (f: unit -> IEnumerator<'T>) : 'T seq = Enumerable.Enumerable(f) :> 'T seq
 
 let ofSeq (xs: 'T seq) : IEnumerator<'T> =
     // checkNonNull "source" xs
@@ -580,14 +570,8 @@ let finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> 'T seq) =
 let enumerateThenFinally (source: 'T seq) (compensation: unit -> unit) =
     finallyEnumerable (compensation, (fun () -> source))
 
-let enumerateUsing
-    (resource: 'T :> System.IDisposable)
-    (sourceGen: 'T -> 'U seq)
-    =
-    finallyEnumerable (
-        (fun () -> resource.Dispose()),
-        (fun () -> sourceGen resource :> seq<_>)
-    )
+let enumerateUsing (resource: 'T :> System.IDisposable) (sourceGen: 'T -> 'U seq) =
+    finallyEnumerable ((fun () -> resource.Dispose()), (fun () -> sourceGen resource :> seq<_>))
 
 let enumerateWhile (guard: unit -> bool) (xs: 'T seq) =
     concat (
@@ -720,12 +704,7 @@ let toArray (xs: 'T seq) : 'T[] =
 let foldBack folder (xs: 'T seq) state =
     Array.foldBack folder (toArray xs) state
 
-let fold2
-    (folder: 'State -> 'T1 -> 'T2 -> 'State)
-    (state: 'State)
-    (xs: 'T1 seq)
-    (ys: 'T2 seq)
-    =
+let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 seq) (ys: 'T2 seq) =
     use e1 = ofSeq xs
     use e2 = ofSeq ys
     let mutable acc = state
@@ -735,12 +714,7 @@ let fold2
 
     acc
 
-let foldBack2
-    (folder: 'T1 -> 'T2 -> 'State -> 'State)
-    (xs: 'T1 seq)
-    (ys: 'T2 seq)
-    (state: 'State)
-    =
+let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 seq) (ys: 'T2 seq) (state: 'State) =
     Array.foldBack2 folder (toArray xs) (toArray ys) state
 
 let forAll predicate (xs: 'T seq) =
@@ -939,12 +913,7 @@ let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 seq) (ys: 'T2 seq) =
                 e2.Dispose()
         )
 
-let map3
-    (mapping: 'T1 -> 'T2 -> 'T3 -> 'U)
-    (xs: 'T1 seq)
-    (ys: 'T2 seq)
-    (zs: 'T3 seq)
-    =
+let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 seq) (ys: 'T2 seq) (zs: 'T3 seq) =
     generate
         (fun () -> (ofSeq xs, ofSeq ys, ofSeq zs))
         (fun (e1, e2, e3) ->
@@ -1152,8 +1121,7 @@ let truncate count (xs: 'T seq) =
 
 let zip (xs: 'T1 seq) (ys: 'T2 seq) = map2 (fun x y -> (x, y)) xs ys
 
-let zip3 (xs: 'T1 seq) (ys: 'T2 seq) (zs: 'T3 seq) =
-    map3 (fun x y z -> (x, y, z)) xs ys zs
+let zip3 (xs: 'T1 seq) (ys: 'T2 seq) (zs: 'T3 seq) = map3 (fun x y z -> (x, y, z)) xs ys zs
 
 let pairwise (xs: 'T seq) =
     delay (fun () -> xs |> toArray |> Array.pairwise |> ofArray)
@@ -1289,10 +1257,7 @@ let distinct<'T when 'T: equality> (xs: 'T seq) =
         xs |> filter (fun x -> hashSet.Add(x))
     )
 
-let distinctBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T seq)
-    =
+let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) =
     delay (fun () ->
         let hashSet = System.Collections.Generic.HashSet<'Key>()
         xs |> filter (fun x -> hashSet.Add(projection x))
@@ -1300,17 +1265,12 @@ let distinctBy<'T, 'Key when 'Key: equality>
 
 let except<'T when 'T: equality> (itemsToExclude: 'T seq) (xs: 'T seq) =
     delay (fun () ->
-        let hashSet =
-            System.Collections.Generic.HashSet<'T>(toArray itemsToExclude)
+        let hashSet = System.Collections.Generic.HashSet<'T>(toArray itemsToExclude)
 
         xs |> filter (fun x -> hashSet.Add(x))
     )
 
-let countBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T seq)
-    : ('Key * int) seq
-    =
+let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) : ('Key * int) seq =
     delay (fun () ->
         let dict = System.Collections.Generic.Dictionary<'Key, int>()
         let keys = ResizeArray<'Key>()
@@ -1327,14 +1287,9 @@ let countBy<'T, 'Key when 'Key: equality>
         keys |> asArray |> Array.map (fun key -> key, dict[key]) |> ofArray
     )
 
-let groupBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T seq)
-    : ('Key * 'T seq) seq
-    =
+let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) : ('Key * 'T seq) seq =
     delay (fun () ->
-        let dict =
-            System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
+        let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
 
         let keys = ResizeArray<'Key>()
 

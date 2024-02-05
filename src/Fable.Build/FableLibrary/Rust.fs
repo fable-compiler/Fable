@@ -18,22 +18,15 @@ type BuildFableLibraryRust() =
     override this.PostFableBuildStage() =
         Command.Run("cargo", "fmt", workingDirectory = this.BuildDir)
 
-        Command.Run(
-            "cargo",
-            "fix --allow-no-vcs",
-            workingDirectory = this.BuildDir
-        )
+        Command.Run("cargo", "fix --allow-no-vcs", workingDirectory = this.BuildDir)
 
         Command.Run("cargo", "build", workingDirectory = this.BuildDir)
 
     override this.CopyStage() =
         // Copy all *.rs files to the build directory
-        Directory.GetFiles(this.SourceDir, "*.rs")
-        |> Shell.copyFiles this.OutDir
+        Directory.GetFiles(this.SourceDir, "*.rs") |> Shell.copyFiles this.OutDir
 
-        Shell.copyFile
-            this.BuildDir
-            (Path.Combine(this.LibraryDir, "Cargo.toml"))
+        Shell.copyFile this.BuildDir (Path.Combine(this.LibraryDir, "Cargo.toml"))
 
         Shell.copyDir
             (Path.Combine(this.BuildDir, "vendored"))

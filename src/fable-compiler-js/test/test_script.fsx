@@ -9,9 +9,7 @@ let rows = id
 
 let cols (sudoku: Sudoku) =
     sudoku
-    |> Array.mapi (fun a row ->
-        row |> Array.mapi (fun b cell -> sudoku.[b].[a])
-    )
+    |> Array.mapi (fun a row -> row |> Array.mapi (fun b cell -> sudoku.[b].[a]))
 
 let getBoxIndex count row col =
     let n = row / count

@@ -23,19 +23,14 @@ let needPublishing (fsprojContent: string) (versionToCheck: string) =
     | None -> failwith "Could not find <Version>...</Version> in fsproj file"
 
 let replaceVersion (version: string) (fsprojContent: string) =
-    Regex.Replace(
-        fsprojContent,
-        Regex.VERSION,
-        (fun (m: Match) -> $"<Version>{version}</Version>")
-    )
+    Regex.Replace(fsprojContent, Regex.VERSION, (fun (m: Match) -> $"<Version>{version}</Version>"))
 
 let replacePackageReleaseNotes (releaseNotes: string) (fsprojContent: string) =
     Regex.Replace(
         fsprojContent,
         "<PackageReleaseNotes>.*?</PackageReleaseNotes>",
         (fun (m: Match) ->
-            let releaseNotes =
-                releaseNotes.Replace("<", "&lt;").Replace(">", "&gt;")
+            let releaseNotes = releaseNotes.Replace("<", "&lt;").Replace(">", "&gt;")
 
             $"<PackageReleaseNotes>{releaseNotes}</PackageReleaseNotes>"
         ),

@@ -3,8 +3,7 @@ namespace FSharp.Core
 module LanguagePrimitives =
     let GenericEqualityComparer =
         { new System.Collections.IEqualityComparer with
-            override __.Equals(x: obj, y: obj) =
-                LanguagePrimitives.GenericEquality x y
+            override __.Equals(x: obj, y: obj) = LanguagePrimitives.GenericEquality x y
 
             override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
         }
@@ -40,10 +39,7 @@ module Operators =
     let nullArg x = raise (System.ArgumentNullException(x))
 
     [<CompiledName("Using")>]
-    let using<'T, 'R when 'T :> System.IDisposable>
-        (resource: 'T)
-        (action: 'T -> 'R)
-        =
+    let using<'T, 'R when 'T :> System.IDisposable> (resource: 'T) (action: 'T -> 'R) =
         try
             action (resource)
         finally

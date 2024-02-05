@@ -6,9 +6,7 @@ open Native
 
 [<Sealed>]
 [<CompiledName("HashSet")>]
-type MutableSet<'T when 'T: equality>
-    (items: 'T seq, comparer: IEqualityComparer<'T>)
-    as this =
+type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer<'T>) as this =
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of 'T.
     let hashMap = Dictionary<int, ResizeArray<'T>>()
@@ -24,8 +22,7 @@ type MutableSet<'T when 'T: equality>
         let h = comparer.GetHashCode(k)
 
         match hashMap.TryGetValue h with
-        | true, values ->
-            true, h, values.FindIndex(fun v -> comparer.Equals(k, v))
+        | true, values -> true, h, values.FindIndex(fun v -> comparer.Equals(k, v))
         | false, _ -> false, h, -1
 
     member private this.TryFind(k) =
@@ -78,8 +75,7 @@ type MutableSet<'T when 'T: equality>
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator() : System.Collections.IEnumerator =
-            ((this :> IEnumerable<'T>).GetEnumerator()
-            :> System.Collections.IEnumerator)
+            ((this :> IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
 
     interface IEnumerable<'T> with
         member this.GetEnumerator() : IEnumerator<'T> =
@@ -106,29 +102,21 @@ type MutableSet<'T when 'T: equality>
             for x in other do
                 this.Remove x |> ignore
 
-        member this.IntersectWith(other: IEnumerable<'T>) : unit =
-            failwith "Not Implemented"
+        member this.IntersectWith(other: IEnumerable<'T>) : unit = failwith "Not Implemented"
 
-        member this.IsProperSubsetOf(other: IEnumerable<'T>) : bool =
-            failwith "Not Implemented"
+        member this.IsProperSubsetOf(other: IEnumerable<'T>) : bool = failwith "Not Implemented"
 
-        member this.IsProperSupersetOf(other: IEnumerable<'T>) : bool =
-            failwith "Not Implemented"
+        member this.IsProperSupersetOf(other: IEnumerable<'T>) : bool = failwith "Not Implemented"
 
-        member this.IsSubsetOf(other: IEnumerable<'T>) : bool =
-            failwith "Not Implemented"
+        member this.IsSubsetOf(other: IEnumerable<'T>) : bool = failwith "Not Implemented"
 
-        member this.IsSupersetOf(other: IEnumerable<'T>) : bool =
-            failwith "Not Implemented"
+        member this.IsSupersetOf(other: IEnumerable<'T>) : bool = failwith "Not Implemented"
 
-        member this.Overlaps(other: IEnumerable<'T>) : bool =
-            failwith "Not Implemented"
+        member this.Overlaps(other: IEnumerable<'T>) : bool = failwith "Not Implemented"
 
-        member this.SetEquals(other: IEnumerable<'T>) : bool =
-            failwith "Not Implemented"
+        member this.SetEquals(other: IEnumerable<'T>) : bool = failwith "Not Implemented"
 
-        member this.SymmetricExceptWith(other: IEnumerable<'T>) : unit =
-            failwith "Not Implemented"
+        member this.SymmetricExceptWith(other: IEnumerable<'T>) : unit = failwith "Not Implemented"
 
         member this.UnionWith(other: IEnumerable<'T>) : unit =
             for x in other do
@@ -149,5 +137,4 @@ type MutableSet<'T when 'T: equality>
         member this.values() = this |> Seq.map id
         member this.entries() = this |> Seq.map (fun v -> (v, v))
 
-        member this.forEach(f, ?thisArg) =
-            this |> Seq.iter (fun x -> f x x this)
+        member this.forEach(f, ?thisArg) = this |> Seq.iter (fun x -> f x x this)

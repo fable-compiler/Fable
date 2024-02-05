@@ -25,10 +25,8 @@ let main argv =
 
     let metadataPath, testScriptPath, compiledScriptPath =
         match argv with
-        | [| metadataPath; testScriptPath; compiledScriptPath |] ->
-            metadataPath, testScriptPath, compiledScriptPath
-        | _ ->
-            metadataPath, testScriptPath, testScriptPath.Replace(".fsx", ".js")
+        | [| metadataPath; testScriptPath; compiledScriptPath |] -> metadataPath, testScriptPath, compiledScriptPath
+        | _ -> metadataPath, testScriptPath, testScriptPath.Replace(".fsx", ".js")
 
     try
         let optimize = false
@@ -56,13 +54,7 @@ let main argv =
         printfn "InteractiveChecker created in %d ms" ms0
         // let parseFSharpScript () = fable.ParseFSharpScript(checker, fileName, source)
         let parseFSharpScript () =
-            fable.ParseAndCheckFileInProject(
-                checker,
-                fileName,
-                projectFileName,
-                [| fileName |],
-                [| source |]
-            )
+            fable.ParseAndCheckFileInProject(checker, fileName, projectFileName, [| fileName |], [| source |])
 
         let fableLibraryDir = "fable-library"
 

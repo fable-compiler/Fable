@@ -16,17 +16,12 @@ let parse (checker: FSharpChecker) projFile =
         | ".fsx" ->
             let projCode = File.ReadAllText projFile
 
-            checker.GetProjectOptionsFromScript(
-                projFile,
-                projCode |> FSharp.Compiler.Text.SourceText.ofString
-            )
+            checker.GetProjectOptionsFromScript(projFile, projCode |> FSharp.Compiler.Text.SourceText.ofString)
             |> Async.RunSynchronously
             |> fst
         | ".fsproj" ->
             let opts, _, _ =
-                Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile
-                    "Release"
-                    projFile
+                Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile "Release" projFile
 
             opts
         | ext -> failwithf "Unexpected extension: %s" ext
@@ -44,10 +39,8 @@ let printShort limit (e: FSharpExpr) =
 
 let rec printExpr =
     function
-    | FSharpExprPatterns.Sequential(e1, e2) ->
-        sprintf "SEQUENTIAL: %s\n%s" (printExpr e1) (printExpr e2)
-    | FSharpExprPatterns.Let((var, value), e) ->
-        sprintf "LET: (%A, %A)\n>>>> %A" var value e
+    | FSharpExprPatterns.Sequential(e1, e2) -> sprintf "SEQUENTIAL: %s\n%s" (printExpr e1) (printExpr e2)
+    | FSharpExprPatterns.Let((var, value), e) -> sprintf "LET: (%A, %A)\n>>>> %A" var value e
     | e -> printShort 100 e
 
 let printVar (var: FSharpMemberOrFunctionOrValue) =
@@ -69,9 +62,7 @@ let rec printDecls prefix decls =
         | FSharpImplementationFileDeclaration.Entity(e, sub) ->
             printfn "%s%i) ENTITY: %s" prefix i e.DisplayName
             printDecls (prefix + "\t") sub
-        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth,
-                                                                      args,
-                                                                      body) ->
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
             if meth.IsValue then
                 printfn "%s%i) VALUE: %s " prefix i meth.FullName
             else

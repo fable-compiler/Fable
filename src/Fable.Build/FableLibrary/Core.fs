@@ -15,14 +15,7 @@ open SpectreCoff
 /// that we can use this class to standardise the process.
 /// </summary>
 type BuildFableLibrary
-    (
-        language: string,
-        libraryDir: string,
-        sourceDir: string,
-        buildDir: string,
-        outDir: string,
-        ?fableLibArg: string
-    )
+    (language: string, libraryDir: string, sourceDir: string, buildDir: string, outDir: string, ?fableLibArg: string)
     =
 
     // It seems like the different target have a different way of supporting

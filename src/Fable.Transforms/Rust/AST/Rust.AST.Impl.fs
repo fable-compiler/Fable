@@ -35,14 +35,7 @@ open type Macros
 
 type token.Lit with
 
-    static member new_
-        (
-            kind: token.LitKind,
-            symbol: Symbol,
-            suffix: Option<Symbol>
-        )
-        : token.Lit
-        =
+    static member new_(kind: token.LitKind, symbol: Symbol, suffix: Option<Symbol>) : token.Lit =
         {
             kind = kind
             symbol = symbol
@@ -55,14 +48,7 @@ type token.Token with
 
 type token.TokenKind with
 
-    static member lit
-        (
-            kind: token.LitKind,
-            symbol: Symbol,
-            suffix: Option<Symbol>
-        )
-        : token.TokenKind
-        =
+    static member lit(kind: token.LitKind, symbol: Symbol, suffix: Option<Symbol>) : token.TokenKind =
         token.TokenKind.Literal(token.Lit.new_ (kind, symbol, suffix))
 
 (*
@@ -410,10 +396,7 @@ type MacArgs with
         match self with
         | MacArgs.Empty -> token.TokenStream()
         | MacArgs.Delimited(_, _, tokens) -> tokens.clone ()
-        | MacArgs.Eq(_, token_) ->
-            token.TokenStream(
-                [ token.TokenTree.Token(token_.clone ()), token.Spacing.Alone ]
-            )
+        | MacArgs.Eq(_, token_) -> token.TokenStream([ token.TokenTree.Token(token_.clone ()), token.Spacing.Alone ])
 
     /// Whether a macro with these arguments needs a semicolon
     /// when used as a standalone item or statement.
@@ -579,25 +562,16 @@ type Param with
     /// Attempts to cast parameter to `ExplicitSelf`.
     member self.to_self() : Option<ExplicitSelf> =
         match self.pat.kind with
-        | PatKind.Ident(BindingMode.ByValue(mutbl), ident, _) when
-            ident.name = kw.SelfLower
-            ->
+        | PatKind.Ident(BindingMode.ByValue(mutbl), ident, _) when ident.name = kw.SelfLower ->
             match self.ty.kind with
-            | TyKind.ImplicitSelf ->
-                Some(respan (self.pat.span, SelfKind.Value(mutbl)))
+            | TyKind.ImplicitSelf -> Some(respan (self.pat.span, SelfKind.Value(mutbl)))
             | TyKind.Rptr(lt,
                           {
                               ty = ty
                               mutbl = mutbl
                           }) when ty.kind.is_implicit_self () ->
                 Some(respan (self.pat.span, SelfKind.Region(lt, mutbl)))
-            | _ ->
-                Some(
-                    respan (
-                        self.pat.span.to_ (self.ty.span),
-                        SelfKind.Explicit(self.ty.clone (), mutbl)
-                    )
-                )
+            | _ -> Some(respan (self.pat.span.to_ (self.ty.span), SelfKind.Explicit(self.ty.clone (), mutbl)))
         | _ -> None
 
 (*
@@ -655,8 +629,7 @@ type Asyncness with
     /// In this case this is an `async` return, the `NodeId` for the generated `impl Trait` item.
     member self.opt_return_id() : Option<NodeId> =
         match self with
-        | Asyncness.Yes(_, _, return_impl_trait_id) ->
-            Some(return_impl_trait_id)
+        | Asyncness.Yes(_, _, return_impl_trait_id) -> Some(return_impl_trait_id)
         | Asyncness.No -> None
 
 (*

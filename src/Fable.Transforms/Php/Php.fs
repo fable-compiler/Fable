@@ -50,10 +50,7 @@ and PhpExpr =
     | PhpMethodCall of this: PhpExpr * func: PhpExpr * args: PhpExpr list
     | PhpTernary of gard: PhpExpr * thenExpr: PhpExpr * elseExpr: PhpExpr
     | PhpInstanceOf of expr: PhpExpr * PhpTypeRef
-    | PhpAnonymousFunc of
-        args: string list *
-        uses: Capture list *
-        body: PhpStatement list
+    | PhpAnonymousFunc of args: string list * uses: Capture list * body: PhpStatement list
     | PhpMacro of macro: string * args: PhpExpr list
     | PhpParent
 
@@ -63,22 +60,14 @@ and PhpStatement =
     | PhpSwitch of PhpExpr * (PhpCase * PhpStatement list) list
     | PhpBreak of int option
     | PhpAssign of target: PhpExpr * value: PhpExpr
-    | PhpIf of
-        guard: PhpExpr *
-        thenCase: PhpStatement list *
-        elseCase: PhpStatement list
+    | PhpIf of guard: PhpExpr * thenCase: PhpStatement list * elseCase: PhpStatement list
     | PhpThrow of PhpExpr
     | PhpTryCatch of
         body: PhpStatement list *
         catch: (string * PhpStatement list) option *
         finallizer: PhpStatement list
     | PhpWhileLoop of guard: PhpExpr * body: PhpStatement list
-    | PhpFor of
-        ident: string *
-        start: PhpExpr *
-        limit: PhpExpr *
-        isUp: bool *
-        body: PhpStatement list
+    | PhpFor of ident: string * start: PhpExpr * limit: PhpExpr * isUp: bool * body: PhpStatement list
     | PhpDo of PhpExpr
 
 and PhpCase =

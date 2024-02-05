@@ -10,15 +10,12 @@ let isIdentCaptured identName expr =
         | expr :: restExprs ->
             match expr with
             | IdentExpr i when i.Name = identName -> isClosure
-            | Lambda(_, body, _) ->
-                loop true [ body ] || loop isClosure restExprs
-            | Delegate(_, body, _, _) ->
-                loop true [ body ] || loop isClosure restExprs
+            | Lambda(_, body, _) -> loop true [ body ] || loop isClosure restExprs
+            | Delegate(_, body, _, _) -> loop true [ body ] || loop isClosure restExprs
             | ObjectExpr(members, _, baseCall) ->
                 let memberExprs = members |> List.map (fun m -> m.Body)
 
-                loop true memberExprs
-                || loop isClosure (Option.toList baseCall @ restExprs)
+                loop true memberExprs || loop isClosure (Option.toList baseCall @ restExprs)
             | e ->
                 let sub = getSubExpressions e
                 loop isClosure (sub @ restExprs)
@@ -159,17 +156,14 @@ let noSideEffectBeforeIdent identName expr =
         | Get(_, ExprGet _, _, _) ->
             sideEffect <- true
             true
-        | Get(e,
-              (TupleIndex _ | UnionField _ | UnionTag | ListHead | ListTail | OptionValue),
-              _,
-              _) -> findIdentOrSideEffect e
+        | Get(e, (TupleIndex _ | UnionField _ | UnionTag | ListHead | ListTail | OptionValue), _, _) ->
+            findIdentOrSideEffect e
         | Import _
         | Lambda _
         | Delegate _ -> false
         | Extended((Throw _ | Debugger), _) -> true
         | Extended(Curry(e, _), _) -> findIdentOrSideEffect e
-        | CurriedApply(callee, args, _, _) ->
-            callee :: args |> findIdentOrSideEffectInList |> orSideEffect
+        | CurriedApply(callee, args, _, _) -> callee :: args |> findIdentOrSideEffectInList |> orSideEffect
         | Call(e1, info, _, _) ->
             match info.Tags, info.Args with
             // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
@@ -182,8 +176,7 @@ let noSideEffectBeforeIdent identName expr =
             match kind with
             | Unary(_, operand) -> findIdentOrSideEffect operand
             | Binary(_, left, right)
-            | Logical(_, left, right) ->
-                findIdentOrSideEffect left || findIdentOrSideEffect right
+            | Logical(_, left, right) -> findIdentOrSideEffect left || findIdentOrSideEffect right
         | Value(value, _) ->
             match value with
             | ThisValue _
@@ -199,8 +192,7 @@ let noSideEffectBeforeIdent identName expr =
             | NewList(None, _)
             | NewOption(None, _, _) -> false
             | NewOption(Some e, _, _) -> findIdentOrSideEffect e
-            | NewList(Some(h, t), _) ->
-                findIdentOrSideEffect h || findIdentOrSideEffect t
+            | NewList(Some(h, t), _) -> findIdentOrSideEffect h || findIdentOrSideEffect t
             | NewArray(kind, _, _) ->
                 match kind with
                 | ArrayValues exprs -> findIdentOrSideEffectInList exprs
@@ -210,8 +202,7 @@ let noSideEffectBeforeIdent identName expr =
             | NewTuple(exprs, _)
             | NewUnion(exprs, _, _, _)
             | NewRecord(exprs, _, _)
-            | NewAnonymousRecord(exprs, _, _, _) ->
-                findIdentOrSideEffectInList exprs
+            | NewAnonymousRecord(exprs, _, _, _) -> findIdentOrSideEffectInList exprs
         | Sequential exprs -> findIdentOrSideEffectInList exprs
         | Let(_, v, b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
         | TypeCast(e, _)
@@ -233,15 +224,13 @@ let noSideEffectBeforeIdent identName expr =
             sideEffect <- true
             true
 
-    and findIdentOrSideEffectInList exprs =
-        List.exists findIdentOrSideEffect exprs
+    and findIdentOrSideEffectInList exprs = List.exists findIdentOrSideEffect exprs
 
     findIdentOrSideEffect expr && not sideEffect
 
 let canInlineArg identName value body =
     match value with
-    | Value((Null _ | UnitConstant | TypeInfo _ | BoolConstant _ | NumberConstant _ | CharConstant _),
-            _) -> true
+    | Value((Null _ | UnitConstant | TypeInfo _ | BoolConstant _ | NumberConstant _ | CharConstant _), _) -> true
     | Value(StringConstant s, _) -> s.Length < 100
     | _ ->
         let refCount = countReferencesUntil 2 identName body
@@ -267,22 +256,19 @@ let (|Arity|) typ =
 let private uncurryType' typ =
     let rec uncurryType' accArity accArgs =
         function
-        | LambdaType(arg, returnType) ->
-            uncurryType' (accArity + 1) (arg :: accArgs) returnType
+        | LambdaType(arg, returnType) -> uncurryType' (accArity + 1) (arg :: accArgs) returnType
         | returnType ->
             let argTypes = List.rev accArgs
 
             let uncurried =
                 match typ with
-                | Option(_, isStruct) ->
-                    Option(DelegateType(argTypes, returnType), isStruct)
+                | Option(_, isStruct) -> Option(DelegateType(argTypes, returnType), isStruct)
                 | _ -> DelegateType(argTypes, returnType)
 
             accArity, uncurried
 
     match typ with
-    | MaybeOption(LambdaType(arg, returnType)) ->
-        uncurryType' 1 [ arg ] returnType
+    | MaybeOption(LambdaType(arg, returnType)) -> uncurryType' 1 [ arg ] returnType
     | _ -> 0, typ
 
 let uncurryType typ = uncurryType' typ |> snd
@@ -300,13 +286,11 @@ module private Transforms =
                     Some([ arg ], body)
                 else
                     match body with
-                    | ImmediatelyApplicable appliedArgsLen (args, body) ->
-                        Some(arg :: args, body)
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg :: args, body)
                     | _ -> Some([ arg ], body)
             // If the lambda is immediately applied we don't need the closures
             | NestedRevLets(bindings, Lambda(arg, body, _)) ->
-                let body =
-                    List.fold (fun body (i, v) -> Let(i, v, body)) body bindings
+                let body = List.fold (fun body (i, v) -> Let(i, v, body)) body bindings
 
                 let appliedArgsLen = appliedArgsLen - 1
 
@@ -314,8 +298,7 @@ module private Transforms =
                     Some([ arg ], body)
                 else
                     match body with
-                    | ImmediatelyApplicable appliedArgsLen (args, body) ->
-                        Some(arg :: args, body)
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg :: args, body)
                     | _ -> Some([ arg ], body)
             | _ -> None
 
@@ -323,9 +306,7 @@ module private Transforms =
         let canInlineBinding =
             match value with
             | Import(i, _, _) -> i.IsCompilerGenerated
-            | Call(callee, info, _, _) when
-                List.isEmpty info.Args && List.contains "value" info.Tags
-                ->
+            | Call(callee, info, _, _) when List.isEmpty info.Args && List.contains "value" info.Tags ->
                 canInlineArg ident.Name callee letBody
             // Replace non-recursive lambda bindings
             | NestedLambda(_args, lambdaBody, _name) ->
@@ -347,10 +328,8 @@ module private Transforms =
             let value =
                 match value with
                 // Ident becomes the name of the function (mainly used for tail call optimizations)
-                | Lambda(arg, funBody, _) ->
-                    Lambda(arg, funBody, Some ident.Name)
-                | Delegate(args, funBody, _, tags) ->
-                    Delegate(args, funBody, Some ident.Name, tags)
+                | Lambda(arg, funBody, _) -> Lambda(arg, funBody, Some ident.Name)
+                | Delegate(args, funBody, _, tags) -> Delegate(args, funBody, Some ident.Name, tags)
                 | value -> value
 
             Some(ident, value)
@@ -365,8 +344,7 @@ module private Transforms =
             if argsLen = argExprs.Length then
                 args, [], argExprs, []
             elif argsLen < argExprsLen then
-                let appliedArgExprs, restArgExprs =
-                    List.splitAt argsLen argExprs
+                let appliedArgExprs, restArgExprs = List.splitAt argsLen argExprs
 
                 args, [], appliedArgExprs, restArgExprs
             else
@@ -377,8 +355,7 @@ module private Transforms =
             (([], Map.empty), appliedArgs, appliedArgExprs)
             |||> List.fold2 (fun (bindings, replacements) ident expr ->
                 match tryInlineBinding com ident expr body with
-                | Some(ident, expr) ->
-                    bindings, Map.add ident.Name expr replacements
+                | Some(ident, expr) -> bindings, Map.add ident.Name expr replacements
                 | None -> (ident, expr) :: bindings, replacements
             )
 
@@ -392,18 +369,13 @@ module private Transforms =
 
     let rec lambdaBetaReduction (com: Compiler) e =
         match e with
-        | Call(Delegate(args, body, _, _), info, t, r) when
-            List.sameLength args info.Args
-            ->
+        | Call(Delegate(args, body, _, _), info, t, r) when List.sameLength args info.Args ->
             let body = visitFromOutsideIn (lambdaBetaReduction com) body
 
             let thisArgExpr =
-                info.ThisArg
-                |> Option.map (visitFromOutsideIn (lambdaBetaReduction com))
+                info.ThisArg |> Option.map (visitFromOutsideIn (lambdaBetaReduction com))
 
-            let argExprs =
-                info.Args
-                |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
+            let argExprs = info.Args |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
 
             let info =
                 { info with
@@ -416,9 +388,7 @@ module private Transforms =
         | NestedApply(applied, argExprs, t, r) ->
             match applied with
             | ImmediatelyApplicable argExprs.Length (args, body) ->
-                let argExprs =
-                    argExprs
-                    |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
+                let argExprs = argExprs |> List.map (visitFromOutsideIn (lambdaBetaReduction com))
 
                 let body = visitFromOutsideIn (lambdaBetaReduction com) body
                 applyArgs com r t args argExprs body |> Some
@@ -431,9 +401,7 @@ module private Transforms =
             (not com.Options.DebugMode) || ident.IsCompilerGenerated
 
         match e with
-        | Let(ident, value, letBody) when
-            (not ident.IsMutable) && isErasingCandidate ident
-            ->
+        | Let(ident, value, letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             match tryInlineBinding com ident value letBody with
             | Some(ident, value) ->
                 // Sometimes we inline a local generic function, so we need to check
@@ -446,27 +414,22 @@ module private Transforms =
     let typeEqualsAtCompileTime t1 t2 =
         let stripMeasure =
             function
-            | Number(kind, NumberInfo.IsMeasure _) ->
-                Number(kind, NumberInfo.Empty)
+            | Number(kind, NumberInfo.IsMeasure _) -> Number(kind, NumberInfo.Empty)
             | t -> t
 
         typeEquals true (stripMeasure t1) (stripMeasure t2)
 
     let rec tryEqualsAtCompileTime a b =
         match a, b with
-        | Value(TypeInfo(a, []), _), Value(TypeInfo(b, []), _) ->
-            typeEqualsAtCompileTime a b |> Some
+        | Value(TypeInfo(a, []), _), Value(TypeInfo(b, []), _) -> typeEqualsAtCompileTime a b |> Some
         | Value(Null _, _), Value(Null _, _)
         | Value(UnitConstant, _), Value(UnitConstant, _) -> Some true
         | Value(BoolConstant a, _), Value(BoolConstant b, _) -> Some(a = b)
         | Value(CharConstant a, _), Value(CharConstant b, _) -> Some(a = b)
         | Value(StringConstant a, _), Value(StringConstant b, _) -> Some(a = b)
-        | Value(NumberConstant(a, _, _), _), Value(NumberConstant(b, _, _), _) ->
-            Some(a = b)
-        | Value(NewOption(None, _, _), _), Value(NewOption(None, _, _), _) ->
-            Some true
-        | Value(NewOption(Some a, _, _), _), Value(NewOption(Some b, _, _), _) ->
-            tryEqualsAtCompileTime a b
+        | Value(NumberConstant(a, _, _), _), Value(NumberConstant(b, _, _), _) -> Some(a = b)
+        | Value(NewOption(None, _, _), _), Value(NewOption(None, _, _), _) -> Some true
+        | Value(NewOption(Some a, _, _), _), Value(NewOption(Some b, _, _), _) -> tryEqualsAtCompileTime a b
         | _ -> None
 
     let operationReduction (_com: Compiler) e =
@@ -484,10 +447,8 @@ module private Transforms =
                         ]
                 )
             // Assume NumberKind and NumberInfo are the same
-            | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty),
-                    r1),
-              Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty),
-                    r2) ->
+            | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty), r1),
+              Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty), r2) ->
                 Value(
                     NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty),
                     addRanges
@@ -498,46 +459,30 @@ module private Transforms =
                 )
             | _ -> e
 
-        | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2),
-                    [],
-                    _,
-                    _) ->
+        | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), [], _, _) ->
             if b then
                 v2
             else
                 v1
-        | Operation(Logical(AST.LogicalAnd, v1, (Value(BoolConstant b, _) as v2)),
-                    [],
-                    _,
-                    _) ->
+        | Operation(Logical(AST.LogicalAnd, v1, (Value(BoolConstant b, _) as v2)), [], _, _) ->
             if b then
                 v1
             else
                 v2
-        | Operation(Logical(AST.LogicalOr, (Value(BoolConstant b, _) as v1), v2),
-                    [],
-                    _,
-                    _) ->
+        | Operation(Logical(AST.LogicalOr, (Value(BoolConstant b, _) as v1), v2), [], _, _) ->
             if b then
                 v1
             else
                 v2
-        | Operation(Logical(AST.LogicalOr, v1, (Value(BoolConstant b, _) as v2)),
-                    [],
-                    _,
-                    _) ->
+        | Operation(Logical(AST.LogicalOr, v1, (Value(BoolConstant b, _) as v2)), [], _, _) ->
             if b then
                 v2
             else
                 v1
 
-        | Operation(Unary(AST.UnaryNot, Value(BoolConstant b, r)), [], _, _) ->
-            Value(BoolConstant(not b), r)
+        | Operation(Unary(AST.UnaryNot, Value(BoolConstant b, r)), [], _, _) -> Value(BoolConstant(not b), r)
 
-        | Operation(Binary((AST.BinaryEqual | AST.BinaryUnequal as op), v1, v2),
-                    [],
-                    _,
-                    _) ->
+        | Operation(Binary((AST.BinaryEqual | AST.BinaryUnequal as op), v1, v2), [], _, _) ->
             let isNot = op = AST.BinaryUnequal
 
             tryEqualsAtCompileTime v1 v2
@@ -555,12 +500,9 @@ module private Transforms =
             // This optimization doesn't work well with erased unions
             // | TypeTest typ, expr ->
             //     typeEqualsAtCompileTime typ expr.Type |> makeBoolConst
-            | OptionTest isSome, Value(NewOption(expr, _, _), _) ->
-                isSome = Option.isSome expr |> makeBoolConst
-            | ListTest isCons, Value(NewList(headAndTail, _), _) ->
-                isCons = Option.isSome headAndTail |> makeBoolConst
-            | UnionCaseTest tag1, Value(NewUnion(_, tag2, _, _), _) ->
-                tag1 = tag2 |> makeBoolConst
+            | OptionTest isSome, Value(NewOption(expr, _, _), _) -> isSome = Option.isSome expr |> makeBoolConst
+            | ListTest isCons, Value(NewList(headAndTail, _), _) -> isCons = Option.isSome headAndTail |> makeBoolConst
+            | UnionCaseTest tag1, Value(NewUnion(_, tag2, _, _), _) -> tag1 = tag2 |> makeBoolConst
             | _ -> e
 
         | IfThenElse(Value(BoolConstant b, _), thenExpr, elseExpr, _) ->
@@ -587,8 +529,7 @@ module private Transforms =
             ||> List.fold (fun (replacements, uncurriedArgs) arg ->
                 match uncurryType' arg.Type with
                 | arity, uncurriedType when arity > 1 ->
-                    Map.add arg.Name arity replacements,
-                    { arg with Type = uncurriedType } :: uncurriedArgs
+                    Map.add arg.Name arity replacements, { arg with Type = uncurriedType } :: uncurriedArgs
                 | _ -> replacements, arg :: uncurriedArgs
             )
 
@@ -607,30 +548,17 @@ module private Transforms =
 
         match expr, arity with
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
-        | Extended(Curry(innerExpr, arity2), _), _ when matches arity arity2 ->
-            innerExpr
-        | Get(Extended(Curry(innerExpr, arity2), _), OptionValue, t, r), _ when
-            matches arity arity2
-            ->
+        | Extended(Curry(innerExpr, arity2), _), _ when matches arity arity2 -> innerExpr
+        | Get(Extended(Curry(innerExpr, arity2), _), OptionValue, t, r), _ when matches arity arity2 ->
             Get(innerExpr, OptionValue, t, r)
-        | Value(NewOption(Some(Extended(Curry(innerExpr, arity2), _)),
-                          t,
-                          isStruct),
-                r),
-          _ when matches arity arity2 ->
+        | Value(NewOption(Some(Extended(Curry(innerExpr, arity2), _)), t, isStruct), r), _ when matches arity arity2 ->
             Value(NewOption(Some(innerExpr), t, isStruct), r)
         // User imports are uncurried even if they're typed as lambdas, see test "ofImport should inline properly"
         | Import({ Kind = UserImport _ }, _, _), _ -> expr
         | _, Some arity -> Replacements.Api.uncurryExprAtRuntime com arity expr
         | _, None -> expr
 
-    let rec uncurryAnonRecordArg
-        (com: Compiler)
-        expectedFieldNames
-        expectedGenArgs
-        isStruct
-        (expr: Expr)
-        =
+    let rec uncurryAnonRecordArg (com: Compiler) expectedFieldNames expectedGenArgs isStruct (expr: Expr) =
         let needsCurrying =
             expectedGenArgs
             |> List.exists (fun expectedGenArg ->
@@ -641,17 +569,12 @@ module private Transforms =
             )
 
         match expr.Type with
-        | AnonymousRecordType(actualFieldNames, actualGenArgs, _) as argType when
-            needsCurrying
-            ->
+        | AnonymousRecordType(actualFieldNames, actualGenArgs, _) as argType when needsCurrying ->
             let binding, arg =
                 match expr with
                 | IdentExpr _ -> None, expr
                 | arg ->
-                    let ident =
-                        makeTypedIdent
-                            argType
-                            $"anonRec{com.IncrementCounter()}"
+                    let ident = makeTypedIdent argType $"anonRec{com.IncrementCounter()}"
 
                     Some(ident, arg), IdentExpr ident
 
@@ -660,27 +583,18 @@ module private Transforms =
             let values =
                 expectedFieldNames
                 |> Array.mapToList (fun fieldName ->
-                    let actualType =
-                        Map.tryFind fieldName actualGenArgs
-                        |> Option.defaultValue Any
+                    let actualType = Map.tryFind fieldName actualGenArgs |> Option.defaultValue Any
 
-                    let value =
-                        getImmutableFieldWith None actualType arg fieldName
+                    let value = getImmutableFieldWith None actualType arg fieldName
 
                     match actualType with
-                    | Arity arity when arity > 1 ->
-                        Extended(Curry(value, arity), None)
+                    | Arity arity when arity > 1 -> Extended(Curry(value, arity), None)
                     | _ -> value
                 )
                 |> uncurryArgs com false expectedGenArgs
 
             let anonRec =
-                NewAnonymousRecord(
-                    values,
-                    expectedFieldNames,
-                    expectedGenArgs,
-                    isStruct
-                )
+                NewAnonymousRecord(values, expectedFieldNames, expectedGenArgs, isStruct)
                 |> makeValue None
 
             match binding with
@@ -709,12 +623,7 @@ module private Transforms =
             | Any when autoUncurrying -> uncurryExpr com None arg
 
             | AnonymousRecordType(expectedFieldNames, expectedGenArgs, isStruct) ->
-                uncurryAnonRecordArg
-                    com
-                    expectedFieldNames
-                    expectedGenArgs
-                    isStruct
-                    arg
+                uncurryAnonRecordArg com expectedFieldNames expectedGenArgs isStruct arg
 
             | Arity arity when arity > 1 -> uncurryExpr com (Some arity) arg
 
@@ -732,22 +641,14 @@ module private Transforms =
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
 
-            Let(
-                { ident with Type = uncurryType ident.Type },
-                Delegate(args, fnBody, None, Tags.empty),
-                letBody
-            )
+            Let({ ident with Type = uncurryType ident.Type }, Delegate(args, fnBody, None, Tags.empty), letBody)
         // Anonymous lambda immediately applied
-        | CurriedApply(NestedLambdaWithSameArity(args, fnBody, Some name),
-                       argExprs,
-                       t,
-                       r) when
+        | CurriedApply(NestedLambdaWithSameArity(args, fnBody, Some name), argExprs, t, r) when
             List.isMultiple args && List.sameLength args argExprs
             ->
             let fnBody = curryIdentInBody name args fnBody
 
-            let info =
-                makeCallInfo None argExprs (args |> List.map (fun a -> a.Type))
+            let info = makeCallInfo None argExprs (args |> List.map (fun a -> a.Type))
 
             Delegate(args, fnBody, Some name, Tags.empty) |> makeCall r t info
         | e -> e
@@ -757,17 +658,11 @@ module private Transforms =
         | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
-                | Extended(Curry(innerExpr, arity), _) ->
-                    ident, innerExpr, Some arity
+                | Extended(Curry(innerExpr, arity), _) -> ident, innerExpr, Some arity
                 | Get(Extended(Curry(innerExpr, arity), _), OptionValue, t, r) ->
                     ident, Get(innerExpr, OptionValue, t, r), Some arity
-                | Value(NewOption(Some(Extended(Curry(innerExpr, arity), _)),
-                                  t,
-                                  isStruct),
-                        r) ->
-                    ident,
-                    Value(NewOption(Some(innerExpr), t, isStruct), r),
-                    Some arity
+                | Value(NewOption(Some(Extended(Curry(innerExpr, arity), _)), t, isStruct), r) ->
+                    ident, Value(NewOption(Some(innerExpr), t, isStruct), r), Some arity
                 | _ -> ident, value, None
 
             match arity with
@@ -775,11 +670,7 @@ module private Transforms =
             | Some arity ->
                 let replacements = Map [ ident.Name, arity ]
 
-                Let(
-                    { ident with Type = uncurryType ident.Type },
-                    value,
-                    curryIdentsInBody replacements body
-                )
+                Let({ ident with Type = uncurryType ident.Type }, value, curryIdentsInBody replacements body)
         | e -> e
 
     let uncurryMemberArgs (m: MemberDecl) =
@@ -794,15 +685,12 @@ module private Transforms =
         function
         | Get(callee, kind, _, r) ->
             match kind with
-            | FieldGet { FieldType = Some fieldType } ->
-                Some(callee, fieldType, r)
+            | FieldGet { FieldType = Some fieldType } -> Some(callee, fieldType, r)
             | UnionField info ->
                 let e = com.GetEntity(info.Entity)
 
                 List.tryItem info.CaseIndex e.UnionCases
-                |> Option.bind (fun c ->
-                    List.tryItem info.FieldIndex c.UnionCaseFields
-                )
+                |> Option.bind (fun c -> List.tryItem info.FieldIndex c.UnionCaseFields)
                 |> Option.map (fun f -> callee, f.FieldType, r)
             | _ -> None
         | _ -> None
@@ -816,15 +704,13 @@ module private Transforms =
             Delegate(args, body, name, tags)
 
         // Uncurry also values received from getters
-        | GetField com (_callee, Arity arity, r) when arity > 1 ->
-            Extended(Curry(e, arity), r)
+        | GetField com (_callee, Arity arity, r) when arity > 1 -> Extended(Curry(e, arity), r)
 
         | ObjectExpr(members, t, baseCall) ->
             let members =
                 members
                 |> List.map (fun m ->
-                    let args, body =
-                        curryArgIdentsAndReplaceInBody m.Args m.Body
+                    let args, body = curryArgIdentsAndReplaceInBody m.Args m.Body
 
                     { m with
                         Args = args
@@ -841,8 +727,7 @@ module private Transforms =
 
     let uncurrySendingArgs (com: Compiler) e =
         let uncurryConsArgs args (fields: seq<Field>) =
-            let argTypes =
-                fields |> Seq.map (fun fi -> fi.FieldType) |> Seq.toList
+            let argTypes = fields |> Seq.map (fun fi -> fi.FieldType) |> Seq.toList
 
             uncurryArgs com false argTypes args
 
@@ -852,14 +737,9 @@ module private Transforms =
             let info = { info with Args = args }
             Call(callee, info, t, r)
         | Emit({ CallInfo = callInfo } as emitInfo, t, r) ->
-            let args =
-                uncurryArgs com true callInfo.SignatureArgTypes callInfo.Args
+            let args = uncurryArgs com true callInfo.SignatureArgTypes callInfo.Args
 
-            Emit(
-                { emitInfo with CallInfo = { callInfo with Args = args } },
-                t,
-                r
-            )
+            Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
             let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
@@ -884,10 +764,7 @@ module private Transforms =
                         | Some mRef when isGetterOrValueWithoutGenerics mRef ->
                             match mRef.ReturnParameter.Type with
                             // It may happen the arity of the abstract signature is smaller than actual arity
-                            | Arity arity when arity > 1 ->
-                                { m with
-                                    Body = uncurryExpr com (Some arity) m.Body
-                                }
+                            | Arity arity when arity > 1 -> { m with Body = uncurryExpr com (Some arity) m.Body }
                             | _ -> m
                         | _ -> m
                     | _ -> m
@@ -912,19 +789,12 @@ module private Transforms =
                 let intermediateType =
                     match List.rev restArgs with
                     | [] -> Any
-                    | arg :: args ->
-                        (LambdaType(arg.Type, t), args)
-                        ||> List.fold (fun t a -> LambdaType(a.Type, t))
+                    | arg :: args -> (LambdaType(arg.Type, t), args) ||> List.fold (fun t a -> LambdaType(a.Type, t))
 
                 let applied = makeCall None intermediateType info applied
                 CurriedApply(applied, restArgs, t, r)
             else
-                Replacements.Api.partialApplyAtRuntime
-                    com
-                    t
-                    (uncurriedArity - argsLen)
-                    applied
-                    args
+                Replacements.Api.partialApplyAtRuntime com t (uncurriedArity - argsLen) applied args
 
         match e with
         | Test(Extended(Curry(expr, _uncurriedArity), _), OptionTest isSome, r) ->
@@ -933,23 +803,12 @@ module private Transforms =
         | NestedApply(applied, args, t, r) ->
             let applied = visitFromOutsideIn (uncurryApplications com) applied
 
-            let args =
-                args |> List.map (visitFromOutsideIn (uncurryApplications com))
+            let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
 
             match applied with
-            | Extended(Curry(applied, uncurriedArity), _) ->
-                uncurryApply r t applied args uncurriedArity |> Some
-            | Get(Extended(Curry(applied, uncurriedArity), _),
-                  OptionValue,
-                  t2,
-                  r2) ->
-                uncurryApply
-                    r
-                    t
-                    (Get(applied, OptionValue, t2, r2))
-                    args
-                    uncurriedArity
-                |> Some
+            | Extended(Curry(applied, uncurriedArity), _) -> uncurryApply r t applied args uncurriedArity |> Some
+            | Get(Extended(Curry(applied, uncurriedArity), _), OptionValue, t2, r2) ->
+                uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity |> Some
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None
 
@@ -984,13 +843,11 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
     match decl with
     | ModuleDeclaration decl ->
         let members =
-            decl.Members
-            |> List.map (transformDeclaration transformations com file)
+            decl.Members |> List.map (transformDeclaration transformations com file)
 
         { decl with Members = members } |> ModuleDeclaration
 
-    | ActionDeclaration decl ->
-        { decl with Body = transformExpr com decl.Body } |> ActionDeclaration
+    | ActionDeclaration decl -> { decl with Body = transformExpr com decl.Body } |> ActionDeclaration
 
     | MemberDeclaration m ->
         m
@@ -1017,14 +874,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
                                     match mRef.ReturnParameter.Type with
                                     // It may happen the arity of the abstract signature is smaller than actual arity
                                     | Arity arity when arity > 1 ->
-                                        Some
-                                            { m with
-                                                Body =
-                                                    uncurryExpr
-                                                        com
-                                                        (Some arity)
-                                                        m.Body
-                                            }
+                                        Some { m with Body = uncurryExpr com (Some arity) m.Body }
                                     | _ -> None
                                 else
                                     None
@@ -1042,8 +892,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
         let cons, baseCall =
             match decl.Constructor, decl.BaseCall with
             | None, _ -> None, None
-            | Some cons, None ->
-                uncurryMemberArgs cons |> transformMemberBody com |> Some, None
+            | Some cons, None -> uncurryMemberArgs cons |> transformMemberBody com |> Some, None
             | Some cons, Some baseCall ->
                 // In order to uncurry correctly the baseCall arguments,
                 // we need to include it in the constructor body
@@ -1083,8 +932,6 @@ let transformFile (com: Compiler) (file: Fable.AST.Fable.File) =
     let transformations = getTransformations com
 
     let newDecls =
-        List.map
-            (transformDeclaration transformations com file)
-            file.Declarations
+        List.map (transformDeclaration transformations com file) file.Declarations
 
     Fable.AST.Fable.File(newDecls, usedRootNames = file.UsedNamesInRootScope)

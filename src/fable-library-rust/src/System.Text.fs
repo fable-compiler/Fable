@@ -30,8 +30,7 @@ type StringBuilder(value: string, capacity: int) =
     member x.Append(o: float32) = x.Append(string o)
     member x.Append(o: float) = x.Append(string o)
 
-    member x.Append(s: string, index: int, count: int) =
-        x.Append(s.Substring(index, count))
+    member x.Append(s: string, index: int, count: int) = x.Append(s.Substring(index, count))
 
     member x.Append(cs: char[]) = x.Append(System.String(cs))
     member x.Append(sb: StringBuilder) = x.Append(sb.ToString())
@@ -48,5 +47,4 @@ type StringBuilder(value: string, capacity: int) =
     member x.Length = buf |> asArray |> Array.sumBy (fun s -> s.Length)
     override _.ToString() = System.String.Concat(buf |> asArray)
 
-    member x.ToString(index: int, count: int) =
-        x.ToString().Substring(index, count)
+    member x.ToString(index: int, count: int) = x.ToString().Substring(index, count)

@@ -25,8 +25,7 @@ module Py =
     type ReflectedDecoratorAttribute() =
         inherit Attribute()
 
-        abstract Decorate:
-            fn: Callable * info: Reflection.MethodInfo -> Callable
+        abstract Decorate: fn: Callable * info: Reflection.MethodInfo -> Callable
 
     [<AllowNullLiteral>]
     type ArrayConstructor =

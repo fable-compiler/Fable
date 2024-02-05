@@ -9,12 +9,7 @@ type File(normalizedFullPath: string) =
     let readAllTextNonBlocking (path: string) =
         if File.Exists(path) then
             use fileStream =
-                new FileStream(
-                    path,
-                    FileMode.Open,
-                    FileAccess.Read,
-                    FileShare.ReadWrite
-                )
+                new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
 
             use textReader = new StreamReader(fileStream)
             textReader.ReadToEnd()
@@ -34,8 +29,7 @@ type File(normalizedFullPath: string) =
             h, lazy source
 
     static member MakeSourceReader(files: File array) =
-        let fileDic =
-            files |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
+        let fileDic = files |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
 
         let sourceReader f = fileDic[f].ReadSource()
         files |> Array.map (fun file -> file.NormalizedFullPath), sourceReader

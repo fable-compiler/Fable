@@ -18,17 +18,9 @@ type token.DelimSpan with
     member self.entire() = DUMMY_SP // TODO:
 
 type IdentPrinter =
-    static member new_
-        (
-            symbol: Symbol,
-            is_raw: bool,
-            convert_dollar_crate: Option<Span>
-        )
-        =
-        symbol.as_str () // TODO:
+    static member new_(symbol: Symbol, is_raw: bool, convert_dollar_crate: Option<Span>) = symbol.as_str () // TODO:
 
-    static member for_ast_ident(ident: Ident, is_raw: bool) =
-        ident.name.as_str () // TODO:
+    static member for_ast_ident(ident: Ident, is_raw: bool) = ident.name.as_str () // TODO:
 
 type Ident with
 

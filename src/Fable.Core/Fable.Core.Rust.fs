@@ -20,26 +20,20 @@ type ExternAttribute(abi: string) =
     new() = ExternAttribute("")
 
 // Inner attributes
-type InnerAttrAttribute
-    private (name: string, value: string option, items: string[])
-    =
+type InnerAttrAttribute private (name: string, value: string option, items: string[]) =
     inherit Attribute()
     new(name: string) = InnerAttrAttribute(name, None, [||])
 
-    new(name: string, value: string) =
-        InnerAttrAttribute(name, Some value, [||])
+    new(name: string, value: string) = InnerAttrAttribute(name, Some value, [||])
 
     new(name: string, items: string[]) = InnerAttrAttribute(name, None, items)
 
 // Outer attributes
-type OuterAttrAttribute
-    private (name: string, value: string option, items: string[])
-    =
+type OuterAttrAttribute private (name: string, value: string option, items: string[]) =
     inherit Attribute()
     new(name: string) = OuterAttrAttribute(name, None, [||])
 
-    new(name: string, value: string) =
-        OuterAttrAttribute(name, Some value, [||])
+    new(name: string, value: string) = OuterAttrAttribute(name, Some value, [||])
 
     new(name: string, items: string[]) = OuterAttrAttribute(name, None, items)
 

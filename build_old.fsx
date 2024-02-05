@@ -31,10 +31,7 @@ module Util =
 
     let resolveDir dir = __SOURCE_DIRECTORY__ </> dir
 
-    let updateVersionsInFableTransforms
-        compilerVersion
-        (libraryVersions: (string * string) list)
-        =
+    let updateVersionsInFableTransforms compilerVersion (libraryVersions: (string * string) list) =
         let mutable updated = Set.empty
 
         let replaceVersion (lang: string option) version fileContent =
@@ -48,12 +45,10 @@ module Util =
                 $@"^(\s*)let \[<Literal>] {prefix}VERSION = ""(.*?)""",
                 (fun (m: Match) ->
                     match lang with
-                    | Some lang when m.Groups[2].Value <> version ->
-                        updated <- Set.add lang updated
+                    | Some lang when m.Groups[2].Value <> version -> updated <- Set.add lang updated
                     | _ -> ()
 
-                    m.Groups[1].Value
-                    + $"let [<Literal>] {prefix}VERSION = \"{version}\""
+                    m.Groups[1].Value + $"let [<Literal>] {prefix}VERSION = \"{version}\""
                 ),
                 RegexOptions.Multiline
             )
@@ -63,9 +58,7 @@ module Util =
         readFile filePath
         |> replaceVersion None compilerVersion
         |> List.foldBack
-            (fun (lang, version) fileContent ->
-                replaceVersion (Some lang) version fileContent
-            )
+            (fun (lang, version) fileContent -> replaceVersion (Some lang) version fileContent)
             libraryVersions
         |> writeFile filePath
 
@@ -73,9 +66,7 @@ module Util =
 
     let updatePkgVersionInFsproj projFile version =
         readFile projFile
-        |> replaceRegex
-            Publish.NUGET_PACKAGE_VERSION
-            (fun m -> m.Groups[1].Value + version + m.Groups[3].Value)
+        |> replaceRegex Publish.NUGET_PACKAGE_VERSION (fun m -> m.Groups[1].Value + version + m.Groups[3].Value)
         |> writeFile projFile
 
     let runTSLint projectDir =
@@ -85,12 +76,7 @@ module Util =
         run ("npm run tsc -- --project " + projectDir)
 
     let runTypeScriptWithArgs projectDir args =
-        run (
-            "npm run tsc -- --project "
-            + projectDir
-            + " "
-            + String.concat " " args
-        )
+        run ("npm run tsc -- --project " + projectDir + " " + String.concat " " args)
 
     let runFableWithArgs projectDir args =
         run (
@@ -159,9 +145,7 @@ module Unused =
             not (pathExists "./bin/tools/reportgenerator")
             && not (pathExists "./bin/tools/reportgenerator.exe")
         then
-            runInDir
-                "."
-                "dotnet tool install dotnet-reportgenerator-globaltool --tool-path bin/tools"
+            runInDir "." "dotnet tool install dotnet-reportgenerator-globaltool --tool-path bin/tools"
 
         let reportGen =
             if pathExists "./bin/tools/reportgenerator" then
@@ -176,8 +160,7 @@ module Unused =
         runFable "tests"
 
         // JS
-        run
-            "npx nyc mocha build/tests --require source-map-support/register --reporter dot -t 10000"
+        run "npx nyc mocha build/tests --require source-map-support/register --reporter dot -t 10000"
 
         runInDir
             "."
@@ -299,9 +282,7 @@ let buildLibraryPy () =
     copyFiles projectDir "*.py" (buildDirPy </> "fable_library")
 
     // Fix issues with Fable .fsproj not supporting links
-    copyDirNonRecursive
-        (buildDirPy </> "fable_library/fable-library")
-        (buildDirPy </> "fable_library")
+    copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")
 
     removeDirRecursive (buildDirPy </> "fable_library/fable-library")
 
@@ -340,9 +321,7 @@ let buildLibraryRust () =
     runInDir buildDir "cargo build"
 
 let buildLibraryRustIfNotExists () =
-    if
-        not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-rust"))
-    then
+    if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-rust")) then
         buildLibraryRust ()
 
 let buildLibraryDart (clean: bool) =
@@ -370,9 +349,7 @@ let buildLibraryDart (clean: bool) =
         ]
 
 let buildLibraryDartIfNotExists () =
-    if
-        not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-dart"))
-    then
+    if not (pathExists (__SOURCE_DIRECTORY__ </> "build/fable-library-dart")) then
         buildLibraryDart (true)
 
 // Like testStandalone() but doesn't create bundles/packages for fable-standalone & friends
@@ -425,17 +402,11 @@ let buildWorker
         | false -> distDir </> "worker.min.js"
 
     // make standalone worker dist
-    runNpmScript
-        "rollup"
-        [ $"""{buildDir}/worker/Worker.js -o {rollupTarget} --format iife""" ]
+    runNpmScript "rollup" [ $"""{buildDir}/worker/Worker.js -o {rollupTarget} --format iife""" ]
 
     if opts.minify then
         // runNpx "webpack" [sprintf "--entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir]
-        runNpmScript
-            "terser"
-            [
-                $"{buildDir}/worker.js -o {distDir}/worker.min.js --mangle --compress"
-            ]
+        runNpmScript "terser" [ $"{buildDir}/worker.js -o {distDir}/worker.min.js --mangle --compress" ]
 
     // Put fable-library files next to bundle
     printfn "Copying fable-library..."
@@ -565,12 +536,10 @@ let buildCompilerJs (minify: bool) =
         else
             distDir </> "app.min.js"
 
-    run
-        $"npx rollup {buildDir}/app.js -o {rollupTarget} --format umd --name Fable"
+    run $"npx rollup {buildDir}/app.js -o {rollupTarget} --format umd --name Fable"
 
     if minify then
-        run
-            $"npx terser {distDir}/app.js -o {distDir}/app.min.js --mangle --compress"
+        run $"npx terser {distDir}/app.js -o {distDir}/app.min.js --mangle --compress"
 
     // Copy fable-library
     copyDirRecursive ("build/fable-library") (distDir </> "fable-library")
@@ -599,13 +568,9 @@ let testStandalone (minify) =
     // runInDir (fableDir </> "test") "node test_script.fsx.js"
 
     // Unlink local packages after test
-    runInDir
-        fableDir
-        "npm unlink ../fable-metadata && cd ../fable-metadata && npm unlink"
+    runInDir fableDir "npm unlink ../fable-metadata && cd ../fable-metadata && npm unlink"
 
-    runInDir
-        fableDir
-        "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
+    runInDir fableDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
 
 let testReact () =
     runFableWithArgs "tests/React" [ "--noCache" ]
@@ -841,20 +806,15 @@ let buildLocalPackage pkgDir =
 let testRepos () =
     let repos =
         [
-            "https://github.com/alfonsogarciacaro/FsToolkit.ErrorHandling:update-fable-3",
-            "npm i && npm test"
-            "https://github.com/fable-compiler/fable-promise:master",
-            "npm i && npm test"
+            "https://github.com/alfonsogarciacaro/FsToolkit.ErrorHandling:update-fable-3", "npm i && npm test"
+            "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
             "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama",
             "dotnet paket restore && npm i && dotnet fable tests -o tests/bin --run mocha tests/bin"
             "https://github.com/alfonsogarciacaro/FSharp.Control.AsyncSeq:nagareyama",
             "cd tests/fable && npm i && npm test"
-            "https://github.com/alfonsogarciacaro/Fable.Extras:nagareyama",
-            "dotnet paket restore && npm i && npm test"
-            "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama",
-            "npm i && npm test"
-            "https://github.com/Zaid-Ajaj/Fable.SimpleJson:master",
-            "npm i && npm run test-nagareyama"
+            "https://github.com/alfonsogarciacaro/Fable.Extras:nagareyama", "dotnet paket restore && npm i && npm test"
+            "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama", "npm i && npm test"
+            "https://github.com/Zaid-Ajaj/Fable.SimpleJson:master", "npm i && npm run test-nagareyama"
         ]
 
     let testDir = tempPath () </> "fable-repos"
@@ -865,8 +825,7 @@ let testRepos () =
     let pkgInstallCmd = buildLocalPackage (testDir </> "pkg")
 
     for (repo, command) in repos do
-        let url, branch =
-            let i = repo.LastIndexOf(":") in repo[.. i - 1], repo[i + 1 ..]
+        let url, branch = let i = repo.LastIndexOf(":") in repo[.. i - 1], repo[i + 1 ..]
 
         let name = url[url.LastIndexOf("/") + 1 ..]
         runInDir testDir $"git clone {url} {name}"
@@ -881,14 +840,11 @@ let githubRelease () =
     match envVarOrNone "GITHUB_USER", envVarOrNone "GITHUB_TOKEN" with
     | Some user, Some token ->
         try
-            let version, notes =
-                Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
+            let version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
 
             let notes =
                 notes
-                |> Array.map (fun n ->
-                    $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'"""
-                )
+                |> Array.map (fun n -> $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'""")
                 |> String.concat ","
 
             run $"git commit -am \"Release {version}\" && git push"
@@ -899,8 +855,7 @@ let githubRelease () =
             printfn $"Github release %s{version} created successfully"
         with ex ->
             printfn $"Github release failed: %s{ex.Message}"
-    | _ ->
-        failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
+    | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
 
 let copyFcsRepo sourceDir =
     let targetDir = "src/fcs-fable"
@@ -948,9 +903,7 @@ let syncFcsRepo () =
     runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_SERVICE_SLIM_BRANCH)
     runInDir FCS_REPO_LOCAL "git pull"
 
-    cheatWithDotnetSdkVersion
-        (FCS_REPO_LOCAL </> "fcs")
-        (fun () -> runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
+    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () -> runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
 
     copyFile
         (FCS_REPO_LOCAL
@@ -978,9 +931,7 @@ let syncFcsRepo () =
 
     cheatWithDotnetSdkVersion
         (FCS_REPO_LOCAL </> "fcs")
-        (fun () ->
-            runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable"
-        )
+        (fun () -> runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
 
     copyFcsRepo FCS_REPO_LOCAL
 
@@ -994,9 +945,7 @@ let packages () =
             let compilerVersion = Publish.loadReleaseVersion "src/Fable.Cli"
 
             let updatedLibs =
-                updateVersionsInFableTransforms
-                    compilerVersion
-                    [ "js", getNpmVersion "src/fable-library" ]
+                updateVersionsInFableTransforms compilerVersion [ "js", getNpmVersion "src/fable-library" ]
 
             buildLibraryTs ()
             buildLibraryPy ()
@@ -1063,9 +1012,7 @@ match BUILD_ARGS_LOWER with
 | "quicktest" :: _ ->
     buildLibraryTsIfNotExists ()
 
-    watchFableWithArgs
-        "src/quicktest"
-        [ "--watch --exclude Fable.Core --noCache --runScript" ]
+    watchFableWithArgs "src/quicktest" [ "--watch --exclude Fable.Core --noCache --runScript" ]
 | "quicktest-ts" :: _ ->
     buildLibraryTsIfNotExists ()
     let srcDir = "src/quicktest"
@@ -1087,36 +1034,26 @@ match BUILD_ARGS_LOWER with
 | ("quicktest-py" | "quicktest-python") :: _ ->
     buildLibraryPyIfNotExists ()
 
-    watchFableWithArgs
-        "src/quicktest-py"
-        [ "--lang py --watch --exclude Fable.Core --noCache --runScript" ]
+    watchFableWithArgs "src/quicktest-py" [ "--lang py --watch --exclude Fable.Core --noCache --runScript" ]
 | "quicktest-dart" :: _ ->
     buildLibraryDartIfNotExists ()
 
-    watchFableWithArgs
-        "src/quicktest-dart"
-        [ "--lang dart --watch --exclude Fable.Core --noCache --runScript" ]
+    watchFableWithArgs "src/quicktest-dart" [ "--lang dart --watch --exclude Fable.Core --noCache --runScript" ]
 | ("quicktest-rs" | "quicktest-rust") :: _ ->
     buildLibraryRustIfNotExists ()
 
-    watchFableWithArgs
-        "src/quicktest-rust"
-        [
-            "--lang rs -e .rs --watch --exclude Fable.Core --noCache --runScript"
-        ]
+    watchFableWithArgs "src/quicktest-rust" [ "--lang rs -e .rs --watch --exclude Fable.Core --noCache --runScript" ]
 | "run" :: _ ->
     buildLibraryTsIfNotExists ()
     // Don't take args from pattern matching because they're lowered
     let restArgs = BUILD_ARGS |> List.skip 1 |> String.concat " "
 
-    run
-        $"""dotnet run -c Release --project {resolveDir "src/Fable.Cli"} -- {restArgs}"""
+    run $"""dotnet run -c Release --project {resolveDir "src/Fable.Cli"} -- {restArgs}"""
 
 | "package" :: _ ->
     let pkgInstallCmd = buildLocalPackage (resolveDir "temp/pkg")
 
-    printfn
-        $"\nPackage has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
+    printfn $"\nPackage has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 | "package-core" :: _ ->
     let pkgInstallCmd =
         buildLocalPackageWith
@@ -1125,8 +1062,7 @@ match BUILD_ARGS_LOWER with
             (resolveDir "src/Fable.Core/Fable.Core.fsproj")
             ignore
 
-    printfn
-        $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
+    printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
 | ("fable-library" | "library") :: _
 | ("fable-library-ts" | "library-ts") :: _ -> buildLibraryTs ()

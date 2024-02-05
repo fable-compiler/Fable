@@ -165,46 +165,30 @@ type System.String with
 
     member self.escape_debug() =
         // escapes \\, \', \", \t, \r, \n, [\x00-\x1F]
-        let res =
-            self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
+        let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
 
-        let res =
-            res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
+        let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
 
         let res =
             System.Text.RegularExpressions.Regex.Replace(
                 res,
                 @"[\x00-\x1F]",
-                fun c ->
-                    System.String.Format(
-                        @"\u{0}{1:x4}{2}",
-                        "{",
-                        int c.Value[0],
-                        "}"
-                    )
+                fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value[0], "}")
             )
 
         res
 
     member self.escape_default() =
         // escapes \\, \', \", \t, \r, \n, [^\x20-\x7F]
-        let res =
-            self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
+        let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
 
-        let res =
-            res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
+        let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
 
         let res =
             System.Text.RegularExpressions.Regex.Replace(
                 res,
                 @"[^\x20-\x7F]",
-                fun c ->
-                    System.String.Format(
-                        @"\u{0}{1:x4}{2}",
-                        "{",
-                        int c.Value[0],
-                        "}"
-                    )
+                fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value[0], "}")
             )
 
         res
@@ -241,8 +225,7 @@ type Macros =
     static member panic() = failwith "panic!"
     static member panic(str: string) = failwith str
 
-    static member format(fmt: string, [<System.ParamArray>] args) =
-        System.String.Format(fmt, args)
+    static member format(fmt: string, [<System.ParamArray>] args) = System.String.Format(fmt, args)
 
     static member write(buf: String, str: string) = buf.push_str (str)
 

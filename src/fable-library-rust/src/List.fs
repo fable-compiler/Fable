@@ -142,12 +142,7 @@ let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     fold (fun acc x -> folder x acc) state (reverse xs)
 // Array.foldBack folder (toArray xs) state
 
-let fold2
-    (folder: 'State -> 'T1 -> 'T2 -> 'State)
-    (state: 'State)
-    (xs: 'T1 list)
-    (ys: 'T2 list)
-    =
+let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
     let mutable acc = state
     let mutable xs = xs
     let mutable ys = ys
@@ -159,12 +154,7 @@ let fold2
 
     acc
 
-let foldBack2
-    (folder: 'T1 -> 'T2 -> 'State -> 'State)
-    (xs: 'T1 list)
-    (ys: 'T2 list)
-    (state: 'State)
-    =
+let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
     fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
 // Array.foldBack2 folder (toArray xs) (toArray ys) state
 
@@ -282,12 +272,7 @@ let concat<'T> (sources: 'T list list) =
 
     root |> mkList
 
-let rec compareWith
-    (comparer: 'T -> 'T -> int)
-    (xs: 'T list)
-    (ys: 'T list)
-    : int
-    =
+let rec compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list) : int =
     match (isEmpty xs), (isEmpty ys) with
     | true, true -> 0
     | true, false -> -1
@@ -395,11 +380,7 @@ let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
 
     unfold gen (xs, ys)
 
-let mapIndexed2
-    (mapping: int -> 'T1 -> 'T2 -> 'U)
-    (xs: 'T1 list)
-    (ys: 'T2 list)
-    =
+let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
     let gen (i, xs, ys) =
         if (isEmpty xs) || (isEmpty ys) then
             None
@@ -408,28 +389,16 @@ let mapIndexed2
 
     unfold gen (0, xs, ys)
 
-let map3
-    (mapping: 'T1 -> 'T2 -> 'T3 -> 'U)
-    (xs: 'T1 list)
-    (ys: 'T2 list)
-    (zs: 'T3 list)
-    =
+let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
     let gen (xs, ys, zs) =
         if (isEmpty xs) || (isEmpty ys) || (isEmpty zs) then
             None
         else
-            Some(
-                mapping (head xs) (head ys) (head zs),
-                (tail xs, tail ys, tail zs)
-            )
+            Some(mapping (head xs) (head ys) (head zs), (tail xs, tail ys, tail zs))
 
     unfold gen (xs, ys, zs)
 
-let mapFold
-    (mapping: 'State -> 'T -> 'U * 'State)
-    (state: 'State)
-    (xs: 'T list)
-    =
+let mapFold (mapping: 'State -> 'T -> 'U * 'State) (state: 'State) (xs: 'T list) =
     let mutable acc = state
 
     let gen xs =
@@ -442,11 +411,7 @@ let mapFold
 
     unfold gen xs, acc
 
-let mapFoldBack
-    (mapping: 'T -> 'State -> 'U * 'State)
-    (xs: 'T list)
-    (state: 'State)
-    =
+let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T list) (state: 'State) =
     let mutable ys = empty ()
 
     let folder acc x =
@@ -590,16 +555,11 @@ let reduceBack reduction (xs: 'T list) =
 let replicate count (initial: 'T) = initialize count (fun _ -> initial)
 
 let unzip xs =
-    foldBack
-        (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc)
-        xs
-        ((empty ()), (empty ()))
+    foldBack (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc) xs ((empty ()), (empty ()))
 
 let unzip3 xs =
     foldBack
-        (fun (x, y, z) (lacc, macc, racc) ->
-            cons x lacc, cons y macc, cons z racc
-        )
+        (fun (x, y, z) (lacc, macc, racc) -> cons x lacc, cons y macc, cons z racc)
         xs
         ((empty ()), (empty ()), (empty ()))
 
@@ -795,8 +755,7 @@ let getSlice (lower: int option) (upper: int option) (xs: 'T list) =
     | None, None -> xs
     | Some start, None -> xs |> skipSafe start
     | None, Some stop -> xs |> truncate (stop + 1)
-    | Some start, Some stop ->
-        xs |> skipSafe start |> truncate (stop - start + 1)
+    | Some start, Some stop -> xs |> skipSafe start |> truncate (stop - start + 1)
 
 let splitAt index (xs: 'T list) =
     if index < 0 then
@@ -858,27 +817,15 @@ let distinct<'T when 'T: equality> (xs: 'T list) : 'T list =
     let hashSet = System.Collections.Generic.HashSet<'T>()
     xs |> filter (fun x -> hashSet.Add(x))
 
-let distinctBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T list)
-    : 'T list
-    =
+let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list) : 'T list =
     let hashSet = System.Collections.Generic.HashSet<'Key>()
     xs |> filter (fun x -> hashSet.Add(projection x))
 
-let except<'T when 'T: equality>
-    (itemsToExclude: seq<'T>)
-    (xs: 'T list)
-    : 'T list
-    =
+let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T list) : 'T list =
     let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude)
     xs |> filter (fun x -> hashSet.Add(x))
 
-let countBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T list)
-    : ('Key * int) list
-    =
+let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list) : ('Key * int) list =
     let dict = System.Collections.Generic.Dictionary<'Key, int>()
     let keys = ResizeArray<'Key>()
 
@@ -895,11 +842,7 @@ let countBy<'T, 'Key when 'Key: equality>
 
     keys |> asArray |> Array.map (fun key -> key, dict[key]) |> ofArray
 
-let groupBy<'T, 'Key when 'Key: equality>
-    (projection: 'T -> 'Key)
-    (xs: 'T list)
-    : ('Key * 'T list) list
-    =
+let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list) : ('Key * 'T list) list =
     let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
     let keys = ResizeArray<'Key>()
 

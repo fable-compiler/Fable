@@ -43,40 +43,16 @@ module Helpers =
         array
 
     [<Emit("functools.reduce($0, $2, $1)")>]
-    let foldImpl
-        (folder: 'State -> 'T -> 'State)
-        (state: 'State)
-        (array: 'T[])
-        : 'State
-        =
-        nativeOnly
+    let foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]) : 'State = nativeOnly
 
-    let inline foldIndexedImpl
-        (folder: 'State -> 'T -> int -> 'State)
-        (state: 'State)
-        (array: 'T[])
-        : 'State
-        =
+    let inline foldIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T[]) : 'State =
         !! array?reduce (System.Func<'State, 'T, int, 'State>(folder), state)
 
     [<Emit("functools.reduce($0, $2[::-1], $1)")>]
-    let foldBackImpl
-        (folder: 'State -> 'T -> 'State)
-        (state: 'State)
-        (array: 'T[])
-        : 'State
-        =
-        nativeOnly
+    let foldBackImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]) : 'State = nativeOnly
 
-    let inline foldBackIndexedImpl
-        (folder: 'State -> 'T -> int -> 'State)
-        (state: 'State)
-        (array: 'T[])
-        : 'State
-        =
-        !!
-            array?reduceRight
-            (System.Func<'State, 'T, int, 'State>(folder), state)
+    let inline foldBackIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T[]) : 'State =
+        !! array?reduceRight (System.Func<'State, 'T, int, 'State>(folder), state)
 
     // Typed arrays not supported, only dynamic ones do
     let inline pushImpl (array: 'T[]) (item: 'T) : int = !! array?append (item)
@@ -117,14 +93,11 @@ module Helpers =
     [<Emit("next((i for i, x in enumerate($1) if ($0)(x)), -1)")>]
     let findIndexImpl (predicate: 'T -> bool) (array: 'T[]) : int = nativeOnly
 
-    let inline collectImpl (mapping: 'T -> 'U[]) (array: 'T[]) : 'U[] =
-        !! array?flatMap (mapping)
+    let inline collectImpl (mapping: 'T -> 'U[]) (array: 'T[]) : 'U[] = !! array?flatMap (mapping)
 
-    let inline containsImpl (predicate: 'T -> bool) (array: 'T[]) : bool =
-        !! array?filter (predicate)
+    let inline containsImpl (predicate: 'T -> bool) (array: 'T[]) : bool = !! array?filter (predicate)
 
-    let inline existsImpl (predicate: 'T -> bool) (array: 'T[]) : bool =
-        !! array?some (predicate)
+    let inline existsImpl (predicate: 'T -> bool) (array: 'T[]) : bool = !! array?some (predicate)
 
     [<Emit("all([$0(x) for x in $1])")>]
     let forAllImpl (predicate: 'T -> bool) (array: 'T[]) : bool = nativeOnly
@@ -137,29 +110,19 @@ module Helpers =
     let reduceImpl (reduction: 'T -> 'T -> 'T) (array: 'T[]) : 'T = nativeOnly
 
     [<Emit("functools.reduce($0, $1[::-1])")>]
-    let inline reduceBackImpl (reduction: 'T -> 'T -> 'T) (array: 'T[]) : 'T =
-        nativeOnly
+    let inline reduceBackImpl (reduction: 'T -> 'T -> 'T) (array: 'T[]) : 'T = nativeOnly
 
     // Inlining in combination with dynamic application may cause problems with uncurrying
     // Using Emit keeps the argument signature.
     [<Emit("$1.sort(key=functools.cmp_to_key($0))")>]
-    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : unit =
-        nativeOnly
+    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : unit = nativeOnly
 
     [<Emit("sorted($1, key=functools.cmp_to_key($0))")>]
-    let sortWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : 'T[] =
-        nativeOnly
+    let sortWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : 'T[] = nativeOnly
 
     [<Emit("$1.sort(key=functools.cmp_to_key($0))")>]
 
-    let copyToTypedArray
-        (src: 'T[])
-        (srci: int)
-        (trg: 'T[])
-        (trgi: int)
-        (cnt: int)
-        : unit
-        =
+    let copyToTypedArray (src: 'T[]) (srci: int) (trg: 'T[]) (trgi: int) (cnt: int) : unit =
         let diff = trgi - srci
 
         for i = srci to srci + cnt - 1 do

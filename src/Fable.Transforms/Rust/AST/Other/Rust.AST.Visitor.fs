@@ -96,18 +96,12 @@ type Visitor =
     abstract visit_trait_ref: t: TraitRef -> unit
     abstract visit_param_bound: bounds: GenericBound -> unit
 
-    abstract visit_poly_trait_ref:
-        t: PolyTraitRef * m: TraitBoundModifier -> unit
+    abstract visit_poly_trait_ref: t: PolyTraitRef * m: TraitBoundModifier -> unit
 
     abstract visit_variant_data: s: VariantData -> unit
     abstract visit_field_def: s: FieldDef -> unit
 
-    abstract visit_enum_def:
-        enum_definition: EnumDef *
-        generics: Generics *
-        item_id: NodeId *
-        span: Span ->
-            unit
+    abstract visit_enum_def: enum_definition: EnumDef * generics: Generics * item_id: NodeId * span: Span -> unit
 
     abstract visit_variant: v: Variant -> unit
     abstract visit_label: label: Label -> unit
@@ -116,14 +110,11 @@ type Visitor =
     abstract visit_mac_def: mac: MacroDef * id: NodeId -> unit
     abstract visit_path: path: Path * id: NodeId -> unit
 
-    abstract visit_use_tree:
-        use_tree: UseTree * id: NodeId * nested: bool -> unit
+    abstract visit_use_tree: use_tree: UseTree * id: NodeId * nested: bool -> unit
 
-    abstract visit_path_segment:
-        path_span: Span * path_segment: PathSegment -> unit
+    abstract visit_path_segment: path_span: Span * path_segment: PathSegment -> unit
 
-    abstract visit_generic_args:
-        path_span: Span * generic_args: GenericArgs -> unit
+    abstract visit_generic_args: path_span: Span * generic_args: GenericArgs -> unit
 
     abstract visit_generic_arg: generic_arg: GenericArg -> unit
     abstract visit_assoc_ty_constraint: constraint_: AssocTyConstraint -> unit
@@ -143,8 +134,7 @@ type VisitorImpl() =
 
         member self.visit_ident(ident: Ident) = walk_ident (self, ident)
 
-        member self.visit_foreign_item(i: ForeignItem) =
-            walk_foreign_item (self, i)
+        member self.visit_foreign_item(i: ForeignItem) = walk_foreign_item (self, i)
 
         member self.visit_global_asm(ga: GlobalAsm) = walk_global_asm (self, ga)
 
@@ -170,54 +160,34 @@ type VisitorImpl() =
 
         member self.visit_ty(t: Ty) = walk_ty (self, t)
 
-        member self.visit_generic_param(param: GenericParam) =
-            walk_generic_param (self, param)
+        member self.visit_generic_param(param: GenericParam) = walk_generic_param (self, param)
 
         member self.visit_generics(g: Generics) = walk_generics (self, g)
 
-        member self.visit_where_predicate(p: WherePredicate) =
-            walk_where_predicate (self, p)
+        member self.visit_where_predicate(p: WherePredicate) = walk_where_predicate (self, p)
 
-        member self.visit_fn(fk: FnKind, s: Span, _: NodeId) =
-            walk_fn (self, fk, s)
+        member self.visit_fn(fk: FnKind, s: Span, _: NodeId) = walk_fn (self, fk, s)
 
-        member self.visit_assoc_item(i: AssocItem, ctxt: AssocCtxt) =
-            walk_assoc_item (self, i, ctxt)
+        member self.visit_assoc_item(i: AssocItem, ctxt: AssocCtxt) = walk_assoc_item (self, i, ctxt)
 
         member self.visit_trait_ref(t: TraitRef) = walk_trait_ref (self, t)
 
-        member self.visit_param_bound(bounds: GenericBound) =
-            walk_param_bound (self, bounds)
+        member self.visit_param_bound(bounds: GenericBound) = walk_param_bound (self, bounds)
 
-        member self.visit_poly_trait_ref
-            (
-                t: PolyTraitRef,
-                m: TraitBoundModifier
-            )
-            =
-            walk_poly_trait_ref (self, t, m)
+        member self.visit_poly_trait_ref(t: PolyTraitRef, m: TraitBoundModifier) = walk_poly_trait_ref (self, t, m)
 
-        member self.visit_variant_data(s: VariantData) =
-            walk_struct_def (self, s)
+        member self.visit_variant_data(s: VariantData) = walk_struct_def (self, s)
 
         member self.visit_field_def(s: FieldDef) = walk_field_def (self, s)
 
-        member self.visit_enum_def
-            (
-                enum_definition: EnumDef,
-                generics: Generics,
-                item_id: NodeId,
-                _: Span
-            )
-            =
+        member self.visit_enum_def(enum_definition: EnumDef, generics: Generics, item_id: NodeId, _: Span) =
             walk_enum_def (self, enum_definition, generics, item_id)
 
         member self.visit_variant(v: Variant) = walk_variant (self, v)
 
         member self.visit_label(label: Label) = walk_label (self, label)
 
-        member self.visit_lifetime(lifetime: Lifetime) =
-            walk_lifetime (self, lifetime)
+        member self.visit_lifetime(lifetime: Lifetime) = walk_lifetime (self, lifetime)
 
         member self.visit_mac_call(mac: MacCall) = walk_mac (self, mac)
 
@@ -225,44 +195,24 @@ type VisitorImpl() =
 
         member self.visit_path(path: Path, _id: NodeId) = walk_path (self, path)
 
-        member self.visit_use_tree
-            (
-                use_tree: UseTree,
-                id: NodeId,
-                _nested: bool
-            )
-            =
-            walk_use_tree (self, use_tree, id)
+        member self.visit_use_tree(use_tree: UseTree, id: NodeId, _nested: bool) = walk_use_tree (self, use_tree, id)
 
-        member self.visit_path_segment
-            (
-                path_span: Span,
-                path_segment: PathSegment
-            )
-            =
+        member self.visit_path_segment(path_span: Span, path_segment: PathSegment) =
             walk_path_segment (self, path_span, path_segment)
 
-        member self.visit_generic_args
-            (
-                path_span: Span,
-                generic_args: GenericArgs
-            )
-            =
+        member self.visit_generic_args(path_span: Span, generic_args: GenericArgs) =
             walk_generic_args (self, path_span, generic_args)
 
-        member self.visit_generic_arg(generic_arg: GenericArg) =
-            walk_generic_arg (self, generic_arg)
+        member self.visit_generic_arg(generic_arg: GenericArg) = walk_generic_arg (self, generic_arg)
 
         member self.visit_assoc_ty_constraint(constraint_: AssocTyConstraint) =
             walk_assoc_ty_constraint (self, constraint_)
 
-        member self.visit_attribute(attr: Attribute) =
-            walk_attribute (self, attr)
+        member self.visit_attribute(attr: Attribute) = walk_attribute (self, attr)
 
         member self.visit_vis(vis: Visibility) = walk_vis (self, vis)
 
-        member self.visit_fn_ret_ty(ret_ty: FnRetTy) =
-            walk_fn_ret_ty (self, ret_ty)
+        member self.visit_fn_ret_ty(ret_ty: FnRetTy) = walk_fn_ret_ty (self, ret_ty)
 
         member self.visit_fn_header(_header: FnHeader) = () // Nothing to do
 
@@ -279,13 +229,7 @@ let walk_list (method: 'expr -> unit, list: Vec<'expr>) =
     for elem in list do
         method (elem)
 
-let walk_list2
-    (
-        method: 'expr * AssocCtxt -> unit,
-        list: Vec<'expr>,
-        ctxt: AssocCtxt
-    )
-    =
+let walk_list2 (method: 'expr * AssocCtxt -> unit, list: Vec<'expr>, ctxt: AssocCtxt) =
     for elem in list do
         method (elem, ctxt)
 
@@ -304,19 +248,11 @@ let walk_local (visitor: Visitor, local: Local) =
     walk_opt (visitor.visit_ty, local.ty)
     walk_opt (visitor.visit_expr, local.init)
 
-let walk_label (visitor: Visitor, label: Label) =
-    visitor.visit_ident (label.ident)
+let walk_label (visitor: Visitor, label: Label) = visitor.visit_ident (label.ident)
 
-let walk_lifetime (visitor: Visitor, lifetime: Lifetime) =
-    visitor.visit_ident (lifetime.ident)
+let walk_lifetime (visitor: Visitor, lifetime: Lifetime) = visitor.visit_ident (lifetime.ident)
 
-let walk_poly_trait_ref
-    (
-        visitor: Visitor,
-        trait_ref: PolyTraitRef,
-        _: TraitBoundModifier
-    )
-    =
+let walk_poly_trait_ref (visitor: Visitor, trait_ref: PolyTraitRef, _: TraitBoundModifier) =
     walk_list (visitor.visit_generic_param, trait_ref.bound_generic_params)
     visitor.visit_trait_ref (trait_ref.trait_ref)
 
@@ -333,8 +269,7 @@ let walk_item (visitor: Visitor, item: Item) =
         | Some(orig_name) -> visitor.visit_name (item.span, orig_name)
         | _ -> ()
 
-    | ItemKind.Use(use_tree) ->
-        visitor.visit_use_tree (use_tree, item.id, false)
+    | ItemKind.Use(use_tree) -> visitor.visit_use_tree (use_tree, item.id, false)
     | ItemKind.Static(typ, _, expr)
     | ItemKind.Const(_, typ, expr) ->
         visitor.visit_ty (typ)
@@ -347,12 +282,10 @@ let walk_item (visitor: Visitor, item: Item) =
 
     | ItemKind.Mod(_unsafety, mod_kind) ->
         match mod_kind with
-        | ModKind.Loaded(items, _inline, _inner_span) ->
-            walk_list (visitor.visit_item, items)
+        | ModKind.Loaded(items, _inline, _inner_span) -> walk_list (visitor.visit_item, items)
         | ModKind.Unloaded -> ()
 
-    | ItemKind.ForeignMod(foreign_module) ->
-        walk_list (visitor.visit_foreign_item, foreign_module.items)
+    | ItemKind.ForeignMod(foreign_module) -> walk_list (visitor.visit_foreign_item, foreign_module.items)
 
     | ItemKind.GlobalAsm(ga) -> visitor.visit_global_asm (ga)
     | ItemKind.TyAlias((_, generics, bounds, ty)) ->
@@ -394,14 +327,7 @@ let walk_item (visitor: Visitor, item: Item) =
 
     walk_list (visitor.visit_attribute, item.attrs)
 
-let walk_enum_def
-    (
-        visitor: Visitor,
-        enum_definition: EnumDef,
-        _: Generics,
-        _: NodeId
-    )
-    =
+let walk_enum_def (visitor: Visitor, enum_definition: EnumDef, _: Generics, _: NodeId) =
     walk_list (visitor.visit_variant, enum_definition.variants)
 
 let walk_variant (visitor: Visitor, variant: Variant) =
@@ -430,14 +356,10 @@ let walk_ty (visitor: Visitor, typ: Ty) =
         walk_opt (visitor.visit_lifetime, opt_lifetime)
         visitor.visit_ty (mutable_type.ty)
 
-    | TyKind.Tup(tuple_element_types) ->
-        walk_list (visitor.visit_ty, tuple_element_types)
+    | TyKind.Tup(tuple_element_types) -> walk_list (visitor.visit_ty, tuple_element_types)
 
     | TyKind.BareFn(function_declaration) ->
-        walk_list (
-            visitor.visit_generic_param,
-            function_declaration.generic_params
-        )
+        walk_list (visitor.visit_generic_param, function_declaration.generic_params)
 
         walk_fn_decl (visitor, function_declaration.decl)
 
@@ -453,8 +375,7 @@ let walk_ty (visitor: Visitor, typ: Ty) =
         visitor.visit_anon_const (length)
 
     | TyKind.TraitObject(bounds, _)
-    | TyKind.ImplTrait(_, bounds) ->
-        walk_list (visitor.visit_param_bound, bounds)
+    | TyKind.ImplTrait(_, bounds) -> walk_list (visitor.visit_param_bound, bounds)
 
     | TyKind.Typeof(expression) -> visitor.visit_anon_const (expression)
     | TyKind.Infer
@@ -483,33 +404,20 @@ let walk_use_tree (visitor: Visitor, use_tree: UseTree, id: NodeId) =
         for (nested_tree, nested_id) in use_trees do
             visitor.visit_use_tree (nested_tree, nested_id, true)
 
-let walk_path_segment
-    (
-        visitor: Visitor,
-        path_span: Span,
-        segment: PathSegment
-    )
-    =
+let walk_path_segment (visitor: Visitor, path_span: Span, segment: PathSegment) =
     visitor.visit_ident (segment.ident)
 
     match segment.args with
     | Some(args) -> visitor.visit_generic_args (path_span, args)
     | _ -> ()
 
-let walk_generic_args
-    (
-        visitor: Visitor,
-        _path_span: Span,
-        generic_args: GenericArgs
-    )
-    =
+let walk_generic_args (visitor: Visitor, _path_span: Span, generic_args: GenericArgs) =
     match generic_args with
     | GenericArgs.AngleBracketed(data) ->
         for arg in data.args do
             match arg with
             | AngleBracketedArg.Arg(a) -> visitor.visit_generic_arg (a)
-            | AngleBracketedArg.Constraint(c) ->
-                visitor.visit_assoc_ty_constraint (c)
+            | AngleBracketedArg.Constraint(c) -> visitor.visit_assoc_ty_constraint (c)
 
     | GenericArgs.Parenthesized(data) ->
         walk_list (visitor.visit_ty, data.inputs)
@@ -521,12 +429,7 @@ let walk_generic_arg (visitor: Visitor, generic_arg: GenericArg) =
     | GenericArg.Type(ty) -> visitor.visit_ty (ty)
     | GenericArg.Const(ct) -> visitor.visit_anon_const (ct)
 
-let walk_assoc_ty_constraint
-    (
-        visitor: Visitor,
-        constraint_: AssocTyConstraint
-    )
-    =
+let walk_assoc_ty_constraint (visitor: Visitor, constraint_: AssocTyConstraint) =
     visitor.visit_ident (constraint_.ident)
 
     match constraint_.gen_args with
@@ -538,8 +441,7 @@ let walk_assoc_ty_constraint
     match constraint_.kind with
     | AssocTyConstraintKind.Equality(ty) -> visitor.visit_ty (ty)
 
-    | AssocTyConstraintKind.Bound(bounds) ->
-        walk_list (visitor.visit_param_bound, bounds)
+    | AssocTyConstraintKind.Bound(bounds) -> walk_list (visitor.visit_param_bound, bounds)
 
 let walk_pat (visitor: Visitor, pattern: Pat) =
     match pattern.kind with
@@ -613,8 +515,7 @@ let walk_global_asm (_: Visitor, _: GlobalAsm) = () // Empty!
 
 let walk_param_bound (visitor: Visitor, bound: GenericBound) =
     match bound with
-    | GenericBound.Trait(typ, modifier) ->
-        visitor.visit_poly_trait_ref (typ, modifier)
+    | GenericBound.Trait(typ, modifier) -> visitor.visit_poly_trait_ref (typ, modifier)
     | GenericBound.Outlives(lifetime) -> visitor.visit_lifetime (lifetime)
 
 let walk_generic_param (visitor: Visitor, param: GenericParam) =
@@ -718,8 +619,7 @@ let walk_struct_def (visitor: Visitor, struct_definition: VariantData) =
     // walk_list(visitor.visit_field_def, struct_definition.fields())
     match struct_definition with
     | VariantData.Struct(fields, _)
-    | VariantData.Tuple(fields, _) ->
-        walk_list (visitor.visit_field_def, fields)
+    | VariantData.Tuple(fields, _) -> walk_list (visitor.visit_field_def, fields)
     | VariantData.Unit(_) -> ()
 
 let walk_field_def (visitor: Visitor, field: FieldDef) =
@@ -756,16 +656,14 @@ let walk_stmt (visitor: Visitor, statement: Stmt) =
 let walk_mac (visitor: Visitor, mac: MacCall) =
     visitor.visit_path (mac.path, node_id.DUMMY_NODE_ID)
 
-let walk_anon_const (visitor: Visitor, constant: AnonConst) =
-    visitor.visit_expr (constant.value)
+let walk_anon_const (visitor: Visitor, constant: AnonConst) = visitor.visit_expr (constant.value)
 
 let walk_expr (visitor: Visitor, expression: Expr) =
     walk_list (visitor.visit_attribute, expression.attrs)
 
     match expression.kind with
     | ExprKind.Box(subexpression) -> visitor.visit_expr (subexpression)
-    | ExprKind.Array(subexpressions) ->
-        walk_list (visitor.visit_expr, subexpressions)
+    | ExprKind.Array(subexpressions) -> walk_list (visitor.visit_expr, subexpressions)
 
     | ExprKind.ConstBlock(anon_const) -> visitor.visit_anon_const (anon_const)
     | ExprKind.Repeat(element, count) ->
@@ -781,8 +679,7 @@ let walk_expr (visitor: Visitor, expression: Expr) =
         | StructRest.Rest(_span) -> ()
         | StructRest.None -> ()
 
-    | ExprKind.Tup(subexpressions) ->
-        walk_list (visitor.visit_expr, subexpressions)
+    | ExprKind.Tup(subexpressions) -> walk_list (visitor.visit_expr, subexpressions)
 
     | ExprKind.Call(callee_expression, arguments) ->
         visitor.visit_expr (callee_expression)
@@ -833,11 +730,7 @@ let walk_expr (visitor: Visitor, expression: Expr) =
         walk_list (visitor.visit_arm, arms)
 
     | ExprKind.Closure(_, _, _, decl, body, _decl_span) ->
-        visitor.visit_fn (
-            FnKind.Closure(decl, body),
-            expression.span,
-            expression.id
-        )
+        visitor.visit_fn (FnKind.Closure(decl, body), expression.span, expression.id)
 
     | ExprKind.Block(block, opt_label) ->
         walk_opt (visitor.visit_label, opt_label)
@@ -880,8 +773,7 @@ let walk_expr (visitor: Visitor, expression: Expr) =
 
     | ExprKind.Continue(opt_label) -> walk_opt (visitor.visit_label, opt_label)
 
-    | ExprKind.Ret(optional_expression) ->
-        walk_opt (visitor.visit_expr, optional_expression)
+    | ExprKind.Ret(optional_expression) -> walk_opt (visitor.visit_expr, optional_expression)
 
     | ExprKind.MacCall(mac) -> visitor.visit_mac_call (mac)
     | ExprKind.Paren(subexpression) -> visitor.visit_expr (subexpression)
@@ -903,8 +795,7 @@ let walk_expr (visitor: Visitor, expression: Expr) =
                 | Some(out_expr) -> visitor.visit_expr (out_expr)
                 | _ -> ()
 
-            | InlineAsmOperand.Const(anon_const) ->
-                visitor.visit_anon_const (anon_const)
+            | InlineAsmOperand.Const(anon_const) -> visitor.visit_anon_const (anon_const)
 
     | ExprKind.LlvmInlineAsm(ia) ->
         for (_, input) in ia.inputs do
@@ -914,8 +805,7 @@ let walk_expr (visitor: Visitor, expression: Expr) =
             visitor.visit_expr (output.expr)
 
 
-    | ExprKind.Yield(optional_expression) ->
-        walk_opt (visitor.visit_expr, optional_expression)
+    | ExprKind.Yield(optional_expression) -> walk_opt (visitor.visit_expr, optional_expression)
 
     | ExprKind.Try(subexpression) -> visitor.visit_expr (subexpression)
     | ExprKind.TryBlock(body) -> visitor.visit_block (body)

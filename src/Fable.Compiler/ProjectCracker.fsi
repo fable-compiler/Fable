@@ -67,8 +67,6 @@ type ProjectOptionsResponse =
 [<Interface>]
 type ProjectCrackerResolver =
     abstract member GetProjectOptionsFromProjectFile:
-        isMain: bool * options: CrackerOptions * projectFile: string ->
-            ProjectOptionsResponse
+        isMain: bool * options: CrackerOptions * projectFile: string -> ProjectOptionsResponse
 
-val getFullProjectOpts:
-    resolver: ProjectCrackerResolver -> opts: CrackerOptions -> CrackerResponse
+val getFullProjectOpts: resolver: ProjectCrackerResolver -> opts: CrackerOptions -> CrackerResponse

@@ -51,13 +51,7 @@ type StringBuilder(value: string, capacity: int) =
         buf.Add(System.String.Format(fmt, o))
         x
 
-    member x.AppendFormat
-        (
-            provider: System.IFormatProvider,
-            fmt: string,
-            o: obj
-        )
-        =
+    member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o: obj) =
         buf.Add(System.String.Format(provider, fmt, o))
         x
 

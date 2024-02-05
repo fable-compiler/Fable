@@ -69,5 +69,4 @@ type MemberDeclarationPluginAttribute() =
     inherit PluginAttribute()
     abstract Transform: PluginHelper * File * MemberDecl -> MemberDecl
 
-    abstract TransformCall:
-        PluginHelper * member_: MemberFunctionOrValue * expr: Expr -> Expr
+    abstract TransformCall: PluginHelper * member_: MemberFunctionOrValue * expr: Expr -> Expr

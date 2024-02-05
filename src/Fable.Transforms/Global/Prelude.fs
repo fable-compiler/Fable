@@ -9,10 +9,7 @@ module Extensions =
     type String with
 
         member str.StartsWithAny([<ParamArray>] patterns: string[]) =
-            patterns
-            |> Array.exists (fun p ->
-                str.StartsWith(p, StringComparison.Ordinal)
-            )
+            patterns |> Array.exists (fun p -> str.StartsWith(p, StringComparison.Ordinal))
 
 module Dictionary =
     open System.Collections.Generic
@@ -227,10 +224,7 @@ module Patterns =
 
     let (|Run|) (f: 'a -> 'b) a = f a
 
-    let (|DicContains|_|)
-        (dic: System.Collections.Generic.IDictionary<'k, 'v>)
-        key
-        =
+    let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k, 'v>) key =
         let success, value = dic.TryGetValue key
 
         if success then
@@ -367,8 +361,7 @@ module Path =
         else
             path
 
-    let normalizePathAndEnsureFsExtension (path: string) =
-        normalizePath path |> ensureFsExtension
+    let normalizePathAndEnsureFsExtension (path: string) = normalizePath path |> ensureFsExtension
 
     /// Checks if path starts with "./", ".\" or ".."
     let isRelativePath (path: string) =
@@ -391,12 +384,7 @@ module Path =
             false
 
     /// Creates a relative path from one file or folder to another.
-    let getRelativeFileOrDirPath
-        fromIsDir
-        (fromFullPath: string)
-        toIsDir
-        (toFullPath: string)
-        =
+    let getRelativeFileOrDirPath fromIsDir (fromFullPath: string) toIsDir (toFullPath: string) =
         // Algorithm adapted from http://stackoverflow.com/a/6244188
         let pathDifference (path1: string) (path2: string) =
             let mutable c = 0 //index up to which the paths are the same
@@ -451,11 +439,7 @@ module Path =
         // work either if the directory doesn't exist (e.g. `outDir`)
         let isDir = GetExtension >> String.IsNullOrWhiteSpace
         // let isDir = IO.Directory.Exists
-        getRelativeFileOrDirPath
-            (isDir fromFullPath)
-            fromFullPath
-            (isDir toFullPath)
-            toFullPath
+        getRelativeFileOrDirPath (isDir fromFullPath) fromFullPath (isDir toFullPath) toFullPath
 
     let getCommonPrefix (xs: string[] list) =
         let rec getCommonPrefix (prefix: string[]) =
@@ -496,9 +480,7 @@ module Path =
             filePath
             |> GetDirectoryName
             |> normalizePath
-            |> fun path ->
-                path.Split('/')
-                |> Array.filter (String.IsNullOrWhiteSpace >> not)
+            |> fun path -> path.Split('/') |> Array.filter (String.IsNullOrWhiteSpace >> not)
         )
         |> Seq.toList
         |> getCommonPrefix

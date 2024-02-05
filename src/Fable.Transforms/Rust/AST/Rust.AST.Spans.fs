@@ -62,8 +62,7 @@ type Ident with
         }
 
     /// Constructs a new identifier with a dummy span.
-    static member with_dummy_span(name: Symbol) : Ident =
-        Ident.new_ (name, DUMMY_SP)
+    static member with_dummy_span(name: Symbol) : Ident = Ident.new_ (name, DUMMY_SP)
 
     static member invalid() : Ident = Ident.with_dummy_span (kw.Empty)
 
@@ -71,5 +70,4 @@ type Ident with
     static member from_str(str: string) : Ident = Ident.with_dummy_span (str)
 
     /// Maps a string and a span to an identifier.
-    static member from_str_and_span(str: string, span: Span) : Ident =
-        Ident.new_ (str, span)
+    static member from_str_and_span(str: string, span: Span) : Ident = Ident.new_ (str, span)

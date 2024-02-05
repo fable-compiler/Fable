@@ -17,8 +17,7 @@ let run (writer: Writer) (crate: Rust.Crate) : Async<unit> =
         let is_expanded: bool = false
         let edition: Edition = Edition.Edition2021
 
-        let str =
-            print_crate (sm, krate, filename, input, ann, is_expanded, edition)
+        let str = print_crate (sm, krate, filename, input, ann, is_expanded, edition)
 
         do! writer.Write(str)
     }

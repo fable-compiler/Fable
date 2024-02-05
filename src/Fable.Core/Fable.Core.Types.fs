@@ -34,8 +34,7 @@ type EraseAttribute() =
 type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
     inherit Attribute()
 
-    new(tagName: string) =
-        TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
+    new(tagName: string) = TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
 
 /// Used in place of `CompiledNameAttribute` if the target is not a string.
 type CompiledValueAttribute private () =

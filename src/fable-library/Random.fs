@@ -51,8 +51,7 @@ type NonSeeded() =
         member _.Next0() = Native.randomNext (0, Int32.MaxValue)
         member _.Next1(maxValue) = Native.randomNext (0, maxValue)
 
-        member _.Next2(minValue, maxValue) =
-            Native.randomNext (minValue, maxValue)
+        member _.Next2(minValue, maxValue) = Native.randomNext (minValue, maxValue)
 
         member _.NextDouble() = Native.random ()
         member _.NextBytes(buffer) = Native.randomBytes (buffer)
@@ -155,27 +154,20 @@ type Seeded(seed: int) =
 
         member this.Next1(maxValue: int) =
             if maxValue < 0 then
-                raise
-                <| ArgumentOutOfRangeException("maxValue must be positive")
+                raise <| ArgumentOutOfRangeException("maxValue must be positive")
 
             int (this.Sample() * float maxValue)
 
         member this.Next2(minValue: int, maxValue: int) =
             if minValue > maxValue then
-                raise
-                <| ArgumentOutOfRangeException(
-                    "minValue must be less than maxValue"
-                )
+                raise <| ArgumentOutOfRangeException("minValue must be less than maxValue")
 
             let range = int64 (maxValue - minValue)
 
             if range <= int64 Int32.MaxValue then
                 int (int (this.Sample() * float range) + minValue)
             else
-                int (
-                    int64 (this.GetSampleForLargeRange() * float range)
-                    + int64 minValue
-                )
+                int (int64 (this.GetSampleForLargeRange() * float range) + int64 minValue)
 
         member this.NextDouble() = this.Sample()
 
@@ -184,10 +176,7 @@ type Seeded(seed: int) =
                 raise <| ArgumentNullException("buffer")
 
             for i = 0 to buffer.Length - 1 do
-                buffer.[i] <-
-                    byte (
-                        (int (this.InternalSample())) % (int Byte.MaxValue + 1)
-                    )
+                buffer.[i] <- byte ((int (this.InternalSample())) % (int Byte.MaxValue + 1))
 
 let nonSeeded () = NonSeeded()
 let seeded seed = Seeded(seed)

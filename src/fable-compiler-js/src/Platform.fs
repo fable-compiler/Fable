@@ -58,8 +58,7 @@ let readAllBytes (filePath: string) = JS.fs.readFileSync (filePath)
 let readAllText (filePath: string) =
     JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
 
-let writeAllText (filePath: string) (text: string) =
-    JS.fs.writeFileSync (filePath, text)
+let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync (filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let startTime = JS.proc.hrtime ()

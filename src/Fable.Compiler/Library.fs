@@ -57,13 +57,7 @@ type BabelWriter
 
             // TODO: used to be cliArgs.outDir, could be wrong.
             let path =
-                Imports.getImportPath
-                    pathResolver
-                    sourcePath
-                    targetPath
-                    projDir
-                    (Some targetDir)
-                    path
+                Imports.getImportPath pathResolver sourcePath targetPath projDir (Some targetDir) path
 
             // Here, we deviate from what the regular compiler does as we are never writing to disk.
             // We don't have the original file name collision problem.
@@ -73,23 +67,9 @@ type BabelWriter
                 path
 
         member _.AddLog(msg, severity, ?range) =
-            com.AddLog(
-                msg,
-                severity,
-                ?range = range,
-                fileName = com.CurrentFile
-            )
+            com.AddLog(msg, severity, ?range = range, fileName = com.CurrentFile)
 
-        member _.AddSourceMapping
-            (
-                srcLine,
-                srcCol,
-                genLine,
-                genCol,
-                file,
-                displayName
-            )
-            =
+        member _.AddSourceMapping(srcLine, srcCol, genLine, genCol, file, displayName) =
             //
             ()
 //     if cliArgs.SourceMaps then
@@ -99,13 +79,7 @@ type BabelWriter
 //         let sourcePath = defaultArg file sourcePath |> Path.getRelativeFileOrDirPath false targetPath false
 //         mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=displayName)
 
-let compileFileToJs
-    (com: Compiler)
-    (pathResolver: PathResolver)
-    (outPath: string)
-    (fileExt: string)
-    : Async<string>
-    =
+let compileFileToJs (com: Compiler) (pathResolver: PathResolver) (outPath: string) (fileExt: string) : Async<string> =
     async {
         let babel =
             FSharp2Fable.Compiler.transformFile com
@@ -113,14 +87,7 @@ let compileFileToJs
             |> Fable2Babel.Compiler.transformFile com
 
         use writer =
-            new BabelWriter(
-                com,
-                pathResolver,
-                com.ProjectFile,
-                com.CurrentFile,
-                outPath,
-                fileExt = fileExt
-            )
+            new BabelWriter(com, pathResolver, com.ProjectFile, com.CurrentFile, outPath, fileExt = fileExt)
 
         do! BabelPrinter.run writer babel
         let! output = writer.ReadContentAsString()
@@ -139,11 +106,7 @@ let compileProjectToJavaScript
         let! assemblies = checker.GetImportedAssemblies()
 
         let! checkProjectResult =
-            checker.ParseAndCheckProject(
-                cliArgs.ProjectFile,
-                crackerResponse.ProjectOptions.SourceFiles,
-                sourceReader
-            )
+            checker.ParseAndCheckProject(cliArgs.ProjectFile, crackerResponse.ProjectOptions.SourceFiles, sourceReader)
 
         ignore checkProjectResult.Diagnostics
 
@@ -163,15 +126,10 @@ let compileProjectToJavaScript
 
         let! compiledFiles =
             crackerResponse.ProjectOptions.SourceFiles
-            |> Array.filter (fun filePath ->
-                not (filePath.EndsWith(".fsi", StringComparison.Ordinal))
-            )
+            |> Array.filter (fun filePath -> not (filePath.EndsWith(".fsi", StringComparison.Ordinal)))
             |> Array.map (fun currentFile ->
                 async {
-                    let fableLibDir =
-                        Path.getRelativePath
-                            currentFile
-                            crackerResponse.FableLibDir
+                    let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
 
                     let compiler: Compiler =
                         CompilerImpl(
@@ -184,17 +142,9 @@ let compileProjectToJavaScript
                         )
 
                     let outputPath =
-                        Path.ChangeExtension(
-                            currentFile,
-                            cliArgs.CompilerOptions.FileExtension
-                        )
+                        Path.ChangeExtension(currentFile, cliArgs.CompilerOptions.FileExtension)
 
-                    let! js =
-                        compileFileToJs
-                            compiler
-                            pathResolver
-                            outputPath
-                            cliArgs.CompilerOptions.FileExtension
+                    let! js = compileFileToJs compiler pathResolver outputPath cliArgs.CompilerOptions.FileExtension
 
                     return currentFile, js
                 }
@@ -215,11 +165,7 @@ let compileFileToJavaScript
     =
     async {
         let! dependentFiles =
-            checker.GetDependentFiles(
-                currentFile,
-                crackerResponse.ProjectOptions.SourceFiles,
-                sourceReader
-            )
+            checker.GetDependentFiles(currentFile, crackerResponse.ProjectOptions.SourceFiles, sourceReader)
 
         let lastFile =
             if Array.isEmpty dependentFiles then
@@ -252,15 +198,10 @@ let compileFileToJavaScript
 
         let! compiledFiles =
             dependentFiles
-            |> Array.filter (fun filePath ->
-                not (filePath.EndsWith(".fsi", StringComparison.Ordinal))
-            )
+            |> Array.filter (fun filePath -> not (filePath.EndsWith(".fsi", StringComparison.Ordinal)))
             |> Array.map (fun currentFile ->
                 async {
-                    let fableLibDir =
-                        Path.getRelativePath
-                            currentFile
-                            crackerResponse.FableLibDir
+                    let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
 
                     let compiler: Compiler =
                         CompilerImpl(
@@ -274,12 +215,7 @@ let compileFileToJavaScript
 
                     let outputPath = Path.ChangeExtension(currentFile, ".js")
 
-                    let! js =
-                        compileFileToJs
-                            compiler
-                            pathResolver
-                            outputPath
-                            cliArgs.CompilerOptions.FileExtension
+                    let! js = compileFileToJs compiler pathResolver outputPath cliArgs.CompilerOptions.FileExtension
 
                     return currentFile, js
                 }

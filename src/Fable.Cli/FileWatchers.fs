@@ -56,10 +56,7 @@ type PollingFileWatcher(watchedDirectoryPath, ignoredDirectoryNameRegexes) =
     let compiledIgnoredDirNames =
         ignoredDirectoryNameRegexes
         |> Seq.map (fun (regex: string) ->
-            Regex(
-                "^" + regex + "$",
-                RegexOptions.Compiled ||| RegexOptions.CultureInvariant
-            )
+            Regex("^" + regex + "$", RegexOptions.Compiled ||| RegexOptions.CultureInvariant)
         )
         |> Array.ofSeq
 
@@ -87,20 +84,14 @@ type PollingFileWatcher(watchedDirectoryPath, ignoredDirectoryNameRegexes) =
                     fileAction entity
 
                     match entity with
-                    | :? DirectoryInfo as subdirInfo ->
-                        foreachEntityInDirectory subdirInfo fileAction
+                    | :? DirectoryInfo as subdirInfo -> foreachEntityInDirectory subdirInfo fileAction
                     | _ -> ()
 
     let rec recordChange (fileInfo: FileSystemInfo) =
         if
             not (isNull fileInfo)
             && not (changes.Contains(fileInfo.Name))
-            && not (
-                fileInfo.FullName.Equals(
-                    watchedDirectory.FullName,
-                    StringComparison.Ordinal
-                )
-            )
+            && not (fileInfo.FullName.Equals(watchedDirectory.FullName, StringComparison.Ordinal))
         then
             changes.Add(fileInfo.FullName) |> ignore
 
@@ -123,16 +114,12 @@ type PollingFileWatcher(watchedDirectoryPath, ignoredDirectoryNameRegexes) =
                 | true, fileMeta ->
 
                     try
-                        if
-                            fileMeta.FileInfo.LastWriteTime <> f.LastWriteTime
-                        then
+                        if fileMeta.FileInfo.LastWriteTime <> f.LastWriteTime then
                             recordChange f // File changed
 
-                        knownEntities.[fullFilePath] <-
-                            { fileMeta with FoundAgain = true }
+                        knownEntities.[fullFilePath] <- { fileMeta with FoundAgain = true }
                     with :? FileNotFoundException ->
-                        knownEntities.[fullFilePath] <-
-                            { fileMeta with FoundAgain = false }
+                        knownEntities.[fullFilePath] <- { fileMeta with FoundAgain = false }
                 // TryAdd instead of Add because sometimes we get duplicates (?!)
                 // (Saw multiple times on Linux. Not sure where it came from...)
                 tempDictionary.TryAdd(
@@ -232,9 +219,7 @@ type private WatcherInstance =
 
 /// A wrapper around the immutable polling watcher,
 /// implementing IFileSystemWatcher with its mutable BasePath.
-type ResetablePollingFileWatcher
-    (fileNameGlobFilters, ignoredDirectoryNameRegexes)
-    =
+type ResetablePollingFileWatcher(fileNameGlobFilters, ignoredDirectoryNameRegexes) =
     let mutable disposed = false
     let resetLocker = new obj ()
 
@@ -246,14 +231,12 @@ type ResetablePollingFileWatcher
     let createInstance basePath (previous: WatcherInstance option) =
         // Creating a new instance before stopping the previous one
         // might return duplicate changes, but at least we should not be losing any.
-        let newInstance =
-            new PollingFileWatcher(basePath, ignoredDirectoryNameRegexes)
+        let newInstance = new PollingFileWatcher(basePath, ignoredDirectoryNameRegexes)
 
         let previousEnableRaisingEvents =
             match previous with
             | Some instance ->
-                let previousEnableRaisingEvents =
-                    instance.Watcher.EnableRaisingEvents
+                let previousEnableRaisingEvents = instance.Watcher.EnableRaisingEvents
 
                 (instance.Watcher :> IDisposable).Dispose()
                 instance.FileChangeSubscription.Dispose()
@@ -265,8 +248,7 @@ type ResetablePollingFileWatcher
 
             let matchesFilter =
                 List.isEmpty fileNameGlobFilters
-                || fileNameGlobFilters
-                   |> List.exists (fun filter -> Glob.isMatch filter name)
+                || fileNameGlobFilters |> List.exists (fun filter -> Glob.isMatch filter name)
 
             if matchesFilter then
                 onFileChange.Trigger(e)
@@ -275,8 +257,7 @@ type ResetablePollingFileWatcher
 
         {
             Watcher = newInstance
-            FileChangeSubscription =
-                newInstance.OnFileChange.Subscribe(watcherChangeHandler)
+            FileChangeSubscription = newInstance.OnFileChange.Subscribe(watcherChangeHandler)
         }
 
     /// Should always be used under lock
@@ -294,11 +275,7 @@ type ResetablePollingFileWatcher
             with get () =
                 lock
                     resetLocker
-                    (fun () ->
-                        current
-                        |> Option.map (fun x -> x.Watcher.BasePath)
-                        |> Option.defaultValue ""
-                    )
+                    (fun () -> current |> Option.map (fun x -> x.Watcher.BasePath) |> Option.defaultValue "")
             and set (value) =
                 lock
                     resetLocker
@@ -306,11 +283,8 @@ type ResetablePollingFileWatcher
                         // Compare normalized paths before recreating the watcher:
                         if
                             current.IsNone
-                            || String.IsNullOrWhiteSpace(
-                                current.Value.Watcher.BasePath
-                            )
-                            || Path.GetFullPath(current.Value.Watcher.BasePath)
-                               <> Path.GetFullPath(value)
+                            || String.IsNullOrWhiteSpace(current.Value.Watcher.BasePath)
+                            || Path.GetFullPath(current.Value.Watcher.BasePath) <> Path.GetFullPath(value)
                         then
                             current <- Some(createInstance value current)
                     )
@@ -355,8 +329,7 @@ type DotnetFileWatcher(globFilters: string list) =
         for filter in globFilters do
             fileSystemWatcher.Filters.Add(filter)
 
-        let watcherChangeHandler (e: FileSystemEventArgs) =
-            onFileChange.Trigger(e.FullPath)
+        let watcherChangeHandler (e: FileSystemEventArgs) = onFileChange.Trigger(e.FullPath)
 
         let watcherRenameHandler (e: RenamedEventArgs) =
             onFileChange.Trigger(e.OldFullPath)

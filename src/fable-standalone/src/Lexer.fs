@@ -59,8 +59,7 @@ let tokenizeLine (args: string[]) lineStr =
         )
         |> Seq.toList
 
-    let sourceTokenizer =
-        FSharpSourceTokenizer(defines, Some "/tmp.fsx", None, None)
+    let sourceTokenizer = FSharpSourceTokenizer(defines, Some "/tmp.fsx", None, None)
 
     let lineTokenizer = sourceTokenizer.CreateLineTokenizer lineStr
 
@@ -96,9 +95,7 @@ let inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterP
         else
             Other
     elif token.Tag = FSharpTokenTag.LPAREN then
-        if
-            token.FullMatchedLength = 1 && lineStr[token.LeftColumn + 1] = '|'
-        then
+        if token.FullMatchedLength = 1 && lineStr[token.LeftColumn + 1] = '|' then
             ActivePattern
         else
             Other
@@ -130,45 +127,34 @@ let private fixTokens lineStr (tokens: FSharpTokenInfo list) =
                     { lastToken.Token with
                         Tag = FSharpTokenTag.IDENT
                         RightColumn = token.RightColumn
-                        FullMatchedLength =
-                            lastToken.Token.FullMatchedLength
-                            + token.FullMatchedLength
+                        FullMatchedLength = lastToken.Token.FullMatchedLength + token.FullMatchedLength
                     }
 
                 acc,
                 Some
                     { lastToken with
                         Token = mergedToken
-                        RightColumn =
-                            lastToken.RightColumn + token.FullMatchedLength
+                        RightColumn = lastToken.RightColumn + token.FullMatchedLength
                     }
             | _ ->
                 match token, lineStr with
-                | GenericTypeParameterPrefix ->
-                    acc, Some(DraftToken.Create GenericTypeParameter token)
+                | GenericTypeParameterPrefix -> acc, Some(DraftToken.Create GenericTypeParameter token)
                 | StaticallyResolvedTypeParameterPrefix ->
-                    acc,
-                    Some(
-                        DraftToken.Create StaticallyResolvedTypeParameter token
-                    )
-                | ActivePattern ->
-                    acc, Some(DraftToken.Create ActivePattern token)
+                    acc, Some(DraftToken.Create StaticallyResolvedTypeParameter token)
+                | ActivePattern -> acc, Some(DraftToken.Create ActivePattern token)
                 | Other ->
                     let draftToken =
                         match lastToken with
-                        | Some {
-                                   Kind = GenericTypeParameter | StaticallyResolvedTypeParameter as kind
-                               } when isIdentifier token ->
+                        | Some { Kind = GenericTypeParameter | StaticallyResolvedTypeParameter as kind } when
+                            isIdentifier token
+                            ->
                             DraftToken.Create
                                 kind
                                 { token with
                                     LeftColumn = token.LeftColumn - 1
-                                    FullMatchedLength =
-                                        token.FullMatchedLength + 1
+                                    FullMatchedLength = token.FullMatchedLength + 1
                                 }
-                        | Some({ Kind = SymbolKind.ActivePattern } as ap) when
-                            token.Tag = FSharpTokenTag.RPAREN
-                            ->
+                        | Some({ Kind = SymbolKind.ActivePattern } as ap) when token.Tag = FSharpTokenTag.RPAREN ->
                             DraftToken.Create SymbolKind.Ident ap.Token
                         | _ ->
                             let kind =
@@ -205,13 +191,9 @@ let private getSymbolFromTokens
         | SymbolLookupKind.Simple
         | SymbolLookupKind.Fuzzy ->
             tokens
-            |> List.filter (fun x ->
-                x.Token.LeftColumn <= col && x.RightColumn + 1 >= col
-            )
-        | SymbolLookupKind.ByRightColumn ->
-            tokens |> List.filter (fun x -> x.RightColumn = col)
-        | SymbolLookupKind.ByLongIdent ->
-            tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
+            |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn + 1 >= col)
+        | SymbolLookupKind.ByRightColumn -> tokens |> List.filter (fun x -> x.RightColumn = col)
+        | SymbolLookupKind.ByLongIdent -> tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
 
     //printfn "Filtered tokens: %+A" tokensUnderCursor
     match lookupKind with
@@ -239,16 +221,12 @@ let private getSymbolFromTokens
             | [] -> None
 
         let decreasingTokens =
-            match
-                tokensUnderCursor
-                |> List.sortBy (fun token -> -token.Token.LeftColumn)
-            with
+            match tokensUnderCursor |> List.sortBy (fun token -> -token.Token.LeftColumn) with
             // Skip the first dot if it is the start of the identifier
             | {
                   Kind = SymbolKind.Other
                   Token = t
-              } :: remainingTokens when t.Tag = FSharpTokenTag.DOT ->
-                remainingTokens
+              } :: remainingTokens when t.Tag = FSharpTokenTag.DOT -> remainingTokens
             | newTokens -> newTokens
 
         match decreasingTokens with
@@ -278,21 +256,14 @@ let private getSymbolFromTokens
         )
         // Gets the option if Some x, otherwise try to get another value
 
-        |> orTry (fun _ ->
-            tokensUnderCursor
-            |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator)
-        )
+        |> orTry (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
         |> Option.map (fun token ->
             {
                 Kind = token.Kind
                 Line = line
                 LeftColumn = token.Token.LeftColumn
                 RightColumn = token.RightColumn + 1
-                Text =
-                    lineStr.Substring(
-                        token.Token.LeftColumn,
-                        token.Token.FullMatchedLength
-                    )
+                Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength)
             }
         )
     | SymbolLookupKind.Simple ->
@@ -304,11 +275,7 @@ let private getSymbolFromTokens
                 Line = line
                 LeftColumn = token.Token.LeftColumn
                 RightColumn = token.RightColumn + 1
-                Text =
-                    lineStr.Substring(
-                        token.Token.LeftColumn,
-                        token.Token.FullMatchedLength
-                    )
+                Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength)
             }
         )
 
