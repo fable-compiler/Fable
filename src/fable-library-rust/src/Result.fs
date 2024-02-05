@@ -60,7 +60,7 @@ let foldBack folder result state =
     | Error _ -> state
     | Ok x -> folder x state
 
-let forall predicate result =
+let forAll predicate result =
     match result with
     | Error _ -> true
     | Ok x -> predicate x
