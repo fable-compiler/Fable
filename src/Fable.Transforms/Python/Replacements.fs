@@ -3364,15 +3364,17 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "Break" -> makeDebugger r |> Some
     | "Assert" ->
         let unit = Value(Null Unit, None)
+        // printfn "Assert: %A" args
 
         match args with
         | []
         | [ Value(BoolConstant true, _) ] -> Some unit
         | [ Value(BoolConstant false, _) ] -> makeDebugger r |> Some
         | arg :: _ ->
-            // emit i "if (!$0) { debugger; }" i.args |> Some
-            let cond = Operation(Unary(UnaryNot, arg), Tags.empty, Boolean, r)
-            IfThenElse(cond, makeDebugger r, unit, r) |> Some
+            // For Python we don't have a debugger, so we use the if statement to
+            // capture the guard expression and then rewrite the code back to
+            // an assert statement when translating to Python
+            IfThenElse(arg, makeDebugger r, unit, r) |> Some
     | _ -> None
 
 let private ignoreFormatProvider com (ctx: Context) r (moduleName: string) meth args =
