@@ -2589,7 +2589,8 @@ let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr
 
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ("Bind" | "Map" | "MapError" | "IsOk" | "IsError") as meth -> Some("Result_" + meth)
+    | ("Bind" | "Map" | "MapError" | "IsOk" | "IsError" | "Contains" | "Count" | "DefaultValue" | "DefaultWith" | "Exists" | "Fold" | "FoldBack" | "ForAll" | "Iterate" | "ToArray" | "ToList" | "ToOption") as meth ->
+        Some("Result_" + meth)
     | _ -> None
     |> Option.map (fun meth -> Helper.LibCall(com, "choice", meth, t, args, i.SignatureArgTypes, ?loc = r))
 
