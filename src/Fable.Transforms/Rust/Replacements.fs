@@ -2689,7 +2689,24 @@ let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr
 
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ("Bind" | "Map" | "MapError" | "IsOk" | "IsError" | "Contains" | "Count" | "DefaultValue" | "DefaultWith" | "Exists" | "Fold" | "FoldBack" | "Iterate" | "ToArray" | "ToList" | "ToOption" | "ForAll") as meth ->
+    | "Bind"
+    | "Map"
+    | "MapError"
+    | "IsOk"
+    | "IsError"
+    | "Contains"
+    | "Count"
+    | "DefaultValue"
+    | "DefaultWith"
+    | "Exists"
+    | "Fold"
+    | "FoldBack"
+    | "ForAll"
+    | "Iterate"
+    | "ToArray"
+    | "ToList"
+    | "ToOption"
+    | "ToValueOption" as meth ->
         Helper.LibCall(com, "Result", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | _ -> None
