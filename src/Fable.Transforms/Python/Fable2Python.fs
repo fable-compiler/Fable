@@ -914,7 +914,7 @@ module Annotation =
         | Types.result, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
 
-            fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
+            fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
         | Replacements.Util.BuiltinEntity _kind -> stdlibModuleTypeHint com ctx "typing" "Any" []
         (*
             | Replacements.Util.BclGuid
@@ -1080,7 +1080,7 @@ module Annotation =
                     ]
                     repeatedGenerics
 
-            fableModuleAnnotation com ctx "choice" "FSharpResult_2" resolved, stmts
+            fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
         | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
 
     let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =

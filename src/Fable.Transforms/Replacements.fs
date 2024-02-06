@@ -84,7 +84,7 @@ let coreModFor =
     | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
-    | FSharpResult _ -> "Choice"
+    | FSharpResult _ -> "Result"
     | FSharpChoice _ -> "Choice"
     | FSharpReference _ -> "Types"
     | BclHashSet _ -> "MutableSet"
@@ -1127,7 +1127,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
     | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Choice" |> Some
+    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Result" |> Some
     | BuiltinDefinition(FSharpChoice genArgs) ->
         let membName = $"FSharpChoice${List.length genArgs}"
         makeImportLib com Any membName "Choice" |> Some
@@ -2733,7 +2733,7 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
     | "ToValueOption" as meth -> Some("Result_" + meth)
     | _ -> None
     |> Option.map (fun meth ->
-        Helper.LibCall(com, "Choice", meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        Helper.LibCall(com, "Result", meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     )
 
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

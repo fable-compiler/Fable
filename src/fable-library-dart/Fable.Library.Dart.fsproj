@@ -10,6 +10,7 @@
         <Compile Include="Global.fs" />
         <Compile Include="FSharp.Core.fs" />
         <Compile Include="Option.fs" />
+        <Compile Include="Result.fs" />
         <Compile Include="Choice.fs" />
         <Compile Include="Seq.fs" />
         <Compile Include="Seq2.fs" />

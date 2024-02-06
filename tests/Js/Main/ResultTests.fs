@@ -12,14 +12,14 @@ let foo (a: Foo): bool =
 
 let tests =
   testList "Result" [
-    testCase "constructors can be generated" <| fun () ->
+    testCase "Result constructors can be compared" <| fun () ->
         let ok = Ok 10
         Ok 10 |> equal ok
 
         let error = Error 10
         Error 10 |> equal error
 
-    testCase "pattern matching works" <| fun () ->
+    testCase "Result pattern matching works" <| fun () ->
         let mutable f = fun ok ->
             match ok with
             | Ok x -> Some x
@@ -35,15 +35,15 @@ let tests =
         let ok = Ok "foo"
         f ok
 
-    testCase "map function can be generated" <| fun () ->
+    testCase "Result.map works" <| fun () ->
         let f = (+) 1
         Ok 9 |> Result.map f |> equal (Ok 10)
 
-    testCase "mapError function can be generated" <| fun () ->
+    testCase "Result.mapError works" <| fun () ->
         let f = (+) 1
         Error 9 |> Result.mapError f |> equal (Error 10)
 
-    testCase "bind function can be generated" <| fun () ->
+    testCase "Result.bind works" <| fun () ->
         let f = Error
         Ok 10 |> Result.bind f |> equal (Error 10)
 
@@ -51,15 +51,15 @@ let tests =
         Ok 5 |> Foo |> foo |> equal true
         Error "error" |> Foo |> foo |> equal false
 
-    testCase "isOk function can be generated" <| fun () ->
+    testCase "Result.isOk works" <| fun () ->
         Ok 10 |> Result.isOk |> equal true
         Error 10 |> Result.isOk |> equal false
 
-    testCase "isError function can be generated" <| fun () ->
+    testCase "Result.isError works" <| fun () ->
         Ok 10 |> Result.isError |> equal false
         Error 10 |> Result.isError |> equal true
 
-    testCase "contains works" <| fun () ->
+    testCase "Result.contains works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
@@ -67,28 +67,28 @@ let tests =
         ok |> Result.contains 43 |> equal false
         err |> Result.contains 42 |> equal false
 
-    testCase "count works" <| fun () ->
+    testCase "Result.count works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         ok |> Result.count |> equal 1
         err |> Result.count |> equal 0
 
-    testCase "defaultValue works" <| fun () ->
+    testCase "Result.defaultValue works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         ok |> Result.defaultValue 0 |> equal 42
         err |> Result.defaultValue 0 |> equal 0
 
-    testCase "defaultWith works" <| fun () ->
+    testCase "Result.defaultWith works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         ok |> Result.defaultWith (fun e -> e.Length) |> equal 42
         err |> Result.defaultWith (fun e -> e.Length) |> equal 5
 
-    testCase "exists works" <| fun () ->
+    testCase "Result.exists works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
@@ -96,21 +96,21 @@ let tests =
         ok |> Result.exists ((=) 43) |> equal false
         err |> Result.exists ((=) 42) |> equal false
 
-    testCase "fold works" <| fun () ->
+    testCase "Result.fold works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         ok |> Result.fold (fun s x -> s || x % 2 = 0) false |> equal true
         err |> Result.fold (fun s x -> s || x % 2 = 0) false |> equal false
 
-    testCase "foldBack works" <| fun () ->
+    testCase "Result.foldBack works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         (ok, false) ||> Result.foldBack (fun x s -> s || x % 2 = 0) |> equal true
         (err, false) ||> Result.foldBack (fun x s -> s || x % 2 = 0) |> equal false
 
-    testCase "forAll works" <| fun () ->
+    testCase "Result.forall works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
@@ -118,7 +118,7 @@ let tests =
         ok |> Result.forall ((=) 43) |> equal false
         err |> Result.forall ((=) 42) |> equal true
 
-    testCase "iter works" <| fun () ->
+    testCase "Result.iter works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
@@ -130,31 +130,40 @@ let tests =
         err |> Result.iter (fun x -> count <- count + x)
         equal 0 count
 
-    testCase "toArray works" <| fun () ->
+    testCase "Result.toArray works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         ok |> Result.toArray |> equal [| 42 |]
         err |> Result.toArray |> equal [||]
 
-    testCase "toList works" <| fun () ->
+    testCase "Result.toList works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         ok |> Result.toList |> equal [ 42 ]
         err |> Result.toList |> equal []
 
-    testCase "toOption works" <| fun () ->
+    testCase "Result.toOption works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         ok |> Result.toOption |> Option.get |> equal 42
         err |> Result.toOption |> Option.isNone |> equal true
 
-    testCase "toValueOption works" <| fun () ->
+    testCase "Result.toValueOption works" <| fun () ->
         let ok: Result<int, string> = Ok 42
         let err: Result<int, string> = Error "error"
 
         ok |> Result.toValueOption |> ValueOption.get |> equal 42
         err |> Result.toValueOption |> ValueOption.isNone |> equal true
+
+#if !FABLE_COMPILER_TYPESCRIPT
+    testCase "Choice pattern matching works" <| fun () ->
+        let ok: Choice<string, int> = Choice1Of2 "foo"
+        match ok with
+        | Choice1Of2 x -> Some x
+        | Choice2Of2 _ -> None
+        |> equal (Some "foo")
+#endif
   ]

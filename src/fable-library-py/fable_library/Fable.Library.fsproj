@@ -18,6 +18,7 @@
     <Compile Include="Native.fs" />
     <Compile Include="../../fable-library/MutableMap.fs" Link="MutableMap.fs" />
     <Compile Include="../../fable-library/MutableSet.fs" Link="MutableSet.fs" />
+    <Compile Include="../../fable-library/Result.fs" Link="Result.fs" />
     <Compile Include="../../fable-library/Choice.fs" Link="Choice.fs" />
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
