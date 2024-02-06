@@ -108,6 +108,12 @@ module Result =
         | Error _ -> None
         | Ok x -> Some x
 
+    [<CompiledName("ToValueOption")>]
+    let toValueOption (result: Result<'a, 'b>) : ValueOption<'a> =
+        match result with
+        | Error _ -> ValueNone
+        | Ok x -> ValueSome x
+
 [<CompiledName("FSharpChoice`2")>]
 type Choice<'T1, 'T2> =
     | Choice1Of2 of 'T1

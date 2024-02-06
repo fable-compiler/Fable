@@ -150,4 +150,11 @@ let tests =
 
         ok |> Result.toOption |> Option.get |> equal 42
         err |> Result.toOption |> Option.isNone |> equal true
+
+    testCase "toValueOption works" <| fun () ->
+        let ok: Result<int, string> = Ok 42
+        let err: Result<int, string> = Error "error"
+
+        ok |> Result.toValueOption |> ValueOption.get |> equal 42
+        err |> Result.toValueOption |> ValueOption.isNone |> equal true
   ]
