@@ -84,3 +84,8 @@ let toOption result =
     match result with
     | Error _ -> None
     | Ok x -> Some x
+
+let toValueOption result =
+    match result with
+    | Error _ -> ValueNone
+    | Ok x -> ValueSome x
