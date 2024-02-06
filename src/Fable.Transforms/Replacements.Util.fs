@@ -309,8 +309,8 @@ type BuiltinType =
     | BclKeyValuePair of key: Type * value: Type
     | FSharpSet of Type
     | FSharpMap of key: Type * value: Type
-    | FSharpChoice of Type list
-    | FSharpResult of arg1: Type * arg2: Type
+    | FSharpChoice of genArgs: Type list
+    | FSharpResult of ok: Type * err: Type
     | FSharpReference of Type
 
 let (|BuiltinDefinition|_|) =

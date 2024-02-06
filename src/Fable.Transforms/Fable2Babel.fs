@@ -800,7 +800,7 @@ module Annotation =
                     ok
                     err
                 ]
-                "Choice"
+                "Result"
         | Replacements.Util.FSharpChoice genArgs ->
             $"FSharpChoice${List.length genArgs}{Util.UnionHelpers.UNION_SUFFIX}"
             |> makeFableLibImportTypeAnnotation com ctx genArgs "Choice"

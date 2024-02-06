@@ -11,7 +11,7 @@ let foo (a: Foo): bool =
     | _ -> false
 
 [<Fact>]
-let ``test constructors can be generated`` () =
+let ``test Result constructors can be compared`` () =
     let ok = Ok 10
     Ok 10 |> equal ok
 
@@ -19,7 +19,7 @@ let ``test constructors can be generated`` () =
     Error 10 |> equal error
 
 [<Fact>]
-let ``test pattern matching works`` () =
+let ``test Result pattern matching works`` () =
     let ok = Ok "foo"
     match ok with
     | Ok x -> Some x
@@ -33,17 +33,17 @@ let ``test pattern matching works`` () =
     |> equal (Some 10)
 
 [<Fact>]
-let ``test map function can be generated`` () =
+let ``test Result.map works`` () =
     let f = (+) 1
     Ok 9 |> Result.map f |> equal (Ok 10)
 
 [<Fact>]
-let ``test mapError function can be generated`` () =
+let ``test Result.mapError works`` () =
     let f = (+) 1
     Error 9 |> Result.mapError f |> equal (Error 10)
 
 [<Fact>]
-let ``test bind function can be generated`` () =
+let ``test Result.bind works`` () =
     let f = Error
     Ok 10 |> Result.bind f |> equal (Error 10)
 
@@ -53,17 +53,17 @@ let ``test Nesting Result in pattern matching works`` () =
     Error "error" |> Foo |> foo |> equal false
 
 [<Fact>]
-let ``test isOk function can be generated`` () =
+let ``test Result.isOk works`` () =
     Ok 5 |> Result.isOk |> equal true
     Error "error" |> Result.isOk |> equal false
 
 [<Fact>]
-let ``test isError function can be generated`` () =
+let ``test Result.isError works`` () =
     Ok 5 |> Result.isError |> equal false
     Error "error" |> Result.isError |> equal true
 
 [<Fact>]
-let ``test contains function can be generated`` () =
+let ``test Result.contains works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -72,7 +72,7 @@ let ``test contains function can be generated`` () =
     err |> Result.contains 42 |> equal false
 
 [<Fact>]
-let ``count function can be generated`` () =
+let ``test Result.count works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -80,7 +80,7 @@ let ``count function can be generated`` () =
     err |> Result.count |> equal 0
 
 [<Fact>]
-let ``defaultValue function can be generated`` () =
+let ``test Result.defaultValue works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -88,7 +88,7 @@ let ``defaultValue function can be generated`` () =
     err |> Result.defaultValue 0 |> equal 0
 
 [<Fact>]
-let ``defaultWith function can be generated`` () =
+let ``test Result.defaultWith works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -96,7 +96,7 @@ let ``defaultWith function can be generated`` () =
     err |> Result.defaultWith (fun e -> e.Length) |> equal 5
 
 [<Fact>]
-let ``exists function can be generated`` () =
+let ``test Result.exists works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -105,7 +105,7 @@ let ``exists function can be generated`` () =
     err |> Result.exists ((=) 42) |> equal false
 
 [<Fact>]
-let ``fold function can be generated`` () =
+let ``test Result.fold works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -113,7 +113,7 @@ let ``fold function can be generated`` () =
     err |> Result.fold (fun s x -> s || x % 2 = 0) false |> equal false
 
 [<Fact>]
-let ``foldBack function can be generated`` () =
+let ``test Result.foldBack works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -121,7 +121,7 @@ let ``foldBack function can be generated`` () =
     (err, false) ||> Result.foldBack (fun x s -> s || x % 2 = 0) |> equal false
 
 [<Fact>]
-let ``forAll function can be generated`` () =
+let ``test Result.forall works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -130,7 +130,7 @@ let ``forAll function can be generated`` () =
     err |> Result.forall ((=) 42) |> equal true
 
 [<Fact>]
-let ``iter function can be generated`` () =
+let ``test Result.iter works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -143,7 +143,7 @@ let ``iter function can be generated`` () =
     equal 0 count
 
 [<Fact>]
-let ``toArray function can be generated`` () =
+let ``test Result.toArray works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -151,7 +151,7 @@ let ``toArray function can be generated`` () =
     err |> Result.toArray |> equal [||]
 
 [<Fact>]
-let ``toList function can be generated`` () =
+let ``test Result.toList works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -159,7 +159,7 @@ let ``toList function can be generated`` () =
     err |> Result.toList |> equal []
 
 [<Fact>]
-let ``toOption function can be generated`` () =
+let ``test Result.toOption works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
@@ -167,9 +167,17 @@ let ``toOption function can be generated`` () =
     err |> Result.toOption |> Option.isNone |> equal true
 
 [<Fact>]
-let ``toValueOption function can be generated`` () =
+let ``test Result.toValueOption works`` () =
     let ok: Result<int, string> = Ok 42
     let err: Result<int, string> = Error "error"
 
     ok |> Result.toValueOption |> ValueOption.get |> equal 42
     err |> Result.toValueOption |> ValueOption.isNone |> equal true
+
+[<Fact>]
+let ``test Choice pattern matching works`` () =
+    let ok: Choice<string, int> = Choice1Of2 "foo"
+    match ok with
+    | Choice1Of2 x -> Some x
+    | Choice2Of2 _ -> None
+    |> equal (Some "foo")
