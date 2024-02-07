@@ -4,11 +4,20 @@ open System
 open System.IO
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Diagnostics
 open Fable
 open Fable.Transforms.State
 open Fable.Transforms
 open Fable.Compiler.ProjectCracker
 open Fable.Compiler.Util
+
+type CompileResult =
+    {
+        /// A map of absolute file path to transpiled JavaScript code
+        CompiledFiles: Map<string, string>
+        /// Diagnostics of the entire checked F# project
+        Diagnostics: FSharpDiagnostic array
+    }
 
 type BabelWriter
     (
@@ -100,7 +109,7 @@ let compileProjectToJavaScript
     (pathResolver: PathResolver)
     (cliArgs: CliArgs)
     (crackerResponse: CrackerResponse)
-    : Async<Map<string, string>>
+    : Async<CompileResult>
     =
     async {
         let! assemblies = checker.GetImportedAssemblies()
@@ -151,7 +160,11 @@ let compileProjectToJavaScript
             )
             |> Async.Parallel
 
-        return Map.ofArray compiledFiles
+        return
+            {
+                CompiledFiles = Map.ofArray compiledFiles
+                Diagnostics = checkProjectResult.Diagnostics
+            }
     }
 
 let compileFileToJavaScript
@@ -161,7 +174,7 @@ let compileFileToJavaScript
     (cliArgs: CliArgs)
     (crackerResponse: CrackerResponse)
     (currentFile: string)
-    : Async<Map<string, string>>
+    : Async<CompileResult>
     =
     async {
         let! dependentFiles =
@@ -222,5 +235,9 @@ let compileFileToJavaScript
             )
             |> Async.Parallel
 
-        return Map.ofArray compiledFiles
+        return
+            {
+                CompiledFiles = Map.ofArray compiledFiles
+                Diagnostics = checkProjectResult.Diagnostics
+            }
     }
