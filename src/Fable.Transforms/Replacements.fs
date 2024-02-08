@@ -4672,6 +4672,7 @@ let private replacedModules =
             "Microsoft.FSharp.Control.ObservableModule", observable
             Types.type_, types
             "System.Reflection.TypeInfo", types
+            "Microsoft.FSharp.Core.CompilerServices.ListCollector`1", bclType
         ]
 
 let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =
