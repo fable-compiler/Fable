@@ -85,9 +85,14 @@ module Log =
     open Microsoft.Extensions.Logging.Abstractions
 
     let mutable logger: ILogger = NullLogger.Instance
-    let setLogger newLogger = logger <- newLogger
-    let newLine = Environment.NewLine
     let mutable private verbosity = Fable.Verbosity.Normal
+
+    let setLogger v newLogger =
+        verbosity <- v
+        logger <- newLogger
+
+    let newLine = Environment.NewLine
+
     let isVerbose () = verbosity = Fable.Verbosity.Verbose
     let always (msg: string) = logger.LogInformation msg
 

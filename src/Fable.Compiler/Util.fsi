@@ -41,7 +41,7 @@ module Log =
     open Microsoft.Extensions.Logging
 
     /// To be called only at the beginning of the app
-    val setLogger: ILogger -> unit
+    val setLogger: Fable.Verbosity -> ILogger -> unit
     val newLine: string
     val always: msg: string -> unit
     val verbose: msg: Lazy<string> -> unit
