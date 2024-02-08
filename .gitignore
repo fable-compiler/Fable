@@ -221,3 +221,6 @@ tests/**/*.actual
 
 # Analyzers
 *.sarif
+
+# Temp proj file
+*.fable-temp.csproj
