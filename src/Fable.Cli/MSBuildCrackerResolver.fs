@@ -28,22 +28,19 @@ let private isFSharpFile (file: string) =
         fsharpFiles
 
 
-/// Add additional Fable arguments
-let private mkOptions
+/// Transform F# files into full paths
+let private mkOptionsFullPath
     (projectFile: FileInfo)
     (compilerArgs: string array)
     : string array
     =
-    let arguments =
-        compilerArgs
-        |> Array.map (fun (line: string) ->
-            if not (isFSharpFile line) then
-                line
-            else
-                Path.Combine(projectFile.DirectoryName, line)
-        )
-
-    arguments
+    compilerArgs
+    |> Array.map (fun (line: string) ->
+        if not (isFSharpFile line) then
+            line
+        else
+            Path.Combine(projectFile.DirectoryName, line)
+    )
 
 type FullPath = string
 
@@ -124,7 +121,10 @@ let mkOptionsFromDesignTimeBuildAux
             // Escaped `;`
             |> String.concat "%3B"
 
-        let version = DateTime.UtcNow.Ticks % 3600L
+        // When CoreCompile does not need a rebuild, MSBuild will skip that target and thus will not populate the FscCommandLineArgs items.
+        // To overcome this we want to force a design time build, using the NonExistentFile property helps prevent a cache hit.
+        let nonExistentFile =
+            Path.Combine("__NonExistentSubDir__", "__NonExistentFile__")
 
         let properties =
             [
@@ -144,8 +144,8 @@ let mkOptionsFromDesignTimeBuildAux
                 "/p:RestorePackagesWithLockFile=false"
                 // We trick NuGet into believing there is no lock file create, if it does exist it will try and create it.
                 " /p:NuGetLockFilePath=Fable.lock"
-                // Pass in a fake version to avoid skipping the CoreCompile target
-                $"/p:Version=%i{version}"
+                // Avoid skipping the CoreCompile target via this property.
+                $"/p:NonExistentFile=\"%s{nonExistentFile}\""
             ]
             |> List.filter (String.IsNullOrWhiteSpace >> not)
             |> String.concat " "
@@ -172,7 +172,7 @@ let mkOptionsFromDesignTimeBuildAux
                     $"Design time build for %s{fsproj.FullName} failed. CoreCompile was most likely skipped. `dotnet clean` might help here."
         else
 
-            let options = mkOptions fsproj options
+            let options = mkOptionsFullPath fsproj options
 
             let projectReferences =
                 items.GetProperty("ProjectReference").EnumerateArray()
