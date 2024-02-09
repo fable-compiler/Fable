@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "fable-compiler-js",
+  "name": "@fable-org/fable-compiler-js",
   "version": "3.3.0",
   "main": "index.js",
   "bin": {
