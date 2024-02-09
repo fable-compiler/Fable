@@ -19,8 +19,8 @@ let cutOffLast list =
     headList.Close()
 
 let tests =
-  testList "ListCollector" [
-    testCase "ListCollector.Add and .Close" <| fun () ->
-        let result = cutOffLast [ 1; 2; 3 ]
-        result |> equal [ 1; 2 ]
-  ]
+    testList "ListCollector" [
+        testCase "ListCollector.Add and .Close" <| fun () ->
+            let result = cutOffLast [ 1; 2; 3 ]
+            result |> equal [ 1; 2 ]
+    ]
