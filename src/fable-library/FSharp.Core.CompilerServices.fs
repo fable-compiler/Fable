@@ -1,9 +1,6 @@
 namespace Microsoft.FSharp.Core.CompilerServices
 
-open Fable.Core
-
 [<NoEquality; NoComparison>]
-[<AttachMembers>]
 type ListCollector<'T>() =
     let collector = ResizeArray<'T>()
 
