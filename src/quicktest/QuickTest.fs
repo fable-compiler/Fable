@@ -98,14 +98,3 @@ printfn "Running quick tests..."
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-open Microsoft.FSharp.Core.CompilerServices
-
-testCase
-    "meh"
-    (fun () ->
-        let c = ListCollector<int>()
-        c.Add(1)
-        let r = c.Close()
-        ignore r
-    )
