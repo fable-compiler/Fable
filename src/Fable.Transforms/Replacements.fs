@@ -1148,6 +1148,8 @@ let tryEntityIdent (com: Compiler) entFullName =
         makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
     | "Microsoft.FSharp.Control.FSharpEvent`1" -> makeImportLib com Any "Event" "Event" |> Some
     | "Microsoft.FSharp.Control.FSharpEvent`2" -> makeImportLib com Any "Event$2" "Event" |> Some
+    | "Microsoft.FSharp.Core.CompilerServices.ListCollector`1" ->
+        makeImportLib com Any "ListCollector$1" "FSharp.Core.CompilerServices" |> Some
     | _ -> None
 
 let tryConstructor com (ent: Entity) =
@@ -4566,6 +4568,7 @@ let private replacedModules =
             "Microsoft.FSharp.Collections.ListModule", listModule
             "Microsoft.FSharp.Collections.HashIdentity", fsharpModule
             "Microsoft.FSharp.Collections.ComparisonIdentity", fsharpModule
+            "Microsoft.FSharp.Core.CompilerServices.ListCollector`1", bclType
             "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqModule
             "Microsoft.FSharp.Collections.SeqModule", seqModule
             Types.keyValuePair, keyValuePairs

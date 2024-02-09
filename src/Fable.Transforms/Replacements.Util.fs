@@ -322,7 +322,6 @@ let (|BuiltinDefinition|_|) =
     | Types.dateOnly -> Some BclDateOnly
     | Types.timeOnly -> Some BclTimeOnly
     | "System.Timers.Timer" -> Some BclTimer
-    | Types.decimal
     | Types.fsharpSet -> Some(FSharpSet(Any))
     | Types.fsharpMap -> Some(FSharpMap(Any, Any))
     | Types.hashset -> Some(BclHashSet(Any))
