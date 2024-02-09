@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     * `Result.ToList`
     * `Result.ToOption`
 
+#### JavaScript
+
+* [GH-3745](https://github.com/fable-compiler/Fable/pull/3745) Add support for `ListCollector` (by @nojaf)
+    * `instance.Add`
+    * `instance.AddMany`
+    * `instance.AddManyAndClose`
+    * `instance.Close`
+
 ### Removed
 
 #### JavaScript
