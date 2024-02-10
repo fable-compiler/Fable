@@ -119,8 +119,11 @@ let makeDecimal com r t (x: decimal) =
 let makeRef (value: Expr) =
     Operation(Unary(UnaryAddressOf, value), Tags.empty, value.Type, None)
 
+let makeClone com r t (expr: Expr) =
+    Helper.InstanceCall(expr, "clone", t, [], ?loc = r)
+
 let getRefCell com r t (expr: Expr) =
-    Helper.InstanceCall(expr, "get", t, [], ?loc = r)
+    Helper.InstanceCall(expr, "get", t, [], ?loc = r) |> makeClone com r t
 
 let setRefCell com r (expr: Expr) (value: Expr) =
     Set(expr, ValueSet, value.Type, value, r)
