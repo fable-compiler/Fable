@@ -7,7 +7,14 @@ open Build.FableLibrary
 open System
 open Build.Workspace
 
-let updateLibraryVersionInFableTransforms (compilerVersion: string) (librariesVersion: {| JavaScript: string |}) =
+let updateLibraryVersionInFableTransforms
+    (compilerVersion: string)
+    (librariesVersion:
+        {|
+            JavaScript: string
+            TypeScript: string
+        |})
+    =
     let filePath = Path.Resolve("src", "Fable.Transforms", "Global", "Compiler.fs")
 
     // Use a mutable variable for simplicity
@@ -93,10 +100,10 @@ let private publishNpm (projectDir: string) =
     else
         printfn $"Already up-to-date, skipping..."
 
-let private updateFableLibraryPackageJsonVersion () =
-    let packageJsonPath = Path.Combine(ProjectDir.fable_library, "package.json")
+let private updateFableLibraryTsPackageJsonVersion () =
+    let packageJsonPath = Path.Combine(ProjectDir.fable_library_ts, "package.json")
     let packageJsonContent = File.ReadAllText(packageJsonPath)
-    let changelogPath = Path.Combine(ProjectDir.fable_library, "CHANGELOG.md")
+    let changelogPath = Path.Combine(ProjectDir.fable_library_ts, "CHANGELOG.md")
 
     let lastChangelogVersion =
         Changelog.getLastVersion changelogPath |> fun v -> v.Version.ToString()
@@ -117,15 +124,13 @@ let handle (args: string list) =
     // Handle the NPM packages
 
     // For fable-library, we use the compiled version of the project for publishing
-    // This i because we want to publish the JavaScript code and not a mix of F# and TypeScript
-    // Disabled because only Alfonso can publish fable-library
-    // I requested to NPM/Github to give me access to the package, still waiting for an answer
-    publishNpm ProjectDir.temp_fable_library
+    // This is because we want to publish the JavaScript code and not a mix of F# and TypeScript
+    publishNpm ProjectDir.temp_fable_library_js
+    publishNpm ProjectDir.temp_fable_library_ts
 
-    // We need also want to update the original package.json if needed
+    // We also want to update the original package.json if needed
     // This is to keep the versions consistent across the project
-    // and also will be used when updating libraries version inside of Fable compiler
-    updateFableLibraryPackageJsonVersion ()
+    updateFableLibraryTsPackageJsonVersion ()
 
     publishNpm ProjectDir.fable_metadata
 
@@ -137,7 +142,10 @@ let handle (args: string list) =
 
     updateLibraryVersionInFableTransforms
         compilerVersion
-        {| JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library |}
+        {|
+            JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_js
+            TypeScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_ts
+        |}
 
     publishNuget ProjectDir.fableAst false
     publishNuget ProjectDir.fableCore false

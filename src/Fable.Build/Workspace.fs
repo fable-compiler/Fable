@@ -12,8 +12,10 @@ module ProjectDir =
     let fableCli = Path.Resolve("src", "Fable.Cli")
     let fablePublishUtils = Path.Resolve("src", "Fable.PublishUtils")
     let fableCompiler = Path.Resolve("src", "Fable.Compiler")
-    let temp_fable_library = Path.Resolve("temp", "fable-library")
-    let fable_library = Path.Resolve("src", "fable-library")
+    let temp_fable_library_js = Path.Resolve("temp", "fable-library-js")
+
+    let temp_fable_library_ts = Path.Resolve("temp", "fable-library-ts")
+    let fable_library_ts = Path.Resolve("src", "fable-library-ts")
     let fable_metadata = Path.Resolve("src", "fable-metadata")
     let fable_standalone = Path.Resolve("src", "fable-standalone")
     let fable_compiler_js = Path.Resolve("src", "fable-compiler-js")
