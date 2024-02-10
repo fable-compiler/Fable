@@ -877,13 +877,23 @@ let tail (array: 'T[]) =
 
     skipImpl array 1
 
-let item index (array: _[]) = array.[index]
+let item (index: int) (array: 'T[]) : 'T =
+    if index < 0 || index >= array.Length then
+        invalidArg "index" "Index was outside the bounds of the array."
+    else
+        // We need to emit JavaScript directly here
+        // otherwise we will call `item` function recursively
+        // and it will cause a stack overflow
+        emitJsExpr (index, array) "$1[$0]"
 
-let tryItem index (array: 'T[]) =
+let tryItem (index: int) (array: 'T[]) : 'T option =
     if index < 0 || index >= array.Length then
         None
     else
-        Some array.[index]
+        // We need to emit JavaScript directly here
+        // otherwise we will call `item` which will
+        // redo the bounds check
+        Some(emitJsExpr (index, array) "$1[$0]")
 
 let foldBackIndexed<'T, 'State> folder (array: 'T[]) (state: 'State) =
     // if isTypedArrayImpl array then
