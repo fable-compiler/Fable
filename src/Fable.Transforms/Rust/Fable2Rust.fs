@@ -362,9 +362,9 @@ module TypeInfo =
     let makeBoxTy com ctx (ty: Rust.Ty) : Rust.Ty =
         [ ty ] |> makeImportType com ctx "Native" "Box"
 
-    // TODO: emit Lazy or SyncLazy depending on threading.
-    let makeLazyTy com ctx (ty: Rust.Ty) : Rust.Ty =
-        [ ty ] |> makeImportType com ctx "Native" "Lazy"
+    // // TODO: emit Lazy or SyncLazy depending on threading.
+    // let makeLazyTy com ctx (ty: Rust.Ty) : Rust.Ty =
+    //     [ ty ] |> makeImportType com ctx "Native" "Lazy"
 
     // TODO: emit MutCell or AtomicCell depending on threading.
     let makeMutTy com ctx (ty: Rust.Ty) : Rust.Ty =
@@ -1011,7 +1011,7 @@ module TypeInfo =
 
     let transformGenericParamType com ctx name isMeasure : Rust.Ty =
         if isInferredGenericParam com ctx name isMeasure then
-            mkInferTy () // makeAnyTy com ctx
+            mkInferTy () // mnNeverTy com ctx
         else
             primitiveType name
 
@@ -1494,14 +1494,7 @@ module Util =
             makeLibCall com ctx None "Seq" "ofArray" [ ar ]
 
         // casts to generic param
-        | _, Fable.GenericParam(name, _isMeasure, _constraints) ->
-            makeCall
-                [
-                    name
-                    "from"
-                ]
-                None
-                [ expr ] // e.g. T::from(value)
+        | _, Fable.GenericParam(name, _isMeasure, _constraints) -> makeCall (name :: "from" :: []) None [ expr ] // e.g. T::from(value)
 
         // casts to IDictionary, for now does nothing // TODO: fix it
         | Replacements.Util.IsEntity (Types.dictionary) _, Replacements.Util.IsEntity (Types.idictionary) _ -> expr
@@ -1533,41 +1526,37 @@ module Util =
         let callee = mkGenericPathExpr pathNames genArgs
         mkCallExpr callee args
 
-    let makeNew com ctx moduleName typeName (value: Rust.Expr) =
+    let makeNew com ctx moduleName typeName (values: Rust.Expr list) =
         let importName = getLibraryImportName com ctx moduleName typeName
-
-        makeCall
-            [
-                importName
-                "new"
-            ]
-            None
-            [ value ]
+        makeCall (importName :: "new" :: []) None values
 
     // let makeFrom com ctx moduleName typeName (value: Rust.Expr) =
     //     let importName = getLibraryImportName com ctx moduleName typeName
     //     makeCall [importName; "from"] None [value]
 
     let makeFluentValue com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "Native" "fromFluent" [ value ]
+        [ value ] |> makeLibCall com ctx None "Native" "fromFluent"
 
     let makeLrcPtrValue com ctx (value: Rust.Expr) =
-        value |> makeNew com ctx "Native" "LrcPtr"
+        [ value ] |> makeNew com ctx "Native" "LrcPtr"
 
     // let makeLrcValue com ctx (value: Rust.Expr) =
-    //     value |> makeNew com ctx "Native" "Lrc"
+    //     [ value ] |> makeNew com ctx "Native" "Lrc"
 
-    let makeRcValue com ctx (value: Rust.Expr) = value |> makeNew com ctx "Native" "Rc"
+    let makeRcValue com ctx (value: Rust.Expr) =
+        [ value ] |> makeNew com ctx "Native" "Rc"
 
-    let makeArcValue com ctx (value: Rust.Expr) = value |> makeNew com ctx "Native" "Arc"
+    let makeArcValue com ctx (value: Rust.Expr) =
+        [ value ] |> makeNew com ctx "Native" "Arc"
 
-    let makeBoxValue com ctx (value: Rust.Expr) = value |> makeNew com ctx "Native" "Box"
+    let makeBoxValue com ctx (value: Rust.Expr) =
+        [ value ] |> makeNew com ctx "Native" "Box"
 
     let makeMutValue com ctx (value: Rust.Expr) =
-        value |> makeNew com ctx "Native" "MutCell"
+        [ value ] |> makeNew com ctx "Native" "MutCell"
 
-    let makeLazyValue com ctx (value: Rust.Expr) =
-        value |> makeNew com ctx "Native" "Lazy"
+    // let makeLazyValue com ctx (value: Rust.Expr) =
+    //     [ value ] |> makeNew com ctx "Native" "Lazy"
 
     let makeFuncValue com ctx (ident: Fable.Ident) =
         let argTypes =
@@ -1585,13 +1574,7 @@ module Util =
         let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
         let expr = transformIdent com ctx None ident
 
-        makeCall
-            [
-                funcWrap
-                "from"
-            ]
-            None
-            [ expr ]
+        makeCall (funcWrap :: "from" :: []) None [ expr ]
 
     let maybeWrapSmartPtr com ctx ent expr =
         match ent with
@@ -2432,7 +2415,8 @@ module Util =
                     let callee = transformCallee com ctx calleeExpr
                     mkCallExpr callee args
 
-    let mutableGet expr = mkMethodCallExpr "get" None expr []
+    let mutableGet expr =
+        mkMethodCallExpr "get" None expr [] |> makeClone
 
     let mutableGetMut expr = mkMethodCallExpr "get_mut" None expr []
 
@@ -3978,14 +3962,13 @@ module Util =
     let transformModuleLetValue (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         // expected output:
         // pub fn value() -> T {
-        //     static value: MutCell<Option<T>> = MutCell::new(None);
-        //     value.get_or_init(|| initValue)
+        //     static value: OnceInit<T> = OnceInit::new();
+        //     value.get_or_init(|| initValue).clone()
         // }
         let name = splitLast decl.Name
         let typ = decl.Body.Type
 
-        let initNone = mkGenericPathExpr [ rawIdent "None" ] None |> makeMutValue com ctx
-
+        let initNone = makeNew com ctx "Native" "OnceInit" []
         let value = transformLeaveContext com ctx None decl.Body
 
         let value =
@@ -4002,8 +3985,7 @@ module Util =
             else
                 ty
 
-        let staticTy = ty |> makeOptionTy |> makeMutTy com ctx
-
+        let staticTy = [ ty ] |> makeImportType com ctx "Native" "OnceInit"
         let staticStmt = mkStaticItem [] name staticTy (Some initNone) |> mkItemStmt
 
         let callee = com.TransformExpr(ctx, makeIdentExpr name)
@@ -4013,7 +3995,9 @@ module Util =
             mkClosureExpr false fnDecl value
 
         let valueStmt =
-            mkMethodCallExpr "get_or_init" None callee [ closureExpr ] |> mkExprStmt
+            mkMethodCallExpr "get_or_init" None callee [ closureExpr ]
+            |> makeClone
+            |> mkExprStmt
 
         let attrs = transformAttributes com ctx memb.Attributes
 
@@ -4372,7 +4356,10 @@ module Util =
         let traitItem =
             let assocItems = makeInterfaceItems com ctx false ent
             let generics = makeGenerics com ctx genArgs
-            mkTraitItem [] entName assocItems [] generics
+            // let sendBound = mkTypeTraitGenericBound [ rawIdent "Send" ] None
+            // let syncBound = mkTypeTraitGenericBound [ rawIdent "Sync" ] None
+            let traitBounds = [] // [ sendBound; syncBound ]
+            mkTraitItem [] entName assocItems traitBounds generics
 
         let implItem =
             let memberItems = makeInterfaceItems com ctx true ent

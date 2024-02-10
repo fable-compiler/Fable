@@ -579,8 +579,6 @@ module Helpers =
             | Fable.Any -> true
             | _ -> false
 
-    let index = (Seq.initInfinite id).GetEnumerator()
-
     let removeNamespace (fullName: string) =
         fullName.Split('.')
         |> Array.last
@@ -588,8 +586,7 @@ module Helpers =
         |> Helpers.clean
 
     let getUniqueIdentifier (name: string) : Identifier =
-        do index.MoveNext() |> ignore
-        let idx = index.Current.ToString()
+        let idx = Naming.getUniqueIndex ()
 
         let deliminator =
             if Char.IsLower name[0] then

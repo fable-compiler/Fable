@@ -1058,6 +1058,8 @@ module Types =
 
     let mkInferTy () : Ty = TyKind.Infer |> mkTy
 
+    let mkNeverTy () : Ty = TyKind.Never |> mkTy
+
     let mkImplSelfTy () : Ty = TyKind.ImplicitSelf |> mkTy
 
     let mkTraitTy bounds : Ty =
