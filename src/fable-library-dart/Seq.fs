@@ -282,12 +282,7 @@ let toList (xs: seq<'T>) : 'T list =
 // let inline generateUsing (openf: unit -> ('U :> IDisposable)) compute =
 //     generate openf compute (fun (s: 'U) -> s.Dispose())
 
-let append (xs: seq<'T>) (ys: seq<'T>) =
-    concat
-        [|
-            xs
-            ys
-        |]
+let append (xs: seq<'T>) (ys: seq<'T>) = concat [| xs; ys |]
 
 //let cast (xs: Collections.IEnumerable) =
 //    mkSeq (fun () ->
@@ -898,11 +893,7 @@ let scan<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'
                 acc
             )
 
-        [|
-            first
-            rest
-        |]
-        |> concat
+        [| first; rest |] |> concat
     )
 
 let scanBack<'T, 'State> (folder: 'T -> 'State -> 'State) (xs: seq<'T>) (state: 'State) : seq<'State> =

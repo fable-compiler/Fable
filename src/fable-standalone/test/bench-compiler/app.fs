@@ -372,14 +372,7 @@ let run opts projectFileName outDir =
 
     let options =
         {
-            outDir =
-                opts
-                |> argValue
-                    [
-                        "--outDir"
-                        "-o"
-                    ]
-                |> Option.orElse outDir
+            outDir = opts |> argValue [ "--outDir"; "-o" ] |> Option.orElse outDir
             libDir = opts |> argValue [ "--fableLib" ]
             benchmark = opts |> hasFlag "--benchmark"
             optimize = opts |> hasFlag "--optimize"
@@ -387,11 +380,7 @@ let run opts projectFileName outDir =
             typedArrays = opts |> tryFlag "--typedArrays"
             language =
                 opts
-                |> argValue
-                    [
-                        "--language"
-                        "--lang"
-                    ]
+                |> argValue [ "--language"; "--lang" ]
                 |> Option.map (fun _ -> "TypeScript")
                 |> Option.defaultValue "JavaScript"
             printAst = opts |> hasFlag "--printAst"

@@ -1229,19 +1229,7 @@ module Patterns =
                 && t2.TypeDefinition.CompiledName = "obj"
                 && comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityComparer"
                 ->
-                Some(
-                    memb,
-                    Some comp,
-                    "GenericEquality",
-                    [
-                        e1.Type
-                        e2.Type
-                    ],
-                    [
-                        e1
-                        e2
-                    ]
-                )
+                Some(memb, Some comp, "GenericEquality", [ e1.Type; e2.Type ], [ e1; e2 ])
             | _ -> None
         else
             None

@@ -50,13 +50,7 @@ module Naming =
     let unknown = "UNKNOWN"
 
     let isInFableModules (file: string) =
-        file.Split(
-            [|
-                '\\'
-                '/'
-            |]
-        )
-        |> Array.exists ((=) fableModules)
+        file.Split([| '\\'; '/' |]) |> Array.exists ((=) fableModules)
 
     let isIdentChar index (c: char) =
         let code = int c

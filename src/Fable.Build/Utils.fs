@@ -15,16 +15,7 @@ type Path =
     /// Resolve a path relative to the repository root
     /// </summary>
     static member Resolve([<ParamArray>] segments: string array) : string =
-        let paths =
-            Array.concat
-                [
-                    [|
-                        __SOURCE_DIRECTORY__
-                        ".."
-                        ".."
-                    |]
-                    segments
-                ]
+        let paths = Array.concat [ [| __SOURCE_DIRECTORY__; ".."; ".." |]; segments ]
 
         // Use GetFullPath to clean the path
         Path.GetFullPath(Path.Combine(paths))

@@ -360,12 +360,7 @@ module Transform =
     let fromSymbols (symbols: Symbols list) = parse symbols Changelog.Empty
 
 let parse (changelogContent: string) =
-    changelogContent.Split(
-        [|
-            '\r'
-            '\n'
-        |]
-    )
+    changelogContent.Split([| '\r'; '\n' |])
     |> Array.toList
     |> Lexer.toSymbols
     |> Transform.fromSymbols

@@ -55,11 +55,7 @@ let makeLongInt com r t signed (x: uint64) =
     let unsigned = BoolConstant(not signed)
 
     let args =
-        [
-            makeValue None lowBits
-            makeValue None highBits
-            makeValue None unsigned
-        ]
+        [ makeValue None lowBits; makeValue None highBits; makeValue None unsigned ]
 
     Helper.LibCall(com, "Long", "fromBits", t, args, ?loc = r)
 
@@ -445,32 +441,11 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         | _ ->
             let fn = makeEqualityFunction com ctx t
 
-            Helper.LibCall(
-                com,
-                "Util",
-                "equalsList",
-                Boolean,
-                [
-                    left
-                    right
-                    fn
-                ],
-                ?loc = r
-            )
+            Helper.LibCall(com, "Util", "equalsList", Boolean, [ left; right; fn ], ?loc = r)
             |> is equal
     | Any
     | GenericParam _ ->
-        Helper.LibCall(
-            com,
-            "Util",
-            "equalsDynamic",
-            Boolean,
-            [
-                left
-                right
-            ],
-            ?loc = r
-        )
+        Helper.LibCall(com, "Util", "equalsDynamic", Boolean, [ left; right ], ?loc = r)
         |> is equal
     | _ ->
         if equal then
@@ -487,58 +462,14 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Array(t, _) ->
         let fn = makeComparerFunction com ctx t
 
-        Helper.LibCall(
-            com,
-            "Util",
-            "compareList",
-            t,
-            [
-                left
-                right
-                fn
-            ],
-            ?loc = r
-        )
+        Helper.LibCall(com, "Util", "compareList", t, [ left; right; fn ], ?loc = r)
     | Option(t, _) ->
         let fn = makeComparerFunction com ctx t
 
-        Helper.LibCall(
-            com,
-            "Util",
-            "compareNullable",
-            t,
-            [
-                left
-                right
-                fn
-            ],
-            ?loc = r
-        )
-    | Boolean ->
-        Helper.LibCall(
-            com,
-            "Util",
-            "compareBool",
-            t,
-            [
-                left
-                right
-            ],
-            ?loc = r
-        )
+        Helper.LibCall(com, "Util", "compareNullable", t, [ left; right; fn ], ?loc = r)
+    | Boolean -> Helper.LibCall(com, "Util", "compareBool", t, [ left; right ], ?loc = r)
     | Any
-    | GenericParam _ ->
-        Helper.LibCall(
-            com,
-            "Util",
-            "compareDynamic",
-            t,
-            [
-                left
-                right
-            ],
-            ?loc = r
-        )
+    | GenericParam _ -> Helper.LibCall(com, "Util", "compareDynamic", t, [ left; right ], ?loc = r)
     | _ -> Helper.InstanceCall(left, "compareTo", t, [ right ], ?loc = r)
 
 /// Boolean comparison operators like <, >, <=, >=
@@ -554,15 +485,7 @@ and makeComparerFunction (com: ICompiler) ctx typArg =
     let y = makeTypedIdent typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
 
-    Delegate(
-        [
-            x
-            y
-        ],
-        body,
-        None,
-        Tags.empty
-    )
+    Delegate([ x; y ], body, None, Tags.empty)
 
 and makeComparer (com: ICompiler) ctx typArg =
     Helper.LibCall(com, "Types", "Comparer", Any, [ makeComparerFunction com ctx typArg ])
@@ -572,15 +495,7 @@ and makeEqualityFunction (com: ICompiler) ctx typArg =
     let y = makeTypedIdent typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
 
-    Delegate(
-        [
-            x
-            y
-        ],
-        body,
-        None,
-        Tags.empty
-    )
+    Delegate([ x; y ], body, None, Tags.empty)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeTypedIdent typArg "x"
@@ -592,15 +507,7 @@ let makeEqualityComparer (com: ICompiler) ctx typArg =
         "EqualityComparer",
         Any,
         [
-            Delegate(
-                [
-                    x
-                    y
-                ],
-                equals com ctx None true (IdentExpr x) (IdentExpr y),
-                None,
-                Tags.empty
-            )
+            Delegate([ x; y ], equals com ctx None true (IdentExpr x) (IdentExpr y), None, Tags.empty)
             Delegate([ x ], structuralHash com None (IdentExpr x), None, Tags.empty)
         ]
     )
@@ -645,11 +552,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclGuid -> emptyGuid ()
     | Builtin(FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] [ genArg ]
     | Builtin(BclKeyValuePair(k, v)) ->
-        let args =
-            [
-                getZero com ctx k
-                getZero com ctx v
-            ]
+        let args = [ getZero com ctx k; getZero com ctx v ]
 
         Helper.ConstructorCall(makeIdentExpr "MapEntry", t, args)
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
@@ -668,27 +571,9 @@ let makeAddFunction (com: ICompiler) ctx t =
     let x = makeTypedIdent t "x"
     let y = makeTypedIdent t "y"
 
-    let body =
-        applyOp
-            com
-            ctx
-            None
-            t
-            Operators.addition
-            [
-                IdentExpr x
-                IdentExpr y
-            ]
+    let body = applyOp com ctx None t Operators.addition [ IdentExpr x; IdentExpr y ]
 
-    Delegate(
-        [
-            x
-            y
-        ],
-        body,
-        None,
-        Tags.empty
-    )
+    Delegate([ x; y ], body, None, Tags.empty)
 
 let makeGenericAdder (com: ICompiler) ctx t =
     Helper.LibCall(
@@ -696,10 +581,7 @@ let makeGenericAdder (com: ICompiler) ctx t =
         "Types",
         "GenericAdder",
         Any,
-        [
-            getZero com ctx t |> makeDelegate []
-            makeAddFunction com ctx t
-        ]
+        [ getZero com ctx t |> makeDelegate []; makeAddFunction com ctx t ]
     )
 
 let makeGenericAverager (com: ICompiler) ctx t =
@@ -707,38 +589,16 @@ let makeGenericAverager (com: ICompiler) ctx t =
         let x = makeTypedIdent t "x"
         let i = makeTypedIdent Int32.Number "i"
 
-        let body =
-            applyOp
-                com
-                ctx
-                None
-                t
-                Operators.divideByInt
-                [
-                    IdentExpr x
-                    IdentExpr i
-                ]
+        let body = applyOp com ctx None t Operators.divideByInt [ IdentExpr x; IdentExpr i ]
 
-        Delegate(
-            [
-                x
-                i
-            ],
-            body,
-            None,
-            Tags.empty
-        )
+        Delegate([ x; i ], body, None, Tags.empty)
 
     Helper.LibCall(
         com,
         "Types",
         "GenericAverager",
         Any,
-        [
-            getZero com ctx t |> makeDelegate []
-            makeAddFunction com ctx t
-            divideFn
-        ]
+        [ getZero com ctx t |> makeDelegate []; makeAddFunction com ctx t; divideFn ]
     )
 
 let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Type list) args =
@@ -918,14 +778,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
 
         Delegate([ v ], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
 
-    makeRefCell
-        com
-        r
-        t
-        [
-            getter
-            setter
-        ]
+    makeRefCell com r t [ getter; setter ]
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
@@ -936,14 +789,7 @@ let makeRefFromMutableField com ctx r t callee key =
 
         Delegate([ v ], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
 
-    makeRefCell
-        com
-        r
-        t
-        [
-            getter
-            setter
-        ]
+    makeRefCell com r t [ getter; setter ]
 
 // Not sure if this is needed in Dart, see comment in JS.Replacements.makeRefFromMutableFunc
 let makeRefFromMutableFunc com ctx r t (value: Expr) =
@@ -955,32 +801,14 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
     let setter =
         let v = makeUniqueIdent ctx t "v"
 
-        let args =
-            [
-                IdentExpr v
-                makeBoolConst true
-            ]
+        let args = [ IdentExpr v; makeBoolConst true ]
 
-        let info =
-            makeCallInfo
-                None
-                args
-                [
-                    t
-                    Boolean
-                ]
+        let info = makeCallInfo None args [ t; Boolean ]
 
         let value = makeCall r Unit info value
         Delegate([ v ], value, None, Tags.empty)
 
-    makeRefCell
-        com
-        r
-        t
-        [
-            getter
-            setter
-        ]
+    makeRefCell com r t [ getter; setter ]
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1102,29 +930,10 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
       _,
       _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str :: (Value(NewArray(ArrayValues templateArgs, _, MutableArray), _) as values) :: _ ->
-        match
-            makeStringTemplateFrom
-                [|
-                    "%s"
-                    "%i"
-                |]
-                templateArgs
-                str
-        with
+        match makeStringTemplateFrom [| "%s"; "%i" |] templateArgs str with
         | Some v -> makeValue r v |> Some
         | None ->
-            Helper.LibCall(
-                com,
-                "String",
-                "interpolate",
-                t,
-                [
-                    str
-                    values
-                ],
-                i.SignatureArgTypes,
-                ?loc = r
-            )
+            Helper.LibCall(com, "String", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
             |> Some
     | ".ctor", _, arg :: _ ->
         Helper.LibCall(com, "String", "printf", t, [ arg ], i.SignatureArgTypes, ?loc = r)
@@ -1138,17 +947,7 @@ let defaultValue com ctx r t defValue option =
         | Some value -> Some value
         | None -> Some defValue
     | _ ->
-        Helper.LibCall(
-            com,
-            "Option",
-            "defaultValue",
-            t,
-            [
-                defValue
-                option
-            ],
-            ?loc = r
-        )
+        Helper.LibCall(com, "Option", "defaultValue", t, [ defValue; option ], ?loc = r)
         |> Some
 
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1187,12 +986,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
         let addStep args =
             match args with
-            | [ first; last ] ->
-                [
-                    first
-                    getOne com ctx genArg
-                    last
-                ]
+            | [ first; last ] -> [ first; getOne com ctx genArg; last ]
             | _ -> args
 
         let modul, meth, args =
@@ -1208,28 +1002,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "op_PipeRight", [ x; f ]
     | "op_PipeLeft", [ f; x ] -> curriedApply r t f [ x ] |> Some
     | "op_PipeRight2", [ x; y; f ]
-    | "op_PipeLeft2", [ f; x; y ] ->
-        curriedApply
-            r
-            t
-            f
-            [
-                x
-                y
-            ]
-        |> Some
+    | "op_PipeLeft2", [ f; x; y ] -> curriedApply r t f [ x; y ] |> Some
     | "op_PipeRight3", [ x; y; z; f ]
-    | "op_PipeLeft3", [ f; x; y; z ] ->
-        curriedApply
-            r
-            t
-            f
-            [
-                x
-                y
-                z
-            ]
-        |> Some
+    | "op_PipeLeft3", [ f; x; y; z ] -> curriedApply r t f [ x; y; z ] |> Some
     | "op_ComposeRight", [ f1; f2 ] -> compose com ctx r t f1 f2 |> Some
     | "op_ComposeLeft", [ f2; f1 ] -> compose com ctx r t f1 f2 |> Some
     // Strings
@@ -1539,10 +1314,7 @@ let getEnumerator (_com: ICompiler) r t expr = getFieldWith r t expr "iterator"
 let toStartEndIndices startIndex count =
     let endIndex = makeBinOp None Int32.Number startIndex count BinaryPlus
 
-    [
-        startIndex
-        endIndex
-    ]
+    [ startIndex; endIndex ]
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1553,18 +1325,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             | [ char; count ] -> // String(char, int)
                 let str = Helper.GlobalCall("String", t, [ char ], memb = "fromCharCode")
 
-                Helper.LibCall(
-                    com,
-                    "String",
-                    "replicate",
-                    t,
-                    [
-                        count
-                        str
-                    ],
-                    ?loc = r
-                )
-                |> Some
+                Helper.LibCall(com, "String", "replicate", t, [ count; str ], ?loc = r) |> Some
             | _ ->
                 "Unexpected arguments in System.String constructor."
                 |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1605,17 +1366,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Equals", Some x, [ y; kind ]
     | "Equals", None, [ x; y; kind ] ->
         let left =
-            Helper.LibCall(
-                com,
-                "String",
-                "compareWith",
-                Int32.Number,
-                [
-                    x
-                    y
-                    kind
-                ]
-            )
+            Helper.LibCall(com, "String", "compareWith", Int32.Number, [ x; y; kind ])
 
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
@@ -1704,12 +1455,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
             let args =
                 match restArgs with
-                | [ ExprType(Number(_, NumberInfo.IsEnum _)) as options ] ->
-                    [
-                        arg1
-                        Value(Null Any, None)
-                        options
-                    ]
+                | [ ExprType(Number(_, NumberInfo.IsEnum _)) as options ] -> [ arg1; Value(Null Any, None); options ]
                 | _ -> arg1 :: restArgs
 
             Helper.LibCall(com, "String", meth, t, args, ?thisArg = thisArg, ?loc = r)
@@ -1734,19 +1480,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
         Helper.InstanceCall(arg, "join", t, [ makeStrConst "" ], ?loc = r) |> Some
     | "CompareOrdinal", None, [ x; y ]
-    | "CompareTo", Some x, [ y ] ->
-        Helper.LibCall(
-            com,
-            "String",
-            "compare",
-            t,
-            [
-                x
-                y
-            ],
-            ?loc = r
-        )
-        |> Some
+    | "CompareTo", Some x, [ y ] -> Helper.LibCall(com, "String", "compare", t, [ x; y ], ?loc = r) |> Some
     | "Compare", None, args ->
         let meth =
             match args with
@@ -1877,10 +1611,7 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
             "Event",
             "createEvent",
             t,
-            [
-                addHandler
-                removeHandler
-            ],
+            [ addHandler; removeHandler ],
             i.SignatureArgTypes,
             genArgs = i.GenericArgs,
             ?loc = r
@@ -1926,18 +1657,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Clear", Some ar, [] -> Helper.InstanceCall(ar, "clear", t, [], ?loc = r) |> Some
     | "Remove", Some ar, [ arg ] -> Helper.InstanceCall(ar, "remove", t, [ arg ], ?loc = r) |> Some
     | "RemoveAll", Some ar, [ arg ] ->
-        Helper.LibCall(
-            com,
-            "Array",
-            "removeAllInPlace",
-            t,
-            [
-                arg
-                ar
-            ],
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "Array", "removeAllInPlace", t, [ arg; ar ], genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | "FindIndex", Some ar, [ arg ] -> Helper.InstanceCall(ar, "indexWhere", t, [ arg ], ?loc = r) |> Some
     | "FindLastIndex", Some ar, [ arg ] -> Helper.InstanceCall(ar, "lastIndexWhere", t, [ arg ], ?loc = r) |> Some
@@ -1945,19 +1665,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too.
     | "get_Count", Some ar, _ -> getLength ar |> Some
-    | "ConvertAll", Some ar, [ arg ] ->
-        Helper.LibCall(
-            com,
-            "Array",
-            "map",
-            t,
-            [
-                arg
-                ar
-            ],
-            ?loc = r
-        )
-        |> Some
+    | "ConvertAll", Some ar, [ arg ] -> Helper.LibCall(com, "Array", "map", t, [ arg; ar ], ?loc = r) |> Some
     | "Exists", Some ar, [ arg ] -> Helper.InstanceCall(ar, "any", t, [ arg ], ?loc = r) |> Some
     | "Contains", Some ar, [ arg ] -> Helper.InstanceCall(ar, "contains", t, [ arg ], ?loc = r) |> Some
     // Find/FindLast don't work because we cannot provide a default value for ref types with null safety in Dart
@@ -1968,73 +1676,17 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     //        let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
     //        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx r t], ?loc=r) |> Some
     | "FindAll", Some ar, [ arg ] ->
-        Helper.LibCall(
-            com,
-            "Array",
-            "filter",
-            t,
-            [
-                arg
-                ar
-            ],
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "Array", "filter", t, [ arg; ar ], genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | "AddRange", Some ar, [ arg ] ->
-        Helper.LibCall(
-            com,
-            "Array",
-            "addRangeInPlace",
-            t,
-            [
-                arg
-                ar
-            ],
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "Array", "addRangeInPlace", t, [ arg; ar ], genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | "GetRange", Some ar, [ idx; cnt ] ->
-        Helper.LibCall(
-            com,
-            "Array",
-            "getSubArray",
-            t,
-            [
-                ar
-                idx
-                cnt
-            ],
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "Array", "getSubArray", t, [ ar; idx; cnt ], genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | "IndexOf", Some ar, args -> Helper.InstanceCall(ar, "indexOf", t, args, ?loc = r) |> Some
-    | "Insert", Some ar, [ idx; arg ] ->
-        Helper.InstanceCall(
-            ar,
-            "insert",
-            t,
-            [
-                idx
-                arg
-            ],
-            ?loc = r
-        )
-        |> Some
-    | "InsertRange", Some ar, [ idx; arg ] ->
-        Helper.InstanceCall(
-            ar,
-            "insertAll",
-            t,
-            [
-                idx
-                arg
-            ],
-            ?loc = r
-        )
-        |> Some
+    | "Insert", Some ar, [ idx; arg ] -> Helper.InstanceCall(ar, "insert", t, [ idx; arg ], ?loc = r) |> Some
+    | "InsertRange", Some ar, [ idx; arg ] -> Helper.InstanceCall(ar, "insertAll", t, [ idx; arg ], ?loc = r) |> Some
     | "RemoveRange", Some ar, [ startIdx; count ] ->
         Helper.InstanceCall(ar, "removeRange", t, toStartEndIndices startIdx count, ?loc = r)
         |> Some
@@ -2046,18 +1698,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.InstanceCall(ar, "sort", t, [ compareFn ], ?loc = r) |> Some
     | "Sort", Some ar, [ ExprType(DelegateType _) ] -> Helper.InstanceCall(ar, "sort", t, args, ?loc = r) |> Some
     | "Sort", Some ar, [ arg ] ->
-        Helper.LibCall(
-            com,
-            "Array",
-            "sortInPlace",
-            t,
-            [
-                ar
-                arg
-            ],
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "Array", "sortInPlace", t, [ ar; arg ], genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | "ToArray", Some ar, [] -> Helper.InstanceCall(ar, "sublist", t, [ makeIntConst 0 ], ?loc = r) |> Some
     | _ -> None
@@ -2073,31 +1714,9 @@ let collectionExtensions
     =
     match i.CompiledName, thisArg, args with
     | "AddRange", None, [ ar; arg ] ->
-        Helper.LibCall(
-            com,
-            "Array",
-            "addRangeInPlace",
-            t,
-            [
-                arg
-                ar
-            ],
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "Array", "addRangeInPlace", t, [ arg; ar ], genArgs = i.GenericArgs, ?loc = r)
         |> Some
-    | "InsertRange", None, [ ar; idx; arg ] ->
-        Helper.InstanceCall(
-            ar,
-            "insertAll",
-            t,
-            [
-                idx
-                arg
-            ],
-            ?loc = r
-        )
-        |> Some
+    | "InsertRange", None, [ ar; idx; arg ] -> Helper.InstanceCall(ar, "insertAll", t, [ idx; arg ], ?loc = r) |> Some
     | _ -> None
 
 let readOnlySpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2142,31 +1761,9 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
     | "Copy", None, [ source; target; count ] ->
-        copyToArray
-            com
-            r
-            t
-            i
-            [
-                source
-                makeIntConst 0
-                target
-                makeIntConst 0
-                count
-            ]
+        copyToArray com r t i [ source; makeIntConst 0; target; makeIntConst 0; count ]
     | "ConvertAll", None, [ source; mapping ] ->
-        Helper.LibCall(
-            com,
-            "Array",
-            "map",
-            t,
-            [
-                mapping
-                source
-            ],
-            ?loc = r
-        )
-        |> Some
+        Helper.LibCall(com, "Array", "map", t, [ mapping; source ], ?loc = r) |> Some
     | "IndexOf", None, args ->
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
@@ -2190,16 +1787,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "ZeroCreate", [ count ] ->
         let defValue = genArg com ctx r 0 i.GenericArgs |> getZero com ctx
 
-        Helper.GlobalCall(
-            "List",
-            t,
-            [
-                count
-                defValue
-            ],
-            memb = "filled",
-            ?loc = r
-        )
+        Helper.GlobalCall("List", t, [ count; defValue ], memb = "filled", ?loc = r)
         |> Some
     | "Create", _ -> Helper.GlobalCall("List", t, args, memb = "filled", ?loc = r) |> Some
     | "Singleton", [ value ] ->
@@ -2438,12 +2026,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             if isFloatOrDecimal then
                 [ str ] @ outValue
             else
-                [
-                    str
-                    makeIntConst style
-                    makeBoolConst unsigned
-                    makeIntConst bitsize
-                ]
+                [ str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
                 @ outValue
 
         Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc = r)
@@ -2531,14 +2114,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             "String",
             "format",
             t,
-            [
-                format
-                thisArg.Value
-            ],
-            [
-                format.Type
-                thisArg.Value.Type
-            ],
+            [ format; thisArg.Value ],
+            [ format.Type; thisArg.Value.Type ],
             ?loc = r
         )
         |> Some
@@ -2614,14 +2191,8 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             "String",
             "format",
             t,
-            [
-                format
-                thisArg.Value
-            ],
-            [
-                format.Type
-                thisArg.Value.Type
-            ],
+            [ format; thisArg.Value ],
+            [ format.Type; thisArg.Value.Type ],
             ?loc = r
         )
         |> Some
@@ -2732,18 +2303,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [ left; right ] -> compare com ctx r left right |> Some
     | ("FastCompareTuple2" | "FastCompareTuple3" | "FastCompareTuple4" | "FastCompareTuple5" | "GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"),
       [ comp; left; right ] ->
-        Helper.InstanceCall(
-            comp,
-            "Compare",
-            t,
-            [
-                left
-                right
-            ],
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.InstanceCall(comp, "Compare", t, [ left; right ], i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | ("GenericLessThan" | "GenericLessThanIntrinsic"), [ left; right ] ->
         booleanCompare com ctx r left right BinaryLess |> Some
@@ -2759,18 +2319,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         equals com ctx r true left right |> Some
     | ("FastEqualsTuple2" | "FastEqualsTuple3" | "FastEqualsTuple4" | "FastEqualsTuple5" | "GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"),
       [ comp; left; right ] ->
-        Helper.InstanceCall(
-            comp,
-            "Equals",
-            t,
-            [
-                left
-                right
-            ],
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.InstanceCall(comp, "Equals", t, [ left; right ], i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] -> makeEqOp r left right BinaryEqual |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] ->
@@ -2803,11 +2352,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
             | Value(NewOption(None, _, _), _) -> [ lower ]
             | Value(NewOption(Some upper, _, _), _)
             // Upper index is inclusive in F# but exclusive in Dart
-            | upper ->
-                [
-                    lower
-                    add upper (makeIntConst 1)
-                ]
+            | upper -> [ lower; add upper (makeIntConst 1) ]
 
         let meth =
             if meth = "GetStringSlice" then
@@ -2895,18 +2440,7 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | ([] | [ Number _ ]), _ -> Helper.GlobalCall("Map", t, [], genArgs = i.GenericArgs, ?loc = r) |> Some
         | [ IDictionary ], [ arg ] -> Helper.GlobalCall("Map", t, [ arg ], memb = "of", ?loc = r) |> Some
         | [ IDictionary; IEqualityComparer ], [ arg; eqComp ] ->
-            Helper.LibCall(
-                com,
-                "Types",
-                "mapWith",
-                t,
-                [
-                    eqComp
-                    arg
-                ],
-                ?loc = r
-            )
-            |> Some
+            Helper.LibCall(com, "Types", "mapWith", t, [ eqComp; arg ], ?loc = r) |> Some
         | [ IEqualityComparer ], [ eqComp ]
         | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
             Helper.LibCall(com, "Types", "mapWith", t, [ eqComp ], genArgs = i.GenericArgs, ?loc = r)
@@ -2962,18 +2496,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | [], _ -> Helper.GlobalCall("Set", t, [], genArgs = i.GenericArgs, ?loc = r) |> Some
         | [ IEnumerable ], [ arg ] -> Helper.GlobalCall("Set", t, [ arg ], memb = "of", ?loc = r) |> Some
         | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] ->
-            Helper.LibCall(
-                com,
-                "Types",
-                "setWith",
-                t,
-                [
-                    eqComp
-                    arg
-                ],
-                ?loc = r
-            )
-            |> Some
+            Helper.LibCall(com, "Types", "setWith", t, [ eqComp; arg ], ?loc = r) |> Some
         | [ IEqualityComparer ], [ eqComp ] -> Helper.LibCall(com, "Types", "setWith", t, [ eqComp ], ?loc = r) |> Some
         | _ -> None
     // Const are read-only but I'm not sure how to detect this in runtime
@@ -3017,17 +2540,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
-    | "ReferenceEquals", _, [ left; right ] ->
-        Helper.GlobalCall(
-            "identical",
-            t,
-            [
-                left
-                right
-            ],
-            ?loc = r
-        )
-        |> Some
+    | "ReferenceEquals", _, [ left; right ] -> Helper.GlobalCall("identical", t, [ left; right ], ?loc = r) |> Some
     | "Equals", Some arg1, [ arg2 ]
     | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
@@ -3050,17 +2563,7 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | "Hash", [ arg ] -> structuralHash com r arg |> Some
     | "Equals", [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
     | "Compare", [ arg1; arg2 ] ->
-        Helper.LibCall(
-            com,
-            "Util",
-            "compareDynamic",
-            t,
-            [
-                arg1
-                arg2
-            ],
-            ?loc = r
-        )
+        Helper.LibCall(com, "Util", "compareDynamic", t, [ arg1; arg2 ], ?loc = r)
         |> Some
     | _ -> None
 
@@ -3226,19 +2729,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
             match args.Length, last.Type with
             | 7, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
-                let args =
-                    (List.take 6 args)
-                    @ [
-                        makeIntConst 0
-                        last
-                    ]
+                let args = (List.take 6 args) @ [ makeIntConst 0; last ]
 
-                let argTypes =
-                    (List.take 6 i.SignatureArgTypes)
-                    @ [
-                        Int32.Number
-                        last.Type
-                    ]
+                let argTypes = (List.take 6 i.SignatureArgTypes) @ [ Int32.Number; last.Type ]
 
                 Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc = r) |> Some
             | _ -> Helper.LibCall(com, moduleName, "create", t, args, ?loc = r) |> Some
@@ -3280,17 +2773,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "get_DateTime" ->
         let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
 
-        Helper.LibCall(
-            com,
-            "Date",
-            "fromDateTimeOffset",
-            t,
-            [
-                thisArg.Value
-                kind
-            ],
-            ?loc = r
-        )
+        Helper.LibCall(com, "Date", "fromDateTimeOffset", t, [ thisArg.Value; kind ], ?loc = r)
         |> Some
     | "FromUnixTimeSeconds"
     | "FromUnixTimeMilliseconds" ->
@@ -3308,14 +2791,8 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             "DateOffset",
             "default",
             t,
-            [
-                value
-                makeIntConst 0
-            ],
-            [
-                value.Type
-                Int32.Number
-            ],
+            [ value; makeIntConst 0 ],
+            [ value.Type; Int32.Number ],
             ?loc = r
         )
         |> Some
@@ -3342,11 +2819,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             match meth, args with
             // Ignore IFormatProvider
             | "Parse", arg :: _ -> [ arg ]
-            | "TryParse", input :: _culture :: _styles :: defVal :: _ ->
-                [
-                    input
-                    defVal
-                ]
+            | "TryParse", input :: _culture :: _styles :: defVal :: _ -> [ input; defVal ]
             | _ -> args
 
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
@@ -3766,11 +3239,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         | None, input :: pattern :: args ->
             let reg = createRegex None Any (pattern :: args)
 
-            [
-                reg
-                input
-            ]
-            |> Some
+            [ reg; input ] |> Some
         | _ -> None
         |> Option.map (fun args ->
             match meth, args with
@@ -3952,18 +3421,7 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, "Singleton", _ -> makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // For Using we need to cast the argument to IDisposable
     | Some x, "Using", [ arg; f ] ->
-        Helper.InstanceCall(
-            x,
-            "Using",
-            t,
-            [
-                arg
-                f
-            ],
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.InstanceCall(x, "Using", t, [ arg; f ], i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | Some x, meth, _ ->
         Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
@@ -4381,15 +3839,7 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
         [
             makeStrConst name
             parameters
-            |> List.map (fun (name, t) ->
-                makeTuple
-                    None
-                    false
-                    [
-                        makeStrConst name
-                        makeTypeInfo None t
-                    ]
-            )
+            |> List.map (fun (name, t) -> makeTuple None false [ makeStrConst name; makeTypeInfo None t ])
             |> makeArray Any
             makeTypeInfo None returnType
         ]
@@ -4621,27 +4071,12 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
     | Types.dictionary ->
         let args =
             match argTypes.Value, args with
-            | ([] | [ Number _ ]), _ ->
-                [
-                    makeArray Any []
-                    makeEqualityComparer com ctx (Seq.head genArgs)
-                ]
-            | [ IDictionary ], [ arg ] ->
-                [
-                    arg
-                    makeEqualityComparer com ctx (Seq.head genArgs)
-                ]
-            | [ IDictionary; IEqualityComparer ], [ arg; eqComp ] ->
-                [
-                    arg
-                    makeComparerFromEqualityComparer eqComp
-                ]
+            | ([] | [ Number _ ]), _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IDictionary ], [ arg ] -> [ arg; makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IDictionary; IEqualityComparer ], [ arg; eqComp ] -> [ arg; makeComparerFromEqualityComparer eqComp ]
             | [ IEqualityComparer ], [ eqComp ]
             | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
-                [
-                    makeArray Any []
-                    makeComparerFromEqualityComparer eqComp
-                ]
+                [ makeArray Any []; makeComparerFromEqualityComparer eqComp ]
             | _ -> FableError "Unexpected dictionary constructor" |> raise
 
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Dictionary"
@@ -4650,26 +4085,10 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
     | Types.hashset ->
         let args =
             match argTypes.Value, args with
-            | [], _ ->
-                [
-                    makeArray Any []
-                    makeEqualityComparer com ctx (Seq.head genArgs)
-                ]
-            | [ IEnumerable ], [ arg ] ->
-                [
-                    arg
-                    makeEqualityComparer com ctx (Seq.head genArgs)
-                ]
-            | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] ->
-                [
-                    arg
-                    makeComparerFromEqualityComparer eqComp
-                ]
-            | [ IEqualityComparer ], [ eqComp ] ->
-                [
-                    makeArray Any []
-                    makeComparerFromEqualityComparer eqComp
-                ]
+            | [], _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IEnumerable ], [ arg ] -> [ arg; makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] -> [ arg; makeComparerFromEqualityComparer eqComp ]
+            | [ IEqualityComparer ], [ eqComp ] -> [ makeArray Any []; makeComparerFromEqualityComparer eqComp ]
             | _ -> FableError "Unexpected hashset constructor" |> raise
 
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
@@ -4724,43 +4143,11 @@ let tryType =
         | BclTimer -> Some("System.Timers.Timer", timers, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])
-        | BclDictionary(key, value) ->
-            Some(
-                Types.dictionary,
-                dictionaries,
-                [
-                    key
-                    value
-                ]
-            )
-        | BclKeyValuePair(key, value) ->
-            Some(
-                Types.keyValuePair,
-                keyValuePairs,
-                [
-                    key
-                    value
-                ]
-            )
-        | FSharpMap(key, value) ->
-            Some(
-                Types.fsharpMap,
-                maps,
-                [
-                    key
-                    value
-                ]
-            )
+        | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [ key; value ])
+        | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [ key; value ])
+        | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [ key; value ])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [ genArg ])
-        | FSharpResult(genArg1, genArg2) ->
-            Some(
-                Types.result,
-                results,
-                [
-                    genArg1
-                    genArg2
-                ]
-            )
+        | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
         | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
     | _ -> None

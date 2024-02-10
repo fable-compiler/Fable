@@ -59,35 +59,23 @@ type CliArgs(args: string list) =
 let knownCliArgs () =
     [
         [ "--cwd" ], [ "Working directory" ]
-        [
-            "-o"
-            "--outDir"
-        ],
-        [ "Redirect compilation output to a directory" ]
-        [
-            "-e"
-            "--extension"
-        ],
-        [ "Extension for generated JS files (default .fs.js)" ]
-        [
-            "-s"
-            "--sourceMaps"
-        ],
-        [ "Enable source maps" ]
+        [ "-o"; "--outDir" ], [ "Redirect compilation output to a directory" ]
+        [ "-e"; "--extension" ], [ "Extension for generated JS files (default .fs.js)" ]
+        [ "-s"; "--sourceMaps" ], [ "Enable source maps" ]
         [ "--sourceMapsRoot" ], [ "Set the value of the `sourceRoot` property in generated source maps" ]
         [], []
         [ "--define" ], [ "Defines a symbol for use in conditional compilation" ]
-        [
-            "-c"
-            "--configuration"
-        ],
+        [ "-c"; "--configuration" ],
         [
             "The configuration to use when parsing .fsproj with MSBuild,"
             "default is 'Debug' in watch mode, or 'Release' otherwise"
         ]
         [ "--verbose" ], [ "Print more info during compilation" ]
         [ "--silent" ], [ "Don't print any log during compilation" ]
-        [ "--typedArrays" ], [ "Compile numeric arrays as JS typed arrays (default is true for JS, false for TS)" ]
+        [ "--typedArrays" ],
+        [
+            "Compile numeric arrays as JS typed arrays (default is true for JS, false for TS)"
+        ]
         [ "--watch" ], [ "Alias of watch command" ]
         [ "--watchDelay" ], [ "Delay in ms before recompiling after a file changes (default 200)" ]
         [], []
@@ -110,10 +98,7 @@ let knownCliArgs () =
         ]
         [], []
         [ "--optimize" ], [ "Compile with optimized F# AST (experimental)" ]
-        [
-            "--lang"
-            "--language"
-        ],
+        [ "--lang"; "--language" ],
         [
             "Choose wich languages to compile to"
             ""
@@ -150,11 +135,7 @@ let printKnownCliArgs () =
 
             match desc with
             | [] -> [] // Args without description are hidden
-            | desc :: extraLines ->
-                [
-                    $"  %-18s{args}{desc}"
-                    yield! extraLines |> List.map (sprintf "%20s%s" "")
-                ]
+            | desc :: extraLines -> [ $"  %-18s{args}{desc}"; yield! extraLines |> List.map (sprintf "%20s%s" "") ]
     )
 
 let sanitizeCliArgs (args: CliArgs) =
@@ -297,11 +278,7 @@ type Runner =
                 | _ -> Ok()
 
             do!
-                let reservedDirs =
-                    [
-                        Naming.fableModules
-                        "obj"
-                    ]
+                let reservedDirs = [ Naming.fableModules; "obj" ]
 
                 let outDirLast =
                     outDir
@@ -420,13 +397,7 @@ type Runner =
         }
 
 let clean (args: CliArgs) language rootDir =
-    let ignoreDirs =
-        set
-            [
-                "bin"
-                "obj"
-                "node_modules"
-            ]
+    let ignoreDirs = set [ "bin"; "obj"; "node_modules" ]
 
     let outDir = args.Value("-o", "--outDir")
 

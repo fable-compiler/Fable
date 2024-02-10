@@ -577,16 +577,7 @@ let curryExprAtRuntime (com: Compiler) arity (expr: Expr) =
             let curried = partialApplyAtRuntime com t arity fe []
             let fn = Delegate([ f ], curried, None, Tags.empty)
             // TODO: This may be different per language
-            Helper.LibCall(
-                com,
-                "Option",
-                "map",
-                Option(curried.Type, isStruct),
-                [
-                    fn
-                    expr
-                ]
-            )
+            Helper.LibCall(com, "Option", "map", Option(curried.Type, isStruct), [ fn; expr ])
         | _ -> partialApplyAtRuntime com expr.Type arity expr []
 
 let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
@@ -643,16 +634,7 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
         let uncurried = uncurry (IdentExpr f)
         let fn = Delegate([ f ], uncurried, None, Tags.empty)
         // TODO: This may be different per language
-        Helper.LibCall(
-            com,
-            "Option",
-            "map",
-            Option(uncurried.Type, isStruct),
-            [
-                fn
-                expr
-            ]
-        )
+        Helper.LibCall(com, "Option", "map", Option(uncurried.Type, isStruct), [ fn; expr ])
     | expr -> uncurry expr
 
 let (|Namesof|_|) com ctx e = namesof com ctx [] e
@@ -912,14 +894,7 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
         match args with
         | [ Nameof com ctx name as arg ] ->
             if meth = "nameof2" then
-                makeTuple
-                    r
-                    true
-                    [
-                        makeStrConst name
-                        arg
-                    ]
-                |> Some
+                makeTuple r true [ makeStrConst name; arg ] |> Some
             else
                 makeStrConst name |> Some
         | _ ->
@@ -983,15 +958,7 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
 
             Some(Naming.unknown, -1)
         )
-        |> Option.map (fun (s, i) ->
-            makeTuple
-                r
-                true
-                [
-                    makeStrConst s
-                    makeIntConst i
-                ]
-        )
+        |> Option.map (fun (s, i) -> makeTuple r true [ makeStrConst s; makeIntConst i ])
 
     | _ -> None
 

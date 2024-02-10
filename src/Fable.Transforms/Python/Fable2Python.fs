@@ -156,12 +156,7 @@ module Reflection =
 
                 let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                (Expression.tuple
-                    [
-                        Expression.stringConstant (name)
-                        typeInfo
-                    ]),
-                stmts
+                (Expression.tuple [ Expression.stringConstant (name); typeInfo ]), stmts
             )
             |> Seq.toList
             |> Helpers.unzipArgs
@@ -170,12 +165,7 @@ module Reflection =
 
         let py, stmts' = pyConstructor com ctx ent
 
-        [
-            fullnameExpr
-            Expression.list generics
-            py
-            fields
-        ]
+        [ fullnameExpr; Expression.list generics; py; fields ]
         |> libReflectionCall com ctx None "record",
         stmts @ stmts'
 
@@ -210,12 +200,7 @@ module Reflection =
 
         let py, stmts = pyConstructor com ctx ent
 
-        [
-            fullnameExpr
-            Expression.list generics
-            py
-            cases
-        ]
+        [ fullnameExpr; Expression.list generics; py; cases ]
         |> libReflectionCall com ctx None "union",
         stmts
 
@@ -288,38 +273,18 @@ module Reflection =
                                 | Some v -> Convert.ToDouble v
                                 | None -> 0.
 
-                            Expression.tuple
-                                [
-                                    Expression.stringConstant name
-                                    Expression.floatConstant value
-                                ]
+                            Expression.tuple [ Expression.stringConstant name; Expression.floatConstant value ]
                             |> Some
                     )
                     |> Seq.toList
                     |> Expression.list
 
-                [
-                    Expression.stringConstant entRef.FullName
-                    numberInfo kind
-                    cases
-                ]
+                [ Expression.stringConstant entRef.FullName; numberInfo kind; cases ]
                 |> libReflectionCall com ctx None "enum",
                 []
             | _ -> numberInfo kind, []
-        | Fable.LambdaType(argType, returnType) ->
-            genericTypeInfo
-                "lambda"
-                [|
-                    argType
-                    returnType
-                |]
-        | Fable.DelegateType(argTypes, returnType) ->
-            genericTypeInfo
-                "delegate"
-                [|
-                    yield! argTypes
-                    yield returnType
-                |]
+        | Fable.LambdaType(argType, returnType) -> genericTypeInfo "lambda" [| argType; returnType |]
+        | Fable.DelegateType(argTypes, returnType) -> genericTypeInfo "delegate" [| yield! argTypes; yield returnType |]
         | Fable.Tuple(genArgs, _) -> genericTypeInfo "tuple" (List.toArray genArgs)
         | Fable.Option(genArg, _) -> genericTypeInfo "option" [| genArg |]
         | Fable.Array(genArg, _) -> genericTypeInfo "array" [| genArg |]
@@ -330,13 +295,7 @@ module Reflection =
             let genArgs, stmts = resolveGenerics (List.toArray genArgs)
 
             List.zip (List.ofArray fieldNames) genArgs
-            |> List.map (fun (k, t) ->
-                Expression.tuple
-                    [
-                        Expression.stringConstant k
-                        t
-                    ]
-            )
+            |> List.map (fun (k, t) -> Expression.tuple [ Expression.stringConstant k; t ])
             |> libReflectionCall com ctx None "anonRecord",
             stmts
         | Fable.DeclaredType(entRef, generics) ->
@@ -363,28 +322,13 @@ module Reflection =
 
                     let values, stmts' = transformTypeInfo com ctx r genMap value
 
-                    genericEntity
-                        fullName
-                        [
-                            keys
-                            values
-                        ],
-                    stmts @ stmts'
+                    genericEntity fullName [ keys; values ], stmts @ stmts'
                 | Replacements.Util.FSharpResult(ok, err) ->
                     let ent = com.GetEntity(entRef)
                     let ok', stmts = transformTypeInfo com ctx r genMap ok
                     let err', stmts' = transformTypeInfo com ctx r genMap err
 
-                    let expr, stmts'' =
-                        transformUnionReflectionInfo
-                            com
-                            ctx
-                            r
-                            ent
-                            [
-                                ok'
-                                err'
-                            ]
+                    let expr, stmts'' = transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
 
                     expr, stmts @ stmts' @ stmts''
                 | Replacements.Util.FSharpChoice gen ->
@@ -478,11 +422,7 @@ module Reflection =
         let pyInstanceof consExpr (Util.TransformExpr com ctx (expr, stmts)) : Expression * Statement list =
             let func = Expression.name (Identifier("isinstance"))
 
-            let args =
-                [
-                    expr
-                    consExpr
-                ]
+            let args = [ expr; consExpr ]
 
             Expression.call (func, args), stmts
 
@@ -688,14 +628,7 @@ module Annotation =
                     )
                     |> Expression.list
 
-            Expression.subscript (
-                expr,
-                Expression.tuple
-                    [
-                        args
-                        returnType
-                    ]
-            )
+            Expression.subscript (expr, Expression.tuple [ args; returnType ])
         | _, [] -> expr
         | _, [ arg ] -> Expression.subscript (expr, arg)
         | _, args -> Expression.subscript (expr, Expression.tuple args)
@@ -819,15 +752,7 @@ module Annotation =
             let value = Expression.name "dict"
             let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
 
-            Expression.subscript (
-                value,
-                Expression.tuple
-                    [
-                        Expression.name "str"
-                        any
-                    ]
-            ),
-            stmts
+            Expression.subscript (value, Expression.tuple [ Expression.name "str"; any ]), stmts
         | Fable.DeclaredType(entRef, genArgs) -> makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics
         | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
 
@@ -874,21 +799,13 @@ module Annotation =
                             | Some v -> Convert.ToDouble v
                             | None -> 0.
 
-                        Expression.tuple
-                            [
-                                Expression.stringConstant name
-                                Expression.floatConstant value
-                            ]
+                        Expression.tuple [ Expression.stringConstant name; Expression.floatConstant value ]
                         |> Some
                 )
                 |> Seq.toList
                 |> Expression.list
 
-            [
-                Expression.stringConstant entRef.FullName
-                numberInfo kind
-                cases
-            ]
+            [ Expression.stringConstant entRef.FullName; numberInfo kind; cases ]
             |> libReflectionCall com ctx None "enum",
             []
         | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
@@ -1000,11 +917,7 @@ module Annotation =
         | "Fable.Core.Py.Callable", _ ->
             let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
 
-            let genArgs =
-                [
-                    Expression.ellipsis
-                    any
-                ]
+            let genArgs = [ Expression.ellipsis; any ]
 
             stdlibModuleAnnotation com ctx "collections.abc" "Callable" genArgs, stmts
         | _ ->
@@ -1067,15 +980,7 @@ module Annotation =
             |> makeImportTypeAnnotation com ctx genArgs "Fable.Core"
         *)
         | Replacements.Util.FSharpResult(ok, err) ->
-            let resolved, stmts =
-                resolveGenerics
-                    com
-                    ctx
-                    [
-                        ok
-                        err
-                    ]
-                    repeatedGenerics
+            let resolved, stmts = resolveGenerics com ctx [ ok; err ] repeatedGenerics
 
             fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
         | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
@@ -1524,13 +1429,7 @@ module Util =
         | Expression.Constant _, _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number((Int8 | Int16 | Int32), _) ->
-            Expression.boolOp (
-                BoolOperator.Or,
-                [
-                    e
-                    Expression.intConstant 0
-                ]
-            )
+            Expression.boolOp (BoolOperator.Or, [ e; Expression.intConstant 0 ])
         | _ -> e
 
     let wrapExprInBlockWithReturn (e, stmts) = stmts @ [ Statement.return' e ]
@@ -1863,26 +1762,11 @@ module Util =
                 let expr, stmts = makeList com ctx exprs
                 [ expr ] |> libCall com ctx r "list" "ofArray", stmts
             | [ TransformExpr com ctx (head, stmts) ], Some(TransformExpr com ctx (tail, stmts')) ->
-                libCall
-                    com
-                    ctx
-                    r
-                    "list"
-                    "cons"
-                    [
-                        head
-                        tail
-                    ],
-                stmts @ stmts'
+                libCall com ctx r "list" "cons" [ head; tail ], stmts @ stmts'
             | exprs, Some(TransformExpr com ctx (tail, stmts)) ->
                 let expr, stmts' = makeList com ctx exprs
 
-                [
-                    expr
-                    tail
-                ]
-                |> libCall com ctx r "list" "ofArrayWithTail",
-                stmts @ stmts'
+                [ expr; tail ] |> libCall com ctx r "list" "ofArrayWithTail", stmts @ stmts'
         | Fable.NewOption(value, t, _) ->
             match value with
             | Some(TransformExpr com ctx (e, stmts)) ->
@@ -2040,10 +1924,7 @@ module Util =
 
                         Statement.functionDef (name = name, args = args, body = body)
 
-                    [
-                        method
-                        iterator
-                    ]
+                    [ method; iterator ]
                 else
                     [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ]
             )
@@ -2234,15 +2115,7 @@ module Util =
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 
         | Fable.Logical(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            Expression.boolOp (
-                op,
-                [
-                    left
-                    right
-                ],
-                ?loc = range
-            ),
-            stmts @ stmts'
+            Expression.boolOp (op, [ left; right ], ?loc = range), stmts @ stmts'
 
     let transformEmit (com: IPythonCompiler) ctx range (info: Fable.EmitInfo) =
         let macro = info.Macro
@@ -2677,15 +2550,7 @@ module Util =
 
                     let test =
                         match fallThrough with
-                        | Some ft ->
-                            Expression.boolOp (
-                                op = Or,
-                                values =
-                                    [
-                                        ft
-                                        expr
-                                    ]
-                            )
+                        | Some ft -> Expression.boolOp (op = Or, values = [ ft; expr ])
                         | _ -> expr
 
                     // Check for fallthrough
@@ -3275,7 +3140,9 @@ module Util =
                 | None -> failwith "TODO: rethrow"
                 | Some(TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.raise e ]
             | Fable.Debugger ->
-                [ Statement.assert' (Expression.boolOp (op = Or, values = [ Expression.boolConstant true ])) ]
+                [
+                    Statement.assert' (Expression.boolOp (op = Or, values = [ Expression.boolConstant true ]))
+                ]
 
         | Fable.TypeCast(e, t) ->
             let expr, stmts = transformCast com ctx t e
@@ -3496,15 +3363,7 @@ module Util =
             let step = Expression.intConstant step
 
             let iter =
-                Expression.call (
-                    Expression.name (Identifier "range"),
-                    args =
-                        [
-                            start
-                            limit
-                            step
-                        ]
-                )
+                Expression.call (Expression.name (Identifier "range"), args = [ start; limit; step ])
 
             let body = transformBlock com ctx None body
             let target = com.GetIdentifierAsExpr(ctx, var.Name)
@@ -3698,10 +3557,7 @@ module Util =
 
         let fieldsId = makeTypedIdent (Fable.Array(Fable.Any, Fable.MutableArray)) "fields"
 
-        [|
-            tagId
-            fieldsId
-        |]
+        [| tagId; fieldsId |]
 
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
@@ -3756,11 +3612,7 @@ module Util =
         let bases = baseExpr |> Option.toList
 
         let classBody =
-            let body =
-                [
-                    yield! props
-                    yield! classMembers
-                ]
+            let body = [ yield! props; yield! classMembers ]
 
             match body with
             | [] -> [ Statement.ellipsis ]
@@ -3781,7 +3633,9 @@ module Util =
                 )
             ]
 
-        [ Statement.classDef (name, body = classBody, decoratorList = decorators, bases = bases @ generics) ]
+        [
+            Statement.classDef (name, body = classBody, decoratorList = decorators, bases = bases @ generics)
+        ]
 
     let declareClassType
         (com: IPythonCompiler)
@@ -3803,11 +3657,7 @@ module Util =
         let classMembers = classCons @ classMembers
         //printfn "ClassMembers: %A" classMembers
         let classBody =
-            let body =
-                [
-                    yield! classFields
-                    yield! classMembers
-                ]
+            let body = [ yield! classFields; yield! classMembers ]
 
             match body with
             | [] -> [ Statement.ellipsis ]
@@ -3847,7 +3697,9 @@ module Util =
         let name = com.GetIdentifier(ctx, entName)
 
         stmts
-        @ [ Statement.classDef (name, body = classBody, bases = bases @ interfaces @ generics) ]
+        @ [
+            Statement.classDef (name, body = classBody, bases = bases @ interfaces @ generics)
+        ]
 
     let createSlotsForRecordType (com: IPythonCompiler) ctx (classEnt: Fable.Entity) =
         let strFromIdent (ident: Identifier) = ident.Name
@@ -3926,11 +3778,7 @@ module Util =
         info.Attributes
         |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         |> function
-            | true ->
-                [
-                    stmt
-                    declareEntryPoint com ctx expr
-                ]
+            | true -> [ stmt; declareEntryPoint com ctx expr ]
             | false ->
                 if com.OutputType = OutputType.Library then
                     com.AddExport membName |> ignore
@@ -4073,10 +3921,7 @@ module Util =
                             | Fable.Number _ ->
                                 Expression.boolOp (
                                     BoolOperator.Or,
-                                    [
-                                        identAsExpr com ctx id
-                                        Expression.intConstant 0
-                                    ]
+                                    [ identAsExpr com ctx id; Expression.intConstant 0 ]
                                 )
                             | Fable.Array _ ->
                                 // Convert varArg from tuple to list. TODO: we might need to do this other places as well.

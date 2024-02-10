@@ -1031,40 +1031,11 @@ module TypeInfo =
         | Replacements.Util.BclTimeOnly -> transformTimeOnlyType com ctx
         | Replacements.Util.BclTimer -> transformTimerType com ctx
         | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
-        | Replacements.Util.BclDictionary(k, v) ->
-            transformHashMapType
-                com
-                ctx
-                [
-                    k
-                    v
-                ]
+        | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [ k; v ]
         | Replacements.Util.FSharpSet(genArg) -> transformSetType com ctx genArg
-        | Replacements.Util.FSharpMap(k, v) ->
-            transformMapType
-                com
-                ctx
-                [
-                    k
-                    v
-                ]
-        | Replacements.Util.BclKeyValuePair(k, v) ->
-            transformTupleType
-                com
-                ctx
-                true
-                [
-                    k
-                    v
-                ]
-        | Replacements.Util.FSharpResult(ok, err) ->
-            transformResultType
-                com
-                ctx
-                [
-                    ok
-                    err
-                ]
+        | Replacements.Util.FSharpMap(k, v) -> transformMapType com ctx [ k; v ]
+        | Replacements.Util.BclKeyValuePair(k, v) -> transformTupleType com ctx true [ k; v ]
+        | Replacements.Util.FSharpResult(ok, err) -> transformResultType com ctx [ ok; err ]
         | Replacements.Util.FSharpChoice genArgs -> transformChoiceType com ctx genArgs
         | Replacements.Util.FSharpReference(genArg) ->
             if isInRefOrAnyType com typ then
@@ -1097,22 +1068,9 @@ module TypeInfo =
 
             // interfaces implemented as the type itself
             | Replacements.Util.IsEntity (Types.iset) (entRef, [ genArg ]) -> transformHashSetType com ctx genArg
-            | Replacements.Util.IsEntity (Types.idictionary) (entRef, [ k; v ]) ->
-                transformHashMapType
-                    com
-                    ctx
-                    [
-                        k
-                        v
-                    ]
+            | Replacements.Util.IsEntity (Types.idictionary) (entRef, [ k; v ]) -> transformHashMapType com ctx [ k; v ]
             | Replacements.Util.IsEntity (Types.ireadonlydictionary) (entRef, [ k; v ]) ->
-                transformHashMapType
-                    com
-                    ctx
-                    [
-                        k
-                        v
-                    ]
+                transformHashMapType com ctx [ k; v ]
             | Replacements.Util.IsEntity (Types.keyCollection) (entRef, [ k; v ]) -> transformArrayType com ctx k
             | Replacements.Util.IsEntity (Types.valueCollection) (entRef, [ k; v ]) -> transformArrayType com ctx v
             | Replacements.Util.IsEntity (Types.icollectionGeneric) (entRef, [ t ]) -> transformArrayType com ctx t
@@ -1439,10 +1397,7 @@ module Util =
 
             let macroName = getLibraryImportName com ctx "Native" "interface_cast"
 
-            [
-                mkExprToken expr
-                mkTyToken ifcTy
-            ]
+            [ mkExprToken expr; mkTyToken ifcTy ]
             |> mkParensCommaDelimitedMacCall macroName
             |> mkMacCallExpr
         | _ -> expr
@@ -1789,16 +1744,7 @@ module Util =
             let value = transformExpr com ctx valueExpr |> mkAddrOfExpr
             let count = transformExpr com ctx countExpr
 
-            makeLibCall
-                com
-                ctx
-                None
-                "NativeArray"
-                "new_init"
-                [
-                    value
-                    count
-                ]
+            makeLibCall com ctx None "NativeArray" "new_init" [ value; count ]
         | expr ->
             // this assumes expr converts to a slice
             // TODO: this may not always work, make it work
@@ -1829,23 +1775,9 @@ module Util =
         | [], None -> libCall com ctx r [ typ ] "List" "empty" []
         | [ expr ], None -> libCall com ctx r [] "List" "singleton" [ expr ]
         | exprs, None -> [ makeNewArray r typ exprs ] |> libCall com ctx r [] "List" "ofArray"
-        | [ head ], Some tail ->
-            libCall
-                com
-                ctx
-                r
-                []
-                "List"
-                "cons"
-                [
-                    head
-                    tail
-                ]
+        | [ head ], Some tail -> libCall com ctx r [] "List" "cons" [ head; tail ]
         | exprs, Some tail ->
-            [
-                makeNewArray r typ exprs
-                tail
-            ]
+            [ makeNewArray r typ exprs; tail ]
             |> libCall com ctx r [] "List" "ofArrayWithTail"
 
     let makeTuple (com: IRustCompiler) ctx r isStruct (exprs: (Fable.Expr) list) =
@@ -2217,17 +2149,7 @@ module Util =
             let right = transformLeaveContext com ctx None rightExpr |> maybeAddParens rightExpr
 
             match leftExpr.Type, kind with
-            | Fable.String, Rust.BinOpKind.Add ->
-                makeLibCall
-                    com
-                    ctx
-                    None
-                    "String"
-                    "append"
-                    [
-                        left
-                        right
-                    ]
+            | Fable.String, Rust.BinOpKind.Add -> makeLibCall com ctx None "String" "append" [ left; right ]
             | _ -> mkBinaryExpr (mkBinOp kind) left right // ?loc=range)
 
         | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
@@ -2793,16 +2715,7 @@ module Util =
             let try_f = makeLocalLambda com ctx [] body
             let catch_f = makeLocalLambda com ctx [ catchVar ] catchBody
 
-            makeLibCall
-                com
-                ctx
-                None
-                "Exception"
-                "try_catch"
-                [
-                    try_f
-                    catch_f
-                ]
+            makeLibCall com ctx None "Exception" "try_catch" [ try_f; catch_f ]
 
         | None ->
             // try...finally
@@ -2814,11 +2727,7 @@ module Util =
 
                 let bodyExpr = transformExpr com ctx body
 
-                [
-                    finAlloc |> mkSemiStmt
-                    bodyExpr |> mkExprStmt
-                ]
-                |> mkStmtBlockExpr
+                [ finAlloc |> mkSemiStmt; bodyExpr |> mkExprStmt ] |> mkStmtBlockExpr
 
             | _ ->
                 // no catch, no finalizer
@@ -2837,12 +2746,7 @@ module Util =
                 | Fable.String -> err
                 | _ -> mkMethodCallExpr "get_Message" None err []
 
-            mkMacroExpr
-                "panic"
-                [
-                    mkStrLitExpr "{}"
-                    msg
-                ]
+            mkMacroExpr "panic" [ mkStrLitExpr "{}"; msg ]
 
     let transformCurry (com: IRustCompiler) (ctx: Context) arity (expr: Fable.Expr) : Rust.Expr =
         com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
@@ -3007,13 +2911,7 @@ module Util =
             match evalType with
             | Fable.Option(genArg, _) ->
                 // let genArgsOpt = transformGenArgs com ctx [genArg]
-                let unionCaseFullName =
-                    [
-                        "Some"
-                        "None"
-                    ]
-                    |> List.item caseIndex
-                    |> rawIdent
+                let unionCaseFullName = [ "Some"; "None" ] |> List.item caseIndex |> rawIdent
 
                 let fields =
                     match evalName with
@@ -3368,10 +3266,7 @@ module Util =
                 let modItem = mkUnloadedModItem attrs modName
                 let useItem = mkGlobUseItem [] [ modName ]
 
-                [
-                    modItem
-                    useItem |> mkPublicItem
-                ]
+                [ modItem; useItem |> mkPublicItem ]
 
             let modItems = com.GetAllModules() |> List.sort |> List.collect makeModItems
 
@@ -3713,13 +3608,7 @@ module Util =
 
         let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
 
-        makeCall
-            [
-                funcWrap
-                "new"
-            ]
-            None
-            [ closureExpr ]
+        makeCall [ funcWrap; "new" ] None [ closureExpr ]
 
     let makeTypeBounds (com: IRustCompiler) ctx argName (constraints: Fable.Constraint list) =
         let makeGenBound names tyNames =
@@ -3748,21 +3637,13 @@ module Util =
                 | Operators.division, true -> [ makeOpBound "Div" ]
                 | Operators.modulus, true -> [ makeOpBound "Rem" ]
                 | Operators.unaryNegation, true -> [ makeOpBound "Neg" ]
-                | Operators.divideByInt, true ->
-                    [
-                        makeOpBound "Div"
-                        makeGenBound [ rawIdent "From" ] [ "i32" ]
-                    ]
+                | Operators.divideByInt, true -> [ makeOpBound "Div"; makeGenBound [ rawIdent "From" ] [ "i32" ] ]
                 | "get_Zero", true -> [ makeRawBound "Default" ]
                 | _ -> []
             | Fable.Constraint.CoercesTo(targetType) ->
                 match targetType with
                 | IFormattable -> [ makeGenBound ("core" :: "fmt" :: "Display" :: []) [] ]
-                | IEquatable _ ->
-                    [
-                        makeRawBound "Eq"
-                        makeGenBound ("core" :: "hash" :: "Hash" :: []) []
-                    ]
+                | IEquatable _ -> [ makeRawBound "Eq"; makeGenBound ("core" :: "hash" :: "Hash" :: []) [] ]
                 | Fable.DeclaredType(entRef, genArgs) ->
                     let ent = com.GetEntity(entRef)
 
@@ -4001,13 +3882,7 @@ module Util =
 
         let attrs = transformAttributes com ctx memb.Attributes
 
-        let fnBody =
-            [
-                staticStmt
-                valueStmt
-            ]
-            |> mkBlock
-            |> Some
+        let fnBody = [ staticStmt; valueStmt ] |> mkBlock |> Some
 
         let fnDecl = mkFnDecl [] (mkFnRetTy ty)
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
@@ -4376,10 +4251,7 @@ module Util =
             let ofTrait = mkTraitRef path |> Some
             mkImplItem [] "" ty generics memberItems ofTrait
 
-        [
-            traitItem |> mkPublicItem
-            implItem
-        ]
+        [ traitItem |> mkPublicItem; implItem ]
 
     let makeFSharpExceptionItems com ctx (ent: Fable.Entity) =
         // expected output:
@@ -4400,15 +4272,7 @@ module Util =
 
             let fieldsAsTuple = Fable.Value(Fable.NewTuple(fieldValues, true), None)
 
-            let body =
-                formatString
-                    com
-                    ctx
-                    "{} {:?}"
-                    [
-                        entNameExpr
-                        fieldsAsTuple
-                    ]
+            let body = formatString com ctx "{} {:?}" [ entNameExpr; fieldsAsTuple ]
 
             let fnBody = [ mkExprStmt body ] |> mkBlock |> Some
             let fnRetTy = Fable.String |> transformType com ctx |> mkFnRetTy
@@ -4443,10 +4307,7 @@ module Util =
                 let p1 = mkImplSelfParam false false
                 let p2 = mkTypedParam "f" (ty |> mkMutRefTy None) false false
 
-                [
-                    p1
-                    p2
-                ]
+                [ p1; p2 ]
 
             let output =
                 let ty = mkGenericPathTy ("core" :: "fmt" :: (rawIdent "Result") :: []) None
@@ -4460,14 +4321,7 @@ module Util =
         let generics = makeGenerics com ctx genArgs
 
         let implItemFor traitName =
-            let path =
-                mkGenericPath
-                    [
-                        "core"
-                        "fmt"
-                        traitName
-                    ]
-                    None
+            let path = mkGenericPath ("core" :: "fmt" :: traitName :: []) None
 
             let ofTrait = mkTraitRef path |> Some
             mkImplItem [] "" self_ty generics [ fnItem ] ofTrait
@@ -4527,13 +4381,7 @@ module Util =
 
             let macroName = getLibraryImportName com ctx "Native" op_macro
 
-            let id_tokens =
-                [
-                    op_trait
-                    op_fn
-                    decl.Name
-                ]
-                |> List.map mkIdentToken
+            let id_tokens = [ op_trait; op_fn; decl.Name ] |> List.map mkIdentToken
 
             let ty_tokens = (self_ty :: rhs_tys) @ genArgTys |> List.map mkTyToken
 
@@ -4610,12 +4458,7 @@ module Util =
             // "ReferenceEquals"
             ]
 
-    let ignoredInterfaceNames =
-        set
-            [
-                Types.ienumerable
-                Types.ienumerator
-            ]
+    let ignoredInterfaceNames = set [ Types.ienumerable; Types.ienumerator ]
 
     let transformClassMembers (com: IRustCompiler) ctx (classDecl: Fable.ClassDecl) =
         let entRef = classDecl.Entity
@@ -4873,10 +4716,7 @@ module Util =
             let modItem = mkModItem [] modName items
             let useItem = mkGlobUseItem [] [ modName ]
 
-            [
-                modItem
-                useItem |> mkPublicItem
-            ]
+            [ modItem; useItem |> mkPublicItem ]
         else
             items
 
@@ -5141,12 +4981,7 @@ module Compiler =
                 if isLastFileInProject com then
                     // adds "no_std" for fable library crate if feature is enabled
                     if isFableLibrary com then
-                        mkInnerAttr
-                            "cfg_attr"
-                            [
-                                "feature = \"no_std\""
-                                "no_std"
-                            ]
+                        mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_std" ]
 
                     // TODO: make some of those conditional on compiler options
                     mkInnerAttr "allow" [ "dead_code" ]

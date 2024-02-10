@@ -1263,14 +1263,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 let valToSet = makeValueFrom com ctx r valToSet
                 let args = [ valueExpr ]
 
-                let info =
-                    makeCallInfo
-                        None
-                        args
-                        [
-                            valToSet.Type
-                            Fable.Boolean
-                        ]
+                let info = makeCallInfo None args [ valToSet.Type; Fable.Boolean ]
 
                 return makeCall r Fable.Unit info valToSet
             | _ ->
@@ -1328,21 +1321,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                             transformBaseConsCall com ctx r baseEnt call genArgs args |> captureBaseCall
 
                             [ second ]
-                        | _ ->
-                            [
-                                first
-                                second
-                            ]
-                    | _ ->
-                        [
-                            first
-                            second
-                        ]
-                | _ ->
-                    [
-                        first
-                        second
-                    ]
+                        | _ -> [ first; second ]
+                    | _ -> [ first; second ]
+                | _ -> [ first; second ]
 
             let! exprs = transformExprList com ctx exprs
             return Fable.Sequential exprs

@@ -106,13 +106,7 @@ module Glob =
         let normPattern = normalizePath pattern
 
         let patternParts =
-            normPattern.Split(
-                [|
-                    '/'
-                    '\\'
-                |],
-                StringSplitOptions.RemoveEmptyEntries
-            )
+            normPattern.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries)
 
         let patternPathParts =
             patternParts |> Seq.takeWhile (fun p -> not (p.Contains("*"))) |> Seq.toArray
@@ -158,14 +152,7 @@ module Glob =
 
         let filePattern = Path.GetFileName(input)
 
-        let splits =
-            input.Split(
-                [|
-                    '/'
-                    '\\'
-                |],
-                StringSplitOptions.None
-            )
+        let splits = input.Split([| '/'; '\\' |], StringSplitOptions.None)
 
         let baseItems =
             let start, rest =

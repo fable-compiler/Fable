@@ -138,18 +138,8 @@ module private Util =
                 let modules =
                     absPath
                         .Substring(outDir.Length, absPath.Length - outDir.Length - fileName.Length)
-                        .Trim(
-                            [|
-                                '/'
-                                '\\'
-                            |]
-                        )
-                        .Split(
-                            [|
-                                '/'
-                                '\\'
-                            |]
-                        )
+                        .Trim([| '/'; '\\' |])
+                        .Split([| '/'; '\\' |])
 
                 let modules =
                     match Array.toList modules, cliArgs.FableLibraryPath with
@@ -276,13 +266,7 @@ open FileWatcher
 open FileWatcherUtil
 
 type FsWatcher(delayMs: int) =
-    let globFilters =
-        [
-            "*.fs"
-            "*.fsi"
-            "*.fsx"
-            "*.fsproj"
-        ]
+    let globFilters = [ "*.fs"; "*.fsi"; "*.fsx"; "*.fsproj" ]
 
     let createWatcher () =
         let usePolling =
@@ -298,12 +282,7 @@ type FsWatcher(delayMs: int) =
                 Log.always ("Using polling watcher.")
                 // Ignored for performance reasons:
                 let ignoredDirectoryNameRegexes =
-                    [
-                        "(?i)node_modules"
-                        "(?i)bin"
-                        "(?i)obj"
-                        "\..+"
-                    ]
+                    [ "(?i)node_modules"; "(?i)bin"; "(?i)obj"; "\..+" ]
 
                 upcast new ResetablePollingFileWatcher(globFilters, ignoredDirectoryNameRegexes)
             else
