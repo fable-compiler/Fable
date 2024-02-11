@@ -13,13 +13,7 @@ open Fable.Transforms.Rust.AST.Helpers
 // }
 
 let stmt1 =
-    [
-        "1"
-        "2"
-        "3"
-        "4"
-        "5"
-    ]
+    [ "1"; "2"; "3"; "4"; "5" ]
     |> Seq.map mkIntToken
     |> mkBracketCommaDelimitedMacCall "vec"
     |> mkMacCallExpr
@@ -28,18 +22,12 @@ let stmt1 =
     |> mkLocalStmt
 
 let stmt2 =
-    [
-        mkStrToken "{:?}"
-        mkIdentToken "a"
-    ]
+    [ mkStrToken "{:?}"; mkIdentToken "a" ]
     |> mkParensCommaDelimitedMacCall "println"
     |> mkMacCallStmt
 
 let fnItem =
-    [
-        stmt1
-        stmt2
-    ]
+    [ stmt1; stmt2 ]
     |> mkBlock
     |> Some
     |> mkFnKind DEFAULT_FN_HEADER (mkFnDecl [] VOID_RETURN_TY) NO_GENERICS

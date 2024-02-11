@@ -335,11 +335,7 @@ let convertSingleCaseUnion (com: IPhpCompiler) (decl: Fable.ClassDecl) (info: Fa
                 ]
             Abstract = false
             BaseType = None
-            Interfaces =
-                [
-                    PhpUnion.fSharpUnion
-                    Core.icomparable
-                ]
+            Interfaces = [ PhpUnion.fSharpUnion; Core.icomparable ]
             File = com.CurrentFile
             OriginalFullName = info.FullName
         }
@@ -1481,15 +1477,7 @@ and convertValue (com: IPhpCompiler) (value: Fable.ValueKind) range =
     | Fable.CharConstant(c) -> PhpConst(PhpConstString(string<char> c))
     | Fable.Null _ -> PhpConst(PhpConstNull)
     | Fable.NewList(Some(head, tail), _) ->
-        libCall
-            com
-            "List"
-            "FSharpList"
-            "cons"
-            [
-                convertExpr com head
-                convertExpr com tail
-            ]
+        libCall com "List" "FSharpList" "cons" [ convertExpr com head; convertExpr com tail ]
     | Fable.NewList(None, _) -> libCall com "List" "FSharpList" "_empty" []
     | Fable.NewArray(kind, _, _) ->
         match kind with
@@ -1764,7 +1752,9 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
         [ PhpFor(id, startExpr, limitExpr, isUp, bodyExpr) ]
 
     | Fable.Extended(Fable.Debugger, _) ->
-        [ PhpDo(PhpFunctionCall(PhpIdent(unscopedIdent "assert"), [ PhpConst(PhpConstBool false) ])) ]
+        [
+            PhpDo(PhpFunctionCall(PhpIdent(unscopedIdent "assert"), [ PhpConst(PhpConstBool false) ]))
+        ]
     | Fable.Extended(Fable.Throw(expr, _), _) ->
         match expr with
         | None -> failwith "TODO: rethrow"

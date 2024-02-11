@@ -504,11 +504,7 @@ module Publish =
             buildAction ()
             let projDir = dirname projFile
             // Restore dependencies here so they're updated to latest project versions
-            runList
-                [
-                    "dotnet restore"
-                    projDir
-                ]
+            runList [ "dotnet restore"; projDir ]
             // Update the project file
             readFile projFile
             |> replaceRegex
@@ -548,13 +544,7 @@ module Publish =
 
                 let nupkg = findFileWithExt tempDir ".nupkg"
 
-                runList
-                    [
-                        "dotnet nuget push"
-                        nupkg
-                        "-s nuget.org -k"
-                        nugetInfo.ApiKey
-                    ]
+                runList [ "dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetInfo.ApiKey ]
 
                 // Looks like the `nuget push` command automatically detects the .snupkg symbols
                 // We issue the command below just in case but with --skip-duplicate to prevent errors

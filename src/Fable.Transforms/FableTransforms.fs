@@ -438,25 +438,11 @@ module private Transforms =
         | Operation(Binary(AST.BinaryPlus, v1, v2), _, _, _) ->
             match v1, v2 with
             | Value(StringConstant v1, r1), Value(StringConstant v2, r2) ->
-                Value(
-                    StringConstant(v1 + v2),
-                    addRanges
-                        [
-                            r1
-                            r2
-                        ]
-                )
+                Value(StringConstant(v1 + v2), addRanges [ r1; r2 ])
             // Assume NumberKind and NumberInfo are the same
             | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty), r1),
               Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty), r2) ->
-                Value(
-                    NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty),
-                    addRanges
-                        [
-                            r1
-                            r2
-                        ]
-                )
+                Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [ r1; r2 ])
             | _ -> e
 
         | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), [], _, _) ->
@@ -897,12 +883,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
                 // In order to uncurry correctly the baseCall arguments,
                 // we need to include it in the constructor body
                 let args, body =
-                    Sequential
-                        [
-                            baseCall
-                            cons.Body
-                        ]
-                    |> curryArgIdentsAndReplaceInBody cons.Args
+                    Sequential [ baseCall; cons.Body ] |> curryArgIdentsAndReplaceInBody cons.Args
 
                 transformExpr com body
                 |> function

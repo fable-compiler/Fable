@@ -224,11 +224,7 @@ let buildLibraryTs () =
     let buildDirTs = "./build/fable-library-ts"
     let buildDirJs = "./build/fable-library"
 
-    cleanDirs
-        [
-            buildDirTs
-            buildDirJs
-        ]
+    cleanDirs [ buildDirTs; buildDirJs ]
 
     runInDir baseDir "npm install"
 
@@ -357,12 +353,7 @@ let buildLibraryDartIfNotExists () =
 let testStandaloneFast () =
     runFableWithArgs "src/fable-standalone/src" [ "--noCache" ]
 
-    runFableWithArgs
-        "src/fable-compiler-js/src"
-        [
-            "--exclude Fable.Core"
-            "--define LOCAL_TEST"
-        ]
+    runFableWithArgs "src/fable-compiler-js/src" [ "--exclude Fable.Core"; "--define LOCAL_TEST" ]
 
     let fableJs = "./src/fable-compiler-js/src/app.fs.js"
     let testProj = "tests/Js/Main/Fable.Tests.fsproj"
@@ -389,12 +380,7 @@ let buildWorker
     let fableLib = "./build/fable-library"
     let distDir = "src/fable-standalone/dist"
 
-    runFableWithArgs
-        (projectDir + "/Worker")
-        [
-            "--outDir " + buildDir + "/worker"
-            "--fableLib " + fableLib
-        ]
+    runFableWithArgs (projectDir + "/Worker") [ "--outDir " + buildDir + "/worker"; "--fableLib " + fableLib ]
 
     let rollupTarget =
         match opts.minify with
@@ -457,11 +443,7 @@ let buildStandalone
 
     // cleanup
     if not opts.watch then
-        cleanDirs
-            [
-                buildDir
-                distDir
-            ]
+        cleanDirs [ buildDir; distDir ]
 
         makeDirRecursive distDir
 
@@ -514,21 +496,11 @@ let buildCompilerJs (minify: bool) =
                 watch = false
             |}
 
-    cleanDirs
-        [
-            buildDir
-            distDir
-        ]
+    cleanDirs [ buildDir; distDir ]
 
     makeDirRecursive distDir
 
-    runFableWithArgs
-        projectDir
-        [
-            "--outDir " + buildDir
-            "--fableLib " + fableLib
-            "--exclude Fable.Core"
-        ]
+    runFableWithArgs projectDir [ "--outDir " + buildDir; "--fableLib " + fableLib; "--exclude Fable.Core" ]
 
     let rollupTarget =
         if minify then
@@ -584,13 +556,7 @@ let compileAndRunTestsWithMocha clean projectName =
     if clean then
         cleanDirs [ buildDir ]
 
-    runFableWithArgs
-        projectDir
-        [
-            "--outDir " + buildDir
-            "--fableLib " + fableLib
-            "--exclude Fable.Core"
-        ]
+    runFableWithArgs projectDir [ "--outDir " + buildDir; "--fableLib " + fableLib; "--exclude Fable.Core" ]
 
     runMocha buildDir
 
@@ -649,11 +615,7 @@ let testTypeScript isWatch =
     let buildDir2 = "build/tests/TypeScriptCompiled"
     let fableLib = "fable-library-ts"
 
-    cleanDirs
-        [
-            buildDir
-            buildDir2
-        ]
+    cleanDirs [ buildDir; buildDir2 ]
 
     copyFile (projectDir </> "tsconfig.json") (buildDir </> "tsconfig.json")
 
@@ -1025,12 +987,7 @@ match BUILD_ARGS_LOWER with
     let runCmd =
         $"npx concurrently \"tsc -w -p {srcDir} --outDir {dirname outPath}\" \"nodemon -w {outPath} {outPath}\""
 
-    watchFableWithArgs
-        srcDir
-        [
-            "--lang ts --watch --exclude Fable.Core --noCache --run"
-            runCmd
-        ]
+    watchFableWithArgs srcDir [ "--lang ts --watch --exclude Fable.Core --noCache --run"; runCmd ]
 | ("quicktest-py" | "quicktest-python") :: _ ->
     buildLibraryPyIfNotExists ()
 

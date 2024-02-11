@@ -81,10 +81,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Typ
         + (getTypeFastFullName genParams genArg)
         + " option"
     | Fable.LambdaType(argType, returnType) ->
-        [
-            argType
-            returnType
-        ]
+        [ argType; returnType ]
         |> List.map (getTypeFastFullName genParams)
         |> String.concat " -> "
     // TODO: Use Func` instead?

@@ -132,15 +132,7 @@ module Lib =
                     com.IsTypeScript
                     && ent.IsFSharpUnion
                     && List.isMultiple ent.UnionCases
-                    && not (
-                        Util.hasAnyAttribute
-                            [
-                                Atts.stringEnum
-                                Atts.erase
-                                Atts.tsTaggedUnion
-                            ]
-                            ent.Attributes
-                    )
+                    && not (Util.hasAnyAttribute [ Atts.stringEnum; Atts.erase; Atts.tsTaggedUnion ] ent.Attributes)
                     ->
                     Util.UnionHelpers.UNION_SUFFIX
                 | Annotation -> ""
@@ -185,12 +177,7 @@ module Reflection =
 
                 let typeInfo = transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
 
-                Expression.arrayExpression (
-                    [|
-                        fieldName
-                        typeInfo
-                    |]
-                )
+                Expression.arrayExpression ([| fieldName; typeInfo |])
             )
             |> List.toArray
 
@@ -330,37 +317,18 @@ module Reflection =
                                 | None -> 0.
 
                             Expression.arrayExpression (
-                                [|
-                                    Expression.stringLiteral (name)
-                                    Expression.numericLiteral (value)
-                                |]
+                                [| Expression.stringLiteral (name); Expression.numericLiteral (value) |]
                             )
                             |> Some
                     )
                     |> Seq.toArray
                     |> Expression.arrayExpression
 
-                [
-                    Expression.stringLiteral (entRef.FullName)
-                    numberInfo kind
-                    cases
-                ]
+                [ Expression.stringLiteral (entRef.FullName); numberInfo kind; cases ]
                 |> libReflectionCall com ctx None "enum"
             | _ -> numberInfo kind
-        | Fable.LambdaType(argType, returnType) ->
-            genericTypeInfo
-                "lambda"
-                [
-                    argType
-                    returnType
-                ]
-        | Fable.DelegateType(argTypes, returnType) ->
-            genericTypeInfo
-                "delegate"
-                [
-                    yield! argTypes
-                    yield returnType
-                ]
+        | Fable.LambdaType(argType, returnType) -> genericTypeInfo "lambda" [ argType; returnType ]
+        | Fable.DelegateType(argTypes, returnType) -> genericTypeInfo "delegate" [ yield! argTypes; yield returnType ]
         | Fable.Tuple(genArgs, _) -> genericTypeInfo "tuple" genArgs
         | Fable.Option(genArg, _) -> genericTypeInfo "option" [ genArg ]
         | Fable.Array(genArg, _) -> genericTypeInfo "array" [ genArg ]
@@ -371,13 +339,7 @@ module Reflection =
             let genArgs = resolveGenerics genArgs
 
             List.zip (fieldNames |> Array.toList) genArgs
-            |> List.map (fun (k, t) ->
-                Expression.arrayExpression
-                    [|
-                        Expression.stringLiteral (k)
-                        t
-                    |]
-            )
+            |> List.map (fun (k, t) -> Expression.arrayExpression [| Expression.stringLiteral (k); t |])
             |> libReflectionCall com ctx None "anonRecord"
         | Fable.DeclaredType(entRef, genArgs) ->
             let fullName = entRef.FullName
@@ -683,11 +645,7 @@ module Annotation =
         | Some(FunctionTypeAnnotation _) as annotation ->
             let _, typeParams =
                 match typ with
-                | Fable.LambdaType(argType, returnType) ->
-                    [
-                        argType
-                        returnType
-                    ]
+                | Fable.LambdaType(argType, returnType) -> [ argType; returnType ]
                 | Fable.DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
                 | _ -> []
                 |> Util.getTypeParameters ctx
@@ -763,44 +721,14 @@ module Annotation =
         | Replacements.Util.BclTimer -> makeFableLibImportTypeAnnotation com ctx [] "Timer" "Timer"
         | Replacements.Util.BclHashSet key -> makeFableLibImportTypeAnnotation com ctx [ key ] "Util" "ISet"
         | Replacements.Util.BclDictionary(key, value) ->
-            makeFableLibImportTypeAnnotation
-                com
-                ctx
-                [
-                    key
-                    value
-                ]
-                "Util"
-                "IMap"
-        | Replacements.Util.BclKeyValuePair(key, value) ->
-            makeTupleTypeAnnotation
-                com
-                ctx
-                [
-                    key
-                    value
-                ]
+            makeFableLibImportTypeAnnotation com ctx [ key; value ] "Util" "IMap"
+        | Replacements.Util.BclKeyValuePair(key, value) -> makeTupleTypeAnnotation com ctx [ key; value ]
         | Replacements.Util.FSharpSet key -> makeFableLibImportTypeAnnotation com ctx [ key ] "Set" "FSharpSet"
         | Replacements.Util.FSharpMap(key, value) ->
-            makeFableLibImportTypeAnnotation
-                com
-                ctx
-                [
-                    key
-                    value
-                ]
-                "Map"
-                "FSharpMap"
+            makeFableLibImportTypeAnnotation com ctx [ key; value ] "Map" "FSharpMap"
         | Replacements.Util.FSharpResult(ok, err) ->
             $"FSharpResult$2{Util.UnionHelpers.UNION_SUFFIX}"
-            |> makeFableLibImportTypeAnnotation
-                com
-                ctx
-                [
-                    ok
-                    err
-                ]
-                "Result"
+            |> makeFableLibImportTypeAnnotation com ctx [ ok; err ] "Result"
         | Replacements.Util.FSharpChoice genArgs ->
             $"FSharpChoice${List.length genArgs}{Util.UnionHelpers.UNION_SUFFIX}"
             |> makeFableLibImportTypeAnnotation com ctx genArgs "Choice"
@@ -1633,10 +1561,7 @@ module Util =
 
                 Expression.newExpression (
                     consRef,
-                    [|
-                        tagExpr
-                        Expression.arrayExpression values
-                    |],
+                    [| tagExpr; Expression.arrayExpression values |],
                     ?typeArguments = typeParamInst,
                     ?loc = r
                 )
@@ -1738,22 +1663,9 @@ module Util =
             | [ TransformExpr com ctx expr ], None -> libCall com ctx r "List" "singleton" [] [ expr ]
             | exprs, None -> [ makeArray com ctx exprs ] |> libCall com ctx r "List" "ofArray" []
             | [ TransformExpr com ctx head ], Some(TransformExpr com ctx tail) ->
-                libCall
-                    com
-                    ctx
-                    r
-                    "List"
-                    "cons"
-                    []
-                    [
-                        head
-                        tail
-                    ]
+                libCall com ctx r "List" "cons" [] [ head; tail ]
             | exprs, Some(TransformExpr com ctx tail) ->
-                [
-                    makeArray com ctx exprs
-                    tail
-                ]
+                [ makeArray com ctx exprs; tail ]
                 |> libCall com ctx r "List" "ofArrayWithTail" []
         | Fable.NewOption(value, t, _) ->
             match value with
@@ -1790,7 +1702,11 @@ module Util =
         let enumerator =
             libCall com ctx None "Util" "getEnumerator" [] [ Expression.identifier ("this") ]
 
-        BlockStatement([| Statement.returnStatement (libCall com ctx None "Util" "toIterator" [] [ enumerator ]) |])
+        BlockStatement(
+            [|
+                Statement.returnStatement (libCall com ctx None "Util" "toIterator" [] [ enumerator ])
+            |]
+        )
 
     let extractSuperClassFromBaseCall
         (com: IBabelCompiler)
@@ -1869,13 +1785,7 @@ module Util =
                     let returnType =
                         if isOptional then
                             returnType
-                            |> Option.map (fun t ->
-                                UnionTypeAnnotation
-                                    [|
-                                        t
-                                        UndefinedTypeAnnotation
-                                    |]
-                            )
+                            |> Option.map (fun t -> UnionTypeAnnotation [| t; UndefinedTypeAnnotation |])
                         else
                             returnType
 
@@ -1894,7 +1804,9 @@ module Util =
                 if not memb.IsMangled && (info.IsValue || (not compileAsClass && info.IsGetter)) then
                     let _, body = unwrapOptionalArg com memb.Body
 
-                    [ ObjectMember.objectProperty (prop, com.TransformAsExpr(ctx, body), isComputed = isComputed) ]
+                    [
+                        ObjectMember.objectProperty (prop, com.TransformAsExpr(ctx, body), isComputed = isComputed)
+                    ]
 
                 elif not memb.IsMangled && info.IsGetter then
                     [ makeMethod ObjectGetter ]
@@ -1911,10 +1823,7 @@ module Util =
 
                         ObjectMember.objectMethod (ObjectMeth, prop, [||], body, isComputed = isComputed)
 
-                    [
-                        method
-                        iterator
-                    ]
+                    [ method; iterator ]
 
                 else
                     [ makeMethod ObjectMeth ]
@@ -2081,10 +1990,7 @@ module Util =
                             "Reflection",
                             "equals",
                             Fable.Boolean,
-                            [
-                                e1
-                                e2
-                            ],
+                            [ e1; e2 ],
                             ?loc = range
                         )
 
@@ -2163,16 +2069,7 @@ module Util =
         let props =
             List.zipSafe names args
             |> List.map (fun (key, value) ->
-                Fable.Value(
-                    Fable.NewTuple(
-                        [
-                            Fable.Value(Fable.StringConstant key, None)
-                            value
-                        ],
-                        false
-                    ),
-                    None
-                )
+                Fable.Value(Fable.NewTuple([ Fable.Value(Fable.StringConstant key, None); value ], false), None)
             )
 
         transformJsxEl com ctx callee props
@@ -2292,14 +2189,20 @@ module Util =
                 | None -> callInfo.Args
 
             optimizeTailCall com ctx range tc args
-        | _ -> [| transformCall com ctx range t callee callInfo |> resolveExpr t returnStrategy |]
+        | _ ->
+            [|
+                transformCall com ctx range t callee callInfo |> resolveExpr t returnStrategy
+            |]
 
     let transformCurriedApplyAsStatements com ctx range t returnStrategy callee args =
         // Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity with
         | Some(Return | ReturnUnit), Some tc when tc.IsRecursiveRef(callee) && List.sameLength args tc.Args ->
             optimizeTailCall com ctx range tc args
-        | _ -> [| transformCurriedApply com ctx range callee args |> resolveExpr t returnStrategy |]
+        | _ ->
+            [|
+                transformCurriedApply com ctx range callee args |> resolveExpr t returnStrategy
+            |]
 
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
@@ -2562,7 +2465,9 @@ module Util =
                         | _ -> Array.append caseBody [| Statement.breakStatement () |]
 
                     guards
-                    @ [ SwitchCase.switchCase (transformGuard lastGuard, [| Statement.blockStatement (caseBody) |]) ]
+                    @ [
+                        SwitchCase.switchCase (transformGuard lastGuard, [| Statement.blockStatement (caseBody) |])
+                    ]
             )
 
         let cases = cases |> List.toArray
@@ -2575,7 +2480,11 @@ module Util =
         | [||], Some defaultCase when not (canHaveSideEffects evalExpr) -> defaultCase
         | cases, Some defaultCase ->
             let cases =
-                Array.append cases [| SwitchCase.switchCase (body = [| Statement.blockStatement (defaultCase) |]) |]
+                Array.append
+                    cases
+                    [|
+                        SwitchCase.switchCase (body = [| Statement.blockStatement (defaultCase) |])
+                    |]
 
             [| Statement.switchStatement (switchGuard, cases) |]
         | cases, None -> [| Statement.switchStatement (switchGuard, cases) |]
@@ -2767,14 +2676,7 @@ module Util =
                 let count = Map.tryFind idx targetRefs |> Option.defaultValue 0
                 Map.add idx (count + 1) targetRefs
             | Fable.Let(_, _, body) -> List.fold findSuccess targetRefs [ body ]
-            | Fable.IfThenElse(_cond, thenExpr, elseExpr, _) ->
-                List.fold
-                    findSuccess
-                    targetRefs
-                    [
-                        thenExpr
-                        elseExpr
-                    ]
+            | Fable.IfThenElse(_cond, thenExpr, elseExpr, _) -> List.fold findSuccess targetRefs [ thenExpr; elseExpr ]
             // | Fable.LetRec(_, body) -> List.fold findSuccess targetRefs [body]
             // | Fable.Sequential exprs -> exprs |> List.tryLast |> Option.toList |> List.fold findSuccess targetRefs
             // | Fable.TryCatch(body, catch, _finalizer, _) -> body::(catch |> Option.map snd |> Option.toList) |> List.fold findSuccess targetRefs
@@ -2838,11 +2740,7 @@ module Util =
 
         let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
 
-        [|
-            yield multiVarDecl
-            yield! decisionTree
-            yield! switch2
-        |]
+        [| yield multiVarDecl; yield! decisionTree; yield! switch2 |]
 
     let transformDecisionTreeAsStatements
         (com: IBabelCompiler)
@@ -2955,12 +2853,7 @@ module Util =
             if ctx.HoistVars [ ident ] then
                 let assignment = transformBindingAsExpr com ctx ident value
 
-                Expression.sequenceExpression (
-                    [|
-                        assignment
-                        com.TransformAsExpr(ctx, body)
-                    |]
-                )
+                Expression.sequenceExpression ([| assignment; com.TransformAsExpr(ctx, body) |])
             else
                 iife com ctx expr
 
@@ -3133,7 +3026,9 @@ module Util =
             transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
         | Fable.WhileLoop(TransformExpr com ctx guard, body, range) ->
-            [| Statement.whileStatement (guard, transformBlock com ctx None body, ?loc = range) |]
+            [|
+                Statement.whileStatement (guard, transformBlock com ctx None body, ?loc = range)
+            |]
 
         | Fable.ForLoop(var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp, range) ->
             let op1, op2 =
@@ -3367,11 +3262,7 @@ module Util =
 
         let classExpr =
             Expression.classExpression (
-                [|
-                    yield! classFields
-                    classCons
-                    yield! classMembers
-                |],
+                [| yield! classFields; classCons; yield! classMembers |],
                 ?superClass = superClass,
                 ?typeParameters = typeParamDecl,
                 ?implements = implements
@@ -3429,10 +3320,7 @@ module Util =
         else
             let reflectionDeclaration = declareTypeReflection com ctx ent entName
 
-            [
-                typeDeclaration
-                reflectionDeclaration
-            ]
+            [ typeDeclaration; reflectionDeclaration ]
 
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
@@ -3535,13 +3423,7 @@ module Util =
         let returnType =
             if isOptional then
                 returnType
-                |> Option.map (fun t ->
-                    UnionTypeAnnotation
-                        [|
-                            t
-                            UndefinedTypeAnnotation
-                        |]
-                )
+                |> Option.map (fun t -> UnionTypeAnnotation [| t; UndefinedTypeAnnotation |])
             else
                 returnType
 
@@ -3715,11 +3597,7 @@ module Util =
                     case_ta,
                     AbstractMember.abstractProperty (
                         Expression.numericLiteral (i),
-                        TupleTypeAnnotation
-                            [|
-                                LiteralTypeAnnotation(Literal.stringLiteral (uci.Name))
-                                fields_ta
-                            |]
+                        TupleTypeAnnotation [| LiteralTypeAnnotation(Literal.stringLiteral (uci.Name)); fields_ta |]
                     )
                 )
                 |> Array.unzip
@@ -3736,11 +3614,7 @@ module Util =
                     Parameter.parameter ("fields", typeAnnotation = fieldsArgTa)
                 |]
 
-            let consArgsModifiers =
-                [|
-                    Readonly
-                    Readonly
-                |]
+            let consArgsModifiers = [| Readonly; Readonly |]
 
             let consBody = BlockStatement [| callSuperAsStatement [] |]
             let classMembers = Array.append [| cases |] classMembers
@@ -3749,7 +3623,9 @@ module Util =
                 Some(
                     Array.append
                         entParamsDecl
-                        [| TypeParameter.typeParameter (tagArgName, bound = KeyofTypeAnnotation(union_cases_alias)) |]
+                        [|
+                            TypeParameter.typeParameter (tagArgName, bound = KeyofTypeAnnotation(union_cases_alias))
+                        |]
                 )
 
             [
@@ -3776,10 +3652,7 @@ module Util =
                                 [|
                                     Expression.newExpression (
                                         Expression.Identifier union_cons,
-                                        [|
-                                            Expression.Literal tag
-                                            passedArgs
-                                        |],
+                                        [| Expression.Literal tag; passedArgs |],
                                         typeArguments = consTypeArgs
                                     )
                                     |> Statement.returnStatement
@@ -3820,21 +3693,14 @@ module Util =
 
         // Multiple cases, no-TypeScript
         | _ ->
-            let args =
-                [|
-                    Parameter.parameter ("tag")
-                    Parameter.parameter ("fields")
-                |]
+            let args = [| Parameter.parameter ("tag"); Parameter.parameter ("fields") |]
 
             let body =
                 BlockStatement
                     [|
                         callSuperAsStatement []
                         yield!
-                            [
-                                "tag"
-                                "fields"
-                            ]
+                            [ "tag"; "fields" ]
                             |> List.map (fun name ->
                                 let left = get None thisExpr name
                                 let right = Expression.identifier (name)
@@ -4236,11 +4102,7 @@ module Util =
                 )
             // We used to have trouble when mixing member, default and namespace imports,
             // issue an import statement for each kind just in case
-            [
-                mems
-                defs
-                alls
-            ]
+            [ mems; defs; alls ]
             |> List.choose (
                 function
                 | [] -> None
@@ -4258,11 +4120,7 @@ module Util =
                     []
                 | decls -> decls
         )
-        |> fun staticImports ->
-            [
-                yield! staticImports
-                yield! statefulImports
-            ]
+        |> fun staticImports -> [ yield! staticImports; yield! statefulImports ]
 
     let getIdentForImport (com: IBabelCompiler) (ctx: Context) noMangle (path: string) (selector: string) =
         if System.String.IsNullOrEmpty selector then
