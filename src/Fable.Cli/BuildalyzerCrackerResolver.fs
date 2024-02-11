@@ -118,14 +118,7 @@ If you see this file in your project, you can delete it safely"""
                         // to their expected state
                         let projDir = IO.Path.GetDirectoryName projectFile
 
-                        Process.runSync
-                            projDir
-                            "dotnet"
-                            [
-                                "restore"
-                                projectFile
-                            ]
-                        |> ignore
+                        Process.runSync projDir "dotnet" [ "restore"; projectFile ] |> ignore
 
             let compilerArgs, result =
                 csprojResult

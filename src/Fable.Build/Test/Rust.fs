@@ -60,11 +60,11 @@ let handle (args: string list) =
 
         let cargoTestArgs =
             if noStd then
-                "cargo test --features no_std"
+                "cargo test --features no_std -- --test-threads=1"
             elif threaded then
                 "cargo test --features threaded"
             else
-                "cargo test"
+                "cargo test -- --test-threads=1"
 
         let fableArgs =
             CmdLine.concat

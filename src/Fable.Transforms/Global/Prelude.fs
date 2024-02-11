@@ -260,22 +260,13 @@ module Path =
             if path1.Length = 0 then
                 path1
             else
-                (path1.TrimEnd
-                    [|
-                        '\\'
-                        '/'
-                    |])
-                + "/"
+                (path1.TrimEnd [| '\\'; '/' |]) + "/"
 
         let path2 =
             if path2.StartsWith("./") then
                 path2.[2..]
             else
-                path2.TrimStart
-                    [|
-                        '\\'
-                        '/'
-                    |]
+                path2.TrimStart [| '\\'; '/' |]
 
         path1 + path2
 #else
@@ -465,12 +456,7 @@ module Path =
         let parent = split parent
         let child = split child
 
-        let commonPrefix =
-            getCommonPrefix
-                [
-                    parent
-                    child
-                ]
+        let commonPrefix = getCommonPrefix [ parent; child ]
 
         commonPrefix.Length >= parent.Length
 

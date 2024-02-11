@@ -78,6 +78,7 @@
     <Compile Include="UriTests.fs" />
     <Compile Include="TimeOnlyTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
+    <Compile Include="ListCollectorTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

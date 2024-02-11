@@ -33,6 +33,7 @@
     <Compile Include="Random.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
+    <Compile Include="FSharp.Core.CompilerServices.fs" />
     <TypeScriptCompile Include="Async.ts" />
     <TypeScriptCompile Include="AsyncBuilder.ts" />
     <TypeScriptCompile Include="BitConverter.ts" />

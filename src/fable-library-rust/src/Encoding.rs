@@ -1,9 +1,9 @@
 pub mod Encoding_ {
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{Lrc, LrcPtr, MutCell, String, Vec};
+    use crate::Native_::{Lrc, LrcPtr, OnceInit, String, Vec};
     use crate::String_::{fromChars2, fromSlice, fromString, string, substring2_safe};
 
-    pub trait Encoding {
+    pub trait Encoding: Send + Sync {
         fn getBytes(&self, s: string) -> Array<u8>;
         fn getBytes2(&self, s: string, index: i32, count: i32) -> Array<u8>;
         fn getBytesFromChars(&self, chars: Array<char>) -> Array<u8>;
@@ -35,8 +35,10 @@ pub mod Encoding_ {
     pub struct UTF16LE {}
 
     pub fn get_Unicode() -> LrcPtr<dyn Encoding> {
-        static utf16le: MutCell<Option<LrcPtr<dyn Encoding>>> = MutCell::new(None);
-        utf16le.get_or_init(move || LrcPtr::from(Lrc::from(UTF16LE {}) as Lrc<dyn Encoding>))
+        static utf16le: OnceInit<LrcPtr<dyn Encoding>> = OnceInit::new();
+        utf16le
+            .get_or_init(move || LrcPtr::from(Lrc::from(UTF16LE {}) as Lrc<dyn Encoding>))
+            .clone()
     }
 
     impl UTF16LE {
@@ -134,8 +136,9 @@ pub mod Encoding_ {
     pub struct UTF8 {}
 
     pub fn get_UTF8() -> LrcPtr<dyn Encoding> {
-        static utf8: MutCell<Option<LrcPtr<dyn Encoding>>> = MutCell::new(None);
+        static utf8: OnceInit<LrcPtr<dyn Encoding>> = OnceInit::new();
         utf8.get_or_init(move || LrcPtr::from(Lrc::from(UTF8 {}) as Lrc<dyn Encoding>))
+            .clone()
     }
 
     impl UTF8 {

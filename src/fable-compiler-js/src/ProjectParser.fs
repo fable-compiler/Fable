@@ -108,19 +108,10 @@ let parseCompilerOptions projectXml =
         projectXml
         |> getXmlTagContents "DefineConstants"
         |> Seq.collect (fun s -> s.Split(';'))
-        |> Seq.append
-            [
-                "FABLE_COMPILER"
-                "FABLE_COMPILER_4"
-                "FABLE_COMPILER_JAVASCRIPT"
-            ]
+        |> Seq.append [ "FABLE_COMPILER"; "FABLE_COMPILER_4"; "FABLE_COMPILER_JAVASCRIPT" ]
         |> Seq.map (fun s -> s.Trim())
         |> Seq.distinct
-        |> Seq.except
-            [
-                "$(DefineConstants)"
-                ""
-            ]
+        |> Seq.except [ "$(DefineConstants)"; "" ]
         |> Seq.toArray
 
     // get disabled warnings
@@ -130,11 +121,7 @@ let parseCompilerOptions projectXml =
         |> Seq.collect (fun s -> s.Split(';'))
         |> Seq.map (fun s -> s.Trim())
         |> Seq.distinct
-        |> Seq.except
-            [
-                "$(NoWarn)"
-                ""
-            ]
+        |> Seq.except [ "$(NoWarn)"; "" ]
         |> Seq.toArray
 
     // get warnings as errors
@@ -144,11 +131,7 @@ let parseCompilerOptions projectXml =
         |> Seq.collect (fun s -> s.Split(';'))
         |> Seq.map (fun s -> s.Trim())
         |> Seq.distinct
-        |> Seq.except
-            [
-                "$(WarningsAsErrors)"
-                ""
-            ]
+        |> Seq.except [ "$(WarningsAsErrors)"; "" ]
         |> Seq.toArray
 
     // get other flags
@@ -158,11 +141,7 @@ let parseCompilerOptions projectXml =
         |> Seq.collect (fun s -> s.Split(' '))
         |> Seq.map (fun s -> s.Trim())
         |> Seq.distinct
-        |> Seq.except
-            [
-                "$(OtherFlags)"
-                ""
-            ]
+        |> Seq.except [ "$(OtherFlags)"; "" ]
         |> Seq.toArray
 
     let otherOptions =

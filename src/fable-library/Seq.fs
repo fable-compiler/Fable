@@ -350,12 +350,7 @@ let generateIndexed create compute dispose =
 // let inline generateUsing (openf: unit -> ('U :> System.IDisposable)) compute =
 //     generate openf compute (fun (s: 'U) -> s.Dispose())
 
-let append (xs: seq<'T>) (ys: seq<'T>) =
-    concat
-        [|
-            xs
-            ys
-        |]
+let append (xs: seq<'T>) (ys: seq<'T>) = concat [| xs; ys |]
 
 let cast (xs: IEnumerable<'T>) =
     mkSeq (fun () ->
@@ -953,11 +948,7 @@ let scan folder (state: 'State) (xs: seq<'T>) =
                 acc
             )
 
-        [|
-            first
-            rest
-        |]
-        |> concat
+        [| first; rest |] |> concat
     )
 
 let scanBack folder (xs: seq<'T>) (state: 'State) =

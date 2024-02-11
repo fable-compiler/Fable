@@ -1569,11 +1569,7 @@ module AST =
                 | ArrayFrom e -> [ e ]
             | NewList(ht, _) ->
                 match ht with
-                | Some(h, t) ->
-                    [
-                        h
-                        t
-                    ]
+                | Some(h, t) -> [ h; t ]
                 | None -> []
             | NewRecord(exprs, _, _) -> exprs
             | NewAnonymousRecord(exprs, _, _, _) -> exprs
@@ -1593,16 +1589,8 @@ module AST =
         | Operation(kind, _, _, _) ->
             match kind with
             | Unary(_, operand) -> [ operand ]
-            | Binary(_, left, right) ->
-                [
-                    left
-                    right
-                ]
-            | Logical(_, left, right) ->
-                [
-                    left
-                    right
-                ]
+            | Binary(_, left, right) -> [ left; right ]
+            | Logical(_, left, right) -> [ left; right ]
         | Get(e, kind, _, _) ->
             match kind with
             | ListHead
@@ -1612,49 +1600,18 @@ module AST =
             | UnionTag
             | UnionField _
             | FieldGet _ -> [ e ]
-            | ExprGet e2 ->
-                [
-                    e
-                    e2
-                ]
+            | ExprGet e2 -> [ e; e2 ]
         | Sequential exprs -> exprs
-        | Let(_, value, body) ->
-            [
-                value
-                body
-            ]
+        | Let(_, value, body) -> [ value; body ]
         | LetRec(bs, body) -> (List.map snd bs) @ [ body ]
-        | IfThenElse(cond, thenExpr, elseExpr, _) ->
-            [
-                cond
-                thenExpr
-                elseExpr
-            ]
+        | IfThenElse(cond, thenExpr, elseExpr, _) -> [ cond; thenExpr; elseExpr ]
         | Set(e, kind, _, v, _) ->
             match kind with
-            | ExprSet e2 ->
-                [
-                    e
-                    e2
-                    v
-                ]
+            | ExprSet e2 -> [ e; e2; v ]
             | FieldSet _
-            | ValueSet ->
-                [
-                    e
-                    v
-                ]
-        | WhileLoop(e1, e2, _) ->
-            [
-                e1
-                e2
-            ]
-        | ForLoop(_, e1, e2, e3, _, _) ->
-            [
-                e1
-                e2
-                e3
-            ]
+            | ValueSet -> [ e; v ]
+        | WhileLoop(e1, e2, _) -> [ e1; e2 ]
+        | ForLoop(_, e1, e2, e3, _, _) -> [ e1; e2; e3 ]
         | TryCatch(body, catch, finalizer, _) ->
             match catch with
             | Some(_, c) -> body :: c :: (Option.toList finalizer)

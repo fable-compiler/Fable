@@ -91,16 +91,7 @@ let private flipTwosComplement currByte lowBitFound =
     | _, false ->
         // Found first byte containing a 1, flip higher bits and all future bytes
         let firstBitIndex =
-            [|
-                0
-                1
-                2
-                3
-                4
-                5
-                6
-                7
-            |]
+            [| 0; 1; 2; 3; 4; 5; 6; 7 |]
             |> Array.find (fun i -> currByte &&& (1uy <<< i) > 0uy)
 
         (currByte ^^^ (0b11111110uy <<< firstBitIndex)) &&& 255uy, true

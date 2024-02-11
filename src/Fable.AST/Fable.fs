@@ -199,11 +199,7 @@ type Type =
         | Option(gen, _)
         | Array(gen, _)
         | List gen -> [ gen ]
-        | LambdaType(argType, returnType) ->
-            [
-                argType
-                returnType
-            ]
+        | LambdaType(argType, returnType) -> [ argType; returnType ]
         | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
         | Tuple(gen, _) -> gen
         | DeclaredType(_, gen) -> gen

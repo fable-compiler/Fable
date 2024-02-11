@@ -207,13 +207,7 @@ module Util =
             Type.reference (makeImmutableIdent MetaType "Iterator", [ genArg ])
 
         let makeMapEntry key value =
-            Type.reference (
-                makeImmutableIdent MetaType "MapEntry",
-                [
-                    key
-                    value
-                ]
-            )
+            Type.reference (makeImmutableIdent MetaType "MapEntry", [ key; value ])
 
         match entRef.FullName, genArgs with
         | Types.enum_, _ -> Integer
@@ -601,12 +595,7 @@ module Util =
         statements @ statements2, capturedExpr
 
     let transformExprsAndResolve2 com ctx returnStrategy expr0 expr1 transformExprs =
-        List.map
-            (transform com ctx (Capture(binding = None)))
-            [
-                expr0
-                expr1
-            ]
+        List.map (transform com ctx (Capture(binding = None))) [ expr0; expr1 ]
         |> combineCapturedExprs com ctx
         |> fun (statements, exprs) ->
             let statements2, capturedExpr =
@@ -803,10 +792,7 @@ module Util =
             let regexIdent = makeImmutableIdent MetaType "RegExp"
 
             let args =
-                [
-                    None, Expression.stringLiteral source
-                    yield! flags |> List.choose flagToArg
-                ]
+                [ None, Expression.stringLiteral source; yield! flags |> List.choose flagToArg ]
 
             Expression.invocationExpression (regexIdent.Expr, args, Type.reference regexIdent)
             |> resolveExpr returnStrategy
@@ -947,10 +933,7 @@ module Util =
                     com
                     ctx
                     returnStrategy
-                    [
-                        head
-                        tail
-                    ]
+                    [ head; tail ]
                     (fun exprs -> libCall com ctx (Fable.List typ) "List" "cons" exprs)
 
             | exprs, Some tail ->
@@ -962,10 +945,7 @@ module Util =
                     (fun exprs ->
                         let exprs, tail = List.splitLast exprs
 
-                        [
-                            makeImmutableListExpr com ctx typ exprs
-                            tail
-                        ]
+                        [ makeImmutableListExpr com ctx typ exprs; tail ]
                         |> libCall com ctx (Fable.List typ) "List" "ofArrayWithTail"
                     )
 
@@ -1206,7 +1186,9 @@ module Util =
         let statements, _ = transform com ctx returnStrategy body
 
         prevStatements
-        @ [ Statement.tryStatement (statements, handlers = handlers, ?finalizer = finalizer) ],
+        @ [
+            Statement.tryStatement (statements, handlers = handlers, ?finalizer = finalizer)
+        ],
         captureExpr
 
     /// Branching expressions like conditionals, decision trees or try catch cannot capture
@@ -1499,7 +1481,9 @@ module Util =
                 | _ -> varDecls @ body
 
             args',
-            [ Statement.labeledStatement (tc.Label, Statement.whileStatement (Expression.booleanLiteral (true), body)) ],
+            [
+                Statement.labeledStatement (tc.Label, Statement.whileStatement (Expression.booleanLiteral (true), body))
+            ],
             returnType
 
         | _ -> args |> List.map (transformIdent com ctx), body, returnType
@@ -1565,7 +1549,9 @@ module Util =
             // If value is an anonymous function this will be converted into function declaration in printing step
             ctx,
             valueStatements
-            @ [ Statement.variableDeclaration (ident, kind, value = value, addToScope = ctx.AddToScope) ]
+            @ [
+                Statement.variableDeclaration (ident, kind, value = value, addToScope = ctx.AddToScope)
+            ]
 
     let transformSwitch (com: IDartCompiler) ctx returnStrategy evalExpr cases defaultCase =
         let cases =
@@ -2167,10 +2153,7 @@ module Util =
                 combineStatementsAndExprs
                     com
                     ctx
-                    [
-                        transformAndCaptureExpr com ctx start
-                        transformAndCaptureExpr com ctx limit
-                    ]
+                    [ transformAndCaptureExpr com ctx start; transformAndCaptureExpr com ctx limit ]
 
             let body, _ = transform com ctx Ignore body
             let param = transformIdent com ctx var
@@ -2422,7 +2405,9 @@ module Util =
             |> Seq.filter (fun memb -> not memb.IsProperty)
             |> Seq.mapToList (transformAbstractMember com ctx)
 
-        [ Declaration.classDeclaration (decl.Name, genParams = genParams, methods = methods, isAbstract = true) ]
+        [
+            Declaration.classDeclaration (decl.Name, genParams = genParams, methods = methods, isAbstract = true)
+        ]
 
     // Mirrors Dart.Replacements.equals
     let equals com ctx (left: Expression) (right: Expression) =
@@ -2431,10 +2416,7 @@ module Util =
             let y = makeImmutableIdent t "y"
 
             Expression.anonymousFunction (
-                [
-                    x
-                    y
-                ],
+                [ x; y ],
                 [ equals com ctx x.Expr y.Expr |> Statement.returnStatement ],
                 Integer
             )
@@ -2443,29 +2425,9 @@ module Util =
         | List t ->
             let fn = makeEqualsFunction t
 
-            libCall
-                com
-                ctx
-                Fable.Boolean
-                "Util"
-                "equalsList"
-                [
-                    left
-                    right
-                    fn
-                ]
+            libCall com ctx Fable.Boolean "Util" "equalsList" [ left; right; fn ]
         | Dynamic
-        | Generic _ ->
-            libCall
-                com
-                ctx
-                Fable.Boolean
-                "Util"
-                "equalsDynamic"
-                [
-                    left
-                    right
-                ]
+        | Generic _ -> libCall com ctx Fable.Boolean "Util" "equalsDynamic" [ left; right ]
         | _ -> Expression.binaryExpression (BinaryEqual, left, right, Boolean)
 
     // Mirrors Dart.Replacements.compare
@@ -2475,10 +2437,7 @@ module Util =
             let y = makeImmutableIdent t "y"
 
             Expression.anonymousFunction (
-                [
-                    x
-                    y
-                ],
+                [ x; y ],
                 [ compare com ctx x.Expr y.Expr |> Statement.returnStatement ],
                 Integer
             )
@@ -2487,54 +2446,14 @@ module Util =
         | List t ->
             let fn = makeComparerFunction t
 
-            libCall
-                com
-                ctx
-                (numType Int32)
-                "Util"
-                "compareList"
-                [
-                    left
-                    right
-                    fn
-                ]
+            libCall com ctx (numType Int32) "Util" "compareList" [ left; right; fn ]
         | Nullable t ->
             let fn = makeComparerFunction t
 
-            libCall
-                com
-                ctx
-                (numType Int32)
-                "Util"
-                "compareNullable"
-                [
-                    left
-                    right
-                    fn
-                ]
-        | Boolean ->
-            libCall
-                com
-                ctx
-                (numType Int32)
-                "Util"
-                "compareBool"
-                [
-                    left
-                    right
-                ]
+            libCall com ctx (numType Int32) "Util" "compareNullable" [ left; right; fn ]
+        | Boolean -> libCall com ctx (numType Int32) "Util" "compareBool" [ left; right ]
         | Dynamic
-        | Generic _ ->
-            libCall
-                com
-                ctx
-                (numType Int32)
-                "Util"
-                "compareDynamic"
-                [
-                    left
-                    right
-                ]
+        | Generic _ -> libCall com ctx (numType Int32) "Util" "compareDynamic" [ left; right ]
         | _ -> Expression.invocationExpression (left, "compareTo", [ right ], Integer)
 
     let makeStructuralEquals
@@ -2739,11 +2658,7 @@ module Util =
         let extends =
             transformInheritedClass com ctx ent interfaceInfo.implementsEnumerable None
 
-        let implements =
-            [
-                libTypeRef com ctx "Types" "Union" []
-                yield! interfaces
-            ]
+        let implements = [ libTypeRef com ctx "Types" "Union" []; yield! interfaces ]
 
         let extraMethods =
             if not hasCasesWithoutFields then
@@ -2785,11 +2700,7 @@ module Util =
         let extends =
             transformInheritedClass com ctx ent interfaceInfo.implementsEnumerable None
 
-        let implements =
-            [
-                libTypeRef com ctx "Types" "Record" []
-                yield! interfaces
-            ]
+        let implements = [ libTypeRef com ctx "Types" "Record" []; yield! interfaces ]
 
         let hasMutableFields = ent.FSharpFields |> List.exists (fun f -> f.IsMutable)
 

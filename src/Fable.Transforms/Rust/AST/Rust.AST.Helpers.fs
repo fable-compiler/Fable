@@ -14,15 +14,7 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 [<AutoOpen>]
 module Naming =
 
-    let topKeywords =
-        HashSet(
-            [
-                "crate"
-                "self"
-                "super"
-                "Self"
-            ]
-        )
+    let topKeywords = HashSet([ "crate"; "self"; "super"; "Self" ])
 
     let allKeywords = HashSet(kw.RustKeywords)
     let rustPrelude = HashSet(kw.RustPrelude)
@@ -53,13 +45,7 @@ module Naming =
             stripRaw ident // no need to keep it raw here
 
     let splitNameParts (name: string) =
-        name.Split(
-            [|
-                "."
-                "::"
-            |],
-            System.StringSplitOptions.RemoveEmptyEntries
-        )
+        name.Split([| "."; "::" |], System.StringSplitOptions.RemoveEmptyEntries)
         |> List.ofArray
 
 [<AutoOpen>]
@@ -567,10 +553,7 @@ module MacroArgs =
                 let ttt = tok |> token.TokenTree.Token
                 let sep = kind |> mkTokenTree
                 // if i < count - 1 then
-                [
-                    (ttt, token.Spacing.Joint)
-                    (sep, token.Spacing.Alone)
-                ]
+                [ (ttt, token.Spacing.Joint); (sep, token.Spacing.Alone) ]
             // else
             //     [ (ttt, token.Spacing.Alone) ]
             )
@@ -1057,6 +1040,8 @@ module Types =
         TyKind.BareFn(mkBareFnTy unsafety ext genParams fnDecl) |> mkTy
 
     let mkInferTy () : Ty = TyKind.Infer |> mkTy
+
+    let mkNeverTy () : Ty = TyKind.Never |> mkTy
 
     let mkImplSelfTy () : Ty = TyKind.ImplicitSelf |> mkTy
 

@@ -119,13 +119,7 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
 let private compileCode fable fileName fsharpNames fsharpCodes language otherFSharpOptions =
     async {
         // detect (and remove) the non-F# compiler options to avoid changing msg contract
-        let nonFSharpOptions =
-            set
-                [
-                    "--typedArrays"
-                    "--clampByteArrays"
-                    "--sourceMaps"
-                ]
+        let nonFSharpOptions = set [ "--typedArrays"; "--clampByteArrays"; "--sourceMaps" ]
 
         let fableOptions, otherFSharpOptions =
             otherFSharpOptions |> Array.partition (fun x -> Set.contains x nonFSharpOptions)

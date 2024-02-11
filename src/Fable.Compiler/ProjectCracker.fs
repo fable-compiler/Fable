@@ -138,14 +138,7 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
                 |> Array.rev
                 |> String.concat "/"
 
-            Process.runSync
-                projDir
-                "dotnet"
-                [
-                    "build"
-                    "-c"
-                    cliArgs.Configuration
-                ]
+            Process.runSync projDir "dotnet" [ "build"; "-c"; cliArgs.Configuration ]
             |> ignore
 
             builtDlls.Add(normalizedDllPath) |> ignore
@@ -684,11 +677,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
             baseDir
             |> File.tryFindNonEmptyDirectoryUpwards
                 {|
-                    matches =
-                        [
-                            buildDir
-                            "temp/" + buildDir
-                        ]
+                    matches = [ buildDir; "temp/" + buildDir ]
                     exclude = [ "src" ]
                 |}
             |> Option.defaultWith (fun () ->
@@ -840,10 +829,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             cacheInfo.Version = Literals.VERSION
             && cacheInfo.Exclude = opts.Exclude
             && cacheInfo.FableOptions.Language = opts.FableOptions.Language
-            && ([
-                    cacheInfo.ProjectPath
-                    yield! cacheInfo.References
-                ]
+            && ([ cacheInfo.ProjectPath; yield! cacheInfo.References ]
                 |> List.forall (fun fsproj ->
                     if IO.File.Exists(fsproj) && isOlderThanCache fsproj then
                         // Check if the project uses Paket
