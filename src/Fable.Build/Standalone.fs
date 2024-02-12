@@ -46,7 +46,7 @@ let private buildWorker (minify: bool) =
         workingDirectory = projectDir
     )
 
-    let fableLibraryDist = (distDir </> "fable-library")
+    let fableLibraryDist = (distDir </> "fable-library-js")
 
     Directory.ensure fableLibraryDist
 

@@ -7,7 +7,7 @@ let getMetadataDir () : string =
     __SOURCE_DIRECTORY__ + "/../../../fable-metadata/lib/"
 
 let getFableLibDir () : string =
-    __SOURCE_DIRECTORY__ + "/../../../../temp/fable-library"
+    __SOURCE_DIRECTORY__ + "/../../../../temp/fable-library-js"
 
 let getVersion () : string = ".next"
 

@@ -15,8 +15,8 @@ let private distDir = Path.Combine(fableCompilerJsDir, "dist")
 
 module private FableLib =
 
-    let source = Path.Resolve("temp", "fable-library")
-    let destination = Path.Combine(distDir, "fable-library")
+    let source = Path.Resolve("temp", "fable-library-js")
+    let destination = Path.Combine(distDir, "fable-library-js")
 
 module private FableMetadata =
 
