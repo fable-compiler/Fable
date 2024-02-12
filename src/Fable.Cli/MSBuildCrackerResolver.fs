@@ -14,26 +14,14 @@ open System.Diagnostics
 open System.Text.Json
 
 
-let private fsharpFiles =
-    set
-        [|
-            ".fs"
-            ".fsi"
-            ".fsx"
-        |]
+let private fsharpFiles = set [| ".fs"; ".fsi"; ".fsx" |]
 
 let private isFSharpFile (file: string) =
-    Set.exists
-        (fun (ext: string) -> file.EndsWith(ext, StringComparison.Ordinal))
-        fsharpFiles
+    Set.exists (fun (ext: string) -> file.EndsWith(ext, StringComparison.Ordinal)) fsharpFiles
 
 
 /// Transform F# files into full paths
-let private mkOptionsFullPath
-    (projectFile: FileInfo)
-    (compilerArgs: string array)
-    : string array
-    =
+let private mkOptionsFullPath (projectFile: FileInfo) (compilerArgs: string array) : string array =
     compilerArgs
     |> Array.map (fun (line: string) ->
         if not (isFSharpFile line) then
@@ -44,18 +32,22 @@ let private mkOptionsFullPath
 
 type FullPath = string
 
-let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
+let private dotnet_msbuild_with_defines (fsproj: FullPath) (args: string) (defines: string list) : Async<string> =
     backgroundTask {
         let psi = ProcessStartInfo "dotnet"
         let pwd = Assembly.GetEntryAssembly().Location |> Path.GetDirectoryName
 
-        psi.WorkingDirectory <-
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+        psi.WorkingDirectory <- Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
 
         psi.Arguments <- $"msbuild \"%s{fsproj}\" %s{args}"
         psi.RedirectStandardOutput <- true
         psi.RedirectStandardError <- true
         psi.UseShellExecute <- false
+
+        if not (List.isEmpty defines) then
+            let definesValue = defines |> String.concat ";"
+            psi.Environment.Add("DefineConstants", definesValue)
+
         use ps = new Process()
         ps.StartInfo <- psi
         ps.Start() |> ignore
@@ -73,11 +65,10 @@ let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
     }
     |> Async.AwaitTask
 
-let mkOptionsFromDesignTimeBuildAux
-    (fsproj: FileInfo)
-    (options: CrackerOptions)
-    : Async<ProjectOptionsResponse>
-    =
+let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
+    dotnet_msbuild_with_defines fsproj args List.empty
+
+let mkOptionsFromDesignTimeBuildAux (fsproj: FileInfo) (options: CrackerOptions) : Async<ProjectOptionsResponse> =
     async {
         let! targetFrameworkJson =
             let configuration =
@@ -88,51 +79,32 @@ let mkOptionsFromDesignTimeBuildAux
 
             dotnet_msbuild
                 fsproj.FullName
-                $"%s{configuration} --getProperty:TargetFrameworks --getProperty:TargetFramework --getProperty:DefineConstants"
+                $"%s{configuration} --getProperty:TargetFrameworks --getProperty:TargetFramework"
 
-        let defineConstants, targetFramework =
+        let targetFramework =
             let properties =
                 JsonDocument.Parse targetFrameworkJson
                 |> fun json -> json.RootElement.GetProperty "Properties"
-
-            let defineConstants =
-                properties.GetProperty("DefineConstants").GetString().Split(';')
-                |> Array.filter (fun c -> c <> "DEBUG" || c <> "RELEASE")
 
             let tf, tfs =
                 properties.GetProperty("TargetFramework").GetString(),
                 properties.GetProperty("TargetFrameworks").GetString()
 
             if not (String.IsNullOrWhiteSpace tf) then
-                defineConstants, tf
+                tf
             else
-                defineConstants, tfs.Split ';' |> Array.head
+                tfs.Split ';' |> Array.head
 
-        let defines =
-            [
-                "TRACE"
-                if not (String.IsNullOrWhiteSpace options.Configuration) then
-                    options.Configuration.ToUpper()
-                yield! defineConstants
-                yield! options.FableOptions.Define
-            ]
-
-            |> List.map (fun s -> s.Trim())
-            // Escaped `;`
-            |> String.concat "%3B"
 
         // When CoreCompile does not need a rebuild, MSBuild will skip that target and thus will not populate the FscCommandLineArgs items.
         // To overcome this we want to force a design time build, using the NonExistentFile property helps prevent a cache hit.
-        let nonExistentFile =
-            Path.Combine("__NonExistentSubDir__", "__NonExistentFile__")
+        let nonExistentFile = Path.Combine("__NonExistentSubDir__", "__NonExistentFile__")
 
         let properties =
             [
                 "/p:Fable=True"
                 if not (String.IsNullOrWhiteSpace options.Configuration) then
                     $"/p:Configuration=%s{options.Configuration}"
-                if not (String.IsNullOrWhiteSpace defines) then
-                    $"/p:DefineConstants=\"%s{defines}\""
                 $"/p:TargetFramework=%s{targetFramework}"
                 "/p:DesignTimeBuild=True"
                 "/p:SkipCompilerExecution=True"
@@ -156,7 +128,7 @@ let mkOptionsFromDesignTimeBuildAux
         let arguments =
             $"/restore /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
 
-        let! json = dotnet_msbuild fsproj.FullName arguments
+        let! json = dotnet_msbuild_with_defines fsproj.FullName arguments options.FableOptions.Define
         let jsonDocument = JsonDocument.Parse json
         let items = jsonDocument.RootElement.GetProperty "Items"
         let properties = jsonDocument.RootElement.GetProperty "Properties"
@@ -179,8 +151,7 @@ let mkOptionsFromDesignTimeBuildAux
                 |> Seq.map (fun arg ->
                     let relativePath = arg.GetProperty("Identity").GetString()
 
-                    Path.Combine(fsproj.DirectoryName, relativePath)
-                    |> Path.GetFullPath
+                    Path.Combine(fsproj.DirectoryName, relativePath) |> Path.GetFullPath
                 )
                 |> Seq.toArray
 
@@ -198,23 +169,14 @@ let mkOptionsFromDesignTimeBuildAux
 type MSBuildCrackerResolver() =
 
     interface ProjectCrackerResolver with
-        member _.GetProjectOptionsFromProjectFile
-            (
-                isMain,
-                options: CrackerOptions,
-                projectFile
-            )
-            =
+        member _.GetProjectOptionsFromProjectFile(isMain, options: CrackerOptions, projectFile) =
             let fsproj = FileInfo projectFile
 
             if not fsproj.Exists then
-                invalidArg
-                    (nameof fsproj)
-                    $"\"%s{fsproj.FullName}\" does not exist."
+                invalidArg (nameof fsproj) $"\"%s{fsproj.FullName}\" does not exist."
 
             // Bad I know...
             let result =
-                mkOptionsFromDesignTimeBuildAux fsproj options
-                |> Async.RunSynchronously
+                mkOptionsFromDesignTimeBuildAux fsproj options |> Async.RunSynchronously
 
             result
