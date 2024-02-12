@@ -979,10 +979,6 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
             | _, exeFile -> exeFile, runProc.Args
 
         if Option.isSome state.Watcher then
-            printfn "cliArgs.RunProcessEnv: %A" cliArgs.RunProcessEnv
-            printfn "workingDir: %A" workingDir
-            printfn "exeFile: %A" exeFile
-            printfn "args: %A" args
             Process.startWithEnv cliArgs.RunProcessEnv workingDir exeFile args
 
             let runProc =

@@ -73,7 +73,7 @@ type BuildalyzerCrackerResolver() =
                         let xmlComment =
                             XComment(
                                 """This is a temporary file used by Fable to restore dependencies.
-                    If you see this file in your project, you can delete it safely"""
+If you see this file in your project, you can delete it safely"""
                             )
 
                         // An fsproj/csproj should always have a root element
