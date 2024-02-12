@@ -21,9 +21,7 @@ type IFileSystemWatcher =
 /// An alternative file watcher based on polling.
 /// ignoredDirectoryNameRegexes allows ignoring directories to improve performance.
 type PollingFileWatcher =
-    new:
-        watchedDirectoryPath: string * ignoredDirectoryNameRegexes: string seq ->
-            PollingFileWatcher
+    new: watchedDirectoryPath: string * ignoredDirectoryNameRegexes: string seq -> PollingFileWatcher
 
     /// Defaults to false. Must be set to true to start raising events.
     member EnableRaisingEvents: bool with get, set
@@ -32,10 +30,7 @@ type PollingFileWatcher =
 /// A wrapper around the immutable polling watcher,
 /// implementing IFileSystemWatcher with its mutable BasePath.
 type ResetablePollingFileWatcher =
-    new:
-        fileNameGlobFilters: string list *
-        ignoredDirectoryNameRegexes: string seq ->
-            ResetablePollingFileWatcher
+    new: fileNameGlobFilters: string list * ignoredDirectoryNameRegexes: string seq -> ResetablePollingFileWatcher
 
     interface IFileSystemWatcher
 

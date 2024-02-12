@@ -21,26 +21,16 @@ let private testReact (isWatch: bool) =
     if isWatch then
         Async.Parallel
             [
-                Command.WatchFableAsync(
-                    CmdLine.appendRaw "--noCache",
-                    workingDirectory = workingDirectory
-                )
+                Command.WatchFableAsync(CmdLine.appendRaw "--noCache", workingDirectory = workingDirectory)
                 |> Async.AwaitTask
 
-                Command.RunAsync(
-                    "npx",
-                    "jest --watch",
-                    workingDirectory = workingDirectory
-                )
+                Command.RunAsync("npx", "jest --watch", workingDirectory = workingDirectory)
                 |> Async.AwaitTask
             ]
         |> Async.RunSynchronously
         |> ignore
     else
-        Command.Fable(
-            CmdLine.appendRaw "--noCache",
-            workingDirectory = workingDirectory
-        )
+        Command.Fable(CmdLine.appendRaw "--noCache", workingDirectory = workingDirectory)
 
         Command.Run("npx", "jest", workingDirectory = workingDirectory)
 
@@ -77,9 +67,7 @@ let private testAdaptive (isWatch: bool) =
                     |> CmdLine.appendRaw "--runWatch"
                     |> CmdLine.appendRaw mochaCommand
                 else
-                    CmdLine.empty
-                    |> CmdLine.appendRaw "--run"
-                    |> CmdLine.appendRaw mochaCommand
+                    CmdLine.empty |> CmdLine.appendRaw "--run" |> CmdLine.appendRaw mochaCommand
             ]
 
     if isWatch then
@@ -120,9 +108,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
                     |> CmdLine.appendRaw "--runWatch"
                     |> CmdLine.appendRaw mochaCommand
                 else
-                    CmdLine.empty
-                    |> CmdLine.appendRaw "--run"
-                    |> CmdLine.appendRaw mochaCommand
+                    CmdLine.empty |> CmdLine.appendRaw "--run" |> CmdLine.appendRaw mochaCommand
             ]
 
     if isWatch then
@@ -137,20 +123,13 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
                     )
                     |> Async.AwaitTask
 
-                Command.WatchFableAsync(
-                    fableArgs,
-                    workingDirectory = destinationDir
-                )
+                Command.WatchFableAsync(fableArgs, workingDirectory = destinationDir)
                 |> Async.AwaitTask
             ]
         |> Async.RunSynchronously
         |> ignore
     else
-        Command.Run(
-            "dotnet",
-            "run -c Release",
-            workingDirectory = Path.Combine("tests", "Js", "Main")
-        )
+        Command.Run("dotnet", "run -c Release", workingDirectory = Path.Combine("tests", "Js", "Main"))
 
         // Test the Main tests against JavaScript
         Command.Fable(fableArgs, workingDirectory = destinationDir)
@@ -176,8 +155,7 @@ let handle (args: string list) =
     | (true, true, _)
     | (true, _, true)
     | (_, true, true) ->
-        failwith
-            "Cannot use '--react-only', '--standalone-only' and '--adaptive-only' at the same time"
+        failwith "Cannot use '--react-only', '--standalone-only' and '--adaptive-only' at the same time"
 
     | _ -> ()
 

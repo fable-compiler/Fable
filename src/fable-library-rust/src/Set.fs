@@ -39,15 +39,7 @@ let mkSetTreeLeaf (key: 'T) : Set<'T> =
         }
     |> mkSet
 
-let mkSetTreeNode
-    (
-        key: 'T,
-        left: Set<'T>,
-        right: Set<'T>,
-        height: int
-    )
-    : Set<'T>
-    =
+let mkSetTreeNode (key: 'T, left: Set<'T>, right: Set<'T>, height: int) : Set<'T> =
     Some
         {
             Key = key
@@ -361,11 +353,9 @@ let rec union (s1: Set<'T>) (s2: Set<'T>) =
                 //   Union disjoint subproblems and then combine.
                 t1.Height > t2.Height
             then
-                let lo, _, hi = split t1.Key s2 in
-                balance (union t1.Left lo) t1.Key (union t1.Right hi)
+                let lo, _, hi = split t1.Key s2 in balance (union t1.Left lo) t1.Key (union t1.Right hi)
             else
-                let lo, _, hi = split t2.Key s1 in
-                balance (union t2.Left lo) t2.Key (union t2.Right hi)
+                let lo, _, hi = split t2.Key s1 in balance (union t2.Left lo) t2.Key (union t2.Right hi)
 
 let unionMany (sets: seq<Set<'T>>) = Seq.fold union empty sets
 

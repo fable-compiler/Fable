@@ -1308,11 +1308,7 @@ type InlineAsmOperand =
     | In of reg: InlineAsmRegOrRegClass * expr: P<Expr>
     | Out of reg: InlineAsmRegOrRegClass * late: bool * expr: Option<P<Expr>>
     | InOut of reg: InlineAsmRegOrRegClass * late: bool * expr: P<Expr>
-    | SplitInOut of
-        reg: InlineAsmRegOrRegClass *
-        late: bool *
-        in_expr: P<Expr> *
-        out_expr: Option<P<Expr>>
+    | SplitInOut of reg: InlineAsmRegOrRegClass * late: bool * in_expr: P<Expr> * out_expr: Option<P<Expr>>
     | Const of anon_const: AnonConst
     | Sym of expr: P<Expr>
 
@@ -1690,8 +1686,7 @@ type FnHeader =
         ext: Extern
     }
 
-type TraitKind =
-    IsAuto * Unsafety * Generics * GenericBounds * Vec<P<AssocItem>>
+type TraitKind = IsAuto * Unsafety * Generics * GenericBounds * Vec<P<AssocItem>>
 
 type TyAliasKind = Defaultness * Generics * GenericBounds * Option<P<Ty>>
 

@@ -47,8 +47,4 @@ Error:
         Command.Run("npm", "publish", workingDirectory = projectDir)
 
     let replaceVersion (packageJsonContent: string) (version: string) =
-        Regex.Replace(
-            packageJsonContent,
-            Regex.VERSION,
-            (fun (m: Match) -> $"\"version\": \"{version}\"")
-        )
+        Regex.Replace(packageJsonContent, Regex.VERSION, (fun (m: Match) -> $"\"version\": \"{version}\""))

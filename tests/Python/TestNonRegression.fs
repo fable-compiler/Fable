@@ -65,8 +65,8 @@ let ``test hashcodes are unique`` () =
     // objects to make sure they are not optimized away.
     let xHash = x.GetHashCode()
     let yHash = y.GetHashCode()
-    assert (xHash > 0)
-    assert (yHash > 0)
+    xHash <> 0 |> equal true
+    yHash <> 0 |> equal true
 
 let ``test record hashcodes are unique`` () =
     let x =
@@ -93,8 +93,8 @@ let ``test record hashcodes are unique`` () =
     // objects to make sure they are not optimized away.
     let xHash = x.GetHashCode()
     let yHash = y.GetHashCode()
-    assert (xHash > 0)
-    assert (yHash > 0)
+    xHash <> 0 |> equal true
+    yHash <> 0 |> equal true
 
 
 let ``test Nested type with Custom Hashcode works`` () =
@@ -106,5 +106,39 @@ let ``test Nested type with Custom Hashcode works`` () =
 
     let y = Issue3674.X x
 
-    assert (x.GetHashCode() > 0)
-    assert (y.GetHashCode() > 0)
+    x.GetHashCode() <> 0 |> equal true
+    y.GetHashCode() <> 0 |> equal true
+
+module Issue3717 =
+    [<CustomEquality; NoComparison>]
+    type X =
+        {
+            ID : int
+            Name : string
+        }
+
+        override x.GetHashCode() = x.ID
+
+        override this.Equals(other : obj) =
+            match other with
+            | :? X as other -> this.ID = other.ID
+            | _ -> false
+
+    // Record type here (unlike issue #3674)
+    type Y =
+        {X : X}
+
+let ``test nested type with custom equality works`` () =
+
+    // Should be equal according to custom equality
+    let x1 = {Issue3717.ID = 1; Issue3717.Name = "a"}
+    let x2 = {Issue3717.ID = 1; Issue3717.Name = "b"}
+
+    // Should all be equal according to custom equality of inner type
+    let y1 = {Issue3717.X = x1}
+    let y2 = {Issue3717.X = x2}
+    let y3 = {Issue3717.X = x1}
+
+    equal x1 x2
+    equal y1 y2
+    equal y1 y3

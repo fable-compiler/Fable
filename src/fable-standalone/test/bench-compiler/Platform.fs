@@ -22,8 +22,7 @@ let readAllBytes (filePath: string) = File.ReadAllBytes(filePath)
 let readAllText (filePath: string) =
     File.ReadAllText(filePath, System.Text.Encoding.UTF8)
 
-let writeAllText (filePath: string) (text: string) =
-    File.WriteAllText(filePath, text)
+let writeAllText (filePath: string) (text: string) = File.WriteAllText(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -54,9 +53,7 @@ let getRelativePath (path: string) (pathTo: string) =
         "./" + relPath
 
 let getHomePath () =
-    System.Environment.GetFolderPath(
-        System.Environment.SpecialFolder.UserProfile
-    )
+    System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile)
 
 let getDirFiles (path: string) (extension: string) =
     if not (Directory.Exists(path)) then
@@ -136,8 +133,7 @@ let readAllBytes (filePath: string) = JS.fs.readFileSync (filePath)
 let readAllText (filePath: string) =
     JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
 
-let writeAllText (filePath: string) (text: string) =
-    JS.fs.writeFileSync (filePath, text)
+let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync (filePath, text)
 
 // let measureTime (f: 'a -> 'b) x =
 //     let t0 = JS.performance.now()
@@ -201,19 +197,9 @@ module Path =
             if path1.Length = 0 then
                 path1
             else
-                (path1.TrimEnd
-                    [|
-                        '\\'
-                        '/'
-                    |])
-                + "/"
+                (path1.TrimEnd [| '\\'; '/' |]) + "/"
 
-        path1
-        + (path2.TrimStart
-            [|
-                '\\'
-                '/'
-            |])
+        path1 + (path2.TrimStart [| '\\'; '/' |])
 
     let ChangeExtension (path: string, ext: string) =
         let i = path.LastIndexOf(".")

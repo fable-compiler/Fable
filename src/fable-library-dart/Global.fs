@@ -20,16 +20,14 @@ module SR =
     let inputMustBeNonNegative = "The input must be non-negative."
     let inputSequenceEmpty = "The input sequence was empty."
 
-    let inputSequenceTooLong =
-        "The input sequence contains more than one element."
+    let inputSequenceTooLong = "The input sequence contains more than one element."
 
     let keyNotFoundAlt =
         "An index satisfying the predicate was not found in the collection."
 
     let differentLengths = "The collections had different lengths."
 
-    let notEnoughElements =
-        "The input sequence has an insufficient number of elements."
+    let notEnoughElements = "The input sequence has an insufficient number of elements."
 
     let enumerationAlreadyFinished = "Enumeration already finished."
     let enumerationNotStarted = "Enumeration has not started. Call MoveNext."

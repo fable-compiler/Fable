@@ -36,12 +36,6 @@ let throwsAnyError (f: unit -> 'a) : unit =
 let main () =
     testCase "Array.length works"
     <| fun () ->
-        let xs =
-            [|
-                "a"
-                "a"
-                "a"
-                "a"
-            |]
+        let xs = [| "a"; "a"; "a"; "a" |]
 
         Array.length xs |> equal 4

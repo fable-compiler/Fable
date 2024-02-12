@@ -486,8 +486,7 @@ module sym =
     let const_extern_fn = "const_extern_fn"
     let const_fn = "const_fn"
 
-    let const_fn_floating_point_arithmetic =
-        "const_fn_floating_point_arithmetic"
+    let const_fn_floating_point_arithmetic = "const_fn_floating_point_arithmetic"
 
     let const_fn_fn_ptr_basics = "const_fn_fn_ptr_basics"
     let const_fn_transmute = "const_fn_transmute"
@@ -749,8 +748,7 @@ module sym =
     let index_mut = "index_mut"
     let infer_outlives_requirements = "infer_outlives_requirements"
 
-    let infer_static_outlives_requirements =
-        "infer_static_outlives_requirements"
+    let infer_static_outlives_requirements = "infer_static_outlives_requirements"
 
     let inherent_associated_types = "inherent_associated_types"
     let inlateout = "inlateout"
@@ -1113,18 +1111,15 @@ module sym =
     let rustc_inherit_overflow_checks = "rustc_inherit_overflow_checks"
     let rustc_layout = "rustc_layout"
 
-    let rustc_layout_scalar_valid_range_end =
-        "rustc_layout_scalar_valid_range_end"
+    let rustc_layout_scalar_valid_range_end = "rustc_layout_scalar_valid_range_end"
 
-    let rustc_layout_scalar_valid_range_start =
-        "rustc_layout_scalar_valid_range_start"
+    let rustc_layout_scalar_valid_range_start = "rustc_layout_scalar_valid_range_start"
 
     let rustc_legacy_const_generics = "rustc_legacy_const_generics"
     let rustc_macro_transparency = "rustc_macro_transparency"
     let rustc_mir = "rustc_mir"
 
-    let rustc_nonnull_optimization_guaranteed =
-        "rustc_nonnull_optimization_guaranteed"
+    let rustc_nonnull_optimization_guaranteed = "rustc_nonnull_optimization_guaranteed"
 
     let rustc_object_lifetime_default = "rustc_object_lifetime_default"
     let rustc_on_unimplemented = "rustc_on_unimplemented"
@@ -1153,8 +1148,7 @@ module sym =
     let rustc_test_marker = "rustc_test_marker"
     let rustc_then_this_would_need = "rustc_then_this_would_need"
 
-    let rustc_unsafe_specialization_marker =
-        "rustc_unsafe_specialization_marker"
+    let rustc_unsafe_specialization_marker = "rustc_unsafe_specialization_marker"
 
     let rustc_variance = "rustc_variance"
     let rustdoc = "rustdoc"
@@ -1410,8 +1404,7 @@ module sym =
     let volatile = "volatile"
     let volatile_copy_memory = "volatile_copy_memory"
 
-    let volatile_copy_nonoverlapping_memory =
-        "volatile_copy_nonoverlapping_memory"
+    let volatile_copy_nonoverlapping_memory = "volatile_copy_nonoverlapping_memory"
 
     let volatile_load = "volatile_load"
     let volatile_set_memory = "volatile_set_memory"

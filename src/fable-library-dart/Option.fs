@@ -57,22 +57,12 @@ let exists (fn: 'T -> bool) (opt: 'T option) : bool =
     | Some opt -> fn opt
     | None -> false
 
-let fold<'T, 'State>
-    (folder: 'State -> 'T -> 'State)
-    (state: 'State)
-    (opt: 'T option)
-    : 'State
-    =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (opt: 'T option) : 'State =
     match opt with
     | Some opt -> folder state opt
     | None -> state
 
-let foldBack<'T, 'State>
-    (folder: 'T -> 'State -> 'State)
-    (opt: 'T option)
-    (state: 'State)
-    : 'State
-    =
+let foldBack<'T, 'State> (folder: 'T -> 'State -> 'State) (opt: 'T option) (state: 'State) : 'State =
     match opt with
     | Some opt -> folder opt state
     | None -> state
@@ -96,23 +86,12 @@ let map (fn: 'T -> 'U) (opt: 'T option) : 'U option =
     | None -> None
     | Some opt -> fn opt |> Some
 
-let map2
-    (fn: 'T1 -> 'T2 -> 'U)
-    (opt1: 'T1 option)
-    (opt2: 'T2 option)
-    : 'U option
-    =
+let map2 (fn: 'T1 -> 'T2 -> 'U) (opt1: 'T1 option) (opt2: 'T2 option) : 'U option =
     match opt1, opt2 with
     | Some opt1, Some opt2 -> fn opt1 opt2 |> Some
     | _ -> None
 
-let map3
-    (fn: 'T1 -> 'T2 -> 'T3 -> 'U)
-    (opt1: 'T1 option)
-    (opt2: 'T2 option)
-    (opt3: 'T3 option)
-    : 'U option
-    =
+let map3 (fn: 'T1 -> 'T2 -> 'T3 -> 'U) (opt1: 'T1 option) (opt2: 'T2 option) (opt3: 'T3 option) : 'U option =
     match opt1, opt2, opt3 with
     | Some opt1, Some opt2, Some opt3 -> fn opt1 opt2 opt3 |> Some
     | _ -> None

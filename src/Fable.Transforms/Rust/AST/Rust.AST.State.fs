@@ -82,14 +82,7 @@ type FileName = string
 
 type Comments with
 
-    static member new_
-        (
-            sm: SourceMap,
-            filename: FileName,
-            input: string
-        )
-        : Comments
-        =
+    static member new_(sm: SourceMap, filename: FileName, input: string) : Comments =
         let comments = Vec() //gather_comments(sm, filename, input) //TODO:
 
         {
@@ -102,13 +95,7 @@ type Comments with
         // self.comments_.get(self.current).cloned()
         self.comments.pop ()
 
-    member self.trailing_comment
-        (
-            span: Span,
-            next_pos: Option<BytePos>
-        )
-        : Option<Comment>
-        =
+    member self.trailing_comment(span: Span, next_pos: Option<BytePos>) : Option<Comment> =
         match self.next () with
         | None -> None
         | Some(cmnt) ->
@@ -119,11 +106,7 @@ type Comments with
                 let comment_line = {| line = 0u |} //self.sm.lookup_char_pos(cmnt.pos) // TODO:
                 let next = next_pos.unwrap_or_else (fun () -> cmnt.pos + 1u)
 
-                if
-                    span.hi () < cmnt.pos
-                    && cmnt.pos < next
-                    && span_line.line = comment_line.line
-                then
+                if span.hi () < cmnt.pos && cmnt.pos < next && span_line.line = comment_line.line then
                     Some(cmnt)
                 else
                     None
@@ -224,22 +207,13 @@ let binop_to_string (op: token.BinOpToken) : string =
     | token.BinOpToken.Shl -> "<<"
     | token.BinOpToken.Shr -> ">>"
 
-let doc_comment_to_string
-    (
-        comment_kind: token.CommentKind,
-        attr_style: ast.AttrStyle,
-        data: Symbol
-    )
-    : string
-    =
+let doc_comment_to_string (comment_kind: token.CommentKind, attr_style: ast.AttrStyle, data: Symbol) : string =
 
     match (comment_kind, attr_style) with
     | (token.CommentKind.Line, ast.AttrStyle.Outer) -> format ("///{0}", data)
     | (token.CommentKind.Line, ast.AttrStyle.Inner) -> format ("//!{0}", data)
-    | (token.CommentKind.Block, ast.AttrStyle.Outer) ->
-        format ("/**{0}*/", data)
-    | (token.CommentKind.Block, ast.AttrStyle.Inner) ->
-        format ("/*!{0}*/", data)
+    | (token.CommentKind.Block, ast.AttrStyle.Outer) -> format ("/**{0}*/", data)
+    | (token.CommentKind.Block, ast.AttrStyle.Inner) -> format ("/*!{0}*/", data)
 
 let literal_to_string (lit: token.Lit) : string =
     let {
@@ -288,19 +262,10 @@ let print_emit_expr self value (args: Vec<_>, printArgs) =
     let args = args.ToArray()
     // printer.AddLocation(loc)
 
-    let inline replace
-        pattern
-        (f: System.Text.RegularExpressions.Match -> string)
-        input
-        =
+    let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
         System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
 
-    let printSegment
-        (printer: Pretty.Printer)
-        (value: string)
-        segmentStart
-        segmentEnd
-        =
+    let printSegment (printer: Pretty.Printer) (value: string) segmentStart segmentEnd =
         let segmentLength = segmentEnd - segmentStart
 
         if segmentLength > 0 then
@@ -374,11 +339,7 @@ let print_emit_expr self value (args: Vec<_>, printArgs) =
 
         let lastMatch = matches[matches.Count - 1]
 
-        printSegment
-            self.s
-            value
-            (lastMatch.Index + lastMatch.Length)
-            value.Length
+        printSegment self.s value (lastMatch.Index + lastMatch.Length) value.Length
     else
         printSegment self.s value 0 value.Length
 
@@ -389,15 +350,7 @@ type PrintState = State
 
 type State with
 
-    member self.strsep<'T>
-        (
-            sep: string,
-            space_before: bool,
-            b: pp.Breaks,
-            elts: Vec<'T>,
-            op: PrintState * 'T -> unit
-        )
-        =
+    member self.strsep<'T>(sep: string, space_before: bool, b: pp.Breaks, elts: Vec<'T>, op: PrintState * 'T -> unit) =
 
         self.s.rbox (0, b)
 
@@ -415,13 +368,7 @@ type State with
 
         self.s.end_ ()
 
-    member self.commasep<'T>
-        (
-            b: pp.Breaks,
-            elts: Vec<'T>,
-            op: PrintState * 'T -> unit
-        )
-        =
+    member self.commasep<'T>(b: pp.Breaks, elts: Vec<'T>, op: PrintState * 'T -> unit) =
         self.strsep (",", false, b, elts, op)
 
     member self.maybe_print_comment(pos: BytePos) =
@@ -523,9 +470,7 @@ type State with
     member self.print_inner_attributes(attrs: Vec<ast.Attribute>) =
         self.print_either_attributes (attrs, ast.AttrStyle.Inner, false, true)
 
-    member self.print_inner_attributes_no_trailing_hardbreak
-        (attrs: Vec<ast.Attribute>)
-        =
+    member self.print_inner_attributes_no_trailing_hardbreak(attrs: Vec<ast.Attribute>) =
         self.print_either_attributes (attrs, ast.AttrStyle.Inner, false, false)
 
     member self.print_outer_attributes(attrs: Vec<ast.Attribute>) =
@@ -592,15 +537,7 @@ type State with
 
         match item.args with
         | ast.MacArgs.Delimited(_, delim, tokens) ->
-            self.print_mac_common (
-                Some(MacHeader.Path(item.path)),
-                false,
-                None,
-                to_token (delim),
-                tokens,
-                true,
-                span
-            )
+            self.print_mac_common (Some(MacHeader.Path(item.path)), false, None, to_token (delim), tokens, true, span)
         | ast.MacArgs.Empty
         | ast.MacArgs.Eq(_) ->
             self.print_path (item.path, false, 0)
@@ -634,11 +571,7 @@ type State with
             self.print_path (item.path, false, 0)
             self.s.popen ()
 
-            self.commasep (
-                pp.Breaks.Consistent,
-                items,
-                fun (s, i) -> s.print_meta_list_item (i)
-            )
+            self.commasep (pp.Breaks.Consistent, items, (fun (s, i) -> s.print_meta_list_item (i)))
 
             self.s.pclose ()
 
@@ -654,8 +587,7 @@ type State with
     member self.print_tt(tt: token.TokenTree, convert_dollar_crate: bool) =
         match tt with
         | token.TokenTree.Token(token_) ->
-            let token_str =
-                self.token_to_string_ext (token_, convert_dollar_crate)
+            let token_str = self.token_to_string_ext (token_, convert_dollar_crate)
 
             self.s.word (token_str)
 
@@ -663,15 +595,7 @@ type State with
             | token.TokenKind.DocComment(_) -> self.s.hardbreak ()
             | _ -> ()
         | token.TokenTree.Delimited(dspan, delim, tts) ->
-            self.print_mac_common (
-                None,
-                false,
-                None,
-                delim,
-                tts,
-                convert_dollar_crate,
-                dspan.entire ()
-            )
+            self.print_mac_common (None, false, None, delim, tts, convert_dollar_crate, dspan.entire ())
 
     member self.print_tts(tts: token.TokenStream, convert_dollar_crate: bool) =
         let mutable iter = tts.iter () //tts.trees()
@@ -728,8 +652,7 @@ type State with
             if not (tts.is_empty ()) then
                 self.s.space ()
         | _ ->
-            let token_str =
-                self.token_kind_to_string (token.TokenKind.OpenDelim(delim))
+            let token_str = self.token_kind_to_string (token.TokenKind.OpenDelim(delim))
 
             self.s.word (token_str)
 
@@ -740,18 +663,11 @@ type State with
         match delim with
         | token.DelimToken.Brace -> self.bclose (span)
         | _ ->
-            let token_str =
-                self.token_kind_to_string (token.TokenKind.CloseDelim(delim))
+            let token_str = self.token_kind_to_string (token.TokenKind.CloseDelim(delim))
 
             self.s.word (token_str)
 
-    member self.print_path
-        (
-            path: ast.Path,
-            colons_before_params: bool,
-            depth: usize
-        )
-        =
+    member self.print_path(path: ast.Path, colons_before_params: bool, depth: usize) =
         self.maybe_print_comment (path.span.lo ())
         let segments = path.segments[.. path.segments.len () - depth]
         let mutable i = -1
@@ -764,12 +680,7 @@ type State with
 
             self.print_path_segment (segment, colons_before_params)
 
-    member self.print_path_segment
-        (
-            segment: ast.PathSegment,
-            colons_before_params: bool
-        )
-        =
+    member self.print_path_segment(segment: ast.PathSegment, colons_before_params: bool) =
         if segment.ident.name <> kw.PathRoot then
             self.print_ident (segment.ident)
 
@@ -819,8 +730,7 @@ type State with
         | token.Nonterminal.NtBlock(e) -> self.block_to_string (e)
         | token.Nonterminal.NtStmt(e) -> self.stmt_to_string (e)
         | token.Nonterminal.NtPat(e) -> self.pat_to_string (e)
-        | token.Nonterminal.NtIdent(e, is_raw) ->
-            IdentPrinter.for_ast_ident(e, is_raw).to_string ()
+        | token.Nonterminal.NtIdent(e, is_raw) -> IdentPrinter.for_ast_ident(e, is_raw).to_string ()
         | token.Nonterminal.NtLifetime(e) -> e.to_string ()
         | token.Nonterminal.NtLiteral(e) -> self.expr_to_string (e)
         | token.Nonterminal.NtTT(tree) -> self.tt_to_string (tree)
@@ -830,13 +740,7 @@ type State with
     member self.token_kind_to_string(token_: token.TokenKind) : string =
         self.token_kind_to_string_ext (token_, None)
 
-    member self.token_kind_to_string_ext
-        (
-            token_: token.TokenKind,
-            convert_dollar_crate: Option<Span>
-        )
-        : string
-        =
+    member self.token_kind_to_string_ext(token_: token.TokenKind, convert_dollar_crate: Option<Span>) : string =
 
         match token_ with
         | token.TokenKind.Eq -> "="
@@ -883,8 +787,7 @@ type State with
         | token.TokenKind.Literal(lit) -> literal_to_string (lit)
 
         // Name components
-        | token.TokenKind.Ident(s, is_raw) ->
-            IdentPrinter.new_(s, is_raw, convert_dollar_crate).to_string ()
+        | token.TokenKind.Ident(s, is_raw) -> IdentPrinter.new_(s, is_raw, convert_dollar_crate).to_string ()
         | token.TokenKind.Lifetime(s) -> s.to_string ()
 
         // Other
@@ -898,13 +801,7 @@ type State with
     member self.token_to_string(token_: token.Token) : string =
         self.token_to_string_ext (token_, false)
 
-    member self.token_to_string_ext
-        (
-            token_: token.Token,
-            convert_dollar_crate: bool
-        )
-        : string
-        =
+    member self.token_to_string_ext(token_: token.Token, convert_dollar_crate: bool) : string =
         let convert_dollar_crate = convert_dollar_crate.then_some (token_.span)
         self.token_kind_to_string_ext (token_.kind, convert_dollar_crate)
 
@@ -932,10 +829,7 @@ type State with
     member self.item_to_string(i: ast.Item) : string =
         self.to_string (fun (s) -> s.print_item (i))
 
-    member self.generic_params_to_string
-        (generic_params: Vec<ast.GenericParam>)
-        : string
-        =
+    member self.generic_params_to_string(generic_params: Vec<ast.GenericParam>) : string =
         self.to_string (fun (s) -> s.print_generic_params (generic_params))
 
     member self.path_to_string(p: ast.Path) : string =
@@ -977,20 +871,11 @@ type State with
     member self.comments() : Option<Comments> = self.comments_
 
     member self.print_ident(ident: Ident) =
-        self.s.word (
-            IdentPrinter
-                .for_ast_ident(ident, ident.is_raw_guess ())
-                .to_string ()
-        )
+        self.s.word (IdentPrinter.for_ast_ident(ident, ident.is_raw_guess ()).to_string ())
 
         self.ann.post (self, AnnNode.Ident(ident))
 
-    member self.print_generic_args
-        (
-            args: ast.GenericArgs,
-            colons_before_params: bool
-        )
-        =
+    member self.print_generic_args(args: ast.GenericArgs, colons_before_params: bool) =
         if colons_before_params then
             self.s.word ("::")
 
@@ -1004,8 +889,7 @@ type State with
                 fun (s, arg) ->
                     match arg with
                     | ast.AngleBracketedArg.Arg(a) -> s.print_generic_arg (a)
-                    | ast.AngleBracketedArg.Constraint(c) ->
-                        s.print_assoc_constraint (c)
+                    | ast.AngleBracketedArg.Constraint(c) -> s.print_assoc_constraint (c)
             )
 
             self.s.word (">")
@@ -1013,11 +897,7 @@ type State with
         | ast.GenericArgs.Parenthesized(data) ->
             self.s.word ("(")
 
-            self.commasep (
-                pp.Breaks.Inconsistent,
-                data.inputs,
-                fun (s, ty) -> s.print_type (ty)
-            )
+            self.commasep (pp.Breaks.Inconsistent, data.inputs, (fun (s, ty) -> s.print_type (ty)))
 
             self.s.word (")")
             self.print_fn_ret_ty (data.output)
@@ -1039,14 +919,7 @@ type State with
         self.s.space ()
         self.s.word ("*/")
 
-    member self.commasep_cmnt<'T>
-        (
-            b: pp.Breaks,
-            elts: Vec<'T>,
-            op: State * 'T -> unit,
-            get_span: 'T -> Span
-        )
-        =
+    member self.commasep_cmnt<'T>(b: pp.Breaks, elts: Vec<'T>, op: State * 'T -> unit, get_span: 'T -> Span) =
         self.s.rbox (0, b)
         let len = elts.len ()
         let mutable i = 0
@@ -1059,29 +932,16 @@ type State with
             if i < len then
                 self.s.word (",")
 
-                self.maybe_print_trailing_comment (
-                    get_span (elt),
-                    Some(get_span(elts[i]).hi ())
-                )
+                self.maybe_print_trailing_comment (get_span (elt), Some(get_span(elts[i]).hi ()))
 
                 self.s.space_if_not_bol ()
 
         self.s.end_ ()
 
     member self.commasep_exprs(b: pp.Breaks, exprs: Vec<P<ast.Expr>>) =
-        self.commasep_cmnt (
-            b,
-            exprs,
-            (fun (s: State, e) -> s.print_expr (e)),
-            (fun (e) -> e.span)
-        )
+        self.commasep_cmnt (b, exprs, (fun (s: State, e) -> s.print_expr (e)), (fun (e) -> e.span))
 
-    member self.print_foreign_mod
-        (
-            nmod: ast.ForeignMod,
-            attrs: Vec<ast.Attribute>
-        )
-        =
+    member self.print_foreign_mod(nmod: ast.ForeignMod, attrs: Vec<ast.Attribute>) =
         self.print_inner_attributes (attrs)
 
         for item in nmod.items do
@@ -1097,9 +957,7 @@ type State with
     member self.print_assoc_constraint(constraint_: ast.AssocTyConstraint) =
         self.print_ident (constraint_.ident)
 
-        constraint_.gen_args.iterate (fun (args) ->
-            self.print_generic_args (args, false)
-        )
+        constraint_.gen_args.iterate (fun (args) -> self.print_generic_args (args, false))
 
         self.s.space ()
 
@@ -1107,8 +965,7 @@ type State with
         | ast.AssocTyConstraintKind.Equality(ty) ->
             self.s.word_space ("=")
             self.print_type (ty)
-        | ast.AssocTyConstraintKind.Bound(bounds) ->
-            self.print_type_bounds (":", bounds)
+        | ast.AssocTyConstraintKind.Bound(bounds) -> self.print_type_bounds (":", bounds)
 
     member self.print_generic_arg(generic_arg: ast.GenericArg) =
         match generic_arg with
@@ -1136,11 +993,7 @@ type State with
         | ast.TyKind.Tup(elts) ->
             self.s.popen ()
 
-            self.commasep (
-                pp.Breaks.Inconsistent,
-                elts,
-                fun (s, ty) -> s.print_type (ty)
-            )
+            self.commasep (pp.Breaks.Inconsistent, elts, (fun (s, ty) -> s.print_type (ty)))
 
             if elts.len () = 1 then
                 self.s.word (",")
@@ -1150,11 +1003,9 @@ type State with
             self.s.popen ()
             self.print_type (typ)
             self.s.pclose ()
-        | ast.TyKind.BareFn(f) ->
-            self.print_ty_fn (f.ext, f.unsafety, f.decl, None, f.generic_params)
+        | ast.TyKind.BareFn(f) -> self.print_ty_fn (f.ext, f.unsafety, f.decl, None, f.generic_params)
         | ast.TyKind.Path(None, path) -> self.print_path (path, false, 0)
-        | ast.TyKind.Path(Some(qself), path) ->
-            self.print_qpath (path, qself, false)
+        | ast.TyKind.Path(Some(qself), path) -> self.print_qpath (path, qself, false)
         | ast.TyKind.TraitObject(bounds, syntax) ->
             let prefix =
                 if syntax = ast.TraitObjectSyntax.Dyn then
@@ -1163,8 +1014,7 @@ type State with
                     ""
 
             self.print_type_bounds (prefix, bounds)
-        | ast.TyKind.ImplTrait(_, bounds) ->
-            self.print_type_bounds ("impl", bounds)
+        | ast.TyKind.ImplTrait(_, bounds) -> self.print_type_bounds ("impl", bounds)
         | ast.TyKind.Array(ty, length) ->
             self.s.word ("[")
             self.print_type (ty)
@@ -1183,8 +1033,7 @@ type State with
         | ast.TyKind.ImplicitSelf -> self.s.word ("Self")
         | ast.TyKind.MacCall(m) -> self.print_mac (m)
         | ast.TyKind.CVarArgs -> self.s.word ("...")
-        | ast.TyKind.EmitTypeExpression(m, p) ->
-            print_emit_expr self m (p, self.print_type)
+        | ast.TyKind.EmitTypeExpression(m, p) -> print_emit_expr self m (p, self.print_type)
 
         self.s.end_ ()
 
@@ -1205,8 +1054,7 @@ type State with
         self.print_outer_attributes (attrs)
 
         match kind with
-        | ast.ForeignItemKind.Fn((def, sig_, gen, body)) ->
-            self.print_fn_full (sig_, ident, gen, vis, def, body, attrs)
+        | ast.ForeignItemKind.Fn((def, sig_, gen, body)) -> self.print_fn_full (sig_, ident, gen, vis, def, body, attrs)
         | ast.ForeignItemKind.Static(ty, mutbl, body) ->
             let def = ast.Defaultness.Final
             self.print_item_const (ident, Some(mutbl), ty, body, vis, def)
@@ -1320,28 +1168,12 @@ type State with
         | ast.ItemKind.Static(ty, mutbl, body) ->
             let def = ast.Defaultness.Final
 
-            self.print_item_const (
-                item.ident,
-                Some(mutbl),
-                ty,
-                body,
-                item.vis,
-                def
-            )
-        | ast.ItemKind.Const(def, ty, body) ->
-            self.print_item_const (item.ident, None, ty, body, item.vis, def)
+            self.print_item_const (item.ident, Some(mutbl), ty, body, item.vis, def)
+        | ast.ItemKind.Const(def, ty, body) -> self.print_item_const (item.ident, None, ty, body, item.vis, def)
         | ast.ItemKind.Fn((def, sig_, gen, body)) ->
             let body = body
 
-            self.print_fn_full (
-                sig_,
-                item.ident,
-                gen,
-                item.vis,
-                def,
-                body,
-                item.attrs
-            )
+            self.print_fn_full (sig_, item.ident, gen, item.vis, def, body, item.attrs)
         | ast.ItemKind.Mod(unsafety, mod_kind) ->
             self.head (
                 self.to_string (fun (s) ->
@@ -1391,42 +1223,17 @@ type State with
         | ast.ItemKind.TyAlias((def, generics, bounds, ty)) ->
             let ty = ty
 
-            self.print_associated_type (
-                item.ident,
-                generics,
-                bounds,
-                ty,
-                item.vis,
-                def
-            )
+            self.print_associated_type (item.ident, generics, bounds, ty, item.vis, def)
         | ast.ItemKind.Enum(enum_definition, params_) ->
-            self.print_enum_def (
-                enum_definition,
-                params_,
-                item.ident,
-                item.span,
-                item.vis
-            )
+            self.print_enum_def (enum_definition, params_, item.ident, item.span, item.vis)
         | ast.ItemKind.Struct(struct_def, generics) ->
             self.head (visibility_qualified (item.vis, "struct"))
 
-            self.print_struct (
-                struct_def,
-                generics,
-                item.ident,
-                item.span,
-                true
-            )
+            self.print_struct (struct_def, generics, item.ident, item.span, true)
         | ast.ItemKind.Union(struct_def, generics) ->
             self.head (visibility_qualified (item.vis, "union"))
 
-            self.print_struct (
-                struct_def,
-                generics,
-                item.ident,
-                item.span,
-                true
-            )
+            self.print_struct (struct_def, generics, item.ident, item.span, true)
         | ast.ItemKind.Impl({
                                 unsafety = unsafety
                                 polarity = polarity
@@ -1550,12 +1357,9 @@ type State with
 
         self.ann.post (self, AnnNode.Item(item))
 
-    member self.print_trait_ref(t: ast.TraitRef) =
-        self.print_path (t.path, false, 0)
+    member self.print_trait_ref(t: ast.TraitRef) = self.print_path (t.path, false, 0)
 
-    member self.print_formal_generic_params
-        (generic_params: Vec<ast.GenericParam>)
-        =
+    member self.print_formal_generic_params(generic_params: Vec<ast.GenericParam>) =
         if not (generic_params.is_empty ()) then
             self.s.word ("for")
             self.print_generic_params (generic_params)
@@ -1706,10 +1510,8 @@ type State with
         self.print_outer_attributes (attrs)
 
         match kind with
-        | ast.AssocItemKind.Fn((def, sig_, gen, body)) ->
-            self.print_fn_full (sig_, ident, gen, vis, def, body, attrs)
-        | ast.AssocItemKind.Const(def, ty, body) ->
-            self.print_item_const (ident, None, ty, body, vis, def)
+        | ast.AssocItemKind.Fn((def, sig_, gen, body)) -> self.print_fn_full (sig_, ident, gen, vis, def, body, attrs)
+        | ast.AssocItemKind.Const(def, ty, body) -> self.print_item_const (ident, None, ty, body, vis, def)
         | ast.AssocItemKind.TyAlias((def, generics, bounds, ty)) ->
             self.print_associated_type (ident, generics, bounds, ty, vis, def)
         | ast.AssocItemKind.MacCall(m) ->
@@ -1773,21 +1575,10 @@ type State with
     member self.print_block_unclosed_indent(blk: ast.Block) =
         self.print_block_maybe_unclosed (blk, Vec(), false)
 
-    member self.print_block_with_attrs
-        (
-            blk: ast.Block,
-            attrs: Vec<ast.Attribute>
-        )
-        =
+    member self.print_block_with_attrs(blk: ast.Block, attrs: Vec<ast.Attribute>) =
         self.print_block_maybe_unclosed (blk, attrs, true)
 
-    member self.print_block_maybe_unclosed
-        (
-            blk: ast.Block,
-            attrs: Vec<ast.Attribute>,
-            close_box: bool
-        )
-        =
+    member self.print_block_maybe_unclosed(blk: ast.Block, attrs: Vec<ast.Attribute>, close_box: bool) =
 
         match blk.rules with
         | ast.BlockCheckMode.Unsafe(_) -> self.s.word_space ("unsafe")
@@ -1809,10 +1600,7 @@ type State with
                 self.s.space_if_not_bol ()
                 self.print_expr_outer_attr_style (expr, false)
 
-                self.maybe_print_trailing_comment (
-                    expr.span,
-                    Some(blk.span.hi ())
-                )
+                self.maybe_print_trailing_comment (expr.span, Some(blk.span.hi ()))
             | _ -> self.print_stmt (st)
 
         self.bclose_maybe_open (blk.span, close_box)
@@ -1830,9 +1618,7 @@ type State with
         self.print_expr_cond_paren (
             scrutinee,
             self.cond_needs_par (scrutinee)
-            || parser.needs_par_as_let_scrutinee (
-                scrutinee.precedence().order ()
-            )
+            || parser.needs_par_as_let_scrutinee (scrutinee.precedence().order ())
         )
 
     member self.print_else(els: Option<ast.Expr>) =
@@ -1858,13 +1644,7 @@ type State with
             // Constraints would be great here!
             | _ -> panic ("print_if saw if with weird alternative")
 
-    member self.print_if
-        (
-            test: ast.Expr,
-            blk: ast.Block,
-            elseopt: Option<ast.Expr>
-        )
-        =
+    member self.print_if(test: ast.Expr, blk: ast.Block, elseopt: Option<ast.Expr>) =
         self.head ("if")
 
         self.print_expr_as_cond (test)
@@ -1918,12 +1698,7 @@ type State with
         if needs_par then
             self.s.pclose ()
 
-    member self.print_expr_vec
-        (
-            exprs: Vec<P<ast.Expr>>,
-            attrs: Vec<ast.Attribute>
-        )
-        =
+    member self.print_expr_vec(exprs: Vec<P<ast.Expr>>, attrs: Vec<ast.Attribute>) =
         self.s.ibox (INDENT_UNIT)
         self.s.word ("[")
         self.print_inner_attributes_inline (attrs)
@@ -1931,25 +1706,14 @@ type State with
         self.s.word ("]")
         self.s.end_ ()
 
-    member self.print_expr_anon_const
-        (
-            expr: ast.AnonConst,
-            attrs: Vec<ast.Attribute>
-        )
-        =
+    member self.print_expr_anon_const(expr: ast.AnonConst, attrs: Vec<ast.Attribute>) =
         self.s.ibox (INDENT_UNIT)
         self.s.word ("const")
         self.print_inner_attributes_inline (attrs)
         self.print_expr (expr.value)
         self.s.end_ ()
 
-    member self.print_expr_repeat
-        (
-            element: ast.Expr,
-            count: ast.AnonConst,
-            attrs: Vec<ast.Attribute>
-        )
-        =
+    member self.print_expr_repeat(element: ast.Expr, count: ast.AnonConst, attrs: Vec<ast.Attribute>) =
 
         self.s.ibox (INDENT_UNIT)
         self.s.word ("[")
@@ -2011,12 +1775,7 @@ type State with
 
         self.s.word ("}")
 
-    member self.print_expr_tup
-        (
-            exprs: Vec<P<ast.Expr>>,
-            attrs: Vec<ast.Attribute>
-        )
-        =
+    member self.print_expr_tup(exprs: Vec<P<ast.Expr>>, attrs: Vec<ast.Attribute>) =
         self.s.popen ()
         self.print_inner_attributes_inline (attrs)
         self.commasep_exprs (pp.Breaks.Inconsistent, exprs)
@@ -2035,12 +1794,7 @@ type State with
         self.print_expr_maybe_paren (func, prec)
         self.print_call_post (args)
 
-    member self.print_expr_method_call
-        (
-            segment: ast.PathSegment,
-            args: Vec<P<ast.Expr>>
-        )
-        =
+    member self.print_expr_method_call(segment: ast.PathSegment, args: Vec<P<ast.Expr>>) =
         let base_args = args[1..]
         self.print_expr_maybe_paren (args[0], parser.PREC_POSTFIX)
         self.s.word (".")
@@ -2068,8 +1822,7 @@ type State with
             // These cases need parens: `x as i32 < y` has the parser thinking that `i32 < y` is
             // the beginning of a path type. It starts trying to parse `x as (i32 < y ...` instead
             // of `(x as i32) < ...`. We need to convince it _not_ to do that.
-            | (ast.ExprKind.Cast _, (ast.BinOpKind.Lt | ast.BinOpKind.Shl)) ->
-                parser.PREC_FORCE_PAREN
+            | (ast.ExprKind.Cast _, (ast.BinOpKind.Lt | ast.BinOpKind.Shl)) -> parser.PREC_FORCE_PAREN
             // We are given `(let _ = a) OP b`.
             //
             // - When `OP <= LAnd` we should print `let _ = a OP b` to avoid redundant parens
@@ -2078,10 +1831,7 @@ type State with
             // - Otherwise, e.g. when we have `(let a = b) < c` in AST,
             //   parens are required since the parser would interpret `let a = b < c` as
             //   `let a = (b < c)`. To achieve this, we force parens.
-            | (ast.ExprKind.Let _, _) when
-                not (parser.needs_par_as_let_scrutinee (prec))
-                ->
-                parser.PREC_FORCE_PAREN
+            | (ast.ExprKind.Let _, _) when not (parser.needs_par_as_let_scrutinee (prec)) -> parser.PREC_FORCE_PAREN
             | _ -> left_prec
 
         self.print_expr_maybe_paren (lhs, left_prec)
@@ -2093,13 +1843,7 @@ type State with
         self.s.word (ast.UnOp.to_string (op))
         self.print_expr_maybe_paren (expr, parser.PREC_PREFIX)
 
-    member self.print_expr_addr_of
-        (
-            kind: ast.BorrowKind,
-            mutability: ast.Mutability,
-            expr: ast.Expr
-        )
-        =
+    member self.print_expr_addr_of(kind: ast.BorrowKind, mutability: ast.Mutability, expr: ast.Expr) =
 
         self.s.word ("&")
 
@@ -2132,21 +1876,15 @@ type State with
             self.s.word_space ("box")
             self.print_expr_maybe_paren (expr, parser.PREC_PREFIX)
         | ast.ExprKind.Array(exprs) -> self.print_expr_vec (exprs, attrs)
-        | ast.ExprKind.ConstBlock(anon_const) ->
-            self.print_expr_anon_const (anon_const, attrs)
-        | ast.ExprKind.Repeat(element, count) ->
-            self.print_expr_repeat (element, count, attrs)
-        | ast.ExprKind.Struct(se) ->
-            self.print_expr_struct (se.path, se.fields, se.rest, attrs)
+        | ast.ExprKind.ConstBlock(anon_const) -> self.print_expr_anon_const (anon_const, attrs)
+        | ast.ExprKind.Repeat(element, count) -> self.print_expr_repeat (element, count, attrs)
+        | ast.ExprKind.Struct(se) -> self.print_expr_struct (se.path, se.fields, se.rest, attrs)
         | ast.ExprKind.Tup(exprs) -> self.print_expr_tup (exprs, attrs)
         | ast.ExprKind.Call(func, args) -> self.print_expr_call (func, args)
-        | ast.ExprKind.MethodCall(segment, args, _) ->
-            self.print_expr_method_call (segment, args)
-        | ast.ExprKind.Binary(op, lhs, rhs) ->
-            self.print_expr_binary (op, lhs, rhs)
+        | ast.ExprKind.MethodCall(segment, args, _) -> self.print_expr_method_call (segment, args)
+        | ast.ExprKind.Binary(op, lhs, rhs) -> self.print_expr_binary (op, lhs, rhs)
         | ast.ExprKind.Unary(op, expr) -> self.print_expr_unary (op, expr)
-        | ast.ExprKind.AddrOf(k, m, expr) ->
-            self.print_expr_addr_of (k, m, expr)
+        | ast.ExprKind.AddrOf(k, m, expr) -> self.print_expr_addr_of (k, m, expr)
         | ast.ExprKind.Lit(lit) -> self.print_literal (lit)
         | ast.ExprKind.Cast(expr, ty) ->
             let prec = parser.AssocOp.As.precedence ()
@@ -2160,8 +1898,7 @@ type State with
             self.s.word_space (":")
             self.print_type (ty)
         | ast.ExprKind.Let(pat, scrutinee) -> self.print_let (pat, scrutinee)
-        | ast.ExprKind.If(test, blk, elseopt) ->
-            self.print_if (test, blk, elseopt)
+        | ast.ExprKind.If(test, blk, elseopt) -> self.print_if (test, blk, elseopt)
         | ast.ExprKind.While(test, blk, opt_label) ->
             match opt_label with
             | None -> ()
@@ -2210,12 +1947,7 @@ type State with
                 self.print_arm (arm)
 
             self.bclose (expr.span)
-        | ast.ExprKind.Closure(capture_clause,
-                               asyncness,
-                               movability,
-                               decl,
-                               body,
-                               _) ->
+        | ast.ExprKind.Closure(capture_clause, asyncness, movability, decl, body, _) ->
             self.print_movability (movability)
             self.print_asyncness (asyncness)
             self.print_capture_clause (capture_clause)
@@ -2294,8 +2026,7 @@ type State with
             | Some(e) -> self.print_expr_maybe_paren (e, fake_prec)
         | ast.ExprKind.Underscore -> self.s.word ("_")
         | ast.ExprKind.Path(None, path) -> self.print_path (path, true, 0)
-        | ast.ExprKind.Path(Some(qself), path) ->
-            self.print_qpath (path, qself, true)
+        | ast.ExprKind.Path(Some(qself), path) -> self.print_qpath (path, qself, true)
         | ast.ExprKind.Break(opt_label, opt_expr) ->
             self.s.word ("break")
             self.s.space ()
@@ -2331,11 +2062,7 @@ type State with
         | ast.ExprKind.InlineAsm(a) ->
             let mutable args = Vec()
 
-            args.push (
-                AsmArg.Template(
-                    ast.InlineAsmTemplatePiece.to_string (a.template)
-                )
-            )
+            args.push (AsmArg.Template(ast.InlineAsmTemplatePiece.to_string (a.template)))
 
             args.extend (a.operands.map (fun ((o, _)) -> AsmArg.Operand(o)))
 
@@ -2350,16 +2077,13 @@ type State with
                 args,
                 fun (s, arg) ->
                     match arg with
-                    | AsmArg.Template(template) ->
-                        s.print_string (template, ast.StrStyle.Cooked)
+                    | AsmArg.Template(template) -> s.print_string (template, ast.StrStyle.Cooked)
                     | AsmArg.Operand(op) ->
                         let print_reg_or_class =
                             fun (s: State, r: ast.InlineAsmRegOrRegClass) ->
                                 match r with
-                                | ast.InlineAsmRegOrRegClass.Reg(r) ->
-                                    s.print_symbol (r, ast.StrStyle.Cooked)
-                                | ast.InlineAsmRegOrRegClass.RegClass(r) ->
-                                    s.s.word (r.to_string ())
+                                | ast.InlineAsmRegOrRegClass.Reg(r) -> s.print_symbol (r, ast.StrStyle.Cooked)
+                                | ast.InlineAsmRegOrRegClass.RegClass(r) -> s.s.word (r.to_string ())
 
                         match op with
                         | ast.InlineAsmOperand.In(reg, expr) ->
@@ -2398,10 +2122,7 @@ type State with
                             s.s.pclose ()
                             s.s.space ()
                             s.print_expr (expr)
-                        | ast.InlineAsmOperand.SplitInOut(reg,
-                                                          late,
-                                                          in_expr,
-                                                          out_expr) ->
+                        | ast.InlineAsmOperand.SplitInOut(reg, late, in_expr, out_expr) ->
                             s.s.word (
                                 if late then
                                     "inlateout"
@@ -2442,9 +2163,7 @@ type State with
                         if opts.contains (ast.InlineAsmOptions.READONLY) then
                             options.push ("readonly")
 
-                        if
-                            opts.contains (ast.InlineAsmOptions.PRESERVES_FLAGS)
-                        then
+                        if opts.contains (ast.InlineAsmOptions.PRESERVES_FLAGS) then
                             options.push ("preserves_flags")
 
                         if opts.contains (ast.InlineAsmOptions.NORETURN) then
@@ -2456,11 +2175,7 @@ type State with
                         if opts.contains (ast.InlineAsmOptions.ATT_SYNTAX) then
                             options.push ("att_syntax")
 
-                        s.commasep (
-                            pp.Breaks.Inconsistent,
-                            options,
-                            fun (s, opt) -> s.s.word (opt)
-                        )
+                        s.commasep (pp.Breaks.Inconsistent, options, (fun (s, opt) -> s.s.word (opt)))
 
                         s.s.pclose ()
             )
@@ -2480,11 +2195,7 @@ type State with
                     let mutable ch = constraint_.chars ()
 
                     match ch.next () with
-                    | Some ch when ch = '=' && out.is_rw ->
-                        s.print_string (
-                            format ("+{0}", ch),
-                            ast.StrStyle.Cooked
-                        )
+                    | Some ch when ch = '=' && out.is_rw -> s.print_string (format ("+{0}", ch), ast.StrStyle.Cooked)
                     | _ -> s.print_string (constraint_, ast.StrStyle.Cooked)
 
                     s.s.popen ()
@@ -2537,8 +2248,7 @@ type State with
 
             self.s.pclose ()
         | ast.ExprKind.MacCall(m) -> self.print_mac (m)
-        | ast.ExprKind.EmitExpression(e, args) ->
-            print_emit_expr self e (args, self.print_expr)
+        | ast.ExprKind.EmitExpression(e, args) -> print_emit_expr self e (args, self.print_expr)
         | ast.ExprKind.Paren(e) ->
             self.s.popen ()
             self.print_inner_attributes_inline (attrs)
@@ -2580,13 +2290,7 @@ type State with
         self.s.word (name.to_string ())
         self.ann.post (self, AnnNode.Name(name))
 
-    member self.print_qpath
-        (
-            path: ast.Path,
-            qself: ast.QSelf,
-            colons_before_params: bool
-        )
-        =
+    member self.print_qpath(path: ast.Path, qself: ast.QSelf, colons_before_params: bool) =
         self.s.word ("<")
         self.print_type (qself.ty)
 
@@ -2618,8 +2322,7 @@ type State with
                 self.s.word_nbsp ("ref")
                 self.print_mutability (mutbl, false)
             | ast.BindingMode.ByValue(ast.Mutability.Not) -> ()
-            | ast.BindingMode.ByValue(ast.Mutability.Mut) ->
-                self.s.word_nbsp ("mut")
+            | ast.BindingMode.ByValue(ast.Mutability.Mut) -> self.s.word_nbsp ("mut")
 
             self.print_ident (ident)
 
@@ -2633,24 +2336,12 @@ type State with
             self.print_path (path, true, 0)
             self.s.popen ()
 
-            self.commasep (
-                pp.Breaks.Inconsistent,
-                elts,
-                fun (s, p) -> s.print_pat (p)
-            )
+            self.commasep (pp.Breaks.Inconsistent, elts, (fun (s, p) -> s.print_pat (p)))
 
             self.s.pclose ()
-        | ast.PatKind.Or(pats) ->
-            self.strsep (
-                "|",
-                true,
-                pp.Breaks.Inconsistent,
-                pats,
-                fun (s, p) -> s.print_pat (p)
-            )
+        | ast.PatKind.Or(pats) -> self.strsep ("|", true, pp.Breaks.Inconsistent, pats, (fun (s, p) -> s.print_pat (p)))
         | ast.PatKind.Path(None, path) -> self.print_path (path, true, 0)
-        | ast.PatKind.Path(Some(qself), path) ->
-            self.print_qpath (path, qself, false)
+        | ast.PatKind.Path(Some(qself), path) -> self.print_qpath (path, qself, false)
         | ast.PatKind.Struct(path, fields, etc) ->
             self.print_path (path, true, 0)
             self.s.nbsp ()
@@ -2683,11 +2374,7 @@ type State with
         | ast.PatKind.Tuple(elts) ->
             self.s.popen ()
 
-            self.commasep (
-                pp.Breaks.Inconsistent,
-                elts,
-                fun (s, p) -> s.print_pat (p)
-            )
+            self.commasep (pp.Breaks.Inconsistent, elts, (fun (s, p) -> s.print_pat (p)))
 
             if elts.len () = 1 then
                 self.s.word (",")
@@ -2703,9 +2390,7 @@ type State with
                 self.s.word ("mut ")
 
             match inner.kind with
-            | ast.PatKind.Ident(ast.BindingMode.ByValue(ast.Mutability.Mut),
-                                _,
-                                _) ->
+            | ast.PatKind.Ident(ast.BindingMode.ByValue(ast.Mutability.Mut), _, _) ->
                 self.s.popen ()
                 self.print_pat (inner)
                 self.s.pclose ()
@@ -2719,10 +2404,8 @@ type State with
                 self.s.space ()
 
             match end_kind with
-            | ast.RangeEnd.Included(ast.RangeSyntax.DotDotDot) ->
-                self.s.word ("...")
-            | ast.RangeEnd.Included(ast.RangeSyntax.DotDotEq) ->
-                self.s.word ("..=")
+            | ast.RangeEnd.Included(ast.RangeSyntax.DotDotDot) -> self.s.word ("...")
+            | ast.RangeEnd.Included(ast.RangeSyntax.DotDotEq) -> self.s.word ("..=")
             | ast.RangeEnd.Excluded -> self.s.word ("..")
 
             match end_ with
@@ -2731,11 +2414,7 @@ type State with
         | ast.PatKind.Slice(elts) ->
             self.s.word ("[")
 
-            self.commasep (
-                pp.Breaks.Inconsistent,
-                elts,
-                fun (s, p) -> s.print_pat (p)
-            )
+            self.commasep (pp.Breaks.Inconsistent, elts, (fun (s, p) -> s.print_pat (p)))
 
             self.s.word ("]")
         | ast.PatKind.Rest -> self.s.word ("..")
@@ -2781,8 +2460,7 @@ type State with
 
             // If it is a user-provided unsafe block, print a comma after it.
             match blk.rules with
-            | ast.BlockCheckMode.Unsafe(ast.UnsafeSource.UserProvided) ->
-                self.s.word (",")
+            | ast.BlockCheckMode.Unsafe(ast.UnsafeSource.UserProvided) -> self.s.word (",")
             | _ -> ()
         | _ ->
             self.s.end_ () // Close the ibox for the pattern.
@@ -2832,14 +2510,7 @@ type State with
             self.print_block_with_attrs (body, attrs)
         | None -> self.s.word (";")
 
-    member self.print_fn
-        (
-            decl: ast.FnDecl,
-            header: ast.FnHeader,
-            name: Option<Ident>,
-            generics: ast.Generics
-        )
-        =
+    member self.print_fn(decl: ast.FnDecl, header: ast.FnHeader, name: Option<Ident>, generics: ast.Generics) =
 
         self.print_fn_header_info (header)
 
@@ -2862,11 +2533,7 @@ type State with
 
         self.s.word (open_)
 
-        self.commasep (
-            pp.Breaks.Inconsistent,
-            decl.inputs,
-            fun (s, param) -> s.print_param (param, is_closure)
-        )
+        self.commasep (pp.Breaks.Inconsistent, decl.inputs, (fun (s, param) -> s.print_param (param, is_closure)))
 
         self.s.word (close)
         self.print_fn_ret_ty (decl.output)
@@ -2907,15 +2574,9 @@ type State with
                     self.print_poly_trait_ref (tref)
                 | ast.GenericBound.Outlives(lt) -> self.print_lifetime (lt)
 
-    member self.print_lifetime(lifetime: ast.Lifetime) =
-        self.print_name (lifetime.ident.name)
+    member self.print_lifetime(lifetime: ast.Lifetime) = self.print_name (lifetime.ident.name)
 
-    member self.print_lifetime_bounds
-        (
-            lifetime: ast.Lifetime,
-            bounds: ast.GenericBounds
-        )
-        =
+    member self.print_lifetime_bounds(lifetime: ast.Lifetime, bounds: ast.GenericBounds) =
 
         self.print_lifetime (lifetime)
 
@@ -2984,10 +2645,7 @@ type State with
             self.s.word (">")
 
     member self.print_where_clause(where_clause: ast.WhereClause) =
-        if
-            where_clause.predicates.is_empty ()
-            && not (where_clause.has_where_token)
-        then
+        if where_clause.predicates.is_empty () && not (where_clause.has_where_token) then
             ()
         else
             self.s.space ()
@@ -3012,8 +2670,7 @@ type State with
                 | ast.WherePredicate.RegionPredicate({ // ast.WhereRegionPredicate
                                                          lifetime = lifetime
                                                          bounds = bounds
-                                                     }) ->
-                    self.print_lifetime_bounds (lifetime, bounds)
+                                                     }) -> self.print_lifetime_bounds (lifetime, bounds)
                 | ast.WherePredicate.EqPredicate({ // ast.WhereEqPredicate
                                                      lhs_ty = lhs_ty
                                                      rhs_ty = rhs_ty
@@ -3047,11 +2704,7 @@ type State with
                 self.print_path (tree.prefix, false, 0)
                 self.s.word ("::{")
 
-            self.commasep (
-                pp.Breaks.Inconsistent,
-                items,
-                fun (this, (tree, _)) -> this.print_use_tree (tree)
-            )
+            self.commasep (pp.Breaks.Inconsistent, items, (fun (this, (tree, _)) -> this.print_use_tree (tree)))
 
             self.s.word ("}")
 
@@ -3139,12 +2792,7 @@ type State with
         self.print_fn (decl, header, name, generics)
         self.s.end_ ()
 
-    member self.maybe_print_trailing_comment
-        (
-            span: Span,
-            next_pos: Option<BytePos>
-        )
-        =
+    member self.maybe_print_trailing_comment(span: Span, next_pos: Option<BytePos>) =
 
         match self.comments () with
         | None -> ()

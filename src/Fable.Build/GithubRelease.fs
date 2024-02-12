@@ -7,10 +7,7 @@ open Build.Workspace
 open SimpleExec
 open BlackFox.CommandLine
 
-let private createGithubRelease
-    (githubToken: string)
-    (version: ChangelogParser.Types.Version)
-    =
+let private createGithubRelease (githubToken: string) (version: ChangelogParser.Types.Version) =
 
     let struct (lastestTag, _) =
         Command.ReadAsync("git", "describe --abbrev=0 --tags")
@@ -21,8 +18,7 @@ let private createGithubRelease
     // It can happens that we trigger a release whre Fable.Cli
     // is already up to date.
     if lastestTag.Trim() <> version.Version.ToString() then
-        let githubClient =
-            GitHubClient(ProductHeaderValue("fable-release-tool"))
+        let githubClient = GitHubClient(ProductHeaderValue("fable-release-tool"))
 
         githubClient.Credentials <- Credentials(githubToken)
 
@@ -32,18 +28,12 @@ let private createGithubRelease
         newRelease.Draft <- false
         newRelease.Prerelease <- false // TODO: Detect if this is a prerelease
 
-        githubClient.Repository.Release.Create(
-            "fable-compiler",
-            "Fable",
-            newRelease
-        )
+        githubClient.Repository.Release.Create("fable-compiler", "Fable", newRelease)
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> ignore
 
-let private createReleaseCommitAndPush
-    (version: ChangelogParser.Types.Version)
-    =
+let private createReleaseCommitAndPush (version: ChangelogParser.Types.Version) =
     let versionText = version.Version.ToString()
 
     Command.Run(
@@ -68,8 +58,7 @@ let handle (args: string list) =
 
     Publish.handle args
 
-    let githubToken =
-        Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
+    let githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
 
     if isNull githubToken then
         failwith "Missing GITHUB_TOKEN_FABLE_ORG environment variable"

@@ -46,10 +46,7 @@ let private getConstraintHash genParams =
     | Fable.Constraint.HasEquality -> "equality"
     | Fable.Constraint.IsEnum -> "enum"
 
-let rec private getTypeFastFullName
-    (genParams: IDictionary<_, _>)
-    (t: Fable.Type)
-    =
+let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Type) =
     match t with
     | Fable.Measure fullname -> fullname
     | Fable.GenericParam(name, isMeasure, constraints) ->
@@ -58,15 +55,10 @@ let rec private getTypeFastFullName
         else
             match genParams.TryGetValue(name) with
             | true, i -> i
-            | false, _ ->
-                constraints
-                |> List.map (getConstraintHash genParams)
-                |> String.concat ","
+            | false, _ -> constraints |> List.map (getConstraintHash genParams) |> String.concat ","
     | Fable.Tuple(genArgs, isStruct) ->
         let genArgs =
-            genArgs
-            |> Seq.map (getTypeFastFullName genParams)
-            |> String.concat " * "
+            genArgs |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
 
         if isStruct then
             "struct " + genArgs
@@ -89,10 +81,7 @@ let rec private getTypeFastFullName
         + (getTypeFastFullName genParams genArg)
         + " option"
     | Fable.LambdaType(argType, returnType) ->
-        [
-            argType
-            returnType
-        ]
+        [ argType; returnType ]
         |> List.map (getTypeFastFullName genParams)
         |> String.concat " -> "
     // TODO: Use Func` instead?
@@ -103,9 +92,7 @@ let rec private getTypeFastFullName
     | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
         let fields =
             Seq.zip fieldNames genArgs
-            |> Seq.map (fun (key, typ) ->
-                key + " : " + getTypeFastFullName genParams typ
-            )
+            |> Seq.map (fun (key, typ) -> key + " : " + getTypeFastFullName genParams typ)
             |> String.concat "; "
 
         (if isStruct then
@@ -171,10 +158,7 @@ let hasEmptyOverloadSuffix (curriedParamTypes: ParamTypes) =
     | [ Fable.Unit ] -> true
     | _ -> false
 
-let getHash
-    (entityGenericParams: string list)
-    (curriedParamTypeGroups: Fable.Type list list)
-    =
+let getHash (entityGenericParams: string list) (curriedParamTypeGroups: Fable.Type list list) =
     match curriedParamTypeGroups with
     | [ paramTypes ] ->
         if hasEmptyOverloadSuffix paramTypes then
@@ -183,9 +167,7 @@ let getHash
             // Generics can have different names in signature
             // and implementation files, use the position instead
             let genParams =
-                entityGenericParams
-                |> List.mapi (fun i p -> p, string<int> i)
-                |> dict
+                entityGenericParams |> List.mapi (fun i p -> p, string<int> i) |> dict
 
             getHashPrivate paramTypes genParams
     // Members with curried params cannot be overloaded in F#

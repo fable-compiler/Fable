@@ -7,12 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+#### All
+
+* [GH-3733](https://github.com/fable-compiler/Fable/pull/3733) [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for more `Result` API (by @zprobinson)
+    * `Result.isOk`
+    * `Result.isError`
+    * `Result.Contains`
+    * `Result.Count`
+    * `Result.DefaultValue`
+    * `Result.DefaultWith`
+    * `Result.Exists`
+    * `Result.Fold`
+    * `Result.FoldBack`
+    * `Result.ForAll`
+    * `Result.Iterate`
+    * `Result.ToArray`
+    * `Result.ToList`
+    * `Result.ToOption`
+
+#### JavaScript
+
+* [GH-3745](https://github.com/fable-compiler/Fable/pull/3745) Add support for `ListCollector` (by @nojaf)
+    * `instance.Add`
+    * `instance.AddMany`
+    * `instance.AddManyAndClose`
+    * `instance.Close`
+
+### Removed
+
+#### JavaScript
+
+* Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
+
+#### TypeScript
+
+* Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
+
+### Fixed
+
+#### Python
+
+* [GH-3717](https://github.com/fable-compiler/Fable/issues/3717) Nested type with Custom Equality gives false negative equality (by @dbrattli)
+* Generate assert statements for `assert` expressions in debug mode (by @dbrattli)
+
+## 4.11.0 - 2024-01-30
+
 ### Changed
 
 #### All
 
 * [GH-3719](https://github.com/fable-compiler/Fable/issues/3719) Restore dependencies against the `.fsproj` after evaluating the `fable-temp.csproj` file (Improves IDE supports) (by @MangelMaxime)
 * Don't delete `fable_modules` when re-evaluating the project file after a changes has been detected (Improves HMR experience) (by @MangelMaxime)
+
+### Fixed
+
+#### All
+
+* [GH-3723](https://github.com/fable-compiler/Fable/pull/3723) Fix logger initialisation to allow `--version` to work (by @MangelMaxime)
 
 #### JavaScript
 

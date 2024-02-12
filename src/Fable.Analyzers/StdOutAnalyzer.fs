@@ -36,8 +36,7 @@ let stdOutAnalyzer: Analyzer<CliContext> =
                         match m.DeclaringEntity with
                         | None -> ()
                         | Some de ->
-                            let name =
-                                String.Join(".", de.FullName, m.DisplayName)
+                            let name = String.Join(".", de.FullName, m.DisplayName)
 
                             if Set.contains name namesToAvoid then
                                 usages.Add(range, m.DisplayName)
@@ -53,7 +52,7 @@ let stdOutAnalyzer: Analyzer<CliContext> =
                         Message =
                             $"Writing to the standard output from this location should absolutely be avoided. Replace `%s{name}` with an ILogger call."
                         Code = "FABLE_001"
-                        Severity = Error
+                        Severity = Severity.Error
                         Range = m
                         Fixes = []
                     }

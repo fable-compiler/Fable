@@ -23,8 +23,7 @@ module Atts =
     let customComparison = "Microsoft.FSharp.Core.CustomComparisonAttribute" // typeof<CustomComparisonAttribute>.FullName
 
     [<Literal>]
-    let structuralComparison =
-        "Microsoft.FSharp.Core.StructuralComparisonAttribute" // typeof<StructuralComparisonAttribute>.FullName
+    let structuralComparison = "Microsoft.FSharp.Core.StructuralComparisonAttribute" // typeof<StructuralComparisonAttribute>.FullName
 
     [<Literal>]
     let abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
@@ -275,8 +274,7 @@ module Types =
     let regexGroupCollection = "System.Text.RegularExpressions.GroupCollection"
 
     [<Literal>]
-    let regexCaptureCollection =
-        "System.Text.RegularExpressions.CaptureCollection"
+    let regexCaptureCollection = "System.Text.RegularExpressions.CaptureCollection"
 
     [<Literal>]
     let unit = "Microsoft.FSharp.Core.Unit"
@@ -348,8 +346,7 @@ module Types =
     let keyCollection = "System.Collections.Generic.Dictionary`2.KeyCollection"
 
     [<Literal>]
-    let valueCollection =
-        "System.Collections.Generic.Dictionary`2.ValueCollection"
+    let valueCollection = "System.Collections.Generic.Dictionary`2.ValueCollection"
 
     [<Literal>]
     let fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
@@ -449,23 +446,20 @@ module Types =
         "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
 
     [<Literal>]
-    let measureProduct2 =
-        "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
+    let measureProduct2 = "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
 
     [<Literal>]
     let measureOne = "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
 
     [<Literal>]
-    let measureInverse =
-        "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
+    let measureInverse = "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
 
     // Types compatible with Inject attribute (fable library)
     [<Literal>]
     let icomparerGeneric = "System.Collections.Generic.IComparer`1"
 
     [<Literal>]
-    let iequalityComparerGeneric =
-        "System.Collections.Generic.IEqualityComparer`1"
+    let iequalityComparerGeneric = "System.Collections.Generic.IEqualityComparer`1"
 
     [<Literal>]
     let arrayCons = "Array.Cons`1"
@@ -617,16 +611,9 @@ module Log =
             FromRange: SourceLocation option
         }
 
-    let private addLog
-        (com: Compiler)
-        (inlinePath: InlinePath list)
-        (range: SourceLocation option)
-        msg
-        severity
-        =
+    let private addLog (com: Compiler) (inlinePath: InlinePath list) (range: SourceLocation option) msg severity =
         let printInlineSource fromPath (p: InlinePath) =
-            let path =
-                Path.getRelativeFileOrDirPath false fromPath false p.FromFile
+            let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
 
             match p.FromRange with
             | Some r -> $"%s{path}(%i{r.start.line},%i{r.start.column})"
@@ -636,16 +623,10 @@ module Log =
             match inlinePath with
             | { ToFile = file } :: _ ->
                 let inlinePath =
-                    inlinePath
-                    |> List.map (printInlineSource file)
-                    |> String.concat " < "
+                    inlinePath |> List.map (printInlineSource file) |> String.concat " < "
 
                 file, msg + " - Inline call from " + inlinePath
-            | [] ->
-                range
-                |> Option.bind (fun r -> r.File)
-                |> Option.defaultValue com.CurrentFile,
-                msg
+            | [] -> range |> Option.bind (fun r -> r.File) |> Option.defaultValue com.CurrentFile, msg
 
         com.AddLog(msg, severity, ?range = range, fileName = actualFile)
 
@@ -668,14 +649,9 @@ module Log =
         | Some range -> msg + " " + (string<SourceLocation> range)
         | None -> msg
 
-    let attachRangeAndFile
-        (range: SourceLocation option)
-        (fileName: string)
-        msg
-        =
+    let attachRangeAndFile (range: SourceLocation option) (fileName: string) msg =
         match range with
-        | Some range ->
-            msg + " " + (string<SourceLocation> range) + " (" + fileName + ")"
+        | Some range -> msg + " " + (string<SourceLocation> range) + " (" + fileName + ")"
         | None -> msg + " (" + fileName + ")"
 
 
@@ -696,11 +672,7 @@ module AST =
         | DeclaredType(entRef, _) -> Some entRef.FullName
         | _ -> None
 
-    let rec uncurryLambdaType
-        maxArity
-        (revArgTypes: Type list)
-        (returnType: Type)
-        =
+    let rec uncurryLambdaType maxArity (revArgTypes: Type list) (returnType: Type) =
         match returnType with
         | LambdaType(argType, returnType) when maxArity <> 0 ->
             uncurryLambdaType (maxArity - 1) (argType :: revArgTypes) returnType
@@ -708,8 +680,7 @@ module AST =
 
     let (|NestedLambdaType|_|) =
         function
-        | LambdaType(argType, returnType) ->
-            Some(uncurryLambdaType -1 [ argType ] returnType)
+        | LambdaType(argType, returnType) -> Some(uncurryLambdaType -1 [ argType ] returnType)
         | _ -> None
 
     /// In lambdas with tuple arguments, F# compiler deconstructs the tuple before the next nested lambda.
@@ -719,13 +690,12 @@ module AST =
             match body with
             | Lambda(arg, body, info) ->
                 let body =
-                    (body, accBindings)
-                    ||> List.fold (fun body (id, value) -> Let(id, value, body))
+                    (body, accBindings) ||> List.fold (fun body (id, value) -> Let(id, value, body))
 
                 Lambda(arg, body, info) |> Some
-            | Let(id,
-                  (Get(IdentExpr tupleIdent, TupleIndex _, _, _) as value),
-                  body) when tupleIdent.Name = tupleArg.Name ->
+            | Let(id, (Get(IdentExpr tupleIdent, TupleIndex _, _, _) as value), body) when
+                tupleIdent.Name = tupleArg.Name
+                ->
                 flattenBindings ((id, value) :: accBindings) tupleArg body
             | _ -> None
 
@@ -746,10 +716,7 @@ module AST =
 
             if checkArity then
                 match expr.Type with
-                | NestedLambdaType(argTypes, _) when
-                    List.sameLength args argTypes
-                    ->
-                    Some(args, body, name)
+                | NestedLambdaType(argTypes, _) when List.sameLength args argTypes -> Some(args, body, name)
                 | _ -> None
             else
                 Some(args, body, name)
@@ -764,8 +731,7 @@ module AST =
     let (|NestedApply|_|) expr =
         let rec nestedApply r t accArgs applied =
             match applied with
-            | CurriedApply(applied, args, _, _) ->
-                nestedApply r t (args @ accArgs) applied
+            | CurriedApply(applied, args, _, _) -> nestedApply r t (args @ accArgs) applied
             | _ -> Some(applied, accArgs, t, r)
 
         match expr with
@@ -773,28 +739,17 @@ module AST =
         | _ -> None
 
     let (|LambdaUncurriedAtCompileTime|_|) arity expr =
-        let rec uncurryLambdaInner
-            (name: string option)
-            accArgs
-            remainingArity
-            expr
-            =
+        let rec uncurryLambdaInner (name: string option) accArgs remainingArity expr =
             if remainingArity = Some 0 then
                 Delegate(List.rev accArgs, expr, name, Tags.empty) |> Some
             else
                 match expr, remainingArity with
                 | Lambda(arg, body, name2), _ ->
-                    let remainingArity =
-                        remainingArity |> Option.map (fun x -> x - 1)
+                    let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
 
-                    uncurryLambdaInner
-                        (Option.orElse name2 name)
-                        (arg :: accArgs)
-                        remainingArity
-                        body
+                    uncurryLambdaInner (Option.orElse name2 name) (arg :: accArgs) remainingArity body
                 // If there's no arity expectation we can return the flattened part
-                | _, None when List.isEmpty accArgs |> not ->
-                    Delegate(List.rev accArgs, expr, name, Tags.empty) |> Some
+                | _, None when List.isEmpty accArgs |> not -> Delegate(List.rev accArgs, expr, name, Tags.empty) |> Some
                 // We cannot flatten lambda to the expected arity
                 | _, _ -> None
 
@@ -802,9 +757,7 @@ module AST =
         // Uncurry also function options
         | Value(NewOption(Some expr, _, isStruct), r) ->
             uncurryLambdaInner None [] arity expr
-            |> Option.map (fun expr ->
-                Value(NewOption(Some expr, expr.Type, isStruct), r)
-            )
+            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type, isStruct), r))
         | _ -> uncurryLambdaInner None [] arity expr
 
     let (|NestedRevLets|_|) expr =
@@ -845,8 +798,7 @@ module AST =
 
     let (|NumberConst|_|) =
         function
-        | MaybeCasted(Value(NumberConstant(value, kind, info), _)) ->
-            Some(value, kind, info)
+        | MaybeCasted(Value(NumberConstant(value, kind, info), _)) -> Some(value, kind, info)
         | _ -> None
 
     let (|NullConst|_|) =
@@ -856,11 +808,8 @@ module AST =
 
     let (|StringComparisonEnumValue|_|) e =
         match e with
-        | Expr.Value(
-            kind = NumberConstant(
-                info = NumberInfo.IsEnum({
-                                             FullName = "System.StringComparison"
-                                         }))) -> Some()
+        | Expr.Value(kind = NumberConstant(info = NumberInfo.IsEnum({ FullName = "System.StringComparison" }))) ->
+            Some()
         | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
@@ -891,16 +840,14 @@ module AST =
             | NewList(None, _)
             | NewOption(None, _, _) -> false
             | NewOption(Some e, _, _) -> canHaveSideEffects e
-            | NewList(Some(h, t), _) ->
-                canHaveSideEffects h || canHaveSideEffects t
+            | NewList(Some(h, t), _) -> canHaveSideEffects h || canHaveSideEffects t
             | StringTemplate(_, _, exprs)
             | NewTuple(exprs, _)
             | NewUnion(exprs, _, _, _) -> List.exists canHaveSideEffects exprs
             | NewArray(newKind, _, kind) ->
                 match kind, newKind with
                 | ImmutableArray, ArrayFrom expr -> canHaveSideEffects expr
-                | ImmutableArray, ArrayValues exprs ->
-                    List.exists canHaveSideEffects exprs
+                | ImmutableArray, ArrayValues exprs -> List.exists canHaveSideEffects exprs
                 | _, ArrayAlloc _
                 | _, ArrayValues [] -> false
                 | _ -> true
@@ -919,8 +866,7 @@ module AST =
             | TupleIndex _
             | UnionTag -> canHaveSideEffects e
             // Don't move union field getters after union case test in case TypeScript complains
-            | UnionField _ ->
-                Compiler.Language = TypeScript || canHaveSideEffects e
+            | UnionField _ -> Compiler.Language = TypeScript || canHaveSideEffects e
             | FieldGet info ->
                 if info.CanHaveSideEffects then
                     true
@@ -970,8 +916,7 @@ module AST =
 
     let makeTypedIdentExpr typ name = makeTypedIdent typ name |> IdentExpr
 
-    let makeWhileLoop range guardExpr bodyExpr =
-        WhileLoop(guardExpr, bodyExpr, range)
+    let makeWhileLoop range guardExpr bodyExpr = WhileLoop(guardExpr, bodyExpr, range)
 
     let makeForLoop range isUp ident start limit body =
         ForLoop(ident, start, limit, body, isUp, range)
@@ -1004,8 +949,7 @@ module AST =
             | Option(_, isStruct) -> Option(Any, isStruct)
             | Array(_, kind) -> Array(Any, kind)
             | List _ -> List Any
-            | Tuple(genArgs, isStruct) ->
-                Tuple(genArgs |> List.map (fun _ -> Any), isStruct)
+            | Tuple(genArgs, isStruct) -> Tuple(genArgs |> List.map (fun _ -> Any), isStruct)
             | DeclaredType(ent, genArgs) ->
                 let genArgs = genArgs |> List.map (fun _ -> Any)
                 DeclaredType(ent, genArgs)
@@ -1017,12 +961,10 @@ module AST =
     let makeTuple r isStruct values = Value(NewTuple(values, isStruct), r)
 
     let makeResizeArray elementType arrExprs =
-        NewArray(ArrayValues arrExprs, elementType, ResizeArray)
-        |> makeValue None
+        NewArray(ArrayValues arrExprs, elementType, ResizeArray) |> makeValue None
 
     let makeArray elementType arrExprs =
-        NewArray(ArrayValues arrExprs, elementType, MutableArray)
-        |> makeValue None
+        NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue None
 
     let makeArrayWithRange r elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue r
@@ -1055,32 +997,20 @@ module AST =
         | :? string as x -> StringConstant x |> makeValue None
         | :? char as x -> CharConstant x |> makeValue None
         // Integer types
-        | :? int8 as x ->
-            NumberConstant(x, Int8, NumberInfo.Empty) |> makeValue None
-        | :? uint8 as x ->
-            NumberConstant(x, UInt8, NumberInfo.Empty) |> makeValue None
-        | :? int16 as x ->
-            NumberConstant(x, Int16, NumberInfo.Empty) |> makeValue None
-        | :? uint16 as x ->
-            NumberConstant(x, UInt16, NumberInfo.Empty) |> makeValue None
-        | :? int32 as x ->
-            NumberConstant(x, Int32, NumberInfo.Empty) |> makeValue None
-        | :? uint32 as x ->
-            NumberConstant(x, UInt32, NumberInfo.Empty) |> makeValue None
-        | :? int64 as x ->
-            NumberConstant(x, Int64, NumberInfo.Empty) |> makeValue None
-        | :? uint64 as x ->
-            NumberConstant(x, UInt64, NumberInfo.Empty) |> makeValue None
+        | :? int8 as x -> NumberConstant(x, Int8, NumberInfo.Empty) |> makeValue None
+        | :? uint8 as x -> NumberConstant(x, UInt8, NumberInfo.Empty) |> makeValue None
+        | :? int16 as x -> NumberConstant(x, Int16, NumberInfo.Empty) |> makeValue None
+        | :? uint16 as x -> NumberConstant(x, UInt16, NumberInfo.Empty) |> makeValue None
+        | :? int32 as x -> NumberConstant(x, Int32, NumberInfo.Empty) |> makeValue None
+        | :? uint32 as x -> NumberConstant(x, UInt32, NumberInfo.Empty) |> makeValue None
+        | :? int64 as x -> NumberConstant(x, Int64, NumberInfo.Empty) |> makeValue None
+        | :? uint64 as x -> NumberConstant(x, UInt64, NumberInfo.Empty) |> makeValue None
         // Float types
-        | :? float32 as x ->
-            NumberConstant(x, Float32, NumberInfo.Empty) |> makeValue None
-        | :? float as x ->
-            NumberConstant(x, Float64, NumberInfo.Empty) |> makeValue None
-        | :? decimal as x ->
-            NumberConstant(x, Decimal, NumberInfo.Empty) |> makeValue None
+        | :? float32 as x -> NumberConstant(x, Float32, NumberInfo.Empty) |> makeValue None
+        | :? float as x -> NumberConstant(x, Float64, NumberInfo.Empty) |> makeValue None
+        | :? decimal as x -> NumberConstant(x, Decimal, NumberInfo.Empty) |> makeValue None
         | _ ->
-            FableError
-                $"Cannot create expression for object {value} (%s{value.GetType().FullName})"
+            FableError $"Cannot create expression for object {value} (%s{value.GetType().FullName})"
             |> raise
 
     let makeTypeConst r (typ: Type) (value: obj) =
@@ -1095,26 +1025,19 @@ module AST =
         | Array(Number(kind, uom), arrayKind), (:? (byte[]) as arr) ->
             let values =
                 arr
-                |> Array.map (fun x ->
-                    NumberConstant(x, kind, uom) |> makeValue None
-                )
+                |> Array.map (fun x -> NumberConstant(x, kind, uom) |> makeValue None)
                 |> Seq.toList
 
-            NewArray(ArrayValues values, Number(kind, uom), arrayKind)
-            |> makeValue r
+            NewArray(ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
         | Array(Number(kind, uom), arrayKind), (:? (uint16[]) as arr) ->
             let values =
                 arr
-                |> Array.map (fun x ->
-                    NumberConstant(x, kind, uom) |> makeValue None
-                )
+                |> Array.map (fun x -> NumberConstant(x, kind, uom) |> makeValue None)
                 |> Seq.toList
 
-            NewArray(ArrayValues values, Number(kind, uom), arrayKind)
-            |> makeValue r
+            NewArray(ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
         | _ ->
-            FableError
-                $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})"
+            FableError $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})"
             |> raise
 
     let getLibPath (com: Compiler) (moduleName: string) =
@@ -1142,22 +1065,13 @@ module AST =
             r
         )
 
-    let makeImportLibWithInfo
-        (com: Compiler)
-        t
-        memberName
-        (moduleName: string)
-        info
-        =
+    let makeImportLibWithInfo (com: Compiler) t memberName (moduleName: string) info =
         let selector =
             match com.Options.Language with
             | Rust ->
                 if
                     moduleName = "System"
-                    || moduleName.StartsWith(
-                        "System.",
-                        StringComparison.Ordinal
-                    )
+                    || moduleName.StartsWith("System.", StringComparison.Ordinal)
                 then
                     moduleName + "::" + memberName
                 else
@@ -1175,19 +1089,10 @@ module AST =
         )
 
     let makeImportLib (com: Compiler) t memberName moduleName =
-        LibraryImportInfo.Create(
-            isInstanceMember = false,
-            isModuleMember = true
-        )
+        LibraryImportInfo.Create(isInstanceMember = false, isModuleMember = true)
         |> makeImportLibWithInfo com t memberName moduleName
 
-    let private makeInternalImport
-        (com: Compiler)
-        t
-        (selector: string)
-        (path: string)
-        kind
-        =
+    let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =
         let path =
             if com.CurrentFile = path then
                 "./" + Path.GetFileName(path)
@@ -1204,24 +1109,14 @@ module AST =
             None
         )
 
-    let makeInternalMemberImport
-        com
-        t
-        membRef
-        (selector: string)
-        (path: string)
-        =
+    let makeInternalMemberImport com t membRef (selector: string) (path: string) =
         MemberImport(membRef) |> makeInternalImport com t selector path
 
     let makeInternalClassImport com entRef (selector: string) (path: string) =
         ClassImport(entRef) |> makeInternalImport com Any selector path
 
     let makeCallInfo thisArg args sigArgTypes =
-        CallInfo.Create(
-            ?thisArg = thisArg,
-            args = args,
-            sigArgTypes = sigArgTypes
-        )
+        CallInfo.Create(?thisArg = thisArg, args = args, sigArgTypes = sigArgTypes)
 
     let emit r t args isStatement macro =
         let emitInfo =
@@ -1239,9 +1134,7 @@ module AST =
             | [] -> ""
             | head :: tail ->
                 ((head, List.length args), tail)
-                ||> List.fold (fun (macro, pos) part ->
-                    $"{macro}$%i{pos}{part}", pos + 1
-                )
+                ||> List.fold (fun (macro, pos) part -> $"{macro}$%i{pos}{part}", pos + 1)
                 |> fst
 
         emit r t (args @ templateValues) isStatement macro
@@ -1321,21 +1214,17 @@ module AST =
             {|
                 HasSpread = false
                 Parameters = parameters
-                NamedIndex =
-                    parameters |> List.tryFindIndex (fun p -> p.IsNamed)
+                NamedIndex = parameters |> List.tryFindIndex (fun p -> p.IsNamed)
             |}
 
     let splitNamedArgs (args: Expr list) (info: ParamsInfo) =
         match info.NamedIndex with
         | None -> args, []
-        | Some index when index > args.Length || index > info.Parameters.Length ->
-            args, []
+        | Some index when index > args.Length || index > info.Parameters.Length -> args, []
         | Some index ->
             let args, namedValues = List.splitAt index args
 
-            let namedKeys =
-                List.skip index info.Parameters
-                |> List.truncate namedValues.Length
+            let namedKeys = List.skip index info.Parameters |> List.truncate namedValues.Length
 
             args, List.zipSafe namedKeys namedValues
 
@@ -1382,31 +1271,23 @@ module AST =
         | Char, Char
         | String, String
         | Regex, Regex -> true
-        | Number(kind1, info1), Number(kind2, info2) ->
-            kind1 = kind2 && info1 = info2
-        | Option(t1, isStruct1), Option(t2, isStruct2) ->
-            isStruct1 = isStruct2 && typeEquals strict t1 t2
-        | Array(t1, kind1), Array(t2, kind2) ->
-            kind1 = kind2 && typeEquals strict t1 t2
+        | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info1 = info2
+        | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
+        | Array(t1, kind1), Array(t2, kind2) -> kind1 = kind2 && typeEquals strict t1 t2
         | List t1, List t2 -> typeEquals strict t1 t2
         | Tuple(ts1, isStruct1), Tuple(ts2, isStruct2) ->
             isStruct1 = isStruct2 && listEquals (typeEquals strict) ts1 ts2
-        | LambdaType(a1, t1), LambdaType(a2, t2) ->
-            typeEquals strict a1 a2 && typeEquals strict t1 t2
+        | LambdaType(a1, t1), LambdaType(a2, t2) -> typeEquals strict a1 a2 && typeEquals strict t1 t2
         | DelegateType(as1, t1), DelegateType(as2, t2) ->
             listEquals (typeEquals strict) as1 as2 && typeEquals strict t1 t2
-        | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
-            ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
+        | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) -> ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _
         | _, GenericParam _ when not strict -> true
-        | GenericParam(name = name1), GenericParam(name = name2) ->
-            name1 = name2
+        | GenericParam(name = name1), GenericParam(name = name2) -> name1 = name2
         // Field names must be already sorted
-        | AnonymousRecordType(fields1, gen1, isStruct1),
-          AnonymousRecordType(fields2, gen2, isStruct2) ->
+        | AnonymousRecordType(fields1, gen1, isStruct1), AnonymousRecordType(fields2, gen2, isStruct2) ->
             fields1.Length = fields2.Length
-            && Array.zip fields1 fields2
-               |> Array.forall (fun (f1, f2) -> f1 = f2)
+            && Array.zip fields1 fields2 |> Array.forall (fun (f1, f2) -> f1 = f2)
             && listEquals (typeEquals strict) gen1 gen2
             && isStruct1 = isStruct2
         | Measure _, Measure _ -> true
@@ -1418,8 +1299,7 @@ module AST =
         if List.isEmpty gen then
             fullname
         else
-            let gen =
-                (List.map (getTypeFullName prettify) gen |> String.concat ",")
+            let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
 
             let fullname =
                 if prettify then
@@ -1478,17 +1358,12 @@ module AST =
             if prettify then
                 argType + " -> " + returnType
             else
-                "Microsoft.FSharp.Core.FSharpFunc`2["
-                + argType
-                + ","
-                + returnType
-                + "]"
+                "Microsoft.FSharp.Core.FSharpFunc`2[" + argType + "," + returnType + "]"
         | DelegateType(argTypes, returnType) ->
             sprintf
                 "System.Func`%i[%s,%s]"
                 (List.length argTypes + 1)
-                (List.map (getTypeFullName prettify) argTypes
-                 |> String.concat ",")
+                (List.map (getTypeFullName prettify) argTypes |> String.concat ",")
                 (getTypeFullName prettify returnType)
         | Tuple(genArgs, isStruct) ->
             let genArgs = List.map (getTypeFullName prettify) genArgs
@@ -1580,40 +1455,29 @@ module AST =
             | StringConstant _
             | NumberConstant _
             | RegexConstant _ -> e
-            | StringTemplate(tag, parts, exprs) ->
-                StringTemplate(tag, parts, List.map f exprs) |> makeValue r
-            | NewOption(e, t, isStruct) ->
-                NewOption(Option.map f e, t, isStruct) |> makeValue r
-            | NewTuple(exprs, isStruct) ->
-                NewTuple(List.map f exprs, isStruct) |> makeValue r
-            | NewArray(ArrayValues exprs, t, i) ->
-                NewArray(List.map f exprs |> ArrayValues, t, i) |> makeValue r
-            | NewArray(ArrayFrom expr, t, i) ->
-                NewArray(f expr |> ArrayFrom, t, i) |> makeValue r
-            | NewArray(ArrayAlloc expr, t, i) ->
-                NewArray(f expr |> ArrayAlloc, t, i) |> makeValue r
+            | StringTemplate(tag, parts, exprs) -> StringTemplate(tag, parts, List.map f exprs) |> makeValue r
+            | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
+            | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
+            | NewArray(ArrayValues exprs, t, i) -> NewArray(List.map f exprs |> ArrayValues, t, i) |> makeValue r
+            | NewArray(ArrayFrom expr, t, i) -> NewArray(f expr |> ArrayFrom, t, i) |> makeValue r
+            | NewArray(ArrayAlloc expr, t, i) -> NewArray(f expr |> ArrayAlloc, t, i) |> makeValue r
             | NewList(ht, t) ->
                 let ht = ht |> Option.map (fun (h, t) -> f h, f t)
                 NewList(ht, t) |> makeValue r
-            | NewRecord(exprs, ent, genArgs) ->
-                NewRecord(List.map f exprs, ent, genArgs) |> makeValue r
+            | NewRecord(exprs, ent, genArgs) -> NewRecord(List.map f exprs, ent, genArgs) |> makeValue r
             | NewAnonymousRecord(exprs, ent, genArgs, isStruct) ->
-                NewAnonymousRecord(List.map f exprs, ent, genArgs, isStruct)
-                |> makeValue r
-            | NewUnion(exprs, uci, ent, genArgs) ->
-                NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
+                NewAnonymousRecord(List.map f exprs, ent, genArgs, isStruct) |> makeValue r
+            | NewUnion(exprs, uci, ent, genArgs) -> NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
         | Test(e, kind, r) -> Test(f e, kind, r)
         | Lambda(arg, body, name) -> Lambda(arg, f body, name)
         | Delegate(args, body, name, tags) -> Delegate(args, f body, name, tags)
         | ObjectExpr(members, t, baseCall) ->
             let baseCall = Option.map f baseCall
 
-            let members =
-                members |> List.map (fun m -> { m with Body = f m.Body })
+            let members = members |> List.map (fun m -> { m with Body = f m.Body })
 
             ObjectExpr(members, t, baseCall)
-        | CurriedApply(callee, args, t, r) ->
-            CurriedApply(f callee, List.map f args, t, r)
+        | CurriedApply(callee, args, t, r) -> CurriedApply(f callee, List.map f args, t, r)
         | Call(callee, info, t, r) ->
             let info =
                 { info with
@@ -1632,12 +1496,9 @@ module AST =
             Emit({ info with CallInfo = callInfo }, t, r)
         | Operation(kind, tags, t, r) ->
             match kind with
-            | Unary(operator, operand) ->
-                Operation(Unary(operator, f operand), tags, t, r)
-            | Binary(op, left, right) ->
-                Operation(Binary(op, f left, f right), tags, t, r)
-            | Logical(op, left, right) ->
-                Operation(Logical(op, f left, f right), tags, t, r)
+            | Unary(operator, operand) -> Operation(Unary(operator, f operand), tags, t, r)
+            | Binary(op, left, right) -> Operation(Binary(op, f left, f right), tags, t, r)
+            | Logical(op, left, right) -> Operation(Logical(op, f left, f right), tags, t, r)
         | Get(e, kind, t, r) ->
             match kind with
             | ListHead
@@ -1653,8 +1514,7 @@ module AST =
         | LetRec(bs, body) ->
             let bs = bs |> List.map (fun (i, e) -> i, f e)
             LetRec(bs, f body)
-        | IfThenElse(cond, thenExpr, elseExpr, r) ->
-            IfThenElse(f cond, f thenExpr, f elseExpr, r)
+        | IfThenElse(cond, thenExpr, elseExpr, r) -> IfThenElse(f cond, f thenExpr, f elseExpr, r)
         | Set(e, kind, t, v, r) ->
             match kind with
             | ExprSet e2 -> Set(f e, ExprSet(f e2), t, f v, r)
@@ -1663,17 +1523,11 @@ module AST =
         | WhileLoop(e1, e2, r) -> WhileLoop(f e1, f e2, r)
         | ForLoop(i, e1, e2, e3, up, r) -> ForLoop(i, f e1, f e2, f e3, up, r)
         | TryCatch(body, catch, finalizer, r) ->
-            TryCatch(
-                f body,
-                Option.map (fun (i, e) -> i, f e) catch,
-                Option.map f finalizer,
-                r
-            )
+            TryCatch(f body, Option.map (fun (i, e) -> i, f e) catch, Option.map f finalizer, r)
         | DecisionTree(expr, targets) ->
             let targets = targets |> List.map (fun (idents, v) -> idents, f v)
             DecisionTree(f expr, targets)
-        | DecisionTreeSuccess(idx, boundValues, t) ->
-            DecisionTreeSuccess(idx, List.map f boundValues, t)
+        | DecisionTreeSuccess(idx, boundValues, t) -> DecisionTreeSuccess(idx, List.map f boundValues, t)
 
     let rec visitFromInsideOut f e = visit (visitFromInsideOut f) e |> f
 
@@ -1715,11 +1569,7 @@ module AST =
                 | ArrayFrom e -> [ e ]
             | NewList(ht, _) ->
                 match ht with
-                | Some(h, t) ->
-                    [
-                        h
-                        t
-                    ]
+                | Some(h, t) -> [ h; t ]
                 | None -> []
             | NewRecord(exprs, _, _) -> exprs
             | NewAnonymousRecord(exprs, _, _, _) -> exprs
@@ -1735,21 +1585,12 @@ module AST =
             | None -> members
         | CurriedApply(callee, args, _, _) -> callee :: args
         | Call(e1, info, _, _) -> e1 :: (Option.toList info.ThisArg) @ info.Args
-        | Emit(info, _, _) ->
-            (Option.toList info.CallInfo.ThisArg) @ info.CallInfo.Args
+        | Emit(info, _, _) -> (Option.toList info.CallInfo.ThisArg) @ info.CallInfo.Args
         | Operation(kind, _, _, _) ->
             match kind with
             | Unary(_, operand) -> [ operand ]
-            | Binary(_, left, right) ->
-                [
-                    left
-                    right
-                ]
-            | Logical(_, left, right) ->
-                [
-                    left
-                    right
-                ]
+            | Binary(_, left, right) -> [ left; right ]
+            | Logical(_, left, right) -> [ left; right ]
         | Get(e, kind, _, _) ->
             match kind with
             | ListHead
@@ -1759,49 +1600,18 @@ module AST =
             | UnionTag
             | UnionField _
             | FieldGet _ -> [ e ]
-            | ExprGet e2 ->
-                [
-                    e
-                    e2
-                ]
+            | ExprGet e2 -> [ e; e2 ]
         | Sequential exprs -> exprs
-        | Let(_, value, body) ->
-            [
-                value
-                body
-            ]
+        | Let(_, value, body) -> [ value; body ]
         | LetRec(bs, body) -> (List.map snd bs) @ [ body ]
-        | IfThenElse(cond, thenExpr, elseExpr, _) ->
-            [
-                cond
-                thenExpr
-                elseExpr
-            ]
+        | IfThenElse(cond, thenExpr, elseExpr, _) -> [ cond; thenExpr; elseExpr ]
         | Set(e, kind, _, v, _) ->
             match kind with
-            | ExprSet e2 ->
-                [
-                    e
-                    e2
-                    v
-                ]
+            | ExprSet e2 -> [ e; e2; v ]
             | FieldSet _
-            | ValueSet ->
-                [
-                    e
-                    v
-                ]
-        | WhileLoop(e1, e2, _) ->
-            [
-                e1
-                e2
-            ]
-        | ForLoop(_, e1, e2, e3, _, _) ->
-            [
-                e1
-                e2
-                e3
-            ]
+            | ValueSet -> [ e; v ]
+        | WhileLoop(e1, e2, _) -> [ e1; e2 ]
+        | ForLoop(_, e1, e2, e3, _, _) -> [ e1; e2; e3 ]
         | TryCatch(body, catch, finalizer, _) ->
             match catch with
             | Some(_, c) -> body :: c :: (Option.toList finalizer)
@@ -1850,10 +1660,7 @@ module AST =
     let extractGenericArgs (maybeGenericExpr: Expr) concreteType =
         let rec extractGenericArgs genArgs maybeGenericType concreteType =
             match maybeGenericType, concreteType with
-            | Fable.GenericParam(name = name1), Fable.GenericParam(name = name2) when
-                name1 = name2
-                ->
-                genArgs
+            | Fable.GenericParam(name = name1), Fable.GenericParam(name = name2) when name1 = name2 -> genArgs
             | Fable.GenericParam(name = name), t -> Map.add name t genArgs
             | t1, t2 ->
                 match t1.Generics with
@@ -1884,16 +1691,13 @@ module AST =
         function
         | MemberRef(ent, info) ->
             let argTypes =
-                Option.map
-                    (List.map (resolveInlineType genArgs))
-                    info.NonCurriedArgTypes
+                Option.map (List.map (resolveInlineType genArgs)) info.NonCurriedArgTypes
 
             MemberRef(ent, { info with NonCurriedArgTypes = argTypes })
 
         | GeneratedMemberRef(gen) ->
             let mapInfo (i: GeneratedMemberInfo) =
-                let paramTypes =
-                    List.map (resolveInlineType genArgs) i.ParamTypes
+                let paramTypes = List.map (resolveInlineType genArgs) i.ParamTypes
 
                 let returnType = resolveInlineType genArgs i.ReturnType
 
@@ -1912,11 +1716,9 @@ module AST =
     let resolveInlineCallInfo genArgs (info: CallInfo) =
         let infoGenArgs = List.map (resolveInlineType genArgs) info.GenericArgs
 
-        let infoSigTypes =
-            List.map (resolveInlineType genArgs) info.SignatureArgTypes
+        let infoSigTypes = List.map (resolveInlineType genArgs) info.SignatureArgTypes
 
-        let memberRef =
-            Option.map (resolveInlineMemberRef genArgs) info.MemberRef
+        let memberRef = Option.map (resolveInlineMemberRef genArgs) info.MemberRef
 
         { info with
             GenericArgs = infoGenArgs
@@ -1933,23 +1735,15 @@ module AST =
                 function
                 | Value(kind, r) as e ->
                     match kind with
-                    | ThisValue t ->
-                        Value(ThisValue(resolveInlineType genArgs t), r)
+                    | ThisValue t -> Value(ThisValue(resolveInlineType genArgs t), r)
                     | BaseValue(i, t) ->
                         let i = Option.map (resolveInlineIdent genArgs) i
                         Value(BaseValue(i, resolveInlineType genArgs t), r)
-                    | TypeInfo(t, tags) ->
-                        Value(TypeInfo(resolveInlineType genArgs t, tags), r)
+                    | TypeInfo(t, tags) -> Value(TypeInfo(resolveInlineType genArgs t, tags), r)
                     | Null t -> Value(Null(resolveInlineType genArgs t), r)
-                    | NewOption(v, t, isStruct) ->
-                        Value(
-                            NewOption(v, resolveInlineType genArgs t, isStruct),
-                            r
-                        )
-                    | NewArray(k1, t, k2) ->
-                        Value(NewArray(k1, resolveInlineType genArgs t, k2), r)
-                    | NewList(v, t) ->
-                        Value(NewList(v, resolveInlineType genArgs t), r)
+                    | NewOption(v, t, isStruct) -> Value(NewOption(v, resolveInlineType genArgs t, isStruct), r)
+                    | NewArray(k1, t, k2) -> Value(NewArray(k1, resolveInlineType genArgs t, k2), r)
+                    | NewList(v, t) -> Value(NewList(v, resolveInlineType genArgs t), r)
                     | NewRecord(vs, ent, gen) ->
                         let gen = List.map (resolveInlineType genArgs) gen
                         Value(NewRecord(vs, ent, gen), r)
@@ -1967,25 +1761,17 @@ module AST =
                     let arg = resolveInlineIdent genArgs arg
                     Lambda(arg, b, n)
 
-                | Delegate(args, b, n, t) ->
-                    Delegate(
-                        List.map (resolveInlineIdent genArgs) args,
-                        b,
-                        n,
-                        t
-                    )
+                | Delegate(args, b, n, t) -> Delegate(List.map (resolveInlineIdent genArgs) args, b, n, t)
 
                 | ObjectExpr(members, typ, baseCall) ->
                     let members =
                         members
                         |> List.map (fun m ->
-                            let args =
-                                List.map (resolveInlineIdent genArgs) m.Args
+                            let args = List.map (resolveInlineIdent genArgs) m.Args
 
                             { m with
                                 Args = args
-                                MemberRef =
-                                    resolveInlineMemberRef genArgs m.MemberRef
+                                MemberRef = resolveInlineMemberRef genArgs m.MemberRef
                             }
                         )
 
@@ -1993,28 +1779,20 @@ module AST =
 
                 | TypeCast(e, t) -> TypeCast(e, resolveInlineType genArgs t)
 
-                | Test(e, TypeTest t, r) ->
-                    Test(e, TypeTest(resolveInlineType genArgs t), r)
+                | Test(e, TypeTest t, r) -> Test(e, TypeTest(resolveInlineType genArgs t), r)
 
                 | Call(callee, info, t, r) ->
                     let info = resolveInlineCallInfo genArgs info
                     Call(callee, info, resolveInlineType genArgs t, r)
 
-                | CurriedApply(callee, args, typ, r) ->
-                    CurriedApply(callee, args, resolveInlineType genArgs typ, r)
+                | CurriedApply(callee, args, typ, r) -> CurriedApply(callee, args, resolveInlineType genArgs typ, r)
 
-                | Operation(kind, tags, typ, r) ->
-                    Operation(kind, tags, resolveInlineType genArgs typ, r)
+                | Operation(kind, tags, typ, r) -> Operation(kind, tags, resolveInlineType genArgs typ, r)
 
                 | Import(info, t, r) ->
                     let info =
                         match info.Kind with
-                        | MemberImport m ->
-                            { info with
-                                Kind =
-                                    resolveInlineMemberRef genArgs m
-                                    |> MemberImport
-                            }
+                        | MemberImport m -> { info with Kind = resolveInlineMemberRef genArgs m |> MemberImport }
                         | UserImport _
                         | LibraryImport _
                         | ClassImport _ -> info
@@ -2022,51 +1800,29 @@ module AST =
                     Import(info, resolveInlineType genArgs t, r)
 
                 | Emit(info, t, r) ->
-                    let info =
-                        { info with
-                            CallInfo =
-                                resolveInlineCallInfo genArgs info.CallInfo
-                        }
+                    let info = { info with CallInfo = resolveInlineCallInfo genArgs info.CallInfo }
 
                     Emit(info, resolveInlineType genArgs t, r)
 
                 | DecisionTree(expr, targets) ->
                     let targets =
                         targets
-                        |> List.map (fun (bindings, body) ->
-                            List.map (resolveInlineIdent genArgs) bindings,
-                            body
-                        )
+                        |> List.map (fun (bindings, body) -> List.map (resolveInlineIdent genArgs) bindings, body)
 
                     DecisionTree(expr, targets)
 
                 | DecisionTreeSuccess(targetIndex, boundValues, t) ->
-                    DecisionTreeSuccess(
-                        targetIndex,
-                        boundValues,
-                        resolveInlineType genArgs t
-                    )
+                    DecisionTreeSuccess(targetIndex, boundValues, resolveInlineType genArgs t)
 
-                | Set(e, kind, t, v, r) ->
-                    Set(e, kind, resolveInlineType genArgs t, v, r)
+                | Set(e, kind, t, v, r) -> Set(e, kind, resolveInlineType genArgs t, v, r)
                 | Get(e, kind, t, r) ->
                     let kind =
                         match kind with
                         | FieldGet i ->
-                            { i with
-                                FieldType =
-                                    Option.map
-                                        (resolveInlineType genArgs)
-                                        i.FieldType
-                            }
+                            { i with FieldType = Option.map (resolveInlineType genArgs) i.FieldType }
                             |> FieldGet
                         | UnionField i ->
-                            { i with
-                                GenericArgs =
-                                    List.map
-                                        (resolveInlineType genArgs)
-                                        i.GenericArgs
-                            }
+                            { i with GenericArgs = List.map (resolveInlineType genArgs) i.GenericArgs }
                             |> UnionField
                         | TupleIndex _
                         | ExprGet _
@@ -2080,16 +1836,11 @@ module AST =
                 | Let(i, v, b) -> Let(resolveInlineIdent genArgs i, v, b)
 
                 | LetRec(bindings, b) ->
-                    let bindings =
-                        bindings
-                        |> List.map (fun (i, v) ->
-                            resolveInlineIdent genArgs i, v
-                        )
+                    let bindings = bindings |> List.map (fun (i, v) -> resolveInlineIdent genArgs i, v)
 
                     LetRec(bindings, b)
 
-                | Extended(Throw(e, t), r) ->
-                    Extended(Throw(e, resolveInlineType genArgs t), r)
+                | Extended(Throw(e, t), r) -> Extended(Throw(e, resolveInlineType genArgs t), r)
 
                 | e -> e
             )

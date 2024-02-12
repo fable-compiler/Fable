@@ -16,8 +16,7 @@ type Vector(x: float, y: float, z: float) =
     static member (+)(v1: Vector, v2: Vector) =
         Vector(v1.X + v2.X, v1.Y + v2.Y, v1.Z + v2.Z)
 
-    static member Dot(v1: Vector, v2: Vector) =
-        v1.X * v2.X + v1.Y * v2.Y + v1.Z * v2.Z
+    static member Dot(v1: Vector, v2: Vector) = v1.X * v2.X + v1.Y * v2.Y + v1.Z * v2.Z
 
     static member Mag(v: Vector) =
         sqrt (v.X * v.X + v.Y * v.Y + v.Z * v.Z)
@@ -34,11 +33,7 @@ type Vector(x: float, y: float, z: float) =
         div * v
 
     static member Cross(v1: Vector, v2: Vector) =
-        Vector(
-            v1.Y * v2.Z - v1.Z * v2.Y,
-            v1.Z * v2.X - v1.X * v2.Z,
-            v1.X * v2.Y - v1.Y * v2.X
-        )
+        Vector(v1.Y * v2.Z - v1.Z * v2.Y, v1.Z * v2.X - v1.X * v2.Z, v1.X * v2.Y - v1.Y * v2.X)
 
 type Color(r: float, g: float, b: float) =
     static let clamp v = Math.Floor(255.0 * Math.Min(v, 1.0))
@@ -196,27 +191,11 @@ type RayTracer(screenWidth, screenHeight) =
             if depth >= maxDepth then
                 Color(0.5, 0.5, 0.5)
             else
-                GetReflectionColor(
-                    isect.Thing,
-                    pos + (0.001 * reflectDir),
-                    normal,
-                    reflectDir,
-                    scene,
-                    depth
-                )
+                GetReflectionColor(isect.Thing, pos + (0.001 * reflectDir), normal, reflectDir, scene, depth)
 
         naturalcolor + reflectedColor
 
-    and GetReflectionColor
-        (
-            thing: SceneObject,
-            pos,
-            normal: Vector,
-            rd: Vector,
-            scene: Scene,
-            depth: int
-        )
-        =
+    and GetReflectionColor (thing: SceneObject, pos, normal: Vector, rd: Vector, scene: Scene, depth: int) =
         Color.Scale(
             thing.Surface.Reflect(pos),
             TraceRay(
@@ -263,16 +242,11 @@ type RayTracer(screenWidth, screenHeight) =
 
                 let scolor =
                     if specular > 0.0 then
-                        Color.Scale(
-                            System.Math.Pow(specular, thing.Surface.Roughness),
-                            light.Color
-                        )
+                        Color.Scale(System.Math.Pow(specular, thing.Surface.Roughness), light.Color)
                     else
                         Color.DefaultColor
 
-                col
-                + thing.Surface.Diffuse(pos) * lcolor
-                + thing.Surface.Specular(pos) * scolor
+                col + thing.Surface.Diffuse(pos) * lcolor + thing.Surface.Specular(pos) * scolor
 
         List.fold addLight Color.DefaultColor scene.Lights
 
@@ -283,11 +257,7 @@ type RayTracer(screenWidth, screenHeight) =
         let RecenterY y =
             -(float y - (float screenHeight / 2.0)) / (2.0 * float screenHeight)
 
-        Vector.Norm(
-            camera.Forward
-            + RecenterX(x) * camera.Right
-            + RecenterY(y) * camera.Up
-        )
+        Vector.Norm(camera.Forward + RecenterX(x) * camera.Right + RecenterY(y) * camera.Up)
 
     member this.Render(scene, rgb: Color[]) =
         for y = 0 to screenHeight - 1 do
@@ -390,10 +360,5 @@ let x, y = 100, 100
 |> List.iter (fun i ->
     let colors, elapsed = measure computeScene x y
 
-    printfn
-        "run %d: Ray tracing scene size (%d,%d), elapsed %f sec"
-        i
-        x
-        y
-        elapsed
+    printfn "run %d: Ray tracing scene size (%d,%d), elapsed %f sec" i x y elapsed
 )

@@ -61,11 +61,7 @@ let handle (args: string list) =
         Async.Parallel
             [
                 if not noDotnet then
-                    Command.RunAsync(
-                        "dotnet",
-                        "watch test -c Release",
-                        workingDirectory = projectDir
-                    )
+                    Command.RunAsync("dotnet", "watch test -c Release", workingDirectory = projectDir)
                     |> Async.AwaitTask
 
                 Command.WatchFableAsync(fableArgs, workingDirectory = fableDest)

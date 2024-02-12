@@ -58,8 +58,7 @@ let readAllBytes (filePath: string) = JS.fs.readFileSync (filePath)
 let readAllText (filePath: string) =
     JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
 
-let writeAllText (filePath: string) (text: string) =
-    JS.fs.writeFileSync (filePath, text)
+let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync (filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let startTime = JS.proc.hrtime ()
@@ -117,19 +116,9 @@ module Path =
             if path1.Length = 0 then
                 path1
             else
-                (path1.TrimEnd
-                    [|
-                        '\\'
-                        '/'
-                    |])
-                + "/"
+                (path1.TrimEnd [| '\\'; '/' |]) + "/"
 
-        path1
-        + (path2.TrimStart
-            [|
-                '\\'
-                '/'
-            |])
+        path1 + (path2.TrimStart [| '\\'; '/' |])
 
     let ChangeExtension (path: string, ext: string) =
         let i = path.LastIndexOf(".")

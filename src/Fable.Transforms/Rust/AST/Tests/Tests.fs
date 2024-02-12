@@ -13,15 +13,7 @@ open type Macros
 [<AutoOpen>]
 module Helpers =
 
-    let fun_to_string
-        (
-            decl: FnDecl,
-            header: FnHeader,
-            name: Ident,
-            generics: Generics
-        )
-        : string
-        =
+    let fun_to_string (decl: FnDecl, header: FnHeader, name: Ident, generics: Generics) : string =
         State
             .new_()
             .to_string (fun (s) ->
@@ -49,10 +41,7 @@ type TestClass() =
 
         let generics = Generics.default_ ()
 
-        assert_eq (
-            fun_to_string (decl, FnHeader.default_ (), abba_ident, generics),
-            "fn abba()"
-        )
+        assert_eq (fun_to_string (decl, FnHeader.default_ (), abba_ident, generics), "fn abba()")
 
     [<TestMethod>]
     member _.test_variant_to_string() =
@@ -88,8 +77,7 @@ type TestClass() =
         let is_expanded: bool = false
         let edition: Edition = Edition.Edition2021
 
-        let actual =
-            print_crate (sm, krate, filename, input, ann, is_expanded, edition)
+        let actual = print_crate (sm, krate, filename, input, ann, is_expanded, edition)
 
         let expected =
             "pub fn main() { let a = vec![1, 2, 3, 4, 5]; println!(\"{:?}\", a); }\n"

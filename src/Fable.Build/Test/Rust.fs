@@ -11,15 +11,10 @@ open SimpleExec
 
 let private testAst isWatch =
 
-    let projectDir =
-        Path.Resolve("src", "Fable.Transforms", "Rust", "AST", "Tests")
+    let projectDir = Path.Resolve("src", "Fable.Transforms", "Rust", "AST", "Tests")
 
     if isWatch then
-        Command.RunAsync(
-            "dotnet",
-            "watch test -c Release",
-            workingDirectory = projectDir
-        )
+        Command.RunAsync("dotnet", "watch test -c Release", workingDirectory = projectDir)
         |> Async.AwaitTask
         |> ignore
     else
@@ -54,9 +49,7 @@ let handle (args: string list) =
         Directory.CreateDirectory(mainTestsDestinationDir </> "tests" </> "src")
         |> ignore
 
-        Shell.copyFile
-            mainTestsDestinationDir
-            (mainTestsProjectDir </> "Cargo.toml")
+        Shell.copyFile mainTestsDestinationDir (mainTestsProjectDir </> "Cargo.toml")
 
         !!(mainTestsProjectDir </> "tests" </> "src" </> "*.rs")
         |> Seq.iter (fun file ->
@@ -67,11 +60,11 @@ let handle (args: string list) =
 
         let cargoTestArgs =
             if noStd then
-                "cargo test --features no_std"
+                "cargo test --features no_std -- --test-threads=1"
             elif threaded then
                 "cargo test --features threaded"
             else
-                "cargo test"
+                "cargo test -- --test-threads=1"
 
         let fableArgs =
             CmdLine.concat
@@ -82,10 +75,7 @@ let handle (args: string list) =
                     |> CmdLine.appendPrefix "--lang" "rust"
                     |> CmdLine.appendPrefix "--exclude" "Fable.Core"
                     |> CmdLine.appendRaw "--noCache"
-                    |> CmdLine.appendPrefixIf
-                        noStd
-                        "--define"
-                        "NO_STD_NO_EXCEPTIONS"
+                    |> CmdLine.appendPrefixIf noStd "--define" "NO_STD_NO_EXCEPTIONS"
 
                     if isWatch then
                         CmdLine.empty
@@ -93,36 +83,23 @@ let handle (args: string list) =
                         |> CmdLine.appendRaw "--runWatch"
                         |> CmdLine.appendRaw cargoTestArgs
                     else
-                        CmdLine.empty
-                        |> CmdLine.appendRaw "--run"
-                        |> CmdLine.appendRaw cargoTestArgs
+                        CmdLine.empty |> CmdLine.appendRaw "--run" |> CmdLine.appendRaw cargoTestArgs
                 ]
 
         if isWatch then
             Async.Parallel
                 [
                     if not noDotnet then
-                        Command.RunAsync(
-                            "dotnet",
-                            "watch test -c Release",
-                            workingDirectory = mainTestsProjectDir
-                        )
+                        Command.RunAsync("dotnet", "watch test -c Release", workingDirectory = mainTestsProjectDir)
                         |> Async.AwaitTask
 
-                    Command.WatchFableAsync(
-                        fableArgs,
-                        workingDirectory = mainTestsDestinationDir
-                    )
+                    Command.WatchFableAsync(fableArgs, workingDirectory = mainTestsDestinationDir)
                     |> Async.AwaitTask
                 ]
             |> Async.RunSynchronously
             |> ignore
         else
-            Command.Run(
-                "dotnet",
-                "test -c Release",
-                workingDirectory = mainTestsProjectDir
-            )
+            Command.Run("dotnet", "test -c Release", workingDirectory = mainTestsProjectDir)
 
             Command.Fable(fableArgs, workingDirectory = mainTestsDestinationDir)
 

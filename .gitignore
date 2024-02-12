@@ -221,3 +221,4 @@ tests/**/*.actual
 
 # Analyzers
 *.sarif
+*.fable-temp.csproj

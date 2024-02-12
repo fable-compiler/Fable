@@ -76,8 +76,7 @@ module GlobbingPattern =
     val createFrom: dir: string -> IGlobbingPattern
 
     /// Sets a directory as baseDirectory for fileIncludes.
-    val setBaseDir:
-        dir: string -> fileIncludes: IGlobbingPattern -> IGlobbingPattern
+    val setBaseDir: dir: string -> fileIncludes: IGlobbingPattern -> IGlobbingPattern
 
     /// Get base include directories.
     ///

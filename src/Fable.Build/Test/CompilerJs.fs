@@ -10,18 +10,13 @@ open Fake.IO
 
 let private fableCompilerJsDir = Path.Resolve("src", "fable-compiler-js")
 
-let private quicktestProject =
-    Path.Resolve("src", "quicktest", "Quicktest.fsproj")
+let private quicktestProject = Path.Resolve("src", "quicktest", "Quicktest.fsproj")
 
 let private quicktestBuildDir =
     Path.Resolve("temp", "tests", "fable-compiler-js", "quicktest")
 
 let handle (args: string list) =
-    Command.Run(
-        "npm",
-        "link ../fable-standalone ../fable-metadata",
-        workingDirectory = fableCompilerJsDir
-    )
+    Command.Run("npm", "link ../fable-standalone ../fable-metadata", workingDirectory = fableCompilerJsDir)
 
     Build.CompilerJs.handle args
 
@@ -35,16 +30,8 @@ let handle (args: string list) =
         workingDirectory = fableCompilerJsDir
     )
 
-    Command.Run(
-        "node",
-        quicktestBuildDir </> "QuickTest.js",
-        workingDirectory = fableCompilerJsDir
-    )
+    Command.Run("node", quicktestBuildDir </> "QuickTest.js", workingDirectory = fableCompilerJsDir)
 
     // TODO: Add test against an fsx file but for now it seems broken
 
-    Command.Run(
-        "npm",
-        "unlink ../fable-standalone ../fable-metadata",
-        workingDirectory = fableCompilerJsDir
-    )
+    Command.Run("npm", "unlink ../fable-standalone ../fable-metadata", workingDirectory = fableCompilerJsDir)

@@ -33,9 +33,7 @@ let attribsOfSymbol (s: FSharpSymbol) =
             v.TryFullName |> ignore // check there is no failure here
 
             match v.BaseType with
-            | Some t when
-                t.HasTypeDefinition && t.TypeDefinition.TryFullName.IsSome
-                ->
+            | Some t when t.HasTypeDefinition && t.TypeDefinition.TryFullName.IsSome ->
                 yield sprintf "inherits %s" t.TypeDefinition.FullName
             | _ -> ()
 
@@ -171,40 +169,18 @@ let rec printFSharpDecls prefix decls =
 
             match decl with
             | FSharpImplementationFileDeclaration.Entity(e, sub) ->
-                yield
-                    sprintf
-                        "%s%i) ENTITY: %s %A"
-                        prefix
-                        i
-                        e.CompiledName
-                        (attribsOfSymbol e)
+                yield sprintf "%s%i) ENTITY: %s %A" prefix i e.CompiledName (attribsOfSymbol e)
 
                 if not (Seq.isEmpty e.Attributes) then
-                    yield
-                        sprintf
-                            "%sattributes: %A"
-                            prefix
-                            (Seq.toList e.Attributes)
+                    yield sprintf "%sattributes: %A" prefix (Seq.toList e.Attributes)
 
                 if not (Seq.isEmpty e.DeclaredInterfaces) then
-                    yield
-                        sprintf
-                            "%sinterfaces: %A"
-                            prefix
-                            (Seq.toList e.DeclaredInterfaces)
+                    yield sprintf "%sinterfaces: %A" prefix (Seq.toList e.DeclaredInterfaces)
 
                 yield ""
                 yield! printFSharpDecls (prefix + "\t") sub
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth,
-                                                                          args,
-                                                                          body) ->
-                yield
-                    sprintf
-                        "%s%i) METHOD: %s %A"
-                        prefix
-                        i
-                        meth.CompiledName
-                        (attribsOfSymbol meth)
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
+                yield sprintf "%s%i) METHOD: %s %A" prefix i meth.CompiledName (attribsOfSymbol meth)
 
                 yield sprintf "%stype: %A" prefix meth.FullType
                 yield sprintf "%sargs: %A" prefix args

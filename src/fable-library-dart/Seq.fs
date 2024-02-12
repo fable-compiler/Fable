@@ -152,12 +152,7 @@ module Enumerator =
         fromFunctions current next dispose
 
     // We use a tuple here to make sure the generic is wrapped in case it's an option itself
-    let generateWhileSome
-        (openf: unit -> 'T)
-        (compute: 'T -> 'U option)
-        (closef: 'T -> unit)
-        : IEnumerator<'U>
-        =
+    let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit) : IEnumerator<'U> =
         let mutable started = false
         let mutable curr: 'U option = None
         let mutable state = Some(openf ())
@@ -208,11 +203,7 @@ module Enumerator =
 
         fromFunctions current next dispose
 
-    let unfold
-        (f: 'State -> ('T * 'State) option)
-        (state: 'State)
-        : IEnumerator<'T>
-        =
+    let unfold (f: 'State -> ('T * 'State) option) (state: 'State) : IEnumerator<'T> =
         let mutable curr: ('T * 'State) option = None
         let mutable acc: 'State = state
 
@@ -233,20 +224,10 @@ module Enumerator =
         let dispose () = ()
         fromFunctions current next dispose
 
-    let generate
-        (create: unit -> 'a)
-        (compute: 'a -> 'b option)
-        (dispose: 'a -> unit)
-        : seq<'b>
-        =
+    let generate (create: unit -> 'a) (compute: 'a -> 'b option) (dispose: 'a -> unit) : seq<'b> =
         Enumerable(fun () -> generateWhileSome create compute dispose)
 
-    let generateIndexed
-        (create: unit -> 'a)
-        (compute: int -> 'a -> 'b option)
-        (dispose: 'a -> unit)
-        : seq<'b>
-        =
+    let generateIndexed (create: unit -> 'a) (compute: int -> 'a -> 'b option) (dispose: 'a -> unit) : seq<'b> =
         Enumerable(fun () ->
             let mutable i = -1
 
@@ -270,17 +251,10 @@ let ofSeq (xs: seq<'T>) : IEnumerator<'T> = xs.GetEnumerator()
 let delay (generator: unit -> seq<'T>) : seq<'T> =
     mkSeq (fun () -> generator().GetEnumerator())
 
-let concat<'Collection, 'T when 'Collection :> seq<'T>>
-    (sources: seq<'Collection>)
-    : seq<'T>
-    =
+let concat<'Collection, 'T when 'Collection :> seq<'T>> (sources: seq<'Collection>) : seq<'T> =
     mkSeq (fun () -> Enumerator.concat sources)
 
-let unfold
-    (generator: 'State -> ('T * 'State) option)
-    (state: 'State)
-    : seq<'T>
-    =
+let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) : seq<'T> =
     mkSeq (fun () -> Enumerator.unfold generator state)
 
 let empty () : seq<'T> =
@@ -308,12 +282,7 @@ let toList (xs: seq<'T>) : 'T list =
 // let inline generateUsing (openf: unit -> ('U :> IDisposable)) compute =
 //     generate openf compute (fun (s: 'U) -> s.Dispose())
 
-let append (xs: seq<'T>) (ys: seq<'T>) =
-    concat
-        [|
-            xs
-            ys
-        |]
+let append (xs: seq<'T>) (ys: seq<'T>) = concat [| xs; ys |]
 
 //let cast (xs: Collections.IEnumerable) =
 //    mkSeq (fun () ->
@@ -361,11 +330,7 @@ let compareWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) (ys: seq<'T>) : int =
     else
         0
 
-let contains
-    (value: 'T)
-    (xs: seq<'T>)
-    ([<Inject>] comparer: IEqualityComparer<'T>)
-    =
+let contains (value: 'T) (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
     use e = ofSeq xs
     let mutable found = false
 
@@ -374,12 +339,7 @@ let contains
 
     found
 
-let enumerateFromFunctions
-    (create: unit -> 'a)
-    (moveNext: 'a -> bool)
-    (current: 'a -> 'b)
-    : seq<'b>
-    =
+let enumerateFromFunctions (create: unit -> 'a) (moveNext: 'a -> bool) (current: 'a -> 'b) : seq<'b> =
     Enumerator.generate
         create
         (fun x ->
@@ -394,12 +354,7 @@ let enumerateFromFunctions
             | _ -> ()
         )
 
-let inline finallyEnumerable<'T>
-    (
-        compensation: unit -> unit,
-        restf: unit -> seq<'T>
-    )
-    =
+let inline finallyEnumerable<'T> (compensation: unit -> unit, restf: unit -> seq<'T>) =
     mkSeq (fun () ->
         try
             let e = restf () |> ofSeq
@@ -409,18 +364,10 @@ let inline finallyEnumerable<'T>
             reraise ()
     )
 
-let enumerateThenFinally
-    (source: seq<'T>)
-    (compensation: unit -> unit)
-    : seq<'T>
-    =
+let enumerateThenFinally (source: seq<'T>) (compensation: unit -> unit) : seq<'T> =
     finallyEnumerable (compensation, (fun () -> source))
 
-let enumerateUsing
-    (resource: 'T :> IDisposable)
-    (source: 'T -> #seq<'U>)
-    : seq<'U>
-    =
+let enumerateUsing (resource: 'T :> IDisposable) (source: 'T -> #seq<'U>) : seq<'U> =
     finallyEnumerable (
         // Null checks not necessary because Dart provides null safety
         //        (fun () -> match box resource with null -> () | _ -> resource.Dispose()),
@@ -458,12 +405,7 @@ let exists (predicate: 'T -> bool) (xs: seq<'T>) : bool =
 
     found
 
-let exists2
-    (predicate: 'T1 -> 'T2 -> bool)
-    (xs: seq<'T1>)
-    (ys: seq<'T2>)
-    : bool
-    =
+let exists2 (predicate: 'T1 -> 'T2 -> bool) (xs: seq<'T1>) (ys: seq<'T2>) : bool =
     use e1 = ofSeq xs
     use e2 = ofSeq ys
     let mutable found = false
@@ -554,12 +496,7 @@ let tryFindIndexBack (predicate: 'T -> bool) (xs: seq<'T>) : int option =
 let findIndexBack (predicate: 'T -> bool) (xs: seq<'T>) : int =
     xs |> toArray |> Array.findIndexBack predicate
 
-let fold<'T, 'State>
-    (folder: 'State -> 'T -> 'State)
-    (state: 'State)
-    (xs: seq<'T>)
-    : 'State
-    =
+let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) : 'State =
     use e = ofSeq xs
     let mutable acc = state
 
@@ -568,12 +505,7 @@ let fold<'T, 'State>
 
     acc
 
-let foldBack<'T, 'State>
-    (folder: 'T -> 'State -> 'State)
-    (xs: seq<'T>)
-    (state: 'State)
-    : 'State
-    =
+let foldBack<'T, 'State> (folder: 'T -> 'State -> 'State) (xs: seq<'T>) (state: 'State) : 'State =
     Array.foldBack folder (toArray xs) state
 
 let fold2<'T1, 'T2, 'State>
@@ -592,13 +524,7 @@ let fold2<'T1, 'T2, 'State>
 
     acc
 
-let foldBack2
-    (folder: 'T1 -> 'T2 -> 'State -> 'State)
-    (xs: seq<'T1>)
-    (ys: seq<'T2>)
-    (state: 'State)
-    : 'State
-    =
+let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: seq<'T1>) (ys: seq<'T2>) (state: 'State) : 'State =
     Array.foldBack2 folder (toArray xs) (toArray ys) state
 
 let forAll (predicate: 'a -> bool) (xs: seq<'a>) : bool =
@@ -668,8 +594,7 @@ let tryItem (index: int) (xs: seq<'T>) : 'T option =
     with _ ->
         None
 
-let iterate (action: 'a -> unit) (xs: seq<'a>) : unit =
-    fold (fun () x -> action x) () xs
+let iterate (action: 'a -> unit) (xs: seq<'a>) : unit = fold (fun () x -> action x) () xs
 
 let iterate2 (action: 'a -> 'b -> unit) (xs: seq<'a>) (ys: seq<'b>) : unit =
     fold2 (fun () x y -> action x y) () xs ys
@@ -684,12 +609,7 @@ let iterateIndexed (action: int -> 'a -> unit) (xs: seq<'a>) : unit =
         xs
     |> ignore
 
-let iterateIndexed2
-    (action: int -> 'a -> 'b -> unit)
-    (xs: seq<'a>)
-    (ys: seq<'b>)
-    : unit
-    =
+let iterateIndexed2 (action: int -> 'a -> 'b -> unit) (xs: seq<'a>) (ys: seq<'b>) : unit =
     fold2
         (fun i x y ->
             action i x y
@@ -775,12 +695,7 @@ let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) : seq<'U> =
                 e2.Dispose()
         )
 
-let mapIndexed2
-    (mapping: int -> 'T1 -> 'T2 -> 'U)
-    (xs: seq<'T1>)
-    (ys: seq<'T2>)
-    : seq<'U>
-    =
+let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) : seq<'U> =
     Enumerator.generateIndexed
         (fun () -> (ofSeq xs, ofSeq ys))
         (fun i (e1, e2) ->
@@ -796,13 +711,7 @@ let mapIndexed2
                 e2.Dispose()
         )
 
-let map3
-    (mapping: 'T1 -> 'T2 -> 'T3 -> 'U)
-    (xs: seq<'T1>)
-    (ys: seq<'T2>)
-    (zs: seq<'T3>)
-    : seq<'U>
-    =
+let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) : seq<'U> =
     Enumerator.generate
         (fun () -> (ofSeq xs, ofSeq ys, ofSeq zs))
         (fun (e1, e2, e3) ->
@@ -918,27 +827,16 @@ let allPairs (xs: seq<'T1>) (ys: seq<'T2>) : seq<'T1 * 'T2> =
     let ysCache = cache ys
 
     delay (fun () ->
-        let mapping (x: 'T1) : seq<'T1 * 'T2> =
-            ysCache |> map (fun y -> (x, y))
+        let mapping (x: 'T1) : seq<'T1 * 'T2> = ysCache |> map (fun y -> (x, y))
 
         concat (map mapping xs)
     )
 
-let mapFold
-    (mapping: 'State -> 'T -> 'Result * 'State)
-    (state: 'State)
-    (xs: seq<'T>)
-    : seq<'Result> * 'State
-    =
+let mapFold (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (xs: seq<'T>) : seq<'Result> * 'State =
     let arr, state = Array.mapFold mapping state (toArray xs)
     readOnly arr, state
 
-let mapFoldBack
-    (mapping: 'T -> 'State -> 'Result * 'State)
-    (xs: seq<'T>)
-    (state: 'State)
-    : seq<'Result> * 'State
-    =
+let mapFoldBack (mapping: 'T -> 'State -> 'Result * 'State) (xs: seq<'T>) (state: 'State) : seq<'Result> * 'State =
     let arr, state = Array.mapFoldBack mapping (toArray xs) state
     readOnly arr, state
 
@@ -983,12 +881,7 @@ let replicate (n: int) (x: 'a) : seq<'a> = initialize n (fun _ -> x)
 let reverse (xs: seq<'T>) : seq<'T> =
     delay (fun () -> xs |> toArray |> Array.rev |> ofArray)
 
-let scan<'T, 'State>
-    (folder: 'State -> 'T -> 'State)
-    (state: 'State)
-    (xs: seq<'T>)
-    : seq<'State>
-    =
+let scan<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: seq<'T>) : seq<'State> =
     delay (fun () ->
         let first = singleton state
         let mutable acc = state
@@ -1000,19 +893,10 @@ let scan<'T, 'State>
                 acc
             )
 
-        [|
-            first
-            rest
-        |]
-        |> concat
+        [| first; rest |] |> concat
     )
 
-let scanBack<'T, 'State>
-    (folder: 'T -> 'State -> 'State)
-    (xs: seq<'T>)
-    (state: 'State)
-    : seq<'State>
-    =
+let scanBack<'T, 'State> (folder: 'T -> 'State -> 'State) (xs: seq<'T>) (state: 'State) : seq<'State> =
     delay (fun () ->
         let arr = toArray xs
         Array.scanBack folder arr state |> ofArray
@@ -1085,17 +969,11 @@ let truncate (count: int) (xs: seq<'T>) : seq<'T> =
         )
         (fun e -> e.Dispose())
 
-let zip (xs: seq<'T1>) (ys: seq<'T2>) : seq<'T1 * 'T2> =
-    map2 (fun x y -> (x, y)) xs ys
+let zip (xs: seq<'T1>) (ys: seq<'T2>) : seq<'T1 * 'T2> = map2 (fun x y -> (x, y)) xs ys
 
-let zip3 (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) : seq<'T1 * 'T2 * 'T3> =
-    map3 (fun x y z -> (x, y, z)) xs ys zs
+let zip3 (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) : seq<'T1 * 'T2 * 'T3> = map3 (fun x y z -> (x, y, z)) xs ys zs
 
-let collect<'T, 'Collection, 'U when 'Collection :> 'U seq>
-    (mapping: 'T -> 'Collection)
-    (xs: seq<'T>)
-    : seq<'U>
-    =
+let collect<'T, 'Collection, 'U when 'Collection :> 'U seq> (mapping: 'T -> 'Collection) (xs: seq<'T>) : seq<'U> =
     delay (fun () -> xs |> map mapping |> concat)
 
 let where (predicate: 'T -> bool) (xs: seq<'T>) : seq<'T> = filter predicate xs
@@ -1129,32 +1007,19 @@ let sortWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) =
 let sort (xs: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
     sortWith (fun x y -> comparer.Compare(x, y)) xs
 
-let sortBy
-    (projection: 'T -> 'U)
-    (xs: seq<'T>)
-    ([<Inject>] comparer: IComparer<'U>)
-    =
+let sortBy (projection: 'T -> 'U) (xs: seq<'T>) ([<Inject>] comparer: IComparer<'U>) =
     sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
 
 let sortDescending (xs: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
     sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
 
-let sortByDescending
-    (projection: 'T -> 'U)
-    (xs: seq<'T>)
-    ([<Inject>] comparer: IComparer<'U>)
-    =
+let sortByDescending (projection: 'T -> 'U) (xs: seq<'T>) ([<Inject>] comparer: IComparer<'U>) =
     sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
 
 let sum (xs: seq<'T>) ([<Inject>] adder: IGenericAdder<'T>) : 'T =
     fold (fun acc x -> adder.Add(acc, x)) (adder.GetZero()) xs
 
-let sumBy
-    (f: 'T -> 'U)
-    (xs: seq<'T>)
-    ([<Inject>] adder: IGenericAdder<'U>)
-    : 'U
-    =
+let sumBy (f: 'T -> 'U) (xs: seq<'T>) ([<Inject>] adder: IGenericAdder<'U>) : 'U =
     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
 let maxBy (projection: 'T -> 'U) xs ([<Inject>] comparer: IComparer<'U>) : 'T =
@@ -1211,12 +1076,7 @@ let average (xs: seq<'T>) ([<Inject>] averager: IGenericAverager<'T>) : 'T =
     else
         averager.DivideByInt(total, count)
 
-let averageBy
-    (f: 'T -> 'U)
-    (xs: seq<'T>)
-    ([<Inject>] averager: IGenericAverager<'U>)
-    : 'U
-    =
+let averageBy (f: 'T -> 'U) (xs: seq<'T>) ([<Inject>] averager: IGenericAverager<'U>) : 'U =
     let mutable count = 0
 
     let inline folder acc x =

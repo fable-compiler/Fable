@@ -10,16 +10,9 @@ module Extensions =
 
     type Async with
 
-        static member AwaitPromise(promise: JS.Promise<'T>) : Async<'T> =
-            nativeOnly
+        static member AwaitPromise(promise: JS.Promise<'T>) : Async<'T> = nativeOnly
 
-        static member StartAsPromise
-            (
-                workflow: Async<'T>,
-                ?token: System.Threading.CancellationToken
-            )
-            : JS.Promise<'T>
-            =
+        static member StartAsPromise(workflow: Async<'T>, ?token: System.Threading.CancellationToken) : JS.Promise<'T> =
             nativeOnly
 
     type 'T ``[]`` with

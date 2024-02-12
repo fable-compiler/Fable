@@ -11,15 +11,10 @@ type Comparer<'T when 'T: comparison>(comparison: 'T -> 'T -> int) =
     interface IComparer<'T> with
         member _.Compare(x, y) = comparison x y
 
-type EqualityComparer<'T when 'T: equality>
-    (equals: 'T -> 'T -> bool, getHashCode: 'T -> int)
-    =
+type EqualityComparer<'T when 'T: equality>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
 
     static member Default =
-        EqualityComparer<'T>(
-            LanguagePrimitives.GenericEquality,
-            LanguagePrimitives.GenericHash
-        )
+        EqualityComparer<'T>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
 
     static member Create(equals, getHashCode) =
         EqualityComparer<'T>(equals, getHashCode)
@@ -35,8 +30,7 @@ type Stack<'T> private (initialContents, initialCount) =
     let mutable contents = initialContents
     let mutable count = initialCount
 
-    new(initialCapacity: int) =
-        Stack<'T>(Array.zeroCreate<'T> (initialCapacity), 0)
+    new(initialCapacity: int) = Stack<'T>(Array.zeroCreate<'T> (initialCapacity), 0)
 
     new() = Stack<'T>(4)
 
@@ -114,8 +108,7 @@ type Stack<'T> private (initialContents, initialCount) =
                 .GetEnumerator()
 
         member this.GetEnumerator() =
-            (this :> IEnumerable<'T>).GetEnumerator()
-            :> System.Collections.IEnumerator
+            (this :> IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator
 
 type Queue<'T> private (initialContents, initialCount) =
     let mutable contents: 'T array = initialContents
@@ -161,9 +154,7 @@ type Queue<'T> private (initialContents, initialCount) =
 
     new(initialCapacity: int) =
         if initialCapacity < 0 then
-            raise (
-                System.ArgumentOutOfRangeException("capacity is less than 0")
-            )
+            raise (System.ArgumentOutOfRangeException("capacity is less than 0"))
 
         Queue<'T>(Array.zeroCreate<'T> (initialCapacity), 0)
 
@@ -247,5 +238,4 @@ type Queue<'T> private (initialContents, initialCount) =
         member _.GetEnumerator() = toSeq().GetEnumerator()
 
         member this.GetEnumerator() =
-            (this :> IEnumerable<'T>).GetEnumerator()
-            :> System.Collections.IEnumerator
+            (this :> IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator

@@ -73,21 +73,10 @@ module PrinterExtensions =
                 printSeparator |> Option.iter (fun f -> f printer)
 
         // TODO: Most of this code matches BabelPrinter.PrintEmitExpression, can we refactor it?
-        member printer.PrintEmitExpression
-            (
-                value: string,
-                args: Expression list
-            )
-            =
-            let inline replace pattern (f: Match -> string) input =
-                Regex.Replace(input, pattern, f)
+        member printer.PrintEmitExpression(value: string, args: Expression list) =
+            let inline replace pattern (f: Match -> string) input = Regex.Replace(input, pattern, f)
 
-            let printSegment
-                (printer: Printer)
-                (value: string)
-                segmentStart
-                segmentEnd
-                =
+            let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
                 let segmentLength = segmentEnd - segmentStart
 
                 if segmentLength > 0 then
@@ -116,8 +105,7 @@ module PrinterExtensions =
                         let i = int m.Groups[1].Value
 
                         match args[i] with
-                        | Literal(BooleanLiteral(value = value)) when value ->
-                            m.Groups[2].Value
+                        | Literal(BooleanLiteral(value = value)) when value -> m.Groups[2].Value
                         | _ -> m.Groups[3].Value
                     )
 
@@ -171,11 +159,7 @@ module PrinterExtensions =
 
                 let lastMatch = matches[matches.Count - 1]
 
-                printSegment
-                    printer
-                    value
-                    (lastMatch.Index + lastMatch.Length)
-                    value.Length
+                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
             else
                 printSegment printer value 0 value.Length
 
@@ -237,22 +221,9 @@ module PrinterExtensions =
                 | IsFirst
                 | IsMiddle -> printer.Print(separator)
 
-            printer.PrintList(
-                left,
-                right,
-                items,
-                printItem,
-                ?skipIfEmpty = skipIfEmpty
-            )
+            printer.PrintList(left, right, items, printItem, ?skipIfEmpty = skipIfEmpty)
 
-        member printer.PrintList
-            (
-                left,
-                items: string list,
-                right,
-                ?skipIfEmpty
-            )
-            =
+        member printer.PrintList(left, items: string list, right, ?skipIfEmpty) =
             printer.PrintList(
                 left,
                 ", ",
@@ -262,30 +233,11 @@ module PrinterExtensions =
                 ?skipIfEmpty = skipIfEmpty
             )
 
-        member printer.PrintIdentList
-            (
-                left,
-                idents: Ident list,
-                right,
-                ?printType: bool
-            )
-            =
-            printer.PrintList(
-                left,
-                ", ",
-                right,
-                idents,
-                fun x -> printer.PrintIdent(x, ?printType = printType)
-            )
+        member printer.PrintIdentList(left, idents: Ident list, right, ?printType: bool) =
+            printer.PrintList(left, ", ", right, idents, (fun x -> printer.PrintIdent(x, ?printType = printType)))
 
         member printer.PrintExprList(left, items: Expression list, right) =
-            printer.PrintList(
-                left,
-                ", ",
-                right,
-                items,
-                fun (x: Expression) -> printer.Print(x)
-            )
+            printer.PrintList(left, ", ", right, items, (fun (x: Expression) -> printer.Print(x)))
 
         member printer.PrintGenericParams(items: GenericParam list) =
             printer.PrintList(
@@ -305,11 +257,7 @@ module PrinterExtensions =
                 skipIfEmpty = true
             )
 
-        member printer.PrintCallArgAndSeparator
-            (hasUnnamedArgs: bool)
-            (pos: ListPos)
-            ((name, expr): CallArg)
-            =
+        member printer.PrintCallArgAndSeparator (hasUnnamedArgs: bool) (pos: ListPos) ((name, expr): CallArg) =
             let isNamed =
                 match name with
                 | None -> false
@@ -363,14 +311,7 @@ module PrinterExtensions =
             | TypeReference(ref, gen, _info) ->
                 printer.PrintIdent(ref)
 
-                printer.PrintList(
-                    "<",
-                    ", ",
-                    ">",
-                    gen,
-                    printer.PrintType,
-                    skipIfEmpty = true
-                )
+                printer.PrintList("<", ", ", ">", gen, printer.PrintType, skipIfEmpty = true)
             | Function(argTypes, returnType) ->
                 printer.PrintType(returnType)
                 printer.Print(" ")
@@ -383,13 +324,7 @@ module PrinterExtensions =
                         | _ -> true
                     )
 
-                printer.PrintList(
-                    "Function(",
-                    ", ",
-                    ")",
-                    argTypes,
-                    printer.PrintType
-                )
+                printer.PrintList("Function(", ", ", ")", argTypes, printer.PrintType)
 
         member printer.PrintWithParens(expr: Expression) =
             printer.Print("(")
@@ -442,14 +377,7 @@ module PrinterExtensions =
             else
                 printer.Print(expr)
 
-        member printer.PrintBinaryExpression
-            (
-                operator: BinaryOperator,
-                left: Expression,
-                right: Expression,
-                typ
-            )
-            =
+        member printer.PrintBinaryExpression(operator: BinaryOperator, left: Expression, right: Expression, typ) =
             printer.PrintWithParensIfComplex(left)
             // TODO: review
             match operator with
@@ -480,13 +408,7 @@ module PrinterExtensions =
 
             printer.PrintWithParensIfComplex(right)
 
-        member printer.PrintLogicalExpression
-            (
-                operator: LogicalOperator,
-                left: Expression,
-                right: Expression
-            )
-            =
+        member printer.PrintLogicalExpression(operator: LogicalOperator, left: Expression, right: Expression) =
             printer.PrintWithParensIfComplex(left)
 
             match operator with
@@ -517,8 +439,7 @@ module PrinterExtensions =
                 )
             | StringLiteral value ->
                 let escape str =
-                    (Naming.escapeString (fun _ -> false) str)
-                        .Replace(@"$", @"\$")
+                    (Naming.escapeString (fun _ -> false) str).Replace(@"$", @"\$")
 
                 printer.Print("'")
                 printer.Print(escape value)
@@ -526,11 +447,7 @@ module PrinterExtensions =
             | IntegerLiteral value -> printer.Print(value.ToString())
             | DoubleLiteral value ->
                 let value =
-                    match
-                        value.ToString(
-                            System.Globalization.CultureInfo.InvariantCulture
-                        )
-                    with
+                    match value.ToString(System.Globalization.CultureInfo.InvariantCulture) with
                     | "∞" -> "double.infinity"
                     | "-∞" -> "-double.infinity"
                     | value when not (value.Contains(".")) -> value + ".0"
@@ -551,13 +468,7 @@ module PrinterExtensions =
 
             printer.Print(ident.Name)
 
-        member printer.PrintIfStatement
-            (
-                test: Expression,
-                consequent,
-                alternate
-            )
-            =
+        member printer.PrintIfStatement(test: Expression, consequent, alternate) =
             printer.Print("if (")
             printer.Print(test)
             printer.Print(") ")
@@ -590,8 +501,7 @@ module PrinterExtensions =
                 printer.PrintNewLine()
                 printer.Print(statement)
 
-            | IfStatement(test, consequent, alternate) ->
-                printer.PrintIfStatement(test, consequent, alternate)
+            | IfStatement(test, consequent, alternate) -> printer.PrintIfStatement(test, consequent, alternate)
 
             | ForStatement(init, test, update, body) ->
                 printer.Print("for (")
@@ -675,20 +585,13 @@ module PrinterExtensions =
                 printer.Print(body)
 
             | LocalFunctionDeclaration f ->
-                printer.PrintFunctionDeclaration(
-                    f.ReturnType,
-                    f.Name,
-                    f.GenericParams,
-                    f.Args,
-                    f.Body
-                )
+                printer.PrintFunctionDeclaration(f.ReturnType, f.Name, f.GenericParams, f.Args, f.Body)
 
             | ExpressionStatement e -> printer.Print(e)
 
             | LocalVariableDeclaration(ident, kind, value) ->
                 match kind, value with
-                | Final,
-                  Some(AnonymousFunction(args, body, genParams, returnType)) ->
+                | Final, Some(AnonymousFunction(args, body, genParams, returnType)) ->
                     let args = args |> List.map FunctionArg
 
                     let genParams =
@@ -700,19 +603,8 @@ module PrinterExtensions =
                             }
                         )
 
-                    printer.PrintFunctionDeclaration(
-                        returnType,
-                        ident.Name,
-                        genParams,
-                        args,
-                        body
-                    )
-                | _ ->
-                    printer.PrintVariableDeclaration(
-                        ident,
-                        kind,
-                        ?value = value
-                    )
+                    printer.PrintFunctionDeclaration(returnType, ident.Name, genParams, args, body)
+                | _ -> printer.PrintVariableDeclaration(ident, kind, ?value = value)
 
             | SwitchStatement(discriminant, cases, defaultCase) ->
                 printer.Print("switch (")
@@ -750,8 +642,7 @@ module PrinterExtensions =
                                 | Some(BreakStatement _)
                                 | Some(ReturnStatement _) -> false
                                 | Some(IfStatement(_, consequent, alternate)) ->
-                                    needsBreak consequent
-                                    || needsBreak alternate
+                                    needsBreak consequent || needsBreak alternate
                                 | _ -> true
 
                             if needsBreak c.Body then
@@ -779,8 +670,7 @@ module PrinterExtensions =
                 printer.Print("/* " + comment + " */ ")
                 printer.Print(expr)
 
-            | EmitExpression(value, args, _) ->
-                printer.PrintEmitExpression(value, args)
+            | EmitExpression(value, args, _) -> printer.PrintEmitExpression(value, args)
 
             | ThrowExpression(e, _) ->
                 printer.Print("throw ")
@@ -796,10 +686,7 @@ module PrinterExtensions =
 
             | InterpolationString(parts, values) ->
                 let escape str =
-                    Regex
-                        .Replace(str, @"(?<!\\)\\", @"\\")
-                        .Replace("'", @"\'")
-                        .Replace("$", @"\$")
+                    Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("'", @"\'").Replace("$", @"\$")
 
                 let quotes =
                     if parts |> List.exists (fun p -> p.Contains("\n")) then
@@ -836,12 +723,8 @@ module PrinterExtensions =
                         printer.Print(consequent)
                     else
                         printer.Print(alternate)
-                | test,
-                  Literal(BooleanLiteral(true)),
-                  Literal(BooleanLiteral(false)) -> printer.Print(test)
-                | test,
-                  Literal(BooleanLiteral(false)),
-                  Literal(BooleanLiteral(true)) ->
+                | test, Literal(BooleanLiteral(true)), Literal(BooleanLiteral(false)) -> printer.Print(test)
+                | test, Literal(BooleanLiteral(false)), Literal(BooleanLiteral(true)) ->
                     printer.Print("!")
                     printer.PrintWithParensIfComplex(test)
                 | test, Literal(BooleanLiteral(true)), alternate ->
@@ -892,11 +775,9 @@ module PrinterExtensions =
                 | UnaryPlus
                 | UnaryAddressOf -> printer.Print(expr)
 
-            | BinaryExpression(op, left, right, typ) ->
-                printer.PrintBinaryExpression(op, left, right, typ)
+            | BinaryExpression(op, left, right, typ) -> printer.PrintBinaryExpression(op, left, right, typ)
 
-            | LogicalExpression(op, left, right) ->
-                printer.PrintLogicalExpression(op, left, right)
+            | LogicalExpression(op, left, right) -> printer.PrintLogicalExpression(op, left, right)
 
             | AssignmentExpression(target, kind, value) ->
                 let op =
@@ -959,21 +840,9 @@ module PrinterExtensions =
 
                 printer.PrintWithParensIfNotIdent(caller)
 
-                printer.PrintList(
-                    "<",
-                    ", ",
-                    ">",
-                    genArgs,
-                    printer.PrintType,
-                    skipIfEmpty = true
-                )
+                printer.PrintList("<", ", ", ">", genArgs, printer.PrintType, skipIfEmpty = true)
 
-                printer.PrintList(
-                    "(",
-                    ")",
-                    args,
-                    printer.PrintCallArgAndSeparator hasUnnamedArgs
-                )
+                printer.PrintList("(", ")", args, printer.PrintCallArgAndSeparator hasUnnamedArgs)
 
             | AnonymousFunction(args, body, genArgs, _returnType) ->
                 printer.PrintList("<", genArgs, ">", skipIfEmpty = true)
@@ -997,14 +866,7 @@ module PrinterExtensions =
                     printer.Print(" ")
                     true
 
-            printer.PrintList(
-                "implements ",
-                ", ",
-                " ",
-                decl.Implements,
-                printer.PrintType,
-                skipIfEmpty = true
-            )
+            printer.PrintList("implements ", ", ", " ", decl.Implements, printer.PrintType, skipIfEmpty = true)
 
             let members =
                 [
@@ -1024,12 +886,7 @@ module PrinterExtensions =
                             p.Print("@override")
                             p.PrintNewLine()
 
-                        p.PrintVariableDeclaration(
-                            v.Ident,
-                            v.Kind,
-                            ?value = v.Value,
-                            isLate = v.IsLate
-                        )
+                        p.PrintVariableDeclaration(v.Ident, v.Kind, ?value = v.Value, isLate = v.IsLate)
 
                         p.Print(";")
 
@@ -1054,12 +911,7 @@ module PrinterExtensions =
                                     | (name, _) -> Option.isNone name
                                 )
 
-                            printer.PrintList(
-                                "(",
-                                ")",
-                                c.SuperArgs,
-                                printer.PrintCallArgAndSeparator hasUnnamedArgs
-                            )
+                            printer.PrintList("(", ")", c.SuperArgs, printer.PrintCallArgAndSeparator hasUnnamedArgs)
 
                         match c.Body with
                         | [] -> p.Print(";")
@@ -1076,28 +928,16 @@ module PrinterExtensions =
                             p.PrintType(m.ReturnType)
                             p.Print(" get " + m.Name)
 
-                            p.PrintFunctionBody(
-                                ?body = m.Body,
-                                isModuleOrClassMember = true
-                            )
+                            p.PrintFunctionBody(?body = m.Body, isModuleOrClassMember = true)
                         | IsSetter ->
                             p.PrintType(m.ReturnType)
                             p.Print(" set " + m.Name)
 
-                            let argIdents =
-                                m.Args |> List.map (fun a -> a.Ident)
+                            let argIdents = m.Args |> List.map (fun a -> a.Ident)
 
-                            printer.PrintIdentList(
-                                "(",
-                                argIdents,
-                                ") ",
-                                printType = true
-                            )
+                            printer.PrintIdentList("(", argIdents, ") ", printType = true)
 
-                            p.PrintFunctionBody(
-                                ?body = m.Body,
-                                isModuleOrClassMember = true
-                            )
+                            p.PrintFunctionBody(?body = m.Body, isModuleOrClassMember = true)
                         | IsMethod ->
                             p.PrintFunctionDeclaration(
                                 m.ReturnType,
@@ -1120,13 +960,7 @@ module PrinterExtensions =
                 fun p -> p.PrintNewLine()
             )
 
-        member printer.PrintFunctionBody
-            (
-                ?body: Statement list,
-                ?isModuleOrClassMember: bool,
-                ?isExpression: bool
-            )
-            =
+        member printer.PrintFunctionBody(?body: Statement list, ?isModuleOrClassMember: bool, ?isExpression: bool) =
             let isModuleOrClassMember = defaultArg isModuleOrClassMember false
             let isExpression = defaultArg isExpression false
 
@@ -1145,10 +979,7 @@ module PrinterExtensions =
             | Some body ->
                 printer.Print(" ")
 
-                printer.PrintBlock(
-                    body,
-                    skipNewLineAtEnd = (isExpression || isModuleOrClassMember)
-                )
+                printer.PrintBlock(body, skipNewLineAtEnd = (isExpression || isModuleOrClassMember))
 
         member printer.PrintFunctionArgs(args: FunctionArg list) =
             let mutable prevArg: FunctionArg option = None
@@ -1213,10 +1044,7 @@ module PrinterExtensions =
             printer.PrintGenericParams(genParams)
             printer.PrintFunctionArgs(args)
 
-            printer.PrintFunctionBody(
-                ?body = body,
-                ?isModuleOrClassMember = isModuleOrClassMember
-            )
+            printer.PrintFunctionBody(?body = body, ?isModuleOrClassMember = isModuleOrClassMember)
 
         member printer.PrintVariableDeclaration
             (
@@ -1277,11 +1105,7 @@ open PrinterExtensions
 let isEmpty (file: File) : bool = List.isEmpty file.Declarations
 
 let run (writer: Writer) (file: File) : Async<unit> =
-    let printDeclWithExtraLine
-        extraLine
-        (printer: Printer)
-        (decl: Declaration)
-        =
+    let printDeclWithExtraLine extraLine (printer: Printer) (decl: Declaration) =
         match decl with
         | ClassDeclaration decl -> printer.PrintClassDeclaration(decl)
 
@@ -1346,8 +1170,7 @@ let run (writer: Writer) (file: File) : Async<unit> =
 
             match i.LocalIdent with
             | None -> printer.Print("import '" + path + "';")
-            | Some localId ->
-                printer.Print("import '" + path + "' as " + localId + ";")
+            | Some localId -> printer.Print("import '" + path + "' as " + localId + ";")
 
             printer.PrintNewLine()
         )

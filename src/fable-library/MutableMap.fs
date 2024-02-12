@@ -24,8 +24,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
         let h = comparer.GetHashCode(k)
 
         match hashMap.TryGetValue h with
-        | true, pairs ->
-            true, h, pairs.FindIndex(fun pair -> comparer.Equals(k, pair.Key))
+        | true, pairs -> true, h, pairs.FindIndex(fun pair -> comparer.Equals(k, pair.Key))
         | false, _ -> false, h, -1
 
     member this.TryFind(k) =
@@ -49,25 +48,18 @@ type MutableMap<'Key, 'Value when 'Key: equality>
         with get (k: 'Key) =
             match this.TryFind(k) with
             | Some pair -> pair.Value
-            | _ ->
-                raise (
-                    KeyNotFoundException("The item was not found in collection")
-                )
+            | _ -> raise (KeyNotFoundException("The item was not found in collection"))
         and set (k: 'Key) (v: 'Value) =
             match this.TryFindIndex(k) with
             | true, h, i when i > -1 -> hashMap.[h].[i] <- KeyValuePair(k, v) // replace
             | true, h, _ -> hashMap.[h].Add(KeyValuePair(k, v)) |> ignore // append
-            | false, h, _ ->
-                hashMap.[h] <- ResizeArray([| KeyValuePair(k, v) |])
+            | false, h, _ -> hashMap.[h] <- ResizeArray([| KeyValuePair(k, v) |])
 
     member this.Add(k, v) =
         match this.TryFindIndex(k) with
         | true, h, i when i > -1 ->
             let msg =
-                System.String.Format(
-                    "An item with the same key has already been added. Key: {0}",
-                    k
-                )
+                System.String.Format("An item with the same key has already been added. Key: {0}", k)
 
             raise (System.ArgumentException(msg))
         | true, h, _ -> hashMap.[h].Add(KeyValuePair(k, v)) |> ignore // append
@@ -96,8 +88,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator() : System.Collections.IEnumerator =
-            ((this :> IEnumerable<KeyValuePair<'Key, 'Value>>).GetEnumerator()
-            :> System.Collections.IEnumerator)
+            ((this :> IEnumerable<KeyValuePair<'Key, 'Value>>).GetEnumerator() :> System.Collections.IEnumerator)
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member this.GetEnumerator() : IEnumerator<KeyValuePair<'Key, 'Value>> =
@@ -105,8 +96,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
             elems.GetEnumerator()
 
     interface ICollection<KeyValuePair<'Key, 'Value>> with
-        member this.Add(item: KeyValuePair<'Key, 'Value>) : unit =
-            this.Add(item.Key, item.Value)
+        member this.Add(item: KeyValuePair<'Key, 'Value>) : unit = this.Add(item.Key, item.Value)
 
         member this.Clear() : unit = this.Clear()
 
@@ -115,13 +105,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
             | Some p when Unchecked.equals p.Value item.Value -> true
             | _ -> false
 
-        member this.CopyTo
-            (
-                array: KeyValuePair<'Key, 'Value>[],
-                arrayIndex: int
-            )
-            : unit
-            =
+        member this.CopyTo(array: KeyValuePair<'Key, 'Value>[], arrayIndex: int) : unit =
             this |> Seq.iteri (fun i e -> array.[arrayIndex + i] <- e)
 
         member this.Count: int = this.Count

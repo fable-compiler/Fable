@@ -11,8 +11,7 @@ open Native
 open Native.Helpers
 
 let private indexNotFound () =
-    failwith
-        "An index satisfying the predicate was not found in the collection."
+    failwith "An index satisfying the predicate was not found in the collection."
 
 let private differentLengths () = failwith "Arrays had different lengths"
 
@@ -20,12 +19,7 @@ let private differentLengths () = failwith "Arrays had different lengths"
 // if implementing via native JS array .concat() and .filter() do not fall behind due to js-native transitions.
 
 // Don't use native JS Array.prototype.concat as it doesn't work with typed arrays
-let append
-    (array1: 'T[])
-    (array2: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    : 'T[]
-    =
+let append (array1: 'T[]) (array2: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[] =
     let len1 = array1.Length
     let len2 = array2.Length
     let newArray = allocateArrayFromCons cons (len1 + len2)
@@ -41,11 +35,9 @@ let append
 let filter (predicate: 'T -> bool) (array: 'T[]) = filterImpl predicate array
 
 // intentionally returns target instead of unit
-let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T) : 'T[] =
-    fillImpl target value targetIndex count
+let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T) : 'T[] = fillImpl target value targetIndex count
 
-let getSubArray (array: 'T[]) (start: int) (count: int) : 'T[] =
-    subArrayImpl array start count
+let getSubArray (array: 'T[]) (start: int) (count: int) : 'T[] = subArrayImpl array start count
 
 let last (array: 'T[]) =
     if array.Length = 0 then
@@ -59,12 +51,7 @@ let tryLast (array: 'T[]) =
     else
         Some array.[array.Length - 1]
 
-let mapIndexed
-    (f: int -> 'T -> 'U)
-    (source: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'U>)
-    : 'U[]
-    =
+let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'U>) : 'U[] =
     let len = source.Length
     let target = allocateArrayFromCons cons len
 
@@ -73,12 +60,7 @@ let mapIndexed
 
     target
 
-let map
-    (f: 'T -> 'U)
-    (source: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'U>)
-    : 'U[]
-    =
+let map (f: 'T -> 'U) (source: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'U>) : 'U[] =
     let len = source.Length
     let target = allocateArrayFromCons cons len
 
@@ -104,13 +86,7 @@ let mapIndexed2
 
     result
 
-let map2
-    (f: 'T1 -> 'T2 -> 'U)
-    (source1: 'T1[])
-    (source2: 'T2[])
-    ([<OptionalArgument; Inject>] cons: Cons<'U>)
-    : 'U[]
-    =
+let map2 (f: 'T1 -> 'T2 -> 'U) (source1: 'T1[]) (source2: 'T2[]) ([<OptionalArgument; Inject>] cons: Cons<'U>) : 'U[] =
     if source1.Length <> source2.Length then
         failwith "Arrays had different lengths"
 
@@ -208,11 +184,7 @@ let truncate (count: int) (array: 'T[]) : 'T[] =
     let count = max 0 count
     subArrayImpl array 0 count
 
-let concat
-    (arrays: 'T[] seq)
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    : 'T[]
-    =
+let concat (arrays: 'T[] seq) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[] =
     let arrays =
         if isDynamicArrayImpl arrays then
             arrays :?> 'T[][] // avoid extra copy
@@ -238,12 +210,7 @@ let concat
 
         result
 
-let collect
-    (mapping: 'T -> 'U[])
-    (array: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'U>)
-    : 'U[]
-    =
+let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'U>) : 'U[] =
     let mapped = map mapping array Unchecked.defaultof<_>
     concat mapped cons
 // collectImpl mapping array // flatMap not widely available yet
@@ -260,9 +227,7 @@ let indexOf<'T>
     let start = defaultArg start 0
 
     let end' =
-        count
-        |> Option.map (fun c -> start + c)
-        |> Option.defaultValue array.Length
+        count |> Option.map (fun c -> start + c) |> Option.defaultValue array.Length
 
     let rec loop i =
         if i >= end' then
@@ -274,11 +239,7 @@ let indexOf<'T>
 
     loop start
 
-let contains<'T>
-    (value: 'T)
-    (array: 'T[])
-    ([<Inject>] eq: IEqualityComparer<'T>)
-    =
+let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
     indexOf array value None None eq >= 0
 
 let empty cons = allocateArrayFromCons cons 0
@@ -290,9 +251,7 @@ let singleton value ([<OptionalArgument; Inject>] cons: Cons<'T>) =
 
 let initialize count initializer ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     if count < 0 then
-        invalidArg
-            "count"
-            LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
+        invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
 
     let result = allocateArrayFromCons cons count
 
@@ -316,9 +275,7 @@ let pairwise (array: 'T[]) =
 let replicate count initial ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     // Shorthand version: = initialize count (fun _ -> initial)
     if count < 0 then
-        invalidArg
-            "count"
-            LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
+        invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
 
     let result: 'T array = allocateArrayFromCons cons count
 
@@ -336,13 +293,7 @@ let copy (array: 'T[]) =
     // else
     copyImpl array
 
-let copyTo
-    (source: 'T[])
-    (sourceIndex: int)
-    (target: 'T[])
-    (targetIndex: int)
-    (count: int)
-    =
+let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int) =
     // TODO: Check array lengths
     System.Array.Copy(source, sourceIndex, target, targetIndex, count)
 
@@ -357,12 +308,7 @@ let reverse (array: 'T[]) =
     // else
     copyImpl array |> reverseImpl
 
-let scan<'T, 'State>
-    folder
-    (state: 'State)
-    (array: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'State>)
-    =
+let scan<'T, 'State> folder (state: 'State) (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'State>) =
     let res = allocateArrayFromCons cons (array.Length + 1)
     res.[0] <- state
 
@@ -371,12 +317,7 @@ let scan<'T, 'State>
 
     res
 
-let scanBack<'T, 'State>
-    folder
-    (array: 'T[])
-    (state: 'State)
-    ([<OptionalArgument; Inject>] cons: Cons<'State>)
-    =
+let scanBack<'T, 'State> folder (array: 'T[]) (state: 'State) ([<OptionalArgument; Inject>] cons: Cons<'State>) =
     let res = allocateArrayFromCons cons (array.Length + 1)
     res.[array.Length] <- state
 
@@ -400,11 +341,7 @@ let skip count (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) =
 
         skipImpl array count
 
-let skipWhile
-    predicate
-    (array: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    =
+let skipWhile predicate (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     let mutable count = 0
 
     while count < array.Length && predicate array.[count] do
@@ -417,9 +354,7 @@ let skipWhile
 
 let take count (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     if count < 0 then
-        invalidArg
-            "count"
-            LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
+        invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
 
     if count > array.Length then
         invalidArg "count" "count is greater than array length"
@@ -429,11 +364,7 @@ let take count (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     else
         subArrayImpl array 0 count
 
-let takeWhile
-    predicate
-    (array: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    =
+let takeWhile predicate (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     let mutable count = 0
 
     while count < array.Length && predicate array.[count] do
@@ -461,11 +392,7 @@ let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
         insertImpl array i x |> ignore
         i <- i + 1
 
-let removeInPlace
-    (item: 'T)
-    (array: 'T[])
-    ([<Inject>] eq: IEqualityComparer<'T>)
-    =
+let removeInPlace (item: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
     let i = indexOf array item None None eq
 
     if i > -1 then
@@ -486,11 +413,7 @@ let removeAllInPlace predicate (array: 'T[]) =
 
     countRemoveAll 0
 
-let partition
-    (f: 'T -> bool)
-    (source: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    =
+let partition (f: 'T -> bool) (source: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     let len = source.Length
     let res1 = allocateArrayFromCons cons len
     let res2 = allocateArrayFromCons cons len
@@ -512,8 +435,7 @@ let find (predicate: 'T -> bool) (array: 'T[]) : 'T =
     | Some res -> res
     | None -> indexNotFound ()
 
-let tryFind (predicate: 'T -> bool) (array: 'T[]) : 'T option =
-    findImpl predicate array
+let tryFind (predicate: 'T -> bool) (array: 'T[]) : 'T option = findImpl predicate array
 
 let findIndex (predicate: 'T -> bool) (array: 'T[]) : int =
     match findIndexImpl predicate array with
@@ -605,11 +527,7 @@ let tryFindIndexBack predicate (array: _[]) =
 
     loop (array.Length - 1)
 
-let choose
-    (chooser: 'T -> 'U option)
-    (array: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'U>)
-    =
+let choose (chooser: 'T -> 'U option) (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'U>) =
     let res: 'U[] = [||]
 
     for i = 0 to array.Length - 1 do
@@ -698,12 +616,7 @@ let permute f (array: 'T[]) =
 
     res
 
-let setSlice
-    (target: 'T[])
-    (lower: int option)
-    (upper: int option)
-    (source: 'T[])
-    =
+let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) =
     let lower = defaultArg lower 0
     let upper = defaultArg upper -1
 
@@ -720,15 +633,8 @@ let setSlice
     for i = 0 to length do
         target.[i + lower] <- source.[i]
 
-let sortInPlaceBy
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : unit
-    =
-    sortInPlaceWithImpl
-        (fun x y -> comparer.Compare(projection x, projection y))
-        xs
+let sortInPlaceBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : unit =
+    sortInPlaceWithImpl (fun x y -> comparer.Compare(projection x, projection y)) xs
 
 let sortInPlace (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) =
     sortInPlaceWithImpl (fun x y -> comparer.Compare(x, y)) xs
@@ -740,31 +646,16 @@ let inline internal sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]) =
 let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) : 'T[] =
     sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (copyImpl xs)
 
-let sortBy
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : 'a[]
-    =
-    sortInPlaceWith
-        (fun x y -> comparer.Compare(projection x, projection y))
-        (copyImpl xs)
+let sortBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a[] =
+    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (copyImpl xs)
 
 let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>) : 'T[] =
     sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (copyImpl xs)
 
-let sortByDescending
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : 'a[]
-    =
-    sortInPlaceWith
-        (fun x y -> comparer.Compare(projection x, projection y) * -1)
-        (copyImpl xs)
+let sortByDescending (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a[] =
+    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (copyImpl xs)
 
-let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]) : 'T[] =
-    sortInPlaceWith comparer (copyImpl xs)
+let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]) : 'T[] = sortInPlaceWith comparer (copyImpl xs)
 
 let allPairs (xs: 'T1[]) (ys: 'T2[]) : ('T1 * 'T2)[] =
     let len1 = xs.Length
@@ -777,11 +668,7 @@ let allPairs (xs: 'T1[]) (ys: 'T2[]) : ('T1 * 'T2)[] =
 
     res
 
-let unfold<'T, 'State>
-    (generator: 'State -> ('T * 'State) option)
-    (state: 'State)
-    : 'T[]
-    =
+let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'State) : 'T[] =
     let res: 'T[] = [||]
 
     let rec loop state =
@@ -858,12 +745,7 @@ let chunkBySize (chunkSize: int) (array: 'T[]) : 'T[][] =
     else
         let result: 'T[][] = [||]
         // add each chunk to the result
-        for x = 0 to int (
-                         System.Math.Ceiling(
-                             float (array.Length) / float (chunkSize)
-                         )
-                     )
-                     - 1 do
+        for x = 0 to int (System.Math.Ceiling(float (array.Length) / float (chunkSize))) - 1 do
             let start = x * chunkSize
             let slice = subArrayImpl array start chunkSize
             pushImpl result slice |> ignore
@@ -967,9 +849,7 @@ let exactlyOne (array: 'T[]) =
     if array.Length = 1 then
         array.[0]
     elif array.Length = 0 then
-        invalidArg
-            "array"
-            LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
     else
         invalidArg "array" "Input array too long"
 
@@ -1032,20 +912,10 @@ let foldIndexed2 folder state (array1: _[]) (array2: _[]) =
 
     acc
 
-let fold2<'T1, 'T2, 'State>
-    folder
-    (state: 'State)
-    (array1: 'T1[])
-    (array2: 'T2[])
-    =
+let fold2<'T1, 'T2, 'State> folder (state: 'State) (array1: 'T1[]) (array2: 'T2[]) =
     foldIndexed2 (fun _ acc x y -> folder acc x y) state array1 array2
 
-let foldBackIndexed2<'T1, 'T2, 'State>
-    folder
-    (array1: 'T1[])
-    (array2: 'T2[])
-    (state: 'State)
-    =
+let foldBackIndexed2<'T1, 'T2, 'State> folder (array1: 'T1[]) (array2: 'T2[]) (state: 'State) =
     let mutable acc = state
 
     if array1.Length <> array2.Length then
@@ -1058,12 +928,7 @@ let foldBackIndexed2<'T1, 'T2, 'State>
 
     acc
 
-let foldBack2<'T1, 'T2, 'State>
-    f
-    (array1: 'T1[])
-    (array2: 'T2[])
-    (state: 'State)
-    =
+let foldBack2<'T1, 'T2, 'State> f (array1: 'T1[]) (array2: 'T2[]) (state: 'State) =
     foldBackIndexed2 (fun _ x y acc -> f x y acc) array1 array2 state
 
 let reduce reduction (array: 'T[]) =
@@ -1114,12 +979,7 @@ let sum (array: 'T[]) ([<Inject>] adder: IGenericAdder<'T>) : 'T =
 
     acc
 
-let sumBy
-    (projection: 'T -> 'T2)
-    (array: 'T[])
-    ([<Inject>] adder: IGenericAdder<'T2>)
-    : 'T2
-    =
+let sumBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] adder: IGenericAdder<'T2>) : 'T2 =
     let mutable acc = adder.GetZero()
 
     for i = 0 to array.Length - 1 do
@@ -1127,12 +987,7 @@ let sumBy
 
     acc
 
-let maxBy
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : 'a
-    =
+let maxBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a =
     reduce
         (fun x y ->
             if comparer.Compare(projection y, projection x) > 0 then
@@ -1152,12 +1007,7 @@ let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
         )
         xs
 
-let minBy
-    (projection: 'a -> 'b)
-    (xs: 'a[])
-    ([<Inject>] comparer: IComparer<'b>)
-    : 'a
-    =
+let minBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a =
     reduce
         (fun x y ->
             if comparer.Compare(projection y, projection x) > 0 then
@@ -1188,12 +1038,7 @@ let average (array: 'T[]) ([<Inject>] averager: IGenericAverager<'T>) : 'T =
 
     averager.DivideByInt(total, array.Length)
 
-let averageBy
-    (projection: 'T -> 'T2)
-    (array: 'T[])
-    ([<Inject>] averager: IGenericAverager<'T2>)
-    : 'T2
-    =
+let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGenericAverager<'T2>) : 'T2 =
     if array.Length = 0 then
         invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
 
@@ -1211,8 +1056,7 @@ let windowed (windowSize: int) (source: 'T[]) : 'T[][] =
         failwith "windowSize must be positive"
 
     let res =
-        FSharp.Core.Operators.max 0 (source.Length - windowSize + 1)
-        |> allocateArray
+        FSharp.Core.Operators.max 0 (source.Length - windowSize + 1) |> allocateArray
 
     for i = windowSize to source.Length do
         res.[i - windowSize] <- source.[i - windowSize .. i - 1]
@@ -1238,20 +1082,14 @@ let splitInto (chunks: int) (array: 'T[]) : 'T[][] =
                 else
                     minChunkSize
 
-            let start =
-                i * minChunkSize
-                + (FSharp.Core.Operators.min chunksWithExtraItem i)
+            let start = i * minChunkSize + (FSharp.Core.Operators.min chunksWithExtraItem i)
 
             let slice = subArrayImpl array start chunkSize
             pushImpl result slice |> ignore
 
         result
 
-let transpose
-    (arrays: 'T[] seq)
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    : 'T[][]
-    =
+let transpose (arrays: 'T[] seq) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[][] =
     let arrays =
         if isDynamicArrayImpl arrays then
             arrays :?> 'T[][] // avoid extra copy
@@ -1279,13 +1117,7 @@ let transpose
 
         result
 
-let insertAt
-    (index: int)
-    (y: 'T)
-    (xs: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    : 'T[]
-    =
+let insertAt (index: int) (y: 'T) (xs: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[] =
     let len = xs.Length
 
     if index < 0 || index > len then
@@ -1303,13 +1135,7 @@ let insertAt
 
     target
 
-let insertManyAt
-    (index: int)
-    (ys: seq<'T>)
-    (xs: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    : 'T[]
-    =
+let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[] =
     let len = xs.Length
 
     if index < 0 || index > len then
@@ -1383,13 +1209,7 @@ let removeManyAt (index: int) (count: int) (xs: 'T[]) : 'T[] =
 
     ys
 
-let updateAt
-    (index: int)
-    (y: 'T)
-    (xs: 'T[])
-    ([<OptionalArgument; Inject>] cons: Cons<'T>)
-    : 'T[]
-    =
+let updateAt (index: int) (y: 'T) (xs: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[] =
     let len = xs.Length
 
     if index < 0 || index >= len then

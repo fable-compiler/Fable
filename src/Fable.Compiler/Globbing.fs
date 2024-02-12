@@ -29,11 +29,7 @@ module Glob =
     let private checkSubDirs absolute (dir: string) root =
         if dir.Contains "*" then
             try
-                Directory.EnumerateDirectories(
-                    root,
-                    dir,
-                    SearchOption.TopDirectoryOnly
-                )
+                Directory.EnumerateDirectories(root, dir, SearchOption.TopDirectoryOnly)
                 |> Seq.toList
             with :? System.IO.DirectoryNotFoundException ->
                 List.empty
@@ -65,11 +61,7 @@ module Glob =
                 Seq.collect
                     (fun dir ->
                         try
-                            Directory.EnumerateFileSystemEntries(
-                                dir,
-                                "*",
-                                SearchOption.AllDirectories
-                            )
+                            Directory.EnumerateFileSystemEntries(dir, "*", SearchOption.AllDirectories)
                         with :? System.IO.DirectoryNotFoundException ->
                             Seq.empty
                     )
@@ -81,11 +73,7 @@ module Glob =
                 Seq.collect
                     (fun dir ->
                         try
-                            Directory.EnumerateDirectories(
-                                dir,
-                                "*",
-                                SearchOption.AllDirectories
-                            )
+                            Directory.EnumerateDirectories(dir, "*", SearchOption.AllDirectories)
                         with :? System.IO.DirectoryNotFoundException ->
                             Seq.empty
                     )
@@ -118,18 +106,10 @@ module Glob =
         let normPattern = normalizePath pattern
 
         let patternParts =
-            normPattern.Split(
-                [|
-                    '/'
-                    '\\'
-                |],
-                StringSplitOptions.RemoveEmptyEntries
-            )
+            normPattern.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries)
 
         let patternPathParts =
-            patternParts
-            |> Seq.takeWhile (fun p -> not (p.Contains("*")))
-            |> Seq.toArray
+            patternParts |> Seq.takeWhile (fun p -> not (p.Contains("*"))) |> Seq.toArray
 
         let globRoot =
             // If we did not find any "*", then drop the last bit (it is a file name, not a pattern)
@@ -172,37 +152,18 @@ module Glob =
 
         let filePattern = Path.GetFileName(input)
 
-        let splits =
-            input.Split(
-                [|
-                    '/'
-                    '\\'
-                |],
-                StringSplitOptions.None
-            )
+        let splits = input.Split([| '/'; '\\' |], StringSplitOptions.None)
 
         let baseItems =
             let start, rest =
-                if
-                    input.StartsWith("\\\\", StringComparison.Ordinal)
-                    && splits.Length >= 4
-                then
+                if input.StartsWith("\\\\", StringComparison.Ordinal) && splits.Length >= 4 then
                     let serverName = splits.[2]
                     let share = splits.[3]
 
-                    [ Directory(sprintf "\\\\%s\\%s" serverName share) ],
-                    splits |> Seq.skip 4
-                elif
-                    splits.Length >= 2
-                    && Path.IsPathRooted input
-                    && driveRegex.IsMatch splits.[0]
-                then
+                    [ Directory(sprintf "\\\\%s\\%s" serverName share) ], splits |> Seq.skip 4
+                elif splits.Length >= 2 && Path.IsPathRooted input && driveRegex.IsMatch splits.[0] then
                     [ Directory(splits.[0] + "\\") ], splits |> Seq.skip 1
-                elif
-                    splits.Length >= 2
-                    && Path.IsPathRooted input
-                    && input.StartsWith '/'
-                then
+                elif splits.Length >= 2 && Path.IsPathRooted input && input.StartsWith '/' then
                     [ Directory("/") ], splits |> Array.toSeq
                 else
                     if Path.IsPathRooted input then
@@ -255,19 +216,14 @@ module Glob =
             let xTOyMap = xTOy |> Map.ofList
 
             let replacePattern =
-                xTOy
-                |> List.map (fun x -> x |> snd |> fst)
-                |> String.concat ("|")
+                xTOy |> List.map (fun x -> x |> snd |> fst) |> String.concat ("|")
 
             let replaced =
                 Regex(replacePattern)
                     .Replace(
                         escapedPattern,
                         fun m ->
-                            let matched =
-                                xTOy
-                                |> Seq.map (fst)
-                                |> Seq.find (fun n -> m.Groups.Item(n).Success)
+                            let matched = xTOy |> Seq.map (fst) |> Seq.find (fun n -> m.Groups.Item(n).Success)
 
                             (xTOyMap |> Map.tryFind matched).Value |> snd
                     )
@@ -335,8 +291,7 @@ type LazyGlobbingPattern =
             files.GetEnumerator()
 
         member this.GetEnumerator() =
-            (this :> IEnumerable<string>).GetEnumerator()
-            :> System.Collections.IEnumerator
+            (this :> IEnumerable<string>).GetEnumerator() :> System.Collections.IEnumerator
 
 type ResolvedGlobbingPattern =
     {
@@ -356,8 +311,7 @@ type ResolvedGlobbingPattern =
             (this.Results :> IEnumerable<string>).GetEnumerator()
 
         member this.GetEnumerator() =
-            (this :> IEnumerable<string>).GetEnumerator()
-            :> System.Collections.IEnumerator
+            (this :> IEnumerable<string>).GetEnumerator() :> System.Collections.IEnumerator
 
 [<AutoOpen>]
 module GlobbingPatternExtensions =
@@ -389,20 +343,15 @@ module GlobbingPatternExtensions =
 
         /// Adds the given pattern to the file includes
         member this.And pattern =
-            { this.Pattern with Includes = this.Includes @ [ pattern ] }
-            :> IGlobbingPattern
+            { this.Pattern with Includes = this.Includes @ [ pattern ] } :> IGlobbingPattern
 
         /// Ignores files with the given pattern
         member this.ButNot pattern =
-            { this.Pattern with Excludes = pattern :: this.Excludes }
-            :> IGlobbingPattern
+            { this.Pattern with Excludes = pattern :: this.Excludes } :> IGlobbingPattern
 
         /// Sets a directory as BaseDirectory.
         member this.SetBaseDirectory(dir: string) =
-            { this.Pattern with
-                BaseDirectory = dir.TrimEnd(Path.DirectorySeparatorChar)
-            }
-            :> IGlobbingPattern
+            { this.Pattern with BaseDirectory = dir.TrimEnd(Path.DirectorySeparatorChar) } :> IGlobbingPattern
 
         /// Checks if a particular file is matched
         member this.IsMatch(path: string) =
@@ -416,15 +365,11 @@ module GlobbingPatternExtensions =
 
             let included =
                 this.Includes
-                |> List.exists (fun fileInclude ->
-                    Glob.isMatch (fullDir fileInclude) fullPath
-                )
+                |> List.exists (fun fileInclude -> Glob.isMatch (fullDir fileInclude) fullPath)
 
             let excluded =
                 this.Excludes
-                |> List.exists (fun fileExclude ->
-                    Glob.isMatch (fullDir fileExclude) fullPath
-                )
+                |> List.exists (fun fileExclude -> Glob.isMatch (fullDir fileExclude) fullPath)
 
             included && not excluded
 
@@ -451,8 +396,7 @@ module GlobbingPattern =
         :> IGlobbingPattern
 
     /// Sets a directory as baseDirectory for fileIncludes.
-    let setBaseDir (dir: string) (fileIncludes: IGlobbingPattern) =
-        fileIncludes.SetBaseDirectory dir
+    let setBaseDir (dir: string) (fileIncludes: IGlobbingPattern) = fileIncludes.SetBaseDirectory dir
 
     /// Get base include directories.
     ///
@@ -460,19 +404,14 @@ module GlobbingPattern =
     let getBaseDirectoryIncludes (fileIncludes: IGlobbingPattern) =
         let directoryIncludes =
             fileIncludes.Includes
-            |> Seq.map (fun file ->
-                Glob.getRoot fileIncludes.BaseDirectory file
-            )
+            |> Seq.map (fun file -> Glob.getRoot fileIncludes.BaseDirectory file)
 
         // remove subdirectories
         directoryIncludes
         |> Seq.filter (fun d ->
             directoryIncludes
             |> Seq.exists (fun p ->
-                d.StartsWith(
-                    p + string<char> Path.DirectorySeparatorChar,
-                    StringComparison.Ordinal
-                )
+                d.StartsWith(p + string<char> Path.DirectorySeparatorChar, StringComparison.Ordinal)
                 && p <> d
             )
             |> not

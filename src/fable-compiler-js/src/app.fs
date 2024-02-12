@@ -33,8 +33,7 @@ let getMetadataDir () : string =
 let getFableLibDir () : string = importMember "./util.js"
 let getVersion () : string = importMember "./util.js"
 
-let initFable () : Fable.Standalone.IFableManager =
-    import "init" "fable-standalone"
+let initFable () : Fable.Standalone.IFableManager = import "init" "fable-standalone"
 #endif
 
 let references = Fable.Metadata.coreAssemblies
@@ -65,12 +64,7 @@ module Imports =
 
         check originalName 0
 
-    let getTargetAbsolutePath
-        getOrAddDeduplicateTargetDir
-        importPath
-        projDir
-        outDir
-        =
+    let getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir =
         let importPath = normalizePath importPath
         let outDir = normalizePath outDir
         // It may happen the importPath is already in outDir,
@@ -85,29 +79,17 @@ module Imports =
                 getOrAddDeduplicateTargetDir
                     importDir
                     (fun (currentTargetDirs: Set<string>) ->
-                        let relDir =
-                            getRelativePath projDir importDir |> trimPath
+                        let relDir = getRelativePath projDir importDir |> trimPath
 
-                        Path.Combine(outDir, relDir)
-                        |> preventConflicts currentTargetDirs.Contains
+                        Path.Combine(outDir, relDir) |> preventConflicts currentTargetDirs.Contains
                     )
 
             let importFile = Path.GetFileName(importPath)
             Path.Combine(targetDir, importFile)
 
-    let getTargetRelativePath
-        getOrAddDeduplicateTargetDir
-        (importPath: string)
-        targetDir
-        projDir
-        (outDir: string)
-        =
+    let getTargetRelativePath getOrAddDeduplicateTargetDir (importPath: string) targetDir projDir (outDir: string) =
         let absPath =
-            getTargetAbsolutePath
-                getOrAddDeduplicateTargetDir
-                importPath
-                projDir
-                outDir
+            getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir
 
         let relPath = getRelativePath targetDir absPath
 
@@ -116,14 +98,7 @@ module Imports =
         else
             "./" + relPath
 
-    let getImportPath
-        getOrAddDeduplicateTargetDir
-        sourcePath
-        targetPath
-        projDir
-        outDir
-        (importPath: string)
-        =
+    let getImportPath getOrAddDeduplicateTargetDir sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
         | None -> importPath.Replace("${outDir}", ".")
         | Some outDir ->
@@ -133,8 +108,7 @@ module Imports =
                 // NOTE: Path.Combine in Fable Prelude trims / at the start
                 // of the 2nd argument, unlike .NET IO.Path.Combine
                 then
-                    Path.Combine(outDir, importPath.Replace("${outDir}", ""))
-                    |> normalizeFullPath
+                    Path.Combine(outDir, importPath.Replace("${outDir}", "")) |> normalizeFullPath
                 else
                     importPath
 
@@ -149,27 +123,13 @@ module Imports =
 
             if isAbsolutePath importPath then
                 if importPath.EndsWith(".fs") then
-                    getTargetRelativePath
-                        getOrAddDeduplicateTargetDir
-                        importPath
-                        targetDir
-                        projDir
-                        outDir
+                    getTargetRelativePath getOrAddDeduplicateTargetDir importPath targetDir projDir outDir
                 else
                     getRelativePath targetDir importPath
             else
                 importPath
 
-type SourceWriter
-    (
-        sourcePath,
-        targetPath,
-        projDir,
-        options: CmdLineOptions,
-        fileExt: string,
-        dedupTargetDir
-    )
-    =
+type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, fileExt: string, dedupTargetDir) =
     // In imports *.ts extensions have to be converted to *.js extensions instead
     let fileExt =
         if fileExt.EndsWith(".ts") then
@@ -186,13 +146,7 @@ type SourceWriter
 
         member _.MakeImportPath(path) =
             let path =
-                Imports.getImportPath
-                    dedupTargetDir
-                    sourcePath
-                    targetPath
-                    projDir
-                    options.outDir
-                    path
+                Imports.getImportPath dedupTargetDir sourcePath targetPath projDir options.outDir path
 
             if path.EndsWith(".fs") then
                 Path.ChangeExtension(path, fileExt)
@@ -215,12 +169,7 @@ type SourceWriter
 
                 mapGenerator
                     .Force()
-                    .AddMapping(
-                        generated,
-                        original,
-                        source = sourcePath,
-                        ?name = name
-                    )
+                    .AddMapping(generated, original, source = sourcePath, ?name = name)
 
         member _.Dispose() = ()
 
@@ -235,9 +184,7 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
              else
                  "Error")
 
-        printfn
-            "%s"
-            $"{e.FileName} ({e.StartLine},{e.StartColumn}): {errorType}: {e.Message}"
+        printfn "%s" $"{e.FileName} ({e.StartLine},{e.StartColumn}): {errorType}: {e.Message}"
 
     let warnings, errors = errors |> Array.partition (fun e -> e.IsWarning)
     let hasErrors = not (Array.isEmpty errors)
@@ -268,17 +215,12 @@ let parseFiles projectFileName options =
 
     // find referenced dlls
     let dllRefMap =
-        dllRefs
-        |> Array.rev
-        |> Array.map (fun x -> Path.GetFileName x, x)
-        |> Map
+        dllRefs |> Array.rev |> Array.map (fun x -> Path.GetFileName x, x) |> Map
 
-    let references =
-        Map.toArray dllRefMap |> Array.map fst |> Array.append references
+    let references = Map.toArray dllRefMap |> Array.map fst |> Array.append references
 
     let findDllPath dllName =
-        Map.tryFind dllName dllRefMap
-        |> Option.defaultValue (metadataPath + dllName)
+        Map.tryFind dllName dllRefMap |> Option.defaultValue (metadataPath + dllName)
 
     let readAllBytes dllName = findDllPath dllName |> readAllBytes
 
@@ -324,26 +266,16 @@ let parseFiles projectFileName options =
         fable.ClearCache(checker)
 
         // exclude signature files
-        let fileNames =
-            fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
+        let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
         // Fable (F# to JS)
-        let projDir =
-            projectFileName |> normalizeFullPath |> Path.GetDirectoryName
+        let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
 
         let libDir =
-            options.libDir
-            |> Option.defaultValue (getFableLibDir ())
-            |> normalizeFullPath
+            options.libDir |> Option.defaultValue (getFableLibDir ()) |> normalizeFullPath
 
         let parseFable (res, fileName) =
-            fable.CompileToTargetAst(
-                libDir,
-                res,
-                fileName,
-                options.typedArrays,
-                options.language
-            )
+            fable.CompileToTargetAst(libDir, res, fileName, options.typedArrays, options.language)
 
         let fileExt =
             match options.language.ToLowerInvariant() with
@@ -392,11 +324,7 @@ let parseFiles projectFileName options =
                     | None -> Path.ChangeExtension(fileName, fileExt)
                     | Some outDir ->
                         let absPath =
-                            Imports.getTargetAbsolutePath
-                                getOrAddDeduplicateTargetDir
-                                fileName
-                                projDir
-                                outDir
+                            Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
 
                         Path.ChangeExtension(absPath, fileExt)
 
@@ -404,22 +332,13 @@ let parseFiles projectFileName options =
                 if options.printAst then
                     let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
 
-                    let astPath =
-                        outPath.Substring(0, outPath.LastIndexOf(fileExt))
-                        + ".fs.ast"
+                    let astPath = outPath.Substring(0, outPath.LastIndexOf(fileExt)) + ".fs.ast"
 
                     writeAllText astPath fsAstStr
 
                 // print target language AST to writer
                 let writer =
-                    new SourceWriter(
-                        fileName,
-                        outPath,
-                        projDir,
-                        options,
-                        fileExt,
-                        getOrAddDeduplicateTargetDir
-                    )
+                    new SourceWriter(fileName, outPath, projDir, options, fileExt, getOrAddDeduplicateTargetDir)
 
                 do! fable.PrintTargetAst(res, writer)
 
@@ -430,8 +349,7 @@ let parseFiles projectFileName options =
                 if options.sourceMaps then
                     let mapPath = outPath + ".map"
 
-                    let sourceMapUrl =
-                        "//# sourceMappingURL=" + Path.GetFileName(mapPath)
+                    let sourceMapUrl = "//# sourceMappingURL=" + Path.GetFileName(mapPath)
 
                     do! (writer :> Fable.Standalone.IWriter).Write(sourceMapUrl)
                     writeAllText mapPath (serializeToJson writer.SourceMap)
@@ -444,9 +362,7 @@ let parseFiles projectFileName options =
 let argValue keys (args: string[]) =
     args
     |> Array.pairwise
-    |> Array.tryFindBack (fun (k, v) ->
-        not (v.StartsWith("-")) && (List.contains k keys)
-    )
+    |> Array.tryFindBack (fun (k, v) -> not (v.StartsWith("-")) && (List.contains k keys))
     |> Option.map snd
 
 let tryFlag flag (args: string[]) =
@@ -471,10 +387,7 @@ let run opts projectFileName outDir =
             let outDir = Option.defaultValue "." outDir
 
             let scriptFile =
-                Path.Combine(
-                    outDir,
-                    Path.GetFileNameWithoutExtension(projectFileName) + ".js"
-                )
+                Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectFileName) + ".js")
 
             let runArgs = opts[i + 1 ..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs
@@ -482,27 +395,15 @@ let run opts projectFileName outDir =
 
     let options =
         {
-            outDir =
-                opts
-                |> argValue
-                    [
-                        "--outDir"
-                        "-o"
-                    ]
-                |> Option.orElse outDir
+            outDir = opts |> argValue [ "--outDir"; "-o" ] |> Option.orElse outDir
             libDir = opts |> argValue [ "--fableLib" ]
             benchmark = opts |> hasFlag "--benchmark"
             optimize = opts |> hasFlag "--optimize"
-            sourceMaps =
-                (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
+            sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
             typedArrays = opts |> tryFlag "--typedArrays"
             language =
                 opts
-                |> argValue
-                    [
-                        "--language"
-                        "--lang"
-                    ]
+                |> argValue [ "--language"; "--lang" ]
                 |> Option.map (fun _ -> "TypeScript")
                 |> Option.defaultValue "JavaScript"
             printAst = opts |> hasFlag "--printAst"

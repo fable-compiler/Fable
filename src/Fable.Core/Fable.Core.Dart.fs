@@ -14,8 +14,7 @@ type DartNullable<'T>() =
 module DartNullable =
     let defaultValue (defVal: 'T) (value: DartNullable<'T>) : 'T = nativeOnly
 
-    let defaultWith (defThunk: unit -> 'T) (value: DartNullable<'T>) : 'T =
-        nativeOnly
+    let defaultWith (defThunk: unit -> 'T) (value: DartNullable<'T>) : 'T = nativeOnly
 
     let toOption (value: DartNullable<'T>) : 'T option = nativeOnly
     let ofOption (value: 'T option) : DartNullable<'T> = nativeOnly

@@ -60,10 +60,7 @@ type Context =
                 }
             )
 
-        { this with
-            EntityAndMemberGenericParams =
-                this.EntityAndMemberGenericParams @ genParams
-        }
+        { this with EntityAndMemberGenericParams = this.EntityAndMemberGenericParams @ genParams }
 
 type MemberKind =
     | ClassConstructor
@@ -75,27 +72,18 @@ type IDartCompiler =
     abstract GetAllImports: unit -> Import list
 
     abstract GetImportIdent:
-        Context *
-        selector: string *
-        path: string *
-        typ: Fable.Type *
-        ?range: SourceLocation ->
-            Ident
+        Context * selector: string * path: string * typ: Fable.Type * ?range: SourceLocation -> Ident
 
     abstract TransformType: Context * Fable.Type -> Type
 
-    abstract Transform:
-        Context * ReturnStrategy * Fable.Expr -> Statement list * CapturedExpr
+    abstract Transform: Context * ReturnStrategy * Fable.Expr -> Statement list * CapturedExpr
 
     abstract TransformFunction:
-        Context * string option * Fable.Ident list * Fable.Expr ->
-            Ident list * Statement list * Type
+        Context * string option * Fable.Ident list * Fable.Expr -> Ident list * Statement list * Type
 
-    abstract WarnOnlyOnce:
-        string * ?values: obj[] * ?range: SourceLocation -> unit
+    abstract WarnOnlyOnce: string * ?values: obj[] * ?range: SourceLocation -> unit
 
-    abstract ErrorOnlyOnce:
-        string * ?values: obj[] * ?range: SourceLocation -> unit
+    abstract ErrorOnlyOnce: string * ?values: obj[] * ?range: SourceLocation -> unit
 
 module Util =
 
@@ -124,77 +112,27 @@ module Util =
         let ident = libValue com ctx Fable.MetaType moduleName memberName
         Type.reference (ident, genArgs)
 
-    let libCallWithType
-        (com: IDartCompiler)
-        ctx
-        t
-        moduleName
-        memberName
-        (args: Expression list)
-        =
-        let fn =
-            com.GetImportIdent(
-                ctx,
-                memberName,
-                getLibPath com moduleName,
-                Fable.Any
-            )
+    let libCallWithType (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) =
+        let fn = com.GetImportIdent(ctx, memberName, getLibPath com moduleName, Fable.Any)
 
         Expression.invocationExpression (fn.Expr, args, t)
 
-    let libCall
-        (com: IDartCompiler)
-        ctx
-        t
-        moduleName
-        memberName
-        (args: Expression list)
-        =
+    let libCall (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) =
         let t = transformType com ctx t
         libCallWithType com ctx t moduleName memberName args
 
-    let libGenCall
-        (com: IDartCompiler)
-        ctx
-        t
-        moduleName
-        memberName
-        (args: Expression list)
-        genArgs
-        =
+    let libGenCall (com: IDartCompiler) ctx t moduleName memberName (args: Expression list) genArgs =
         let genArgs = transformGenArgs com ctx genArgs
 
-        let fn =
-            com.GetImportIdent(
-                ctx,
-                memberName,
-                getLibPath com moduleName,
-                Fable.Any
-            )
+        let fn = com.GetImportIdent(ctx, memberName, getLibPath com moduleName, Fable.Any)
 
-        Expression.invocationExpression (
-            fn.Expr,
-            args,
-            transformType com ctx t,
-            genArgs = genArgs
-        )
+        Expression.invocationExpression (fn.Expr, args, transformType com ctx t, genArgs = genArgs)
 
-    let extLibCall
-        (com: IDartCompiler)
-        ctx
-        t
-        modulePath
-        memberName
-        (args: Expression list)
-        =
+    let extLibCall (com: IDartCompiler) ctx t modulePath memberName (args: Expression list) =
         let fn = com.GetImportIdent(ctx, memberName, modulePath, Fable.Any)
         Expression.invocationExpression (fn.Expr, args, transformType com ctx t)
 
-    let addErrorAndReturnNull
-        (com: Compiler)
-        (range: SourceLocation option)
-        (error: string)
-        =
+    let addErrorAndReturnNull (com: Compiler) (range: SourceLocation option) (error: string) =
         addError com [] range error
         NullLiteral Dynamic |> Literal
 
@@ -240,11 +178,7 @@ module Util =
             match transformAndCaptureExpr com ctx entRef with
             | [], IdentExpression ident -> Some ident
             | _ ->
-                addError
-                    com
-                    []
-                    None
-                    $"Unexpected, entity ref for {ent.FullName} is not an identifier"
+                addError com [] None $"Unexpected, entity ref for {ent.FullName} is not an identifier"
 
                 None
         )
@@ -263,31 +197,17 @@ module Util =
     let transformOptionType com ctx genArg =
         let genArg = transformType com ctx genArg
 
-        Type.reference (
-            libValue com ctx Fable.MetaType "Types" "Some",
-            [ genArg ]
-        )
+        Type.reference (libValue com ctx Fable.MetaType "Types" "Some", [ genArg ])
         |> Nullable
 
-    let transformDeclaredType
-        (com: IDartCompiler)
-        ctx
-        (entRef: Fable.EntityRef)
-        genArgs
-        =
+    let transformDeclaredType (com: IDartCompiler) ctx (entRef: Fable.EntityRef) genArgs =
         let genArgs = transformGenArgs com ctx genArgs
 
         let makeIterator genArg =
             Type.reference (makeImmutableIdent MetaType "Iterator", [ genArg ])
 
         let makeMapEntry key value =
-            Type.reference (
-                makeImmutableIdent MetaType "MapEntry",
-                [
-                    key
-                    value
-                ]
-            )
+            Type.reference (makeImmutableIdent MetaType "MapEntry", [ key; value ])
 
         match entRef.FullName, genArgs with
         | Types.enum_, _ -> Integer
@@ -301,12 +221,9 @@ module Util =
         | Types.regexMatch, _ -> makeTypeRefFromName "Match" []
         // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
         | Naming.EndsWith "Exception" _, _ -> Dynamic
-        | "System.Collections.Generic.Dictionary`2.Enumerator", [ key; value ] ->
-            makeMapEntry key value |> makeIterator
-        | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator",
-          [ key; _ ] -> makeIterator key
-        | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator",
-          [ _; value ] -> makeIterator value
+        | "System.Collections.Generic.Dictionary`2.Enumerator", [ key; value ] -> makeMapEntry key value |> makeIterator
+        | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", [ key; _ ] -> makeIterator key
+        | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", [ _; value ] -> makeIterator value
         | _ ->
             let ent = com.GetEntity(entRef)
 
@@ -317,21 +234,10 @@ module Util =
                       Name = "Iterator"
                       ImportModule = None
                   } as ident when List.isMultiple genArgs ->
-                    ident,
-                    [
-                        Type.reference (
-                            makeImmutableIdent MetaType "MapEntry",
-                            genArgs
-                        )
-                    ]
+                    ident, [ Type.reference (makeImmutableIdent MetaType "MapEntry", genArgs) ]
                 | ident -> ident, genArgs
 
-            Type.reference (
-                ident,
-                genArgs,
-                isRecord = ent.IsFSharpRecord,
-                isUnion = ent.IsFSharpUnion
-            )
+            Type.reference (ident, genArgs, isRecord = ent.IsFSharpRecord, isUnion = ent.IsFSharpUnion)
 
     let get t left memberName =
         PropertyAccess(left, memberName, t, isConst = false)
@@ -343,11 +249,7 @@ module Util =
         | Some cname -> cname
         | None -> uci.Name
 
-    let getUnionCaseDeclarationName
-        (unionDeclName: string)
-        (uci: Fable.UnionCase)
-        =
-        unionDeclName + "_" + uci.Name
+    let getUnionCaseDeclarationName (unionDeclName: string) (uci: Fable.UnionCase) = unionDeclName + "_" + uci.Name
 
     let getUnionExprTag expr = get Integer expr "tag"
 
@@ -385,17 +287,13 @@ module Util =
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
 
-    type NamedTailCallOpportunity
-        (_com: IDartCompiler, ctx, name, args: Fable.Ident list)
-        =
+    type NamedTailCallOpportunity(_com: IDartCompiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
         let argIds =
             args
             |> FSharp2Fable.Util.discardUnitArg
-            |> List.map (fun arg ->
-                getUniqueNameInDeclarationScope ctx (arg.Name + "_mut")
-            )
+            |> List.map (fun arg -> getUniqueNameInDeclarationScope ctx (arg.Name + "_mut"))
 
         interface ITailCallOpportunity with
             member _.Label = name
@@ -422,8 +320,7 @@ module Util =
         | _ -> false
 
     let isConstIdent (ctx: Context) (ident: Ident) =
-        Option.isSome ident.ImportModule
-        || Set.contains ident.Name ctx.ConstIdents
+        Option.isSome ident.ImportModule || Set.contains ident.Name ctx.ConstIdents
 
     // Binary operations should be const if the operands are, but if necessary let's fold constants binary ops in FableTransforms
     let isConstExpr (ctx: Context) =
@@ -432,8 +329,7 @@ module Util =
         | IdentExpression ident -> isConstIdent ctx ident
         | PropertyAccess(_, _, _, isConst)
         | InvocationExpression(_, _, _, _, isConst) -> isConst
-        | BinaryExpression(_, left, right, _) ->
-            isConstExpr ctx left && isConstExpr ctx right
+        | BinaryExpression(_, left, right, _) -> isConstExpr ctx left && isConstExpr ctx right
         | Literal value ->
             match value with
             | ListLiteral(_, _, isConst) -> isConst
@@ -457,12 +353,10 @@ module Util =
     // Dart linter complaints if we have too many "const"
     let removeConst =
         function
-        | InvocationExpression(e, g, a, t, _isConst) ->
-            InvocationExpression(e, g, a, t, false)
+        | InvocationExpression(e, g, a, t, _isConst) -> InvocationExpression(e, g, a, t, false)
         | Literal value as e ->
             match value with
-            | ListLiteral(values, typ, _isConst) ->
-                ListLiteral(values, typ, false) |> Literal
+            | ListLiteral(values, typ, _isConst) -> ListLiteral(values, typ, false) |> Literal
             | _ -> e
         | e -> e
 
@@ -487,13 +381,7 @@ module Util =
             let fn = Expression.anonymousFunction ([], body, t)
             Expression.invocationExpression (fn, t)
 
-    let optimizeTailCall
-        (com: IDartCompiler)
-        (ctx: Context)
-        _range
-        (tc: ITailCallOpportunity)
-        args
-        =
+    let optimizeTailCall (com: IDartCompiler) (ctx: Context) _range (tc: ITailCallOpportunity) args =
         let rec checkCrossRefs tempVars allArgs =
             function
             | [] -> tempVars
@@ -510,10 +398,7 @@ module Util =
 
                 let tempVars =
                     if found then
-                        let tempVar =
-                            getUniqueNameInDeclarationScope
-                                ctx
-                                (argId + "_tailcall")
+                        let tempVar = getUniqueNameInDeclarationScope ctx (argId + "_tailcall")
 
                         let tempVar = makeTypedIdent arg.Type tempVar
                         Map.add argId tempVar tempVars
@@ -526,8 +411,7 @@ module Util =
         let zippedArgs = List.zip tc.Args args
         let tempVars = checkCrossRefs Map.empty args zippedArgs
 
-        let tempVarReplacements =
-            tempVars |> Map.map (fun _ v -> makeIdentExpr v.Name)
+        let tempVarReplacements = tempVars |> Map.map (fun _ v -> makeIdentExpr v.Name)
 
         // First declare temp variables
         let statements1 =
@@ -535,9 +419,7 @@ module Util =
             |> Seq.mapToList (fun (KeyValue(argId, tempVar)) ->
                 let tempVar = transformIdent com ctx tempVar
 
-                let argId =
-                    makeImmutableIdent tempVar.Type argId
-                    |> Expression.identExpression
+                let argId = makeImmutableIdent tempVar.Type argId |> Expression.identExpression
 
                 Statement.tempVariableDeclaration (tempVar, value = argId)
             )
@@ -550,8 +432,7 @@ module Util =
                 let arg = FableTransforms.replaceValues tempVarReplacements arg
 
                 let argId =
-                    transformIdentWith com ctx false arg.Type argId
-                    |> Expression.identExpression
+                    transformIdentWith com ctx false arg.Type argId |> Expression.identExpression
 
                 let statements, arg = transformAndCaptureExpr com ctx arg
                 statements @ [ assign None argId arg |> ExpressionStatement ]
@@ -568,14 +449,10 @@ module Util =
                 None, None, args
             | CallInfo callInfo ->
                 let args =
-                    FSharp2Fable.Util.dropUnitCallArg
-                        callInfo.Args
-                        callInfo.SignatureArgTypes
+                    FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
 
                 let paramsInfo =
-                    callInfo.MemberRef
-                    |> Option.bind com.TryGetMember
-                    |> Option.map getParamsInfo
+                    callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo
 
                 paramsInfo, callInfo.ThisArg, args
 
@@ -590,11 +467,7 @@ module Util =
                     namedArgs
                     |> List.choose (fun (p, v) ->
                         match p.Name, v with
-                        | _,
-                          Fable.Value((Fable.Null _ | Fable.NewOption(None,
-                                                                      _,
-                                                                      _)),
-                                      _) when p.IsOptional -> None
+                        | _, Fable.Value((Fable.Null _ | Fable.NewOption(None, _, _)), _) when p.IsOptional -> None
                         | Some k, v -> Some(k, v)
                         | None, _ -> None
                     )
@@ -606,15 +479,11 @@ module Util =
                 let parameters = paramsInfo.Parameters
 
                 if parameters.Length >= argsLen then
-                    ([],
-                     List.zip args (List.take argsLen parameters) |> List.rev)
+                    ([], List.zip args (List.take argsLen parameters) |> List.rev)
                     ||> List.fold (fun acc (arg, par) ->
                         if par.IsOptional then
                             match arg with
-                            | Fable.Value((Fable.Null t | Fable.NewOption(None,
-                                                                          t,
-                                                                          _)),
-                                          r) ->
+                            | Fable.Value((Fable.Null t | Fable.NewOption(None, t, _)), r) ->
                                 match acc with
                                 | [] -> []
                                 | acc -> Fable.Value(Fable.Null t, r) :: acc
@@ -635,8 +504,7 @@ module Util =
         let statements, args = combineStatementsAndExprs com ctx args
 
         let keys =
-            (List.map (fun _ -> None) unnamedArgs)
-            @ (List.map (fst >> Some) namedArgs)
+            (List.map (fun _ -> None) unnamedArgs) @ (List.map (fst >> Some) namedArgs)
 
         statements,
         List.zip keys args
@@ -652,9 +520,7 @@ module Util =
         | Return(isVoid = true) -> [ ExpressionStatement expr ], None
         | Return(isVoid = false) -> [ ReturnStatement expr ], None
         | Assign left -> [ assign None left expr |> ExpressionStatement ], None
-        | Target left ->
-            [ assign None (IdentExpression left) expr |> ExpressionStatement ],
-            None
+        | Target left -> [ assign None (IdentExpression left) expr |> ExpressionStatement ], None
         | Capture _ -> [], Some expr
 
     let combineCapturedExprs
@@ -663,39 +529,27 @@ module Util =
         (capturedExprs: (Statement list * CapturedExpr) list)
         : Statement list * Expression list
         =
-        let extractExpression
-            mayHaveSideEffect
-            (statements, capturedExpr: CapturedExpr)
-            =
+        let extractExpression mayHaveSideEffect (statements, capturedExpr: CapturedExpr) =
             match capturedExpr with
             | Some expr ->
-                if
-                    (not mayHaveSideEffect)
-                    || isImmutableIdent expr
-                    || isConstExpr ctx expr
-                then
+                if (not mayHaveSideEffect) || isImmutableIdent expr || isConstExpr ctx expr then
                     statements, expr
                 else
                     let ident =
                         getUniqueNameInDeclarationScope ctx "tmp_combine"
                         |> makeImmutableIdent expr.Type
 
-                    let varDecl =
-                        Statement.tempVariableDeclaration (ident, value = expr)
+                    let varDecl = Statement.tempVariableDeclaration (ident, value = expr)
 
                     statements @ [ varDecl ], ident.Expr
             | _ -> statements, Expression.nullLiteral Void
 
         let _, statements, exprs =
             ((false, [], []), List.rev capturedExprs)
-            ||> List.fold (fun
-                               (mayHaveSideEffect, accStatements, accExprs)
-                               statements ->
-                let mayHaveSideEffect =
-                    mayHaveSideEffect || not (List.isEmpty accStatements)
+            ||> List.fold (fun (mayHaveSideEffect, accStatements, accExprs) statements ->
+                let mayHaveSideEffect = mayHaveSideEffect || not (List.isEmpty accStatements)
 
-                let statements, expr =
-                    extractExpression mayHaveSideEffect statements
+                let statements, expr = extractExpression mayHaveSideEffect statements
 
                 mayHaveSideEffect, statements @ accStatements, expr :: accExprs
             )
@@ -712,24 +566,16 @@ module Util =
         |> List.map (fun (statements, expr) -> statements, Some expr)
         |> combineCapturedExprs com ctx
 
-    let combineCalleeAndArgStatements
-        _com
-        ctx
-        calleeStatements
-        argStatements
-        (callee: Expression)
-        =
+    let combineCalleeAndArgStatements _com ctx calleeStatements argStatements (callee: Expression) =
         if List.isEmpty argStatements then
             calleeStatements, callee
         elif isImmutableIdent callee || isConstExpr ctx callee then
             calleeStatements @ argStatements, callee
         else
             let ident =
-                getUniqueNameInDeclarationScope ctx "tmp_arg"
-                |> makeImmutableIdent callee.Type
+                getUniqueNameInDeclarationScope ctx "tmp_arg" |> makeImmutableIdent callee.Type
 
-            let varDecl =
-                Statement.tempVariableDeclaration (ident, value = callee)
+            let varDecl = Statement.tempVariableDeclaration (ident, value = callee)
 
             calleeStatements @ [ varDecl ] @ argStatements, ident.Expr
 
@@ -737,33 +583,19 @@ module Util =
         List.map (transform com ctx (Capture(binding = None))) exprs
         |> combineCapturedExprs com ctx
         |> fun (statements, exprs) ->
-            let statements2, capturedExpr =
-                transformExprs exprs |> resolveExpr returnStrategy
+            let statements2, capturedExpr = transformExprs exprs |> resolveExpr returnStrategy
 
             statements @ statements2, capturedExpr
 
     let transformExprAndResolve com ctx returnStrategy expr transformExpr =
         let statements, expr = transformAndCaptureExpr com ctx expr
 
-        let statements2, capturedExpr =
-            transformExpr expr |> resolveExpr returnStrategy
+        let statements2, capturedExpr = transformExpr expr |> resolveExpr returnStrategy
 
         statements @ statements2, capturedExpr
 
-    let transformExprsAndResolve2
-        com
-        ctx
-        returnStrategy
-        expr0
-        expr1
-        transformExprs
-        =
-        List.map
-            (transform com ctx (Capture(binding = None)))
-            [
-                expr0
-                expr1
-            ]
+    let transformExprsAndResolve2 com ctx returnStrategy expr0 expr1 transformExprs =
+        List.map (transform com ctx (Capture(binding = None))) [ expr0; expr1 ]
         |> combineCapturedExprs com ctx
         |> fun (statements, exprs) ->
             let statements2, capturedExpr =
@@ -820,34 +652,23 @@ module Util =
             | UNativeInt -> Dynamic // TODO
         | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
         | Fable.Array(TransformType com ctx genArg, _) -> List genArg
-        | Fable.List(TransformType com ctx genArg) ->
-            Type.reference (getFSharpListTypeIdent com ctx, [ genArg ])
-        | Fable.Tuple(genArgs, _) ->
-            transformGenArgs com ctx genArgs |> transformTupleType com ctx
+        | Fable.List(TransformType com ctx genArg) -> Type.reference (getFSharpListTypeIdent com ctx, [ genArg ])
+        | Fable.Tuple(genArgs, _) -> transformGenArgs com ctx genArgs |> transformTupleType com ctx
         | Fable.AnonymousRecordType(_, genArgs, _) ->
             genArgs
             |> List.map FableTransforms.uncurryType
             |> transformGenArgs com ctx
             |> transformTupleType com ctx
-        | Fable.LambdaType(TransformType com ctx argType,
-                           TransformType com ctx returnType) ->
+        | Fable.LambdaType(TransformType com ctx argType, TransformType com ctx returnType) ->
             Function([ argType ], returnType)
         | Fable.DelegateType(argTypes, TransformType com ctx returnType) ->
             let argTypes = argTypes |> List.map (transformType com ctx)
             Function(argTypes, returnType)
         | Fable.GenericParam(name, _isMeasure, _constraints) -> Generic name
-        | Fable.DeclaredType(ref, genArgs) ->
-            transformDeclaredType com ctx ref genArgs
+        | Fable.DeclaredType(ref, genArgs) -> transformDeclaredType com ctx ref genArgs
         | Fable.Regex -> makeTypeRefFromName "RegExp" []
 
-    let transformIdentWith
-        (com: IDartCompiler)
-        ctx
-        (isMutable: bool)
-        (typ: Fable.Type)
-        name
-        : Ident
-        =
+    let transformIdentWith (com: IDartCompiler) ctx (isMutable: bool) (typ: Fable.Type) name : Ident =
         let typ = transformType com ctx typ
         makeIdent isMutable typ name
 
@@ -857,12 +678,7 @@ module Util =
     let transformIdentAsExpr (com: IDartCompiler) ctx (id: Fable.Ident) =
         transformIdent com ctx id |> Expression.identExpression
 
-    let transformGenericParam
-        (com: IDartCompiler)
-        ctx
-        (g: Fable.GenericParam)
-        : GenericParam option
-        =
+    let transformGenericParam (com: IDartCompiler) ctx (g: Fable.GenericParam) : GenericParam option =
         if g.IsMeasure then
             None
         else
@@ -870,8 +686,7 @@ module Util =
                 g.Constraints
                 |> List.tryPick (
                     function
-                    | Fable.Constraint.CoercesTo t ->
-                        transformType com ctx t |> Some
+                    | Fable.Constraint.CoercesTo t -> transformType com ctx t |> Some
                     | _ -> None
                 )
 
@@ -881,14 +696,7 @@ module Util =
                     Extends = extends
                 }
 
-    let transformImport
-        (com: IDartCompiler)
-        ctx
-        r
-        t
-        (selector: string)
-        (path: string)
-        =
+    let transformImport (com: IDartCompiler) ctx r t (selector: string) (path: string) =
         let rec getParts t (parts: string list) (expr: Expression) =
             match parts with
             | [] -> expr
@@ -913,8 +721,7 @@ module Util =
 
     let transformNumberLiteral com r kind (x: obj) =
         match kind, x with
-        | Dart.Replacements.DartInt, (:? char as x) ->
-            Expression.integerLiteral (int64 x)
+        | Dart.Replacements.DartInt, (:? char as x) -> Expression.integerLiteral (int64 x)
         | Int8, (:? int8 as x) -> Expression.integerLiteral (int64 x)
         | UInt8, (:? uint8 as x) -> Expression.integerLiteral (int64 x)
         | Int16, (:? int16 as x) -> Expression.integerLiteral (int64 x)
@@ -952,29 +759,14 @@ module Util =
         =
         match kind with
         | Fable.UnitConstant -> [], None
-        | Fable.ThisValue t ->
-            transformType com ctx t
-            |> ThisExpression
-            |> resolveExpr returnStrategy
-        | Fable.BaseValue(None, t) ->
-            transformType com ctx t
-            |> SuperExpression
-            |> resolveExpr returnStrategy
-        | Fable.BaseValue(Some boundIdent, _) ->
-            transformIdentAsExpr com ctx boundIdent
-            |> resolveExpr returnStrategy
-        | Fable.TypeInfo(t, _d) ->
-            transformType com ctx t |> TypeLiteral |> resolveExpr returnStrategy
-        | Fable.Null t ->
-            transformType com ctx t
-            |> Expression.nullLiteral
-            |> resolveExpr returnStrategy
-        | Fable.BoolConstant v ->
-            Expression.booleanLiteral v |> resolveExpr returnStrategy
-        | Fable.CharConstant v ->
-            Expression.integerLiteral (int v) |> resolveExpr returnStrategy
-        | Fable.StringConstant v ->
-            Expression.stringLiteral v |> resolveExpr returnStrategy
+        | Fable.ThisValue t -> transformType com ctx t |> ThisExpression |> resolveExpr returnStrategy
+        | Fable.BaseValue(None, t) -> transformType com ctx t |> SuperExpression |> resolveExpr returnStrategy
+        | Fable.BaseValue(Some boundIdent, _) -> transformIdentAsExpr com ctx boundIdent |> resolveExpr returnStrategy
+        | Fable.TypeInfo(t, _d) -> transformType com ctx t |> TypeLiteral |> resolveExpr returnStrategy
+        | Fable.Null t -> transformType com ctx t |> Expression.nullLiteral |> resolveExpr returnStrategy
+        | Fable.BoolConstant v -> Expression.booleanLiteral v |> resolveExpr returnStrategy
+        | Fable.CharConstant v -> Expression.integerLiteral (int v) |> resolveExpr returnStrategy
+        | Fable.StringConstant v -> Expression.stringLiteral v |> resolveExpr returnStrategy
         | Fable.StringTemplate(_tag, parts, values) ->
             transformExprsAndResolve
                 com
@@ -985,45 +777,28 @@ module Util =
 
         // Dart enums are limited as we cannot set arbitrary values or combine them as flags
         // so for now we compile F# enums as integers
-        | Fable.NumberConstant(x, kind, _) ->
-            transformNumberLiteral com r kind x |> resolveExpr returnStrategy
+        | Fable.NumberConstant(x, kind, _) -> transformNumberLiteral com r kind x |> resolveExpr returnStrategy
 
         | Fable.RegexConstant(source, flags) ->
             let flagToArg =
                 function
-                | RegexIgnoreCase ->
-                    Some(Some "caseSensitive", Expression.booleanLiteral false)
-                | RegexMultiline ->
-                    Some(Some "multiLine", Expression.booleanLiteral true)
-                | RegexSingleline ->
-                    Some(Some "dotAll", Expression.booleanLiteral true)
-                | RegexUnicode ->
-                    Some(Some "unicode", Expression.booleanLiteral true)
+                | RegexIgnoreCase -> Some(Some "caseSensitive", Expression.booleanLiteral false)
+                | RegexMultiline -> Some(Some "multiLine", Expression.booleanLiteral true)
+                | RegexSingleline -> Some(Some "dotAll", Expression.booleanLiteral true)
+                | RegexUnicode -> Some(Some "unicode", Expression.booleanLiteral true)
                 | RegexGlobal
                 | RegexSticky -> None
 
             let regexIdent = makeImmutableIdent MetaType "RegExp"
 
             let args =
-                [
-                    None, Expression.stringLiteral source
-                    yield! flags |> List.choose flagToArg
-                ]
+                [ None, Expression.stringLiteral source; yield! flags |> List.choose flagToArg ]
 
-            Expression.invocationExpression (
-                regexIdent.Expr,
-                args,
-                Type.reference regexIdent
-            )
+            Expression.invocationExpression (regexIdent.Expr, args, Type.reference regexIdent)
             |> resolveExpr returnStrategy
 
         | Fable.NewOption(expr, genArg, _isStruct) ->
-            let transformOption
-                (com: IDartCompiler)
-                ctx
-                genArg
-                (arg: Expression)
-                =
+            let transformOption (com: IDartCompiler) ctx genArg (arg: Expression) =
                 let cons = libValue com ctx Fable.MetaType "Types" "Some"
                 let t = transformOptionType com ctx genArg
 
@@ -1033,42 +808,20 @@ module Util =
                     else
                         false, [ arg ]
 
-                Expression.invocationExpression (
-                    cons.Expr,
-                    args,
-                    t,
-                    isConst = isConst
-                )
+                Expression.invocationExpression (cons.Expr, args, t, isConst = isConst)
 
             match expr with
-            | Some expr ->
-                transformExprAndResolve
-                    com
-                    ctx
-                    returnStrategy
-                    expr
-                    (transformOption com ctx genArg)
+            | Some expr -> transformExprAndResolve com ctx returnStrategy expr (transformOption com ctx genArg)
 
             | None ->
                 transformType com ctx genArg
                 |> Expression.nullLiteral
                 |> resolveExpr returnStrategy
 
-        | Fable.NewTuple(exprs, _) ->
-            transformExprsAndResolve
-                com
-                ctx
-                returnStrategy
-                exprs
-                (transformTuple com ctx)
+        | Fable.NewTuple(exprs, _) -> transformExprsAndResolve com ctx returnStrategy exprs (transformTuple com ctx)
 
         | Fable.NewArray(Fable.ArrayValues exprs, typ, _) ->
-            transformExprsAndResolve
-                com
-                ctx
-                returnStrategy
-                exprs
-                (makeMutableListExpr com ctx typ)
+            transformExprsAndResolve com ctx returnStrategy exprs (makeMutableListExpr com ctx typ)
         // We cannot allocate in Dart without filling the array to a non-null value
         | Fable.NewArray((Fable.ArrayFrom expr | Fable.ArrayAlloc expr), typ, _) ->
             transformExprsAndResolve
@@ -1080,12 +833,7 @@ module Util =
                     let listIdent = makeImmutableIdent MetaType "List"
                     let typ = transformType com ctx typ
 
-                    Expression.invocationExpression (
-                        listIdent.Expr,
-                        "of",
-                        exprs,
-                        Type.reference (listIdent, [ typ ])
-                    )
+                    Expression.invocationExpression (listIdent.Expr, "of", exprs, Type.reference (listIdent, [ typ ]))
                 )
 
         | Fable.NewRecord(values, ref, genArgs) ->
@@ -1103,8 +851,7 @@ module Util =
                     let isConst =
                         areConstTypes genArgs
                         && List.forall (isConstExpr ctx) args
-                        && (ent.FSharpFields
-                            |> List.forall (fun f -> not f.IsMutable))
+                        && (ent.FSharpFields |> List.forall (fun f -> not f.IsMutable))
 
                     let args =
                         if isConst then
@@ -1112,21 +859,10 @@ module Util =
                         else
                             args
 
-                    Expression.invocationExpression (
-                        consRef.Expr,
-                        args,
-                        typeRef,
-                        genArgs = genArgs,
-                        isConst = isConst
-                    )
+                    Expression.invocationExpression (consRef.Expr, args, typeRef, genArgs = genArgs, isConst = isConst)
                 )
         | Fable.NewAnonymousRecord(exprs, _fieldNames, _genArgs, _isStruct) ->
-            transformExprsAndResolve
-                com
-                ctx
-                returnStrategy
-                exprs
-                (transformTuple com ctx)
+            transformExprsAndResolve com ctx returnStrategy exprs (transformTuple com ctx)
 
         | Fable.NewUnion(values, tag, ref, genArgs) ->
             transformExprsAndResolve
@@ -1145,19 +881,10 @@ module Util =
                         | [] ->
                             let caseName = getUnionCaseName uci
 
-                            let tag =
-                                Expression.integerLiteral (tag)
-                                |> Expression.commented caseName
+                            let tag = Expression.integerLiteral (tag) |> Expression.commented caseName
 
                             consRef, [ tag ]
-                        | fields ->
-                            { consRef with
-                                Name =
-                                    getUnionCaseDeclarationName
-                                        consRef.Name
-                                        uci
-                            },
-                            fields
+                        | fields -> { consRef with Name = getUnionCaseDeclarationName consRef.Name uci }, fields
 
                     let isConst, args =
                         if areConstTypes genArgs && areConstExprs ctx args then
@@ -1167,21 +894,14 @@ module Util =
 
                     let typeRef = Type.reference (consRef, genArgs)
 
-                    Expression.invocationExpression (
-                        consRef.Expr,
-                        args,
-                        typeRef,
-                        genArgs = genArgs,
-                        isConst = isConst
-                    )
+                    Expression.invocationExpression (consRef.Expr, args, typeRef, genArgs = genArgs, isConst = isConst)
                 )
 
         | Fable.NewList(headAndTail, typ) ->
             let rec getItems acc =
                 function
                 | None -> List.rev acc, None
-                | Some(head, Fable.Value(Fable.NewList(tail, _), _)) ->
-                    getItems (head :: acc) tail
+                | Some(head, Fable.Value(Fable.NewList(tail, _), _)) -> getItems (head :: acc) tail
                 | Some(head, tail) -> List.rev (head :: acc), Some tail
 
             match getItems [] headAndTail with
@@ -1195,15 +915,7 @@ module Util =
                     ctx
                     returnStrategy
                     [ expr ]
-                    (fun exprs ->
-                        libCall
-                            com
-                            ctx
-                            (Fable.List typ)
-                            "List"
-                            "singleton"
-                            exprs
-                    )
+                    (fun exprs -> libCall com ctx (Fable.List typ) "List" "singleton" exprs)
 
             | exprs, None ->
                 transformExprsAndResolve
@@ -1221,13 +933,8 @@ module Util =
                     com
                     ctx
                     returnStrategy
-                    [
-                        head
-                        tail
-                    ]
-                    (fun exprs ->
-                        libCall com ctx (Fable.List typ) "List" "cons" exprs
-                    )
+                    [ head; tail ]
+                    (fun exprs -> libCall com ctx (Fable.List typ) "List" "cons" exprs)
 
             | exprs, Some tail ->
                 transformExprsAndResolve
@@ -1238,35 +945,14 @@ module Util =
                     (fun exprs ->
                         let exprs, tail = List.splitLast exprs
 
-                        [
-                            makeImmutableListExpr com ctx typ exprs
-                            tail
-                        ]
-                        |> libCall
-                            com
-                            ctx
-                            (Fable.List typ)
-                            "List"
-                            "ofArrayWithTail"
+                        [ makeImmutableListExpr com ctx typ exprs; tail ]
+                        |> libCall com ctx (Fable.List typ) "List" "ofArrayWithTail"
                     )
 
-    let transformOperation
-        com
-        ctx
-        (_: SourceLocation option)
-        t
-        returnStrategy
-        opKind
-        : Statement list * CapturedExpr
-        =
+    let transformOperation com ctx (_: SourceLocation option) t returnStrategy opKind : Statement list * CapturedExpr =
         match opKind with
         | Fable.Unary(op, expr) ->
-            transformExprAndResolve
-                com
-                ctx
-                returnStrategy
-                expr
-                (fun expr -> UnaryExpression(op, expr))
+            transformExprAndResolve com ctx returnStrategy expr (fun expr -> UnaryExpression(op, expr))
 
         | Fable.Binary(op, left, right) ->
             transformExprsAndResolve2
@@ -1275,9 +961,7 @@ module Util =
                 returnStrategy
                 left
                 right
-                (fun left right ->
-                    BinaryExpression(op, left, right, transformType com ctx t)
-                )
+                (fun left right -> BinaryExpression(op, left, right, transformType com ctx t))
 
         | Fable.Logical(op, left, right) ->
             // We cannot combine expressions here because statements of the second expression
@@ -1288,8 +972,7 @@ module Util =
             match statements2 with
             | [] ->
                 let statements3, expr3 =
-                    LogicalExpression(op, expr1, expr2)
-                    |> resolveExpr returnStrategy
+                    LogicalExpression(op, expr1, expr2) |> resolveExpr returnStrategy
 
                 statements1 @ statements3, expr3
 
@@ -1297,43 +980,23 @@ module Util =
                 let expr1, defValue =
                     match op with
                     | LogicalAnd -> expr1, Expression.booleanLiteral (false)
-                    | LogicalOr ->
-                        Expression.unaryExpression (UnaryNot, expr1),
-                        Expression.booleanLiteral (true)
+                    | LogicalOr -> Expression.unaryExpression (UnaryNot, expr1), Expression.booleanLiteral (true)
 
                 let captureStatements, captureExpr, returnStrategy =
-                    convertCaptureStrategyIntoAssign
-                        com
-                        ctx
-                        Fable.Boolean
-                        returnStrategy
-                        (Some defValue)
+                    convertCaptureStrategyIntoAssign com ctx Fable.Boolean returnStrategy (Some defValue)
 
                 let statements2', _ = resolveExpr returnStrategy expr2
                 let statements2 = statements2 @ statements2'
 
-                statements1
-                @ captureStatements
-                @ [ Statement.ifStatement (expr1, statements2) ],
-                captureExpr
+                statements1 @ captureStatements @ [ Statement.ifStatement (expr1, statements2) ], captureExpr
 
-    let transformEmit
-        (com: IDartCompiler)
-        ctx
-        t
-        returnStrategy
-        (emitInfo: Fable.EmitInfo)
-        =
+    let transformEmit (com: IDartCompiler) ctx t returnStrategy (emitInfo: Fable.EmitInfo) =
         let info = emitInfo.CallInfo
         let statements, args = transformCallArgs com ctx (CallInfo info)
         let args = List.map snd args
 
         let emitExpr =
-            Expression.emitExpression (
-                emitInfo.Macro,
-                args,
-                transformType com ctx t
-            )
+            Expression.emitExpression (emitInfo.Macro, args, transformType com ctx t)
 
         if emitInfo.IsStatement then
             // Ignore the return strategy
@@ -1342,15 +1005,7 @@ module Util =
             let statements2, captureExpr = resolveExpr returnStrategy emitExpr
             statements @ statements2, captureExpr
 
-    let transformCall
-        com
-        ctx
-        range
-        (t: Fable.Type)
-        returnStrategy
-        callee
-        callInfo
-        =
+    let transformCall com ctx range (t: Fable.Type) returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
             List.length i.Args
             + (if Option.isSome i.ThisArg then
@@ -1360,9 +1015,7 @@ module Util =
 
         // Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity with
-        | Return _, Some tc when
-            tc.IsRecursiveRef(callee) && argsLen callInfo = List.length tc.Args
-            ->
+        | Return _, Some tc when tc.IsRecursiveRef(callee) && argsLen callInfo = List.length tc.Args ->
             let args =
                 match callInfo.ThisArg with
                 | Some thisArg -> thisArg :: callInfo.Args
@@ -1373,16 +1026,8 @@ module Util =
             // Try to optimize some patterns after FableTransforms
             let optimized =
                 match callInfo.Tags, callInfo.Args with
-                | Fable.Tags.Contains "array",
-                  [ Replacements.Util.ArrayOrListLiteral(vals, _) ] ->
-                    Fable.Value(
-                        Fable.NewArray(
-                            Fable.ArrayValues vals,
-                            Fable.Any,
-                            Fable.MutableArray
-                        ),
-                        range
-                    )
+                | Fable.Tags.Contains "array", [ Replacements.Util.ArrayOrListLiteral(vals, _) ] ->
+                    Fable.Value(Fable.NewArray(Fable.ArrayValues vals, Fable.Any, Fable.MutableArray), range)
                     |> Some
                 | Fable.Tags.Contains "ignore", [ arg ] ->
                     match returnStrategy with
@@ -1400,19 +1045,12 @@ module Util =
                 let t = transformType com ctx t
                 let genArgs = transformGenArgs com ctx callInfo.GenericArgs
 
-                let calleeStatements, callee =
-                    transformAndCaptureExpr com ctx callee
+                let calleeStatements, callee = transformAndCaptureExpr com ctx callee
 
-                let argStatements, args =
-                    transformCallArgs com ctx (CallInfo callInfo)
+                let argStatements, args = transformCallArgs com ctx (CallInfo callInfo)
 
                 let statements, callee =
-                    combineCalleeAndArgStatements
-                        com
-                        ctx
-                        calleeStatements
-                        argStatements
-                        callee
+                    combineCalleeAndArgStatements com ctx calleeStatements argStatements callee
 
                 let isConst =
                     areConstTypes genArgs
@@ -1424,82 +1062,50 @@ module Util =
 
                 let args =
                     if isConst then
-                        args
-                        |> List.map (fun (name, arg) -> name, removeConst arg)
+                        args |> List.map (fun (name, arg) -> name, removeConst arg)
                     else
                         args
 
                 let statements2, capturedExpr =
-                    Expression.invocationExpression (
-                        callee,
-                        args,
-                        t,
-                        genArgs,
-                        isConst = isConst
-                    )
+                    Expression.invocationExpression (callee, args, t, genArgs, isConst = isConst)
                     |> resolveExpr returnStrategy
 
                 statements @ statements2, capturedExpr
 
-    let transformCurriedApplyAsStatements
-        com
-        ctx
-        range
-        t
-        returnStrategy
-        callee
-        args
-        =
+    let transformCurriedApplyAsStatements com ctx range t returnStrategy callee args =
         // Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity with
-        | Return _, Some tc when
-            tc.IsRecursiveRef(callee) && List.sameLength args tc.Args
-            ->
+        | Return _, Some tc when tc.IsRecursiveRef(callee) && List.sameLength args tc.Args ->
             optimizeTailCall com ctx range tc args, None
         | _ ->
             let t = transformType com ctx t
 
-            let calleeStatements, callee =
-                transformAndCaptureExpr com ctx callee
+            let calleeStatements, callee = transformAndCaptureExpr com ctx callee
 
-            let argStatements, args =
-                transformCallArgs com ctx (NoCallInfo args)
+            let argStatements, args = transformCallArgs com ctx (NoCallInfo args)
 
             let statements, callee =
-                combineCalleeAndArgStatements
-                    com
-                    ctx
-                    calleeStatements
-                    argStatements
-                    callee
+                combineCalleeAndArgStatements com ctx calleeStatements argStatements callee
 
             let invocation =
                 match args with
                 | [] -> Expression.invocationExpression (callee, t)
                 | args ->
                     (callee, args)
-                    ||> List.fold (fun expr arg ->
-                        Expression.invocationExpression (expr, [ arg ], t)
-                    )
+                    ||> List.fold (fun expr arg -> Expression.invocationExpression (expr, [ arg ], t))
 
-            let statements2, capturedExpr =
-                resolveExpr returnStrategy invocation
+            let statements2, capturedExpr = resolveExpr returnStrategy invocation
 
             statements @ statements2, capturedExpr
 
-    let typeImplementsOrExtends
-        (com: IDartCompiler)
-        (baseEnt: Fable.EntityRef)
-        (t: Fable.Type)
-        =
+    let typeImplementsOrExtends (com: IDartCompiler) (baseEnt: Fable.EntityRef) (t: Fable.Type) =
         match baseEnt.FullName, t with
         | baseFullName, Fable.DeclaredType(e, _) ->
             let baseEnt = com.GetEntity(baseEnt)
             let e = com.GetEntity(e)
 
             if baseEnt.IsInterface then
-                e.AllInterfaces
-                |> Seq.exists (fun i -> i.Entity.FullName = baseFullName)
+                e.AllInterfaces |> Seq.exists (fun i -> i.Entity.FullName = baseFullName)
             else
                 let rec extends baseFullName (e: Fable.Entity) =
                     match e.BaseType with
@@ -1507,8 +1113,7 @@ module Util =
                         if baseType.Entity.FullName = baseFullName then
                             true
                         else
-                            com.GetEntity(baseType.Entity)
-                            |> extends baseFullName
+                            com.GetEntity(baseType.Entity) |> extends baseFullName
                     | None -> false
 
                 extends baseFullName e
@@ -1516,23 +1121,14 @@ module Util =
             constraints
             |> List.exists (
                 function
-                | Fable.Constraint.CoercesTo(Fable.DeclaredType(e, _)) ->
-                    e.FullName = baseFullName
+                | Fable.Constraint.CoercesTo(Fable.DeclaredType(e, _)) -> e.FullName = baseFullName
                 | _ -> false
             )
         | _ -> false
 
-    let transformCast
-        (com: IDartCompiler)
-        (ctx: Context)
-        targetType
-        returnStrategy
-        (expr: Fable.Expr)
-        =
+    let transformCast (com: IDartCompiler) (ctx: Context) targetType returnStrategy (expr: Fable.Expr) =
         match targetType, expr with
-        | Fable.DeclaredType(baseEnt, _), _ when
-            typeImplementsOrExtends com baseEnt expr.Type
-            ->
+        | Fable.DeclaredType(baseEnt, _), _ when typeImplementsOrExtends com baseEnt expr.Type ->
             com.Transform(ctx, returnStrategy, expr)
 
         | Fable.Any, _ -> com.Transform(ctx, returnStrategy, expr)
@@ -1560,10 +1156,7 @@ module Util =
                                           Name = name
                                           ImportModule = None
                                       },
-                      target when
-                        Map.matchesKeyValue name target ctx.AssertedTypes
-                        ->
-                        expr
+                      target when Map.matchesKeyValue name target ctx.AssertedTypes -> expr
                     | _, target ->
                         if Type.needsCast source target then
                             Expression.asExpression (expr, target)
@@ -1572,20 +1165,9 @@ module Util =
                 )
 
     // TODO: Try to identify type testing in the catch clause and use Dart's `on ...` exception checking
-    let transformTryCatch
-        com
-        ctx
-        _r
-        returnStrategy
-        (body: Fable.Expr, catch, finalizer)
-        =
+    let transformTryCatch com ctx _r returnStrategy (body: Fable.Expr, catch, finalizer) =
         let prevStatements, captureExpr, returnStrategy =
-            convertCaptureStrategyIntoAssign
-                com
-                ctx
-                body.Type
-                returnStrategy
-                None
+            convertCaptureStrategyIntoAssign com ctx body.Type returnStrategy None
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
 
@@ -1599,18 +1181,13 @@ module Util =
             )
             |> Option.toList
 
-        let finalizer =
-            finalizer |> Option.map (transform com ctx Ignore >> fst)
+        let finalizer = finalizer |> Option.map (transform com ctx Ignore >> fst)
 
         let statements, _ = transform com ctx returnStrategy body
 
         prevStatements
         @ [
-            Statement.tryStatement (
-                statements,
-                handlers = handlers,
-                ?finalizer = finalizer
-            )
+            Statement.tryStatement (statements, handlers = handlers, ?finalizer = finalizer)
         ],
         captureExpr
 
@@ -1627,49 +1204,28 @@ module Util =
                     let isMutable = Option.isSome initialValue
 
                     let ident =
-                        getUniqueNameInDeclarationScope ctx "tmp_capture"
-                        |> makeIdent isMutable t
+                        getUniqueNameInDeclarationScope ctx "tmp_capture" |> makeIdent isMutable t
 
                     let varDecl =
-                        Statement.tempVariableDeclaration (
-                            ident,
-                            isMutable = isMutable,
-                            ?value = initialValue
-                        )
+                        Statement.tempVariableDeclaration (ident, isMutable = isMutable, ?value = initialValue)
 
                     [ varDecl ], ident
 
             varDecl, Some ident.Expr, Assign ident.Expr
         | _ -> [], None, returnStrategy
 
-    let transformConditional
-        (com: IDartCompiler)
-        ctx
-        returnStrategy
-        guardExpr
-        (thenExpr: Fable.Expr)
-        elseExpr
-        =
-        let guardStatements, guardExpr =
-            transformAndCaptureExpr com ctx guardExpr
+    let transformConditional (com: IDartCompiler) ctx returnStrategy guardExpr (thenExpr: Fable.Expr) elseExpr =
+        let guardStatements, guardExpr = transformAndCaptureExpr com ctx guardExpr
 
         let captureStatements, captureExpr, returnStrategy =
-            convertCaptureStrategyIntoAssign
-                com
-                ctx
-                thenExpr.Type
-                returnStrategy
-                None
+            convertCaptureStrategyIntoAssign com ctx thenExpr.Type returnStrategy None
 
         let thenCtx = { ctx with CastedUnions = Dictionary(ctx.CastedUnions) }
 
         let thenCtx =
             match guardExpr with
             | IsExpression(IdentExpression id, assertedType, false) ->
-                { thenCtx with
-                    AssertedTypes =
-                        Map.add id.Name assertedType thenCtx.AssertedTypes
-                }
+                { thenCtx with AssertedTypes = Map.add id.Name assertedType thenCtx.AssertedTypes }
             | _ -> thenCtx
 
         let thenStatements, _ = com.Transform(thenCtx, returnStrategy, thenExpr)
@@ -1683,17 +1239,12 @@ module Util =
 
         match assignmentExpr, thenStatements, elseStatements with
         | Some ident,
-          [ ExpressionStatement(AssignmentExpression(IdentExpression ident1,
-                                                     AssignEqual,
-                                                     value1)) ],
-          [ ExpressionStatement(AssignmentExpression(IdentExpression ident2,
-                                                     AssignEqual,
-                                                     value2)) ] when
+          [ ExpressionStatement(AssignmentExpression(IdentExpression ident1, AssignEqual, value1)) ],
+          [ ExpressionStatement(AssignmentExpression(IdentExpression ident2, AssignEqual, value2)) ] when
             ident.Name = ident1.Name && ident.Name = ident2.Name
             ->
 
-            let cond =
-                Expression.conditionalExpression (guardExpr, value1, value2)
+            let cond = Expression.conditionalExpression (guardExpr, value1, value2)
 
             if Option.isSome captureExpr then
                 guardStatements, Some cond
@@ -1701,30 +1252,18 @@ module Util =
                 guardStatements @ (resolveExpr returnStrategy cond |> fst), None
 
         | Some ident,
-          [ ExpressionStatement(AssignmentExpression(IdentExpression ident1,
-                                                     AssignEqual,
-                                                     value1)) ],
+          [ ExpressionStatement(AssignmentExpression(IdentExpression ident1, AssignEqual, value1)) ],
           [ IfStatement(guardExpr2,
-                        [ ExpressionStatement(AssignmentExpression(IdentExpression ident2,
-                                                                   AssignEqual,
-                                                                   value2)) ],
-                        [ ExpressionStatement(AssignmentExpression(IdentExpression ident3,
-                                                                   AssignEqual,
-                                                                   value3)) ]) ] when
-            ident.Name = ident1.Name
-            && ident.Name = ident2.Name
-            && ident.Name = ident3.Name
+                        [ ExpressionStatement(AssignmentExpression(IdentExpression ident2, AssignEqual, value2)) ],
+                        [ ExpressionStatement(AssignmentExpression(IdentExpression ident3, AssignEqual, value3)) ]) ] when
+            ident.Name = ident1.Name && ident.Name = ident2.Name && ident.Name = ident3.Name
             ->
 
             let cond =
                 Expression.conditionalExpression (
                     guardExpr,
                     value1,
-                    Expression.conditionalExpression (
-                        guardExpr2,
-                        value2,
-                        value3
-                    )
+                    Expression.conditionalExpression (guardExpr2, value2, value3)
                 )
 
             if Option.isSome captureExpr then
@@ -1735,24 +1274,10 @@ module Util =
         | _ ->
             guardStatements
             @ captureStatements
-            @ [
-                Statement.ifStatement (
-                    guardExpr,
-                    thenStatements,
-                    elseStatements
-                )
-            ],
+            @ [ Statement.ifStatement (guardExpr, thenStatements, elseStatements) ],
             captureExpr
 
-    let transformGet
-        (com: IDartCompiler)
-        ctx
-        _range
-        t
-        returnStrategy
-        kind
-        fableExpr
-        =
+    let transformGet (com: IDartCompiler) ctx _range t returnStrategy kind fableExpr =
         match kind with
         | Fable.ExprGet prop ->
             transformExprsAndResolve2
@@ -1770,9 +1295,7 @@ module Util =
             match fableExpr.Type with
             | Fable.AnonymousRecordType(fieldNames, _genArgs, _isStruct) ->
                 let index =
-                    fieldNames
-                    |> Array.tryFindIndex ((=) info.Name)
-                    |> Option.defaultValue 0
+                    fieldNames |> Array.tryFindIndex ((=) info.Name) |> Option.defaultValue 0
 
                 transformExprAndResolve
                     com
@@ -1782,11 +1305,7 @@ module Util =
                     (fun expr ->
                         let t = transformType com ctx t
 
-                        Expression.propertyAccess (
-                            expr,
-                            $"item%i{index + 1}",
-                            t
-                        )
+                        Expression.propertyAccess (expr, $"item%i{index + 1}", t)
                     )
             | _ ->
                 let fieldName = sanitizeMember info.Name
@@ -1795,8 +1314,7 @@ module Util =
                     match fableExpr with
                     // If we're accessing a virtual member with default implementation (see #701)
                     // from base class, we can use `super` so we don't need the bound this arg
-                    | Fable.Value(Fable.BaseValue(_, t), r) ->
-                        Fable.Value(Fable.BaseValue(None, t), r)
+                    | Fable.Value(Fable.BaseValue(_, t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
                     | _ -> fableExpr
 
                 transformExprAndResolve
@@ -1807,12 +1325,7 @@ module Util =
                     (fun expr ->
                         let t = transformType com ctx t
 
-                        Expression.propertyAccess (
-                            expr,
-                            fieldName,
-                            t,
-                            isConst = List.contains "const" info.Tags
-                        )
+                        Expression.propertyAccess (expr, fieldName, t, isConst = List.contains "const" info.Tags)
                     )
 
         | Fable.ListHead ->
@@ -1834,8 +1347,7 @@ module Util =
         | Fable.TupleIndex index ->
             match fableExpr with
             // Check the erased expressions don't have side effects?
-            | Fable.Value(Fable.NewTuple(exprs, _), _) ->
-                List.item index exprs |> transform com ctx returnStrategy
+            | Fable.Value(Fable.NewTuple(exprs, _), _) -> List.item index exprs |> transform com ctx returnStrategy
             | fableExpr ->
                 transformExprAndResolve
                     com
@@ -1845,11 +1357,7 @@ module Util =
                     (fun expr ->
                         let t = transformType com ctx t
 
-                        Expression.propertyAccess (
-                            expr,
-                            $"item%i{index + 1}",
-                            t
-                        )
+                        Expression.propertyAccess (expr, $"item%i{index + 1}", t)
                     )
 
         | Fable.OptionValue ->
@@ -1863,13 +1371,7 @@ module Util =
                     libCallWithType com ctx t "Types" "value" [ expr ]
                 )
 
-        | Fable.UnionTag ->
-            transformExprAndResolve
-                com
-                ctx
-                returnStrategy
-                fableExpr
-                getUnionExprTag
+        | Fable.UnionTag -> transformExprAndResolve com ctx returnStrategy fableExpr getUnionExprTag
 
         | Fable.UnionField info ->
             let statements, expr = transformAndCaptureExpr com ctx fableExpr
@@ -1879,18 +1381,11 @@ module Util =
             let field = uci.UnionCaseFields |> List.item info.FieldIndex
 
             let unionCaseType =
-                match
-                    transformDeclaredType com ctx info.Entity info.GenericArgs
-                with
+                match transformDeclaredType com ctx info.Entity info.GenericArgs with
                 | TypeReference(ident, generics, _info) ->
                     // Discard type info, as we don't consider the case type as union
                     // (this is mainly to skip the type in the variable declaration)
-                    Type.reference (
-                        { ident with
-                            Name = getUnionCaseDeclarationName ident.Name uci
-                        },
-                        generics
-                    )
+                    Type.reference ({ ident with Name = getUnionCaseDeclarationName ident.Name uci }, generics)
                     |> Some
                 | _ -> None // Unexpected, error?
 
@@ -1909,8 +1404,7 @@ module Util =
                                     Type = unionCaseType
                                 }
                         | false, _ ->
-                            let newIdName =
-                                getUniqueNameInDeclarationScope ctx id.Name
+                            let newIdName = getUniqueNameInDeclarationScope ctx id.Name
 
                             ctx.CastedUnions.Add(id.Name, newIdName)
 
@@ -1923,11 +1417,7 @@ module Util =
                             [
                                 Statement.tempVariableDeclaration (
                                     newIdent,
-                                    value =
-                                        Expression.asExpression (
-                                            expr,
-                                            unionCaseType
-                                        )
+                                    value = Expression.asExpression (expr, unionCaseType)
                                 )
                             ],
                             IdentExpression newIdent
@@ -1949,12 +1439,7 @@ module Util =
         : Ident list * Statement list * Type
         =
         let tailcallChance =
-            Option.map
-                (fun name ->
-                    NamedTailCallOpportunity(com, ctx, name, args)
-                    :> ITailCallOpportunity
-                )
-                name
+            Option.map (fun name -> NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
 
         let args = FSharp2Fable.Util.discardUnitArg args
         let mutable isTailCallOptimized = false
@@ -1986,41 +1471,24 @@ module Util =
                 |> List.map (fun (id, tcArg) ->
                     let ident = transformIdent com ctx id
 
-                    Statement.tempVariableDeclaration (
-                        ident,
-                        value = Expression.identExpression (tcArg)
-                    )
+                    Statement.tempVariableDeclaration (ident, value = Expression.identExpression (tcArg))
                 )
 
             let body =
                 match returnStrategy with
                 // Make sure we don't get trapped in an infinite loop, see #1624
-                | Return(isVoid = true) ->
-                    varDecls @ body @ [ Statement.breakStatement () ]
+                | Return(isVoid = true) -> varDecls @ body @ [ Statement.breakStatement () ]
                 | _ -> varDecls @ body
 
             args',
             [
-                Statement.labeledStatement (
-                    tc.Label,
-                    Statement.whileStatement (
-                        Expression.booleanLiteral (true),
-                        body
-                    )
-                )
+                Statement.labeledStatement (tc.Label, Statement.whileStatement (Expression.booleanLiteral (true), body))
             ],
             returnType
 
         | _ -> args |> List.map (transformIdent com ctx), body, returnType
 
-    let transformSet
-        (com: IDartCompiler)
-        ctx
-        _range
-        kind
-        toBeSet
-        (value: Fable.Expr)
-        =
+    let transformSet (com: IDartCompiler) ctx _range kind toBeSet (value: Fable.Expr) =
         let statements1, toBeSet = transformAndCaptureExpr com ctx toBeSet
 
         match kind with
@@ -2038,12 +1506,7 @@ module Util =
             let statements2, _ = transform com ctx (Assign toBeSet) value
             statements1 @ statements2
 
-    let transformBinding
-        (com: IDartCompiler)
-        ctx
-        (var: Fable.Ident)
-        (value: Fable.Expr)
-        =
+    let transformBinding (com: IDartCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         let ident = transformIdent com ctx var
 
         let valueStatements, value =
@@ -2056,12 +1519,9 @@ module Util =
 
                 let ctx = ctx.AppendLocalGenParams(genParams)
                 // Pass the name of the bound ident to enable tail-call optimizations
-                let args, body, returnType =
-                    transformFunction com ctx (Some var.Name) args body
+                let args, body, returnType = transformFunction com ctx (Some var.Name) args body
 
-                [],
-                Expression.anonymousFunction (args, body, returnType, genParams)
-                |> Some
+                [], Expression.anonymousFunction (args, body, returnType, genParams) |> Some
             | value -> com.Transform(ctx, Capture(binding = Some ident), value)
 
         match value with
@@ -2073,67 +1533,40 @@ module Util =
                     Final
 
             let varDecl =
-                Statement.variableDeclaration (
-                    ident,
-                    kind,
-                    addToScope = ctx.AddToScope
-                )
+                Statement.variableDeclaration (ident, kind, addToScope = ctx.AddToScope)
 
             ctx, varDecl :: valueStatements
         | _ ->
-            let value =
-                value |> Option.defaultValue (Expression.nullLiteral ident.Type)
+            let value = value |> Option.defaultValue (Expression.nullLiteral ident.Type)
 
             let kind, value = getVarKind ctx var.IsMutable value
 
             let ctx =
                 match kind with
-                | Const ->
-                    { ctx with
-                        ConstIdents = Set.add ident.Name ctx.ConstIdents
-                    }
+                | Const -> { ctx with ConstIdents = Set.add ident.Name ctx.ConstIdents }
                 | Var
                 | Final -> ctx
             // If value is an anonymous function this will be converted into function declaration in printing step
             ctx,
             valueStatements
             @ [
-                Statement.variableDeclaration (
-                    ident,
-                    kind,
-                    value = value,
-                    addToScope = ctx.AddToScope
-                )
+                Statement.variableDeclaration (ident, kind, value = value, addToScope = ctx.AddToScope)
             ]
 
-    let transformSwitch
-        (com: IDartCompiler)
-        ctx
-        returnStrategy
-        evalExpr
-        cases
-        defaultCase
-        =
+    let transformSwitch (com: IDartCompiler) ctx returnStrategy evalExpr cases defaultCase =
         let cases =
             cases
             |> List.choose (fun (guards, expr) ->
                 // Remove empty branches
                 match returnStrategy, expr, guards with
-                | (Return(isVoid = true) | Ignore),
-                  Fable.Value(Fable.UnitConstant, _),
-                  _
+                | (Return(isVoid = true) | Ignore), Fable.Value(Fable.UnitConstant, _), _
                 | _, _, [] -> None
                 | _, _, guards ->
                     // Switch is only activated when guards are literals so we can ignore the statements
-                    let guards =
-                        guards
-                        |> List.map (transformAndCaptureExpr com ctx >> snd)
+                    let guards = guards |> List.map (transformAndCaptureExpr com ctx >> snd)
                     // Create new instance of CastedUnions dictionary as we do with conditional
                     // branches (switch guard may be a union tag test)
-                    let ctx =
-                        { ctx with
-                            CastedUnions = Dictionary(ctx.CastedUnions)
-                        }
+                    let ctx = { ctx with CastedUnions = Dictionary(ctx.CastedUnions) }
 
                     let caseBody, _ = com.Transform(ctx, returnStrategy, expr)
                     SwitchCase(guards, caseBody) |> Some
@@ -2141,8 +1574,7 @@ module Util =
 
         let cases, defaultCase =
             match defaultCase with
-            | Some expr ->
-                cases, com.Transform(ctx, returnStrategy, expr) |> fst
+            | Some expr -> cases, com.Transform(ctx, returnStrategy, expr) |> fst
             | None ->
                 // Dart may complain if we're not covering all cases so turn the last case into default
                 let cases, lastCase = List.splitLast cases
@@ -2150,8 +1582,7 @@ module Util =
 
         let evalStatements, evalExpr = transformAndCaptureExpr com ctx evalExpr
 
-        evalStatements
-        @ [ Statement.switchStatement (evalExpr, cases, defaultCase) ]
+        evalStatements @ [ Statement.switchStatement (evalExpr, cases, defaultCase) ]
 
     let matchTargetIdentAndValues idents values =
         if List.isEmpty idents then
@@ -2161,12 +1592,7 @@ module Util =
         else
             failwith "Target idents/values lengths differ"
 
-    let getDecisionTargetAndBindValues
-        (com: IDartCompiler)
-        (ctx: Context)
-        targetIndex
-        boundValues
-        =
+    let getDecisionTargetAndBindValues (com: IDartCompiler) (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex
         let identsAndValues = matchTargetIdentAndValues idents boundValues
 
@@ -2185,13 +1611,7 @@ module Util =
         else
             identsAndValues, target
 
-    let transformDecisionTreeSuccess
-        (com: IDartCompiler)
-        (ctx: Context)
-        returnStrategy
-        targetIndex
-        boundValues
-        =
+    let transformDecisionTreeSuccess (com: IDartCompiler) (ctx: Context) returnStrategy targetIndex boundValues =
         match returnStrategy with
         | Target targetId ->
             let idents, _ = getDecisionTarget ctx targetIndex
@@ -2204,10 +1624,7 @@ module Util =
                 )
 
             let targetAssignment =
-                assign
-                    None
-                    (IdentExpression targetId)
-                    (Expression.integerLiteral targetIndex)
+                assign None (IdentExpression targetId) (Expression.integerLiteral targetIndex)
                 |> ExpressionStatement
 
             targetAssignment :: assignments, None
@@ -2230,12 +1647,11 @@ module Util =
             function
             | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _, _) ->
                 match expr with
-                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _),
-                              _) -> Some(expr, right)
+                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) ->
+                    Some(expr, right)
                 | _ -> None
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr =
-                    Fable.Get(expr, Fable.UnionTag, numType Int32, None)
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, numType Int32, None)
 
                 let right = makeIntConst tag
                 Some(evalExpr, right)
@@ -2244,8 +1660,7 @@ module Util =
         let sameEvalExprs evalExpr1 evalExpr2 =
             match evalExpr1, evalExpr2 with
             | Fable.IdentExpr i1, Fable.IdentExpr i2
-            | Fable.Get(Fable.IdentExpr i1, Fable.UnionTag, _, _),
-              Fable.Get(Fable.IdentExpr i2, Fable.UnionTag, _, _) ->
+            | Fable.Get(Fable.IdentExpr i1, Fable.UnionTag, _, _), Fable.Get(Fable.IdentExpr i2, Fable.UnionTag, _, _) ->
                 i1.Name = i2.Name
             | Fable.Get(Fable.IdentExpr i1, Fable.FieldGet fieldInfo1, _, _),
               Fable.Get(Fable.IdentExpr i2, Fable.FieldGet fieldInfo2, _, _) ->
@@ -2255,29 +1670,15 @@ module Util =
         let rec checkInner cases evalExpr =
             function
             | Fable.IfThenElse(Equals(evalExpr2, caseExpr),
-                               Fable.DecisionTreeSuccess(targetIndex,
-                                                         boundValues,
-                                                         _),
+                               Fable.DecisionTreeSuccess(targetIndex, boundValues, _),
                                treeExpr,
                                _) when sameEvalExprs evalExpr evalExpr2 ->
                 match treeExpr with
-                | Fable.DecisionTreeSuccess(defaultTargetIndex,
-                                            defaultBoundValues,
-                                            _) ->
-                    let cases =
-                        (caseExpr, targetIndex, boundValues) :: cases
-                        |> List.rev
+                | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
+                    let cases = (caseExpr, targetIndex, boundValues) :: cases |> List.rev
 
-                    Some(
-                        evalExpr,
-                        cases,
-                        (defaultTargetIndex, defaultBoundValues)
-                    )
-                | treeExpr ->
-                    checkInner
-                        ((caseExpr, targetIndex, boundValues) :: cases)
-                        evalExpr
-                        treeExpr
+                    Some(evalExpr, cases, (defaultTargetIndex, defaultBoundValues))
+                | treeExpr -> checkInner ((caseExpr, targetIndex, boundValues) :: cases) evalExpr treeExpr
             | _ -> None
 
         match expr with
@@ -2285,22 +1686,12 @@ module Util =
                            Fable.DecisionTreeSuccess(targetIndex, boundValues, _),
                            treeExpr,
                            _) ->
-            match
-                checkInner
-                    [ caseExpr, targetIndex, boundValues ]
-                    evalExpr
-                    treeExpr
-            with
-            | Some(evalExpr, cases, defaultCase) ->
-                Some(evalExpr, cases, defaultCase)
+            match checkInner [ caseExpr, targetIndex, boundValues ] evalExpr treeExpr with
+            | Some(evalExpr, cases, defaultCase) -> Some(evalExpr, cases, defaultCase)
             | None -> None
         | _ -> None
 
-    let groupSwitchCases
-        t
-        (cases: (Fable.Expr * int * Fable.Expr list) list)
-        (defaultIndex, defaultBoundValues)
-        =
+    let groupSwitchCases t (cases: (Fable.Expr * int * Fable.Expr list) list) (defaultIndex, defaultBoundValues) =
         cases
         |> List.groupBy (fun (_, idx, boundValues) ->
             // Try to group cases with some target index and empty bound values
@@ -2322,10 +1713,7 @@ module Util =
             // Check if the last case can also be grouped with the default branch, see #2357
             | cases when List.isEmpty defaultBoundValues ->
                 match List.splitLast cases with
-                | cases, (_, Fable.DecisionTreeSuccess(idx, [], _)) when
-                    idx = defaultIndex
-                    ->
-                    cases
+                | cases, (_, Fable.DecisionTreeSuccess(idx, [], _)) when idx = defaultIndex -> cases
                 | _ -> cases
             | cases -> cases
 
@@ -2338,8 +1726,7 @@ module Util =
                 // We shouldn't actually see this, but short-circuit just in case
                 | Fable.DecisionTree _ -> findSuccess targetRefs exprs
                 | Fable.DecisionTreeSuccess(idx, _, _) ->
-                    let count =
-                        Map.tryFind idx targetRefs |> Option.defaultValue 0
+                    let count = Map.tryFind idx targetRefs |> Option.defaultValue 0
 
                     let targetRefs = Map.add idx (count + 1) targetRefs
                     findSuccess targetRefs exprs
@@ -2375,30 +1762,14 @@ module Util =
                 transformIdent com ctx targetId
                 yield!
                     targets
-                    |> List.collect (fun (idents, _) ->
-                        idents |> List.map (transformIdent com ctx)
-                    )
+                    |> List.collect (fun (idents, _) -> idents |> List.map (transformIdent com ctx))
             ]
-            |> List.map (fun i ->
-                Statement.variableDeclaration (
-                    i,
-                    Final,
-                    addToScope = ctx.AddToScope
-                )
-            )
+            |> List.map (fun i -> Statement.variableDeclaration (i, Final, addToScope = ctx.AddToScope))
         // Transform targets as switch
         let switch2 =
-            let cases =
-                targets
-                |> List.mapi (fun i (_, target) -> [ makeIntConst i ], target)
+            let cases = targets |> List.mapi (fun i (_, target) -> [ makeIntConst i ], target)
 
-            transformSwitch
-                com
-                ctx
-                returnStrategy
-                (targetId |> Fable.IdentExpr)
-                cases
-                None
+            transformSwitch com ctx returnStrategy (targetId |> Fable.IdentExpr) cases None
         // Transform decision tree
         let targetAssign = Target(transformIdent com ctx targetId)
         let ctx = { ctx with DecisionTargets = targets }
@@ -2406,26 +1777,12 @@ module Util =
         match canTransformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
             let cases =
-                groupSwitchCases
-                    (numType Int32)
-                    cases
-                    (defaultIndex, defaultBoundValues)
+                groupSwitchCases (numType Int32) cases (defaultIndex, defaultBoundValues)
 
             let defaultCase =
-                Fable.DecisionTreeSuccess(
-                    defaultIndex,
-                    defaultBoundValues,
-                    numType Int32
-                )
+                Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, numType Int32)
 
-            let switch1 =
-                transformSwitch
-                    com
-                    ctx
-                    targetAssign
-                    evalExpr
-                    cases
-                    (Some defaultCase)
+            let switch1 = transformSwitch com ctx targetAssign evalExpr cases (Some defaultCase)
 
             varDecls @ switch1 @ switch2
         | None ->
@@ -2437,12 +1794,7 @@ module Util =
         |> visitFromInsideOut (
             function
             | Fable.IfThenElse(guardExpr1,
-                               Fable.IfThenElse(guardExpr2,
-                                                thenExpr,
-                                                Fable.DecisionTreeSuccess(index2,
-                                                                          [],
-                                                                          _),
-                                                _),
+                               Fable.IfThenElse(guardExpr2, thenExpr, Fable.DecisionTreeSuccess(index2, [], _), _),
                                Fable.DecisionTreeSuccess(index1, [], t),
                                r) when index1 = index2 ->
                 Fable.IfThenElse(
@@ -2482,24 +1834,12 @@ module Util =
                 let cases =
                     cases
                     |> List.map (fun (caseExpr, targetIndex, boundValues) ->
-                        [ caseExpr ],
-                        Fable.DecisionTreeSuccess(targetIndex, boundValues, t)
+                        [ caseExpr ], Fable.DecisionTreeSuccess(targetIndex, boundValues, t)
                     )
 
-                let defaultCase =
-                    Fable.DecisionTreeSuccess(
-                        defaultIndex,
-                        defaultBoundValues,
-                        t
-                    )
+                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
 
-                transformSwitch
-                    com
-                    ctx
-                    returnStrategy
-                    evalExpr
-                    cases
-                    (Some defaultCase)
+                transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)
                 |> resolve
             | None ->
                 let statements, _ = com.Transform(ctx, returnStrategy, treeExpr)
@@ -2507,9 +1847,7 @@ module Util =
                 match captureExpr, statements with
                 | Some(IdentExpression ident1),
                   Patterns.ListLast(statements,
-                                    ExpressionStatement(AssignmentExpression(IdentExpression ident2,
-                                                                             AssignEqual,
-                                                                             value))) when
+                                    ExpressionStatement(AssignmentExpression(IdentExpression ident2, AssignEqual, value))) when
                     ident1.Name = ident2.Name
                     ->
                     statements, Some value
@@ -2528,61 +1866,27 @@ module Util =
 
             let hasAnyTargetWithMultiRefsBoundValues =
                 targetsWithMultiRefs
-                |> List.exists (fun idx ->
-                    targets[idx] |> fst |> List.isEmpty |> not
-                )
+                |> List.exists (fun idx -> targets[idx] |> fst |> List.isEmpty |> not)
 
             if not hasAnyTargetWithMultiRefsBoundValues then
                 match canTransformDecisionTreeAsSwitch treeExpr with
                 | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-                    let cases =
-                        groupSwitchCases
-                            t
-                            cases
-                            (defaultIndex, defaultBoundValues)
+                    let cases = groupSwitchCases t cases (defaultIndex, defaultBoundValues)
 
                     let ctx = { ctx with DecisionTargets = targets }
 
-                    let defaultCase =
-                        Fable.DecisionTreeSuccess(
-                            defaultIndex,
-                            defaultBoundValues,
-                            t
-                        )
+                    let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
 
-                    transformSwitch
-                        com
-                        ctx
-                        returnStrategy
-                        evalExpr
-                        cases
-                        (Some defaultCase)
+                    transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)
                     |> resolve
                 | None ->
-                    transformDecisionTreeWithTwoSwitches
-                        com
-                        ctx
-                        returnStrategy
-                        targets
-                        treeExpr
+                    transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
                     |> resolve
             else
-                transformDecisionTreeWithTwoSwitches
-                    com
-                    ctx
-                    returnStrategy
-                    targets
-                    treeExpr
+                transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
                 |> resolve
 
-    let transformTest
-        (com: IDartCompiler)
-        ctx
-        _range
-        returnStrategy
-        kind
-        fableExpr
-        =
+    let transformTest (com: IDartCompiler) ctx _range returnStrategy kind fableExpr =
         transformExprAndResolve
             com
             ctx
@@ -2590,8 +1894,7 @@ module Util =
             fableExpr
             (fun expr ->
                 match kind with
-                | Fable.TypeTest t ->
-                    Expression.isExpression (expr, transformType com ctx t)
+                | Fable.TypeTest t -> Expression.isExpression (expr, transformType com ctx t)
                 | Fable.OptionTest isSome ->
                     let t =
                         match expr.Type with
@@ -2604,15 +1907,9 @@ module Util =
                         else
                             BinaryEqual
 
-                    Expression.binaryExpression (
-                        op,
-                        expr,
-                        Expression.nullLiteral t,
-                        Boolean
-                    )
+                    Expression.binaryExpression (op, expr, Expression.nullLiteral t, Boolean)
                 | Fable.ListTest nonEmpty ->
-                    let expr =
-                        libCall com ctx Fable.Boolean "List" "isEmpty" [ expr ]
+                    let expr = libCall com ctx Fable.Boolean "List" "isEmpty" [ expr ]
 
                     if nonEmpty then
                         Expression.unaryExpression (UnaryNot, expr)
@@ -2635,19 +1932,10 @@ module Util =
 
                     let actual = getUnionExprTag expr
 
-                    Expression.binaryExpression (
-                        BinaryEqual,
-                        actual,
-                        expected,
-                        Boolean
-                    )
+                    Expression.binaryExpression (BinaryEqual, actual, expected, Boolean)
             )
 
-    let extractBaseArgs
-        (com: IDartCompiler)
-        (ctx: Context)
-        (classDecl: Fable.ClassDecl)
-        =
+    let extractBaseArgs (com: IDartCompiler) (ctx: Context) (classDecl: Fable.ClassDecl) =
         match classDecl.BaseCall with
         | Some(Fable.Call(_baseRef, info, _, _) as e) ->
             match transformCallArgs com ctx (CallInfo info) with
@@ -2669,16 +1957,10 @@ module Util =
             []
         | None -> []
 
-    let transformAndCaptureExpr
-        (com: IDartCompiler)
-        (ctx: Context)
-        (expr: Fable.Expr)
-        : Statement list * Expression
-        =
+    let transformAndCaptureExpr (com: IDartCompiler) (ctx: Context) (expr: Fable.Expr) : Statement list * Expression =
         match com.Transform(ctx, Capture(binding = None), expr) with
         | statements, Some expr -> statements, expr
-        | statements, None ->
-            statements, libCall com ctx Fable.Unit "Util" "ignore" []
+        | statements, None -> statements, libCall com ctx Fable.Unit "Util" "ignore" []
 
     let transform
         (com: IDartCompiler)
@@ -2726,12 +2008,7 @@ module Util =
                     ctx
                     returnStrategy
                     expr
-                    (fun expr ->
-                        Expression.throwExpression (
-                            expr,
-                            transformType com ctx t
-                        )
-                    )
+                    (fun expr -> Expression.throwExpression (expr, transformType com ctx t))
             | Fable.Debugger ->
                 [
                     extLibCall com ctx Fable.Unit "dart:developer" "debugger" []
@@ -2741,25 +2018,17 @@ module Util =
 
         | Fable.TypeCast(expr, t) ->
             match t with
-            | Fable.DeclaredType(EntRefFullName(Types.ienumerableGeneric | Types.ienumerable),
-                                 [ _ ]) ->
+            | Fable.DeclaredType(EntRefFullName(Types.ienumerableGeneric | Types.ienumerable), [ _ ]) ->
                 match expr with
                 // Optimization for (numeric) array or list literals casted to seq
                 // Done at the very end of the compile pipeline to get more opportunities
                 // of matching cast and literal expressions after resolving pipes, inlining...
                 | Replacements.Util.ArrayOrListLiteral(exprs, typ) ->
-                    transformExprsAndResolve
-                        com
-                        ctx
-                        returnStrategy
-                        exprs
-                        (makeImmutableListExpr com ctx typ)
+                    transformExprsAndResolve com ctx returnStrategy exprs (makeImmutableListExpr com ctx typ)
 
-                | ExprType(Fable.Array _ | Fable.List _) ->
-                    transform com ctx returnStrategy expr
+                | ExprType(Fable.Array _ | Fable.List _) -> transform com ctx returnStrategy expr
 
-                | ExprType(Fable.DeclaredType(EntRefFullName(Types.dictionary | Types.idictionary),
-                                              _)) ->
+                | ExprType(Fable.DeclaredType(EntRefFullName(Types.dictionary | Types.idictionary), _)) ->
                     transformExprAndResolve
                         com
                         ctx
@@ -2770,37 +2039,29 @@ module Util =
                             get t expr "entries"
                         )
 
-                | ExprType(Fable.String) ->
-                    Dart.Replacements.stringToCharSeq expr
-                    |> transform com ctx returnStrategy
+                | ExprType(Fable.String) -> Dart.Replacements.stringToCharSeq expr |> transform com ctx returnStrategy
 
                 | ExprType(Fable.DeclaredType(EntRefFullName Types.regexMatch, _)) ->
-                    Dart.Replacements.regexMatchToSeq com t expr
-                    |> transform com ctx returnStrategy
+                    Dart.Replacements.regexMatchToSeq com t expr |> transform com ctx returnStrategy
 
                 | _ -> transformCast com ctx t returnStrategy expr
             | _ -> transformCast com ctx t returnStrategy expr
 
         | Fable.Value(kind, r) -> transformValue com ctx r returnStrategy kind
 
-        | Fable.IdentExpr id ->
-            transformIdentAsExpr com ctx id |> resolveExpr returnStrategy
+        | Fable.IdentExpr id -> transformIdentAsExpr com ctx id |> resolveExpr returnStrategy
 
         | Fable.Import({
                            Selector = selector
                            Path = path
                        },
                        t,
-                       r) ->
-            transformImport com ctx r t selector path
-            |> resolveExpr returnStrategy
+                       r) -> transformImport com ctx r t selector path |> resolveExpr returnStrategy
 
-        | Fable.Test(expr, kind, range) ->
-            transformTest com ctx range returnStrategy kind expr
+        | Fable.Test(expr, kind, range) -> transformTest com ctx range returnStrategy kind expr
 
         | Fable.Lambda(arg, body, name) ->
-            let genParams =
-                getLocalFunctionGenericParams com ctx expr.Range [ arg.Type ]
+            let genParams = getLocalFunctionGenericParams com ctx expr.Range [ arg.Type ]
 
             let ctx = ctx.AppendLocalGenParams(genParams)
             let args, body, t = transformFunction com ctx name [ arg ] body
@@ -2820,30 +2081,18 @@ module Util =
             Expression.anonymousFunction (args, body, t, genParams)
             |> resolveExpr returnStrategy
 
-        | Fable.Call(callee, info, typ, range) ->
-            transformCall com ctx range typ returnStrategy callee info
+        | Fable.Call(callee, info, typ, range) -> transformCall com ctx range typ returnStrategy callee info
 
         | Fable.CurriedApply(callee, args, typ, range) ->
-            transformCurriedApplyAsStatements
-                com
-                ctx
-                range
-                typ
-                returnStrategy
-                callee
-                args
+            transformCurriedApplyAsStatements com ctx range typ returnStrategy callee args
 
-        | Fable.Emit(info, t, _range) ->
-            transformEmit com ctx t returnStrategy info
+        | Fable.Emit(info, t, _range) -> transformEmit com ctx t returnStrategy info
 
-        | Fable.Operation(kind, _, t, r) ->
-            transformOperation com ctx r t returnStrategy kind
+        | Fable.Operation(kind, _, t, r) -> transformOperation com ctx r t returnStrategy kind
 
-        | Fable.Get(expr, kind, t, range) ->
-            transformGet com ctx range t returnStrategy kind expr
+        | Fable.Get(expr, kind, t, range) -> transformGet com ctx range t returnStrategy kind expr
 
-        | Fable.Set(expr, kind, _typ, value, range) ->
-            transformSet com ctx range kind expr value, None
+        | Fable.Set(expr, kind, _typ, value, range) -> transformSet com ctx range kind expr value, None
 
         | Fable.Let(ident, value, body) ->
             let ctx, binding = transformBinding com ctx ident value
@@ -2864,8 +2113,7 @@ module Util =
         | Fable.Sequential exprs ->
             let exprs, lastExpr = List.splitLast exprs
 
-            let statements1 =
-                exprs |> List.collect (transform com ctx Ignore >> fst)
+            let statements1 = exprs |> List.collect (transform com ctx Ignore >> fst)
 
             let statements2, expr = transform com ctx returnStrategy lastExpr
             statements1 @ statements2, expr
@@ -2874,16 +2122,9 @@ module Util =
             transformTryCatch com ctx r returnStrategy (body, catch, finalizer)
 
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, _r) ->
-            transformConditional
-                com
-                ctx
-                returnStrategy
-                guardExpr
-                thenExpr
-                elseExpr
+            transformConditional com ctx returnStrategy guardExpr thenExpr elseExpr
 
-        | Fable.DecisionTree(expr, targets) ->
-            transformDecisionTree com ctx returnStrategy targets expr
+        | Fable.DecisionTree(expr, targets) -> transformDecisionTree com ctx returnStrategy targets expr
 
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccess com ctx returnStrategy idx boundValues
@@ -2901,12 +2142,7 @@ module Util =
                         Expression.booleanLiteral (true),
                         [
                             yield! guardStatements
-                            yield
-                                Statement.ifStatement (
-                                    guard,
-                                    body,
-                                    [ Statement.breakStatement () ]
-                                )
+                            yield Statement.ifStatement (guard, body, [ Statement.breakStatement () ])
                         ]
                     )
                 ],
@@ -2917,10 +2153,7 @@ module Util =
                 combineStatementsAndExprs
                     com
                     ctx
-                    [
-                        transformAndCaptureExpr com ctx start
-                        transformAndCaptureExpr com ctx limit
-                    ]
+                    [ transformAndCaptureExpr com ctx start; transformAndCaptureExpr com ctx limit ]
 
             let body, _ = transform com ctx Ignore body
             let param = transformIdent com ctx var
@@ -2930,20 +2163,14 @@ module Util =
                 if isUp then
                     BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
                 else
-                    BinaryOperator.BinaryGreaterOrEqual,
-                    UpdateOperator.UpdateMinus
+                    BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
 
             statements
             @ [
                 Statement.forStatement (
                     body,
                     (param, startAndLimit[0]),
-                    Expression.binaryExpression (
-                        op1,
-                        paramExpr,
-                        startAndLimit[1],
-                        Boolean
-                    ),
+                    Expression.binaryExpression (op1, paramExpr, startAndLimit[1], Boolean),
                     Expression.updateExpression (op2, paramExpr)
                 )
             ],
@@ -2968,8 +2195,7 @@ module Util =
         let genParams =
             (Set.empty, argTypes)
             ||> List.fold (fun genArgs t ->
-                (genArgs, getGenParams t)
-                ||> List.fold (fun genArgs n -> Set.add n genArgs)
+                (genArgs, getGenParams t) ||> List.fold (fun genArgs n -> Set.add n genArgs)
             )
             |> List.ofSeq
 
@@ -2978,8 +2204,7 @@ module Util =
             | [], _
             | _, [] -> genParams
             | localGenParams, memberGenParams ->
-                let memberGenParams =
-                    memberGenParams |> List.map (fun p -> p.Name) |> set
+                let memberGenParams = memberGenParams |> List.map (fun p -> p.Name) |> set
 
                 localGenParams |> List.filter (memberGenParams.Contains >> not)
 
@@ -3016,8 +2241,7 @@ module Util =
 
         let ctx = { ctx with EntityAndMemberGenericParams = genParams }
 
-        let args, body, returnType =
-            transformFunction com ctx funcName args body
+        let args, body, returnType = transformFunction com ctx funcName args body
 
         let args =
             let parameters = List.concat paramGroups
@@ -3025,26 +2249,16 @@ module Util =
             if List.sameLength args parameters then
                 List.zip args parameters
                 |> List.map (fun (a, p) ->
-                    let defVal =
-                        p.DefaultValue
-                        |> Option.map (transformAndCaptureExpr com ctx >> snd)
+                    let defVal = p.DefaultValue |> Option.map (transformAndCaptureExpr com ctx >> snd)
 
-                    FunctionArg(
-                        a,
-                        isOptional = p.IsOptional,
-                        isNamed = p.IsNamed,
-                        ?defaultValue = defVal
-                    )
+                    FunctionArg(a, isOptional = p.IsOptional, isNamed = p.IsNamed, ?defaultValue = defVal)
                 )
             else
                 args |> List.map FunctionArg
 
         args, body, returnType
 
-    let getEntityAndMemberArgs
-        (com: IDartCompiler)
-        (info: Fable.MemberFunctionOrValue)
-        =
+    let getEntityAndMemberArgs (com: IDartCompiler) (info: Fable.MemberFunctionOrValue) =
         match info.DeclaringEntity with
         | Some e ->
             let e = com.GetEntity(e)
@@ -3055,12 +2269,7 @@ module Util =
                 info.GenericParameters
         | None -> info.GenericParameters
 
-    let transformModuleFunction
-        (com: IDartCompiler)
-        ctx
-        (info: Fable.MemberFunctionOrValue)
-        (memb: Fable.MemberDecl)
-        =
+    let transformModuleFunction (com: IDartCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
         let entAndMembGenParams = getEntityAndMemberArgs com info
 
         let args, body, returnType =
@@ -3074,8 +2283,7 @@ module Util =
                 memb.Body
 
         let isEntryPoint =
-            info.Attributes
-            |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
+            info.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
 
         let name =
             if isEntryPoint then
@@ -3083,22 +2291,11 @@ module Util =
             else
                 memb.Name
 
-        let genParams =
-            entAndMembGenParams |> List.choose (transformGenericParam com ctx)
+        let genParams = entAndMembGenParams |> List.choose (transformGenericParam com ctx)
 
-        Declaration.functionDeclaration (
-            name,
-            args,
-            body,
-            returnType,
-            genParams = genParams
-        )
+        Declaration.functionDeclaration (name, args, body, returnType, genParams = genParams)
 
-    let transformAbstractMember
-        (com: IDartCompiler)
-        ctx
-        (m: Fable.MemberFunctionOrValue)
-        =
+    let transformAbstractMember (com: IDartCompiler) ctx (m: Fable.MemberFunctionOrValue) =
         let kind =
             if m.IsGetter then
                 IsGetter
@@ -3122,8 +2319,7 @@ module Util =
                 FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
             )
 
-        let genParams =
-            m.GenericParameters |> List.choose (transformGenericParam com ctx)
+        let genParams = m.GenericParameters |> List.choose (transformGenericParam com ctx)
 
         InstanceMethod(
             name,
@@ -3156,26 +2352,16 @@ module Util =
                 | Types.idisposable ->
                     implementsDisposable <- true
 
-                    transformDeclaredType com ctx ifc.Entity ifc.GenericArgs
-                    |> Some
+                    transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some
                 | Types.ienumeratorGeneric ->
                     implementsEnumerator <- true
 
-                    transformDeclaredType com ctx ifc.Entity ifc.GenericArgs
-                    |> Some
+                    transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some
                 | Types.ienumerableGeneric ->
-                    implementsEnumerable <-
-                        transformDeclaredType
-                            com
-                            ctx
-                            ifc.Entity
-                            ifc.GenericArgs
-                        |> Some
+                    implementsEnumerable <- transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some
 
                     None
-                | _ ->
-                    transformDeclaredType com ctx ifc.Entity ifc.GenericArgs
-                    |> Some
+                | _ -> transformDeclaredType com ctx ifc.Entity ifc.GenericArgs |> Some
             )
             |> Seq.toList
 
@@ -3187,10 +2373,7 @@ module Util =
             |}
 
         if implementsEnumerator && not implementsDisposable then
-            let disp =
-                Type.reference (
-                    libValue com ctx Fable.MetaType "Types" "IDisposable"
-                )
+            let disp = Type.reference (libValue com ctx Fable.MetaType "Types" "IDisposable")
 
             info, disp :: implementedInterfaces
         else
@@ -3210,21 +2393,12 @@ module Util =
 
             Some iterable
         | Some iterable, None -> Some iterable
-        | None, Some e ->
-            Fable.DeclaredType(e.Entity, e.GenericArgs)
-            |> transformType com ctx
-            |> Some
+        | None, Some e -> Fable.DeclaredType(e.Entity, e.GenericArgs) |> transformType com ctx |> Some
         | None, None -> None
 
     // TODO: Inheriting interfaces
-    let transformInterfaceDeclaration
-        (com: IDartCompiler)
-        ctx
-        (decl: Fable.ClassDecl)
-        (ent: Fable.Entity)
-        =
-        let genParams =
-            ent.GenericParameters |> List.choose (transformGenericParam com ctx)
+    let transformInterfaceDeclaration (com: IDartCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
+        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
 
         let methods =
             ent.MembersFunctionsAndValues
@@ -3232,12 +2406,7 @@ module Util =
             |> Seq.mapToList (transformAbstractMember com ctx)
 
         [
-            Declaration.classDeclaration (
-                decl.Name,
-                genParams = genParams,
-                methods = methods,
-                isAbstract = true
-            )
+            Declaration.classDeclaration (decl.Name, genParams = genParams, methods = methods, isAbstract = true)
         ]
 
     // Mirrors Dart.Replacements.equals
@@ -3247,10 +2416,7 @@ module Util =
             let y = makeImmutableIdent t "y"
 
             Expression.anonymousFunction (
-                [
-                    x
-                    y
-                ],
+                [ x; y ],
                 [ equals com ctx x.Expr y.Expr |> Statement.returnStatement ],
                 Integer
             )
@@ -3259,29 +2425,9 @@ module Util =
         | List t ->
             let fn = makeEqualsFunction t
 
-            libCall
-                com
-                ctx
-                Fable.Boolean
-                "Util"
-                "equalsList"
-                [
-                    left
-                    right
-                    fn
-                ]
+            libCall com ctx Fable.Boolean "Util" "equalsList" [ left; right; fn ]
         | Dynamic
-        | Generic _ ->
-            libCall
-                com
-                ctx
-                Fable.Boolean
-                "Util"
-                "equalsDynamic"
-                [
-                    left
-                    right
-                ]
+        | Generic _ -> libCall com ctx Fable.Boolean "Util" "equalsDynamic" [ left; right ]
         | _ -> Expression.binaryExpression (BinaryEqual, left, right, Boolean)
 
     // Mirrors Dart.Replacements.compare
@@ -3291,10 +2437,7 @@ module Util =
             let y = makeImmutableIdent t "y"
 
             Expression.anonymousFunction (
-                [
-                    x
-                    y
-                ],
+                [ x; y ],
                 [ compare com ctx x.Expr y.Expr |> Statement.returnStatement ],
                 Integer
             )
@@ -3303,61 +2446,15 @@ module Util =
         | List t ->
             let fn = makeComparerFunction t
 
-            libCall
-                com
-                ctx
-                (numType Int32)
-                "Util"
-                "compareList"
-                [
-                    left
-                    right
-                    fn
-                ]
+            libCall com ctx (numType Int32) "Util" "compareList" [ left; right; fn ]
         | Nullable t ->
             let fn = makeComparerFunction t
 
-            libCall
-                com
-                ctx
-                (numType Int32)
-                "Util"
-                "compareNullable"
-                [
-                    left
-                    right
-                    fn
-                ]
-        | Boolean ->
-            libCall
-                com
-                ctx
-                (numType Int32)
-                "Util"
-                "compareBool"
-                [
-                    left
-                    right
-                ]
+            libCall com ctx (numType Int32) "Util" "compareNullable" [ left; right; fn ]
+        | Boolean -> libCall com ctx (numType Int32) "Util" "compareBool" [ left; right ]
         | Dynamic
-        | Generic _ ->
-            libCall
-                com
-                ctx
-                (numType Int32)
-                "Util"
-                "compareDynamic"
-                [
-                    left
-                    right
-                ]
-        | _ ->
-            Expression.invocationExpression (
-                left,
-                "compareTo",
-                [ right ],
-                Integer
-            )
+        | Generic _ -> libCall com ctx (numType Int32) "Util" "compareDynamic" [ left; right ]
+        | _ -> Expression.invocationExpression (left, "compareTo", [ right ], Integer)
 
     let makeStructuralEquals
         (com: IDartCompiler)
@@ -3369,8 +2466,7 @@ module Util =
         let other = makeImmutableIdent Object "other"
 
         let makeFieldEq (field: Ident) =
-            let otherField =
-                Expression.propertyAccess (other.Expr, field.Name, field.Type)
+            let otherField = Expression.propertyAccess (other.Expr, field.Name, field.Type)
 
             equals com ctx otherField field.Expr
 
@@ -3380,8 +2476,7 @@ module Util =
             | field :: fields ->
                 let eq = makeFieldEq field
 
-                Expression.logicalExpression (LogicalAnd, eq, acc)
-                |> makeFieldsEq fields
+                Expression.logicalExpression (LogicalAnd, eq, acc) |> makeFieldsEq fields
 
         let typeTest = Expression.isExpression (other.Expr, selfTypeRef)
 
@@ -3408,39 +2503,21 @@ module Util =
         let body =
             match fields with
             | [ field ] ->
-                Expression.propertyAccess (
-                    Expression.identExpression field,
-                    "hashCode",
-                    Integer
-                )
+                Expression.propertyAccess (Expression.identExpression field, "hashCode", Integer)
                 |> Statement.returnStatement
                 |> List.singleton
             | fields ->
                 fields
-                |> List.map (fun f ->
-                    Expression.propertyAccess (
-                        Expression.identExpression f,
-                        "hashCode",
-                        Integer
-                    )
-                )
+                |> List.map (fun f -> Expression.propertyAccess (Expression.identExpression f, "hashCode", Integer))
                 |> makeImmutableListExpr com ctx intType
                 |> List.singleton
                 |> libCall com ctx (numType Int32) "Util" "combineHashCodes"
                 |> makeReturnBlock
 
-        InstanceMethod(
-            "hashCode",
-            [],
-            Integer,
-            kind = IsGetter,
-            body = body,
-            isOverride = true
-        )
+        InstanceMethod("hashCode", [], Integer, kind = IsGetter, body = body, isOverride = true)
 
     let makeFieldCompare com ctx (other: Expression) (field: Ident) =
-        let otherField =
-            Expression.propertyAccess (other, field.Name, field.Type)
+        let otherField = Expression.propertyAccess (other, field.Name, field.Type)
 
         compare com ctx field.Expr otherField
 
@@ -3449,18 +2526,10 @@ module Util =
         let other = makeImmutableIdent selfTypeRef "other"
 
         let makeAssign (field: Ident) =
-            Expression.assignmentExpression (
-                r.Expr,
-                makeFieldCompare com ctx other.Expr field
-            )
+            Expression.assignmentExpression (r.Expr, makeFieldCompare com ctx other.Expr field)
 
         let makeFieldCompareWithAssign (field: Ident) =
-            Expression.binaryExpression (
-                BinaryEqual,
-                makeAssign field,
-                Expression.integerLiteral 0,
-                Boolean
-            )
+            Expression.binaryExpression (BinaryEqual, makeAssign field, Expression.integerLiteral 0, Boolean)
 
         let rec makeFieldsComp (fields: Ident list) (acc: Statement list) =
             match fields with
@@ -3477,17 +2546,11 @@ module Util =
                 |> List.singleton
             | fields ->
                 [
-                    Statement.variableDeclaration (
-                        r,
-                        kind = Var,
-                        addToScope = ignore
-                    )
+                    Statement.variableDeclaration (r, kind = Var, addToScope = ignore)
                     yield!
                         match List.rev fields with
                         | [] -> []
-                        | field :: fields ->
-                            [ makeAssign field |> ExpressionStatement ]
-                            |> makeFieldsComp fields
+                        | field :: fields -> [ makeAssign field |> ExpressionStatement ] |> makeFieldsComp fields
                     Statement.returnStatement r.Expr
                 ]
 
@@ -3496,13 +2559,7 @@ module Util =
             | None -> body
             | Some wrapper -> wrapper other.Expr body
 
-        InstanceMethod(
-            "compareTo",
-            [ FunctionArg other ],
-            Integer,
-            body = body,
-            isOverride = true
-        )
+        InstanceMethod("compareTo", [ FunctionArg other ], Integer, body = body, isOverride = true)
 
     let transformFields (com: IDartCompiler) ctx (fields: Fable.Field list) =
         fields
@@ -3515,9 +2572,7 @@ module Util =
 
             let typ = FableTransforms.uncurryType f.FieldType
 
-            let ident =
-                sanitizeMember f.Name
-                |> transformIdentWith com ctx f.IsMutable typ
+            let ident = sanitizeMember f.Name |> transformIdentWith com ctx f.IsMutable typ
 
             ident, InstanceVariable(ident, kind = kind)
         )
@@ -3530,16 +2585,14 @@ module Util =
         (unionDecl: Fable.ClassDecl)
         classMethods
         =
-        let genParams =
-            ent.GenericParameters |> List.choose (transformGenericParam com ctx)
+        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
 
         let unionTypeRef =
             genParams
             |> List.map (fun g -> Generic g.Name)
             |> makeTypeRefFromName unionDecl.Name
 
-        let interfaceInfo, interfaces =
-            transformImplementedInterfaces com ctx ent
+        let interfaceInfo, interfaces = transformImplementedInterfaces com ctx ent
 
         let tagIdent = makeImmutableIdent Integer "tag"
 
@@ -3553,34 +2606,21 @@ module Util =
                 if List.isEmpty uci.UnionCaseFields then
                     None
                 else
-                    let caseDeclName =
-                        getUnionCaseDeclarationName unionDecl.Name uci
+                    let caseDeclName = getUnionCaseDeclarationName unionDecl.Name uci
 
                     let caseTypeRef =
                         genParams
                         |> List.map (fun g -> Generic g.Name)
                         |> makeTypeRefFromName caseDeclName
 
-                    let fields, varDecls =
-                        transformFields com ctx uci.UnionCaseFields
+                    let fields, varDecls = transformFields com ctx uci.UnionCaseFields
 
                     let wrapCompare otherExpr body =
                         [
                             Statement.ifStatement (
-                                Expression.isExpression (
-                                    otherExpr,
-                                    caseTypeRef
-                                ),
+                                Expression.isExpression (otherExpr, caseTypeRef),
                                 body,
-                                [
-                                    Statement.returnStatement (
-                                        makeFieldCompare
-                                            com
-                                            ctx
-                                            otherExpr
-                                            tagIdent
-                                    )
-                                ]
+                                [ Statement.returnStatement (makeFieldCompare com ctx otherExpr tagIdent) ]
                             )
                         ]
 
@@ -3589,35 +2629,17 @@ module Util =
                             if interfaceInfo.implementsStructuralEquatable then
                                 makeStructuralEquals com ctx caseTypeRef fields
 
-                                makeStructuralHashCode
-                                    com
-                                    ctx
-                                    (tagIdent :: fields)
-                            if
-                                interfaceInfo.implementsStructuralComparable
-                            then
-                                makeStructuralCompareTo
-                                    com
-                                    ctx
-                                    (Some wrapCompare)
-                                    unionTypeRef
-                                    fields
+                                makeStructuralHashCode com ctx (tagIdent :: fields)
+                            if interfaceInfo.implementsStructuralComparable then
+                                makeStructuralCompareTo com ctx (Some wrapCompare) unionTypeRef fields
                         ]
 
                     let tag = Expression.integerLiteral (tag)
 
-                    let consArgs =
-                        fields
-                        |> List.map (fun f ->
-                            FunctionArg(f, isConsThisArg = true)
-                        )
+                    let consArgs = fields |> List.map (fun f -> FunctionArg(f, isConsThisArg = true))
 
                     let constructor =
-                        Constructor(
-                            args = consArgs,
-                            superArgs = unnamedArgs [ tag ],
-                            isConst = true
-                        )
+                        Constructor(args = consArgs, superArgs = unnamedArgs [ tag ], isConst = true)
 
                     Declaration.classDeclaration (
                         caseDeclName,
@@ -3631,22 +2653,12 @@ module Util =
             )
 
         let hasCasesWithoutFields =
-            ent.UnionCases
-            |> List.exists (fun uci -> List.isEmpty uci.UnionCaseFields)
+            ent.UnionCases |> List.exists (fun uci -> List.isEmpty uci.UnionCaseFields)
 
         let extends =
-            transformInheritedClass
-                com
-                ctx
-                ent
-                interfaceInfo.implementsEnumerable
-                None
+            transformInheritedClass com ctx ent interfaceInfo.implementsEnumerable None
 
-        let implements =
-            [
-                libTypeRef com ctx "Types" "Union" []
-                yield! interfaces
-            ]
+        let implements = [ libTypeRef com ctx "Types" "Union" []; yield! interfaces ]
 
         let extraMethods =
             if not hasCasesWithoutFields then
@@ -3657,19 +2669,11 @@ module Util =
                         makeStructuralEquals com ctx unionTypeRef [ tagIdent ]
                         makeStructuralHashCode com ctx [ tagIdent ]
                     if interfaceInfo.implementsStructuralComparable then
-                        makeStructuralCompareTo
-                            com
-                            ctx
-                            None
-                            unionTypeRef
-                            [ tagIdent ]
+                        makeStructuralCompareTo com ctx None unionTypeRef [ tagIdent ]
                 ]
 
         let constructor =
-            Constructor(
-                args = [ FunctionArg(tagIdent, isConsThisArg = true) ],
-                isConst = true
-            )
+            Constructor(args = [ FunctionArg(tagIdent, isConsThisArg = true) ], isConst = true)
 
         let unionDecl =
             Declaration.classDeclaration (
@@ -3685,48 +2689,26 @@ module Util =
 
         unionDecl :: extraDecls
 
-    let transformRecordDeclaration
-        (com: IDartCompiler)
-        ctx
-        (ent: Fable.Entity)
-        (decl: Fable.ClassDecl)
-        classMethods
-        =
-        let genParams =
-            ent.GenericParameters |> List.choose (transformGenericParam com ctx)
+    let transformRecordDeclaration (com: IDartCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) classMethods =
+        let genParams = ent.GenericParameters |> List.choose (transformGenericParam com ctx)
 
         let selfTypeRef =
-            genParams
-            |> List.map (fun g -> Generic g.Name)
-            |> makeTypeRefFromName decl.Name
+            genParams |> List.map (fun g -> Generic g.Name) |> makeTypeRefFromName decl.Name
 
-        let interfaceInfo, interfaces =
-            transformImplementedInterfaces com ctx ent
+        let interfaceInfo, interfaces = transformImplementedInterfaces com ctx ent
 
         let extends =
-            transformInheritedClass
-                com
-                ctx
-                ent
-                interfaceInfo.implementsEnumerable
-                None
+            transformInheritedClass com ctx ent interfaceInfo.implementsEnumerable None
 
-        let implements =
-            [
-                libTypeRef com ctx "Types" "Record" []
-                yield! interfaces
-            ]
+        let implements = [ libTypeRef com ctx "Types" "Record" []; yield! interfaces ]
 
-        let hasMutableFields =
-            ent.FSharpFields |> List.exists (fun f -> f.IsMutable)
+        let hasMutableFields = ent.FSharpFields |> List.exists (fun f -> f.IsMutable)
 
         let fields, varDecls = transformFields com ctx ent.FSharpFields
 
-        let consArgs =
-            fields |> List.map (fun f -> FunctionArg(f, isConsThisArg = true))
+        let consArgs = fields |> List.map (fun f -> FunctionArg(f, isConsThisArg = true))
 
-        let constructor =
-            Constructor(args = consArgs, isConst = not hasMutableFields)
+        let constructor = Constructor(args = consArgs, isConst = not hasMutableFields)
 
         // TODO: toString
         let methods =
@@ -3751,15 +2733,10 @@ module Util =
             )
         ]
 
-    let transformAttachedMember
-        (com: IDartCompiler)
-        ctx
-        (memb: Fable.MemberDecl)
-        =
+    let transformAttachedMember (com: IDartCompiler) ctx (memb: Fable.MemberDecl) =
         let info = com.GetMember(memb.MemberRef)
 
-        let abstractInfo =
-            memb.ImplementedSignatureRef |> Option.map (com.GetMember)
+        let abstractInfo = memb.ImplementedSignatureRef |> Option.map (com.GetMember)
 
         let abstractFullName = abstractInfo |> Option.map (fun i -> i.FullName)
 
@@ -3783,18 +2760,12 @@ module Util =
 
             let kind, name =
                 match abstractFullName with
-                | Some "System.Collections.Generic.IEnumerable.GetEnumerator" ->
-                    MethodKind.IsGetter, "iterator"
-                | Some "System.Collections.Generic.IEnumerator.get_Current" ->
-                    MethodKind.IsGetter, "current"
-                | Some "System.Collections.IEnumerator.MoveNext" ->
-                    MethodKind.IsMethod, "moveNext"
-                | Some "System.IComparable.CompareTo" ->
-                    MethodKind.IsMethod, "compareTo"
-                | Some "System.Object.ToString" ->
-                    MethodKind.IsMethod, "toString"
-                | Some "System.Object.GetHashCode" ->
-                    MethodKind.IsGetter, "hashCode"
+                | Some "System.Collections.Generic.IEnumerable.GetEnumerator" -> MethodKind.IsGetter, "iterator"
+                | Some "System.Collections.Generic.IEnumerator.get_Current" -> MethodKind.IsGetter, "current"
+                | Some "System.Collections.IEnumerator.MoveNext" -> MethodKind.IsMethod, "moveNext"
+                | Some "System.IComparable.CompareTo" -> MethodKind.IsMethod, "compareTo"
+                | Some "System.Object.ToString" -> MethodKind.IsMethod, "toString"
+                | Some "System.Object.GetHashCode" -> MethodKind.IsGetter, "hashCode"
                 | Some "System.Object.Equals" -> MethodKind.IsOperator, "=="
                 | _ ->
                     // If method implements an abstract signature, use that info to decide if it's a getter or setter
@@ -3812,8 +2783,7 @@ module Util =
 
             // As the method is attached, we don't need the entity gen params here
             let genParams =
-                info.GenericParameters
-                |> List.choose (transformGenericParam com ctx)
+                info.GenericParameters |> List.choose (transformGenericParam com ctx)
 
             InstanceMethod(
                 name,
@@ -3836,8 +2806,7 @@ module Util =
         (cons: Fable.MemberDecl option)
         =
         let genParams =
-            classEnt.GenericParameters
-            |> List.choose (transformGenericParam com ctx)
+            classEnt.GenericParameters |> List.choose (transformGenericParam com ctx)
 
         let constructor, variables, otherDecls =
             match cons with
@@ -3862,22 +2831,16 @@ module Util =
                 let thisArgsDic = Dictionary()
 
                 let consBody =
-                    let consArgsSet =
-                        consArgs |> List.map (fun a -> a.Ident.Name) |> HashSet
+                    let consArgsSet = consArgs |> List.map (fun a -> a.Ident.Name) |> HashSet
 
                     consBody
                     |> List.filter (
                         function
-                        | ExpressionStatement(AssignmentExpression(PropertyAccess(ThisExpression _,
-                                                                                  field,
-                                                                                  _,
-                                                                                  _),
+                        | ExpressionStatement(AssignmentExpression(PropertyAccess(ThisExpression _, field, _, _),
                                                                    AssignEqual,
                                                                    value)) ->
                             match value with
-                            | IdentExpression ident when
-                                consArgsSet.Contains(ident.Name)
-                                ->
+                            | IdentExpression ident when consArgsSet.Contains(ident.Name) ->
                                 thisArgsDic.Add(ident.Name, field)
                                 false
                             // Remove null initializations as they're not necessary and maybe
@@ -3893,25 +2856,19 @@ module Util =
                     else
                         consArgs
                         |> List.map (fun consArg ->
-                            match
-                                thisArgsDic.TryGetValue(consArg.Ident.Name)
-                            with
+                            match thisArgsDic.TryGetValue(consArg.Ident.Name) with
                             | false, _ -> consArg
-                            | true, fieldName ->
-                                consArg.AsConsThisArg(fieldName)
+                            | true, fieldName -> consArg.AsConsThisArg(fieldName)
                         )
 
                 let variables =
-                    let thisArgsSet =
-                        thisArgsDic |> Seq.map (fun kv -> kv.Value) |> HashSet
+                    let thisArgsSet = thisArgsDic |> Seq.map (fun kv -> kv.Value) |> HashSet
 
                     classEnt.FSharpFields
                     |> List.map (fun f ->
                         let fieldName = sanitizeMember f.Name
 
-                        let t =
-                            FableTransforms.uncurryType f.FieldType
-                            |> transformType com ctx
+                        let t = FableTransforms.uncurryType f.FieldType |> transformType com ctx
 
                         let ident = makeImmutableIdent t fieldName
 
@@ -3946,16 +2903,10 @@ module Util =
 
                 Some constructor, variables, [] // [exposedCons]
 
-        let interfaceInfo, implements =
-            transformImplementedInterfaces com ctx classEnt
+        let interfaceInfo, implements = transformImplementedInterfaces com ctx classEnt
 
         let extends =
-            transformInheritedClass
-                com
-                ctx
-                classEnt
-                interfaceInfo.implementsEnumerable
-                classEnt.BaseType
+            transformInheritedClass com ctx classEnt interfaceInfo.implementsEnumerable classEnt.BaseType
 
         let abstractMembers =
             classEnt.MembersFunctionsAndValues
@@ -3985,24 +2936,18 @@ module Util =
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx =
                 { ctx with
-                    UsedNames =
-                        { ctx.UsedNames with
-                            CurrentDeclarationScope = HashSet usedNames
-                        }
+                    UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames }
                     CastedUnions = Dictionary()
                 }
 
             let result = f ctx
 
-            ctx.UsedNames.DeclarationScopes.UnionWith(
-                ctx.UsedNames.CurrentDeclarationScope
-            )
+            ctx.UsedNames.DeclarationScopes.UnionWith(ctx.UsedNames.CurrentDeclarationScope)
 
             result
 
         match decl with
-        | Fable.ModuleDeclaration decl ->
-            decl.Members |> List.collect (transformDeclaration com ctx)
+        | Fable.ModuleDeclaration decl -> decl.Members |> List.collect (transformDeclaration com ctx)
 
         | Fable.ActionDeclaration d ->
             "Standalone actions are not supported in Dart, please use a function"
@@ -4017,16 +2962,9 @@ module Util =
                 let info = com.GetMember(memb.MemberRef)
 
                 if info.IsValue then
-                    let ident =
-                        transformIdentWith
-                            com
-                            ctx
-                            info.IsMutable
-                            memb.Body.Type
-                            memb.Name
+                    let ident = transformIdentWith com ctx info.IsMutable memb.Body.Type memb.Name
 
-                    let value =
-                        transformAndCaptureExpr com ctx memb.Body ||> iife
+                    let value = transformAndCaptureExpr com ctx memb.Body ||> iife
 
                     let kind, value = getVarKind ctx info.IsMutable value
                     [ Declaration.variableDeclaration (ident, kind, value) ]
@@ -4043,46 +2981,23 @@ module Util =
                 let instanceMethods =
                     decl.AttachedMembers
                     |> List.choose (fun memb ->
-                        withCurrentScope
-                            ctx
-                            memb.UsedNames
-                            (fun ctx -> transformAttachedMember com ctx memb)
+                        withCurrentScope ctx memb.UsedNames (fun ctx -> transformAttachedMember com ctx memb)
                     )
 
                 match decl.Constructor with
                 | Some cons ->
                     withCurrentScope ctx cons.UsedNames
-                    <| fun ctx ->
-                        transformClass
-                            com
-                            ctx
-                            ent
-                            decl
-                            instanceMethods
-                            (Some cons)
+                    <| fun ctx -> transformClass com ctx ent decl instanceMethods (Some cons)
                 | None ->
                     if ent.IsFSharpUnion then
-                        transformUnionDeclaration
-                            com
-                            ctx
-                            ent
-                            decl
-                            instanceMethods
+                        transformUnionDeclaration com ctx ent decl instanceMethods
                     elif ent.IsFSharpRecord then
-                        transformRecordDeclaration
-                            com
-                            ctx
-                            ent
-                            decl
-                            instanceMethods
+                        transformRecordDeclaration com ctx ent decl instanceMethods
                     else
                         transformClass com ctx ent decl instanceMethods None
 
     let getIdentNameForImport (ctx: Context) (path: string) =
-        Path
-            .GetFileNameWithoutExtension(path)
-            .Replace(".", "_")
-            .Replace(":", "_")
+        Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace(":", "_")
         |> Naming.applyCaseRule Core.CaseRules.SnakeCase
         |> getUniqueNameInRootScope ctx
 
@@ -4146,8 +3061,7 @@ module Compiler =
 
                 match selector with
                 | Naming.placeholder ->
-                    "`importMember` must be assigned to a variable"
-                    |> addError com [] r
+                    "`importMember` must be assigned to a variable" |> addError com [] r
 
                     ident
                 | "*" -> ident
@@ -4175,38 +3089,20 @@ module Compiler =
             member _.SourceFiles = com.SourceFiles
             member _.IncrementCounter() = com.IncrementCounter()
 
-            member _.IsPrecompilingInlineFunction =
-                com.IsPrecompilingInlineFunction
+            member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
 
-            member _.WillPrecompileInlineFunction(file) =
-                com.WillPrecompileInlineFunction(file)
+            member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
 
-            member _.GetImplementationFile(fileName) =
-                com.GetImplementationFile(fileName)
+            member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
 
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
 
-            member _.AddWatchDependency(fileName) =
-                com.AddWatchDependency(fileName)
+            member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
 
-            member _.AddLog
-                (
-                    msg,
-                    severity,
-                    ?range,
-                    ?fileName: string,
-                    ?tag: string
-                )
-                =
-                com.AddLog(
-                    msg,
-                    severity,
-                    ?range = range,
-                    ?fileName = fileName,
-                    ?tag = tag
-                )
+            member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
+                com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
 
     let makeCompiler com = DartCompiler(com)
 
@@ -4240,8 +3136,7 @@ module Compiler =
                 ConstIdents = Set.empty
             }
 
-        let rootDecls =
-            List.collect (transformDeclaration com ctx) file.Declarations
+        let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
         let imports = com.GetAllImports()
 

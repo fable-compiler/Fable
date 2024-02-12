@@ -15,12 +15,7 @@ open Buildalyzer
 type BuildalyzerCrackerResolver() =
     let mutable manager = None
 
-    let tryGetResult
-        (isMain: bool)
-        (opts: CrackerOptions)
-        (manager: AnalyzerManager)
-        (maybeCsprojFile: string)
-        =
+    let tryGetResult (isMain: bool) (opts: CrackerOptions) (manager: AnalyzerManager) (maybeCsprojFile: string) =
         if isMain && not opts.NoRestore then
             Process.runSync
                 (IO.Path.GetDirectoryName opts.ProjFile)
@@ -38,10 +33,7 @@ type BuildalyzerCrackerResolver() =
 
         let env =
             analyzer.EnvironmentFactory.GetBuildEnvironment(
-                Environment.EnvironmentOptions(
-                    DesignTime = true,
-                    Restore = false
-                )
+                Environment.EnvironmentOptions(DesignTime = true, Restore = false)
             )
         // If the project targets multiple frameworks, multiple results will be returned
         // For now we just take the first one with non-empty command
@@ -49,13 +41,7 @@ type BuildalyzerCrackerResolver() =
         results |> Seq.tryFind (fun r -> String.IsNullOrEmpty(r.Command) |> not)
 
     interface ProjectCrackerResolver with
-        member x.GetProjectOptionsFromProjectFile
-            (
-                isMain,
-                options: CrackerOptions,
-                projectFile
-            )
-            =
+        member x.GetProjectOptionsFromProjectFile(isMain, options: CrackerOptions, projectFile) =
             let manager =
                 match manager with
                 | Some m -> m
@@ -74,8 +60,7 @@ type BuildalyzerCrackerResolver() =
             // Because BuildAnalyzer works better with .csproj, we first "dress up" the project as if it were a C# one
             // and try to adapt the results. If it doesn't work, we try again to analyze the .fsproj directly
             let csprojResult =
-                let csprojFile =
-                    projectFile.Replace(".fsproj", ".fable-temp.csproj")
+                let csprojFile = projectFile.Replace(".fsproj", ".fable-temp.csproj")
 
                 if IO.File.Exists(csprojFile) then
                     None
@@ -106,12 +91,7 @@ type BuildalyzerCrackerResolver() =
                                 r.CompilerArguments
                                 |> Array.map (fun line ->
                                     if reg.IsMatch(line) then
-                                        if
-                                            line.StartsWith(
-                                                "/reference",
-                                                StringComparison.Ordinal
-                                            )
-                                        then
+                                        if line.StartsWith("/reference", StringComparison.Ordinal) then
                                             "-r" + line.Substring(10)
                                         else
                                             "--" + line.Substring(1)
@@ -120,16 +100,10 @@ type BuildalyzerCrackerResolver() =
                                 )
 
                             let comArgs =
-                                match
-                                    r.Properties.TryGetValue("OtherFlags")
-                                with
+                                match r.Properties.TryGetValue("OtherFlags") with
                                 | false, _ -> comArgs
                                 | true, otherFlags ->
-                                    let otherFlags =
-                                        otherFlags.Split(
-                                            ' ',
-                                            StringSplitOptions.RemoveEmptyEntries
-                                        )
+                                    let otherFlags = otherFlags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
 
                                     Array.append otherFlags comArgs
 
@@ -137,6 +111,14 @@ type BuildalyzerCrackerResolver() =
                         )
                     finally
                         File.safeDelete csprojFile
+                        // Restore the original fsproj because when restoring/analyzing the
+                        // csproj implicit references added by F# SDKs are not included
+                        // See https://github.com/fable-compiler/Fable/issues/3719
+                        // Restoring the F# project should restore the bin/obj folders
+                        // to their expected state
+                        let projDir = IO.Path.GetDirectoryName projectFile
+
+                        Process.runSync projDir "dotnet" [ "restore"; projectFile ] |> ignore
 
             let compilerArgs, result =
                 csprojResult
@@ -151,10 +133,7 @@ type BuildalyzerCrackerResolver() =
                 |> function
                     | Some result -> result
                     // TODO: Get Buildalyzer errors from the log
-                    | None ->
-                        $"Cannot parse {projectFile}"
-                        |> Fable.FableError
-                        |> raise
+                    | None -> $"Cannot parse {projectFile}" |> Fable.FableError |> raise
 
             let projDir = IO.Path.GetDirectoryName(projectFile)
 
@@ -174,8 +153,7 @@ type BuildalyzerCrackerResolver() =
                         f
                 )
 
-            let outputType =
-                ReadOnlyDictionary.tryFind "OutputType" result.Properties
+            let outputType = ReadOnlyDictionary.tryFind "OutputType" result.Properties
 
             {
                 ProjectOptions = projOpts

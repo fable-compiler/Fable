@@ -23,16 +23,16 @@
         <None Include="$(MSBuildThisFileDirectory)\..\README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
         <PackageReference Include="FSharp.Analyzers.Build" Version="0.3.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>build</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="G-Research.FSharp.Analyzers" Version="0.7.0">
+        <PackageReference Include="G-Research.FSharp.Analyzers" Version="0.8.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>analyzers</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Ionide.Analyzers" Version="0.7.0">
+        <PackageReference Include="Ionide.Analyzers" Version="0.8.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>analyzers</IncludeAssets>
         </PackageReference>

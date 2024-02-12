@@ -13,15 +13,10 @@ type Comparer<'T when 'T: comparison>(comparison: 'T -> 'T -> int) =
     interface IComparer<'T> with
         member _.Compare(x, y) = comparison x y
 
-type EqualityComparer<'T when 'T: equality>
-    (equals: 'T -> 'T -> bool, getHashCode: 'T -> int)
-    =
+type EqualityComparer<'T when 'T: equality>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
 
     static member Default =
-        EqualityComparer<'T>(
-            LanguagePrimitives.GenericEquality,
-            LanguagePrimitives.GenericHash
-        )
+        EqualityComparer<'T>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
 
     static member Create(equals, getHashCode) =
         EqualityComparer<'T>(equals, getHashCode)

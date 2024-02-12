@@ -32,10 +32,7 @@ let handle (args: string list) =
 
     Publish.updateLibraryVersionInFableTransforms
         fableCliVersion
-        {|
-            JavaScript =
-                Npm.getVersionFromProjectDir ProjectDir.temp_fable_library
-        |}
+        {| JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library |}
 
     Command.Run(
         "dotnet",

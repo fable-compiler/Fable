@@ -18,10 +18,7 @@ let handleStandaloneFast () =
     let fableCompilerJsEntry = Path.Combine(fableCompilerJsDir, "app.fs.js")
     let standaloneBuildDest = Path.Resolve("temp", "tests", "Standalone")
 
-    Command.Fable(
-        CmdLine.appendRaw "--noCache",
-        workingDirectory = Path.Resolve("src", "fable-standalone", "src")
-    )
+    Command.Fable(CmdLine.appendRaw "--noCache", workingDirectory = Path.Resolve("src", "fable-standalone", "src"))
 
     Command.Fable(
         CmdLine.appendPrefix "--exclude" "Fable.Core"

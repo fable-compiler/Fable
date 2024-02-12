@@ -50,8 +50,7 @@ module Platform =
     module IO =
         let File =
             { new IFile with
-                member _.GetBytesLength(p: string) =
-                    System.IO.FileInfo(p).Length |> float
+                member _.GetBytesLength(p: string) = System.IO.FileInfo(p).Length |> float
 
                 member _.Exists(p: string) : bool = System.IO.File.Exists(p)
 
@@ -60,8 +59,7 @@ module Platform =
                 member _.Copy(source: string, target: string, overwrite: bool) =
                     System.IO.File.Copy(source, target, overwrite)
 
-                member _.ReadAllText(p: string) : string =
-                    System.IO.File.ReadAllText(p)
+                member _.ReadAllText(p: string) : string = System.IO.File.ReadAllText(p)
 
                 member _.WriteAllText(p: string, contents) =
                     System.IO.File.WriteAllText(p, contents)
@@ -71,34 +69,27 @@ module Platform =
 
         let Path =
             { new IPath with
-                member _.Combine(p1: string, p2: string) : string =
-                    System.IO.Path.Combine(p1, p2)
+                member _.Combine(p1: string, p2: string) : string = System.IO.Path.Combine(p1, p2)
 
-                member _.GetFullPath(p: string) : string =
-                    System.IO.Path.GetFullPath(p)
+                member _.GetFullPath(p: string) : string = System.IO.Path.GetFullPath(p)
 
-                member _.GetDirectoryName(p: string) : string =
-                    System.IO.Path.GetDirectoryName(p)
+                member _.GetDirectoryName(p: string) : string = System.IO.Path.GetDirectoryName(p)
 
-                member _.GetFileName(p: string) : string =
-                    System.IO.Path.GetFileName(p)
+                member _.GetFileName(p: string) : string = System.IO.Path.GetFileName(p)
 
                 member _.GetTempPath() : string = System.IO.Path.GetTempPath()
             }
 
         let Directory =
             { new IDirectory with
-                member _.GetFiles(p: string) : string[] =
-                    System.IO.Directory.GetFiles(p)
+                member _.GetFiles(p: string) : string[] = System.IO.Directory.GetFiles(p)
 
-                member _.GetDirectories(p: string) : string[] =
-                    System.IO.Directory.GetDirectories(p)
+                member _.GetDirectories(p: string) : string[] = System.IO.Directory.GetDirectories(p)
 
                 member _.GetCurrentDirectory() : string =
                     System.IO.Directory.GetCurrentDirectory()
 
-                member _.Exists(p: string) : bool =
-                    System.IO.Directory.Exists(p)
+                member _.Exists(p: string) : bool = System.IO.Directory.Exists(p)
 
                 member _.CreateDirectory(p: string) : unit =
                     System.IO.Directory.CreateDirectory(p) |> ignore
@@ -109,9 +100,7 @@ module Platform =
     let Environment =
         { new IEnvironment with
             member _.IsWindows() =
-                InteropServices.RuntimeInformation.IsOSPlatform(
-                    InteropServices.OSPlatform.Windows
-                )
+                InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
 
             member _.GetEnvironmentVariable(varName) =
                 System.Environment.GetEnvironmentVariable(varName)
@@ -167,13 +156,7 @@ module Platform =
     let Process =
         { new IProcess with
 
-            member _.RunAsync
-                (
-                    workingDir: string,
-                    exePath: string,
-                    args: string[]
-                )
-                =
+            member _.RunAsync(workingDir: string, exePath: string, args: string[]) =
                 let p = startProcess workingDir exePath args
                 // In Windows, terminating the main process doesn't kill the spawned ones so we need
                 // to listen for the Console.CancelKeyPress and AssemblyLoadContext.Unloading events
@@ -181,8 +164,7 @@ module Platform =
                     Console.add_CancelKeyPress (fun _ _ -> kill p)
 
                     let assemblyLoadContext =
-                        typeof<TypeInThisAssembly>.Assembly
-                        |> Loader.AssemblyLoadContext.GetLoadContext
+                        typeof<TypeInThisAssembly>.Assembly |> Loader.AssemblyLoadContext.GetLoadContext
 
                     assemblyLoadContext.add_Unloading (fun _ -> kill p)
 
@@ -190,10 +172,7 @@ module Platform =
                     p.add_Exited (fun _ _ ->
                         match p.ExitCode with
                         | 0 -> onSuccess ()
-                        | c ->
-                            sprintf "Process exited with code %i" c
-                            |> exn
-                            |> onError
+                        | c -> sprintf "Process exited with code %i" c |> exn |> onError
                     )
                 )
 
@@ -285,11 +264,9 @@ let rec copyDir (source: string) (target: string) (recursive: bool) : unit =
             let target = target </> filename sourceDir
             copyDir sourceDir target recursive
 
-let copyDirNonRecursive (source: string) (target: string) : unit =
-    copyDir source target false
+let copyDirNonRecursive (source: string) (target: string) : unit = copyDir source target false
 
-let copyDirRecursive (source: string) (target: string) : unit =
-    copyDir source target true
+let copyDirRecursive (source: string) (target: string) : unit = copyDir source target true
 
 let copyFile (source: string) (target: string) : unit =
     if IO.Directory.Exists source then
@@ -307,8 +284,7 @@ let copyFile (source: string) (target: string) : unit =
 
     IO.File.Copy(source, target, true)
 
-let writeFile (filePath: string) (txt: string) : unit =
-    IO.File.WriteAllText(filePath, txt)
+let writeFile (filePath: string) (txt: string) : unit = IO.File.WriteAllText(filePath, txt)
 
 let readFile (filePath: string) : string = IO.File.ReadAllText(filePath)
 
@@ -385,11 +361,7 @@ let (|Regex|_|) (pattern: string) (input: string) =
     else
         None
 
-let replaceRegex
-    (pattern: string)
-    (evaluator: Match -> string)
-    (input: string)
-    =
+let replaceRegex (pattern: string) (evaluator: Match -> string) (input: string) =
     Regex.Replace(input, pattern, evaluator)
 
 module Publish =
@@ -422,10 +394,7 @@ module Publish =
                 let parent = dirname dir
 
                 if isNull parent then
-                    failwithf
-                        "Couldn't find %s upwards from %s"
-                        fileName
-                        originalDir
+                    failwithf "Couldn't find %s upwards from %s" fileName originalDir
 
                 findFileUpwardsInner fileName parent
 
@@ -486,15 +455,10 @@ module Publish =
     // Returns (major, minor, patch, rest)
     let splitVersion =
         function
-        | Regex VERSION [ _; major; minor; patch; rest ] ->
-            (int major, int minor, int patch, rest)
+        | Regex VERSION [ _; major; minor; patch; rest ] -> (int major, int minor, int patch, rest)
         | s -> failwithf "Input doesn't match VERSION pattern: %s" s
 
-    let needsPublishing
-        (checkPkgVersion: string -> string option)
-        (releaseVersion: string)
-        projFile
-        =
+    let needsPublishing (checkPkgVersion: string -> string option) (releaseVersion: string) projFile =
         let print msg =
             let projName =
                 let projName = filename projFile
@@ -512,8 +476,7 @@ module Publish =
             let sameVersion = version = releaseVersion
 
             if sameVersion then
-                sprintf "Already version %s, no need to publish" releaseVersion
-                |> print
+                sprintf "Already version %s, no need to publish" releaseVersion |> print
 
             not sameVersion
 
@@ -529,16 +492,10 @@ module Publish =
             | Some x -> x
             | None -> failwithf "Cannot find %s in %s" ext dir
 
-    let pushNugetWithInfo
-        (projFile: string)
-        props
-        buildAction
-        (nugetInfo: NugetInfo)
-        =
+    let pushNugetWithInfo (projFile: string) props buildAction (nugetInfo: NugetInfo) =
         let checkPkgVersion =
             function
-            | Regex NUGET_PACKAGE_VERSION [ _; _; pkgVersion; _ ] ->
-                Some pkgVersion
+            | Regex NUGET_PACKAGE_VERSION [ _; _; pkgVersion; _ ] -> Some pkgVersion
             | _ -> None
 
         let releaseVersion = nugetInfo.ReleaseVersion
@@ -547,11 +504,7 @@ module Publish =
             buildAction ()
             let projDir = dirname projFile
             // Restore dependencies here so they're updated to latest project versions
-            runList
-                [
-                    "dotnet restore"
-                    projDir
-                ]
+            runList [ "dotnet restore"; projDir ]
             // Update the project file
             readFile projFile
             |> replaceRegex
@@ -561,11 +514,7 @@ module Publish =
                     + (splitPrerelease releaseVersion |> fst)
                     + m.Groups.[3].Value
                 )
-            |> replaceRegex
-                NUGET_PACKAGE_VERSION
-                (fun m ->
-                    m.Groups.[1].Value + releaseVersion + m.Groups.[3].Value
-                )
+            |> replaceRegex NUGET_PACKAGE_VERSION (fun m -> m.Groups.[1].Value + releaseVersion + m.Groups.[3].Value)
             |> fun fsproj ->
                 if nugetInfo.ReleaseNotes.Length = 0 then
                     fsproj
@@ -588,22 +537,14 @@ module Publish =
                     [
                         "dotnet pack"
                         projDir
-                        yield!
-                            props
-                            |> List.map (fun (k, v) -> "-p:" + k + "=" + v)
+                        yield! props |> List.map (fun (k, v) -> "-p:" + k + "=" + v)
                         "-c Release -o"
                         tempDir
                     ]
 
                 let nupkg = findFileWithExt tempDir ".nupkg"
 
-                runList
-                    [
-                        "dotnet nuget push"
-                        nupkg
-                        "-s nuget.org -k"
-                        nugetInfo.ApiKey
-                    ]
+                runList [ "dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetInfo.ApiKey ]
 
                 // Looks like the `nuget push` command automatically detects the .snupkg symbols
                 // We issue the command below just in case but with --skip-duplicate to prevent errors
@@ -638,18 +579,11 @@ module Publish =
 
     let pushNpm (projDir: string) buildAction =
         let checkPkgVersion json : string option =
-            Json.Parse(json)
-            |> Json.TryGetProperty "version"
-            |> Option.map Json.GetString
+            Json.Parse(json) |> Json.TryGetProperty "version" |> Option.map Json.GetString
 
         let releaseVersion = loadReleaseVersion projDir
 
-        if
-            needsPublishing
-                checkPkgVersion
-                releaseVersion
-                (projDir </> "package.json")
-        then
+        if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
             buildAction ()
             bumpNpmVersion projDir releaseVersion
 
@@ -666,9 +600,7 @@ let pushNuget projFile props buildAction =
     let nugetKey =
         match envVarOrNone "NUGET_KEY" with
         | Some nugetKey -> nugetKey
-        | None ->
-            failwith
-                "The Nuget API key must be set in a NUGET_KEY environmental variable"
+        | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
 
     {
         ApiKey = nugetKey
@@ -695,9 +627,7 @@ let pushFableNuget projFile props buildAction =
 
     More information can be found at: https://github.com/fable-compiler/Fable/issues/2455
     """
-            | None ->
-                failwith
-                    "The Nuget API key must be set in a FABLE_NUGET_KEY environmental variable"
+            | None -> failwith "The Nuget API key must be set in a FABLE_NUGET_KEY environmental variable"
 
     let version, notes = Publish.loadReleaseVersionAndNotes projFile
 

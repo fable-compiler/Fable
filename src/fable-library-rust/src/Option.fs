@@ -54,12 +54,7 @@ let fold<'T, 'S> (folder: 'S -> 'T -> 'S) (state: 'S) (opt: 'T option) : 'S =
     | Some x -> folder state x
     | None -> state
 
-let foldBack<'T, 'S>
-    (folder: 'T -> 'S -> 'S)
-    (opt: 'T option)
-    (state: 'S)
-    : 'S
-    =
+let foldBack<'T, 'S> (folder: 'T -> 'S -> 'S) (opt: 'T option) (state: 'S) : 'S =
     match opt with
     | Some x -> folder x state
     | None -> state
@@ -84,12 +79,7 @@ let map<'T, 'U> (mapping: 'T -> 'U) (opt: 'T option) : 'U option =
     | Some x -> Some(mapping x)
     | None -> None
 
-let map2<'T1, 'T2, 'U>
-    (mapping: 'T1 -> 'T2 -> 'U)
-    (opt1: 'T1 option)
-    (opt2: 'T2 option)
-    : 'U option
-    =
+let map2<'T1, 'T2, 'U> (mapping: 'T1 -> 'T2 -> 'U) (opt1: 'T1 option) (opt2: 'T2 option) : 'U option =
     match opt1 with
     | None -> None
     | Some x ->
@@ -119,11 +109,7 @@ let orElse<'T> (ifNone: 'T option) (opt: 'T option) : 'T option =
     | Some _ -> opt
     | None -> ifNone
 
-let orElseWith<'T>
-    (ifNoneThunk: unit -> 'T option)
-    (opt: 'T option)
-    : 'T option
-    =
+let orElseWith<'T> (ifNoneThunk: unit -> 'T option) (opt: 'T option) : 'T option =
     match opt with
     | Some _ -> opt
     | None -> ifNoneThunk ()

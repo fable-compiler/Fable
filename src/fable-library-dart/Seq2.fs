@@ -3,10 +3,7 @@ module SeqModule2
 
 open Fable.Core
 
-let distinct
-    (xs: seq<'T>)
-    ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>)
-    =
+let distinct (xs: seq<'T>) ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>) =
     Seq.delay (fun () ->
         let hashSet = System.Collections.Generic.HashSet<'T>(comparer)
         xs |> Seq.filter (fun x -> hashSet.Add(x))
@@ -28,8 +25,7 @@ let except
     ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>)
     =
     Seq.delay (fun () ->
-        let hashSet =
-            System.Collections.Generic.HashSet<'T>(itemsToExclude, comparer)
+        let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude, comparer)
 
         xs |> Seq.filter (fun x -> hashSet.Add(x))
     )
@@ -63,10 +59,7 @@ let groupBy
     : ('Key * seq<'T>) seq
     =
     Seq.delay (fun () ->
-        let dict =
-            System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>(
-                comparer
-            )
+        let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>(comparer)
 
         let keys = ResizeArray<'Key>()
 
@@ -84,11 +77,7 @@ let groupBy
 
 module Array =
 
-    let distinct
-        (xs: 'T[])
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>)
-        : 'T[]
-        =
+    let distinct (xs: 'T[]) ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>) : 'T[] =
         distinct xs comparer |> Seq.toArray
 
     let distinctBy
@@ -127,11 +116,7 @@ module Array =
 
 module List =
 
-    let distinct
-        (xs: 'T list)
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>)
-        : 'T list
-        =
+    let distinct (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>) : 'T list =
         distinct xs comparer |> Seq.toList
 
     let distinctBy

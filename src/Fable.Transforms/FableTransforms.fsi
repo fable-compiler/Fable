@@ -11,10 +11,6 @@ val uncurryType: typ: Type -> Type
 val getTransformations: _com: Compiler -> (#Compiler -> Expr -> Expr) list
 
 val transformDeclaration:
-    transformations: (Compiler -> Expr -> Expr) list ->
-    com: Compiler ->
-    file: File ->
-    decl: Declaration ->
-        Declaration
+    transformations: (Compiler -> Expr -> Expr) list -> com: Compiler -> file: File -> decl: Declaration -> Declaration
 
 val transformFile: com: Compiler -> file: File -> File

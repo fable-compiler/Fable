@@ -126,6 +126,9 @@ def record_compare_to(self: Record, other: Record) -> int:
                 return -1
             case (_, None):
                 return 1
+            # Check for custom equality
+            case (self_value, other_value) if self_value == other_value:
+                return 0
             case (self_value, other_value) if self_value < other_value:
                 return -1
             case (self_value, other_value) if self_value > other_value:

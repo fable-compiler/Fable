@@ -50,6 +50,7 @@ let allTests =
     TypeTests.tests
     UnionTypes.tests
     Uri.tests
+    ListCollector.tests
   |]
 
 #if FABLE_COMPILER

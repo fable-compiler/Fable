@@ -65,11 +65,7 @@ type IWriter =
 type IFableManager =
     abstract Version: string
 
-    abstract CreateChecker:
-        references: string[] *
-        readAllBytes: (string -> byte[]) *
-        otherOptions: string[] ->
-            IChecker
+    abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * otherOptions: string[] -> IChecker
 
     abstract ClearCache: checker: IChecker -> unit
 
@@ -93,25 +89,12 @@ type IFableManager =
     abstract GetErrors: parseResults: IParseAndCheckResults -> Error[]
 
     abstract GetDeclarationLocation:
-        parseResults: IParseAndCheckResults *
-        line: int *
-        col: int *
-        lineText: string ->
-            Range option
+        parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> Range option
 
-    abstract GetToolTipText:
-        parseResults: IParseAndCheckResults *
-        line: int *
-        col: int *
-        lineText: string ->
-            string[]
+    abstract GetToolTipText: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> string[]
 
     abstract GetCompletionsAtLocation:
-        parseResults: IParseAndCheckResults *
-        line: int *
-        col: int *
-        lineText: string ->
-            Completion[]
+        parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> Completion[]
 
     abstract CompileToTargetAst:
         fableLibrary: string *
@@ -123,5 +106,4 @@ type IFableManager =
 
     abstract PrintTargetAst: fableResult: IFableResult * IWriter -> Async<unit>
 
-    abstract FSharpAstToString:
-        parseResults: IParseAndCheckResults * fileName: string -> string
+    abstract FSharpAstToString: parseResults: IParseAndCheckResults * fileName: string -> string

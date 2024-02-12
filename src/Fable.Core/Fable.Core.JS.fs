@@ -33,8 +33,7 @@ module JSX =
 
     /// Instantiates a JSX Element with F# code. The `props` argument must be a list literal
     /// that can be resolved at compile-time.
-    let create (componentOrTag: ElementType) (props: Prop list) : Element =
-        nativeOnly
+    let create (componentOrTag: ElementType) (props: Prop list) : Element = nativeOnly
 
     /// Creates a JSX Element directly from a string template, which can be interpolated.
     /// When using interpolation note the holes must follow JSX syntax rules.
@@ -84,8 +83,7 @@ module JS =
     type ReflectedDecoratorAttribute() =
         inherit Attribute()
 
-        abstract Decorate:
-            fn: Function * info: Reflection.MethodInfo -> Function
+        abstract Decorate: fn: Function * info: Reflection.MethodInfo -> Function
 
     // Hack because currently Fable doesn't keep information about spread for anonymous function
     // We also use function (instead of an arrow) to make sure `this` is bound correctly
@@ -166,14 +164,12 @@ module JS =
     and [<AllowNullLiteral>] ObjectConstructor =
         abstract getPrototypeOf: o: obj -> obj
 
-        abstract getOwnPropertyDescriptor:
-            o: obj * p: string -> PropertyDescriptor
+        abstract getOwnPropertyDescriptor: o: obj * p: string -> PropertyDescriptor
 
         abstract getOwnPropertyNames: o: obj -> ResizeArray<string>
         abstract create: o: obj * ?properties: obj -> obj
 
-        abstract defineProperty:
-            o: obj * p: string * attributes: PropertyDescriptor -> obj
+        abstract defineProperty: o: obj * p: string * attributes: PropertyDescriptor -> obj
 
         abstract defineProperties: o: obj * properties: obj -> obj
         abstract seal: o: 'T -> 'T
@@ -194,11 +190,9 @@ module JS =
         abstract is: value1: obj * value2: obj -> bool
         abstract setPrototypeOf: o: obj * proto: obj -> obj
 
-        abstract getOwnPropertyDescriptor:
-            o: obj * propertyKey: obj -> PropertyDescriptor
+        abstract getOwnPropertyDescriptor: o: obj * propertyKey: obj -> PropertyDescriptor
 
-        abstract defineProperty:
-            o: obj * propertyKey: obj * attributes: PropertyDescriptor -> obj
+        abstract defineProperty: o: obj * propertyKey: obj * attributes: PropertyDescriptor -> obj
 
     and [<AllowNullLiteral>] Math =
         abstract E: float
@@ -279,22 +273,18 @@ module JS =
         abstract setMinutes: min: float * ?sec: float * ?ms: float -> float
         abstract setUTCMinutes: min: float * ?sec: float * ?ms: float -> float
 
-        abstract setHours:
-            hours: float * ?min: float * ?sec: float * ?ms: float -> float
+        abstract setHours: hours: float * ?min: float * ?sec: float * ?ms: float -> float
 
-        abstract setUTCHours:
-            hours: float * ?min: float * ?sec: float * ?ms: float -> float
+        abstract setUTCHours: hours: float * ?min: float * ?sec: float * ?ms: float -> float
 
         abstract setDate: date: float -> float
         abstract setUTCDate: date: float -> float
         abstract setMonth: month: float * ?date: float -> float
         abstract setUTCMonth: month: float * ?date: float -> float
 
-        abstract setFullYear:
-            year: float * ?month: float * ?date: float -> float
+        abstract setFullYear: year: float * ?month: float * ?date: float -> float
 
-        abstract setUTCFullYear:
-            year: float * ?month: float * ?date: float -> float
+        abstract setUTCFullYear: year: float * ?month: float * ?date: float -> float
 
         abstract toUTCString: unit -> string
         abstract toISOString: unit -> string
@@ -312,13 +302,7 @@ module JS =
 
         [<Emit("new $0($1...)")>]
         abstract Create:
-            year: float *
-            month: float *
-            ?date: float *
-            ?hours: float *
-            ?minutes: float *
-            ?seconds: float *
-            ?ms: float ->
+            year: float * month: float * ?date: float * ?hours: float * ?minutes: float * ?seconds: float * ?ms: float ->
                 DateTime
 
         [<Emit("$0()")>]
@@ -327,13 +311,7 @@ module JS =
         abstract parse: s: string -> float
 
         abstract UTC:
-            year: float *
-            month: float *
-            ?date: float *
-            ?hours: float *
-            ?minutes: float *
-            ?seconds: float *
-            ?ms: float ->
+            year: float * month: float * ?date: float * ?hours: float * ?minutes: float * ?seconds: float * ?ms: float ->
                 float
 
         abstract now: unit -> float
@@ -341,9 +319,7 @@ module JS =
     and [<AllowNullLiteral>] JSON =
         abstract parse: text: string * ?reviver: (obj -> obj -> obj) -> obj
 
-        abstract stringify:
-            value: obj * ?replacer: (string -> obj -> obj) * ?space: obj ->
-                string
+        abstract stringify: value: obj * ?replacer: (string -> obj -> obj) * ?space: obj -> string
 
     and [<AllowNullLiteral>] Map<'K, 'V> =
         abstract size: int
@@ -351,9 +327,7 @@ module JS =
         abstract delete: key: 'K -> bool
         abstract entries: unit -> seq<'K * 'V>
 
-        abstract forEach:
-            callbackfn: ('V -> 'K -> Map<'K, 'V> -> unit) * ?thisArg: obj ->
-                unit
+        abstract forEach: callbackfn: ('V -> 'K -> Map<'K, 'V> -> unit) * ?thisArg: obj -> unit
 
         abstract get: key: 'K -> 'V
         abstract has: key: 'K -> bool
@@ -383,8 +357,7 @@ module JS =
         abstract delete: value: 'T -> bool
         abstract entries: unit -> seq<'T * 'T>
 
-        abstract forEach:
-            callbackfn: ('T -> 'T -> Set<'T> -> unit) * ?thisArg: obj -> unit
+        abstract forEach: callbackfn: ('T -> 'T -> Set<'T> -> unit) * ?thisArg: obj -> unit
 
         abstract has: value: 'T -> bool
         abstract keys: unit -> seq<'T>
@@ -412,16 +385,13 @@ module JS =
         inherit AsyncIterable
 
     and [<AllowNullLiteral>] Promise<'T> =
-        abstract ``then``:
-            ?onfulfilled: ('T -> 'TResult) * ?onrejected: (obj -> 'TResult) ->
-                Promise<'TResult>
+        abstract ``then``: ?onfulfilled: ('T -> 'TResult) * ?onrejected: (obj -> 'TResult) -> Promise<'TResult>
 
         abstract catch: ?onrejected: (obj -> 'T) -> Promise<'T>
 
     and [<AllowNullLiteral>] PromiseConstructor =
         [<Emit("new $0($1...)")>]
-        abstract Create:
-            executor: ((obj -> unit) -> (obj -> unit) -> unit) -> Promise<'T>
+        abstract Create: executor: ((obj -> unit) -> (obj -> unit) -> unit) -> Promise<'T>
 
         abstract all: [<ParamArray>] values: obj[] -> Promise<obj>
         abstract race: values: obj seq -> Promise<obj>
@@ -468,39 +438,29 @@ module JS =
         abstract getUint32: byteOffset: int * ?littleEndian: bool -> uint32
         abstract getBigUint64: byteOffset: int * ?littleEndian: bool -> uint64
 
-        abstract setFloat32:
-            byteOffset: int * value: float32 * ?littleEndian: bool -> unit
+        abstract setFloat32: byteOffset: int * value: float32 * ?littleEndian: bool -> unit
 
-        abstract setFloat64:
-            byteOffset: int * value: float * ?littleEndian: bool -> unit
+        abstract setFloat64: byteOffset: int * value: float * ?littleEndian: bool -> unit
 
         abstract setInt8: byteOffset: int * value: sbyte -> unit
 
-        abstract setInt16:
-            byteOffset: int * value: int16 * ?littleEndian: bool -> unit
+        abstract setInt16: byteOffset: int * value: int16 * ?littleEndian: bool -> unit
 
-        abstract setInt32:
-            byteOffset: int * value: int32 * ?littleEndian: bool -> unit
+        abstract setInt32: byteOffset: int * value: int32 * ?littleEndian: bool -> unit
 
-        abstract setBigInt64:
-            byteOffset: int * value: int64 * ?littleEndian: bool -> unit
+        abstract setBigInt64: byteOffset: int * value: int64 * ?littleEndian: bool -> unit
 
         abstract setUint8: byteOffset: int * value: byte -> unit
 
-        abstract setUint16:
-            byteOffset: int * value: uint16 * ?littleEndian: bool -> unit
+        abstract setUint16: byteOffset: int * value: uint16 * ?littleEndian: bool -> unit
 
-        abstract setUint32:
-            byteOffset: int * value: uint32 * ?littleEndian: bool -> unit
+        abstract setUint32: byteOffset: int * value: uint32 * ?littleEndian: bool -> unit
 
-        abstract setBigUint64:
-            byteOffset: int * value: uint64 * ?littleEndian: bool -> unit
+        abstract setBigUint64: byteOffset: int * value: uint64 * ?littleEndian: bool -> unit
 
     and [<AllowNullLiteral>] DataViewConstructor =
         [<Emit("new $0($1...)")>]
-        abstract Create:
-            buffer: ArrayBuffer * ?byteOffset: int * ?byteLength: float ->
-                DataView
+        abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?byteLength: float -> DataView
 
     and TypedArray =
         abstract buffer: ArrayBuffer
@@ -508,8 +468,7 @@ module JS =
         abstract byteOffset: int
         abstract length: int
 
-        abstract copyWithin:
-            targetStartIndex: int * start: int * ?``end``: int -> unit
+        abstract copyWithin: targetStartIndex: int * start: int * ?``end``: int -> unit
 
         abstract entries: unit -> obj
         abstract keys: unit -> obj
@@ -521,8 +480,7 @@ module JS =
         [<Emit("$0[$1]{{=$2}}")>]
         abstract Item: index: int -> 'T with get, set
 
-        abstract fill:
-            value: 'T * ?``begin``: int * ?``end``: int -> TypedArray<'T>
+        abstract fill: value: 'T * ?``begin``: int * ?``end``: int -> TypedArray<'T>
 
         abstract filter: ('T -> int -> TypedArray<'T> -> bool) -> TypedArray<'T>
         abstract filter: ('T -> int -> bool) -> TypedArray<'T>
@@ -543,21 +501,15 @@ module JS =
         abstract map: ('T -> int -> 'U) -> TypedArray<'U>
         abstract map: ('T -> 'U) -> TypedArray<'U>
 
-        abstract reduce:
-            ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state: 'State ->
-                'State
+        abstract reduce: ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state: 'State -> 'State
 
-        abstract reduce:
-            ('State -> 'T -> int -> 'State) * state: 'State -> 'State
+        abstract reduce: ('State -> 'T -> int -> 'State) * state: 'State -> 'State
 
         abstract reduce: ('State -> 'T -> 'State) * state: 'State -> 'State
 
-        abstract reduceRight:
-            ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state: 'State ->
-                'State
+        abstract reduceRight: ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state: 'State -> 'State
 
-        abstract reduceRight:
-            ('State -> 'T -> int -> 'State) * state: 'State -> 'State
+        abstract reduceRight: ('State -> 'T -> int -> 'State) * state: 'State -> 'State
 
         abstract reduceRight: ('State -> 'T -> 'State) * state: 'State -> 'State
         abstract reverse: unit -> TypedArray<'T>
@@ -582,8 +534,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Int8Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> Int8Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Int8Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Int8Array
@@ -599,8 +550,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Uint8Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> Uint8Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Uint8Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Uint8Array
@@ -616,9 +566,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Uint8ClampedArray
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int ->
-                Uint8ClampedArray
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Uint8ClampedArray
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Uint8ClampedArray
@@ -634,8 +582,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Int16Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> Int16Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Int16Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Int16Array
@@ -651,8 +598,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Uint16Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> Uint16Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Uint16Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Uint16Array
@@ -668,8 +614,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Int32Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> Int32Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Int32Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Int32Array
@@ -685,8 +630,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Uint32Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> Uint32Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Uint32Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Uint32Array
@@ -702,8 +646,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Float32Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> Float32Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Float32Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Float32Array
@@ -719,8 +662,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> Float64Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> Float64Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> Float64Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> Float64Array
@@ -736,8 +678,7 @@ module JS =
         abstract Create: typedArray: TypedArray -> BigInt64Array
 
         [<Emit "new $0($1...)">]
-        abstract Create:
-            buffer: ArrayBuffer * ?offset: int * ?length: int -> BigInt64Array
+        abstract Create: buffer: ArrayBuffer * ?offset: int * ?length: int -> BigInt64Array
 
         [<Emit "new $0($1...)">]
         abstract Create: data: obj -> BigInt64Array
@@ -754,44 +695,34 @@ module JS =
 
 
     and [<AllowNullLiteral>] Console =
-        abstract ``assert``:
-            ?test: bool *
-            ?message: string *
-            [<ParamArray>] optionalParams: obj[] ->
-                unit
+        abstract ``assert``: ?test: bool * ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
 
         abstract clear: unit -> unit
         abstract count: ?countTitle: string -> unit
 
-        abstract debug:
-            ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract debug: ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
 
         abstract dir: ?value: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract dirxml: value: obj -> unit
 
-        abstract error:
-            ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract error: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
 
         abstract group: ?groupTitle: string -> unit
         abstract groupCollapsed: ?groupTitle: string -> unit
         abstract groupEnd: unit -> unit
 
-        abstract info:
-            ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract info: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
 
-        abstract log:
-            ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract log: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
 
         abstract profile: ?reportName: string -> unit
         abstract profileEnd: unit -> unit
         abstract time: ?timerName: string -> unit
         abstract timeEnd: ?timerName: string -> unit
 
-        abstract trace:
-            ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract trace: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
 
-        abstract warn:
-            ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
 
         abstract table: ?data: obj -> unit
 

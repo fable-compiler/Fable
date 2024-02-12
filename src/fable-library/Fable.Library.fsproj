@@ -23,6 +23,7 @@
     <Compile Include="Native.fs" />
     <Compile Include="MutableMap.fs" />
     <Compile Include="MutableSet.fs" />
+    <Compile Include="Result.fs" />
     <Compile Include="Choice.fs" />
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
@@ -32,6 +33,7 @@
     <Compile Include="Random.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
+    <Compile Include="FSharp.Core.CompilerServices.fs" />
     <TypeScriptCompile Include="Async.ts" />
     <TypeScriptCompile Include="AsyncBuilder.ts" />
     <TypeScriptCompile Include="BitConverter.ts" />

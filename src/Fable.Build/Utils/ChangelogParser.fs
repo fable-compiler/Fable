@@ -59,10 +59,7 @@ module Types =
     type Symbols =
         | Title of title: string
         | RawText of body: string
-        | SectionHeader of
-            title: string *
-            version: string option *
-            date: string option
+        | SectionHeader of title: string * version: string option * date: string option
         | SubSection of tag: string
         | SubSubSection of tag: string
         | ListItem of content: string
@@ -89,8 +86,7 @@ module Lexer =
     [<return: Struct>]
     let private (|Semver|_|) (input: string) =
         match input with
-        | Match "\\[?v?([\\w\\d.-]+\\.[\\w\\d.-]+[a-zA-Z0-9])\\]?" m ->
-            ValueSome m.Groups.[1].Value
+        | Match "\\[?v?([\\w\\d.-]+\\.[\\w\\d.-]+[a-zA-Z0-9])\\]?" m -> ValueSome m.Groups.[1].Value
         | _ -> ValueNone
 
     [<return: Struct>]
@@ -142,8 +138,7 @@ module Lexer =
         |> List.map (
             function
             | Title title -> Symbols.Title title
-            | Version(title, version, date) ->
-                Symbols.SectionHeader(title, version, date)
+            | Version(title, version, date) -> Symbols.SectionHeader(title, version, date)
             | SubSection tag -> Symbols.SubSection tag
             | SubSubSection tag -> Symbols.SubSubSection tag
             | ListItem content -> Symbols.ListItem content
@@ -153,16 +148,11 @@ module Lexer =
 [<RequireQualifiedAccess>]
 module Transform =
 
-    let rec private parseCategoryBody
-        (symbols: Symbols list)
-        (sectionContent: CategoryBody list)
-        =
+    let rec private parseCategoryBody (symbols: Symbols list) (sectionContent: CategoryBody list) =
         match symbols with
         | Symbols.ListItem item :: tail ->
 
-            parseCategoryBody
-                tail
-                (sectionContent @ [ CategoryBody.ListItem item ])
+            parseCategoryBody tail (sectionContent @ [ CategoryBody.ListItem item ])
         // If this is the beginning of a text block
         | Symbols.RawText _ :: _ ->
             // Capture all the lines of the text block
@@ -180,8 +170,7 @@ module Transform =
                 |> List.map (
                     function
                     | Symbols.RawText text -> text
-                    | _ ->
-                        failwith "Should not happen the list has been filtered"
+                    | _ -> failwith "Should not happen the list has been filtered"
                 )
                 // Skip empty lines at the beginning
                 |> List.skipWhile String.IsNullOrEmpty
@@ -199,14 +188,9 @@ module Transform =
             if String.IsNullOrEmpty content then
                 parseCategoryBody rest sectionContent
             else
-                parseCategoryBody
-                    rest
-                    (sectionContent @ [ CategoryBody.Text content ])
+                parseCategoryBody rest (sectionContent @ [ CategoryBody.Text content ])
 
-        | Symbols.SubSubSection tag :: tail ->
-            parseCategoryBody
-                tail
-                (sectionContent @ [ CategoryBody.Section tag ])
+        | Symbols.SubSubSection tag :: tail -> parseCategoryBody tail (sectionContent @ [ CategoryBody.Section tag ])
 
         // End of the Section, return the built content
         | _ -> symbols, sectionContent
@@ -230,8 +214,7 @@ module Transform =
                 |> List.map (
                     function
                     | Symbols.RawText text -> text
-                    | _ ->
-                        failwith "Should not happen the list has been filtered"
+                    | _ -> failwith "Should not happen the list has been filtered"
                 )
                 // Skip empty lines at the beginning
                 |> List.skipWhile String.IsNullOrEmpty
@@ -267,15 +250,11 @@ module Transform =
                 {
                     Version =
                         match version with
-                        | Some version ->
-                            SemVersion.Parse(version, SemVersionStyles.Strict)
+                        | Some version -> SemVersion.Parse(version, SemVersionStyles.Strict)
                         | None ->
                             // If no version is provided, use a dummy version
                             // This happens when handling the unreleased section
-                            SemVersion.Parse(
-                                "0.0.0-Unreleased",
-                                SemVersionStyles.Strict
-                            )
+                            SemVersion.Parse("0.0.0-Unreleased", SemVersionStyles.Strict)
                     Title = title
                     Date = date |> Option.map DateTime.Parse
                     Categories =
@@ -292,9 +271,7 @@ module Transform =
                     OtherItems = []
                 }
 
-            parse
-                tail
-                { changelog with Versions = version :: changelog.Versions }
+            parse tail { changelog with Versions = version :: changelog.Versions }
 
         | Symbols.SubSection tag :: tail ->
             let (unparsedSymbols, categoryBody) = parseCategoryBody tail []
@@ -304,55 +281,28 @@ module Transform =
                 let updatedCategories =
                     match tag.ToLower() with
                     | "added" ->
-                        { currentVersion.Categories with
-                            Added =
-                                currentVersion.Categories.Added @ categoryBody
-                        }
+                        { currentVersion.Categories with Added = currentVersion.Categories.Added @ categoryBody }
                     | "changed" ->
-                        { currentVersion.Categories with
-                            Changed =
-                                currentVersion.Categories.Changed @ categoryBody
-                        }
+                        { currentVersion.Categories with Changed = currentVersion.Categories.Changed @ categoryBody }
                     | "deprecated" ->
                         { currentVersion.Categories with
-                            Deprecated =
-                                currentVersion.Categories.Deprecated
-                                @ categoryBody
+                            Deprecated = currentVersion.Categories.Deprecated @ categoryBody
                         }
                     | "removed" ->
-                        { currentVersion.Categories with
-                            Removed =
-                                currentVersion.Categories.Removed @ categoryBody
-                        }
+                        { currentVersion.Categories with Removed = currentVersion.Categories.Removed @ categoryBody }
                     | "improved" ->
-                        { currentVersion.Categories with
-                            Improved =
-                                currentVersion.Categories.Improved
-                                @ categoryBody
-                        }
+                        { currentVersion.Categories with Improved = currentVersion.Categories.Improved @ categoryBody }
                     | "fixed" ->
-                        { currentVersion.Categories with
-                            Fixed =
-                                currentVersion.Categories.Fixed @ categoryBody
-                        }
+                        { currentVersion.Categories with Fixed = currentVersion.Categories.Fixed @ categoryBody }
                     | "security" ->
-                        { currentVersion.Categories with
-                            Security =
-                                currentVersion.Categories.Security
-                                @ categoryBody
-                        }
+                        { currentVersion.Categories with Security = currentVersion.Categories.Security @ categoryBody }
                     | unknown ->
                         { currentVersion.Categories with
-                            Custom =
-                                currentVersion.Categories.Custom.Add(
-                                    unknown,
-                                    categoryBody
-                                )
+                            Custom = currentVersion.Categories.Custom.Add(unknown, categoryBody)
                         }
 
                 let versions =
-                    { currentVersion with Categories = updatedCategories }
-                    :: otherVersions
+                    { currentVersion with Categories = updatedCategories } :: otherVersions
 
                 parse unparsedSymbols { changelog with Versions = versions }
             | _ -> Error "A category should always be under a version"
@@ -373,8 +323,7 @@ module Transform =
                 |> List.map (
                     function
                     | Symbols.RawText text -> text
-                    | _ ->
-                        failwith "Should not happen the list has been filtered"
+                    | _ -> failwith "Should not happen the list has been filtered"
                 )
                 |> String.concat "\n"
 
@@ -395,10 +344,7 @@ module Transform =
                     }
 
                 let versions =
-                    { currentVersion with
-                        OtherItems =
-                            currentVersion.OtherItems @ [ otherItemItem ]
-                    }
+                    { currentVersion with OtherItems = currentVersion.OtherItems @ [ otherItemItem ] }
                     :: otherVersions
 
                 parse unparsedSymbols { changelog with Versions = versions }
@@ -414,12 +360,7 @@ module Transform =
     let fromSymbols (symbols: Symbols list) = parse symbols Changelog.Empty
 
 let parse (changelogContent: string) =
-    changelogContent.Split(
-        [|
-            '\r'
-            '\n'
-        |]
-    )
+    changelogContent.Split([| '\r'; '\n' |])
     |> Array.toList
     |> Lexer.toSymbols
     |> Transform.fromSymbols
@@ -427,10 +368,7 @@ let parse (changelogContent: string) =
 module Version =
 
     let bodyAsMarkdown (version: Types.Version) =
-        let renderCategoryBody
-            (categoryLabel: string)
-            (items: CategoryBody list)
-            =
+        let renderCategoryBody (categoryLabel: string) (items: CategoryBody list) =
             if items.IsEmpty then
                 ""
             else
@@ -451,8 +389,7 @@ module Version =
         body <- body + renderCategoryBody "Added" version.Categories.Added
         body <- body + renderCategoryBody "Changed" version.Categories.Changed
 
-        body <-
-            body + renderCategoryBody "Deprecated" version.Categories.Deprecated
+        body <- body + renderCategoryBody "Deprecated" version.Categories.Deprecated
 
         body <- body + renderCategoryBody "Removed" version.Categories.Removed
         body <- body + renderCategoryBody "Improved" version.Categories.Improved

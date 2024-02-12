@@ -11,7 +11,7 @@
 
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="8.0.100"/>
-        <PackageReference Include="FSharp.Analyzers.SDK" Version="0.23.0"/>
+        <PackageReference Include="FSharp.Analyzers.SDK" Version="0.24.0"/>
     </ItemGroup>
 
 </Project>

@@ -43,14 +43,6 @@ type CrackerOptions =
     member SourceMapsRoot: string option
     member EvaluateOnly: bool
     member BuildDll: normalizedDllPath: string -> unit
-    static member GetFableModulesFromDir: baseDir: string -> string
-
-    static member GetFableModulesFromProject:
-        projDir: string *
-        outDir: string option *
-        noCache: bool *
-        evaluateOnly: bool ->
-            string
 
 type CrackerResponse =
     {
@@ -75,8 +67,6 @@ type ProjectOptionsResponse =
 [<Interface>]
 type ProjectCrackerResolver =
     abstract member GetProjectOptionsFromProjectFile:
-        isMain: bool * options: CrackerOptions * projectFile: string ->
-            ProjectOptionsResponse
+        isMain: bool * options: CrackerOptions * projectFile: string -> ProjectOptionsResponse
 
-val getFullProjectOpts:
-    resolver: ProjectCrackerResolver -> opts: CrackerOptions -> CrackerResponse
+val getFullProjectOpts: resolver: ProjectCrackerResolver -> opts: CrackerOptions -> CrackerResponse

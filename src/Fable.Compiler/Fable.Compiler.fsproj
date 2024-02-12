@@ -6,12 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-002</Version>
+        <Version>4.0.0-alpha-004</Version>
         <PackageReleaseNotes>## Changed
 
-- Respect file extension from `CliArgs`
-- Use `Microsoft.Extensions.Logging`
-- Load Fable plugins
+- [GH-3724](https://github.com/fable-compiler/Fable/pull/3724) Internalize `GetFableModulesFromDir` &amp; `GetFableModulesFromProject` (by @nojaf)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

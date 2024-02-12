@@ -16,11 +16,7 @@ module Operators =
     //    let nullArg x = raise(System.ArgumentNullException(x))
 
     [<CompiledName("Using")>]
-    let using<'T, 'U when 'T :> System.IDisposable>
-        (resource: 'T)
-        (action: 'T -> 'U)
-        : 'U
-        =
+    let using<'T, 'U when 'T :> System.IDisposable> (resource: 'T) (action: 'T -> 'U) : 'U =
         try
             action (resource)
         finally
