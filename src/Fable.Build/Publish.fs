@@ -125,7 +125,7 @@ let handle (args: string list) =
 
     // For fable-library, we use the compiled version of the project for publishing
     // This is because we want to publish the JavaScript code and not a mix of F# and TypeScript
-    // publishNpm ProjectDir.temp_fable_library_js
+    publishNpm ProjectDir.temp_fable_library_js
     publishNpm ProjectDir.temp_fable_library_ts
 
     // We also want to update the original package.json if needed
