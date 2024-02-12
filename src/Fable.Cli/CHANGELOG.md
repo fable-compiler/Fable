@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     * `Result.ToArray`
     * `Result.ToList`
     * `Result.ToOption`
+* [GH-3721](https://github.com/fable-compiler/Fable/pull/3721) Add `--test:MSBuildCracker` flag allowing to use the experimental MSBuildCracker (by @nojaf)
 
 #### JavaScript
 

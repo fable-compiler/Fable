@@ -123,6 +123,7 @@ let knownCliArgs () =
         [ "--trimRootModule" ], []
         [ "--fableLib" ], []
         [ "--replace" ], []
+        [ "--test:MSBuildCracker" ], []
     ]
 
 let printKnownCliArgs () =
@@ -268,6 +269,7 @@ type Runner =
                 args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
 
             let fableLib = args.Value "--fableLib" |> Option.map Path.normalizePath
+            let useMSBuildForCracking = args.FlagOr("--test:MSBuildCracker", false)
 
             do!
                 match watch, outDir, fableLib with
@@ -383,7 +385,7 @@ type Runner =
                     None
 
             let startCompilation () =
-                State.Create(cliArgs, ?watchDelay = watchDelay)
+                State.Create(cliArgs, ?watchDelay = watchDelay, useMSBuildForCracking = useMSBuildForCracking)
                 |> startCompilation
                 |> Async.RunSynchronously
 
