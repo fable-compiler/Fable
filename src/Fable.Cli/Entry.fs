@@ -466,8 +466,8 @@ let getStatus =
 
 let getLibPkgVersion =
     function
-    | JavaScript
-    | TypeScript -> Some("npm", "fable-library", Literals.JS_LIBRARY_VERSION)
+    | JavaScript -> Some("npm", "@fable-org/fable-library-js", Literals.JS_LIBRARY_VERSION)
+    | TypeScript -> Some("npm", "@fable-org/fable-library-ts", Literals.JS_LIBRARY_VERSION)
     | Python
     | Rust
     | Dart

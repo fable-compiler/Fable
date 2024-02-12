@@ -23,7 +23,8 @@ type BuildFableLibraryPython() =
 
     override this.PostFableBuildStage() =
         // Fix issues with Fable .fsproj not supporting links
-        let linkedFileFolder = Path.Combine(this.BuildDir, "fable_library", "fable-library")
+        let linkedFileFolder =
+            Path.Combine(this.BuildDir, "fable_library", "fable-library-ts")
 
         Directory.GetFiles(linkedFileFolder, "*") |> Shell.copyFiles this.OutDir
 

@@ -9,8 +9,8 @@ type BuildFableLibraryTypeScript() =
     inherit
         BuildFableLibrary(
             "typescript",
-            Path.Combine("src", "fable-library"),
-            Path.Combine("src", "fable-library"),
+            Path.Combine("src", "fable-library-ts"),
+            Path.Combine("src", "fable-library-ts"),
             Path.Combine("temp", "fable-library-ts"),
             Path.Combine("temp", "fable-library-ts"),
             Path.Combine(".", "temp", "fable-library-ts")

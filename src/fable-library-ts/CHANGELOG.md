@@ -10,4 +10,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 * Separate `Result` from `Choice`
-* Released as part of Fable 4.11.0
+* Released as part of Fable 4.12.0

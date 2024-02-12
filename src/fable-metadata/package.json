@@ -1,6 +1,6 @@
 {
-  "name": "fable-metadata",
-  "version": "2.2.0",
+  "name": "@fable-org/fable-metadata",
+  "version": "1.0.0",
   "description": "Assemblies needed to compile F# projects with Fable",
   "main": "index.js",
   "type": "module",

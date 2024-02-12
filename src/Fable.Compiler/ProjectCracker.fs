@@ -655,9 +655,9 @@ let getFableLibraryPath (opts: CrackerOptions) =
         match opts.FableOptions.Language, opts.FableLib with
         | Dart, None -> "fable-library-dart", "fable_library"
         | Rust, None -> "fable-library-rust", "fable-library-rust"
-        | TypeScript, None -> "fable-library-ts", "fable-library-ts"
+        | TypeScript, None -> "fable-library-ts", $"fable-library-ts.%s{Literals.VERSION}"
         | Php, None -> "fable-library-php", "fable-library-php"
-        | JavaScript, None -> "fable-library", "fable-library" + "." + Literals.VERSION
+        | JavaScript, None -> "fable-library-js", $"fable-library-js.%s{Literals.VERSION}"
         | Python, None -> "fable-library-py/fable_library", "fable_library"
         | Python, Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
         | _, Some path ->

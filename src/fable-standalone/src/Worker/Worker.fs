@@ -164,7 +164,7 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
                         measureTime
                             (fun () ->
                                 fable.Manager.CompileToTargetAst(
-                                    "fable-library",
+                                    "fable-library-js",
                                     parseResults,
                                     fileName,
                                     typedArrays,

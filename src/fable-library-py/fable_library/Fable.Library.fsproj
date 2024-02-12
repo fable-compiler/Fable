@@ -10,23 +10,23 @@
   <ItemGroup>
     <Compile Include="Timer.fs" />
 
-    <Compile Include="../../fable-library/Global.fs" Link="Global.fs" />
-    <Compile Include="../../fable-library/System.Text.fs" Link="System.Text.fs" />
-    <Compile Include="../../fable-library/System.Collections.Generic.fs" Link="System.Collections.Generic.fs" />
-    <Compile Include="../../fable-library/FSharp.Collections.fs" Link="FSharp.Collections.fs" />
-    <Compile Include="../../fable-library/FSharp.Core.fs" Link="FSharp.Core.fs" />
+    <Compile Include="../../fable-library-ts/Global.fs" Link="Global.fs" />
+    <Compile Include="../../fable-library-ts/System.Text.fs" Link="System.Text.fs" />
+    <Compile Include="../../fable-library-ts/System.Collections.Generic.fs" Link="System.Collections.Generic.fs" />
+    <Compile Include="../../fable-library-ts/FSharp.Collections.fs" Link="FSharp.Collections.fs" />
+    <Compile Include="../../fable-library-ts/FSharp.Core.fs" Link="FSharp.Core.fs" />
     <Compile Include="Native.fs" />
-    <Compile Include="../../fable-library/MutableMap.fs" Link="MutableMap.fs" />
-    <Compile Include="../../fable-library/MutableSet.fs" Link="MutableSet.fs" />
-    <Compile Include="../../fable-library/Result.fs" Link="Result.fs" />
-    <Compile Include="../../fable-library/Choice.fs" Link="Choice.fs" />
+    <Compile Include="../../fable-library-ts/MutableMap.fs" Link="MutableMap.fs" />
+    <Compile Include="../../fable-library-ts/MutableSet.fs" Link="MutableSet.fs" />
+    <Compile Include="../../fable-library-ts/Result.fs" Link="Result.fs" />
+    <Compile Include="../../fable-library-ts/Choice.fs" Link="Choice.fs" />
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
-    <Compile Include="../../fable-library/Seq.fs" Link="Seq.fs" />
-    <Compile Include="../../fable-library/Seq2.fs" Link="Seq2.fs" />
-    <Compile Include="../../fable-library/Range.fs" Link="Range.fs" />
-    <Compile Include="../../fable-library/Set.fs" Link="Set.fs" />
-    <Compile Include="../../fable-library/Map.fs" Link="Map.fs" />
+    <Compile Include="../../fable-library-ts/Seq.fs" Link="Seq.fs" />
+    <Compile Include="../../fable-library-ts/Seq2.fs" Link="Seq2.fs" />
+    <Compile Include="../../fable-library-ts/Range.fs" Link="Range.fs" />
+    <Compile Include="../../fable-library-ts/Set.fs" Link="Set.fs" />
+    <Compile Include="../../fable-library-ts/Map.fs" Link="Map.fs" />
   </ItemGroup>
 
   <ItemGroup>

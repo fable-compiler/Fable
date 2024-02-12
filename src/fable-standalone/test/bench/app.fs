@@ -56,7 +56,7 @@ let main argv =
         let parseFSharpScript () =
             fable.ParseAndCheckFileInProject(checker, fileName, projectFileName, [| fileName |], [| source |])
 
-        let fableLibraryDir = "fable-library"
+        let fableLibraryDir = "fable-library-js"
 
         let parseFable (res, fileName) =
             fable.CompileToBabelAst(fableLibraryDir, res, fileName)

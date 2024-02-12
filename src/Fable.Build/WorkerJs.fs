@@ -51,10 +51,10 @@ let handle (args: string list) =
         workingDirectory = projectDir
     )
 
-    let fableLibraryDist = (distDir </> "fable-library")
+    let fableLibraryDist = (distDir </> "fable-library-js")
 
     Directory.ensure fableLibraryDist
 
     // Copy Fable library to dist folder
-    Shell.copyRecursive (Path.Resolve("temp", "fable-library")) fableLibraryDist true
+    Shell.copyRecursive (Path.Resolve("temp", "fable-library-js")) fableLibraryDist true
     |> ignore

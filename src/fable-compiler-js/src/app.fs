@@ -20,7 +20,7 @@ let getMetadataDir () : string =
     join currentDirName "../../fable-metadata/lib/"
 
 let getFableLibDir () : string =
-    join currentDirName "../../../temp/fable-library/"
+    join currentDirName "../../../temp/fable-library-js/"
 
 let getVersion () : string = ".next"
 
@@ -28,12 +28,13 @@ let initFable () : Fable.Standalone.IFableManager =
     import "init" "../../fable-standalone/src/Main.fs.js"
 #else
 let getMetadataDir () : string =
-    import "getAssembliesDir" "fable-metadata"
+    import "getAssembliesDir" "@fable-org/fable-metadata"
 
 let getFableLibDir () : string = importMember "./util.js"
 let getVersion () : string = importMember "./util.js"
 
-let initFable () : Fable.Standalone.IFableManager = import "init" "fable-standalone"
+let initFable () : Fable.Standalone.IFableManager =
+    import "init" "@fable-org/fable-standalone"
 #endif
 
 let references = Fable.Metadata.coreAssemblies
