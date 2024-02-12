@@ -367,19 +367,20 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
 
-    static member Init(cliArgs: CliArgs, ?evaluateOnly: bool) =
+    static member Init(cliArgs: CliArgs, useMSBuildForCracking, ?evaluateOnly: bool) =
         let evaluateOnly = defaultArg evaluateOnly false
         Log.always $"Parsing {cliArgs.ProjectFileAsRelativePath}..."
 
         let result, ms =
             Performance.measure
             <| fun () ->
-                CrackerOptions(cliArgs, evaluateOnly)
-                |> getFullProjectOpts (MSBuildCrackerResolver())
-        // TODO: Should we have a switch to support both resolvers?
-        // or should we go with the MSBuild one and remove the other one?
-        // CrackerOptions(cliArgs, evaluateOnly)
-        // |> getFullProjectOpts (BuildalyzerCrackerResolver())
+                let resolver: ProjectCrackerResolver =
+                    if useMSBuildForCracking then
+                        MSBuildCrackerResolver()
+                    else
+                        BuildalyzerCrackerResolver()
+
+                CrackerOptions(cliArgs, evaluateOnly) |> getFullProjectOpts resolver
 
         // We display "parsed" because "cracked" may not be understood by users
         Log.always
@@ -806,6 +807,7 @@ type State =
         Watcher: Watcher option
         SilentCompilation: bool
         RecompileAllFiles: bool
+        UseMSBuildForCracking: bool
     }
 
     member this.TriggeredByDependency(path: string, changes: ISet<string>) =
@@ -831,7 +833,7 @@ type State =
                 this.DeduplicateDic.GetOrAdd(importDir, (fun _ -> set this.DeduplicateDic.Values |> addTargetDir))
         }
 
-    static member Create(cliArgs, ?watchDelay, ?recompileAllFiles) =
+    static member Create(cliArgs, ?watchDelay, ?recompileAllFiles, ?useMSBuildForCracking) =
         {
             CliArgs = cliArgs
             ProjectCrackedAndFableCompiler = None
@@ -841,6 +843,7 @@ type State =
             PendingFiles = [||]
             SilentCompilation = false
             RecompileAllFiles = defaultArg recompileAllFiles false
+            UseMSBuildForCracking = defaultArg useMSBuildForCracking false
         }
 
 let private getFilesToCompile
@@ -1002,7 +1005,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
         let projCracked, fableCompiler, filesToCompile =
             match state.ProjectCrackedAndFableCompiler with
             | None ->
-                let projCracked = ProjectCracked.Init(cliArgs)
+                let projCracked = ProjectCracked.Init(cliArgs, state.UseMSBuildForCracking)
                 projCracked, None, projCracked.SourceFilePaths
 
             | Some(projCracked, fableCompiler) ->
@@ -1014,7 +1017,11 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     let oldProjCracked = projCracked
 
                     let newProjCracked =
-                        ProjectCracked.Init({ cliArgs with NoCache = true }, evaluateOnly = true)
+                        ProjectCracked.Init(
+                            { cliArgs with NoCache = true },
+                            state.UseMSBuildForCracking,
+                            evaluateOnly = true
+                        )
 
                     // If only source files have changed, keep the project checker to speed up recompilation
                     let fableCompiler =
