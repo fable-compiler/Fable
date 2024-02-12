@@ -881,19 +881,13 @@ let item (index: int) (array: 'T[]) : 'T =
     if index < 0 || index >= array.Length then
         invalidArg "index" "Index was outside the bounds of the array."
     else
-        // We need to emit JavaScript directly here
-        // otherwise we will call `item` function recursively
-        // and it will cause a stack overflow
-        emitJsExpr (index, array) "$1[$0]"
+        arrayAccessImpl index array
 
 let tryItem (index: int) (array: 'T[]) : 'T option =
     if index < 0 || index >= array.Length then
         None
     else
-        // We need to emit JavaScript directly here
-        // otherwise we will call `item` which will
-        // redo the bounds check
-        Some(emitJsExpr (index, array) "$1[$0]")
+        Some(arrayAccessImpl index array)
 
 let foldBackIndexed<'T, 'State> folder (array: 'T[]) (state: 'State) =
     // if isTypedArrayImpl array then

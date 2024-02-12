@@ -63,10 +63,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### JavaScript
 
 * Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
+* [GH-3748](https://github.com/fable-compiler/Fable/pull/3748) Accessing an array out of bounds should emit an exception (by @MangelMaxime)
 
 #### TypeScript
 
 * Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
+* [GH-3748](https://github.com/fable-compiler/Fable/pull/3748) Accessing an array out of bounds should emit an exception (by @MangelMaxime)
 
 ### Fixed
 
