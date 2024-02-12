@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [GH-3717](https://github.com/fable-compiler/Fable/issues/3717) Nested type with Custom Equality gives false negative equality (by @dbrattli)
 * Generate assert statements for `assert` expressions in debug mode (by @dbrattli)
+* [GH-3744](https://github.com/fable-compiler/Fable/pull/3744) Fix behaviour when passing `--verbose` to be consistent with behaviour before changing the logging library (by @nojaf)
 
 ## 4.11.0 - 2024-01-30
 
