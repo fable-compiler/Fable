@@ -546,7 +546,7 @@ let main argv =
                 |> ignore
             )
 
-        Log.setLogger (factory.CreateLogger(""))
+        Log.setLogger verbosity (factory.CreateLogger(""))
         factory.Dispose()
 
         logPrelude commands language
