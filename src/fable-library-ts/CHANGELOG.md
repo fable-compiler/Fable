@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.0.0-beta-001 - 2024-02-12
+
 ### Changed
 
 * Separate `Result` from `Choice`

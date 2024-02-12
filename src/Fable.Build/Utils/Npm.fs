@@ -44,7 +44,7 @@ Error:
         version <> versionToCheck
 
     let publish (projectDir: string) =
-        Command.Run("npm", "publish", workingDirectory = projectDir)
+        Command.Run("npm", "publish --access public", workingDirectory = projectDir)
 
     let replaceVersion (packageJsonContent: string) (version: string) =
         Regex.Replace(packageJsonContent, Regex.VERSION, (fun (m: Match) -> $"\"version\": \"{version}\""))

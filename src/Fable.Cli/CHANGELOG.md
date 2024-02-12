@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.12.0 - 2024-02-12
+
 ### Added
 
 #### All
@@ -56,6 +58,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### All
 
 * [GH-3744](https://github.com/fable-compiler/Fable/pull/3744) Fix behaviour when passing `--verbose` to be consistent with behaviour before changing the logging library (by @nojaf)
+
+### Changed
+
+#### JavaScript
+
+* [GH-3749](https://github.com/fable-compiler/Fable/pull/3749) Rename `fable-library` to `fable-library-js` (by @MangelMaxime)
 
 ## 4.11.0 - 2024-01-30
 

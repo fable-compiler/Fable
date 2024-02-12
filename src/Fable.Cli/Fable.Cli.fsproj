@@ -4,25 +4,66 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.11.0</Version>
-    <PackageReleaseNotes>## Changed
+    <Version>4.12.0</Version>
+    <PackageReleaseNotes>## Added
 
 
 ### All
 
-- [GH-3719](https://github.com/fable-compiler/Fable/issues/3719) Restore dependencies against the `.fsproj` after evaluating the `fable-temp.csproj` file (Improves IDE supports) (by @MangelMaxime)
-- Don't delete `fable_modules` when re-evaluating the project file after a changes has been detected (Improves HMR experience) (by @MangelMaxime)
+- [GH-3733](https://github.com/fable-compiler/Fable/pull/3733) [GH-3727](https://github.com/fable-compiler/Fable/pull/3727) Add support for more `Result` API (by @zprobinson)
+    * `Result.isOk`
+    * `Result.isError`
+    * `Result.Contains`
+    * `Result.Count`
+    * `Result.DefaultValue`
+    * `Result.DefaultWith`
+    * `Result.Exists`
+    * `Result.Fold`
+    * `Result.FoldBack`
+    * `Result.ForAll`
+    * `Result.Iterate`
+    * `Result.ToArray`
+    * `Result.ToList`
+    * `Result.ToOption`
+- [GH-3721](https://github.com/fable-compiler/Fable/pull/3721) Add `--test:MSBuildCracker` flag allowing to use the experimental MSBuildCracker (by @nojaf)
+
+### JavaScript
+
+- [GH-3745](https://github.com/fable-compiler/Fable/pull/3745) Add support for `ListCollector` (by @nojaf)
+    * `instance.Add`
+    * `instance.AddMany`
+    * `instance.AddManyAndClose`
+    * `instance.Close`
+
+## Changed
+
+
+### JavaScript
+
+- [GH-3749](https://github.com/fable-compiler/Fable/pull/3749) Rename `fable-library` to `fable-library-js` (by @MangelMaxime)
+
+## Removed
+
+
+### JavaScript
+
+- Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
+
+### TypeScript
+
+- Remove `Choice.d.ts` from source code of `fable-library` (by @MangelMaxime)
 
 ## Fixed
 
 
+### Python
+
+- [GH-3717](https://github.com/fable-compiler/Fable/issues/3717) Nested type with Custom Equality gives false negative equality (by @dbrattli)
+- Generate assert statements for `assert` expressions in debug mode (by @dbrattli)
+
 ### All
 
-- [GH-3723](https://github.com/fable-compiler/Fable/pull/3723) Fix logger initialisation to allow `--version` to work (by @MangelMaxime)
-
-### JavaScript
-
-- [GH-3716](https://github.com/fable-compiler/Fable/pull/3716) System.Array.Resize: also handle the case where the array is null (by @chkn)
+- [GH-3744](https://github.com/fable-compiler/Fable/pull/3744) Fix behaviour when passing `--verbose` to be consistent with behaviour before changing the logging library (by @nojaf)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

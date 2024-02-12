@@ -41,5 +41,5 @@ type BuildFableLibraryTypeScript() =
         Shell.copyFile this.OutDir packageJson
 
         // Copy the README.md file to the build directory
-        let readme = Path.Combine(this.SourceDir, "README.md")
-        Shell.copyFile this.OutDir readme
+        Shell.copyFile this.OutDir (Path.Combine(this.SourceDir, "CHANGELOG.md"))
+        Shell.copyFile this.OutDir (Path.Combine(this.SourceDir, "README.md"))

@@ -1,8 +1,9 @@
 {
   "sideEffects": false,
+  "private": false,
   "type": "module",
   "name": "@fable-org/fable-library-ts",
-  "version": "1.1.1",
+  "version": "1.0.0-beta-001",
   "description": "Core library used by F# projects compiled with fable.io",
   "author": "Fable Contributors",
   "license": "MIT",
