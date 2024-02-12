@@ -11,7 +11,7 @@ export function getVersion() {
 
 export function getFableLibDir() {
   const require = createRequire(import.meta.url);
-  return Path.join(Path.dirname(require.resolve("fable-standalone")), "fable-library");
+  return Path.join(Path.dirname(require.resolve("@fable-org/fable-standalone")), "fable-library");
 }
 
 export function getDirFiles(dir) {
