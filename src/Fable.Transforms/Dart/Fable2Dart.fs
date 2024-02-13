@@ -2183,19 +2183,12 @@ module Util =
         (argTypes: Fable.Type list)
         : string list
         =
-        let rec getGenParams =
-            function
-            | Fable.GenericParam(name, isMeasure, _constraints) ->
-                if isMeasure then
-                    []
-                else
-                    [ name ] // discard measure generic params
-            | t -> t.Generics |> List.collect getGenParams
 
         let genParams =
             (Set.empty, argTypes)
             ||> List.fold (fun genArgs t ->
-                (genArgs, getGenParams t) ||> List.fold (fun genArgs n -> Set.add n genArgs)
+                (genArgs, FSharp2Fable.Util.getGenParamNames t)
+                ||> List.fold (fun genArgs n -> Set.add n genArgs)
             )
             |> List.ofSeq
 

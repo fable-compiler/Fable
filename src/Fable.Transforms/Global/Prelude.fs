@@ -1,8 +1,6 @@
 namespace Fable
 
 open System
-open System.Globalization
-open System.Text
 
 [<AutoOpen>]
 module Extensions =

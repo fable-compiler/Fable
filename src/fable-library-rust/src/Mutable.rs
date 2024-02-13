@@ -8,7 +8,6 @@ pub type MutCell<T> = NonSyncCell::MutCell<T>; //TODO: Use AtomicCell<T>
 #[cfg(not(feature = "threaded"))]
 pub type MutCell<T> = NonSyncCell::MutCell<T>;
 
-// #[cfg(not(feature = "threaded"))]
 mod NonSyncCell {
     extern crate alloc;
     use alloc::vec::Vec;

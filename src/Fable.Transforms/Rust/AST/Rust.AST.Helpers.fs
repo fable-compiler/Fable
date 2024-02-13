@@ -955,12 +955,12 @@ module Generic =
         else
             args |> mkAngleBracketedArgs |> GenericArgs.AngleBracketed |> Some
 
-    let mkGenericTypeArgs (tys: Ty seq) : GenericArgs option =
+    let mkTypesGenericArgs (tys: Ty seq) : GenericArgs option =
         let args = tys |> Seq.map mkGenericTypeArg
         mkGenericArgs args
 
-    let mkParenArgs inputs output : GenericArgs option =
-        let genArgs: ParenthesizedArgs =
+    let mkParenGenericArgs inputs output : GenericArgs option =
+        let args: ParenthesizedArgs =
             {
                 span = DUMMY_SP
                 inputs_span = DUMMY_SP
@@ -968,7 +968,7 @@ module Generic =
                 output = output
             }
 
-        genArgs |> GenericArgs.Parenthesized |> Some
+        args |> GenericArgs.Parenthesized |> Some
 
     let mkConstraintArgs (tys: Ty seq) (constraints: (string * Ty) seq) : GenericArgs option =
         let tyArgs = tys |> Seq.map mkGenericTypeArg
@@ -1009,8 +1009,8 @@ module Bounds =
         GenericBound.Outlives(lifetime)
 
     let mkFnTraitGenericBound inputs output : GenericBound =
-        let args = mkParenArgs inputs output
-        let path = mkGenericPath [ rawIdent "Fn" ] args
+        let genArgs = mkParenGenericArgs inputs output
+        let path = mkGenericPath [ rawIdent "Fn" ] genArgs
         mkTraitGenericBound path
 
     let mkTypeTraitGenericBound names genArgs : GenericBound =
@@ -1094,7 +1094,7 @@ module Types =
     let mkUnitTy () : Ty = mkTupleTy []
 
     let mkGenericTy path tys : Ty =
-        mkGenericTypeArgs tys |> mkGenericPathTy path
+        mkTypesGenericArgs tys |> mkGenericPathTy path
 
     let mkEmitTy value tys : Ty =
         TyKind.EmitTypeExpression(value, mkVec tys) |> mkTy

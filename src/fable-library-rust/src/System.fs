@@ -63,3 +63,39 @@ type ArgumentOutOfRangeException(paramName: string, message: string) =
             message + " (Parameter '" + paramName + "')"
 
     member _.ParamName = paramName
+
+type LazyState<'T> =
+    | Initial of (unit -> 'T)
+    | Success of 'T
+    | Failure of exn
+
+type Lazy<'T>(state: LazyState<'T>, isThreadSafe: bool) =
+    let mutable lazyState = state
+
+    new(f: System.Func<'T>) = Lazy<'T>(Initial(fun () -> f.Invoke()), true)
+
+    new(f: System.Func<'T>, isThreadSafe: bool) = Lazy<'T>(Initial(fun () -> f.Invoke()), isThreadSafe)
+
+    member _.IsValueCreated =
+        match lazyState with
+        | Success _ -> true
+        | _ -> false
+
+    member _.Force() : 'T =
+        match lazyState with
+        | Success v -> v
+        | Failure e -> raise e
+        | Initial f ->
+            // Monitor.Enter x
+            // try
+            try
+                let v = f ()
+                lazyState <- Success v
+                v
+            with e ->
+                lazyState <- Failure e
+                reraise ()
+    // finally
+    //     Monitor.Exit x
+
+    member this.Value = this.Force()

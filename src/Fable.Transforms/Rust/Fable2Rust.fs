@@ -362,11 +362,6 @@ module TypeInfo =
     let makeBoxTy com ctx (ty: Rust.Ty) : Rust.Ty =
         [ ty ] |> makeImportType com ctx "Native" "Box"
 
-    // // TODO: emit Lazy or SyncLazy depending on threading.
-    // let makeLazyTy com ctx (ty: Rust.Ty) : Rust.Ty =
-    //     [ ty ] |> makeImportType com ctx "Native" "Lazy"
-
-    // TODO: emit MutCell or AtomicCell depending on threading.
     let makeMutTy com ctx (ty: Rust.Ty) : Rust.Ty =
         [ ty ] |> makeImportType com ctx "Native" "MutCell"
 
@@ -685,7 +680,7 @@ module TypeInfo =
         |> List.map (transformType com ctx)
 
     let transformGenArgs com ctx genArgs : Rust.GenericArgs option =
-        genArgs |> transformGenTypes com ctx |> mkGenericTypeArgs
+        genArgs |> transformGenTypes com ctx |> mkTypesGenericArgs
 
     // // if type cannot be resolved, make it unit type
     // let resolveType com ctx t =
@@ -1319,11 +1314,6 @@ module Util =
     //     callFunction com ctx range fnExpr []
 
     let getNewGenArgsAndCtx (ctx: Context) (args: Fable.Ident list) (body: Fable.Expr) =
-        let rec getGenParams =
-            function
-            | Fable.GenericParam(name, isMeasure, _constraints) as t when not isMeasure -> [ name, t ]
-            | t -> t.Generics |> List.collect getGenParams
-
         let isLambdaOrGenArgNotInScope name =
             ctx.IsLambda || not (Set.contains name ctx.ScopedEntityGenArgs)
 
@@ -1343,7 +1333,7 @@ module Util =
 
             let genParams =
                 argTypes @ [ body.Type ]
-                |> List.collect getGenParams
+                |> List.collect FSharp2Fable.Util.getTypeGenParams
                 |> List.distinctBy fst
                 |> List.filter (fst >> isLambdaOrGenArgNotInScope)
                 |> List.filter (fst >> isNotLambdaOrGenArgInScope)
@@ -1509,9 +1499,6 @@ module Util =
 
     let makeMutValue com ctx (value: Rust.Expr) =
         [ value ] |> makeNew com ctx "Native" "MutCell"
-
-    // let makeLazyValue com ctx (value: Rust.Expr) =
-    //     [ value ] |> makeNew com ctx "Native" "Lazy"
 
     let makeFuncValue com ctx (ident: Fable.Ident) =
         let argTypes =
@@ -1807,6 +1794,17 @@ module Util =
                 let fieldName = ident.Name |> sanitizeMember
                 mkExprField attrs fieldName expr false false
             )
+
+        let phantomFields =
+            getEntityPhantomGenParams com ent
+            |> List.map (fun (name, typ) ->
+                let genArgsOpt = transformGenArgs com ctx [ typ ]
+                let expr = mkGenericPathExpr ("core" :: "marker" :: "PhantomData" :: []) genArgsOpt
+                let fieldName = $"phantom_%s{name}" |> sanitizeMember
+                mkExprField [] fieldName expr false false
+            )
+
+        let fields = List.append fields phantomFields
 
         let genArgsOpt = transformGenArgs com ctx genArgs
         let entName = getEntityFullName com ctx entRef
@@ -3328,16 +3326,28 @@ module Util =
 
         | None -> []
 
+    let getEntityPhantomGenParams _com (ent: Fable.Entity) : (string * Fable.Type) list =
+        let fieldGenParamSet =
+            ent.FSharpFields
+            |> List.map (fun field -> field.FieldType)
+            |> List.collect FSharp2Fable.Util.getGenParamNames
+            |> Set.ofList
+
+        let phantomGenParams =
+            FSharp2Fable.Util.getEntityGenParams ent
+            |> List.filter (fun (name, _typ) -> not (Set.contains name fieldGenParamSet))
+
+        phantomGenParams
+
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) : Fable.Ident list =
         ent.FSharpFields
-        |> Seq.map (fun field ->
+        |> List.map (fun field ->
             let name = field.Name
             let typ = FableTransforms.uncurryType field.FieldType
             let isMutable = field.IsMutable
             let ident = makeTypedIdent typ name
             { ident with IsMutable = isMutable }
         )
-        |> Seq.toList
 
     let makeTypedParam (com: IRustCompiler) ctx (ident: Fable.Ident) returnType =
         if ident.IsThisArgument then
@@ -4084,6 +4094,17 @@ module Util =
                 let fieldName = ident.Name |> sanitizeMember
                 mkField [] fieldName fieldTy isPublic
             )
+
+        let phantomFields =
+            getEntityPhantomGenParams com ent
+            |> List.map (fun (name, typ) ->
+                let genArgsOpt = transformGenArgs com ctx [ typ ]
+                let fieldTy = mkGenericPathTy ("core" :: "marker" :: "PhantomData" :: []) genArgsOpt
+                let fieldName = $"phantom_%s{name}" |> sanitizeMember
+                mkField [] fieldName fieldTy isPublic
+            )
+
+        let fields = List.append fields phantomFields
 
         let attrs = transformAttributes com ctx ent.Attributes
         let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ent) ]

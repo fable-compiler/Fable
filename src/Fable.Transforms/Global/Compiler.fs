@@ -1,7 +1,5 @@
 namespace Fable
 
-open System
-
 module Literals =
     [<Literal>]
     let VERSION = "4.12.2"
@@ -191,7 +189,7 @@ module CompilerExt =
                         let relPath = Path.getRelativeFileOrDirPath true projDir false file
 
                         let relPath =
-                            if relPath.StartsWith("./", StringComparison.Ordinal) then
+                            if relPath.StartsWith("./", System.StringComparison.Ordinal) then
                                 relPath[2..]
                             else
                                 relPath

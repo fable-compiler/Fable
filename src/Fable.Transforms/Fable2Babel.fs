@@ -1265,18 +1265,15 @@ module Util =
         Expression.unaryExpression ("void", e, ?loc = range)
 
     let getTypeParameters (ctx: Context) (types: Fable.Type list) =
-        let rec getGenParams =
-            function
-            | Fable.GenericParam(_, false, _) as p -> [ p ]
-            | t -> t.Generics |> List.collect getGenParams
-
         let mutable scopedTypeParams = ctx.ScopedTypeParams
 
         let typeParams =
             types
-            |> List.collect getGenParams
-            |> List.filter (
-                function
+            |> List.collect FSharp2Fable.Util.getTypeGenParams
+            |> List.distinctBy fst
+            |> List.map snd
+            |> List.filter (fun typ ->
+                match typ with
                 | Fable.GenericParam(name = name) ->
                     if Set.contains name scopedTypeParams then
                         false
