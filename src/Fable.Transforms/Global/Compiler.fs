@@ -4,10 +4,10 @@ open System
 
 module Literals =
     [<Literal>]
-    let VERSION = "4.12.0"
+    let VERSION = "4.12.1"
 
     [<Literal>]
-    let JS_LIBRARY_VERSION = "1.0.0-beta-001"
+    let JS_LIBRARY_VERSION = "1.0.0"
 
 type CompilerOptionsHelper =
     static member Make
