@@ -3185,16 +3185,17 @@ let uris
 
 let laziness (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | (".ctor" | "Create"), _, _ ->
-        Helper.LibCall(com, "Util", "Lazy", t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
-        |> Some
-    | "CreateFromValue", _, _ ->
-        Helper.LibCall(com, "Util", "lazyFromValue", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Force", Some callee, _ -> getFieldWith r t callee "Value" |> Some
-    | ("get_Value" | "get_IsValueCreated"), Some callee, _ ->
-        Naming.removeGetSetPrefix i.CompiledName |> getFieldWith r t callee |> Some
-    | _ -> None
+    | _ -> bclType com ctx r t i thisArg args
+// | (".ctor" | "Create"), _, _ ->
+//     let memberName = "Lazy::" + (getMemberName isStatic i)
+//     makeStaticLibCall com r t i "System" memberName args |> Some
+// // | "CreateFromValue", _, _ ->
+// //     Helper.LibCall(com, "Native", "lazyFromValue", t, args, i.SignatureArgTypes, ?loc = r)
+// //     |> Some
+// | ("Force" | "get_Value"), Some callee, _ -> makeInstanceCall r t i callee "force" [] |> Some
+// // | "get_IsValueCreated", Some callee, _ ->
+// //     Naming.removeGetSetPrefix i.CompiledName |> getFieldWith r t callee |> Some
+// | _ -> None
 
 let controlExtensions
     (com: ICompiler)

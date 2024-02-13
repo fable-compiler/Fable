@@ -1339,22 +1339,12 @@ module Util =
     let undefined _range : Expression = Expression.none
 
     let getGenericTypeParams (types: Fable.Type list) =
-        let rec getGenParams =
-            function
-            | Fable.GenericParam(name = name) -> [ name ]
-            | t -> t.Generics |> List.collect getGenParams
-
-        types |> List.collect getGenParams |> Set.ofList
+        types |> List.collect FSharp2Fable.Util.getGenParamNames |> Set.ofList
 
     // Returns type parameters that is used more than once
     let getRepeatedGenericTypeParams ctx (types: Fable.Type list) =
-        let rec getGenParams =
-            function
-            | Fable.GenericParam(name = name) -> [ name ]
-            | t -> t.Generics |> List.collect getGenParams
-
         types
-        |> List.collect getGenParams
+        |> List.collect FSharp2Fable.Util.getGenParamNames
         |> List.append (ctx.ScopedTypeParams |> Set.toList)
         |> List.countBy id
         |> List.choose (fun (param, count) ->

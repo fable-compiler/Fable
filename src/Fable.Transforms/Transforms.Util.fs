@@ -1072,6 +1072,7 @@ module AST =
                 if
                     moduleName = "System"
                     || moduleName.StartsWith("System.", StringComparison.Ordinal)
+                    || moduleName.StartsWith("FSharp.", StringComparison.Ordinal)
                 then
                     moduleName + "::" + memberName
                 else

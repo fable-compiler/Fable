@@ -672,50 +672,50 @@ let ``Statically resolved static calls work`` () =
     showStatic a |> equal "Static: 5"
     showStatic b |> equal "Static: five"
 
-// [<Fact>]
-// let ``lazy works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         lazy
-//             snitch <- snitch + 1
-//             5
-//     equal 0 snitch
-//     equal 5 lazyVal.Value
-//     equal 1 snitch
-//     lazyVal.Force() |> equal 5
-//     equal 1 snitch
+[<Fact>]
+let ``lazy works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        lazy
+            snitch <- snitch + 1
+            5
+    equal 0 snitch
+    equal 5 lazyVal.Value
+    equal 1 snitch
+    lazyVal.Force() |> equal 5
+    equal 1 snitch
 
-// [<Fact>]
-// let ``Lazy.CreateFromValue works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         Lazy<_>.CreateFromValue(
-//             snitch <- snitch + 1
-//             5)
-//     equal 1 snitch
-//     equal 5 lazyVal.Value
-//     equal 1 snitch
+[<Fact>]
+let ``Lazy.CreateFromValue works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        Lazy<_>.CreateFromValue(
+            snitch <- snitch + 1
+            5)
+    equal 1 snitch
+    equal 5 lazyVal.Value
+    equal 1 snitch
 
-// [<Fact>]
-// let ``lazy.IsValueCreated works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         Lazy<_>.Create(fun () ->
-//             snitch <- snitch + 1
-//             5)
-//     equal 0 snitch
-//     equal false lazyVal.IsValueCreated
-//     equal 5 lazyVal.Value
-//     equal true lazyVal.IsValueCreated
-//     lazyVal.Force() |> equal 5
-//     equal true lazyVal.IsValueCreated
+[<Fact>]
+let ``lazy.IsValueCreated works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        Lazy<_>.Create(fun () ->
+            snitch <- snitch + 1
+            5)
+    equal 0 snitch
+    equal false lazyVal.IsValueCreated
+    equal 5 lazyVal.Value
+    equal true lazyVal.IsValueCreated
+    lazyVal.Force() |> equal 5
+    equal true lazyVal.IsValueCreated
 
-// [<Fact>]
-// let ``Lazy constructor works`` () =
-//     let items = Lazy<string list>(fun () -> ["a";"b";"c"])
-//     let search e = items.Value |> List.tryFind (fun m -> m = e)
-//     search "b" |> equal (Some "b")
-//     search "d" |> equal None
+[<Fact>]
+let ``Lazy constructor works`` () =
+    let items = Lazy<string list>(fun () -> ["a";"b";"c"])
+    let search e = items.Value |> List.tryFind (fun m -> m = e)
+    search "b" |> equal (Some "b")
+    search "d" |> equal None
 
 [<Fact>]
 let ``Secondary constructors work`` () =

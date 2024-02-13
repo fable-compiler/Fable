@@ -1116,7 +1116,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr
             let! callee = transformCallee com ctx callee calleeType
-            //      let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
+            // let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
             let typ = resolveFieldType ctx calleeType field.FieldType
 
             let kind =

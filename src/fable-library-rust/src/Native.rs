@@ -1,5 +1,3 @@
-#[cfg_attr(rustfmt, rustfmt::skip)]
-
 // import at root level
 mod FuncType;
 mod Lazy;
@@ -22,8 +20,6 @@ pub mod Native_ {
 
     pub use super::FuncType::*;
     pub use super::Lazy::*;
-    #[cfg(feature = "lrc_ptr")]
-    pub use super::LrcPtr::*;
     pub use super::Mutable::*;
 
     #[cfg(not(feature = "static_do_bindings"))]
@@ -44,6 +40,8 @@ pub mod Native_ {
 
     #[cfg(not(feature = "lrc_ptr"))]
     pub type LrcPtr<T> = Lrc<T>;
+    #[cfg(feature = "lrc_ptr")]
+    pub use super::LrcPtr::*;
 
     #[inline]
     #[cfg(feature = "lrc_ptr")]
@@ -58,13 +56,12 @@ pub mod Native_ {
     }
 
     // TODO: use these types in generated code
-    pub type seq<T> = LrcPtr<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
-    pub type Seq<T> = crate::Seq_::Enumerable::Seq<T>;
+    pub type Seq<T> = LrcPtr<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
     pub type RefCell<T> = LrcPtr<MutCell<T>>;
     pub type Nullable<T> = Option<Lrc<T>>;
 
     use core::cmp::Ordering;
-    use core::hash::{Hash, Hasher, BuildHasher};
+    use core::hash::{BuildHasher, Hash, Hasher};
 
     // -----------------------------------------------------------
     // Helpers
@@ -81,11 +78,19 @@ pub mod Native_ {
     }
 
     pub fn min<T: PartialOrd>(x: T, y: T) -> T {
-        if x < y { x } else { y }
+        if x < y {
+            x
+        } else {
+            y
+        }
     }
 
     pub fn max<T: PartialOrd>(x: T, y: T) -> T {
-        if x > y { x } else { y }
+        if x > y {
+            x
+        } else {
+            y
+        }
     }
 
     pub fn equals<T: PartialEq>(x: T, y: T) -> bool {
@@ -240,7 +245,7 @@ pub mod Native_ {
     // Sequences
     // -----------------------------------------------------------
 
-    pub fn seq_to_iter<T>(seq: &seq<T>) -> impl Iterator<Item = T>
+    pub fn seq_to_iter<T>(seq: &Seq<T>) -> impl Iterator<Item = T>
     where
         T: Clone + 'static,
     {
@@ -255,7 +260,7 @@ pub mod Native_ {
         core::iter::from_fn(next)
     }
 
-    pub fn iter_to_seq<T, I>(iter: I) -> seq<T>
+    pub fn iter_to_seq<T, I>(iter: I) -> Seq<T>
     where
         T: Clone + 'static,
         I: Iterator<Item = T> + 'static,

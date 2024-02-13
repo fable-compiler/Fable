@@ -1,8 +1,6 @@
 namespace Fable
 
 open System
-open System.Globalization
-open System.Text
 
 module Naming =
     open Fable.Core
@@ -424,7 +422,7 @@ module Naming =
         if (String.IsNullOrEmpty(value)) then
             String.Empty
         else
-            let sb = StringBuilder(value.Length)
+            let sb = System.Text.StringBuilder(value.Length)
 
             for i = 0 to value.Length - 1 do
                 match value.[i] with

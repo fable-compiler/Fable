@@ -2021,17 +2021,33 @@ module Util =
         let isFromDll () = Option.isSome ent.Assembly.FileName
         isReplacementCandidatePrivate isFromDll (FsEnt.FullName ent)
 
-    let getEntityGenArgs (ent: Fable.Entity) =
+    let getEntityGenParams (ent: Fable.Entity) : (string * Fable.Type) list =
         ent.GenericParameters
-        |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+        |> List.filter (fun p -> not (p.IsMeasure))
+        |> List.map (fun p -> p.Name, Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+
+    let getEntityGenArgs (ent: Fable.Entity) : Fable.Type list = getEntityGenParams ent |> List.map snd
 
     let getEntityType (ent: Fable.Entity) : Fable.Type =
         let genArgs = getEntityGenArgs ent
         Fable.Type.DeclaredType(ent.Ref, genArgs)
 
-    let getMemberGenArgs (memb: Fable.MemberFunctionOrValue) =
+    let getMemberGenParams (memb: Fable.MemberFunctionOrValue) : (string * Fable.Type) list =
         memb.GenericParameters
-        |> List.map (fun p -> Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+        |> List.filter (fun p -> not (p.IsMeasure))
+        |> List.map (fun p -> p.Name, Fable.Type.GenericParam(p.Name, p.IsMeasure, Seq.toList p.Constraints))
+
+    let getMemberGenArgs (memb: Fable.MemberFunctionOrValue) : Fable.Type list = getMemberGenParams memb |> List.map snd
+
+    let getTypeGenParams (typ: Fable.Type) : (string * Fable.Type) list =
+        let rec getTypeGenParams (typ: Fable.Type) : (string * Fable.Type) list =
+            match typ with
+            | Fable.GenericParam(name, false, _) as t -> [ (name, t) ]
+            | t -> t.Generics |> List.collect getTypeGenParams
+
+        getTypeGenParams typ |> List.distinctBy fst
+
+    let getGenParamNames (typ: Fable.Type) : string list = getTypeGenParams typ |> List.map fst
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
