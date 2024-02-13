@@ -76,7 +76,7 @@
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="..\..\temp\fable-library\**\*.*" PackagePath="fable-library\" />
+    <Content Include="..\..\temp\fable-library-js\**\*.*" PackagePath="fable-library-js\" />
     <Content Include="..\..\temp\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
     <Content Include="..\..\temp\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
     <Content Include="..\..\temp\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />

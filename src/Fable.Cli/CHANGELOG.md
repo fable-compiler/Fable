@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## 4.12.0 - 2024-02-12
+## 4.12.1 - 2024-02-12
+
+### Fixed
+
+#### JavaScript
+
+* Embed `fable-library-js` in Fable DLL (by @MangelMaxime)
+
+## 4.12.0 - 2024-02-12 [YANKED]
 
 ### Added
 
