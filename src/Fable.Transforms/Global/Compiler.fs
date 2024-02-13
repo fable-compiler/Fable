@@ -4,7 +4,7 @@ open System
 
 module Literals =
     [<Literal>]
-    let VERSION = "4.12.1"
+    let VERSION = "4.12.2"
 
     [<Literal>]
     let JS_LIBRARY_VERSION = "1.0.0"

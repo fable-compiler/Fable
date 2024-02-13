@@ -4,13 +4,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.12.1</Version>
-    <PackageReleaseNotes>## Fixed
+    <Version>4.12.2</Version>
+    <PackageReleaseNotes>## Changed
 
-
-### JavaScript
-
-- Embed `fable-library-js` in Fable DLL (by @MangelMaxime)
+- Update to Fable.AST 4.4.0
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

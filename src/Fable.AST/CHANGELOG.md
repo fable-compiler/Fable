@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.4.0 - 2024-02-13
+
+### Changed
+
+* Change `| TypeCast of expr: Expr * Type` to `| TypeCast of expr: Expr * typ: Type`
+
 ## 4.3.0 - 2023-09-29
 
 ### Added

@@ -6,11 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-005</Version>
+        <Version>4.0.0-alpha-006</Version>
         <PackageReleaseNotes>## Changed
 
-- [GH-3742](https://github.com/fable-compiler/Fable/pull/3742) Return diagnostics in compile response (by @nojaf)
-- [GH-3746](https://github.com/fable-compiler/Fable/pull/3746) Extract type-checking from compilation (by @nojaf)
+- Update to Fable.AST 4.4.0
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
