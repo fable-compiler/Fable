@@ -7,7 +7,7 @@ module Literals =
     let VERSION = "4.12.0"
 
     [<Literal>]
-    let JS_LIBRARY_VERSION = "1.1.1"
+    let JS_LIBRARY_VERSION = "1.0.0-beta-001"
 
 type CompilerOptionsHelper =
     static member Make
