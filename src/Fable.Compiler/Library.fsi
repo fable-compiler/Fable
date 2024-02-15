@@ -32,6 +32,15 @@ module CodeServices =
         crackerResponse: CrackerResponse ->
             Async<TypeCheckProjectResult>
 
+    /// Transform a file in a project to Fable.AST
+    val compileFileToFableAST:
+        sourceReader: SourceReader ->
+        checker: InteractiveChecker ->
+        cliArgs: CliArgs ->
+        crackerResponse: CrackerResponse ->
+        currentFile: string ->
+            Async<AST.Fable.File>
+
     /// And compile multiple files of a project to JavaScript.
     /// The expected usage of this function is either every file in the project or only the user files.
     val compileMultipleFilesToJavaScript:
