@@ -14,7 +14,6 @@ open Fable.Transforms
 open Fable.Transforms.State
 open Fable.Compiler.ProjectCracker
 open Fable.Compiler.Util
-open Fable.Cli.MSBuildCrackerResolver
 
 module private Util =
     type PathResolver with
@@ -376,7 +375,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             <| fun () ->
                 let resolver: ProjectCrackerResolver =
                     if useMSBuildForCracking then
-                        MSBuildCrackerResolver()
+                        Fable.Compiler.MSBuildCrackerResolver()
                     else
                         BuildalyzerCrackerResolver()
 
