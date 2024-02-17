@@ -66,16 +66,16 @@ module private MSBuildCrackerResolver =
 
     let mkOptionsFromDesignTimeBuildAux (fsproj: FileInfo) (options: CrackerOptions) : Async<ProjectOptionsResponse> =
         async {
-            let! targetFrameworkJson =
-                let configuration =
-                    if String.IsNullOrWhiteSpace options.Configuration then
-                        ""
-                    else
-                        $"/p:Configuration=%s{options.Configuration} "
+            let configurationProperty =
+                if String.IsNullOrWhiteSpace options.Configuration then
+                    ""
+                else
+                    $"/p:Configuration=%s{options.Configuration}"
 
+            let! targetFrameworkJson =
                 dotnet_msbuild
                     fsproj.FullName
-                    $"%s{configuration} --getProperty:TargetFrameworks --getProperty:TargetFramework"
+                    $"%s{configurationProperty} --getProperty:TargetFrameworks --getProperty:TargetFramework"
 
             let targetFramework =
                 let properties =
@@ -99,8 +99,8 @@ module private MSBuildCrackerResolver =
             let properties =
                 [
                     "/p:Fable=True"
-                    if not (String.IsNullOrWhiteSpace options.Configuration) then
-                        $"/p:Configuration=%s{options.Configuration}"
+                    if not (String.IsNullOrWhiteSpace configurationProperty) then
+                        configurationProperty
                     $"/p:TargetFramework=%s{targetFramework}"
                     "/p:DesignTimeBuild=True"
                     "/p:SkipCompilerExecution=True"
@@ -115,7 +115,6 @@ module private MSBuildCrackerResolver =
                     // Avoid skipping the CoreCompile target via this property.
                     $"/p:NonExistentFile=\"%s{nonExistentFile}\""
                 ]
-                |> List.filter (String.IsNullOrWhiteSpace >> not)
                 |> String.concat " "
 
             let targets =
