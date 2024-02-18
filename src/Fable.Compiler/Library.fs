@@ -117,7 +117,6 @@ module CodeServices =
             return output
         }
 
-
     let typeCheckProject
         (sourceReader: SourceReader)
         (checker: InteractiveChecker)
@@ -140,6 +139,58 @@ module CodeServices =
                     Assemblies = assemblies
                     ProjectCheckResults = checkProjectResult
                 }
+        }
+
+    let compileFileToFableAST
+        (sourceReader: SourceReader)
+        (checker: InteractiveChecker)
+        (cliArgs: CliArgs)
+        (crackerResponse: CrackerResponse)
+        (currentFile: string)
+        : Async<AST.Fable.File>
+        =
+        async {
+            let! assemblies = checker.GetImportedAssemblies()
+
+            // Type-check the project up until the current file.
+            let! checkProjectResult =
+                checker.ParseAndCheckProject(
+                    cliArgs.ProjectFile,
+                    crackerResponse.ProjectOptions.SourceFiles,
+                    sourceReader,
+                    lastFile = currentFile
+                )
+
+            let fableProj =
+                Project.From(
+                    cliArgs.ProjectFile,
+                    crackerResponse.ProjectOptions.SourceFiles,
+                    checkProjectResult.AssemblyContents.ImplementationFiles,
+                    assemblies,
+                    Log.log,
+                    getPlugin = Reflection.loadType cliArgs
+                )
+
+            let opts = cliArgs.CompilerOptions
+
+            let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
+
+            let compiler: Compiler =
+                CompilerImpl(
+                    currentFile,
+                    fableProj,
+                    opts,
+                    fableLibDir,
+                    crackerResponse.OutputType,
+                    ?outDir = cliArgs.OutDir
+                )
+
+            // TODO: make it configurable if FableTransforms.transformFile is applied?
+            let fableAST =
+                FSharp2Fable.Compiler.transformFile compiler
+                |> FableTransforms.transformFile compiler
+
+            return fableAST
         }
 
     let compileMultipleFilesToJavaScript

@@ -23,6 +23,7 @@
         <Compile Include="File.fs" />
         <Compile Include="ProjectCracker.fsi" />
         <Compile Include="ProjectCracker.fs" />
+        <Compile Include="MSBuildCrackerResolver.fs" />
         <Compile Include="Library.fsi"/>
         <Compile Include="Library.fs"/>
     </ItemGroup>
