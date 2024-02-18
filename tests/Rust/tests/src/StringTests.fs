@@ -125,6 +125,44 @@ let ``StringBuilder.AppendFormat with provider works`` () =
     sb.AppendFormat(CultureInfo.InvariantCulture, "Hello{0}World{1}", " ", "!") |> ignore
     sb.ToString() |> equal "Hello World!"
 
+
+[<Fact>]
+let ``test StringBuilder.Chars works`` =
+    let builder = Text.StringBuilder()
+                    .Append("abc")
+    equal 'b' (builder.Chars(1))
+
+[<Fact>]
+let ``test StringBuilder.Chars throws when index is out of bounds`` =
+    throwsAnyError <| fun () ->
+        let builder = Text.StringBuilder()
+                        .Append("abc")
+        builder.Chars(-1) |> ignore
+
+        builder.Chars(3) |> ignore
+
+[<Fact>]
+let ``test StringBuilder.Replace works`` =
+    let builder = Text.StringBuilder()
+                    .Append("abc")
+                    .Append("abc")
+                    .Replace('a', 'x')
+                    .Replace("bc", "yz")
+    equal "xyzxyz" (builder.ToString())
+
+[<Fact>]
+let ``test StringBuilder index accessor works`` =
+    let builder = Text.StringBuilder()
+                    .Append("abc")
+    equal 'b' (builder[1])
+
+[<Fact>]
+let ``test StringBuilder index setter works`` =
+    let builder = Text.StringBuilder()
+                    .Append("abc")
+    builder[1] <- 'x'
+    equal "axc" (builder.ToString())
+
 [<Fact>]
 let ``kprintf works`` () =
     let f (s:string) = s + "XX"

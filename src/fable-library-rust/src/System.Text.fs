@@ -44,6 +44,24 @@ type StringBuilder(value: string, capacity: int) =
         buf.Clear()
         x
 
+    member x.Chars
+        with get (index: int) =
+            let bufferText = x.ToString()
+
+            if index < 0 || index >= bufferText.Length then
+                failwith "Index was outside the bounds of the array"
+            else
+                bufferText.[index]
+        and set (index: int) (value: char) =
+            let bufferText = x.ToString()
+
+            if index < 0 || index >= bufferText.Length then
+                failwith "Index was outside the bounds of the array"
+            else
+                let bufferText = bufferText.ToCharArray()
+                bufferText.[index] <- value
+                x.Clear().Append(bufferText) |> ignore
+
     member x.Length = buf |> asArray |> Array.sumBy (fun s -> s.Length)
     override _.ToString() = System.String.Concat(buf |> asArray)
 
