@@ -1,6 +1,7 @@
 module Build.Main
 
 open Build.FableLibrary
+open Spectre.Console
 
 // This is a basic help message, as the CLI parser is not a "real" CLI parser
 // For now, it is enough as this is just a dev tool
@@ -109,46 +110,51 @@ let main argv =
     SimpleExec.Command.Run(name = "dotnet", args = "tool restore")
     SimpleExec.Command.Run(name = "dotnet", args = "husky install")
 
-    match argv with
-    | "fable-library" :: args ->
-        match args with
-        | "--javascript" :: _ -> BuildFableLibraryJavaScript().Run()
-        | "--typescript" :: _ -> BuildFableLibraryTypeScript().Run()
-        | "--python" :: _ -> BuildFableLibraryPython().Run()
-        | "--dart" :: _ -> BuildFableLibraryDart().Run()
-        | "--rust" :: _ -> BuildFableLibraryRust().Run()
+    try
+        match argv with
+        | "fable-library" :: args ->
+            match args with
+            | "--javascript" :: _ -> BuildFableLibraryJavaScript().Run()
+            | "--typescript" :: _ -> BuildFableLibraryTypeScript().Run()
+            | "--python" :: _ -> BuildFableLibraryPython().Run()
+            | "--dart" :: _ -> BuildFableLibraryDart().Run()
+            | "--rust" :: _ -> BuildFableLibraryRust().Run()
+            | _ -> printHelp ()
+        | "test" :: args ->
+            match args with
+            | "javascript" :: args -> Test.JavaScript.handle args
+            | "typescript" :: args -> Test.TypeScript.handle args
+            | "python" :: args -> Test.Python.handle args
+            | "dart" :: args -> Test.Dart.handle args
+            | "rust" :: args -> Test.Rust.handle args
+            | "integration" :: args -> Test.Integration.handle args
+            | "standalone" :: _ -> Test.Standalone.handle args
+            // This test is using quicktest project for now,
+            // because it can't compile (yet?) the Main JavaScript tests
+            | "compiler-js" :: _ -> Test.CompilerJs.handle args
+            | _ -> printHelp ()
+        | "quicktest" :: args ->
+            match args with
+            | "javascript" :: _ -> Quicktest.JavaScript.handle args
+            | "typescript" :: _ -> Quicktest.TypeScript.handle args
+            | "python" :: _ -> Quicktest.Python.handle args
+            | "dart" :: _ -> Quicktest.Dart.handle args
+            | "rust" :: _ -> Quicktest.Rust.handle args
+            | _ -> printHelp ()
+        | "standalone" :: args -> Standalone.handle args
+        | "compiler-js" :: args -> CompilerJs.handle args
+        | "worker-js" :: args -> WorkerJs.handle args
+        | "sync-fcs-repo" :: _ -> FcsRepo.sync ()
+        | "copy-fcs-repo" :: _ -> FcsRepo.copy ()
+        | "publish" :: args -> Publish.handle args
+        | "github-release" :: args -> GithubRelease.handle args
+        | "package" :: args -> Package.handle args
+        | "help" :: _
+        | "--help" :: _
         | _ -> printHelp ()
-    | "test" :: args ->
-        match args with
-        | "javascript" :: args -> Test.JavaScript.handle args
-        | "typescript" :: args -> Test.TypeScript.handle args
-        | "python" :: args -> Test.Python.handle args
-        | "dart" :: args -> Test.Dart.handle args
-        | "rust" :: args -> Test.Rust.handle args
-        | "integration" :: args -> Test.Integration.handle args
-        | "standalone" :: _ -> Test.Standalone.handle args
-        // This test is using quicktest project for now,
-        // because it can't compile (yet?) the Main JavaScript tests
-        | "compiler-js" :: _ -> Test.CompilerJs.handle args
-        | _ -> printHelp ()
-    | "quicktest" :: args ->
-        match args with
-        | "javascript" :: _ -> Quicktest.JavaScript.handle args
-        | "typescript" :: _ -> Quicktest.TypeScript.handle args
-        | "python" :: _ -> Quicktest.Python.handle args
-        | "dart" :: _ -> Quicktest.Dart.handle args
-        | "rust" :: _ -> Quicktest.Rust.handle args
-        | _ -> printHelp ()
-    | "standalone" :: args -> Standalone.handle args
-    | "compiler-js" :: args -> CompilerJs.handle args
-    | "worker-js" :: args -> WorkerJs.handle args
-    | "sync-fcs-repo" :: _ -> FcsRepo.sync ()
-    | "copy-fcs-repo" :: _ -> FcsRepo.copy ()
-    | "publish" :: args -> Publish.handle args
-    | "github-release" :: args -> GithubRelease.handle args
-    | "package" :: args -> Package.handle args
-    | "help" :: _
-    | "--help" :: _
-    | _ -> printHelp ()
 
-    0
+        0
+
+    with e ->
+        AnsiConsole.WriteException(e)
+        1
