@@ -70,6 +70,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Library.Rust", "src\f
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Library.TypeScript", "src\fable-library-ts\Fable.Library.TypeScript.fsproj", "{C0AD4BF9-638A-43D0-AD46-AAC72C508B42}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Quicktest.Rust", "src\quicktest-rust\Quicktest.Rust.fsproj", "{0818518D-5BAF-498E-B2E8-C3FA5EC3758D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -180,6 +182,10 @@ Global
 		{C0AD4BF9-638A-43D0-AD46-AAC72C508B42}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C0AD4BF9-638A-43D0-AD46-AAC72C508B42}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C0AD4BF9-638A-43D0-AD46-AAC72C508B42}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0818518D-5BAF-498E-B2E8-C3FA5EC3758D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0818518D-5BAF-498E-B2E8-C3FA5EC3758D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0818518D-5BAF-498E-B2E8-C3FA5EC3758D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0818518D-5BAF-498E-B2E8-C3FA5EC3758D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -213,6 +219,7 @@ Global
 		{493A3959-758E-4D88-8E82-16680E70D282} = {C8CB96CF-68A8-4083-A0F8-319275CF8097}
 		{A68CF5C2-DAB1-451F-AA36-3C171C61D4F2} = {493A3959-758E-4D88-8E82-16680E70D282}
 		{C0AD4BF9-638A-43D0-AD46-AAC72C508B42} = {C8CB96CF-68A8-4083-A0F8-319275CF8097}
+		{0818518D-5BAF-498E-B2E8-C3FA5EC3758D} = {C8CB96CF-68A8-4083-A0F8-319275CF8097}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {58DF9285-8523-4EAC-B598-BE5B02A76A00}
