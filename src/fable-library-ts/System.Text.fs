@@ -64,6 +64,28 @@ type StringBuilder(value: string, capacity: int) =
         buf.Add(System.Environment.NewLine)
         x
 
+    member x.Clear() =
+        buf.Clear()
+        x
+
+    member x.Chars
+        with get (index: int) =
+            let bufferText = x.ToString()
+
+            if index < 0 || index >= bufferText.Length then
+                failwith "Index was outside the bounds of the array"
+            else
+                bufferText.[index]
+        and set (index: int) (value: char) =
+            let bufferText = x.ToString()
+
+            if index < 0 || index >= bufferText.Length then
+                failwith "Index was outside the bounds of the array"
+            else
+                let bufferText = bufferText.ToCharArray()
+                bufferText.[index] <- value
+                x.Clear().Append(bufferText) |> ignore
+
     member x.Replace(oldValue: char, newValue: char) =
         for i = buf.Count - 1 downto 0 do
             buf[i] <- buf[i].Replace(oldValue, newValue)
@@ -89,7 +111,3 @@ type StringBuilder(value: string, capacity: int) =
     member x.ToString(firstIndex: int, length: int) =
         let str = x.ToString()
         str.Substring(firstIndex, length)
-
-    member x.Clear() =
-        buf.Clear()
-        x

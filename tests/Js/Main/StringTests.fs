@@ -103,6 +103,38 @@ let tests =
                               .Append(34)
             equal "aaabcd/true5.234" (builder.ToString().Replace(",", ".").ToLower())
 
+      testCase "StringBuilder.Chars works" <| fun () ->
+            let builder = Text.StringBuilder()
+                              .Append("abc")
+            equal 'b' (builder.Chars(1))
+
+      testCase "StringBuilder.Chars throws when index is out of bounds" <| fun () ->
+            throwsAnyError <| fun () ->
+                let builder = Text.StringBuilder()
+                                  .Append("abc")
+                builder.Chars(-1) |> ignore
+
+                builder.Chars(3) |> ignore
+
+      testCase "StringBuilder.Replace works" <| fun () ->
+            let builder = Text.StringBuilder()
+                              .Append("abc")
+                              .Append("abc")
+                              .Replace('a', 'x')
+                              .Replace("bc", "yz")
+            equal "xyzxyz" (builder.ToString())
+
+      testCase "StringBuilder index accessor works" <| fun () ->
+            let builder = Text.StringBuilder()
+                              .Append("abc")
+            equal 'b' (builder[1])
+
+      testCase "StringBuilder index setter works" <| fun () ->
+            let builder = Text.StringBuilder()
+                              .Append("abc")
+            builder[1] <- 'x'
+            equal "axc" (builder.ToString())
+
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
             Printf.kprintf f "hello" |> equal "helloXX"
