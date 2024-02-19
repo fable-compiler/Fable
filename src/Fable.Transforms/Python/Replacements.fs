@@ -812,10 +812,7 @@ let tryConstructor com (ent: Entity) =
 let constructor com ent =
     match tryConstructor com ent with
     | Some e -> e
-    | None ->
-        ent.FullName
-        |> sprintf "Cannot find %s constructor"
-        |> addErrorAndReturnNull com [] None
+    | None -> $"Cannot find %s{ent.FullName} constructor" |> addErrorAndReturnNull com [] None
 
 let tryOp com r t op args =
     Helper.LibCall(com, "option", "tryOp", t, op :: args, ?loc = r)
@@ -3717,8 +3714,8 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
         Some(makeImportLib com Any entityName "MutableSet", args)
     | _ -> None
 
-let tryType =
-    function
+let tryType typ =
+    match typ with
     | Boolean -> Some(Types.bool, parseBool, [])
     | Number(kind, info) ->
         let f =

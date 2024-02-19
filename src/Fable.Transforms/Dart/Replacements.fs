@@ -618,7 +618,7 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
     |> Option.bind (injectArgInner args)
     |> Option.defaultValue args
 
-let tryReplacedEntityRef (com: Compiler) entFullName =
+let tryEntityIdent (com: Compiler) entFullName =
     match entFullName with
     | "Fable.Core.Dart.Future`1" -> makeIdentExpr "Future" |> Some
     | "Fable.Core.Dart.Stream`1" -> makeIdentExpr "Stream" |> Some
@@ -683,16 +683,16 @@ let tryReplacedEntityRef (com: Compiler) entFullName =
     | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some
     | _ -> None
 
-let tryEntityIdent com (ent: Entity) =
+let tryConstructor com (ent: Entity) =
     if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
-        tryReplacedEntityRef com ent.FullName
+        tryEntityIdent com ent.FullName
     else
         FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
 
-let entityIdent com ent =
-    match tryEntityIdent com ent with
+let constructor com ent =
+    match tryConstructor com ent with
     | Some r -> r
-    | None -> $"Cannot find {ent.FullName} reference" |> addErrorAndReturnNull com [] None
+    | None -> $"Cannot find %s{ent.FullName} constructor" |> addErrorAndReturnNull com [] None
 
 let tryOp com r t op args =
     Helper.LibCall(com, "Option", "tryOp", t, op :: args, ?loc = r)
@@ -2370,7 +2370,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
-            Helper.ConstructorCall(entityIdent com ent, t, [], ?loc = r) |> Some
+            Helper.ConstructorCall(constructor com ent, t, [], ?loc = r) |> Some
         | t ->
             $"Cannot create instance of type unresolved at compile time: %A{t}"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -4113,8 +4113,8 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
         | _ -> None
     | _ -> None
 
-let tryType =
-    function
+let tryType typ =
+    match typ with
     | Boolean -> Some(Types.bool, parseBool, [])
     | Number(kind, info) ->
         let f =
