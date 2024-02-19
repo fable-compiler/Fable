@@ -1954,7 +1954,9 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | ("Length" | "Count"), [ arg ] -> getFieldWith r t arg "length" |> Some
     | "Item", [ idx; ar ] -> arrayGetItem com r t [ idx; ar ] i.SignatureArgTypes
     | "Get", [ ar; idx ] -> arrayGetItem com r t [ idx; ar ] (i.SignatureArgTypes |> List.rev)
-    | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
+    | "Set", [ ar; idx; value ] ->
+        Helper.LibCall(com, "Array", "setItem", t, [ ar; idx; value ], i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "ZeroCreate", [ count ] -> createArray count None |> Some
     | "Create", [ count; value ] -> createArray count (Some value) |> Some
     | "Empty", _ ->

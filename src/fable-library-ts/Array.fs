@@ -883,6 +883,13 @@ let item (index: int) (array: 'T[]) : 'T =
     else
         arrayAccessImpl index array
 
+// Using `set` seems to cause issues with the TS
+let setItem (array: 'T[]) (index: int) (value: 'T) =
+    if index < 0 || index >= array.Length then
+        invalidArg "index" "Index was outside the bounds of the array."
+    else
+        arraySetItemImpl array index value
+
 let tryItem (index: int) (array: 'T[]) : 'T option =
     if index < 0 || index >= array.Length then
         None

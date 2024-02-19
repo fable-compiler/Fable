@@ -206,6 +206,20 @@ let tests =
         Array.set x 3 10.
         equal 10. x.[3]
 
+    testCase "Array setter throws an exception when out of bounds" <| fun () ->
+        let a = [| 1.; 2.; 3.; 4.; 5. |]
+        throwsAnyError (fun () -> Array.set a 5 10.)
+        throwsAnyError (fun () -> Array.set a -10 10.)
+        throwsAnyError (fun () -> a[5] <- 10.)
+        throwsAnyError (fun () -> a[-5] <- 10.)
+        throwsAnyError (fun () -> a.[5] <- 10.)
+        throwsAnyError (fun () -> a.[-5] <- 10.)
+        // Check empty array
+        let b = [| |]
+        throwsAnyError (fun () -> Array.set b 0 10.)
+        throwsAnyError (fun () -> b[0] <- 10.)
+        throwsAnyError (fun () -> b.[0] <- 10.)
+
     testCase "Array.Length works" <| fun () ->
         let xs = [| 1.; 2.; 3.; 4. |]
         xs.Length |> equal 4
