@@ -173,7 +173,7 @@ module Util =
         Expression.listLiteral (values, typ)
 
     let tryGetEntityIdent (com: IDartCompiler) ctx ent =
-        Dart.Replacements.tryEntityIdent com ent
+        Dart.Replacements.tryConstructor com ent
         |> Option.bind (fun entRef ->
             match transformAndCaptureExpr com ctx entRef with
             | [], IdentExpression ident -> Some ident
@@ -187,7 +187,7 @@ module Util =
         match tryGetEntityIdent com ctx ent with
         | Some ident -> ident
         | None ->
-            addError com [] None $"Cannot find reference for {ent.FullName}"
+            // addError com [] None $"Cannot find reference for {ent.FullName}"
             makeImmutableIdent MetaType ent.DisplayName
 
     let transformTupleType com ctx genArgs =

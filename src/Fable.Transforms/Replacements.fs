@@ -93,7 +93,6 @@ let coreModFor =
 
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
-
     Helper.LibCall(com, "Decimal", "default", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
 
 let makeDecimalFromExpr com r t (e: Expr) =
@@ -101,7 +100,6 @@ let makeDecimalFromExpr com r t (e: Expr) =
 
 let createAtom com (value: Expr) =
     let typ = value.Type
-
     Helper.LibCall(com, "Util", "createAtom", typ, [ value ], [ typ ], genArgs = [ typ ])
 
 let getRefCell com r typ (expr: Expr) = getFieldWith r typ expr "contents"
@@ -111,7 +109,6 @@ let setRefCell com r (expr: Expr) (value: Expr) =
 
 let makeRefCell com r genArg args =
     let typ = makeFSharpCoreType [ genArg ] Types.refCell
-
     Helper.LibCall(com, "Types", "FSharpRef", typ, args, isConstructor = true, ?loc = r)
 
 let makeRefCellFromValue com r (value: Expr) =
@@ -859,10 +856,7 @@ let tryConstructor com (ent: Entity) =
 let constructor com ent =
     match tryConstructor com ent with
     | Some e -> e
-    | None ->
-        ent.FullName
-        |> sprintf "Cannot find %s constructor"
-        |> addErrorAndReturnNull com [] None
+    | None -> $"Cannot find %s{ent.FullName} constructor" |> addErrorAndReturnNull com [] None
 
 let tryOp com r t op args =
     Helper.LibCall(com, "Option", "tryOp", t, op :: args, ?loc = r)
@@ -4026,8 +4020,8 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
         | _ -> None
     | _ -> None
 
-let tryType =
-    function
+let tryType typ =
+    match typ with
     | Boolean -> Some(Types.bool, parseBool, [])
     | Number(kind, info) ->
         let f =

@@ -19,6 +19,7 @@
         <Compile Include="Set.fs" />
         <Compile Include="Map.fs" />
         <Compile Include="Range.fs" />
+        <Compile Include="System.Text.fs" />
         <Content Include="Date.dart" />
         <Content Include="RegExp.dart" />
         <Content Include="String.dart" />

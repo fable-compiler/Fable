@@ -41,6 +41,12 @@ let containsInOrder (substrings: string list) (str: string) =
         success)
 
 [<Fact>]
+let ``F# nameof works`` () =
+    M.f 12 |> equal "x"
+    nameof M |> equal "M"
+    nameof M.f |> equal "f"
+
+[<Fact>]
 let ``Adding strings works`` () =
     let a = "hello"
     let b = "world"
@@ -70,7 +76,7 @@ let ``String literal addition is optimized`` () =
 
 [<Fact>]
 let ``StringBuilder works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.Append("Hello") |> ignore
     sb.AppendLine() |> ignore
     sb.AppendLine("World!") |> ignore
@@ -79,51 +85,86 @@ let ``StringBuilder works`` () =
 
 [<Fact>]
 let ``StringBuilder.Length works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.Append("Hello") |> ignore
     // We don't test the AppendLine for Length because depending on the OS
     // the result is different. Unix \n VS Windows \r\n
     // sb.AppendLine() |> ignore
-    equal 5 sb.Length
+    sb.Length |> equal 5
 
 [<Fact>]
 let ``StringBuilder.ToString works with index and length`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.Append("Hello") |> ignore
     sb.AppendLine() |> ignore
-    equal "ll" (sb.ToString(2, 2))
+    sb.ToString(2, 2) |> equal "ll"
 
 [<Fact>]
 let ``StringBuilder.Clear works`` () =
-    let builder = new Text.StringBuilder()
-    builder.Append("1111") |> ignore
-    builder.Clear() |> ignore
-    equal "" (builder.ToString())
+    let sb = new System.Text.StringBuilder()
+    sb.Append("1111") |> ignore
+    sb.Clear() |> ignore
+    sb.ToString() |> equal ""
 
 [<Fact>]
 let ``StringBuilder.Append works with various overloads`` () =
-    let sb =
-        Text.StringBuilder()
-            .Append(Text.StringBuilder("aaa"))
-            .Append("bcd".ToCharArray())
-            .Append('/')
-            .Append(true)
-            .Append(5.2)
-            .Append(34)
+    let sb = System.Text.StringBuilder()
+                        .Append(System.Text.StringBuilder("aaa"))
+                        .Append("bcd".ToCharArray())
+                        .Append('/')
+                        .Append(true)
+                        .Append(5.2)
+                        .Append(34)
     let actual = sb.ToString().Replace(",", ".").ToLower()
     actual |> equal "aaabcd/true5.234"
 
 [<Fact>]
 let ``StringBuilder.AppendFormat works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
     sb.ToString() |> equal "Hello World!"
 
 [<Fact>]
 let ``StringBuilder.AppendFormat with provider works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.AppendFormat(CultureInfo.InvariantCulture, "Hello{0}World{1}", " ", "!") |> ignore
     sb.ToString() |> equal "Hello World!"
+
+[<Fact>]
+let ``StringBuilder.Chars works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb.Chars(1) |> equal 'b'
+
+[<Fact>]
+let ``StringBuilder.Chars throws when index is out of bounds`` () =
+    throwsAnyError <| fun () ->
+        let sb = System.Text.StringBuilder()
+                            .Append("abc")
+        sb.Chars(-1) |> ignore
+        sb.Chars(3) |> ignore
+
+[<Fact>]
+let ``StringBuilder.Replace works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+                        .Append("abc")
+                        .Replace('a', 'x')
+                        .Replace("cx", "yz")
+    sb.ToString() |> equal "xbyzbc"
+
+[<Fact>]
+let ``StringBuilder index getter works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb[1] |> equal 'b'
+
+[<Fact>]
+let ``StringBuilder index setter works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb[1] <- 'x'
+    sb.ToString() |> equal "axc"
 
 [<Fact>]
 let ``kprintf works`` () =
@@ -148,7 +189,7 @@ let ``ksprintf works`` () =
 
 [<Fact>]
 let ``kbprintf works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     let mutable i = 0
     let f () = i <- i + 1
     Printf.kbprintf f sb "Hello"
@@ -166,7 +207,7 @@ let ``ksprintf curries correctly`` () =
 
 [<Fact>]
 let ``bprintf works`` () =
-    let sb = Text.StringBuilder(10)
+    let sb = System.Text.StringBuilder(10)
     Printf.bprintf sb "Hello"
     Printf.bprintf sb " %s!" "world"
     sb.ToString() |> equal "Hello world!"
@@ -279,12 +320,6 @@ let ``sprintf \"%A\" with overloaded string works`` () =
 //     o?self <- o
 //     sprintf "%A" o |> ignore
 // #endif
-
-[<Fact>]
-let ``F# nameof works`` () =
-    M.f 12 |> equal "x"
-    nameof M |> equal "M"
-    nameof M.f |> equal "f"
 
 [<Fact>]
 let ``string interpolation works`` () =
@@ -438,7 +473,7 @@ let ``sprintf integers with sign and padding works`` () = // See #1931
     // sprintf "%- 4i" 5 |> equal " 5  " //TODO:
 
 [<Fact>]
-let ``test format string can use and compose string literals`` =
+let ``format string can use and compose string literals`` =
     let renderedCoordinates = sprintf formatCoordinateBody 0.25 0.75
     let renderedText = sprintf fullFormat 0.25 0.75
 

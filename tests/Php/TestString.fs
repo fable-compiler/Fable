@@ -81,10 +81,12 @@ let ``test string interpolation works with inline expressions`` () =
 [<Fact>]
 let ``test string interpolation works with anonymous records`` () =
     let person =
-        {| Name = "John"
-           Surname = "Doe"
-           Age = 32
-           Country = "The United Kingdom" |}
+        {|
+            Name = "John"
+            Surname = "Doe"
+            Age = 32
+            Country = "The United Kingdom"
+        |}
     $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
 
@@ -166,7 +168,7 @@ let ``test StringBuilder works`` () =
     sb.ToString() |> equal expected
 
 [<Fact>]
-let ``test StringBuilder.Lengh works`` () =
+let ``test StringBuilder.Length works`` () =
     let sb = System.Text.StringBuilder()
     sb.Append("Hello") |> ignore
     // We don't test the AppendLine for Length because depending on the OS
@@ -183,21 +185,69 @@ let ``test StringBuilder.ToString works with index and length`` () =
 
 [<Fact>]
 let ``test StringBuilder.Clear works`` () =
-    let builder = new System.Text.StringBuilder()
-    builder.Append("1111") |> ignore
-    builder.Clear() |> ignore
-    equal "" (builder.ToString())
+    let sb = new System.Text.StringBuilder()
+    sb.Append("1111") |> ignore
+    sb.Clear() |> ignore
+    equal "" (sb.ToString())
 
 [<Fact>]
 let ``test StringBuilder.Append works with various overloads`` () =
-    let builder = Text.StringBuilder()
-                      .Append(Text.StringBuilder "aaa")
-                      .Append("bcd".ToCharArray())
-                      .Append('/')
-                      .Append(true)
-                      .Append(5.2)
-                      .Append(34)
-    equal "aaabcd/true5.234" (builder.ToString().ToLower())
+    let sb = System.Text.StringBuilder()
+                        .Append(System.Text.StringBuilder "aaa")
+                        .Append("bcd".ToCharArray())
+                        .Append('/')
+                        .Append(true)
+                        .Append(5.2)
+                        .Append(34)
+    equal "aaabcd/true5.234" (sb.ToString().ToLower())
+
+[<Fact>]
+let ``StringBuilder.AppendFormat works`` () =
+    let sb = System.Text.StringBuilder()
+    sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
+    sb.ToString() |> equal "Hello World!"
+
+[<Fact>]
+let ``StringBuilder.AppendFormat with provider works`` () =
+    let sb = System.Text.StringBuilder()
+    sb.AppendFormat(CultureInfo.InvariantCulture, "Hello{0}World{1}", " ", "!") |> ignore
+    sb.ToString() |> equal "Hello World!"
+
+[<Fact>]
+let ``StringBuilder.Chars works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb.Chars(1) |> equal 'b'
+
+[<Fact>]
+let ``StringBuilder.Chars throws when index is out of bounds`` () =
+    throwsAnyError <| fun () ->
+        let sb = System.Text.StringBuilder()
+                            .Append("abc")
+        sb.Chars(-1) |> ignore
+        sb.Chars(3) |> ignore
+
+[<Fact>]
+let ``StringBuilder.Replace works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+                        .Append("abc")
+                        .Replace('a', 'x')
+                        .Replace("cx", "yz")
+    sb.ToString() |> equal "xbyzbc"
+
+[<Fact>]
+let ``StringBuilder index getter works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb[1] |> equal 'b'
+
+[<Fact>]
+let ``StringBuilder index setter works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb[1] <- 'x'
+    sb.ToString() |> equal "axc"
 
 [<Fact>]
 let ``test Conversion char to int works`` () =

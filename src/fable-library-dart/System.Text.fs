@@ -47,37 +47,37 @@ type StringBuilder(value: string, capacity: int) =
         buf.Add(s.ToString())
         x
 
-    member x.AppendFormat(fmt: string, o: obj) =
-        buf.Add(System.String.Format(fmt, o))
-        x
+    // member x.AppendFormat(fmt: string, o: obj) =
+    //     buf.Add(System.String.Format(fmt, o))
+    //     x
 
-    member x.AppendFormat(fmt: string, o1: obj, o2: obj) =
-        buf.Add(System.String.Format(fmt, o1, o2))
-        x
+    // member x.AppendFormat(fmt: string, o1: obj, o2: obj) =
+    //     buf.Add(System.String.Format(fmt, o1, o2))
+    //     x
 
-    member x.AppendFormat(fmt: string, o1: obj, o2: obj, o3: obj) =
-        buf.Add(System.String.Format(fmt, o1, o2, o3))
-        x
+    // member x.AppendFormat(fmt: string, o1: obj, o2: obj, o3: obj) =
+    //     buf.Add(System.String.Format(fmt, o1, o2, o3))
+    //     x
 
-    member x.AppendFormat(fmt: string, arr: obj[]) =
-        buf.Add(System.String.Format(fmt, arr))
-        x
+    // member x.AppendFormat(fmt: string, arr: obj[]) =
+    //     buf.Add(System.String.Format(fmt, arr))
+    //     x
 
-    member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o: obj) =
-        buf.Add(System.String.Format(provider, fmt, o))
-        x
+    // member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o: obj) =
+    //     buf.Add(System.String.Format(provider, fmt, o))
+    //     x
 
-    member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o1: obj, o2: obj) =
-        buf.Add(System.String.Format(provider, fmt, o1, o2))
-        x
+    // member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o1: obj, o2: obj) =
+    //     buf.Add(System.String.Format(provider, fmt, o1, o2))
+    //     x
 
-    member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o1: obj, o2: obj, o3: obj) =
-        buf.Add(System.String.Format(provider, fmt, o1, o2, o3))
-        x
+    // member x.AppendFormat(provider: System.IFormatProvider, fmt: string, o1: obj, o2: obj, o3: obj) =
+    //     buf.Add(System.String.Format(provider, fmt, o1, o2, o3))
+    //     x
 
-    member x.AppendFormat(provider: System.IFormatProvider, fmt: string, arr: obj[]) =
-        buf.Add(System.String.Format(provider, fmt, arr))
-        x
+    // member x.AppendFormat(provider: System.IFormatProvider, fmt: string, arr: obj[]) =
+    //     buf.Add(System.String.Format(provider, fmt, arr))
+    //     x
 
     member x.AppendLine() =
         buf.Add(System.Environment.NewLine)
@@ -123,6 +123,9 @@ type StringBuilder(value: string, capacity: int) =
                 buf[i] <- buf[i][0 .. (pos - 1)] + (string value) + buf[i][(pos + 1) ..]
 
     member x.Replace(oldValue: char, newValue: char) =
+        let oldValue = string oldValue
+        let newValue = string newValue
+
         for i = buf.Count - 1 downto 0 do
             buf[i] <- buf[i].Replace(oldValue, newValue)
 
