@@ -6,10 +6,14 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-006</Version>
-        <PackageReleaseNotes>## Changed
+        <Version>4.0.0-alpha-007</Version>
+        <PackageReleaseNotes>## Added
 
-- Update to Fable.AST 4.4.0
+- [GH-3758](https://github.com/fable-compiler/Fable/pull/3758) Endpoint to get Fable.AST for a file. (by @nojaf)
+
+## Fixed
+
+- [GH-3763](https://github.com/fable-compiler/Fable/pull/3763) Redirect plugin build stdout and pass to logger. (by @nojaf)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

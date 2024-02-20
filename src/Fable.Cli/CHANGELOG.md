@@ -14,11 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [GH-3759](https://github.com/fable-compiler/Fable/issues/3759) Add `StringBuilder.Chars` (by @MangelMaxime)
 * Added range overload for `String.ToCharArray` (by @ncave)
 
-## 4.12.2 - 2024-02-13
+#### Rust
 
-### Changed
+* [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Added `StringBuilder.Chars`, `StringBuilder.Remove` and tests. (by @ncave)
 
-* Update to Fable.AST 4.4.0
+#### Dart
+
+* [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Added `StringBuilder` support and tests. (by @ncave)
 
 ### Fixed
 
@@ -26,6 +28,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [GH-3748](https://github.com/fable-compiler/Fable/pull/3748) Accessing an array out of bounds should emit an exception (by @MangelMaxime)
 * [GH-3748](https://github.com/fable-compiler/Fable/pull/3748) Setting an array out of bounds should emit an exception (by @MangelMaxime)
+* [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Fixed incorrect `StringBuilder.Remove` implementation. (by @ncave)
+
+#### Python
+
+* [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Fixed incorrect `StringBuilder.Remove` implementation. (by @ncave)
+
+### Changed
+
+#### JavaScript
+
+* [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Updated `StringBuilder` to remove allocations where possible. (by @ncave)
+
+#### Python
+
+* [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Updated `StringBuilder` to remove allocations where possible. (by @ncave)
+
+## 4.12.2 - 2024-02-13
+
+### Changed
+
+* Update to Fable.AST 4.4.0
 
 ## 4.12.1 - 2024-02-13
 
