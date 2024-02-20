@@ -91,6 +91,8 @@ module Process =
 
     val runSync: workingDir: string -> exePath: string -> args: string list -> int
 
+    val runSyncWithOutput: string -> string -> string list -> string
+
 type PathResolver =
     abstract TryPrecompiledOutPath: sourceDir: string * relativePath: string -> string option
 
