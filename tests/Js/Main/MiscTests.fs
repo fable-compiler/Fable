@@ -468,7 +468,7 @@ type Order =
         quantity : int<kg>
     }
 
-#if !FABLE_COMPILER_TYPESCRIPT
+#if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT && !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
 type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
 #endif
 
@@ -489,7 +489,7 @@ let tests =
         to_str () |> equal $"{()}"
 
 #if FABLE_COMPILER
-#if !FABLE_COMPILER_TYPESCRIPT
+#if !FABLE_COMPILER_TYPESCRIPT && !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
     // The tests seems to cause problems in TypeScript because of the typing
     // system. We suppose this is probably due to the TypeProvider generation
     // so for now we just ignore that situation hoping this is not
