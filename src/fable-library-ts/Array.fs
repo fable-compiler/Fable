@@ -877,13 +877,24 @@ let tail (array: 'T[]) =
 
     skipImpl array 1
 
-let item index (array: _[]) = array.[index]
+let item (index: int) (array: 'T[]) : 'T =
+    if index < 0 || index >= array.Length then
+        invalidArg "index" "Index was outside the bounds of the array."
+    else
+        arrayAccessImpl index array
 
-let tryItem index (array: 'T[]) =
+// Using `set` seems to cause issues with the TS
+let setItem (array: 'T[]) (index: int) (value: 'T) =
+    if index < 0 || index >= array.Length then
+        invalidArg "index" "Index was outside the bounds of the array."
+    else
+        arraySetItemImpl array index value
+
+let tryItem (index: int) (array: 'T[]) : 'T option =
     if index < 0 || index >= array.Length then
         None
     else
-        Some array.[index]
+        Some(arrayAccessImpl index array)
 
 let foldBackIndexed<'T, 'State> folder (array: 'T[]) (state: 'State) =
     // if isTypedArrayImpl array then

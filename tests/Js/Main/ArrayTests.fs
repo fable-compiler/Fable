@@ -177,10 +177,48 @@ let tests =
         let x = [| 1.; 2.; 3.; 4.; 5. |]
         Array.get x 2 |> equal 3.
 
+    testCase "Array getter throws an exception when out of bounds" <| fun () ->
+        let a = [| 1.; 2.; 3.; 4.; 5. |]
+        throwsAnyError (fun () -> Array.get a 5)
+        throwsAnyError (fun () -> Array.get a -10)
+        // Check empty array
+        let b = [| |]
+        throwsAnyError (fun () -> Array.get b 0)
+
+    testCase "Array `arr[idx]` throws an exception when out of bounds" <| fun () ->
+        let a = [| 1.; 2.; 3.; 4.; 5. |]
+        throwsAnyError (fun () -> a[5])
+        throwsAnyError (fun () -> a[-10])
+        // Check empty array
+        let b = [| |]
+        throwsAnyError (fun () -> b[0])
+
+    testCase "Array `arr.[idx]` throws an exception when out of bounds" <| fun () ->
+        let a = [| 1.; 2.; 3.; 4.; 5. |]
+        throwsAnyError (fun () -> a.[5])
+        throwsAnyError (fun () -> a.[-10])
+        // Check empty array
+        let b = [| |]
+        throwsAnyError (fun () -> b.[0])
+
     testCase "Array setter works" <| fun () ->
         let x = [| 1.; 2.; 3.; 4.; 5. |]
         Array.set x 3 10.
         equal 10. x.[3]
+
+    testCase "Array setter throws an exception when out of bounds" <| fun () ->
+        let a = [| 1.; 2.; 3.; 4.; 5. |]
+        throwsAnyError (fun () -> Array.set a 5 10.)
+        throwsAnyError (fun () -> Array.set a -10 10.)
+        throwsAnyError (fun () -> a[5] <- 10.)
+        throwsAnyError (fun () -> a[-5] <- 10.)
+        throwsAnyError (fun () -> a.[5] <- 10.)
+        throwsAnyError (fun () -> a.[-5] <- 10.)
+        // Check empty array
+        let b = [| |]
+        throwsAnyError (fun () -> Array.set b 0 10.)
+        throwsAnyError (fun () -> b[0] <- 10.)
+        throwsAnyError (fun () -> b.[0] <- 10.)
 
     testCase "Array.Length works" <| fun () ->
         let xs = [| 1.; 2.; 3.; 4. |]
@@ -929,14 +967,6 @@ let tests =
         Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
         Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true
 
-    testCase "Array.[i] is undefined in Fable when i is out of range" <| fun () ->
-        let xs = [|0|]
-#if FABLE_COMPILER
-        isNull <| box xs.[1]
-#else
-        try xs.[1] |> ignore; false with _ -> true
-#endif
-        |> equal true
 
     testCase "Array iterators from range do rewind" <| fun () ->
         let xs = [|1..5|] |> Array.toSeq

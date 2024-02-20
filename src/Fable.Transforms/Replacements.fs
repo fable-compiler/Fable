@@ -1922,6 +1922,10 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         |> Some
     | _ -> None
 
+let arrayGetItem (com: ICompiler) r (t: Type) (args: Expr list) (signatureArgTypes: Type list) =
+    Helper.LibCall(com, "Array", "item", t, args, signatureArgTypes, ?loc = r)
+    |> Some
+
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let newArrayAlloc size t =
         Value(NewArray(ArrayAlloc size, t, MutableArray), None)
@@ -1948,9 +1952,11 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | ("Length" | "Count"), [ arg ] -> getFieldWith r t arg "length" |> Some
-    | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
-    | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
-    | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
+    | "Item", [ idx; ar ] -> arrayGetItem com r t [ idx; ar ] i.SignatureArgTypes
+    | "Get", [ ar; idx ] -> arrayGetItem com r t [ idx; ar ] (i.SignatureArgTypes |> List.rev)
+    | "Set", [ ar; idx; value ] ->
+        Helper.LibCall(com, "Array", "setItem", t, [ ar; idx; value ], i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "ZeroCreate", [ count ] -> createArray count None |> Some
     | "Create", [ count; value ] -> createArray count (Some value) |> Some
     | "Empty", _ ->
@@ -2500,8 +2506,8 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         |> withTag "downcast"
         |> Some
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
-    | "GetString", _, [ ar; idx ]
-    | "GetArray", _, [ ar; idx ] -> getExpr r t ar idx |> Some
+    | "GetString", _, [ ar; idx ] -> getExpr r t ar idx |> Some
+    | "GetArray", _, [ ar; idx ] -> arrayGetItem com r t [ idx; ar ] (i.SignatureArgTypes |> List.rev)
     | "SetArray", _, [ ar; idx; value ] -> setExpr r ar idx value |> Some
     | ("GetArraySlice" | "GetStringSlice"), None, [ ar; lower; upper ] ->
         let upper =

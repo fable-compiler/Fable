@@ -2341,7 +2341,19 @@ module Util =
             | Fable.ExprSet(TransformExpr com ctx e) -> getExpr None expr e
             | Fable.FieldSet(fieldName) -> get None expr fieldName
 
-        assign range ret value
+        // If this is an arry setter, we need to use the `setItem` method
+        // as it allows to check the bounds of the array
+        match fableExpr with
+        | Fable.IdentExpr ident ->
+            match ident.Type with
+            | Fable.Type.Array _ ->
+                match kind with
+                | Fable.ExprSet(TransformExpr com ctx index) ->
+                    libCall com ctx range "Array" "setItem" [] [ expr; index; value ]
+
+                | _ -> assign range ret value
+            | _ -> assign range ret value
+        | _ -> assign range ret value
 
     let transformBindingExprBody (com: IBabelCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
         match value with
