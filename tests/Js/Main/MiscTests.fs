@@ -468,7 +468,7 @@ type Order =
         quantity : int<kg>
     }
 
-#if !FABLE_COMPILER_JAVASCRIPT
+#if !FABLE_COMPILER_TYPESCRIPT
 type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
 #endif
 
