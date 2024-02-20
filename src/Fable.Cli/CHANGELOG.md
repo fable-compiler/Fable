@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### JavaScript
 
 * [GH-3759](https://github.com/fable-compiler/Fable/issues/3759) Add `StringBuilder.Chars` (by @MangelMaxime)
+* Added range overload for `String.ToCharArray` (by @ncave)
 
 ## 4.12.2 - 2024-02-13
 

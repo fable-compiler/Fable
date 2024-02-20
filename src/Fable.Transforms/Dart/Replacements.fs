@@ -1428,7 +1428,16 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 | char -> makeArray Char [ char ]
 
             Helper.LibCall(com, "String", methName, t, c :: [ chars ], ?loc = r) |> Some
-    | "ToCharArray", Some c, _ -> stringToCharArray c |> Some
+    | "ToCharArray", Some c, _ ->
+        match args with
+        | [] -> stringToCharArray c |> Some
+        | [ ExprTypeAs(Number(Int32, _), startIdx); ExprTypeAs(Number(Int32, _), count) ] ->
+            let args = toStartEndIndices startIdx count
+
+            Helper.InstanceCall(c, "substring", t, args, ?loc = r)
+            |> stringToCharArray
+            |> Some
+        | _ -> None
     | "Split", Some c, _ ->
         match args with
         // Optimization

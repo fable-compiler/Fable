@@ -568,6 +568,10 @@ export function substring(str: string, startIndex: number, length?: number) {
   return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
 }
 
+export function toCharArray2(str: string, startIndex: number, length: number) {
+  return substring(str, startIndex, length).split("")
+}
+
 interface FormattableString {
   strs: TemplateStringsArray,
   args: any[],
