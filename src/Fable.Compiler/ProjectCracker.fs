@@ -138,8 +138,10 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
                 |> Array.rev
                 |> String.concat "/"
 
-            Process.runSync projDir "dotnet" [ "build"; "-c"; cliArgs.Configuration ]
-            |> ignore
+            let stdout =
+                Process.runSyncWithOutput projDir "dotnet" [ "build"; "-c"; cliArgs.Configuration ]
+
+            Log.always stdout
 
             builtDlls.Add(normalizedDllPath) |> ignore
 
