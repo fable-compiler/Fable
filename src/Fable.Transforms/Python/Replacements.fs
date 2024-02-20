@@ -1429,7 +1429,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
             Helper.LibCall(com, "string", Naming.lowerFirst i.CompiledName, t, c :: args, hasSpread = spread, ?loc = r)
             |> Some
-    | "ToCharArray", Some c, _ -> stringToCharArray t c |> Some
+    | "ToCharArray", Some c, _ ->
+        match args with
+        | [] -> stringToCharArray t c |> Some
+        | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] ->
+            Helper.LibCall(com, "string", "toCharArray2", t, c :: args, ?loc = r) |> Some
+        | _ -> None
     | "Split", Some c, _ ->
         match args with
         // Optimization

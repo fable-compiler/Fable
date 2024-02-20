@@ -893,9 +893,11 @@ let tests() =
 
     testCase "String.ToCharArray works" <| fun () ->
         let arr = "abcd".ToCharArray()
-        equal "c" (string arr.[2])
-        arr |> Array.map (fun _ -> 1) |> Array.sum
-        |> equal arr.Length
+        arr |> equal [|'a';'b';'c';'d'|]
+
+    testCase "String.ToCharArray with range works" <| fun () ->
+        let arr = "abcd".ToCharArray(1, 2)
+        arr |> equal [|'b';'c'|]
 
     // // TODO: surrogate pairs
     // testCase "String enumeration handles surrogates pairs" <| fun () -> // See #1279

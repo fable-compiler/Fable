@@ -427,6 +427,10 @@ def substring(string: str, startIndex: int, length: int | None = None) -> str:
     return string[startIndex:]
 
 
+def to_char_array2(string: str, startIndex: int, length: int) -> list[str]:
+    return list(substring(string, startIndex, length))
+
+
 class StringComparison(IntEnum):
     CurrentCulture = 0
     CurrentCultureIgnoreCase = 1

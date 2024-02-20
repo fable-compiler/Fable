@@ -1188,6 +1188,11 @@ let ``String.ToCharArray works`` () =
     let arr = "abcd".ToCharArray()
     arr |> equal [|'a';'b';'c';'d'|]
 
+[<Fact>]
+let ``String.ToCharArray with range works`` () =
+    let arr = "abcd".ToCharArray(1, 2)
+    arr |> equal [|'b';'c'|]
+
 // [<Fact>]
 // let ``String enumeration handles surrogates pairs`` () = // See #1279
 //     let unicodeString = ".\U0001f404."
