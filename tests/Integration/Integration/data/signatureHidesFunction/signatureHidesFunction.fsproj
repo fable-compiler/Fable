@@ -9,6 +9,8 @@
   <ItemGroup>
     <Compile Include="Library.fsi" />
     <Compile Include="Library.fs" />
+    <Compile Include="HideType.fsi" />
+    <Compile Include="HideType.fs" />
   </ItemGroup>
 
   <ItemGroup>

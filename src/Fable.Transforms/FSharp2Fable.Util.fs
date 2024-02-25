@@ -466,8 +466,12 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
         member _.UnionCases =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
-        member _.IsPublic = not ent.Accessibility.IsPrivate
-        member _.IsPrivate = ent.Accessibility.IsPrivate
+        member _.IsPublic =
+            not (ent.Accessibility.IsPrivate || Helpers.typeIsHiddenBySignatureFile ent)
+
+        member _.IsPrivate =
+            ent.Accessibility.IsPrivate || Helpers.typeIsHiddenBySignatureFile ent
+
         member _.IsInternal = ent.Accessibility.IsInternal
         member _.IsAbstractClass = ent.IsAbstractClass
         member _.IsNamespace = ent.IsNamespace
@@ -822,14 +826,24 @@ module Helpers =
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 
-    let topLevelBindingHiddenBySignatureFile (v: FSharpMemberOrFunctionOrValue) =
-        let parentHasSignatureFile () =
-            v.DeclaringEntity
-            |> Option.bind (fun p -> p.SignatureLocation)
-            |> Option.map (fun m -> m.FileName.EndsWith(".fsi", StringComparison.Ordinal))
-            |> Option.defaultValue false
+    let parentHasSignatureFile (declaringEntity: FSharpEntity option) =
+        declaringEntity
+        |> Option.bind (fun p -> p.SignatureLocation)
+        |> Option.map (fun m -> m.FileName.EndsWith(".fsi", StringComparison.Ordinal))
+        |> Option.defaultValue false
 
-        v.IsModuleValueOrMember && not v.HasSignatureFile && parentHasSignatureFile ()
+    let topLevelBindingHiddenBySignatureFile (v: FSharpMemberOrFunctionOrValue) =
+        v.IsModuleValueOrMember
+        && not v.HasSignatureFile
+        && parentHasSignatureFile v.DeclaringEntity
+
+    let typeIsHiddenBySignatureFile (ent: FSharpEntity) : bool =
+        let hasOwnSignatureFile =
+            match ent.SignatureLocation with
+            | None -> false
+            | Some m -> m.FileName.EndsWith(".fsi", StringComparison.Ordinal)
+
+        not hasOwnSignatureFile && parentHasSignatureFile ent.DeclaringEntity
 
     let isNotPrivate (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated then

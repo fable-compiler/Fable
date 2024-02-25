@@ -26,8 +26,8 @@ let tests =
                 for expected in Directory.GetFileSystemEntries(testCaseDir, "*.expected") do
                     let actual = Path.ChangeExtension(expected, ".actual")
                     Expect.isTrue (File.Exists actual) $"No actual file was produced for {expected}"
-                    let expectedContent = File.ReadAllText expected
-                    let actualContent = File.ReadAllText actual
+                    let expectedContent = File.ReadAllText expected |> _.ReplaceLineEndings()
+                    let actualContent = File.ReadAllText actual |> _.ReplaceLineEndings()
                     Expect.equal actualContent expectedContent "The expected content differs from the actual content"
 
                 return ()
