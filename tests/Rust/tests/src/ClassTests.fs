@@ -65,12 +65,23 @@ type TestClass(name: string) =
 type IPrintable =
     abstract Print: unit -> string
 
+type IPrintable2 =
+    abstract Print: unit -> string
+    abstract Print2: unit -> string
+
 [<Fact>]
 let ``Object expressions work`` () =
     let a = { new IPrintable with member x.Print() = "Hello" }
     a.Print() |> equal "Hello"
     let b = { new Common.Imports.IHasAdd with member _.Add x y = x + y }
     b.Add 2 3 |> equal 5
+
+[<Fact>]
+let ``Object expressions instance calls work`` () =
+    let a = { new IPrintable2 with
+                member _.Print() = "Hello"
+                member x.Print2() = x.Print() }
+    a.Print2() |> equal "Hello"
 
 // [<Fact>]
 // let ``Object expressions with type constructors work`` () =
