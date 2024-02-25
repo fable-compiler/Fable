@@ -263,6 +263,9 @@ module CodeServices =
             let! dependentFiles =
                 checker.GetDependentFiles(currentFile, crackerResponse.ProjectOptions.SourceFiles, sourceReader)
 
+            let combinedDependentFiles = String.concat "\n" dependentFiles
+            Log.info $"Dependent files for %s{currentFile} are:\n%s{combinedDependentFiles}"
+
             let lastFile =
                 if Array.isEmpty dependentFiles then
                     currentFile
