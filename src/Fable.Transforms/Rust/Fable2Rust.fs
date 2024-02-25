@@ -2346,16 +2346,16 @@ module Util =
     let makeInstanceCall com ctx memberName calleeExpr args =
         let membName = splitLast memberName
         let callee = com.TransformExpr(ctx, calleeExpr)
-
-        match calleeExpr.Type with
-        | IsNonErasedInterface com (entRef, genArgs) ->
-            // interface instance call (using fully qualified syntax)
-            let ifcName = getInterfaceImportName com ctx entRef
-            let parts = (ifcName + "::" + membName) |> splitNameParts
-            (callee |> makeAsRef) :: args |> makeCall parts None
-        | _ ->
-            // normal instance call
-            mkMethodCallExpr membName None callee args
+        // match calleeExpr.Type with
+        // | IsNonErasedInterface com (entRef, genArgs) ->
+        //     // interface instance call (using fully qualified syntax)
+        //     let ifcName = getInterfaceImportName com ctx entRef
+        //     let parts = (ifcName + "::" + membName) |> splitNameParts
+        //     (callee |> makeAsRef) :: args |> makeCall parts None
+        // | _ ->
+        //     // normal instance call
+        //     mkMethodCallExpr membName None callee args
+        mkMethodCallExpr membName None callee args
 
     let transformGet (com: IRustCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         match kind with
