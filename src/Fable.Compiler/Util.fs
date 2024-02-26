@@ -460,7 +460,9 @@ module Process =
 
     let runSyncWithOutput workingDir exePath args =
         let p = startProcess true [] workingDir exePath args
-        p.WaitForExit()
+        // Don't wait indefinitely to run process
+        // This call is used to build local plugins, if the binary is used by another process this process will never end.
+        p.WaitForExit 7000 |> ignore
         p.StandardOutput.ReadToEnd()
 
 [<RequireQualifiedAccess>]

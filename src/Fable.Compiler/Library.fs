@@ -260,8 +260,23 @@ module CodeServices =
         : Async<CompileResult>
         =
         async {
+            let signatureFile =
+                crackerResponse.ProjectOptions.SourceFiles
+                |> Array.tryFind (fun f -> f = String.Concat(currentFile, "i"))
+
             let! dependentFiles =
-                checker.GetDependentFiles(currentFile, crackerResponse.ProjectOptions.SourceFiles, sourceReader)
+                match signatureFile with
+                | None ->
+                    checker.GetDependentFiles(currentFile, crackerResponse.ProjectOptions.SourceFiles, sourceReader)
+                | Some signatureFile ->
+                    checker.GetDependentFiles(signatureFile, crackerResponse.ProjectOptions.SourceFiles, sourceReader)
+
+            Log.info (
+                sprintf
+                    "Dependent files for %s are:\n%s"
+                    (Option.defaultValue currentFile signatureFile)
+                    (String.concat "\n" dependentFiles)
+            )
 
             let lastFile =
                 if Array.isEmpty dependentFiles then

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+#### All
+
+* [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) Local plugin build does not run indefinably. (by @nojaf)
+
+#### JavaScript
+
+* [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) Types hidden by signature files should not be exported. (by @nojaf)
+
 ## 4.13.0 - 2024-02-13
 
 ### Added
