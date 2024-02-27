@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.0.0-alpha-008 - 2024-02-27
+
 ### Fixed
 
 * [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) The dependent files of the current file should be detected for the signature file if there is one present. (by @nojaf)
