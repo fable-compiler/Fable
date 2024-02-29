@@ -12,6 +12,7 @@
     "noEmitOnError": true,
     "newLine": "lf",
     "forceConsistentCasingInFileNames": true,
-    "preserveWatchOutput": true
+    "preserveWatchOutput": true,
+    "moduleResolution": "Node"
   }
 }
