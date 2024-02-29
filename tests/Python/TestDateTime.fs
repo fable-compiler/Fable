@@ -98,9 +98,13 @@ let ``test DateTime.ToString with custom format works`` () =
     |> equal "r 617542"
     DateTime.Parse("2009-06-15T13:45:30.0000005").ToString("r ffffff", CultureInfo.InvariantCulture)
     |> equal "r 000000"
-    // We only have a precision up to the microsecond
-    // DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r fffffff", CultureInfo.InvariantCulture)
-    // |> equal "r 6175425"
+    // We only have a precision up to the microsecond so we fill with 0
+    DateTime.Parse("2009-06-15T13:45:30.617542").ToString("r fffffff", CultureInfo.InvariantCulture)
+    |> equal "r 6175420"
+    DateTime.Parse("2009-06-15T13:45:30.1").ToString("r fffffff", CultureInfo.InvariantCulture)
+    |> equal "r 1000000"
+    DateTime.Parse("2009-06-15T13:45:30.000001").ToString("r fffffff", CultureInfo.InvariantCulture)
+    |> equal "r 0000010"
 
     DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r F", CultureInfo.InvariantCulture)
     |> equal "r 6"
@@ -127,8 +131,19 @@ let ``test DateTime.ToString with custom format works`` () =
     DateTime.Parse("2009-06-15T13:45:30.0000005").ToString("r FFFFFF", CultureInfo.InvariantCulture)
     |> equal "r "
     // We only have a precision up to the microsecond
-    // DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r FFFFFFF", CultureInfo.InvariantCulture)
-    // |> equal "r 6175425"
+    // Check that we fill the zero correctly and remove trailing zeros
+    DateTime.Parse("2009-06-15T13:45:30.617542").ToString("r FFFFFFF", CultureInfo.InvariantCulture)
+    |> equal "r 617542"
+
+    DateTime.Parse("2009-06-15T13:45:30.01").ToString("r FFFFFFF", CultureInfo.InvariantCulture)
+    |> equal "r 01"
+    DateTime.Parse("2009-06-15T13:45:30.000001").ToString("r FFFFFFF", CultureInfo.InvariantCulture)
+    |> equal "r 000001"
+    DateTime.Parse("2009-06-15T13:45:30.0000000").ToString("r FFFFFFF", CultureInfo.InvariantCulture)
+    |> equal "r "
+
+    DateTime.Parse("2009-06-15T13:45:30.00617").ToString("r FFFFFFF", CultureInfo.InvariantCulture)
+    |> equal "r 00617"
 
     DateTime(2014, 7, 1, 16, 37, 0).ToString("r g", CultureInfo.InvariantCulture)
     |> equal "r A.D."

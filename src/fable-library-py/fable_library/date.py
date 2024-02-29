@@ -11,6 +11,7 @@ from .time_span import create as create_time_span
 from .types import FSharpRef
 from .util import DateKind
 
+
 # Some of the code in this file has been adapted from
 # https://github.com/microsoft/referencesource/blob/51cf7850defa8a17d815b4700b67116e3fa283c2/mscorlib/system/globalization/datetimeformat.cs
 
@@ -238,7 +239,9 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         precision = 10 ** (6 - token_length)
                         result += str(localized_date.microsecond // precision).zfill(token_length)
                     # Python datetime only support precision up to the microsecond
-                    # so we can't support fffffff
+                    # so we need to fill the rest with 0
+                    case 7:
+                        result += str(localized_date.microsecond).zfill(6).ljust(token_length, "0")
                     case _:
                         pass
             case "F":
@@ -251,7 +254,12 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         if value != 0:
                             result += str(value).zfill(token_length)
                     # Python datetime only support precision up to the microsecond
-                    # so we can't support FFFFFFF
+                    # so we can't go further
+                    # We alse need to pad start with 0 if the value is not 0
+                    case 7:
+                        value = localized_date.microsecond
+                        if value != 0:
+                            result += str(value).zfill(6).rstrip("0")
                     case _:
                         pass
             case "g":
