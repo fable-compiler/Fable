@@ -270,22 +270,11 @@ export function lazyFromValue<T>(v: T) {
 }
 
 export function padWithZeros(i: number, length: number) {
-  let str = i.toString(10);
-  while (str.length < length) {
-    str = "0" + str;
-  }
-  return str;
+  return i.toString(10).padStart(length, "0");
 }
 
 export function padLeftAndRightWithZeros(i: number, lengthLeft: number, lengthRight: number) {
-  let str = i.toString(10);
-  while (str.length < lengthLeft) {
-    str = "0" + str;
-  }
-  while (str.length < lengthRight) {
-    str = str + "0";
-  }
-  return str;
+  return i.toString(10).padStart(lengthLeft, "0").padEnd(lengthRight, "0");
 }
 
 export function dateOffset(date: IDateTime | IDateTimeOffset): number {

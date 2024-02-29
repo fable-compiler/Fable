@@ -9,13 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-#### All
+* [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) [All] Local plugin build does not run indefinably. (by @nojaf)
+* [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) [JS/TS] Types hidden by signature files should not be exported. (by @nojaf)
+* [GH-3772](https://github.com/fable-compiler/Fable/pull/3772) [JS/TS] Re-implement `DateTime.ToString` custom format handling (by @MangelMaxime)
 
-* [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) Local plugin build does not run indefinably. (by @nojaf)
+    It now supports all custom format specifiers, and behave as if `CultureInfo.InvariantCulture` was used (Fable does not support Globalization).
+* [GH-3772](https://github.com/fable-compiler/Fable/pull/3772) [JS/TS] Make compilation fails if calling `DateTime` constructor with microseconds (by @MangelMaxime)
 
-#### JavaScript
+    JavaScript `Date` does not support microseconds, we need to wait for `Temporal` to be widely supported before reconsidering this.
 
-* [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) Types hidden by signature files should not be exported. (by @nojaf)
+### Changed
+
+* [GH-3772](https://github.com/fable-compiler/Fable/pull/3772) [JS/TS] Split replacement for `DateTime` and `DateTimeOffset` (by @MangelMaxime)
 
 ## 4.13.0 - 2024-02-13
 

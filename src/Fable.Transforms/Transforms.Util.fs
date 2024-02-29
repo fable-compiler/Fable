@@ -205,6 +205,9 @@ module Types =
     let timeOnly = "System.TimeOnly"
 
     [<Literal>]
+    let timer = "System.Timers.Timer"
+
+    [<Literal>]
     let int8 = "System.SByte"
 
     [<Literal>]
