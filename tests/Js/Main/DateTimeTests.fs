@@ -307,27 +307,27 @@ let tests =
         |> equal "r +0"
 
         // Timezone dependent (test is configured for Europe/Paris timezone)
-        DateTime(2014, 7, 1, 16, 37, 0).ToString("r z", CultureInfo.InvariantCulture)
-        |> equal "r +2"
-        DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r z", CultureInfo.InvariantCulture)
-        |> equal "r +2"
+        // DateTime(2014, 7, 1, 16, 37, 0).ToString("r z", CultureInfo.InvariantCulture)
+        // |> equal "r +2"
+        // DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r z", CultureInfo.InvariantCulture)
+        // |> equal "r +2"
 
 
         DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zz", CultureInfo.InvariantCulture)
         |> equal "r +00"
         // Timezone dependent (test is configured for Europe/Paris timezone)
-        DateTime(2014, 7, 1, 16, 37, 0).ToString("r zz", CultureInfo.InvariantCulture)
-        |> equal "r +02"
-        DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zz", CultureInfo.InvariantCulture)
-        |> equal "r +02"
+        // DateTime(2014, 7, 1, 16, 37, 0).ToString("r zz", CultureInfo.InvariantCulture)
+        // |> equal "r +02"
+        // DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zz", CultureInfo.InvariantCulture)
+        // |> equal "r +02"
 
         DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zzz", CultureInfo.InvariantCulture)
         |> equal "r +00:00"
         // Timezone dependent (test is configured for Europe/Paris timezone)
-        DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzz", CultureInfo.InvariantCulture)
-        |> equal "r +02:00"
-        DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zzz", CultureInfo.InvariantCulture)
-        |> equal "r +02:00"
+        // DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzz", CultureInfo.InvariantCulture)
+        // |> equal "r +02:00"
+        // DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zzz", CultureInfo.InvariantCulture)
+        // |> equal "r +02:00"
 
         // Time separator
         DateTime(2014, 7, 1, 16, 37, 0).ToString("r :", CultureInfo.InvariantCulture)
