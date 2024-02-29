@@ -15,6 +15,360 @@ import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWith
 export type OffsetInMinutes = number;
 export type Offset = "Z" | OffsetInMinutes | null;
 
+const shortDays =
+  [
+    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+  ]
+
+const longDays =
+  [
+    "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
+  ]
+
+const shortMonths =
+  [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  ]
+
+const longMonths =
+  [
+    "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"
+  ]
+
+
+function parseRepeatToken(format: string, pos: number, patternChar: string) {
+  let tokenLength = 0;
+  let internalPos = pos;
+  while (internalPos < format.length && format[internalPos] === patternChar) {
+    internalPos++;
+    tokenLength++;
+  }
+
+  return tokenLength;
+}
+
+function parseNextChar(format: string, pos: number) {
+  if (pos >= format.length - 1) {
+    return -1
+  }
+
+  return format.charCodeAt(pos + 1);
+}
+
+function parseQuotedString(format: string, pos: number) : [string, number] {
+  let beginPos = pos;
+  // Get the character used to quote the string
+  const quoteChar = format[pos];
+
+  let result = "";
+  let foundQuote = false;
+
+  while (pos < format.length) {
+    pos++;
+    const currentChar = format[pos];
+    if (currentChar === quoteChar) {
+      foundQuote = true;
+      break;
+    } else if (currentChar === "\\") {
+      if (pos < format.length) {
+        pos++;
+        result += format[pos];
+      } else {
+        // This means that '\' is the last character in the string.
+        throw new Error("Invalid string format");
+      }
+    } else {
+      result += currentChar;
+    }
+  }
+
+  if (!foundQuote) {
+    // We could not find the matching quote
+    throw new Error(`Invalid string format could not find matching quote for ${quoteChar}`);
+  }
+
+  return [result, pos - beginPos + 1];
+}
+
+function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) {
+  let cursorPos = 0;
+  let tokenLength = 0;
+  let result = "";
+  const localizedDate = utc ? DateTime(date.getTime(), DateKind.UTC) : date;
+
+  while (cursorPos < format.length) {
+    const token = format[cursorPos];
+
+    switch (token) {
+      case "d":
+        tokenLength = parseRepeatToken(format, cursorPos, "d");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            result += localizedDate.getDate();
+            break;
+          case 2:
+            result += padWithZeros(localizedDate.getDate(), 2);
+            break;
+          case 3:
+            result += shortDays[dayOfWeek(localizedDate)];
+            break;
+          case 4:
+            result += longDays[dayOfWeek(localizedDate)];
+            break;
+          default:
+            break;
+        }
+        break;
+      case "f":
+        tokenLength = parseRepeatToken(format, cursorPos, "f");
+        cursorPos += tokenLength;
+        if (tokenLength <= 3) {
+          const precision = 10 ** (3 - tokenLength);
+          result += padWithZeros(Math.floor(millisecond(localizedDate) / precision), tokenLength);
+        } else if (tokenLength <= 7) {
+          // JavaScript Date only support precision to the millisecond
+          // so we fill the rest of the precision with 0 as if the date didn't have
+          // milliseconds provided to it.
+          // This is to have the same behavior as .NET when doing:
+          // DateTime(1, 2, 3, 4, 5, 6, DateTimeKind.Utc).ToString("fffff") => 00000
+          result += (""+millisecond(localizedDate)).padEnd(tokenLength, "0");
+        }
+        break;
+      case "F":
+        tokenLength = parseRepeatToken(format, cursorPos, "F");
+        cursorPos += tokenLength;
+        if (tokenLength <= 3) {
+          const precision = 10 ** (3 - tokenLength);
+          const value = Math.floor(millisecond(localizedDate) / precision)
+          if (value != 0) {
+            result += padWithZeros(value, tokenLength);
+          }
+        } else if (tokenLength <= 7) {
+          // JavaScript Date only support precision to the millisecond
+          // so we can't go beyond that.
+          // We also need to pad start with 0 if the value is not 0
+          const value = millisecond(localizedDate);
+          if (value != 0) {
+            result += padWithZeros(value, 3);
+          }
+        }
+        break;
+      case "g":
+        tokenLength = parseRepeatToken(format, cursorPos, "g");
+        cursorPos += tokenLength;
+        if (tokenLength <= 2) {
+          result += "A.D.";
+        }
+        break;
+      case "h":
+        tokenLength = parseRepeatToken(format, cursorPos, "h");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            result += hour(localizedDate) % 12
+            break;
+          case 2:
+            result += padWithZeros(hour(localizedDate) % 12, 2);
+            break;
+          default:
+            break;
+        }
+        break;
+      case "H":
+        tokenLength = parseRepeatToken(format, cursorPos, "H");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            result += hour(localizedDate);
+            break;
+          case 2:
+            result += padWithZeros(hour(localizedDate), 2);
+            break;
+          default:
+            break;
+        }
+        break;
+      case "K":
+        tokenLength = parseRepeatToken(format, cursorPos, "K");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            switch (kind(localizedDate)) {
+              case DateKind.UTC:
+                result += "Z";
+                break;
+              case DateKind.Local:
+                result += dateOffsetToString(localizedDate.getTimezoneOffset() * -60000);
+                break;
+              case DateKind.Unspecified:
+                break;
+            }
+            break;
+          default:
+            break;
+        }
+        break;
+      case "m":
+        tokenLength = parseRepeatToken(format, cursorPos, "m");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            result += minute(localizedDate);
+            break;
+          case 2:
+            result += padWithZeros(minute(localizedDate), 2);
+            break;
+          default:
+            break;
+        }
+        break;
+      case "M":
+        tokenLength = parseRepeatToken(format, cursorPos, "M");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            result += month(localizedDate);
+            break;
+          case 2:
+            result += padWithZeros(month(localizedDate), 2);
+            break;
+          case 3:
+            result += shortMonths[month(localizedDate) - 1];
+            break;
+          case 4:
+            result += longMonths[month(localizedDate) - 1];
+            break;
+          default:
+            break;
+        }
+        break;
+      case "s":
+        tokenLength = parseRepeatToken(format, cursorPos, "s");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            result += second(localizedDate);
+            break;
+          case 2:
+            result += padWithZeros(second(localizedDate), 2);
+            break;
+          default:
+            break;
+        }
+        break;
+      case "t":
+        tokenLength = parseRepeatToken(format, cursorPos, "t");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            result += localizedDate.getHours() < 12 ? "A" : "P";
+            break;
+          case 2:
+            result += localizedDate.getHours() < 12 ? "AM" : "PM";
+            break;
+          default:
+            break;
+        }
+        break;
+      case "y":
+        tokenLength = parseRepeatToken(format, cursorPos, "y");
+        cursorPos += tokenLength;
+        switch (tokenLength) {
+          case 1:
+            result += localizedDate.getFullYear() % 100;
+            break;
+          case 2:
+            result += padWithZeros(localizedDate.getFullYear() % 100, 2);
+            break;
+          case 3:
+            result += padWithZeros(localizedDate.getFullYear(), 3);
+            break;
+          case 4:
+            result += padWithZeros(localizedDate.getFullYear(), 4);
+            break;
+          case 5:
+            result += padWithZeros(localizedDate.getFullYear(), 5);
+            break;
+          default:
+            break;
+        }
+        break;
+      case "z":
+        tokenLength = parseRepeatToken(format, cursorPos, "z");
+        cursorPos += tokenLength;
+        let utcOffsetText = "";
+
+        switch (kind(localizedDate)) {
+          case DateKind.UTC:
+            utcOffsetText = "+00:00";
+            break;
+          case DateKind.Local:
+            utcOffsetText = dateOffsetToString(localizedDate.getTimezoneOffset() * -60000);
+            break;
+          case DateKind.Unspecified:
+            utcOffsetText = dateOffsetToString(toLocalTime(localizedDate).getTimezoneOffset() * -60000);
+            break;
+        }
+
+        const sign = utcOffsetText[0] === "-" ? "-" : "+";
+        const hours = parseInt(utcOffsetText.substring(1, 3), 10);
+        const minutes = parseInt(utcOffsetText.substring(4, 6), 10);
+
+        switch (tokenLength) {
+          case 1:
+            result += `${sign}${hours}`;
+            break;
+          case 2:
+            result += `${sign}${padWithZeros(hours, 2)}`;
+            break;
+          default:
+            result += `${sign}${padWithZeros(hours, 2)}:${padWithZeros(minutes, 2)}`;
+            break;
+        }
+        break;
+      case ":":
+        result += ":";
+        cursorPos++;
+        break;
+      case "/":
+        result += "/";
+        cursorPos++;
+        break;
+      case "'":
+      case '"':
+        const [quotedString, quotedStringLenght] = parseQuotedString(format, cursorPos);
+        result += quotedString;
+        cursorPos += quotedStringLenght;
+        break;
+      case "%":
+        const nextChar = parseNextChar(format, cursorPos);
+        if (nextChar >= 0 && nextChar !== "%".charCodeAt(0)) {
+          cursorPos += 2;
+          result += dateToStringWithCustomFormat(localizedDate, String.fromCharCode(nextChar), utc);
+        } else {
+          throw new Error("Invalid format string");
+        }
+        break;
+      case "\\":
+        const nextChar2 = parseNextChar(format, cursorPos);
+        if (nextChar2 >= 0) {
+          cursorPos += 2;
+          result += String.fromCharCode(nextChar2);
+        } else {
+          throw new Error("Invalid format string");
+        }
+        break;
+      default:
+        cursorPos++;
+        result += token;
+        break;
+    }
+  }
+
+  return result;
+}
+
 export function kind(value: IDateTime): number {
   return value.kind || 0;
 }
@@ -64,31 +418,6 @@ function dateToISOString(d: IDateTime, utc: boolean) {
 function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
   const str = dateWithOffset.toISOString();
   return str.substring(0, str.length - 1) + dateOffsetToString(offset);
-}
-
-function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) {
-  return format.replace(/(\w)\1*/g, (match: string) => {
-    let rep = Number.NaN;
-    switch (match.substring(0, 1)) {
-      case "y":
-        const y = utc ? date.getUTCFullYear() : date.getFullYear();
-        rep = match.length < 4 ? y % 100 : y; break;
-      case "M": rep = (utc ? date.getUTCMonth() : date.getMonth()) + 1; break;
-      case "d": rep = utc ? date.getUTCDate() : date.getDate(); break;
-      case "H": rep = utc ? date.getUTCHours() : date.getHours(); break;
-      case "h":
-        const h = utc ? date.getUTCHours() : date.getHours();
-        rep = h > 12 ? h % 12 : h; break;
-      case "m": rep = utc ? date.getUTCMinutes() : date.getMinutes(); break;
-      case "s": rep = utc ? date.getUTCSeconds() : date.getSeconds(); break;
-      case "f": rep = utc ? date.getUTCMilliseconds() : date.getMilliseconds(); break;
-    }
-    if (Number.isNaN(rep)) {
-      return match;
-    } else {
-      return padWithZeros(rep, match.length);
-    }
-  });
 }
 
 function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {

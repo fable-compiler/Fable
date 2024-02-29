@@ -2840,15 +2840,8 @@ let ignoreFormatProvider meth args =
     | "TryParse", input :: _culture :: defVal :: _ -> [ input; defVal ]
     | _ -> args
 
-let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let getTime (e: Expr) =
-        Helper.InstanceCall(e, "getTime", t, [])
-
-    let moduleName =
-        if i.DeclaringEntityFullName = Types.datetime then
-            "Date"
-        else
-            "DateOffset"
+let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let moduleName = "Date"
 
     match i.CompiledName with
     | ".ctor" ->
@@ -2856,9 +2849,6 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | [] -> Helper.LibCall(com, moduleName, "minValue", t, [], [], ?loc = r) |> Some
         | ExprType(Number(Int64, _)) :: _ ->
             Helper.LibCall(com, moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | ExprType(DeclaredType(e, [])) :: _ when e.FullName = Types.datetime ->
-            Helper.LibCall(com, "DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
         | _ ->
             let last = List.last args
@@ -2870,25 +2860,74 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 let argTypes = (List.take 6 i.SignatureArgTypes) @ [ Int32.Number; last.Type ]
 
                 Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc = r) |> Some
+
+            // JavaScript Date doesn't support microseconds precision
+            | 8, Number(Int32, NumberInfo.Empty) ->
+                "JavaScript Date with doesn't support microseconds precision"
+                |> addError com ctx.InlinePath r
+
+                None
+            // | 8, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
+            //     "JavaScript Date with doesn't support microseconds precision" |> addError com ctx.InlinePath r
+            //     None
+
             | _ ->
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc = r)
                 |> Some
     | "ToString" ->
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
-    | "get_Kind"
-    | "get_Offset" as meth ->
-        let moduleName =
-            if meth = "get_Kind" then
-                "Date"
-            else
-                "DateOffset"
+    // | "get_Kind" ->
+    //     Helper.LibCall(com, moduleName, "kind", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+    //     |> Some
+    //     let y = DateTime.Now.UtcTicks
+    //     let x = DateTimeOffset.Now.UtcTicks
+    //     failwith "Not implemented"
 
+    | "get_Ticks" ->
+        Helper.LibCall(com, "Date", "getTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
+    | meth ->
+        let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
-        Helper.LibCall(com, moduleName, meth, t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
-    // DateTimeOffset
+
+
+let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let moduleName = "DateOffset"
+
+    match i.CompiledName with
+    | ".ctor" ->
+        match args with
+        | [] -> Helper.LibCall(com, moduleName, "minValue", t, [], [], ?loc = r) |> Some
+        | ExprType(Number(Int64, _)) :: _ ->
+            Helper.LibCall(com, moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | ExprType(DeclaredType(e, [])) :: _ when e.FullName = Types.datetime ->
+            Helper.LibCall(com, moduleName, "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | _ ->
+            let last = List.last args
+
+            match args.Length, last.Type with
+            | 7, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
+                let args = (List.take 6 args) @ [ makeIntConst 0; last ]
+
+                let argTypes = (List.take 6 i.SignatureArgTypes) @ [ Int32.Number; last.Type ]
+
+                Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc = r) |> Some
+
+            | _ ->
+                Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc = r)
+                |> Some
+    | "ToString" ->
+        Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | "get_Offset" ->
+        Helper.LibCall(com, moduleName, "offset", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
     | "get_LocalDateTime" ->
         Helper.LibCall(com, "DateOffset", "toLocalTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
@@ -2896,7 +2935,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "DateOffset", "toUniversalTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_DateTime" ->
-        let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
+        let kind = DateTimeKind.Unspecified |> int |> makeIntConst
 
         Helper.LibCall(
             com,
@@ -2920,6 +2959,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
+
 
 let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -3878,8 +3918,8 @@ let private replacedModules =
             "System.Console", console
             "System.Diagnostics.Debug", debug
             "System.Diagnostics.Debugger", debug
-            Types.datetime, dates
-            Types.datetimeOffset, dates
+            Types.datetime, dateTime
+            Types.datetimeOffset, dateTimeOffset
             Types.dateOnly, dateOnly
             Types.timeOnly, timeOnly
             Types.timespan, timeSpans
@@ -4054,11 +4094,11 @@ let tryType typ =
     | Builtin kind ->
         match kind with
         | BclGuid -> Some(Types.guid, guids, [])
-        | BclDateTime -> Some(Types.datetime, dates, [])
-        | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
+        | BclDateTime -> Some(Types.datetime, dateTime, [])
+        | BclDateTimeOffset -> Some(Types.datetimeOffset, dateTimeOffset, [])
         | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
         | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
-        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimer -> Some(Types.timer, timers, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [ key; value ])
