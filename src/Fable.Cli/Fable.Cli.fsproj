@@ -4,46 +4,20 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.13.0</Version>
-    <PackageReleaseNotes>## Added
+    <Version>4.14.0</Version>
+    <PackageReleaseNotes>## Changed
 
-
-### JavaScript
-
-- [GH-3759](https://github.com/fable-compiler/Fable/issues/3759) Add `StringBuilder.Chars` (by @MangelMaxime)
-- Added range overload for `String.ToCharArray` (by @ncave)
-
-### Rust
-
-- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Added `StringBuilder.Chars`, `StringBuilder.Remove` and tests. (by @ncave)
-
-### Dart
-
-- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Added `StringBuilder` support and tests. (by @ncave)
-
-## Changed
-
-
-### JavaScript
-
-- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Updated `StringBuilder` to remove allocations where possible. (by @ncave)
-
-### Python
-
-- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Updated `StringBuilder` to remove allocations where possible. (by @ncave)
+- [GH-3772](https://github.com/fable-compiler/Fable/pull/3772) [JS/TS] Split replacement for `DateTime` and `DateTimeOffset` (by @MangelMaxime)
 
 ## Fixed
 
-
-### JavaScript
-
-- [GH-3748](https://github.com/fable-compiler/Fable/pull/3748) Accessing an array out of bounds should emit an exception (by @MangelMaxime)
-- [GH-3748](https://github.com/fable-compiler/Fable/pull/3748) Setting an array out of bounds should emit an exception (by @MangelMaxime)
-- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Fixed incorrect `StringBuilder.Remove` implementation. (by @ncave)
-
-### Python
-
-- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Fixed incorrect `StringBuilder.Remove` implementation. (by @ncave)
+- [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) [All] Local plugin build does not run indefinably. (by @nojaf)
+- [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) [JS/TS] Types hidden by signature files should not be exported. (by @nojaf)
+- [GH-3772](https://github.com/fable-compiler/Fable/pull/3772) [JS/TS] Re-implement `DateTime.ToString` custom format handling (by @MangelMaxime)
+    It now supports all custom format specifiers, and behave as if `CultureInfo.InvariantCulture` was used (Fable does not support Globalization).
+- [GH-3772](https://github.com/fable-compiler/Fable/pull/3772) [JS/TS] Make compilation fails if calling `DateTime` constructor with microseconds (by @MangelMaxime)
+    JavaScript `Date` does not support microseconds, we need to wait for `Temporal` to be widely supported before reconsidering this.
+- [GH-3773](https://github.com/fable-compiler/Fable/pull/3773) [Python] Fix `DateTime` custom format `fffffff` and `FFFFFFF` (by @MangelMaxime)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

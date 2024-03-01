@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.14.0 - 2024-03-01
+
 ### Fixed
 
 * [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) [All] Local plugin build does not run indefinably. (by @nojaf)
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [GH-3772](https://github.com/fable-compiler/Fable/pull/3772) [JS/TS] Make compilation fails if calling `DateTime` constructor with microseconds (by @MangelMaxime)
 
     JavaScript `Date` does not support microseconds, we need to wait for `Temporal` to be widely supported before reconsidering this.
+* [GH-3773](https://github.com/fable-compiler/Fable/pull/3773) [Python] Fix `DateTime` custom format `fffffff` and `FFFFFFF` (by @MangelMaxime)
 
 ### Changed
 
