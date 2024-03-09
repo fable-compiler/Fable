@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+[JS/TS] Fixed `DateTime.Add` for `DateTimeKind.Unspecified` (by @ncave)
+[Rust] Fixed deprecated `NaiveDateTime` usage in `DateTime` (by @ncave)
+
 ## 4.14.0 - 2024-03-01
 
 ### Fixed

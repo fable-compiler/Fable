@@ -710,7 +710,7 @@ export function dayOfYear(d: IDateTime) {
 
 export function add(d: IDateTime, ts: number) {
   const newDate = DateTime(d.getTime() + ts, d.kind);
-  if (d.kind === DateKind.Local) {
+  if (d.kind !== DateKind.UTC) {
     const oldTzOffset = d.getTimezoneOffset();
     const newTzOffset = newDate.getTimezoneOffset();
     return oldTzOffset !== newTzOffset
