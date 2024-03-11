@@ -1,4 +1,4 @@
-import { equals, IMap, ISet } from "./Util.js";
+import { equals, IMap, IMapOrWeakMap, ISet } from "./Util.js";
 import { FSharpRef, Union } from "./Types.js";
 
 const CaseRules = {
@@ -88,7 +88,7 @@ export function containsValue<K, V>(v: V, map: IMap<K, V>) {
   return false;
 }
 
-export function tryGetValue<K, V>(map: IMap<K, V>, key: K, defaultValue: FSharpRef<V>): boolean {
+export function tryGetValue<K, V>(map: IMapOrWeakMap<K, V>, key: K, defaultValue: FSharpRef<V>): boolean {
   if (map.has(key)) {
     defaultValue.contents = map.get(key) as V;
     return true;
@@ -104,7 +104,15 @@ export function addToSet<T>(v: T, set: ISet<T>) {
   return true;
 }
 
-export function addToDict<K, V>(dict: IMap<K, V>, k: K, v: V) {
+export function tryAddToDict<K, V>(dict: IMapOrWeakMap<K, V>, k: K, v: V) {
+  if (dict.has(k)) {
+    return false;
+  }
+  dict.set(k, v);
+  return true;
+}
+
+export function addToDict<K, V>(dict: IMapOrWeakMap<K, V>, k: K, v: V) {
   if (dict.has(k)) {
     throw new Error("An item with the same key has already been added. Key: " + k);
   }
@@ -117,4 +125,13 @@ export function getItemFromDict<K, V>(map: IMap<K, V>, key: K) {
   } else {
     throw new Error(`The given key '${key}' was not present in the dictionary.`);
   }
+}
+
+export function getItemFromDictOrCreate<K, V>(map: IMapOrWeakMap<K, V>, key: K, createValue: (key: K) => V) {
+  if (map.has(key)) {
+    return map.get(key) as V;
+  }
+  const value = createValue(key);
+  map.set(key, value);
+  return value;
 }
