@@ -78,9 +78,7 @@ pub mod AsyncBuilder_ {
     use super::Async_::Async;
     use crate::Native_::{Func0, Func1};
 
-    pub fn delay<T: Send + Sync + 'static>(
-        binder: Func0<Arc<Async<T>>>,
-    ) -> Arc<Async<T>> {
+    pub fn delay<T: Send + Sync + 'static>(binder: Func0<Arc<Async<T>>>) -> Arc<Async<T>> {
         let pr = binder();
         Arc::from(Async {
             future: pr.future.clone(),
@@ -159,8 +157,8 @@ pub mod Monitor_ {
         }
     }
 
-    pub fn enter<T>(o: &Lrc<T>) {
-        let p = Arc::<T>::as_ptr(o) as usize;
+    pub fn enter<T>(o: Lrc<T>) {
+        let p = Arc::<T>::as_ptr(&o) as usize;
         loop {
             let otherHasLock = try_init_and_get_locks().read().unwrap().get(&p).is_some();
             if otherHasLock {
@@ -172,8 +170,8 @@ pub mod Monitor_ {
         }
     }
 
-    pub fn exit<T>(o: &Lrc<T>) {
-        let p = Arc::<T>::as_ptr(o) as usize;
+    pub fn exit<T>(o: Lrc<T>) {
+        let p = Arc::<T>::as_ptr(&o) as usize;
         let hasRemoved = try_init_and_get_locks().write().unwrap().remove(&p);
         if (!hasRemoved) {
             panic!("Not removed {}", p)
@@ -182,10 +180,10 @@ pub mod Monitor_ {
 
     // Not technically part of monitor, but it needs to be behind a feature switch, so cannot just dump this in Native
     pub fn lock<T: Clone + Send + Sync, U: 'static>(toLock: Arc<T>, f: Func0<U>) -> U {
-        enter(&toLock);
+        enter(toLock.clone());
         let returnVal = f();
         // panics will bypass this - need some finally mechanism
-        exit(&toLock);
+        exit(toLock.clone());
         returnVal
     }
 }
@@ -361,9 +359,7 @@ pub mod Task_ {
         Arc::from(task)
     }
 
-    pub fn delay<T: Clone + Send + Sync + 'static>(
-        binder: Func0<Arc<Task<T>>>,
-    ) -> Arc<Task<T>> {
+    pub fn delay<T: Clone + Send + Sync + 'static>(binder: Func0<Arc<Task<T>>>) -> Arc<Task<T>> {
         let pr = binder();
         pr
     }
@@ -387,9 +383,9 @@ pub mod Task_ {
 
 #[cfg(feature = "threaded")]
 pub mod TaskBuilder_ {
-    use std::sync::Arc;
     use super::super::Native_::Lrc;
     use super::Task_::Task;
+    use std::sync::Arc;
 
     pub struct TaskBuilder {}
 
@@ -416,17 +412,17 @@ pub mod Thread_ {
         New(Func0<()>),
         //Building(thread::Builder),
         Running(thread::JoinHandle<()>),
-        Empty
+        Empty,
     }
     impl Default for ThreadInt {
         fn default() -> Self {
             ThreadInt::Empty
         }
     }
-    pub struct Thread (MutCell<ThreadInt>);
+    pub struct Thread(MutCell<ThreadInt>);
 
     pub fn new(f: Func0<()>) -> Lrc<Thread> {
-        Lrc::from(Thread (MutCell::from(ThreadInt::New(f))))
+        Lrc::from(Thread(MutCell::from(ThreadInt::New(f))))
     }
 
     impl Thread {
@@ -435,16 +431,16 @@ pub mod Thread_ {
                 ThreadInt::New(f) => {
                     let t = std::thread::spawn(move || f());
                     self.0.set(ThreadInt::Running(t));
-                },
+                }
                 _ => {}
             }
         }
 
-        pub fn join(&self){
+        pub fn join(&self) {
             match self.0.take() {
                 ThreadInt::Running(jh) => {
                     jh.join().expect("Couldn't join on the associated thread");
-                },
+                }
                 _ => {}
             }
         }

@@ -1749,6 +1749,14 @@ module Util =
         | [ Fable.IdentExpr ident ], _ when isUnitArg ident -> []
         | _ -> args
 
+    let unboxBoxedArgs (args: Fable.Expr list) =
+        args
+        |> List.map (
+            function
+            | Fable.TypeCast(expr, Fable.Any) -> expr // unbox boxed values
+            | arg -> arg
+        )
+
     let makeFunctionArgs com ctx (args: FSharpMemberOrFunctionOrValue list) =
         let ctx, args =
             ((ctx, []), args)

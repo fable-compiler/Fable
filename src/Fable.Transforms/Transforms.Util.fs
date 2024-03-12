@@ -794,6 +794,11 @@ module AST =
         | MaybeCasted(Value(StringConstant str, _)) -> Some str
         | _ -> None
 
+    let (|StringTempl|_|) =
+        function
+        | MaybeCasted(Value(StringTemplate(None, [ fmt ], args), _)) -> Some(fmt, args)
+        | _ -> None
+
     let (|BoolConst|_|) =
         function
         | MaybeCasted(Value(BoolConstant v, _)) -> Some v

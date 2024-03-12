@@ -708,7 +708,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                 return
                     match results with
                     | Ok results ->
-                        Log.always $"Fable compilation finished in %i{ms}ms{Log.newLine}"
+                        Log.always $"{Log.newLine}Fable compilation finished in %i{ms}ms{Log.newLine}"
 
                         results
                     | Error e -> e.Message + Log.newLine + e.StackTrace |> Fable.FableError |> raise

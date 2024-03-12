@@ -16,7 +16,7 @@ pub mod Native_ {
     pub use alloc::sync::Arc;
     pub use alloc::vec::Vec;
 
-    pub use core::any::{Any, TypeId};
+    pub use core::any::Any;
 
     pub use super::FuncType::*;
     pub use super::Lazy::*;
@@ -137,6 +137,26 @@ pub mod Native_ {
     }
 
     // -----------------------------------------------------------
+    // Type testing
+    // -----------------------------------------------------------
+
+    pub fn try_downcast<T: 'static, U: 'static>(value: &T) -> Option<&U> {
+        if let Some(o) = (value as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
+            o.downcast_ref::<U>()
+        } else {
+            (value as &dyn Any).downcast_ref::<U>()
+        }
+    }
+
+    pub fn type_test<T: 'static, U: 'static>(value: &T) -> bool {
+        if let Some(o) = (value as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
+            o.is::<U>()
+        } else {
+            (value as &dyn Any).is::<U>()
+        }
+    }
+
+    // -----------------------------------------------------------
     // Fixed-point combinators
     // -----------------------------------------------------------
 
@@ -239,6 +259,16 @@ pub mod Native_ {
     #[inline]
     pub fn refCell<T>(x: T) -> RefCell<T> {
         LrcPtr::new(MutCell::from(x))
+    }
+
+    #[inline]
+    pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
+        LrcPtr::new(x) as LrcPtr<dyn Any>
+    }
+
+    #[inline]
+    pub fn unbox<T: Clone + 'static>(o: &LrcPtr<dyn Any>) -> T {
+        try_downcast::<_, T>(o).unwrap().clone()
     }
 
     // -----------------------------------------------------------

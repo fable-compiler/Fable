@@ -327,14 +327,17 @@ let emitRawString (s: string) = $"\"{s}\"" |> emitExpr None String []
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
     let args =
         match args with
-        | [] -> [ makeStrConst "" ]
-        | [ arg ] -> [ makeStrConst "{0}"; arg ]
-        | [ ExprTypeAs(String, fmt); Value(NewArray(ArrayValues [], _, _), _) ] -> [ fmt ]
-        | [ ExprTypeAs(String, fmt); Value(NewArray(ArrayValues restArgs, _, _), _) ] -> fmt :: restArgs
-        | (ExprType String) :: restArgs -> args
-        | _ -> (makeStrConst "{0}") :: args
+        | [] -> [ emitRawString "" ]
+        | [ StringConst fmt; Value(NewArray(ArrayValues restArgs, _, _), _) ] -> (emitRawString fmt) :: restArgs
+        | (StringConst fmt) :: restArgs -> (emitRawString fmt) :: restArgs
+        | [ StringTempl(fmt, args); Value(NewArray(ArrayValues restArgs, _, _), _) ] ->
+            (emitRawString fmt) :: args @ restArgs
+        | (StringTempl(fmt, args)) :: restArgs -> (emitRawString fmt) :: args @ restArgs
+        | _ -> (emitRawString "{0}") :: args
 
-    macro |> emitExpr r t args
+    let unboxedArgs = args |> FSharp2Fable.Util.unboxBoxedArgs
+    Helper.LibCall(com, "String", macro, t, unboxedArgs)
+
 
 let getMut expr =
     Helper.InstanceCall(expr, "get_mut", expr.Type, [])
@@ -863,7 +866,8 @@ let makeRustFormatString interpolated (fmt: string) =
 
     rustFmt, argCount
 
-let makeRustFormatExpr r t (fmt: string) args macroExpr =
+let makeRustFormatExpr com r t (fmt: string) args macro =
+    let macroExpr = Helper.LibValue(com, "String", macro, Any)
     let rustFmt, argCount = makeRustFormatString false fmt
     let argCount = argCount + 1 + (List.length args) // +1 is for fmt
     let applied = Extended(Curry(macroExpr, argCount), r)
@@ -874,59 +878,34 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     // | "get_Value", Some callee, _ ->
     //     callee |> Some //TODO:
     | ("PrintFormatToString" | "PrintFormatToStringThen"), None, [ StringConst fmt ] ->
-        let macro = Helper.LibValue(com, "String", "sprintf!", Any)
-        macro |> makeRustFormatExpr r t fmt [] |> Some
+        "sprintf!" |> makeRustFormatExpr com r t fmt [] |> Some
     | ("PrintFormatToString" | "PrintFormatToStringThen"), None, [ MaybeCasted(template) ] -> template |> Some
     | ("PrintFormatThen" | "PrintFormatToStringThen"), None, [ cont; StringConst fmt ] ->
-        let macro = Helper.LibValue(com, "String", "kprintf!", Any)
-        macro |> makeRustFormatExpr r t fmt [ cont ] |> Some
+        "kprintf!" |> makeRustFormatExpr com r t fmt [ cont ] |> Some
     | ("PrintFormatThen" | "PrintFormatToStringThen"), None, [ cont; MaybeCasted(template) ] ->
         Helper.Application(cont, t, [ template ], ?loc = r) |> Some
-    | "PrintFormatToError", None, [ StringConst fmt ] ->
-        let macro = makeIdentExpr "eprint!"
-        macro |> makeRustFormatExpr r t fmt [] |> Some
-    | "PrintFormatToError", None, [ MaybeCasted(Value(StringTemplate(None, [ rustFmt ], templateArgs), _)) ] ->
-        let formatArgs = (makeStrConst rustFmt) :: templateArgs
-        "eprint!" |> emitFormat com r t formatArgs |> Some
-    | "PrintFormatLineToError", None, [ StringConst fmt ] ->
-        let macro = makeIdentExpr "eprintln!"
-        macro |> makeRustFormatExpr r t fmt [] |> Some
-    | "PrintFormatLineToError", None, [ MaybeCasted(Value(StringTemplate(None, [ rustFmt ], templateArgs), _)) ] ->
-        let formatArgs = (makeStrConst rustFmt) :: templateArgs
-        "eprintln!" |> emitFormat com r t formatArgs |> Some
-    | "PrintFormat", None, [ StringConst fmt ] ->
-        let macro = makeIdentExpr "print!"
-        macro |> makeRustFormatExpr r t fmt [] |> Some
-    | "PrintFormat", None, [ MaybeCasted(Value(StringTemplate(None, [ rustFmt ], templateArgs), _)) ] ->
-        let formatArgs = (makeStrConst rustFmt) :: templateArgs
-        "print!" |> emitFormat com r t formatArgs |> Some
-    | "PrintFormatLine", None, [ StringConst fmt ] ->
-        let macro = makeIdentExpr "println!"
-        macro |> makeRustFormatExpr r t fmt [] |> Some
-    | "PrintFormatLine", None, [ MaybeCasted(Value(StringTemplate(None, [ rustFmt ], templateArgs), _)) ] ->
-        let formatArgs = (makeStrConst rustFmt) :: templateArgs
-        "println!" |> emitFormat com r t formatArgs |> Some
+    | "PrintFormatToError", None, [ StringConst fmt ] -> "eprintf!" |> makeRustFormatExpr com r t fmt [] |> Some
+    | "PrintFormatToError", None, [ StringTempl _ ] -> "eprintf!" |> emitFormat com r t args |> Some
+    | "PrintFormatLineToError", None, [ StringConst fmt ] -> "eprintfn!" |> makeRustFormatExpr com r t fmt [] |> Some
+    | "PrintFormatLineToError", None, _ -> "eprintfn!" |> emitFormat com r t args |> Some
+    | "PrintFormat", None, [ StringConst fmt ] -> "printf!" |> makeRustFormatExpr com r t fmt [] |> Some
+    | "PrintFormat", None, [ StringTempl _ ] -> "printf!" |> emitFormat com r t args |> Some
+    | "PrintFormatLine", None, [ StringConst fmt ] -> "printfn!" |> makeRustFormatExpr com r t fmt [] |> Some
+    | "PrintFormatLine", None, [ StringTempl _ ] -> "printfn!" |> emitFormat com r t args |> Some
     | "PrintFormatToStringThenFail", None, [ StringConst fmt ] ->
-        let macro = makeIdentExpr "panic!"
-        macro |> makeRustFormatExpr r t fmt [] |> Some
-    | "PrintFormatToStringThenFail", None, [ MaybeCasted(Value(StringTemplate(None, [ rustFmt ], templateArgs), _)) ] ->
-        let formatArgs = (makeStrConst rustFmt) :: templateArgs
-        "panic!" |> emitFormat com r t formatArgs |> Some
+        "failwithf!" |> makeRustFormatExpr com r t fmt [] |> Some
+    | "PrintFormatToStringThenFail", None, [ StringTempl _ ] -> "failwithf!" |> emitFormat com r t args |> Some
     | "PrintFormatToStringBuilder", None, [ sb; StringConst fmt ] ->
         let cont = Helper.LibCall(com, "Util", "bprintf", t, [ sb ])
-        let macro = Helper.LibValue(com, "String", "kprintf!", Any)
-        macro |> makeRustFormatExpr r t fmt [ cont ] |> Some
+        "kprintf!" |> makeRustFormatExpr com r t fmt [ cont ] |> Some
     | "PrintFormatToStringBuilder", None, [ sb; MaybeCasted(template) ] ->
         let cont = Helper.LibCall(com, "Util", "bprintf", t, [ sb ])
         Helper.Application(cont, t, [ template ], ?loc = r) |> Some
     | "PrintFormatToStringBuilderThen", None, [ cont; sb; StringConst fmt ] ->
         let cont = Helper.LibCall(com, "Util", "kbprintf", t, [ cont; sb ])
-
-        let macro = Helper.LibValue(com, "String", "kprintf!", Any)
-        macro |> makeRustFormatExpr r t fmt [ cont ] |> Some
+        "kprintf!" |> makeRustFormatExpr com r t fmt [ cont ] |> Some
     | "PrintFormatToStringBuilderThen", None, [ cont; sb; MaybeCasted(template) ] ->
         let cont = Helper.LibCall(com, "Util", "kbprintf", t, [ cont; sb ])
-
         Helper.Application(cont, t, [ template ], ?loc = r) |> Some
     | ".ctor", _, (StringConst fmt) :: (Value(NewArray(ArrayValues templateArgs, _, _), _)) :: _ ->
         let rustFmt, _count = makeRustFormatString true fmt
@@ -1321,12 +1300,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | _ -> None
     | "Format", None, _ ->
         match args with
-        | (ExprType String :: _) -> "format!" |> emitFormat com r t args |> Some
+        | (ExprType String :: _) -> "sprintf!" |> emitFormat com r t args |> Some
         | (cultureInfo :: restArgs) ->
             $"String.Format(): Format provider argument is ignored"
             |> addWarning com ctx.InlinePath r
 
-            "format!" |> emitFormat com r t restArgs |> Some
+            "sprintf!" |> emitFormat com r t restArgs |> Some
         | _ -> None
     | "GetEnumerator", Some c, _ -> getEnumerator com r t i c |> Some
     | ("IndexOf" | "LastIndexOf" | "IndexOfAny" | "LastIndexOfAny"), Some c, _ ->
@@ -1528,14 +1507,14 @@ let stringBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Ex
     | "AppendFormat", Some sb, _ ->
         match args with
         | (ExprType String :: _) ->
-            let s = "format!" |> emitFormat com None String args
+            let s = "sprintf!" |> emitFormat com None String args
 
             Helper.LibCall(com, "Util", "sb_Append", t, [ sb; s ], ?loc = r) |> Some
         | (cultureInfo :: restArgs) ->
             $"StringBuilder.AppendFormat(): Format provider argument is ignored"
             |> addWarning com ctx.InlinePath r
 
-            let s = "format!" |> emitFormat com None String restArgs
+            let s = "sprintf!" |> emitFormat com None String restArgs
 
             Helper.LibCall(com, "Util", "sb_Append", t, [ sb; s ], ?loc = r) |> Some
         | _ -> None
@@ -2518,14 +2497,14 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "get_Out" -> typedObjExpr t [] |> Some // empty object
-    | "Write" -> "print!" |> emitFormat com r t args |> Some
-    | "WriteLine" -> "println!" |> emitFormat com r t args |> Some
+    | "Write" -> "printf!" |> emitFormat com r t args |> Some
+    | "WriteLine" -> "printfn!" |> emitFormat com r t args |> Some
     | _ -> None
 
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "Write" -> "print!" |> emitFormat com r t args |> Some
-    | "WriteLine" -> "println!" |> emitFormat com r t args |> Some
+    | "Write" -> "printf!" |> emitFormat com r t args |> Some
+    | "WriteLine" -> "printfn!" |> emitFormat com r t args |> Some
     | "Break" -> makeDebugger r |> Some
     | "Assert" ->
         let unit = Value(Null Unit, None)

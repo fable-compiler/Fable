@@ -135,6 +135,31 @@ pub mod String_ {
     // -----------------------------------------------------------
 
     #[macro_export]
+    macro_rules! printf {
+        ($($arg:tt)*) => {{ print!($($arg)*) }}
+    }
+
+    #[macro_export]
+    macro_rules! printfn {
+        ($($arg:tt)*) => {{ println!($($arg)*) }}
+    }
+
+    #[macro_export]
+    macro_rules! eprintf {
+        ($($arg:tt)*) => {{ eprint!($($arg)*) }}
+    }
+
+    #[macro_export]
+    macro_rules! eprintfn {
+        ($($arg:tt)*) => {{ eprintln!($($arg)*) }}
+    }
+
+    #[macro_export]
+    macro_rules! failwithf {
+        ($($arg:tt)*) => {{ panic!($($arg)*) }}
+    }
+
+    #[macro_export]
     macro_rules! sprintf {
         ($($arg:tt)*) => {{
             let res = format!($($arg)*);
@@ -150,8 +175,13 @@ pub mod String_ {
         }}
     }
 
-    pub use crate::kprintf;
+    pub use crate::printf;
+    pub use crate::printfn;
+    pub use crate::eprintf;
+    pub use crate::eprintfn;
+    pub use crate::failwithf;
     pub use crate::sprintf;
+    pub use crate::kprintf;
 
     // -----------------------------------------------------------
     // traits
