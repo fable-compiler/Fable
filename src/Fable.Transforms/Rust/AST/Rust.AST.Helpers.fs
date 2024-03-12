@@ -868,6 +868,13 @@ module Exprs =
     let mkIndexExpr expr index : Expr = ExprKind.Index(expr, index) |> mkExpr
 
     let mkEmitExpr (value: string) args : Expr =
+        let value =
+            // if value starts and ends with ", escape inside the quotes
+            if value.StartsWith("\"") && value.EndsWith("\"") then
+                "\"" + value[1 .. (value.Length - 2)].escape_debug () + "\""
+            else
+                value
+
         ExprKind.EmitExpression(value, mkVec args) |> mkExpr
 
     let TODO_EXPR name : Expr =

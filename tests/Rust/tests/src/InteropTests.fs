@@ -132,7 +132,7 @@ let ``Bindings with Emit on interfaces works`` () =
     elapsed > 0 |> equal true
 
 [<Fact>]
-let ``test emitRustExpr works without parameters`` () =
+let ``emitRustExpr works without parameters`` () =
     let hello : string =
         emitRustExpr () "string(\"Hello\")"
 
@@ -143,14 +143,14 @@ let factorial (count : int) : int =
     emitRustExpr
         count
         """match $0 {
-        0 => 1,
-        1 => 1,
-        _ => factorial($0 - 1) * $0,
-    }
-    """
+            0 => 1,
+            1 => 1,
+            _ => factorial($0 - 1) * $0,
+        }
+        """
 
 [<Fact>]
-let ``test emitRustExpr works with parameters`` () =
+let ``emitRustExpr works with parameters`` () =
     factorial 5 |> equal 120
 
 #endif

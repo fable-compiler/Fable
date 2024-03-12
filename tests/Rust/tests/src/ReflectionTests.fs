@@ -53,15 +53,16 @@ type MyClass<'T1, 'T2>(v1: 'T1, v2: 'T2) =
     member _.Value1 = v1
     member _.Value2 = v2
 
-module genericTests =
-  [<Fact>]
-  let ``typedefof works`` () =
+//module genericTests =
+
+[<Fact>]
+let ``typedefof works`` () =
     let tdef1 = typedefof<int list>
     let tdef2 = typedefof<string list>
     equal tdef1 tdef2
 
-  [<Fact>]
-  let ``IsGenericType works`` () =
+[<Fact>]
+let ``IsGenericType works`` () =
     typeof<int list>.IsGenericType |> equal true
     typeof<TestType>.IsGenericType |> equal false
     let t1 = typeof<int list>
@@ -71,8 +72,8 @@ module genericTests =
     t2.IsGenericType |> equal false
     t3.IsGenericType |> equal false
 
-  [<Fact>]
-  let ``GetGenericTypeDefinition works`` () =
+[<Fact>]
+let ``GetGenericTypeDefinition works`` () =
     let tdef1 = typedefof<int list>
     let tdef2 = typeof<int list>.GetGenericTypeDefinition()
     let t = typeof<int list>
@@ -81,8 +82,8 @@ module genericTests =
     equal tdef1 tdef3
     tdef1 = typeof<int list> |> equal false
 
-  [<Fact>]
-  let ``Comparing generic types works`` () =
+[<Fact>]
+let ``Comparing generic types works`` () =
     let t1 = typeof<GenericRecord<string, TestType>>
     let t2 = typeof<GenericRecord<string, TestType>>
     let t3 = typeof<GenericRecord<string, int>>
@@ -114,11 +115,11 @@ let getName3 (t:System.Type) = function
 type Firm = { name: string }
 
 let normalize (x: string) =
-    #if FABLE_COMPILER
+#if FABLE_COMPILER
     x
-    #else
+#else
     x.Replace("+",".")
-    #endif
+#endif
 
 let inline fullname<'T> () = typeof<'T>.FullName |> normalize
 // let inline create<'T when 'T:(new : unit -> 'T)> () = new 'T()
@@ -126,8 +127,8 @@ let inline create2<'T> (args: obj[]) =
     System.Activator.CreateInstance(typeof<'T>, args) :?> 'T
 
 type R =
-  | A of int
-  | B of string
+    | A of int
+    | B of string
 
 type Service<'a> = {
     GetRecord: int -> int64 -> Async<'a>
@@ -137,113 +138,114 @@ with
         let name = typeof<'a>.Name
         sprintf "/api/%s/%s" name m
 
-module typeNameTests =
-  [<Fact>]
-  let ``Type Namespace`` () =
-    let x = typeof<TestType>.Namespace
-    #if FABLE_COMPILER
-    equal "Fable.Tests.Reflection" x
-    #else
-    equal "Fable.Tests" x
-    #endif
+//module typeNameTests =
 
-  [<Fact>]
-  let ``Type FullName`` () =
+[<Fact>]
+let ``Type Namespace`` () =
+    let x = typeof<TestType>.Namespace
+#if FABLE_COMPILER
+    equal "Fable.Tests.Reflection" x
+#else
+    equal "Fable.Tests" x
+#endif
+
+[<Fact>]
+let ``Type FullName`` () =
     let x = typeof<TestType>.FullName
     x |> normalize |> equal "Fable.Tests.Reflection.TestType"
 
-  [<Fact>]
-  let ``Type Name`` () =
+[<Fact>]
+let ``Type Name`` () =
     let x = typeof<TestType>.Name
     equal "TestType" x
 
-  // See https://github.com/fable-compiler/repl/issues/152
-  [<Fact>]
-  let ``Type Name of generic argument in inlined function`` () =
+// See https://github.com/fable-compiler/repl/issues/152
+[<Fact>]
+let ``Type Name of generic argument in inlined function`` () =
     Service<R>.RouteBuilder "" "Add" |> equal "/api/R/Add"
 
-  [<Fact>]
-  let ``Get fullname of generic types with inline function`` () =
+[<Fact>]
+let ``Get fullname of generic types with inline function`` () =
     fullname<TestType3>() |> equal "Fable.Tests.Reflection.TestType3"
     fullname<TestType4>() |> equal "Fable.Tests.Reflection.TestType4"
 
-  // See https://github.com/thoth-org/Thoth.Json/issues/123
-  [<Fact>]
-  let ``FullName of complex array types is printed correctly `` () =
-      let fullName1 = typeof<(string * int)[]>.FullName
-      let fullName2 = typeof<(string * float)[]>.FullName
-      let fullName3 = typeof<string[]>.FullName
-      let fullName4 = typeof<string[][]>.FullName
+// See https://github.com/thoth-org/Thoth.Json/issues/123
+[<Fact>]
+let ``FullName of complex array types is printed correctly `` () =
+    let fullName1 = typeof<(string * int)[]>.FullName
+    let fullName2 = typeof<(string * float)[]>.FullName
+    let fullName3 = typeof<string[]>.FullName
+    let fullName4 = typeof<string[][]>.FullName
 
-      let t1 = typeof<(string * int)[]>
-      let t2 = typeof<(string * float)[]>
-      let t3 = typeof<string[]>
-      let t4 = typeof<string[][]>
+    let t1 = typeof<(string * int)[]>
+    let t2 = typeof<(string * float)[]>
+    let t3 = typeof<string[]>
+    let t4 = typeof<string[][]>
 
-      equal fullName1 t1.FullName
-      equal fullName2 t2.FullName
-      equal fullName3 t3.FullName
-      equal fullName4 t4.FullName
+    equal fullName1 t1.FullName
+    equal fullName2 t2.FullName
+    equal fullName3 t3.FullName
+    equal fullName4 t4.FullName
 
-      t1.FullName = t2.FullName |> equal false
-      t1.FullName = t3.FullName |> equal false
-      t2.FullName = t3.FullName |> equal false
-      t3.FullName = t4.FullName |> equal false
+    t1.FullName = t2.FullName |> equal false
+    t1.FullName = t3.FullName |> equal false
+    t2.FullName = t3.FullName |> equal false
+    t3.FullName = t4.FullName |> equal false
 
-  [<Fact>]
-  let ``Name of complex array types is printed correctly `` () =
-      let name1 = typeof<(string * int)[]>.Name
-      let name2 = typeof<(string * float)[]>.Name
-      let name3 = typeof<string[]>.Name
-      let name4 = typeof<string[][]>.Name
+[<Fact>]
+let ``Name of complex array types is printed correctly `` () =
+    let name1 = typeof<(string * int)[]>.Name
+    let name2 = typeof<(string * float)[]>.Name
+    let name3 = typeof<string[]>.Name
+    let name4 = typeof<string[][]>.Name
 
-      let t1 = typeof<(string * int)[]>
-      let t2 = typeof<(string * float)[]>
-      let t3 = typeof<string[]>
-      let t4 = typeof<string[][]>
+    let t1 = typeof<(string * int)[]>
+    let t2 = typeof<(string * float)[]>
+    let t3 = typeof<string[]>
+    let t4 = typeof<string[][]>
 
-      equal name1 t1.Name
-      equal name2 t2.Name
-      equal name3 t3.Name
-      equal name4 t4.Name
+    equal name1 t1.Name
+    equal name2 t2.Name
+    equal name3 t3.Name
+    equal name4 t4.Name
 
-      t1.Name = t2.Name |> equal true
-      t1.Name = t3.Name |> equal false
-      t2.Name = t3.Name |> equal false
-      t3.Name = t4.Name |> equal false
+    t1.Name = t2.Name |> equal true
+    t1.Name = t3.Name |> equal false
+    t2.Name = t3.Name |> equal false
+    t3.Name = t4.Name |> equal false
 
-  [<Fact>]
-  let ``Namespace of complex array types is printed correctly `` () =
-      let namespace1 = typeof<(string * int)[]>.Namespace
-      let namespace2 = typeof<(string * float)[]>.Namespace
-      let namespace3 = typeof<string[]>.Namespace
+[<Fact>]
+let ``Namespace of complex array types is printed correctly `` () =
+    let namespace1 = typeof<(string * int)[]>.Namespace
+    let namespace2 = typeof<(string * float)[]>.Namespace
+    let namespace3 = typeof<string[]>.Namespace
 
-      let t1 = typeof<(string * int)[]>
-      let t2 = typeof<(string * float)[]>
-      let t3 = typeof<string[]>
+    let t1 = typeof<(string * int)[]>
+    let t2 = typeof<(string * float)[]>
+    let t3 = typeof<string[]>
 
-      equal namespace1 t1.Namespace
-      equal namespace2 t2.Namespace
-      equal namespace3 t3.Namespace
+    equal namespace1 t1.Namespace
+    equal namespace2 t2.Namespace
+    equal namespace3 t3.Namespace
 
-      t1.Namespace = t2.Namespace |> equal true
-      t1.Namespace = t3.Namespace |> equal true
-      t2.Namespace = t3.Namespace |> equal true
+    t1.Namespace = t2.Namespace |> equal true
+    t1.Namespace = t3.Namespace |> equal true
+    t2.Namespace = t3.Namespace |> equal true
 
-//   [<Fact>]
-//   let ``Create new generic objects with inline function`` () =
+// [<Fact>]
+// let ``Create new generic objects with inline function`` () =
 //     create<TestType3>().Value |> equal "Hi"
 //     create<TestType4>().Value2 |> equal "Bye"
 //     // create<TestType5>() // Doesn't compile
 
-//   [<Fact>]
-//   let ``Create new generic objects with System.Activator`` () =
+// [<Fact>]
+// let ``Create new generic objects with System.Activator`` () =
 //     (create2<TestType3> [||]).Value |> equal "Hi"
 //     (create2<TestType4> [||]).Value2 |> equal "Bye"
 //     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
 
-  [<Fact>]
-  let ``Create primitive types with System.Activator`` () =
+[<Fact>]
+let ``Create primitive types with System.Activator`` () =
     create2<obj> [||] |> notEqual Unchecked.defaultof<obj> // It should not be null
     // Value types should zero-init
     create2<char> [||] |> equal Unchecked.defaultof<char>
@@ -262,16 +264,16 @@ module typeNameTests =
     // TODO: Fix Unchecked.defaultof<MyEnum> to be 0
     create2<MyEnum> [||] |> equal (LanguagePrimitives.EnumOfValue 0y)
 
-  [<Fact>]
-  let ``Type name is accessible`` () =
+[<Fact>]
+let ``Type name is accessible`` () =
     let x = { name = "" }
     getName<Firm> "name" |> equal "Firm"
     getName2 x "name" |> equal "Firm"
     getName3 typedefof<Firm> "name" |> equal "Firm"
     // getName4 x "name" |> equal "Firm"
 
-  [<Fact>]
-  let ``Type namespace is accessible`` () =
+[<Fact>]
+let ``Type namespace is accessible`` () =
     let test (x: string) =
         x.StartsWith("Fable.Tests") |> equal true
     let x = { name = "" }
@@ -280,8 +282,8 @@ module typeNameTests =
     getName3 typedefof<Firm> "namespace" |> test
     // getName4 x "namespace" |> test
 
-  [<Fact>]
-  let ``Type full name is accessible`` () =
+[<Fact>]
+let ``Type full name is accessible`` () =
     let test (x: string) =
         x.Replace("+", ".") |> equal "Fable.Tests.Reflection.Firm"
     let x = { name = "" }
@@ -331,9 +333,10 @@ type RecordGetValueType = {
     Age : int
 }
 
-module reflectionTests =
-  [<Fact>]
-  let ``Reflection: Array`` () =
+//module reflectionTests =
+
+[<Fact>]
+let ``Reflection: Array`` () =
     let arType = typeof<int[]>
     let liType = typeof<int list>
     equal true arType.IsArray
@@ -343,9 +346,9 @@ module reflectionTests =
     typeof<bool> = elType |> equal false
     liType.GetElementType() |> equal null
 
-  // TODO!!!
-//   [<Fact>]
-//   let ``FSharp.Reflection: Exception`` () =
+// // TODO!!!
+// [<Fact>]
+// let ``FSharp.Reflection: Exception`` () =
 //     let typ = typeof<TestException>
 //     let ex = TestException("a", 1)
 //     let exTypeFields = FSharpType.GetExceptionFields typ
@@ -368,8 +371,8 @@ module reflectionTests =
 //     let all = isExceptionRepresentation && matchExFields
 //     all |> equal true
 
-  [<Fact>]
-  let ``FSharp.Reflection: Record`` () =
+[<Fact>]
+let ``FSharp.Reflection: Record`` () =
     let typ = typeof<TestRecord>
     let record = { String = "a"; Int = 1 }
     let recordTypeFields = FSharpType.GetRecordFields typ
@@ -399,8 +402,8 @@ module reflectionTests =
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
-  [<Fact>]
-  let ``PropertyInfo.GetValue works`` () =
+[<Fact>]
+let ``PropertyInfo.GetValue works`` () =
     let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
 
     let theType: System.Type = typeof<RecordGetValueType>
@@ -422,8 +425,8 @@ module reflectionTests =
 
     equal expected (sprintf "%O" fieldNameToValue)
 
-  [<Fact>]
-  let ``Comparing anonymous record types works`` () =
+[<Fact>]
+let ``Comparing anonymous record types works`` () =
       let x = {| numbers = [3; 4] |}
       typeof<AnonRec1> = typeof<AnonRec2> |> equal false
       typeof<AnonRec1> = typeof<AnonRec1> |> equal true
@@ -432,8 +435,8 @@ module reflectionTests =
       generic = typeof<Result<AnonRec1, string>> |> equal false
       generic = typeof<Result<{| numbers: int list |}, string>> |> equal true
 
-  [<Fact>]
-  let ``FSharp.Reflection: Anonymous Record`` () =
+[<Fact>]
+let ``FSharp.Reflection: Anonymous Record`` () =
     let typ = typeof<{| String: string; Int: int |}>
     let record = {| String = "a"; Int = 1 |}
     let recordTypeFields = FSharpType.GetRecordFields typ
@@ -460,8 +463,8 @@ module reflectionTests =
     |> unbox<{| String: string; Int: int |}>
     |> equal record
 
-  [<Fact>]
-  let ``FSharp.Reflection Functions`` () =
+[<Fact>]
+let ``FSharp.Reflection Functions`` () =
     let recordType = typeof<RecordF>
     let fields = FSharpType.GetRecordFields recordType
     let funcProperty = Array.head fields
@@ -471,8 +474,8 @@ module reflectionTests =
     equal range typeof<string>
     equal true (FSharpType.IsFunction funcType)
 
-  [<Fact>]
-  let ``FSharp.Reflection: Tuple`` () =
+[<Fact>]
+let ``FSharp.Reflection: Tuple`` () =
     let typ = typeof<string * int>
     let tuple = "a", 1
     let tupleTypeFields = FSharpType.GetTupleElements typ
@@ -500,14 +503,14 @@ module reflectionTests =
     let all = isTuple && matchTupleFields && matchIndividualTupleFields && canMakeSameTuple
     all |> equal true
 
-  [<Fact>]
-  let ``FSharp.Reflection: Array of tuples is not classified as a tuple`` () =
+[<Fact>]
+let ``FSharp.Reflection: Array of tuples is not classified as a tuple`` () =
     let typ = typeof<(string * int * int)[]>
     equal true typ.IsArray
     FSharpType.IsTuple typ |> equal false
 
-  [<Fact>]
-  let ``FSharp.Reflection: MakeTupleType`` () =
+[<Fact>]
+let ``FSharp.Reflection: MakeTupleType`` () =
     let t = FSharpType.MakeTupleType [|typeof<float>; typeof<string>; typeof<int[]>|]
     FSharpValue.MakeTuple([|5.; "foo"; [|2;3|]|], t)
     |> unbox<float * string * int[]>
@@ -517,8 +520,8 @@ module reflectionTests =
     let generated = FSharpType.MakeTupleType [|typeof<float>; typeof<string>; typeof<int[]>|]
     equal real generated
 
-  [<Fact>]
-  let ``FSharp.Reflection: Union`` () =
+[<Fact>]
+let ``FSharp.Reflection: Union`` () =
     let typ = typeof<TestUnion>
     let unionCase1 = StringCase("a", "b")
     let unionCase2 = IntCase 1
@@ -552,15 +555,15 @@ module reflectionTests =
     unionFields |> equal expectedUnionFields
     canMakeSameUnionCases |> equal true
 
-  [<Fact>]
-  let ``FSharp.Reflection: Result`` () =
+[<Fact>]
+let ``FSharp.Reflection: Result`` () =
     let typ = typeof<Result<int,string>>
     let ucis = FSharpType.GetUnionCases typ
     FSharpValue.MakeUnion(ucis[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
     FSharpValue.MakeUnion(ucis[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
 
-  [<Fact>]
-  let ``FSharp.Reflection: Choice`` () =
+[<Fact>]
+let ``FSharp.Reflection: Choice`` () =
     let typ = typeof<Choice<int,string>>
     let ucis = FSharpType.GetUnionCases typ
     FSharpValue.MakeUnion(ucis[0], [|box 5|]) |> equal (box (Choice<_,string>.Choice1Of2 5))
@@ -573,14 +576,14 @@ module reflectionTests =
     FSharpValue.MakeUnion(ucis[2], [|box 3.5|]) |> equal (box (Choice<float,string list,_>.Choice3Of3 3.5))
     FSharpValue.MakeUnion(ucis[2], [|box 3.5|]) |> (=) (box (Choice<float,string list,_>.Choice1Of3 3.5)) |> equal false
 
-  [<Fact>]
-  let ``Type.GenericTypeArguments works`` () =
+[<Fact>]
+let ``Type.GenericTypeArguments works`` () =
     let recordType = typeof<AsyncRecord>
     let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
     asyncProp.PropertyType.GenericTypeArguments |> Array.head |> equal typeof<string>
 
-  [<Fact>]
-  let ``Recursive types work`` () =
+[<Fact>]
+let ``Recursive types work`` () =
     let cons =
         FSharpType.GetUnionCases(typeof<MyList<int>>)
         |> Array.find (fun x -> x.Name = "Cons")
@@ -588,36 +591,36 @@ module reflectionTests =
     fieldTypes[0].PropertyType.FullName |> equal typeof<int>.FullName
     fieldTypes[1].PropertyType.GetGenericTypeDefinition().FullName |> equal typedefof<MyList<obj>>.FullName
 
-  [<Fact>]
-  let ``Calling constructor of generic type in inline functions works`` () =
+[<Fact>]
+let ``Calling constructor of generic type in inline functions works`` () =
     let a = create<A>()
     let b = create<B>()
     a.Value |> equal 5
     b.Value |> equal 10
 
-  // See https://github.com/Microsoft/visualfsharp/issues/5992
-  [<Fact>]
-  let ``Generic numbers type info doesn't get into runtime`` () =
+// See https://github.com/Microsoft/visualfsharp/issues/5992
+[<Fact>]
+let ``Generic numbers type info doesn't get into runtime`` () =
     let value = 0.7833263478179128134089M
     value.GetType().FullName |> equal "System.Decimal"
 
-  // See https://github.com/thoth-org/Thoth.Json/issues/74
-  [<Fact>]
-  let ``Reflection info of int64/decimal with units of measure works`` () =
+// See https://github.com/thoth-org/Thoth.Json/issues/74
+[<Fact>]
+let ``Reflection info of int64/decimal with units of measure works`` () =
     typeof< int64 > = typeof< int64<m> > |> equal true
     typeof< decimal > = typeof< decimal<m> > |> equal true
 
-  [<Fact>]
-  let ``Reflection works with enums`` () =
-      typeof<MyEnum>.IsEnum |> equal true
-      typeof<int>.IsEnum |> equal false
-      let t = typeof<MyEnum>
-      t.IsEnum |> equal true
-      t.GetEnumUnderlyingType() |> equal typeof<sbyte>
-      System.Enum.GetUnderlyingType(t) |> equal typeof<sbyte>
+[<Fact>]
+let ``Reflection works with enums`` () =
+    typeof<MyEnum>.IsEnum |> equal true
+    typeof<int>.IsEnum |> equal false
+    let t = typeof<MyEnum>
+    t.IsEnum |> equal true
+    t.GetEnumUnderlyingType() |> equal typeof<sbyte>
+    System.Enum.GetUnderlyingType(t) |> equal typeof<sbyte>
 
-  [<Fact>]
-  let ``Can create generic classes at runtime`` () =
+[<Fact>]
+let ``Can create generic classes at runtime`` () =
     let t = typedefof<MyClass<obj, obj>>
     let t = t.MakeGenericType(typeof<int>, typeof<string>)
     let x = System.Activator.CreateInstance(t, 123, "abc")
@@ -627,8 +630,8 @@ module reflectionTests =
     x.Value1 |> equal 123
     x.Value2 |> equal "abc"
 
-  [<Fact>]
-  let ``IsSubclassOf works`` () =
+[<Fact>]
+let ``IsSubclassOf works`` () =
     let t1 = typeof<MyClass>
     let t2 = typeof<MyClass<obj, obj>>
     let t3 = typeof<MyClass2>
@@ -636,8 +639,8 @@ module reflectionTests =
     t2.IsSubclassOf(t1) |> equal true
     t1.IsSubclassOf(t2) |> equal false
 
-  [<Fact>]
-  let ``.GetInterface works when types are know at compile time`` () = // #2321
+[<Fact>]
+let ``.GetInterface works when types are know at compile time`` () = // #2321
     let t = typeof<MyClass3<int>>.GetInterface("MyInterface`1")
     t.GetGenericArguments()[0] = typeof<int> |> equal true
     t.GetGenericArguments()[0] = typeof<string> |> equal false
@@ -645,8 +648,8 @@ module reflectionTests =
     typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
     typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true
 
-  [<Fact>]
-  let ``GetType and typeof return the same Type instance for primitive types`` () =
+[<Fact>]
+let ``GetType and typeof return the same Type instance for primitive types`` () =
     let inline getTypeGeneric (x: 'T) =
       x.GetType()
 
@@ -661,6 +664,7 @@ module reflectionTests =
 
 
 #if FABLE_COMPILER
+
 open Fable.Core
 open Fable.Core.Reflection
 
@@ -690,52 +694,51 @@ type MyRecord20 =
     { FieldA: int
       FieldB: string }
 
-module fableTests =
-    [<Fact>]
-    let ``Recursively reading generic arguments of nested generic types works`` () =
-        let typeInfo = Types.get<Maybe<Maybe<int>>>()
+// module fableTests =
 
-        // recursively reads the generic arguments
-        let rec getGenericArgs (typeDef: System.Type) : string list =
-            [ yield typeDef.Name
-              for genericTypeArg in typeDef.GetGenericArguments() do
-                yield! getGenericArgs genericTypeArg ]
+[<Fact>]
+let ``Recursively reading generic arguments of nested generic types works`` () =
+    let typeInfo = Types.get<Maybe<Maybe<int>>>()
 
-        getGenericArgs typeInfo
-        |> equal ["Maybe`1"; "Maybe`1"; "Int32"]
+    // recursively reads the generic arguments
+    let rec getGenericArgs (typeDef: System.Type) : string list =
+        [ yield typeDef.Name
+            for genericTypeArg in typeDef.GetGenericArguments() do
+            yield! getGenericArgs genericTypeArg ]
 
-    [<Fact>]
-    let ``Name can be extracted from RecWithGenDU`` () =
-        let name = Types.getNameOf<Maybe<list<RecWithGenDU<string>>>>()
-        equal false (name = "")
+    getGenericArgs typeInfo
+    |> equal ["Maybe`1"; "Maybe`1"; "Int32"]
 
-    [<Fact>]
-    let ``Name can be extracted from GenericTestRecord`` () =
-        let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
-        equal false (name = "")
+[<Fact>]
+let ``Name can be extracted from RecWithGenDU`` () =
+    let name = Types.getNameOf<Maybe<list<RecWithGenDU<string>>>>()
+    equal false (name = "")
 
-    [<Fact>]
-    let ``Can check unions and records without type`` () =
-        let x = box Union20_A
-        let y = box { FieldA = 5; FieldB = "foo" }
-        isUnion x |> equal true
-        isRecord x |> equal false
-        isUnion y |> equal false
-        isRecord y |> equal true
+[<Fact>]
+let ``Name can be extracted from GenericTestRecord`` () =
+    let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
+    equal false (name = "")
 
-    [<Fact>]
-    let ``Can get union values without type`` () =
-        let x = box Union20_A
-        let y = Union20_B(5, "foo") |> box
-        getCaseTag x |> equal 0
-        getCaseTag y |> equal 1
-        getCaseName x |> equal "Union20_A"
-        getCaseName y |> equal "Union20_B"
-        getCaseFields x |> equal [||]
-        getCaseFields y |> equal [|5; "foo"|]
+[<Fact>]
+let ``Can check unions and records without type`` () =
+    let x = box Union20_A
+    let y = box { FieldA = 5; FieldB = "foo" }
+    isUnion x |> equal true
+    isRecord x |> equal false
+    isUnion y |> equal false
+    isRecord y |> equal true
 
-#endif
+[<Fact>]
+let ``Can get union values without type`` () =
+    let x = box Union20_A
+    let y = Union20_B(5, "foo") |> box
+    getCaseTag x |> equal 0
+    getCaseTag y |> equal 1
+    getCaseName x |> equal "Union20_A"
+    getCaseName y |> equal "Union20_B"
+    getCaseFields x |> equal [||]
+    getCaseFields y |> equal [|5; "foo"|]
 
-#else // OPTIMIZE_FCS
+#endif // FABLE_COMPILER
 
-#endif
+#endif // !OPTIMIZE_FCS
