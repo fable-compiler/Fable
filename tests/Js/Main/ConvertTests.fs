@@ -18,13 +18,6 @@ let tryParse f initial (value: string) =
 #endif
     (success, !res)
 
-
-let tryParseBool f initial (value: string) =
-    let res = ref initial
-    let success = f(value, res)
-    (success, !res)
-
-
 let parse f (a: string) =
 #if FABLE_COMPILER
     f(a)
@@ -97,6 +90,7 @@ let tests =
         throwsAnyError (fun () -> Boolean.Parse "falsee")
 
     testCase "System.Boolean.TryParse works" <| fun () ->
+        // expect parse success
         Boolean.TryParse "true" |> equal (true, true)
         Boolean.TryParse "True" |> equal (true, true)
         Boolean.TryParse " true " |> equal (true, true)
@@ -104,8 +98,13 @@ let tests =
         Boolean.TryParse "False" |> equal (true, false)
         Boolean.TryParse " false " |> equal (true, false)
 
+        // expect parse failure
         Boolean.TryParse "tru" |> equal (false, false)
         Boolean.TryParse "falsee" |> equal (false, false)
+        Boolean.TryParse  "0"  |> equal (false, false)
+        Boolean.TryParse  ""   |> equal (false, false)
+        Boolean.TryParse  "1"  |> equal (false, false)
+        Boolean.TryParse  null |> equal (false, false)
 
     testCase "System.SByte.Parse works" <| fun () ->
         SByte.Parse("5") |> equal 5y
@@ -208,18 +207,6 @@ let tests =
     testCase "BigInt.TryParse works" <| fun () ->
         tryParse bigint.TryParse 0I "4234523548923954" |> equal (true, 4234523548923954I)
         tryParse bigint.TryParse 0I "9SayWhat12Huh" |> equal (false, 0I)
-
-    testCase "System.Boolean.TryParse works" <| fun () ->
-        // expect parse success
-        tryParseBool Boolean.TryParse false "True"  |> equal (true, true)
-        tryParseBool Boolean.TryParse false "true"  |> equal (true, true)
-        tryParseBool Boolean.TryParse false "false" |> equal (true, false)
-        tryParseBool Boolean.TryParse false "False" |> equal (true, false)
-        // expect parse failure
-        tryParseBool Boolean.TryParse true "0"  |> equal (false, true)
-        tryParseBool Boolean.TryParse true ""   |> equal (false, true)
-        tryParseBool Boolean.TryParse true "1"  |> equal (false, true)
-        tryParseBool Boolean.TryParse true null |> equal (false, true)
 
     testCase "System.Int32.ToString works" <| fun () ->
         (5592405).ToString() |> equal "5592405"
