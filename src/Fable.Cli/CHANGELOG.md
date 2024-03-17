@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Fixed `DateTime.Add` for `DateTimeKind.Unspecified` (by @ncave)
 * [Rust] Fixed deprecated `NaiveDateTime` usage in `DateTime` (by @ncave)
 * [Rust] Fixed generic interface implementation types (by @ncave)
+* [Rust] Fixed Dictionary constructor from IEnumerable (by @ncave)
+* [Rust] Fixed Seq.cast support for arrays and lists (by @ncave)
 
 ### Added
 

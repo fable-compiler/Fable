@@ -43,8 +43,13 @@ pub mod HashMap_ {
         )))
     }
 
-    pub fn new_from_array<K: Eq + Hash + Clone, V: Clone>(a: Array<LrcPtr<(K, V)>>) -> HashMap<K, V> {
-        let it = a.iter().map(|pair| pair.as_ref().clone());
+    pub fn new_from_tup_array<K: Eq + Hash + Clone, V: Clone>(a: Array<LrcPtr<(K, V)>>) -> HashMap<K, V> {
+        let it = a.iter().map(|tup| tup.as_ref().clone());
+        HashMap(mkRefMut(collections::HashMap::from_iter(it)))
+    }
+
+    pub fn new_from_kvp_array<K: Eq + Hash + Clone, V: Clone>(a: Array<(K, V)>) -> HashMap<K, V> {
+        let it = a.iter().map(|kvp| kvp.clone());
         HashMap(mkRefMut(collections::HashMap::from_iter(it)))
     }
 
