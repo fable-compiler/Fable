@@ -908,11 +908,11 @@ let ``Seq.cache works when enumerating partially`` () =
     loop (Seq.cache xs) [] |> equal (Some 99)
     loop xs [] |> equal (Some 99)
 
-// [<Fact>]
-// let ``Seq.cast works`` () =
-//     let xs = [box 1; box 2; box 3]
-//     let ys = Seq.cast<int> xs
-//     ys |> Seq.head |> equal 1
+[<Fact>]
+let ``Seq.cast works`` () =
+    let xs = [box 1; box 2; box 3]
+    let ys = Seq.cast<int> xs
+    ys |> Seq.toArray |> equal [|1; 2; 3|]
 
 [<Fact>]
 let ``Seq.countBy works`` () =

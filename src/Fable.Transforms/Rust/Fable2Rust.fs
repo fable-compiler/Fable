@@ -1200,6 +1200,7 @@ module Util =
     let (|IEnumerable|_|) =
         function
         | Replacements.Util.IsEntity (Types.ienumerableGeneric) (_, [ genArg ]) -> Some(genArg)
+        | Replacements.Util.IsEntity (Types.ienumerable) _ -> Some(Fable.Any)
         | _ -> None
 
     let isUnitArg (ident: Fable.Ident) =
@@ -1450,6 +1451,12 @@ module Util =
             let ar = makeLibCall com ctx None "HashMap" "entries" [ expr ]
             makeLibCall com ctx None "Seq" "ofArray" [ ar ]
 
+        // boxing value types or wrapped types
+        | t, Fable.Any when isValueType com t || isWrappedType com t -> expr |> boxValue com ctx
+
+        // unboxing value types or wrapped types
+        | Fable.Any, t when isValueType com t || isWrappedType com t -> expr |> unboxValue com ctx t
+
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) -> makeCall (name :: "from" :: []) None [ expr ] // e.g. T::from(value)
 
@@ -1461,12 +1468,6 @@ module Util =
 
         // casts from interface to interface
         | _, t when isInterface com t -> expr |> makeClone |> mkCastExpr ty //TODO: not working, implement
-
-        // boxing value types or wrapped types
-        | t, Fable.Any when isValueType com t || isWrappedType com t -> expr |> boxValue com ctx
-
-        // unboxing value types or wrapped types
-        | Fable.Any, t when isValueType com t || isWrappedType com t -> expr |> unboxValue com ctx t
 
         // // casts to System.Object
         // | _, Fable.Any ->

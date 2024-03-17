@@ -199,7 +199,10 @@ let ``Regex.Matches iteration with casting works`` () =
     let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
     let ms = Regex.Matches(str, "[A-E]", RegexOptions.IgnoreCase)
     let count =
-        ms |> Seq.cast<Match> |> Seq.fold(fun acc m -> acc + m.Value.Length) 0
+        ms
+        // |> Seq.cast<Match> //TODO:
+        :> seq<Match>
+        |> Seq.fold(fun acc m -> acc + m.Value.Length) 0
     equal 10 count
 
 [<Fact>]
@@ -333,7 +336,8 @@ let ``Replacing with $0 works`` () = // See #1155
 [<Fact>]
 let ``Group values are correct and empty when not being matched`` () =
     Regex.Matches("\n\n\n", @"(?:([^\n\r]+)|\r\n|\n\r|\n|\r)")
-    |> Seq.cast<Match>
+    // |> Seq.cast<Match> //TODO:
+    :> seq<Match>
     |> Seq.map (fun m -> m.Groups[1].Value)
     |> Seq.forall (fun value -> value = "")
     |> equal true
