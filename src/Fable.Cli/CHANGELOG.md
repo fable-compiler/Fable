@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Fixed `DateTime.Add` for `DateTimeKind.Unspecified` (by @ncave)
 * [Rust] Fixed deprecated `NaiveDateTime` usage in `DateTime` (by @ncave)
+* [GH-3783](https://github.com/fable-compiler/Fable/pull/3783) [JS/TS] `Boolean.tryParse` should not crash on `null` string (@goswinr)
 
 ### Added
 
