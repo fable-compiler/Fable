@@ -50,3 +50,15 @@ Just by using Fable you're already contributing! You can help the community a lo
 Send bug reports (ideally with minimal code to reproduce the problem) and feature requests to this [GitHub repository](https://github.com/fable-compiler/Fable/issues). To interact with the community you can use the [Gitter chat](https://gitter.im/fable-compiler/Fable) but please note maintainers are not checking the chat regularly.
 
 If you are up to contribute a fix or a feature yourself, you're more than welcome! Please send first an issue or a minimal Work In Progess PR so we can discuss the implementation details in advance.
+
+### List of changelogs
+
+- [fable-standalone](src/fable-standalone/CHANGELOG.md)
+- [Fable.Core](src/Fable.Core/CHANGELOG.md)
+- [Fable.Cli](src/Fable.Cli/CHANGELOG.md)
+- [fable-library](src/fable-library-ts/CHANGELOG.md)
+- [fable-metadata](src/fable-metadata/CHANGELOG.md)
+- [fable-compiler](src/fable-compiler-js/CHANGELOG.md)
+- [Fable.AST](src/Fable.AST/CHANGELOG.md)
+- [Fable.PublishUtils](src/Fable.PublishUtils/CHANGELOG.md)
+- [Fable.Compiler](src/Fable.Compiler/CHANGELOG.md)
