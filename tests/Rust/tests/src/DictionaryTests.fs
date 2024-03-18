@@ -29,11 +29,12 @@ let ``Dictionary ctor with capacity works`` () =
     let dict = Dictionary<int, int>(10)
     dict.Count |> equal 0
 
-// [<Fact>]
-// let ``Dictionary ctor from IEnumerable works`` () =
-//     let xs = seq { ("A", 1); ("B", 2); ("C", 3) }
-//     let dict = Dictionary(xs |> Seq.map KeyValuePair)
-//     dict.Count |> equal 3
+[<Fact>]
+let ``Dictionary ctor from IEnumerable works`` () =
+    let xs = seq { ("A", 1); ("B", 2); ("C", 3) }
+    // let dict = Dictionary(xs |> Seq.map KeyValuePair) //TODO:
+    let dict = Dictionary(xs |> Seq.map (fun (k, v) -> KeyValuePair(k, v)))
+    dict.Count |> equal 3
 
 [<Fact>]
 let ``IDictionary ctor works`` () =
@@ -114,13 +115,13 @@ let ``Dictionary indexer works`` () =
     dict["A"] |> equal 3
     dict["B"] |> equal 2
 
-// [<Fact>]
-// let ``Dictionary indexer works II`` () =
-//     let dict = Dictionary<string, obj>()
-//     dict["A"] <- "Hello"
-//     dict["B"] <- 2
-//     dict["B"].ToString()
-//     |> equal "2"
+[<Fact>]
+let ``Dictionary indexer works II`` () =
+    let dict = Dictionary<string, obj>()
+    dict["A"] <- "Hello"
+    dict["B"] <- 2
+    // dict["B"].ToString() |> equal "2" //TODO:
+    dict["B"] |> unbox<int> |> equal 2
 
 [<Fact>]
 let ``Dictionary.TryAdd works`` () =

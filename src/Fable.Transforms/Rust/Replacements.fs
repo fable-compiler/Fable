@@ -944,7 +944,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [ xs ] -> toSeq com t xs |> Some
     | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] ->
-        Helper.LibCall(com, "HashMap", "new_from_array", t, [ toArray com t arg ])
+        Helper.LibCall(com, "HashMap", "new_from_tup_array", t, [ toArray com t arg ])
         |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t args |> Some
     // Ranges
@@ -1571,7 +1571,6 @@ let formattableString
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "Cast", [ MaybeCasted(arg) ] -> Some arg // Erase
     // | "ToArray", [arg] ->
     //     Helper.LibCall(com, "Array", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToList", [ arg ] ->
@@ -2300,7 +2299,7 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | [ ExprType(Number _) ] -> Helper.LibCall(com, "HashMap", "new_with_capacity", t, args) |> Some
         | [ ExprType(IEnumerable) ] ->
             let a = Helper.LibCall(com, "Seq", "toArray", t, args)
-            Helper.LibCall(com, "HashMap", "new_from_array", t, [ a ]) |> Some
+            Helper.LibCall(com, "HashMap", "new_from_kvp_array", t, [ a ]) |> Some
         // match i.SignatureArgTypes, args with
         // | ([]|[Number _]), _ ->
         //     makeDictionary com ctx r t (makeArray Any []) |> Some

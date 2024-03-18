@@ -1200,6 +1200,7 @@ module Util =
     let (|IEnumerable|_|) =
         function
         | Replacements.Util.IsEntity (Types.ienumerableGeneric) (_, [ genArg ]) -> Some(genArg)
+        | Replacements.Util.IsEntity (Types.ienumerable) _ -> Some(Fable.Any)
         | _ -> None
 
     let isUnitArg (ident: Fable.Ident) =
@@ -1450,6 +1451,12 @@ module Util =
             let ar = makeLibCall com ctx None "HashMap" "entries" [ expr ]
             makeLibCall com ctx None "Seq" "ofArray" [ ar ]
 
+        // boxing value types or wrapped types
+        | t, Fable.Any when isValueType com t || isWrappedType com t -> expr |> boxValue com ctx
+
+        // unboxing value types or wrapped types
+        | Fable.Any, t when isValueType com t || isWrappedType com t -> expr |> unboxValue com ctx t
+
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) -> makeCall (name :: "from" :: []) None [ expr ] // e.g. T::from(value)
 
@@ -1461,12 +1468,6 @@ module Util =
 
         // casts from interface to interface
         | _, t when isInterface com t -> expr |> makeClone |> mkCastExpr ty //TODO: not working, implement
-
-        // boxing value types or wrapped types
-        | t, Fable.Any when isValueType com t || isWrappedType com t -> expr |> boxValue com ctx
-
-        // unboxing value types or wrapped types
-        | Fable.Any, t when isValueType com t || isWrappedType com t -> expr |> unboxValue com ctx t
 
         // // casts to System.Object
         // | _, Fable.Any ->
@@ -4459,16 +4460,14 @@ module Util =
 
             [ ctorItem ]
 
-    let makeInterfaceTraitImpls (com: IRustCompiler) ctx entName genArgs ifcEntRef memberItems =
+    let makeInterfaceTraitImpls (com: IRustCompiler) ctx entName genArgs (ifc: Fable.DeclaredType) memberItems =
         let genArgsOpt = transformGenArgs com ctx genArgs
         let traitBound = mkTypeTraitGenericBound [ entName ] genArgsOpt
         let ty = mkTraitTy [ traitBound ]
         let generics = makeGenerics com ctx genArgs
 
-        let ifcEnt = com.GetEntity(ifcEntRef)
-        let ifcFullName = getInterfaceImportName com ctx ifcEntRef
-        let ifcGenArgs = FSharp2Fable.Util.getEntityGenArgs ifcEnt
-        let ifcGenArgsOpt = transformGenArgs com ctx ifcGenArgs
+        let ifcFullName = ifc.Entity |> getInterfaceImportName com ctx
+        let ifcGenArgsOpt = ifc.GenericArgs |> transformGenArgs com ctx
 
         let path = makeFullNamePath ifcFullName ifcGenArgsOpt
         let ofTrait = mkTraitRef path |> Some
@@ -4549,16 +4548,17 @@ module Util =
 
         let interfaces =
             ent.AllInterfaces
-            |> Seq.map (fun ifc -> ifc.Entity, ifc.Entity |> getInterfaceMemberNames com)
-            |> Seq.filter (fun (ifcEntRef, _) ->
+            |> Seq.filter (fun ifc ->
                 // throws out anything on the ignored interfaces list
-                not (Set.contains ifcEntRef.FullName ignoredInterfaceNames)
+                not (Set.contains ifc.Entity.FullName ignoredInterfaceNames)
             )
             |> Seq.toList
 
         let interfaceTraitImpls =
             interfaces
-            |> List.collect (fun (ifcEntRef, ifcMemberNames) ->
+            |> List.collect (fun ifc ->
+                let ifcMemberNames = ifc.Entity |> getInterfaceMemberNames com
+
                 let memberItems =
                     interfaceMembers
                     |> List.filter (fun (d, m) ->
@@ -4570,7 +4570,7 @@ module Util =
                 if List.isEmpty memberItems then
                     []
                 else
-                    makeInterfaceTraitImpls com ctx entName genArgs ifcEntRef memberItems
+                    makeInterfaceTraitImpls com ctx entName genArgs ifc memberItems
             )
 
         nonInterfaceImpls @ displayTraitImpls @ operatorTraitImpls @ interfaceTraitImpls

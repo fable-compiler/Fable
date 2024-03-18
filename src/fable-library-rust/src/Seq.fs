@@ -150,6 +150,15 @@ module Enumerable =
 
         fromFunction next
 
+    let cast (e: IEnumerator<obj>) : IEnumerator<'T> =
+        let next () =
+            if e.MoveNext() then
+                Some(unbox<'T> e.Current)
+            else
+                None
+
+        fromFunction next
+
     let concat (sources: 'T seq seq) : IEnumerator<'T> =
         let mutable outerOpt: IEnumerator<'T seq> option = None
         let mutable innerOpt: IEnumerator<'T> option = None
@@ -486,12 +495,11 @@ let append (xs: 'T seq) (ys: 'T seq) =
     // concat [| xs; ys |]
     mkSeq (fun () -> Enumerable.append xs ys)
 
-// let cast (xs: System.Collections.IEnumerable) =
-//     mkSeq (fun () ->
-//         checkNonNull "source" xs
-//         xs.GetEnumerator()
-//         |> Enumerable.cast
-//     )
+let cast (xs: obj seq) =
+    mkSeq (fun () ->
+        // checkNonNull "source" xs
+        xs.GetEnumerator() |> Enumerable.cast
+    )
 
 let choose (chooser: 'T -> 'U option) (xs: 'T seq) =
     generate

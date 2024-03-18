@@ -22,6 +22,8 @@ type BuildFableLibraryRust() =
 
         Command.Run("cargo", "build", workingDirectory = this.BuildDir)
 
+        Command.Run("cargo", "clean", workingDirectory = this.BuildDir)
+
     override this.CopyStage() =
         // Copy all *.rs files to the build directory
         Directory.GetFiles(this.SourceDir, "*.rs") |> Shell.copyFiles this.OutDir
