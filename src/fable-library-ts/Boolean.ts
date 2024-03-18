@@ -1,10 +1,10 @@
 import { FSharpRef } from "./Types.js"
 
 export function tryParse(str: string, defValue: FSharpRef<boolean>): boolean {
-  if (str.match(/^\s*true\s*$/i)) {
+  if (str != null && str.match(/^\s*true\s*$/i)) {
     defValue.contents = true;
     return true;
-  } else if (str.match(/^\s*false\s*$/i)) {
+  } else if (str != null && str.match(/^\s*false\s*$/i)) {
     defValue.contents = false;
     return true;
   }

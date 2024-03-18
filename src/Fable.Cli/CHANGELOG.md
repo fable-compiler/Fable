@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Rust] Fixed generic interface implementation types (by @ncave)
 * [Rust] Fixed Dictionary constructor from IEnumerable (by @ncave)
 * [Rust] Fixed Seq.cast support for arrays and lists (by @ncave)
+* [GH-3783](https://github.com/fable-compiler/Fable/pull/3783) [JS/TS] `Boolean.tryParse` should not crash on `null` string (@goswinr)
 
 ### Added
 

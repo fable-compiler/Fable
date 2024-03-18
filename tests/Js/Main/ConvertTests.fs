@@ -90,6 +90,7 @@ let tests =
         throwsAnyError (fun () -> Boolean.Parse "falsee")
 
     testCase "System.Boolean.TryParse works" <| fun () ->
+        // expect parse success
         Boolean.TryParse "true" |> equal (true, true)
         Boolean.TryParse "True" |> equal (true, true)
         Boolean.TryParse " true " |> equal (true, true)
@@ -97,8 +98,13 @@ let tests =
         Boolean.TryParse "False" |> equal (true, false)
         Boolean.TryParse " false " |> equal (true, false)
 
+        // expect parse failure
         Boolean.TryParse "tru" |> equal (false, false)
         Boolean.TryParse "falsee" |> equal (false, false)
+        Boolean.TryParse  "0"  |> equal (false, false)
+        Boolean.TryParse  ""   |> equal (false, false)
+        Boolean.TryParse  "1"  |> equal (false, false)
+        Boolean.TryParse  null |> equal (false, false)
 
     testCase "System.SByte.Parse works" <| fun () ->
         SByte.Parse("5") |> equal 5y
