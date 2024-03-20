@@ -331,6 +331,9 @@ module Types =
     let ireadonlydictionary = "System.Collections.Generic.IReadOnlyDictionary`2"
 
     [<Literal>]
+    let conditionalWeakTable = "System.Runtime.CompilerServices.ConditionalWeakTable`2"
+
+    [<Literal>]
     let hashset = "System.Collections.Generic.HashSet`1"
 
     [<Literal>]

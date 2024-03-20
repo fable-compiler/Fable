@@ -183,13 +183,18 @@ export interface ISet<T> {
   values(): Iterable<T>;
 }
 
-export interface IMap<K, V> {
-  clear(): void;
+export interface IMapOrWeakMap<K, V> {
   delete(key: K): boolean;
-  forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
   get(key: K): V | undefined;
   has(key: K): boolean;
+  set(key: K, value: V): IMapOrWeakMap<K, V>;
+}
+
+export interface IMap<K, V> extends IMapOrWeakMap<K, V> {
+  clear(): void;
   set(key: K, value: V): IMap<K, V>;
+
+  forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
   readonly size: number;
 
   [Symbol.iterator](): Iterator<[K, V]>;

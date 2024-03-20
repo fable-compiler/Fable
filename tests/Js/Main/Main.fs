@@ -10,6 +10,7 @@ let allTests =
     Async.tests
     Chars.tests
     Comparison.tests
+    ConditionalWeakTable.tests
     Convert.tests
     CustomOperators.tests
     DateTimeOffset.tests

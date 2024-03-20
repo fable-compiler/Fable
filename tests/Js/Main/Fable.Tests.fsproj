@@ -39,6 +39,7 @@
     <Compile Include="AsyncTests.fs" />
     <Compile Include="CharTests.fs" />
     <Compile Include="ComparisonTests.fs" />
+    <Compile Include="ConditionalWeakTableTests.fs" />
     <Compile Include="ConvertTests.fs" />
     <Compile Include="CustomOperatorsTests.fs" />
     <Compile Include="DateTimeOffsetTests.fs" />

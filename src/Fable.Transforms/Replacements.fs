@@ -2636,6 +2636,60 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
       Some c -> Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
+let conditionalWeakTable (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
+        match i.GenericArgs with
+        | [ keyType; _ ] ->
+            match keyType with
+            | Boolean
+            | String
+            | Number _ ->
+                $"ConditionalWeakTable does not support primitive keys in JS"
+                |> addError com ctx.InlinePath r
+            | _ -> ()
+        | _ ->
+            $"Unexpected number of generic arguments for ConditionalWeakTable: %A{i.GenericArgs}"
+            |> addError com ctx.InlinePath r
+
+        Helper.LibCall(
+            com,
+            "ConditionalWeakTable",
+            "default",
+            t,
+            args,
+            i.SignatureArgTypes,
+            isConstructor = true,
+            genArgs = i.GenericArgs,
+            ?loc = r
+        )
+        |> Some
+    | "Add", _ ->
+        Helper.LibCall(com, "MapUtil", "addToDict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | "GetOrCreateValue", _ -> None
+    | "GetValue", _ ->
+        Helper.LibCall(
+            com,
+            "MapUtil",
+            "getItemFromDictOrCreate",
+            t,
+            args,
+            i.SignatureArgTypes,
+            ?thisArg = thisArg,
+            ?loc = r
+        )
+        |> Some
+    | "TryAdd", _ ->
+        Helper.LibCall(com, "MapUtil", "tryAddToDict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | "TryGetValue", _ ->
+        Helper.LibCall(com, "MapUtil", "tryGetValue", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | ReplaceName [ "AddOrUpdate", "set"; "Clear", "clear"; "Remove", "delete" ] meth, Some c ->
+        Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | _ -> None
+
 let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ ->
@@ -3864,6 +3918,7 @@ let private replacedModules =
             Types.dictionary, dictionaries
             Types.idictionary, dictionaries
             Types.ireadonlydictionary, dictionaries
+            Types.conditionalWeakTable, conditionalWeakTable
             Types.ienumerableGeneric, enumerables
             Types.ienumerable, enumerables
             Types.valueCollection, enumerables
