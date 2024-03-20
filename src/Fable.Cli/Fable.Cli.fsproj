@@ -4,19 +4,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.15.0</Version>
+    <Version>4.16.0</Version>
     <PackageReleaseNotes>## Added
 
-- [Rust] Added some boxing support (by @ncave)
-
-## Fixed
-
-- [JS/TS] Fixed `DateTime.Add` for `DateTimeKind.Unspecified` (by @ncave)
-- [Rust] Fixed deprecated `NaiveDateTime` usage in `DateTime` (by @ncave)
-- [Rust] Fixed generic interface implementation types (by @ncave)
-- [Rust] Fixed Dictionary constructor from IEnumerable (by @ncave)
-- [Rust] Fixed Seq.cast support for arrays and lists (by @ncave)
-- [JS/TS] `Boolean.tryParse` should not crash on `null` string (@goswinr)
+- [JS/TS] Add `ConditionalWeakTable` (by @chkn)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
