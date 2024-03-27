@@ -18,7 +18,7 @@
   ],
   "author": ".NET Foundation and Contributors",
   "license": "MIT",
-  "devDependencies": {
+  "dependencies": {
     "dirname-filename-esm": "^1.1.1"
   }
 }
