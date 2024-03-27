@@ -33,8 +33,16 @@ let getMetadataDir () : string =
 let getFableLibDir () : string = importMember "./util.js"
 let getVersion () : string = importMember "./util.js"
 
-let initFable () : Fable.Standalone.IFableManager =
-    import "init" "@fable-org/fable-standalone"
+type IFableInit =
+    abstract member init: unit -> Fable.Standalone.IFableManager
+
+// Make __FABLE_STANDALONE__ available in the global scope
+importSideEffects "@fable-org/fable-standalone"
+
+[<Global("__FABLE_STANDALONE__")>]
+let FableInit: IFableInit = jsNative
+
+let initFable () : Fable.Standalone.IFableManager = FableInit.init ()
 #endif
 
 let references = Fable.Metadata.coreAssemblies
