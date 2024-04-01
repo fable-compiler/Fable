@@ -28,12 +28,12 @@ type BuildFableLibraryPython() =
 
         Directory.GetFiles(linkedFileFolder, "*") |> Shell.copyFiles this.OutDir
 
-        Shell.deleteDir (this.BuildDir </> "fable_library/fable-library")
+        Shell.deleteDir (this.BuildDir </> "fable_library/fable-library-ts")
 
         // Install the python dependencies at the root of the project
         Command.Run("poetry", "install")
 
         // Run Ruff linter checking import sorting and fix any issues
-        Command.Run("poetry", $"run ruff --select I --fix {this.BuildDir}")
+        Command.Run("poetry", $"run ruff check --select I --fix {this.BuildDir}")
         // Run Ruff formatter on all generated files
         Command.Run("poetry", $"run ruff format {this.BuildDir}")

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Add `ConditionalWeakTable` (by @chkn)
 
+### fixed
+
+* [GH-3778](https://github.com/fable-compiler/Fable/issues/3778) [Python] Fixed custom hash values on Record types (by @dbrattli)
+
 ## 4.15.0 - 2024-03-18
 
 ### Fixed
