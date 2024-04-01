@@ -142,3 +142,21 @@ let ``test nested type with custom equality works`` () =
     equal x1 x2
     equal y1 y2
     equal y1 y3
+
+[<CustomEquality>]
+[<NoComparison>]
+type MyRecord =
+
+    {Name : string; Age: int }
+
+    override this.Equals(that) =
+        this.GetHashCode() = that.GetHashCode()
+
+    /// Hash should just return age of person
+    override this.GetHashCode() =
+        this.Age
+
+let ``test custom equality and hashcode works`` () =
+    let p1 = {Name = "John"; Age = 30}
+
+    equal 30 (p1.GetHashCode())

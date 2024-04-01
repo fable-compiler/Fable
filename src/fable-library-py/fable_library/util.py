@@ -63,8 +63,7 @@ class IDisposable(ABC):
     __slots__ = ()
 
     @abstractmethod
-    def Dispose(self) -> None:
-        ...
+    def Dispose(self) -> None: ...
 
     def __enter__(self):
         """Enter context management."""
@@ -155,8 +154,7 @@ class IComparer(Protocol):
 
     @property
     @abstractmethod
-    def Compare(self) -> Callable[[_T_in, _T_in], int]:
-        ...
+    def Compare(self) -> Callable[[_T_in, _T_in], int]: ...
 
 
 class IComparer_1(Generic[_T_in], Protocol):
@@ -167,8 +165,7 @@ class IComparer_1(Generic[_T_in], Protocol):
 
     @property
     @abstractmethod
-    def Compare(self) -> Callable[[_T_in, _T_in], int]:
-        ...
+    def Compare(self) -> Callable[[_T_in, _T_in], int]: ...
 
 
 class IEqualityComparer(Protocol):
@@ -420,8 +417,7 @@ def pad_left_and_right_with_zeros(i: int, length_left: int, length_right: int) -
 
 
 class Atom(Generic[_T], Protocol):
-    def __call__(self, *value: _T) -> _T | None:
-        ...
+    def __call__(self, *value: _T) -> _T | None: ...
 
 
 def create_atom(value: _T) -> Atom[_T]:
@@ -506,19 +502,16 @@ class IEnumerator(Iterator[_T], IDisposable):
         return self.System_Collections_IEnumerator_Reset()
 
     @abstractmethod
-    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> _T:
-        ...
+    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> _T: ...
 
     def System_Collections_IEnumerator_get_Current(self) -> Any:
         return self.System_Collections_Generic_IEnumerator_1_get_Current()
 
     @abstractmethod
-    def System_Collections_IEnumerator_MoveNext(self) -> bool:
-        ...
+    def System_Collections_IEnumerator_MoveNext(self) -> bool: ...
 
     @abstractmethod
-    def System_Collections_IEnumerator_Reset(self) -> None:
-        ...
+    def System_Collections_IEnumerator_Reset(self) -> None: ...
 
     def __iter__(self) -> Iterator[_T]:
         return self
@@ -533,8 +526,7 @@ class IEnumerable(Iterable[Any], Protocol):
     __slots__ = ()
 
     @abstractmethod
-    def GetEnumerator(self) -> IEnumerator[Any]:
-        ...
+    def GetEnumerator(self) -> IEnumerator[Any]: ...
 
     def __iter__(self) -> Iterator[Any]:
         return self.GetEnumerator()
@@ -544,24 +536,20 @@ class IEnumerable_1(Iterable[_T], Protocol):
     __slots__ = ()
 
     @abstractmethod
-    def GetEnumerator(self) -> IEnumerator[_T]:
-        ...
+    def GetEnumerator(self) -> IEnumerator[_T]: ...
 
     def __iter__(self) -> Iterator[_T]:
         return self.GetEnumerator()
 
 
-class ICollection(IEnumerable_1[_T], Protocol):
-    ...
+class ICollection(IEnumerable_1[_T], Protocol): ...
 
 
 class IDictionary(ICollection[tuple[_Key, _Value]], Protocol):
     @abstractmethod
-    def keys(self) -> IEnumerable_1[_Key]:
-        ...
+    def keys(self) -> IEnumerable_1[_Key]: ...
 
-    def values(self) -> IEnumerable_1[_Value]:
-        ...
+    def values(self) -> IEnumerable_1[_Value]: ...
 
 
 class Enumerator(IEnumerator[_T]):
@@ -2627,10 +2615,10 @@ def safe_hash(x: Any) -> int:
     return (
         0
         if x is None
-        else x.GetHashCode()
-        if is_hashable(x)
         else hash(x)
         if is_hashable_py(x)
+        else x.GetHashCode()
+        if is_hashable(x)
         else number_hash(ObjectRef.id(x))
     )
 
