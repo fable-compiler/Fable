@@ -95,7 +95,7 @@ let main _argv =
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
 
     let proj =
-        parse checker (IO.Path.Combine(__SOURCE_DIRECTORY__, "../../fable-library/Fable.Library.fsproj"))
+        parse checker (IO.Path.Combine(__SOURCE_DIRECTORY__, "../../fable-library-ts/Fable.Library.TypeScript.fsproj"))
 
     let lines =
         seq {

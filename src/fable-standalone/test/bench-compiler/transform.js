@@ -150,7 +150,7 @@ function main() {
   }
 
   // fix import paths from /fable-library/ to /
-  if (projPath.endsWith("Fable.Library.fsproj")) {
+  if (projPath.endsWith("Fable.Library.TypeScript.fsproj")) {
     const filePaths = getFilePaths(outDir);
     for (const filePath of filePaths) {
       if (filePath.endsWith(".ts")) {

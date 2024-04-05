@@ -10,8 +10,8 @@ temp*/
 *.fs.ts.map
 *.fs.php
 *.fs.dart
-src/fable-library/*.js
-src/fable-library/BigInt/*.js
+src/fable-library-ts/*.js
+src/fable-library-ts/BigInt/*.js
 src/quicktest/**/*.js
 src/quicktest-py/**/*.py
 src/quicktest-rust/**/*.rs

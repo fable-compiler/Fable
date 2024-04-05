@@ -1903,7 +1903,7 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 
-// See fable-library/Option.ts for more info on how options behave in Fable runtime
+// See fable-library-ts/Option.ts for more info on how options behave in Fable runtime
 let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | "Some", _ -> NewOption(List.tryHead args, t.Generics.Head, isStruct) |> makeValue r |> Some
