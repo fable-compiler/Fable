@@ -2917,12 +2917,12 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
             // JavaScript Date doesn't support microseconds precision
             | 8, Number(Int32, NumberInfo.Empty) ->
-                "JavaScript Date with doesn't support microseconds precision"
+                "JavaScript Date doesn't support microseconds precision"
                 |> addError com ctx.InlinePath r
 
                 None
             // | 8, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
-            //     "JavaScript Date with doesn't support microseconds precision" |> addError com ctx.InlinePath r
+            //     "JavaScript Date doesn't support microseconds precision" |> addError com ctx.InlinePath r
             //     None
 
             | _ ->
@@ -2959,23 +2959,20 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
         | ExprType(Number(Int64, _)) :: _ ->
             Helper.LibCall(com, moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
-        | ExprType(DeclaredType(e, [])) :: _ when e.FullName = Types.datetime ->
+        | ExprType(DeclaredType(ent, [])) :: _ when ent.FullName = Types.datetime ->
             Helper.LibCall(com, moduleName, "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
         | _ ->
-            let last = List.last args
-
-            match args.Length, last.Type with
-            | 7, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
-                let args = (List.take 6 args) @ [ makeIntConst 0; last ]
-
-                let argTypes = (List.take 6 i.SignatureArgTypes) @ [ Int32.Number; last.Type ]
-
-                Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc = r) |> Some
-
-            | _ ->
+            match args.Length with
+            | 7
+            | 8 ->
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc = r)
                 |> Some
+            | _ ->
+                "JavaScript Date doesn't support microseconds precision"
+                |> addError com ctx.InlinePath r
+
+                None
     | "ToString" ->
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
