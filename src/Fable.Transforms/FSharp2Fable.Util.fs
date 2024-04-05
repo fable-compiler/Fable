@@ -826,10 +826,17 @@ module Helpers =
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 
+    let hasOwnSignatureFile (ent: FSharpEntity) =
+        not ent.IsNamespace
+        && (
+            match ent.SignatureLocation with
+            | None -> false
+            | Some m -> m.FileName.EndsWith(".fsi", StringComparison.Ordinal)
+        )
+
     let parentHasSignatureFile (declaringEntity: FSharpEntity option) =
         declaringEntity
-        |> Option.bind (fun p -> p.SignatureLocation)
-        |> Option.map (fun m -> m.FileName.EndsWith(".fsi", StringComparison.Ordinal))
+        |> Option.map (fun ent -> hasOwnSignatureFile ent)
         |> Option.defaultValue false
 
     let topLevelBindingHiddenBySignatureFile (v: FSharpMemberOrFunctionOrValue) =
@@ -837,13 +844,8 @@ module Helpers =
         && not v.HasSignatureFile
         && parentHasSignatureFile v.DeclaringEntity
 
-    let typeIsHiddenBySignatureFile (ent: FSharpEntity) : bool =
-        let hasOwnSignatureFile =
-            match ent.SignatureLocation with
-            | None -> false
-            | Some m -> m.FileName.EndsWith(".fsi", StringComparison.Ordinal)
-
-        not hasOwnSignatureFile && parentHasSignatureFile ent.DeclaringEntity
+    let typeIsHiddenBySignatureFile (ent: FSharpEntity) =
+        not (hasOwnSignatureFile ent) && parentHasSignatureFile ent.DeclaringEntity
 
     let isNotPrivate (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated then
