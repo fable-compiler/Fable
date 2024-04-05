@@ -652,6 +652,14 @@ module PrinterExtensions =
                     for line in lines do
 #if !FABLE_COMPILER
                         let line = System.Web.HttpUtility.HtmlDecode(line)
+#else
+                        let line =
+                            line
+                                .Replace("&lt;", "<")
+                                .Replace("&gt;", ">")
+                                .Replace("&amp;", "&")
+                                .Replace("&apos;", "'")
+                                .Replace("&quot;", "\"")
 #endif
                         printer.Print(" * ")
                         printer.Print(line.Trim())

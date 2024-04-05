@@ -165,6 +165,17 @@
     //     // "args": ["${workspaceRoot}/src/fcs-fable/fcs-fable.fsproj", "out-fcs", "--fableLib", "out-lib"],
     //     "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
     // },
+    // {
+    //   "name": "Run bench-compiler (.NET)",
+    //   "type": "coreclr",
+    //   "request": "launch",
+    //   "preLaunchTask": "build bench-compiler",
+    //   "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/bin/Debug/net8.0/bench-compiler.dll",
+    //   "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "--outDir", "./out-test", "--fableLib", "./out-lib-js"],
+    //   "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler",
+    //   "stopAtEntry": false,
+    //   "console": "internalConsole"
+    // },
     {
       "name": "Fable.Cli - fable-library-dart",
       "type": "coreclr",
