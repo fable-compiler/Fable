@@ -105,10 +105,10 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
         cursorPos += tokenLength;
         switch (tokenLength) {
           case 1:
-            result += localizedDate.getDate();
+            result += day(localizedDate);
             break;
           case 2:
-            result += padWithZeros(localizedDate.getDate(), 2);
+            result += padWithZeros(day(localizedDate), 2);
             break;
           case 3:
             result += shortDays[dayOfWeek(localizedDate)];
