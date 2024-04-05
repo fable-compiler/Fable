@@ -133,6 +133,18 @@ module Naming =
     let upperFirst (s: string) =
         s.Substring(0, 1).ToUpperInvariant() + s.Substring(1)
 
+    let xmlDecode (text: string) =
+#if !FABLE_COMPILER
+        System.Web.HttpUtility.HtmlDecode(text)
+#else
+        text
+            .Replace("&lt;", "<")
+            .Replace("&gt;", ">")
+            .Replace("&amp;", "&")
+            .Replace("&apos;", "'")
+            .Replace("&quot;", "\"")
+#endif
+
     let private dashify (separator: string) (input: string) =
         Regex.Replace(
             input,
