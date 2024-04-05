@@ -887,7 +887,7 @@ module AST =
         | _ -> true
 
     /// For unit, unresolved generics or nested options or unknown types,
-    /// create a runtime wrapper. See fable-library/Option.ts for more info.
+    /// create a runtime wrapper. See fable-library-ts/Option.ts for more info.
     let rec mustWrapOption =
         function
         | Any

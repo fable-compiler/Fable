@@ -438,7 +438,7 @@ module Reflection =
                 | generics -> yield Expression.arrayExpression (generics)
                 match tryJsConstructorFor Reflection com ctx ent with
                 | Some cons -> yield cons
-                | None -> ()
+                | None -> yield Util.undefined None None
                 match ent.BaseType with
                 | Some d ->
                     let genMap =
@@ -1259,10 +1259,12 @@ module Util =
     let emitExpression range (txt: string) args =
         EmitExpression(txt, List.toArray args, ?loc = range)
 
-    let undefined range e =
-        //        Undefined(?loc=range) :> Expression
-        let e = defaultArg e (Expression.numericLiteral (0.))
-        Expression.unaryExpression ("void", e, ?loc = range)
+    let undefined range eOpt =
+        match eOpt with
+        | None -> Expression.Undefined(?loc = range)
+        | Some e ->
+            // let e = defaultArg eOpt (Expression.numericLiteral (0.))
+            Expression.unaryExpression ("void", e, ?loc = range)
 
     let getTypeParameters (ctx: Context) (types: Fable.Type list) =
         let mutable scopedTypeParams = ctx.ScopedTypeParams

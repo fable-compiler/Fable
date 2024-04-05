@@ -4749,7 +4749,7 @@ module Util =
             items
 
     // F# hash function is unstable and gives different results in different runs
-    // Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
+    // Taken from fable-library-ts/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
     let stableStringHash (s: string) =
         let mutable h = 5381
 
