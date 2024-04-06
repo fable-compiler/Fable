@@ -3769,7 +3769,22 @@ module Util =
         let ctxNext = makeNestedFuncCtx com ctx ident usages
         mkItemStmt fnItem, ctxNext
 
-    let transformAttributes com ctx (attributes: Fable.Attribute seq) =
+    let transformXmlDoc com ctx (xmlDoc: string option) =
+        // convert XmlDoc to line comment attributes
+        match xmlDoc with
+        | Some text when text.Length > 0 ->
+            let text =
+                text
+                |> Fable.Naming.replacePrefix "<summary>" ""
+                |> Fable.Naming.replaceSuffix "</summary>" ""
+                |> Fable.Naming.xmlDecode
+
+            text.Trim('\n').Split('\n')
+            |> Array.map (fun line -> line |> mkLineCommentAttr)
+            |> Array.toList
+        | _ -> []
+
+    let transformAttributes com ctx (attributes: Fable.Attribute seq) (xmlDoc: string option) =
         attributes
         |> Seq.collect (fun a ->
             // Rust outer attributes
@@ -3787,6 +3802,7 @@ module Util =
                 []
         )
         |> Seq.toList
+        |> List.append (transformXmlDoc com ctx xmlDoc)
 
     let transformInnerAttributes com ctx (attributes: Fable.Attribute seq) =
         attributes
@@ -3854,7 +3870,7 @@ module Util =
         let header = makeFnHeader com ctx memb.Attributes
         let generics = makeGenerics com ctx genArgs
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
-        let attrs = transformAttributes com ctx memb.Attributes
+        let attrs = transformAttributes com ctx memb.Attributes memb.XmlDoc
         let fnItem = mkFnItem attrs name kind
         fnItem
 
@@ -3898,7 +3914,7 @@ module Util =
             |> makeClone
             |> mkExprStmt
 
-        let attrs = transformAttributes com ctx memb.Attributes
+        let attrs = transformAttributes com ctx memb.Attributes memb.XmlDoc
 
         let fnBody = [ staticStmt; valueStmt ] |> mkBlock |> Some
 
@@ -3942,14 +3958,13 @@ module Util =
         let genArgs = FSharp2Fable.Util.getMemberGenArgs memb
         let generics = makeGenerics com ctx genArgs
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics bodyOpt
-        let attrs = transformAttributes com ctx memb.Attributes
+        let attrs = transformAttributes com ctx memb.Attributes memb.XmlDoc
 
         let attrs =
-            attrs
-            @ if bodyOpt.IsSome then
-                  [ mkAttr "inline" [] ]
-              else
-                  []
+            if bodyOpt.IsSome then
+                attrs @ [ mkAttr "inline" [] ]
+            else
+                attrs
 
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
@@ -3991,7 +4006,7 @@ module Util =
 
         let generics = makeGenerics com ctx genArgs
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics (Some fnBody)
-        let attrs = transformAttributes com ctx memb.Attributes
+        let attrs = transformAttributes com ctx memb.Attributes memb.XmlDoc
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
 
@@ -4038,7 +4053,7 @@ module Util =
 
         derivedFrom
 
-    let transformAbbrev (com: IRustCompiler) ctx (ent: Fable.Entity) =
+    let transformAbbrev (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         // TODO: this is unfinished and untested
         let entName = splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
@@ -4047,10 +4062,11 @@ module Util =
         let ty = mkTraitTy [ traitBound ]
         let generics = makeGenerics com ctx genArgs
         let bounds = [] //TODO:
-        let tyItem = mkTyAliasItem [] entName ty generics bounds
+        let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
+        let tyItem = mkTyAliasItem attrs entName ty generics bounds
         [ tyItem ]
 
-    let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) =
+    let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         let entName = splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let generics = makeGenerics com ctx genArgs
@@ -4076,12 +4092,12 @@ module Util =
                     mkTupleVariant [] name fields
             )
 
-        let attrs = transformAttributes com ctx ent.Attributes
+        let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
         let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ent) ]
         let enumItem = mkEnumItem attrs entName variants generics
         enumItem
 
-    let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) =
+    let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         let entName = splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let generics = makeGenerics com ctx genArgs
@@ -4114,7 +4130,7 @@ module Util =
 
         let fields = List.append fields phantomFields
 
-        let attrs = transformAttributes com ctx ent.Attributes
+        let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
         let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ent) ]
         let structItem = mkStructItem attrs entName fields generics
         structItem
@@ -4253,7 +4269,7 @@ module Util =
             )
         )
 
-    let transformInterface (com: IRustCompiler) ctx (ent: Fable.Entity) =
+    let transformInterface (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         let entName = splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
 
@@ -4263,7 +4279,8 @@ module Util =
             // let sendBound = mkTypeTraitGenericBound [ rawIdent "Send" ] None
             // let syncBound = mkTypeTraitGenericBound [ rawIdent "Sync" ] None
             let traitBounds = [] // [ sendBound; syncBound ]
-            mkTraitItem [] entName assocItems traitBounds generics
+            let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
+            mkTraitItem attrs entName assocItems traitBounds generics
 
         let implItem =
             let memberItems = makeInterfaceItems com ctx true ent
@@ -4579,18 +4596,18 @@ module Util =
         let ent = com.GetEntity(decl.Entity)
 
         if ent.IsFSharpAbbreviation then
-            transformAbbrev com ctx ent
+            transformAbbrev com ctx ent decl
         elif ent.IsInterface then
             if isDeclaredInterface ent.FullName then
                 []
             else
-                transformInterface com ctx ent
+                transformInterface com ctx ent decl
         else
             let entityItem =
                 if ent.IsFSharpUnion then
-                    transformUnion com ctx ent
+                    transformUnion com ctx ent decl
                 else
-                    transformClass com ctx ent
+                    transformClass com ctx ent decl
                 |> entityItemWithVis com ctx ent
 
             let memberItems = transformClassMembers com ctx decl
@@ -4701,7 +4718,7 @@ module Util =
                 com.ClearAllImports(ctx)
                 useItem :: importItems
 
-            let outerAttrs = transformAttributes com ctx ent.Attributes
+            let outerAttrs = transformAttributes com ctx ent.Attributes None
             let innerAttrs = getInnerAttributes com ctx decl.Members
             let attrs = innerAttrs @ outerAttrs
             let modDecls = useDecls @ memberDecls
