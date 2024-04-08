@@ -280,7 +280,9 @@ let parseProject projectFilePath =
         let projectRefs, dllPaths, sourcePaths, otherOptions =
             match projectRef with
             | ProjectReference path ->
-                if path.EndsWith(".fsx") then
+                if path.EndsWith("Fable.Core.fsproj") then
+                    [||], [||], [||], [||]
+                elif path.EndsWith(".fsx") then
                     parseProjectScript path
                 else
                     parseProjectFile path

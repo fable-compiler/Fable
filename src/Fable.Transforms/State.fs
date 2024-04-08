@@ -16,7 +16,7 @@ type PluginRef =
 type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severity -> string -> unit) =
     let assemblies = Dictionary()
     let coreAssemblies = Dictionary()
-    let entities = ConcurrentDictionary()
+    let entities = ConcurrentDictionary<string, Fable.Entity>()
 
     let plugins =
         let plugins = Dictionary<Fable.EntityRef, System.Type>()
@@ -95,9 +95,9 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
     let tryFindEntityByPath (entityFullName: string) (asm: FSharpAssembly) =
         let key = asm.SimpleName + "|" + entityFullName
 
-        entities
-        |> Dictionary.tryFind key
-        |> Option.orElseWith (fun () ->
+        match entities.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ ->
             let entPath = List.ofArray (entityFullName.Split('.'))
 
             asm.Contents.FindEntityByPath(entPath)
@@ -106,7 +106,6 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                 entities[key] <- fableEnt
                 fableEnt
             )
-        )
 
     member _.TryGetEntityByAssemblyPath(asmPath, entityFullName) =
         assemblies

@@ -20,11 +20,11 @@ module Generic =
             item
 
         interface System.Collections.IEnumerable with
-            member _.GetEnumerator(): System.Collections.IEnumerator =
+            member _.GetEnumerator() =
                 (xs.GetEnumerator() :> System.Collections.IEnumerator)
 
         interface System.Collections.Generic.IEnumerable<'T> with
-            member _.GetEnumerator(): System.Collections.Generic.IEnumerator<'T> =
+            member _.GetEnumerator() =
                 xs.GetEnumerator()
 
 module Immutable =
@@ -56,11 +56,11 @@ module Immutable =
             values |> Seq.exists (fun x -> xs.Contains(x))
 
         interface System.Collections.IEnumerable with
-            member _.GetEnumerator(): System.Collections.IEnumerator =
+            member _.GetEnumerator() =
                 (xs.GetEnumerator() :> System.Collections.IEnumerator)
 
         interface IEnumerable<'T> with
-            member _.GetEnumerator(): IEnumerator<'T> =
+            member _.GetEnumerator() =
                 xs.GetEnumerator()
 
     [<Sealed>]
@@ -97,11 +97,11 @@ module Immutable =
             | false, v -> (false, v)
 
         interface System.Collections.IEnumerable with
-            member _.GetEnumerator(): System.Collections.IEnumerator =
+            member _.GetEnumerator() =
                 (xs.GetEnumerator() :> System.Collections.IEnumerator)
 
         interface IEnumerable<KeyValuePair<'Key, 'Value>> with
-            member _.GetEnumerator(): IEnumerator<KeyValuePair<'Key, 'Value>> =
+            member _.GetEnumerator() =
                 xs.GetEnumerator()
 
 module Concurrent =
@@ -117,16 +117,17 @@ module Concurrent =
         member _.ToArray () = xs.ToArray()
 
         interface System.Collections.IEnumerable with
-            member _.GetEnumerator(): System.Collections.IEnumerator =
+            member _.GetEnumerator() =
                 (xs.GetEnumerator() :> System.Collections.IEnumerator)
+
         interface IEnumerable<'T> with
-            member _.GetEnumerator(): IEnumerator<'T> =
+            member _.GetEnumerator() =
                 xs.GetEnumerator()
 
     // not thread safe, just a Dictionary // TODO: threaded implementation
     [<AllowNullLiteral>]
     type ConcurrentDictionary<'Key, 'Value>(comparer: IEqualityComparer<'Key>) =
-        inherit Dictionary<'Key, 'Value>(comparer)
+        let xs = Dictionary(comparer)
 
         new () =
             ConcurrentDictionary<'Key, 'Value>(EqualityComparer.Default)
@@ -137,47 +138,70 @@ module Concurrent =
         new (_concurrencyLevel: int, _capacity: int, comparer: IEqualityComparer<'Key>) =
             ConcurrentDictionary<'Key, 'Value>(comparer)
 
-        member x.TryAdd (key: 'Key, value: 'Value): bool =
-            if x.ContainsKey(key)
-            then false
-            else x.Add(key, value); true
+        member _.Keys = xs.Keys
+        member _.Values = xs.Values
 
-        member x.TryRemove (key: 'Key): bool * 'Value =
-            match x.TryGetValue(key) with
-            | true, v -> (x.Remove(key), v)
+        member _.Item
+            with get (key: 'Key): 'Value = xs[key]
+            and set (key: 'Key) (value: 'Value) = xs[key] <- value
+
+        member _.Clear () = xs.Clear()
+        member _.ContainsKey (key: 'Key) = xs.ContainsKey(key)
+
+        member _.TryGetValue (key: 'Key): bool * 'Value =
+            match xs.TryGetValue(key) with
+            | true, v -> (true, v)
+            | false, v -> (false, v)
+
+        member _.TryAdd (key: 'Key, value: 'Value): bool =
+            if xs.ContainsKey(key)
+            then false
+            else xs.Add(key, value); true
+
+        member _.TryRemove (key: 'Key): bool * 'Value =
+            match xs.TryGetValue(key) with
+            | true, v -> (xs.Remove(key), v)
             | _ as res -> res
 
-        member x.GetOrAdd (key: 'Key, value: 'Value): 'Value =
-            match x.TryGetValue(key) with
+        member _.GetOrAdd (key: 'Key, value: 'Value): 'Value =
+            match xs.TryGetValue(key) with
             | true, v -> v
-            | _ -> let v = value in x.Add(key, v); v
+            | _ -> let v = value in xs.Add(key, v); v
 
-        member x.GetOrAdd (key: 'Key, valueFactory: System.Func<'Key, 'Value>): 'Value =
-            match x.TryGetValue(key) with
+        member _.GetOrAdd (key: 'Key, valueFactory: System.Func<'Key, 'Value>): 'Value =
+            match xs.TryGetValue(key) with
             | true, v -> v
-            | _ -> let v = valueFactory.Invoke(key) in x.Add(key, v); v
+            | _ -> let v = valueFactory.Invoke(key) in xs.Add(key, v); v
 
-        // member x.GetOrAdd<'Arg> (key: 'Key, valueFactory: 'Key * 'Arg -> 'Value, arg: 'Arg): 'Value =
-        //     match x.TryGetValue(key) with
+        // member _.GetOrAdd<'Arg> (key: 'Key, valueFactory: 'Key * 'Arg -> 'Value, arg: 'Arg): 'Value =
+        //     match xs.TryGetValue(key) with
         //     | true, v -> v
-        //     | _ -> let v = valueFactory(key, arg) in x.Add(key, v); v
+        //     | _ -> let v = valueFactory(key, arg) in xs.Add(key, v); v
 
-        member x.TryUpdate (key: 'Key, value: 'Value, comparisonValue: 'Value): bool =
-            match x.TryGetValue(key) with
-            | true, v when Unchecked.equals v comparisonValue -> x[key] <- value; true
+        member _.TryUpdate (key: 'Key, value: 'Value, comparisonValue: 'Value): bool =
+            match xs.TryGetValue(key) with
+            | true, v when Unchecked.equals v comparisonValue -> xs[key] <- value; true
             | _ -> false
 
-        member x.AddOrUpdate (key: 'Key, value: 'Value, updateFactory: System.Func<'Key, 'Value, 'Value>): 'Value =
-            match x.TryGetValue(key) with
-            | true, v -> let v = updateFactory.Invoke(key, v) in x[key] <- v; v
-            | _ -> let v = value in x.Add(key, v); v
+        member _.AddOrUpdate (key: 'Key, value: 'Value, updateFactory: System.Func<'Key, 'Value, 'Value>): 'Value =
+            match xs.TryGetValue(key) with
+            | true, v -> let v = updateFactory.Invoke(key, v) in xs[key] <- v; v
+            | _ -> let v = value in xs.Add(key, v); v
 
-        // member x.AddOrUpdate (key: 'Key, valueFactory: 'Key -> 'Value, updateFactory: 'Key * 'Value -> 'Value): 'Value =
-        //     match x.TryGetValue(key) with
-        //     | true, v -> let v = updateFactory(key, v) in x[key] <- v; v
-        //     | _ -> let v = valueFactory(key) in x.Add(key, v); v
+        // member _.AddOrUpdate (key: 'Key, valueFactory: 'Key -> 'Value, updateFactory: 'Key * 'Value -> 'Value): 'Value =
+        //     match xs.TryGetValue(key) with
+        //     | true, v -> let v = updateFactory(key, v) in xs[key] <- v; v
+        //     | _ -> let v = valueFactory(key) in xs.Add(key, v); v
 
-        // member x.AddOrUpdate (key: 'Key, valueFactory: 'Key * 'Arg -> 'Value, updateFactory: 'Key * 'Arg * 'Value -> 'Value, arg: 'Arg): 'Value =
-        //     match x.TryGetValue(key) with
-        //     | true, v -> let v = updateFactory(key, arg, v) in x[key] <- v; v
-        //     | _ -> let v = valueFactory(key, arg) in x.Add(key, v); v
+        // member _.AddOrUpdate (key: 'Key, valueFactory: 'Key * 'Arg -> 'Value, updateFactory: 'Key * 'Arg * 'Value -> 'Value, arg: 'Arg): 'Value =
+        //     match xs.TryGetValue(key) with
+        //     | true, v -> let v = updateFactory(key, arg, v) in xs[key] <- v; v
+        //     | _ -> let v = valueFactory(key, arg) in xs.Add(key, v); v
+
+        interface System.Collections.IEnumerable with
+            member _.GetEnumerator() =
+                (xs.GetEnumerator() :> System.Collections.IEnumerator)
+
+        interface IEnumerable<KeyValuePair<'Key, 'Value>> with
+            member _.GetEnumerator() =
+                xs.GetEnumerator()
