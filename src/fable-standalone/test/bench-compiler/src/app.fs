@@ -4,10 +4,10 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let getMetadataDir () : string =
-    __SOURCE_DIRECTORY__ + "/../../../fable-metadata/lib/"
+    __SOURCE_DIRECTORY__ + "/../../../../fable-metadata/lib/"
 
 let getFableLibDir () : string =
-    __SOURCE_DIRECTORY__ + "/../../../../temp/fable-library-js"
+    __SOURCE_DIRECTORY__ + "/../../../../../temp/fable-library-js"
 
 let getVersion () : string = ".next"
 
@@ -264,6 +264,7 @@ let parseFiles projectFileName options =
             | "python" -> ".py"
             | "php" -> ".php"
             | "dart" -> ".dart"
+            | "rs"
             | "rust" -> ".rs"
             | _ -> failwithf "Unsupported language: %s" options.language
 
@@ -378,11 +379,7 @@ let run opts projectFileName outDir =
             optimize = opts |> hasFlag "--optimize"
             sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
             typedArrays = opts |> tryFlag "--typedArrays"
-            language =
-                opts
-                |> argValue [ "--language"; "--lang" ]
-                |> Option.map (fun _ -> "TypeScript")
-                |> Option.defaultValue "JavaScript"
+            language = opts |> argValue [ "--language"; "--lang" ] |> Option.defaultValue "JavaScript"
             printAst = opts |> hasFlag "--printAst"
         // watch = opts |> hasFlag "--watch"
         }

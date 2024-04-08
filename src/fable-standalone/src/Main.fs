@@ -412,6 +412,7 @@ let getLanguage (language: string) =
     | "python" -> Python
     | "php" -> Php
     | "dart" -> Dart
+    | "rs"
     | "rust" -> Rust
     | _ -> failwithf "Unsupported language: %s" language
 
@@ -475,11 +476,11 @@ let init () =
             =
             let language = getLanguage language
 
+            // if not set, default to true to all languages except TypeScript
             let typedArrays =
-                if language = JavaScript then
-                    typedArrays
-                else
-                    None // only used for JS
+                match typedArrays with
+                | None -> Some(language <> TypeScript)
+                | _ -> typedArrays
 
             compileToTargetAst results fileName fableLibrary typedArrays language
 

@@ -179,9 +179,8 @@ Arguments:
 let argLanguage (args: CliArgs) =
     args.Value("--lang", "--language")
     |> Option.map (fun lang ->
-        let lang = lang.ToLower()
 
-        match lang with
+        match lang.ToLowerInvariant() with
         | "js"
         | "javascript" -> Ok JavaScript
         | "ts"
