@@ -170,10 +170,20 @@
     //   "type": "coreclr",
     //   "request": "launch",
     //   "preLaunchTask": "build bench-compiler",
-    //   "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/bin/Debug/net8.0/bench-compiler.dll",
+    //   "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/src/bin/Debug/net8.0/bench-compiler.dll",
     //   "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "--outDir", "./out-test", "--fableLib", "./out-lib-js"],
     //   "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler",
     //   "stopAtEntry": false,
+    //   "console": "internalConsole"
+    // },
+    // {
+    //   "name": "Run bench-compiler (native)",
+    //   "type": "lldb",
+    //   "request": "launch",
+    //   "preLaunchTask": "publish bench-compiler",
+    //   "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/src/bin/Debug/net8.0/linux-x64/native/bench-compiler",
+    //   "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "--outDir", "./out-test", "--fableLib", "./out-lib-js"],
+    //   "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler",
     //   "console": "internalConsole"
     // },
     {

@@ -11,8 +11,8 @@
   <!-- AOT settings (https://aka.ms/OptimizeCoreRT) -->
   <PropertyGroup>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <PublishAot>true</PublishAot>
-    <PublishTrimmed>true</PublishTrimmed>
+    <!-- <PublishAot>true</PublishAot> -->
+    <!-- <PublishTrimmed>true</PublishTrimmed> -->
     <!-- <StripSymbols>true</StripSymbols> -->
     <!-- <IlcTrimMetadata>true</IlcTrimMetadata> -->
     <!-- <IlcDisableReflection>true</IlcDisableReflection> -->
@@ -24,6 +24,8 @@
 
   <PropertyGroup>
     <WasmMainJSPath>main.mjs</WasmMainJSPath>
+    <!-- <RunAOTCompilation>true</RunAOTCompilation> -->
+    <!-- <WasmStripILAfterAOT>true</WasmStripILAfterAOT> -->
     <!-- enable reporting to profiler in browser dev tools -->
     <!-- <WasmProfilers>browser;</WasmProfilers> -->
     <!-- Put "framework" (dotnet.js, dlls, etc) files directly into the AppBundle -->
@@ -35,7 +37,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <RdXmlFile Include="rd.xml" />
+    <!-- <RdXmlFile Include="rd.xml" /> -->
+    <!-- <RuntimeHostConfigurationOption Include="System.Text.Json.Serialization.EnableSourceGenReflectionFallback" Value="true" /> -->
   </ItemGroup>
 
   <ItemGroup>

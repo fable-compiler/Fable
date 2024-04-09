@@ -114,11 +114,7 @@ module Enumerator =
     let cast (e: IEnumerator<'T>) : IEnumerator<'T> =
         let current () = unbox<'T> e.Current
         let next () = e.MoveNext()
-
-        let dispose () =
-            match e with
-            | :? System.IDisposable as e -> e.Dispose()
-            | _ -> ()
+        let dispose () = e.Dispose()
 
         fromFunctions current next dispose
 

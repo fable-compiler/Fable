@@ -20,21 +20,21 @@ let getXmlWithoutComments xml =
     Regex.Replace(xml, @"<!--[\s\S]*?-->", "")
 
 let getXmlTagContents tag xml =
-    let pattern = sprintf @"<%s[^>]*>([^<]*)<\/%s[^>]*>" tag tag
+    let pattern = $"""<%s{tag}[^>]*>([^<]*)<\/%s{tag}[^>]*>"""
     Regex.Matches(xml, pattern) |> Seq.map (fun m -> m.Groups[1].Value.Trim())
 
 let getXmlTagContentsFirstOrDefault tag defaultValue xml =
     defaultArg (getXmlTagContents tag xml |> Seq.tryHead) defaultValue
 
 let getXmlTagAttributes1 tag attr1 xml =
-    let pattern = sprintf """<%s\s+[^>]*%s\s*=\s*("[^"]*|'[^']*)""" tag attr1
+    let pattern = $"""<%s{tag}\s+[^>]*%s{attr1}\s*=\s*("[^"]*|'[^']*)"""
 
     Regex.Matches(xml, pattern)
     |> Seq.map (fun m -> m.Groups[1].Value.TrimStart('"').TrimStart(''').Trim())
 
 let getXmlTagAttributes2 tag attr1 attr2 xml =
     let pattern =
-        sprintf """<%s\s+[^>]*%s\s*=\s*("[^"]*|'[^']*)[^>]*%s\s*=\s*("[^"]*|'[^']*)""" tag attr1 attr2
+        $"""<%s{tag}\s+[^>]*%s{attr1}\s*=\s*("[^"]*|'[^']*)[^>]*%s{attr2}\s*=\s*("[^"]*|'[^']*)"""
 
     Regex.Matches(xml, pattern)
     |> Seq.map (fun m ->
@@ -65,7 +65,7 @@ let parsePackageSpec nuspecPath =
 let resolvePackage (pkgName, pkgVersion) =
     if not (isSystemPackage pkgName) then
         let homePath = getHomePath().Replace('\\', '/')
-        let nugetPath = sprintf ".nuget/packages/%s/%s" pkgName pkgVersion
+        let nugetPath = $".nuget/packages/%s{pkgName}/%s{pkgVersion}"
         let pkgPath = Path.Combine(homePath, nugetPath.ToLowerInvariant())
         let libPath = Path.Combine(pkgPath, "lib")
         let fablePath = Path.Combine(pkgPath, "fable")

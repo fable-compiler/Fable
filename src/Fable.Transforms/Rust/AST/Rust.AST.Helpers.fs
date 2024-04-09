@@ -880,10 +880,10 @@ module Exprs =
     let TODO_EXPR name : Expr =
         mkStrLit ("TODO_EXPR_" + name) |> mkLitExpr
 
-    //for debugging purposes - decorate any expr with some metadata
-    let BLOCK_COMMENT_SUFFIX comment expr : Expr =
-        ExprKind.EmitExpression(sprintf "($0 /* %A */)" comment, mkVec [ expr ])
-        |> mkExpr
+// //for debugging purposes - decorate any expr with some metadata
+// let BLOCK_COMMENT_SUFFIX comment expr : Expr =
+//     ExprKind.EmitExpression($"($0 /* %A{comment} */)", mkVec [ expr ])
+//     |> mkExpr
 
 [<AutoOpen>]
 module Stmts =
