@@ -21,6 +21,12 @@
         </Method>
 
         <Method Name="OneStepWithArg" Dynamic="Required">
+          <GenericArgument Name="System.String, System.Private.CoreLib" />
+        </Method>
+        <Method Name="OneStepWithArg" Dynamic="Required">
+          <GenericArgument Name="System.Int32, System.Private.CoreLib" />
+        </Method>
+        <Method Name="OneStepWithArg" Dynamic="Required">
           <GenericArgument Name="System.Int64, System.Private.CoreLib" />
         </Method>
         <Method Name="TwoStepWithArg" Dynamic="Required">

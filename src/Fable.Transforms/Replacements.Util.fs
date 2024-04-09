@@ -991,7 +991,7 @@ module AnonRecords =
         | AlwaysAny = 0b0100
 
     let private makeType = TypeHelpers.makeType Map.empty
-    let private quote = sprintf "'%s'"
+    let private quote s = $"'%s{s}'"
     let private unreachable () = failwith "unreachable"
     let private formatType = getTypeFullName true
 

@@ -3155,7 +3155,7 @@ module Util =
     let rec transformExpr (com: IRustCompiler) ctx (fableExpr: Fable.Expr) : Rust.Expr =
         match fableExpr with
         | Fable.Unresolved(e, t, r) ->
-            "Unexpected unresolved expression: %A{e}" |> addError com [] r
+            $"Unexpected unresolved expression: %A{e}" |> addError com [] r
             mkUnitExpr ()
 
         | Fable.TypeCast(e, t) -> transformCast com ctx t e

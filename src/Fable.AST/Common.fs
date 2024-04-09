@@ -59,7 +59,7 @@ type SourceLocation =
     static member Empty = SourceLocation.Create(start = Position.Empty, ``end`` = Position.Empty)
 
     override x.ToString() =
-        sprintf $"(L%i{x.start.line},%i{x.start.column}-L%i{x.``end``.line},%i{x.``end``.column})"
+        $"(L%i{x.start.line},%i{x.start.column}-L%i{x.``end``.line},%i{x.``end``.column})"
 
 type NumberKind =
     | Int8
