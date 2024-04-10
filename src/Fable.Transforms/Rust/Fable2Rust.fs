@@ -1306,6 +1306,18 @@ module Util =
         let expr = transformIdent com ctx r ident
         mutableSet expr value
 
+    let transformIdentType com ctx isCaptured (ident: Fable.Ident) =
+        let ty = transformType com ctx ident.Type
+
+        if isByRefType com ident.Type then
+            ty // already wrapped
+        elif ident.IsMutable && isCaptured then
+            ty |> makeMutTy com ctx |> makeLrcPtrTy com ctx
+        elif ident.IsMutable then
+            ty |> makeMutTy com ctx
+        else
+            ty
+
     let memberFromName (memberName: string) : Rust.Expr * bool =
         match memberName with
         | "ToString" -> (mkGenericPathExpr [ "ToString" ] None), false
@@ -2052,16 +2064,49 @@ module Util =
         | None, _ ->
             None
 *)
+
+    let makeObjectExprMemberDecl (com: IRustCompiler) ctx (memb: Fable.ObjectExprMember) =
+        let capturedIdents = getCapturedIdents com ctx (Some memb.Name) memb.Args memb.Body
+
+        let thisArg = Fable.Value(Fable.ThisValue Fable.Any, None)
+
+        let replacements =
+            capturedIdents
+            |> Map.map (fun _name (ident: Fable.Ident) ->
+                let info = Fable.FieldInfo.Create(ident.Name, ident.Type, ident.IsMutable)
+                Fable.Get(thisArg, info, ident.Type, None)
+            )
+
+        // replace captured idents with 'this.ident' in member body
+        let body = FableTransforms.replaceValues replacements memb.Body
+
+        let memberDecl: Fable.MemberDecl =
+            {
+                Name = memb.Name
+                Args = memb.Args
+                Body = body
+                MemberRef = memb.MemberRef
+                IsMangled = memb.IsMangled
+                ImplementedSignatureRef = None
+                UsedNames = Set.empty
+                XmlDoc = None
+                Tags = []
+            }
+
+        memberDecl, capturedIdents
+
+    let makeEntRef fullName assemblyName : Fable.EntityRef =
+        {
+            FullName = fullName
+            Path = Fable.CoreAssemblyName assemblyName
+        }
+
     let transformObjectExpr (com: IRustCompiler) ctx typ (members: Fable.ObjectExprMember list) baseCall : Rust.Expr =
         if members |> List.isEmpty then
             mkUnitExpr () // object constructors sometimes generate this
         else
-            // TODO: add captured idents to object expression struct
-            let makeEntRef fullName assemblyName : Fable.EntityRef =
-                {
-                    FullName = fullName
-                    Path = Fable.CoreAssemblyName assemblyName
-                }
+            // TODO: support non-interface types with constructors
+            // TODO: add captured idents to non-interface types
 
             let entRef, genArgs =
                 match typ with
@@ -2070,24 +2115,21 @@ module Util =
                 | _ ->
                     "Unsupported object expression" |> addWarning com [] None
                     makeEntRef "System.Object" "System.Runtime", []
-            //TODO: properly handle non-interface types with constructors
+
             let entName = "ObjectExpr"
+
+            // collect all captured idents as fields
+            let mutable fieldsMap = Map.empty
 
             let members: Fable.MemberDecl list =
                 members
                 |> List.map (fun memb ->
-                    {
-                        Name = memb.Name
-                        Args = memb.Args
-                        Body = memb.Body
-                        MemberRef = memb.MemberRef
-                        IsMangled = memb.IsMangled
-                        ImplementedSignatureRef = None
-                        UsedNames = Set.empty
-                        XmlDoc = None
-                        Tags = []
-                    }
+                    let memberDecl, capturedIdents = makeObjectExprMemberDecl com ctx memb
+                    fieldsMap <- Map.fold (fun acc k v -> Map.add k v acc) fieldsMap capturedIdents
+                    memberDecl
                 )
+
+            let fieldIdents = fieldsMap.Values |> Seq.toList
 
             let decl: Fable.ClassDecl =
                 {
@@ -2100,13 +2142,20 @@ module Util =
                     Tags = []
                 }
 
+            let fields =
+                fieldIdents
+                |> List.map (fun ident ->
+                    let fieldTy = transformIdentType com ctx true ident
+                    let fieldName = ident.Name |> sanitizeMember
+                    mkField [] fieldName fieldTy false
+                )
+
             let attrs = []
-            let fields = []
             let generics = makeGenerics com ctx genArgs
 
             let structItems =
                 if baseCall.IsSome then
-                    [] // if base type is not an interface
+                    [] // TODO: if base type is not an interface
                 else
                     [ mkStructItem attrs entName fields generics ]
 
@@ -2114,11 +2163,19 @@ module Util =
             let genArgsOpt = transformGenArgs com ctx genArgs
             let path = makeFullNamePath entName genArgsOpt
 
+            let exprFields =
+                fieldIdents
+                |> List.map (fun ident ->
+                    let expr = transformIdent com ctx None ident |> makeClone
+                    let fieldName = ident.Name |> sanitizeMember
+                    mkExprField [] fieldName expr false false
+                )
+
             let objExpr =
                 match baseCall with
                 | Some fableExpr -> com.TransformExpr(ctx, fableExpr)
                 | None ->
-                    let expr = mkStructExpr path fields |> makeLrcPtrValue com ctx
+                    let expr = mkStructExpr path exprFields |> makeLrcPtrValue com ctx
 
                     makeInterfaceCast com ctx typ expr
 
@@ -2485,6 +2542,13 @@ module Util =
             | Fable.Call(Fable.IdentExpr ident, info, _, _) when ident.IsMutable && isModuleMember com info ->
                 let expr = transformIdent com ctx range ident
                 mutableSet (mkCallExpr expr []) value
+            // mutable idents captured in object expression methods
+            | Fable.Get(Fable.Value(Fable.ThisValue _, _) as thisArg, Fable.GetKind.FieldGet info, _t, _r) when
+                info.IsMutable
+                ->
+                let expr = transformCallee com ctx thisArg
+                let field = getField None expr info.Name
+                mutableSet field value
             | _ ->
                 match fableExpr.Type with
                 | Replacements.Util.Builtin(Replacements.Util.FSharpReference _) -> mutableSet expr value
@@ -2565,20 +2629,7 @@ module Util =
                     None
                 else
                     let ctx = { ctx with InferAnyType = true }
-                    transformType com ctx ident.Type |> Some
-
-        let tyOpt =
-            tyOpt
-            |> Option.map (fun ty ->
-                if isByRefType com ident.Type then
-                    ty // already wrapped
-                elif ident.IsMutable && isCaptured then
-                    ty |> makeMutTy com ctx |> makeLrcPtrTy com ctx
-                elif ident.IsMutable then
-                    ty |> makeMutTy com ctx
-                else
-                    ty
-            )
+                    transformIdentType com ctx isCaptured ident |> Some
 
         let initOpt =
             match value with
@@ -3411,6 +3462,8 @@ module Util =
             || isValueScoped ctx ident.Name
             || isRefScoped ctx ident.Name
             || shouldBeCloned com ctx ident.Type)
+        // skip non-local idents (e.g. module let bindings)
+        && not (ident.Name.Contains("."))
 
     let tryFindClosedOverIdent com ctx (ignoredNames: HashSet<string>) expr =
         match expr with
@@ -3571,11 +3624,10 @@ module Util =
         let isRecursive, isTailRec = isTailRecursive name body
         let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
         let ctx = getFunctionBodyCtx com ctx name args body isTailRec
-        // remove captured names from scoped symbols, as they will be cloned
-        let closedOverCloneableIdents = getCapturedIdents com ctx name args body
+        let capturedIdents = getCapturedIdents com ctx name args body
 
-        let scopedSymbols =
-            ctx.ScopedSymbols |> Helpers.Map.except closedOverCloneableIdents
+        // remove captured idents from scoped symbols, as they will be cloned
+        let scopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except capturedIdents
 
         let ctx = { ctx with ScopedSymbols = scopedSymbols } //; HasMultipleUses = true }
         let argCount = args |> List.length |> string<int>
@@ -3597,10 +3649,8 @@ module Util =
                 fnBody
 
         let cloneStmts =
-            // clone captured idents (in move closures)
-            // skip non-local idents (e.g. module let bindings)
-            Map.keys closedOverCloneableIdents
-            |> Seq.filter (fun name -> not (name.Contains(".")))
+            // clone captured idents (in 'move' closures)
+            Map.keys capturedIdents
             |> Seq.map (fun name ->
                 let pat = makeFullNameIdentPat name
                 let expr = com.TransformExpr(ctx, makeIdentExpr name)
@@ -4107,14 +4157,7 @@ module Util =
         let fields =
             idents
             |> List.map (fun ident ->
-                let ty = transformType com ctx ident.Type
-
-                let fieldTy =
-                    if ident.IsMutable then
-                        ty |> makeMutTy com ctx
-                    else
-                        ty
-
+                let fieldTy = transformIdentType com ctx false ident
                 let fieldName = ident.Name |> sanitizeMember
                 mkField [] fieldName fieldTy isPublic
             )
@@ -4193,7 +4236,7 @@ module Util =
                 let retVal = Fable.Value(Fable.NewRecord(fieldValues, ent.Ref, genArgs), None)
 
                 let body = Fable.Sequential(exprs @ [ retVal ])
-                // replace 'this.field' with just 'field' in body
+                // replace 'this.field' getters and setters with just 'field' in body
                 let body =
                     body
                     |> visitFromInsideOut (
@@ -4314,7 +4357,10 @@ module Util =
 
             let fieldValues =
                 getEntityFieldsAsIdents com ent
-                |> List.map (fun ident -> Fable.Get(thisArg, Fable.FieldInfo.Create(ident.Name), ident.Type, None))
+                |> List.map (fun ident ->
+                    let info = Fable.FieldInfo.Create(ident.Name, ident.Type, ident.IsMutable)
+                    Fable.Get(thisArg, info, ident.Type, None)
+                )
 
             let fieldsAsTuple = Fable.Value(Fable.NewTuple(fieldValues, true), None)
 

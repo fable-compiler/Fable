@@ -893,15 +893,15 @@ let ``Multiple active pattern calls work`` () =
 //     MyComponent("TestD").works4().doWork() |> equal "TestD-4"
 //     MyComponent("TestE").works5().doWork() |> equal "TestE-5"
 
-// [<Fact>]
-// let ``Properties in object expression work`` () =
-//     let mutable backend = 0
-//     let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
-//     o.Bar |> equal 0
-//     backend <- 5
-//     o.Bar |> equal 5
-//     o.Bar <- 10
-//     o.Bar |> equal 10
+[<Fact>]
+let ``Properties in object expression work`` () =
+    let mutable backend = 0
+    let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
+    o.Bar |> equal 0
+    backend <- 5
+    o.Bar |> equal 5
+    o.Bar <- 10
+    o.Bar |> equal 10
 
 // [<Fact>]
 // let ``Object expression from class works`` () =
