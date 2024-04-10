@@ -33,7 +33,7 @@ type BuildFableLibraryPython() =
         let linkedFileFolder =
             Path.Combine(this.BuildDir, "fable_library", "fable-library-ts")
 
-        Command.Run("poetry", "install") // Maturn needs a virtual environment
+        Command.Run("poetry", "install", this.BuildDir) // Maturn needs a virtual environment
         Command.Run("maturin", "develop", this.BuildDir)
 
         Directory.GetFiles(linkedFileFolder, "*") |> Shell.copyFiles this.OutDir
