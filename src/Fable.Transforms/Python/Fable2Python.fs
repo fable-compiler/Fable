@@ -1203,15 +1203,8 @@ module Util =
         | Some "B" ->
             let bytearray = Expression.name "bytearray"
             Expression.call (bytearray, [ Expression.list expr ]), stmts
-        | Some l when (l = "f" || l = "d") ->
-            let array = com.GetImportExpr(ctx, "array", "array")
-            Expression.call (array, Expression.stringConstant l :: [ Expression.list expr ]), stmts
         | Some l ->
             let array = com.GetImportExpr(ctx, "array", "array")
-            // Make every expr item into a Python int since might be signed and sized (by Rust).
-            let expr =
-                expr |> List.map (fun e -> Expression.call (Expression.name "int", [ e ]))
-
             Expression.call (array, Expression.stringConstant l :: [ Expression.list expr ]), stmts
         | _ -> expr |> Expression.list, stmts
 
