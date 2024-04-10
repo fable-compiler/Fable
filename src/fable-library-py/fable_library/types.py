@@ -10,6 +10,7 @@ from typing import (
     cast,
 )
 
+from .core import int16, uint16
 from .util import Array, IComparable, compare
 
 
@@ -55,8 +56,7 @@ class Union(IComparable):
 
     @staticmethod
     @abstractmethod
-    def cases() -> list[str]:
-        ...
+    def cases() -> list[str]: ...
 
     @property
     def name(self) -> str:
@@ -204,8 +204,7 @@ class Record(IComparable):
         return record_get_hashcode(self)
 
 
-class Attribute:
-    ...
+class Attribute: ...
 
 
 def seq_to_string(self: Iterable[Any]) -> str:
@@ -297,10 +296,6 @@ class int8(int):
     __slots__ = ()
 
 
-class int16(int):
-    __slots__ = ()
-
-
 class int32(int):
     __slots__ = ()
 
@@ -310,10 +305,6 @@ class int64(int):
 
 
 class uint8(int):
-    __slots__ = ()
-
-
-class uint16(int):
     __slots__ = ()
 
 

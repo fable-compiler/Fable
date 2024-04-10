@@ -1,6 +1,6 @@
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
-from .types import FSharpRef
+from .types import FSharpRef, int16, uint16
 
 
 getcontext().prec = 29
@@ -156,6 +156,14 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
         return False
 
 
+def create(value: int | float | int16 | uint16 | str) -> Decimal:
+    match value:
+        case int16() | uint16():
+            return Decimal(int(value))
+        case _:
+            return Decimal(value)
+
+
 __all__ = [
     "compare",
     "equals",
@@ -187,4 +195,5 @@ __all__ = [
     "to_number",
     "try_parse",
     "parse",
+    "Decimal",
 ]

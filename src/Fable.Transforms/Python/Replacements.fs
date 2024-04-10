@@ -75,7 +75,7 @@ let makeDecimalFromExpr com r t (e: Expr) =
     | Value(Fable.NumberConstant(:? float32 as x, Float32, _), _) -> makeDecimal com r t (decimal x)
     | Value(Fable.NumberConstant(:? float as x, Float64, _), _) -> makeDecimal com r t (decimal x)
     | Value(Fable.NumberConstant(:? decimal as x, Decimal, _), _) -> makeDecimal com r t x
-    | _ -> Helper.LibCall(com, "decimal", "Decimal", t, [ e ], isConstructor = true, ?loc = r)
+    | _ -> Helper.LibCall(com, "decimal_", "create", t, [ e ], isConstructor = true, ?loc = r)
 
 let createAtom com (value: Expr) =
     let typ = value.Type

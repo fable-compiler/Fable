@@ -32,7 +32,6 @@ def op_unary_negation(value: int) -> int:
     return -value if value != -0x8000000000000000 else -0x8000000000000000
 
 
-# def op_unary_negation(a: int) -> int: return -a
 def op_unary_plus(a: int) -> int:
     return +a
 

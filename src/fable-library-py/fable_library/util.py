@@ -446,6 +446,8 @@ def tohex(val: int, nbits: int | None = None) -> str:
 
 
 def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
+    i = int(i)  # Translate core pyo3 integers to Python integers
+
     if radix == 10:
         return f"{i:d}"
     if radix == 16:
