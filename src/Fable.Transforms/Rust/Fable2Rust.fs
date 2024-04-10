@@ -2116,6 +2116,7 @@ module Util =
                     "Unsupported object expression" |> addWarning com [] None
                     makeEntRef "System.Object" "System.Runtime", []
 
+            let ent = com.GetEntity(entRef)
             let entName = "ObjectExpr"
 
             // collect all captured idents as fields
@@ -2150,7 +2151,7 @@ module Util =
                     mkField [] fieldName fieldTy false
                 )
 
-            let attrs = []
+            let attrs = [ mkAttr "derive" (makeDerivedFrom com ent) ]
             let generics = makeGenerics com ctx genArgs
 
             let structItems =
@@ -2435,20 +2436,21 @@ module Util =
             | _ -> getExpr range expr prop
 
         | Fable.FieldGet info ->
-            let fieldName = info.Name
-
             match fableExpr.Type with
             | Fable.AnonymousRecordType(fields, _genArgs, isStruct) ->
-                // anonimous records are tuples
-                let idx = fields |> Array.findIndex (fun f -> f = fieldName)
-
+                // anonimous records are tuples, transpile as tuple get
+                let idx = fields |> Array.findIndex (fun f -> f = info.Name)
                 (Fable.TupleIndex(idx)) |> transformGet com ctx range typ fableExpr
             | t when isInterface com t ->
-                // for interfaces, transpile property_get as instance call
+                // for interfaces, transpile get_property as instance call
+                makeInstanceCall com ctx info.Name fableExpr []
+            | Fable.GenericParam(_name, _isMeasure, _constraints) ->
+                // for generic types, transpile get_property as instance call
                 makeInstanceCall com ctx info.Name fableExpr []
             | _ ->
+                // for everything else, transpile get_property as field get
                 let expr = transformCallee com ctx fableExpr
-                let field = getField range expr fieldName
+                let field = getField range expr info.Name
 
                 if info.IsMutable then
                     field |> mutableGet
