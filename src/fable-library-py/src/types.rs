@@ -1,11 +1,13 @@
 #![allow(dead_code)]
-use byteorder::{BigEndian, ByteOrder, LittleEndian};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+
+use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
 macro_rules! integer_variant {
     ($name:ident, $type:ty) => {
@@ -62,6 +64,10 @@ macro_rules! integer_variant {
                 Ok($name(self.0 + other))
             }
 
+            pub fn __radd__(&self, other: &PyAny) -> PyResult<$name> {
+                self.__add__(other)
+            }
+
             pub fn __sub__(&self, other: &PyAny) -> PyResult<$name> {
                 let other = match other.extract::<$name>() {
                     Ok(other) => other.0,
@@ -75,6 +81,10 @@ macro_rules! integer_variant {
                     },
                 };
                 Ok($name(self.0 - other))
+            }
+
+            pub fn __rsub__(&self, other: &PyAny) -> PyResult<$name> {
+                self.__sub__(other)
             }
 
             pub fn __mul__(&self, other: &PyAny) -> PyResult<$name> {
@@ -135,6 +145,12 @@ macro_rules! integer_variant {
             }
 
             pub fn __int__(&self) -> PyResult<$type> {
+                Ok(self.0)
+            }
+
+            // Special method so that arbitrary objects can be used whenever integers
+            // are explicitly needed in Python
+            pub fn __index__(&self) -> PyResult<$type> {
                 Ok(self.0)
             }
 
