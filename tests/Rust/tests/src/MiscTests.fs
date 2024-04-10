@@ -426,7 +426,8 @@ type Taster =
 type Eater =
     abstract Bite: unit -> int
 
-let taste (com: Taster) qlty qty =
+// let taste (com: Taster) qlty qty = //TODO: there is no TypeCast when called from interface object expressions
+let taste (com: #Taster) qlty qty =
     com.Starter * qlty + qty |> int
 
 module private MyPrivateModule =
@@ -918,17 +919,17 @@ let ``Properties in object expression work`` () =
 //     let t = TestClass(42)
 //     t.GetNum() |> equal 46
 
-// [<Fact>]
-// let ``Object expressions don't optimize members away`` () = // See #1434
-//     let o = {
-//         new Taster with
-//             member _.Starter = 5.5
-//             member this.Taste(quality, quantity) =
-//                 taste this quality quantity
-//         interface Eater with
-//             member _.Bite() = 25
-//     }
-//     o.Taste(4., 6.) |> equal 28
+[<Fact>]
+let ``Object expressions don't optimize members away`` () = // See #1434
+    let o = {
+        new Taster with
+            member _.Starter = 5.5
+            member this.Taste(quality, quantity) =
+                taste this quality quantity
+        interface Eater with
+            member _.Bite() = 25
+    }
+    o.Taste(4., 6.) |> equal 28
 
 // [<Fact>]
 // let ``Members are accessible in abstract class constructor inherited by object expr`` () = // See #2139
