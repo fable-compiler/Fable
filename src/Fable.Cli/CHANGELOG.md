@@ -7,13 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Rust] Added support for XmlDoc comments (by @ncave)
+* [Rust] Support captures in object expressions (by @ncave)
+
+### Fixed
+
+* [Python] Fixes for custom hash values (#3796) (by @dbrattli)
+* [JS/TS] Fixed optional args for reflection (by @ncave)
+* [JS/TS] Fixed type visibility when parent is namespace (by @ncave)
+* [JS/TS] Fixed DateTimeOffset.ToString with custom format (by @ncave)
+
 ## 4.16.0 - 2024-03-20
 
 ### Added
 
 * [JS/TS] Add `ConditionalWeakTable` (by @chkn)
 
-### fixed
+### Fixed
 
 * [GH-3778](https://github.com/fable-compiler/Fable/issues/3778) [Python] Fixed custom hash values on Record types (by @dbrattli)
 
