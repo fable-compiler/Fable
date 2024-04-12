@@ -10,7 +10,7 @@ from typing import (
     cast,
 )
 
-from .core import int16, uint16
+from .core import int8, int16, uint8, uint16
 from .util import Array, IComparable, compare
 
 
@@ -292,19 +292,11 @@ class char(int):
     __slots__ = ()
 
 
-class int8(int):
-    __slots__ = ()
-
-
 class int32(int):
     __slots__ = ()
 
 
 class int64(int):
-    __slots__ = ()
-
-
-class uint8(int):
     __slots__ = ()
 
 

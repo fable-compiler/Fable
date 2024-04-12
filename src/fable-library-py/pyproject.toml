@@ -15,10 +15,18 @@ python = ">= 3.10, < 4.0"
 pytest = "^8.1"
 maturin = "^1.5.0"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+
 [tool.maturin]
 python-source = "fable_library"
 features = ["pyo3/extension-module"]
 module-name = "core._core"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+pythonpath = "."
+testpaths = ["tests"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0", "maturin>=1.5,<2.0"]
