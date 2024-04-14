@@ -18,7 +18,7 @@ macro_rules! integer_variant {
         #[pymethods]
         impl $name {
             #[new]
-            pub fn new(value: &PyAny) -> PyResult<Self> {
+            pub fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
                 match value.extract::<$type>() {
                     Ok(value) => Ok(Self(value)),
                     Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>(
@@ -43,10 +43,10 @@ macro_rules! integer_variant {
                         ))
                     }
                 }
-                Ok(PyBytes::new(py, &bytes).into())
+                Ok(PyBytes::new_bound(py, &bytes).into())
             }
 
-            pub fn __add__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __add__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = match other.extract::<$type>() {
                     Ok(other) => other,
                     Err(_) => {
@@ -58,11 +58,11 @@ macro_rules! integer_variant {
                 Ok($name(self.0 + other))
             }
 
-            pub fn __radd__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __radd__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 self.__add__(other)
             }
 
-            pub fn __sub__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __sub__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = match other.extract::<$name>() {
                     Ok(other) => other.0,
                     Err(_) => match other.extract::<$type>() {
@@ -77,11 +77,11 @@ macro_rules! integer_variant {
                 Ok($name(self.0 - other))
             }
 
-            pub fn __rsub__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __rsub__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 self.__sub__(other)
             }
 
-            pub fn __mul__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __mul__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = match other.extract::<$name>() {
                     Ok(other) => other.0,
                     Err(_) => match other.extract::<$type>() {
@@ -96,16 +96,16 @@ macro_rules! integer_variant {
                 Ok($name(self.0 * other))
             }
 
-            pub fn __rmul__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __rmul__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 self.__mul__(other)
             }
 
-            pub fn __truediv__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = other.extract::<$type>()?;
                 Ok($name(self.0 / other))
             }
 
-            pub fn __richcmp__(&self, other: &PyAny, op: CompareOp) -> PyResult<bool> {
+            pub fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
                 let other = match other.extract::<$name>() {
                     Ok(other) => Ok(other.0),
                     Err(_) => match other.extract::<$type>() {
@@ -132,17 +132,15 @@ macro_rules! integer_variant {
                 }
             }
 
-            pub fn __rshift__(&self, other: &PyAny) -> PyResult<$name> {
-                let other = other.extract::<$type>()?;
+            pub fn __rshift__(&self, other: usize) -> PyResult<$name> {
                 Ok($name(self.0 >> other))
             }
 
-            pub fn __lshift__(&self, other: &PyAny) -> PyResult<$name> {
-                let other = other.extract::<$type>()?;
+            pub fn __lshift__(&self, other: usize) -> PyResult<$name> {
                 Ok($name(self.0 << other))
             }
 
-            pub fn __and__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __and__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = match other.extract::<$name>() {
                     Ok(other) => Ok(other.0),
                     Err(_) => match other.extract::<$type>() {
@@ -157,11 +155,11 @@ macro_rules! integer_variant {
                 }
             }
 
-            pub fn __rand__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __rand__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 self.__and__(other)
             }
 
-            pub fn __or__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = match other.extract::<$name>() {
                     Ok(other) => Ok(other.0),
                     Err(_) => match other.extract::<$type>() {
@@ -176,11 +174,11 @@ macro_rules! integer_variant {
                 }
             }
 
-            pub fn __ror__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __ror__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 self.__or__(other)
             }
 
-            pub fn __xor__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __xor__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = match other.extract::<$name>() {
                     Ok(other) => Ok(other.0),
                     Err(_) => match other.extract::<$type>() {
@@ -195,7 +193,7 @@ macro_rules! integer_variant {
                 }
             }
 
-            pub fn __rxor__(&self, other: &PyAny) -> PyResult<$name> {
+            pub fn __rxor__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 self.__xor__(other)
             }
 
@@ -246,7 +244,7 @@ pub struct UInt8(u8);
 #[pymethods]
 impl UInt8 {
     #[new]
-    pub fn new(value: &PyAny) -> PyResult<Self> {
+    pub fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
         match value.extract::<u8>() {
             Ok(value) => Ok(Self(value)),
             Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>(
@@ -266,10 +264,10 @@ impl UInt8 {
                 ))
             }
         }
-        Ok(PyBytes::new(py, &bytes).into())
+        Ok(PyBytes::new_bound(py, &bytes).into())
     }
 
-    pub fn __add__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __add__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = match other.extract::<u8>() {
             Ok(other) => other,
             Err(_) => match other.extract::<f64>() {
@@ -289,11 +287,11 @@ impl UInt8 {
         Ok(UInt8(self.0.wrapping_add(other)))
     }
 
-    pub fn __radd__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __radd__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         self.__add__(other)
     }
 
-    pub fn __sub__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __sub__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = match other.extract::<u8>() {
             Ok(other) => other,
             Err(_) => {
@@ -305,11 +303,11 @@ impl UInt8 {
         Ok(UInt8(self.0.wrapping_sub(other)))
     }
 
-    pub fn __rsub__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __rsub__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         self.__sub__(other)
     }
 
-    pub fn __mul__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __mul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = match other.extract::<UInt8>() {
             Ok(other) => other.0,
             Err(_) => match other.extract::<u8>() {
@@ -324,16 +322,16 @@ impl UInt8 {
         Ok(UInt8(self.0.wrapping_mul(other)))
     }
 
-    pub fn __rmul__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __rmul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         self.__mul__(other)
     }
 
-    pub fn __truediv__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = other.extract::<u8>()?;
         Ok(UInt8(self.0 / other))
     }
 
-    pub fn __richcmp__(&self, other: &PyAny, op: CompareOp) -> PyResult<bool> {
+    pub fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
         let other = match other.extract::<u8>() {
             Ok(other) => Ok(other),
             Err(_) => match other.extract::<f64>() {
@@ -355,17 +353,58 @@ impl UInt8 {
         }
     }
 
-    pub fn __rshift__(&self, other: &PyAny) -> PyResult<UInt8> {
-        let other = other.extract::<u8>()?;
-        Ok(UInt8(self.0 >> other))
+    pub fn __rshift__(&self, other: u32) -> PyResult<Self> {
+        Ok(UInt8(self.0.wrapping_shr(other)))
     }
 
-    pub fn __lshift__(&self, other: &PyAny) -> PyResult<UInt8> {
-        let other = other.extract::<u8>()?;
-        Ok(UInt8(self.0 << other))
+    // Return a python object not u8. First try to extract for a Python integer, then for a Rust u8
+    pub fn __rrshift__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &'py Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let result = match other.extract::<UInt8>() {
+            Ok(other) => {
+                let shifted = other.0.wrapping_shr(self.0.into());
+                Ok(UInt8(shifted).into_py(py).into_bound(py))
+            }
+            Err(_) => match other.extract::<i32>() {
+                Ok(other) => {
+                    let shifted = other.wrapping_shr(self.0.into());
+                    Ok(Int32(shifted).into_py(py).into_bound(py))
+                }
+                Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot shift")),
+            },
+        };
+        result
     }
 
-    pub fn __and__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __lshift__(&self, other: u32) -> PyResult<Self> {
+        Ok(UInt8(self.0.rotate_left(other)))
+    }
+
+    pub fn __rlshift__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &'py Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let result = match other.extract::<UInt8>() {
+            Ok(other) => {
+                let shifted = other.0.wrapping_shl(self.0.into());
+                Ok(UInt8(shifted).into_py(py).into_bound(py))
+            }
+            Err(_) => match other.extract::<i32>() {
+                Ok(other) => {
+                    let shifted = other.wrapping_shl(self.0.into());
+                    Ok(Int32(shifted).into_py(py).into_bound(py))
+                }
+                Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot shift")),
+            },
+        };
+        result
+    }
+
+    pub fn __and__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = match other.extract::<u8>() {
             Ok(other) => Ok(other),
             Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
@@ -377,11 +416,11 @@ impl UInt8 {
         }
     }
 
-    pub fn __rand__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __rand__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         self.__and__(other)
     }
 
-    pub fn __or__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = match other.extract::<u8>() {
             Ok(other) => Ok(other),
             Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
@@ -393,11 +432,11 @@ impl UInt8 {
         }
     }
 
-    pub fn __ror__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __ror__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         self.__or__(other)
     }
 
-    pub fn __xor__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __xor__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = match other.extract::<u8>() {
             Ok(other) => Ok(other),
             Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
@@ -409,7 +448,7 @@ impl UInt8 {
         }
     }
 
-    pub fn __rxor__(&self, other: &PyAny) -> PyResult<UInt8> {
+    pub fn __rxor__(&self, other: &Bound<'_, PyAny>) -> PyResult<UInt8> {
         self.__xor__(other)
     }
 

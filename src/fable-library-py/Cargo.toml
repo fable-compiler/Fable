@@ -12,7 +12,7 @@ name = "_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.20.0"
+pyo3 = "0.21.0"
 byteorder = "1.5.0"
 
 [features]
