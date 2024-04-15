@@ -381,7 +381,7 @@ type MyEnum =
 
 type TestRef = TestRef of bool ref
 
-let delay (f:unit -> unit) = f
+let delay (f: unit -> unit) = f
 
 let mutable mutableValue = 0
 

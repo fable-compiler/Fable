@@ -374,20 +374,23 @@ module Same =
         let shouldEqual30 = let Same = 25 in Same + 5
 
 
-// let f8 a b = a + b
-// let mutable a = 10
+let f8 a b = a + b
+let mutable a = 10
 
-// module B =
-//     let c = a
-//     a <- a + 5
-//     let mutable a = 20
-//     let d = f8 2 2
-//     let f8 a b = a - b
+// Static constructors and module 'do' bindings are supported, but have
+// to be explicitly opted-in by enabling the 'static_do_bindings' feature
 
-//     module D =
-//         let d = a
-//         a <- a + 5
-//         let e = f8 2 2
+module B =
+    let c = a
+    a <- a + 5      // module 'do' bindings are supported, but need to be enabled
+    let mutable a = 20
+    let d = f8 2 2
+    let f8 a b = a - b
+
+    module D =
+        let d = a
+        a <- a + 5  // module 'do' bindings are supported, but need to be enabled
+        let e = f8 2 2
 
 module Internal =
     let internal add x y = x + y
@@ -405,7 +408,7 @@ type MyEnum =
 
 type TestRef = TestRef of bool ref
 
-// let delay (f:unit -> unit) = f
+// let delay (f: unit -> unit) = f
 
 // let mutable mutableValue = 0
 
@@ -1027,30 +1030,49 @@ let ``Binding doesn't shadow top-level values`` () = // See #130
     equal 10 Util.B.c
     equal 20 Util.B.D.d
 
-// [<Fact>]
-// let ``Binding doesn't shadow top-level values (TestFixture)`` () = // See #130
-//     equal 10 B.c
-//     equal 20 B.D.d
+[<Fact>]
+let ``Binding doesn't shadow top-level values (TestFixture)`` () = // See #130
+    equal 10 B.c
+    equal 20 B.D.d
 
 [<Fact>]
 let ``Binding doesn't shadow top-level functions`` () = // See #130
     equal 4 Util.B.d
     equal 0 Util.B.D.e
 
-// [<Fact>]
-// let ``Binding doesn't shadow top-level functions (TestFixture)`` () = // See #130
-//     equal 4 B.d
-//     equal 0 B.D.e
+[<Fact>]
+let ``Binding doesn't shadow top-level functions (TestFixture)`` () = // See #130
+    equal 4 B.d
+    equal 0 B.D.e
 
-// [<Fact>]
-// let ``Setting a top-level value doesn't alter values at same level`` () = // See #130
-//     equal 15 Util.a
-//     equal 25 Util.B.a
+#if FABLE_COMPILER_RUST
+open Fable.Core.Rust
 
-// [<Fact>]
-// let ``Setting a top-level value doesn't alter values at same level (TestFixture)`` () = // See #130
-//     equal 15 a
-//     equal 25 B.a
+[<Fact>]
+[<OuterAttr("cfg", [|"not(feature = \"static_do_bindings\")"|])>]
+let ``Setting a top-level value doesn't alter values at same level`` () = // See #130
+    equal 10 Util.a
+    equal 20 Util.B.a
+
+[<Fact>]
+[<OuterAttr("cfg", [|"not(feature = \"static_do_bindings\")"|])>]
+let ``Setting a top-level value doesn't alter values at same level (TestFixture)`` () = // See #130
+    equal 10 a
+    equal 20 B.a
+
+#else
+
+[<Fact>]
+let ``Setting a top-level value doesn't alter values at same level`` () = // See #130
+    equal 15 Util.a
+    equal 25 Util.B.a
+
+[<Fact>]
+let ``Setting a top-level value doesn't alter values at same level (TestFixture)`` () = // See #130
+    equal 15 a
+    equal 25 B.a
+
+#endif
 
 [<Fact>]
 let ``Internal members can be accessed from other modules`` () = // See #163

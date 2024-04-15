@@ -82,16 +82,19 @@ let f2 a b = a + b
 
 let mutable a = 10
 
+// Static constructors and module 'do' bindings are supported, but have
+// to be explicitly opted-in by enabling the 'static_do_bindings' feature
+
 module B =
     let c = a
-    a <- a + 5
+    a <- a + 5          // module 'do' bindings are supported, but need to be enabled
     let mutable a = 20
     let d = f2 2 2
     let f2 a b = a - b
 
     module D =
         let d = a
-        a <- a + 5
+        a <- a + 5      // module 'do' bindings are supported, but need to be enabled
         let e = f2 2 2
 
 // Test members with names conflicting with JS
