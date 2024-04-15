@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Rust] Added support for XmlDoc comments (by @ncave)
 * [Rust] Support captures in object expressions (by @ncave)
+* [Rust] Added type extensions support (by @ncave)
 
 ### Fixed
 

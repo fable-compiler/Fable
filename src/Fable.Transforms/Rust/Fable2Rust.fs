@@ -3867,6 +3867,19 @@ module Util =
         [ macroItem ]
 
 
+    let transformExtensionMethod (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
+        let argTypes = decl.Args |> List.map (fun arg -> arg.Type)
+
+        match argTypes with
+        | Fable.DeclaredType(entRef, genArgs) :: _ ->
+            // let ent = com.GetEntity(entRef)
+            let memberItem = makeMemberItem com ctx true (decl, memb)
+            let self_ty = transformEntityType com ctx entRef genArgs
+            let generics = makeGenerics com ctx genArgs
+            let implItem = mkImplItem [] "" self_ty generics [ memberItem ] None
+            [ implItem ]
+        | _ -> []
+
     let transformModuleFunction (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let name = splitLast decl.Name
         //if name = "someProblematicFunction" then System.Diagnostics.Debugger.Break()
@@ -3890,7 +3903,9 @@ module Util =
         let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = transformAttributes com ctx memb.Attributes memb.XmlDoc
         let fnItem = mkFnItem attrs name kind
-        fnItem
+
+        let memberItem = fnItem |> memberItemWithVis com ctx memb
+        [ memberItem ]
 
     let transformModuleLetValue (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         // expected output:
@@ -3939,7 +3954,9 @@ module Util =
         let fnDecl = mkFnDecl [] (mkFnRetTy ty)
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
         let fnItem = mkFnItem attrs name fnKind
-        fnItem
+
+        let memberItem = fnItem |> memberItemWithVis com ctx memb
+        [ memberItem ]
 
     // // is the member return type the same as the entity
     // let isFluentMemberType (ent: Fable.Entity) = function
@@ -4557,9 +4574,7 @@ module Util =
                 []
             else
                 let generics = makeGenerics com ctx genArgs
-
                 let implItem = mkImplItem [] "" self_ty generics memberItems None
-
                 [ implItem ]
 
         let nonInterfaceMemberNames =
@@ -4742,14 +4757,15 @@ module Util =
     let transformMemberDecl (com: IRustCompiler) ctx (decl: Fable.MemberDecl) =
         let memb = com.GetMember(decl.MemberRef)
 
-        let memberItem =
-            if memb.IsValue then
+        let memberItems =
+            if memb.IsExtension && memb.IsInstance then
+                transformExtensionMethod com ctx memb decl
+            elif memb.IsValue then
                 transformModuleLetValue com ctx memb decl
             else
                 transformModuleFunction com ctx memb decl
 
-        let memberItem = memberItem |> memberItemWithVis com ctx memb
-        [ memberItem ]
+        memberItems
 
     let transformDecl (com: IRustCompiler) ctx decl =
         match decl with
