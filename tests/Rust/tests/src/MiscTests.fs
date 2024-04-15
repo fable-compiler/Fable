@@ -319,31 +319,31 @@ type InliningMutationTest(l: int, r: int) =
         let right = call()
         left + right
 
-// module Extensions =
-//     type IDisposable with
-//         static member Create(f) =
-//             { new IDisposable with
-//                 member _.Dispose() = f() }
+module Extensions =
+    type IDisposable with
+        static member Create(f) =
+            { new IDisposable with
+                member _.Dispose() = f() }
 
-//     type SomeClass with
-//         member x.FullName = sprintf "%s Smith" x.Name
-//         member x.NameTimes (i: int, j: int) = String.replicate (i + j) x.Name
+    type SomeClass with
+        member x.FullName = sprintf "%s Smith" x.Name
+        member x.NameTimes (i: int, j: int) = String.replicate (i + j) x.Name
 
-//     type AnotherClass with
-//         member x.FullName = sprintf "%i" x.Value
-//         member x.Overload(i: int) = i * 4
-//         member x.Overload(s: string) = s + s
-//         member x.Value2 = x.Value * 2
+    type AnotherClass with
+        member x.FullName = sprintf "%i" x.Value
+        member x.Overload(i: int) = i * 4
+        member x.Overload(s: string) = s + s
+        member x.Value2 = x.Value * 2
 
-//     type NestedModule.AnotherClass with
-//         member x.Value2 = x.Value * 4
+    type NestedModule.AnotherClass with
+        member x.Value2 = x.Value * 4
 
 //     [<AbstractClass>]
 //     type ObjectExprBase (x: int ref) as this =
 //         do x := this.dup x.contents
 //         abstract member dup: int -> int
 
-// open Extensions
+open Extensions
 
 
 module StyleBuilderHelper =
@@ -947,38 +947,38 @@ let ``Object expressions don't optimize members away`` () = // See #1434
 //     RecursiveType(fun f -> x <- f()) |> ignore
 //     equal 11 x
 
-// [<Fact>]
-// let ``Type extension static methods work`` () =
-//     let disposed = ref false
-//     let disp = IDisposable.Create(fun () -> disposed := true)
-//     disp.Dispose ()
-//     equal true !disposed
+[<Fact>]
+let ``Type extension static methods work`` () =
+    let disposed = ref false
+    let disp = IDisposable.Create(fun () -> disposed := true)
+    disp.Dispose ()
+    equal true !disposed
 
-// [<Fact>]
-// let ``Type extension properties work`` () =
-//     let c = SomeClass("John")
-//     equal "John Smith" c.FullName
+[<Fact>]
+let ``Type extension properties work`` () =
+    let c = SomeClass("John")
+    equal "John Smith" c.FullName
 
-// [<Fact>]
-// let ``Type extension methods work`` () =
-//     let c = SomeClass("John")
-//     c.NameTimes(1,2) |> equal "JohnJohnJohn"
+[<Fact>]
+let ``Type extension methods work`` () =
+    let c = SomeClass("John")
+    c.NameTimes(1,2) |> equal "JohnJohnJohn"
 
-// [<Fact>]
-// let ``Type extension methods with same name work`` () =
-//     let c = AnotherClass(3)
-//     equal "3" c.FullName
+[<Fact>]
+let ``Type extension methods with same name work`` () =
+    let c = AnotherClass(3)
+    equal "3" c.FullName
 
-// [<Fact>]
-// let ``Type extension overloads work`` () =
-//     let c = AnotherClass(3)
-//     c.Overload("3") |> equal "33"
-//     c.Overload(3) |> equal 12
+[<Fact>]
+let ``Type extension overloads work`` () =
+    let c = AnotherClass(3)
+    c.Overload("3") |> equal "33"
+    c.Overload(3) |> equal 12
 
-// [<Fact>]
-// let ``Extending different types with same name and same method works`` () =
-//     AnotherClass(5).Value2 |> equal 10
-//     NestedModule.AnotherClass(5).Value2 |> equal 40
+[<Fact>]
+let ``Extending different types with same name and same method works`` () =
+    AnotherClass(5).Value2 |> equal 10
+    NestedModule.AnotherClass(5).Value2 |> equal 40
 
 [<Fact>]
 let ``Module, members and properties with same name don't clash`` () =
