@@ -10,7 +10,7 @@ use pyo3::types::PyBytes;
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
 macro_rules! integer_variant {
-    ($name:ident, $type:ty) => {
+    ($name:ident, $type:ty, $extract_type:ty, $mask:expr) => {
         #[pyclass(module = "fable", frozen)]
         #[derive(Clone)]
         pub struct $name($type);
@@ -19,12 +19,19 @@ macro_rules! integer_variant {
         impl $name {
             #[new]
             pub fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
-                match value.extract::<$type>() {
-                    Ok(value) => Ok(Self(value)),
-                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>(
-                        "Cannot convert argument to integer",
-                    )),
+                let value = value.call_method1("__and__", ($mask,))?;
+                let value: PyResult<u32> = value.extract();
+                match value {
+                    Ok(value) => Ok(Self(value as $type)),
+                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))),
                 }
+            }
+
+            pub fn __neg__(&self) -> PyResult<$name> {
+                Ok($name(self.0.wrapping_neg()))
             }
 
             pub fn to_bytes(
@@ -55,30 +62,29 @@ macro_rules! integer_variant {
                         ))
                     }
                 };
-                Ok($name(self.0 + other))
+                Ok($name(self.0.wrapping_add(other)))
             }
 
-            pub fn __radd__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                self.__add__(other)
+            // For the case where we are on the right side of the operator we let the other
+            // object handle the addition and turn ourselves into an integer.
+            pub fn __radd__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+                other.add(self.0)
             }
 
             pub fn __sub__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = match other.extract::<$name>() {
-                    Ok(other) => other.0,
-                    Err(_) => match other.extract::<$type>() {
-                        Ok(other) => other,
-                        Err(_) => {
-                            return Err(PyErr::new::<exceptions::PyTypeError, _>(
-                                "Cannot convert argument to integer",
-                            ))
-                        }
-                    },
+                let other = match other.extract::<$type>() {
+                    Ok(other) => other,
+                    Err(_) => {
+                        return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                            "Cannot convert argument to integer",
+                        ))
+                    }
                 };
                 Ok($name(self.0 - other))
             }
 
-            pub fn __rsub__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                self.__sub__(other)
+            pub fn __rsub__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+                other.sub(self.0)
             }
 
             pub fn __mul__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
@@ -96,13 +102,41 @@ macro_rules! integer_variant {
                 Ok($name(self.0 * other))
             }
 
-            pub fn __rmul__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                self.__mul__(other)
+            pub fn __rmul__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+                other.mul(self.0)
             }
 
             pub fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = other.extract::<$type>()?;
                 Ok($name(self.0 / other))
+            }
+
+            pub fn __floordiv__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
+                let other = other.extract::<$type>()?;
+                Ok($name(self.0 / other))
+            }
+
+            pub fn __mod__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
+                let other = other.extract::<$type>()?;
+                Ok($name(self.0 % other))
+            }
+
+            pub fn __invert__(&self) -> Self {
+                Self(!self.0)
+            }
+
+            pub fn __inv__(&self) -> Self {
+                Self(!self.0)
+            }
+
+            #[cfg(any(target_type = "i8", target_type = "i16", target_type = "i32"))]
+            pub fn __abs__(&self) -> Self {
+                Self(self.0.abs())
+            }
+
+            #[cfg(any(target_type = "u8", target_type = "u16", target_type = "u32"))]
+            pub fn __abs__(&self) -> Self {
+                Self(self.0)
             }
 
             pub fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
@@ -132,40 +166,46 @@ macro_rules! integer_variant {
                 }
             }
 
-            pub fn __rshift__(&self, other: usize) -> PyResult<$name> {
-                Ok($name(self.0 >> other))
+            pub fn __rshift__(&self, other: u32) -> PyResult<$name> {
+                Ok($name(self.0.wrapping_shr(other)))
             }
 
-            pub fn __lshift__(&self, other: usize) -> PyResult<$name> {
-                Ok($name(self.0 << other))
+            pub fn __rrshift__<'py>(
+                &self,
+                other: &'py Bound<'py, PyAny>,
+            ) -> PyResult<Bound<'py, PyAny>> {
+                other.rshift(self.0)
+            }
+
+            pub fn __lshift__(&self, other: u32) -> PyResult<$name> {
+                Ok($name(self.0.rotate_left(other)))
+            }
+
+            pub fn __rlshift__<'py>(
+                &self,
+                other: &'py Bound<'py, PyAny>,
+            ) -> PyResult<Bound<'py, PyAny>> {
+                other.lshift(self.0)
             }
 
             pub fn __and__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = match other.extract::<$name>() {
-                    Ok(other) => Ok(other.0),
-                    Err(_) => match other.extract::<$type>() {
-                        Ok(other) => Ok(other),
-                        Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
-                    },
-                };
-
-                match other {
-                    Ok(other) => Ok($name(self.0 & other)),
-                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot and")),
+                match other.extract::<u32>() {
+                    Ok(other) => Ok($name((self.0 as u32 & other) as $type)),
+                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
                 }
             }
 
-            pub fn __rand__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                self.__and__(other)
+            pub fn __rand__<'py>(
+                &self,
+                other: &'py Bound<'py, PyAny>,
+            ) -> PyResult<Bound<'py, PyAny>> {
+                other.bitand(self.0)
             }
 
             pub fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = match other.extract::<$name>() {
-                    Ok(other) => Ok(other.0),
-                    Err(_) => match other.extract::<$type>() {
-                        Ok(other) => Ok(other),
-                        Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
-                    },
+                let other = match other.extract::<$type>() {
+                    Ok(other) => Ok(other),
+                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
                 };
 
                 match other {
@@ -174,8 +214,11 @@ macro_rules! integer_variant {
                 }
             }
 
-            pub fn __ror__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                self.__or__(other)
+            pub fn __ror__<'py>(
+                &self,
+                other: &'py Bound<'py, PyAny>,
+            ) -> PyResult<Bound<'py, PyAny>> {
+                other.bitor(self.0)
             }
 
             pub fn __xor__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
@@ -193,8 +236,11 @@ macro_rules! integer_variant {
                 }
             }
 
-            pub fn __rxor__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                self.__xor__(other)
+            pub fn __rxor__<'py>(
+                &self,
+                other: &'py Bound<'py, PyAny>,
+            ) -> PyResult<Bound<'py, PyAny>> {
+                other.bitxor(self.0)
             }
 
             fn __bool__(&self) -> bool {
@@ -224,19 +270,29 @@ macro_rules! integer_variant {
             pub fn __str__(&self) -> PyResult<String> {
                 Ok(self.0.to_string())
             }
+
+            pub fn __format__<'py>(&self, py: Python<'py>, format: &str) -> PyResult<String> {
+                // This is hard to implement so we just convert to a Python integer and let Python handle it
+                let int = self.__int__()?;
+                let int = int.into_py(py);
+                let result = int.call_method1(py, "__format__", (format,))?;
+                result.extract::<String>(py)
+            }
         }
     };
 }
 
-integer_variant!(Int8, i8);
-//integer_variant!(UInt8, u8);
-integer_variant!(Int16, i16);
-integer_variant!(UInt16, u16);
-integer_variant!(Int32, i32);
-integer_variant!(UInt32, u32);
+//integer_variant!(UInt8, u8, u32, 0xff);
+integer_variant!(Int8, i8, i32, 0xff_u32);
+integer_variant!(UInt16, u16, u32, 0xffff_u32);
+integer_variant!(Int16, i16, i32, 0xffff_u32);
+integer_variant!(UInt32, u32, u32, 0xffffffff_u32);
+integer_variant!(Int32, i32, i32, 0xffffffff_u32);
 //integer_variant!(Int64, i64);
 //integer_variant!(UInt64, u64);
 
+// TODO: Remove code below. We only keep one non-macro integer type for
+// TODO: now to make the IDE type inference work properly.
 #[pyclass(module = "fable", frozen)]
 #[derive(Clone)]
 pub struct UInt8(u8);
@@ -251,6 +307,10 @@ impl UInt8 {
                 "Cannot convert argument to integer",
             )),
         }
+    }
+
+    pub fn __neg__(&self) -> PyResult<Self> {
+        Ok(UInt8(self.0.wrapping_neg()))
     }
 
     pub fn to_bytes(&self, py: Python, length: usize, byteorder: &str) -> PyResult<PyObject> {
@@ -270,25 +330,17 @@ impl UInt8 {
     pub fn __add__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = match other.extract::<u8>() {
             Ok(other) => other,
-            Err(_) => match other.extract::<f64>() {
-                Ok(_other) => {
-                    //return Ok(other + (f64.from(self.0)));
-                    return Err(PyErr::new::<exceptions::PyTypeError, _>(
-                        "Cannot convert argument to float",
-                    ));
-                }
-                Err(_) => {
-                    return Err(PyErr::new::<exceptions::PyTypeError, _>(
-                        "Cannot convert argument to integer",
-                    ))
-                }
-            },
+            Err(_) => {
+                return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                    "Cannot convert argument to integer",
+                ))
+            }
         };
         Ok(UInt8(self.0.wrapping_add(other)))
     }
 
-    pub fn __radd__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        self.__add__(other)
+    pub fn __radd__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        other.add(self.0)
     }
 
     pub fn __sub__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -322,13 +374,27 @@ impl UInt8 {
         Ok(UInt8(self.0.wrapping_mul(other)))
     }
 
-    pub fn __rmul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        self.__mul__(other)
+    pub fn __rmul__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        other.mul(self.0)
     }
 
     pub fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = other.extract::<u8>()?;
         Ok(UInt8(self.0 / other))
+    }
+
+    pub fn __floordiv__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let other = other.extract::<u8>()?;
+        Ok(UInt8(self.0 / other))
+    }
+
+    pub fn __mod__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let other = other.extract::<u8>()?;
+        Ok(UInt8(self.0 % other))
+    }
+
+    pub fn __invert__(&self) -> Self {
+        UInt8(!self.0)
     }
 
     pub fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
@@ -383,25 +449,8 @@ impl UInt8 {
         Ok(UInt8(self.0.rotate_left(other)))
     }
 
-    pub fn __rlshift__<'py>(
-        &self,
-        py: Python<'py>,
-        other: &'py Bound<'py, PyAny>,
-    ) -> PyResult<Bound<'py, PyAny>> {
-        let result = match other.extract::<UInt8>() {
-            Ok(other) => {
-                let shifted = other.0.wrapping_shl(self.0.into());
-                Ok(UInt8(shifted).into_py(py).into_bound(py))
-            }
-            Err(_) => match other.extract::<i32>() {
-                Ok(other) => {
-                    let shifted = other.wrapping_shl(self.0.into());
-                    Ok(Int32(shifted).into_py(py).into_bound(py))
-                }
-                Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot shift")),
-            },
-        };
-        result
+    pub fn __rlshift__<'py>(&self, other: &'py Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        other.lshift(self.0)
     }
 
     pub fn __and__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -416,8 +465,8 @@ impl UInt8 {
         }
     }
 
-    pub fn __rand__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        self.__and__(other)
+    pub fn __rand__<'py>(&self, other: &'py Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        other.bitand(self.0)
     }
 
     pub fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -432,8 +481,8 @@ impl UInt8 {
         }
     }
 
-    pub fn __ror__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        self.__or__(other)
+    pub fn __ror__<'py>(&self, other: &'py Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        other.bitor(self.0)
     }
 
     pub fn __xor__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -448,8 +497,8 @@ impl UInt8 {
         }
     }
 
-    pub fn __rxor__(&self, other: &Bound<'_, PyAny>) -> PyResult<UInt8> {
-        self.__xor__(other)
+    pub fn __rxor__<'py>(&self, other: &'py Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        other.bitxor(self.0)
     }
 
     fn __bool__(&self) -> bool {
@@ -478,5 +527,13 @@ impl UInt8 {
 
     pub fn __str__(&self) -> PyResult<String> {
         Ok(self.0.to_string())
+    }
+
+    pub fn __format__<'py>(&self, py: Python<'py>, format: &str) -> PyResult<String> {
+        // This is hard to implement so we just convert to a Python integer and let Python handle it
+        let int = self.__int__()?;
+        let int = int.into_py(py);
+        let result = int.call_method1(py, "__format__", (format,))?;
+        result.extract::<String>(py)
     }
 }

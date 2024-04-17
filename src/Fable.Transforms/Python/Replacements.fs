@@ -68,7 +68,7 @@ let coreModFor =
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
 
-    Helper.LibCall(com, "decimal", "Decimal", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
+    Helper.LibCall(com, "decimal_", "create", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
 
 let makeDecimalFromExpr com r t (e: Expr) =
     match e with
@@ -239,9 +239,7 @@ let needToCast fromKind toKind =
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
     match args.Head.Type with
-    | Char ->
-        //Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
-        Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
+    | Char -> Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
     | String -> Helper.LibCall(com, "double", "parse", targetType, args)
     | Number(kind, _) ->
         match kind with
@@ -275,11 +273,6 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
 
         TypeCast(args.Head, targetType)
-
-// Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
-let fastIntFloor expr =
-    let inner = makeUnOp None Any expr UnaryNotBitwise
-    makeUnOp None (Int32.Number) inner UnaryNotBitwise
 
 let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
     let kind =
@@ -344,7 +337,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         match typeTo with
         | Int8 -> emitExpr None Int8.Number [ arg ] "(int($0) + 0x80 & 0xFF) - 0x80"
         | Int16 -> emitExpr None Int16.Number [ arg ] "(int($0) + 0x8000 & 0xFFFF) - 0x8000"
-        | Int32 -> fastIntFloor arg
+        | Int32 -> emitExpr None Int32.Number [ arg ] "int($0)"
         | UInt8 -> emitExpr None UInt8.Number [ arg ] "int($0+0x100 if $0 < 0 else $0) & 0xFF"
         | UInt16 -> emitExpr None UInt16.Number [ arg ] "int($0+0x10000 if $0 < 0 else $0) & 0xFFFF"
         | UInt32 -> emitExpr None UInt32.Number [ arg ] "int($0+0x100000000 if $0 < 0 else $0)"
@@ -435,7 +428,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             match argTypes with
             // Floor result of integer divisions (see #172)
             | Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Int64 | UInt64 | BigInt), _) :: _ ->
-                binOp BinaryDivide left right |> fastIntFloor
+                binOp BinaryDivide left right |> truncateUnsigned
             | _ -> Helper.LibCall(com, "double", "divide", t, [ left; right ], argTypes, ?loc = r)
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530

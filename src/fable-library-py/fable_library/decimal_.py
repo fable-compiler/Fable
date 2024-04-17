@@ -1,6 +1,6 @@
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
-from .types import FSharpRef, int8, int16, uint8, uint16
+from .types import FSharpRef, byte, int16, int32, sbyte, uint16, uint32
 
 
 getcontext().prec = 29
@@ -129,7 +129,7 @@ def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int) -> D
     else:
         high = high << 64
 
-    value = Decimal((low + mid + high) * sign)
+    value = Decimal(int(low + mid + high) * sign)
     if scale:
         dscale = Decimal(pow(10, int(scale)))
         return value / dscale
@@ -158,7 +158,7 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
 
 def create(value: int | float | int16 | uint16 | str) -> Decimal:
     match value:
-        case int8() | uint8() | int16() | uint16():
+        case sbyte() | byte() | int16() | uint16() | int32() | uint32():
             return Decimal(int(value))
         case _:
             return Decimal(value)
