@@ -1,6 +1,6 @@
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
-from .types import FSharpRef, byte, int16, int32, sbyte, uint16, uint32
+from .types import FSharpRef, IntegerTypes, byte, int16, int32, sbyte, uint16, uint32
 
 
 getcontext().prec = 29
@@ -113,7 +113,9 @@ def op_inequality(a: Decimal, b: Decimal) -> bool:
     return a != b
 
 
-def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int) -> Decimal:
+def from_parts(
+    low: IntegerTypes, mid: IntegerTypes, high: IntegerTypes, isNegative: IntegerTypes, scale: IntegerTypes
+) -> Decimal:
     sign = -1 if isNegative else 1
 
     if low < 0:
@@ -156,7 +158,7 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
         return False
 
 
-def create(value: int | float | int16 | uint16 | str) -> Decimal:
+def create(value: int | float | byte | sbyte | int16 | uint16 | int32 | uint32 | str) -> Decimal:
     match value:
         case sbyte() | byte() | int16() | uint16() | int32() | uint32():
             return Decimal(int(value))

@@ -101,9 +101,9 @@ def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, for
                 precision = int(precision) if precision is not None else 6
                 rep = to_fixed(rep, precision)
             elif format in ("g", "G"):
-                rep = to_precision(rep, precision) if precision is not None else to_precision(rep)
+                rep = to_precision(rep, precision) if precision is not None else to_precision(float(rep))
             elif format in ("e", "E"):
-                rep = to_exponential(rep, precision) if precision is not None else to_exponential(rep)
+                rep = to_exponential(rep, precision) if precision is not None else to_exponential(float(rep))
             else:  # AOid
                 rep = to_string(rep)
 

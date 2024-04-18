@@ -4,6 +4,7 @@ open System.IO
 open Fake.IO
 open Build.Utils
 open SimpleExec
+open BlackFox.CommandLine
 
 type BuildFableLibraryPython() =
     inherit
@@ -14,6 +15,21 @@ type BuildFableLibraryPython() =
             Path.Combine("temp", "fable-library-py"),
             Path.Combine("temp", "fable-library-py", "fable_library")
         )
+
+    override this.FableBuildStage() =
+        let args =
+            CmdLine.appendRaw this.SourceDir
+            >> CmdLine.appendPrefix "--outDir" this.OutDir
+            >> CmdLine.appendPrefix "--fableLib" "."
+            >> CmdLine.appendPrefix "--lang" this.Language
+            >> CmdLine.appendPrefix "--exclude" "Fable.Core"
+            >> CmdLine.appendPrefix "--define" "FABLE_LIBRARY"
+            >> CmdLine.appendRaw "--noCache"
+            // Target implementation can require additional arguments
+            >> this.FableArgsBuilder
+
+        Command.Fable(args)
+
 
     override this.CopyStage() =
         // // Copy all *.rs files to the build directory

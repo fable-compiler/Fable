@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable, MutableSequence
 from typing import (
     Any,
     Generic,
+    TypeAlias,
     TypeVar,
     cast,
 )
@@ -305,6 +306,7 @@ class float32(float):
 
 
 float = float  # use native float for float64
+IntegerTypes: TypeAlias = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
 
 
 def Int8Array(lst: list[int]) -> MutableSequence[int]:
@@ -370,4 +372,5 @@ __all__ = [
     "seq_to_string",
     "to_string",
     "Union",
+    "IntegerTypes",
 ]
