@@ -294,18 +294,6 @@ pub mod String_ {
         fromString(o.to_string())
     }
 
-    pub fn fromCharCode(code: u32) -> char {
-        unsafe { core::char::from_u32_unchecked(code) }
-    }
-
-    pub fn toLowerChar(c: char) -> char {
-        c.to_lowercase().next().unwrap()
-    }
-
-    pub fn toUpperChar(c: char) -> char {
-        c.to_uppercase().next().unwrap()
-    }
-
     pub fn ofChar(c: char) -> string {
         fromIter([c].into_iter())
     }
