@@ -445,7 +445,7 @@ module Reflection =
             | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'int'>" expr
             | _, Fable.Type.Number(UInt32, _) -> pyTypeof "<class 'fable.UInt32>" expr
             | _, Fable.Type.Number(Int64, _) -> pyTypeof "<class 'fable.Int64'>" expr
-            | _, Fable.Type.Number(UInt64, _) -> pyTypeof "<class 'fable.UInt36'>" expr
+            | _, Fable.Type.Number(UInt64, _) -> pyTypeof "<class 'fable.UInt64'>" expr
             | _, Fable.Type.Number(Float32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.float32'>" expr
             | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
             | _ -> pyTypeof "<class 'int'>" expr
