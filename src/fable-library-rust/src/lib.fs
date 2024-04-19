@@ -6,6 +6,7 @@ let _imports () =
     importAll "./Async.rs"
     importAll "./BigInt.rs"
     importAll "./BitConverter.rs"
+    importAll "./Char.rs"
     importAll "./Convert.rs"
     importAll "./DateOnly.rs"
     importAll "./DateTime.rs"
