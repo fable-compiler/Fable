@@ -1,9 +1,15 @@
+"""Stub file for the Fable library core module.
+
+This is only needed so that the static type checker can find the types for the extension
+methods we have written in Rust. The file will never be used by Python at runtime.
+"""
+
 from typing import Any, final
 
 from typing_extensions import Self
 
 class Numeric:
-    def __init__(self, value: int | Numeric) -> None: ...
+    def __init__(self, value: int | Numeric | float) -> None: ...
     def __add__(self, other: Any) -> Self: ...
     def __sub__(self, other: Any) -> Self: ...
     def __mul__(self, other: Any) -> Self: ...
