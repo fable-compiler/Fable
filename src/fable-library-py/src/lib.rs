@@ -20,7 +20,7 @@ fn _core(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<UInt16>()?;
     m.add_class::<Int32>()?;
     m.add_class::<UInt32>()?;
-    //m.add_class::<Int64>()?;
-    //m.add_class::<UInt64>()?;
+    m.add_class::<Int64>()?;
+    m.add_class::<UInt64>()?;
     Ok(())
 }

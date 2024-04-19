@@ -1,7 +1,7 @@
 from array import array
 from decimal import Decimal
 
-from fable_library.core import byte, int16, sbyte, uint16
+from fable_library.core import byte, int16, int32, int64, sbyte, uint16, uint32, uint64
 
 
 def test_byte_create() -> None:
@@ -123,3 +123,21 @@ def test_format():
     assert f"{int16(42):08d}" == "00000042"
     assert f"{sbyte(42):08d}" == "00000042"
     assert f"{byte(42):08d}" == "00000042"
+
+
+def test_abs():
+    assert abs(byte(42)) == 42
+    assert abs(byte(0)) == 0
+    assert abs(sbyte(-42)) == 42
+    assert abs(sbyte(-1)) == 1
+    assert abs(int16(-42)) == 42
+    assert abs(int16(-1)) == 1
+    assert abs(int32(-42)) == 42
+    assert abs(int32(-1)) == 1
+    assert abs(int64(-42)) == 42
+    assert abs(int64(-1)) == 1
+    assert abs(uint16(42)) == 42
+    assert abs(uint16(0)) == 0
+    assert abs(uint32(42)) == 42
+    assert abs(uint32(0)) == 0
+    assert abs(uint64(42)) == 42

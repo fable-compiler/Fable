@@ -1,17 +1,16 @@
 from typing import TypeAlias
 
-# from ._core import Int64 as int64
 from ._core import (
     Int8,
     Int16,
     Int32,
+    Int64,
     UInt8,
     UInt16,
     UInt32,
+    UInt64,
 )
 
-
-# from ._core import UInt64 as uint64
 
 # Type aliases for the built-in types
 byte: TypeAlias = UInt8
@@ -22,6 +21,8 @@ int16: TypeAlias = Int16
 uint16: TypeAlias = UInt16
 int32: TypeAlias = Int32
 uint32: TypeAlias = UInt32
+int64: TypeAlias = Int64
+uint64: TypeAlias = UInt64
 
 __all__ = [
     "sbyte",
@@ -38,4 +39,8 @@ __all__ = [
     "UInt16",
     "Int32",
     "UInt32",
+    "Int64",
+    "UInt64",
+    "int64",
+    "uint64",
 ]

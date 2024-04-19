@@ -11,7 +11,7 @@ from typing import (
     cast,
 )
 
-from .core import byte, int16, int32, sbyte, uint16, uint32
+from .core import byte, int16, int32, int64, sbyte, uint16, uint32, uint64
 from .util import Array, IComparable, compare
 
 
@@ -274,7 +274,7 @@ class FSharpException(Exception, IComparable):
             else:
                 return True
 
-        return super().__lt__(other)
+        return False
 
     def __hash__(self) -> int:
         return hash(self.Data0)
@@ -290,14 +290,6 @@ class FSharpException(Exception, IComparable):
 
 
 class char(int):
-    __slots__ = ()
-
-
-class int64(int):
-    __slots__ = ()
-
-
-class uint64(int):
     __slots__ = ()
 
 
