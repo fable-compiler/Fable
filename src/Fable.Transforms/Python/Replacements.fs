@@ -337,7 +337,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         match typeTo with
         | Int8 -> Helper.LibCall(com, "types", "sbyte", targetType, args)
         | Int16 -> Helper.LibCall(com, "types", "int16", targetType, args)
-        | Int32 -> emitExpr None Int32.Number [ arg ] "int($0)"
+        | Int32 -> Helper.LibCall(com, "types", "int16", targetType, args)
         | UInt8 -> Helper.LibCall(com, "types", "byte", targetType, args)
         | UInt16 -> Helper.LibCall(com, "types", "uint16", targetType, args)
         | UInt32 -> Helper.LibCall(com, "types", "uint32", targetType, args)
@@ -353,7 +353,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         if needToCast typeFrom typeTo then
             match typeFrom with
             | Int64
-            | UInt64 -> Helper.LibCall(com, "Long", "to_int", targetType, args) // TODO: make no-op
+            | UInt64 -> Helper.LibCall(com, "types", "int32", targetType, args)
             | Decimal -> Helper.LibCall(com, "Decimal", "to_number", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo

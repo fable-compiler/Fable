@@ -142,3 +142,7 @@ def test_abs():
     assert abs(uint32(42)) == 42
     assert abs(uint32(0)) == 0
     assert abs(uint64(42)) == 42
+
+
+def test_floor_div():
+    assert 10 // byte(3) == 3

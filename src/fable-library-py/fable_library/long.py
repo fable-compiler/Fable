@@ -182,12 +182,6 @@ def to_string(x: int) -> str:
     return str(x)
 
 
-def to_int(value: int) -> int:
-    return int32(value)
-
-
-long = int
-
 __all__ = [
     "compare",
     "sign",
@@ -222,6 +216,4 @@ __all__ = [
     "parse",
     "try_parse",
     "to_string",
-    "to_int",
-    "long",
 ]

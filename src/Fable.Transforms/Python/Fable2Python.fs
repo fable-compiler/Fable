@@ -767,7 +767,7 @@ module Annotation =
                 | UInt32 -> "uint32"
                 | Int64 -> "int64"
                 | UInt64 -> "uint64"
-                | Int32
+                | Int32 -> "int32"
                 | BigInt
                 | Int128
                 | UInt128
