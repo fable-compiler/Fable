@@ -1178,6 +1178,7 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             let c = Helper.LibCall(com, "String", "getCharAt", Char, args)
             makeInstanceCall r t i c methName [] |> Some
         | _ -> None
+    | "Parse", _, args -> Helper.LibCall(com, "Convert", "toChar", t, args, ?loc = r) |> Some
 
     // | "GetUnicodeCategory" , None, args -> //TODO:
     // | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" ->

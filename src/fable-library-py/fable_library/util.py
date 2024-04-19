@@ -2562,7 +2562,7 @@ def is_disposable(x: Any) -> bool:
     return x is not None and isinstance(x, IDisposable)
 
 
-def dispose(x: Disposable | AbstractContextManager[Any]) -> None:
+def dispose(x: IDisposable | AbstractContextManager[Any]) -> None:
     """Helper to dispose objects.
 
     Also tries to call `__exit__` if the object turns out to be a Python resource manager.

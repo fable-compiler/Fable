@@ -190,7 +190,7 @@ def format(string: str, *args: Any) -> str:
     def match(m: Match[str]) -> str:
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
-        if isinstance(rep, int | float):
+        if isinstance(rep, int | byte | int16 | int32 | int64 | sbyte | uint16 | uint32 | uint64 | float):
             precision: int | None = None
             try:
                 precision: int | None = int(precision_)
@@ -214,7 +214,9 @@ def format(string: str, *args: Any) -> str:
             elif format in ["d", "D"]:
                 rep = pad_left(str(rep), precision, "0") if precision is not None else str(rep)
 
-            elif format in ["x", "X"] and isinstance(rep, int):
+            elif format in ["x", "X"] and isinstance(
+                rep, int | byte | int16 | int32 | int64 | sbyte | uint16 | uint32 | uint64
+            ):
                 rep = pad_left(to_hex(rep), precision, "0") if precision is not None else to_hex(rep)
                 if format == "X":
                     rep = rep.upper()

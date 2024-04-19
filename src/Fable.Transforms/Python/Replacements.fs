@@ -335,12 +335,12 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
 
     let emitCast typeTo arg =
         match typeTo with
-        | Int8 -> emitExpr None Int8.Number [ arg ] "(int($0) + 0x80 & 0xFF) - 0x80"
-        | Int16 -> emitExpr None Int16.Number [ arg ] "(int($0) + 0x8000 & 0xFFFF) - 0x8000"
+        | Int8 -> Helper.LibCall(com, "types", "sbyte", targetType, args)
+        | Int16 -> Helper.LibCall(com, "types", "int16", targetType, args)
         | Int32 -> emitExpr None Int32.Number [ arg ] "int($0)"
-        | UInt8 -> emitExpr None UInt8.Number [ arg ] "int($0+0x100 if $0 < 0 else $0) & 0xFF"
-        | UInt16 -> emitExpr None UInt16.Number [ arg ] "int($0+0x10000 if $0 < 0 else $0) & 0xFFFF"
-        | UInt32 -> emitExpr None UInt32.Number [ arg ] "int($0+0x100000000 if $0 < 0 else $0)"
+        | UInt8 -> Helper.LibCall(com, "types", "byte", targetType, args)
+        | UInt16 -> Helper.LibCall(com, "types", "uint16", targetType, args)
+        | UInt32 -> Helper.LibCall(com, "types", "uint32", targetType, args)
         | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
 
     match sourceType, targetType with

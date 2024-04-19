@@ -185,9 +185,9 @@ pub mod Convert_ {
 
     pub fn toBoolean<N: PartialEq + Default>(n: N) -> bool { !(n == N::default()) }
 
-    // pub fn toChar<N>(n: N) -> char {
-    //     core::char::from_u32(n.to_u32().unwrap()).unwrap()
-    // }
+    pub fn toChar<N: num_traits::ToPrimitive | string>(n: N) -> char {
+        core::char::from_u32(n.to_u32().unwrap()).unwrap()
+    }
 
     pub fn toInt8_radix(s: string, radix: i32) -> i8 { from_string_radix(s, radix) }
     pub fn toInt16_radix(s: string, radix: i32) -> i16 { from_string_radix(s, radix) }

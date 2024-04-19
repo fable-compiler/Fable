@@ -1,18 +1,10 @@
 from typing import Any
 
-from .types import FSharpRef
+from .types import FSharpRef, int32
 
 
 def compare(x: int, y: int) -> int:
     return -1 if x < y else 1 if x > y else 0
-
-
-def equals(a: int, b: int) -> bool:
-    return a == b
-
-
-def abs(x: int) -> int:
-    return -x if x < 0 else x
 
 
 def sign(x: int) -> int:
@@ -191,17 +183,13 @@ def to_string(x: int) -> str:
 
 
 def to_int(value: int) -> int:
-    if value > 9223372036854775807:
-        return value - 0x10000000000000000
-    return value
+    return int32(value)
 
 
 long = int
 
 __all__ = [
     "compare",
-    "equals",
-    "abs",
     "sign",
     "max",
     "min",

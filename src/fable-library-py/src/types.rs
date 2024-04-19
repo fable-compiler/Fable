@@ -47,7 +47,22 @@ macro_rules! integer_variant {
         impl $name {
             #[new]
             pub fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
-                let value = value.call_method1("__and__", ($mask,))?;
+                let value = match value.call_method1("__and__", ($mask,)) {
+                    Ok(value) => value,
+                    Err(_) => {
+                        // Call __int__ on the value and then mask it
+                        match value.call_method0("__int__") {
+                            Ok(value) => value.call_method1("__and__", ($mask,))?,
+                            Err(_) => {
+                                return Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
+                                    "Cannot convert argument to {}",
+                                    stringify!($name)
+                                )))
+                            }
+                        }
+                    }
+                };
+
                 let value: PyResult<u64> = value.extract();
                 match value {
                     Ok(value) => Ok(Self(value as $type)),
@@ -85,9 +100,10 @@ macro_rules! integer_variant {
                 let other = match other.extract::<$type>() {
                     Ok(other) => other,
                     Err(_) => {
-                        return Err(PyErr::new::<exceptions::PyTypeError, _>(
-                            "Cannot convert argument to integer",
-                        ))
+                        return Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
+                            "Cannot convert argument to {}",
+                            stringify!($name)
+                        )))
                     }
                 };
                 Ok($name(self.0.wrapping_add(other)))
@@ -123,7 +139,8 @@ macro_rules! integer_variant {
                         Ok(other) => other,
                         Err(_) => {
                             return Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                                "Cannot convert argument to {}".$name
+                                "Cannot convert argument to {}",
+                                stringify!($name)
                             )))
                         }
                     },

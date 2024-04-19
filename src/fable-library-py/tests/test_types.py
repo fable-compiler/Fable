@@ -8,6 +8,7 @@ def test_byte_create() -> None:
     assert byte(0) == 0
     assert byte(byte(42)) == 42
     assert byte(uint16(42)) == 42
+    assert byte(1.0) == 1
 
 
 def test_sbyte_create() -> None:
