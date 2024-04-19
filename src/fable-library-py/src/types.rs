@@ -162,6 +162,14 @@ macro_rules! integer_variant {
                 Ok($name(self.0 / other))
             }
 
+            pub fn __rfloordiv__<'py>(
+                &self,
+                other: &Bound<'py, PyAny>,
+            ) -> PyResult<Bound<'py, PyAny>> {
+                let result = other.div(self.0)?;
+                result.call_method0("__int__")
+            }
+
             pub fn __mod__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 let other = other.extract::<$type>()?;
                 Ok($name(self.0 % other))
