@@ -3680,11 +3680,8 @@ module Util =
             )
             |> Helpers.unzipArgs
 
-        // printfn "infterfaces: %A" interfaces
-
         let bases = baseExpr |> Option.toList
-
-        let name = com.GetIdentifier(ctx, entName)
+        let name = com.GetIdentifier(ctx, Naming.toSnakeCase entName)
 
         stmts
         @ [
