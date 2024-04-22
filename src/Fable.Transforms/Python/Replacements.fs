@@ -155,11 +155,9 @@ let toString com (ctx: Context) r (args: Expr list) =
         | String -> head
         | Builtin BclGuid when tail.IsEmpty -> Helper.GlobalCall("str", String, [ head ], ?loc = r)
         | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number((Int64 | UInt64 | BigInt), _) -> Helper.LibCall(com, "util", "int64_to_string", String, args)
-        | Number(Int8, _)
-        | Number(UInt8, _) -> Helper.LibCall(com, "util", "int8_to_string", String, args)
-        | Number(Int16, _) -> Helper.LibCall(com, "util", "int16_to_string", String, args)
-        | Number(Int32, _) -> Helper.LibCall(com, "util", "int32_to_string", String, args)
+        | Number((Int8 | UInt8 | UInt16 | Int16 | UInt32 | Int32 | Int64 | UInt64), _) ->
+            Helper.InstanceCall(head, "to_string", String, tail, ?loc = r)
+        | Number(BigInt, _) -> Helper.LibCall(com, "util", "int_to_string", String, args)
         | Number(Decimal, _) -> Helper.LibCall(com, "decimal", "toString", String, args)
         | Number _ -> Helper.LibCall(com, "types", "toString", String, [ head ], ?loc = r)
         | Array _
@@ -292,7 +290,11 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
     let fromInteger kind arg =
         let kind = makeIntConst (kindIndex kind)
 
-        Helper.LibCall(com, "long", "fromInteger", targetType, [ arg; makeBoolConst unsigned; kind ])
+        //Helper.LibCall(com, "long", "fromInteger", targetType, [ arg; makeBoolConst unsigned; kind ])
+        if unsigned then
+            Helper.LibCall(com, "types", "uint64", targetType, args)
+        else
+            Helper.LibCall(com, "types", "int64", targetType, args)
 
     let sourceType = args.Head.Type
 
@@ -310,7 +312,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
             Helper.LibCall(com, "long", "fromNumber", targetType, [ n; makeBoolConst unsigned ])
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
         | Int64
-        | UInt64 -> Helper.LibCall(com, "long", "fromValue", targetType, args @ [ makeBoolConst unsigned ])
+        | UInt64
         | Int8
         | Int16
         | Int32

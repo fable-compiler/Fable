@@ -146,3 +146,16 @@ def test_abs():
 
 def test_floor_div():
     assert 10 // byte(3) == 3
+
+
+def test_divide():
+    assert 10 / byte(3) == 3.3333333333333335
+    assert 10 / sbyte(3) == 3.3333333333333335
+    assert 10 / int16(3) == 3.3333333333333335
+    assert 10 / int32(3) == 3.3333333333333335
+    assert 10 / int64(3) == 3.3333333333333335
+    assert 10 / uint16(3) == 3.3333333333333335
+    assert 10 / uint32(3) == 3.3333333333333335
+    assert 10 / uint64(3) == 3.3333333333333335
+    assert byte(10) / 3 == 3
+    assert byte(10) / 3.0 == 3.3333333333333335

@@ -459,22 +459,6 @@ def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return str(i)
 
 
-def int8_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
-    return int_to_string(i, radix, 8)
-
-
-def int16_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
-    return int_to_string(i, radix, 16)
-
-
-def int32_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
-    return int_to_string(i, radix, 32)
-
-
-def int64_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
-    return int_to_string(i, radix, 64)
-
-
 def count(col: Iterable[Any]) -> int:
     if isinstance(col, Sized):
         return len(col)

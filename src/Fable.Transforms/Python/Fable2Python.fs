@@ -442,7 +442,7 @@ module Reflection =
             | _, Fable.Type.Number(Int8, _) -> pyTypeof "<class 'fableInt8'>" expr
             | _, Fable.Type.Number(Int16, _) -> pyTypeof "<class 'fable.Int16'>" expr
             | _, Fable.Type.Number(UInt16, _) -> pyTypeof "<class 'fable.UInt16'>" expr
-            | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'int'>" expr
+            | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'fable.Int32'>" expr
             | _, Fable.Type.Number(UInt32, _) -> pyTypeof "<class 'fable.UInt32>" expr
             | _, Fable.Type.Number(Int64, _) -> pyTypeof "<class 'fable.Int64'>" expr
             | _, Fable.Type.Number(UInt64, _) -> pyTypeof "<class 'fable.UInt64'>" expr
@@ -1721,7 +1721,7 @@ module Util =
             | UInt8, (:? uint8 as x) -> makeInteger com ctx r value.Type "byte" x
             | Int16, (:? int16 as x) -> makeInteger com ctx r value.Type "int16" x
             | UInt16, (:? uint16 as x) -> makeInteger com ctx r value.Type "uint16" x
-            | Int32, (:? int32 as x) -> Expression.intConstant (x, ?loc = r), []
+            | Int32, (:? int32 as x) -> makeInteger com ctx r value.Type "int32" x
             | UInt32, (:? uint32 as x) -> makeInteger com ctx r value.Type "uint32" x
             //| _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
             | _, x when x = infinity -> Expression.name "float('inf')", []
@@ -4340,6 +4340,7 @@ module Compiler =
                     | None -> Expression.none
 
             member _.GetAllImports() =
+                // printfn "GetAllImports: %A" imports
                 imports.Values :> Import seq |> List.ofSeq
 
             member _.GetAllTypeVars() = typeVars
