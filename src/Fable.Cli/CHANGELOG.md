@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Python] Fixes for custom hash values (#3796) (by @dbrattli)
+* [Python] Fix for import of camelCased class (#3808) (by @dbrattli)
 * [JS/TS] Fixed optional args for reflection (by @ncave)
 * [JS/TS] Fixed type visibility when parent is namespace (by @ncave)
 * [JS/TS] Fixed DateTimeOffset.ToString with custom format (by @ncave)
