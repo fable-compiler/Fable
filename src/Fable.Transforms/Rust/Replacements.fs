@@ -153,7 +153,7 @@ let toChar com (arg: Expr) =
     | String -> Helper.LibCall(com, "String", "getCharAt", Char, [ arg; makeIntConst 0 ])
     | _ ->
         let code = TypeCast(arg, UInt32.Number)
-        Helper.LibCall(com, "String", "fromCharCode", Char, [ code ])
+        Helper.LibCall(com, "Char", "fromCharCode", Char, [ code ])
 
 let toString com (ctx: Context) r (args: Expr list) =
     match args with
@@ -1150,43 +1150,52 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | _ -> None
 
 let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let getMethod meth args =
+        if List.length args > 1 then
+            meth + "_2"
+        else
+            meth
+
     match i.CompiledName, thisArg, args with
-    | ReplaceName [ "ToUpper", "toUpperChar"
-                    "ToUpperInvariant", "toUpperChar"
-                    "ToLower", "toLowerChar"
-                    "ToLowerInvariant", "toLowerChar" ] methName,
+    | ("IsBetween" as meth), None, _ ->
+        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("IsAscii" | "IsAsciiDigit" | "IsAsciiLetter" | "IsAsciiLetterLower" | "IsAsciiLetterUpper" | "IsAsciiLetterOrDigit" | "IsAsciiHexDigit" | "IsAsciiHexDigitLower" | "IsAsciiHexDigitUpper" as meth),
       None,
-      [ c ] -> Helper.LibCall(com, "String", methName, Char, args) |> Some
+      [ c ] ->
+        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("IsControl" | "IsDigit" | "IsLetter" | "IsLetterOrDigit" | "IsLower" | "IsUpper" | "IsNumber" | "IsPunctuation" | "IsSeparator" | "IsSurrogate" | "IsSymbol" | "IsWhiteSpace" as meth),
+      None,
+      _ ->
+        let meth = getMethod meth args
+
+        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("GetNumericValue"
+      // | "GetUnicodeCategory"
+      | "ConvertToUtf32" as meth),
+      None,
+      _ ->
+        let meth = getMethod meth args
+
+        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "ToString", None, [ ExprType(Char) ] -> toString com ctx r args |> Some
     | "ToString", Some c, [] -> toString com ctx r [ c ] |> Some
-    | ReplaceName [ "IsControl", "is_control"
-                    "IsDigit", "is_ascii_digit"
-                    "IsLetter", "is_alphabetic"
-                    "IsLetterOrDigit", "is_alphanumeric" // imprecise, TODO:
-                    "IsUpper", "is_uppercase"
-                    "IsLower", "is_lowercase"
-                    "IsNumber", "is_numeric"
-                    "IsPunctuation", "is_ascii_punctuation" // imprecise, TODO:
-                    "IsSeparator", "is_ascii_whitespace" // imprecise, TODO:
-                    "IsSymbol", "is_ascii_punctuation" // imprecise, TODO:
-                    "IsWhiteSpace", "is_whitespace" ] methName,
-      None,
-      args ->
-        match args with
-        | [ c ] -> makeInstanceCall r t i c methName [] |> Some
-        | [ str; idx ] ->
-            let c = Helper.LibCall(com, "String", "getCharAt", Char, args)
-            makeInstanceCall r t i c methName [] |> Some
-        | _ -> None
+    | ("ConvertFromUtf32" | "ToLower" | "ToLowerInvariant" | "ToUpper" | "ToUpperInvariant" as meth), None, [ c ] ->
+        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("TryParse" | "Parse" as meth), None, _ ->
+        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
 
-    // | "GetUnicodeCategory" , None, args -> //TODO:
-    // | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" ->
-    //     let methName = Naming.lowerFirst i.CompiledName
-    //     let methName = if List.length args > 1 then methName + "2" else methName
-    //     Helper.LibCall(com, "Char", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "IsSurrogatePair" | "Parse" ->
-    //     let methName = Naming.lowerFirst i.CompiledName
-    //     Helper.LibCall(com, "Char", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // | ("IsHighSurrogate" | "IsLowSurrogate" as meth), None, _ ->
+    //     let meth = getMethod meth args
+    //     Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // | ("IsSurrogatePair" as meth), None, _ ->
+    //     let meth = if args.Head.Type = String then meth + "_2" else meth
+    //     Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let getEnumerator com r t i (expr: Expr) =

@@ -4,10 +4,10 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let getMetadataDir () : string =
-    __SOURCE_DIRECTORY__ + "/../../../fable-metadata/lib/"
+    __SOURCE_DIRECTORY__ + "/../../../../fable-metadata/lib/"
 
 let getFableLibDir () : string =
-    __SOURCE_DIRECTORY__ + "/../../../../temp/fable-library-js"
+    __SOURCE_DIRECTORY__ + "/../../../../../temp/fable-library-js"
 
 let getVersion () : string = ".next"
 
@@ -156,12 +156,12 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     let printError (e: Fable.Standalone.Error) =
         let errorType =
-            (if e.IsWarning then
-                 "Warning"
-             else
-                 "Error")
+            if e.IsWarning then
+                "Warning"
+            else
+                "Error"
 
-        printfn "%s" $"{e.FileName} ({e.StartLine},{e.StartColumn}): {errorType}: {e.Message}"
+        printfn $"%s{e.FileName} (%d{e.StartLine},%d{e.StartColumn}): %s{errorType}: %s{e.Message}"
 
     let warnings, errors = errors |> Array.partition (fun e -> e.IsWarning)
     let hasErrors = not (Array.isEmpty errors)
@@ -177,9 +177,9 @@ let runAsync computation =
     async {
         try
             do! computation
-        with e ->
-            printfn "[ERROR] %s" e.Message
-            printfn "%s" e.StackTrace
+        with ex ->
+            printfn $"ERROR: %s{ex.Message}"
+            printfn $"%s{ex.StackTrace}"
     }
     |> Async.StartImmediate
 
@@ -205,11 +205,10 @@ let parseFiles projectFileName options =
     let fable = initFable ()
 
     let optimizeFlag =
-        "--optimize"
-        + (if options.optimize then
-               "+"
-           else
-               "-")
+        if options.optimize then
+            "--optimize+"
+        else
+            "--optimize-"
 
     let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
 
@@ -217,17 +216,17 @@ let parseFiles projectFileName options =
         fable.CreateChecker(references, readAllBytes, otherOptions)
 
     let checker, ms0 = measureTime createChecker ()
-    printfn "fable-compiler-js v%s" (getVersion ())
-    printfn "--------------------------------------------"
-    printfn "InteractiveChecker created in %d ms" ms0
+    printfn $"fable-compiler-js v%s{getVersion ()}"
+    printfn $"--------------------------------------------"
+    printfn $"InteractiveChecker created in %d{ms0} ms"
 
     // parse F# files to AST
     let parseFSharpProject () =
         fable.ParseAndCheckProject(checker, projectFileName, fileNames, sources)
 
     let parseRes, ms1 = measureTime parseFSharpProject ()
-    printfn "Project: %s, FCS time: %d ms" projectFileName ms1
-    printfn "--------------------------------------------"
+    printfn $"Project: %s{projectFileName}, FCS time: %d{ms1} ms"
+    printfn $"--------------------------------------------"
 
     // print warnings and errors
     let showWarnings = not options.benchmark
@@ -264,8 +263,9 @@ let parseFiles projectFileName options =
             | "python" -> ".py"
             | "php" -> ".php"
             | "dart" -> ".dart"
+            | "rs"
             | "rust" -> ".rs"
-            | _ -> failwithf "Unsupported language: %s" options.language
+            | _ -> failwith $"Unsupported language: %s{options.language}"
 
         let fileExt =
             if Option.isNone options.outDir then
@@ -292,7 +292,7 @@ let parseFiles projectFileName options =
 
                 // transform F# AST to target language AST
                 let res, ms2 = measureTime parseFable (parseRes, fileName)
-                printfn "File: %s, Fable time: %d ms" fileName ms2
+                printfn $"File: %s{fileName}, Fable time: %d{ms2} ms"
                 res.FableErrors |> printErrors showWarnings
 
                 // get output path
@@ -367,7 +367,7 @@ let run opts projectFileName outDir =
                 Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectFileName) + ".js")
 
             let runArgs = opts[i + 1 ..] |> String.concat " "
-            sprintf "node %s %s" scriptFile runArgs
+            $"node %s{scriptFile} %s{runArgs}"
         )
 
     let options =
@@ -378,11 +378,7 @@ let run opts projectFileName outDir =
             optimize = opts |> hasFlag "--optimize"
             sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
             typedArrays = opts |> tryFlag "--typedArrays"
-            language =
-                opts
-                |> argValue [ "--language"; "--lang" ]
-                |> Option.map (fun _ -> "TypeScript")
-                |> Option.defaultValue "JavaScript"
+            language = opts |> argValue [ "--language"; "--lang" ] |> Option.defaultValue "JavaScript"
             printAst = opts |> hasFlag "--printAst"
         // watch = opts |> hasFlag "--watch"
         }
@@ -412,17 +408,18 @@ Options:
         | Some i -> Array.splitAt i argv
 
     match opts, args with
-    | _, _ when argv |> hasFlag "--help" -> printfn "%s" usage
-    | _, _ when argv |> hasFlag "--version" -> printfn "v%s" (getVersion ())
+    | _, _ when argv |> hasFlag "--help" -> printfn $"%s{usage}"
+    | _, _ when argv |> hasFlag "--version" -> printfn $"v%s{getVersion ()}"
     | _, [| projectFileName |] -> run opts projectFileName None
     | _, [| projectFileName; outDir |] -> run opts projectFileName (Some outDir)
-    | _ -> printfn "%s" usage
+    | _ -> printfn $"%s{usage}"
 
 [<EntryPoint>]
 let main argv =
     try
         parseArguments argv
     with ex ->
-        printfn "Error: %s\n%s" ex.Message ex.StackTrace
+        printfn $"ERROR: %s{ex.Message}"
+        printfn $"%s{ex.StackTrace}"
 
     0

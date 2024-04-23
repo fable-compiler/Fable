@@ -20,21 +20,21 @@ let getXmlWithoutComments xml =
     Regex.Replace(xml, @"<!--[\s\S]*?-->", "")
 
 let getXmlTagContents tag xml =
-    let pattern = sprintf @"<%s[^>]*>([^<]*)<\/%s[^>]*>" tag tag
+    let pattern = $"""<%s{tag}[^>]*>([^<]*)<\/%s{tag}[^>]*>"""
     Regex.Matches(xml, pattern) |> Seq.map (fun m -> m.Groups[1].Value.Trim())
 
 let getXmlTagContentsFirstOrDefault tag defaultValue xml =
     defaultArg (getXmlTagContents tag xml |> Seq.tryHead) defaultValue
 
 let getXmlTagAttributes1 tag attr1 xml =
-    let pattern = sprintf """<%s\s+[^>]*%s\s*=\s*("[^"]*|'[^']*)""" tag attr1
+    let pattern = $"""<%s{tag}\s+[^>]*%s{attr1}\s*=\s*("[^"]*|'[^']*)"""
 
     Regex.Matches(xml, pattern)
     |> Seq.map (fun m -> m.Groups[1].Value.TrimStart('"').TrimStart(''').Trim())
 
 let getXmlTagAttributes2 tag attr1 attr2 xml =
     let pattern =
-        sprintf """<%s\s+[^>]*%s\s*=\s*("[^"]*|'[^']*)[^>]*%s\s*=\s*("[^"]*|'[^']*)""" tag attr1 attr2
+        $"""<%s{tag}\s+[^>]*%s{attr1}\s*=\s*("[^"]*|'[^']*)[^>]*%s{attr2}\s*=\s*("[^"]*|'[^']*)"""
 
     Regex.Matches(xml, pattern)
     |> Seq.map (fun m ->
@@ -65,7 +65,7 @@ let parsePackageSpec nuspecPath =
 let resolvePackage (pkgName, pkgVersion) =
     if not (isSystemPackage pkgName) then
         let homePath = getHomePath().Replace('\\', '/')
-        let nugetPath = sprintf ".nuget/packages/%s/%s" pkgName pkgVersion
+        let nugetPath = $".nuget/packages/%s{pkgName}/%s{pkgVersion}"
         let pkgPath = Path.Combine(homePath, nugetPath.ToLowerInvariant())
         let libPath = Path.Combine(pkgPath, "lib")
         let fablePath = Path.Combine(pkgPath, "fable")
@@ -108,7 +108,13 @@ let parseCompilerOptions projectXml =
         projectXml
         |> getXmlTagContents "DefineConstants"
         |> Seq.collect (fun s -> s.Split(';'))
-        |> Seq.append [ "FABLE_COMPILER"; "FABLE_COMPILER_4"; "FABLE_COMPILER_JAVASCRIPT" ]
+        |> Seq.append
+            [
+                "FABLE_COMPILER"
+                "FABLE_COMPILER_4"
+                "FABLE_COMPILER_JAVASCRIPT"
+                "NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT"
+            ]
         |> Seq.map (fun s -> s.Trim())
         |> Seq.distinct
         |> Seq.except [ "$(DefineConstants)"; "" ]
@@ -202,6 +208,7 @@ let parseProjectScript projectFilePath =
             "--define:FABLE_COMPILER"
             "--define:FABLE_COMPILER_4"
             "--define:FABLE_COMPILER_JAVASCRIPT"
+            "--define:NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT"
         |]
 
     (projectRefs, dllRefs, sourceFiles, otherOptions)
@@ -280,7 +287,9 @@ let parseProject projectFilePath =
         let projectRefs, dllPaths, sourcePaths, otherOptions =
             match projectRef with
             | ProjectReference path ->
-                if path.EndsWith(".fsx") then
+                if path.EndsWith("Fable.Core.fsproj") then
+                    [||], [||], [||], [||]
+                elif path.EndsWith(".fsx") then
                     parseProjectScript path
                 else
                     parseProjectFile path

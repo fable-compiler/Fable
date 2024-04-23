@@ -117,7 +117,23 @@
                 "build",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary",
-                "src/fable-standalone/test/bench-compiler"
+                "src/fable-standalone/test/bench-compiler/src"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "publish bench-compiler",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "publish",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary",
+                "src/fable-standalone/test/bench-compiler/src",
+                "--configuration",
+                "Debug",
+                "--runtime",
+                "linux-x64"
             ],
             "problemMatcher": "$msCompile"
         },

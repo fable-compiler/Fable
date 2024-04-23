@@ -319,31 +319,31 @@ type InliningMutationTest(l: int, r: int) =
         let right = call()
         left + right
 
-// module Extensions =
-//     type IDisposable with
-//         static member Create(f) =
-//             { new IDisposable with
-//                 member _.Dispose() = f() }
+module Extensions =
+    type IDisposable with
+        static member Create(f) =
+            { new IDisposable with
+                member _.Dispose() = f() }
 
-//     type SomeClass with
-//         member x.FullName = sprintf "%s Smith" x.Name
-//         member x.NameTimes (i: int, j: int) = String.replicate (i + j) x.Name
+    type SomeClass with
+        member x.FullName = sprintf "%s Smith" x.Name
+        member x.NameTimes (i: int, j: int) = String.replicate (i + j) x.Name
 
-//     type AnotherClass with
-//         member x.FullName = sprintf "%i" x.Value
-//         member x.Overload(i: int) = i * 4
-//         member x.Overload(s: string) = s + s
-//         member x.Value2 = x.Value * 2
+    type AnotherClass with
+        member x.FullName = sprintf "%i" x.Value
+        member x.Overload(i: int) = i * 4
+        member x.Overload(s: string) = s + s
+        member x.Value2 = x.Value * 2
 
-//     type NestedModule.AnotherClass with
-//         member x.Value2 = x.Value * 4
+    type NestedModule.AnotherClass with
+        member x.Value2 = x.Value * 4
 
 //     [<AbstractClass>]
 //     type ObjectExprBase (x: int ref) as this =
 //         do x := this.dup x.contents
 //         abstract member dup: int -> int
 
-// open Extensions
+open Extensions
 
 
 module StyleBuilderHelper =
@@ -374,20 +374,23 @@ module Same =
         let shouldEqual30 = let Same = 25 in Same + 5
 
 
-// let f8 a b = a + b
-// let mutable a = 10
+let f8 a b = a + b
+let mutable a = 10
 
-// module B =
-//     let c = a
-//     a <- a + 5
-//     let mutable a = 20
-//     let d = f8 2 2
-//     let f8 a b = a - b
+// Static constructors and module 'do' bindings are supported, but have
+// to be explicitly opted-in by enabling the 'static_do_bindings' feature
 
-//     module D =
-//         let d = a
-//         a <- a + 5
-//         let e = f8 2 2
+module B =
+    let c = a
+    a <- a + 5      // module 'do' bindings are supported, but need to be enabled
+    let mutable a = 20
+    let d = f8 2 2
+    let f8 a b = a - b
+
+    module D =
+        let d = a
+        a <- a + 5  // module 'do' bindings are supported, but need to be enabled
+        let e = f8 2 2
 
 module Internal =
     let internal add x y = x + y
@@ -405,7 +408,7 @@ type MyEnum =
 
 type TestRef = TestRef of bool ref
 
-// let delay (f:unit -> unit) = f
+// let delay (f: unit -> unit) = f
 
 // let mutable mutableValue = 0
 
@@ -426,7 +429,8 @@ type Taster =
 type Eater =
     abstract Bite: unit -> int
 
-let taste (com: Taster) qlty qty =
+// let taste (com: Taster) qlty qty = //TODO: there is no TypeCast when called from interface object expressions
+let taste (com: #Taster) qlty qty =
     com.Starter * qlty + qty |> int
 
 module private MyPrivateModule =
@@ -893,15 +897,15 @@ let ``Multiple active pattern calls work`` () =
 //     MyComponent("TestD").works4().doWork() |> equal "TestD-4"
 //     MyComponent("TestE").works5().doWork() |> equal "TestE-5"
 
-// [<Fact>]
-// let ``Properties in object expression work`` () =
-//     let mutable backend = 0
-//     let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
-//     o.Bar |> equal 0
-//     backend <- 5
-//     o.Bar |> equal 5
-//     o.Bar <- 10
-//     o.Bar |> equal 10
+[<Fact>]
+let ``Properties in object expression work`` () =
+    let mutable backend = 0
+    let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
+    o.Bar |> equal 0
+    backend <- 5
+    o.Bar |> equal 5
+    o.Bar <- 10
+    o.Bar |> equal 10
 
 // [<Fact>]
 // let ``Object expression from class works`` () =
@@ -918,17 +922,17 @@ let ``Multiple active pattern calls work`` () =
 //     let t = TestClass(42)
 //     t.GetNum() |> equal 46
 
-// [<Fact>]
-// let ``Object expressions don't optimize members away`` () = // See #1434
-//     let o = {
-//         new Taster with
-//             member _.Starter = 5.5
-//             member this.Taste(quality, quantity) =
-//                 taste this quality quantity
-//         interface Eater with
-//             member _.Bite() = 25
-//     }
-//     o.Taste(4., 6.) |> equal 28
+[<Fact>]
+let ``Object expressions don't optimize members away`` () = // See #1434
+    let o = {
+        new Taster with
+            member _.Starter = 5.5
+            member this.Taste(quality, quantity) =
+                taste this quality quantity
+        interface Eater with
+            member _.Bite() = 25
+    }
+    o.Taste(4., 6.) |> equal 28
 
 // [<Fact>]
 // let ``Members are accessible in abstract class constructor inherited by object expr`` () = // See #2139
@@ -943,38 +947,38 @@ let ``Multiple active pattern calls work`` () =
 //     RecursiveType(fun f -> x <- f()) |> ignore
 //     equal 11 x
 
-// [<Fact>]
-// let ``Type extension static methods work`` () =
-//     let disposed = ref false
-//     let disp = IDisposable.Create(fun () -> disposed := true)
-//     disp.Dispose ()
-//     equal true !disposed
+[<Fact>]
+let ``Type extension static methods work`` () =
+    let disposed = ref false
+    let disp = IDisposable.Create(fun () -> disposed := true)
+    disp.Dispose ()
+    equal true !disposed
 
-// [<Fact>]
-// let ``Type extension properties work`` () =
-//     let c = SomeClass("John")
-//     equal "John Smith" c.FullName
+[<Fact>]
+let ``Type extension properties work`` () =
+    let c = SomeClass("John")
+    equal "John Smith" c.FullName
 
-// [<Fact>]
-// let ``Type extension methods work`` () =
-//     let c = SomeClass("John")
-//     c.NameTimes(1,2) |> equal "JohnJohnJohn"
+[<Fact>]
+let ``Type extension methods work`` () =
+    let c = SomeClass("John")
+    c.NameTimes(1,2) |> equal "JohnJohnJohn"
 
-// [<Fact>]
-// let ``Type extension methods with same name work`` () =
-//     let c = AnotherClass(3)
-//     equal "3" c.FullName
+[<Fact>]
+let ``Type extension methods with same name work`` () =
+    let c = AnotherClass(3)
+    equal "3" c.FullName
 
-// [<Fact>]
-// let ``Type extension overloads work`` () =
-//     let c = AnotherClass(3)
-//     c.Overload("3") |> equal "33"
-//     c.Overload(3) |> equal 12
+[<Fact>]
+let ``Type extension overloads work`` () =
+    let c = AnotherClass(3)
+    c.Overload("3") |> equal "33"
+    c.Overload(3) |> equal 12
 
-// [<Fact>]
-// let ``Extending different types with same name and same method works`` () =
-//     AnotherClass(5).Value2 |> equal 10
-//     NestedModule.AnotherClass(5).Value2 |> equal 40
+[<Fact>]
+let ``Extending different types with same name and same method works`` () =
+    AnotherClass(5).Value2 |> equal 10
+    NestedModule.AnotherClass(5).Value2 |> equal 40
 
 [<Fact>]
 let ``Module, members and properties with same name don't clash`` () =
@@ -1026,30 +1030,49 @@ let ``Binding doesn't shadow top-level values`` () = // See #130
     equal 10 Util.B.c
     equal 20 Util.B.D.d
 
-// [<Fact>]
-// let ``Binding doesn't shadow top-level values (TestFixture)`` () = // See #130
-//     equal 10 B.c
-//     equal 20 B.D.d
+[<Fact>]
+let ``Binding doesn't shadow top-level values (TestFixture)`` () = // See #130
+    equal 10 B.c
+    equal 20 B.D.d
 
 [<Fact>]
 let ``Binding doesn't shadow top-level functions`` () = // See #130
     equal 4 Util.B.d
     equal 0 Util.B.D.e
 
-// [<Fact>]
-// let ``Binding doesn't shadow top-level functions (TestFixture)`` () = // See #130
-//     equal 4 B.d
-//     equal 0 B.D.e
+[<Fact>]
+let ``Binding doesn't shadow top-level functions (TestFixture)`` () = // See #130
+    equal 4 B.d
+    equal 0 B.D.e
 
-// [<Fact>]
-// let ``Setting a top-level value doesn't alter values at same level`` () = // See #130
-//     equal 15 Util.a
-//     equal 25 Util.B.a
+#if FABLE_COMPILER_RUST
+open Fable.Core.Rust
 
-// [<Fact>]
-// let ``Setting a top-level value doesn't alter values at same level (TestFixture)`` () = // See #130
-//     equal 15 a
-//     equal 25 B.a
+[<Fact>]
+[<OuterAttr("cfg", [|"not(feature = \"static_do_bindings\")"|])>]
+let ``Setting a top-level value doesn't alter values at same level`` () = // See #130
+    equal 10 Util.a
+    equal 20 Util.B.a
+
+[<Fact>]
+[<OuterAttr("cfg", [|"not(feature = \"static_do_bindings\")"|])>]
+let ``Setting a top-level value doesn't alter values at same level (TestFixture)`` () = // See #130
+    equal 10 a
+    equal 20 B.a
+
+#else
+
+[<Fact>]
+let ``Setting a top-level value doesn't alter values at same level`` () = // See #130
+    equal 15 Util.a
+    equal 25 Util.B.a
+
+[<Fact>]
+let ``Setting a top-level value doesn't alter values at same level (TestFixture)`` () = // See #130
+    equal 15 a
+    equal 25 B.a
+
+#endif
 
 [<Fact>]
 let ``Internal members can be accessed from other modules`` () = // See #163

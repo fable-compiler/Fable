@@ -160,7 +160,7 @@ module Glob =
                     let serverName = splits.[2]
                     let share = splits.[3]
 
-                    [ Directory(sprintf "\\\\%s\\%s" serverName share) ], splits |> Seq.skip 4
+                    [ Directory($"\\\\%s{serverName}\\%s{share}") ], splits |> Seq.skip 4
                 elif splits.Length >= 2 && Path.IsPathRooted input && driveRegex.IsMatch splits.[0] then
                     [ Directory(splits.[0] + "\\") ], splits |> Seq.skip 1
                 elif splits.Length >= 2 && Path.IsPathRooted input && input.StartsWith '/' then
@@ -209,7 +209,7 @@ module Glob =
                     "wildcard", (@"\\\*", @"([^\\/]*)")
                 ]
                 |> List.map (fun (key, (pattern, replace)) ->
-                    let pattern = sprintf "(?<%s>%s)" key pattern
+                    let pattern = $"(?<%s{key}>%s{pattern})"
                     key, (pattern, replace)
                 )
 

@@ -22,8 +22,23 @@
     <!-- <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData> -->
   </PropertyGroup>
 
+  <PropertyGroup>
+    <WasmMainJSPath>main.mjs</WasmMainJSPath>
+    <!-- <RunAOTCompilation>true</RunAOTCompilation> -->
+    <!-- <WasmStripILAfterAOT>true</WasmStripILAfterAOT> -->
+    <!-- enable reporting to profiler in browser dev tools -->
+    <!-- <WasmProfilers>browser;</WasmProfilers> -->
+    <!-- Put "framework" (dotnet.js, dlls, etc) files directly into the AppBundle -->
+    <!-- <WasmRuntimeAssetsLocation>./</WasmRuntimeAssetsLocation> -->
+    <!-- <RuntimeIdentifier>browser-wasm</RuntimeIdentifier> -->
+    <!-- <RunAOTCompilation>true</RunAOTCompilation> -->
+    <!-- <WasmEnableExceptionHandling>true</WasmEnableExceptionHandling> -->
+    <!-- <WasmEnableSIMD>true</WasmEnableSIMD> -->
+  </PropertyGroup>
+
   <ItemGroup>
-    <RdXmlFile Include="rd.xml" />
+    <!-- <RdXmlFile Include="rd.xml" /> -->
+    <!-- <RuntimeHostConfigurationOption Include="System.Text.Json.Serialization.EnableSourceGenReflectionFallback" Value="true" /> -->
   </ItemGroup>
 
   <ItemGroup>
@@ -31,8 +46,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../../Fable.Core/Fable.Core.fsproj" />
-    <ProjectReference Include="../../src/Fable.Standalone.fsproj" />
+    <ProjectReference Include="../../../../Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="../../../src/Fable.Standalone.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
