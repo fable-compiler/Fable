@@ -2618,7 +2618,7 @@ def string_hash(s: str) -> int:
 
 
 def number_hash(x: int) -> int:
-    return x * 2654435761 | 0
+    return int(x) * 2654435761 | 0
 
 
 def identity_hash(x: Any) -> int:

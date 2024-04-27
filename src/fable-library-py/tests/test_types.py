@@ -159,3 +159,26 @@ def test_divide():
     assert 10 / uint64(3) == 3.3333333333333335
     assert byte(10) / 3 == 3
     assert byte(10) / 3.0 == 3.3333333333333335
+
+
+def test_hash():
+    assert hash(byte(42)) != 0
+    assert hash(sbyte(42)) != 0
+    assert hash(int16(42)) != 0
+    assert hash(int32(42)) != 0
+    assert hash(int64(42)) != 0
+    assert hash(uint16(42)) != 0
+    assert hash(uint32(42)) != 0
+    assert hash(uint64(42)) != 0
+
+
+def test_to_string():
+    assert byte(7).to_string(radix=2) == "111"
+    assert byte(7).to_string(radix=8) == "7"
+    assert byte(7).to_string(radix=10) == "7"
+    assert byte(7).to_string(radix=16) == "7"
+    assert byte(10).to_string(radix=2) == "1010"
+    assert byte(10).to_string(radix=8) == "12"
+    assert byte(10).to_string(radix=10) == "10"
+    assert byte(10).to_string(radix=16) == "a"
+    assert byte(255).to_string(radix=2) == "11111111"

@@ -438,17 +438,18 @@ module Reflection =
         | Fable.String -> pyTypeof "<class 'str'>" expr
         | Fable.Number(kind, _b) ->
             match kind, typ with
-            | _, Fable.Type.Number(UInt8, _) -> pyTypeof "<class fable.UInt8'>>" expr
-            | _, Fable.Type.Number(Int8, _) -> pyTypeof "<class 'fableInt8'>" expr
-            | _, Fable.Type.Number(Int16, _) -> pyTypeof "<class 'fable.Int16'>" expr
-            | _, Fable.Type.Number(UInt16, _) -> pyTypeof "<class 'fable.UInt16'>" expr
-            | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'fable.Int32'>" expr
-            | _, Fable.Type.Number(UInt32, _) -> pyTypeof "<class 'fable.UInt32>" expr
-            | _, Fable.Type.Number(Int64, _) -> pyTypeof "<class 'fable.Int64'>" expr
-            | _, Fable.Type.Number(UInt64, _) -> pyTypeof "<class 'fable.UInt64'>" expr
+            | _, Fable.Type.Number(UInt8, _) -> pyInstanceof (libValue com ctx "types" "uint8") expr
+            | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "types" "int8") expr
+            | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "types" "int16") expr
+            | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "types" "uint16") expr
+            | _, Fable.Type.Number(Int32, _) ->
+                pyInstanceof (Expression.binOp (Expression.name "int", BitOr, libValue com ctx "types" "int32")) expr
+            | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "types" "uint32") expr
+            | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "types" "int64") expr
+            | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "types" "uint64") expr
             | _, Fable.Type.Number(Float32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.float32'>" expr
             | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
-            | _ -> pyTypeof "<class 'int'>" expr
+            | _ -> pyInstanceof (Expression.name "int") expr
 
         | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
         | Fable.LambdaType _
@@ -767,7 +768,7 @@ module Annotation =
                 | UInt32 -> "uint32"
                 | Int64 -> "int64"
                 | UInt64 -> "uint64"
-                | Int32 -> "int32"
+                | Int32 -> "int"
                 | BigInt
                 | Int128
                 | UInt128
@@ -1648,6 +1649,7 @@ module Util =
         com.GetImportExpr(ctx, moduleName, name) |> getParts com ctx parts
 
     let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * Statement list =
+        // printfn "transformCast: %A" (t, e)
         match t with
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
@@ -1665,6 +1667,10 @@ module Util =
         | Fable.Number(Float32, _)
         | Fable.Number(Float64, _) ->
             let cons = libValue com ctx "types" "float32"
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            Expression.call (cons, [ value ], ?loc = None), stmts
+        | Fable.Number(Int32, _) ->
+            let cons = libValue com ctx "types" "int32"
             let value, stmts = com.TransformAsExpr(ctx, e)
             Expression.call (cons, [ value ], ?loc = None), stmts
         | _ -> com.TransformAsExpr(ctx, e)
@@ -1721,7 +1727,7 @@ module Util =
             | UInt8, (:? uint8 as x) -> makeInteger com ctx r value.Type "byte" x
             | Int16, (:? int16 as x) -> makeInteger com ctx r value.Type "int16" x
             | UInt16, (:? uint16 as x) -> makeInteger com ctx r value.Type "uint16" x
-            | Int32, (:? int32 as x) -> makeInteger com ctx r value.Type "int32" x
+            | Int32, (:? int32 as x) -> Expression.intConstant (x, ?loc = r), []
             | UInt32, (:? uint32 as x) -> makeInteger com ctx r value.Type "uint32" x
             //| _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
             | _, x when x = infinity -> Expression.name "float('inf')", []
@@ -4438,7 +4444,7 @@ module Compiler =
                 TypeParamsScope = 0
             }
 
-        //printfn "file: %A" file.Declarations
+        // printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx

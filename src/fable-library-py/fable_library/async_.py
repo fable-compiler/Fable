@@ -70,7 +70,7 @@ def cancel(token: CancellationToken) -> None:
 
 
 def cancel_after(token: CancellationToken, ms: int) -> None:
-    timer = Timer(ms / 1000.0, token.cancel)
+    timer = Timer(float(ms) / 1000.0, token.cancel)
     timer.start()
 
 
@@ -78,7 +78,7 @@ def is_cancellation_requested(token: CancellationToken) -> bool:
     return token and token.is_cancelled
 
 
-def sleep(millisecondsDueTime: int) -> Async[None]:
+def sleep(milliseconds_duetime: int) -> Async[None]:
     def cont(ctx: IAsyncContext[None]):
         def cancel():
             ctx.on_cancel(OperationCanceledError())
@@ -89,7 +89,7 @@ def sleep(millisecondsDueTime: int) -> Async[None]:
             ctx.cancel_token.remove_listener(token_id)
             ctx.on_success(None)
 
-        due_time = millisecondsDueTime / 1000.0
+        due_time = float(milliseconds_duetime) / 1000.0
         ctx.trampoline.run_later(timeout, due_time)
 
     return protected_cont(cont)

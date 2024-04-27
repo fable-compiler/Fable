@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from .types import FSharpRef, Record
+from .types import FSharpRef, IntegerTypes, Record
 from .types import Union as FsUnion
 from .util import Array, combine_hash_codes, equal_arrays_with
 
@@ -245,7 +245,7 @@ def is_instance_of_type(t: TypeInfo, o: Any) -> bool:
     if isinstance(o, str):
         return t.fullname == string_type.fullname
 
-    if isinstance(o, int | float):
+    if isinstance(o, IntegerTypes | float):
         return is_erased_to_number(t)
 
     if callable(o):

@@ -154,12 +154,18 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Char -> TypeCast(head, String)
         | String -> head
         | Builtin BclGuid when tail.IsEmpty -> Helper.GlobalCall("str", String, [ head ], ?loc = r)
-        | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number((Int8 | UInt8 | UInt16 | Int16 | UInt32 | Int32 | Int64 | UInt64), _) ->
-            Helper.InstanceCall(head, "to_string", String, tail, ?loc = r)
+        | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "to_string", String, args)
+        | Number(Int32, _) ->
+            let expr = Helper.LibCall(com, "types", "int32", head.Type, [ head ], ?loc = r)
+            Helper.InstanceCall(expr, "to_string", String, tail, ?loc = r)
+        | Number((Int8 | UInt8 | UInt16 | Int16 | UInt32 | Int64 | UInt64), _) ->
+            if tail.Length > 0 then
+                Helper.InstanceCall(head, "to_string", String, tail, ?loc = r)
+            else
+                Helper.GlobalCall("str", String, [ head ], ?loc = r)
         | Number(BigInt, _) -> Helper.LibCall(com, "util", "int_to_string", String, args)
-        | Number(Decimal, _) -> Helper.LibCall(com, "decimal", "toString", String, args)
-        | Number _ -> Helper.LibCall(com, "types", "toString", String, [ head ], ?loc = r)
+        | Number(Decimal, _) -> Helper.LibCall(com, "decimal", "to_string", String, args)
+        | Number _ -> Helper.LibCall(com, "types", "to_string", String, [ head ], ?loc = r)
         | Array _
         | List _ -> Helper.LibCall(com, "types", "seqToString", String, [ head ], ?loc = r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
@@ -2174,6 +2180,7 @@ let errorStrings =
     | _ -> None
 
 let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // printfn "languagePrimitives: %A" (i.CompiledName, thisArg, args)
     match i.CompiledName, args with
     | Naming.EndsWith "Dynamic" operation, arg :: _ ->
         let operation =

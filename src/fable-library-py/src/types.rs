@@ -37,6 +37,9 @@ impl Abs for u64 {
     }
 }
 
+// The `OtherType` enum is used to handle the case where we need to extract
+// a value from a Python where the type can either be an integer or a float. This
+// avoid having to unwrap the value twice.
 #[derive(FromPyObject)]
 enum OtherType {
     #[pyo3(transparent, annotation = "int")]
@@ -45,6 +48,7 @@ enum OtherType {
     Float(f64),
 }
 
+// Note that it's currently not possible to extend the `int` type in Python with pyo3.
 macro_rules! integer_variant {
     ($name:ident, $type:ty, $mask:expr) => {
         #[pyclass(module = "fable", frozen)]
@@ -85,10 +89,7 @@ macro_rules! integer_variant {
             pub fn to_string(&self, radix: u32) -> String {
                 match radix {
                     10 => self.0.to_string(),
-                    16 => {
-                        let bitsize = std::mem::size_of::<$type>() as u32 * 8;
-                        format!("{:0width$x}", self.0, width = bitsize as usize / 4)
-                    }
+                    16 => format!("{:x}", self.0),
                     2 => format!("{:b}", self.0),
                     8 => format!("{:o}", self.0),
                     _ => self.0.to_string(),
@@ -349,7 +350,7 @@ macro_rules! integer_variant {
             pub fn __hash__(&self) -> $type {
                 let mut hasher = DefaultHasher::new();
                 self.0.hash(&mut hasher);
-                hasher.finish().try_into().unwrap()
+                hasher.finish() as $type
             }
 
             pub fn __int__(&self) -> PyResult<$type> {
@@ -433,10 +434,12 @@ impl UInt8 {
         match radix {
             10 => self.0.to_string(),
             16 => {
-                let bitsize = std::mem::size_of::<u8>() as u32 * 8;
-                format!("{:0width$x}", self.0, width = bitsize as usize / 4)
+                format!("{:x}", self.0)
             }
-            2 => format!("{:b}", self.0),
+            2 => {
+                // Strip leading zeros
+                format!("{:b}", self.0)
+            }
             8 => format!("{:o}", self.0),
             _ => self.0.to_string(),
         }
@@ -668,7 +671,7 @@ impl UInt8 {
     pub fn __hash__(&self) -> u8 {
         let mut hasher = DefaultHasher::new();
         self.0.hash(&mut hasher);
-        hasher.finish().try_into().unwrap()
+        hasher.finish() as u8
     }
 
     pub fn __int__(&self) -> PyResult<u8> {
