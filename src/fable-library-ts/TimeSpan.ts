@@ -1,7 +1,7 @@
 // tslint:disable:max-line-length
 import { FSharpRef } from "./Types.js";
 import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
-import { toInt64 } from "./BigInt.js";
+import { toInt64, fromFloat64 } from "./BigInt.js";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 export type TimeSpan = number;
@@ -73,7 +73,7 @@ export function milliseconds(ts: TimeSpan) {
 }
 
 export function ticks(ts: TimeSpan) {
-  return toInt64(BigInt(ts) * 10000n);
+  return toInt64(fromFloat64(ts * 10000));
 }
 
 export function totalDays(ts: TimeSpan) {

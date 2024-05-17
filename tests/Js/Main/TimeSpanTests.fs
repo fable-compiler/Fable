@@ -74,6 +74,10 @@ let tests =
             t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
             |> equal 686.
 
+        testCase "TimeSpan.FromMilliseconds works" <| fun () ->
+            let t = TimeSpan.FromMilliseconds(1. / 3.)
+            t.Ticks |> equal 3333L
+
         testCase "TimeSpan.Ticks works" <| fun () ->
             let t = TimeSpan.FromTicks(20000L)
             t.Ticks

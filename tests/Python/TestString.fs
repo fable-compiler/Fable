@@ -71,7 +71,7 @@ let ``test sprintf displays sign correctly`` () =
       sprintf "%.2f" -1. |> equal "-1.00"
 
 [<Fact>]
-let ``test format string can use and compose string literals`` =
+let ``test format string can use and compose string literals`` () =
     let renderedCoordinates = sprintf formatCoordinateBody 0.25 0.75
     let renderedText = sprintf fullFormat 0.25 0.75
 
@@ -122,7 +122,7 @@ let ``test string interpolation works with anonymous records`` () =
     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
 
 [<Fact>]
-let ``test Extended string interpolation syntax`` =
+let ``test Extended string interpolation syntax`` () =
     let classAttr = "item-panel"
     let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
     cssNew |> equal ".item-panel:hover {background-color: #eee;}"

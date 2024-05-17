@@ -73,6 +73,10 @@ let tests() =
         t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
         |> equal 686.
 
+    testCase "TimeSpan.FromMilliseconds works" <| fun () ->
+        let t = TimeSpan.FromMilliseconds(1. / 3.)
+        t.Ticks / 10L |> equal 333L // Dart only has microsecond precision
+
     testCase "TimeSpan.Ticks works" <| fun () ->
         let t = TimeSpan.FromTicks(20000L)
         t.Ticks
