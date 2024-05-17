@@ -101,7 +101,7 @@ let ``test Record methods can be generated`` () =
     |> equal "Hello World! by Alfonso"
 
 [<Fact>]
-let ``test RRecord expression constructors can be generated`` () =
+let ``test Record expression constructors can be generated`` () =
     let x = { name = "Alfonso"; luckyNumber = 7 }
     let y = { x with luckyNumber = 14 }
     equal "Alfonso" y.name
@@ -133,7 +133,7 @@ let ``test Mutating records work`` () =
     equal -20 x''.uniqueB
 
 [<Fact>]
-let ``test Nested record field copy and update works for records`` =
+let ``test Nested record field copy and update works for records`` () =
     let car =
         { Interior = { Seats = 4 } }
     let car2 =
@@ -141,7 +141,7 @@ let ``test Nested record field copy and update works for records`` =
     equal 5 car2.Interior.Seats
 
 [<Fact>]
-let ``test Nested record field copy and update works for anonymous records`` =
+let ``test Nested record field copy and update works for anonymous records`` () =
     let car =
         {| Interior = {| Seats = 4 |} |}
     let car2 =
@@ -149,7 +149,7 @@ let ``test Nested record field copy and update works for anonymous records`` =
     equal 5 car2.Interior.Seats
 
 [<Fact>]
-let ``test Record equality when it has optional field`` =
+let ``test Record equality when it has optional field`` () =
     let a = { OptionalField = None }
     let b = { OptionalField = None }
     let c = { OptionalField = Some "test" }
