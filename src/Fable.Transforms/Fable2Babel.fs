@@ -1914,8 +1914,8 @@ module Util =
                     match callInfo.MemberRef with
                     | Some(Fable.MemberRef(_, info)) ->
                         let hasParamObjectAttribute =
-                            info.Attributes
-                            |> Seq.tryFind (fun attr -> attr.Entity.FullName = Atts.paramObject)
+                            info.AttributeFullNames
+                            |> List.tryFind (fun attr -> attr = Atts.paramObject)
                             |> Option.isSome
 
                         if hasParamObjectAttribute then

@@ -2153,7 +2153,7 @@ module Util =
                     CompiledName = memb.CompiledName
                     IsInstance = memb.IsInstanceMember
                     NonCurriedArgTypes = nonCurriedArgTypes
-                    Attributes = fableMemberFunctionOrValue.Attributes
+                    AttributeFullNames = fableMemberFunctionOrValue.Attributes |> Seq.map (fun attr -> attr.Entity.FullName) |> List.ofSeq
                 }
             )
         | ent ->
@@ -2188,7 +2188,7 @@ module Util =
                     CompiledName = memb.CompiledName
                     IsInstance = memb.IsInstanceMember
                     NonCurriedArgTypes = None
-                    Attributes = fableMemberFunctionOrValue.Attributes
+                    AttributeFullNames = fableMemberFunctionOrValue.Attributes |> Seq.map (fun attr -> attr.Entity.FullName) |> List.ofSeq
                 }
             )
         | ent ->
