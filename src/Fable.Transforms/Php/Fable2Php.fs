@@ -1454,18 +1454,18 @@ and convertValue (com: IPhpCompiler) (value: Fable.ValueKind) range =
         )
 
 
-    | Fable.NumberConstant(x, _, _) ->
+    | Fable.NumberConstant(x, _) ->
         match x with
-        | :? int8 as x -> PhpConst(PhpConstNumber(float x))
-        | :? uint8 as x -> PhpConst(PhpConstNumber(float x))
-        | :? int16 as x -> PhpConst(PhpConstNumber(float x))
-        | :? uint16 as x -> PhpConst(PhpConstNumber(float x))
-        | :? int32 as x -> PhpConst(PhpConstNumber(float x))
-        | :? uint32 as x -> PhpConst(PhpConstNumber(float x))
-        | :? float32 as x -> PhpConst(PhpConstNumber(float x))
-        | :? float as x -> PhpConst(PhpConstNumber(x))
+        | Fable.NumberValue.Int8 x -> PhpConst(PhpConstNumber(float x))
+        | Fable.NumberValue.UInt8 x -> PhpConst(PhpConstNumber(float x))
+        | Fable.NumberValue.Int16 x -> PhpConst(PhpConstNumber(float x))
+        | Fable.NumberValue.UInt16 x -> PhpConst(PhpConstNumber(float x))
+        | Fable.NumberValue.Int32 x -> PhpConst(PhpConstNumber(float x))
+        | Fable.NumberValue.UInt32 x -> PhpConst(PhpConstNumber(float x))
+        | Fable.NumberValue.Float32 x -> PhpConst(PhpConstNumber(float x))
+        | Fable.NumberValue.Float64 x -> PhpConst(PhpConstNumber(x))
         | _ ->
-            addError com [] range $"Numeric literal is not supported: {x.GetType().FullName}"
+            addError com [] range $"Numeric literal is not supported: %A{x}"
 
             PhpConst(PhpConstNull)
     | Fable.StringTemplate _ ->

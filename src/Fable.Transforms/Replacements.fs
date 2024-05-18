@@ -323,7 +323,8 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     match sourceType, targetType with
     | Char, _ ->
         match targetType, args with
-        | Number(kind, _), Value(CharConstant c, r) :: _ -> Value(NumberConstant(c, kind, NumberInfo.Empty), r)
+        | Number(kind, _), Value(CharConstant c, r) :: _ ->
+            Value(NumberConstant(NumberValue.KindOfChar(kind, c), NumberInfo.Empty), r)
         | _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [ makeIntConst 0 ])
     | String, _ -> stringToInt com ctx r targetType args
     | Number(fromKind, _), Number(toKind, _) ->
@@ -668,7 +669,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Boolean -> makeBoolConst false
     | Char
     | String -> makeStrConst "" // TODO: Use null for string?
-    | Number(kind, uom) -> NumberConstant(getBoxedZero kind, kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.ZeroOfKind kind, uom) |> makeValue None
     | Builtin(BclTimeSpan | BclTimeOnly) -> makeIntConst 0 // TODO: Type cast
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
@@ -681,7 +682,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst true
-    | Number(kind, uom) -> NumberConstant(getBoxedOne kind, kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.OneOfKind kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 
@@ -757,7 +758,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
 
     let caseRule =
         match caseRule with
-        | Some(NumberConst(:? int as rule, _, _)) -> Some rule
+        | Some(NumberConst(NumberValue.Int32 rule, _)) -> Some rule
         | _ -> None
         |> Option.map enum
         |> Option.defaultValue Fable.Core.CaseRules.None
@@ -2283,7 +2284,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp"), _ -> operators com ctx r t i thisArg args
-    | ("Parse" | "TryParse") as meth, str :: NumberConst(:? int as style, _, _) :: _ ->
+    | ("Parse" | "TryParse") as meth, str :: NumberConst(NumberValue.Int32 style, _) :: _ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
 

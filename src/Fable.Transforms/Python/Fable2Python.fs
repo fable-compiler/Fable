@@ -1710,25 +1710,27 @@ module Util =
                     makeBinOp None Fable.String acc (makeStrConst part) BinaryPlus
                 )
             |> transformAsExpr com ctx
-        | Fable.NumberConstant(x, kind, _) ->
-            match kind, x with
-            | Decimal, (:? decimal as x) -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
-            | Int64, (:? int64 as x) -> makeInteger com ctx r value.Type "int64" x
-            | UInt64, (:? uint64 as x) -> makeInteger com ctx r value.Type "uint64" x
-            | Int8, (:? int8 as x) -> makeInteger com ctx r value.Type "int8" x
-            | UInt8, (:? uint8 as x) -> makeInteger com ctx r value.Type "uint8" x
-            | Int16, (:? int16 as x) -> makeInteger com ctx r value.Type "int16" x
-            | UInt16, (:? uint16 as x) -> makeInteger com ctx r value.Type "uint16" x
-            | Int32, (:? int32 as x) -> Expression.intConstant (x, ?loc = r), []
-            | UInt32, (:? uint32 as x) -> makeInteger com ctx r value.Type "uint32" x
-            //| _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
-            | _, x when x = infinity -> Expression.name "float('inf')", []
-            | _, x when x = -infinity -> Expression.name "float('-inf')", []
-            | _, (:? float as x) when Double.IsNaN(x) -> Expression.name "float('nan')", []
-            | _, (:? float32 as x) when Single.IsNaN(x) ->
+        | Fable.NumberConstant(x, _) ->
+            match x with
+            | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
+            | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
+            | Fable.NumberValue.Int8 x -> makeInteger com ctx r value.Type "int8" x
+            | Fable.NumberValue.UInt8 x -> makeInteger com ctx r value.Type "uint8" x
+            | Fable.NumberValue.Int16 x -> makeInteger com ctx r value.Type "int16" x
+            | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
+            | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
+            // | Fable.NumberValue.KindOfChar _ -> makeNumber com ctx r value.Type "char" x
+            // TODO: special consts also need attention
+            | Fable.NumberValue.Float64 x when x = infinity -> Expression.name "float('inf')", []
+            | Fable.NumberValue.Float64 x when x = -infinity -> Expression.name "float('-inf')", []
+            | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> Expression.name "float('nan')", []
+            | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
-            | _, (:? float32 as x) -> makeFloat com ctx r value.Type "float32" (float x)
-            | _, (:? float as x) -> Expression.floatConstant (x, ?loc = r), []
+            | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
+            | Fable.NumberValue.Float64 x -> Expression.floatConstant (x, ?loc = r), []
+            // TODO: get rid of wildcard and fix, intConstant can't be catch-all, it includes Float16 and KindOfChar at very least
             | _ -> Expression.intConstant (x, ?loc = r), []
         | Fable.NewArray(newKind, typ, kind) ->
             match newKind with

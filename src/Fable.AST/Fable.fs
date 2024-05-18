@@ -482,6 +482,29 @@ type ArrayKind =
     | MutableArray
     | ImmutableArray
 
+[<RequireQualifiedAccess>]
+type NumberValue =
+    | Int8 of sbyte
+    | UInt8 of byte
+    | Int16 of int16
+    | UInt16 of System.UInt16
+    | Int32 of System.Int32
+    | UInt32 of System.UInt32
+    | Int64 of System.Int64
+    | UInt64 of System.UInt64
+    | Int128 of System.Int64 // System.Int128
+    | UInt128 of System.UInt64 // System.UInt128
+    | BigInt of bigint
+    | NativeInt of nativeint
+    | UNativeInt of unativeint
+    | Float16 of System.Single // System.Half
+    | Float32 of System.Single
+    | Float64 of System.Double
+    | Decimal of System.Decimal
+    // this will be coerced to type later / depends on lang
+    // TODO: review KindOfChar, it reeks of poor modelling
+    | KindOfChar of NumberKind * System.Char
+
 type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
     // ThisValue only appears in constructors and not in instance members (where `this` is passed as first argument)
@@ -497,7 +520,7 @@ type ValueKind =
     /// String interpolation with support for JS tagged templates
     /// String parts length should always be values.Length + 1
     | StringTemplate of tag: Expr option * parts: string list * values: Expr list
-    | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
+    | NumberConstant of NumberValue * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
     | NewArray of newKind: NewArrayKind * typ: Type * kind: ArrayKind
@@ -518,7 +541,27 @@ type ValueKind =
         | CharConstant _ -> Char
         | StringConstant _
         | StringTemplate _ -> String
-        | NumberConstant(_, kind, info) -> Number(kind, info)
+        | NumberConstant(value, info) ->
+            match value with
+            | NumberValue.Int8 _ -> NumberKind.Int8
+            | NumberValue.UInt8 _ -> NumberKind.UInt8
+            | NumberValue.Int16 _ -> NumberKind.Int16
+            | NumberValue.UInt16 _ -> NumberKind.UInt16
+            | NumberValue.Int32 _ -> NumberKind.Int32
+            | NumberValue.UInt32 _ -> NumberKind.UInt32
+            | NumberValue.Int64 _ -> NumberKind.Int64
+            | NumberValue.UInt64 _ -> NumberKind.UInt64
+            | NumberValue.Int128 _ -> NumberKind.Int128
+            | NumberValue.UInt128 _ -> NumberKind.UInt128
+            | NumberValue.BigInt _ -> NumberKind.BigInt
+            | NumberValue.NativeInt _ -> NumberKind.NativeInt
+            | NumberValue.UNativeInt _ -> NumberKind.UNativeInt
+            | NumberValue.Float16 _ -> NumberKind.Float16
+            | NumberValue.Float32 _ -> NumberKind.Float32
+            | NumberValue.Float64 _ -> NumberKind.Float64
+            | NumberValue.Decimal _ -> NumberKind.Decimal
+            | NumberValue.KindOfChar(kind, _) -> kind
+            |> fun kind -> Number(kind, info)
         | RegexConstant _ -> Regex
         | NewOption(_, t, isStruct) -> Option(t, isStruct)
         | NewArray(_, t, k) -> Array(t, k)

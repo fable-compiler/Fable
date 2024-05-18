@@ -50,8 +50,12 @@ let coreModFor =
     | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
 
 let makeLongInt com r t signed (x: uint64) =
-    let lowBits = NumberConstant(float (uint32 x), Float64, NumberInfo.Empty)
-    let highBits = NumberConstant(float (x >>> 32), Float64, NumberInfo.Empty)
+    let lowBits =
+        NumberConstant(NumberValue.Float64(float (uint32 x)), NumberInfo.Empty)
+
+    let highBits =
+        NumberConstant(NumberValue.Float64(float (x >>> 32)), NumberInfo.Empty)
+
     let unsigned = BoolConstant(not signed)
 
     let args =
@@ -544,7 +548,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | String -> makeStrConst "" // Using empty string instead of null so Dart doesn't complain
     | Number(BigInt, _) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [ makeIntConst 0 ])
     | Number(Decimal, _) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
-    | Number(kind, uom) -> NumberConstant(getBoxedZero kind, kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.ZeroOfKind kind, uom) |> makeValue None
     | Builtin(BclTimeSpan | BclTimeOnly) -> getZeroTimeSpan t
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
@@ -563,7 +567,7 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | Boolean -> makeBoolConst true
     | Number(BigInt, _) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [ makeIntConst 1 ])
     | Number(Decimal, _) as t -> makeIntConst 1 |> makeDecimalFromExpr com None t
-    | Number(kind, uom) -> NumberConstant(getBoxedOne kind, kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.OneOfKind kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 
@@ -2078,7 +2082,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "IsInfinity", [ _ ] when isFloat ->
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
-    | ("Parse" | "TryParse") as meth, str :: NumberConst(:? int as style, _, _) :: _ ->
+    | ("Parse" | "TryParse") as meth, str :: NumberConst(NumberValue.Int32 style, _) :: _ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
 

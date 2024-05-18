@@ -719,22 +719,20 @@ module Util =
         |> Expression.identExpression
         |> getParts t parts
 
-    let transformNumberLiteral com r kind (x: obj) =
-        match kind, x with
-        | Dart.Replacements.DartInt, (:? char as x) -> Expression.integerLiteral (int64 x)
-        | Int8, (:? int8 as x) -> Expression.integerLiteral (int64 x)
-        | UInt8, (:? uint8 as x) -> Expression.integerLiteral (int64 x)
-        | Int16, (:? int16 as x) -> Expression.integerLiteral (int64 x)
-        | UInt16, (:? uint16 as x) -> Expression.integerLiteral (int64 x)
-        | Int32, (:? int32 as x) -> Expression.integerLiteral (x)
-        | UInt32, (:? uint32 as x) -> Expression.integerLiteral (int64 x)
-        | Int64, (:? int64 as x) -> Expression.integerLiteral (x)
-        | UInt64, (:? uint64 as x) -> Expression.integerLiteral (int64 x)
-        | Float32, (:? float32 as x) -> Expression.doubleLiteral (float x)
-        | Float64, (:? float as x) -> Expression.doubleLiteral (x)
-        | _ ->
-            $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
-            |> addErrorAndReturnNull com r
+    let transformNumberLiteral com (r: Option<SourceLocation>) (v: Fable.NumberValue) =
+        match v with
+        | Fable.NumberValue.KindOfChar(Dart.Replacements.DartInt, x) -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Int8 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.UInt8 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Int16 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.UInt16 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Int32 x -> Expression.integerLiteral (x)
+        | Fable.NumberValue.UInt32 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Int64 x -> Expression.integerLiteral (x)
+        | Fable.NumberValue.UInt64 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Float32 x -> Expression.doubleLiteral (float x)
+        | Fable.NumberValue.Float64 x -> Expression.doubleLiteral (x)
+        | _ -> $"Numeric literal is not supported: %A{v}" |> addErrorAndReturnNull com r
 
     let transformTuple (com: IDartCompiler) ctx (args: Expression list) =
         let tup = List.length args |> getTupleTypeIdent com ctx
@@ -777,7 +775,7 @@ module Util =
 
         // Dart enums are limited as we cannot set arbitrary values or combine them as flags
         // so for now we compile F# enums as integers
-        | Fable.NumberConstant(x, kind, _) -> transformNumberLiteral com r kind x |> resolveExpr returnStrategy
+        | Fable.NumberConstant(x, _) -> transformNumberLiteral com r x |> resolveExpr returnStrategy
 
         | Fable.RegexConstant(source, flags) ->
             let flagToArg =

@@ -72,9 +72,9 @@ let makeDecimal com r t (x: decimal) =
 
 let makeDecimalFromExpr com r t (e: Expr) =
     match e with
-    | Value(Fable.NumberConstant(:? float32 as x, Float32, _), _) -> makeDecimal com r t (decimal x)
-    | Value(Fable.NumberConstant(:? float as x, Float64, _), _) -> makeDecimal com r t (decimal x)
-    | Value(Fable.NumberConstant(:? decimal as x, Decimal, _), _) -> makeDecimal com r t x
+    | Value(Fable.NumberConstant(NumberValue.Float32 x, _), _) -> makeDecimal com r t (decimal x)
+    | Value(Fable.NumberConstant(NumberValue.Float64 x, _), _) -> makeDecimal com r t (decimal x)
+    | Value(Fable.NumberConstant(NumberValue.Decimal x, _), _) -> makeDecimal com r t x
     | _ -> Helper.LibCall(com, "decimal", "Decimal", t, [ e ], isConstructor = true, ?loc = r)
 
 let createAtom com (value: Expr) =
@@ -696,7 +696,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     | Boolean -> makeBoolConst false
     | Number(BigInt, _) as t -> Helper.LibCall(com, "big_int", "fromInt32", t, [ makeIntConst 0 ])
     | Number(Decimal, _) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
-    | Number(kind, uom) -> NumberConstant(getBoxedZero kind, kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.ZeroOfKind kind, uom) |> makeValue None
     | Char
     | String -> makeStrConst "" // TODO: Use null for string?
     | Builtin BclTimeSpan -> Helper.LibCall(com, "time_span", "create", t, [ makeIntConst 0 ])
@@ -710,7 +710,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
 let getOne (com: ICompiler) ctx (t: Type) =
     match t with
     | Boolean -> makeBoolConst true
-    | Number(kind, uom) -> NumberConstant(getBoxedOne kind, kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.OneOfKind kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 
@@ -1403,7 +1403,11 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 c,
                 "rfind",
                 t,
-                [ str; Value(NumberConstant(0, Int32, NumberInfo.Empty), None); start ],
+                [
+                    str
+                    Value(NumberConstant(NumberValue.Int32 0, NumberInfo.Empty), None)
+                    start
+                ],
                 i.SignatureArgTypes,
                 ?loc = r
             )
@@ -1999,7 +2003,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "IsPositiveInfinity", [ _ ] when isFloat ->
         Helper.LibCall(com, "double", "is_positive_inf", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("Parse" | "TryParse") as meth, str :: NumberConst(:? int as style, _, _) :: _ ->
+    | ("Parse" | "TryParse") as meth, str :: NumberConst(NumberValue.Int32 style, _) :: _ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
 
