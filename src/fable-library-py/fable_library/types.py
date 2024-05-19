@@ -73,7 +73,7 @@ class Union(IComparable):
         fields = ""
         with_parens = True
         if len(self.fields) == 1:
-            field = str(self.fields[0])
+            field = to_string(self.fields[0])
             with_parens = field.find(" ") >= 0
             fields = field
         else:
