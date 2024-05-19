@@ -55,8 +55,7 @@ class Union(IComparable):
 
     @staticmethod
     @abstractmethod
-    def cases() -> list[str]:
-        ...
+    def cases() -> list[str]: ...
 
     @property
     def name(self) -> str:
@@ -66,6 +65,11 @@ class Union(IComparable):
         if not len(self.fields):
             return self.name
 
+        def to_string(value: Any) -> str:
+            if isinstance(value, str):
+                return f'"{value}"'
+            return str(value)
+
         fields = ""
         with_parens = True
         if len(self.fields) == 1:
@@ -73,7 +77,7 @@ class Union(IComparable):
             with_parens = field.find(" ") >= 0
             fields = field
         else:
-            fields = ", ".join(map(str, self.fields))
+            fields = ", ".join(map(to_string, self.fields))
 
         return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
 
@@ -204,8 +208,7 @@ class Record(IComparable):
         return record_get_hashcode(self)
 
 
-class Attribute:
-    ...
+class Attribute: ...
 
 
 def seq_to_string(self: Iterable[Any]) -> str:
