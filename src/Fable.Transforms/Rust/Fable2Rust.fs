@@ -1708,10 +1708,12 @@ module Util =
         | Fable.NumberValue.Int64 x ->
             let expr = mkInt64LitExpr (abs x |> string<int64>)
             expr |> negateWhen (x < 0L)
-        | Fable.NumberValue.Int128 x ->
-            // let expr = mkInt128LitExpr (System.Int128.Abs(x) |> string)
-            // expr |> negateWhen (System.Int128.IsNegative(x))
-            let s = string<obj> x
+        | Fable.NumberValue.Int128(upper, lower) ->
+            let bytes =
+                Array.concat [ BitConverter.GetBytes(lower); BitConverter.GetBytes(upper) ] // little endian
+
+            let big = Numerics.BigInteger(bytes)
+            let s = string big
             let expr = mkInt128LitExpr (s.TrimStart('-'))
             expr |> negateWhen (s.StartsWith("-", StringComparison.Ordinal))
         | Fable.NumberValue.UNativeInt x -> mkUsizeLitExpr (x |> string<unativeint>)
@@ -1719,8 +1721,12 @@ module Util =
         | Fable.NumberValue.UInt16 x -> mkUInt16LitExpr (x |> string<uint16>)
         | Fable.NumberValue.UInt32 x -> mkUInt32LitExpr (x |> string<uint32>)
         | Fable.NumberValue.UInt64 x -> mkUInt64LitExpr (x |> string<uint64>)
-        | Fable.NumberValue.UInt128 x -> // (:? System.UInt128 as x) ->
-            mkUInt128LitExpr (x |> string<obj>)
+        | Fable.NumberValue.UInt128(upper, lower) ->
+            let bytes =
+                Array.concat [ BitConverter.GetBytes(lower); BitConverter.GetBytes(upper); [| 0uy |] ] // little endian
+
+            let big = Numerics.BigInteger(bytes)
+            mkUInt128LitExpr (string big)
         | Fable.NumberValue.Float16 x ->
             let expr = mkFloat32LitExpr (abs x |> string<float32>)
             expr |> negateWhen (x < 0.0f)

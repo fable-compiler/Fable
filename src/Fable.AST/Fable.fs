@@ -492,8 +492,8 @@ type NumberValue =
     | UInt32 of System.UInt32
     | Int64 of System.Int64
     | UInt64 of System.UInt64
-    | Int128 of System.Int64 // System.Int128
-    | UInt128 of System.UInt64 // System.UInt128
+    | Int128 of upper: System.UInt64 * lower: System.UInt64 // System.Int128
+    | UInt128 of upper: System.UInt64 * lower: System.UInt64 // System.UInt128
     | BigInt of bigint
     | NativeInt of nativeint
     | UNativeInt of unativeint
@@ -517,7 +517,7 @@ type ValueKind =
     /// String interpolation with support for JS tagged templates
     /// String parts length should always be values.Length + 1
     | StringTemplate of tag: Expr option * parts: string list * values: Expr list
-    | NumberConstant of NumberValue * info: NumberInfo
+    | NumberConstant of value: NumberValue * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
     | NewArray of newKind: NewArrayKind * typ: Type * kind: ArrayKind

@@ -268,8 +268,8 @@ type NumberValue with
         | NumberKind.UInt32 -> NumberValue.UInt32(0u: uint32)
         | NumberKind.Int64 -> NumberValue.Int64(0L: int64)
         | NumberKind.UInt64 -> NumberValue.UInt64(0UL: uint64)
-        | NumberKind.Int128 -> NumberValue.Int128(0L: int64) //System.Int128.Zero
-        | NumberKind.UInt128 -> NumberValue.UInt128(0UL: uint64) //System.UInt128.Zero
+        | NumberKind.Int128 -> NumberValue.Int128(0UL, 0UL) //System.Int128.Zero
+        | NumberKind.UInt128 -> NumberValue.UInt128(0UL, 0UL) //System.UInt128.Zero
         | NumberKind.BigInt -> NumberValue.BigInt(0I: bigint)
         | NumberKind.NativeInt -> NumberValue.NativeInt(0n: nativeint)
         | NumberKind.UNativeInt -> NumberValue.UNativeInt(0un: unativeint)
@@ -288,12 +288,12 @@ type NumberValue with
         | NumberKind.UInt32 -> NumberValue.UInt32(1u: uint32)
         | NumberKind.Int64 -> NumberValue.Int64(1L: int64)
         | NumberKind.UInt64 -> NumberValue.UInt64(1UL: uint64)
-        | NumberKind.Int128 -> NumberValue.Int128(1L: int64) //System.Int128.Zero
-        | NumberKind.UInt128 -> NumberValue.UInt128(1UL: uint64) //System.UInt128.Zero
+        | NumberKind.Int128 -> NumberValue.Int128(0UL, 1UL) //System.Int128.One
+        | NumberKind.UInt128 -> NumberValue.UInt128(0UL, 1UL) //System.UInt128.One
         | NumberKind.BigInt -> NumberValue.BigInt(1I: bigint)
         | NumberKind.NativeInt -> NumberValue.NativeInt(1n: nativeint)
         | NumberKind.UNativeInt -> NumberValue.UNativeInt(1un: unativeint)
-        | NumberKind.Float16 -> NumberValue.Float16(1.f: float32) //System.Half.Zero
+        | NumberKind.Float16 -> NumberValue.Float16(1.f: float32) //System.Half.One
         | NumberKind.Float32 -> NumberValue.Float32(1.f: float32)
         | NumberKind.Float64 -> NumberValue.Float64(1.: float)
         | NumberKind.Decimal -> NumberValue.Decimal(1M: decimal)
