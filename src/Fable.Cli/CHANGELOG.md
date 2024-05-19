@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [GH-3817](https://github.com/fable-compiler/Fable/pull/3817) [All] Fix broken --precompiledLib switch (#3818) (by @DunetsNM)
 * [JS/TS] Fixed TimeSpan.FromMilliseconds (#3815) (by @ncave)
 
 ## 4.17.0 - 2024-04-23
