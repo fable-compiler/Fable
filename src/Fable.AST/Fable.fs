@@ -501,9 +501,6 @@ type NumberValue =
     | Float32 of System.Single
     | Float64 of System.Double
     | Decimal of System.Decimal
-    // this will be coerced to type later / depends on lang
-    // TODO: review KindOfChar, it reeks of poor modelling
-    | KindOfChar of NumberKind * System.Char
 
 type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
@@ -560,7 +557,6 @@ type ValueKind =
             | NumberValue.Float32 _ -> NumberKind.Float32
             | NumberValue.Float64 _ -> NumberKind.Float64
             | NumberValue.Decimal _ -> NumberKind.Decimal
-            | NumberValue.KindOfChar(kind, _) -> kind
             |> fun kind -> Number(kind, info)
         | RegexConstant _ -> Regex
         | NewOption(_, t, isStruct) -> Option(t, isStruct)
