@@ -156,7 +156,7 @@ module Reflection =
 
                 let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                (Expression.tuple [ Expression.stringConstant (name); typeInfo ]), stmts
+                (Expression.tuple [ Expression.stringConstant name; typeInfo ]), stmts
             )
             |> Seq.toList
             |> Helpers.unzipArgs
@@ -1129,7 +1129,8 @@ module Util =
 
     let ident (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifier(ctx, id.Name)
 
-    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifierAsExpr(ctx, id.Name)
+    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) =
+        com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase id.Name)
 
     let thisExpr = Expression.name "self"
 
@@ -3743,7 +3744,8 @@ module Util =
 
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
 
-            let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
+            let name =
+                com.GetIdentifier(ctx, Naming.toSnakeCase entName + Naming.reflectionSuffix)
 
             expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
 
