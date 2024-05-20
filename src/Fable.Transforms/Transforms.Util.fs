@@ -1052,7 +1052,7 @@ module AST =
             | Int128, _
             | UInt128, _
             | Float16, _ ->
-                FableError $"Unsupported Number Kind %A{kind} and value {x} combination"
+                FableError $"Unsupported Number Kind %A{kind} and value %A{x} combination"
                 |> raise
 
             | _, (:? char as x) ->

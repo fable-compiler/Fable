@@ -1713,7 +1713,7 @@ module Util =
                 Array.concat [ BitConverter.GetBytes(lower); BitConverter.GetBytes(upper) ] // little endian
 
             let big = Numerics.BigInteger(bytes)
-            let s = string big
+            let s = string<Numerics.BigInteger> big
             let expr = mkInt128LitExpr (s.TrimStart('-'))
             expr |> negateWhen (s.StartsWith("-", StringComparison.Ordinal))
         | Fable.NumberValue.UNativeInt x -> mkUsizeLitExpr (x |> string<unativeint>)
@@ -1726,7 +1726,7 @@ module Util =
                 Array.concat [ BitConverter.GetBytes(lower); BitConverter.GetBytes(upper); [| 0uy |] ] // little endian
 
             let big = Numerics.BigInteger(bytes)
-            mkUInt128LitExpr (string big)
+            mkUInt128LitExpr (string<Numerics.BigInteger> big)
         | Fable.NumberValue.Float16 x ->
             let expr = mkFloat32LitExpr (abs x |> string<float32>)
             expr |> negateWhen (x < 0.0f)

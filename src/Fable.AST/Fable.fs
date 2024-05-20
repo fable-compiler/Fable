@@ -51,7 +51,7 @@ type MemberRefInfo =
         IsInstance: bool
         CompiledName: string
         NonCurriedArgTypes: Type list option
-        AttributeFullNames: list<string>
+        AttributeFullNames: string list
     }
 
 type MemberRef =
