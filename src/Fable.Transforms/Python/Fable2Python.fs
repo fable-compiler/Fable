@@ -383,6 +383,8 @@ module Reflection =
                     | [] -> yield Util.undefined None, []
                     | generics -> yield Expression.list generics, []
                     match tryPyConstructor com ctx ent with
+                    | Some(Expression.Name { Id = name }, stmts) ->
+                        yield Expression.name (name.Name |> Naming.toSnakeCase), stmts
                     | Some(cons, stmts) -> yield cons, stmts
                     | None -> ()
                     match ent.BaseType with
