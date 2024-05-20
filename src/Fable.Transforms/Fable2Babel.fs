@@ -1632,6 +1632,7 @@ module Util =
             // | Fable.NumberValue.Float16 x -> Expression.numericLiteral(float x, ?loc=r)
             | Fable.NumberValue.Float32 x -> Expression.numericLiteral (float x, ?loc = r)
             | Fable.NumberValue.Float64 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.CharNumber(_, x) -> Expression.numericLiteral (float x, ?loc = r)
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}"
         | Fable.RegexConstant(source, flags) -> Expression.regExpLiteral (source, flags, ?loc = r)
         | Fable.NewArray(newKind, typ, kind) ->

@@ -1055,6 +1055,10 @@ module AST =
                 FableError $"Unsupported Number Kind %A{kind} and value {x} combination"
                 |> raise
 
+            | _, (:? char as x) ->
+                // TODO: convert to correct NumberValue based on kind ?
+                NumberValue.Float64(float x)
+
             | _ ->
                 FableError $"Unexpected Number Kind %A{kind} and value %A{value} combination"
                 |> raise

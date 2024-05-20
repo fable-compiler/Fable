@@ -280,6 +280,7 @@ let tests =
         Convert.ToSByte(2.6) |> equal (x+x+x)
         Convert.ToSByte(3.5) |> equal (x+x+x+x)
         Convert.ToSByte("1") |> equal x
+        Convert.ToSByte('a') |> equal 97y
         (fun () -> Convert.ToSByte("1.4")) |> throwsError ""
         (fun () -> Convert.ToSByte("foo")) |> throwsError ""
 
@@ -323,6 +324,7 @@ let tests =
         Convert.ToInt16(2.6) |> equal (x+x+x)
         Convert.ToInt16(3.5) |> equal (x+x+x+x)
         Convert.ToInt16("1") |> equal x
+        Convert.ToInt16('a') |> equal 97s
         (fun () -> Convert.ToInt16("1.4")) |> throwsError ""
         (fun () -> Convert.ToInt16("foo")) |> throwsError ""
 
@@ -366,6 +368,7 @@ let tests =
         Convert.ToInt32(2.6) |> equal (x+x+x)
         Convert.ToInt32(3.5) |> equal (x+x+x+x)
         Convert.ToInt32("1") |> equal x
+        Convert.ToInt32('a') |> equal 97
         (fun () -> Convert.ToInt32("1.4")) |> throwsError ""
         (fun () -> Convert.ToInt32("foo")) |> throwsError ""
 
@@ -428,6 +431,7 @@ let tests =
         Convert.ToInt64(2.6) |> equal (x+x+x)
         Convert.ToInt64(3.5) |> equal (x+x+x+x)
         Convert.ToInt64("1") |> equal x
+        Convert.ToInt64('a') |> equal 97L
         (fun () -> Convert.ToInt64("1.4")) |> throwsError ""
         (fun () -> Convert.ToInt64("foo")) |> throwsError ""
 
@@ -471,6 +475,7 @@ let tests =
         Convert.ToByte(2.6) |> equal (x+x+x)
         Convert.ToByte(3.5) |> equal (x+x+x+x)
         Convert.ToByte("1") |> equal x
+        Convert.ToByte('a') |> equal 97uy
         (fun () -> Convert.ToByte("1.4")) |> throwsError ""
         (fun () -> Convert.ToByte("foo")) |> throwsError ""
 
@@ -514,6 +519,7 @@ let tests =
         Convert.ToUInt16(2.6) |> equal (x+x+x)
         Convert.ToUInt16(3.5) |> equal (x+x+x+x)
         Convert.ToUInt16("1") |> equal x
+        Convert.ToUInt16('a') |> equal 97us
         (fun () -> Convert.ToUInt16("1.4")) |> throwsError ""
         (fun () -> Convert.ToUInt16("foo")) |> throwsError ""
 
@@ -557,6 +563,7 @@ let tests =
         Convert.ToUInt32(2.6) |> equal (x+x+x)
         Convert.ToUInt32(3.5) |> equal (x+x+x+x)
         Convert.ToUInt32("1") |> equal x
+        Convert.ToUInt32('a') |> equal 97u
         (fun () -> Convert.ToUInt32("1.4")) |> throwsError ""
         (fun () -> Convert.ToUInt32("foo")) |> throwsError ""
 
@@ -600,6 +607,7 @@ let tests =
         Convert.ToUInt64(2.6) |> equal (x+x+x)
         Convert.ToUInt64(3.5) |> equal (x+x+x+x)
         Convert.ToUInt64("1") |> equal x
+        Convert.ToUInt64('a') |> equal 97UL
         (fun () -> Convert.ToUInt64("1.4")) |> throwsError ""
         (fun () -> Convert.ToUInt64("foo")) |> throwsError ""
 

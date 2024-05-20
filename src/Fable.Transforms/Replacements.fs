@@ -323,7 +323,8 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     match sourceType, targetType with
     | Char, _ ->
         match targetType, args with
-        | Number(kind, _), Value(CharConstant _, _) :: _ -> TypeCast(args.Head, targetType)
+        | Number(kind, _), Value(CharConstant c, r) :: _ ->
+            Value(NumberConstant(NumberValue.CharNumber(kind, c), NumberInfo.Empty), r)
         | _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [ makeIntConst 0 ])
     | String, _ -> stringToInt com ctx r targetType args
     | Number(fromKind, _), Number(toKind, _) ->

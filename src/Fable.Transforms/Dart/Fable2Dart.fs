@@ -721,6 +721,7 @@ module Util =
 
     let transformNumberLiteral com (r: Option<SourceLocation>) (v: Fable.NumberValue) =
         match v with
+        | Fable.NumberValue.CharNumber(Dart.Replacements.DartInt, x) -> Expression.integerLiteral (int64 x)
         | Fable.NumberValue.Int8 x -> Expression.integerLiteral (int64 x)
         | Fable.NumberValue.UInt8 x -> Expression.integerLiteral (int64 x)
         | Fable.NumberValue.Int16 x -> Expression.integerLiteral (int64 x)

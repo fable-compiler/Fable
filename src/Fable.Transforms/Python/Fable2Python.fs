@@ -1721,6 +1721,7 @@ module Util =
             | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
             | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
             | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
+            // | Fable.NumberValue.CharNumber _ -> makeNumber com ctx r value.Type "char" x
             // TODO: special consts also need attention
             | Fable.NumberValue.Float64 x when x = infinity -> Expression.name "float('inf')", []
             | Fable.NumberValue.Float64 x when x = -infinity -> Expression.name "float('-inf')", []
@@ -1729,7 +1730,7 @@ module Util =
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
             | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
             | Fable.NumberValue.Float64 x -> Expression.floatConstant (x, ?loc = r), []
-            // TODO: get rid of wildcard and fix, intConstant can't be catch-all, it includes Float16 at very least
+            // TODO: get rid of wildcard and fix, intConstant can't be catch-all, it includes Float16 and CharNumber at very least
             | _ -> Expression.intConstant (x, ?loc = r), []
         | Fable.NewArray(newKind, typ, kind) ->
             match newKind with

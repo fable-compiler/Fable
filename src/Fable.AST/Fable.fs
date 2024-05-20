@@ -501,6 +501,8 @@ type NumberValue =
     | Float32 of System.Single
     | Float64 of System.Double
     | Decimal of System.Decimal
+    // a workaround to do char arithmetics, see #2614 TODO: can we do better? TypeCast didn't work
+    | CharNumber of NumberKind * System.Char
 
 type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
@@ -557,6 +559,7 @@ type ValueKind =
             | NumberValue.Float32 _ -> NumberKind.Float32
             | NumberValue.Float64 _ -> NumberKind.Float64
             | NumberValue.Decimal _ -> NumberKind.Decimal
+            | NumberValue.CharNumber(kind, _) -> kind
             |> fun kind -> Number(kind, info)
         | RegexConstant _ -> Regex
         | NewOption(_, t, isStruct) -> Option(t, isStruct)
