@@ -4173,7 +4173,7 @@ module Util =
                 let decls =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
-                        let name = com.GetIdentifier(ctx, decl.Name)
+                        let name = com.GetIdentifier(ctx, Naming.toSnakeCase decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts @ declareModuleMember com ctx info.IsPublic name (Some ta) value
