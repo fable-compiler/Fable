@@ -1615,24 +1615,23 @@ module Util =
             StringTemplate(tag, List.toArray parts, values, r) |> Literal
         | Fable.NumberConstant(v, _) ->
             match v with
-            | Fable.NumberValue.Decimal x -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
-            | Fable.NumberValue.BigInt x -> Expression.bigintLiteral (string<bigint> x, ?loc = r)
-            | Fable.NumberValue.Int64 x -> Expression.bigintLiteral (string<int64> x, ?loc = r)
-            | Fable.NumberValue.UInt64 x -> Expression.bigintLiteral (string<uint64> x, ?loc = r)
-            // | Fable.NumberValue.Int128 x -> Expression.bigintLiteral(string x, ?loc=r)
-            // | Fable.NumberValue.UInt128 x -> Expression.bigintLiteral(string x, ?loc=r)
-            | Fable.NumberValue.NativeInt x -> Expression.bigintLiteral (string<nativeint> x, ?loc = r)
-            | Fable.NumberValue.UNativeInt x -> Expression.bigintLiteral (string<unativeint> x, ?loc = r)
             | Fable.NumberValue.Int8 x -> Expression.numericLiteral (float x, ?loc = r)
             | Fable.NumberValue.UInt8 x -> Expression.numericLiteral (float x, ?loc = r)
             | Fable.NumberValue.Int16 x -> Expression.numericLiteral (float x, ?loc = r)
             | Fable.NumberValue.UInt16 x -> Expression.numericLiteral (float x, ?loc = r)
             | Fable.NumberValue.Int32 x -> Expression.numericLiteral (float x, ?loc = r)
             | Fable.NumberValue.UInt32 x -> Expression.numericLiteral (float x, ?loc = r)
-            // | Fable.NumberValue.Float16 x -> Expression.numericLiteral(float x, ?loc=r)
+            | Fable.NumberValue.Int64 x -> Expression.bigintLiteral (string<int64> x, ?loc = r)
+            | Fable.NumberValue.UInt64 x -> Expression.bigintLiteral (string<uint64> x, ?loc = r)
+            // | Fable.NumberValue.Int128(u,l) -> Expression.bigintLiteral(string System.Int128(u,l), ?loc=r)
+            // | Fable.NumberValue.UInt128(u,l) -> Expression.bigintLiteral(string System.UInt128(u,l), ?loc=r)
+            | Fable.NumberValue.BigInt x -> Expression.bigintLiteral (string<bigint> x, ?loc = r)
+            | Fable.NumberValue.NativeInt x -> Expression.bigintLiteral (string<nativeint> x, ?loc = r)
+            | Fable.NumberValue.UNativeInt x -> Expression.bigintLiteral (string<unativeint> x, ?loc = r)
+            | Fable.NumberValue.Float16 x -> Expression.numericLiteral (float x, ?loc = r)
             | Fable.NumberValue.Float32 x -> Expression.numericLiteral (float x, ?loc = r)
             | Fable.NumberValue.Float64 x -> Expression.numericLiteral (float x, ?loc = r)
-            | Fable.NumberValue.CharNumber(_, x) -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Decimal x -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}"
         | Fable.RegexConstant(source, flags) -> Expression.regExpLiteral (source, flags, ?loc = r)
         | Fable.NewArray(newKind, typ, kind) ->

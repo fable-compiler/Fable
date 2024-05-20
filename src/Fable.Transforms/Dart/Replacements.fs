@@ -548,7 +548,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | String -> makeStrConst "" // Using empty string instead of null so Dart doesn't complain
     | Number(BigInt, _) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [ makeIntConst 0 ])
     | Number(Decimal, _) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
-    | Number(kind, uom) -> NumberConstant(NumberValue.ZeroOfKind kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Builtin(BclTimeSpan | BclTimeOnly) -> getZeroTimeSpan t
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
@@ -567,7 +567,7 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | Boolean -> makeBoolConst true
     | Number(BigInt, _) as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [ makeIntConst 1 ])
     | Number(Decimal, _) as t -> makeIntConst 1 |> makeDecimalFromExpr com None t
-    | Number(kind, uom) -> NumberConstant(NumberValue.OneOfKind kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetOne kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 

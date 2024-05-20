@@ -258,7 +258,7 @@ let toArray r t expr =
 
 type NumberValue with
 
-    static member ZeroOfKind(kind: NumberKind) : NumberValue =
+    static member GetZero(kind: NumberKind) : NumberValue =
         match kind with
         | NumberKind.Int8 -> NumberValue.Int8(0y: int8)
         | NumberKind.UInt8 -> NumberValue.UInt8(0uy: uint8)
@@ -278,7 +278,7 @@ type NumberValue with
         | NumberKind.Float64 -> NumberValue.Float64(0.: float)
         | NumberKind.Decimal -> NumberValue.Decimal(0M: decimal)
 
-    static member OneOfKind(kind: NumberKind) : NumberValue =
+    static member GetOne(kind: NumberKind) : NumberValue =
         match kind with
         | NumberKind.Int8 -> NumberValue.Int8(1y: int8)
         | NumberKind.UInt8 -> NumberValue.UInt8(1uy: uint8)

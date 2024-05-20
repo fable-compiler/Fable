@@ -721,7 +721,6 @@ module Util =
 
     let transformNumberLiteral com (r: Option<SourceLocation>) (v: Fable.NumberValue) =
         match v with
-        | Fable.NumberValue.CharNumber(Dart.Replacements.DartInt, x) -> Expression.integerLiteral (int64 x)
         | Fable.NumberValue.Int8 x -> Expression.integerLiteral (int64 x)
         | Fable.NumberValue.UInt8 x -> Expression.integerLiteral (int64 x)
         | Fable.NumberValue.Int16 x -> Expression.integerLiteral (int64 x)
@@ -730,6 +729,7 @@ module Util =
         | Fable.NumberValue.UInt32 x -> Expression.integerLiteral (int64 x)
         | Fable.NumberValue.Int64 x -> Expression.integerLiteral (x)
         | Fable.NumberValue.UInt64 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Float16 x -> Expression.doubleLiteral (float x)
         | Fable.NumberValue.Float32 x -> Expression.doubleLiteral (float x)
         | Fable.NumberValue.Float64 x -> Expression.doubleLiteral (x)
         | _ -> $"Numeric literal is not supported: %A{v}" |> addErrorAndReturnNull com r

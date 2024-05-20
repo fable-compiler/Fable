@@ -351,9 +351,9 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
 
     match sourceType, targetType with
-    | Char, _ ->
-        //Helper.InstanceCall(args.Head, "charCodeAt", targetType, [ makeIntConst 0 ])
+    | Char, Number(typeTo, _) ->
         Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
+        |> emitCast typeTo
     | String, _ -> stringToInt com ctx r targetType args
     | Number(BigInt, _), _ -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
     | Number(typeFrom, _), Number(typeTo, _) ->
@@ -696,7 +696,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     | Boolean -> makeBoolConst false
     | Number(BigInt, _) as t -> Helper.LibCall(com, "big_int", "fromInt32", t, [ makeIntConst 0 ])
     | Number(Decimal, _) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
-    | Number(kind, uom) -> NumberConstant(NumberValue.ZeroOfKind kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Char
     | String -> makeStrConst "" // TODO: Use null for string?
     | Builtin BclTimeSpan -> Helper.LibCall(com, "time_span", "create", t, [ makeIntConst 0 ])
@@ -710,16 +710,14 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
 let getOne (com: ICompiler) ctx (t: Type) =
     match t with
     | Boolean -> makeBoolConst true
-    | Number(kind, uom) -> NumberConstant(NumberValue.OneOfKind kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetOne kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
     let x = makeUniqueIdent ctx t "x"
     let y = makeUniqueIdent ctx t "y"
-
     let body = applyOp com ctx None t Operators.addition [ IdentExpr x; IdentExpr y ]
-
     Delegate([ x; y ], body, None, Tags.empty)
 
 let makeGenericAdder (com: ICompiler) ctx t =
@@ -733,9 +731,7 @@ let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
         let x = makeUniqueIdent ctx t "x"
         let i = makeUniqueIdent ctx (Int32.Number) "i"
-
         let body = applyOp com ctx None t Operators.divideByInt [ IdentExpr x; IdentExpr i ]
-
         Delegate([ x; i ], body, None, Tags.empty)
 
     objExpr
@@ -2738,7 +2734,6 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | _ -> None
     | meth ->
         let args = ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
-
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
