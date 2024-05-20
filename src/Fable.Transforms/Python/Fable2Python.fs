@@ -2445,7 +2445,7 @@ module Util =
             stmts @ [ decl ] @ body
         else
             let value, stmts = transformBindingExprBody com ctx var value
-            let varName = com.GetIdentifierAsExpr(ctx, var.Name)
+            let varName = com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase var.Name)
             let ta, stmts' = typeAnnotation com ctx None var.Type
             let decl = varDeclaration ctx varName (Some ta) value
             stmts @ stmts' @ decl
