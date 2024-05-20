@@ -156,7 +156,7 @@ module Reflection =
 
                 let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                (Expression.tuple [ Expression.stringConstant (name); typeInfo ]), stmts
+                (Expression.tuple [ Expression.stringConstant name; typeInfo ]), stmts
             )
             |> Seq.toList
             |> Helpers.unzipArgs
@@ -383,6 +383,8 @@ module Reflection =
                     | [] -> yield Util.undefined None, []
                     | generics -> yield Expression.list generics, []
                     match tryPyConstructor com ctx ent with
+                    | Some(Expression.Name { Id = name }, stmts) ->
+                        yield Expression.name (name.Name |> Naming.toSnakeCase), stmts
                     | Some(cons, stmts) -> yield cons, stmts
                     | None -> ()
                     match ent.BaseType with
@@ -1127,7 +1129,8 @@ module Util =
 
     let ident (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifier(ctx, id.Name)
 
-    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifierAsExpr(ctx, id.Name)
+    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) =
+        com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase id.Name)
 
     let thisExpr = Expression.name "self"
 
@@ -2442,7 +2445,7 @@ module Util =
             stmts @ [ decl ] @ body
         else
             let value, stmts = transformBindingExprBody com ctx var value
-            let varName = com.GetIdentifierAsExpr(ctx, var.Name)
+            let varName = com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase var.Name)
             let ta, stmts' = typeAnnotation com ctx None var.Type
             let decl = varDeclaration ctx varName (Some ta) value
             stmts @ stmts' @ decl
@@ -3741,7 +3744,8 @@ module Util =
 
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
 
-            let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
+            let name =
+                com.GetIdentifier(ctx, Naming.toSnakeCase entName + Naming.reflectionSuffix)
 
             expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
 
@@ -4169,7 +4173,7 @@ module Util =
                 let decls =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
-                        let name = com.GetIdentifier(ctx, decl.Name)
+                        let name = com.GetIdentifier(ctx, Naming.toSnakeCase decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts @ declareModuleMember com ctx info.IsPublic name (Some ta) value

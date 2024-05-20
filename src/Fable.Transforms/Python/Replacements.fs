@@ -805,7 +805,7 @@ let tryEntityIdent (com: Compiler) entFullName =
 
 let tryConstructor com (ent: Entity) =
     if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
-        tryEntityIdent com ent.FullName
+        tryEntityIdent com (ent.FullName |> Naming.toSnakeCase)
     else
         FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
 
