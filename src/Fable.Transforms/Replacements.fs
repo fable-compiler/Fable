@@ -303,7 +303,6 @@ let toLong com (ctx: Context) r targetType (args: Expr list) : Expr =
         |> wrapLong com ctx r targetType
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-
         TypeCast(args.Head, targetType)
 
 let emitIntCast toKind arg =
@@ -321,11 +320,9 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     let sourceType = args.Head.Type
 
     match sourceType, targetType with
-    | Char, _ ->
-        match targetType, args with
-        | Number(kind, _), Value(CharConstant c, r) :: _ ->
-            Value(NumberConstant(NumberValue.CharNumber(kind, c), NumberInfo.Empty), r)
-        | _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [ makeIntConst 0 ])
+    | Char, Number(toKind, _) ->
+        Helper.InstanceCall(args.Head, "charCodeAt", targetType, [ makeIntConst 0 ])
+        |> emitIntCast toKind
     | String, _ -> stringToInt com ctx r targetType args
     | Number(fromKind, _), Number(toKind, _) ->
         if needToCast fromKind toKind then
@@ -340,7 +337,6 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
             TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-
         TypeCast(args.Head, targetType)
 
 let round com (args: Expr list) =
@@ -669,7 +665,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Boolean -> makeBoolConst false
     | Char
     | String -> makeStrConst "" // TODO: Use null for string?
-    | Number(kind, uom) -> NumberConstant(NumberValue.ZeroOfKind kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Builtin(BclTimeSpan | BclTimeOnly) -> makeIntConst 0 // TODO: Type cast
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
@@ -682,7 +678,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst true
-    | Number(kind, uom) -> NumberConstant(NumberValue.OneOfKind kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetOne kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 

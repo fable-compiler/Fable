@@ -1668,7 +1668,6 @@ module Util =
     let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity : Expression * Statement list =
         com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
-
     let makeInteger (com: IPythonCompiler) (ctx: Context) r _t intName (x: obj) =
         let cons = libValue com ctx "types" intName
         let value = Expression.intConstant (x, ?loc = r)
@@ -1678,7 +1677,6 @@ module Util =
         let cons = libValue com ctx "types" floatName
         let value = Expression.floatConstant (x, ?loc = r)
         Expression.call (cons, [ value ], ?loc = r), []
-
 
     let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * Statement list =
         match value with
@@ -1710,28 +1708,34 @@ module Util =
                     makeBinOp None Fable.String acc (makeStrConst part) BinaryPlus
                 )
             |> transformAsExpr com ctx
-        | Fable.NumberConstant(x, _) ->
-            match x with
-            | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
-            | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
-            | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
+        | Fable.NumberConstant(v, _) ->
+            match v with
             | Fable.NumberValue.Int8 x -> makeInteger com ctx r value.Type "int8" x
             | Fable.NumberValue.UInt8 x -> makeInteger com ctx r value.Type "uint8" x
             | Fable.NumberValue.Int16 x -> makeInteger com ctx r value.Type "int16" x
             | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
             | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
             | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
-            // | Fable.NumberValue.CharNumber _ -> makeNumber com ctx r value.Type "char" x
+            | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
+            | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
+            // | Fable.NumberValue.Int128(u,l) -> Expression.intConstant (System.Int128(u,l), ?loc = r), []
+            // | Fable.NumberValue.UInt128(u,l) -> Expression.intConstant (System.UInt128(u,l), ?loc = r), []
+            | Fable.NumberValue.BigInt x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.NativeInt x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.UNativeInt x -> Expression.intConstant (x, ?loc = r), []
             // TODO: special consts also need attention
             | Fable.NumberValue.Float64 x when x = infinity -> Expression.name "float('inf')", []
             | Fable.NumberValue.Float64 x when x = -infinity -> Expression.name "float('-inf')", []
             | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> Expression.name "float('nan')", []
             | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
+            | Fable.NumberValue.Float16 x when Single.IsNaN(x) ->
+                libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
+            | Fable.NumberValue.Float16 x -> makeFloat com ctx r value.Type "float32" (float x)
             | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
             | Fable.NumberValue.Float64 x -> Expression.floatConstant (x, ?loc = r), []
-            // TODO: get rid of wildcard and fix, intConstant can't be catch-all, it includes Float16 and CharNumber at very least
-            | _ -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}", []
         | Fable.NewArray(newKind, typ, kind) ->
             match newKind with
             | Fable.ArrayValues values -> makeArray com ctx values kind typ

@@ -612,7 +612,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Boolean -> makeBoolConst false
     | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "zero", t, [])
     | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "Zero", t)
-    | Number(kind, uom) -> NumberConstant(NumberValue.ZeroOfKind kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst "" // TODO: Use null for string?
     | Array(typ, _) -> makeArray typ []
@@ -632,7 +632,7 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | Boolean -> makeBoolConst true
     | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "one", t, [])
     | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "One", t)
-    | Number(kind, uom) -> NumberConstant(NumberValue.OneOfKind kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetOne kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 

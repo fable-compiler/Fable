@@ -2147,13 +2147,18 @@ module Util =
             let fableMemberFunctionOrValue =
                 FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
 
+            let attributeFullNames =
+                fableMemberFunctionOrValue.Attributes
+                |> Seq.map (fun attr -> attr.Entity.FullName)
+                |> List.ofSeq
+
             Fable.MemberRef(
                 FsEnt.Ref(ent),
                 {
                     CompiledName = memb.CompiledName
                     IsInstance = memb.IsInstanceMember
                     NonCurriedArgTypes = nonCurriedArgTypes
-                    AttributeFullNames = fableMemberFunctionOrValue.Attributes |> Seq.map (fun attr -> attr.Entity.FullName) |> List.ofSeq
+                    AttributeFullNames = attributeFullNames
                 }
             )
         | ent ->
@@ -2182,13 +2187,18 @@ module Util =
             let fableMemberFunctionOrValue =
                 FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
 
+            let attributeFullNames =
+                fableMemberFunctionOrValue.Attributes
+                |> Seq.map (fun attr -> attr.Entity.FullName)
+                |> List.ofSeq
+
             Fable.MemberRef(
                 FsEnt.Ref(ent),
                 {
                     CompiledName = memb.CompiledName
                     IsInstance = memb.IsInstanceMember
                     NonCurriedArgTypes = None
-                    AttributeFullNames = fableMemberFunctionOrValue.Attributes |> Seq.map (fun attr -> attr.Entity.FullName) |> List.ofSeq
+                    AttributeFullNames = attributeFullNames
                 }
             )
         | ent ->
