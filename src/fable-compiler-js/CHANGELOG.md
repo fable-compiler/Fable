@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.2.0 - 2024-05-23
+
 ### Changed
 
 * Use `@fable-org/fable-metadata` package instead of `fable-metadata` (by @MangelMaxime)

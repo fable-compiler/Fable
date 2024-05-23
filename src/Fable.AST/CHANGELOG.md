@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.5.0 - 2024-05-23
+
 ### Removed
 
 * Remove `MemberRefInfo.Attributes` [GH-3817](https://github.com/fable-compiler/Fable/pull/3817) (by @DunetsNM)

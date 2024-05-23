@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.18.0 - 2024-05-23
+
 ### Fixed
 
 * [GH-3817](https://github.com/fable-compiler/Fable/pull/3817) [All] Fix broken --precompiledLib switch (#3818) (by @DunetsNM)
