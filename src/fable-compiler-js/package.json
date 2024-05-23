@@ -24,8 +24,8 @@
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "dependencies": {
-    "fable-metadata": "^2.0.0",
-    "fable-standalone": "^3.0.0"
+    "@fable-org/fable-metadata": "^1.0.0",
+    "@fable-org/fable-standalone": "^1.4.0"
   },
   "devDependencies": {
     "esbuild": "^0.19.5",
