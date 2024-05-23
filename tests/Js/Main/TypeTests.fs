@@ -488,8 +488,12 @@ type IndexedProps(v: int) =
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
     member _.Item with get (v2: float) = float v + v2 / 2.
 
+[<Interface>]
+type ITesting =
+    static member Testing x = x
+
 type TypeWithByRefMember() =
-  static member DoubleIntByRef (x: byref<int>) : unit = x <- 2 * x
+    static member DoubleIntByRef (x: byref<int>) : unit = x <- 2 * x
 
 let inline doubleIntByRef (x: ^a) (input: int) : int =
     let mutable value = input
@@ -525,6 +529,10 @@ let tests =
         f[3] <- "6"
         f[4] |> equal 13
         f[4.] |> equal 11
+
+    testCase "Static interface members work" <| fun () ->
+        let a = ITesting.Testing 5
+        a |> equal 5
 
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
         let t = TestType9()

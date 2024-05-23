@@ -2681,7 +2681,7 @@ module Util =
 
         // Check if this is an interface or abstract/overriden method
         | _, Some entity when
-            entity.IsInterface
+            entity.IsInterface && memb.IsInstanceMember
             || memb.IsOverrideOrExplicitInterfaceImplementation
             || memb.IsDispatchSlot
             ->

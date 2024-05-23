@@ -549,6 +549,15 @@ type MangledAbstractClass5(v) =
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
+type IndexedProps(v: int) =
+    let mutable v = v
+    member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
+    member _.Item with get (v2: float) = float v + v2 / 2.
+
+[<Interface>]
+type ITesting =
+    static member Testing x = x
+
 // TODO: This test produces different results in Fable and .NET
 // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
 // [<Fact>]
@@ -557,6 +566,19 @@ type ConcreteClass1() =
 //     |> Array.item 0
 //     |> fun fi -> fi.PropertyType.GetGenericArguments().Length
 //     |> equal 1
+
+[<Fact>]
+let ``test Indexed properties work`` () =
+    let f = IndexedProps(5)
+    f[4] |> equal 9
+    f[3] <- "6"
+    f[4] |> equal 13
+    f[4.] |> equal 11
+
+[<Fact>]
+let ``test Static interface members work`` () =
+    let a = ITesting.Testing 5
+    a |> equal 5
 
 [<Fact>]
 let ``test Types can instantiate their parent in the constructor`` () =
