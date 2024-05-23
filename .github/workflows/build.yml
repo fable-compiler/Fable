@@ -145,9 +145,6 @@ jobs:
       - name: Setup dotnet tools
         run: dotnet tool restore
 
-      # - name: Check F# formatting (fantomas)
-      #   run: dotnet fantomas src/Fable.Transforms/Python --check
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
@@ -155,7 +152,8 @@ jobs:
 
       - name: Install poetry
         run: |
-          pip install poetry
+          pipx install poetry
+          pipx install maturin
 
       - name: Fable Library - Python (linux)
         if: matrix.platform == 'ubuntu-latest'

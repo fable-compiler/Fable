@@ -6,10 +6,12 @@ from collections.abc import Callable, Iterable, MutableSequence
 from typing import (
     Any,
     Generic,
+    TypeAlias,
     TypeVar,
     cast,
 )
 
+from .core import byte, int16, int32, int64, sbyte, uint16, uint32, uint64
 from .util import Array, IComparable, compare
 
 
@@ -277,7 +279,7 @@ class FSharpException(Exception, IComparable):
             else:
                 return True
 
-        return super().__lt__(other)
+        return False
 
     def __hash__(self) -> int:
         return hash(self.Data0)
@@ -296,43 +298,12 @@ class char(int):
     __slots__ = ()
 
 
-class int8(int):
-    __slots__ = ()
-
-
-class int16(int):
-    __slots__ = ()
-
-
-class int32(int):
-    __slots__ = ()
-
-
-class int64(int):
-    __slots__ = ()
-
-
-class uint8(int):
-    __slots__ = ()
-
-
-class uint16(int):
-    __slots__ = ()
-
-
-class uint32(int):
-    __slots__ = ()
-
-
-class uint64(int):
-    __slots__ = ()
-
-
 class float32(float):
     __slots__ = ()
 
 
 float = float  # use native float for float64
+IntegerTypes: TypeAlias = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
 
 
 def Int8Array(lst: list[int]) -> MutableSequence[int]:
@@ -376,8 +347,8 @@ __all__ = [
     "Array",
     "is_exception",
     "char",
-    "int8",
-    "uint8",
+    "sbyte",
+    "byte",
     "int16",
     "uint16",
     "int32",
@@ -398,4 +369,5 @@ __all__ = [
     "seq_to_string",
     "to_string",
     "Union",
+    "IntegerTypes",
 ]

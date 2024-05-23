@@ -44,11 +44,11 @@ module PrinterExtensions =
                 printer.Print(handler)
 
             if node.OrElse.Length > 0 then
-                printer.Print("else: ")
+                printer.Print("else:")
                 printer.PrintBlock(node.OrElse)
 
             if node.FinalBody.Length > 0 then
-                printer.Print("finally: ")
+                printer.Print("finally:")
                 printer.PrintBlock(node.FinalBody)
 
         member printer.Print(arg: Arg) =

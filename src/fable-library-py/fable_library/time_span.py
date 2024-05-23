@@ -37,12 +37,12 @@ def create(
             pass
 
     return TimeSpan(
-        days * 864000000000
-        + (hours or 0) * 36000000000
-        + (minutes or 0) * 600000000
-        + (seconds or 0) * 10000000
-        + (milliseconds or 0) * 10000
-        + (microseconds or 0) * 10
+        float(days) * 864000000000
+        + float(hours or 0) * 36000000000
+        + float(minutes or 0) * 600000000
+        + float(seconds or 0) * 10000000
+        + float(milliseconds or 0) * 10000
+        + float(microseconds or 0) * 10
     )
 
 
