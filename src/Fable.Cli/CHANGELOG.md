@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Fixed TimeSpan.FromMilliseconds (#3815) (by @ncave)
 * [Python] Fixed quotation for union string cases (by @dbrattli)
 * [Python] Fixed casing issues with identifiers and reflection info (#3811) (by @dbrattli)
+* [JS/TS/Python] Fixed interface static members (#3566) (by @ncave)
 
 ## 4.17.0 - 2024-04-23
 
