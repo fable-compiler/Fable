@@ -809,7 +809,7 @@ module AST =
 
     let (|NumberConst|_|) =
         function
-        | MaybeCasted(Value(NumberConstant(value, kind, info), _)) -> Some(value, kind, info)
+        | MaybeCasted(Value(NumberConstant(value, info), _)) -> Some(value, info)
         | _ -> None
 
     let (|NullConst|_|) =
@@ -993,10 +993,10 @@ module AST =
     let makeStrConst (x: string) = StringConstant x |> makeValue None
 
     let makeIntConst (x: int) =
-        NumberConstant(x, Int32, NumberInfo.Empty) |> makeValue None
+        NumberConstant(NumberValue.Int32 x, NumberInfo.Empty) |> makeValue None
 
     let makeFloatConst (x: float) =
-        NumberConstant(x, Float64, NumberInfo.Empty) |> makeValue None
+        NumberConstant(NumberValue.Float64 x, NumberInfo.Empty) |> makeValue None
 
     let makeRegexConst r (pattern: string) flags =
         let flags = RegexGlobal :: RegexUnicode :: flags // .NET regex are always global & unicode
@@ -1008,18 +1008,18 @@ module AST =
         | :? string as x -> StringConstant x |> makeValue None
         | :? char as x -> CharConstant x |> makeValue None
         // Integer types
-        | :? int8 as x -> NumberConstant(x, Int8, NumberInfo.Empty) |> makeValue None
-        | :? uint8 as x -> NumberConstant(x, UInt8, NumberInfo.Empty) |> makeValue None
-        | :? int16 as x -> NumberConstant(x, Int16, NumberInfo.Empty) |> makeValue None
-        | :? uint16 as x -> NumberConstant(x, UInt16, NumberInfo.Empty) |> makeValue None
-        | :? int32 as x -> NumberConstant(x, Int32, NumberInfo.Empty) |> makeValue None
-        | :? uint32 as x -> NumberConstant(x, UInt32, NumberInfo.Empty) |> makeValue None
-        | :? int64 as x -> NumberConstant(x, Int64, NumberInfo.Empty) |> makeValue None
-        | :? uint64 as x -> NumberConstant(x, UInt64, NumberInfo.Empty) |> makeValue None
+        | :? int8 as x -> NumberConstant(NumberValue.Int8 x, NumberInfo.Empty) |> makeValue None
+        | :? uint8 as x -> NumberConstant(NumberValue.UInt8 x, NumberInfo.Empty) |> makeValue None
+        | :? int16 as x -> NumberConstant(NumberValue.Int16 x, NumberInfo.Empty) |> makeValue None
+        | :? uint16 as x -> NumberConstant(NumberValue.UInt16 x, NumberInfo.Empty) |> makeValue None
+        | :? int32 as x -> NumberConstant(NumberValue.Int32 x, NumberInfo.Empty) |> makeValue None
+        | :? uint32 as x -> NumberConstant(NumberValue.UInt32 x, NumberInfo.Empty) |> makeValue None
+        | :? int64 as x -> NumberConstant(NumberValue.Int64 x, NumberInfo.Empty) |> makeValue None
+        | :? uint64 as x -> NumberConstant(NumberValue.UInt64 x, NumberInfo.Empty) |> makeValue None
         // Float types
-        | :? float32 as x -> NumberConstant(x, Float32, NumberInfo.Empty) |> makeValue None
-        | :? float as x -> NumberConstant(x, Float64, NumberInfo.Empty) |> makeValue None
-        | :? decimal as x -> NumberConstant(x, Decimal, NumberInfo.Empty) |> makeValue None
+        | :? float32 as x -> NumberConstant(NumberValue.Float32 x, NumberInfo.Empty) |> makeValue None
+        | :? float as x -> NumberConstant(NumberValue.Float64 x, NumberInfo.Empty) |> makeValue None
+        | :? decimal as x -> NumberConstant(NumberValue.Decimal x, NumberInfo.Empty) |> makeValue None
         | _ ->
             FableError $"Cannot create expression for object {value} (%s{value.GetType().FullName})"
             |> raise
@@ -1029,21 +1029,52 @@ module AST =
         | Boolean, (:? bool as x) -> BoolConstant x |> makeValue r
         | String, (:? string as x) -> StringConstant x |> makeValue r
         | Char, (:? char as x) -> CharConstant x |> makeValue r
-        | Number(kind, info), x -> NumberConstant(x, kind, info) |> makeValue r
+        | Number(kind, info), x ->
+
+            // TODO : this needs some attention. Do kind and type of obj always match here? If not, should we cast early?
+
+            match kind, x with
+            | Decimal, (:? decimal as x) -> NumberValue.Decimal x
+            | BigInt, (:? bigint as x) -> NumberValue.BigInt x
+            | Int64, (:? int64 as x) -> NumberValue.Int64 x
+            | UInt64, (:? uint64 as x) -> NumberValue.UInt64 x
+            | NativeInt, (:? nativeint as x) -> NumberValue.NativeInt x
+            | UNativeInt, (:? unativeint as x) -> NumberValue.UNativeInt x
+            | Int8, (:? int8 as x) -> NumberValue.Int8 x
+            | UInt8, (:? uint8 as x) -> NumberValue.UInt8 x
+            | Int16, (:? int16 as x) -> NumberValue.Int16 x
+            | UInt16, (:? uint16 as x) -> NumberValue.UInt16 x
+            | Int32, (:? int32 as x) -> NumberValue.Int32 x
+            | UInt32, (:? uint32 as x) -> NumberValue.UInt32 x
+            | Float32, (:? float32 as x) -> NumberValue.Float32 x
+            | Float64, (:? float as x) -> NumberValue.Float64 x
+
+            | Int128, _
+            | UInt128, _
+            | Float16, _ ->
+                FableError $"Unsupported Number Kind %A{kind} and value %A{x} combination"
+                |> raise
+
+            | _ ->
+                FableError $"Unexpected Number Kind %A{kind} and value %A{value} combination"
+                |> raise
+
+            |> fun value -> NumberConstant(value, info) |> makeValue r
+
         | Unit, _ -> UnitConstant |> makeValue r
         // Arrays with small data type (ushort, byte) are represented
         // in F# AST as BasicPatterns.Const
         | Array(Number(kind, uom), arrayKind), (:? (byte[]) as arr) ->
             let values =
                 arr
-                |> Array.map (fun x -> NumberConstant(x, kind, uom) |> makeValue None)
+                |> Array.map (fun x -> NumberConstant(NumberValue.UInt8 x, uom) |> makeValue None)
                 |> Seq.toList
 
             NewArray(ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
         | Array(Number(kind, uom), arrayKind), (:? (uint16[]) as arr) ->
             let values =
                 arr
-                |> Array.map (fun x -> NumberConstant(x, kind, uom) |> makeValue None)
+                |> Array.map (fun x -> NumberConstant(NumberValue.UInt16 x, uom) |> makeValue None)
                 |> Seq.toList
 
             NewArray(ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r

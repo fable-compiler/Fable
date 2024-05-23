@@ -612,7 +612,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Boolean -> makeBoolConst false
     | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "zero", t, [])
     | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "Zero", t)
-    | Number(kind, uom) -> NumberConstant(getBoxedZero kind, kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst "" // TODO: Use null for string?
     | Array(typ, _) -> makeArray typ []
@@ -632,7 +632,7 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | Boolean -> makeBoolConst true
     | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "one", t, [])
     | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "One", t)
-    | Number(kind, uom) -> NumberConstant(getBoxedOne kind, kind, uom) |> makeValue None
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetOne kind, uom) |> makeValue None
     | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 
@@ -1228,8 +1228,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [] -> false
         | [ BoolConst ignoreCase ] -> ignoreCase
         | [ BoolConst ignoreCase; _cultureInfo ] -> ignoreCase
-        | [ NumberConst(:? int as kind, _, NumberInfo.IsEnum _) ] -> kind = 1 || kind = 3 || kind = 5
-        | [ _cultureInfo; NumberConst(:? int as options, _, NumberInfo.IsEnum _) ] ->
+        | [ NumberConst(NumberValue.Int32 kind, NumberInfo.IsEnum _) ] -> kind = 1 || kind = 3 || kind = 5
+        | [ _cultureInfo; NumberConst(NumberValue.Int32 options, NumberInfo.IsEnum _) ] ->
             (options &&& 1 <> 0) || (options &&& 268435456 <> 0)
         | _ -> false
 
@@ -1296,8 +1296,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | None, [ ExprTypeAs(String, x); ExprTypeAs(String, y) ] ->
             Helper.LibCall(com, "String", "equalsOrdinal", t, [ x; y; makeBoolConst false ], ?loc = r)
             |> Some
-        | Some x, [ ExprTypeAs(String, y); NumberConst(:? int as kind, _, NumberInfo.IsEnum _) ]
-        | None, [ ExprTypeAs(String, x); ExprTypeAs(String, y); NumberConst(:? int as kind, _, NumberInfo.IsEnum _) ] ->
+        | Some x, [ ExprTypeAs(String, y); NumberConst(NumberValue.Int32 kind, NumberInfo.IsEnum _) ]
+        | None,
+          [ ExprTypeAs(String, x); ExprTypeAs(String, y); NumberConst(NumberValue.Int32 kind, NumberInfo.IsEnum _) ] ->
             if kind <> 4 && kind <> 5 then
                 $"String.Equals will be compiled with ordinal equality"
                 |> addWarning com ctx.InlinePath r
@@ -2032,7 +2033,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Operation(Logical(LogicalAnd, op1, op2), Tags.empty, t, None) |> Some
     | "IsInfinity", [ arg ] when isFloat -> makeInstanceCall r t i arg "is_infinite" [] |> Some
     | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp"), _ -> operators com ctx r t i thisArg args
-    | ("Parse" | "TryParse") as meth, str :: NumberConst(:? int as style, _, _) :: _ ->
+    | ("Parse" | "TryParse") as meth, str :: NumberConst(NumberValue.Int32 style, _) :: _ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
 

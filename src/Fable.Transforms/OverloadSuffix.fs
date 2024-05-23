@@ -106,7 +106,9 @@ let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Typ
         let genArgs = genArgs |> Seq.mapToList (getTypeFastFullName genParams)
         // Not sure why, but when precompiling F# changes measure types to MeasureProduct<'M, MeasureOne>
         match tdef.FullName, genArgs with
-        | Types.measureProduct2, [ measure; Types.measureOne ] -> measure
+        | Types.measureProduct2, [ measure; Types.measureOne ] ->
+            // TODO: generalize it to support aggregate units such as <m/s> or more complex
+            measure
         | _ ->
             let genArgs = String.concat "," genArgs
 

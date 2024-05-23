@@ -1613,27 +1613,26 @@ module Util =
             let values = values |> List.mapToArray (fun e -> com.TransformAsExpr(ctx, e))
 
             StringTemplate(tag, List.toArray parts, values, r) |> Literal
-        | Fable.NumberConstant(x, kind, _) ->
-            match kind, x with
-            | Decimal, (:? decimal as x) -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
-            | BigInt, (:? bigint as x) -> Expression.bigintLiteral (string<bigint> x, ?loc = r)
-            | Int64, (:? int64 as x) -> Expression.bigintLiteral (string<int64> x, ?loc = r)
-            | UInt64, (:? uint64 as x) -> Expression.bigintLiteral (string<uint64> x, ?loc = r)
-            // | Int128,  (:? System.Int128 as x) -> Expression.bigintLiteral(string x, ?loc=r)
-            // | UInt128, (:? System.UInt128 as x) -> Expression.bigintLiteral(string x, ?loc=r)
-            | NativeInt, (:? nativeint as x) -> Expression.bigintLiteral (string<nativeint> x, ?loc = r)
-            | UNativeInt, (:? unativeint as x) -> Expression.bigintLiteral (string<unativeint> x, ?loc = r)
-            | Int8, (:? int8 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | UInt8, (:? uint8 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | Int16, (:? int16 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | UInt16, (:? uint16 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | Int32, (:? int32 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | UInt32, (:? uint32 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            // | Float16, (:? System.Half as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | Float32, (:? float32 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | Float64, (:? float as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | _, (:? char as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
+        | Fable.NumberConstant(v, _) ->
+            match v with
+            | Fable.NumberValue.Int8 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.UInt8 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Int16 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.UInt16 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Int32 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.UInt32 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Int64 x -> Expression.bigintLiteral (string<int64> x, ?loc = r)
+            | Fable.NumberValue.UInt64 x -> Expression.bigintLiteral (string<uint64> x, ?loc = r)
+            // | Fable.NumberValue.Int128(u,l) -> Expression.bigintLiteral(string System.Int128(u,l), ?loc=r)
+            // | Fable.NumberValue.UInt128(u,l) -> Expression.bigintLiteral(string System.UInt128(u,l), ?loc=r)
+            | Fable.NumberValue.BigInt x -> Expression.bigintLiteral (string<bigint> x, ?loc = r)
+            | Fable.NumberValue.NativeInt x -> Expression.bigintLiteral (string<nativeint> x, ?loc = r)
+            | Fable.NumberValue.UNativeInt x -> Expression.bigintLiteral (string<unativeint> x, ?loc = r)
+            | Fable.NumberValue.Float16 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Float32 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Float64 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Decimal x -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}"
         | Fable.RegexConstant(source, flags) -> Expression.regExpLiteral (source, flags, ?loc = r)
         | Fable.NewArray(newKind, typ, kind) ->
             match newKind with
@@ -1914,8 +1913,8 @@ module Util =
                     match callInfo.MemberRef with
                     | Some(Fable.MemberRef(_, info)) ->
                         let hasParamObjectAttribute =
-                            info.Attributes
-                            |> Seq.tryFind (fun attr -> attr.Entity.FullName = Atts.paramObject)
+                            info.AttributeFullNames
+                            |> List.tryFind (fun attr -> attr = Atts.paramObject)
                             |> Option.isSome
 
                         if hasParamObjectAttribute then

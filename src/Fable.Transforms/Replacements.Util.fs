@@ -256,45 +256,47 @@ let toArray r t expr =
 
     Value(NewArray(ArrayFrom expr, t, kind), r)
 
-let getBoxedZero kind : obj =
-    match kind with
-    | Int8 -> 0y: int8
-    | UInt8 -> 0uy: uint8
-    | Int16 -> 0s: int16
-    | UInt16 -> 0us: uint16
-    | Int32 -> 0: int32
-    | UInt32 -> 0u: uint32
-    | Int64 -> 0L: int64
-    | UInt64 -> 0UL: uint64
-    | Int128 -> 0L: int64 //System.Int128.Zero
-    | UInt128 -> 0UL: uint64 //System.UInt128.Zero
-    | BigInt -> 0I: bigint
-    | NativeInt -> 0n: nativeint
-    | UNativeInt -> 0un: unativeint
-    | Float16 -> 0.f: float32 //System.Half.Zero
-    | Float32 -> 0.f: float32
-    | Float64 -> 0.: float
-    | Decimal -> 0M: decimal
+type NumberValue with
 
-let getBoxedOne kind : obj =
-    match kind with
-    | Int8 -> 1y: int8
-    | UInt8 -> 1uy: uint8
-    | Int16 -> 1s: int16
-    | UInt16 -> 1us: uint16
-    | Int32 -> 1: int32
-    | UInt32 -> 1u: uint32
-    | Int64 -> 1L: int64
-    | UInt64 -> 1UL: uint64
-    | Int128 -> 1L: int64 //System.Int128.One
-    | UInt128 -> 1UL: uint64 //System.UInt128.One
-    | BigInt -> 1I: bigint
-    | NativeInt -> 1n: nativeint
-    | UNativeInt -> 1un: unativeint
-    | Float16 -> 1.f: float32 //System.Half.One
-    | Float32 -> 1.f: float32
-    | Float64 -> 1.: float
-    | Decimal -> 1M: decimal
+    static member GetZero(kind: NumberKind) : NumberValue =
+        match kind with
+        | NumberKind.Int8 -> NumberValue.Int8(0y: int8)
+        | NumberKind.UInt8 -> NumberValue.UInt8(0uy: uint8)
+        | NumberKind.Int16 -> NumberValue.Int16(0s: int16)
+        | NumberKind.UInt16 -> NumberValue.UInt16(0us: uint16)
+        | NumberKind.Int32 -> NumberValue.Int32(0: int32)
+        | NumberKind.UInt32 -> NumberValue.UInt32(0u: uint32)
+        | NumberKind.Int64 -> NumberValue.Int64(0L: int64)
+        | NumberKind.UInt64 -> NumberValue.UInt64(0UL: uint64)
+        | NumberKind.Int128 -> NumberValue.Int128(0UL, 0UL) //System.Int128.Zero
+        | NumberKind.UInt128 -> NumberValue.UInt128(0UL, 0UL) //System.UInt128.Zero
+        | NumberKind.BigInt -> NumberValue.BigInt(0I: bigint)
+        | NumberKind.NativeInt -> NumberValue.NativeInt(0n: nativeint)
+        | NumberKind.UNativeInt -> NumberValue.UNativeInt(0un: unativeint)
+        | NumberKind.Float16 -> NumberValue.Float16(0.f: float32) //System.Half.Zero
+        | NumberKind.Float32 -> NumberValue.Float32(0.f: float32)
+        | NumberKind.Float64 -> NumberValue.Float64(0.: float)
+        | NumberKind.Decimal -> NumberValue.Decimal(0M: decimal)
+
+    static member GetOne(kind: NumberKind) : NumberValue =
+        match kind with
+        | NumberKind.Int8 -> NumberValue.Int8(1y: int8)
+        | NumberKind.UInt8 -> NumberValue.UInt8(1uy: uint8)
+        | NumberKind.Int16 -> NumberValue.Int16(1s: int16)
+        | NumberKind.UInt16 -> NumberValue.UInt16(1us: uint16)
+        | NumberKind.Int32 -> NumberValue.Int32(1: int32)
+        | NumberKind.UInt32 -> NumberValue.UInt32(1u: uint32)
+        | NumberKind.Int64 -> NumberValue.Int64(1L: int64)
+        | NumberKind.UInt64 -> NumberValue.UInt64(1UL: uint64)
+        | NumberKind.Int128 -> NumberValue.Int128(0UL, 1UL) //System.Int128.One
+        | NumberKind.UInt128 -> NumberValue.UInt128(0UL, 1UL) //System.UInt128.One
+        | NumberKind.BigInt -> NumberValue.BigInt(1I: bigint)
+        | NumberKind.NativeInt -> NumberValue.NativeInt(1n: nativeint)
+        | NumberKind.UNativeInt -> NumberValue.UNativeInt(1un: unativeint)
+        | NumberKind.Float16 -> NumberValue.Float16(1.f: float32) //System.Half.One
+        | NumberKind.Float32 -> NumberValue.Float32(1.f: float32)
+        | NumberKind.Float64 -> NumberValue.Float64(1.: float)
+        | NumberKind.Decimal -> NumberValue.Decimal(1M: decimal)
 
 type BuiltinType =
     | BclGuid
@@ -852,7 +854,7 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
 let (|RegexFlags|_|) e =
     let rec getFlags =
         function
-        | NumberConst(:? int as value, _, _) ->
+        | NumberConst(NumberValue.Int32 value, _) ->
             match value with
             | 1 -> Some [ RegexIgnoreCase ]
             | 2 -> Some [ RegexMultiline ]

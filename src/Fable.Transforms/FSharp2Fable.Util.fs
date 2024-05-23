@@ -1422,7 +1422,19 @@ module TypeHelpers =
             // TODO: Check it's effectively measure?
             // TODO: Raise error if we cannot get the measure fullname?
             match tryDefinition genArgs[0] with
-            | Some(_, Some fullname) -> fullname
+            | Some(_, Some fullname) ->
+                // Not sure why, but when precompiling F# changes measure types to MeasureProduct<'M, MeasureOne>
+                match fullname with
+                | Types.measureProduct2 ->
+                    match
+                        (nonAbbreviatedType genArgs[0]).GenericArguments
+                        |> Seq.map (tryDefinition >> Option.bind snd)
+                        |> List.ofSeq
+                    with
+                    // TODO: generalize it to support aggregate units such as <m/s> or more complex
+                    | [ Some measure; Some Types.measureOne ] -> measure
+                    | _ -> fullname
+                | _ -> fullname
             | _ -> Naming.unknown
         else
             Naming.unknown
@@ -2147,13 +2159,18 @@ module Util =
             let fableMemberFunctionOrValue =
                 FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
 
+            let attributeFullNames =
+                fableMemberFunctionOrValue.Attributes
+                |> Seq.map (fun attr -> attr.Entity.FullName)
+                |> List.ofSeq
+
             Fable.MemberRef(
                 FsEnt.Ref(ent),
                 {
                     CompiledName = memb.CompiledName
                     IsInstance = memb.IsInstanceMember
                     NonCurriedArgTypes = nonCurriedArgTypes
-                    Attributes = fableMemberFunctionOrValue.Attributes
+                    AttributeFullNames = attributeFullNames
                 }
             )
         | ent ->
@@ -2182,13 +2199,18 @@ module Util =
             let fableMemberFunctionOrValue =
                 FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
 
+            let attributeFullNames =
+                fableMemberFunctionOrValue.Attributes
+                |> Seq.map (fun attr -> attr.Entity.FullName)
+                |> List.ofSeq
+
             Fable.MemberRef(
                 FsEnt.Ref(ent),
                 {
                     CompiledName = memb.CompiledName
                     IsInstance = memb.IsInstanceMember
                     NonCurriedArgTypes = None
-                    Attributes = fableMemberFunctionOrValue.Attributes
+                    AttributeFullNames = attributeFullNames
                 }
             )
         | ent ->

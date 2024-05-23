@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [GH-3817](https://github.com/fable-compiler/Fable/pull/3817) [All] Fix broken --precompiledLib switch (#3818) (by @DunetsNM)
 * [JS/TS] Fixed TimeSpan.FromMilliseconds (#3815) (by @ncave)
 * [Python] Fixed quotation for union string cases (by @dbrattli)
 * [Python] Fixed casing issues with identifiers and reflection info (#3811) (by @dbrattli)
