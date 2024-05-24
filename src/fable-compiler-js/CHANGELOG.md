@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.2.1 - 2024-05-24
+
+### Fixed
+
+* Fixed includes to come from this package internals and to use `fable-library-js` instead of `fable-library-ts` (by @ncave)
+
 ## 1.2.0 - 2024-05-23
 
 ### Changed
