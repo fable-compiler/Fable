@@ -96,6 +96,23 @@ type TypeAttachedTest(a1, a2, a3) =
         with get (i) = arr.[i]
         and set (i) (v) = arr.[i] <- v
 
+type ITestProps =
+    abstract Value1: float with get, set
+    abstract Value: int -> float with get, set
+    abstract Item: int -> float with get, set
+
+type PropsTest(arr: float[]) =
+    interface ITestProps with
+        member _.Value1
+            with get () = arr.[1]
+            and set (v) = arr.[1] <- v
+        member _.Value
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+        member _.Item
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+
 type A =
     { thing: int }
     member x.show() = string x.thing
@@ -736,6 +753,19 @@ let ``test Getter and Setter with indexer work`` () =
 [<Fact>]
 let ``test Attached Getters Setters and Indexers work`` () =
     let t = TypeAttachedTest(1, 2, 3)
+    t.Value1 |> equal 2
+    t.Value1 <- 22
+    t.Value1 |> equal 22
+    t.Value(0) |> equal 1
+    t.Value(0) <- 11
+    t.Value(0) |> equal 11
+    t.[2] |> equal 3
+    t.[2] <- 33
+    t.[2] |> equal 33
+
+[<Fact>]
+let ``test Interface Getters Setters and Indexers work`` () =
+    let t = PropsTest([| 1; 2; 3 |]) :> ITestProps
     t.Value1 |> equal 2
     t.Value1 <- 22
     t.Value1 |> equal 22

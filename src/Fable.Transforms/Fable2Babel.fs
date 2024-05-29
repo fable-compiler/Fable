@@ -3857,7 +3857,7 @@ module Util =
         let methods =
             methods
             |> Array.map (fun info ->
-                let prop, isComputed = memberFromName info.DisplayName
+                let prop, isComputed = memberFromName info.CompiledName
 
                 let args =
                     info.CurriedParameterGroups
