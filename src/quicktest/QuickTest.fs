@@ -96,6 +96,5 @@ printfn "Running quick tests..."
 
 // Write here your unit test, you can later move it
 // to Fable.Tests project. For example:
-// to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4

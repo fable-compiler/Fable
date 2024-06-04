@@ -393,6 +393,7 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             argTypes
             |> Option.map (
                 function
+                | [| Fable.Unit |] -> [||]
                 | argTypes -> argTypes
             )
 
