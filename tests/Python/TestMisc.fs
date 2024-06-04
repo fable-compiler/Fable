@@ -359,7 +359,7 @@ type MyEnum =
 
 type MyTestRef = TestRef of bool ref
 
-let delay (f:unit -> unit) = f
+let delay (f: unit -> unit) = f
 
 let mutable mutableValue = 0
 
@@ -454,6 +454,10 @@ let inline inlineLambdaWithAnonRecord callback =
 
 let sideEffect() = ()
 
+let inline inlineToString (f: 'T -> string): 'T -> string =
+    let unused = f
+    fun a -> $"{a}"
+
 type Union_TestUnionTag = Union_TestUnionTag of int
 
 [<AttachMembers>]
@@ -462,13 +466,17 @@ type FooWithAttachedMembers () =
 
     static member Foo = FooWithAttachedMembers()
 
-
-#if FABLE_COMPILER
+[<Fact>]
+let ``test Generic unit args work`` () = // #3584
+    let to_str = inlineToString (fun (props: unit) -> "s")
+    to_str () |> equal $"{()}"
 
 [<Fact>]
 let ``test lambdas returning member expression accessing JS object work`` () = // #2311
     let x = inlineLambdaWithAnonRecord (fun x -> x.A)
     x() |> equal 1
+
+#if FABLE_COMPILER
 
 [<Fact>]
 let ``test can check compiler version with constant`` () =
@@ -1321,7 +1329,7 @@ let ``test conditional expressions`` () = // See #2782
         | U2.Case2 s when s.t1 <> "" -> s.t1
         | _ -> ""
 
-    equal(test (U2.Case1 "x"), "x")
+    test (U2.Case1 "x") |> equal "x"
 
 type Æøå =
     | Union1 of string
@@ -1366,9 +1374,7 @@ let ``test Module mutable option values work`` () =
     Util.mutableValueOpt <- None
     Util.mutableValueOpt.IsNone |> equal true
 
-
 [<Fact>]
 let ``test attached static getters works`` () =
-
     let result = FooWithAttachedMembers.Foo.Bar
     result |> equal 42

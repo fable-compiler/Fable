@@ -12,6 +12,7 @@ let allTests =
     Async.tests
     Chars.tests
     Comparison.tests
+    ConditionalWeakTable.tests
     Convert.tests
     CustomOperators.tests
     DateTimeOffset.tests
@@ -95,6 +96,6 @@ open Expecto
 let main args =
     Array.toList allTests
     |> testList "All"
-    |> runTestsWithArgs defaultConfig args
+    |> runTestsWithCLIArgs [] args
 
 #endif

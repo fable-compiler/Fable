@@ -867,8 +867,6 @@ let tests =
              (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
              (4, 'd'); (4, 'e'); (4, 'f')]
 
-    // TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
-    // #if FABLE_COMPILER
     testCase "Implicit yields work" <| fun () ->
         let makeList condition =
             [
@@ -879,7 +877,6 @@ let tests =
             ]
         makeList true |> List.sum |> equal 6
         makeList false |> List.sum |> equal 3
-    // #endif
 
     testCase "List.splitInto works" <| fun () ->
         [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]

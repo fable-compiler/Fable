@@ -90,7 +90,7 @@ module private Source =
 
   /// name of variabe is `v`
   let assignAnonRecord (i: Interface) (anonRecordFields: (string * string) list) =
-    assert(anonRecordFields |> List.isEmpty |> not)
+    assert (anonRecordFields |> List.isEmpty |> not)
 
     anonRecordFields
     |> List.map (fun (name, value) -> sprintf "%s = %s" name value)

@@ -1,28 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
     <LangVersion>preview</LangVersion>
     <RootNamespace>Fable.Tests</RootNamespace>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="7.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
-    <PackageReference Include="XUnit" Version="2.4.2" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="XUnit" Version="2.6.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="FSharp.UMX" Version="1.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
-    <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Js/Main/Globs/*.fs" />
@@ -34,6 +30,7 @@
     <Compile Include="TestAsync.fs" />
     <Compile Include="TestApplicative.fs" />
     <Compile Include="TestArithmetic.fs" />
+    <Compile Include="TestAnonRecords.fs" />
     <Compile Include="TestArray.fs" />
     <Compile Include="TestChar.fs" />
     <Compile Include="TestComparison.fs" />
@@ -75,6 +72,7 @@
     <Compile Include="TestUri.fs" />
     <Compile Include="TestPyInterop.fs" />
 
+    <Compile Include="TestNonRegression.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

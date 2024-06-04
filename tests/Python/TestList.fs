@@ -432,13 +432,12 @@ let ``test List.sort with tuples works`` () =
     let ys = ["a"; "c"; "B"; "d"]
     (xs, ys) ||> List.zip |> List.sort |> List.item 1 |> equal (1, "B")
 
-// TODO: Python sort cannot take arguments
-// [<Fact>]
-// let ``test List.sortBy works`` () =
-//     let xs = [3; 1; 4; 2]
-//     let ys = xs |> List.sortBy (fun x -> -x)
-//     ys.Head + ys.Tail.Head
-//     |> equal 7
+[<Fact>]
+let ``test List.sortBy works`` () =
+    let xs = [3; 1; 4; 2]
+    let ys = xs |> List.sortBy (fun x -> -x)
+    ys.Head + ys.Tail.Head
+    |> equal 7
 
 [<Fact>]
 let ``test List.sortWith works`` () =
@@ -447,13 +446,12 @@ let ``test List.sortWith works`` () =
     ys.Head + ys.Tail.Head
     |> equal 3
 
-// FIXME:
-// [<Fact>]
-// let ``test List.sortDescending works`` () =
-//     let xs = [3; 4; 1; -3; 2; 10]
-//     xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
-//     let ys = ["a"; "c"; "B"; "d"]
-//     ys |> List.sortDescending |> List.item 1 |> equal "c"
+[<Fact>]
+let ``test List.sortDescending works`` () =
+    let xs = [3; 4; 1; -3; 2; 10]
+    xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
+    let ys = ["a"; "c"; "B"; "d"]
+    ys |> List.sortDescending |> List.item 1 |> equal "c"
 
 [<Fact>]
 let ``test List.sortByDescending works`` () =
@@ -1013,8 +1011,6 @@ let ``test List.allPairs works`` () =
          (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
          (4, 'd'); (4, 'e'); (4, 'f')]
 
-// TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
-// #if FABLE_COMPILER
 [<Fact>]
 let ``test Implicit yields work`` () =
     let makeList condition =
@@ -1026,7 +1022,6 @@ let ``test Implicit yields work`` () =
         ]
     makeList true |> List.sum |> equal 6
     makeList false |> List.sum |> equal 3
-// #endif
 
 [<Fact>]
 let ``test List.splitInto works`` () =

@@ -1,17 +1,15 @@
+module internal FSharp.Compiler.AbstractIL.AsciiLexer
+
+open Internal.Utilities.Text.Lexing
+open FSharp.Compiler.AbstractIL.AsciiParser
+
 //# 3 "src/Compiler/AbstractIL/illex.fsl"
  
-
-module internal FSharp.Compiler.AbstractIL.AsciiLexer 
-
 open Internal.Utilities.Collections
 open Internal.Utilities.Text
-open Internal.Utilities.Text.Lexing
 open Internal.Utilities.Library
-
-open FSharp.Compiler.AbstractIL 
-open FSharp.Compiler.AbstractIL.AsciiParser 
-open FSharp.Compiler.AbstractIL.AsciiConstants 
-
+open FSharp.Compiler.AbstractIL
+open FSharp.Compiler.AbstractIL.AsciiConstants
 
 #if FABLE_COMPILER
 
@@ -79,16 +77,16 @@ let kwdInstrTable =
    (let t = HashMultiMap(1000, HashIdentity.Structural)
     List.iter t.Add (Lazy.force keywords);
     let addTable f l = List.iter (fun (x,i) -> t.Add (String.concat "." x,f i)) (Lazy.force l)
-    addTable (fun i -> INSTR_NONE i) NoArgInstrs;
-    addTable (fun i -> INSTR_I i) Int32Instrs;
-    addTable (fun i -> INSTR_I32_I32 i) Int32Int32Instrs;
-    addTable (fun i -> INSTR_I8 i) Int64Instrs;
-    addTable (fun i -> INSTR_R i) DoubleInstrs;
-    addTable (fun i -> INSTR_TYPE i) TypeInstrs;
-    addTable (fun i -> INSTR_INT_TYPE i) IntTypeInstrs;
-    addTable (fun i -> INSTR_VALUETYPE i) ValueTypeInstrs;
-    addTable (fun i -> INSTR_STRING i) StringInstrs;
-    addTable (fun i -> INSTR_TOK i) TokenInstrs;
+    addTable (INSTR_NONE) NoArgInstrs;
+    addTable (INSTR_I) Int32Instrs;
+    addTable (INSTR_I32_I32) Int32Int32Instrs;
+    addTable (INSTR_I8) Int64Instrs;
+    addTable (INSTR_R) DoubleInstrs;
+    addTable (INSTR_TYPE) TypeInstrs;
+    addTable (INSTR_INT_TYPE) IntTypeInstrs;
+    addTable (INSTR_VALUETYPE) ValueTypeInstrs;
+    addTable (INSTR_STRING) StringInstrs;
+    addTable (INSTR_TOK) TokenInstrs;
     t)
 
 let kwdOrInstr s = (Lazy.force kwdInstrTable).[s] (* words *)
@@ -98,7 +96,7 @@ let evalDigit ch  = (int ch) - (int '0')
 let kwdOrInstrOrId s = match (Lazy.force kwdInstrTable).TryFind s with Some v -> v | _ -> VAL_ID s
         
 
-//# 101 "illex.fs"
+//# 99 "illex.fs"
 let trans : uint16[] array = 
     [| 
     (* State 0 *)
@@ -383,152 +381,152 @@ let rec _fslex_dummy () = _fslex_dummy()
 and token  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
   | 0 -> ( 
-//# 107 "src/Compiler/AbstractIL/illex.fsl"
+//# 100 "src/Compiler/AbstractIL/illex.fsl"
                          COMMA 
-//# 388 "illex.fs"
+//# 386 "illex.fs"
           )
   | 1 -> ( 
-//# 108 "src/Compiler/AbstractIL/illex.fsl"
+//# 101 "src/Compiler/AbstractIL/illex.fsl"
                          DOT 
-//# 393 "illex.fs"
+//# 391 "illex.fs"
           )
   | 2 -> ( 
-//# 109 "src/Compiler/AbstractIL/illex.fsl"
+//# 102 "src/Compiler/AbstractIL/illex.fsl"
                          STAR 
-//# 398 "illex.fs"
+//# 396 "illex.fs"
           )
   | 3 -> ( 
-//# 110 "src/Compiler/AbstractIL/illex.fsl"
+//# 103 "src/Compiler/AbstractIL/illex.fsl"
                          BANG 
-//# 403 "illex.fs"
+//# 401 "illex.fs"
           )
   | 4 -> ( 
-//# 111 "src/Compiler/AbstractIL/illex.fsl"
+//# 104 "src/Compiler/AbstractIL/illex.fsl"
                          AMP 
-//# 408 "illex.fs"
+//# 406 "illex.fs"
           )
   | 5 -> ( 
-//# 112 "src/Compiler/AbstractIL/illex.fsl"
+//# 105 "src/Compiler/AbstractIL/illex.fsl"
                          LPAREN 
-//# 413 "illex.fs"
+//# 411 "illex.fs"
           )
   | 6 -> ( 
-//# 113 "src/Compiler/AbstractIL/illex.fsl"
+//# 106 "src/Compiler/AbstractIL/illex.fsl"
                          RPAREN 
-//# 418 "illex.fs"
+//# 416 "illex.fs"
           )
   | 7 -> ( 
-//# 114 "src/Compiler/AbstractIL/illex.fsl"
+//# 107 "src/Compiler/AbstractIL/illex.fsl"
                          LBRACK 
-//# 423 "illex.fs"
+//# 421 "illex.fs"
           )
   | 8 -> ( 
-//# 115 "src/Compiler/AbstractIL/illex.fsl"
+//# 108 "src/Compiler/AbstractIL/illex.fsl"
                          RBRACK 
-//# 428 "illex.fs"
+//# 426 "illex.fs"
           )
   | 9 -> ( 
-//# 116 "src/Compiler/AbstractIL/illex.fsl"
+//# 109 "src/Compiler/AbstractIL/illex.fsl"
                          SLASH 
-//# 433 "illex.fs"
+//# 431 "illex.fs"
           )
   | 10 -> ( 
-//# 117 "src/Compiler/AbstractIL/illex.fsl"
+//# 110 "src/Compiler/AbstractIL/illex.fsl"
                          LESS 
-//# 438 "illex.fs"
+//# 436 "illex.fs"
           )
   | 11 -> ( 
-//# 118 "src/Compiler/AbstractIL/illex.fsl"
+//# 111 "src/Compiler/AbstractIL/illex.fsl"
                          GREATER 
-//# 443 "illex.fs"
+//# 441 "illex.fs"
           )
   | 12 -> ( 
-//# 119 "src/Compiler/AbstractIL/illex.fsl"
+//# 112 "src/Compiler/AbstractIL/illex.fsl"
                            ELIPSES 
-//# 448 "illex.fs"
+//# 446 "illex.fs"
           )
   | 13 -> ( 
-//# 120 "src/Compiler/AbstractIL/illex.fsl"
+//# 113 "src/Compiler/AbstractIL/illex.fsl"
                           DCOLON 
-//# 453 "illex.fs"
+//# 451 "illex.fs"
           )
   | 14 -> ( 
-//# 121 "src/Compiler/AbstractIL/illex.fsl"
+//# 114 "src/Compiler/AbstractIL/illex.fsl"
                          PLUS 
-//# 458 "illex.fs"
+//# 456 "illex.fs"
           )
   | 15 -> ( 
-//# 123 "src/Compiler/AbstractIL/illex.fsl"
+//# 116 "src/Compiler/AbstractIL/illex.fsl"
                         VAL_INT64(int64(lexeme lexbuf)) 
-//# 463 "illex.fs"
+//# 461 "illex.fs"
           )
   | 16 -> ( 
-//# 132 "src/Compiler/AbstractIL/illex.fsl"
+//# 125 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_INT32_ELIPSES(int32(lexemeTrimBoth lexbuf 0 3)) 
-//# 468 "illex.fs"
+//# 466 "illex.fs"
           )
   | 17 -> ( 
-//# 134 "src/Compiler/AbstractIL/illex.fsl"
+//# 127 "src/Compiler/AbstractIL/illex.fsl"
                        let c1 = (lexemeChar lexbuf 0) in 
                        let c2 = (lexemeChar lexbuf 1) in 
                        if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
                          VAL_INT64(int64 (10*evalDigit c1 + evalDigit c2) )
                        else VAL_ID(lexeme lexbuf) 
-//# 477 "illex.fs"
+//# 475 "illex.fs"
           )
   | 18 -> ( 
-//# 140 "src/Compiler/AbstractIL/illex.fsl"
+//# 133 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_INT64(int64(lexeme lexbuf)) 
-//# 482 "illex.fs"
+//# 480 "illex.fs"
           )
   | 19 -> ( 
-//# 142 "src/Compiler/AbstractIL/illex.fsl"
+//# 135 "src/Compiler/AbstractIL/illex.fsl"
                        let c1 = (lexemeChar lexbuf 6) in 
                        let c2 = (lexemeChar lexbuf 7) in 
                        if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
                          VAL_INT64(int64 (10*evalDigit c1 + evalDigit c2)) 
                        else VAL_ID(lexeme lexbuf) 
-//# 491 "illex.fs"
+//# 489 "illex.fs"
           )
   | 20 -> ( 
-//# 149 "src/Compiler/AbstractIL/illex.fsl"
+//# 142 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_INT64(int64(lexeme lexbuf)) 
-//# 496 "illex.fs"
+//# 494 "illex.fs"
           )
   | 21 -> ( 
-//# 151 "src/Compiler/AbstractIL/illex.fsl"
+//# 144 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_FLOAT64( (float (lexeme lexbuf)) ) 
-//# 501 "illex.fs"
+//# 499 "illex.fs"
           )
   | 22 -> ( 
-//# 154 "src/Compiler/AbstractIL/illex.fsl"
+//# 147 "src/Compiler/AbstractIL/illex.fsl"
                        let s = (lexeme lexbuf) in kwdOrInstr s 
-//# 506 "illex.fs"
+//# 504 "illex.fs"
           )
   | 23 -> ( 
-//# 156 "src/Compiler/AbstractIL/illex.fsl"
+//# 149 "src/Compiler/AbstractIL/illex.fsl"
                        kwdOrInstrOrId (lexeme lexbuf) 
-//# 511 "illex.fs"
+//# 509 "illex.fs"
           )
   | 24 -> ( 
-//# 159 "src/Compiler/AbstractIL/illex.fsl"
+//# 152 "src/Compiler/AbstractIL/illex.fsl"
                        VAL_DOTTEDNAME(lexeme lexbuf) 
-//# 516 "illex.fs"
+//# 514 "illex.fs"
           )
   | 25 -> ( 
-//# 162 "src/Compiler/AbstractIL/illex.fsl"
+//# 155 "src/Compiler/AbstractIL/illex.fsl"
                        token lexbuf 
-//# 521 "illex.fs"
+//# 519 "illex.fs"
           )
   | 26 -> ( 
-//# 164 "src/Compiler/AbstractIL/illex.fsl"
+//# 157 "src/Compiler/AbstractIL/illex.fsl"
                        unexpectedChar lexbuf 
-//# 526 "illex.fs"
+//# 524 "illex.fs"
           )
   | 27 -> ( 
-//# 166 "src/Compiler/AbstractIL/illex.fsl"
+//# 159 "src/Compiler/AbstractIL/illex.fsl"
                        EOF 
-//# 531 "illex.fs"
+//# 529 "illex.fs"
           )
   | _ -> failwith "token"
 

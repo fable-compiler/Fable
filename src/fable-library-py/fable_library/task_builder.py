@@ -1,9 +1,8 @@
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable, Iterable
 from typing import (
     Any,
-    Awaitable,
-    Callable,
-    Iterable,
-    Optional,
     Protocol,
     TypeVar,
     overload,
@@ -20,23 +19,18 @@ _U = TypeVar("_U")
 
 
 class Delayed(Protocol[_T_co]):
-    def __call__(self, __unit: Optional[None] = None) -> Awaitable[_T_co]:
-        ...
+    def __call__(self, __unit: None | None = None) -> Awaitable[_T_co]: ...
 
 
 class TaskBuilder:
-    def Bind(
-        self, computation: Awaitable[_T], binder: Callable[[_T], Awaitable[_U]]
-    ) -> Awaitable[_U]:
+    def Bind(self, computation: Awaitable[_T], binder: Callable[[_T], Awaitable[_U]]) -> Awaitable[_U]:
         async def bind() -> _U:
             value = await computation
             return await binder(value)
 
         return bind()
 
-    def Combine(
-        self, computation1: Awaitable[None], computation2: Delayed[_T]
-    ) -> Awaitable[_T]:
+    def Combine(self, computation1: Awaitable[None], computation2: Delayed[_T]) -> Awaitable[_T]:
         return self.Bind(computation1, computation2)
 
     def Delay(self, generator: Callable[[], Awaitable[_T]]) -> Delayed[_T]:
@@ -46,9 +40,7 @@ class TaskBuilder:
 
         return deferred
 
-    def For(
-        self, sequence: Iterable[_T], body: Callable[[_T], Awaitable[_U]]
-    ) -> Awaitable[_U]:
+    def For(self, sequence: Iterable[_T], body: Callable[[_T], Awaitable[_U]]) -> Awaitable[_U]:
         done = False
         it = iter(sequence)
         try:
@@ -68,12 +60,10 @@ class TaskBuilder:
         return self.While(lambda: not done, self.Delay(delay))
 
     @overload
-    def Return(self) -> Awaitable[None]:
-        ...
+    def Return(self) -> Awaitable[None]: ...
 
     @overload
-    def Return(self, value: _T) -> Awaitable[_T]:
-        ...
+    def Return(self, value: _T) -> Awaitable[_T]: ...
 
     def Return(self, value: Any = None) -> Awaitable[Any]:
         return from_result(value)
@@ -81,9 +71,7 @@ class TaskBuilder:
     def ReturnFrom(self, computation: Awaitable[_T]) -> Awaitable[_T]:
         return computation
 
-    def TryFinally(
-        self, computation: Delayed[_T], compensation: Callable[[], None]
-    ) -> Awaitable[_T]:
+    def TryFinally(self, computation: Delayed[_T], compensation: Callable[[], None]) -> Awaitable[_T]:
         async def try_finally() -> _T:
             try:
                 t = await computation()
@@ -93,9 +81,7 @@ class TaskBuilder:
 
         return try_finally()
 
-    def TryWith(
-        self, computation: Delayed[_T], catchHandler: Callable[[Any], Awaitable[_T]]
-    ) -> Awaitable[_T]:
+    def TryWith(self, computation: Delayed[_T], catchHandler: Callable[[Any], Awaitable[_T]]) -> Awaitable[_T]:
         async def try_with() -> _T:
             try:
                 t = await computation()
@@ -105,28 +91,16 @@ class TaskBuilder:
 
         return try_with()
 
-    def Using(
-        self, resource: _TD, binder: Callable[[_TD], Awaitable[_U]]
-    ) -> Awaitable[_U]:
-        return self.TryFinally(
-            self.Delay(lambda: binder(resource)), lambda: resource.Dispose()
-        )
+    def Using(self, resource: _TD, binder: Callable[[_TD], Awaitable[_U]]) -> Awaitable[_U]:
+        return self.TryFinally(self.Delay(lambda: binder(resource)), lambda: resource.Dispose())
 
     @overload
-    def While(
-        self, guard: Callable[[], bool], computation: Delayed[None]
-    ) -> Awaitable[None]:
-        ...
+    def While(self, guard: Callable[[], bool], computation: Delayed[None]) -> Awaitable[None]: ...
 
     @overload
-    def While(
-        self, guard: Callable[[], bool], computation: Delayed[_T]
-    ) -> Awaitable[_T]:
-        ...
+    def While(self, guard: Callable[[], bool], computation: Delayed[_T]) -> Awaitable[_T]: ...
 
-    def While(
-        self, guard: Callable[[], bool], computation: Delayed[Any]
-    ) -> Awaitable[Any]:
+    def While(self, guard: Callable[[], bool], computation: Delayed[Any]) -> Awaitable[Any]:
         if guard():
             return self.Bind(computation(), lambda _: self.While(guard, computation))
         else:

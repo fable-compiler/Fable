@@ -158,7 +158,7 @@ pub mod DateOnly_ {
         pub fn parse(s: string) -> DateOnly {
             match Self::try_parse_str(s.trim()) {
                 Ok(nd) => DateOnly(nd),
-                Err(e) => panic!("Input string was not in a correct format."),
+                Err(e) => panic!("The input string {} was not in a correct format.", s),
             }
         }
     }

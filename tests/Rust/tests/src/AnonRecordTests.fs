@@ -8,20 +8,20 @@ let anonRecAcceptingFn (x: {|A: int; B: string|}) =
 let structAnonRecAcceptingFn (x: struct {|A: int; B: string|}) =
     struct {|C = x.A + 1; D = "Z"|}
 
-let ``Anonimous records work`` () =
+let ``Anonymous records work`` () =
     let r = {| A = 1; B = "hello"; X = 3.141; D = 4|}
     r.A |> equal 1
     r.X |> equal 3.141  //just in case alphabetical ordering is going to throw off index
     r.B |> equal "hello"
     r.D |> equal 4
 
-let ``Anonimous records can pe passed as parameters`` () =
+let ``Anonymous records can pe passed as parameters`` () =
     let m = {| A = 1; B = "hello"|}
     let res = anonRecAcceptingFn m
     res.C |> equal 2
     res.D |> equal "Z"
 
-let ``Anonimous records structural equality works`` () =
+let ``Anonymous records structural equality works`` () =
     let a = {| A = 1; B = "hello"|}
     let b = {| A = 1; B = "hello"|}
     let c = {| A = 2; B = "test"|}
@@ -30,20 +30,20 @@ let ``Anonimous records structural equality works`` () =
     a = c |> equal false
     b = c |> equal false
 
-let ``Struct anonimous records work`` () =
+let ``Struct anonymous records work`` () =
     let r = struct {| A = 1; B = "hello"; X = 3.141; D = 4|}
     r.A |> equal 1
     r.X |> equal 3.141  //just in case alphabetical ordering is going to throw off index
     r.B |> equal "hello"
     r.D |> equal 4
 
-let ``Struct anonimous records can pe passed as parameters`` () =
+let ``Struct anonymous records can pe passed as parameters`` () =
     let m = struct {| A = 1; B = "hello"|}
     let res = structAnonRecAcceptingFn m
     res.C |> equal 2
     res.D |> equal "Z"
 
-let ``Struct anonimous records structural equality works`` () =
+let ``Struct anonymous records structural equality works`` () =
     let a = struct {| A = 1; B = "hello"|}
     let b = struct {| A = 1; B = "hello"|}
     let c = struct {| A = 2; B = "test"|}

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Union
-from urllib.parse import ParseResult, urlparse, urljoin, unquote
-
+from urllib.parse import ParseResult, unquote, urljoin, urlparse
 
 from .types import FSharpRef
 
@@ -19,8 +17,8 @@ class Uri:
 
     def __init__(
         self,
-        base_uri: Union[Uri, str],
-        kind_or_uri: Union[int, str, Uri, None] = UriKind.Absolute,
+        base_uri: Uri | str,
+        kind_or_uri: int | (str | (Uri | None)) = UriKind.Absolute,
     ) -> None:
         self.res: ParseResult
 
@@ -36,15 +34,11 @@ class Uri:
 
         # Absolute base URI must be absolute
         if kind == UriKind.Absolute and not uri.netloc:
-            raise ValueError(
-                "Invalid URI: The format of the URI could not be determined."
-            )
+            raise ValueError("Invalid URI: The format of the URI could not be determined.")
 
         # Relative base URI must be relative
         if kind == UriKind.Relative and uri.netloc:
-            raise ValueError(
-                "Invalid URI: The format of the URI could not be determined."
-            )
+            raise ValueError("Invalid URI: The format of the URI could not be determined.")
 
         if relative_uri:
             self.res = urlparse(urljoin(uri.geturl(), relative_uri.geturl()))
@@ -103,15 +97,11 @@ class Uri:
         return unquote(res.geturl())
 
     @staticmethod
-    def create(
-        uri: Union[str, Uri], kind_or_uri: Union[UriKind, str, Uri] = UriKind.Absolute
-    ) -> Uri:
+    def create(uri: str | Uri, kind_or_uri: UriKind | str | Uri = UriKind.Absolute) -> Uri:
         return Uri(uri, kind_or_uri)
 
     @staticmethod
-    def try_create(
-        uri: Union[str, Uri], kind_or_uri: Union[UriKind, str, Uri], out: FSharpRef[Uri]
-    ) -> bool:
+    def try_create(uri: str | Uri, kind_or_uri: UriKind | str | Uri, out: FSharpRef[Uri]) -> bool:
         try:
             out.contents = Uri.create(uri, kind_or_uri)
             return True

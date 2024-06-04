@@ -116,7 +116,7 @@ let ``test Try ... with ... expressions inside async expressions work the same``
         with _ -> append "2"
         append "f"
     } |> Async.StartImmediate
-    equal result.Value "abcdef"
+    equal "abcdef" result.Value
 
 // Disable this test for dotnet as it's failing too many times in Appveyor
 #if FABLE_COMPILER
@@ -207,7 +207,6 @@ let ``test Async.Parallel works`` () =
         res.Value |> Array.sum |> equal 6
     } |> Async.RunSynchronously
 
-(*
 [<Fact>]
 let ``test Async.Parallel is lazy`` () =
     async {
@@ -233,7 +232,6 @@ let ``test Async.Parallel is lazy`` () =
 
         equal 3 x
     } |> Async.RunSynchronously
-*)
 
 [<Fact>]
 let ``test Async.Sequential works`` () =
@@ -466,7 +464,7 @@ let ``test Async.Bind propagates exceptions`` () = // See #724
         equal ("Ok", "Invalid access credentials") res2
     } |> Async.StartImmediate
 
-(*
+
 [<Fact>]
 let ``test Async.StartChild works`` () =
     async {
@@ -488,8 +486,7 @@ let ``test Async.StartChild works`` () =
         let! result2 = result2Async
         x <- x + result1 + result2
         equal x "ABCDEF"
-    }
-*)
+    } |> Async.StartImmediate
 
 [<Fact>]
 let ``test Unit arguments are erased`` () = // See #1832
@@ -500,7 +497,7 @@ let ``test Unit arguments are erased`` () = // See #1832
             |> asyncMap (fun x -> token <- x)
         equal 5 token
         res
-    }
+    } |> Async.StartImmediate
 
 [<Fact>]
 let ``test Can use custom exceptions in async workflows #2396`` () =
@@ -518,4 +515,4 @@ let ``test Can use custom exceptions in async workflows #2396`` () =
     async {
         let! res = parentWorkflow()
         equal 7 res
-    }
+    } |> Async.StartImmediate

@@ -7,6 +7,7 @@ open System
 open System.Collections.Concurrent
 open System.Runtime.InteropServices
 open System.IO
+open FSharp.Compiler.Optimizer
 open Internal.Utilities
 #if !FABLE_COMPILER
 open Internal.Utilities.FSharpEnvironment
@@ -112,7 +113,7 @@ let GetWarningNumber (m, warningNumber: string) =
         //      anything else is ignored None
         if Char.IsDigit(warningNumber[0]) then
             Some(int32 warningNumber)
-        elif warningNumber.StartsWithOrdinal("FS") = true then
+        elif warningNumber.StartsWithOrdinal "FS" then
             raise (ArgumentException())
         else
             None
@@ -289,11 +290,11 @@ and IProjectReference =
 type AssemblyReference =
     | AssemblyReference of range: range * text: string * projectReference: IProjectReference option
 
-    member x.Range = (let (AssemblyReference (m, _, _)) = x in m)
+    member x.Range = (let (AssemblyReference(m, _, _)) = x in m)
 
-    member x.Text = (let (AssemblyReference (_, text, _)) = x in text)
+    member x.Text = (let (AssemblyReference(_, text, _)) = x in text)
 
-    member x.ProjectReference = (let (AssemblyReference (_, _, contents)) = x in contents)
+    member x.ProjectReference = (let (AssemblyReference(_, _, contents)) = x in contents)
 
     member x.SimpleAssemblyNameIs name =
         (String.Compare(FileSystemUtils.fileNameWithoutExtensionWithValidate false x.Text, name, StringComparison.OrdinalIgnoreCase) = 0)
@@ -345,6 +346,7 @@ type LStatus =
 type TokenizeOption =
     | AndCompile
     | Only
+    | Debug
     | Unfiltered
 
 type PackageManagerLine =
@@ -581,6 +583,8 @@ type TcConfigBuilder =
         /// If true - every expression in quotations will be augmented with full debug info (fileName, location in file)
         mutable emitDebugInfoInQuotations: bool
 
+        mutable strictIndentation: bool option
+
         mutable exename: string option
 
         // If true - the compiler will copy FSharp.Core.dll along the produced binaries
@@ -771,7 +775,14 @@ type TcConfigBuilder =
             doTLR = false
             doFinalSimplify = false
             optsOn = false
-            optSettings = Optimizer.OptimizationSettings.Defaults
+            optSettings =
+                { OptimizationSettings.Defaults with
+                    processingMode =
+                        if FSharpExperimentalFeaturesEnabledAutomatically then
+                            OptimizationProcessingMode.Parallel
+                        else
+                            OptimizationProcessingMode.Sequential
+                }
             emitTailcalls = true
             deterministic = false
             concurrentBuild = true
@@ -833,6 +844,7 @@ type TcConfigBuilder =
                     DumpGraph = false
                 }
             dumpSignatureData = false
+            strictIndentation = None
         }
 
     member tcConfigB.FxResolver =
@@ -885,7 +897,7 @@ type TcConfigBuilder =
     member tcConfigB.DecideNames sourceFiles =
         use _ = UseBuildPhase BuildPhase.Parameter
 
-        if sourceFiles = [] then
+        if List.isEmpty sourceFiles then
             errorR (Error(FSComp.SR.buildNoInputsSpecified (), rangeCmdArgs))
 
         let ext () =
@@ -1252,7 +1264,7 @@ type TcConfig private (data: TcConfigBuilder, validate: bool) =
                         | Some path when FileSystem.DirectoryExistsShim(path) -> yield path
                         | _ -> ()
             ]
-        with e ->
+        with RecoverableException e ->
             errorRecovery e range0
             []
 
@@ -1261,6 +1273,7 @@ type TcConfig private (data: TcConfigBuilder, validate: bool) =
     member _.bufferWidth = data.bufferWidth
     member _.fsiMultiAssemblyEmit = data.fsiMultiAssemblyEmit
     member _.FxResolver = data.FxResolver
+    member _.strictIndentation = data.strictIndentation
     member _.primaryAssembly = data.primaryAssembly
     member _.noFeedback = data.noFeedback
     member _.stackReserveSize = data.stackReserveSize
@@ -1454,7 +1467,7 @@ type TcConfig private (data: TcConfigBuilder, validate: bool) =
                         None
                 else
                     Some(m, path)
-            with e ->
+            with RecoverableException e ->
                 errorRecovery e m
                 None
 

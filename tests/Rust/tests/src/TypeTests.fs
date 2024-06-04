@@ -71,6 +71,36 @@ type TestType7(a1, a2, a3) =
     let arr = [|a1; a2; a3|]
     member _.Value with get(i) = arr[i] and set(i) (v) = arr[i] <- v
 
+[<Fable.Core.AttachMembers>]
+type TestTypeAttached(a1, a2, a3) =
+    let arr = [| a1; a2; a3 |]
+    member _.Value1
+        with get () = arr.[1]
+        and set (v) = arr.[1] <- v
+    member _.Value
+        with get (i) = arr.[i]
+        and set (i) (v) = arr.[i] <- v
+    member _.Item
+        with get (i) = arr.[i]
+        and set (i) (v) = arr.[i] <- v
+
+type ITestProps =
+    abstract Value1: float with get, set
+    abstract Value: int -> float with get, set
+    abstract Item: int -> float with get, set
+
+type TestProps(arr: float[]) =
+    interface ITestProps with
+        member _.Value1
+            with get () = arr.[1]
+            and set (v) = arr.[1] <- v
+        member _.Value
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+        member _.Item
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+
 type A  = { thing: int } with
     member x.show() = string x.thing
     static member show (x: A) = "Static: " + (string x.thing)
@@ -135,7 +165,7 @@ type MultipleCons(x: int, y: int) =
 // type ConcreteClass3() =
 //     inherit AbstractClass3()
 //     let mutable v = 5
-//     override __.MyProp with get() = v and set(v2) = v <- v + v2
+//     override _.MyProp with get() = v and set(v2) = v <- v + v2
 
 type ISomeInterface =
     abstract OnlyGetProp: int with get
@@ -190,14 +220,14 @@ let mangleFoo(x: IFoo) = x.Foo()
 
 // type BaseClass (x: int) =
 //     abstract member Init: unit -> int
-//     default __.Init () = x
+//     default _.Init () = x
 //     abstract member Prop: string
-//     default __.Prop = "base"
+//     default _.Prop = "base"
 
 // type ExtendedClass () =
 //     inherit BaseClass(5)
-//     override __.Init() = base.Init() + 2
-//     override __.Prop = base.Prop + "-extension"
+//     override _.Init() = base.Init() + 2
+//     override _.Prop = base.Prop + "-extension"
 
 // type BaseClass2() =
 //     let field = 1
@@ -397,8 +427,8 @@ type TypeWithClassAttribute =
 //                 member _.Value = y
 //                 member this2.Add() = this1.Value + this2.Value }
 
-let areEqual (x: obj) (y: obj) =
-    x = y
+// let areEqual (x: obj) (y: obj) = x = y
+let inline areEqual x y = x = y //TODO: non-inline
 
 type MyUnion1 = Foo of int * int | Bar of float | Baz
 type MyUnion2 = Foo of int * int
@@ -465,6 +495,10 @@ type IndexedProps(v: int) =
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
     member _.Item with get (v2: float) = float v + v2 / 2.
 
+// [<Interface>]
+// type ITesting =
+//     static member Testing x = x
+
 // // TODO: This test produces different results in Fable and .NET
 // // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
 // // [<Fact>]
@@ -481,6 +515,11 @@ let ``Indexed properties work`` () =
     f[3] <- "6"
     f[4] |> equal 13
     f[4.] |> equal 11
+
+// [<Fact>]
+// let ``Static interface members work`` () =
+//     let a = ITesting.Testing 5
+//     a |> equal 5
 
 // [<Fact>]
 // let ``Types can instantiate their parent in the constructor`` () =
@@ -633,6 +672,32 @@ let ``Getter and Setter with indexer work`` () =
     t.Value(2) |> equal 3
 
 [<Fact>]
+let ``Attached Getters Setters and Indexers work`` () =
+    let t = TestTypeAttached(1, 2, 3)
+    t.Value1 |> equal 2
+    t.Value1 <- 22
+    t.Value1 |> equal 22
+    t.Value(0) |> equal 1
+    t.Value(0) <- 11
+    t.Value(0) |> equal 11
+    t[2] |> equal 3
+    t[2] <- 33
+    t[2] |> equal 33
+
+[<Fact>]
+let ``Interface Getters Setters and Indexers work`` () =
+    let t = TestProps([| 1; 2; 3 |]) :> ITestProps
+    t.Value1 |> equal 2
+    t.Value1 <- 22
+    t.Value1 |> equal 22
+    t.Value(0) |> equal 1
+    t.Value(0) <- 11
+    t.Value(0) |> equal 11
+    t[2] |> equal 3
+    t[2] <- 33
+    t[2] |> equal 33
+
+[<Fact>]
 let ``Statically resolved instance calls work`` () =
     let a = { thing = 5 }
     let b = { label = "five" }
@@ -646,50 +711,50 @@ let ``Statically resolved static calls work`` () =
     showStatic a |> equal "Static: 5"
     showStatic b |> equal "Static: five"
 
-// [<Fact>]
-// let ``lazy works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         lazy
-//             snitch <- snitch + 1
-//             5
-//     equal 0 snitch
-//     equal 5 lazyVal.Value
-//     equal 1 snitch
-//     lazyVal.Force() |> equal 5
-//     equal 1 snitch
+[<Fact>]
+let ``lazy works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        lazy
+            snitch <- snitch + 1
+            5
+    equal 0 snitch
+    equal 5 lazyVal.Value
+    equal 1 snitch
+    lazyVal.Force() |> equal 5
+    equal 1 snitch
 
-// [<Fact>]
-// let ``Lazy.CreateFromValue works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         Lazy<_>.CreateFromValue(
-//             snitch <- snitch + 1
-//             5)
-//     equal 1 snitch
-//     equal 5 lazyVal.Value
-//     equal 1 snitch
+[<Fact>]
+let ``Lazy.CreateFromValue works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        Lazy<_>.CreateFromValue(
+            snitch <- snitch + 1
+            5)
+    equal 1 snitch
+    equal 5 lazyVal.Value
+    equal 1 snitch
 
-// [<Fact>]
-// let ``lazy.IsValueCreated works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         Lazy<_>.Create(fun () ->
-//             snitch <- snitch + 1
-//             5)
-//     equal 0 snitch
-//     equal false lazyVal.IsValueCreated
-//     equal 5 lazyVal.Value
-//     equal true lazyVal.IsValueCreated
-//     lazyVal.Force() |> equal 5
-//     equal true lazyVal.IsValueCreated
+[<Fact>]
+let ``lazy.IsValueCreated works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        Lazy<_>.Create(fun () ->
+            snitch <- snitch + 1
+            5)
+    equal 0 snitch
+    equal false lazyVal.IsValueCreated
+    equal 5 lazyVal.Value
+    equal true lazyVal.IsValueCreated
+    lazyVal.Force() |> equal 5
+    equal true lazyVal.IsValueCreated
 
-// [<Fact>]
-// let ``Lazy constructor works`` () =
-//     let items = Lazy<string list>(fun () -> ["a";"b";"c"])
-//     let search e = items.Value |> List.tryFind (fun m -> m = e)
-//     search "b" |> equal (Some "b")
-//     search "d" |> equal None
+[<Fact>]
+let ``Lazy constructor works`` () =
+    let items = Lazy<string list>(fun () -> ["a";"b";"c"])
+    let search e = items.Value |> List.tryFind (fun m -> m = e)
+    search "b" |> equal (Some "b")
+    search "d" |> equal None
 
 [<Fact>]
 let ``Secondary constructors work`` () =
@@ -812,11 +877,11 @@ let ``Value Type records work`` () = // See #568
     foo1.value |> equal "foo"
     foo1 = foo2 |> equal true
 
-// [<Fact>]
-// let ``Value Type unions work`` () =
-//     let du1 = StructUnion.Value "du"
-//     let du2 = StructUnion.Value "du"
-//     du1 = du2 |> equal true
+[<Fact>]
+let ``Value Type unions work`` () =
+    let du1 = StructUnion.Value "du"
+    let du2 = StructUnion.Value "du"
+    du1 = du2 |> equal true
 
 [<Fact>]
 let ``Value Type tuples work`` () =

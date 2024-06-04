@@ -1,12 +1,17 @@
 import * as fs from "fs";
 import * as Path from "path";
+import child_process from "child_process";
+import { createRequire } from 'node:module';
 
 export function getVersion() {
-  return require("../package.json").version;
+  const pkg = JSON.parse(fs.readFileSync(new URL('./../package.json', import.meta.url)));
+
+  return pkg.version;
 }
 
 export function getFableLibDir() {
-  return Path.join(Path.dirname(require.resolve("fable-standalone")), "fable-library");
+  const require = createRequire(import.meta.url);
+  return Path.join(Path.dirname(require.resolve("@fable-org/fable-compiler-js")), "dist", "fable-library-js");
 }
 
 export function getDirFiles(dir) {
@@ -56,7 +61,6 @@ export function copyFolder(from, dest) {
 }
 
 export function runCmdAndExitIfFails(cmd) {
-  var child_process = require("child_process");
   console.log(">", cmd);
   try {
     child_process.execSync(cmd, {

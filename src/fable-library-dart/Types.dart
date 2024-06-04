@@ -31,46 +31,50 @@ class Some<T> implements Comparable<Some<T>> {
   int compareTo(Some<T> other) => util.compareDynamic(other.value, value);
 }
 
-Map<K,V> mapFromTuples<K,V>(Iterable<Tuple2<K,V>> tuples) {
-  return Map.fromEntries(tuples.map((tuple) => MapEntry(tuple.item1, tuple.item2)));
+Map<K, V> mapFromTuples<K, V>(Iterable<Tuple2<K, V>> tuples) {
+  return Map.fromEntries(
+      tuples.map((tuple) => MapEntry(tuple.item1, tuple.item2)));
 }
 
-Tuple2<K,V> mapEntryToTuple<K,V>(MapEntry<K,V> kv) {
+Tuple2<K, V> mapEntryToTuple<K, V>(MapEntry<K, V> kv) {
   return Tuple2(kv.key, kv.value);
 }
 
-Map<K,V> mapWith<K,V>(IEqualityComparer<K> comparer, [Map<K,V>? initialValues]) {
-  final map = LinkedHashMap<K,V>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
+Map<K, V> mapWith<K, V>(IEqualityComparer<K> comparer,
+    [Map<K, V>? initialValues]) {
+  final map = LinkedHashMap<K, V>(
+      equals: comparer.Equals, hashCode: comparer.GetHashCode);
   if (initialValues != null) {
     map.addAll(initialValues);
   }
   return map;
 }
 
-void assertKey<K,V>(Map<K,V> map, K key) {
+void assertKey<K, V>(Map<K, V> map, K key) {
   if (!map.containsKey(key)) {
     throw Exception("The given key '$key' was not present in the dictionary.");
   }
 }
 
-V getValue<K,V>(Map<K,V> map, K key) {
+V getValue<K, V>(Map<K, V> map, K key) {
   assertKey(map, key);
   return map[key]!;
 }
 
-V? getValueNullable<K,V>(Map<K,V?> map, K key) {
+V? getValueNullable<K, V>(Map<K, V?> map, K key) {
   assertKey(map, key);
   return map[key];
 }
 
-void addKeyValue<K,V>(Map<K,V> map, K key, V value) {
+void addKeyValue<K, V>(Map<K, V> map, K key, V value) {
   if (map.containsKey(key)) {
-    throw Exception("An item with the same key has already been added. Key: $key");
+    throw Exception(
+        "An item with the same key has already been added. Key: $key");
   }
   map[key] = value;
 }
 
-bool tryGetValue<K, V>(Map<K,V> map, K key, FSharpRef<V> defaultValue) {
+bool tryGetValue<K, V>(Map<K, V> map, K key, FSharpRef<V> defaultValue) {
   if (map.containsKey(key)) {
     defaultValue.contents = map[key]!;
     return true;
@@ -79,7 +83,7 @@ bool tryGetValue<K, V>(Map<K,V> map, K key, FSharpRef<V> defaultValue) {
   }
 }
 
-bool removeKey<K,V>(Map<K,V> map, K key) {
+bool removeKey<K, V>(Map<K, V> map, K key) {
   if (map.containsKey(key)) {
     map.remove(key);
     return true;
@@ -88,7 +92,8 @@ bool removeKey<K,V>(Map<K,V> map, K key) {
 }
 
 Set<T> setWith<T>(IEqualityComparer<T> comparer, [Iterable<T>? initialValues]) {
-  final set = LinkedHashSet<T>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
+  final set =
+      LinkedHashSet<T>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
   if (initialValues != null) {
     set.addAll(initialValues);
   }
@@ -198,6 +203,7 @@ class GenericAverager<T> implements IGenericAverager<T> {
 }
 
 abstract class Union {}
+
 abstract class Record {}
 
 class FSharpRef<T> {
@@ -210,7 +216,9 @@ class FSharpRef<T> {
   FSharpRef(this._getter, this._setter);
 
   static FSharpRef<T> ofValue<T>(T value) {
-    return FSharpRef(() => value, (T newValue) { value = newValue; });
+    return FSharpRef(() => value, (T newValue) {
+      value = newValue;
+    });
   }
 }
 
@@ -225,8 +233,8 @@ class Tuple1<T1> implements Comparable<Tuple1<T1>> {
   @override
   bool operator ==(Object other) =>
       other is Tuple1<T1> &&
-          other.runtimeType == runtimeType &&
-          util.equalsDynamic(other.item1, item1);
+      other.runtimeType == runtimeType &&
+      util.equalsDynamic(other.item1, item1);
 
   @override
   int get hashCode => item1.hashCode;
@@ -347,8 +355,7 @@ class Tuple5<T1, T2, T3, T4, T5>
   const Tuple5(this.item1, this.item2, this.item3, this.item4, this.item5);
 
   @override
-  String toString() =>
-      '($item1, $item2, $item3, $item4, $item5)';
+  String toString() => '($item1, $item2, $item3, $item4, $item5)';
 
   @override
   bool operator ==(Object other) =>
@@ -398,8 +405,7 @@ class Tuple6<T1, T2, T3, T4, T5, T6>
       this.item1, this.item2, this.item3, this.item4, this.item5, this.item6);
 
   @override
-  String toString() =>
-      '($item1, $item2, $item3, $item4, $item5, $item6)';
+  String toString() => '($item1, $item2, $item3, $item4, $item5, $item6)';
 
   @override
   bool operator ==(Object other) =>
@@ -450,8 +456,8 @@ class Tuple7<T1, T2, T3, T4, T5, T6, T7>
   final T6 item6;
   final T7 item7;
 
-  const Tuple7(this.item1, this.item2, this.item3, this.item4, this.item5, this.item6,
-      this.item7);
+  const Tuple7(this.item1, this.item2, this.item3, this.item4, this.item5,
+      this.item6, this.item7);
 
   @override
   String toString() =>

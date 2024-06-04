@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Utils.fs" />
+    <Compile Include="Utils/ChangelogParser.fs" />
+    <Compile Include="Utils/Changelog.fs" />
+    <Compile Include="Utils/Fsproj.fs" />
+    <Compile Include="Utils/Npm.fs" />
+    <Compile Include="Utils/Nuget.fs" />
+    <Compile Include="Workspace.fs" />
+    <Compile Include="SimpleExec.Extensions.fs" />
+    <Compile Include="FableLibrary/Core.fs" />
+    <Compile Include="FableLibrary/Python.fs" />
+    <Compile Include="FableLibrary/Dart.fs" />
+    <Compile Include="FableLibrary/TypeScript.fs" />
+    <Compile Include="FableLibrary/JavaScript.fs" />
+    <Compile Include="FableLibrary/Rust.fs" />
+    <Compile Include="WorkerJs.fs" />
+    <Compile Include="Standalone.fs" />
+    <Compile Include="CompilerJs.fs" />
+    <Compile Include="Test/Standalone.fs" />
+    <Compile Include="Test/JavaScript.fs" />
+    <Compile Include="Test/Python.fs" />
+    <Compile Include="Test/Rust.fs" />
+    <Compile Include="Test/Dart.fs" />
+    <Compile Include="Test/TypeScript.fs" />
+    <Compile Include="Test/Integration.fs" />
+    <Compile Include="Test/CompilerJs.fs" />
+    <Compile Include="Quicktest/Core.fs" />
+    <Compile Include="Quicktest/TypeScript.fs" />
+    <Compile Include="Quicktest/JavaScript.fs" />
+    <Compile Include="Quicktest/Python.fs" />
+    <Compile Include="Quicktest/Rust.fs" />
+    <Compile Include="Quicktest/Dart.fs" />
+    <Compile Include="FcsRepo.fs" />
+    <Compile Include="Publish.fs" />
+    <Compile Include="GithubRelease.fs" />
+    <Compile Include="Package.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="8.0.100" />
+    <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
+    <PackageReference Include="EluciusFTW.SpectreCoff" Version="0.47.28" />
+    <PackageReference Include="Fake.IO.FileSystem" Version="6.0.0" />
+    <PackageReference Include="SimpleExec" Version="11.0.0" />
+    <PackageReference Include="Spectre.Console" Version="0.47.0" />
+    <PackageReference Include="Thoth.Json.Net" Version="11.0.0" />
+    <PackageReference Include="Octokit" Version="8.0.0" />
+    <PackageReference Include="Semver" Version="2.3.0" />
+  </ItemGroup>
+</Project>

@@ -201,19 +201,20 @@ let tests =
         testCase "Char.Parse works" <| fun () ->
             equal 'A' (Char.Parse "A")
 
-        testCase "Char.Parse fails if an empty string is given" <| fun () ->
-            try
-                Char.Parse ""
-                |> failwithf "Unexpected result '%c'"
-            with
-            | _ -> ()
+        testCase "Char.Parse fails with empty string" <| fun () ->
+            throwsAnyError (fun () -> Char.Parse "")
 
-        testCase "Char.Parse fails if a string with length > 1 is given" <| fun () ->
-            try
-                Char.Parse "Fable"
-                |> failwithf "Unexpected result '%c'"
-            with
-            | _ -> ()
+        testCase "Char.Parse fails with longer string" <| fun () ->
+            throwsAnyError (fun () -> Char.Parse "AA")
+
+        // testCase "Char.TryParse works" <| fun () ->
+        //     Char.TryParse "A" |> equal (true, 'A')
+
+        // testCase "Char.TryParse fails with empty string" <| fun () ->
+        //     Char.TryParse "" |> equal (false, '\u0000')
+
+        // testCase "Char.TryParse fails with longer string" <| fun () ->
+        //     Char.TryParse "AA" |> equal (false, '\u0000')
 
         testCase "Char addition works" <| fun _ ->
             'A' + 'B' |> int |> equal 131

@@ -1,0 +1,9 @@
+
+function g(a) {
+    return a + 1;
+}
+
+export function f(b) {
+    return g(b);
+}
+

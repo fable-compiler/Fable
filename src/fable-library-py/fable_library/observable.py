@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 from abc import abstractmethod
-from typing import Any, Callable, Generic, Optional, Protocol, Tuple, TypeVar
+from collections.abc import Callable
+from typing import Any, Generic, Protocol, TypeVar
 
 from .choice import (
-    Choice_tryValueIfChoice1Of2,
-    Choice_tryValueIfChoice2Of2,
-    FSharpChoice_2,
+    Choice_tryValueIfChoice1Of2,  # type: ignore
+    Choice_tryValueIfChoice2Of2,  # type: ignore
+    FSharpChoice_2,  # type: ignore
 )
 from .option import value
 from .util import IDisposable
@@ -20,16 +23,13 @@ class IObserver(Protocol, Generic[_T_contra]):
     __slots__ = ()
 
     @abstractmethod
-    def OnNext(self, __value: _T_contra) -> None:
-        ...
+    def OnNext(self, __value: _T_contra) -> None: ...
 
     @abstractmethod
-    def OnError(self, __error: Exception) -> None:
-        ...
+    def OnError(self, __error: Exception) -> None: ...
 
     @abstractmethod
-    def OnCompleted(self) -> None:
-        ...
+    def OnCompleted(self) -> None: ...
 
 
 def _noop(__arg: Any = None) -> None:
@@ -42,8 +42,8 @@ class Observer(IObserver[_T]):
     def __init__(
         self,
         on_next: Callable[[_T], None],
-        on_error: Optional[Callable[[Exception], None]] = None,
-        on_completed: Optional[Callable[[], None]] = None,
+        on_error: Callable[[Exception], None] | None = None,
+        on_completed: Callable[[], None] | None = None,
     ) -> None:
         self._on_next = on_next
         self._on_error = on_error or _noop
@@ -63,8 +63,7 @@ class IObservable(Protocol, Generic[_T_co]):
     __slots__ = ()
 
     @abstractmethod
-    def Subscribe(self, __obs: IObserver[_T_co]) -> IDisposable:
-        ...
+    def Subscribe(self, __obs: IObserver[_T_co]) -> IDisposable: ...
 
 
 class Observable(IObservable[_T]):
@@ -96,12 +95,10 @@ def protect(
         fail(e)
 
 
-def choose(
-    chooser: Callable[[_T], Optional[_U]], source: IObservable[_T]
-) -> IObservable[_U]:
+def choose(chooser: Callable[[_T], _U | None], source: IObservable[_T]) -> IObservable[_U]:
     def subscribe(observer: IObserver[_U]):
         def on_next(t: _T) -> None:
-            def success(u: Optional[_U]) -> None:
+            def success(u: _U | None) -> None:
                 if u is not None:
                     observer.OnNext(value(u))
 
@@ -181,9 +178,9 @@ def merge(source1: IObservable[_T], source2: IObservable[_T]) -> IObservable[_T]
     return Observable(subscribe)
 
 
-def pairwise(source: IObservable[_T]) -> IObservable[Tuple[_T, _T]]:
-    def subscribe(observer: IObserver[Tuple[_T, _T]]) -> IDisposable:
-        last: Optional[_T] = None
+def pairwise(source: IObservable[_T]) -> IObservable[tuple[_T, _T]]:
+    def subscribe(observer: IObserver[tuple[_T, _T]]) -> IDisposable:
+        last: _T | None = None
 
         def on_next(value: _T) -> None:
             nonlocal last
@@ -198,15 +195,11 @@ def pairwise(source: IObservable[_T]) -> IObservable[Tuple[_T, _T]]:
     return Observable(subscribe)
 
 
-def partition(
-    predicate: Callable[[_T], bool], source: IObservable[_T]
-) -> Tuple[IObservable[_T], IObservable[_T]]:
+def partition(predicate: Callable[[_T], bool], source: IObservable[_T]) -> tuple[IObservable[_T], IObservable[_T]]:
     return (filter(predicate, source), filter(lambda x: not predicate(x), source))
 
 
-def scan(
-    collector: Callable[[_U, _T], _U], state: _U, source: IObservable[_T]
-) -> IObservable[_U]:
+def scan(collector: Callable[[_U, _T], _U], state: _U, source: IObservable[_T]) -> IObservable[_U]:
     def subscribe(observer: IObserver[_U]) -> IDisposable:
         def on_next(t: _T) -> None:
             def success(u: _U) -> None:
@@ -222,9 +215,7 @@ def scan(
     return Observable(subscribe)
 
 
-def split(
-    splitter: Callable[[_T], FSharpChoice_2], source: IObservable[_T]
-) -> Tuple[IObservable[_T], IObservable[_T]]:
+def split(splitter: Callable[[_T], FSharpChoice_2], source: IObservable[_T]) -> tuple[IObservable[_T], IObservable[_T]]:
     return (
         choose(lambda v: Choice_tryValueIfChoice1Of2(splitter(v)), source),
         choose(lambda v: Choice_tryValueIfChoice2Of2(splitter(v)), source),

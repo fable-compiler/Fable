@@ -1,20 +1,17 @@
 namespace Fable.Tests.Compiler.Util
 
 open System
-open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.Diagnostics
-open FSharp.Compiler.SourceCodeServices
 open Fable
-open Fable.Cli
 open Fable.Cli.Main
 open Fable.Transforms.State
+open Fable.Compiler.Util
 
 module Compiler =
 
-  type Result = Log list
+  type Result = LogEntry list
   module Result =
-    let errors = List.filter (fun (m: Log) -> m.Severity = Severity.Error)
-    let warnings = List.filter (fun (m: Log) -> m.Severity = Severity.Warning)
+    let errors = List.filter (fun (m: LogEntry) -> m.Severity = Severity.Error)
+    let warnings = List.filter (fun (m: LogEntry) -> m.Severity = Severity.Warning)
     let wasFailure = errors >> List.isEmpty >> not
 
   type Settings = {
@@ -35,7 +32,6 @@ module Compiler =
     let sourceFile = IO.Path.Join(projDir, "Program.fs" ) |> Path.normalizeFullPath
 
     let cliArgs =
-        Log.makeSilent()
         let compilerOptions = CompilerOptionsHelper.Make()
         { CliArgs.ProjectFile = projFile
           FableLibraryPath = None
@@ -54,7 +50,8 @@ module Compiler =
           Exclude = ["Fable.Core"]
           Replace = Map.empty
           RunProcess = None
-          CompilerOptions = compilerOptions }
+          CompilerOptions = compilerOptions
+          Verbosity = Verbosity.Normal }
 
     let mutable private state = State.Create(cliArgs, recompileAllFiles=true)
 
@@ -126,8 +123,8 @@ module Compiler =
 
     module private Test =
       module Is =
-        let error (msg: Log) = msg.Severity = Severity.Error
-        let warning (msg: Log) = msg.Severity = Severity.Warning
+        let error (msg: LogEntry) = msg.Severity = Severity.Error
+        let warning (msg: LogEntry) = msg.Severity = Severity.Warning
         let single = function | [_] -> true | _ -> false
         let zero = List.isEmpty
         let count n = List.length >> (=) n
@@ -145,7 +142,7 @@ module Compiler =
         let withMsg (txt: string) = List.exists (fun m -> m.Message.Contains txt)
       module Text =
         let contains (txt: string) msg = msg.Message.Contains(txt, StringComparison.InvariantCultureIgnoreCase)
-        let isMatch (regex: System.Text.RegularExpressions.Regex) (msg: Log) =
+        let isMatch (regex: System.Text.RegularExpressions.Regex) (msg: LogEntry) =
           regex.IsMatch msg.Message
     let private (>&>) a b = fun actual -> a actual && b actual
 

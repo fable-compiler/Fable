@@ -319,6 +319,7 @@ let ``System.Convert.ToSByte works`` () =
     Convert.ToSByte(2.6) |> equal (x+x+x)
     Convert.ToSByte(3.5) |> equal (x+x+x+x)
     Convert.ToSByte("1") |> equal x
+    Convert.ToSByte('a') |> equal 97y
 
 [<Fact>]
 let ``System.Convert.ToInt16 works`` () =
@@ -359,6 +360,7 @@ let ``System.Convert.ToInt16 works`` () =
     Convert.ToInt16(2.6) |> equal (x+x+x)
     Convert.ToInt16(3.5) |> equal (x+x+x+x)
     Convert.ToInt16("1") |> equal x
+    Convert.ToInt16('a') |> equal 97s
 
 [<Fact>]
 let ``System.Convert.ToInt32 works`` () =
@@ -399,6 +401,7 @@ let ``System.Convert.ToInt32 works`` () =
     Convert.ToInt32(2.6) |> equal (x+x+x)
     Convert.ToInt32(3.5) |> equal (x+x+x+x)
     Convert.ToInt32("1") |> equal x
+    Convert.ToInt32('a') |> equal 97
 
 [<Fact>]
 let ``Special cases conversion to and from Int64 work`` () =
@@ -460,6 +463,7 @@ let ``System.Convert.ToInt64 works`` () =
     Convert.ToInt64(2.6) |> equal (x+x+x)
     Convert.ToInt64(3.5) |> equal (x+x+x+x)
     Convert.ToInt64("1") |> equal x
+    Convert.ToInt64('a') |> equal 97L
 
 [<Fact>]
 let ``System.Convert.ToByte works`` () =
@@ -500,6 +504,7 @@ let ``System.Convert.ToByte works`` () =
     Convert.ToByte(2.6) |> equal (x+x+x)
     Convert.ToByte(3.5) |> equal (x+x+x+x)
     Convert.ToByte("1") |> equal x
+    Convert.ToByte('a') |> equal 97uy
 
 [<Fact>]
 let ``System.Convert.ToUInt16 works`` () =
@@ -540,6 +545,7 @@ let ``System.Convert.ToUInt16 works`` () =
     Convert.ToUInt16(2.6) |> equal (x+x+x)
     Convert.ToUInt16(3.5) |> equal (x+x+x+x)
     Convert.ToUInt16("1") |> equal x
+    Convert.ToUInt16('a') |> equal 97us
 
 [<Fact>]
 let ``System.Convert.ToUInt32 works`` () =
@@ -580,6 +586,7 @@ let ``System.Convert.ToUInt32 works`` () =
     Convert.ToUInt32(2.6) |> equal (x+x+x)
     Convert.ToUInt32(3.5) |> equal (x+x+x+x)
     Convert.ToUInt32("1") |> equal x
+    Convert.ToUInt32('a') |> equal 97u
 
 [<Fact>]
 let ``System.Convert.ToUInt64 works`` () =
@@ -620,6 +627,7 @@ let ``System.Convert.ToUInt64 works`` () =
     Convert.ToUInt64(2.6) |> equal (x+x+x)
     Convert.ToUInt64(3.5) |> equal (x+x+x+x)
     Convert.ToUInt64("1") |> equal x
+    Convert.ToUInt64('a') |> equal 97UL
 
 [<Fact>]
 let ``Convert between (un)signed long`` () = // See #1485

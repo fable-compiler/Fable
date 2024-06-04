@@ -5,6 +5,7 @@ module rec Fable.Transforms.Rust.AST.Parser
 open Fable.Transforms.Rust.AST.Adapters
 open Fable.Transforms.Rust.AST.Symbols
 open Fable.Transforms.Rust.AST.Types.token
+
 module ast = Fable.Transforms.Rust.AST.Types
 
 let i8 = int8
@@ -130,25 +131,36 @@ type AssocOp with
         | ast.BinOpKind.Or -> AssocOp.LOr
 
     /// Gets the precedence of this operator
-    member self.precedence(): i8 =
+    member self.precedence() : i8 =
         match self with
-        | AssocOp.As | AssocOp.Colon -> 14
-        | AssocOp.Multiply | AssocOp.Divide | AssocOp.Modulus -> 13
-        | AssocOp.Add | AssocOp.Subtract -> 12
-        | AssocOp.ShiftLeft | AssocOp.ShiftRight -> 11
+        | AssocOp.As
+        | AssocOp.Colon -> 14
+        | AssocOp.Multiply
+        | AssocOp.Divide
+        | AssocOp.Modulus -> 13
+        | AssocOp.Add
+        | AssocOp.Subtract -> 12
+        | AssocOp.ShiftLeft
+        | AssocOp.ShiftRight -> 11
         | AssocOp.BitAnd -> 10
         | AssocOp.BitXor -> 9
         | AssocOp.BitOr -> 8
-        | AssocOp.Less | AssocOp.Greater | AssocOp.LessEqual
-        | AssocOp.GreaterEqual | AssocOp.Equal | AssocOp.NotEqual -> 7
+        | AssocOp.Less
+        | AssocOp.Greater
+        | AssocOp.LessEqual
+        | AssocOp.GreaterEqual
+        | AssocOp.Equal
+        | AssocOp.NotEqual -> 7
         | AssocOp.LAnd -> 6
         | AssocOp.LOr -> 5
-        | AssocOp.DotDot | AssocOp.DotDotEq -> 4
-        | AssocOp.Assign | AssocOp.AssignOp(_) -> 2
+        | AssocOp.DotDot
+        | AssocOp.DotDotEq -> 4
+        | AssocOp.Assign
+        | AssocOp.AssignOp(_) -> 2
         |> i8
 
     /// Gets the fixity of this operator
-    member self.fixity(): Fixity =
+    member self.fixity() : Fixity =
         // NOTE: it is a bug to have an operators that has same precedence but different fixities!
         match self with
         | AssocOp.Assign
@@ -176,7 +188,7 @@ type AssocOp with
         | AssocOp.DotDot
         | AssocOp.DotDotEq -> Fixity.None
 
-    member self.is_comparison(): bool =
+    member self.is_comparison() : bool =
         match self with
         | AssocOp.Less
         | AssocOp.Greater
@@ -203,7 +215,7 @@ type AssocOp with
         | AssocOp.DotDotEq
         | AssocOp.Colon -> false
 
-    member self.is_assign_like(): bool =
+    member self.is_assign_like() : bool =
         match self with
         | AssocOp.Assign
         | AssocOp.AssignOp(_) -> true
@@ -230,7 +242,7 @@ type AssocOp with
         | AssocOp.DotDotEq
         | AssocOp.Colon -> false
 
-    member self.to_ast_binop(): Option<ast.BinOpKind> =
+    member self.to_ast_binop() : Option<ast.BinOpKind> =
         match self with
         | AssocOp.Less -> Some(ast.BinOpKind.Lt)
         | AssocOp.Greater -> Some(ast.BinOpKind.Gt)
@@ -261,18 +273,18 @@ type AssocOp with
     ///
     /// This is used for error recovery at the moment, providing a suggestion to wrap blocks with
     /// parentheses while having a high degree of confidence on the correctness of the suggestion.
-    member self.can_continue_expr_unambiguously(): bool =
+    member self.can_continue_expr_unambiguously() : bool =
         match self with
-        | AssocOp.BitXor        // `{ 42 } ^ 3`
-        | AssocOp.Assign        // `{ 42 } = { 42 }`
-        | AssocOp.Divide        // `{ 42 } / 42`
-        | AssocOp.Modulus       // `{ 42 } % 2`
-        | AssocOp.ShiftRight    // `{ 42 } >> 2`
-        | AssocOp.LessEqual     // `{ 42 } <= 3`
-        | AssocOp.Greater       // `{ 42 } > 3`
-        | AssocOp.GreaterEqual  // `{ 42 } >= 3`
-        | AssocOp.AssignOp(_)   // `{ 42 } +=`
-        | AssocOp.As            // `{ 42 } as usize`
+        | AssocOp.BitXor // `{ 42 } ^ 3`
+        | AssocOp.Assign // `{ 42 } = { 42 }`
+        | AssocOp.Divide // `{ 42 } / 42`
+        | AssocOp.Modulus // `{ 42 } % 2`
+        | AssocOp.ShiftRight // `{ 42 } >> 2`
+        | AssocOp.LessEqual // `{ 42 } <= 3`
+        | AssocOp.Greater // `{ 42 } > 3`
+        | AssocOp.GreaterEqual // `{ 42 } >= 3`
+        | AssocOp.AssignOp(_) // `{ 42 } +=`
+        | AssocOp.As // `{ 42 } as usize`
         // AssocOp.Equal        // `{ 42 } = { 42 }`   Accepting these here would regress incorrect
         // AssocOp.NotEqual     // `{ 42 } <> { 42 }`  struct literals parser recovery.
         | AssocOp.Colon -> true // `{ 42 }: usize`
@@ -338,7 +350,8 @@ type ExprPrecedence =
     | Err
 
 type ExprPrecedence with
-    member self.order(): i8 =
+
+    member self.order() : i8 =
         match self with
         | ExprPrecedence.Closure -> PREC_CLOSURE
 
@@ -354,12 +367,12 @@ type ExprPrecedence with
         | ExprPrecedence.Range -> PREC_RANGE
 
         // Binop-like expr kinds, handled by `AssocOp`.
-        | ExprPrecedence.Binary(op) -> AssocOp.from_ast_binop(op).precedence()
-        | ExprPrecedence.Cast -> AssocOp.As.precedence()
-        | ExprPrecedence.Type -> AssocOp.Colon.precedence()
+        | ExprPrecedence.Binary(op) -> AssocOp.from_ast_binop(op).precedence ()
+        | ExprPrecedence.Cast -> AssocOp.As.precedence ()
+        | ExprPrecedence.Type -> AssocOp.Colon.precedence ()
 
         | ExprPrecedence.Assign
-        | ExprPrecedence.AssignOp -> AssocOp.Assign.precedence()
+        | ExprPrecedence.AssignOp -> AssocOp.Assign.precedence ()
 
         // Unary, prefix
         | ExprPrecedence.Box
@@ -401,29 +414,28 @@ type ExprPrecedence with
         | ExprPrecedence.Err -> PREC_PAREN
 
 /// In `let p = e`, operators with precedence `<=` this one requires parenthesis in `e`.
-let prec_let_scrutinee_needs_par(): i8 =
-    AssocOp.LAnd.precedence()
+let prec_let_scrutinee_needs_par () : i8 = AssocOp.LAnd.precedence ()
 
 /// Suppose we have `let _ = e` and the `order` of `e`.
 /// Is the `order` such that `e` in `let _ = e` needs parenthesis when it is on the RHS?
 ///
 /// Conversely, suppose that we have `(let _ = a) OP b` and `order` is that of `OP`.
 /// Can we print this as `let _ = a OP b`?
-let needs_par_as_let_scrutinee(order: i8): bool =
-    order <= prec_let_scrutinee_needs_par()
+let needs_par_as_let_scrutinee (order: i8) : bool =
+    order <= prec_let_scrutinee_needs_par ()
 
 /// Expressions that syntactically contain an "exterior" struct literal i.e., not surrounded by any
 /// parens or other delimiters, e.g., `X { y: 1 }`, `X { y: 1 }.method()`, `foo = X { y: 1 }` and
 /// `X { y: 1 } = foo` all do, but `(X { y: 1 }) = foo` does not.
-let contains_exterior_struct_lit(value: ast.Expr): bool =
+let contains_exterior_struct_lit (value: ast.Expr) : bool =
     match value.kind with
-    | ast.ExprKind.Struct(..) -> true
+    | ast.ExprKind.Struct (..) -> true
 
     | ast.ExprKind.Assign(lhs, rhs, _)
     | ast.ExprKind.AssignOp(_, lhs, rhs)
     | ast.ExprKind.Binary(_, lhs, rhs) ->
         // X { y: 1 } + X { y: 2 }
-        contains_exterior_struct_lit(lhs) || contains_exterior_struct_lit(rhs)
+        contains_exterior_struct_lit (lhs) || contains_exterior_struct_lit (rhs)
     | ast.ExprKind.Await(x)
     | ast.ExprKind.Unary(_, x)
     | ast.ExprKind.Cast(x, _)
@@ -431,10 +443,10 @@ let contains_exterior_struct_lit(value: ast.Expr): bool =
     | ast.ExprKind.Field(x, _)
     | ast.ExprKind.Index(x, _) ->
         // X { y: 1 }, X { y: 1 }.y
-        contains_exterior_struct_lit(x)
+        contains_exterior_struct_lit (x)
 
     | ast.ExprKind.MethodCall(_, exprs, _) ->
         // X { y: 1 }.bar(...)
-        contains_exterior_struct_lit(exprs[0])
+        contains_exterior_struct_lit (exprs[0])
 
     | _ -> false

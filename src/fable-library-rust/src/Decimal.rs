@@ -88,7 +88,7 @@ pub mod Decimal_ {
     pub fn parse(s: string) -> decimal {
         match Decimal::from_str(s.trim()) {
             Ok(d) => d,
-            Err(e) => panic!("Input string was not in a correct format."),
+            Err(e) => panic!("The input string {} was not in a correct format.", s),
         }
     }
 

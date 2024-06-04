@@ -90,6 +90,11 @@ let ``TimeSpan components work`` () =
     |> equal 686.
 
 [<Fact>]
+let ``TimeSpan.FromMilliseconds works`` () =
+    let t = TimeSpan.FromMilliseconds(1. / 3.)
+    t.Ticks |> equal 3333L
+
+[<Fact>]
 let ``TimeSpan.Ticks works`` () =
     let t = TimeSpan.FromTicks(20000L)
     t.Ticks |> equal 20000L

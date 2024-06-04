@@ -1,32 +1,25 @@
-import re
+from __future__ import annotations
 
-from typing import (
-    Callable,
-    Iterator,
-    List,
-    Match,
-    Optional,
-    Pattern,
-    Union,
-    Dict,
-)
+import re
+from collections.abc import Callable, Iterator
+from re import Match, Pattern
 
 
 MatchEvaluator = Callable[[Match[str]], str]
 
 
 class GroupCollection:
-    def __init__(self, groups: List[str], named_groups: Dict[str, str]) -> None:
+    def __init__(self, groups: list[str], named_groups: dict[str, str]) -> None:
         self.named_groups = named_groups
         self.groups = groups
 
-    def values(self) -> List[str]:
+    def values(self) -> list[str]:
         return list(self.groups)
 
     def __len__(self) -> int:
         return len(self.groups)
 
-    def __getitem__(self, key: Union[int, str]) -> Optional[str]:
+    def __getitem__(self, key: int | str) -> str | None:
         if isinstance(key, int):
             return self.groups[key]
         else:
@@ -63,35 +56,20 @@ def unescape(string: str) -> str:
     return re.sub(r"\\(.)", r"\1", string)
 
 
-def match(
-    reg: Union[Pattern[str], str], input: str, start_at: int = 0
-) -> Optional[Match[str]]:
-    if isinstance(reg, str):
-        flags = _options_to_flags(start_at)
-        return re.search(input, reg, flags)
+def match(reg: Pattern[str], input: str, start_at: int = 0) -> Match[str] | None:
     return reg.search(input, pos=start_at)
 
 
-def matches(reg: Pattern[str], input: str, start_at: int = 0) -> List[Match[str]]:
-    if isinstance(reg, str):
-        flags = _options_to_flags(start_at)
-        input = input.replace("?<", "?P<")
-        return list(re.finditer(input, reg, flags=flags))
-
+def matches(reg: Pattern[str], input: str, start_at: int = 0) -> list[Match[str]]:
     return list(reg.finditer(input, pos=start_at))
 
 
-def is_match(reg: Union[Pattern[str], str], input: str, start_at: int = 0) -> bool:
-    if isinstance(reg, str):
-        # Note: input is the pattern here
-        flags = _options_to_flags(start_at)
-        return re.search(input, reg, flags=flags) is not None
-
+def is_match(reg: Pattern[str], input: str, start_at: int = 0) -> bool:
     return reg.search(input, pos=start_at) is not None
 
 
 def groups(m: Match[str]) -> GroupCollection:
-    named_groups: Dict[str, str] = m.groupdict()
+    named_groups: dict[str, str] = m.groupdict()
 
     # .NET adds the whole capture as group 0
     groups_ = [m.group(0), *m.groups()]
@@ -111,10 +89,10 @@ def options(reg: Pattern[str]) -> int:
 
 
 def replace(
-    reg: Union[str, Pattern[str]],
+    reg: str | Pattern[str],
     input: str,
-    replacement: Union[str, MatchEvaluator],
-    limit: Optional[int] = None,
+    replacement: str | MatchEvaluator,
+    limit: int | None = None,
     offset: int = 0,
 ) -> str:
     if isinstance(replacement, str):
@@ -128,11 +106,11 @@ def replace(
 
 
 def split(
-    reg: Union[str, Pattern[str]],
+    reg: str | Pattern[str],
     input: str,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     offset: int = 0,
-) -> List[str]:
+) -> list[str]:
     if isinstance(reg, str):
         return re.split(input, reg, maxsplit=limit or 0)
 
@@ -140,7 +118,7 @@ def split(
     return reg.split(input, maxsplit=limit or 0)[:limit]
 
 
-def get_item(groups: GroupCollection, index: Union[str, int]) -> Optional[str]:
+def get_item(groups: GroupCollection, index: str | int) -> str | None:
     return groups[index]
 
 

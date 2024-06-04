@@ -46,13 +46,15 @@ let myComplexAdder x y = x + y
 type NameProp =
     { Name: string }
 
-type Props =
-    | Names of NameProp array
-    | [<Erase>] Custom of key:string * value:obj
+// type Props =
+//     | Names of NameProp array
+//     | [<Erase>] Custom of key:string * value:obj
 
 [<Global("Array")>]
 type PyArray =
+    [<Emit("$0.append($1)")>]
     abstract push: item: obj -> unit
+    [<Emit("len($0)")>]
     abstract length: int
 
 [<Fable.Core.AttachMembers>]
@@ -132,5 +134,34 @@ let ``test Decorators work`` () =
         "LOG1: [MATH (code 3)] called 2 time(s)!"
         "LOG2: called 2 time(s)!"
     ]
+
+
+[<Fact>]
+let ``test emitPyExpr works with parameters`` () =
+    let two : int =
+        emitPyExpr (1, 1) "$0 + $1"
+
+    two |> equal 2
+
+[<Fact>]
+let ``test emitPyExpr works without parameters`` () =
+    let hello : string =
+        emitPyExpr () "\"Hello\""
+
+    hello |> equal "Hello"
+
+// This function needs to be at the root level to avoid being mangled
+let factorial (count : int) : int =
+    emitPyStatement
+        count
+        """if $0 < 2:
+        return 1
+    else:
+        return $0 * factorial($0-1)
+    """
+
+[<Fact>]
+let ``test emitPyStatement works with parameters`` () =
+    factorial 5 |> equal 120
 
 #endif

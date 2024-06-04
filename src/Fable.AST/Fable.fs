@@ -8,7 +8,12 @@ exception FableError of string
 [<RequireQualifiedAccess>]
 module Tags =
     let empty: string list = []
-    let (|Contains|_|) (key: string) (tags: string list) = if List.contains key tags then Some () else None
+
+    let (|Contains|_|) (key: string) (tags: string list) =
+        if List.contains key tags then
+            Some()
+        else
+            None
 
 type EntityPath =
     | SourcePath of string
@@ -18,23 +23,39 @@ type EntityPath =
     | PrecompiledLib of sourcePath: string * assemblyPath: string
 
 type EntityRef =
-    { FullName: string
-      Path: EntityPath }
+    {
+        FullName: string
+        Path: EntityPath
+    }
+
     member this.DisplayName =
         let name = this.FullName.Substring(this.FullName.LastIndexOf('.') + 1)
+
         match name.IndexOf('`') with
         | -1 -> name
         | i -> name.Substring(0, i)
+
     member this.SourcePath =
         match this.Path with
         | SourcePath p
-        | PrecompiledLib(p,_) -> Some p
-        | AssemblyPath _ | CoreAssemblyName _ -> None
+        | PrecompiledLib(p, _) -> Some p
+        | AssemblyPath _
+        | CoreAssemblyName _ -> None
+
+type Attribute =
+    abstract Entity: EntityRef
+    abstract ConstructorArgs: obj list
 
 type MemberRefInfo =
-    { IsInstance: bool
-      CompiledName: string
-      NonCurriedArgTypes: Type list option }
+    {
+        IsInstance: bool
+        CompiledName: string
+        NonCurriedArgTypes: Type list option
+        // We only store the attributes fullname otherwise deserialization of precompiled files fails
+        // System.Text.Json is not able to deserialize the standard Attribute type because it is an interface
+        // More about it here: https://github.com/fable-compiler/Fable/pull/3817
+        AttributeFullNames: string list
+    }
 
 type MemberRef =
     | MemberRef of declaringEntity: EntityRef * info: MemberRefInfo
@@ -43,10 +64,6 @@ type MemberRef =
 type DeclaredType =
     abstract Entity: EntityRef
     abstract GenericArgs: Type list
-
-type Attribute =
-    abstract Entity: EntityRef
-    abstract ConstructorArgs: obj list
 
 type Field =
     abstract Name: string
@@ -178,20 +195,29 @@ type Type =
     | DelegateType of argTypes: Type list * returnType: Type
     | GenericParam of name: string * isMeasure: bool * constraints: Constraint list
     | DeclaredType of ref: EntityRef * genericArgs: Type list
-    | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list * isStruct: bool
+    | AnonymousRecordType of fieldNames: string[] * genericArgs: Type list * isStruct: bool
 
     member this.Generics =
         match this with
         | Option(gen, _)
-        | Array(gen,_)
+        | Array(gen, _)
         | List gen -> [ gen ]
         | LambdaType(argType, returnType) -> [ argType; returnType ]
         | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
         | Tuple(gen, _) -> gen
-        | DeclaredType (_, gen) -> gen
-        | AnonymousRecordType (_, gen, _) -> gen
+        | DeclaredType(_, gen) -> gen
+        | AnonymousRecordType(_, gen, _) -> gen
         // TODO: Check numbers with measure?
-        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | GenericParam _ | Measure _ -> []
+        | MetaType
+        | Any
+        | Unit
+        | Boolean
+        | Char
+        | String
+        | Regex
+        | Number _
+        | GenericParam _
+        | Measure _ -> []
 
     member this.MapGenerics f =
         match this with
@@ -203,7 +229,16 @@ type Type =
         | Tuple(gen, isStruct) -> Tuple(List.map f gen, isStruct)
         | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen)
         | AnonymousRecordType(e, gen, isStruct) -> AnonymousRecordType(e, List.map f gen, isStruct)
-        | MetaType | Any | Unit | Boolean | Char | String | Regex | Number _ | GenericParam _ | Measure _ -> this
+        | MetaType
+        | Any
+        | Unit
+        | Boolean
+        | Char
+        | String
+        | Regex
+        | Number _
+        | GenericParam _
+        | Measure _ -> this
 
 type GeneratedMemberInfo =
     {
@@ -231,7 +266,9 @@ type GeneratedMember =
             HasSpread = defaultArg hasSpread false
             IsMutable = false
             DeclaringEntity = entRef
-        } |> GeneratedFunction |> GeneratedMemberRef
+        }
+        |> GeneratedFunction
+        |> GeneratedMemberRef
 
     static member Value(name, typ, ?isInstance, ?isMutable, ?entRef) =
         {
@@ -242,7 +279,9 @@ type GeneratedMember =
             IsMutable = defaultArg isMutable false
             HasSpread = false
             DeclaringEntity = entRef
-        } |> GeneratedValue |> GeneratedMemberRef
+        }
+        |> GeneratedValue
+        |> GeneratedMemberRef
 
     static member Getter(name, typ, ?isInstance, ?entRef) =
         {
@@ -253,18 +292,22 @@ type GeneratedMember =
             IsMutable = false
             HasSpread = false
             DeclaringEntity = entRef
-        } |> GeneratedGetter |> GeneratedMemberRef
+        }
+        |> GeneratedGetter
+        |> GeneratedMemberRef
 
     static member Setter(name, typ, ?isInstance, ?entRef) =
         {
             Name = name
-            ParamTypes = [typ]
+            ParamTypes = [ typ ]
             ReturnType = Unit
             IsInstance = defaultArg isInstance true
             IsMutable = false
             HasSpread = false
             DeclaringEntity = entRef
-        } |> GeneratedSetter |> GeneratedMemberRef
+        }
+        |> GeneratedSetter
+        |> GeneratedMemberRef
 
     member this.Info =
         match this with
@@ -282,16 +325,19 @@ type GeneratedMember =
             member _.IsOut = false
             member _.IsNamed = false
             member _.IsOptional = false
-            member _.DefaultValue = None }
+            member _.DefaultValue = None
+        }
 
-    static member GenericParams(typ: Type): GenericParam list =
+    static member GenericParams(typ: Type) : GenericParam list =
         typ :: typ.Generics
-        |> List.choose (function
+        |> List.choose (
+            function
             | GenericParam(name, isMeasure, constraints) ->
                 { new GenericParam with
                     member _.Name = name
                     member _.IsMeasure = isMeasure
-                    member _.Constraints = constraints }
+                    member _.Constraints = constraints
+                }
                 |> Some
             | _ -> None
         )
@@ -301,16 +347,39 @@ type GeneratedMember =
         member this.DisplayName = this.Info.Name
         member this.CompiledName = this.Info.Name
         member this.FullName = this.Info.Name
-        member this.GenericParameters = this.Info.ParamTypes |> List.collect (fun t -> GeneratedMember.GenericParams(t))
-        member this.CurriedParameterGroups = [this.Info.ParamTypes |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a{i}"))]
+
+        member this.GenericParameters =
+            this.Info.ParamTypes |> List.collect (fun t -> GeneratedMember.GenericParams(t))
+
+        member this.CurriedParameterGroups =
+            [
+                this.Info.ParamTypes
+                |> List.mapi (fun i t -> GeneratedMember.Param(t, $"a%d{i}"))
+            ]
+
         member this.ReturnParameter = GeneratedMember.Param(this.Info.ReturnType)
+
         member this.IsConstructor = this.Info.Name = ".ctor" || this.Info.Name = ".cctor"
+
         member this.IsInstance = this.Info.IsInstance
         member this.HasSpread = this.Info.HasSpread
         member this.IsMutable = this.Info.IsMutable
-        member this.IsValue = match this with GeneratedValue _ -> true | _ -> false
-        member this.IsGetter = match this with GeneratedGetter _ -> true | _ -> false
-        member this.IsSetter = match this with GeneratedSetter _ -> true | _ -> false
+
+        member this.IsValue =
+            match this with
+            | GeneratedValue _ -> true
+            | _ -> false
+
+        member this.IsGetter =
+            match this with
+            | GeneratedGetter _ -> true
+            | _ -> false
+
+        member this.IsSetter =
+            match this with
+            | GeneratedSetter _ -> true
+            | _ -> false
+
         member _.IsProperty = false
         member _.IsInline = false
         member _.IsPublic = true
@@ -324,52 +393,58 @@ type GeneratedMember =
         member _.ImplementedAbstractSignatures = []
         member _.XmlDoc = None
 
-type ObjectExprMember = {
-    Name: string
-    Args: Ident list
-    Body: Expr
-    MemberRef: MemberRef
-    IsMangled: bool
-}
+type ObjectExprMember =
+    {
+        Name: string
+        Args: Ident list
+        Body: Expr
+        MemberRef: MemberRef
+        IsMangled: bool
+    }
 
-type MemberDecl = {
-    Name: string
-    Args: Ident list
-    Body: Expr
-    MemberRef: MemberRef
-    IsMangled: bool
-    ImplementedSignatureRef: MemberRef option
-    UsedNames: Set<string>
-    XmlDoc: string option
-    Tags: string list
-}
+type MemberDecl =
+    {
+        Name: string
+        Args: Ident list
+        Body: Expr
+        MemberRef: MemberRef
+        IsMangled: bool
+        ImplementedSignatureRef: MemberRef option
+        UsedNames: Set<string>
+        XmlDoc: string option
+        Tags: string list
+    }
 
-type ClassDecl = {
-    Name: string
-    Entity: EntityRef
-    Constructor: MemberDecl option
-    BaseCall: Expr option
-    AttachedMembers: MemberDecl list
-    XmlDoc: string option
-    Tags: string list
-}
+type ClassDecl =
+    {
+        Name: string
+        Entity: EntityRef
+        Constructor: MemberDecl option
+        BaseCall: Expr option
+        AttachedMembers: MemberDecl list
+        XmlDoc: string option
+        Tags: string list
+    }
 
-type ActionDecl = {
-    Body: Expr
-    UsedNames: Set<string>
-}
+type ActionDecl =
+    {
+        Body: Expr
+        UsedNames: Set<string>
+    }
 
-type ModuleDecl = {
-    Name: string
-    Entity: EntityRef
-    Members: Declaration list
-}
+type ModuleDecl =
+    {
+        Name: string
+        Entity: EntityRef
+        Members: Declaration list
+    }
 
 and Declaration =
     | ModuleDeclaration of ModuleDecl
     | ActionDeclaration of ActionDecl
     | MemberDeclaration of MemberDecl
     | ClassDeclaration of ClassDecl
+
     member this.UsedNames =
         match this with
         | ModuleDeclaration d -> d.Members |> List.map (fun d -> d.UsedNames) |> Set.unionMany
@@ -384,19 +459,21 @@ and Declaration =
 
 type File(decls, ?usedRootNames) =
     member _.Declarations: Declaration list = decls
+
     member _.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
 
 type Ident =
-    { Name: string
-      Type: Type
-      IsMutable: bool
-      IsThisArgument: bool
-      IsCompilerGenerated: bool
-      Range: SourceLocation option }
+    {
+        Name: string
+        Type: Type
+        IsMutable: bool
+        IsThisArgument: bool
+        IsCompilerGenerated: bool
+        Range: SourceLocation option
+    }
+
     member x.DisplayName =
-        x.Range
-        |> Option.bind (fun r -> r.DisplayName)
-        |> Option.defaultValue x.Name
+        x.Range |> Option.bind (fun r -> r.DisplayName) |> Option.defaultValue x.Name
 
 type NewArrayKind =
     | ArrayValues of values: Expr list
@@ -407,6 +484,26 @@ type ArrayKind =
     | ResizeArray
     | MutableArray
     | ImmutableArray
+
+[<RequireQualifiedAccess>]
+type NumberValue =
+    | Int8 of sbyte
+    | UInt8 of byte
+    | Int16 of int16
+    | UInt16 of System.UInt16
+    | Int32 of System.Int32
+    | UInt32 of System.UInt32
+    | Int64 of System.Int64
+    | UInt64 of System.UInt64
+    | Int128 of upper: System.UInt64 * lower: System.UInt64 // System.Int128
+    | UInt128 of upper: System.UInt64 * lower: System.UInt64 // System.UInt128
+    | BigInt of bigint
+    | NativeInt of nativeint
+    | UNativeInt of unativeint
+    | Float16 of System.Single // System.Half
+    | Float32 of System.Single
+    | Float64 of System.Double
+    | Decimal of System.Decimal
 
 type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
@@ -423,83 +520,126 @@ type ValueKind =
     /// String interpolation with support for JS tagged templates
     /// String parts length should always be values.Length + 1
     | StringTemplate of tag: Expr option * parts: string list * values: Expr list
-    | NumberConstant of value: obj * kind: NumberKind * info: NumberInfo
+    | NumberConstant of value: NumberValue * info: NumberInfo
     | RegexConstant of source: string * flags: RegexFlag list
     | NewOption of value: Expr option * typ: Type * isStruct: bool
     | NewArray of newKind: NewArrayKind * typ: Type * kind: ArrayKind
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
     | NewTuple of values: Expr list * isStruct: bool
     | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
-    | NewAnonymousRecord of values: Expr list * fieldNames: string [] * genArgs: Type list * isStruct: bool
+    | NewAnonymousRecord of values: Expr list * fieldNames: string[] * genArgs: Type list * isStruct: bool
     | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list
+
     member this.Type =
         match this with
         | ThisValue t
-        | BaseValue(_,t) -> t
+        | BaseValue(_, t) -> t
         | TypeInfo _ -> MetaType
         | Null t -> t
         | UnitConstant -> Unit
         | BoolConstant _ -> Boolean
         | CharConstant _ -> Char
-        | StringConstant _ | StringTemplate _ -> String
-        | NumberConstant (_, kind, info) -> Number(kind, info)
+        | StringConstant _
+        | StringTemplate _ -> String
+        | NumberConstant(value, info) ->
+            match value with
+            | NumberValue.Int8 _ -> NumberKind.Int8
+            | NumberValue.UInt8 _ -> NumberKind.UInt8
+            | NumberValue.Int16 _ -> NumberKind.Int16
+            | NumberValue.UInt16 _ -> NumberKind.UInt16
+            | NumberValue.Int32 _ -> NumberKind.Int32
+            | NumberValue.UInt32 _ -> NumberKind.UInt32
+            | NumberValue.Int64 _ -> NumberKind.Int64
+            | NumberValue.UInt64 _ -> NumberKind.UInt64
+            | NumberValue.Int128 _ -> NumberKind.Int128
+            | NumberValue.UInt128 _ -> NumberKind.UInt128
+            | NumberValue.BigInt _ -> NumberKind.BigInt
+            | NumberValue.NativeInt _ -> NumberKind.NativeInt
+            | NumberValue.UNativeInt _ -> NumberKind.UNativeInt
+            | NumberValue.Float16 _ -> NumberKind.Float16
+            | NumberValue.Float32 _ -> NumberKind.Float32
+            | NumberValue.Float64 _ -> NumberKind.Float64
+            | NumberValue.Decimal _ -> NumberKind.Decimal
+            |> fun kind -> Number(kind, info)
         | RegexConstant _ -> Regex
-        | NewOption (_, t, isStruct) -> Option(t, isStruct)
-        | NewArray (_, t, k) -> Array(t, k)
-        | NewList (_, t) -> List t
-        | NewTuple (exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
-        | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)
-        | NewAnonymousRecord (_, fieldNames, genArgs, isStruct) -> AnonymousRecordType(fieldNames, genArgs, isStruct)
-        | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
+        | NewOption(_, t, isStruct) -> Option(t, isStruct)
+        | NewArray(_, t, k) -> Array(t, k)
+        | NewList(_, t) -> List t
+        | NewTuple(exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
+        | NewRecord(_, ent, genArgs) -> DeclaredType(ent, genArgs)
+        | NewAnonymousRecord(_, fieldNames, genArgs, isStruct) -> AnonymousRecordType(fieldNames, genArgs, isStruct)
+        | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
 
 type CallInfo =
-    { ThisArg: Expr option
-      Args: Expr list
-      /// Argument types as defined in the method signature, this may be slightly different to types of actual argument expressions.
-      /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
-      /// This is used for the uncurrying mechanism
-      SignatureArgTypes: Type list
-      GenericArgs: Type list
-      MemberRef: MemberRef option
-      Tags: string list }
-    static member Create(
+    {
+        ThisArg: Expr option
+        Args: Expr list
+        /// Argument types as defined in the method signature, this may be slightly different to types of actual argument expressions.
+        /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
+        /// This is used for the uncurrying mechanism
+        SignatureArgTypes: Type list
+        GenericArgs: Type list
+        MemberRef: MemberRef option
+        Tags: string list
+    }
+
+    static member Create
+        (
             ?thisArg: Expr,
             ?args: Expr list,
             ?genArgs: Type list,
             ?sigArgTypes: Type list,
             ?memberRef: MemberRef,
             ?isCons: bool,
-            ?tag: string) =
+            ?tag: string
+        )
+        =
         let tags = Option.toList tag
-        { ThisArg = thisArg
-          Args = defaultArg args []
-          GenericArgs = defaultArg genArgs []
-          SignatureArgTypes = defaultArg sigArgTypes []
-          MemberRef = memberRef
-          Tags = match isCons with Some true -> "new"::tags | Some false | None -> tags }
+
+        {
+            ThisArg = thisArg
+            Args = defaultArg args []
+            GenericArgs = defaultArg genArgs []
+            SignatureArgTypes = defaultArg sigArgTypes []
+            MemberRef = memberRef
+            Tags =
+                match isCons with
+                | Some true -> "new" :: tags
+                | Some false
+                | None -> tags
+        }
 
 type ReplaceCallInfo =
-    { CompiledName: string
-      OverloadSuffix: string
-      /// See ArgInfo.SignatureArgTypes
-      SignatureArgTypes: Type list
-      HasSpread: bool
-      IsModuleValue: bool
-      IsInterface: bool
-      DeclaringEntityFullName: string
-      GenericArgs: Type list }
+    {
+        CompiledName: string
+        OverloadSuffix: string
+        /// See ArgInfo.SignatureArgTypes
+        SignatureArgTypes: Type list
+        HasSpread: bool
+        IsModuleValue: bool
+        IsInterface: bool
+        DeclaringEntityFullName: string
+        GenericArgs: Type list
+    }
 
 type EmitInfo =
-    { Macro: string
-      IsStatement: bool
-      CallInfo: CallInfo }
+    {
+        Macro: string
+        IsStatement: bool
+        CallInfo: CallInfo
+    }
 
 type LibraryImportInfo =
-    { IsInstanceMember: bool
-      IsModuleMember: bool }
+    {
+        IsInstanceMember: bool
+        IsModuleMember: bool
+    }
+
     static member Create(?isInstanceMember, ?isModuleMember) =
-        { IsInstanceMember = defaultArg isInstanceMember false
-          IsModuleMember = defaultArg isModuleMember false }
+        {
+            IsInstanceMember = defaultArg isInstanceMember false
+            IsModuleMember = defaultArg isModuleMember false
+        }
 
 type ImportKind =
     /// `isInline` is automatically set to true after applying the arguments of an inline function whose body
@@ -510,13 +650,18 @@ type ImportKind =
     | ClassImport of entRef: EntityRef
 
 type ImportInfo =
-    { Selector: string
-      Path: string
-      Kind: ImportKind }
+    {
+        Selector: string
+        Path: string
+        Kind: ImportKind
+    }
+
     member this.IsCompilerGenerated =
         match this.Kind with
         | UserImport isInline -> isInline
-        | LibraryImport _ | MemberImport _  | ClassImport _ -> true
+        | LibraryImport _
+        | MemberImport _
+        | ClassImport _ -> true
 
 type OperationKind =
     | Unary of operator: UnaryOperator * operand: Expr
@@ -532,26 +677,34 @@ type FieldInfo =
         MaybeCalculated: bool
         Tags: string list
     }
-    member this.CanHaveSideEffects =
-        this.IsMutable || this.MaybeCalculated
+
+    member this.CanHaveSideEffects = this.IsMutable || this.MaybeCalculated
+
     static member Create(name, ?fieldType: Type, ?isMutable: bool, ?maybeCalculated: bool, ?tag: string) =
-        { Name = name
-          FieldType = fieldType
-          IsMutable = defaultArg isMutable false
-          MaybeCalculated = defaultArg maybeCalculated false
-          Tags = Option.toList tag }
+        {
+            Name = name
+            FieldType = fieldType
+            IsMutable = defaultArg isMutable false
+            MaybeCalculated = defaultArg maybeCalculated false
+            Tags = Option.toList tag
+        }
         |> FieldGet
 
 type UnionFieldInfo =
-    { Entity: EntityRef
-      GenericArgs: Type list
-      CaseIndex: int
-      FieldIndex: int }
+    {
+        Entity: EntityRef
+        GenericArgs: Type list
+        CaseIndex: int
+        FieldIndex: int
+    }
+
     static member Create(entity, caseIndex, fieldIndex, ?genArgs) =
-        { Entity = entity
-          GenericArgs = defaultArg genArgs []
-          CaseIndex = caseIndex
-          FieldIndex = fieldIndex }
+        {
+            Entity = entity
+            GenericArgs = defaultArg genArgs []
+            CaseIndex = caseIndex
+            FieldIndex = fieldIndex
+        }
         |> UnionField
 
 type GetKind =
@@ -583,28 +736,41 @@ type ExtendedSet =
     /// Used in the uncurrying transformations, we'll try to remove the curried expressions
     /// with beta reduction but in some cases it may be necessary to do it at runtime
     | Curry of expr: Expr * arity: int
+
     member this.Type =
         match this with
-        | Throw(_,t) -> t
-        | Curry (expr, _) -> expr.Type
+        | Throw(_, t) -> t
+        | Curry(expr, _) -> expr.Type
         | Debugger -> Unit
 
 type Witness =
-    { TraitName: string
-      IsInstance: bool
-      FileName: string
-      Expr: Expr }
+    {
+        TraitName: string
+        IsInstance: bool
+        FileName: string
+        Expr: Expr
+    }
+
     member this.ArgTypes =
         match this.Expr with
-        | Delegate(args,_,_,_) -> args |> List.map (fun a -> a.Type)
+        | Delegate(args, _, _, _) -> args |> List.map (fun a -> a.Type)
         | _ -> []
 
 /// Unresolved expressions are used in precompiled inline functions.
 /// They will be resolved in the call site where the context is available.
 type UnresolvedExpr =
     // TODO: Add also MemberKind from the flags?
-    | UnresolvedTraitCall of sourceTypes: Type list * traitName: string * isInstance: bool * argTypes: Type list * argExprs: Expr list
-    | UnresolvedReplaceCall of thisArg: Expr option * args: Expr list * info: ReplaceCallInfo * attachedCall: Expr option
+    | UnresolvedTraitCall of
+        sourceTypes: Type list *
+        traitName: string *
+        isInstance: bool *
+        argTypes: Type list *
+        argExprs: Expr list
+    | UnresolvedReplaceCall of
+        thisArg: Expr option *
+        args: Expr list *
+        info: ReplaceCallInfo *
+        attachedCall: Expr option
     | UnresolvedInlineCall of memberUniqueName: string * witnesses: Witness list * callee: Expr option * info: CallInfo
 
 type Expr =
@@ -622,7 +788,7 @@ type Expr =
     | ObjectExpr of members: ObjectExprMember list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
-    | TypeCast of expr: Expr * Type
+    | TypeCast of expr: Expr * typ: Type
     | Test of expr: Expr * kind: TestKind * range: SourceLocation option
 
     // Operations
@@ -660,59 +826,59 @@ type Expr =
 
     member this.Type =
         match this with
-        | Unresolved(_,t,_) -> t
-        | Extended (kind, _) -> kind.Type
+        | Unresolved(_, t, _) -> t
+        | Extended(kind, _) -> kind.Type
         | Test _ -> Boolean
-        | Value (kind, _) -> kind.Type
+        | Value(kind, _) -> kind.Type
         | IdentExpr id -> id.Type
-        | Call(_,_,t,_)
-        | CurriedApply(_,_,t,_)
-        | TypeCast (_, t)
-        | Import (_, t, _)
-        | ObjectExpr (_, t, _)
-        | Operation (_, _, t, _)
-        | Get (_, _, t, _)
-        | Emit (_,t,_)
-        | DecisionTreeSuccess (_, _, t) -> t
+        | Call(_, _, t, _)
+        | CurriedApply(_, _, t, _)
+        | TypeCast(_, t)
+        | Import(_, t, _)
+        | ObjectExpr(_, t, _)
+        | Operation(_, _, t, _)
+        | Get(_, _, t, _)
+        | Emit(_, t, _)
+        | DecisionTreeSuccess(_, _, t) -> t
         | Set _
         | WhileLoop _
-        | ForLoop _-> Unit
+        | ForLoop _ -> Unit
         | Sequential exprs -> List.tryLast exprs |> Option.map (fun e -> e.Type) |> Option.defaultValue Unit
-        | Let (_, _, expr)
-        | LetRec (_, expr)
-        | TryCatch (expr, _, _, _)
-        | IfThenElse (_, expr, _, _)
-        | DecisionTree (expr, _) -> expr.Type
+        | Let(_, _, expr)
+        | LetRec(_, expr)
+        | TryCatch(expr, _, _, _)
+        | IfThenElse(_, expr, _, _)
+        | DecisionTree(expr, _) -> expr.Type
         | Lambda(arg, body, _) -> LambdaType(arg.Type, body.Type)
         | Delegate(args, body, _, _) -> DelegateType(args |> List.map (fun a -> a.Type), body.Type)
 
     member this.Range: SourceLocation option =
         match this with
-        | Unresolved(_,_,r)
-        | Extended (_,r) -> r
+        | Unresolved(_, _, r)
+        | Extended(_, r) -> r
         | ObjectExpr _
         | Sequential _
         | Let _
         | LetRec _
         | DecisionTree _
         | DecisionTreeSuccess _ -> None
-        | Lambda (_, e, _)
-        | Delegate (_, e, _, _)
-        | TypeCast (e, _) -> e.Range
+        | Lambda(_, e, _)
+        | Delegate(_, e, _, _)
+        | TypeCast(e, _) -> e.Range
         | IdentExpr id -> id.Range
-        | Call(_,_,_,r)
-        | CurriedApply(_,_,_,r)
-        | Emit (_,_,r)
-        | Import(_,_,r)
-        | Value (_, r)
-        | IfThenElse (_, _, _, r)
-        | TryCatch (_, _, _, r)
-        | Test (_, _, r)
-        | Operation (_, _, _, r)
-        | Get (_, _, _, r)
-        | Set (_, _, _, _, r)
-        | ForLoop (_,_,_,_,_,r)
-        | WhileLoop (_,_,r) -> r
+        | Call(_, _, _, r)
+        | CurriedApply(_, _, _, r)
+        | Emit(_, _, r)
+        | Import(_, _, r)
+        | Value(_, r)
+        | IfThenElse(_, _, _, r)
+        | TryCatch(_, _, _, r)
+        | Test(_, _, r)
+        | Operation(_, _, _, r)
+        | Get(_, _, _, r)
+        | Set(_, _, _, _, r)
+        | ForLoop(_, _, _, _, _, r)
+        | WhileLoop(_, _, r) -> r
 
 // module PrettyPrint =
 //     let rec printType (t: Type) = "T" // TODO

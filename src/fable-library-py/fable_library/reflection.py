@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import functools
-
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
+from typing import Any, cast
 
 from .types import FSharpRef, Record
 from .types import Union as FsUnion
@@ -12,8 +12,8 @@ from .util import Array, combine_hash_codes, equal_arrays_with
 
 Constructor = Callable[..., Any]
 
-EnumCase = Tuple[str, int]
-FieldInfo = Tuple[str, "TypeInfo"]
+EnumCase = tuple[str, int]
+FieldInfo = tuple[str, "TypeInfo"]
 PropertyInfo = FieldInfo
 ParameterInfo = FieldInfo
 
@@ -23,25 +23,25 @@ class CaseInfo:
     declaringType: TypeInfo
     tag: int
     name: str
-    fields: List[FieldInfo]
+    fields: list[FieldInfo]
 
 
 @dataclass
 class MethodInfo:
     name: str
-    parameters: List[ParameterInfo]
+    parameters: list[ParameterInfo]
     returnType: TypeInfo
 
 
 @dataclass
 class TypeInfo:
     fullname: str
-    generics: Optional[List[TypeInfo]] = None
-    construct: Optional[Constructor] = None
-    parent: Optional[TypeInfo] = None
-    fields: Optional[Callable[[], List[FieldInfo]]] = None
-    cases: Optional[Callable[[], List[CaseInfo]]] = None
-    enum_cases: Optional[List[EnumCase]] = None
+    generics: list[TypeInfo] | None = None
+    construct: Constructor | None = None
+    parent: TypeInfo | None = None
+    fields: Callable[[], list[FieldInfo]] | None = None
+    cases: Callable[[], list[CaseInfo]] | None = None
+    enum_cases: list[EnumCase] | None = None
 
     def __str__(self) -> str:
         return full_name(self)
@@ -57,23 +57,23 @@ class TypeInfo:
 
 def class_type(
     fullname: str,
-    generics: Optional[List[TypeInfo]] = None,
-    construct: Optional[Constructor] = None,
-    parent: Optional[TypeInfo] = None,
+    generics: list[TypeInfo] | None = None,
+    construct: Constructor | None = None,
+    parent: TypeInfo | None = None,
 ) -> TypeInfo:
     return TypeInfo(fullname, generics, construct, parent)
 
 
 def union_type(
     fullname: str,
-    generics: List[TypeInfo],
-    construct: Type[FsUnion],
-    cases: Callable[[], List[List[FieldInfo]]],
+    generics: list[TypeInfo],
+    construct: type[FsUnion],
+    cases: Callable[[], list[list[FieldInfo]]],
 ) -> TypeInfo:
-    def fn() -> List[CaseInfo]:
-        caseNames: List[str] = construct.cases()
+    def fn() -> list[CaseInfo]:
+        caseNames: list[str] = construct.cases()
 
-        def mapper(i: int, fields: List[FieldInfo]) -> CaseInfo:
+        def mapper(i: int, fields: list[FieldInfo]) -> CaseInfo:
             return CaseInfo(t, i, caseNames[i], fields)
 
         return [mapper(i, x) for i, x in enumerate(cases())]
@@ -92,9 +92,9 @@ def delegate_type(*generics: TypeInfo) -> TypeInfo:
 
 def record_type(
     fullname: str,
-    generics: List[TypeInfo],
+    generics: list[TypeInfo],
     construct: Constructor,
-    fields: Callable[[], List[FieldInfo]],
+    fields: Callable[[], list[FieldInfo]],
 ) -> TypeInfo:
     return TypeInfo(fullname, generics, construct, fields=fields)
 
@@ -115,9 +115,7 @@ def array_type(generic: TypeInfo) -> TypeInfo:
     return TypeInfo(generic.fullname + "[]", [generic])
 
 
-def enum_type(
-    fullname: str, underlyingType: TypeInfo, enumCases: List[EnumCase]
-) -> TypeInfo:
+def enum_type(fullname: str, underlyingType: TypeInfo, enumCases: list[EnumCase]) -> TypeInfo:
     return TypeInfo(fullname, [underlyingType], None, None, None, None, enumCases)
 
 
@@ -154,9 +152,7 @@ def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
             lambda kv1, kv2: kv1[0] == kv2[0] and equals(kv1[1], kv2[1]),
         )
 
-    return t1.fullname == t2.fullname and equal_arrays_with(
-        t1.generics, t2.generics, equals
-    )
+    return t1.fullname == t2.fullname and equal_arrays_with(t1.generics, t2.generics, equals)
 
 
 def is_generic_type(t: TypeInfo) -> bool:
@@ -164,22 +160,18 @@ def is_generic_type(t: TypeInfo) -> bool:
 
 
 def get_generic_type_definition(t: TypeInfo):
-    return (
-        t
-        if t.generics is None
-        else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
-    )
+    return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
 
 
-def get_generics(t: TypeInfo) -> List[TypeInfo]:
+def get_generics(t: TypeInfo) -> list[TypeInfo]:
     return t.generics if t.generics else []
 
 
-def make_generic_type(t: TypeInfo, generics: List[TypeInfo]) -> TypeInfo:
+def make_generic_type(t: TypeInfo, generics: list[TypeInfo]) -> TypeInfo:
     return TypeInfo(t.fullname, generics, t.construct, t.parent, t.fields, t.cases)
 
 
-def create_instance(t: TypeInfo, consArgs: List[Any]) -> Any:
+def create_instance(t: TypeInfo, consArgs: list[Any]) -> Any:
     # TODO: Check if consArgs length is same as t.construct?
     # (Arg types can still be different)
     if callable(t.construct):
@@ -192,9 +184,9 @@ def get_value(propertyInfo: PropertyInfo, v: Any) -> Any:
     return getattr(v, str(propertyInfo[0]))
 
 
-def name(info: Union[FieldInfo, TypeInfo, CaseInfo]) -> str:
-    if isinstance(info, Tuple):
-        return cast(FieldInfo, info)[0]
+def name(info: FieldInfo | (TypeInfo | CaseInfo)) -> str:
+    if isinstance(info, tuple):
+        return info[0]
 
     elif isinstance(info, TypeInfo):
         i = info.fullname.rfind(".")
@@ -227,9 +219,7 @@ def is_enum(t: TypeInfo) -> bool:
 
 
 def is_subclass_of(t1: TypeInfo, t2: TypeInfo) -> bool:
-    return t1.parent is not None and (
-        (t1.parent == t2) or is_subclass_of(t1.parent, t2)
-    )
+    return t1.parent is not None and ((t1.parent == t2) or is_subclass_of(t1.parent, t2))
 
 
 def is_erased_to_number(t: TypeInfo) -> bool:
@@ -255,7 +245,7 @@ def is_instance_of_type(t: TypeInfo, o: Any) -> bool:
     if isinstance(o, str):
         return t.fullname == string_type.fullname
 
-    if isinstance(o, (int, float)):
+    if isinstance(o, int | float):
         return is_erased_to_number(t)
 
     if callable(o):
@@ -284,7 +274,7 @@ def is_function(t: TypeInfo) -> bool:
     return t.fullname == "Microsoft.FSharp.Core.FSharpFunc`2"
 
 
-def get_element_type(t: TypeInfo) -> Optional[TypeInfo]:
+def get_element_type(t: TypeInfo) -> TypeInfo | None:
     return (t.generics[0] if t.generics else None) if is_array(t) else None
 
 
@@ -292,21 +282,21 @@ def get_enum_underlying_type(t: TypeInfo):
     return t.generics[0] if t.generics else None
 
 
-def get_enum_values(t: TypeInfo) -> List[int]:
+def get_enum_values(t: TypeInfo) -> list[int]:
     if is_enum(t) and t.enum_cases is not None:
         return [int(kv[1]) for kv in t.enum_cases]
     else:
         raise ValueError(f"{t.fullname} is not an enum type")
 
 
-def get_enum_names(t: TypeInfo) -> List[str]:
+def get_enum_names(t: TypeInfo) -> list[str]:
     if is_enum(t) and t.enum_cases is not None:
         return [str(kv[0]) for kv in t.enum_cases]
     else:
         raise ValueError(f"{t.fullname} is not an enum type")
 
 
-def get_enum_case(t: TypeInfo, v: Union[int, str]) -> EnumCase:
+def get_enum_case(t: TypeInfo, v: int | str) -> EnumCase:
     if t.enum_cases is None:
         raise ValueError(f"{t.fullname} is not an enum type")
 
@@ -325,14 +315,14 @@ def get_enum_case(t: TypeInfo, v: Union[int, str]) -> EnumCase:
     return ("", v)
 
 
-def get_tuple_elements(t: TypeInfo) -> List[TypeInfo]:
+def get_tuple_elements(t: TypeInfo) -> list[TypeInfo]:
     if is_tuple(t) and t.generics is not None:
         return t.generics
     else:
         raise ValueError(f"{t.fullname} is not a tuple type")
 
 
-def get_function_elements(t: TypeInfo) -> List[TypeInfo]:
+def get_function_elements(t: TypeInfo) -> list[TypeInfo]:
     if is_function(t) and t.generics is not None:
         gen = t.generics
         return [gen[0], gen[1]]
@@ -341,7 +331,7 @@ def get_function_elements(t: TypeInfo) -> List[TypeInfo]:
 
 
 def parse_enum(t: TypeInfo, string: str) -> int:
-    value: Optional[int]
+    value: int | None
     try:
         value = int(string)
     except Exception:
@@ -362,7 +352,7 @@ def get_enum_name(t: TypeInfo, v: int) -> str:
     return str(get_enum_case(t, v)[0])
 
 
-def is_enum_defined(t: TypeInfo, v: Union[str, int]) -> bool:
+def is_enum_defined(t: TypeInfo, v: str | int) -> bool:
     try:
         kv = get_enum_case(t, v)
         return kv[0] is not None and kv[0] != ""
@@ -373,18 +363,18 @@ def is_enum_defined(t: TypeInfo, v: Union[str, int]) -> bool:
     return False
 
 
-def get_record_elements(t: TypeInfo) -> List[FieldInfo]:
+def get_record_elements(t: TypeInfo) -> list[FieldInfo]:
     if t.fields is not None:
         return t.fields()
     else:
         raise ValueError(f"{t.fullname} is not an F# record type")
 
 
-def get_record_fields(v: Any) -> List[str]:
-    if isinstance(v, Dict):
-        return list(cast(Dict[str, Any], v).values())
+def get_record_fields(v: Any) -> list[str]:
+    if isinstance(v, dict):
+        return list(cast(dict[str, Any], v).values())
 
-    return [getattr(v, k) for k in v.__dict__.keys()]
+    return [getattr(v, k) for k in v.__slots__]
 
 
 def get_record_field(v: Any, field: FieldInfo) -> Any:
@@ -396,59 +386,51 @@ def get_record_field(v: Any, field: FieldInfo) -> Any:
     return getattr(v, field[0])
 
 
-def get_tuple_fields(v: Tuple[Any, ...]) -> Array[Any]:
+def get_tuple_fields(v: tuple[Any, ...]) -> Array[Any]:
     return list(v)
 
 
-def get_tuple_field(v: Tuple[Any, ...], i: int) -> Any:
+def get_tuple_field(v: tuple[Any, ...], i: int) -> Any:
     return v[i]
 
 
-def make_record(t: TypeInfo, values: List[Any]) -> Dict[str, Any]:
+def make_record(t: TypeInfo, values: list[Any]) -> dict[str, Any]:
     fields = get_record_elements(t)
     if len(fields) != len(values):
-        raise ValueError(
-            f"Expected an array of length {len(fields)} but got {len(values)}"
-        )
+        raise ValueError(f"Expected an array of length {len(fields)} but got {len(values)}")
 
     if t.construct is not None:
         return t.construct(*values)
 
-    def reducer(obj: Dict[str, Any], ifield: Tuple[int, FieldInfo]):
+    def reducer(obj: dict[str, Any], ifield: tuple[int, FieldInfo]):
         i, field = ifield
         obj[field[0]] = values[i]
         return obj
 
-    initial: Dict[str, Any] = {}
+    initial: dict[str, Any] = {}
     return functools.reduce(reducer, enumerate(fields), initial)
 
 
-def make_tuple(values: List[Any], _t: TypeInfo) -> Tuple[Any, ...]:
+def make_tuple(values: list[Any], _t: TypeInfo) -> tuple[Any, ...]:
     return tuple(values)
 
 
-def make_union(uci: CaseInfo, values: List[Any]) -> Any:
+def make_union(uci: CaseInfo, values: list[Any]) -> Any:
     expectedLength = len(uci.fields or [])
     if len(values) != expectedLength:
-        raise ValueError(
-            f"Expected an array of length {expectedLength} but got {len(values)}"
-        )
+        raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
 
-    return (
-        uci.declaringType.construct(uci.tag, *values)
-        if uci.declaringType.construct
-        else {}
-    )
+    return uci.declaringType.construct(uci.tag, *values) if uci.declaringType.construct else {}
 
 
-def get_union_cases(t: TypeInfo) -> List[CaseInfo]:
+def get_union_cases(t: TypeInfo) -> list[CaseInfo]:
     if t.cases and callable(t.cases):
         return t.cases()
     else:
         raise ValueError(f"{t.fullname} is not an F# union type")
 
 
-def get_union_fields(v: Any, t: TypeInfo) -> List[Any]:
+def get_union_fields(v: Any, t: TypeInfo) -> list[Any]:
     cases = get_union_cases(t)
     case_ = cases[v.tag]
     if not case_:
@@ -457,7 +439,7 @@ def get_union_fields(v: Any, t: TypeInfo) -> List[Any]:
     return [case_, list(v.fields)]
 
 
-def get_union_case_fields(uci: CaseInfo) -> List[FieldInfo]:
+def get_union_case_fields(uci: CaseInfo) -> list[FieldInfo]:
     return uci.fields if uci.fields else []
 
 
@@ -476,6 +458,6 @@ def get_case_name(x: Any) -> str:
     return x.cases()[x.tag]
 
 
-def get_case_fields(x: Any) -> List[Any]:
+def get_case_fields(x: Any) -> list[Any]:
     assert_union(x)
     return x.fields

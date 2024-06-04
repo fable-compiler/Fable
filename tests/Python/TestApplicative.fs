@@ -1174,7 +1174,7 @@ let ``test Curried function options work`` () =
 // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
 [<Fact>]
 let ``test Applying function options works`` () =
-    Pointful.testFunctionOptions
+    Pointful.testFunctionOptions ()
 
 [<Fact>]
 let ``test Point-free and partial application work`` () = // See #1199
@@ -1215,7 +1215,7 @@ let ``test Uncurried functions in record fields can be partially applied`` () =
 // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
 [<Fact>]
 let ``test Applicative operators work with three-argument functions``() =
-    Results.testOperatorsWith3Args
+    Results.testOperatorsWith3Args ()
 
 [<Fact>]
 let ``test partialApply works with tuples`` () =
@@ -1684,3 +1684,50 @@ let ``test Trait call works with multiple inlined functions II`` () = // See #28
 [<Fact>]
 let ``test Identifiers from witnesses don't get duplicated when resolving inline expressions`` () = // See #2855
     NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
+
+module AccessorFunctionShorthand =
+
+    type User =
+        {
+            Name : string
+        }
+
+    type Student =
+        {
+            Name : string
+            Age : int
+        }
+
+    let inline namePropertyGetter<'a when 'a:(member Name: string)> (x: 'a) = x |> _.Name
+
+[<Fact>]
+let ``test Accessor function shorthand works for records`` () =
+    let people : AccessorFunctionShorthand.User list =
+        [
+            { Name = "John" }
+            { Name = "Jane" }
+        ]
+
+    let names = people |> List.map _.Name
+    equal names ["John"; "Jane"]
+
+[<Fact>]
+let ``test Accessor function shorthand works for anonymous records`` () =
+    let people =
+        [
+            {| Name = "John" |}
+            {| Name = "Jane" |}
+        ]
+
+    let names = people |> List.map _.Name
+    equal names ["John"; "Jane"]
+
+[<Fact>]
+let ``test Accessor function shorthand works with STRP syntax`` () =
+    let user : AccessorFunctionShorthand.User =
+        { Name = "John" }
+    let student : AccessorFunctionShorthand.Student =
+        { Name = "Jane"; Age = 20 }
+
+    equal (AccessorFunctionShorthand.namePropertyGetter user) "John"
+    equal (AccessorFunctionShorthand.namePropertyGetter student) "Jane"

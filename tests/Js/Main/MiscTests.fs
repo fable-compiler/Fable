@@ -381,7 +381,7 @@ type MyEnum =
 
 type TestRef = TestRef of bool ref
 
-let delay (f:unit -> unit) = f
+let delay (f: unit -> unit) = f
 
 let mutable mutableValue = 0
 
@@ -468,7 +468,7 @@ type Order =
         quantity : int<kg>
     }
 
-#if !FABLE_COMPILER_JAVASCRIPT
+#if FABLE_COMPILER && !FABLE_COMPILER_TYPESCRIPT && !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
 type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
 #endif
 
@@ -477,11 +477,24 @@ let inline inlineLambdaWithAnonRecord callback =
 
 let sideEffect() = ()
 
+let inline inlineToString (f: 'T -> string): 'T -> string =
+    let unused = f
+    fun a -> $"{a}"
+
 let tests =
   testList "Miscellaneous" [
 
+    testCase "Generic unit args work" <| fun _ -> // #3584
+        let to_str = inlineToString (fun (props: unit) -> "s")
+        to_str () |> equal $"{()}"
+
 #if FABLE_COMPILER
-#if !FABLE_COMPILER_JAVASCRIPT
+#if !FABLE_COMPILER_TYPESCRIPT && !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
+    // The tests seems to cause problems in TypeScript because of the typing
+    // system. We suppose this is probably due to the TypeProvider generation
+    // so for now we just ignore that situation hoping this is not
+    // indicative of other potential issues like this
+    // See: https://github.com/fable-compiler/Fable/pull/3748
     testCase "Fable.JsonProvider works" <| fun _ ->
         let parsed = LiteralJson(ANOTHER_JSON)
         parsed.widget.debug |> equal false

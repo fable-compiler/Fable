@@ -4,27 +4,16 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.1.4</Version>
-    <PackageVersion>4.1.4</PackageVersion>
-    <PackageReleaseNotes>* Fix #3438: Source maps
-* Fix #3440: Don't curry arity-1 functions
-* Fix #3452: DateTimeOffset conversion to DateTime
-* Fix regression: Don't type test interfaces declared in F# code
-* Rust: Added no_std test build
-* Rust: Added regex support
-* Rust: Fixed no_std support
-* Rust: Fixed uncurried options
-* Rust: Enabled some applicative tests
-* Rust: Enabled some tests
-* Rust: Updated switch transform (#3449)
-* Rust: Updated dependencies (#3447)
-* Rust: Fixed interface properties (#3445)
-* Rust: Updated object equality (#3444)
-* Rust: Enabled some Comparison tests (#3442)
-* Rust: Added DateOnly, TimeOnly tests
-* Rust: Added DateTimeOffset tests
-* Rust: Updated TimeSpan
-* Rust: Added DateTimeOffset</PackageReleaseNotes>
+    <Version>4.18.0</Version>
+    <PackageReleaseNotes>## Fixed
+
+- [GH-3817](https://github.com/fable-compiler/Fable/pull/3817) [All] Fix broken --precompiledLib switch (#3818) (by @DunetsNM)
+- [JS/TS] Fixed TimeSpan.FromMilliseconds (#3815) (by @ncave)
+- [Python] Fixed quotation for union string cases (by @dbrattli)
+- [Python] Fixed casing issues with identifiers and reflection info (#3811) (by @dbrattli)
+- [JS/TS/Python] Fixed interface static members (#3566) (by @ncave)
+
+</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -34,36 +23,38 @@
     <Description>F# to JS compiler</Description>
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
-  <ItemGroup Condition="'$(Pack)' == 'true'">
-    <Content Include="..\..\build\fable-library\**\*.*" PackagePath="fable-library\" />
-    <Content Include="..\..\build\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
-    <Content Include="..\..\build\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
-    <Content Include="..\..\build\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
-    <Content Include="..\..\build\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
+  <ItemGroup>
+    <Content Include="..\..\temp\fable-library-js\**\*.*" PackagePath="fable-library-js\" />
+    <Content Include="..\..\temp\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
+    <Content Include="..\..\temp\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
+    <Content Include="..\..\temp\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
+    <Content Include="..\..\temp\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
     <Content Include="..\fable-library-php\**\*.*" PackagePath="fable-library-php\" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util.fs" />
     <Compile Include="Contributors.fs" />
-    <Compile Include="Globbing.fs" />
-    <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
+    <Compile Include="FileWatchers.fsi" />
     <Compile Include="FileWatchers.fs" />
     <Compile Include="Pipeline.fs" />
+    <Compile Include="BuildalyzerCrackerResolver.fs" />
     <Compile Include="Main.fs" />
+    <Compile Include="CustomLogging.fs" />
     <Compile Include="Entry.fs" />
-    <Content Include="RELEASE_NOTES.md" />
+    <Content Include="CHANGELOG.md" />
     <Content Include="Properties\launchSettings.json" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj" />
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
     <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Buildalyzer" Version="4.1.6" />
-    <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
-    <PackageReference Include="source-map-sharp" Version="1.0.8" />
+    <PackageReference Include="Buildalyzer" Version="5.0.1" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageReference Include="source-map-sharp" Version="1.0.9" />
   </ItemGroup>
 </Project>

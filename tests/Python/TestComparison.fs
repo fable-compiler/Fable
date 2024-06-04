@@ -82,6 +82,24 @@ let ``test Typed array equality works`` () =
     equal true (xs1 <> xs4)
 
 [<Fact>]
+let ``test Typed array option equality works`` () =
+    let xs1 = Some [| 1; 2; 3 |]
+    let xs2 = Some [| 1; 2; 3 |]
+    let xs3 = Some [| 1; 2; 4 |]
+    let xs4 = Some [| 1; 2 |]
+    let xs5 = None
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal false (xs1 = xs4)
+    equal true (xs1 <> xs4)
+    equal false (xs1 = xs5)
+    equal true (xs1 <> xs5)
+    equal true (xs5 = None)
+    equal false (xs5 <> None)
+
+[<Fact>]
 let ``test Array equality works`` () =
     let xs1 = [| "1"; "2"; "3" |]
     let xs2 = [| "1"; "2"; "3" |]
@@ -94,6 +112,24 @@ let ``test Array equality works`` () =
     equal true (xs1 <> xs4)
 
 [<Fact>]
+let ``test Array option equality works`` () =
+    let xs1 = Some [| "1"; "2"; "3" |]
+    let xs2 = Some [| "1"; "2"; "3" |]
+    let xs3 = Some [| "1"; "2"; "4" |]
+    let xs4 = Some [| "1"; "2" |]
+    let xs5 = None
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal false (xs1 = xs4)
+    equal true (xs1 <> xs4)
+    equal false (xs1 = xs5)
+    equal true (xs1 <> xs5)
+    equal true (xs5 = None)
+    equal false (xs5 <> None)
+
+[<Fact>]
 let ``test Tuple equality works`` () =
     let xs1 = ( 1, 2, 3 )
     let xs2 = ( 1, 2, 3 )
@@ -104,6 +140,21 @@ let ``test Tuple equality works`` () =
     equal false (xs1 <> xs2)
 
 [<Fact>]
+let ``test Tuple option equality works``() =
+    let xs1 = Some ( 1, 2, 3 )
+    let xs2 = Some ( 1, 2, 3 )
+    let xs3 = Some ( 1, 2, 4 )
+    let xs5 = None
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal false (xs1 = xs5)
+    equal true (xs1 <> xs5)
+    equal true (xs5 = None)
+    equal false (xs5 <> None)
+
+[<Fact>]
 let ``test List equality works`` () =
     let xs1 = [ 1; 2; 3 ]
     let xs2 = [ 1; 2; 3 ]
@@ -112,6 +163,24 @@ let ``test List equality works`` () =
     equal false (xs1 = xs3)
     equal true (xs1 <> xs3)
     equal false (xs1 <> xs2)
+
+[<Fact>]
+let ``test List option equality works``() =
+    let xs1 = Some [ 1; 2; 3 ]
+    let xs2 = Some [ 1; 2; 3 ]
+    let xs3 = Some [ 1; 2; 4 ]
+    let xs4 = Some [ 1; 2; 3; 1 ]
+    let xs5 = None
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal false (xs1 = xs4)
+    equal true (xs1 <> xs4)
+    equal false (xs1 = xs5)
+    equal true (xs1 <> xs5)
+    equal true (xs5 = None)
+    equal false (xs5 <> None)
 
 [<Fact>]
 let ``test Set equality works`` () =
@@ -128,6 +197,25 @@ let ``test Set equality works`` () =
     equal false (xs1 <> xs5)
 
 [<Fact>]
+let ``test Set option equality works`` () =
+    let xs1 = Some (Set [ 1; 2; 3 ])
+    let xs2 = Some (Set [ 1; 2; 3 ])
+    let xs3 = Some (Set [ 1; 2; 4 ])
+    let xs4 = Some (Set [ 3; 2; 1 ])
+    let xs5 = Some (Set [ 1; 2; 3; 1 ])
+    let xs6 = None
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal true (xs1 = xs4)
+    equal false (xs1 <> xs5)
+    equal false (xs1 = xs6)
+    equal true (xs1 <> xs6)
+    equal true (xs6 = None)
+    equal false (xs6 <> None)
+
+[<Fact>]
 let ``test Map equality works`` () =
     let xs1 = Map [ ("a", 1); ("b", 2); ("c", 3) ]
     let xs2 = Map [ ("a", 1); ("b", 2); ("c", 3) ]
@@ -138,6 +226,25 @@ let ``test Map equality works`` () =
     equal true (xs1 <> xs3)
     equal false (xs1 <> xs2)
     equal true (xs1 = xs4)
+
+[<Fact>]
+let ``test Map option equality works`` () =
+    let xs1 = Some (Map [ ("a", 1); ("b", 2); ("c", 3) ])
+    let xs2 = Some (Map [ ("a", 1); ("b", 2); ("c", 3) ])
+    let xs3 = Some (Map [ ("a", 1); ("b", 2); ("c", 4) ])
+    let xs4 = Some (Map [ ("c", 3); ("b", 2); ("a", 1) ])
+    let xs5 = Some (Map [ ("a", 1); ("b", 2); ("c", 3); ("d", 1) ])
+    let xs6 = None
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal true (xs1 = xs4)
+    equal true (xs1 <> xs5)
+    equal false (xs1 = xs6)
+    equal true (xs1 <> xs6)
+    equal true (xs6 = None)
+    equal false (xs6 <> None)
 
 [<Fact>]
 let ``test Union equality works`` () =

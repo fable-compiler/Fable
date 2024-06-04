@@ -130,9 +130,9 @@ String? matchNamedGroup(Match match, String index) {
     } catch (_) {
       return null;
     }
-   } else {
-     return null;
-   }
+  } else {
+    return null;
+  }
 }
 
 Match match(RegExp reg, String input, [int? startAt]) {
@@ -153,7 +153,9 @@ int options(RegExp reg) {
   return options;
 }
 
-String _replaceWith(Pattern pattern, String input, String Function(Match) replace, [int? limit]) {
+String _replaceWith(
+    Pattern pattern, String input, String Function(Match) replace,
+    [int? limit]) {
   var count = 0;
   pattern = pattern is String ? create(pattern) : pattern;
   return input.replaceAllMapped(pattern, (match) {
@@ -166,14 +168,18 @@ String _replaceWith(Pattern pattern, String input, String Function(Match) replac
   });
 }
 
-String replaceWith(Pattern pattern, String input, String Function(Match) replace, [int? limit, int offset = 0]) =>
-  offset > 0
-    ? input.substring(0, offset) + _replaceWith(pattern, input.substring(offset), replace, limit)
-    : _replaceWith(pattern, input, replace, limit);
+String replaceWith(
+        Pattern pattern, String input, String Function(Match) replace,
+        [int? limit, int offset = 0]) =>
+    offset > 0
+        ? input.substring(0, offset) +
+            _replaceWith(pattern, input.substring(offset), replace, limit)
+        : _replaceWith(pattern, input, replace, limit);
 
 final _replaceMacros = RegExp(r'(?<!\$)\$(\d+|\{\w+\})');
 
-String replace(Pattern pattern, String input, String replace, [int? limit, int offset = 0]) {
+String replace(Pattern pattern, String input, String replace,
+    [int? limit, int offset = 0]) {
   if (_replaceMacros.hasMatch(replace)) {
     return replaceWith(pattern, input, (match) {
       return replace.replaceAllMapped(_replaceMacros, (rep) {
@@ -189,16 +195,17 @@ String replace(Pattern pattern, String input, String replace, [int? limit, int o
   } else if (limit == null) {
     pattern = pattern is String ? create(pattern) : pattern;
     return offset > 0
-      ? input.substring(0, offset) + input.substring(offset).replaceAll(pattern, replace)
-      : input.replaceAll(pattern, replace);
+        ? input.substring(0, offset) +
+            input.substring(offset).replaceAll(pattern, replace)
+        : input.replaceAll(pattern, replace);
   } else {
     return replaceWith(pattern, input, (_) => replace, limit, offset);
   }
 }
 
 List<String> splitWithPattern(String input, String pattern, [int? options]) {
- final reg = create(pattern, options ?? 0);
- return input.split(reg);
+  final reg = create(pattern, options ?? 0);
+  return input.split(reg);
 }
 
 List<String> split(RegExp pattern, String input, [int? limit, int? offset]) {

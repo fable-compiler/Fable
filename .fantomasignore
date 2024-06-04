@@ -1,0 +1,3 @@
+src/fcs-fable
+tests/**
+tests_external/**

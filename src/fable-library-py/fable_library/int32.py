@@ -16,9 +16,7 @@ def get_range(unsigned: bool, bitsize: int) -> Tuple[int, int]:
 AllowHexSpecifier = 0x00000200
 
 
-def parse(
-    string: str, style: int, unsigned: bool, bitsize: int, radix: int = 10
-) -> int:
+def parse(string: str, style: int, unsigned: bool, bitsize: int, radix: int = 10) -> int:
     # const res = isValid(str, style, radix);
     if style & AllowHexSpecifier or string.startswith("0x"):
         radix = 16
@@ -30,7 +28,7 @@ def parse(
     try:
         v = int(string, base=radix)
     except Exception:
-        raise ValueError("Input string was not in a correct format.")
+        raise ValueError(f"The input string {string} was not in a correct format.")
 
     (umin, umax) = get_range(True, bitsize)
     if not unsigned and radix != 10 and v >= umin and v <= umax:
@@ -42,12 +40,10 @@ def parse(
     if v >= min and v <= max:
         return v
 
-    raise ValueError("Input string was not in a correct format.")
+    raise ValueError(f"The input string {string} was not in a correct format.")
 
 
-def try_parse(
-    string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]
-) -> bool:
+def try_parse(string: str, style: int, unsigned: bool, bitsize: int, defValue: FSharpRef[int]) -> bool:
     try:
         defValue.contents = parse(string, style, unsigned, bitsize)
         return True

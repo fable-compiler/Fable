@@ -5,6 +5,7 @@ let allTests =
   [
     Cli.tests
     FileWatcher.tests
+    CompilationTests.tests
   ]
 
 open Expecto
@@ -12,4 +13,4 @@ open Expecto
 [<EntryPoint>]
 let main args =
     testList "All" allTests
-    |> runTestsWithArgs defaultConfig args
+    |> runTestsWithCLIArgs [] args

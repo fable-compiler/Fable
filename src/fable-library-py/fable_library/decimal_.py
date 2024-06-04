@@ -37,28 +37,80 @@ def min(x: Decimal, y: Decimal) -> Decimal:
     return x if x < y else y
 
 
-def add(a: Decimal, b: Decimal) -> Decimal: return a + b
-def subtract(a: Decimal, b: Decimal) -> Decimal: return a - b
-def multiply(a: Decimal, b: Decimal) -> Decimal: return a * b
-def divide(a: Decimal, b: Decimal) -> Decimal: return a / b
-def remainder(a: Decimal, b: Decimal) -> Decimal: return a % b
-def negate(a: Decimal) -> Decimal: return -a
+def add(a: Decimal, b: Decimal) -> Decimal:
+    return a + b
 
-def op_unary_negation(a: Decimal) -> Decimal: return -a
-def op_unary_plus(a: Decimal) -> Decimal: return +a
 
-def op_addition(a: Decimal, b: Decimal) -> Decimal: return a + b
-def op_subtraction(a: Decimal, b: Decimal) -> Decimal: return a - b
-def op_multiply(a: Decimal, b: Decimal) -> Decimal: return a * b
-def op_division(a: Decimal, b: Decimal) -> Decimal: return a / b
-def op_modulus(a: Decimal, b: Decimal) -> Decimal: return a % b
+def subtract(a: Decimal, b: Decimal) -> Decimal:
+    return a - b
 
-def op_less_than(a: Decimal, b: Decimal) -> bool: return a < b
-def op_less_than_or_equal(a: Decimal, b: Decimal) -> bool: return a <= b
-def op_greater_than(a: Decimal, b: Decimal) -> bool: return a > b
-def op_greater_than_or_equal(a: Decimal, b: Decimal) -> bool: return a >= b
-def op_equality(a: Decimal, b: Decimal) -> bool: return a == b
-def op_inequality(a: Decimal, b: Decimal) -> bool: return a != b
+
+def multiply(a: Decimal, b: Decimal) -> Decimal:
+    return a * b
+
+
+def divide(a: Decimal, b: Decimal) -> Decimal:
+    return a / b
+
+
+def remainder(a: Decimal, b: Decimal) -> Decimal:
+    return a % b
+
+
+def negate(a: Decimal) -> Decimal:
+    return -a
+
+
+def op_unary_negation(a: Decimal) -> Decimal:
+    return -a
+
+
+def op_unary_plus(a: Decimal) -> Decimal:
+    return +a
+
+
+def op_addition(a: Decimal, b: Decimal) -> Decimal:
+    return a + b
+
+
+def op_subtraction(a: Decimal, b: Decimal) -> Decimal:
+    return a - b
+
+
+def op_multiply(a: Decimal, b: Decimal) -> Decimal:
+    return a * b
+
+
+def op_division(a: Decimal, b: Decimal) -> Decimal:
+    return a / b
+
+
+def op_modulus(a: Decimal, b: Decimal) -> Decimal:
+    return a % b
+
+
+def op_less_than(a: Decimal, b: Decimal) -> bool:
+    return a < b
+
+
+def op_less_than_or_equal(a: Decimal, b: Decimal) -> bool:
+    return a <= b
+
+
+def op_greater_than(a: Decimal, b: Decimal) -> bool:
+    return a > b
+
+
+def op_greater_than_or_equal(a: Decimal, b: Decimal) -> bool:
+    return a >= b
+
+
+def op_equality(a: Decimal, b: Decimal) -> bool:
+    return a == b
+
+
+def op_inequality(a: Decimal, b: Decimal) -> bool:
+    return a != b
 
 
 def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int) -> Decimal:
@@ -107,35 +159,29 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
 __all__ = [
     "compare",
     "equals",
-
     "abs",
     "sign",
     "max",
     "min",
-
     "add",
     "subtract",
     "multiply",
     "divide",
     "remainder",
     "negate",
-
     "op_unary_negation",
     "op_unary_plus",
-
     "op_addition",
     "op_subtraction",
     "op_multiply",
     "op_division",
     "op_modulus",
-
     "op_less_than",
     "op_less_than_or_equal",
     "op_greater_than",
     "op_greater_than_or_equal",
     "op_equality",
     "op_inequality",
-
     "from_parts",
     "to_string",
     "to_number",

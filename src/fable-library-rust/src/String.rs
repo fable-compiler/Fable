@@ -135,6 +135,31 @@ pub mod String_ {
     // -----------------------------------------------------------
 
     #[macro_export]
+    macro_rules! printf {
+        ($($arg:tt)*) => {{ print!($($arg)*) }}
+    }
+
+    #[macro_export]
+    macro_rules! printfn {
+        ($($arg:tt)*) => {{ println!($($arg)*) }}
+    }
+
+    #[macro_export]
+    macro_rules! eprintf {
+        ($($arg:tt)*) => {{ eprint!($($arg)*) }}
+    }
+
+    #[macro_export]
+    macro_rules! eprintfn {
+        ($($arg:tt)*) => {{ eprintln!($($arg)*) }}
+    }
+
+    #[macro_export]
+    macro_rules! failwithf {
+        ($($arg:tt)*) => {{ panic!($($arg)*) }}
+    }
+
+    #[macro_export]
     macro_rules! sprintf {
         ($($arg:tt)*) => {{
             let res = format!($($arg)*);
@@ -150,8 +175,13 @@ pub mod String_ {
         }}
     }
 
-    pub use crate::kprintf;
+    pub use crate::printf;
+    pub use crate::printfn;
+    pub use crate::eprintf;
+    pub use crate::eprintfn;
+    pub use crate::failwithf;
     pub use crate::sprintf;
+    pub use crate::kprintf;
 
     // -----------------------------------------------------------
     // traits
@@ -262,18 +292,6 @@ pub mod String_ {
 
     pub fn toString<T: ToString>(o: T) -> string {
         fromString(o.to_string())
-    }
-
-    pub fn fromCharCode(code: u32) -> char {
-        unsafe { core::char::from_u32_unchecked(code) }
-    }
-
-    pub fn toLowerChar(c: char) -> char {
-        c.to_lowercase().next().unwrap()
-    }
-
-    pub fn toUpperChar(c: char) -> char {
-        c.to_uppercase().next().unwrap()
     }
 
     pub fn ofChar(c: char) -> string {

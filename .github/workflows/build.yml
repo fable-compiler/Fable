@@ -6,10 +6,49 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+    id-token: write
+    security-events: write
+
 jobs:
+  # Separate job that verifies if all code was formatted correctly
+  # Run `dotnet fantomas .` to format all code.
+  verify-linting:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Check F# code
+        run: dotnet fantomas . --check
+
+  # Verify that Fable.sln can be restored
+  # See: https://github.com/fable-compiler/Fable/issues/3687
+  restore-project:
+    name: Check that solution can be restored
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+
+      - name: Restore project
+        run: dotnet restore Fable.sln
+
   # Separate build job for JavaScript
   build-javascript:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
 
     steps:
     - uses: actions/checkout@v2
@@ -17,13 +56,18 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
-    - name: Fable Tests - JavaScript
-      run: dotnet fsi build.fsx test-js
+    - name: Fable Tests - JavaScript (linux)
+      if: matrix.platform == 'ubuntu-latest'
+      run: ./build.sh test javascript
+
+    - name: Fable Tests - JavaScript (Windows)
+      if: matrix.platform == 'windows-latest'
+      run: .\build.bat test javascript
 
   # Separate build job for TypeScript
   build-typescript:
@@ -35,13 +79,13 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
     - name: Fable Tests - TypeScript
-      run: dotnet fsi build.fsx test-ts
+      run: ./build.sh test typescript
 
     # - name: Fable Tests - TypeScript
     #   run: dotnet fsi build.fsx test-ts
@@ -56,20 +100,39 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
     - name: Fable Tests
-      run: dotnet fsi build.fsx test-integration
+      run: ./build.sh test integration
+
+  # Separate build job for Standalone
+  build-standalone:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.4.1
+
+    - name: Fable Tests
+      run: ./build.sh test standalone
 
   # Separate build job for Python since we use a test matrix (will run in parallell)
   build-python:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9, "3.10", 3.11]
+        platform: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", 3.11, 3.12]
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - uses: actions/checkout@v2
@@ -77,7 +140,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Setup dotnet tools
         run: dotnet tool restore
@@ -90,16 +153,25 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Fable Library - Python
-        run: dotnet fsi build.fsx library-py
-
-      - name: Install dependencies
+      - name: Install poetry
         run: |
           pip install poetry
-          poetry install
 
-      - name: Fable Tests - Python
-        run: dotnet fsi build.fsx test-py
+      - name: Fable Library - Python (linux)
+        if: matrix.platform == 'ubuntu-latest'
+        run: ./build.sh fable-library --python
+
+      - name: Fable Library - Python (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: .\build.bat fable-library --python
+
+      - name: Fable Tests - Python (linux)
+        if: matrix.platform == 'ubuntu-latest'
+        run: ./build.sh test python --skip-fable-library
+
+      - name: Fable Tests - Python (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: .\build.bat test python --skip-fable-library
 
   # Separate build job for Rust (will run in parallel)
   build-rust:
@@ -114,7 +186,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
@@ -124,9 +196,13 @@ jobs:
       with:
         toolchain: stable
 
-    - name: Fable Tests - Rust
-      run: dotnet fsi build.fsx test-rust-${{ matrix.test }}
+    - name: Fable Library - Rust
+      run: ./build.sh fable-library --rust
 
+    - name: Fable Tests - Rust
+      run: ./build.sh test rust --skip-fable-library --${{ matrix.test }}
+
+  # Separate build job for Dart
   build-dart:
     runs-on: ubuntu-latest
 
@@ -136,10 +212,47 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Setup Dart SDK
       uses: dart-lang/setup-dart@v1.3
 
     - name: Fable Tests - Dart
-      run: dotnet fsi build.fsx test-dart
+      run: ./build.sh test dart
+
+  # Separate job to run F# analyzers
+  analyzers:
+      runs-on: windows-latest
+
+      steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Build solution
+        run: dotnet build -c Release Fable.sln
+
+      - name: Run analyzers for Fable.AST
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.AST/Fable.AST.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers for Rust.AST
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Rust/AST/Rust.AST.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers Fable.Transforms
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Fable.Transforms.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers Fable.Compiler
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Compiler/Fable.Compiler.fsproj
+        continue-on-error: true
+
+      - name: Upload SARIF files
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+            sarif_file: src/reports

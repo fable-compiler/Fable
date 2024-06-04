@@ -233,3 +233,10 @@ let ``test Dictionary.Delete works`` () =
     dic.ContainsValue("Hello") |> equal true
     dic.Remove("A") |> equal true
     dic.ContainsValue("Hello") |> equal false
+
+[<Fact>]
+let ``test Dictionary.Delete works with tuples as keys`` () =
+    let my_dict = Dictionary((Map [for i in 0..10 do yield (i,i), sprintf "Number: %i" i]))
+    my_dict.ContainsKey((0,0)) |> equal true
+    my_dict.Remove((0,0)) |> equal true
+    my_dict.ContainsKey((0,0)) |> equal false

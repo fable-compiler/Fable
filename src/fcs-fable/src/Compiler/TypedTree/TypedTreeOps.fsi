@@ -312,6 +312,9 @@ val mkRecdFieldSetViaExprAddr: Expr * RecdFieldRef * TypeInst * Expr * range -> 
 /// Make an expression that gets the tag of a union value (via the address of the value if it is a struct)
 val mkUnionCaseTagGetViaExprAddr: Expr * TyconRef * TypeInst * range -> Expr
 
+/// Make an expression which tests that a union value is of a particular union case.
+val mkUnionCaseTest: TcGlobals -> Expr * UnionCaseRef * TypeInst * range -> Expr
+
 /// Make a 'TOp.UnionCaseProof' expression, which proves a union value is over a particular case (used only for ref-unions, not struct-unions)
 val mkUnionCaseProof: Expr * UnionCaseRef * TypeInst * range -> Expr
 
@@ -633,6 +636,10 @@ val destAnyParTy: TcGlobals -> TType -> Typar
 
 val destMeasureTy: TcGlobals -> TType -> Measure
 
+val destAnonRecdTy: TcGlobals -> TType -> AnonRecdTypeInfo * TTypes
+
+val destStructAnonRecdTy: TcGlobals -> TType -> TTypes
+
 val tryDestForallTy: TcGlobals -> TType -> Typars * TType
 
 val isFunTy: TcGlobals -> TType -> bool
@@ -650,6 +657,8 @@ val isStructAnonRecdTy: TcGlobals -> TType -> bool
 val isAnonRecdTy: TcGlobals -> TType -> bool
 
 val isUnionTy: TcGlobals -> TType -> bool
+
+val isStructUnionTy: TcGlobals -> TType -> bool
 
 val isReprHiddenTy: TcGlobals -> TType -> bool
 
@@ -1042,7 +1051,7 @@ type GenericParameterStyle =
 type DisplayEnv =
     {
         includeStaticParametersInTypeNames: bool
-        openTopPathsSorted: Lazy<string list list>
+        openTopPathsSorted: InterruptibleLazy<string list list>
         openTopPathsRaw: string list list
         shortTypeNames: bool
         suppressNestedTypes: bool
@@ -1697,6 +1706,27 @@ val isClassTy: TcGlobals -> TType -> bool
 
 /// Determine if a type is an enum type
 val isEnumTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is a signed integer type
+val isSignedIntegerTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is an unsigned integer type
+val isUnsignedIntegerTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is an integer type
+val isIntegerTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is a floating point type
+val isFpTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is a decimal type
+val isDecimalTy: TcGlobals -> TType -> bool
+
+/// Determine if a type is a non-decimal numeric type type
+val isNonDecimalNumericType: TcGlobals -> TType -> bool
+
+/// Determine if a type is a numeric type type
+val isNumericType: TcGlobals -> TType -> bool
 
 /// Determine if a type is a struct, record or union type
 val isStructRecordOrUnionTyconTy: TcGlobals -> TType -> bool
@@ -2555,11 +2585,7 @@ val GetTraitWitnessInfosOfTypars: TcGlobals -> numParentTypars: int -> typars: T
 /// An immutable mappping from witnesses to some data.
 ///
 /// Note: this uses an immutable HashMap/Dictionary with an IEqualityComparer that captures TcGlobals, see EmptyTraitWitnessInfoHashMap
-#if FABLE_COMPILER
-type TraitWitnessInfoHashMap<'T> = Internal.Utilities.Collections.Tagged.Map<TraitWitnessInfo, 'T>
-#else
 type TraitWitnessInfoHashMap<'T> = ImmutableDictionary<TraitWitnessInfo, 'T>
-#endif
 
 /// Create an empty immutable mapping from witnesses to some data
 val EmptyTraitWitnessInfoHashMap: TcGlobals -> TraitWitnessInfoHashMap<'T>
@@ -2627,6 +2653,8 @@ val TryBindTyconRefAttribute:
     f2: (Attrib -> 'a option) ->
     f3: (obj option list * (string * obj option) list -> 'a option) ->
         'a option
+
+val HasDefaultAugmentationAttribute: g: TcGlobals -> tcref: TyconRef -> bool
 
 val (|ResumableCodeInvoke|_|):
     g: TcGlobals -> expr: Expr -> (Expr * Expr * Expr list * range * (Expr * Expr list -> Expr)) option
@@ -2699,13 +2727,35 @@ type TraitConstraintInfo with
 val (|EmptyModuleOrNamespaces|_|):
     moduleOrNamespaceContents: ModuleOrNamespaceContents -> (ModuleOrNamespace list) option
 
-/// Add an System.Runtime.CompilerServices.ExtensionAttribute to the Entity if found via predicate and not already present.
-val tryAddExtensionAttributeIfNotAlreadyPresent:
-    tryFindExtensionAttributeIn: ((Attrib list -> Attrib option) -> Attrib option) -> entity: Entity -> Entity
+val tryFindExtensionAttribute: g: TcGlobals -> attribs: Attrib list -> Attrib option
+
+/// Add an System.Runtime.CompilerServices.ExtensionAttribute to the module Entity if found via predicate and not already present.
+val tryAddExtensionAttributeIfNotAlreadyPresentForModule:
+    g: TcGlobals ->
+    tryFindExtensionAttributeIn: ((Attrib list -> Attrib option) -> Attrib option) ->
+    moduleEntity: Entity ->
+        Entity
+
+/// Add an System.Runtime.CompilerServices.ExtensionAttribute to the type Entity if found via predicate and not already present.
+val tryAddExtensionAttributeIfNotAlreadyPresentForType:
+    g: TcGlobals ->
+    tryFindExtensionAttributeIn: ((Attrib list -> Attrib option) -> Attrib option) ->
+    moduleOrNamespaceTypeAccumulator: ModuleOrNamespaceType ref ->
+    typeEntity: Entity ->
+        Entity
 
 #if !FABLE_COMPILER
 
 /// Serialize an entity to a very basic json structure.
 val serializeEntity: path: string -> entity: Entity -> unit
 
+/// Updates the IsPrefixDisplay to false for the Microsoft.FSharp.Collections.seq`1 entity
+/// Meant to be called with the FSharp.Core module spec right after it was unpickled.
+val updateSeqTypeIsPrefix: fsharpCoreMSpec: ModuleOrNamespace -> unit
+
 #endif //!FABLE_COMPILER
+
+/// Check if the order of defined typars is different from the order of used typars in the curried arguments.
+/// If this is the case, a generated signature would require explicit typars.
+/// See https://github.com/dotnet/fsharp/issues/15175
+val isTyparOrderMismatch: Typars -> CurriedArgInfos -> bool

@@ -257,7 +257,7 @@ type R = {
 
 #if FABLE_COMPILER
 open Fable.Core
-open Fable.Core.JsInterop
+open Fable.Core.RustInterop
 
 [<Erase>]
 #endif

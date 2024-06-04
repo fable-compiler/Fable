@@ -1,5 +1,3 @@
-#[cfg_attr(rustfmt, rustfmt::skip)]
-
 // import at root level
 mod FuncType;
 mod Lazy;
@@ -18,12 +16,10 @@ pub mod Native_ {
     pub use alloc::sync::Arc;
     pub use alloc::vec::Vec;
 
-    pub use core::any::{Any, TypeId};
+    pub use core::any::Any;
 
     pub use super::FuncType::*;
     pub use super::Lazy::*;
-    #[cfg(feature = "lrc_ptr")]
-    pub use super::LrcPtr::*;
     pub use super::Mutable::*;
 
     #[cfg(not(feature = "static_do_bindings"))]
@@ -44,6 +40,8 @@ pub mod Native_ {
 
     #[cfg(not(feature = "lrc_ptr"))]
     pub type LrcPtr<T> = Lrc<T>;
+    #[cfg(feature = "lrc_ptr")]
+    pub use super::LrcPtr::*;
 
     #[inline]
     #[cfg(feature = "lrc_ptr")]
@@ -58,13 +56,12 @@ pub mod Native_ {
     }
 
     // TODO: use these types in generated code
-    pub type seq<T> = LrcPtr<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
-    pub type Seq<T> = crate::Seq_::Enumerable::Seq<T>;
+    pub type Seq<T> = LrcPtr<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
     pub type RefCell<T> = LrcPtr<MutCell<T>>;
     pub type Nullable<T> = Option<Lrc<T>>;
 
     use core::cmp::Ordering;
-    use core::hash::{Hash, Hasher, BuildHasher};
+    use core::hash::{BuildHasher, Hash, Hasher};
 
     // -----------------------------------------------------------
     // Helpers
@@ -81,11 +78,19 @@ pub mod Native_ {
     }
 
     pub fn min<T: PartialOrd>(x: T, y: T) -> T {
-        if x < y { x } else { y }
+        if x < y {
+            x
+        } else {
+            y
+        }
     }
 
     pub fn max<T: PartialOrd>(x: T, y: T) -> T {
-        if x > y { x } else { y }
+        if x > y {
+            x
+        } else {
+            y
+        }
     }
 
     pub fn equals<T: PartialEq>(x: T, y: T) -> bool {
@@ -132,6 +137,26 @@ pub mod Native_ {
     }
 
     // -----------------------------------------------------------
+    // Type testing
+    // -----------------------------------------------------------
+
+    pub fn try_downcast<T: 'static, U: 'static>(value: &T) -> Option<&U> {
+        if let Some(o) = (value as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
+            o.downcast_ref::<U>()
+        } else {
+            (value as &dyn Any).downcast_ref::<U>()
+        }
+    }
+
+    pub fn type_test<T: 'static, U: 'static>(value: &T) -> bool {
+        if let Some(o) = (value as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
+            o.is::<U>()
+        } else {
+            (value as &dyn Any).is::<U>()
+        }
+    }
+
+    // -----------------------------------------------------------
     // Fixed-point combinators
     // -----------------------------------------------------------
 
@@ -161,19 +186,19 @@ pub mod Native_ {
     // Interface casting
     // -----------------------------------------------------------
 
-    #[cfg(feature = "lrc_ptr")]
-    #[macro_export]
-    macro_rules! interface_cast {
-        ($value:expr, $ifc:ty,) => {
-            LrcPtr::from((*$value).clone() as $ifc)
-        };
-    }
-
     #[cfg(not(feature = "lrc_ptr"))]
     #[macro_export]
     macro_rules! interface_cast {
         ($value:expr, $ifc:ty,) => {
             ($value as $ifc)
+        };
+    }
+
+    #[cfg(feature = "lrc_ptr")]
+    #[macro_export]
+    macro_rules! interface_cast {
+        ($value:expr, $ifc:ty,) => {
+            LrcPtr::from((*$value).clone() as $ifc)
         };
     }
 
@@ -236,11 +261,28 @@ pub mod Native_ {
         LrcPtr::new(MutCell::from(x))
     }
 
+    #[cfg(not(feature = "lrc_ptr"))]
+    #[inline]
+    pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
+        LrcPtr::new(x) as LrcPtr<dyn Any>
+    }
+
+    #[cfg(feature = "lrc_ptr")]
+    #[inline]
+    pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
+        LrcPtr::from(Lrc::new(x) as Lrc<dyn Any>)
+    }
+
+    #[inline]
+    pub fn unbox<T: Clone + 'static>(o: &LrcPtr<dyn Any>) -> T {
+        try_downcast::<_, T>(o).unwrap().clone()
+    }
+
     // -----------------------------------------------------------
     // Sequences
     // -----------------------------------------------------------
 
-    pub fn seq_to_iter<T>(seq: &seq<T>) -> impl Iterator<Item = T>
+    pub fn seq_to_iter<T>(seq: &Seq<T>) -> impl Iterator<Item = T>
     where
         T: Clone + 'static,
     {
@@ -255,7 +297,7 @@ pub mod Native_ {
         core::iter::from_fn(next)
     }
 
-    pub fn iter_to_seq<T, I>(iter: I) -> seq<T>
+    pub fn iter_to_seq<T, I>(iter: I) -> Seq<T>
     where
         T: Clone + 'static,
         I: Iterator<Item = T> + 'static,

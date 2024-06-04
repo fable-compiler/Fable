@@ -1,5 +1,4 @@
 import math
-
 from math import copysign
 from typing import Any
 
@@ -50,6 +49,10 @@ def sqrt(x: float) -> float:
         return float("nan")
 
 
+def is_positive_inf(value: float) -> bool:
+    return math.isinf(value) and value > 0
+
+
 def is_negative_inf(value: float) -> bool:
     return math.isinf(value) and value < 0
 
@@ -58,7 +61,7 @@ def parse(value: Any) -> float:
     try:
         return float(value)
     except Exception:
-        raise ValueError("Input string was not in a correct format.")
+        raise ValueError(f"The input string {value} was not in a correct format.")
 
 
 def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
@@ -74,11 +77,11 @@ __all__ = [
     "sign",
     "max",
     "min",
-
     "parse",
     "try_parse",
     "divide",
     "log",
     "sqrt",
-    "is_negative_inf"
+    "is_negative_inf",
+    "is_positive_inf",
 ]

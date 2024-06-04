@@ -3,67 +3,67 @@ module Fable.Tests.ApplicativeTests
 open Util.Testing
 
 let inline (|HasLength|) x =
-  fun () -> (^a: (member Length: int) x)
+    fun () -> (^a: (member Length: int) x)
 
 let inline length (HasLength f) = f()
 
 let lengthWrapper (xs:'a list) = length xs
 let lengthFixed = length [|1; 2; 3|]
 
-// let zipUnsorted (arr1:_[]) (arr2:_[]) =
-//   let d1 = dict arr1
-//   let d2 = dict arr2
-//   let res = ResizeArray<_>()
-//   for kv1 in d1 do
-//     let v2 =
-//       if d2.ContainsKey(kv1.Key) then Some(d2[kv1.Key])
-//       else None
-//     res.Add(kv1.Key, (Some kv1.Value, v2))
-//   for kv2 in d2 do
-//     if not (d1.ContainsKey(kv2.Key)) then
-//       res.Add(kv2.Key, (None, Some kv2.Value))
-//   Array.ofSeq res
+let zipUnsorted (arr1:_[]) (arr2:_[]) =
+    let d1 = dict arr1
+    let d2 = dict arr2
+    let res = ResizeArray<_>()
+    for kv1 in d1 do
+        let v2 =
+            if d2.ContainsKey(kv1.Key) then Some(d2[kv1.Key])
+            else None
+        res.Add(kv1.Key, (Some kv1.Value, v2))
+    for kv2 in d2 do
+        if not (d1.ContainsKey(kv2.Key)) then
+            res.Add(kv2.Key, (None, Some kv2.Value))
+    Array.ofSeq res
 
 let isSortedUsing test proj (arr:_[]) =
-  let rec loop i =
-    if i = arr.Length then true
-    else test (proj arr[i-1]) (proj arr[i]) && loop (i+1)
-  arr.Length = 0 || loop 1
+    let rec loop i =
+        if i = arr.Length then true
+        else test (proj arr[i-1]) (proj arr[i]) && loop (i+1)
+    arr.Length = 0 || loop 1
 
 let zipSorted (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
-  let mutable i1 = 0
-  let mutable i2 = 0
-  let inline (<.) (a:'k) (b:'k) = compare a b < 0
-  let inline eq (a:'k) (b:'k) = compare a b = 0
-  let res = ResizeArray<_>()
-  while i1 < arr1.Length && i2 < arr2.Length do
-    let (k1, v1), (k2, v2) = arr1[i1], arr2[i2]
-    if eq k1 k2 then
-      res.Add(k1, (Some v1, Some v2))
-      i1 <- i1 + 1
-      i2 <- i2 + 1
-    elif k1 <. k2 then
-      res.Add(k1, (Some v1, None))
-      i1 <- i1 + 1
-    elif k2 <. k1 then
-      res.Add(k2, (None, Some v2))
-      i2 <- i2 + 1
-  while i1 < arr1.Length do
-    let k1, v1 = arr1[i1]
-    res.Add(k1, (Some v1, None))
-    i1 <- i1 + 1
-  while i2 < arr2.Length do
-    let k2, v2 = arr2[i2]
-    res.Add(k2, (None, Some v2))
-    i2 <- i2 + 2
-  Array.ofSeq res
+    let mutable i1 = 0
+    let mutable i2 = 0
+    let inline (<.) (a:'k) (b:'k) = compare a b < 0
+    let inline eq (a:'k) (b:'k) = compare a b = 0
+    let res = ResizeArray<_>()
+    while i1 < arr1.Length && i2 < arr2.Length do
+        let (k1, v1), (k2, v2) = arr1[i1], arr2[i2]
+        if eq k1 k2 then
+            res.Add(k1, (Some v1, Some v2))
+            i1 <- i1 + 1
+            i2 <- i2 + 1
+        elif k1 <. k2 then
+            res.Add(k1, (Some v1, None))
+            i1 <- i1 + 1
+        elif k2 <. k1 then
+            res.Add(k2, (None, Some v2))
+            i2 <- i2 + 1
+    while i1 < arr1.Length do
+        let k1, v1 = arr1[i1]
+        res.Add(k1, (Some v1, None))
+        i1 <- i1 + 1
+    while i2 < arr2.Length do
+        let k2, v2 = arr2[i2]
+        res.Add(k2, (None, Some v2))
+        i2 <- i2 + 2
+    Array.ofSeq res
 
 // let zipAny (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
-//   let inline (<=.) (a:'k) (b:'k) = compare a b <= 0
-//   let inline (>=.) (a:'k) (b:'k) = compare a b >= 0
-//   if isSortedUsing (<=.) fst arr1 && isSortedUsing (<=.) fst arr2 then zipSorted arr1 arr2
-//   elif isSortedUsing (>=.) fst arr1 && isSortedUsing (>=.) fst arr2 then Array.rev (zipSorted (Array.rev arr1) (Array.rev arr2))
-//   else zipUnsorted arr1 arr2
+//     let inline (<=.) (a:'k) (b:'k) = compare a b <= 0
+//     let inline (>=.) (a:'k) (b:'k) = compare a b >= 0
+//     if isSortedUsing (<=.) fst arr1 && isSortedUsing (<=.) fst arr2 then zipSorted arr1 arr2
+//     elif isSortedUsing (>=.) fst arr1 && isSortedUsing (>=.) fst arr2 then Array.rev (zipSorted (Array.rev arr1) (Array.rev arr2))
+//     else zipUnsorted arr1 arr2
 
 // type Result<'s, 'f> =
 //     | Ok of 's
@@ -442,7 +442,7 @@ type Id = Id of string
 
 type Ideable =
     { Id: Id; Name: string }
-    // with override this.ToString() = this.Name
+    with override this.ToString() = this.Name
 
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
@@ -889,14 +889,14 @@ let adder () =
 
 let ADD = adder ()
 
-// type Foo3() =
-//     let mutable z = 5
-//     member _.GetLambda() =
-//         fun x y -> x + y + z
-//     member _.GetCurriedLambda() =
-//         fun x ->
-//             z <- z + 3
-//             fun y -> x + y + z
+type Foo3() =
+    let mutable z = 5
+    member _.GetLambda() =
+        fun x y -> x + y + z
+    member _.GetCurriedLambda() =
+        fun x ->
+            z <- z + 3
+            fun y -> x + y + z
 
 let apply f x =
     match f, x with
@@ -1079,11 +1079,11 @@ let findThing (things:Thing list) =
 // //     static member inline Return (_: 'Y) = Const LanguagePrimitives.GenericZero : Const<'X,'Y>
 // //     static member run (Const a) = a
 
-// [<Fact>]
-// let ``SRTP with ActivePattern works`` () =
-//     (lengthWrapper []) |> equal 0
-//     (lengthWrapper [1;2;3;4]) |> equal 4
-//     lengthFixed |> equal 3
+[<Fact>]
+let ``SRTP with ActivePattern works`` () =
+    (lengthWrapper []) |> equal 0
+    (lengthWrapper [1;2;3;4]) |> equal 4
+    lengthFixed |> equal 3
 
 // // [<Fact>]
 // // let ``SRTP with inlined functions relying on generic info works`` () = // See #2135
@@ -1155,19 +1155,19 @@ let ``Partially applied functions don't duplicate side effects locally`` () =
 //     result |> equal 6
 //     counter |> equal 1
 
-// [<Fact>]
-// let ``Partially applied lambdas capture this`` () =
-//     let foo = Foo3()
-//     let f = foo.GetLambda()
-//     let f2 = f 2
-//     f2 3 |> equal 10
+[<Fact>]
+let ``Partially applied lambdas capture this`` () =
+    let foo = Foo3()
+    let f = foo.GetLambda()
+    let f2 = f 2
+    f2 3 |> equal 10
 
-// [<Fact>]
-// let ``Partially applied curried lambdas capture this`` () =
-//     let foo = Foo3()
-//     let f = foo.GetCurriedLambda()
-//     let f2 = f 2
-//     f2 4 |> equal 14
+[<Fact>]
+let ``Partially applied curried lambdas capture this`` () =
+    let foo = Foo3()
+    let f = foo.GetCurriedLambda()
+    let f2 = f 2
+    f2 4 |> equal 14
 
 [<Fact>]
 let ``Curried function options work`` () =
@@ -1302,23 +1302,23 @@ let ``Sequence of functions is uncurried in folding`` () =
 // //     equal expected actual
 // // #endif
 
-// // [<Fact>]
-// // let ``failwithf is not compiled as function`` () =
-// //     let makeFn value =
-// //         if value then
-// //             // When one of the branches is a function
-// //             // failwithf can be compiled to a function
-// //             // because of optimizations
-// //             fun x -> x + x
-// //         else
-// //             failwithf "Boom!"
-// //     let mutable x = ""
-// //     try
-// //         // It should fail even if `f` is not called
-// //         let f = makeFn false
-// //         ()
-// //     with ex -> x <- ex.Message
-// //     equal "Boom!" x
+// [<Fact>]
+// let ``failwithf is not compiled as function`` () =
+//     let makeFn value =
+//         if value then
+//             // When one of the branches is a function
+//             // failwithf can be compiled to a function
+//             // because of optimizations
+//             fun x -> x + x
+//         else
+//             failwithf "Boom!"
+//     let mutable x = ""
+//     try
+//         // It should fail even if `f` is not called
+//         let f = makeFn false
+//         ()
+//     with ex -> x <- ex.Message
+//     equal "Boom!" x
 
 // [<Fact>]
 // let ``Partial Applying caches side-effects`` () = // See #1836
@@ -1429,14 +1429,14 @@ let ``Uncurrying works with generic anonymous records returning lambdas`` () =
     let f = applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5.
     f 3. |> equal 125.
 
-// [<Fact>]
-// let ``Curried functions being mangled via DU, List.fold and match combination #2356`` () =
-//     let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]
+[<Fact>]
+let ``Curried functions being mangled via DU, List.fold and match combination #2356`` () =
+    let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]
 
-//     let test = match findThing testData with
-//                         | Some f -> f true 1
-//                         | None -> "nothing"
-//     test |> equal "fly"
+    let test = match findThing testData with
+                        | Some f -> f true 1
+                        | None -> "nothing"
+    test |> equal "fly"
 
 [<Fact>]
 let ``Option uncurrying #2116`` () =
@@ -1761,3 +1761,51 @@ let ``Trait call works with multiple inlined functions II`` () = // See #2809
 [<Fact>]
 let ``Identifiers from witnesses don't get duplicated when resolving inline expressions`` () = // See #2855
     NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
+
+module AccessorFunctionShorthand =
+
+    type User =
+        {
+            Name : string
+        }
+
+    type Student =
+        {
+            Name : string
+            Age : int
+        }
+
+    let inline namePropertyGetter<'a when 'a:(member Name: string)> (x: 'a) = x |> _.Name
+
+[<Fact>]
+let ``test Accessor function shorthand works for records`` () =
+    let people : AccessorFunctionShorthand.User list =
+        [
+            { Name = "John" }
+            { Name = "Jane" }
+        ]
+
+    let names = people |> List.map _.Name
+    equal names ["John"; "Jane"]
+
+[<Fact>]
+let ``test Accessor function shorthand works for anonymous records`` () =
+    let people =
+        [
+            {| Name = "John" |}
+            {| Name = "Jane" |}
+        ]
+
+    let names = people |> List.map _.Name
+    equal names ["John"; "Jane"]
+
+
+[<Fact>]
+let ``Accessor function shorthand works with STRP syntax`` =
+    let user : AccessorFunctionShorthand.User =
+        { Name = "John" }
+    let student : AccessorFunctionShorthand.Student =
+        { Name = "Jane"; Age = 20 }
+
+    equal (AccessorFunctionShorthand.namePropertyGetter user) "John"
+    equal (AccessorFunctionShorthand.namePropertyGetter student) "Jane"

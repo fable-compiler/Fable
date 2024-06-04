@@ -15,6 +15,7 @@ type MyRecord =
     { value: int }
     static member (+) (x: MyRecord, y: int) = { value = x.value + y }
     static member (+) (x: int, y: MyRecord) = x + y.value + 2
+    static member Exp (x: MyRecord) = { value = x.value + 1}
 
 [<Fact>]
 let ``test Custom operators with types work`` () =
@@ -34,6 +35,11 @@ let ``test Custom operator overloads work`` () =
     let x = { value = 5 }
     x + 2 |> equal { value = 7 }
     3 + x |> equal 10
+
+[<Fact>]
+let ``test Custom operator Exp works`` () =
+    let x = { value = 0 }
+    x |> exp |> equal { value = 1 }
 
 let (+) (x: int) (y: int) = x * y
 

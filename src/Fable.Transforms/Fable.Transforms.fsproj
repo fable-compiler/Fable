@@ -4,6 +4,7 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <TargetFramework>netstandard2.0</TargetFramework>
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Babel.fs" />
@@ -24,7 +25,9 @@
     <Compile Include="Dart/Replacements.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Replacements.Api.fs" />
+    <Compile Include="FSharp2Fable.fsi" />
     <Compile Include="FSharp2Fable.fs" />
+    <Compile Include="FableTransforms.fsi" />
     <Compile Include="FableTransforms.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="Printer.fs" />
@@ -51,7 +54,6 @@
     <ProjectReference Include="Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Compiler.Service" Version="40.0" /> -->
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>

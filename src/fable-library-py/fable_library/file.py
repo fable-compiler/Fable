@@ -56,13 +56,13 @@ def write_all_text_async(file_name: str, text: str) -> Awaitable[None]:
 
 def write_all_lines(file_name: str, lines: list[str]) -> None:
     with open(file_name, "w") as f:
-        f.write('\n'.join(lines))
+        f.write("\n".join(lines))
 
 
 def write_all_lines_async(file_name: str, lines: list[str]) -> Awaitable[None]:
     async def write_all_lines_async():
         with open(file_name, "w") as f:
-            f.write('\n'.join(lines))
+            f.write("\n".join(lines))
 
     return write_all_lines_async()
 
@@ -99,9 +99,7 @@ def exists(path: str) -> bool:
     return os.path.exists(path)
 
 
-def replace(
-    source_file_name: str, destination_file_name: str, destination_backup_file_name: str
-) -> None:
+def replace(source_file_name: str, destination_file_name: str, destination_backup_file_name: str) -> None:
     with open(destination_file_name, "rb") as f:
         data = f.read()
     with open(destination_backup_file_name, "wb") as f:

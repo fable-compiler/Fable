@@ -60,14 +60,14 @@ pub mod DateTime_ {
     pub(crate) fn ticks_to_duration(ticks: i64) -> Duration {
         let seconds = ticks / ticks_per_second;
         let subsecond = ticks % ticks_per_second;
-        let d1 = Duration::seconds(seconds);
+        let d1 = Duration::try_seconds(seconds).unwrap();
         let d2 = Duration::nanoseconds(subsecond * nanoseconds_per_tick);
         d1 + d2
     }
 
     pub(crate) fn duration_to_ticks(d: Duration) -> i64 {
         let seconds = d.num_seconds();
-        let subsecond = d - Duration::seconds(seconds);
+        let subsecond = d - Duration::try_seconds(seconds).unwrap();
         let ns = subsecond.num_nanoseconds().unwrap();
         seconds * ticks_per_second + ns / nanoseconds_per_tick
     }
@@ -365,15 +365,15 @@ pub mod DateTime_ {
         }
 
         pub fn millisecond(&self) -> i32 {
-            self.ndt.timestamp_subsec_millis() as i32
+            self.ndt.and_utc().timestamp_subsec_millis() as i32
         }
 
         pub fn microsecond(&self) -> i32 {
-            self.ndt.timestamp_subsec_micros() as i32
+            self.ndt.and_utc().timestamp_subsec_micros() as i32
         }
 
         pub fn nanosecond(&self) -> i32 {
-            self.ndt.timestamp_subsec_nanos() as i32
+            self.ndt.and_utc().timestamp_subsec_nanos() as i32
         }
 
         pub fn timeOfDay(&self) -> TimeSpan {
@@ -501,7 +501,7 @@ pub mod DateTime_ {
         pub fn parse(s: string) -> DateTime {
             match Self::try_parse_str(s.trim()) {
                 Ok(dt) => dt,
-                Err(e) => panic!("Input string was not in a correct format."),
+                Err(e) => panic!("The input string {} was not in a correct format.", s),
             }
         }
 

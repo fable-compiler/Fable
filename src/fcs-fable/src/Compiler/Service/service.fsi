@@ -22,7 +22,7 @@ open FSharp.Compiler.Tokenization
 [<RequireQualifiedAccess>]
 type DocumentSource =
     | FileSystem
-    | Custom of (string -> ISourceText option)
+    | Custom of (string -> Async<ISourceText option>)
 
 /// Used to parse and check F# source code.
 [<Sealed; AutoSerializable(false)>]
@@ -56,8 +56,10 @@ type public FSharpChecker =
         ?enablePartialTypeChecking: bool *
         ?parallelReferenceResolution: bool *
         ?captureIdentifiersWhenParsing: bool *
-        [<Experimental "This parameter is experimental and likely to be removed in the future.">] ?documentSource: DocumentSource *
-        [<Experimental "This parameter is experimental and likely to be removed in the future.">] ?useSyntaxTreeCache: bool ->
+        [<Experimental "This parameter is experimental and likely to be removed in the future.">] ?documentSource:
+            DocumentSource *
+        [<Experimental "This parameter is experimental and likely to be removed in the future.">] ?useSyntaxTreeCache:
+            bool ->
             FSharpChecker
 
     /// <summary>
@@ -423,6 +425,7 @@ type public FSharpChecker =
 
     [<Obsolete("Please create an instance of FSharpChecker using FSharpChecker.Create")>]
     static member Instance: FSharpChecker
+
     member internal FrameworkImportsCache: FrameworkImportsCache
     member internal ReferenceResolver: LegacyReferenceResolver
 

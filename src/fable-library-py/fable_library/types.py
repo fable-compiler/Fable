@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 import array
-
 from abc import abstractmethod
+from collections.abc import Callable, Iterable, MutableSequence
 from typing import (
     Any,
-    Callable,
     Generic,
-    Iterable,
-    List,
-    MutableSequence,
-    Optional,
     TypeVar,
+    cast,
 )
-from typing import Union as Union_
-from typing import cast
 
 from .util import Array, IComparable, compare
 
@@ -27,8 +21,8 @@ class FSharpRef(Generic[_T]):
 
     def __init__(
         self,
-        contents_or_getter: Union_[None, _T, Callable[[], _T]],
-        setter: Optional[Callable[[_T], None]] = None,
+        contents_or_getter: None | (_T | Callable[[], _T]),
+        setter: Callable[[_T], None] | None = None,
     ) -> None:
         contents = cast(_T, contents_or_getter)
 
@@ -61,8 +55,7 @@ class Union(IComparable):
 
     @staticmethod
     @abstractmethod
-    def cases() -> List[str]:
-        ...
+    def cases() -> list[str]: ...
 
     @property
     def name(self) -> str:
@@ -72,21 +65,21 @@ class Union(IComparable):
         if not len(self.fields):
             return self.name
 
+        def to_string(value: Any) -> str:
+            if isinstance(value, str):
+                return f'"{value}"'
+            return str(value)
+
         fields = ""
         with_parens = True
         if len(self.fields) == 1:
-            field = str(self.fields[0])
+            field = to_string(self.fields[0])
             with_parens = field.find(" ") >= 0
             fields = field
         else:
-            fields = ", ".join(map(str, self.fields))
+            fields = ", ".join(map(to_string, self.fields))
 
-        return (
-            self.name
-            + (" (" if with_parens else " ")
-            + fields
-            + (")" if with_parens else "")
-        )
+        return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
 
     def __repr__(self) -> str:
         return str(self)
@@ -129,19 +122,35 @@ def record_compare_to(self: Record, other: Record) -> int:
     if self is other:
         return 0
 
-    elif hasattr(self, "__dict__") and self.__dict__:
-        for name in self.__dict__.keys():
-            if self.__dict__[name] < other.__dict__.get(name):
+    def compare_values(self_value: Any, other_value: Any) -> int:
+        match (self_value, other_value):
+            case (None, None):
+                return 0
+            case (None, _):
                 return -1
-            elif self.__dict__[name] > other.__dict__.get(name):
+            case (_, None):
                 return 1
+            # Check for custom equality
+            case (self_value, other_value) if self_value == other_value:
+                return 0
+            case (self_value, other_value) if self_value < other_value:
+                return -1
+            case (self_value, other_value) if self_value > other_value:
+                return 1
+            case _:
+                return 0
+
+    if hasattr(self, "__dict__") and self.__dict__:
+        for name in self.__dict__.keys():
+            result = compare_values(self.__dict__[name], other.__dict__[name])
+            if result != 0:
+                return result
 
     elif hasattr(self, "__slots__") and self.__slots__:
         for name in self.__slots__:
-            if getattr(self, name) < getattr(other, name):
-                return -1
-            elif getattr(self, name) > getattr(other, name):
-                return 1
+            result = compare_values(getattr(self, name), getattr(other, name))
+            if result != 0:
+                return result
 
     return 0
 
@@ -161,23 +170,9 @@ def record_equals(self: _T, other: _T) -> bool:
 
 def record_to_string(self: Record) -> str:
     if hasattr(self, "__slots__"):
-        return (
-            "{ "
-            + "\n  ".join(
-                map(
-                    lambda slot: slot + " = " + str(getattr(self, slot)), self.__slots__
-                )
-            )
-            + " }"
-        )
+        return "{ " + "\n  ".join(map(lambda slot: slot + " = " + str(getattr(self, slot)), self.__slots__)) + " }"
     else:
-        return (
-            "{ "
-            + "\n  ".join(
-                map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())
-            )
-            + " }"
-        )
+        return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
 def record_get_hashcode(self: Record) -> int:
@@ -186,7 +181,7 @@ def record_get_hashcode(self: Record) -> int:
 
 
 class Record(IComparable):
-    __slots__: List[str]
+    __slots__: list[str]
 
     def GetHashCode(self) -> int:
         return record_get_hashcode(self)
@@ -213,8 +208,7 @@ class Record(IComparable):
         return record_get_hashcode(self)
 
 
-class Attribute:
-    ...
+class Attribute: ...
 
 
 def seq_to_string(self: Iterable[Any]) -> str:
@@ -234,7 +228,7 @@ def seq_to_string(self: Iterable[Any]) -> str:
     return str + "]"
 
 
-def to_string(x: Union_[Iterable[Any], Any], call_stack: int = 0) -> str:
+def to_string(x: Iterable[Any] | Any, call_stack: int = 0) -> str:
     if x is not None:
         if isinstance(x, float) and int(x) == x:
             return str(int(x))
@@ -341,35 +335,35 @@ class float32(float):
 float = float  # use native float for float64
 
 
-def Int8Array(lst: List[int]) -> MutableSequence[int]:
+def Int8Array(lst: list[int]) -> MutableSequence[int]:
     return array.array("b", lst)
 
 
-def Uint8Array(lst: List[int]) -> MutableSequence[int]:
+def Uint8Array(lst: list[int]) -> MutableSequence[int]:
     return bytearray(lst)
 
 
-def Int16Array(lst: List[int]) -> MutableSequence[int]:
+def Int16Array(lst: list[int]) -> MutableSequence[int]:
     return array.array("h", lst)
 
 
-def Uint16Array(lst: List[int]) -> MutableSequence[int]:
+def Uint16Array(lst: list[int]) -> MutableSequence[int]:
     return array.array("H", lst)
 
 
-def Int32Array(lst: List[int]) -> MutableSequence[int]:
+def Int32Array(lst: list[int]) -> MutableSequence[int]:
     return array.array("i", lst)
 
 
-def Uint32Array(lst: List[int]) -> MutableSequence[int]:
+def Uint32Array(lst: list[int]) -> MutableSequence[int]:
     return array.array("I", lst)
 
 
-def Float32Array(lst: List[float]) -> MutableSequence[float]:
+def Float32Array(lst: list[float]) -> MutableSequence[float]:
     return array.array("f", lst)
 
 
-def Float64Array(lst: List[float]) -> MutableSequence[float]:
+def Float64Array(lst: list[float]) -> MutableSequence[float]:
     return array.array("d", lst)
 
 

@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
-    <!-- <RollForward>Major</RollForward> -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
   </PropertyGroup>
 

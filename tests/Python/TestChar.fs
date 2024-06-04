@@ -2,6 +2,7 @@
 
 open System
 open Util.Testing
+open Fable.Tests.Util
 open System.Globalization
 
 [<Fact>]
@@ -23,6 +24,11 @@ let ``test Char.ToLowerInvariant works`` () =
 [<Fact>]
 let ``test Char.ToString works`` () =
     Char.ToString('b') |> equal "b"
+
+[<Fact>]
+let ``test Char.ToString type is casted correctly`` () =
+    ('t'.ToString()) + "est" |> equal "test"
+
 
 [<Fact>]
 let ``test Char.GetUnicodeCategory works`` () =
@@ -234,20 +240,24 @@ let ``test Char.Parse works`` () =
     equal 'A' (Char.Parse "A")
 
 [<Fact>]
-let ``test Char.Parse fails if an empty string is given`` () =
-    try
-        Char.Parse ""
-        |> failwithf "Unexpected result '%c'"
-    with
-    | _ -> ()
+let ``test Char.Parse fails with empty string`` () =
+    throwsAnyError (fun () -> Char.Parse "")
 
 [<Fact>]
-let ``test Char.Parse fails if a string with length > 1 is given`` () =
-    try
-        Char.Parse "Fable"
-        |> failwithf "Unexpected result '%c'"
-    with
-    | _ -> ()
+let ``test Char.Parse fails with longer string`` () =
+    throwsAnyError (fun () -> Char.Parse "AA")
+
+// [<Fact>]
+// let ``test Char.TryParse works`` () =
+//     Char.TryParse "A" |> equal (true, 'A')
+
+// [<Fact>]
+// let ``test Char.TryParse fails with empty string`` () =
+//     Char.TryParse "" |> equal (false, '\u0000')
+
+// [<Fact>]
+// let ``test Char.TryParse fails with longer string`` () =
+//     Char.TryParse "AA" |> equal (false, '\u0000')
 
 [<Fact>]
 let ``test Char addition works`` () =

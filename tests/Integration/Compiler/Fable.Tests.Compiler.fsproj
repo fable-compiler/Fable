@@ -2,18 +2,18 @@
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <RollForward>Major</RollForward>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Expecto" Version="9.0.4" />
+    <PackageReference Include="Expecto" Version="10.1.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" /> -->
-    <ProjectReference Include="..\..\..\src\Fable.AST\Fable.AST.fsproj" />
-    <ProjectReference Include="..\..\..\src\Fable.Transforms\Fable.Transforms.fsproj" />
-    <ProjectReference Include="..\..\..\src\Fable.Cli\Fable.Cli.fsproj" />
+    <ProjectReference Include="../../../src/Fable.AST/Fable.AST.fsproj" />
+    <ProjectReference Include="../../../src/Fable.Transforms/Fable.Transforms.fsproj" />
+    <ProjectReference Include="../../../src/Fable.Cli/Fable.Cli.fsproj" />
     <Reference Include="../../../lib/fcs/FSharp.Compiler.Service.dll" />
     <Reference Include="../../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>

@@ -1,19 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <RollForward>Major</RollForward>
     <OtherFlags>$(OtherFlags) --crossoptimize- --nowarn:3370</OtherFlags>
     <FableDefinesQueue>True</FableDefinesQueue>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
  </PropertyGroup>
 
  <ItemGroup>
-    <PackageReference Include="Expecto" Version="9.0.4" />
+    <PackageReference Include="Expecto" Version="10.1.0" />
     <PackageReference Include="AltCover" Version="5.3.675" />
-    <PackageReference Include="Fable.JsonProvider" Version="1.0.1" />
-    <PackageReference Include="FSharp.Core" Version="7.0.0" />
-    <PackageReference Include="FSharp.UMX" Version="1.0.0" />
+    <PackageReference Include="Fable.JsonProvider" Version="1.1.1" />
+    <PackageReference Include="FSharp.UMX" Version="1.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +39,7 @@
     <Compile Include="AsyncTests.fs" />
     <Compile Include="CharTests.fs" />
     <Compile Include="ComparisonTests.fs" />
+    <Compile Include="ConditionalWeakTableTests.fs" />
     <Compile Include="ConvertTests.fs" />
     <Compile Include="CustomOperatorsTests.fs" />
     <Compile Include="DateTimeOffsetTests.fs" />
@@ -80,6 +79,7 @@
     <Compile Include="UriTests.fs" />
     <Compile Include="TimeOnlyTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
+    <Compile Include="ListCollectorTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

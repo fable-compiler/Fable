@@ -265,12 +265,19 @@ let tests() =
         d.Day + d'.Day |> equal 18
 
     testCase "DateTime.DayOfWeek works" <| fun () ->
-        let d = DateTime(2014, 10, 9)
-        d.DayOfWeek |> equal DayOfWeek.Thursday
+        DateTime(2014, 10, 5).DayOfWeek |> equal DayOfWeek.Sunday
+        DateTime(2014, 10, 6).DayOfWeek |> equal DayOfWeek.Monday
+        DateTime(2014, 10, 7).DayOfWeek |> equal DayOfWeek.Tuesday
+        DateTime(2014, 10, 8).DayOfWeek |> equal DayOfWeek.Wednesday
+        DateTime(2014, 10, 9).DayOfWeek |> equal DayOfWeek.Thursday
+        DateTime(2014, 10, 10).DayOfWeek |> equal DayOfWeek.Friday
+        DateTime(2014, 10, 11).DayOfWeek |> equal DayOfWeek.Saturday
 
     testCase "DateTime.DayOfYear works" <| fun () ->
-        let d = DateTime(2014, 10, 9)
-        d.DayOfYear |> equal 282
+        // Standard year
+        DateTime(2014, 10, 9).DayOfYear |> equal 282
+        // Leap year
+        DateTime(2020, 10, 9).DayOfYear |> equal 283
 
     testCase "DateTime.Millisecond works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, 999)

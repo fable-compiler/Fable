@@ -21,7 +21,8 @@ type LexFilter =
         indentationSyntaxStatus: IndentationAwareSyntaxStatus *
         compilingFSharpCore: bool *
         lexer: (LexBuffer<LexBufferChar> -> token) *
-        lexbuf: LexBuffer<LexBufferChar> ->
+        lexbuf: LexBuffer<LexBufferChar> *
+        debug: bool ->
             LexFilter
 
     /// The LexBuffer associated with the filter

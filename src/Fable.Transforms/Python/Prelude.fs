@@ -11,12 +11,10 @@ module Naming =
     let sitePackages = "site-packages"
 
     let lowerFirst (s: string) =
-        s.Substring(0, 1).ToLowerInvariant()
-        + s.Substring(1)
+        s.Substring(0, 1).ToLowerInvariant() + s.Substring(1)
 
     let upperFirst (s: string) =
-        s.Substring(0, 1).ToUpperInvariant()
-        + s.Substring(1)
+        s.Substring(0, 1).ToUpperInvariant() + s.Substring(1)
 
     let private dashify (separator: string) (input: string) =
         Regex.Replace(
@@ -26,9 +24,7 @@ module Naming =
                 if m.Value.Length = 1 then
                     m.Value.ToLowerInvariant()
                 else
-                    m.Value.Substring(0, 1)
-                    + separator
-                    + m.Value.Substring(1, 1).ToLowerInvariant()
+                    m.Value.Substring(0, 1) + separator + m.Value.Substring(1, 1).ToLowerInvariant()
         )
 
     let applyCaseRule caseRule name =
@@ -55,114 +51,129 @@ module Naming =
     let pyKeywords =
         // https://docs.python.org/3/reference/lexical_analysis.html#keywords
 
-        System.Collections.Generic.HashSet [ "False"
-                                             "await"
-                                             "else"
-                                             "import"
-                                             "pass"
-                                             "None"
-                                             "break"
-                                             "except"
-                                             "in"
-                                             "raise"
-                                             "True"
-                                             "class"
-                                             "finally"
-                                             "is"
-                                             "return"
-                                             "and"
-                                             "continue"
-                                             "for"
-                                             "lambda"
-                                             "try"
-                                             "as"
-                                             "def"
-                                             "from"
-                                             "nonlocal"
-                                             "while"
-                                             "assert"
-                                             "del"
-                                             "global"
-                                             "not"
-                                             "with"
-                                             "async"
-                                             "elif"
-                                             "if"
-                                             "or"
-                                             "yield" ]
+        System.Collections.Generic.HashSet
+            [
+                "False"
+                "await"
+                "else"
+                "import"
+                "pass"
+                "None"
+                "break"
+                "except"
+                "in"
+                "raise"
+                "True"
+                "class"
+                "finally"
+                "is"
+                "return"
+                "and"
+                "continue"
+                "for"
+                "lambda"
+                "try"
+                "as"
+                "def"
+                "from"
+                "nonlocal"
+                "while"
+                "assert"
+                "del"
+                "global"
+                "not"
+                "with"
+                "async"
+                "elif"
+                "if"
+                "or"
+                "yield"
+            ]
 
     // Other global builtins we should avoid https://docs.python.org/3/library/functions.html
     let pyBuiltins =
-        System.Collections.Generic.HashSet [ "abs"
-                                             "len"
-                                             "str"
-                                             "int"
-                                             "float"
-                                             "set"
-                                             "enumerate"
-                                             "next"
-                                             "super"
-                                             "callable"
-                                             "hash"
-                                             "classmethod"
-                                             "staticmethod"
-                                             "list"
-                                             "dict"
-                                             "bool"
-                                             "isinstance"
-                                             "issubclass"
-                                             "hasattr"
-                                             "getattr"
+        System.Collections.Generic.HashSet
+            [
+                "abs"
+                "len"
+                "str"
+                "int"
+                "float"
+                "set"
+                "enumerate"
+                "next"
+                "super"
+                "callable"
+                "hash"
+                "classmethod"
+                "staticmethod"
+                "list"
+                "dict"
+                "bool"
+                "isinstance"
+                "issubclass"
+                "hasattr"
+                "getattr"
 
-                                             // Other names
-                                             "self" ]
+                // Other names
+                "self"
+            ]
 
     let pyStdlib =
-        System.Collections.Generic.HashSet [ "abc"
-                                             "asyncio"
-                                             "array"
-                                             "base64"
-                                             "builtins"
-                                             "collections"
-                                             "dataclasses"
-                                             "datetime"
-                                             "decimal"
-                                             "enum"
-                                             "functools"
-                                             "inspect"
-                                             "itertools"
-                                             "io"
-                                             "locale"
-                                             "math"
-                                             "operator"
-                                             "os"
-                                             "pathlib"
-                                             "platform"
-                                             "queue"
-                                             "random"
-                                             "re"
-                                             "readline"
-                                             "posix"
-                                             "string"
-                                             "struct"
-                                             "sys"
-                                             "tempfile"
-                                             "threading"
-                                             "time"
-                                             "typing"
-                                             "unicodedata"
-                                             "urllib"
-                                             "uuid"
-                                             "warnings" ]
+        System.Collections.Generic.HashSet
+            [
+                "abc"
+                "asyncio"
+                "array"
+                "base64"
+                "builtins"
+                "collections"
+                "dataclasses"
+                "datetime"
+                "decimal"
+                "enum"
+                "functools"
+                "inspect"
+                "itertools"
+                "io"
+                "locale"
+                "math"
+                "operator"
+                "os"
+                "pathlib"
+                "platform"
+                "queue"
+                "random"
+                "re"
+                "readline"
+                "posix"
+                "string"
+                "struct"
+                "sys"
+                "tempfile"
+                "threading"
+                "time"
+                "typing"
+                "unicodedata"
+                "urllib"
+                "uuid"
+                "warnings"
+            ]
 
     let reflectionSuffix = "_reflection"
 
+    let mutable uniqueIndex = 0
+
+    let getUniqueIndex () =
+        let idx = uniqueIndex
+        uniqueIndex <- uniqueIndex + 1
+        idx
 
     let preventConflicts conflicts originalName =
         let rec check originalName n =
             let name =
                 if n > 0 then
-                    originalName + "_" + (string n)
+                    originalName + "_" + (string<int> n)
                 else
                     originalName
 
@@ -175,9 +186,7 @@ module Naming =
 
     let isIdentChar index (c: char) =
         // Digits are not allowed in first position, see #1397
-        c = '_'
-        || Char.IsLetter(c)
-        || Char.IsDigit(c) && index > 0
+        c = '_' || Char.IsLetter(c) || Char.IsDigit(c) && index > 0
 
     let hasIdentForbiddenChars (ident: string) =
         let mutable found = false
@@ -195,17 +204,11 @@ module Naming =
                         let c = ident.[i]
 
                         if isIdentChar i c then
-                            string c
-                        elif c = '$'
-                             || c = '_'
-                             || c = ' '
-                             || c = '*'
-                             || c = '.'
-                             || c = '`' then
+                            string<char> c
+                        elif c = '$' || c = '_' || c = ' ' || c = '*' || c = '.' || c = '`' then
                             "_"
                         else
-                            "_"
-                            + String.Format("{0:X}", int c).PadLeft(4, '0')
+                            "_" + String.Format("{0:X}", int c).PadLeft(4, '0')
                 }
             )
         else
@@ -235,14 +238,16 @@ module Naming =
 
     let private buildName sanitize name part =
         (sanitize name)
-        + (match part with
-           | Naming.InstanceMemberPart (s, i) -> printPart sanitize "__" s i
-           | Naming.StaticMemberPart (s, i) -> printPart sanitize "_" s i
-           | Naming.NoMemberPart -> "")
+        + (
+            match part with
+            | Naming.InstanceMemberPart(s, i) -> printPart sanitize "__" s i
+            | Naming.StaticMemberPart(s, i) -> printPart sanitize "_" s i
+            | Naming.NoMemberPart -> ""
+        )
 
     let sanitizeIdent conflicts (name: string) part =
         let name =
-            if name.EndsWith("@") then
+            if name.EndsWith("@", StringComparison.Ordinal) then
                 $"_{name.Substring(0, name.Length - 1)}"
             else
                 name

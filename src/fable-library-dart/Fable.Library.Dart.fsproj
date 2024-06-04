@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
         <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
     </PropertyGroup>
@@ -10,6 +10,7 @@
         <Compile Include="Global.fs" />
         <Compile Include="FSharp.Core.fs" />
         <Compile Include="Option.fs" />
+        <Compile Include="Result.fs" />
         <Compile Include="Choice.fs" />
         <Compile Include="Seq.fs" />
         <Compile Include="Seq2.fs" />
@@ -18,6 +19,7 @@
         <Compile Include="Set.fs" />
         <Compile Include="Map.fs" />
         <Compile Include="Range.fs" />
+        <Compile Include="System.Text.fs" />
         <Content Include="Date.dart" />
         <Content Include="RegExp.dart" />
         <Content Include="String.dart" />

@@ -1,4 +1,4 @@
-use crate::Native_::Lrc;
+use crate::Native_::{Any, Lrc};
 use core::ops::*;
 
 // -----------------------------------------------------------
@@ -7,19 +7,29 @@ use core::ops::*;
 
 #[derive(Default, PartialEq, PartialOrd, Hash, Eq, Ord)]
 #[repr(transparent)]
-pub struct LrcPtr<T: ?Sized>(Lrc<T>);
+pub struct LrcPtr<T: ?Sized>(Option<Lrc<T>>);
 
 impl<T> LrcPtr<T> {
     #[inline]
     pub fn new(value: T) -> Self {
-        LrcPtr(Lrc::new(value))
+        LrcPtr(Some(Lrc::new(value)))
+    }
+
+    #[inline]
+    pub fn null(value: T) -> Self {
+        LrcPtr(None)
+    }
+
+    #[inline]
+    pub fn is_null(&self) -> bool {
+        self.0.is_none()
     }
 }
 
 impl<T: ?Sized> From<Lrc<T>> for LrcPtr<T> {
     #[inline]
     fn from(value: Lrc<T>) -> Self {
-        LrcPtr(value)
+        LrcPtr(Some(value))
     }
 }
 
@@ -35,19 +45,19 @@ impl<T: ?Sized> Deref for LrcPtr<T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0.as_ref().expect("Null reference exception.")
     }
 }
 
 impl<T: core::fmt::Debug> core::fmt::Debug for LrcPtr<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{:?}", self.deref())
     }
 }
 
 impl<T: core::fmt::Display> core::fmt::Display for LrcPtr<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.deref())
     }
 }
 
@@ -63,7 +73,7 @@ impl<T: Index<Idx>, Idx> Index<Idx> for LrcPtr<T> {
     type Output = T::Output;
 
     fn index(&self, idx: Idx) -> &Self::Output {
-        self.0.index(idx)
+        self.deref().index(idx)
     }
 }
 

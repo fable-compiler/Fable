@@ -2,11 +2,11 @@
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Expecto" Version="9.0.4" />
+    <PackageReference Include="Expecto" Version="10.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Fable.Cli\Fable.Cli.fsproj" />
@@ -16,6 +16,7 @@
   <ItemGroup>
     <Compile Include="FileWatcherTests.fs" />
     <Compile Include="CliTests.fs" />
+    <Compile Include="CompilationTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

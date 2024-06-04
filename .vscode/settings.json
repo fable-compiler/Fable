@@ -8,7 +8,6 @@
         "**/bin": true,
         "**/obj": true,
         "**/.fake": true,
-        "**/packages": true,
         "**/node_modules": true,
         "**/bower_components": true
     },
@@ -24,8 +23,14 @@
         "src/fcs-fable"
     ],
     "rust-analyzer.linkedProjects": [
-        "build/fable-library-rust/Cargo.toml",
-        "build/tests/Rust/Cargo.toml"
+        "temp/fable-library-rust/Cargo.toml",
+        "temp/tests/Rust/Cargo.toml"
     ],
-    "editor.inlayHints.enabled": "offUnlessPressed"
+    "editor.inlayHints.enabled": "offUnlessPressed",
+    "dotnet.defaultSolution": "disable",
+    "python.testing.pytestArgs": [
+        "temp"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

@@ -5,55 +5,55 @@ open Fable.Core
 
 /// Has same effect as `unbox` (dynamic casting erased in compiled JS code).
 /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
-let (!!) x: 'T = nativeOnly
+let (!!) x : 'T = nativeOnly
 
 /// Implicit cast for erased unions (U2, U3...)
-let inline (!^) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_ErasedCast : ^t1 -> ^t2) x)
+let inline (!^) (x: ^t1) : ^t2 =
+    ((^t1 or ^t2): (static member op_ErasedCast: ^t1 -> ^t2) x)
 
 /// Dynamically access a property of an arbitrary object.
 /// `myObj?propA` in JS becomes `myObj.propA`
 /// `myObj?(propA)` in JS becomes `myObj[propA]`
-let (?) (o: obj) (prop: obj): 'a = nativeOnly
+let (?) (o: obj) (prop: obj) : 'a = nativeOnly
 
 /// Dynamically assign a value to a property of an arbitrary object.
 /// `myObj?propA <- 5` in JS becomes `myObj.propA = 5`
 /// `myObj?(propA) <- 5` in JS becomes `myObj[propA] = 5`
-let (?<-) (o: obj) (prop: obj) (v: obj): unit = nativeOnly
+let (?<-) (o: obj) (prop: obj) (v: obj) : unit = nativeOnly
 
 /// Destructure and apply a tuple to an arbitrary value.
 /// E.g. `myFn $ (arg1, arg2)` in JS becomes `myFn(arg1, arg2)`
-let ($) (callee: obj) (args: obj): 'a = nativeOnly
+let ($) (callee: obj) (args: obj) : 'a = nativeOnly
 
 /// Upcast the right operand to obj (and uncurry it if it's a function) and create a key-value tuple.
 /// Mostly convenient when used with `createObj`.
 /// E.g. `createObj [ "a" ==> 5 ]` in Python becomes `{ a: 5 }`
-let (==>) (key: string) (v: obj): string*obj = nativeOnly
+let (==>) (key: string) (v: obj) : string * obj = nativeOnly
 
 /// Destructure and apply a tuple to an arbitrary value with `new` keyword.
 /// E.g. `createNew myCons (arg1, arg2)` in JS becomes `new myCons(arg1, arg2)`
 /// let createNew (o: obj) (args: obj): obj = nativeOnly
-
 /// Destructure a tuple of arguments and applies to literal JS code as with EmitAttribute.
 /// E.g. `emitJsExpr (arg1, arg2) "$0 + $1"` in Python becomes `arg1 + arg2`
-let emitPhpExpr<'T> (args: obj) (jsCode: string): 'T = nativeOnly
+let emitPhpExpr<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 
 /// Same as emitJsExpr but intended for JS code that must appear in a statement position
 /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements
 /// E.g. `emitJsExpr aValue "while($0 < 5) doSomething()"`
-let emitPhpStatement<'T> (args: obj) (pyCode: string): 'T = nativeOnly
+let emitPhpStatement<'T> (args: obj) (pyCode: string) : 'T = nativeOnly
 
 /// Create a literal Python object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in Python becomes `{ a: 5 }`
-let createObj (fields: #seq<string*obj>): obj = nativeOnly
+let createObj (fields: #seq<string * obj>) : obj = nativeOnly
 
 /// Create a literal Python object from a collection of union constructors.
 /// E.g. `keyValueList CaseRules.LowerFirst [ MyUnion 4 ]` in Python becomes `{ myUnion: 4 }`
-let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = nativeOnly
+let keyValueList (caseRule: CaseRules) (li: 'T seq) : obj = nativeOnly
 
 /// Create a literal Py object from a mutator lambda. Normally used when
 /// the options interface has too many fields to be represented with a Pojo record.
 /// E.g. `jsOptions<MyOpt> (fun o -> o.foo <- 5)` in JS becomes `{ foo: 5 }`
-let phpOptions<'T> (f: 'T->unit): 'T = nativeOnly
+let phpOptions<'T> (f: 'T -> unit) : 'T = nativeOnly
 
 // /// Create an empty JS object: {}
 // let createEmpty<'T> : 'T = nativeOnly
@@ -101,7 +101,8 @@ let phpOptions<'T> (f: 'T->unit): 'T = nativeOnly
 ///
 /// ## Sample
 ///     jqueryMethod(fun x y -> jsThis?add(x, y))
-let [<Emit("this")>] phpThis<'T> : 'T = nativeOnly
+[<Emit("this")>]
+let phpThis<'T> : 'T = nativeOnly
 
 // /// JS `in` operator
 // let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = nativeOnly

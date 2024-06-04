@@ -72,6 +72,36 @@ type TestType7(a1, a2, a3) =
     let arr = [|a1; a2; a3|]
     member _.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v
 
+[<Fable.Core.AttachMembers>]
+type TestTypeAttached(a1, a2, a3) =
+    let arr = [| a1; a2; a3 |]
+    member _.Value1
+        with get () = arr.[1]
+        and set (v) = arr.[1] <- v
+    member _.Value
+        with get (i) = arr.[i]
+        and set (i) (v) = arr.[i] <- v
+    member _.Item
+        with get (i) = arr.[i]
+        and set (i) (v) = arr.[i] <- v
+
+type ITestProps =
+    abstract Value1: float with get, set
+    abstract Value: int -> float with get, set
+    abstract Item: int -> float with get, set
+
+type TestProps(arr: float[]) =
+    interface ITestProps with
+        member _.Value1
+            with get () = arr.[1]
+            and set (v) = arr.[1] <- v
+        member _.Value
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+        member _.Item
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+
 type A  = { thing: int } with
     member x.show() = string x.thing
     static member show (x: A) = "Static: " + (string x.thing)
@@ -475,8 +505,12 @@ type IndexedProps(v: int) =
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
     member _.Item with get (v2: float) = float v + v2 / 2.
 
+[<Interface>]
+type ITesting =
+    static member Testing x = x
+
 type TypeWithByRefMember() =
-  static member DoubleIntByRef (x: byref<int>) : unit = x <- 2 * x
+    static member DoubleIntByRef (x: byref<int>) : unit = x <- 2 * x
 
 let inline doubleIntByRef (x: ^a) (input: int) : int =
     let mutable value = input
@@ -489,6 +523,12 @@ let byrefFunc(n: byref<int>) =
 let inline callWithByrefCreatedFromByrefInlined(n: byref<int>) =
     let f = &n
     byrefFunc &f
+
+let inline inlinedFunc(n: 't[]) =
+    n.Length
+
+let genericByrefFunc(n: byref<'t[]>) =
+    inlinedFunc n
 
 let tests =
   testList "Types" [
@@ -506,6 +546,10 @@ let tests =
         f[3] <- "6"
         f[4] |> equal 13
         f[4.] |> equal 11
+
+    testCase "Static interface members work" <| fun () ->
+        let a = ITesting.Testing 5
+        a |> equal 5
 
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
         let t = TestType9()
@@ -632,6 +676,30 @@ let tests =
         t.Value(1) <- 5
         t.Value(1) |> equal 5
         t.Value(2) |> equal 3
+
+    testCase "Attached Getters Setters and Indexers work" <| fun () ->
+        let t = TestTypeAttached(1, 2, 3)
+        t.Value1 |> equal 2
+        t.Value1 <- 22
+        t.Value1 |> equal 22
+        t.Value(0) |> equal 1
+        t.Value(0) <- 11
+        t.Value(0) |> equal 11
+        t[2] |> equal 3
+        t[2] <- 33
+        t[2] |> equal 33
+
+    testCase "Interface Getters Setters and Indexers work" <| fun () ->
+        let t = TestProps([| 1; 2; 3 |]) :> ITestProps
+        t.Value1 |> equal 2
+        t.Value1 <- 22
+        t.Value1 |> equal 22
+        t.Value(0) |> equal 1
+        t.Value(0) <- 11
+        t.Value(0) |> equal 11
+        t[2] |> equal 3
+        t[2] <- 33
+        t[2] |> equal 33
 
     testCase "Statically resolved instance calls work" <| fun () ->
         let a = { thing = 5 }
@@ -1075,4 +1143,9 @@ let tests =
         ignore intRef
         callWithByrefCreatedFromByrefInlined &intRef
         an_int |> equal 66
+
+    testCase "inline with generic byref works" <| fun () ->
+        let mutable arr = [| 1; 2; 3 |]
+        let result = genericByrefFunc &arr
+        result |> equal 3
   ]

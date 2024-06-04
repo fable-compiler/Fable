@@ -151,7 +151,11 @@ let tests =
             equal (DateOnly (2000, 11, 30)) (DateOnly.Parse("11/30/2000", CultureInfo.InvariantCulture))
             equal (DateOnly (2020, 1, 3)) (DateOnly.Parse("01/03/20", CultureInfo.InvariantCulture))
             equal (DateOnly (1999, 1, 3)) (DateOnly.Parse("01,03,99", CultureInfo.InvariantCulture))
+#if FABLE_COMPILER
             equal (DateOnly (1930, 1, 3)) (DateOnly.Parse("01 -03- 30", CultureInfo.InvariantCulture))
+#else //NET8_0_OR_GREATER
+            equal (DateOnly (2030, 1, 3)) (DateOnly.Parse("01 -03- 30", CultureInfo.InvariantCulture))
+#endif
             equal (DateOnly (2000, 12, 3)) (DateOnly.Parse("12.03.00", CultureInfo.InvariantCulture))
             equal (DateOnly (2000, 1, 12)) (DateOnly.Parse("01-12-00", CultureInfo.InvariantCulture))
 

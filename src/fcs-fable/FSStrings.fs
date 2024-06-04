@@ -767,6 +767,12 @@ let resources =
       ( "OverrideDoesntOverride4",
         "The member '{0}' is specialized with 'unit' but 'unit' can't be used as return type of an abstract method parameterized on return type."
       );
+      ( "OverrideShouldBeStatic",
+        " Static member is expected."
+      );
+      ( "OverrideShouldBeInstance",
+        " Non-static member is expected."
+      );
       ( "UnionCaseWrongArguments",
         "This constructor is applied to {0} argument(s) but expects {1}"
       );
@@ -997,5 +1003,11 @@ let resources =
       );
       ( "ErrorFromAddingTypeEquationTuples",
         "Type mismatch. Expecting a tuple of length {0} of type\n    {1}    \nbut given a tuple of length {2} of type\n    {3}    {4}\n"
+      );
+      ( "ArgumentsInSigAndImplMismatch",
+        "The argument names in the signature '{0}' and implementation '{1}' do not match. The argument name from the signature file will be used. This may cause problems when debugging or profiling."
+      );
+      ( "Parser.TOKEN.WHILE.BANG",
+        "keyword 'while!'"
       );
     ]

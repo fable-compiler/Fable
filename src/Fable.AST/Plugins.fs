@@ -18,7 +18,7 @@ type Language =
     | Rust
     | Lua
 
-    override this.ToString () =
+    override this.ToString() =
         match this with
         | JavaScript -> "JavaScript"
         | TypeScript -> "TypeScript"
@@ -70,4 +70,5 @@ type PluginAttribute() =
 type MemberDeclarationPluginAttribute() =
     inherit PluginAttribute()
     abstract Transform: PluginHelper * File * MemberDecl -> MemberDecl
+
     abstract TransformCall: PluginHelper * member_: MemberFunctionOrValue * expr: Expr -> Expr

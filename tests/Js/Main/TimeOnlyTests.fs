@@ -215,8 +215,8 @@ let tests =
             let isValid, _ = TimeOnly.TryParse "-04:00"
             equal false isValid
 
-            let isValid, _ = TimeOnly.TryParse "02:00:00,333"
-            equal false isValid
+            // let isValid, _ = TimeOnly.TryParse "02:00:00,333" // not invalid in NET8_0
+            // equal false isValid
 
             let isValid, _ = TimeOnly.TryParse "02:00:00:33"
             equal false isValid

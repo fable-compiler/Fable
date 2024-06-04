@@ -1,4 +1,7 @@
-from typing import Any, Callable, Generic, List, Optional, TypeVar, cast
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any, Generic, TypeVar, cast
 
 
 _T = TypeVar("_T")
@@ -32,40 +35,34 @@ class Some(Generic[_T]):
         return str(self)
 
 
-def default_arg(opt: Optional[_T], default_value: _T) -> _T:
+def default_arg(opt: _T | None, default_value: _T) -> _T:
     return value(opt) if opt is not None else default_value
 
 
-def default_arg_with(opt: Optional[_T], def_thunk: Callable[[], _T]) -> _T:
+def default_arg_with(opt: _T | None, def_thunk: Callable[[], _T]) -> _T:
     return value(opt) if opt is not None else def_thunk()
 
 
-def filter(predicate: Callable[[_T], bool], opt: Optional[_T]) -> Optional[_T]:
+def filter(predicate: Callable[[_T], bool], opt: _T | None) -> _T | None:
     if opt is not None:
         return opt if predicate(value(opt)) else None
     return opt
 
 
-def map(mapping: Callable[[_T], _U], opt: Optional[_T]) -> Optional[_U]:
+def map(mapping: Callable[[_T], _U], opt: _T | None) -> _U | None:
     return some(mapping(value(opt))) if opt is not None else None
 
 
-def map2(
-    mapping: Callable[[_T, _U], _V], opt1: Optional[_T], opt2: Optional[_U]
-) -> Optional[_V]:
-    return (
-        mapping(value(opt1), value(opt2))
-        if (opt1 is not None and opt2 is not None)
-        else None
-    )
+def map2(mapping: Callable[[_T, _U], _V], opt1: _T | None, opt2: _U | None) -> _V | None:
+    return mapping(value(opt1), value(opt2)) if (opt1 is not None and opt2 is not None) else None
 
 
 def map3(
     mapping: Callable[[_T, _U, _V], _W],
-    opt1: Optional[_T],
-    opt2: Optional[_U],
-    opt3: Optional[_V],
-) -> Optional[_W]:
+    opt1: _T | None,
+    opt2: _U | None,
+    opt3: _V | None,
+) -> _W | None:
     return (
         mapping(value(opt1), value(opt2), value(opt3))
         if (opt1 is not None and opt2 is not None and opt3 is not None)
@@ -73,11 +70,11 @@ def map3(
     )
 
 
-def some(x: Any) -> Optional[Any]:
+def some(x: Any) -> Any | None:
     return Some[Any](x) if x is None or isinstance(x, Some) else x
 
 
-def value(x: Optional[_T]) -> _T:
+def value(x: _T | None) -> _T:
     if x is None:
         raise Exception("Option has no value")
     elif isinstance(x, Some):
@@ -86,33 +83,31 @@ def value(x: Optional[_T]) -> _T:
     return x
 
 
-def of_nullable(x: Optional[_T]) -> Optional[_T]:
+def of_nullable(x: _T | None) -> _T | None:
     return x
 
 
-def to_nullable(x: Optional[_T]) -> Optional[_T]:
+def to_nullable(x: _T | None) -> _T | None:
     return None if x is None else value(x)
 
 
-def flatten(x: Optional[Optional[_T]]) -> Optional[_T]:
+def flatten(x: _T | None | None) -> _T | None:
     return x if x is None else value(x)
 
 
-def to_array(opt: Optional[_T]) -> List[_T]:
+def to_array(opt: _T | None) -> list[_T]:
     return [] if opt is None else [value(opt)]
 
 
-def bind(binder: Callable[[_T], Optional[_U]], opt: Optional[_T]) -> Optional[_U]:
+def bind(binder: Callable[[_T], _U | None], opt: _T | None) -> _U | None:
     return binder(value(opt)) if opt is not None else None
 
 
-def or_else(opt: Optional[_T], if_none: Optional[_T]) -> Optional[_T]:
+def or_else(opt: _T | None, if_none: _T | None) -> _T | None:
     return if_none if opt is None else opt
 
 
-def or_else_with(
-    opt: Optional[_T], if_none_thunk: Callable[[], Optional[_T]]
-) -> Optional[_T]:
+def or_else_with(opt: _T | None, if_none_thunk: Callable[[], _T | None]) -> _T | None:
     return if_none_thunk() if opt is None else opt
 
 

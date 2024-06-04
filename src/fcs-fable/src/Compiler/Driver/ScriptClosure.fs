@@ -139,7 +139,7 @@ module ScriptPreprocessClosure =
         let tcConfig = TcConfig.Create(tcConfigB, false)
 
         let lexbuf =
-            UnicodeLexing.SourceTextAsLexbuf(true, tcConfig.langVersion, sourceText)
+            UnicodeLexing.SourceTextAsLexbuf(true, tcConfig.langVersion, tcConfig.strictIndentation, sourceText)
 
         // The root compiland is last in the list of compilands.
         let isLastCompiland = (IsScript fileName, tcConfig.target.IsExe)
@@ -222,7 +222,7 @@ module ScriptPreprocessClosure =
 
                 diagnosticsLogger.Diagnostics
 
-            | Some (rs, diagnostics) ->
+            | Some(rs, diagnostics) ->
                 for m, reference in rs do
                     tcConfigB.AddReferencedAssemblyByPath(m, reference)
 
@@ -254,11 +254,11 @@ module ScriptPreprocessClosure =
             use reader =
                 match inputCodePage with
                 | None -> new StreamReader(stream, true)
-                | Some (n: int) -> new StreamReader(stream, Encoding.GetEncoding n)
+                | Some(n: int) -> new StreamReader(stream, Encoding.GetEncoding n)
 
             let source = reader.ReadToEnd()
             [ ClosureSource(fileName, m, SourceText.ofString source, parseRequired) ]
-        with exn ->
+        with RecoverableException exn ->
             errorRecovery exn m
             []
 
@@ -447,7 +447,7 @@ module ScriptPreprocessClosure =
                     tcConfig <- TcConfig.Create(tcConfigB, validate = false)
             ]
 
-        and processClosureSource (ClosureSource (fileName, m, sourceText, parseRequired)) =
+        and processClosureSource (ClosureSource(fileName, m, sourceText, parseRequired)) =
             [
                 if not (observedSources.HaveSeen(fileName)) then
                     observedSources.SetSeen(fileName)
@@ -513,13 +513,13 @@ module ScriptPreprocessClosure =
 
     /// Mark the last file as isLastCompiland.
     let MarkLastCompiland (tcConfig: TcConfig, lastClosureFile) =
-        let (ClosureFile (fileName, m, lastParsedInput, parseDiagnostics, metaDiagnostics, nowarns)) =
+        let (ClosureFile(fileName, m, lastParsedInput, parseDiagnostics, metaDiagnostics, nowarns)) =
             lastClosureFile
 
         match lastParsedInput with
-        | Some (ParsedInput.ImplFile lastParsedImplFile) ->
+        | Some(ParsedInput.ImplFile lastParsedImplFile) ->
 
-            let (ParsedImplFileInput (name, isScript, qualNameOfFile, scopedPragmas, hashDirectives, implFileFlags, _, trivia, identifiers)) =
+            let (ParsedImplFileInput(name, isScript, qualNameOfFile, scopedPragmas, hashDirectives, implFileFlags, _, trivia, identifiers)) =
                 lastParsedImplFile
 
             let isLastCompiland = (true, tcConfig.target.IsExe)
@@ -550,18 +550,18 @@ module ScriptPreprocessClosure =
         let closureFiles =
             match List.tryFrontAndBack closureFiles with
             | None -> closureFiles
-            | Some (rest, lastClosureFile) ->
+            | Some(rest, lastClosureFile) ->
                 let lastClosureFileR = MarkLastCompiland(tcConfig, lastClosureFile)
                 rest @ [ lastClosureFileR ]
 
         // Get all source files.
         let sourceFiles =
-            [ for ClosureFile (fileName, m, _, _, _, _) in closureFiles -> (fileName, m) ]
+            [ for ClosureFile(fileName, m, _, _, _, _) in closureFiles -> (fileName, m) ]
 
         let sourceInputs =
             [
                 for closureFile in closureFiles ->
-                    let (ClosureFile (fileName, _, input, parseDiagnostics, metaDiagnostics, _nowarns)) =
+                    let (ClosureFile(fileName, _, input, parseDiagnostics, metaDiagnostics, _nowarns)) =
                         closureFile
 
                     let closureInput: LoadClosureInput =
@@ -577,7 +577,7 @@ module ScriptPreprocessClosure =
 
         let globalNoWarns =
             closureFiles
-            |> List.collect (fun (ClosureFile (_, _, _, _, _, noWarns)) -> noWarns)
+            |> List.collect (fun (ClosureFile(_, _, _, _, _, noWarns)) -> noWarns)
 
         // Resolve all references.
         let references, unresolvedReferences, resolutionDiagnostics =
@@ -594,7 +594,7 @@ module ScriptPreprocessClosure =
         // Root errors and warnings - look at the last item in the closureFiles list
         let loadClosureRootDiagnostics, allRootDiagnostics =
             match List.rev closureFiles with
-            | ClosureFile (_, _, _, parseDiagnostics, metaDiagnostics, _) :: _ ->
+            | ClosureFile(_, _, _, parseDiagnostics, metaDiagnostics, _) :: _ ->
                 (earlierDiagnostics @ metaDiagnostics @ resolutionDiagnostics),
                 (parseDiagnostics @ earlierDiagnostics @ metaDiagnostics @ resolutionDiagnostics)
             | _ -> [], [] // When no file existed.

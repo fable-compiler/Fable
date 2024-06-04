@@ -4,16 +4,6 @@ open System
 open Util.Testing
 
 [<Fact>]
-let ``Char addition works`` () =
-    'A' + 'B' |> int |> equal 131
-    'A' + char 7 |> int |> equal 72
-
-// [<Fact>]
-// let ``Char subtraction works`` () =
-//     'B' - 'A' |> int |> equal 1
-//     char 9 - char 7 |> int |> equal 2
-
-[<Fact>]
 let ``Char.ToUpper works`` () =
     Char.ToUpper('b') |> equal 'B'
 
@@ -237,25 +227,39 @@ let ``Char.IsWhitespace works with two args`` () =
 //     Char.IsSurrogatePair(str,1) |> equal true
 //     Char.IsSurrogatePair(str,2) |> equal false
 
-// [<Fact>]
-// let ``Char.Parse works`` () =
-//     Char.Parse "A" |> equal 'A'
+[<Fact>]
+let ``Char.Parse works`` () =
+    Char.Parse "A" |> equal 'A'
 
-// [<Fact>]
-// let ``Char.Parse fails if an empty string is given`` () =
-//     try
-//         Char.Parse ""
-//         |> failwithf "Unexpected result '%c'"
-//     with
-//     | _ -> ()
+[<Fact>]
+let ``Char.Parse fails with empty string`` () =
+    throwsAnyError (fun () -> Char.Parse "")
 
-// [<Fact>]
-// let ``Char.Parse fails if a string with length > 1 is given`` () =
-//     try
-//         Char.Parse "Fable"
-//         |> failwithf "Unexpected result '%c'"
-//     with
-//     | _ -> ()
+[<Fact>]
+let ``Char.Parse fails with longer string`` () =
+    throwsAnyError (fun () -> Char.Parse "AA")
+
+[<Fact>]
+let ``Char.TryParse works`` () =
+    Char.TryParse "A" |> equal (true, 'A')
+
+[<Fact>]
+let ``Char.TryParse fails with empty string`` () =
+    Char.TryParse "" |> equal (false, '\u0000')
+
+[<Fact>]
+let ``Char.TryParse fails with longer string`` () =
+    Char.TryParse "AA" |> equal (false, '\u0000')
+
+[<Fact>]
+let ``Char addition works`` () =
+    'A' + 'B' |> int |> equal 131
+    'A' + char 7 |> int |> equal 72
+
+[<Fact>]
+let ``Char subtraction works`` () =
+    'B' - 'A' |> int |> equal 1
+    char 9 - char 7 |> int |> equal 2
 
 // [<Fact>]
 // let ``Adding char converted to string works`` () = // See #2832

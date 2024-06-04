@@ -2,9 +2,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <RollForward>Major</RollForward>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Version>2.4.0</Version>
-    <PackageVersion>2.4.0</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PublishUtils.fs" />

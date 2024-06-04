@@ -32,7 +32,7 @@ type FSharpSource internal () =
 
     abstract TimeStamp: DateTime
 
-    abstract GetTextContainer: unit -> TextContainer
+    abstract GetTextContainer: unit -> Async<TextContainer>
 
 #if !FABLE_COMPILER
 
@@ -43,7 +43,8 @@ type private FSharpSourceMemoryMappedFile(filePath: string, timeStamp: DateTime,
 
     override _.TimeStamp = timeStamp
 
-    override _.GetTextContainer() = openStream () |> TextContainer.Stream
+    override _.GetTextContainer() =
+        openStream () |> TextContainer.Stream |> async.Return
 
 type private FSharpSourceByteArray(filePath: string, timeStamp: DateTime, bytes: byte[]) =
     inherit FSharpSource()
@@ -54,6 +55,7 @@ type private FSharpSourceByteArray(filePath: string, timeStamp: DateTime, bytes:
 
     override _.GetTextContainer() =
         TextContainer.Stream(new MemoryStream(bytes, 0, bytes.Length, false) :> Stream)
+        |> async.Return
 
 type private FSharpSourceFromFile(filePath: string) =
     inherit FSharpSource()
@@ -62,7 +64,7 @@ type private FSharpSourceFromFile(filePath: string) =
 
     override _.TimeStamp = FileSystem.GetLastWriteTimeShim(filePath)
 
-    override _.GetTextContainer() = TextContainer.OnDisk
+    override _.GetTextContainer() = TextContainer.OnDisk |> async.Return
 
 #endif //!FABLE_COMPILER
 
@@ -74,9 +76,14 @@ type private FSharpSourceCustom(filePath: string, getTimeStamp, getSourceText) =
     override _.TimeStamp = getTimeStamp ()
 
     override _.GetTextContainer() =
-        getSourceText ()
-        |> Option.map TextContainer.SourceText
-        |> Option.defaultValue TextContainer.OnDisk
+        async {
+            let! sourceOpt = getSourceText ()
+
+            return
+                sourceOpt
+                |> Option.map TextContainer.SourceText
+                |> Option.defaultValue TextContainer.OnDisk
+        }
 
 type FSharpSource with
 

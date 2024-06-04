@@ -115,16 +115,16 @@ let ``test Parsed guids with different case are considered the same`` () = // Se
     lowerGuid = upperGuid |> equal true
 
 [<Fact>]
-let ``test Convert Guid to byte[] works`` () =
+let ``test Convert Guid to byte array works`` () =
     let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
     let g2 = Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
     g.ToByteArray() |> equal [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
     g2.ToByteArray() |> equal [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
 
 [<Fact>]
-let ``test Convert byte[] to Guid works`` () =
+let ``test Convert byte array to Guid works`` () =
     let g = Guid [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
-    g.ToString() |> equal("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
 
 // [<Fact>]
 // let ``Guid.ToString works with formats`` () =

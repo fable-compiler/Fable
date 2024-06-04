@@ -94,7 +94,8 @@ List<String> splitWithChars(String str,
       count, options);
 }
 
-List<String> splitWithRegExp(String str, RegExp reg, [int? count, int? options]) {
+List<String> splitWithRegExp(String str, RegExp reg,
+    [int? count, int? options]) {
   if (count != null && count < 0) {
     throw Exception('Count cannot be less than zero');
   }
@@ -110,7 +111,6 @@ List<String> splitWithRegExp(String str, RegExp reg, [int? count, int? options])
 
   var lastIndex = 0;
   for (var match in reg.allMatches(str).toList()) {
-
     final candidate = trim
         ? str.substring(lastIndex, match.start).trim()
         : str.substring(lastIndex, match.start);

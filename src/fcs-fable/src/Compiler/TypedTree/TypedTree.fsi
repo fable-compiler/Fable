@@ -111,6 +111,8 @@ type ValFlags =
 
     member InlineInfo: ValInline
 
+    member IsImplied: bool
+
     member IsCompiledAsStaticPropertyWithoutField: bool
 
     member IsCompilerGenerated: bool
@@ -143,6 +145,8 @@ type ValFlags =
     member WithIgnoresByrefScope: ValFlags
 
     member WithInlineIfLambda: ValFlags
+
+    member WithIsImplied: ValFlags
 
     member WithIsCompiledAsStaticPropertyWithoutField: ValFlags
 
@@ -561,7 +565,7 @@ type Entity =
     member ExceptionInfo: ExceptionInfo
 
     /// Get the blob of information associated with an F# object-model type definition, i.e. class, interface, struct etc.
-    member FSharpObjectModelTypeInfo: TyconObjModelData
+    member FSharpTyconRepresentationData: FSharpTyconData
 
     /// Gets any implicit CompareTo methods added to an F# record, union or struct type definition.
     member GeneratedCompareToValues: (ValRef * ValRef) option
@@ -622,10 +626,12 @@ type Entity =
     /// Indicates if this is an F#-defined interface type definition
     member IsFSharpInterfaceTycon: bool
 
-    /// Indicates if this is an F# type definition whose r.h.s. is known to be some kind of F# object model definition
+    /// Indicates if this is an F# type definition known to be an F# class, interface, struct,
+    /// delegate or enum. This isn't generally a particularly useful thing to know,
+    /// it is better to use more specific predicates.
     member IsFSharpObjectModelTycon: bool
 
-    /// Indicates if this is an F#-defined struct or enum type definition, i.e. a value type definition
+    /// Indicates if this is an F#-defined value type definition, including struct records and unions
     member IsFSharpStructOrEnumTycon: bool
 
     /// Indicates if this is an F# type definition whose r.h.s. definition is unknown (i.e. a traditional ML 'abstract' type in a signature,
@@ -635,7 +641,7 @@ type Entity =
     /// Indicates if this is a .NET-defined enum type definition
     member IsILEnumTycon: bool
 
-    /// Indicates if this is a .NET-defined struct or enum type definition, i.e. a value type definition
+    /// Indicates if this is a .NET-defined struct or enum type definition
     member IsILStructOrEnumTycon: bool
 
     /// Indicate if this is a type definition backed by Abstract IL metadata.
@@ -684,7 +690,7 @@ type Entity =
     member IsStaticInstantiationTycon: bool
 #endif
 
-    /// Indicates if this is a struct or enum type definition, i.e. a value type definition
+    /// Indicates if this is a struct or enum type definition, i.e. a value type definition, including struct records and unions
     member IsStructOrEnumTycon: bool
 
     /// Indicates if this is an F# type definition whose r.h.s. is known to be a record type definition that is a value type.
@@ -881,13 +887,7 @@ type TyconAugmentation =
 type TyconRepresentation =
 
     /// Indicates the type is a class, struct, enum, delegate or interface
-    | TFSharpObjectRepr of TyconObjModelData
-
-    /// Indicates the type is a record
-    | TFSharpRecdRepr of TyconRecdFields
-
-    /// Indicates the type is a discriminated union
-    | TFSharpUnionRepr of TyconUnionData
+    | TFSharpTyconRepr of FSharpTyconData
 
     /// Indicates the type is a type from a .NET assembly without F# metadata.
     | TILObjectRepr of TILObjectReprData
@@ -994,7 +994,12 @@ type TProvidedTypeInfo =
 
 #endif
 
-type TyconFSharpObjModelKind =
+type FSharpTyconKind =
+    /// Indicates the type is an F#-declared record
+    | TFSharpRecord
+
+    /// Indicates the type is an F#-declared union
+    | TFSharpUnion
 
     /// Indicates the type is an F#-declared class (also used for units-of-measure)
     | TFSharpClass
@@ -1011,16 +1016,15 @@ type TyconFSharpObjModelKind =
     /// Indicates the type is an F#-declared enumeration
     | TFSharpEnum
 
-    /// Indicates if the type definition is a value type
-    member IsValueType: bool
-
 /// Represents member values type class fields relating to the F# object model
 [<NoEquality; NoComparison; StructuredFormatDisplay("{DebugText}")>]
-type TyconObjModelData =
+type FSharpTyconData =
     {
+        /// Indicates the cases of a union type
+        fsobjmodel_cases: TyconUnionData
 
         /// Indicates whether the type declaration is an F# class, interface, enum, delegate or struct
-        fsobjmodel_kind: TyconFSharpObjModelKind
+        fsobjmodel_kind: FSharpTyconKind
 
         /// The declared abstract slots of the class, interface or struct
         fsobjmodel_vslots: ValRef list
@@ -1933,6 +1937,8 @@ type Val =
 
     member SetInlineIfLambda: unit -> unit
 
+    member SetIsImplied: unit -> unit
+
     member SetIsCompiledAsStaticPropertyWithoutField: unit -> unit
 
     member SetIsCompilerGenerated: v: bool -> unit
@@ -2044,6 +2050,9 @@ type Val =
 
     /// Get the inline declaration on the value
     member InlineInfo: ValInline
+
+    /// Determines if the values is implied by another construct, e.g. a `IsA` property is implied by the union case for A
+    member IsImplied: bool
 
     /// Indicates if this is a 'base' value?
     member IsBaseVal: bool
@@ -2329,9 +2338,6 @@ type NonLocalEntityRef =
     /// Get the mangled name of the last item in the path of the nonlocal reference.
     member LastItemMangledName: string
 
-    /// Get the details of the module or namespace fragment for the entity referred to by this non-local reference.
-    member ModuleOrNamespaceType: ModuleOrNamespaceType
-
     /// Get the path into the CCU referenced by the nonlocal reference.
     member Path: string[]
 
@@ -2461,7 +2467,7 @@ type EntityRef =
     member ExceptionInfo: ExceptionInfo
 
     /// Get the blob of information associated with an F# object-model type definition, i.e. class, interface, struct etc.
-    member FSharpObjectModelTypeInfo: TyconObjModelData
+    member FSharpTyconRepresentationData: FSharpTyconData
 
     /// Gets any implicit CompareTo methods added to an F# record, union or struct type definition.
     member GeneratedCompareToValues: (ValRef * ValRef) option
@@ -2516,10 +2522,12 @@ type EntityRef =
     /// Indicates if this is an F#-defined interface type definition
     member IsFSharpInterfaceTycon: bool
 
-    /// Indicates if this is an F# type definition whose r.h.s. is known to be some kind of F# object model definition
+    /// Indicates if this is an F# type definition known to be an F# class, interface, struct,
+    /// delegate or enum. This isn't generally a particularly useful thing to know,
+    /// it is better to use more specific predicates.
     member IsFSharpObjectModelTycon: bool
 
-    /// Indicates if this is an F#-defined struct or enum type definition, i.e. a value type definition
+    /// Indicates if this is an F#-defined value type definition, including struct records and unions
     member IsFSharpStructOrEnumTycon: bool
 
     /// Indicates if this is an F# type definition whose r.h.s. definition is unknown (i.e. a traditional ML 'abstract' type in a signature,
@@ -2579,7 +2587,7 @@ type EntityRef =
     member IsStaticInstantiationTycon: bool
 #endif
 
-    /// Indicates if this is a struct or enum type definition, i.e. a value type definition
+    /// Indicates if this is a struct or enum type definition, i.e. a value type definition, including struct records and unions
     member IsStructOrEnumTycon: bool
 
     /// Indicates if this entity is an F# type abbreviation definition
@@ -2780,6 +2788,9 @@ type ValRef =
 
     /// Get the inline declaration on a parameter or other non-function-declaration value, used for optimization
     member InlineIfLambda: bool
+
+    /// Determines if the values is implied by another construct, e.g. a `IsA` property is implied by the union case for A
+    member IsImplied: bool
 
     /// Get the inline declaration on the value
     member InlineInfo: ValInline
@@ -3014,10 +3025,10 @@ type RecdFieldRef =
     /// Try to dereference the reference
     member TryRecdField: RecdField voption
 
-    /// Get the Entity for the type containing this union case
+    /// Get the Entity for the type containing this record field
     member Tycon: Entity
 
-    /// Get a reference to the type containing this union case
+    /// Get a reference to the type containing this record field
     member TyconRef: TyconRef
 
 /// Represents a type in the typed abstract syntax
@@ -3076,7 +3087,8 @@ type AnonRecdTypeInfo =
       mutable TupInfo: TupInfo
       mutable SortedIds: Syntax.Ident[]
       mutable Stamp: Stamp
-      mutable SortedNames: string[] }
+      mutable SortedNames: string[]
+      mutable IlTypeName: int64 }
 
     /// Create an AnonRecdTypeInfo from the basic data
     static member Create: ccu: CcuThunk * tupInfo: TupInfo * ids: Syntax.Ident[] -> AnonRecdTypeInfo
@@ -3524,7 +3536,9 @@ type Expr =
     ///
     | Quote of
         quotedExpr: Expr *
-        quotationInfo: ((ILTypeRef list * TTypes * Exprs * QuotationPickler.ExprData) * (ILTypeRef list * TTypes * Exprs * QuotationPickler.ExprData)) option ref *
+        quotationInfo:
+            ((ILTypeRef list * TTypes * Exprs * QuotationPickler.ExprData) *
+            (ILTypeRef list * TTypes * Exprs * QuotationPickler.ExprData)) option ref *
         isFromQueryExpression: bool *
         range: Text.range *
         quotedType: TType
@@ -4276,9 +4290,8 @@ type FreeVars =
     member DebugText: string
 
 /// A set of static methods for constructing types.
+[<Class>]
 type Construct =
-
-    new: unit -> Construct
 
 #if !NO_TYPEPROVIDERS
     /// Compute the definition location of a provided item
@@ -4315,6 +4328,9 @@ type Construct =
 
     /// Create a new node for an empty module or namespace contents
     static member NewEmptyModuleOrNamespaceType: mkind: ModuleOrNamespaceKind -> ModuleOrNamespaceType
+
+    /// Create a new node for an empty F# tycon data
+    static member NewEmptyFSharpTyconData: kind: FSharpTyconKind -> FSharpTyconData
 
     /// Create a new TAST Entity node for an F# exception definition
     static member NewExn:

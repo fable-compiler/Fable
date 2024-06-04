@@ -61,12 +61,12 @@ module Functions =
             elif c = 0 then Some v2
             else tryFind k r
 
-    // let rec functionArguments x f =
-    //     let f2 = f >> ((+) 3)
-    //     match x with
-    //     | [] -> failwith "empty list"
-    //     | [x] -> f x
-    //     | h::t -> functionArguments t f2
+    let rec functionArguments x f =
+        let f2 = f >> ((+) 3)
+        match x with
+        | [] -> failwith "empty list"
+        | [x] -> f x
+        | h::t -> functionArguments t f2
 
     let rec iterate f n x =
         match n with
@@ -212,9 +212,9 @@ let ``Tailcall optimization doesn't cause endless loops`` () = // See #675
 // let ``Recursive functions containing use work`` () =
 //     recWithUse () |> equal "abcdeEDCBA"
 
-// [<Fact>]
-// let ``Function arguments can be optimized`` () = // See #681
-//     functionArguments [1;2;3] ((+) 2) |> equal 11
+[<Fact>]
+let ``Function arguments can be optimized`` () = // See #681
+    functionArguments [1;2;3] ((+) 2) |> equal 11
 
 [<Fact>]
 let ``Function arguments can be optimized II`` () = // See #681

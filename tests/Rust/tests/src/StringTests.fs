@@ -4,8 +4,8 @@ open Util.Testing
 open System
 open System.Globalization
 
-// module M =
-//     let f x = nameof x
+module M =
+    let f x = nameof x
 
 // LINE SEPARATOR char doesn't cause an error #1283
 let LINE_SEPARATOR = "\u2028"
@@ -13,23 +13,38 @@ let LINE_SEPARATOR = "\u2028"
 let [<Literal>] aLiteral = "foo"
 let notALiteral = "foo"
 
-// type MyUnion = Bar of int * int | Foo1 of float | Foo3 | Foo4 of MyUnion
+[<Literal>]
+let formatCoordinateBody = "(%f,%f)"
 
-// type Test(i: int) =
-//     override __.ToString() = string(i + i)
+[<Literal>]
+let formatPrefix = "Person at coordinates"
+
+[<Literal>]
+let fullFormat = formatPrefix + formatCoordinateBody
+
+type MyUnion = Bar of int * int | Foo1 of float | Foo3 | Foo4 of MyUnion
+
+type Test(i: int) =
+    override _.ToString() = string (i + i)
 
 // let spr fmt =
 //     let fmt = Printf.StringFormat<_>(fmt)
 //     sprintf fmt
 
-// let containsInOrder (substrings: string list) (str: string) =
-//     let mutable lastIndex = -1
-//     substrings
-//     |> List.forall (fun s ->
-//         let i = str.IndexOf(s)
-//         let success = i >= 0 && i > lastIndex
-//         lastIndex <- i
-//         success)
+let containsInOrder (substrings: string list) (str: string) =
+    let mutable lastIndex = -1
+    substrings
+    |> List.forall (fun s ->
+        let i = str.IndexOf(s)
+        let success = i >= 0 && i > lastIndex
+        lastIndex <- i
+        success)
+
+[<Fact>]
+let ``F# nameof works`` () =
+    M.f 12 |> equal "x"
+    nameof M |> equal "M"
+    nameof M.f |> equal "f"
 
 [<Fact>]
 let ``Adding strings works`` () =
@@ -61,7 +76,7 @@ let ``String literal addition is optimized`` () =
 
 [<Fact>]
 let ``StringBuilder works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.Append("Hello") |> ignore
     sb.AppendLine() |> ignore
     sb.AppendLine("World!") |> ignore
@@ -70,51 +85,86 @@ let ``StringBuilder works`` () =
 
 [<Fact>]
 let ``StringBuilder.Length works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.Append("Hello") |> ignore
     // We don't test the AppendLine for Length because depending on the OS
     // the result is different. Unix \n VS Windows \r\n
     // sb.AppendLine() |> ignore
-    equal 5 sb.Length
+    sb.Length |> equal 5
 
 [<Fact>]
 let ``StringBuilder.ToString works with index and length`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.Append("Hello") |> ignore
     sb.AppendLine() |> ignore
-    equal "ll" (sb.ToString(2, 2))
+    sb.ToString(2, 2) |> equal "ll"
 
 [<Fact>]
 let ``StringBuilder.Clear works`` () =
-    let builder = new Text.StringBuilder()
-    builder.Append("1111") |> ignore
-    builder.Clear() |> ignore
-    equal "" (builder.ToString())
+    let sb = new System.Text.StringBuilder()
+    sb.Append("1111") |> ignore
+    sb.Clear() |> ignore
+    sb.ToString() |> equal ""
 
 [<Fact>]
 let ``StringBuilder.Append works with various overloads`` () =
-    let sb =
-        Text.StringBuilder()
-            .Append(Text.StringBuilder("aaa"))
-            .Append("bcd".ToCharArray())
-            .Append('/')
-            .Append(true)
-            .Append(5.2)
-            .Append(34)
+    let sb = System.Text.StringBuilder()
+                        .Append(System.Text.StringBuilder("aaa"))
+                        .Append("bcd".ToCharArray())
+                        .Append('/')
+                        .Append(true)
+                        .Append(5.2)
+                        .Append(34)
     let actual = sb.ToString().Replace(",", ".").ToLower()
     actual |> equal "aaabcd/true5.234"
 
 [<Fact>]
 let ``StringBuilder.AppendFormat works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
     sb.ToString() |> equal "Hello World!"
 
 [<Fact>]
 let ``StringBuilder.AppendFormat with provider works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     sb.AppendFormat(CultureInfo.InvariantCulture, "Hello{0}World{1}", " ", "!") |> ignore
     sb.ToString() |> equal "Hello World!"
+
+[<Fact>]
+let ``StringBuilder.Chars works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb.Chars(1) |> equal 'b'
+
+[<Fact>]
+let ``StringBuilder.Chars throws when index is out of bounds`` () =
+    throwsAnyError <| fun () ->
+        let sb = System.Text.StringBuilder()
+                            .Append("abc")
+        sb.Chars(-1) |> ignore
+        sb.Chars(3) |> ignore
+
+[<Fact>]
+let ``StringBuilder.Replace works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+                        .Append("abc")
+                        .Replace('a', 'x')
+                        .Replace("cx", "yz")
+    sb.ToString() |> equal "xbyzbc"
+
+[<Fact>]
+let ``StringBuilder index getter works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb[1] |> equal 'b'
+
+[<Fact>]
+let ``StringBuilder index setter works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+    sb[1] <- 'x'
+    sb.ToString() |> equal "axc"
 
 [<Fact>]
 let ``kprintf works`` () =
@@ -139,7 +189,7 @@ let ``ksprintf works`` () =
 
 [<Fact>]
 let ``kbprintf works`` () =
-    let sb = Text.StringBuilder()
+    let sb = System.Text.StringBuilder()
     let mutable i = 0
     let f () = i <- i + 1
     Printf.kbprintf f sb "Hello"
@@ -157,7 +207,7 @@ let ``ksprintf curries correctly`` () =
 
 [<Fact>]
 let ``bprintf works`` () =
-    let sb = Text.StringBuilder(10)
+    let sb = System.Text.StringBuilder(10)
     Printf.bprintf sb "Hello"
     Printf.bprintf sb " %s!" "world"
     sb.ToString() |> equal "Hello world!"
@@ -257,10 +307,11 @@ let ``Fix #2398: Exception when two successive string format placeholders and va
 //     let o = Test(5)
 //     sprintf "%O" o |> equal "10"
 
-// [<Fact>]
-// let ``sprintf \"%A\" with overloaded string works`` () =
-//     let o = Test(5)
-//     (sprintf "%A" o).Replace("\"", "") |> equal "10"
+[<Fact>]
+let ``sprintf \"%A\" with overloaded string works`` () =
+    let o = Test(5)
+    // (sprintf "%A" o).Replace("\"", "") |> equal "10" //TODO:
+    (string o).Replace("\"", "") |> equal "10"
 
 // #if FABLE_COMPILER
 // [<Fact>]
@@ -269,15 +320,6 @@ let ``Fix #2398: Exception when two successive string format placeholders and va
 //     o?self <- o
 //     sprintf "%A" o |> ignore
 // #endif
-
-module M =
-    let f x = nameof x
-
-[<Fact>]
-let ``F# nameof works`` () =
-    M.f 12 |> equal "x"
-    nameof M |> equal "M"
-    nameof M.f |> equal "f"
 
 [<Fact>]
 let ``string interpolation works`` () =
@@ -341,6 +383,12 @@ let ``Backslash is escaped in interpolated strings`` () = // See #2649
     $@"\{4}".Length |> equal 2
     @$"\{4}" |> equal @"\4"
     @$"\{4}".Length |> equal 2
+
+[<Fact>]
+let ``Extended string interpolation syntax`` =
+    let classAttr = "item-panel"
+    let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
+    cssNew |> equal ".item-panel:hover {background-color: #eee;}"
 
 [<Fact>]
 let ``interpolated string with double % should be unescaped`` () =
@@ -423,6 +471,14 @@ let ``sprintf integers with sign and padding works`` () = // See #1931
     sprintf "%5d" -5 |> equal "   -5"
     sprintf "%5d" -5L |> equal "   -5"
     // sprintf "%- 4i" 5 |> equal " 5  " //TODO:
+
+[<Fact>]
+let ``format string can use and compose string literals`` =
+    let renderedCoordinates = sprintf formatCoordinateBody 0.25 0.75
+    let renderedText = sprintf fullFormat 0.25 0.75
+
+    equal "(0.250000,0.750000)" renderedCoordinates
+    equal "Person at coordinates(0.250000,0.750000)" renderedText
 
 // [<Fact>]
 // let ``parameterized padding works`` () = // See #2336
@@ -986,6 +1042,7 @@ let ``String.IndexOfAny works`` () =
     "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
     "abcdbcebc".IndexOfAny([|'f';'e'|], 2) |> equal 6
     "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
+    "abcdbcebc".IndexOfAny([|'c';'b'|]) |> equal 1
 
 [<Fact>]
 let ``String.LastIndexOfAny works`` () =
@@ -1130,6 +1187,11 @@ let ``String.Item works`` () =
 let ``String.ToCharArray works`` () =
     let arr = "abcd".ToCharArray()
     arr |> equal [|'a';'b';'c';'d'|]
+
+[<Fact>]
+let ``String.ToCharArray with range works`` () =
+    let arr = "abcd".ToCharArray(1, 2)
+    arr |> equal [|'b';'c'|]
 
 // [<Fact>]
 // let ``String enumeration handles surrogates pairs`` () = // See #1279
@@ -1416,7 +1478,8 @@ let ``String.filter with Char.IsDigit as a predicate doesn't hang`` () =
 //     let s4: FormattableString = $"I have `backticks`"
 //     s4.Format |> equal "I have `backticks`"
 //     let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
-//     s5.Format |> equal "I have {escaped braces} and %percentage%"
+//     s5.Format |> equal "I have {{escaped braces}} and %percentage%"
+//     ()
 
 // #if FABLE_COMPILER
 // [<Fact>]

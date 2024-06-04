@@ -14,12 +14,34 @@ Check [this page](https://fable.io/docs/2-steps/setup.html).
 
 ## Building
 
+### Requirements
+
+#### Use VSCode Dev Container
+
+You can use VSCode Dev Container to get a preconfigured environment both with requirements and VSCode extensions.
+
+1. You need to have docker installed and running.
+2. [Install the Dev Container extension in VSCode](vscode:extension/ms-vscode-remote.remote-containers)
+3. Open the project in VSCode and click on the green button in the bottom left corner.
+
+#### Use your machine
+
 Make sure the following **requirements** are installed in your system:
 
 - [dotnet SDK 6 or higher](https://dotnet.microsoft.com/download)
 - [node.js](https://nodejs.org) with npm
+- [Python 3](https://www.python.org/) is installed and available as `python`
+- [Poetry](https://python-poetry.org/)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Dart](https://dart.dev/get-dart)
 
-Then run `dotnet fsi build.fsx` at the root folder to see the build options.
+### Build
+
+Run `./builsh.sh` or `./build.cmd` to see the build options.
+
+When using VSCode, you can also run the build tasks from the command palette (Ctrl+Shift+P) by typing `Run Task` and selecting the task you want to run.
+
+We also configured several debug configurations that you can use from the debug panel (Ctrl+Shift+D). This is useful as you can attach the debugger to the Fable compiler process to check what's going on.
 
 ## Contributing
 
@@ -28,3 +50,15 @@ Just by using Fable you're already contributing! You can help the community a lo
 Send bug reports (ideally with minimal code to reproduce the problem) and feature requests to this [GitHub repository](https://github.com/fable-compiler/Fable/issues). To interact with the community you can use the [Gitter chat](https://gitter.im/fable-compiler/Fable) but please note maintainers are not checking the chat regularly.
 
 If you are up to contribute a fix or a feature yourself, you're more than welcome! Please send first an issue or a minimal Work In Progess PR so we can discuss the implementation details in advance.
+
+### List of changelogs
+
+- [fable-standalone](src/fable-standalone/CHANGELOG.md)
+- [Fable.Core](src/Fable.Core/CHANGELOG.md)
+- [Fable.Cli](src/Fable.Cli/CHANGELOG.md)
+- [fable-library](src/fable-library-ts/CHANGELOG.md)
+- [fable-metadata](src/fable-metadata/CHANGELOG.md)
+- [fable-compiler](src/fable-compiler-js/CHANGELOG.md)
+- [Fable.AST](src/Fable.AST/CHANGELOG.md)
+- [Fable.PublishUtils](src/Fable.PublishUtils/CHANGELOG.md)
+- [Fable.Compiler](src/Fable.Compiler/CHANGELOG.md)

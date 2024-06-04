@@ -1,0 +1,23 @@
+import { Union } from "./fable_modules/fable-library-js.4.13.0/Types.js";
+import { union_type, string_type, int32_type } from "./fable_modules/fable-library-js.4.13.0/Reflection.js";
+import { some } from "./fable_modules/fable-library-js.4.13.0/Option.js";
+
+class Foobar extends Union {
+    constructor(tag, fields) {
+        super();
+        this.tag = tag;
+        this.fields = fields;
+    }
+    cases() {
+        return ["Foo", "Bar"];
+    }
+}
+
+function Foobar_$reflection() {
+    return union_type("HideType.Foobar", [], Foobar, () => [[["Item", int32_type]], [["Item", string_type]]]);
+}
+
+export function someFunction() {
+    console.log(some("meh"));
+}
+

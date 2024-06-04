@@ -211,7 +211,7 @@ pub mod BigInt_ {
     pub fn parse(s: string) -> bigint {
         match BigInt::from_str_radix(s.trim(), 10) {
             Ok(d) => d.into(),
-            Err(e) => panic!("Input string was not in a correct format."),
+            Err(e) => panic!("The input string {} was not in a correct format.", s),
         }
     }
 

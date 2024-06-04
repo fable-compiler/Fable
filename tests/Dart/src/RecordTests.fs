@@ -39,6 +39,9 @@ type Time =
     static member inline duration(value: {| from: int; until: int |}) = value.until - value.from
     static member inline duration(value: {| from: int |}) = Time.duration {| value with until = 10 |}
 
+type CarInterior = { Seats: int }
+type Car = { Interior: CarInterior }
+
 let tests() =
     testCase "Anonymous records work" <| fun () ->
         let r = makeAnonRec()
@@ -116,3 +119,17 @@ let tests() =
         let x'' = { x' with uniqueA = -10 }
         equal -10 x''.uniqueA
         equal -20 x''.uniqueB
+
+    testCase "Nested record field copy and update works for records" <| fun () ->
+        let car =
+            { Interior = { Seats = 4 } }
+        let car2 =
+            { car with Interior.Seats = 5 }
+        equal 5 car2.Interior.Seats
+
+    testCase "Nested record field copy and update works for anonymous records" <| fun () ->
+        let car =
+            {| Interior = {| Seats = 4 |} |}
+        let car2 =
+            {| car with Interior.Seats = 5 |}
+        equal 5 car2.Interior.Seats

@@ -8,27 +8,40 @@ open Internal.Utilities.Text.Lexing
 
 type Lexbuf = LexBuffer<LexBufferChar>
 
-let StringAsLexbuf (reportLibraryOnlyFeatures, langVersion, s: string) =
+let StringAsLexbuf (reportLibraryOnlyFeatures, langVersion, strictIndentation, s: string) =
 #if FABLE_COMPILER
-    LexBuffer<LexBufferChar>.FromString (reportLibraryOnlyFeatures, langVersion, s)
+    LexBuffer<LexBufferChar>
+        .FromString(reportLibraryOnlyFeatures, langVersion, strictIndentation, s)
 #else
-    LexBuffer<char>.FromChars (reportLibraryOnlyFeatures, langVersion, s.ToCharArray())
+    LexBuffer<char>
+        .FromChars(reportLibraryOnlyFeatures, langVersion, strictIndentation, s.ToCharArray())
 #endif
 
-let FunctionAsLexbuf (reportLibraryOnlyFeatures, langVersion, bufferFiller) =
-    LexBuffer<LexBufferChar>.FromFunction (reportLibraryOnlyFeatures, langVersion, bufferFiller)
+let FunctionAsLexbuf (reportLibraryOnlyFeatures, langVersion, strictIndentation, bufferFiller) =
+#if FABLE_COMPILER
+    LexBuffer<LexBufferChar>
+#else
+    LexBuffer<char>
+#endif
+        .FromFunction(reportLibraryOnlyFeatures, langVersion, strictIndentation, bufferFiller)
 
-let SourceTextAsLexbuf (reportLibraryOnlyFeatures, langVersion, sourceText) =
-    LexBuffer<LexBufferChar>.FromSourceText (reportLibraryOnlyFeatures, langVersion, sourceText)
+let SourceTextAsLexbuf (reportLibraryOnlyFeatures, langVersion, strictIndentation, sourceText) =
+#if FABLE_COMPILER
+    LexBuffer<LexBufferChar>
+#else
+    LexBuffer<char>
+#endif
+        .FromSourceText(reportLibraryOnlyFeatures, langVersion, strictIndentation, sourceText)
 
 #if !FABLE_COMPILER
 
-let StreamReaderAsLexbuf (reportLibraryOnlyFeatures, langVersion, reader: StreamReader) =
+let StreamReaderAsLexbuf (reportLibraryOnlyFeatures, langVersion, strictIndentation, reader: StreamReader) =
     let mutable isFinished = false
 
     FunctionAsLexbuf(
         reportLibraryOnlyFeatures,
         langVersion,
+        strictIndentation,
         fun (chars, start, length) ->
             if isFinished then
                 0

@@ -778,16 +778,16 @@ let ``List.contains works`` () =
     xs |> List.contains 2 |> equal true
     xs |> List.contains 0 |> equal false
 
-// [<Fact>]
-// let ``List.contains lambda doesn't clash`` () =
-//     let modifyList current x =
-//         let contains = current |> List.contains x
-//         match contains with
-//             | true -> current |> (List.filter (fun a -> a <> x))
-//             | false -> x::current
-//     let l = [1;2;3;4]
-//     (modifyList l 1) |> List.contains 1 |> equal false
-//     (modifyList l 5) |> List.contains 5 |> equal true
+[<Fact>]
+let ``List.contains lambda doesn't clash`` () =
+    let modifyList current x =
+        let contains = current |> List.contains x
+        match contains with
+            | true -> current |> (List.filter (fun a -> a <> x))
+            | false -> x::current
+    let l = [1;2;3;4]
+    (modifyList l 1) |> List.contains 1 |> equal false
+    (modifyList l 5) |> List.contains 5 |> equal true
 
 [<Fact>]
 let ``List.average works`` () =

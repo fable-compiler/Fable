@@ -2,3 +2,4 @@
 test/
 src/**/bin/
 src/**/obj/
+temp/

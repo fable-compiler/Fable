@@ -177,12 +177,14 @@ module internal ParseAndCheck =
         // restore all cached typecheck entries above file
         cachedAbove |> Array.iter (fun (key, value) -> compilerState.checkCache.TryAdd(key, value) |> ignore)
 
-    let ParseFile (fileName: string, source: string, parsingOptions: FSharpParsingOptions, compilerState) =
+    let ParseFile (fileName: string, source: string, parsingOptions: FSharpParsingOptions, compilerState, ct) =
         let parseCacheKey = fileName, hash source
         compilerState.parseCache.GetOrAdd(parseCacheKey, fun _ ->
             ClearStaleCache(fileName, parsingOptions, compilerState)
             let sourceText = SourceText.ofString source
-            let parseErrors, parseTreeOpt, anyErrors = ParseAndCheckFile.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors, captureIdentifiersWhenParsing)
+            let flatErrors = compilerState.tcConfig.flatErrors
+            let parseErrors, parseTreeOpt, anyErrors =
+                ParseAndCheckFile.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors, flatErrors, captureIdentifiersWhenParsing, ct)
             let dependencyFiles = [||] // interactions have no dependencies
             FSharpParseFileResults (parseErrors, parseTreeOpt, anyErrors, dependencyFiles) )
 
@@ -202,7 +204,9 @@ module internal ParseAndCheck =
             |> Cancellable.runWithoutCancellation
 
         let fileName = parseResults.FileName
-        let tcErrors = DiagnosticHelpers.CreateDiagnostics (diagnosticsOptions, false, fileName, (capturingLogger.GetDiagnostics()), suggestNamesForErrors)
+        let flatErrors = compilerState.tcConfig.flatErrors
+        let parseDiagnostics = capturingLogger.GetDiagnostics()
+        let tcErrors = DiagnosticHelpers.CreateDiagnostics (diagnosticsOptions, false, fileName, parseDiagnostics, suggestNamesForErrors, flatErrors, None)
         (tcResult, tcErrors), (tcState, moduleNamesDict)
 
     let CheckFile (projectFileName: string, parseResults: FSharpParseFileResults, tcState: TcState, moduleNamesDict: ModuleNamesDict, compilerState) =
@@ -294,10 +298,11 @@ type InteractiveChecker internal (compilerStateCache) =
     /// Does not retain name resolutions and symbol uses which are quite memory hungry (so no intellisense etc.).
     /// Already parsed files will be cached so subsequent compilations will be faster.
     member _.ParseAndCheckProject (projectFileName: string, fileNames: string[], sources: string[]) =
+        let cts = new CancellationTokenSource()
         let compilerState = compilerStateCache.Get()
         // parse files
         let parsingOptions = FSharpParsingOptions.FromTcConfig(compilerState.tcConfig, fileNames, false)
-        let parseFile (fileName, source) = ParseFile (fileName, source, parsingOptions, compilerState)
+        let parseFile (fileName, source) = ParseFile (fileName, source, parsingOptions, compilerState, cts.Token)
         let parseResults = Array.zip fileNames sources |> Array.map parseFile
 
         // type check files
@@ -317,6 +322,7 @@ type InteractiveChecker internal (compilerStateCache) =
     /// up to and including the file requested. Returns parse and typecheck results containing
     /// name resolutions and symbol uses for the file requested only, so intellisense etc. works.
     member _.ParseAndCheckFileInProject (fileName: string, projectFileName: string, fileNames: string[], sources: string[]) =
+        let cts = new CancellationTokenSource()
         let compilerState = compilerStateCache.Get()
         // get files before file
         let fileIndex = fileNames |> Array.findIndex ((=) fileName)
@@ -325,7 +331,7 @@ type InteractiveChecker internal (compilerStateCache) =
 
         // parse files before file
         let parsingOptions = FSharpParsingOptions.FromTcConfig(compilerState.tcConfig, fileNames, false)
-        let parseFile (fileName, source) = ParseFile (fileName, source, parsingOptions, compilerState)
+        let parseFile (fileName, source) = ParseFile (fileName, source, parsingOptions, compilerState, cts.Token)
         let parseResults = Array.zip fileNamesBeforeFile sourcesBeforeFile |> Array.map parseFile
 
         // type check files before file

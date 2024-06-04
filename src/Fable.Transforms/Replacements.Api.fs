@@ -77,8 +77,12 @@ let defaultof (com: ICompiler) ctx r typ =
 let createMutablePublicValue (com: ICompiler) value =
     match com.Options.Language with
     | Python -> Py.Replacements.createAtom com value
-    | JavaScript | TypeScript -> JS.Replacements.createAtom com value
-    | Rust | Php | Dart | Lua -> value
+    | JavaScript
+    | TypeScript -> JS.Replacements.createAtom com value
+    | Rust
+    | Php
+    | Dart
+    | Lua -> value
 
 let getRefCell (com: ICompiler) r typ (expr: Expr) =
     match com.Options.Language with

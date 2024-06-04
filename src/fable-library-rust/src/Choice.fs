@@ -1,25 +1,25 @@
 module Choice_
 
 //[<CompiledName("FSharpChoice`2")>]
-type Choice<'T1,'T2> =
+type Choice<'T1, 'T2> =
     | Choice1Of2 of 'T1
     | Choice2Of2 of 'T2
 
 //[<CompiledName("FSharpChoice`3")>]
-type Choice<'T1,'T2,'T3> =
+type Choice<'T1, 'T2, 'T3> =
     | Choice1Of3 of 'T1
     | Choice2Of3 of 'T2
     | Choice3Of3 of 'T3
 
 //[<CompiledName("FSharpChoice`4")>]
-type Choice<'T1,'T2,'T3,'T4> =
+type Choice<'T1, 'T2, 'T3, 'T4> =
     | Choice1Of4 of 'T1
     | Choice2Of4 of 'T2
     | Choice3Of4 of 'T3
     | Choice4Of4 of 'T4
 
 //[<CompiledName("FSharpChoice`5")>]
-type Choice<'T1,'T2,'T3,'T4,'T5> =
+type Choice<'T1, 'T2, 'T3, 'T4, 'T5> =
     | Choice1Of5 of 'T1
     | Choice2Of5 of 'T2
     | Choice3Of5 of 'T3
@@ -27,7 +27,7 @@ type Choice<'T1,'T2,'T3,'T4,'T5> =
     | Choice5Of5 of 'T5
 
 //[<CompiledName("FSharpChoice`6")>]
-type Choice<'T1,'T2,'T3,'T4,'T5,'T6> =
+type Choice<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     | Choice1Of6 of 'T1
     | Choice2Of6 of 'T2
     | Choice3Of6 of 'T3
@@ -36,7 +36,7 @@ type Choice<'T1,'T2,'T3,'T4,'T5,'T6> =
     | Choice6Of6 of 'T6
 
 //[<CompiledName("FSharpChoice`7")>]
-type Choice<'T1,'T2,'T3,'T4,'T5,'T6,'T7> =
+type Choice<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> =
     | Choice1Of7 of 'T1
     | Choice2Of7 of 'T2
     | Choice3Of7 of 'T3

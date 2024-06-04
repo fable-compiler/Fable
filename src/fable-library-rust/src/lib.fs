@@ -2,10 +2,11 @@ module Fable_Library_Rust
 
 open Fable.Core.Rust
 
-let _imports() =
+let _imports () =
     importAll "./Async.rs"
     importAll "./BigInt.rs"
     importAll "./BitConverter.rs"
+    importAll "./Char.rs"
     importAll "./Convert.rs"
     importAll "./DateOnly.rs"
     importAll "./DateTime.rs"
@@ -20,6 +21,7 @@ let _imports() =
     importAll "./Native.rs"
     importAll "./NativeArray.rs"
     importAll "./Numeric.rs"
+    importAll "./Reflection.rs"
     importAll "./RegExp.rs"
     importAll "./String.rs"
     importAll "./TimeOnly.rs"

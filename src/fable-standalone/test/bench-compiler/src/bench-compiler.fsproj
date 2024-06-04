@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
+    <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
+  </PropertyGroup>
+
+  <!-- AOT settings (https://aka.ms/OptimizeCoreRT) -->
+  <PropertyGroup>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- <PublishAot>true</PublishAot> -->
+    <!-- <PublishTrimmed>true</PublishTrimmed> -->
+    <!-- <StripSymbols>true</StripSymbols> -->
+    <!-- <IlcTrimMetadata>true</IlcTrimMetadata> -->
+    <!-- <IlcDisableReflection>true</IlcDisableReflection> -->
+    <!-- <IlcOptimizationPreference>Speed</IlcOptimizationPreference> -->
+    <!-- <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies> -->
+    <!-- <IlcGenerateCompleteTypeMetadata>false</IlcGenerateCompleteTypeMetadata> -->
+    <!-- <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData> -->
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <WasmMainJSPath>main.mjs</WasmMainJSPath>
+    <!-- <RunAOTCompilation>true</RunAOTCompilation> -->
+    <!-- <WasmStripILAfterAOT>true</WasmStripILAfterAOT> -->
+    <!-- enable reporting to profiler in browser dev tools -->
+    <!-- <WasmProfilers>browser;</WasmProfilers> -->
+    <!-- Put "framework" (dotnet.js, dlls, etc) files directly into the AppBundle -->
+    <!-- <WasmRuntimeAssetsLocation>./</WasmRuntimeAssetsLocation> -->
+    <!-- <RuntimeIdentifier>browser-wasm</RuntimeIdentifier> -->
+    <!-- <RunAOTCompilation>true</RunAOTCompilation> -->
+    <!-- <WasmEnableExceptionHandling>true</WasmEnableExceptionHandling> -->
+    <!-- <WasmEnableSIMD>true</WasmEnableSIMD> -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- <RdXmlFile Include="rd.xml" /> -->
+    <!-- <RuntimeHostConfigurationOption Include="System.Text.Json.Serialization.EnableSourceGenReflectionFallback" Value="true" /> -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="source-map-sharp" Version="1.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="../../../src/Fable.Standalone.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Platform.fs"/>
+    <Compile Include="ProjectParser.fs"/>
+    <Compile Include="app.fs"/>
+  </ItemGroup>
+
+</Project>

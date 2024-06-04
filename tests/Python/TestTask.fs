@@ -13,10 +13,12 @@ let ``test Simple task translates without exception`` () =
     let tsk = task { return () }
     tsk.GetAwaiter().GetResult()
 
+[<Fact>]
 let ``test Simple task result translates without exception`` () =
     let tsk = task { return () }
     tsk.Result
 
+[<Fact>]
 let ``test Simple Task.FromResult translates without exception`` () =
     let tsk = Task.FromResult 42
     let result = tsk.Result
