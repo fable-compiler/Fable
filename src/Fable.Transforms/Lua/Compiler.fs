@@ -10,7 +10,7 @@ type LuaCompiler(com: Fable.Compiler) =
     member this.Com = com
     member this.AddClassDecl(c: ClassDecl) = types <- types |> Map.add c.Entity c
     member this.GetByRef(e: EntityRef) = types |> Map.tryFind e
-    member this.DecisionTreeTargets(exprs: (list<Fable.Ident> * Expr) list) = decisionTreeTargets <- exprs
+    member this.DecisionTreeTargets(exprs: (Fable.Ident list * Expr) list) = decisionTreeTargets <- exprs
     member this.GetDecisionTreeTargets(idx: int) = decisionTreeTargets.[idx]
 
     member this.GetMember(memberRef: Fable.MemberRef) : Fable.MemberFunctionOrValue =

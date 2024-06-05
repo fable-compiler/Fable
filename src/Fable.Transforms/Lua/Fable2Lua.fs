@@ -126,7 +126,7 @@ module Transforms =
         | Fable.StringConstant(s) -> Const(ConstString s)
         | Fable.BoolConstant(b) -> Const(ConstBool b)
         | Fable.UnitConstant -> Const(ConstNull)
-        | Fable.CharConstant(c) -> Const(ConstString(string c))
+        | Fable.CharConstant(c: char) -> Const(ConstString(string c))
         // | Fable.EnumConstant(e,ref) ->
         //     convertExpr com e
         | Fable.NewRecord(values, ref, args) ->
@@ -262,9 +262,10 @@ module Transforms =
                     [ Const(ConstString path) ]
                 )
 
-            match info.Selector with
-            | "" -> rcall
-            | s -> GetObjMethod(rcall, s)
+            if String.IsNullOrEmpty info.Selector then
+                rcall
+            else
+                GetObjMethod(rcall, info.Selector)
         | Fable.Expr.IdentExpr(i) when i.Name <> "" ->
             Ident
                 {
@@ -412,7 +413,7 @@ module Transforms =
                     elif isGetter then
                         Helpers.ident "property"
                     else
-                        Helpers.ident $"{memb.Name}.setter"
+                        Helpers.ident $"%s{memb.Name}.setter"
                 ]
 
             let args, body, returnType = [ "" ], [ Do(Unknown "") ], Unknown ""
