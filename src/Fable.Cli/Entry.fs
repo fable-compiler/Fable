@@ -186,7 +186,7 @@ let argLanguage (args: CliArgs) =
         | "ts"
         | "typescript" -> Ok TypeScript
         | "lua"
-        | "Lua" -> Lua
+        | "Lua" -> Ok Lua
         | "py"
         | "python" -> Ok Python
         | "php" -> Ok Php
@@ -322,6 +322,7 @@ type Runner =
                         | Python -> "FABLE_COMPILER_PYTHON"
                         | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
                         | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
+                        | Lua -> "FABLE_COMPILER_LUA"
                     ]
                 |> List.distinct
 
@@ -476,7 +477,8 @@ let getLibPkgVersion =
     | Python
     | Rust
     | Dart
-    | Php -> None
+    | Php
+    | Lua -> None
 
 let private logPrelude commands language =
     match commands with
