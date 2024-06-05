@@ -8,52 +8,61 @@ open Fable.AST
 open Fable.AST.Lua
 
 type System.Text.StringBuilder with
-    member sb.Write (txt: string) =
-        sb.Append(txt) |> ignore
-    member sb.WriteLine (txt: string) =
+
+    member sb.Write(txt: string) = sb.Append(txt) |> ignore
+
+    member sb.WriteLine(txt: string) =
         sb.Append(txt) |> ignore
         sb.AppendLine() |> ignore
 
 module Output =
 
     type Writer =
-        { Writer: System.Text.StringBuilder
-          Indent: int
-          Precedence: int
-          CurrentNamespace: string option }
+        {
+            Writer: System.Text.StringBuilder
+            Indent: int
+            Precedence: int
+            CurrentNamespace: string option
+        }
 
     module Helper =
-        let separateWithCommas = function
+        let separateWithCommas =
+            function
             | [] -> ""
-            | [x] -> x
+            | [ x ] -> x
             | lst -> lst |> List.reduce (fun acc item -> acc + " ," + item)
 
-    let indent ctx =
-        { ctx with Indent = ctx.Indent + 1}
+    let indent ctx = { ctx with Indent = ctx.Indent + 1 }
 
     module Writer =
         let create w =
-            { Writer = w; Indent = 0; Precedence = Int32.MaxValue; CurrentNamespace = None }
+            {
+                Writer = w
+                Indent = 0
+                Precedence = Int32.MaxValue
+                CurrentNamespace = None
+            }
 
     let writeIndent ctx =
         for _ in 1 .. ctx.Indent do
             ctx.Writer.Write("    ")
 
-    let write ctx txt =
-        ctx.Writer.Write(txt: string)
+    let write ctx txt = ctx.Writer.Write(txt: string)
 
     let writei ctx txt =
         writeIndent ctx
         write ctx txt
 
-    let writeln ctx txt =
-        ctx.Writer.WriteLine(txt: string)
+    let writeln ctx txt = ctx.Writer.WriteLine(txt: string)
+
     let writeCommented ctx help txt =
         writeln ctx "--[["
         write ctx help
         writeln ctx txt
         writeln ctx " --]]"
-    let writeOp ctx = function
+
+    let writeOp ctx =
+        function
         | Multiply -> write ctx "*"
         | Equals -> write ctx "=="
         | Unequal -> write ctx "~="
@@ -67,12 +76,15 @@ module Output =
         | And -> write ctx "and"
         | Or -> write ctx "or"
         | BinaryTodo x -> writeCommented ctx "binary todo" x
-    let sprintExprSimple = function
+
+    let sprintExprSimple =
+        function
         | Ident i -> i.Name
         | _ -> ""
-    let rec writeExpr ctx = function
-        | Ident i ->
-            write ctx i.Name
+
+    let rec writeExpr ctx =
+        function
+        | Ident i -> write ctx i.Name
         | Const c ->
             match c with
             | ConstString s -> s |> sprintf "'%s'" |> write ctx
@@ -92,13 +104,15 @@ module Output =
             write ctx ")"
             writeln ctx ""
             let ctxI = indent ctx
+
             for b in body do
                 writeStatement ctxI b
+
             writei ctx "end)"
         | Unary(Not, expr) ->
             write ctx "not "
             writeExpr ctx expr
-        | Binary (op, left, right) ->
+        | Binary(op, left, right) ->
             writeExpr ctx left
             write ctx " "
             writeOp ctx op
@@ -116,7 +130,7 @@ module Output =
             writeExpr ctx expr
             write ctx "["
             //hack alert - lua indexers are 1-based and not 0-based, so we need to "add1". Probably correct soln here is to simplify ast after +1 if possible
-            let add1 = Binary(BinaryOp.Plus, Const (ConstNumber 1.0), idx)
+            let add1 = Binary(BinaryOp.Plus, Const(ConstNumber 1.0), idx)
             writeExpr ctx add1
             write ctx "]"
         | SetValue(expr, value) ->
@@ -143,7 +157,7 @@ module Output =
             //writei ctx "or "
             writeExpr ctxI elseExpr
             write ctx ")"
-        | Macro (macro, args) ->
+        | Macro(macro, args) ->
 
             // let subbedMacro =
             //     (s, args |> List.mapi(fun i x -> i.ToString(), sprintExprSimple x))
@@ -152,27 +166,31 @@ module Output =
             let regex = System.Text.RegularExpressions.Regex("\$(?<n>\d)(?<s>\.\.\.)?")
             let matches = regex.Matches(macro)
             let mutable pos = 0
+
             for m in matches do
                 let n = int m.Groups.["n"].Value
-                write ctx (macro.Substring(pos,m.Index-pos))
+                write ctx (macro.Substring(pos, m.Index - pos))
+
                 if m.Groups.["s"].Success then
                     if n < args.Length then
                         match args.[n] with
                         | NewArr items ->
-                           let mutable first = true
-                           for value in items do
-                               if first then
-                                   first <- false
-                               else
-                                   write ctx ", "
-                               writeExpr ctx value
-                        | _ ->
-                            writeExpr ctx args.[n]
+                            let mutable first = true
+
+                            for value in items do
+                                if first then
+                                    first <- false
+                                else
+                                    write ctx ", "
+
+                                writeExpr ctx value
+                        | _ -> writeExpr ctx args.[n]
 
                 elif n < args.Length then
                     writeExpr ctx args.[n]
 
                 pos <- m.Index + m.Length
+
             write ctx (macro.Substring(pos))
         | Function(args, body) ->
             write ctx "function "
@@ -187,10 +205,12 @@ module Output =
             write ctx "{"
             let ctxI = indent ctx
             writeln ctxI ""
+
             for idx, (name, expr) in args |> List.mapi (fun i x -> i, x) do
                 writei ctxI name
                 write ctxI " = "
                 writeExpr ctxI expr
+
                 if idx < args.Length - 1 then
                     writeln ctxI ","
             //writeExprs ctxI args
@@ -200,9 +220,11 @@ module Output =
             write ctx "{"
             let ctxI = indent ctx
             writeln ctxI ""
+
             for idx, expr in args |> List.mapi (fun i x -> i, x) do
                 writei ctxI ""
                 writeExpr ctxI expr
+
                 if idx < args.Length - 1 then
                     writeln ctxI ","
             //writeExprs ctxI args
@@ -213,22 +235,28 @@ module Output =
             write ctx "("
             writeExpr ctx expr
             write ctx ")"
-        | Unknown x ->
-            writeCommented ctx "unknown" x
+        | Unknown x -> writeCommented ctx "unknown" x
         | x -> sprintf "%A" x |> writeCommented ctx "todo"
-    and writeExprs ctx = function
+
+    and writeExprs ctx =
+        function
         | [] -> ()
-        | h::t ->
+        | h :: t ->
             writeExpr ctx h
+
             for item in t do
                 write ctx ", "
                 writeExpr ctx item
 
-    and writeStatement ctx = function
+    and writeStatement ctx =
+        function
         | Assignment(names, expr, isLocal) ->
             let names = names |> Helper.separateWithCommas
             writei ctx ""
-            if isLocal then write ctx "local "
+
+            if isLocal then
+                write ctx "local "
+
             write ctx names
             write ctx " = "
             writeExpr ctx expr
@@ -244,6 +272,7 @@ module Output =
             writeln ctxI ""
             body |> List.iter (writeStatement ctxI)
             writeln ctx "end"
+
             if exportToMod then
                 writei ctx "mod."
                 write ctx name
@@ -260,7 +289,7 @@ module Output =
             writei ctx ""
             writeExpr ctx expr
             writeln ctx ""
-        | ForLoop (name, start, limit, body) ->
+        | ForLoop(name, start, limit, body) ->
             writei ctx "for "
             write ctx name
             write ctx "="
@@ -269,20 +298,24 @@ module Output =
             writeExpr ctx limit
             write ctx " do"
             let ctxI = indent ctx
+
             for statement in body do
                 writeln ctxI ""
                 writeStatement ctxI statement
+
             writeln ctx ""
             writei ctx "end"
             writeln ctx ""
-        | WhileLoop (guard, body) ->
+        | WhileLoop(guard, body) ->
             writei ctx "while "
             writeExpr ctx guard
             write ctx " do"
             let ctxI = indent ctx
+
             for statement in body do
                 writeln ctxI ""
                 writeStatement ctxI statement
+
             writeln ctx ""
             writei ctx "end"
             writeln ctx ""
@@ -291,14 +324,18 @@ module Output =
             writeExpr ctx guard
             write ctx " then"
             let ctxI = indent ctx
+
             for statement in thenSt do
                 writeln ctxI ""
                 writeStatement ctxI statement
+
             writeln ctx ""
             writei ctx "else"
+
             for statement in elseSt do
                 writeln ctxI ""
                 writeStatement ctxI statement
+
             writeln ctx ""
             writei ctx "end"
             writeln ctx ""
@@ -306,20 +343,21 @@ module Output =
 
     let writeFile ctx (file: File) =
         writeln ctx "mod = {}"
+
         for s in file.Statements do
             writeStatement ctx s
+
         write ctx "return mod"
         //debugging
         writeln ctx ""
-        // writeln ctx "--[["
-        // sprintf "%s" file.ASTDebug |> write ctx
-        //sprintf "%A" file.Statements |> write ctx
-        //writeln ctx " --]]"
+// writeln ctx "--[["
+// sprintf "%s" file.ASTDebug |> write ctx
+//sprintf "%A" file.Statements |> write ctx
+//writeln ctx " --]]"
 
-let isEmpty (file: File): bool =
-    false //TODO: determine if printer will not print anything
+let isEmpty (file: File) : bool = false //TODO: determine if printer will not print anything
 
-let run (writer: Printer.Writer) (lib: File): Async<unit> =
+let run (writer: Printer.Writer) (lib: File) : Async<unit> =
     async {
         let sb = System.Text.StringBuilder()
         let ctx = Output.Writer.create sb

@@ -36,11 +36,14 @@ open Fable.Core
 [<RequireQualifiedAccess>]
 module Lua =
 
-    type [<AllowNullLiteral>] ArrayConstructor =
+    [<AllowNullLiteral>]
+    type ArrayConstructor =
         [<Emit "$0([None]*$1...)">]
         abstract Create: size: int -> 'T[]
+
         [<Emit "isinstance($1, list)">]
         abstract isArray: arg: obj -> bool
+
         abstract from: arg: obj -> 'T[]
 
     [<Emit("list")>]

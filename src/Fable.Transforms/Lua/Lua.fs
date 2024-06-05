@@ -18,6 +18,7 @@ type LuaIdentity =
 type UnaryOp =
     | Not
     | NotBitwise
+
 type BinaryOp =
     | Equals
     | Unequal
@@ -60,7 +61,7 @@ type Statement =
     | Return of Expr
     | Do of Expr
     | SNoOp
-    | ForLoop of string * start: Expr* limit: Expr* body: Statement list
+    | ForLoop of string * start: Expr * limit: Expr * body: Statement list
     | WhileLoop of guard: Expr * body: Statement list
     | IfThenElse of guard: Expr * thenSt: Statement list * elseSt: Statement list
 
