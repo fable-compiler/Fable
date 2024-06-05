@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <Compile Include="Timer.fs" />
-    <Compile Include="../../fable-library/Global.fs" />
+    <Compile Include="Global.fs" />
     <!-- <Compile Include="BigInt/n.fsi" /> -->
     <!-- <Compile Include="BigInt/n.fs" /> -->
     <!-- <Compile Include="BigInt/z.fsi" /> -->
@@ -23,8 +23,8 @@
     <Compile Include="Native.fs" />
     <!-- <Compile Include="../../fable-library/MutableMap.fs" />
     <Compile Include="../../fable-library/MutableSet.fs" /> -->
-    <Compile Include="../../fable-library/Choice.fs" />
-    <Compile Include="../../fable-library/Array.fs" />
+    <Compile Include="Choice.fs" />
+    <Compile Include="Array.fs" />
     <!-- <Compile Include="../../fable-library/List.fs" /> -->
     <!-- <Compile Include="../../fable-library/Seq.fs" />
     <Compile Include="../../fable-library/Seq2.fs" /> -->
@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Fable.Core\Fable.Core.fsproj" />
+    <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />
   </ItemGroup>
 
 </Project>
