@@ -309,10 +309,7 @@ module Transforms =
             //     argsExprs
             //     @ [macroExpr]
             // asSingleExprIife exprs
-            if m.IsStatement then
-                Macro(m.Macro, m.CallInfo.Args |> List.map transformExpr)
-            else
-                Unknown $"Emit %A{m.Macro}"
+            Macro(m.Macro, m.CallInfo.Args |> List.map transformExpr)
         | Fable.DecisionTree(expr, lst) ->
             com.DecisionTreeTargets(lst)
             transformExpr expr
