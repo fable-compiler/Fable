@@ -112,6 +112,9 @@ module Output =
         | Unary(Not, expr) ->
             write ctx "not "
             writeExpr ctx expr
+        | Unary(NotBitwise, expr) ->
+            write ctx "~"
+            writeExpr ctx expr
         | Binary(op, left, right) ->
             writeExpr ctx left
             write ctx " "
@@ -235,8 +238,8 @@ module Output =
             write ctx "("
             writeExpr ctx expr
             write ctx ")"
-        | Unknown x -> writeCommented ctx "unknown" x
-        | x -> sprintf "%A" x |> writeCommented ctx "todo"
+
+        | Unknown x -> writeCommented ctx "todo: unknown" x
 
     and writeExprs ctx =
         function

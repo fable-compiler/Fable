@@ -68,6 +68,7 @@ module Transforms =
 
         let fcall args expr = FunctionCall(expr, args)
 
+        ///lua's immediately invoked function expressions
         let iife statements =
             FunctionCall(AnonymousFunc([], statements), [])
 
@@ -191,6 +192,7 @@ module Transforms =
             | _ -> sprintf "%A %A" op expr |> Unknown
         | x -> Unknown(sprintf "%A" x)
 
+    ///lua's immediately invoked function expressions
     let asSingleExprIife (exprs: Expr list) : Expr = //function
         match exprs with
         | [] -> NoOp
@@ -214,6 +216,7 @@ module Transforms =
         | [] -> NoOp |> Do
         | _ -> FunctionCall(AnonymousFunc([], statements), []) |> Return
 
+    ///lua's immediately invoked function expressions
     let asSingleExprIifeTr com : Fable.Expr list -> Expr =
         List.map (transformExpr com) >> asSingleExprIife
 
@@ -230,20 +233,52 @@ module Transforms =
         let transformOp = transformOp com
 
         match expr with
-        | Fable.Expr.Value(value, _) -> transformValueKind com value
-        | Fable.Expr.Call(expr, callInfo, t, r) ->
+        | Fable.IdentExpr i when i.Name = "" -> Unknown "ident"
+        | Fable.IdentExpr i ->
+            Ident
+                {
+                    Namespace = None
+                    Name = i.Name
+                }
+        | Fable.Value(value, _) -> transformValueKind com value
+        | Fable.Lambda(arg, body, name) -> Function([ arg.Name ], [ transformExpr body |> Return ])
+        | Fable.Delegate(idents, body, _, _) ->
+            Function(idents |> List.map (fun i -> i.Name), [ transformExpr body |> Return |> flattenReturnIifes ]) //can be flattened
+        | Fable.ObjectExpr(_members, typ, _baseCall) -> Unknown $"Obj %A{typ}"
+        | Fable.TypeCast(expr, t) -> transformExpr expr //typecasts are meaningless
+        | Fable.Test(expr, kind, b) ->
+            match kind with
+            | Fable.UnionCaseTest i -> Binary(Equals, GetField(transformExpr expr, "tag"), Const(ConstNumber(float i)))
+            | Fable.OptionTest isSome ->
+                if isSome then
+                    Binary(Unequal, Const ConstNull, transformExpr expr)
+                else
+                    Binary(Equals, Const ConstNull, transformExpr expr)
+            | Fable.TestKind.TypeTest t ->
+                // match t with
+                // | Fable.DeclaredType (ent, genArgs) ->
+                //     match ent.FullName with
+                //     | Fable.Transforms.Types.ienumerable -> //isArrayLike
+                //     | Fable.Transforms.Types.array
+                //     | _ ->
+                // | _ -> ()
+                Binary(Equals, GetField(transformExpr expr, "type"), Const(t.ToString() |> ConstString))
+            | _ -> Unknown(sprintf "test %A %A" expr kind)
+        | Fable.Call(expr, callInfo, t, r) ->
             let lhs =
                 match expr with
-                | Fable.Expr.Get(expr, Fable.GetKind.FieldGet info, t, _) ->
+                | Fable.Get(expr, Fable.GetKind.FieldGet info, t, _) ->
                     match t with
                     | Fable.DeclaredType(_, _)
                     | Fable.AnonymousRecordType(_, _, _) -> GetObjMethod(transformExpr expr, info.Name)
                     | _ -> transformExpr expr
-                | Fable.Expr.Delegate _ -> transformExpr expr |> Parentheses
+                | Fable.Delegate _ -> transformExpr expr |> Parentheses
                 | _ -> transformExpr expr
 
             FunctionCall(lhs, List.map transformExpr callInfo.Args)
-        | Fable.Expr.Import(info, t, r) ->
+        | Fable.CurriedApply(applied, args, _, _) -> FunctionCall(transformExpr applied, args |> List.map transformExpr)
+        | Fable.Operation(kind, _, _, _) -> transformOp kind
+        | Fable.Import(info, t, r) ->
             let path =
                 match info.Kind, info.Path with
                 | libImport, Regex "fable-lib\/(\w+).(?:fs|js)" [ name ] -> "fable-lib/" + name
@@ -266,44 +301,22 @@ module Transforms =
                 rcall
             else
                 GetObjMethod(rcall, info.Selector)
-        | Fable.Expr.IdentExpr(i) when i.Name <> "" ->
-            Ident
-                {
-                    Namespace = None
-                    Name = i.Name
-                }
-        | Fable.Expr.Operation(kind, _, _, _) -> transformOp kind
-        | Fable.Expr.Get(expr, Fable.GetKind.FieldGet info, t, _) -> GetField(transformExpr expr, info.Name)
-        | Fable.Expr.Get(expr, Fable.GetKind.UnionField info, _, _) ->
-            GetField(transformExpr expr, sprintf "p_%i" info.FieldIndex)
-        | Fable.Expr.Get(expr, Fable.GetKind.ExprGet(e), _, _) -> GetAtIndex(transformExpr expr, transformExpr e)
-        | Fable.Expr.Get(expr, Fable.GetKind.TupleIndex(i), _, _) ->
-            GetAtIndex(transformExpr expr, Const(ConstNumber(float i)))
-        | Fable.Expr.Get(expr, Fable.GetKind.OptionValue, _, _) -> transformExpr expr //todo null check, throw if null?
-        | Fable.Expr.Set(expr, Fable.SetKind.ValueSet, t, value, _) -> SetValue(transformExpr expr, transformExpr value)
-        | Fable.Expr.Set(expr, Fable.SetKind.ExprSet(e), t, value, _) ->
-            SetExpr(transformExpr expr, transformExpr e, transformExpr value)
-        | Fable.Expr.Sequential exprs -> asSingleExprIifeTr com exprs
-        | Fable.Expr.Let(ident, value, body) ->
-            let statements =
-                [
-                    Assignment([ ident.Name ], transformExpr value, true)
-                    transformExpr body |> Return
-                ]
 
-            Helpers.maybeIife statements
-        | Fable.Expr.Emit(m, _, _) ->
+        | Fable.Emit(m, _, _) ->
             // let argsExprs = m.CallInfo.Args |> List.map transformExpr
             // let macroExpr = Macro(m.Macro, argsExprs)
             // let exprs =
             //     argsExprs
             //     @ [macroExpr]
             // asSingleExprIife exprs
-            Macro(m.Macro, m.CallInfo.Args |> List.map transformExpr)
-        | Fable.Expr.DecisionTree(expr, lst) ->
+            if m.IsStatement then
+                Macro(m.Macro, m.CallInfo.Args |> List.map transformExpr)
+            else
+                Unknown $"Emit %A{m.Macro}"
+        | Fable.DecisionTree(expr, lst) ->
             com.DecisionTreeTargets(lst)
             transformExpr expr
-        | Fable.Expr.DecisionTreeSuccess(i, boundValues, _) ->
+        | Fable.DecisionTreeSuccess(i, boundValues, _) ->
             let idents, target = com.GetDecisionTreeTargets(i)
 
             if idents.Length = boundValues.Length then
@@ -317,45 +330,42 @@ module Transforms =
                 statements |> Helpers.maybeIife
             else
                 sprintf "not equal lengths %A %A" idents boundValues |> Unknown
-        | Fable.Expr.Lambda(arg, body, name) -> Function([ arg.Name ], [ transformExpr body |> Return ])
-        | Fable.Expr.CurriedApply(applied, args, _, _) ->
-            FunctionCall(transformExpr applied, args |> List.map transformExpr)
-        | Fable.Expr.IfThenElse(guardExpr, thenExpr, elseExpr, _) ->
-            Ternary(transformExpr guardExpr, transformExpr thenExpr, transformExpr elseExpr)
-        | Fable.Test(expr, kind, b) ->
+        | Fable.Let(ident, value, body) ->
+            let statements =
+                [
+                    Assignment([ ident.Name ], transformExpr value, true)
+                    transformExpr body |> Return
+                ]
+
+            Helpers.maybeIife statements
+        | Fable.LetRec(ls, m) ->
+            match ls with
+            | [] -> Unknown "let rec"
+            | [ (i, e) ] -> Unknown $"let rec %A{i.Name}"
+            | (i, e) :: ls -> Unknown $"let rec %A{i.Name}"
+        | Fable.Get(expr, kind, t, _) ->
             match kind with
-            | Fable.UnionCaseTest i -> Binary(Equals, GetField(transformExpr expr, "tag"), Const(ConstNumber(float i)))
-            | Fable.OptionTest isSome ->
-                if isSome then
-                    Binary(Unequal, Const ConstNull, transformExpr expr)
-                else
-                    Binary(Equals, Const ConstNull, transformExpr expr)
-            | Fable.TestKind.TypeTest t ->
-                // match t with
-                // | Fable.DeclaredType (ent, genArgs) ->
-                //     match ent.FullName with
-                //     | Fable.Transforms.Types.ienumerable -> //isArrayLike
-                //     | Fable.Transforms.Types.array
-                //     | _ ->
-                // | _ -> ()
-                Binary(Equals, GetField(transformExpr expr, "type"), Const(t.ToString() |> ConstString))
-            | _ -> Unknown(sprintf "test %A %A" expr kind)
-        | Fable.Extended(Fable.ExtendedSet.Throw(expr, _), t) ->
-            let errorExpr = Const(ConstString "There was an error, todo")
-            //transformExpr expr
-            FunctionCall(Helpers.ident "error", [ errorExpr ])
-        | Fable.Extended(Fable.ExtendedSet.Curry(expr, d), _) ->
-            transformExpr expr |> sprintf "(Fable2Lua:~266) todo curry %A" |> Unknown
-        | Fable.Delegate(idents, body, _, _) ->
-            Function(idents |> List.map (fun i -> i.Name), [ transformExpr body |> Return |> flattenReturnIifes ]) //can be flattened
-        | Fable.ForLoop(ident, start, limit, body, isUp, _) ->
+            | Fable.GetKind.FieldGet info -> GetField(transformExpr expr, info.Name)
+            | Fable.GetKind.UnionField info -> GetField(transformExpr expr, sprintf "p_%i" info.FieldIndex)
+            | Fable.GetKind.ExprGet e -> GetAtIndex(transformExpr expr, transformExpr e)
+            | Fable.GetKind.TupleIndex i -> GetAtIndex(transformExpr expr, Const(ConstNumber(float i)))
+            | Fable.GetKind.OptionValue -> transformExpr expr //todo null check, throw if null?
+            | Fable.ListHead -> Unknown "list Head"
+            | Fable.ListTail -> Unknown "list Tail"
+            | Fable.UnionTag -> Unknown "Union Tag"
+        | Fable.Set(expr, kind, t, value, _) ->
+            match kind with
+            | Fable.SetKind.ValueSet -> SetValue(transformExpr expr, transformExpr value)
+            | Fable.SetKind.ExprSet e -> SetExpr(transformExpr expr, transformExpr e, transformExpr value)
+            | Fable.SetKind.FieldSet name -> Unknown $"FieldSet %s{name} of type %A{t}"
+        | Fable.Sequential exprs -> asSingleExprIifeTr com exprs
+        | Fable.WhileLoop(guard, body, _label) ->
+            Helpers.maybeIife [ WhileLoop(transformExpr guard, [ transformExpr body |> Do ]) ]
+        | Fable.ForLoop(ident, start, limit, body, _isUp, _) ->
             Helpers.maybeIife
                 [
                     ForLoop(ident.Name, transformExpr start, transformExpr limit, [ transformExpr body |> Do ])
                 ]
-        | Fable.TypeCast(expr, t) -> transformExpr expr //typecasts are meaningless
-        | Fable.WhileLoop(guard, body, label) ->
-            Helpers.maybeIife [ WhileLoop(transformExpr guard, [ transformExpr body |> Do ]) ]
         | Fable.TryCatch(body, catch, finalizer, _) ->
             Helpers.maybeIife
                 [
@@ -384,7 +394,22 @@ module Transforms =
                         ]
                     )
                 ]
-        | x -> Unknown(sprintf "(transform fallthrough) %A" x)
+        | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, _) ->
+            Ternary(transformExpr guardExpr, transformExpr thenExpr, transformExpr elseExpr)
+        | Fable.Unresolved(kind, _typ, _range) ->
+            match kind with
+            | Fable.UnresolvedExpr.UnresolvedTraitCall _ -> Unknown "Unresolved Trait"
+            | Fable.UnresolvedExpr.UnresolvedReplaceCall _ -> Unknown "Unresolved Replace"
+            | Fable.UnresolvedExpr.UnresolvedInlineCall _ -> Unknown "Unresolved Inline"
+        | Fable.Extended(kind, t) ->
+            match kind with
+            | Fable.ExtendedSet.Throw(expr, typ) ->
+                let errorExpr = Const(ConstString "There was an error, todo")
+                FunctionCall(Helpers.ident "error", [ errorExpr ])
+            | Fable.ExtendedSet.Debugger -> Unknown "Debugger"
+            | Fable.ExtendedSet.Curry(e, a) ->
+                //transformExpr expr |> sprintf "(Fable2Lua:~266) todo curry %A" |> Unknown
+                Unknown $"Curry (arity: %i{a})" //in rare cases currying may need to happen at runtime
 
 
     let transformDeclarations (com: LuaCompiler) ctx decl =
