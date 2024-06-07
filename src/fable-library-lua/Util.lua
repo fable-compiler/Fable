@@ -33,6 +33,39 @@ function TableConcat(t1,t2)
     return t1
 end
 
+function table.create(len)
+    local a = {}
+    for i = 1, len do
+        a[i] = 0
+    end
+    return a
+end
+
+function table.slice(tbl, first, last)
+    local sliced = {}
+
+    for i = first or 1, last or #tbl do
+      sliced[#sliced+1] = tbl[i]
+    end
+
+    return sliced
+end
+
+function table.reverse(tbl)
+    local reved = {}
+    for i = #tbl, 1, -1 do
+      reved[#reved+1] = tbl[i]
+    end
+    return reved
+end
+
+function table.shallow_copy(t)
+    local t2 = {}
+    for k,v in pairs(t) do
+      t2[k] = v
+    end
+    return t2
+end
 -- https://stackoverflow.com/questions/5977654/how-do-i-use-the-bitwise-operator-xor-in-lua
 local function BitXOR(a,b)--Bitwise xor
     local p,c=1,0

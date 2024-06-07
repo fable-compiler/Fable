@@ -38,7 +38,7 @@ module Lua =
 
     [<AllowNullLiteral>]
     type ArrayConstructor =
-        [<Emit "$0([None]*$1...)">]
+        [<Emit "table.create($0)">]
         abstract Create: size: int -> 'T[]
 
         [<Emit "isinstance($1, list)">]

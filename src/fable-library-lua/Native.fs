@@ -70,16 +70,16 @@ module Helpers =
     // Typed arrays not supported, only dynamic ones do
     let inline spliceImpl (array: 'T[]) (start: int) (deleteCount: int) : 'T[] = !! array?splice (start, deleteCount)
 
-    [<Emit("$0[::-1]")>]
+    [<Emit("table.reverse($0)")>]
     let reverseImpl (array: 'T[]) : 'T[] = nativeOnly
 
-    [<Emit("$0[:]")>]
+    [<Emit("table.shallow_copy($0)")>]
     let copyImpl (array: 'T[]) : 'T[] = nativeOnly
 
-    [<Emit("$0[$1:]")>]
+    [<Emit("table.slice($0,$1)")>]
     let skipImpl (array: 'T[]) (count: int) : 'T[] = nativeOnly
-
-    [<Emit("$0[$1:$1+$2]")>]
+    //__TS__ArraySplice
+    [<Emit("table.slice($0,$1,$2)")>]
     let subArrayImpl (array: 'T[]) (start: int) (count: int) : 'T[] = nativeOnly
 
     let inline indexOfImpl (array: 'T[]) (item: 'T) (start: int) : int = !! array?indexOf (item, start)

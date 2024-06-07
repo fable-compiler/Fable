@@ -2,17 +2,17 @@ module Fable.Tests.UnionTypes
 
 open Util.Testing
 
-type Gender = Male | Female
+type Shape = Square | Circle
 
 [<Fact>]
 let testMakeUnion () =
-    let r = Male
-    r |> equal Male
+    let r = Square
+    r |> equal Square
 
 [<Fact>]
 let testMakeUnion2 () =
-    let r = Female
-    r |> equal Female
+    let r = Circle
+    r |> equal Circle
 
 type Stuff =
   | A of string * int
