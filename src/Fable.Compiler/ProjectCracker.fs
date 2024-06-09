@@ -303,7 +303,11 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
 let sortFablePackages (pkgs: FablePackage list) =
     ([], pkgs)
     ||> List.fold (fun acc pkg ->
-        match List.tryFindIndexBack (fun (x: FablePackage) -> pkg.Dependencies.Contains(x.Id)) acc with
+        let isPkgDependency (dependency: FablePackage) =
+            pkg.Dependencies
+            |> Set.exists (fun dep -> dep.ToLowerInvariant() = dependency.Id.ToLowerInvariant())
+
+        match List.tryFindIndexBack isPkgDependency acc with
         | None -> pkg :: acc
         | Some targetIdx ->
             let rec insertAfter x targetIdx i before after =
