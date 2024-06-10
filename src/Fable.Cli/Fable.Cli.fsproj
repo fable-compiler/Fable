@@ -4,14 +4,11 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.18.0</Version>
+    <Version>4.19.0</Version>
     <PackageReleaseNotes>## Fixed
 
-- [GH-3817](https://github.com/fable-compiler/Fable/pull/3817) [All] Fix broken --precompiledLib switch (#3818) (by @DunetsNM)
-- [JS/TS] Fixed TimeSpan.FromMilliseconds (#3815) (by @ncave)
-- [Python] Fixed quotation for union string cases (by @dbrattli)
-- [Python] Fixed casing issues with identifiers and reflection info (#3811) (by @dbrattli)
-- [JS/TS/Python] Fixed interface static members (#3566) (by @ncave)
+- [TS] Fixed interface indexers (#3830) (by @ncave)
+- [GH-3835](https://github.com/fable-compiler/Fable/pull/3835) [All] Use case insensitive comparison when searching for dependencies between fable packages (by @ThisFunctionalTom)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

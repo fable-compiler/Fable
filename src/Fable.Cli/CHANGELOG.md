@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.19.0 - 2024-06-10
+
 ### Fixed
 
 * [TS] Fixed interface indexers (#3830) (by @ncave)
