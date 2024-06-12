@@ -498,12 +498,12 @@ export function getTicks(date: IDateTime | IDateTimeOffset) {
 
 export function minValue() {
   // This is "0001-01-01T00:00:00.000Z", actual JS min value is -8640000000000000
-  return DateTime(-62135596800000, DateKind.Unspecified);
+  return DateTime(-62135596800000, DateKind.UTC);
 }
 
 export function maxValue() {
   // This is "9999-12-31T23:59:59.999Z", actual JS max value is 8640000000000000
-  return DateTime(253402300799999, DateKind.Unspecified);
+  return DateTime(253402300799999, DateKind.UTC);
 }
 
 export function parseRaw(input: string): [Date, Offset] {
