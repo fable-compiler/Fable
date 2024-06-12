@@ -10,7 +10,7 @@
     "@testing-library/jest-dom": "^5.11.6",
     "@testing-library/react": "^11.2.2",
     "@testing-library/user-event": "^12.2.2",
-    "jest": "^26.6.3",
+    "jest": "^29.7.0",
     "react": "^17.0.1",
     "react-dom": "^17.0.1"
   }
