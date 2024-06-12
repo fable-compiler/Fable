@@ -1064,6 +1064,17 @@ module Patterns =
 
     let (|MemberFullName|) (memb: FSharpMemberOrFunctionOrValue) = memb.FullName
 
+    let (|UnionCaseTesterFor|_|) (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.DeclaringEntity with
+        | Some ent when ent.IsFSharpUnion ->
+            // if memb.IsUnionCaseTester then // TODO: this currently fails, use when fixed
+            if memb.IsPropertyGetterMethod && memb.LogicalName.StartsWith("get_Is") then
+                let unionCaseName = memb.LogicalName |> Naming.replacePrefix "get_Is" ""
+                ent.UnionCases |> Seq.tryFind (fun uc -> uc.Name = unionCaseName)
+            else
+                None
+        | _ -> None
+
     let (|RefType|_|) =
         function
         | TypeDefinition tdef as t when tdef.TryFullName = Some Types.refCell -> Some t

@@ -2732,6 +2732,7 @@ module Util =
         let guardExpr =
             match guard with
             | Fable.Test(expr, Fable.TypeTest typ, r) -> transformTypeTest com ctx r true typ expr
+            | Fable.Test(expr, Fable.UnionCaseTest tag, r) -> transformUnionCaseTest com ctx r tag expr
             | _ -> transformExpr com ctx guard
 
         let thenExpr = transformLeaveContext com ctx None thenBody
@@ -2846,6 +2847,38 @@ module Util =
             mkLetExpr pat downcastExpr
         | _ -> makeLibCall com ctx genArgsOpt "Native" "type_test" [ expr ]
 
+    let transformUnionCaseTest (com: IRustCompiler) ctx range tag (fableExpr: Fable.Expr) : Rust.Expr =
+        match fableExpr.Type with
+        | Fable.DeclaredType(entRef, genArgs) ->
+            let ent = com.GetEntity(entRef)
+            assert (ent.IsFSharpUnion)
+            // let genArgsOpt = transformGenArgs com ctx genArgs // TODO:
+            let unionCase = ent.UnionCases |> List.item tag
+
+            let fields =
+                match fableExpr with
+                | Fable.IdentExpr ident ->
+                    unionCase.UnionCaseFields
+                    |> List.mapi (fun i _field ->
+                        let fieldName = $"{ident.Name}_{tag}_{i}"
+                        makeFullNameIdentPat fieldName
+                    )
+                | _ ->
+                    if List.isEmpty unionCase.UnionCaseFields then
+                        []
+                    else
+                        [ WILD_PAT ]
+
+            let unionCaseName = getUnionCaseName com ctx entRef unionCase
+            let pat = makeUnionCasePat unionCaseName fields
+
+            let expr =
+                fableExpr
+                |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
+
+            mkLetExpr pat expr
+        | _ -> failwith "Should not happen"
+
     let transformTest (com: IRustCompiler) ctx range kind (fableExpr: Fable.Expr) : Rust.Expr =
         match kind with
         | Fable.TypeTest typ -> transformTypeTest com ctx range false typ fableExpr
@@ -2874,18 +2907,10 @@ module Util =
                 let unionCase = ent.UnionCases |> List.item tag
 
                 let fields =
-                    match fableExpr with
-                    | Fable.IdentExpr ident ->
-                        unionCase.UnionCaseFields
-                        |> List.mapi (fun i _field ->
-                            let fieldName = $"{ident.Name}_{tag}_{i}"
-                            makeFullNameIdentPat fieldName
-                        )
-                    | _ ->
-                        if List.isEmpty unionCase.UnionCaseFields then
-                            []
-                        else
-                            [ WILD_PAT ]
+                    if List.isEmpty unionCase.UnionCaseFields then
+                        []
+                    else
+                        [ WILD_PAT ]
 
                 let unionCaseName = getUnionCaseName com ctx entRef unionCase
                 let pat = makeUnionCasePat unionCaseName fields
@@ -2894,7 +2919,10 @@ module Util =
                     fableExpr
                     |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
 
-                mkLetExpr pat expr
+                let guardExpr = mkLetExpr pat expr
+                let thenExpr = mkBoolLitExpr true
+                let elseExpr = mkBoolLitExpr false
+                mkIfThenElseExpr guardExpr thenExpr elseExpr
             | _ -> failwith "Should not happen"
 
     let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase targets : Rust.Expr =
