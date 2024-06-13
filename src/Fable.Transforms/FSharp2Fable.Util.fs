@@ -134,8 +134,9 @@ type FsUnionCase(uci: FSharpUnionCase) =
             | _ -> None
         )
 
-    static member HasNamedFields(uci: FSharpUnionCase) =
-        not (uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
+    // static member HasNamedFields(uci: FSharpUnionCase) =
+    //     not (uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
+    //     true
 
     interface Fable.UnionCase with
         member _.Name = uci.Name

@@ -852,12 +852,12 @@ module Annotation =
                 AbstractMember.abstractProperty (prop, tagType, isComputed = isComputed)
 
             match uci.UnionCaseFields with
-            | [ field ] when field.Name = "Item" ->
-                IntersectionTypeAnnotation
-                    [|
-                        field.FieldType |> resolveInlineType genArgs |> makeFieldAnnotation com ctx
-                        ObjectTypeAnnotation [| tagMember |]
-                    |]
+            // | [ field ] when field.Name = "Item" ->
+            //     IntersectionTypeAnnotation
+            //         [|
+            //             field.FieldType |> resolveInlineType genArgs |> makeFieldAnnotation com ctx
+            //             ObjectTypeAnnotation [| tagMember |]
+            //         |]
             | fields ->
                 let names, types =
                     fields |> List.map (fun fi -> fi.Name, fi.FieldType) |> List.unzip
