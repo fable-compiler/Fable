@@ -74,7 +74,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
 
     | TypeScriptTaggedUnion(_, _, tagName, rule) ->
         match argExprs with
-        | [ argExpr ] when not (FsUnionCase.HasNamedFields unionCase) -> argExpr
+        // | [ argExpr ] when not (FsUnionCase.HasNamedFields unionCase) -> argExpr
         | _ ->
             let isCompiledValue, tagExpr =
                 match FsUnionCase.CompiledValue unionCase with
@@ -1176,16 +1176,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
                     return Fable.Get(unionExpr, Fable.TupleIndex index, fieldType, r)
             | TypeScriptTaggedUnion _ ->
-                if FsUnionCase.HasNamedFields unionCase then
-                    let kind =
-                        Fable.FieldInfo.Create(
-                            FsField.FSharpFieldName field,
-                            fieldType = makeType Map.empty field.FieldType
-                        )
+                // if not (FsUnionCase.HasNamedFields unionCase) then
+                //     return unionExpr
+                // else
+                let kind =
+                    Fable.FieldInfo.Create(
+                        FsField.FSharpFieldName field,
+                        fieldType = makeType Map.empty field.FieldType
+                    )
 
-                    return Fable.Get(unionExpr, kind, fieldType, r)
-                else
-                    return unionExpr
+                return Fable.Get(unionExpr, kind, fieldType, r)
             | StringEnum _ ->
                 return
                     "StringEnum types cannot have fields"
