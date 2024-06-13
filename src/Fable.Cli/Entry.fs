@@ -385,7 +385,7 @@ type Runner =
 
             let startCompilation () =
                 State.Create(cliArgs, ?watchDelay = watchDelay, useMSBuildForCracking = useMSBuildForCracking)
-                |> startCompilation
+                |> startCompilationAsync
                 |> Async.RunSynchronously
 
             return!

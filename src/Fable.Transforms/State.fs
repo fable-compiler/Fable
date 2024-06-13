@@ -139,7 +139,12 @@ type ImplFile =
 
         // add all entities to the entity cache
         let entities = Dictionary()
-        let declarations = file.Declarations
+
+        let declarations =
+            try
+                file.Declarations // this may throw
+            with _ex ->
+                []
 
         FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop entities
 
