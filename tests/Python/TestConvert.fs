@@ -1189,6 +1189,16 @@ let ``test BigInt ToDecimal works`` () =
     decimal (bigint value) |> equal value
 
 [<Fact>]
+let ``test BigInt ToDecimal with Decimal.MinValue works`` () =
+    let value = Decimal.MinValue
+    decimal (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt ToDecimal with Decimal.MaxValue works`` () =
+    let value = Decimal.MaxValue
+    decimal (bigint value) |> equal value
+
+[<Fact>]
 let ``test BigInt ToString works`` () =
     let value = 1234567890
     string (bigint value) |> equal "1234567890"

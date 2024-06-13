@@ -148,10 +148,11 @@ export function toFloat32(x: bigint): float32 { return Number(x); }
 export function toFloat64(x: bigint): float64 { return Number(x); }
 
 export function toDecimal(x: bigint): decimal {
-    const low = Number(BigInt.asUintN(32, x))
-    const mid = Number(BigInt.asUintN(32, x >> 32n))
-    const high = Number(BigInt.asUintN(32, x >> 64n))
     const isNegative = x < zero;
+    const bits = abs(x);
+    const low = Number(BigInt.asUintN(32, bits));
+    const mid = Number(BigInt.asUintN(32, bits >> 32n));
+    const high = Number(BigInt.asUintN(32, bits >> 64n));
     const scale = 0;
     return fromParts(low, mid, high, isNegative, scale)
 }
