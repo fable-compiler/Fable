@@ -69,7 +69,7 @@ module Compiler =
 
         let result =
             state
-            |> startCompilation
+            |> startCompilationAsync
             |> Async.RunSynchronously
 
         match result with

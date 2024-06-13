@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [All] Fixed Fable compiler hanging on some errors (#3842) (by @ncave)
 * [JS/TS] Fixed DateTime.MinValue, DateTime.MaxValue (#3836) (by @ncave)
 
 ## 4.19.0 - 2024-06-10

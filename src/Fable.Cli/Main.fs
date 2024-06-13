@@ -1250,7 +1250,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
 type FileWatcherMsg = | Changes of timeStamp: DateTime * changes: ISet<string>
 
-let startCompilation state =
+let startCompilationAsync state =
     async {
         try
             let state =
