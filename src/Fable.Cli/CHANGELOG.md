@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.19.1 - 2024-06-13
+
 ### Fixed
 
 * [All] Ignore testers for erased union cases (#3658) (by @ncave)

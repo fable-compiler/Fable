@@ -4,11 +4,13 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.19.0</Version>
+    <Version>4.19.1</Version>
     <PackageReleaseNotes>## Fixed
 
-- [TS] Fixed interface indexers (#3830) (by @ncave)
-- [GH-3835](https://github.com/fable-compiler/Fable/pull/3835) [All] Use case insensitive comparison when searching for dependencies between fable packages (by @ThisFunctionalTom)
+- [All] Ignore testers for erased union cases (#3658) (by @ncave)
+- [All] Fixed Fable compiler hanging on some errors (#3842) (by @ncave)
+- [JS/TS] Fixed DateTime.MinValue, DateTime.MaxValue (#3836) (by @ncave)
+- [JS/TS] Fixed missing field using TypeScriptTaggedUnion (#3837) (by @ncave)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

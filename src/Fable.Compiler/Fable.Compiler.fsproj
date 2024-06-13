@@ -6,10 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-010</Version>
-        <PackageReleaseNotes>## Fixed
+        <Version>4.0.0-alpha-011</Version>
+        <PackageReleaseNotes>## Changed
 
-- [GH-3835](https://github.com/fable-compiler/Fable/pull/3835) [All] Use case insensitive comparison when searching for dependencies between fable packages (by @ThisFunctionalTom)
+- Fable 4.19.1
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
