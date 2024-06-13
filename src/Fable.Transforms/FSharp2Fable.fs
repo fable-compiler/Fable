@@ -15,10 +15,10 @@ open Identifiers
 open Helpers
 open Util
 
-let inline private transformExprList com ctx xs =
+let private transformExprList com ctx xs =
     trampolineListMap (transformExpr com ctx []) xs
 
-let inline private transformExprOpt com ctx opt =
+let private transformExprOpt com ctx opt =
     trampolineOptionMap (transformExpr com ctx []) opt
 
 let private transformBaseConsCall
