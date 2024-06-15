@@ -33,6 +33,7 @@
     <Compile Include="TailCallTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
     <Compile Include="TupleTests.fs" />
+    <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTests.fs" />
     <Content Include="..\main.dart" />
   </ItemGroup>

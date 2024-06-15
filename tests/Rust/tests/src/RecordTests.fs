@@ -267,12 +267,6 @@ type Car = { Interior: CarInterior }
 //     $"Tell me {r.Y} {r.F r.X 3} times"
 //     |> equal "Tell me Foo 8 times"
 
-// [<Fact>]
-// let ``SRTP works with anonymous records`` () =
-//     let ar = [| {|Id=Id"foo"; Name="Sarah"|}; {|Id=Id"bar"; Name="James"|} |]
-//     replaceById {|Id=Id"ja"; Name="Voll"|} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
-//     replaceById {|Id=Id"foo"; Name="Anna"|} ar |> Seq.head |> fun x -> equal "Anna" x.Name
-
 type Time =
     static member inline duration(value: {| from: int; until: int |}) = value.until - value.from
     static member inline duration(value: {| from: int |}) = Time.duration {| value with until = 10 |}
@@ -284,6 +278,36 @@ let ``Anonymous records work`` () =
     x = {| y with Bar = 23 |} |> equal true
     // x = {| y with Baz = 23 |} |> equal true // Doesn't compile
     x = {| y with Bar = 14 |} |> equal false
+
+// [<Fact>]
+// let ``Anonymous records can have optional fields`` () =
+//     let add (o: {| bar: int option; zas: string option; foo: int option option |}) =
+//         let bar = o.bar |> Option.map string |> Option.defaultValue "-"
+//         let zas = defaultArg o.zas ""
+//         let foo = match o.foo with Some(Some i) -> string i | Some None -> "xx" | None -> "x"
+//         bar + zas + foo
+
+//     {| bar = Some 3; zas = Some "ooooo"; foo = Some None |} |> add |> equal "3oooooxx"
+//     {| bar = Some 22; zas = Some ""; foo = Some(Some 999) |} |> add |> equal "22999"
+//     {| bar = None; zas = None; foo = None |} |> add |> equal "-x"
+//     {| foo = Some None; bar = None; zas = None |} |> add |> equal "-xx"
+
+// [<Fact>]
+// let ``Anonymous records can have optional function fields`` () =
+//     let add (o: {| bar: (int -> int -> int) option; foo: int -> int -> int |}) =
+//         let fn = o.bar
+//         let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+//         let f2 = match fn with Some f -> f 1 8 | None -> -5
+//         o.foo 3 4 + f1 + f2
+
+//     {| bar = Some (+); foo = (*) |} |> add |> equal 36
+//     {| bar = None; foo = (+) |} |> add |> equal -1
+
+// [<Fact>]
+// let ``SRTP works with anonymous records`` () =
+//     let ar = [| {|Id=Id"foo"; Name="Sarah"|}; {|Id=Id"bar"; Name="James"|} |]
+//     replaceById {|Id=Id"ja"; Name="Voll"|} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
+//     replaceById {|Id=Id"foo"; Name="Anna"|} ar |> Seq.head |> fun x -> equal "Anna" x.Name
 
 [<Fact>]
 let ``Overloads with anonymous record arguments don't have same mangled name`` () =

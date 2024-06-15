@@ -1,6 +1,8 @@
 module Fable.Tests.TypeTests
 
 open System
+open System.Runtime.InteropServices
+open Fable.Core
 open Util.Testing
 
 // Check if custom attributes can be created
@@ -530,8 +532,160 @@ let inline inlinedFunc(n: 't[]) =
 let genericByrefFunc(n: byref<'t[]>) =
     inlinedFunc n
 
+[<AttachMembersAttribute>]
+type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
+    member val P1 = defaultArg arg1 1.0
+    member val P2 = defaultArg arg2 "1"
+    member val P3 = defaultArg arg3 1
+
+type VeryOptionalInterface =
+    abstract Bar: int option
+    abstract Baz: bool option
+    abstract Bax: float option
+    abstract Wrapped: unit option
+    abstract Foo: string option with get, set
+    abstract Fn: (int -> int -> int) option
+    abstract Fn2: (int -> int -> int)
+
+type VeryOptionalClass () =
+    let mutable foo = "ab"
+    interface VeryOptionalInterface with
+        member _.Bar = Some 3
+        member _.Baz = None
+        member _.Wrapped = Some ()
+        member _.Bax =
+            let mutable h = ["6"] |> List.tryHead
+            h |> Option.map float
+        member _.Foo
+            with get() = Some foo
+            and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+        member _.Fn = Some (+)
+        member _.Fn2 = (*)
+
+type StaticClass =
+    [<NamedParams>]
+    static member NamedParams(foo: string, ?bar: int) = int foo + (defaultArg bar -3)
+    [<NamedParams>]
+    static member NamedParams(?name : string, ?age: int) =
+        let name = defaultArg name "John"
+        let age = defaultArg age 30
+        $"%s{name} is %d{age} years old"
+    static member FSharpOptionalParam(?value: bool) = defaultArg value true
+    static member FSharpOptionalParam2(?value: unit) = Option.isSome value
+    static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
+    static member DefaultParam2([<Optional>] value: Nullable<int>) = if value.HasValue then value.Value + 2 else 3
+    static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
+    static member inline InlineAdd(x: int, ?y: int) = x + (defaultArg y 2)
+
 let tests =
   testList "Types" [
+
+    testCase "Optional arguments work" <| fun () ->
+        let x = MyOptionalClass(?arg2 = Some "2")
+        (x.P1, x.P2, x.P3) |> equal (1.0, "2", 1)
+        let y = MyOptionalClass(2.0)
+        (y.P1, y.P2, y.P3) |> equal (2.0, "1", 1)
+        let z = MyOptionalClass(?arg3 = Some 2)
+        (z.P1, z.P2, z.P3) |> equal (1.0, "1", 2)
+
+    testCase "Can implement interface optional properties" <| fun () ->
+        let veryOptionalValue = VeryOptionalClass() :> VeryOptionalInterface
+        veryOptionalValue.Bar |> equal (Some 3)
+        veryOptionalValue.Baz |> Option.isSome |> equal false
+        veryOptionalValue.Wrapped |> Option.isSome |> equal true
+        veryOptionalValue.Bax |> equal (Some 6.)
+        veryOptionalValue.Foo <- Some "z"
+        veryOptionalValue.Foo |> equal (Some "abz")
+        veryOptionalValue.Foo <- None
+        veryOptionalValue.Foo |> equal (Some "abz")
+        let fn = veryOptionalValue.Fn
+        let fn2 = veryOptionalValue.Fn2
+        let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+        let f2 = match fn with Some f -> f 1 8 | None -> -5
+        f1 + f2 - fn2 9 3 |> equal -3
+
+    testCase "Can implement interface optional properties with object expression" <| fun () ->
+        let veryOptionalValue =
+            let mutable foo = "ab"
+            { new VeryOptionalInterface with
+                member _.Bar = Some 3
+                member _.Baz = None
+                member _.Wrapped = Some ()
+                member _.Bax = ["6"] |> List.tryHead |> Option.map float
+                member _.Foo
+                    with get() = Some foo
+                    and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+                member _.Fn = Some (+)
+                member _.Fn2 = (*)
+            }
+
+        veryOptionalValue.Bar |> equal (Some 3)
+        veryOptionalValue.Baz |> Option.isSome |> equal false
+        veryOptionalValue.Wrapped |> Option.isSome |> equal true
+        veryOptionalValue.Bax |> equal (Some 6.)
+        veryOptionalValue.Foo <- Some "z"
+        veryOptionalValue.Foo |> equal (Some "abz")
+        veryOptionalValue.Foo <- None
+        veryOptionalValue.Foo |> equal (Some "abz")
+        let fn = veryOptionalValue.Fn
+        let fn2 = veryOptionalValue.Fn2
+        let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+        let f2 = match fn with Some f -> f 1 8 | None -> -5
+        f1 + f2 - fn2 9 3 |> equal -3
+
+    testCase "Optional named params work" <| fun () ->
+        StaticClass.NamedParams(foo="5", bar=4) |> equal 9
+        StaticClass.NamedParams(foo="3", ?bar=Some 4) |> equal 7
+        StaticClass.NamedParams(foo="14") |> equal 11
+        StaticClass.NamedParams() |> equal "John is 30 years old"
+
+    testCase "F# optional param works" <| fun () ->
+        let mutable f1 = fun (v: bool) ->
+            StaticClass.FSharpOptionalParam(value=v)
+        let mutable f2 = fun (v: bool option) ->
+            StaticClass.FSharpOptionalParam(?value=v)
+        StaticClass.FSharpOptionalParam() |> equal true
+        StaticClass.FSharpOptionalParam(true) |> equal true
+        StaticClass.FSharpOptionalParam(false) |> equal false
+        StaticClass.FSharpOptionalParam(?value=None) |> equal true
+        StaticClass.FSharpOptionalParam(?value=Some true) |> equal true
+        StaticClass.FSharpOptionalParam(?value=Some false) |> equal false
+        f1 true |> equal true
+        f1 false |> equal false
+        None |> f2 |> equal true
+        Some false |> f2 |> equal false
+        Some true |> f2 |> equal true
+
+    testCase "F# optional param works with no-wrappable options" <| fun () ->
+        let mutable f1 = fun (v: unit) ->
+            StaticClass.FSharpOptionalParam2(value=v)
+        let mutable f2 = fun (v: unit option) ->
+            StaticClass.FSharpOptionalParam2(?value=v)
+        StaticClass.FSharpOptionalParam2() |> equal false
+        StaticClass.FSharpOptionalParam2(()) |> equal true
+        StaticClass.FSharpOptionalParam2(?value=None) |> equal false
+        StaticClass.FSharpOptionalParam2(?value=Some ()) |> equal true
+        f1 () |> equal true
+        None |> f2 |> equal false
+        Some () |> f2 |> equal true
+
+    testCase "DefaultParameterValue works" <| fun () ->
+        StaticClass.DefaultParam() |> equal true
+        StaticClass.DefaultParam(true) |> equal true
+        StaticClass.DefaultParam(false) |> equal false
+
+        StaticClass.DefaultParam2(5) |> equal 7
+        StaticClass.DefaultParam2(Nullable()) |> equal 3
+        StaticClass.DefaultParam2() |> equal 3
+
+    testCase "DefaultParameterValue works with null" <| fun () -> // See #3326
+        StaticClass.DefaultNullParam() |> isNull |> equal true
+        StaticClass.DefaultNullParam(5) |> isNull |> equal false
+
+    testCase "Inlined methods can have optional arguments" <| fun () ->
+        StaticClass.InlineAdd(2, 3) |> equal 5
+        StaticClass.InlineAdd(5) |> equal 7
+
     // TODO: This test produces different results in Fable and .NET
     // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
     // testCase "Reflection for types with measures work" <| fun () ->

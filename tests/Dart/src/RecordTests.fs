@@ -53,6 +53,28 @@ let tests() =
         // x = {| y with Baz = 23 |} |> equal true // Doesn't compile
         x = {| y with Bar = 14 |} |> equal false
 
+    testCase "Anonymous records can have optional fields" <| fun () ->
+        let add (o: {| bar: int option; zas: string option; foo: int option option |}) =
+            let bar = o.bar |> Option.map string |> Option.defaultValue "-"
+            let zas = defaultArg o.zas ""
+            let foo = match o.foo with Some(Some i) -> string i | Some None -> "xx" | None -> "x"
+            bar + zas + foo
+
+        {| bar = Some 3; zas = Some "ooooo"; foo = Some None |} |> add |> equal "3oooooxx"
+        {| bar = Some 22; zas = Some ""; foo = Some(Some 999) |} |> add |> equal "22999"
+        {| bar = None; zas = None; foo = None |} |> add |> equal "-x"
+        {| foo = Some None; bar = None; zas = None |} |> add |> equal "-xx"
+
+    testCase "Anonymous records can have optional function fields" <| fun () ->
+        let add (o: {| bar: (int -> int -> int) option; foo: int -> int -> int |}) =
+            let fn = o.bar
+            let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+            let f2 = match fn with Some f -> f 1 8 | None -> -5
+            o.foo 3 4 + f1 + f2
+
+        {| bar = Some (+); foo = (*) |} |> add |> equal 36
+        {| bar = None; foo = (+) |} |> add |> equal -1
+
     testCase "SRTP works with anonymous records" <| fun () ->
         let ar = [| {|Id=Id"foo"; Name="Sarah"|}; {|Id=Id"bar"; Name="James"|} |]
         replaceById {|Id=Id"ja"; Name="Voll"|} ar |> Seq.head |> fun x -> equal "Sarah" x.Name

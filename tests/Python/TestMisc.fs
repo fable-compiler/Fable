@@ -3,7 +3,6 @@ module Fable.Tests.Misc
 #nowarn "40" //  warning FSHARP: This and other recursive references to the object(s) being defined will be checked for initialization-soundness at runtime through the use of a delayed reference.
 
 open System
-open System.Runtime.InteropServices
 open Fable.Core
 open Util.Testing
 open Util2.Extensions
@@ -415,12 +414,6 @@ type Shape =
     | Circle of int
     | Square of int
     | Rectangle of int * int
-
-type StaticClass =
-    static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
-
-    static member inline Add(x: int, ?y: int) =
-        x + (defaultArg y 2)
 
 type ValueType =
   struct
@@ -1182,15 +1175,6 @@ let ``test While with isNone doesn't hang with Some ()`` () =
 [<Fact>]
 let ``test Removing optional arguments not in tail position works`` () =
     Internal.MyType.Add(y=6) |> equal 26
-
-[<Fact>]
-let ``test Inlined methods can have optional arguments`` () =
-    StaticClass.Add(2, 3) |> equal 5
-    StaticClass.Add(5) |> equal 7
-
-[<Fact>]
-let ``test DefaultParameterValue works`` () =
-    StaticClass.DefaultParam() |> equal true
 
 [<Fact>]
 let ``test Ignore shouldn't return value`` () = // See #1360

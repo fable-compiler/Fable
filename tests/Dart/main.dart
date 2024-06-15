@@ -23,6 +23,7 @@ import './src/SudokuTests.dart' as sudoku;
 import './src/TailCallTests.dart' as tailcall;
 import './src/TimeSpanTests.dart' as timespan;
 import './src/TupleTests.dart' as tuple;
+import './src/TypeTests.dart' as type_;
 import './src/UnionTests.dart' as union;
 
 void main() {
@@ -51,5 +52,6 @@ void main() {
   tailcall.tests();
   timespan.tests();
   tuple.tests();
+  type_.tests();
   union.tests();
 }

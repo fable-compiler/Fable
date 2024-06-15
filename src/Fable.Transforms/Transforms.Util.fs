@@ -1265,11 +1265,9 @@ module AST =
         | None -> args, []
         | Some index when index > args.Length || index > info.Parameters.Length -> args, []
         | Some index ->
-            let args, namedValues = List.splitAt index args
-
-            let namedKeys = List.skip index info.Parameters |> List.truncate namedValues.Length
-
-            args, List.zipSafe namedKeys namedValues
+            let args, namedArgs = List.splitAt index args
+            let namedParams = List.skip index info.Parameters |> List.truncate namedArgs.Length
+            args, List.zipSafe namedParams namedArgs
 
     /// Used to compare arg idents of a lambda wrapping a function call
     let argEquals (argIdents: Ident list) argExprs =

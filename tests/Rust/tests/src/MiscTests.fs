@@ -466,12 +466,6 @@ type Shape =
     | Square of int
     | Rectangle of int * int
 
-type StaticClass =
-    // static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
-    // static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
-    static member inline Add(x: int, ?y: int) =
-        x + (defaultArg y 2)
-
 type ValueType =
   struct
     val public X : int
@@ -1322,20 +1316,6 @@ let ``While with isNone doesn't hang with Some ()`` () =
 [<Fact>]
 let ``Removing optional arguments not in tail position works`` () =
     Internal.MyType.Add(y=6) |> equal 26
-
-[<Fact>]
-let ``Inlined methods can have optional arguments`` () =
-    StaticClass.Add(2, 3) |> equal 5
-    StaticClass.Add(5) |> equal 7
-
-// [<Fact>]
-// let ``DefaultParameterValue works`` () =
-//     StaticClass.DefaultParam() |> equal true
-
-// [<Fact>]
-// let ``DefaultParameterValue works with null`` () =
-//     StaticClass.DefaultNullParam() |> isNull |> equal true
-//     StaticClass.DefaultNullParam(5) |> isNull |> equal false
 
 [<Fact>]
 let ``Ignore shouldn't return value`` () = // See #1360
