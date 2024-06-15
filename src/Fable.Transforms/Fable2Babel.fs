@@ -1891,10 +1891,10 @@ module Util =
 
         let args =
             match paramsInfo with
-            | Some i when List.sameLength args i.Parameters ->
-                List.zip args i.Parameters
-                |> List.map (fun (a, i) ->
-                    if i.IsOptional then
+            | Some info when args.Length <= info.Parameters.Length ->
+                List.zipSafe args info.Parameters
+                |> List.map (fun (a, p) ->
+                    if p.IsOptional then
                         unwrapOptionalArg com a |> snd
                     else
                         a

@@ -221,7 +221,7 @@ module fmt =
 type Macros =
     static member assert_eq(actual, expected) = assert (actual = expected)
     static member assert_ne(actual, expected) = assert (actual <> expected)
-    static member unreachable() = failwith "should not happen"
+    static member unreachable() = failwith "unreachable!"
     static member panic() = failwith "panic!"
     static member panic(str: string) = failwith str
 

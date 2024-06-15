@@ -1615,6 +1615,21 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformExpr(ctx, last))]
         | args ->
+            let optionalArgs =
+                if args.Length < parameters.Length then
+                    parameters
+                    |> List.skip args.Length
+                    |> List.filter (fun p -> p.IsOptional)
+                    |> List.map (fun p ->
+                        match p.Type with
+                        | Fable.Option(t, isStruct) -> Fable.Value(Fable.NewOption(None, t, isStruct), None)
+                        | _ -> failwith "unreachable"
+                    )
+                else
+                    []
+
+            let args = List.append args optionalArgs
+
             let argsWithTypes =
                 if argTypes.Length = args.Length then
                     args |> List.zip argTypes |> List.map (fun (t, a) -> Some t, a)
@@ -2877,7 +2892,7 @@ module Util =
                 |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
 
             mkLetExpr pat expr
-        | _ -> failwith "Should not happen"
+        | _ -> failwith "unreachable"
 
     let transformTest (com: IRustCompiler) ctx range kind (fableExpr: Fable.Expr) : Rust.Expr =
         match kind with
@@ -2923,7 +2938,7 @@ module Util =
                 let thenExpr = mkBoolLitExpr true
                 let elseExpr = mkBoolLitExpr false
                 mkIfThenElseExpr guardExpr thenExpr elseExpr
-            | _ -> failwith "Should not happen"
+            | _ -> failwith "unreachable"
 
     let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase targets : Rust.Expr =
         let namesForIndex evalType evalName caseIndex = //todo refactor with below
