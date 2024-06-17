@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.0.0-alpha-012 - 2024-06-17
+
+### Fixed
+
+* [JS/TS] Fixed unwrapping optional arguments (#3847) (by @ncave)
+
 ## 4.0.0-alpha-011 - 2024-06-13
 
 ### Changed
