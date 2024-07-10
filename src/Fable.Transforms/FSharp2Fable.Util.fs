@@ -762,8 +762,8 @@ module Helpers =
         atts
         |> Seq.tryPick (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
-            | Some fullName' ->
-                if fullName = fullName' then
+            | Some fullName2 ->
+                if fullName = fullName2 then
                     Some att
                 else
                     None
@@ -932,13 +932,13 @@ module Helpers =
         }
 
     /// Test if the name corresponds to this interface or anyone in its hierarchy
-    let rec testInterfaceHierarchy interfaceFullname interfaceType =
+    let rec testInterfaceHierarchy interfaceFullName interfaceType =
         match tryDefinition interfaceType with
-        | Some(e, Some fullname2) ->
-            if interfaceFullname = fullname2 then
+        | Some(e, Some fullName) ->
+            if interfaceFullName = fullName then
                 true
             else
-                e.DeclaredInterfaces |> Seq.exists (testInterfaceHierarchy interfaceFullname)
+                e.DeclaredInterfaces |> Seq.exists (testInterfaceHierarchy interfaceFullName)
         | _ -> false
 
     let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
@@ -1111,7 +1111,7 @@ module Patterns =
         | Let((_, value, _), // Coercion to seq
               Let((_, Call(None, meth, _, [], []), _), TryFinally(WhileLoop(_, Let((ident, _, _), body), _), _, _, _)))
         | Let((_, Call(Some value, meth, _, [], []), _), TryFinally(WhileLoop(_, Let((ident, _, _), body), _), _, _, _)) when
-            // Using only the compiled name is riskier but with the fullname we miss some cases
+            // Using only the compiled name is riskier but with the fullName we miss some cases
             // TODO: Check the return type of meth is or implements IEnumerator
             meth.CompiledName = "GetEnumerator"
             ->
@@ -1432,11 +1432,11 @@ module TypeHelpers =
     let private getMeasureFullName (genArgs: IList<FSharpType>) =
         if genArgs.Count > 0 then
             // TODO: Check it's effectively measure?
-            // TODO: Raise error if we cannot get the measure fullname?
+            // TODO: Raise error if we cannot get the measure fullName?
             match tryDefinition genArgs[0] with
-            | Some(_, Some fullname) ->
+            | Some(_, Some fullName) ->
                 // Not sure why, but when precompiling F# changes measure types to MeasureProduct<'M, MeasureOne>
-                match fullname with
+                match fullName with
                 | Types.measureProduct2 ->
                     match
                         (nonAbbreviatedType genArgs[0]).GenericArguments
@@ -1445,8 +1445,8 @@ module TypeHelpers =
                     with
                     // TODO: generalize it to support aggregate units such as <m/s> or more complex
                     | [ Some measure; Some Types.measureOne ] -> measure
-                    | _ -> fullname
-                | _ -> fullname
+                    | _ -> fullName
+                | _ -> fullName
             | _ -> Naming.unknown
         else
             Naming.unknown
@@ -2289,7 +2289,7 @@ module Util =
         | _ -> not (isGlobalOrImportedFSharpEntity ent || isAttachMembersEntity com ent)
 
     let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
-        // TODO: Error if entity doesn't have fullname?
+        // TODO: Error if entity doesn't have fullName?
         let entityName = defaultArg ent.TryFullName ""
         entityName + "." + memberName + overloadHash
 
@@ -2756,11 +2756,12 @@ module Util =
 
         | _ ->
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
-            let typ = makeType ctx.GenericArgs memb.ReturnParameter.Type
+            let typ = makeType ctx.GenericArgs memb.FullType
+            let retTyp = makeType ctx.GenericArgs memb.ReturnParameter.Type
 
             let callExpr =
-                memberIdent com r Fable.Any memb membRef
-                |> makeCall r typ { callInfo with Tags = "value" :: callInfo.Tags }
+                memberIdent com r typ memb membRef
+                |> makeCall r retTyp { callInfo with Tags = "value" :: callInfo.Tags }
 
             let fableMember = FsMemberFunctionOrValue(memb)
             // TODO: Move plugin application to FableTransforms

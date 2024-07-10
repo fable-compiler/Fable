@@ -471,10 +471,11 @@ let private transformDelegate com ctx (delegateType: FSharpType) expr =
         // applies a unit arg to the expression, see #2400
         let expr =
             match tryDefinition delegateType with
-            | Some(_, Some "System.Func`1") ->
+            | Some(_, Some _fullName) ->
                 match expr with
-                | Fable.CurriedApply(expr, [ Fable.Value(Fable.UnitConstant, _) ], _, _) -> expr
-                | Fable.Call(expr, { Args = [ Fable.Value(Fable.UnitConstant, _) ] }, _, _) -> expr
+                | Fable.CurriedApply(expr2, [ Fable.Value(Fable.UnitConstant, _) ], _, _) -> expr2
+                | Fable.Call(expr2, { Args = [ Fable.Value(Fable.UnitConstant, _) ] }, _, _) -> // expr2
+                    Fable.Delegate([], expr, None, Fable.Tags.empty)
                 | _ -> expr
             | _ -> expr
 
@@ -2103,8 +2104,8 @@ let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
 let resolveFieldType (ctx: Context) (entityType: FSharpType) (fieldType: FSharpType) =
     let entityGenArgs =
         match tryDefinition entityType with
-        | Some(def, _) when def.GenericParameters.Count = entityType.GenericArguments.Count ->
-            Seq.zip def.GenericParameters entityType.GenericArguments
+        | Some(tdef, _) when tdef.GenericParameters.Count = entityType.GenericArguments.Count ->
+            Seq.zip tdef.GenericParameters entityType.GenericArguments
             |> Seq.map (fun (p, a) -> genParamName p, makeType Map.empty a)
             |> Map
         | _ -> Map.empty
