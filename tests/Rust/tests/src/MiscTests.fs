@@ -506,6 +506,25 @@ let inline inlineToString (f: 'T -> string): 'T -> string =
     let unused = f
     fun a -> sprintf "%A" a
 
+type MyIntDelegate = delegate of unit -> int
+
+let get42 () = 42
+
+let dtest1 (f: MyIntDelegate -> int) =
+    f get42
+
+let dtest2 (f: MyIntDelegate -> int) =
+    let get43 () = 43
+    f get43
+
+let dInvoke (d: MyIntDelegate) =
+    d.Invoke ()
+
+[<Fact>]
+let ``Passing delegate works`` () = // #3862
+    dtest1 dInvoke |> equal 42
+    dtest2 dInvoke |> equal 43
+
 [<Fact>]
 let ``Generic unit args work`` () = // #3584
     let to_str = inlineToString (fun (props: unit) -> "s")
