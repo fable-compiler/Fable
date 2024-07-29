@@ -380,7 +380,7 @@ let private getImplementedSignatureInfo
             && countNonCurriedParamsForSignature sign = 1
 
         let name =
-            if isGetter || isSetter then
+            if (isGetter || isSetter) && com.Options.Language <> Rust then
                 Naming.removeGetSetPrefix sign.Name
             else
                 sign.Name
@@ -925,7 +925,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 match tryFindWitness ctx argTypes flags.IsInstance traitName with
                 | None ->
                     let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
-
                     return transformTraitCall com ctx r typ sourceTypes traitName flags.IsInstance argTypes argExprs
                 | Some w ->
                     let callInfo = makeCallInfo None argExprs argTypes
@@ -933,9 +932,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
             let typ = makeType ctx.GenericArgs fsExpr.Type
-
             let callGenArgs = ownerGenArgs @ membGenArgs |> List.map (makeType ctx.GenericArgs)
-
             let! args = transformExprList com ctx args
 
             // Sometimes args may include local generics (e.g. an identifier referencing a local generic function)

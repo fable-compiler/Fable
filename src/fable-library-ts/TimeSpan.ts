@@ -1,4 +1,3 @@
-// tslint:disable:max-line-length
 import { FSharpRef } from "./Types.js";
 import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
 import { toInt64, fromFloat64 } from "./BigInt.js";

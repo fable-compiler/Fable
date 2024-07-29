@@ -48,7 +48,6 @@ export function matches(reg: RegExp, input: string, startAt = 0) {
   const matches: RegExpExecArray[] = [];
   let m: RegExpExecArray | null;
   let lastMatchIndex = -1;
-  // tslint:disable-next-line:no-conditional-assignment
   while ((m = reg.exec(input)) != null) {
     // It can happen even global regex get stuck, see #2845
     if (m.index === lastMatchIndex) {

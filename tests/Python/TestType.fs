@@ -577,6 +577,21 @@ type IndexedProps(v: int) =
 type ITesting =
     static member Testing x = x
 
+// type IOne =
+//     static abstract member GetSum: int * int -> int
+//     static abstract member GetOne: unit -> int
+//     static abstract member Two: int
+
+// type I32() =
+//     interface IOne with
+//         static member GetSum(x, y) = x + y
+//         static member GetOne() = 1
+//         static member Two = 2
+
+// let getSum<'T when 'T :> IOne>() = 'T.GetSum(1, 2)
+// let getOne<'T when 'T :> IOne>() = 'T.GetOne()
+// let getTwo<'T when 'T :> IOne>() = 'T.Two
+
 [<AttachMembersAttribute>]
 type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
     member val P1 = defaultArg arg1 1.0
@@ -758,6 +773,12 @@ let ``test Indexed properties work`` () =
 let ``test Static interface members work`` () =
     let a = ITesting.Testing 5
     a |> equal 5
+
+// [<Fact>]
+// let ``test Static interface calls work`` () =
+//     getOne<I32>() |> equal 1
+//     getTwo<I32>() |> equal 2
+//     getSum<I32>() |> equal 3
 
 [<Fact>]
 let ``test Types can instantiate their parent in the constructor`` () =

@@ -503,6 +503,21 @@ open Util
 // type ITesting =
 //     static member Testing x = x
 
+// type IOne =
+//     static abstract member GetSum: int * int -> int
+//     static abstract member GetOne: unit -> int
+//     static abstract member Two: int
+
+// type I32() =
+//     interface IOne with
+//         static member GetSum(x, y) = x + y
+//         static member GetOne() = 1
+//         static member Two = 2
+
+// let getSum<'T when 'T :> IOne>() = 'T.GetSum(1, 2)
+// let getOne<'T when 'T :> IOne>() = 'T.GetOne()
+// let getTwo<'T when 'T :> IOne>() = 'T.Two
+
 // type TypeWithByRefMember() =
 //     static member DoubleIntByRef (x: byref<int>) : unit = x <- 2 * x
 
@@ -695,6 +710,11 @@ let tests() =
 //     testCase "Static interface members work" <| fun () ->
 //         let a = ITesting.Testing 5
 //         a |> equal 5
+
+//     testCase "Static interface calls work" <| fun () ->
+//         getOne<I32>() |> equal 1
+//         getTwo<I32>() |> equal 2
+//         getSum<I32>() |> equal 3
 
 //     testCase "Types can instantiate their parent in the constructor" <| fun () ->
 //         let t = TestType9()
