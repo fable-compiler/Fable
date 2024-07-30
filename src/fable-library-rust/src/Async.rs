@@ -111,7 +111,7 @@ pub mod AsyncBuilder_ {
         })
     }
 
-    pub fn zero() -> Arc<Async<()>> {
+    pub fn zero<T: Send + Sync + 'static>() -> Arc<Async<()>> {
         r_return(())
     }
 }
@@ -369,7 +369,7 @@ pub mod Task_ {
         Arc::from(t)
     }
 
-    pub fn zero() -> Arc<Task<()>> {
+    pub fn zero<T: Clone + Send + Sync + 'static>() -> Arc<Task<()>> {
         r_return(())
     }
 
