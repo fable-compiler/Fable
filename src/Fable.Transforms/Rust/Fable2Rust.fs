@@ -300,22 +300,6 @@ module UsageTracking =
 
 module TypeInfo =
 
-    let splitName (sep: string) (fullName: string) =
-        let i = fullName.LastIndexOf(sep)
-
-        if i < 0 then
-            "", fullName
-        else
-            fullName.Substring(0, i), fullName.Substring(i + sep.Length)
-
-    let splitLast (fullName: string) =
-        let i = fullName.LastIndexOf(".")
-
-        if i < 0 then
-            fullName
-        else
-            fullName.Substring(i + 1)
-
     let makeFullNamePath fullName genArgsOpt =
         let parts = splitNameParts fullName
         mkGenericPath parts genArgsOpt
@@ -680,12 +664,12 @@ module TypeInfo =
                     makeFullNamePathExpr importName genArgsOpt
                 else
                     // for constructors or static members, import just the type
-                    let selector, membName = splitName "." info.Selector
+                    let selector, membName = Fable.Naming.splitLastBy "." info.Selector
                     let importName = com.GetImportName(ctx, selector, info.Path, r)
                     makeFullNamePathExpr (importName + "::" + membName) genArgsOpt
             | Fable.LibraryImport mi when not (mi.IsInstanceMember) && not (mi.IsModuleMember) ->
                 // for static (non-module and non-instance) members, import just the type
-                let selector, membName = splitName "::" info.Selector
+                let selector, membName = Fable.Naming.splitLastBy "::" info.Selector
                 let importName = com.GetImportName(ctx, selector, info.Path, r)
                 makeFullNamePathExpr (importName + "::" + membName) genArgsOpt
             | _ ->
@@ -1265,7 +1249,7 @@ module Util =
         let args =
             args |> discardUnitArg [] |> List.filter (fun arg -> not (arg.IsThisArgument))
 
-        let label = splitLast name
+        let label = Fable.Naming.splitLast name
 
         interface ITailCallOpportunity with
             member _.Label = label
@@ -2428,7 +2412,7 @@ module Util =
         mkMethodCallExpr "set" None expr [ value ]
 
     let makeInstanceCall com ctx memberName calleeExpr args =
-        let membName = splitLast memberName
+        let membName = Fable.Naming.splitLast memberName
         let callee = com.TransformExpr(ctx, calleeExpr)
         // match calleeExpr.Type with
         // | IsNonErasedInterface com (entRef, genArgs) ->
@@ -3316,7 +3300,7 @@ module Util =
 
             memb.Attributes
             |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.entryPoint)
-            |> Option.map (fun _ -> [ splitLast decl.Name ])
+            |> Option.map (fun _ -> [ Fable.Naming.splitLast decl.Name ])
         | Fable.ActionDeclaration decl -> None
         | Fable.ClassDeclaration decl -> None
 
@@ -3929,7 +3913,7 @@ module Util =
         | _ -> []
 
     let transformModuleFunction (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
-        let name = splitLast decl.Name
+        let name = Fable.Naming.splitLast decl.Name
         //if name = "someProblematicFunction" then System.Diagnostics.Debugger.Break()
         let isByRefPreferred =
             memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
@@ -3961,7 +3945,7 @@ module Util =
         //     static value: OnceInit<T> = OnceInit::new();
         //     value.get_or_init(|| initValue).clone()
         // }
-        let name = splitLast decl.Name
+        let name = Fable.Naming.splitLast decl.Name
         let typ = decl.Body.Type
 
         let initNone = makeNew com ctx "Native" "OnceInit" []
@@ -4061,7 +4045,7 @@ module Util =
         (body: Fable.Expr)
         =
         let ctx = { ctx with IsAssocMember = true }
-        let name = splitLast membName
+        let name = Fable.Naming.splitLast membName
 
         let body =
             if memb.IsInstance && not (memb.IsConstructor) then
@@ -4138,7 +4122,7 @@ module Util =
 
     let transformAbbrev (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         // TODO: this is unfinished and untested
-        let entName = splitLast ent.FullName
+        let entName = Fable.Naming.splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let genArgsOpt = transformGenArgs com ctx genArgs
         let traitBound = mkTypeTraitGenericBound [ entName ] genArgsOpt
@@ -4150,7 +4134,7 @@ module Util =
         [ tyItem ]
 
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
-        let entName = splitLast ent.FullName
+        let entName = Fable.Naming.splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let generics = makeGenerics com ctx genArgs
 
@@ -4181,7 +4165,7 @@ module Util =
         enumItem
 
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
-        let entName = splitLast ent.FullName
+        let entName = Fable.Naming.splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let generics = makeGenerics com ctx genArgs
         let isPublic = ent.IsFSharpRecord
@@ -4308,6 +4292,7 @@ module Util =
             let ifcEnt = com.GetEntity(ifc.Entity)
 
             ifcEnt.MembersFunctionsAndValues
+            |> Seq.filter (fun memb -> memb.IsDispatchSlot)
             |> Seq.distinctBy (fun memb -> memb.CompiledName)
             |> Seq.map (fun memb ->
                 let thisArg = { makeTypedIdent ifcTyp "this" with IsThisArgument = true }
@@ -4350,7 +4335,7 @@ module Util =
         )
 
     let transformInterface (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
-        let entName = splitLast ent.FullName
+        let entName = Fable.Naming.splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let genArgNames = getEntityGenParamNames ent
         let typeName = makeUniqueName "V" genArgNames
@@ -4387,7 +4372,7 @@ module Util =
         //     }
         // }
         if ent.IsFSharpExceptionDeclaration then
-            let entName = splitLast ent.FullName
+            let entName = Fable.Naming.splitLast ent.FullName
             let entNameExpr = Fable.Value(Fable.StringConstant(entName), None)
 
             let thisArg = Fable.Value(Fable.ThisValue Fable.Any, None)
@@ -4590,7 +4575,7 @@ module Util =
                 classDecl.Name // for interface object expressions
             else
                 getEntityFullName com ctx entRef
-            |> splitLast
+            |> Fable.Naming.splitLast
 
         let entType = FSharp2Fable.Util.getEntityType ent
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent

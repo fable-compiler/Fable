@@ -702,8 +702,13 @@ module Helpers =
         let name, part = getMemberMangledName (TrimRootModule com) memb
 
         let name, part =
-            match com.Options.Language with
-            | Rust -> memberNameAsRustIdentifier name part
+            match com.Options.Language, memb.DeclaringEntity with
+            | Rust, Some ent when ent.IsInterface && not memb.IsDispatchSlot ->
+                // For Rust, add entity prefix to default static interface members
+                cleanNameAsRustIdentifier name, part.Replace(cleanNameAsJsIdentifier)
+            | Rust, _ ->
+                // for Rust, no entity prefix for other members
+                memberNameAsRustIdentifier name part
             | _ -> cleanNameAsJsIdentifier name, part.Replace(cleanNameAsJsIdentifier)
 
         let sanitizedName =
@@ -2021,7 +2026,7 @@ module Util =
         )
 
     let isAttachMembersEntity (com: Compiler) (ent: FSharpEntity) =
-        not ent.IsFSharpModule
+        not (ent.IsFSharpModule || ent.IsInterface)
         && (
         // com.Options.Language = Php ||
         com.Options.Language = Rust
@@ -2131,8 +2136,14 @@ module Util =
 
         let memberName =
             match com.Options.Language, memb.DeclaringEntity with
-            // for Rust use full name with non-instance calls
-            | Rust, Some ent when not (memb.IsInstanceMember) -> ent.FullName + "." + memberName
+            | Rust, Some ent when not memb.IsInstanceMember ->
+                // for Rust, use the namespace for default static interface calls,
+                // for other non-instance calls, prefix with the full entity name
+                if ent.IsInterface && not memb.IsDispatchSlot && ent.FullName.Contains(".") then
+                    let ns, _ = Fable.Naming.splitLastBy "." ent.FullName
+                    ns + "." + memberName
+                else
+                    ent.FullName + "." + memberName
             | _ -> memberName
 
         let file =
@@ -2392,9 +2403,7 @@ module Util =
                 Fable.Get(callee, kind, typ, r)
             elif not info.isMangled && info.isSetter then
                 let membType = memb.CurriedParameterGroups[0].[0].Type |> makeType Map.empty
-
                 let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
-
                 Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)
             else
                 let entityGenParamsCount = entity.GenericParameters.Count

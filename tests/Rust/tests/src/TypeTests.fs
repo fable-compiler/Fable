@@ -497,9 +497,9 @@ type IndexedProps(v: int) =
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
     member _.Item with get (v2: float) = float v + v2 / 2.
 
-// [<Interface>]
-// type ITesting =
-//     static member Testing x = x
+[<Interface>]
+type ITesting =
+    static member Testing x = x
 
 type IOne =
     static abstract member GetSum: int * int -> int
@@ -693,10 +693,10 @@ let ``Indexed properties work`` () =
     f[4] |> equal 13
     f[4.] |> equal 11
 
-// [<Fact>]
-// let ``Static interface members work`` () =
-//     let a = ITesting.Testing 5
-//     a |> equal 5
+[<Fact>]
+let ``Static interface members work`` () =
+    let a = ITesting.Testing 5
+    a |> equal 5
 
 [<Fact>]
 let ``Static interface calls work`` () =
