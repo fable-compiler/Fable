@@ -2362,11 +2362,11 @@ module Util =
                     let callee = transformCallee com ctx thisArg
                     mkMethodCallExpr info.Selector None callee args
                 else
-                    let callee = transformImport com ctx r t info None
+                    let callee = transformImport com ctx r t info genArgsOpt
                     mkCallExpr callee args
             | None, Fable.MemberImport memberRef when isModuleMemberRef com memberRef ->
                 let memb = com.GetMember(memberRef)
-                let callee = transformImport com ctx r t info None
+                let callee = transformImport com ctx r t info genArgsOpt
 
                 if memb.IsMutable && memb.IsValue then
                     mutableGet (mkCallExpr callee [])
