@@ -702,8 +702,13 @@ module Helpers =
         let name, part = getMemberMangledName (TrimRootModule com) memb
 
         let name, part =
-            match com.Options.Language with
-            | Rust -> memberNameAsRustIdentifier name part
+            match com.Options.Language, memb.DeclaringEntity with
+            | Rust, Some ent when ent.IsInterface && not memb.IsDispatchSlot ->
+                // For Rust, add entity prefix to default static interface members
+                cleanNameAsRustIdentifier name, part.Replace(cleanNameAsJsIdentifier)
+            | Rust, _ ->
+                // for Rust, no entity prefix for other members
+                memberNameAsRustIdentifier name part
             | _ -> cleanNameAsJsIdentifier name, part.Replace(cleanNameAsJsIdentifier)
 
         let sanitizedName =
@@ -2021,7 +2026,7 @@ module Util =
         )
 
     let isAttachMembersEntity (com: Compiler) (ent: FSharpEntity) =
-        not ent.IsFSharpModule
+        not (ent.IsFSharpModule || ent.IsInterface)
         && (
         // com.Options.Language = Php ||
         com.Options.Language = Rust
@@ -2131,8 +2136,14 @@ module Util =
 
         let memberName =
             match com.Options.Language, memb.DeclaringEntity with
-            // for Rust use full name with non-instance calls
-            | Rust, Some ent when not (memb.IsInstanceMember) -> ent.FullName + "." + memberName
+            | Rust, Some ent when not memb.IsInstanceMember ->
+                // for Rust, use the namespace for default static interface calls,
+                // for other non-instance calls, prefix with the full entity name
+                if ent.IsInterface && not memb.IsDispatchSlot && ent.FullName.Contains(".") then
+                    let ns, _ = Fable.Naming.splitLastBy "." ent.FullName
+                    ns + "." + memberName
+                else
+                    ent.FullName + "." + memberName
             | _ -> memberName
 
         let file =
@@ -2308,7 +2319,7 @@ module Util =
 
                 getMangledAbstractMemberName ent memb.CompiledName overloadHash
             else if
-                // use compiled member name for Rust
+                // use DisplayName for getters/setters (except for Rust)
                 (isGetter || isSetter) && com.Options.Language <> Rust
             then
                 getMemberDisplayName memb
@@ -2322,55 +2333,88 @@ module Util =
             isSetter = isSetter
         |}
 
+    // try finding a member's generic parameter that is constrained by an interface
+    let tryFindGenParam (ent: FSharpEntity) (membOpt: FSharpMemberOrFunctionOrValue option) =
+        membOpt
+        |> Option.bind (fun m ->
+            m.GenericParameters
+            |> Seq.tryFind (fun p ->
+                p.Constraints
+                |> Seq.exists (fun c ->
+                    if c.IsCoercesToConstraint then
+                        let t = c.CoercesToTarget
+
+                        if t.HasTypeDefinition then
+                            t.TypeDefinition = ent
+                        else
+                            false
+                    else
+                        false
+                )
+            )
+        )
+
     let callAttachedMember
-        com
+        (com: Compiler)
+        (ctx: Context)
         r
         typ
         (callInfo: Fable.CallInfo)
         (entity: FSharpEntity)
         (memb: FSharpMemberOrFunctionOrValue)
         =
-        let callInfo, callee =
-            match callInfo.ThisArg with
-            | Some callee -> { callInfo with ThisArg = None }, callee
-            | None ->
+        match callInfo.ThisArg with
+        | None ->
+            // for some reason the callee for generic static interface calls is empty
+            // so we have to use the generic param from the enclosing member for that
+            let genParamOpt = ctx.EnclosingMember |> tryFindGenParam entity
+
+            match genParamOpt with
+            | Some genParam when com.Options.Language = Rust ->
+                // let memberName, _ = getMemberDeclarationName com memb
+                let memberName = memb.CompiledName // TODO: handle overloads
+                let memberName = genParam.FullName + "." + memberName
+                let callee = makeIdentExpr memberName
+                makeCall r typ callInfo callee
+            | _ ->
+                // TODO: add support for static interface calls in other languages
                 $"Unexpected static interface/override call: %s{memb.FullName}"
                 |> attachRange r
                 |> failwith
 
-        let info = getAbstractMemberInfo com entity memb
+        | Some callee ->
+            let callInfo = { callInfo with ThisArg = None }
+            let info = getAbstractMemberInfo com entity memb
 
-        // Python do not support static getters, so we need to call a getter function instead
-        let isPythonStaticMember =
-            com.Options.Language = Python && not memb.IsInstanceMember
+            // Python do not support static getters, so we need to call a getter function instead
+            let isPythonStaticMember =
+                com.Options.Language = Python && not memb.IsInstanceMember
 
-        if not info.isMangled && info.isGetter && not isPythonStaticMember then
-            // Set the field as maybe calculated so it's not displaced by beta reduction
-            let kind =
-                Fable.FieldInfo.Create(
-                    info.name,
-                    fieldType = (memb.ReturnParameter.Type |> makeType Map.empty),
-                    maybeCalculated = true,
-                    ?tag = tryGetFieldTag memb
-                )
+            if not info.isMangled && info.isGetter && not isPythonStaticMember then
+                // Set the field as maybe calculated so it's not displaced by beta reduction
+                let kind =
+                    Fable.FieldInfo.Create(
+                        info.name,
+                        fieldType = (memb.ReturnParameter.Type |> makeType Map.empty),
+                        maybeCalculated = true,
+                        ?tag = tryGetFieldTag memb
+                    )
 
-            Fable.Get(callee, kind, typ, r)
-        elif not info.isMangled && info.isSetter then
-            let membType = memb.CurriedParameterGroups[0].[0].Type |> makeType Map.empty
+                Fable.Get(callee, kind, typ, r)
+            elif not info.isMangled && info.isSetter then
+                let membType = memb.CurriedParameterGroups[0].[0].Type |> makeType Map.empty
+                let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
+                Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)
+            else
+                let entityGenParamsCount = entity.GenericParameters.Count
 
-            let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
+                let callInfo =
+                    if callInfo.GenericArgs.Length < entityGenParamsCount then
+                        callInfo
+                    else
+                        { callInfo with GenericArgs = List.skip entityGenParamsCount callInfo.GenericArgs }
 
-            Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)
-        else
-            let entityGenParamsCount = entity.GenericParameters.Count
-
-            let callInfo =
-                if callInfo.GenericArgs.Length < entityGenParamsCount then
-                    callInfo
-                else
-                    { callInfo with GenericArgs = List.skip entityGenParamsCount callInfo.GenericArgs }
-
-            getField callee info.name |> makeCall r typ callInfo
+                getField callee info.name |> makeCall r typ callInfo
 
     let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) (thisArg: Fable.Expr option) =
         let msg =
@@ -2424,7 +2468,7 @@ module Util =
                     // If it's an interface compile the call to the attached member just in case
                     let attachedCall =
                         if info.IsInterface then
-                            callAttachedMember com r typ callInfo ent memb |> Some
+                            callAttachedMember com ctx r typ callInfo ent memb |> Some
                         else
                             None
 
@@ -2435,7 +2479,7 @@ module Util =
             | None ->
                 match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
                 | Some e -> Some e
-                | None when info.IsInterface -> callAttachedMember com r typ callInfo ent memb |> Some
+                | None when info.IsInterface -> callAttachedMember com ctx r typ callInfo ent memb |> Some
                 | None -> failReplace com ctx r info callInfo.ThisArg |> Some
         | _ -> None
 
@@ -2444,7 +2488,14 @@ module Util =
         |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
         |> Option.iter com.AddWatchDependency
 
-    let (|Emitted|_|) com r typ (callInfo: Fable.CallInfo option) (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Emitted|_|)
+        (com: Compiler)
+        (ctx: Context)
+        r
+        typ
+        (callInfo: Fable.CallInfo option)
+        (memb: FSharpMemberOrFunctionOrValue)
+        =
         memb.Attributes
         |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
@@ -2485,6 +2536,7 @@ module Util =
 
     let (|Imported|_|)
         (com: Compiler)
+        (ctx: Context)
         r
         typ
         callInfo
@@ -2522,11 +2574,11 @@ module Util =
                 | None -> None
 
             match moduleOrClassExpr, callInfo.ThisArg with
-            | Some _, Some _thisArg -> callAttachedMember com r typ callInfo e memb |> Some
+            | Some _, Some _thisArg -> callAttachedMember com ctx r typ callInfo e memb |> Some
 
             | Some classExpr, None when memb.IsConstructor ->
-                Fable.Call(classExpr, { callInfo with Tags = "new" :: callInfo.Tags }, typ, r)
-                |> Some
+                let callInfo = { callInfo with Tags = "new" :: callInfo.Tags }
+                makeCall r typ callInfo classExpr |> Some
 
             | Some moduleOrClassExpr, None ->
                 if isModuleValueForCalls com e memb then
@@ -2541,8 +2593,7 @@ module Util =
                     Fable.Get(moduleOrClassExpr, kind, typ, r) |> Some
                 else
                     let callInfo = { callInfo with ThisArg = Some moduleOrClassExpr }
-
-                    callAttachedMember com r typ callInfo e memb |> Some
+                    callAttachedMember com ctx r typ callInfo e memb |> Some
 
             | None, _ -> None
         | _ -> None
@@ -2693,8 +2744,8 @@ module Util =
         (callInfo: Fable.CallInfo)
         =
         match memb, memb.DeclaringEntity with
-        | Emitted com r typ (Some callInfo) emitted, _ -> emitted
-        | Imported com r typ (Some callInfo) imported -> imported
+        | Emitted com ctx r typ (Some callInfo) emitted, _ -> emitted
+        | Imported com ctx r typ (Some callInfo) imported -> imported
         | Replaced com ctx r typ callInfo replaced -> replaced
         | Inlined com ctx r typ callee callInfo expr, _ -> expr
 
@@ -2743,7 +2794,7 @@ module Util =
                     |> Option.defaultValue entity
                 | _ -> entity
 
-            callAttachedMember com r typ callInfo entity memb
+            callAttachedMember com ctx r typ callInfo entity memb
 
         | _, Some entity when isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
@@ -2751,17 +2802,14 @@ module Util =
 
         | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
             let classExpr = FsEnt.Ref entity |> entityIdent com
-
-            Fable.Call(classExpr, { callInfo with Tags = "new" :: callInfo.Tags }, typ, r)
-
+            let callInfo = { callInfo with Tags = "new" :: callInfo.Tags }
+            makeCall r typ callInfo classExpr
         | _ ->
             // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
             let typ = makeType ctx.GenericArgs memb.FullType
             let retTyp = makeType ctx.GenericArgs memb.ReturnParameter.Type
-
-            let callExpr =
-                memberIdent com r typ memb membRef
-                |> makeCall r retTyp { callInfo with Tags = "value" :: callInfo.Tags }
+            let callInfo = { callInfo with Tags = "value" :: callInfo.Tags }
+            let callExpr = memberIdent com r typ memb membRef |> makeCall r retTyp callInfo
 
             let fableMember = FsMemberFunctionOrValue(memb)
             // TODO: Move plugin application to FableTransforms
@@ -2785,7 +2833,7 @@ module Util =
             args = transformOptionalArguments com ctx r memb args,
             genArgs = genArgs,
             sigArgTypes = getArgTypes com memb,
-            //            isCons = memb.IsConstructor,
+            // isCons = memb.IsConstructor,
             memberRef = memberRef
         )
         |> makeCallWithArgInfo com ctx r typ callee memb memberRef
@@ -2799,7 +2847,7 @@ module Util =
             //     $"Value %s{v.DisplayName} is replaced with unit constant"
             //     |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)
-        | Emitted com r typ None emitted, _ -> emitted
-        | Imported com r typ None imported -> imported
+        | Emitted com ctx r typ None emitted, _ -> emitted
+        | Imported com ctx r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r (Some typ)) expr, _ -> expr
         | _ -> getValueMemberRef v |> memberIdent com r typ v

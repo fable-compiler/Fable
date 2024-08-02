@@ -127,6 +127,16 @@ module Naming =
             else
                 s.Substring(i1 + 1, i2 - i1 - 1)
 
+    let splitLastBy (sep: string) (s: string) =
+        let i = s.LastIndexOf(sep)
+
+        if i < 0 then
+            "", s
+        else
+            s.Substring(0, i), s.Substring(i + sep.Length)
+
+    let splitLast (s: string) = splitLastBy "." s |> snd
+
     let lowerFirst (s: string) =
         s.Substring(0, 1).ToLowerInvariant() + s.Substring(1)
 

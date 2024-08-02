@@ -199,7 +199,7 @@ export function isPromise(x: any) {
   return x instanceof Promise;
 }
 
-export function ensureErrorOrException(e: any) {
+export function ensureErrorOrException(e: any): any {
   // Exceptionally admitting promises as errors for compatibility with React.suspense (see #3298)
   return (isException(e) || isPromise(e)) ? e : new Error(String(e));
 }

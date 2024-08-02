@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Rust] Added support for static interface calls (by @ncave)
+
 ### Fixed
 
 * [All] Fixed passing delegates with unit args (#3862) (by @ncave)

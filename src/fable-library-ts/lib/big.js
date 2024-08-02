@@ -1,5 +1,4 @@
 // Adapted from https://github.com/MikeMcl/big.js/blob/0f94dc9110d55c4f324a47ba6a2e832ce23ac589/big.mjs
-/* tslint:disable */
 
 var P = {};
 

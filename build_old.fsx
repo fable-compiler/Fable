@@ -69,9 +69,6 @@ module Util =
         |> replaceRegex Publish.NUGET_PACKAGE_VERSION (fun m -> m.Groups[1].Value + version + m.Groups[3].Value)
         |> writeFile projFile
 
-    let runTSLint projectDir =
-        run ("npm run tslint -- --project " + projectDir)
-
     let runTypeScript projectDir =
         run ("npm run tsc -- --project " + projectDir)
 
@@ -207,7 +204,6 @@ module Unused =
 //             runFableWithArgsAsync projectDir fableOpts
 //         ] |> runAsyncWorkflow
 //     else
-//         runTSLint projectDir
 //         runTypeScript projectDir
 //         runFableWithArgs projectDir fableOpts
 //         removeDirRecursive (buildDir </> ".fable")
@@ -245,7 +241,6 @@ let buildLibraryTs () =
     copyDirRecursive (sourceDir </> "lib") (buildDirTs </> "lib")
     copyFile (sourceDir </> "package.json") buildDirTs
 
-    // runTSLint buildDirTs
     runTypeScriptWithArgs buildDirTs [ "--outDir " + buildDirJs ]
     copyFile (buildDirTs </> "lib/big.d.ts") (buildDirJs </> "lib/big.d.ts")
     copyFile (buildDirTs </> "package.json") buildDirJs

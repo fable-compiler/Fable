@@ -26,7 +26,6 @@ export class Uri {
 
   private static isAbsoluteUri(uri: string): boolean {
     try {
-      // tslint:disable-next-line no-unused-expression
       new URL(uri);
       return true;
     } catch {

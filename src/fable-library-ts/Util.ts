@@ -1,5 +1,3 @@
-// tslint:disable:ban-types
-
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,

@@ -6,7 +6,6 @@
     "mocha": "mocha",
     "rollup": "rollup",
     "terser": "terser",
-    "tslint": "tslint",
     "build": "dotnet fsi build_old.fsx",
     "publish": "dotnet fsi build_old.fsx publish",
     "test": "dotnet run --project src/Fable.Build/Fable.Build.fsproj -- test",
@@ -27,7 +26,6 @@
     "nodemon": "^3.1.0",
     "rollup": "^4.14.0",
     "terser": "^5.30.3",
-    "tslint": "^6.1.3",
     "typescript": "^5.4.4"
   },
   "devDependencies": {

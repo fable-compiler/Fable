@@ -497,9 +497,24 @@ type IndexedProps(v: int) =
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
     member _.Item with get (v2: float) = float v + v2 / 2.
 
-// [<Interface>]
-// type ITesting =
-//     static member Testing x = x
+[<Interface>]
+type ITesting =
+    static member Testing x = x
+
+type IOne =
+    static abstract member GetSum: int * int -> int
+    static abstract member GetOne: unit -> int
+    static abstract member Two: int
+
+type I32() =
+    interface IOne with
+        static member GetSum(x, y) = x + y
+        static member GetOne() = 1
+        static member Two = 2
+
+let getSum<'T when 'T :> IOne>() = 'T.GetSum(1, 2)
+let getOne<'T when 'T :> IOne>() = 'T.GetOne()
+let getTwo<'T when 'T :> IOne>() = 'T.Two
 
 [<AttachMembersAttribute>]
 type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
@@ -678,10 +693,16 @@ let ``Indexed properties work`` () =
     f[4] |> equal 13
     f[4.] |> equal 11
 
-// [<Fact>]
-// let ``Static interface members work`` () =
-//     let a = ITesting.Testing 5
-//     a |> equal 5
+[<Fact>]
+let ``Static interface members work`` () =
+    let a = ITesting.Testing 5
+    a |> equal 5
+
+[<Fact>]
+let ``Static interface calls work`` () =
+    getOne<I32>() |> equal 1
+    getTwo<I32>() |> equal 2
+    getSum<I32>() |> equal 3
 
 // [<Fact>]
 // let ``Types can instantiate their parent in the constructor`` () =

@@ -69,7 +69,7 @@ let getValue<'T> (opt: 'T option) : 'T =
     | Some x -> x
     | None -> failwith "Option has no value"
 
-let iterate<'T, 'U> (action: 'T -> unit) (opt: 'T option) : unit =
+let iterate<'T> (action: 'T -> unit) (opt: 'T option) : unit =
     match opt with
     | Some x -> action x
     | None -> ()
