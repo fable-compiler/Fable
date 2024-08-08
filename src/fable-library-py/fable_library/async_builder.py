@@ -35,8 +35,7 @@ Continuations = tuple[
 
 
 class _Listener(Protocol):
-    def __call__(self, __state: Any | None = None) -> None:
-        ...
+    def __call__(self, __state: Any | None = None) -> None: ...
 
 
 class CancellationToken:
@@ -93,36 +92,29 @@ class IAsyncContext(Generic[_T]):
     __slots__ = ()
 
     @abstractmethod
-    def on_success(self, value: _T) -> None:
-        ...
+    def on_success(self, value: _T) -> None: ...
 
     @abstractmethod
-    def on_error(self, error: Exception) -> None:
-        ...
+    def on_error(self, error: Exception) -> None: ...
 
     @abstractmethod
-    def on_cancel(self, error: OperationCanceledError) -> None:
-        ...
+    def on_cancel(self, error: OperationCanceledError) -> None: ...
 
     @property
     @abstractmethod
-    def trampoline(self) -> Trampoline:
-        ...
+    def trampoline(self) -> Trampoline: ...
 
     @trampoline.setter
     @abstractmethod
-    def trampoline(self, val: Trampoline):
-        ...
+    def trampoline(self, val: Trampoline): ...
 
     @property
     @abstractmethod
-    def cancel_token(self) -> CancellationToken:
-        ...
+    def cancel_token(self) -> CancellationToken: ...
 
     @cancel_token.setter
     @abstractmethod
-    def cancel_token(self, val: CancellationToken):
-        ...
+    def cancel_token(self, val: CancellationToken): ...
 
     @staticmethod
     def create(
@@ -308,12 +300,10 @@ class AsyncBuilder:
         return self.While(lambda: not done, self.Delay(delay))
 
     @overload
-    def Return(self) -> Async[None]:
-        ...
+    def Return(self) -> Async[None]: ...
 
     @overload
-    def Return(self, value: _T) -> Async[_T]:
-        ...
+    def Return(self, value: _T) -> Async[_T]: ...
 
     def Return(self, value: Any = None) -> Async[Any]:
         return protected_return(value)
@@ -367,12 +357,10 @@ class AsyncBuilder:
         return self.TryFinally(binder(resource), compensation)
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Async[Literal[None]]) -> Async[None]:
-        ...
+    def While(self, guard: Callable[[], bool], computation: Async[Literal[None]]) -> Async[None]: ...
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Async[_T]) -> Async[_T]:
-        ...
+    def While(self, guard: Callable[[], bool], computation: Async[_T]) -> Async[_T]: ...
 
     def While(self, guard: Callable[[], bool], computation: Async[Any]) -> Async[Any]:
         if guard():

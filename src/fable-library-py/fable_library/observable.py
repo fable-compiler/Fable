@@ -23,16 +23,13 @@ class IObserver(Protocol, Generic[_T_contra]):
     __slots__ = ()
 
     @abstractmethod
-    def OnNext(self, __value: _T_contra) -> None:
-        ...
+    def OnNext(self, __value: _T_contra) -> None: ...
 
     @abstractmethod
-    def OnError(self, __error: Exception) -> None:
-        ...
+    def OnError(self, __error: Exception) -> None: ...
 
     @abstractmethod
-    def OnCompleted(self) -> None:
-        ...
+    def OnCompleted(self) -> None: ...
 
 
 def _noop(__arg: Any = None) -> None:
@@ -66,8 +63,7 @@ class IObservable(Protocol, Generic[_T_co]):
     __slots__ = ()
 
     @abstractmethod
-    def Subscribe(self, __obs: IObserver[_T_co]) -> IDisposable:
-        ...
+    def Subscribe(self, __obs: IObserver[_T_co]) -> IDisposable: ...
 
 
 class Observable(IObservable[_T]):

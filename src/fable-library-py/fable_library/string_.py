@@ -478,8 +478,7 @@ def compare(string1: str, string2: str, /) -> int:
 
 
 @overload
-def compare(string1: str, string2: str, ignore_case: bool, culture: StringComparison, /) -> int:
-    ...
+def compare(string1: str, string2: str, ignore_case: bool, culture: StringComparison, /) -> int: ...
 
 
 def compare(*args: Any) -> int:

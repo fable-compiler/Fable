@@ -19,6 +19,7 @@ Available commands:
             --python                Build fable-library for Python
             --dart                  Build fable-library for Dart
             --rust                  Build fable-library for Rust
+            --lua                   Build fable-library for Lua
 
     quicktest                       Watch for changes and re-run the quicktest
                                     This is useful to work on a feature in an isolated
@@ -30,6 +31,7 @@ Available commands:
             python                  Run for Python
             dart                    Run for Dart
             rust                    Run for Rust
+            lua                     Run for Lua
 
         Options:
             --skip-fable-library    Skip building fable-library if folder already exists
@@ -41,6 +43,7 @@ Available commands:
             python                  Run the tests for Python
             dart                    Run the tests for Dart
             rust                    Run the tests for Rust
+            lua                     Run the tests for Lua
             integration             Run the integration test suite
             standalone              Tests the standalone version of Fable
                                     (Fable running on top of Node.js)
@@ -119,6 +122,7 @@ let main argv =
             | "--python" :: _ -> BuildFableLibraryPython().Run()
             | "--dart" :: _ -> BuildFableLibraryDart().Run()
             | "--rust" :: _ -> BuildFableLibraryRust().Run()
+            | "--lua" :: _ -> BuildFableLibraryLua().Run()
             | _ -> printHelp ()
         | "test" :: args ->
             match args with
@@ -132,6 +136,7 @@ let main argv =
             // This test is using quicktest project for now,
             // because it can't compile (yet?) the Main JavaScript tests
             | "compiler-js" :: _ -> Test.CompilerJs.handle args
+            | "lua" :: args -> Test.Lua.handle args
             | _ -> printHelp ()
         | "quicktest" :: args ->
             match args with
@@ -140,6 +145,7 @@ let main argv =
             | "python" :: _ -> Quicktest.Python.handle args
             | "dart" :: _ -> Quicktest.Dart.handle args
             | "rust" :: _ -> Quicktest.Rust.handle args
+            | "lua" :: _ -> Quicktest.Lua.handle args
             | _ -> printHelp ()
         | "standalone" :: args -> Standalone.handle args
         | "compiler-js" :: args -> CompilerJs.handle args

@@ -33,16 +33,13 @@ EventDelegate = Delegate[_T] | DotNetDelegate[_T]
 
 class IDelegateEvent(Generic[_T_co], Protocol):
     @abstractmethod
-    def AddHandler(self, d: DotNetDelegate[_T]) -> None:
-        ...
+    def AddHandler(self, d: DotNetDelegate[_T]) -> None: ...
 
     @abstractmethod
-    def RemoveHandler(self, d: DotNetDelegate[_T]) -> None:
-        ...
+    def RemoveHandler(self, d: DotNetDelegate[_T]) -> None: ...
 
 
-class IEvent_2(IObservable[_Args], IDelegateEvent[_Delegate], Protocol):
-    ...
+class IEvent_2(IObservable[_Args], IDelegateEvent[_Delegate], Protocol): ...
 
 
 IEvent = IEvent_2[_T, _T]
@@ -60,12 +57,10 @@ class Event(IEvent[_T]):
         return self
 
     @overload
-    def Trigger(self, value: _T) -> None:
-        ...
+    def Trigger(self, value: _T) -> None: ...
 
     @overload
-    def Trigger(self, sender: Any, value: _T) -> None:
-        ...
+    def Trigger(self, sender: Any, value: _T) -> None: ...
 
     def Trigger(self, sender_or_value: Any, value_or_undefined: _T | None = None) -> None:
         if value_or_undefined is None:
