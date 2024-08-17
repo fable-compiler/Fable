@@ -305,7 +305,7 @@ def get_enum_case(t: TypeInfo, v: int | str) -> EnumCase:
             if kv[0] == v:
                 return kv
 
-        raise ValueError(f"{v}' was not found in ${t.fullname}")
+        raise ValueError(f"{v}' was not found in {t.fullname}")
 
     for kv in t.enum_cases:
         if kv[1] == v:
