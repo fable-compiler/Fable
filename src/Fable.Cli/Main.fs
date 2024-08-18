@@ -1000,7 +1000,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
         let projCracked, fableCompiler, filesToCompile =
             match state.ProjectCrackedAndFableCompiler with
             | None ->
-                let projCracked = ProjectCracked.Init(cliArgs, state.UseMSBuildForCracking)
+                // #if DEBUG
+                // let evaluateOnly = true
+                // #else
+                let evaluateOnly = false
+                // #endif
+                let projCracked =
+                    ProjectCracked.Init(cliArgs, state.UseMSBuildForCracking, evaluateOnly)
+
                 projCracked, None, projCracked.SourceFilePaths
 
             | Some(projCracked, fableCompiler) ->
