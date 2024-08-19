@@ -650,12 +650,7 @@ module PrinterExtensions =
             | AST.WithItem wi -> printer.Print(wi)
 
         member printer.PrintBlock
-            (
-                nodes: 'a list,
-                printNode: Printer -> 'a -> unit,
-                printSeparator: Printer -> unit,
-                ?skipNewLineAtEnd
-            )
+            (nodes: 'a list, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd)
             =
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
             printer.Print("")

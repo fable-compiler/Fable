@@ -16,14 +16,7 @@ type CallInfo = ReplaceCallInfo
 
 type Helper =
     static member ConstructorCall
-        (
-            consExpr: Expr,
-            returnType: Type,
-            args: Expr list,
-            ?argTypes,
-            ?genArgs,
-            ?loc: SourceLocation
-        )
+        (consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?genArgs, ?loc: SourceLocation)
         =
         let info =
             CallInfo.Create(args = args, ?sigArgTypes = argTypes, ?genArgs = genArgs, isCons = true)
@@ -48,13 +41,7 @@ type Helper =
         Call(callee, info, returnType, loc)
 
     static member Application
-        (
-            callee: Expr,
-            returnType: Type,
-            args: Expr list,
-            ?argTypes: Type list,
-            ?loc: SourceLocation
-        )
+        (callee: Expr, returnType: Type, args: Expr list, ?argTypes: Type list, ?loc: SourceLocation)
         =
         let info = defaultArg argTypes [] |> makeCallInfo None args
         Call(callee, info, returnType, loc)

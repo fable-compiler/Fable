@@ -598,13 +598,7 @@ module Helpers =
             ArrowFunctionExpression(parameters, body, returnType, defaultArg typeParameters [||], loc)
 
         static member arrowFunctionExpression
-            (
-                parameters,
-                body: Expression,
-                ?returnType,
-                ?typeParameters,
-                ?loc
-            )
+            (parameters, body: Expression, ?returnType, ?typeParameters, ?loc)
             : Expression
             =
             let body = BlockStatement [| Statement.returnStatement (body) |]
@@ -823,17 +817,7 @@ module Helpers =
     type ClassMember with
 
         static member classMethod
-            (
-                kind,
-                parameters,
-                body,
-                ?isStatic,
-                ?isAbstract,
-                ?returnType,
-                ?typeParameters,
-                ?loc,
-                ?doc
-            )
+            (kind, parameters, body, ?isStatic, ?isAbstract, ?returnType, ?typeParameters, ?loc, ?doc)
             : ClassMember
             =
             ClassMethod(
@@ -849,17 +833,7 @@ module Helpers =
             )
 
         static member classProperty
-            (
-                key,
-                ?value,
-                ?isComputed,
-                ?isStatic,
-                ?isOptional,
-                ?typeAnnotation,
-                ?accessModifier,
-                ?loc,
-                ?doc
-            )
+            (key, ?value, ?isComputed, ?isStatic, ?isOptional, ?typeAnnotation, ?accessModifier, ?loc, ?doc)
             : ClassMember
             =
             let isComputed = defaultArg isComputed false

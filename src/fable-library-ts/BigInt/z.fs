@@ -144,7 +144,8 @@ type BigInteger(signInt: int, v: BigNat) =
 
     override x.GetHashCode() = BigInteger.hash (x)
 
-    new(n: int32) =
+    new(n: int32)
+        =
         if n >= 0 then
             BigInteger(1, BigInteger.nat (BigNatModule.ofInt32 n))
         elif (n = System.Int32.MinValue) then
@@ -152,7 +153,8 @@ type BigInteger(signInt: int, v: BigNat) =
         else
             BigInteger(-1, BigInteger.nat (BigNatModule.ofInt32 (-n)))
 
-    new(n: int64) =
+    new(n: int64)
+        =
         if n >= 0L then
             BigInteger(1, BigInteger.nat (BigNatModule.ofInt64 n))
         elif (n = System.Int64.MinValue) then

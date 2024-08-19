@@ -2,13 +2,9 @@ namespace System
 
 open Global_
 
-type Array() =
-    class
-    end
+type Array() = class end
 
-type Enum() =
-    class
-    end
+type Enum() = class end
 
 type Exception(message: string) =
     new() = Exception("")

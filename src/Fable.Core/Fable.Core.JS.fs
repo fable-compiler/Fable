@@ -27,9 +27,7 @@ module JSX =
     /// The actual representation of JSX elements depend on the framework used.
     /// E.g. if using React, JSX.Element will be the same as ReactElement
     [<AllowNullLiteral>]
-    type Element =
-        class
-        end
+    type Element = class end
 
     /// Instantiates a JSX Element with F# code. The `props` argument must be a list literal
     /// that can be resolved at compile-time.
@@ -377,9 +375,7 @@ module JS =
         [<Emit("new $0($1...)")>]
         abstract Create: ?iterable: seq<'T> -> WeakSet<'T>
 
-    and [<AllowNullLiteral>] AsyncIterable =
-        interface
-        end
+    and [<AllowNullLiteral>] AsyncIterable = interface end
 
     and [<AllowNullLiteral>] AsyncIterable<'T> =
         inherit AsyncIterable
