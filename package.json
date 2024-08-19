@@ -19,16 +19,16 @@
     "posttest-ts": "mocha build/tests/TypeScriptCompiled/build/tests/TypeScript -reporter dot -t 10000"
   },
   "dependencies": {
-    "@types/node": "^20.12.4",
+    "@types/node": "^22.4.0",
     "concurrently": "^8.2.2",
     "ghreleases": "^3.0.2",
-    "mocha": "^10.4.0",
-    "nodemon": "^3.1.0",
-    "rollup": "^4.14.0",
-    "terser": "^5.30.3",
-    "typescript": "^5.4.4"
+    "mocha": "^10.7.3",
+    "nodemon": "^3.1.4",
+    "rollup": "^4.21.0",
+    "terser": "^5.31.6",
+    "typescript": "^5.5.4"
   },
   "devDependencies": {
-    "markdownlint-cli": "^0.38.0"
+    "markdownlint-cli": "^0.41.0"
   }
 }

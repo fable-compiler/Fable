@@ -200,12 +200,7 @@ module CompilerExt =
             }
 
         member com.ApplyPlugin<'Plugin, 'Input when 'Plugin :> PluginAttribute>
-            (
-                plugins: Map<_, _>,
-                atts: Fable.Attribute seq,
-                input: 'Input,
-                transform
-            )
+            (plugins: Map<_, _>, atts: Fable.Attribute seq, input: 'Input, transform)
             =
             if Map.isEmpty plugins then
                 input

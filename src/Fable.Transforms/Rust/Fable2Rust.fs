@@ -611,7 +611,7 @@ module TypeInfo =
         | Fable.GenericParam(name, isMeasure, _) -> not (isInferredGenericParam com ctx name isMeasure)
         | _ -> false
 
-    let typeImplementsCopyTrait (com: IRustCompiler) ctx typ =
+    let rec typeImplementsCopyTrait (com: IRustCompiler) ctx typ =
         match typ with
         | Fable.Number(BigInt, _) -> false
         | Fable.Unit
@@ -619,6 +619,7 @@ module TypeInfo =
         | Fable.Char
         | Fable.Number _ -> // all numbers except BigInt
             true
+        | Replacements.Util.IsByRefType com t -> typeImplementsCopyTrait com ctx t
         | _ -> false
 
     let rec tryGetIdentName =
@@ -2021,7 +2022,7 @@ module Util =
             match e with
             | MaybeCasted(Fable.IdentExpr ident) ->
                 // clone non-mutable idents if used more than once
-                not (ident.IsMutable) && not (isUsedOnce ctx ident.Name)
+                not (ident.IsMutable) && not (isUsedOnce ctx ident.Name) //&& not (isByRefType com ident.Type)
             | Fable.Get(_, Fable.FieldGet _, _, _) -> true // always clone field get exprs
             // | Fable.Get(_, _, _, _) -> //TODO: clone other gets ???
             | _ -> false
@@ -2034,6 +2035,10 @@ module Util =
 
         // Careful moving this, as idents mutably subtract their count as they are seen, so ident transforming must happen AFTER checking
         let expr =
+            // match e with
+            // | Fable.IdentExpr ident when isIdentAtTailPos (fun i -> isByRefType com i.Type) e ->
+            //     transformIdent com ctx None ident
+            // | _ ->
             //only valid for this level, so must reset for nested expressions
             let ctx = { ctx with IsParamByRefPreferred = false }
             com.TransformExpr(ctx, e)
@@ -2042,42 +2047,37 @@ module Util =
         | _, _, false, true, _, false -> expr |> mkAddrOfExpr
         | _, _, true, true, _, false -> expr
         | _, _, true, false, _, false -> expr |> makeClone
-        | true, _, false, false, _, false -> expr
         | false, true, _, false, true, false -> expr |> makeClone
         | _ -> expr
-    //|> BLOCK_COMMENT_SUFFIX (sprintf implCopy: %b, "implClone: %b, sourceIsRef; %b, targetIsRef: %b, isOnlyRef: %b (%i), isUnreachable: %b" implCopy implClone sourceIsRef targetIsRef isOnlyRef isUnreachable varAttrs.UsageCount)
+    // |> BLOCK_COMMENT_SUFFIX (sprintf implCopy: %b, "implClone: %b, sourceIsRef; %b, targetIsRef: %b, isOnlyRef: %b (%i), isUnreachable: %b" implCopy implClone sourceIsRef targetIsRef isOnlyRef isUnreachable varAttrs.UsageCount)
 
-    (*
-    let enumerator2iterator com ctx =
-        let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
-        BlockStatement([| Statement.returnStatement(libCall com ctx None [] "Util" "toIterator" [|enumerator|])|])
 
-    let extractBaseExprFromBaseCall (com: IRustCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
-        match baseCall, baseType with
-        | Some(Fable.Call(baseRef, info, _, _)), _ ->
-            let baseExpr =
-                match baseRef with
-                | Fable.IdentExpr ident -> typedIdent com ctx ident |> Expression.Identifier
-                | _ -> transformExpr com ctx baseRef
-            let args = transformCallArgs com ctx info.Args
-            Some(baseExpr, args)
-        | Some(Fable.Value _), Some baseType ->
-            // let baseEnt = com.GetEntity(baseType.Entity)
-            // let entityName = FSharp2Fable.Helpers.getEntityDeclarationName com baseType.Entity
-            // let entityType = FSharp2Fable.Util.getEntityType baseEnt
-            // let baseRefId = makeTypedIdent entityType entityName
-            // let baseExpr = (baseRefId |> typedIdent com ctx) :> Expression
-            // Some(baseExpr, []) // default base constructor
-            let range = baseCall |> Option.bind (fun x -> x.Range)
-            $"Ignoring base call for %s{baseType.Entity.FullName}" |> addWarning com [] range
-            None
-        | Some _, _ ->
-            let range = baseCall |> Option.bind (fun x -> x.Range)
-            "Unexpected base call expression, please report" |> addError com [] range
-            None
-        | None, _ ->
-            None
-*)
+    // let extractBaseExprFromBaseCall (com: IRustCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
+    //     match baseCall, baseType with
+    //     | Some(Fable.Call(baseRef, info, _, _)), _ ->
+    //         let baseExpr =
+    //             match baseRef with
+    //             | Fable.IdentExpr ident -> typedIdent com ctx ident |> Expression.Identifier
+    //             | _ -> transformExpr com ctx baseRef
+    //         let args = transformCallArgs com ctx info.Args
+    //         Some(baseExpr, args)
+    //     | Some(Fable.Value _), Some baseType ->
+    //         // let baseEnt = com.GetEntity(baseType.Entity)
+    //         // let entityName = FSharp2Fable.Helpers.getEntityDeclarationName com baseType.Entity
+    //         // let entityType = FSharp2Fable.Util.getEntityType baseEnt
+    //         // let baseRefId = makeTypedIdent entityType entityName
+    //         // let baseExpr = (baseRefId |> typedIdent com ctx) :> Expression
+    //         // Some(baseExpr, []) // default base constructor
+    //         let range = baseCall |> Option.bind (fun x -> x.Range)
+    //         $"Ignoring base call for %s{baseType.Entity.FullName}" |> addWarning com [] range
+    //         None
+    //     | Some _, _ ->
+    //         let range = baseCall |> Option.bind (fun x -> x.Range)
+    //         "Unexpected base call expression, please report" |> addError com [] range
+    //         None
+    //     | None, _ ->
+    //         None
+
 
     let makeObjectExprMemberDecl (com: IRustCompiler) ctx (memb: Fable.ObjectExprMember) =
         let capturedIdents = getCapturedIdents com ctx (Some memb.Name) memb.Args memb.Body
@@ -2336,7 +2336,7 @@ module Util =
         // mutable module values (transformed as function calls)
         | Fable.IdentExpr ident when ident.IsMutable && isModuleMemberCall com callInfo ->
             let expr = transformIdent com ctx range ident
-            mutableGet (mkCallExpr expr [])
+            mkCallExpr expr [] |> mutableGet
 
         | Fable.Get(calleeExpr, (Fable.FieldGet info as kind), t, _r) ->
             // this is an instance call
@@ -2369,7 +2369,7 @@ module Util =
                 let callee = transformImport com ctx r t info genArgsOpt
 
                 if memb.IsMutable && memb.IsValue then
-                    mutableGet (mkCallExpr callee [])
+                    mkCallExpr callee [] |> mutableGet
                 else
                     mkCallExpr callee args
             | None, Fable.LibraryImport memberInfo ->
@@ -3995,11 +3995,10 @@ module Util =
     //     | Fable.DeclaredType(entRef, _) -> entRef.FullName = ent.FullName
     //     | _ -> false
 
-    // does the member body return thisArg
-    let isFluentMemberBody (body: Fable.Expr) =
+    let isIdentAtTailPos (predicate: Fable.Ident -> bool) (body: Fable.Expr) =
         let rec loop =
             function
-            | Fable.IdentExpr ident when ident.IsThisArgument -> true
+            | Fable.IdentExpr ident when predicate ident -> true
             | Fable.Sequential exprs -> loop (List.last exprs)
             | Fable.Let(_, value, body) -> loop body
             | Fable.LetRec(bindings, body) -> loop body
@@ -4060,7 +4059,8 @@ module Util =
             transformFunc com ctx parameters (Some name) args body
 
         let fnBody =
-            if isFluentMemberBody body then
+            if isIdentAtTailPos (fun ident -> ident.IsThisArgument) body then
+                // body returns ThisArg, i.e. Fluent API
                 fnBody |> makeFluentValue com ctx
             else
                 fnBody

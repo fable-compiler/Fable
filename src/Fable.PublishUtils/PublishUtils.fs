@@ -124,9 +124,7 @@ module Platform =
 
     open System.Diagnostics
 
-    type private TypeInThisAssembly =
-        class
-        end
+    type private TypeInThisAssembly = class end
 
     let private startProcess workingDir exePath args =
         let args = String.concat " " args

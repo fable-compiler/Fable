@@ -34,7 +34,8 @@ type Stack<'T> private (initialContents, initialCount) =
 
     new() = Stack<'T>(4)
 
-    new(xs: IEnumerable<'T>) =
+    new(xs: IEnumerable<'T>)
+        =
         let arr = Array.ofSeq xs
         Stack<'T>(arr, arr.Length)
 
@@ -152,7 +153,8 @@ type Queue<'T> private (initialContents, initialCount) =
                 i <- i + 1
         }
 
-    new(initialCapacity: int) =
+    new(initialCapacity: int)
+        =
         if initialCapacity < 0 then
             raise (System.ArgumentOutOfRangeException("capacity is less than 0"))
 
@@ -160,7 +162,8 @@ type Queue<'T> private (initialContents, initialCount) =
 
     new() = Queue<'T>(4)
 
-    new(xs: IEnumerable<'T>) =
+    new(xs: IEnumerable<'T>)
+        =
         let arr = Array.ofSeq xs
         Queue<'T>(arr, arr.Length)
 

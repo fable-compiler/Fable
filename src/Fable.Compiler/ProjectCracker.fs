@@ -228,14 +228,16 @@ let makeProjectOptions (opts: CrackerOptions) otherOptions sources : FSharpProje
 let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
     let tryFileWithPattern dir pattern =
         try
-            let files = IO.Directory.GetFiles(dir, pattern)
+            if IO.Directory.Exists dir then
+                let files = IO.Directory.GetFiles(dir, pattern)
 
-            match files.Length with
-            | 0 -> None
-            | 1 -> Some files[0]
-            | _ ->
-                Log.always ("More than one file found in " + dir + " with pattern " + pattern)
-
+                match files.Length with
+                | 0 -> None
+                | 1 -> Some files[0]
+                | _ ->
+                    Log.always ("More than one file found in " + dir + " with pattern " + pattern)
+                    None
+            else
                 None
         with _ ->
             None

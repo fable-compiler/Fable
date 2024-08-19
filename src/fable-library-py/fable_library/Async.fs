@@ -14,13 +14,7 @@ let defaultCancellationToken = new CancellationToken()
 [<Erase>]
 type Async =
     static member StartWithContinuations
-        (
-            computation: IAsync<'T>,
-            continuation,
-            exceptionContinuation,
-            cancellationContinuation,
-            ?cancellationToken
-        )
+        (computation: IAsync<'T>, continuation, exceptionContinuation, cancellationContinuation, ?cancellationToken)
         : unit
         =
         let trampoline = Trampoline()

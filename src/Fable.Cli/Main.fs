@@ -409,16 +409,19 @@ OUTPUT TYPE: {result.OutputType}
         ProjectCracked(cliArgs, result, sourceFiles)
 
 type FableCompileResult =
-    Result<{|
-        File: string
-        OutPath: string
-        Logs: LogEntry[]
-        InlineExprs: (string * InlineExpr)[]
-        WatchDependencies: string[]
-    |}, {|
-        File: string
-        Exception: exn
-    |}>
+    Result<
+        {|
+            File: string
+            OutPath: string
+            Logs: LogEntry[]
+            InlineExprs: (string * InlineExpr)[]
+            WatchDependencies: string[]
+        |},
+        {|
+            File: string
+            Exception: exn
+        |}
+     >
 
 type ReplyChannel = AsyncReplyChannel<Result< (* fsharpLogs *) LogEntry[] * FableCompileResult list, exn>>
 
@@ -454,14 +457,7 @@ type FableCompilerState =
     }
 
     static member Create
-        (
-            fableProj,
-            filesToCompile: string[],
-            ?pathResolver,
-            ?isSilent,
-            ?triggeredByDependency,
-            ?replyChannel
-        )
+        (fableProj, filesToCompile: string[], ?pathResolver, ?isSilent, ?triggeredByDependency, ?replyChannel)
         =
         {
             FableProj = fableProj
@@ -1000,7 +996,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
         let projCracked, fableCompiler, filesToCompile =
             match state.ProjectCrackedAndFableCompiler with
             | None ->
-                let projCracked = ProjectCracked.Init(cliArgs, state.UseMSBuildForCracking)
+                // #if DEBUG
+                // let evaluateOnly = true
+                // #else
+                let evaluateOnly = false
+                // #endif
+                let projCracked =
+                    ProjectCracked.Init(cliArgs, state.UseMSBuildForCracking, evaluateOnly)
+
                 projCracked, None, projCracked.SourceFilePaths
 
             | Some(projCracked, fableCompiler) ->

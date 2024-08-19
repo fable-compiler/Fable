@@ -22,14 +22,10 @@ module DartNullable =
     let ofNullable (value: 'T Nullable) : DartNullable<'T> = nativeOnly
 
 [<ImportMember "dart:async">]
-type Future<'T> =
-    interface
-    end
+type Future<'T> = interface end
 
 [<ImportMember "dart:async">]
-type Stream<'T> =
-    interface
-    end
+type Stream<'T> = interface end
 
 // [<ImportMember "dart:core">]
 [<Global>]

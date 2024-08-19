@@ -41,13 +41,15 @@ type Stack<'T when 'T: equality> private (initialContents: 'T[], initialCount) =
                 contents[i]
         }
 
-    new(initialCapacity: int) =
+    new(initialCapacity: int)
+        =
         let arr = Array.zeroCreate<'T> (initialCapacity)
         Stack<'T>(arr, 0)
 
     new() = Stack<'T>(4)
 
-    new(xs: IEnumerable<'T>) =
+    new(xs: IEnumerable<'T>)
+        =
         let arr = Array.ofSeq xs
         Stack<'T>(arr, arr.Length)
 
@@ -165,7 +167,8 @@ type Queue<'T when 'T: equality> private (initialContents, initialCount) =
                 contents[toIndex i]
         }
 
-    new(initialCapacity: int) =
+    new(initialCapacity: int)
+        =
         if initialCapacity < 0 then
             failwith "capacity is less than 0"
 
@@ -173,7 +176,8 @@ type Queue<'T when 'T: equality> private (initialContents, initialCount) =
 
     new() = Queue<'T>(4)
 
-    new(xs: IEnumerable<'T>) =
+    new(xs: IEnumerable<'T>)
+        =
         let arr = Array.ofSeq xs
         Queue<'T>(arr, arr.Length)
 

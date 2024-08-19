@@ -22,12 +22,7 @@ module PrinterExtensions =
             this.AddLog(msg, Severity.Warning, ?range = range)
 
         member printer.PrintBlock
-            (
-                nodes: 'a list,
-                printNode: Printer -> 'a -> unit,
-                ?printSeparator: Printer -> unit,
-                ?skipNewLineAtEnd
-            )
+            (nodes: 'a list, printNode: Printer -> 'a -> unit, ?printSeparator: Printer -> unit, ?skipNewLineAtEnd)
             =
             let printSeparator = defaultArg printSeparator (fun _ -> ())
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
@@ -164,13 +159,7 @@ module PrinterExtensions =
                 printSegment printer value 0 value.Length
 
         member printer.PrintList
-            (
-                left: string,
-                right: string,
-                items: 'a list,
-                printItemAndSeparator: ListPos -> 'a -> unit,
-                ?skipIfEmpty
-            )
+            (left: string, right: string, items: 'a list, printItemAndSeparator: ListPos -> 'a -> unit, ?skipIfEmpty)
             =
             let skipIfEmpty = defaultArg skipIfEmpty false
 
@@ -203,14 +192,7 @@ module PrinterExtensions =
                 printer.Print(right)
 
         member printer.PrintList
-            (
-                left: string,
-                separator: string,
-                right: string,
-                items: 'a list,
-                printItem: 'a -> unit,
-                ?skipIfEmpty
-            )
+            (left: string, separator: string, right: string, items: 'a list, printItem: 'a -> unit, ?skipIfEmpty)
             =
             let printItem pos item =
                 printItem item
@@ -1047,12 +1029,7 @@ module PrinterExtensions =
             printer.PrintFunctionBody(?body = body, ?isModuleOrClassMember = isModuleOrClassMember)
 
         member printer.PrintVariableDeclaration
-            (
-                ident: Ident,
-                kind: VariableDeclarationKind,
-                ?value: Expression,
-                ?isLate
-            )
+            (ident: Ident, kind: VariableDeclarationKind, ?value: Expression, ?isLate)
             =
             let value =
                 match value with

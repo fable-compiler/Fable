@@ -46,9 +46,7 @@ type CliArgs =
 
         [ "NODE_ENV", nodeEnv ]
 
-type private TypeInThisAssembly =
-    class
-    end
+type private TypeInThisAssembly = class end
 
 type Agent<'T> private (mbox: MailboxProcessor<'T>, cts: CancellationTokenSource) =
     static member Start(f: 'T -> unit) =
