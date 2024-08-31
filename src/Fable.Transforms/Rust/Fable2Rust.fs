@@ -603,23 +603,21 @@ module TypeInfo =
         | Fable.DelegateType _
         | Fable.Option _
         | Fable.List _
-        | Fable.Array _ -> true
-        | Fable.Number(BigInt, _) -> true
-        | Fable.Tuple(_, isStruct) -> true
+        | Fable.Array _
+        | Fable.Tuple _
+        | Fable.DeclaredType _
         | Fable.AnonymousRecordType _ -> true
-        | Fable.DeclaredType(entRef, _) -> true
+        | Fable.Number(BigInt, _) -> true
         | Fable.GenericParam(name, isMeasure, _) -> not (isInferredGenericParam com ctx name isMeasure)
         | _ -> false
 
     let rec typeImplementsCopyTrait (com: IRustCompiler) ctx typ =
         match typ with
-        | Fable.Number(BigInt, _) -> false
-        | Fable.Unit
-        | Fable.Boolean
-        | Fable.Char
-        | Fable.Number _ -> // all numbers except BigInt
-            true
-        | Replacements.Util.IsByRefType com t -> typeImplementsCopyTrait com ctx t
+        | Fable.Unit -> true
+        | Fable.Boolean -> true
+        | Fable.Char -> true
+        | Fable.Number(BigInt, _) -> false // BigInt does not implement Copy
+        | Fable.Number _ -> true // all other numbers except BigInt
         | _ -> false
 
     let rec tryGetIdentName =
@@ -3605,11 +3603,17 @@ module Util =
             letStmts @ [ loopStmt ] |> mkStmtBlockExpr
         | _ -> transformLeaveContext com ctx None body
 
-    let transformFunc com ctx parameters (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
+    let transformFunc com ctx parameters returnType (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let isRecursive, isTailRec = isTailRecursive name body
         let genArgs, ctx = getNewGenArgsAndCtx ctx args body
         let args = args |> discardUnitArg genArgs
-        let fnDecl = transformFunctionDecl com ctx args parameters body.Type
+
+        let returnType =
+            match body.Type with
+            | t when isByRefType com t -> returnType // if body type is byref, use the actual return type
+            | _ -> body.Type // otherwise, use the body type as it has better matching generic parameters
+
+        let fnDecl = transformFunctionDecl com ctx args parameters returnType
         let ctx = getFunctionBodyCtx com ctx name args body isTailRec
         let fnBody = transformFunctionBody com ctx args body
         fnDecl, fnBody, genArgs
@@ -3634,9 +3638,7 @@ module Util =
             if isRecursive && not isTailRec then
                 // make the closure recursive with fixed-point combinator
                 let fixedArgs = (makeIdent name.Value) :: args
-
                 let fixedDecl = transformFunctionDecl com ctx fixedArgs [] Fable.Unit
-
                 let fixedBody = mkClosureExpr true fixedDecl fnBody
                 let argExprs = args |> List.map Fable.IdentExpr
                 let callArgs = transformCallArgs com ctx argExprs [] []
@@ -3803,7 +3805,9 @@ module Util =
 
     let transformNestedFunction com ctx (ident: Fable.Ident) (args: Fable.Ident list) (body: Fable.Expr) usages =
         let name = ident.Name
-        let fnDecl, fnBody, genArgs = transformFunc com ctx [] (Some name) args body
+
+        let fnDecl, fnBody, genArgs =
+            transformFunc com ctx [] body.Type (Some name) args body
 
         let fnBodyBlock =
             if body.Type = Fable.Unit then
@@ -3921,8 +3925,8 @@ module Util =
         let fnDecl, fnBody, genArgs =
             let ctx = { ctx with IsParamByRefPreferred = isByRefPreferred }
             let parameters = memb.CurriedParameterGroups |> List.concat
-
-            transformFunc com ctx parameters (Some memb.FullName) decl.Args decl.Body
+            let returnType = memb.ReturnParameter.Type
+            transformFunc com ctx parameters returnType (Some memb.FullName) decl.Args decl.Body
 
         let fnBodyBlock =
             if decl.Body.Type = Fable.Unit then
@@ -4056,7 +4060,8 @@ module Util =
 
         let fnDecl, fnBody, genArgs =
             let parameters = memb.CurriedParameterGroups |> List.concat
-            transformFunc com ctx parameters (Some name) args body
+            let returnType = memb.ReturnParameter.Type
+            transformFunc com ctx parameters returnType (Some name) args body
 
         let fnBody =
             if isIdentAtTailPos (fun ident -> ident.IsThisArgument) body then
