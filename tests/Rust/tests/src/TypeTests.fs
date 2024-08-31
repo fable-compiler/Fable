@@ -1,5 +1,7 @@
 module Fable.Tests.TypeTests
 
+#nowarn "3535"
+
 // open System.Runtime.InteropServices
 open Fable.Core
 open Util.Testing
