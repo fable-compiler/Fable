@@ -440,6 +440,7 @@ let ``test Comparison with objects implementing IComparable works`` () =
 [<Fact>]
 let ``test max works with primitives`` () =
     max 1 2 |> equal 2
+    max 1m 2m |> equal 2m
     Math.Max(1, 2) |> equal 2
     max "a" "b" |> equal "b"
 
@@ -448,6 +449,25 @@ let ``test max works with records`` () =
     let r1 = {a=1; b=1}
     let r2 = {a=1; b=2}
     max r1 r2 |> equal r2
+
+[<Fact>]
+let ``test max with objects implementing IComparable works`` () =
+    let c1 = MyTest(5)
+    let c2 = MyTest(5)
+    System.Object.ReferenceEquals(max c1 c2, c1) |> equal true
+
+[<Fact>]
+let ``test min works with primitives`` () =
+    min 1 2 |> equal 1
+    min 1m 2m |> equal 1m
+    System.Math.Min(1, 2) |> equal 1
+    min "a" "b" |> equal "a"
+
+[<Fact>]
+let ``test min works with records`` () =
+    let r1 = {a=1; b=1}
+    let r2 = {a=1; b=2}
+    min r1 r2 |> equal r1
 
 [<Fact>]
 let ``test min with objects implementing IComparable works`` () =
