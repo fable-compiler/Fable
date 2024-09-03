@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [All] Fixed passing delegates with unit args (#3862) (by @ncave)
+* [JS/TS] Fixed Decimal comparisons (#3884) (by @ncave)
+* [Rust] Fixed return type for byref body (by @ncave)
 
 ## 4.19.3 - 2024-06-17
 

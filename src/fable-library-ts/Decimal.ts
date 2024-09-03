@@ -44,16 +44,16 @@ export function equals(x: Decimal, y: Decimal) {
 }
 
 export function abs(x: Decimal) { return x.abs(); }
-export function sign(x: Decimal): number { return x < get_Zero ? -1 : x > get_Zero ? 1 : 0; }
+export function sign(x: Decimal): number { return x.lt(get_Zero) ? -1 : x.gt(get_Zero) ? 1 : 0; }
 
-export function max(x: Decimal, y: Decimal): Decimal { return x > y ? x : y; }
-export function min(x: Decimal, y: Decimal): Decimal { return x < y ? x : y; }
+export function max(x: Decimal, y: Decimal): Decimal { return x.gt(y) ? x : y; }
+export function min(x: Decimal, y: Decimal): Decimal { return x.lt(y) ? x : y; }
 
-export function maxMagnitude(x: Decimal, y: Decimal): Decimal { return abs(x) > abs(y) ? x : y; }
-export function minMagnitude(x: Decimal, y: Decimal): Decimal { return abs(x) < abs(y) ? x : y; }
+export function maxMagnitude(x: Decimal, y: Decimal): Decimal { return abs(x).gt(abs(y)) ? x : y; }
+export function minMagnitude(x: Decimal, y: Decimal): Decimal { return abs(x).lt(abs(y)) ? x : y; }
 
 export function clamp(x: Decimal, min: Decimal, max: Decimal): Decimal {
-  return x < min ? min : x > max ? max : x;
+  return x.lt(min) ? min : x.gt(max) ? max : x;
 }
 
 export function round(x: Decimal, digits: number = 0) {
