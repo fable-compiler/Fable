@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.4.3 - 2024-09-04
+
+* [JS/TS] Fixed Decimal comparisons (#3884) (by @ncave)
+
 ## 1.4.2 - 2024-06-13
 
 ### Fixed
