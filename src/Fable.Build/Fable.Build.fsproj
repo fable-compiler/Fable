@@ -16,6 +16,7 @@
     <Compile Include="FableLibrary/Core.fs" />
     <Compile Include="FableLibrary/Python.fs" />
     <Compile Include="FableLibrary/Dart.fs" />
+    <Compile Include="FableLibrary/Lua.fs" />
     <Compile Include="FableLibrary/TypeScript.fs" />
     <Compile Include="FableLibrary/JavaScript.fs" />
     <Compile Include="FableLibrary/Rust.fs" />
@@ -27,6 +28,7 @@
     <Compile Include="Test/Python.fs" />
     <Compile Include="Test/Rust.fs" />
     <Compile Include="Test/Dart.fs" />
+    <Compile Include="Test/Lua.fs" />
     <Compile Include="Test/TypeScript.fs" />
     <Compile Include="Test/Integration.fs" />
     <Compile Include="Test/CompilerJs.fs" />
@@ -36,6 +38,7 @@
     <Compile Include="Quicktest/Python.fs" />
     <Compile Include="Quicktest/Rust.fs" />
     <Compile Include="Quicktest/Dart.fs" />
+    <Compile Include="Quicktest/Lua.fs" />
     <Compile Include="FcsRepo.fs" />
     <Compile Include="Publish.fs" />
     <Compile Include="GithubRelease.fs" />

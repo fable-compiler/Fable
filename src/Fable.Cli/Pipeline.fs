@@ -475,6 +475,51 @@ module Rust =
                 do! RustPrinter.run writer crate
         }
 
+module Lua =
+    open Fable.Transforms
+
+    type LuaWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
+        let sourcePath = com.CurrentFile
+        let fileExt = cliArgs.CompilerOptions.FileExtension
+        let stream = new IO.StreamWriter(targetPath)
+
+        interface Printer.Writer with
+            member _.Write(str) =
+                stream.WriteAsync(str) |> Async.AwaitTask
+
+            member _.MakeImportPath(path) =
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+
+                let path =
+                    Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
+
+                if path.EndsWith(".fs") then
+                    Path.ChangeExtension(path, fileExt)
+                else
+                    path
+
+            member _.AddSourceMapping(_, _, _, _, _, _) = ()
+
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range = range, fileName = com.CurrentFile)
+
+            member _.Dispose() = stream.Dispose()
+
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
+        async {
+            let lua =
+                FSharp2Fable.Compiler.transformFile com
+                |> FableTransforms.transformFile com
+                |> Fable2Lua.transformFile com
+
+            //
+            if not (isSilent || LuaPrinter.isEmpty lua) then
+                use writer = new LuaWriter(com, cliArgs, pathResolver, outPath)
+                do! LuaPrinter.run writer lua
+
+        }
+
+
 let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
     match com.Options.Language with
     | JavaScript
@@ -483,3 +528,4 @@ let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPat
     | Php -> Php.compileFile com cliArgs pathResolver isSilent outPath
     | Dart -> Dart.compileFile com cliArgs pathResolver isSilent outPath
     | Rust -> Rust.compileFile com cliArgs pathResolver isSilent outPath
+    | Lua -> Lua.compileFile com cliArgs pathResolver isSilent outPath

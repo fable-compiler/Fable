@@ -1,5 +1,5 @@
 #load "src/Fable.PublishUtils/PublishUtils.fs"
-
+//This is old, please use build project via build.cmd or build.sh
 open System
 open System.Text.RegularExpressions
 open PublishUtils
@@ -276,6 +276,33 @@ let buildLibraryPy () =
     copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")
 
     removeDirRecursive (buildDirPy </> "fable_library/fable-library")
+
+let buildLibraryLua () =
+    let libraryDir = "src/fable-library-lua"
+    let projectDir = libraryDir + "/fable"
+    let buildDirLua = "build/fable-library-lua"
+
+    cleanDirs [ buildDirLua ]
+
+    runFableWithArgs
+        projectDir
+        [
+            "--outDir " + buildDirLua </> "fable"
+            "--fableLib " + buildDirLua </> "fable"
+            "--lang Lua"
+            "--exclude Fable.Core"
+            "--define FABLE_LIBRARY"
+        ]
+    // Copy *.lua from projectDir to buildDir
+    copyDirRecursive libraryDir buildDirLua
+
+    runInDir buildDirLua ("lua -v")
+//runInDir buildDirLua ("lua ./setup.lua develop")
+let buildLuaLibraryIfNotExists () =
+    let baseDir = __SOURCE_DIRECTORY__
+
+    if not (pathExists (baseDir </> "build/fable-library-lua")) then
+        buildLibraryLua ()
 
 let buildLibraryPyIfNotExists () =
     let baseDir = __SOURCE_DIRECTORY__
@@ -653,6 +680,29 @@ let testPython () =
 // Testing in Windows
 // runInDir buildDir "python -m pytest -x"
 
+let testLua () =
+    buildLuaLibraryIfNotExists () // NOTE: fable-library-py needs to be built separately.
+
+    let projectDir = "tests/Lua"
+    let buildDir = "build/tests/Lua"
+
+    cleanDirs [ buildDir ]
+    copyDirRecursive ("build" </> "fable-library-lua" </> "fable") (buildDir </> "fable-lib")
+    runInDir projectDir "dotnet test"
+
+    runFableWithArgs
+        projectDir
+        [
+            "--outDir " + buildDir
+            "--exclude Fable.Core"
+            "--lang Lua"
+            "--fableLib " + buildDir </> "fable-lib" //("fable-library-lua" </> "fable") //cannot use relative paths in lua. Copy to subfolder?
+        ]
+
+    copyFile (projectDir </> "luaunit.lua") (buildDir </> "luaunit.lua")
+    copyFile (projectDir </> "runtests.lua") (buildDir </> "runtests.lua")
+    runInDir buildDir "lua runtests.lua"
+
 type RustTestMode =
     | NoStd
     | Default
@@ -965,6 +1015,8 @@ match BUILD_ARGS_LOWER with
 | "test-rust-threaded" :: _ -> testRust Threaded
 | "test-dart" :: _ -> testDart (false)
 | "watch-test-dart" :: _ -> testDart (true)
+| "test-lua" :: _ -> testLua ()
+
 
 | "quicktest" :: _ ->
     buildLibraryTsIfNotExists ()
@@ -1023,6 +1075,7 @@ match BUILD_ARGS_LOWER with
 | ("fable-library-dart" | "library-dart") :: _ ->
     let clean = hasFlag "--no-clean" |> not
     buildLibraryDart (clean)
+| ("fable-library-lua" | "library-lua") :: _ -> buildLibraryLua ()
 
 | ("fable-compiler-js" | "compiler-js") :: _ ->
     let minify = hasFlag "--no-minify" |> not

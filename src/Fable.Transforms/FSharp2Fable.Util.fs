@@ -382,7 +382,6 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             isInstance: bool,
             ?argTypes: Fable.Type[],
             ?genArgs,
-            // ?searchHierarchy: bool,
             ?requireDispatchSlot: bool
         )
         =
@@ -916,6 +915,7 @@ module Helpers =
         match com.Options.Language with
         | Python
         | JavaScript
+        | Lua
         | TypeScript -> memb.IsMutable && isNotPrivate memb
         | Rust -> true // always
         | Php

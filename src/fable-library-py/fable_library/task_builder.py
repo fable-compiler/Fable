@@ -19,8 +19,7 @@ _U = TypeVar("_U")
 
 
 class Delayed(Protocol[_T_co]):
-    def __call__(self, __unit: None | None = None) -> Awaitable[_T_co]:
-        ...
+    def __call__(self, __unit: None | None = None) -> Awaitable[_T_co]: ...
 
 
 class TaskBuilder:
@@ -61,12 +60,10 @@ class TaskBuilder:
         return self.While(lambda: not done, self.Delay(delay))
 
     @overload
-    def Return(self) -> Awaitable[None]:
-        ...
+    def Return(self) -> Awaitable[None]: ...
 
     @overload
-    def Return(self, value: _T) -> Awaitable[_T]:
-        ...
+    def Return(self, value: _T) -> Awaitable[_T]: ...
 
     def Return(self, value: Any = None) -> Awaitable[Any]:
         return from_result(value)
@@ -98,12 +95,10 @@ class TaskBuilder:
         return self.TryFinally(self.Delay(lambda: binder(resource)), lambda: resource.Dispose())
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Delayed[None]) -> Awaitable[None]:
-        ...
+    def While(self, guard: Callable[[], bool], computation: Delayed[None]) -> Awaitable[None]: ...
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Delayed[_T]) -> Awaitable[_T]:
-        ...
+    def While(self, guard: Callable[[], bool], computation: Delayed[_T]) -> Awaitable[_T]: ...
 
     def While(self, guard: Callable[[], bool], computation: Delayed[Any]) -> Awaitable[Any]:
         if guard():
