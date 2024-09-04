@@ -373,7 +373,7 @@ let tests =
 
     testCase "max works with primitives" <| fun () ->
         max 1 2 |> equal 2
-        max 1m 2m |> equal 2m
+        max 10m 2m |> equal 10m
         Math.Max(1, 2) |> equal 2
         max "a" "b" |> equal "b"
 
@@ -389,7 +389,7 @@ let tests =
 
     testCase "min works with primitives" <| fun () ->
         min 1 2 |> equal 1
-        min 1m 2m |> equal 1m
+        min 10m 2m |> equal 2m
         Math.Min(1, 2) |> equal 1
         min "a" "b" |> equal "a"
 
