@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [Python] Remove `$` sign when reporting an error from `assert_equal` and `assert_not_equal` (#3878) (by @joprice)
+
 ## 4.20.0 - 2024-09-04
 
 ### Added
