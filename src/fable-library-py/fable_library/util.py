@@ -355,12 +355,12 @@ def clamp(comparer: Callable[[_T, _T], int], value: _T, min: _T, max: _T):
 
 def assert_equal(actual: Any, expected: Any, msg: str | None = None) -> None:
     if not equals(actual, expected):
-        raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
+        raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
 
 
 def assert_not_equal(actual: _T, expected: _T, msg: str | None = None) -> None:
     if equals(actual, expected):
-        raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
+        raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
 
 
 MAX_LOCKS = 1024
