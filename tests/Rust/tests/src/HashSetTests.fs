@@ -13,12 +13,12 @@ let inline private hashset xs =
 
 type MyRecord = { a: int }
 
-// type R = { i: int; s: string }
+type R = { i: int; s: string }
 
-// type Apa<'t when 't : equality>() =
-//     let state = HashSet<'t>()
-//     member _.Add t = state.Add t |> ignore
-//     member _.Contains t = state.Contains t
+type Apa<'t when 't : equality>() =
+    let state = HashSet<'t>()
+    member _.Add t = state.Add t |> ignore
+    member _.Contains t = state.Contains t
 
 [<Fact>]
 let ``HashSet ctor works`` () =
@@ -253,9 +253,9 @@ let ``HashSet.Remove with records works`` () =
     xs.Remove x1 |> equal true
     xs.Count |> equal 0
 
-// [<Fact>]
-// let ``HashSet equality works with generics`` () = // See #1712
-//     let apa = Apa<R>()
-//     apa.Add({ i = 5; s = "foo"})
-//     apa.Contains ({ i = 5; s = "foo"}) |> equal true
-//     apa.Contains ({ i = 5; s = "fo"}) |> equal false
+[<Fact>]
+let ``HashSet equality works with generics`` () = // See #1712
+    let apa = Apa<R>()
+    apa.Add({ i = 5; s = "foo"})
+    apa.Contains ({ i = 5; s = "foo"}) |> equal true
+    apa.Contains ({ i = 5; s = "fo"}) |> equal false

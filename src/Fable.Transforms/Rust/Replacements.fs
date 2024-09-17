@@ -944,7 +944,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [ xs ] -> toSeq com t xs |> Some
     | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] ->
-        Helper.LibCall(com, "HashMap", "new_from_tup_array", t, [ toArray com t arg ])
+        Helper.LibCall(com, "HashMap", "new_from_tuple_array", t, [ toArray com t arg ])
         |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t args |> Some
     // Ranges
@@ -2304,29 +2304,21 @@ let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args
 let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None ->
-        match args with
+        match i.SignatureArgTypes with
         | [] -> Helper.LibCall(com, "HashMap", "new_empty", t, args) |> Some
-        | [ ExprType(Number _) ] -> Helper.LibCall(com, "HashMap", "new_with_capacity", t, args) |> Some
-        | [ ExprType(IEnumerable) ] ->
-            let a = Helper.LibCall(com, "Seq", "toArray", t, args)
-            Helper.LibCall(com, "HashMap", "new_from_kvp_array", t, [ a ]) |> Some
-        // match i.SignatureArgTypes, args with
-        // | ([]|[Number _]), _ ->
-        //     makeDictionary com ctx r t (makeArray Any []) |> Some
-        // | [IDictionary], [arg] ->
-        //     makeDictionary com ctx r t arg |> Some
-        // | [IDictionary; IEqualityComparer], [arg; eqComp] ->
-        //     makeComparerFromEqualityComparer eqComp
-        //     |> makeDictionaryWithComparer com r t arg |> Some
-        // | [IEqualityComparer], [eqComp]
-        // | [Number _; IEqualityComparer], [_; eqComp] ->
-        //     makeComparerFromEqualityComparer eqComp
-        //     |> makeDictionaryWithComparer com r t (makeArray Any []) |> Some
-        // | _ -> None
+        | [ Number _ ] -> Helper.LibCall(com, "HashMap", "new_with_capacity", t, args) |> Some
+        | [ IEqualityComparer ] -> Helper.LibCall(com, "HashMap", "new_with_comparer", t, args) |> Some
+        | [ Number _; IEqualityComparer ] ->
+            Helper.LibCall(com, "HashMap", "new_with_capacity_comparer", t, args) |> Some
+        | [ IEnumerable ] -> Helper.LibCall(com, "HashMap", "new_from_enumerable", t, args) |> Some
+        | [ IEnumerable; IEqualityComparer ] ->
+            Helper.LibCall(com, "HashMap", "new_from_enumerable_comparer", t, args) |> Some
+        | [ IDictionary ] -> Helper.LibCall(com, "HashMap", "new_from_dictionary", t, args) |> Some
+        | [ IDictionary; IEqualityComparer ] ->
+            Helper.LibCall(com, "HashMap", "new_from_dictionary_comparer", t, args) |> Some
         | _ -> None
     | "GetEnumerator", Some c ->
         let ar = Helper.LibCall(com, "HashMap", "entries", t, [ c ], [ c.Type ])
-
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
     | "get_Item", Some c -> makeLibModuleCall com r t i "HashMap" "get" thisArg args |> Some
     | "set_Item", Some c -> makeLibModuleCall com r t i "HashMap" "set" thisArg args |> Some
@@ -2337,28 +2329,18 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None ->
-        match args with
+        match i.SignatureArgTypes with
         | [] -> Helper.LibCall(com, "HashSet", "new_empty", t, args) |> Some
-        | [ ExprType(Number _) ] -> Helper.LibCall(com, "HashSet", "new_with_capacity", t, args) |> Some
-        | [ ExprTypeAs(IEnumerable, arg) ] ->
-            Helper.LibCall(com, "HashSet", "new_from_array", t, [ toArray com t arg ])
-            |> Some
-        // match i.SignatureArgTypes, args with
-        // | [], _ ->
-        //     makeHashSet com ctx r t (makeArray Any []) |> Some
-        // | [IEnumerable], [arg] ->
-        //     makeHashSet com ctx r t arg |> Some
-        // | [IEnumerable; IEqualityComparer], [arg; eqComp] ->
-        //     makeComparerFromEqualityComparer eqComp
-        //     |> makeHashSetWithComparer com r t arg |> Some
-        // | [IEqualityComparer], [eqComp] ->
-        //     makeComparerFromEqualityComparer eqComp
-        //     |> makeHashSetWithComparer com r t (makeArray Any []) |> Some
-        // | _ -> None
+        | [ Number _ ] -> Helper.LibCall(com, "HashSet", "new_with_capacity", t, args) |> Some
+        | [ IEqualityComparer ] -> Helper.LibCall(com, "HashSet", "new_with_comparer", t, args) |> Some
+        | [ Number _; IEqualityComparer ] ->
+            Helper.LibCall(com, "HashSet", "new_with_capacity_comparer", t, args) |> Some
+        | [ IEnumerable ] -> Helper.LibCall(com, "HashSet", "new_from_enumerable", t, args) |> Some
+        | [ IEnumerable; IEqualityComparer ] ->
+            Helper.LibCall(com, "HashSet", "new_from_enumerable_comparer", t, args) |> Some
         | _ -> None
     | "GetEnumerator", Some c ->
         let ar = Helper.LibCall(com, "HashSet", "entries", t, [ c ])
-
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
     | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" | "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth),
       Some c ->
