@@ -820,8 +820,8 @@ let tests = testList "Strings" [
                 "abcd".StartsWith(fst arg)
                 |> equal (snd arg)
 
-    testCase "String.StartsWith with StringComparison works" <| fun () ->
-        let args = [("ab", true); ("cd", false); ("abcdx", false)]
+    testCase "String.StartsWith with StringComparison.OrdinalIgnoreCase works" <| fun () ->
+        let args = [("ab", true); ("AB", true); ("cd", false); ("abcd", false)]
         for arg in args do
                 "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
                 |> equal (snd arg)
@@ -832,6 +832,13 @@ let tests = testList "Strings" [
         for arg in args do
                 "abcd".EndsWith(fst arg)
                 |> equal (snd arg)
+
+    testCase "String.EndsWith with StringComparison.OrdinalIgnoreCase works" <| fun () ->
+        let args = [("ab", false); ("CD", true); ("cd", true); ("abcd", false)]
+        for arg in args do
+                "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+                |> equal (snd arg)
+                
 
     testCase "String.Trim works" <| fun () ->
         "   abc   ".Trim()

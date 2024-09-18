@@ -374,9 +374,11 @@ export function format(str: string | object, ...args: any[]) {
   });
 }
 
-export function endsWith(str: string, search: string) {
-  const idx = str.lastIndexOf(search);
-  return idx >= 0 && idx === str.length - search.length;
+export function endsWith(str: string, pattern: string, ic: number) {
+  if (str.length >= pattern.length) {
+    return cmp(str.substr(str.length-1-pattern.length, pattern.length), pattern, ic) === 0;
+  }
+  return false;
 }
 
 export function initialize(n: number, f: (i: number) => string) {
