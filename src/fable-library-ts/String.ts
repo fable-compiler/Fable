@@ -87,7 +87,7 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   }
   const endIndex = startIndex + length
   const anyOfAsStr = "".concat.apply("", anyOf);
-  for (let i=startIndex; i<endIndex; i++) {
+  for (let i = startIndex; i < endIndex; i++) {
     if (anyOfAsStr.indexOf(str[i]) > -1) {
       return i;
     }
@@ -588,6 +588,8 @@ export function fmtWith(fmts: string[]) {
 
 export function getFormat(s: FormattableString) {
   return s.fmts
-    ? s.strs.reduce((acc, newPart, index) => acc + `{${String(index - 1) + s.fmts![index - 1]}}` + newPart)
-    : s.strs.reduce((acc, newPart, index) => acc + `{${index - 1}}` + newPart);
+    ? s.strs.map((s, _) => s.replace('{', '{{').replace('}', '}}'))
+      .reduce((acc, newPart, index) => acc + `{${String(index - 1) + s.fmts![index - 1]}}` + newPart)
+    : s.strs.map((s, _) => s.replace('{', '{{').replace('}', '}}'))
+      .reduce((acc, newPart, index) => acc + `{${index - 1}}` + newPart);
 }
