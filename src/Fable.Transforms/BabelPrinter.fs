@@ -573,7 +573,12 @@ module PrinterExtensions =
             | Literal.DirectiveLiteral(literal) -> printer.Print(literal)
             | StringTemplate(tag, parts, values, loc) ->
                 let escape str =
-                    Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("`", @"\`")
+                    Regex
+                        .Replace(str, @"(?<!\\)\\", @"\\")
+                        .Replace("`", @"\`")
+                        // FormattableString replaces { with {{
+                        .Replace("{{", "{")
+                        .Replace("}}", "}")
 
                 printer.AddLocation(loc)
                 printer.PrintOptional(tag)

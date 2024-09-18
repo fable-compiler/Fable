@@ -1179,5 +1179,37 @@ let tests = testList "Strings" [
         s2.GetStrings() |> toArray |> equal [|""; "This is \""; "\" awesome!"|]
         let s3: FormattableString = $"""I have no holes"""
         s3.GetStrings() |> toArray |> equal [|"I have no holes"|]
+
+    testCase "FormattableString fragments handle { and }" <| fun () ->
+        let classAttr = "item-panel"
+        let cssNew :FormattableString = $$""".{{classAttr}}:hover {background-color: #eee;}"""
+        let strs = cssNew.GetStrings()
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let cssNew :FormattableString = $""".{classAttr}:hover {{background-color: #eee;}}"""
+        let strs = cssNew.GetStrings()
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let cssNew :FormattableString = $".{classAttr}:hover {{background-color: #eee;}}"
+        let strs = cssNew.GetStrings()
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let another :FormattableString = $$"""{ { } {{classAttr}} } } }"""
+        let strs = another.GetStrings()
+        strs |> equal [|"{ { } "; " } } }"|]
+        let args = another.GetArguments()
+        args |> equal [|classAttr|]
+
+        let another :FormattableString = $"""{{ {{{{ }}}}}} {classAttr} }}}} }} }}}}"""
+        let strs = another.GetStrings()
+        strs |> equal [|"{ {{ }}} "; " }} } }}"|]
+        let args = another.GetArguments()
+        args |> equal [|classAttr|]
 #endif
 ]
