@@ -815,30 +815,28 @@ let tests = testList "Strings" [
         "abcdbcebc".IndexOfAny([|'c';'b'|]) |> equal 1
 
     testCase "String.StartsWith works" <| fun () ->
-        let args = [("ab", true); ("cd", false); ("abcdx", false)]
+        let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true)]
         for arg in args do
                 "abcd".StartsWith(fst arg)
                 |> equal (snd arg)
 
-    testCase "String.StartsWith with StringComparison.OrdinalIgnoreCase works" <| fun () ->
-        let args = [("ab", true); ("AB", true); ("cd", false); ("abcd", false)]
+    testCase "String.StartsWith with OrdinalIgnoreCase works" <| fun () ->
+        let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
         for arg in args do
                 "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
                 |> equal (snd arg)
 
-
     testCase "String.EndsWith works" <| fun () ->
-        let args = [("ab", false); ("cd", true); ("abcdx", false)]
+        let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true)]
         for arg in args do
                 "abcd".EndsWith(fst arg)
                 |> equal (snd arg)
-
-    testCase "String.EndsWith with StringComparison.OrdinalIgnoreCase works" <| fun () ->
-        let args = [("ab", false); ("CD", true); ("cd", true); ("abcd", false)]
+    
+    testCase "String.EndsWith with OrdinalIgnoreCase works" <| fun () ->
+        let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
         for arg in args do
                 "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-                |> equal (snd arg)
-                
+                |> equal (snd arg)                
 
     testCase "String.Trim works" <| fun () ->
         "   abc   ".Trim()
