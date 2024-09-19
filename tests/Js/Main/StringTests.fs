@@ -1161,6 +1161,8 @@ let tests = testList "Strings" [
         s4.Format |> equal "I have `backticks`"
         let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
         s5.Format |> equal "I have {{escaped braces}} and %percentage%"
+        let s6: FormattableString = $$$$"""I have {{escaped braces}} and %%percentage%%"""
+        s6.Format |> equal "I have {{{{escaped braces}}}} and %%percentage%%"
         ()
 
 #if FABLE_COMPILER
@@ -1183,31 +1185,31 @@ let tests = testList "Strings" [
     testCase "FormattableString fragments handle { and }" <| fun () ->
         let classAttr = "item-panel"
         let cssNew :FormattableString = $$""".{{classAttr}}:hover {background-color: #eee;}"""
-        let strs = cssNew.GetStrings()
+        let strs = cssNew.GetStrings() |> toArray
         strs |> equal [|"."; ":hover {background-color: #eee;}"|]
         let args = cssNew.GetArguments()
         args |> equal [|classAttr|]
 
         let cssNew :FormattableString = $""".{classAttr}:hover {{background-color: #eee;}}"""
-        let strs = cssNew.GetStrings()
+        let strs = cssNew.GetStrings() |> toArray
         strs |> equal [|"."; ":hover {background-color: #eee;}"|]
         let args = cssNew.GetArguments()
         args |> equal [|classAttr|]
 
         let cssNew :FormattableString = $".{classAttr}:hover {{background-color: #eee;}}"
-        let strs = cssNew.GetStrings()
+        let strs = cssNew.GetStrings() |> toArray
         strs |> equal [|"."; ":hover {background-color: #eee;}"|]
         let args = cssNew.GetArguments()
         args |> equal [|classAttr|]
 
         let another :FormattableString = $$"""{ { } {{classAttr}} } } }"""
-        let strs = another.GetStrings()
+        let strs = another.GetStrings() |> toArray
         strs |> equal [|"{ { } "; " } } }"|]
         let args = another.GetArguments()
         args |> equal [|classAttr|]
 
         let another :FormattableString = $"""{{ {{{{ }}}}}} {classAttr} }}}} }} }}}}"""
-        let strs = another.GetStrings()
+        let strs = another.GetStrings() |> toArray
         strs |> equal [|"{ {{ }}} "; " }} } }}"|]
         let args = another.GetArguments()
         args |> equal [|classAttr|]
