@@ -1166,6 +1166,8 @@ let tests = testList "Strings" [
         s4.Format |> equal "I have `backticks`"
         let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
         s5.Format |> equal "I have {{escaped braces}} and %percentage%"
+        let s6: FormattableString = $$$$"""I have {{escaped braces}} and %%percentage%%"""
+        s6.Format |> equal "I have {{{{escaped braces}}}} and %%percentage%%"
         ()
 
 #if FABLE_COMPILER
@@ -1184,5 +1186,43 @@ let tests = testList "Strings" [
         s2.GetStrings() |> toArray |> equal [|""; "This is \""; "\" awesome!"|]
         let s3: FormattableString = $"""I have no holes"""
         s3.GetStrings() |> toArray |> equal [|"I have no holes"|]
+
+    testCase "FormattableString fragments handle { and }" <| fun () ->
+// TypeScript will complain because TemplateStringsArray is not equivalent to string[]
+#if FABLE_COMPILER_TYPESCRIPT
+        let toArray = Seq.toArray
+#else
+        let toArray = id
+#endif
+        let classAttr = "item-panel"
+        let cssNew :FormattableString = $$""".{{classAttr}}:hover {background-color: #eee;}"""
+        let strs = cssNew.GetStrings() |> toArray
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let cssNew :FormattableString = $""".{classAttr}:hover {{background-color: #eee;}}"""
+        let strs = cssNew.GetStrings() |> toArray
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let cssNew :FormattableString = $".{classAttr}:hover {{background-color: #eee;}}"
+        let strs = cssNew.GetStrings() |> toArray
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let another :FormattableString = $$"""{ { } {{classAttr}} } } }"""
+        let strs = another.GetStrings() |> toArray
+        strs |> equal [|"{ { } "; " } } }"|]
+        let args = another.GetArguments()
+        args |> equal [|classAttr|]
+
+        let another :FormattableString = $"""{{ {{{{ }}}}}} {classAttr} }}}} }} }}}}"""
+        let strs = another.GetStrings() |> toArray
+        strs |> equal [|"{ {{ }}} "; " }} } }}"|]
+        let args = another.GetArguments()
+        args |> equal [|classAttr|]
 #endif
 ]

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Remove `$` sign when reporting an error from `assert_equal` and `assert_not_equal` (#3878) (by @joprice)
 
+### Fixed
+
+* [JS/TS] Fix escaping of `{` and `}` in FormattableString (#3890) (by @roboz0r)
+
 ## 4.20.0 - 2024-09-04
 
 ### Added

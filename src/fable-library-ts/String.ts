@@ -596,7 +596,11 @@ export function fmtWith(fmts: string[]) {
 }
 
 export function getFormat(s: FormattableString) {
+  const strs = s.strs.map((value) => value.replace(/{/g, '{{').replace(/}/g, '}}'));
+
   return s.fmts
-    ? s.strs.reduce((acc, newPart, index) => acc + `{${String(index - 1) + s.fmts![index - 1]}}` + newPart)
-    : s.strs.reduce((acc, newPart, index) => acc + `{${index - 1}}` + newPart);
+    ? strs
+      .reduce((acc, newPart, index) => acc + `{${String(index - 1) + s.fmts![index - 1]}}` + newPart)
+    : strs
+      .reduce((acc, newPart, index) => acc + `{${index - 1}}` + newPart);
 }
