@@ -588,8 +588,8 @@ export function createObj(fields: Iterable<[string, any]>) {
   return obj;
 }
 
-export function jsOptions(mutator: (x: object) => void): object {
-  const opts = {};
+export function jsOptions<T>(mutator: (x: T) => void): T {
+  const opts = {} as T;
   mutator(opts);
   return opts;
 }

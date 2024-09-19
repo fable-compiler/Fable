@@ -28,6 +28,7 @@ let allTests =
     HashSets.tests
     // Import.tests
     // JsInterop.tests
+    LiteTsInterop.tests
     Lists.tests
     Maps.tests
     Misc.tests

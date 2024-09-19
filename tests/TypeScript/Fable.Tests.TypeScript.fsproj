@@ -46,6 +46,7 @@
     <Compile Include="../Js/Main/HashSetTests.fs" />
     <!-- <Compile Include="../Js/Main/ImportTests.fs" /> -->
     <!-- <Compile Include="../Js/Main/JsInteropTests.fs" /> -->
+     <Compile Include="LiteTsInteropTests.fs" />
     <Compile Include="../Js/Main/ListTests.fs" />
     <Compile Include="../Js/Main/MapTests.fs" />
     <Compile Include="../Js/Main/MiscTestsHelper.fs" />

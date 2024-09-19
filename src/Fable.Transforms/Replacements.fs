@@ -713,11 +713,16 @@ let makeGenericAverager (com: ICompiler) ctx t =
             "DivideByInt", divideFn
         ]
 
-let makePojoFromLambda com arg =
+let makePojoFromLambda com (arg: Expr) =
     let rec flattenSequential =
         function
         | Sequential statements -> List.collect flattenSequential statements
         | e -> [ e ]
+
+    let typ, genArgs =
+        match arg.Type with
+        | LambdaType(argType, _) -> argType, Some [ argType ]
+        | _ -> Any, None
 
     match arg with
     | Lambda(_, lambdaBody, _) ->
@@ -728,8 +733,8 @@ let makePojoFromLambda com arg =
             | _ -> None
         )
     | _ -> None
-    |> Option.map (fun members -> ObjectExpr(members, Any, None))
-    |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", Any, [ arg ]))
+    |> Option.map (fun members -> ObjectExpr(members, typ, None))
+    |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", typ, [ arg ], ?genArgs = genArgs))
 
 let makePojo (com: Compiler) caseRule keyValueList =
     let makeObjMember caseRule name values =
