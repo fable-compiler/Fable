@@ -4,16 +4,22 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.20.0</Version>
+    <Version>4.21.0</Version>
     <PackageReleaseNotes>## Added
 
-- [Rust] Added support for static interface calls (by @ncave)
+- [JS/TS] Add support for `OrdinalIgnoreCase` overload for `String.EndsWith` (#3892) (by @goswinr)
+- [JS/TS] Add `uri.Port`, `uri.IsDefaultPort` (by @MangelMaxime)
+
+## Changed
+
+- [Python] Remove `$` sign when reporting an error from `assert_equal` and `assert_not_equal` (#3878) (by @joprice)
+- [All] Don't hide original error when failing to scan an assembly for plugin (#3896) (by @MangelMaxime)
 
 ## Fixed
 
-- [All] Fixed passing delegates with unit args (#3862) (by @ncave)
-- [JS/TS] Fixed Decimal comparisons (#3884) (by @ncave)
-- [Rust] Fixed return type for byref body (by @ncave)
+- [JS/TS] Fix escaping of `{` and `}` in FormattableString (#3890) (by @roboz0r)
+- [JS/TS] Fix `uri.Host` to return the host name without the port (by @MangelMaxime)
+- [JS/TS] Fix TypeScript compilation by resolving type of `jsOptions` (#3894) (by @ManngelMaxime)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

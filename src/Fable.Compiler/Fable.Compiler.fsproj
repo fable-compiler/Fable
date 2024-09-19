@@ -6,10 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-012</Version>
-        <PackageReleaseNotes>## Fixed
+        <Version>4.0.0-alpha-013</Version>
+        <PackageReleaseNotes>## Changed
 
-- [JS/TS] Fixed unwrapping optional arguments (#3847) (by @ncave)
+- [All] Don't hide original error when failing to scan an assembly for plugin (#3896) (by @MangelMaxime)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
