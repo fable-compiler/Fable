@@ -741,6 +741,16 @@ let tests =
         opts.foo |> equal "bar"
         opts.bar |> equal 5
 
+    testCase "jsOptions works when it is directly replaced as a POJO" <| fun () ->
+        let opts = jsOptions<JsOptions>(fun o ->
+            // This function call avoid the optimization to literal POJO
+            let foo () = "foo"
+            o.foo <- foo()
+            o.bar <- 5
+        )
+        opts.foo |> equal "foo"
+        opts.bar |> equal 5
+
     testCase "Stringifying a JS object works" <| fun () ->
         let fooOptional = importMember "./js/1foo.js"
         string fooOptional |> equal "much foo, much awesome"
