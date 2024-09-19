@@ -3,7 +3,7 @@ pub mod RegExp_ {
     use core::borrow::{Borrow, BorrowMut};
 
     use crate::{
-        Interfaces_::System::Collections::Generic::{IEnumerable_1, IEnumerator_1},
+        System::Collections::Generic::{IEnumerable_1, IEnumerator_1},
         NativeArray_::{array_from, new_array, new_empty, Array},
         Native_::{Func1, LrcPtr, ToString, Vec},
         Seq_::ofArray,

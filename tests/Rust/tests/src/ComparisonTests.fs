@@ -387,7 +387,7 @@ let ``Record comparison works`` () =
 [<Fact>]
 let ``max works with primitives`` () =
     max 1 2 |> equal 2
-    max 1m 2m |> equal 2m
+    max 10m 2m |> equal 10m
     System.Math.Max(1, 2) |> equal 2
     max "a" "b" |> equal "b"
 
@@ -406,7 +406,7 @@ let ``max works with records`` () =
 [<Fact>]
 let ``min works with primitives`` () =
     min 1 2 |> equal 1
-    min 1m 2m |> equal 1m
+    min 10m 2m |> equal 2m
     System.Math.Min(1, 2) |> equal 1
     min "a" "b" |> equal "a"
 

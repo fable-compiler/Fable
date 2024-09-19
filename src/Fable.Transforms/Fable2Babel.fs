@@ -1271,9 +1271,7 @@ module Util =
 
         let typeParams =
             types
-            |> List.collect FSharp2Fable.Util.getTypeGenParams
-            |> List.distinctBy fst
-            |> List.map snd
+            |> FSharp2Fable.Util.getGenParamTypes
             |> List.filter (fun typ ->
                 match typ with
                 | Fable.GenericParam(name = name) ->

@@ -2182,13 +2182,7 @@ module Util =
         : string list
         =
 
-        let genParams =
-            (Set.empty, argTypes)
-            ||> List.fold (fun genArgs t ->
-                (genArgs, FSharp2Fable.Util.getGenParamNames t)
-                ||> List.fold (fun genArgs n -> Set.add n genArgs)
-            )
-            |> List.ofSeq
+        let genParams = argTypes |> FSharp2Fable.Util.getGenParamNames
 
         let genParams =
             match genParams, ctx.EntityAndMemberGenericParams with

@@ -440,7 +440,7 @@ let ``test Comparison with objects implementing IComparable works`` () =
 [<Fact>]
 let ``test max works with primitives`` () =
     max 1 2 |> equal 2
-    max 1m 2m |> equal 2m
+    max 10m 2m |> equal 10m
     Math.Max(1, 2) |> equal 2
     max "a" "b" |> equal "b"
 
@@ -459,7 +459,7 @@ let ``test max with objects implementing IComparable works`` () =
 [<Fact>]
 let ``test min works with primitives`` () =
     min 1 2 |> equal 1
-    min 1m 2m |> equal 1m
+    min 10m 2m |> equal 2m
     System.Math.Min(1, 2) |> equal 1
     min "a" "b" |> equal "a"
 

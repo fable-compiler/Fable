@@ -55,12 +55,16 @@ pub mod Native_ {
         value
     }
 
+    use crate::System::Collections::Generic::IEnumerable_1;
+    use crate::System::Collections::Generic::IEqualityComparer_1;
+
     // TODO: use these types in generated code
-    pub type Seq<T> = LrcPtr<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
+    pub type Seq<T> = LrcPtr<dyn IEnumerable_1<T>>;
     pub type RefCell<T> = LrcPtr<MutCell<T>>;
     pub type Nullable<T> = Option<Lrc<T>>;
 
     use core::cmp::Ordering;
+    use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{BuildHasher, Hash, Hasher};
 
     // -----------------------------------------------------------
@@ -135,6 +139,56 @@ pub mod Native_ {
             _ => Ordering::Equal,
         }
     }
+
+    // -----------------------------------------------------------
+    // IEqualityComparer key wrapper
+    // -----------------------------------------------------------
+
+    #[derive(Clone)]
+    pub struct HashKey<T: Clone> {
+        pub key: T,
+        pub comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>,
+    }
+
+    impl<T: Clone> HashKey<T> {
+        pub fn new(key: T, comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>) -> HashKey<T> {
+            HashKey { key, comparer }
+        }
+    }
+
+    impl<T: Clone + Debug> Debug for HashKey<T> {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+            f.debug_tuple("ComparerKey").field(&self.key).finish()
+        }
+    }
+
+    impl<T: Clone + Debug> Display for HashKey<T> {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+            self.key.fmt(f)
+        }
+    }
+
+    impl<T: Clone + Hash + 'static> Hash for HashKey<T> {
+        #[inline]
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            match &self.comparer {
+                Some(comp) => comp.GetHashCode(self.key.clone()).hash(state),
+                None => self.key.hash(state),
+            }
+        }
+    }
+
+    impl<T: Clone + PartialEq + 'static> PartialEq for HashKey<T> {
+        #[inline]
+        fn eq(&self, other: &Self) -> bool {
+            match &self.comparer {
+                Some(comp) => comp.Equals(self.key.clone(), other.key.clone()),
+                None => self.key.eq(&other.key),
+            }
+        }
+    }
+
+    impl<T: Clone + Hash + PartialEq + 'static> Eq for HashKey<T> {}
 
     // -----------------------------------------------------------
     // Type testing

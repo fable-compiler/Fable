@@ -193,18 +193,12 @@
       "preLaunchTask": "build",
       "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
       "args": [
-        "--",
         "src/fable-library-dart",
-        "--outDir",
-        "temp/fable-library-dart",
-        "--fableLib",
-        "./temp/fable-library-dart",
-        "--lang",
-        "dart",
-        "--exclude",
-        "Fable.Core",
-        "--define",
-        "FABLE_LIBRARY",
+        "--outDir", "temp/fable-library-dart",
+        "--fableLib", "./temp/fable-library-dart",
+        "--exclude", "Fable.Core",
+        "--define", "FABLE_LIBRARY",
+        "--lang", "Dart",
         "--noCache"
       ]
     },
@@ -216,21 +210,14 @@
       "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
       "args": [
         "src/fable-library-ts",
-        "--outDir",
-        "temp/fable-library-ts",
-        "--fableLib",
-        "./temp/fable-library-ts",
-        "--lang",
-        "typescript",
-        "--exclude",
-        "Fable.Core",
-        "--define",
-        "FABLE_LIBRARY",
-        "--noCache",
-        "--typedArrays",
-        "false",
-        "--define",
-        "FX_NO_BIGINT"
+        "--outDir", "temp/fable-library-ts",
+        "--fableLib", "./temp/fable-library-ts",
+        "--exclude", "Fable.Core",
+        "--define", "FABLE_LIBRARY",
+        "--define", "FX_NO_BIGINT",
+        "--typedArrays", "false",
+        "--lang", "TypeScript",
+        "--noCache"
       ]
     },
     {
@@ -241,16 +228,11 @@
       "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
       "args": [
         "src/fable-library-py/fable_library",
-        "--outDir",
-        "temp/fable-library-py/fable_library",
-        "--fableLib",
-        ".",
-        "--lang",
-        "python",
-        "--exclude",
-        "Fable.Core",
-        "--define",
-        "FABLE_LIBRARY",
+        "--outDir", "temp/fable-library-py/fable_library",
+        "--fableLib", ".",
+        "--exclude", "Fable.Core",
+        "--define", "FABLE_LIBRARY",
+        "--lang", "Python",
         "--noCache"
       ]
     },
@@ -262,29 +244,34 @@
       "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
       "args": [
         "src/fable-library-rust/src",
-        "--outDir",
-        "temp/fable-library-rust/src",
-        "--fableLib",
-        ".",
-        "--lang",
-        "rust",
-        "--exclude",
-        "Fable.Core",
-        "--define",
-        "FABLE_LIBRARY",
-        "--noCache"
+        "--outDir", "temp/fable-library-rust/src",
+        "--fableLib", ".",
+        "--exclude", "Fable.Core",
+        "--define", "FABLE_LIBRARY",
+        "--lang", "Rust",
+        "--noCache",
+        "--noParallelTypeCheck",
+        "--test:MSBuildCracker"
       ]
     },
     {
-        "name": "Fable.Cli on ../fable-test",
-        "type": "coreclr",
-        "request": "launch",
-        "preLaunchTask": "build",
-        "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
-        "args": ["--outDir", "${workspaceRoot}/../fable-test", "--fableLib", "${workspaceRoot}/temp/fable-library-rust", "--exclude", "Fable.Core", "--lang", "Rust", "--noCache", "--noParallelTypeCheck", "--test:MSBuildCracker"],
-        "cwd": "${workspaceRoot}/../fable-test",
-        "stopAtEntry": false,
-        "console": "internalConsole"
+      "name": "Fable.Cli on ../fable-test",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "args": [
+        "--outDir", "${workspaceRoot}/../fable-test",
+        "--fableLib", "${workspaceRoot}/temp/fable-library-rust",
+        "--exclude", "Fable.Core",
+        "--lang", "Rust",
+        "--noCache",
+        "--noParallelTypeCheck",
+        "--test:MSBuildCracker"
+      ],
+      "cwd": "${workspaceRoot}/../fable-test",
+      "stopAtEntry": false,
+      "console": "internalConsole"
     }
   ]
 }

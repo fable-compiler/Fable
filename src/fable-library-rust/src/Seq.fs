@@ -6,13 +6,7 @@
 module Seq_
 
 open Global_
-open Interfaces_
-//open System.Collections.Generic
-
-type IEnumerable<'T> = System.Collections.Generic.IEnumerable<'T>
-type IEnumerator<'T> = System.Collections.Generic.IEnumerator<'T>
-
-type 'T seq = IEnumerable<'T>
+open System.Collections.Generic
 
 let inline indexNotFound () = failwith SR.keyNotFoundAlt
 
@@ -27,8 +21,10 @@ module Enumerable =
     type Enumerable<'T>(f) =
         interface IEnumerable<'T> with
             member _.GetEnumerator() = f ()
-    // interface System.Collections.IEnumerable with
-    //     member _.GetEnumerator() = f() :> System.Collections.IEnumerator
+
+        interface System.Collections.IEnumerable with
+            member _.GetEnumerator() = f () :> System.Collections.IEnumerator
+
     // override xs.ToString() =
     //     let maxCount = 4
     //     let mutable i = 0
@@ -49,22 +45,17 @@ module Enumerable =
         interface IEnumerator<'T> with
             member _.Current = curr.Value
 
+        interface System.Collections.IEnumerator with
+            member _.Current = curr.Value
+
             member _.MoveNext() =
                 curr <- next ()
                 curr.IsSome
 
             member _.Reset() = ()
+
+        interface System.IDisposable with
             member _.Dispose() = dispose ()
-    // interface System.Collections.IEnumerator with
-    //     member _.Current =
-    //         curr.Value
-    //     member _.MoveNext() =
-    //         curr <- next()
-    //         curr.IsSome
-    //     member _.Reset() = ()
-    //     member _.Dispose() = dispose()
-    // interface System.IDisposable with
-    //     member _.Dispose() = dispose()
 
     let fromFunction next : IEnumerator<'T> =
         let dispose () = ()

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
+    <!-- <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants> -->
   </PropertyGroup>
 
   <ItemGroup>

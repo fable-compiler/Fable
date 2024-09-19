@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Add support for `OrdinalIgnoreCase` overload for `String.EndsWith` (#3892) (by @goswinr)
 * [JS/TS] Add `uri.Port`, `uri.IsDefaultPort` (by @MangelMaxime)
+* [Rust] Added support for Dictionary/HashSet comparers (by @ncave)
+* [Rust] Updated support for interface object expressions (by @ncave)
 
 ### Changed
 

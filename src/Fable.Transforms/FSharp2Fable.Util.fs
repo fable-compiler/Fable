@@ -354,6 +354,8 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             | None -> ent.LogicalName
 
     static member Ref(ent: FSharpEntity) : Fable.EntityRef =
+        let ent = Helpers.nonAbbreviatedDefinition ent
+
         let path =
             match ent.Assembly.FileName with
             | Some asmPath ->
@@ -2092,15 +2094,16 @@ module Util =
 
     let getMemberGenArgs (memb: Fable.MemberFunctionOrValue) : Fable.Type list = getMemberGenParams memb |> List.map snd
 
-    let getTypeGenParams (typ: Fable.Type) : (string * Fable.Type) list =
-        let rec getTypeGenParams (typ: Fable.Type) : (string * Fable.Type) list =
+    let getGenParams (types: Fable.Type list) : (string * Fable.Type) list =
+        let rec findGenParams typ =
             match typ with
             | Fable.GenericParam(name, false, _) as t -> [ (name, t) ]
-            | t -> t.Generics |> List.collect getTypeGenParams
+            | t -> t.Generics |> List.collect findGenParams
 
-        getTypeGenParams typ |> List.distinctBy fst
+        types |> List.collect findGenParams |> List.distinctBy fst
 
-    let getGenParamNames (typ: Fable.Type) : string list = getTypeGenParams typ |> List.map fst
+    let getGenParamNames (types: Fable.Type list) : string list = getGenParams types |> List.map fst
+    let getGenParamTypes (types: Fable.Type list) : Fable.Type list = getGenParams types |> List.map snd
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
@@ -2709,6 +2712,13 @@ module Util =
                     false, arg :: acc
             )
             |> snd
+
+    let getInterfaceMembers (com: Compiler) (ent: Fable.Entity) =
+        ent.AllInterfaces
+        |> Seq.collect (fun ifc ->
+            let ifcEnt = com.GetEntity(ifc.Entity)
+            ifcEnt.MembersFunctionsAndValues |> Seq.map (fun memb -> ifc, memb)
+        )
 
     let hasInterface fullName (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = fullName)
