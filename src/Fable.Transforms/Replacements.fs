@@ -3621,11 +3621,13 @@ let uris
     | "get_IsAbsoluteUri"
     | "get_Scheme"
     | "get_Host"
+    | "get_Port"
     | "get_AbsolutePath"
     | "get_AbsoluteUri"
     | "get_PathAndQuery"
     | "get_Query"
     | "get_Fragment"
+    | "get_IsDefaultPort"
     | "get_OriginalString" ->
         Naming.removeGetSetPrefix i.CompiledName
         |> Naming.lowerFirst
