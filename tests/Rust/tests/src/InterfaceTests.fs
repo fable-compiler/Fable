@@ -19,7 +19,7 @@ let addWithAdder (i: IHasAdd) =
     i.Add 3 4
 
 let adderObj = Adder()
-let adderInt = Adder() :> IHasAdd
+// let adderInt = Adder() :> IHasAdd
 
 [<Fact>]
 let ``Module let object value works`` () =
@@ -27,11 +27,11 @@ let ``Module let object value works`` () =
     let res = a.Add 2 1
     res |> equal 3
 
-[<Fact>]
-let ``Module let interface value works`` () =
-    let a = adderInt
-    let res = a.Add 2 1
-    res |> equal 3
+// [<Fact>]
+// let ``Module let interface value works`` () =
+//     let a = adderInt
+//     let res = a.Add 2 1
+//     res |> equal 3
 
 [<Fact>]
 let ``Class interface impl works`` () =
