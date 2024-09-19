@@ -65,7 +65,7 @@ pub mod Native_ {
 
     use core::cmp::Ordering;
     use core::fmt::{Debug, Display, Formatter, Result};
-    use core::hash::{Hash, Hasher};
+    use core::hash::{BuildHasher, Hash, Hasher};
 
     // -----------------------------------------------------------
     // Helpers
