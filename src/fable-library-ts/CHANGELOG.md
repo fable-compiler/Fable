@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [JS/TS] Fix escaping of `{` and `}` in FormattableString (#3890) (by @roboz0r)
+
 ## 1.4.3 - 2024-09-04
 
 * [JS/TS] Fixed Decimal comparisons (#3884) (by @ncave)
