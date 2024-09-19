@@ -354,6 +354,8 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             | None -> ent.LogicalName
 
     static member Ref(ent: FSharpEntity) : Fable.EntityRef =
+        let ent = Helpers.nonAbbreviatedDefinition ent
+
         let path =
             match ent.Assembly.FileName with
             | Some asmPath ->
@@ -2710,6 +2712,13 @@ module Util =
                     false, arg :: acc
             )
             |> snd
+
+    let getInterfaceMembers (com: Compiler) (ent: Fable.Entity) =
+        ent.AllInterfaces
+        |> Seq.collect (fun ifc ->
+            let ifcEnt = com.GetEntity(ifc.Entity)
+            ifcEnt.MembersFunctionsAndValues |> Seq.map (fun memb -> ifc, memb)
+        )
 
     let hasInterface fullName (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = fullName)

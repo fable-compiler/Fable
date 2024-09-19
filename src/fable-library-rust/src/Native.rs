@@ -55,8 +55,8 @@ pub mod Native_ {
         value
     }
 
-    use crate::Interfaces_::System::Collections::Generic::IEnumerable_1;
-    use crate::Interfaces_::System::Collections::Generic::IEqualityComparer_1;
+    use crate::System::Collections::Generic::IEnumerable_1;
+    use crate::System::Collections::Generic::IEqualityComparer_1;
 
     // TODO: use these types in generated code
     pub type Seq<T> = LrcPtr<dyn IEnumerable_1<T>>;

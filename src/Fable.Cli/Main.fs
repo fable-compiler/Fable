@@ -478,7 +478,7 @@ type FableCompilerState =
 and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fableProj: Project) =
     let agent =
         MailboxProcessor<FableCompilerMsg>.Start(fun agent ->
-            let startInThreadPool toMsg work =
+            let postTo toMsg work =
                 async {
                     try
                         let! result = work ()
@@ -486,12 +486,22 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                     with e ->
                         UnexpectedError e |> agent.Post
                 }
-                |> Async.Start
+
+            let startInThreadPool toMsg work = postTo toMsg work |> Async.Start
+
+            let runSynchronously toMsg work =
+                postTo toMsg work |> Async.RunSynchronously
 
             let fableCompile state fileName =
                 let fableProj = state.FableProj
 
-                startInThreadPool
+                let runner =
+                    // for Rust, sequential compilation captures all imports and namespaces
+                    match projCracked.CliArgs.CompilerOptions.Language with
+                    | Rust -> runSynchronously // sequential file compilation
+                    | _ -> startInThreadPool // parallel file compilation
+
+                runner
                     FableFileCompiled
                     (fun () ->
                         async {
@@ -574,7 +584,6 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                         // Print F# AST to file
                         if projCracked.CliArgs.PrintAst then
                             let outPath = getOutPath projCracked.CliArgs state.PathResolver file.FileName
-
                             let outDir = IO.Path.GetDirectoryName(outPath)
                             Printers.printAst outDir [ file ]
 
@@ -586,7 +595,6 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                                 state
                             else
                                 let state = { state with FableProj = state.FableProj.Update([ file ]) }
-
                                 fableCompile state fileName
 
                         return! loop state

@@ -9,7 +9,7 @@ pub mod HashMap_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::Interfaces_::System::Collections::Generic::IEqualityComparer_1;
+    use crate::System::Collections::Generic::IEqualityComparer_1;
     use crate::NativeArray_::{array_from, Array};
     use crate::Native_::{mkRefMut, seq_to_iter, HashKey, Lrc, LrcPtr, MutCell, Seq, Vec};
 
