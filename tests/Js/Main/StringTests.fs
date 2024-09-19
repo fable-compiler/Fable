@@ -1183,6 +1183,12 @@ let tests = testList "Strings" [
         s3.GetStrings() |> toArray |> equal [|"I have no holes"|]
 
     testCase "FormattableString fragments handle { and }" <| fun () ->
+// TypeScript will complain because TemplateStringsArray is not equivalent to string[]
+#if FABLE_COMPILER_TYPESCRIPT
+        let toArray = Seq.toArray
+#else
+        let toArray = id
+#endif
         let classAttr = "item-panel"
         let cssNew :FormattableString = $$""".{{classAttr}}:hover {background-color: #eee;}"""
         let strs = cssNew.GetStrings() |> toArray
