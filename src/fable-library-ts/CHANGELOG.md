@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS] Add support for `OrdinalIgnoreCase` overload for `String.EndsWith` (#3892) (by @goswinr)
+
 ## 1.4.3 - 2024-09-04
 
 * [JS/TS] Fixed Decimal comparisons (#3884) (by @ncave)
