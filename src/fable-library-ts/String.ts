@@ -64,8 +64,21 @@ export function compareTo(x: string, y: string) {
 }
 
 export function startsWith(str: string, pattern: string, ic: number) {
+  if (ic === StringComparison.Ordinal) { // to avoid substring allocation
+    return str.startsWith(pattern);
+  }
   if (str.length >= pattern.length) {
     return cmp(str.substr(0, pattern.length), pattern, ic) === 0;
+  }
+  return false;
+}
+
+export function endsWith(str: string, pattern: string, ic: number) {
+  if (ic === StringComparison.Ordinal) { // to avoid substring allocation
+    return str.endsWith(pattern);
+  }
+  if (str.length >= pattern.length) {
+    return cmp(str.substr(str.length - pattern.length, pattern.length), pattern, ic) === 0;
   }
   return false;
 }
@@ -374,10 +387,6 @@ export function format(str: string | object, ...args: any[]) {
   });
 }
 
-export function endsWith(str: string, search: string) {
-  const idx = str.lastIndexOf(search);
-  return idx >= 0 && idx === str.length - search.length;
-}
 
 export function initialize(n: number, f: (i: number) => string) {
   if (n < 0) {

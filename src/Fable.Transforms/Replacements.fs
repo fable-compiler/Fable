@@ -1449,7 +1449,6 @@ let implementedStringFunctions =
         [|
             "Compare"
             "CompareTo"
-            "EndsWith"
             "Format"
             "IndexOfAny"
             "Insert"
@@ -1503,12 +1502,15 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
         let left = Helper.InstanceCall(c, "indexOf", Int32.Number, [ arg ])
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
-    | "StartsWith", Some c, [ _str ] ->
-        let left = Helper.InstanceCall(c, "indexOf", Int32.Number, args)
-        makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
+    | "StartsWith", Some c, [ _str ] -> Helper.InstanceCall(c, "startsWith", Boolean, args) |> Some
     | "StartsWith", Some c, [ _str; _comp ] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
+    | "EndsWith", Some c, [ _str ] -> Helper.InstanceCall(c, "endsWith", Boolean, args) |> Some
+    | "EndsWith", Some c, [ _str; _comp ] ->
+        Helper.LibCall(com, "String", "endsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
+
     | ReplaceName [ "ToUpper", "toLocaleUpperCase"
                     "ToUpperInvariant", "toUpperCase"
                     "ToLower", "toLocaleLowerCase"

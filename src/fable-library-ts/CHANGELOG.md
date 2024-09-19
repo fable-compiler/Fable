@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS] Add support for `OrdinalIgnoreCase` overload for `String.EndsWith` (#3892) (by @goswinr)
+
 ### Fixed
 
 * [JS/TS] Fix escaping of `{` and `}` in FormattableString (#3890) (by @roboz0r)
