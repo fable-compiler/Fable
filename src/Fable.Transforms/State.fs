@@ -38,12 +38,12 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                             |> Seq.exists (fun attr ->
                                 attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute"
                             )
-                        with _ ->
+                        with error ->
                             // To help identify problem, log information about the exception
                             // but keep the process going to mimic previous Fable behavior
                             // and because these exception seems harmless
                             let errorMessage =
-                                $"Could not scan {path} for Fable plugins, skipping this assembly"
+                                $"Could not scan {path} for Fable plugins, skipping this assembly. Original error: {error.Message}"
 
                             addLog Severity.Info errorMessage
 

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 * [Python] Remove `$` sign when reporting an error from `assert_equal` and `assert_not_equal` (#3878) (by @joprice)
+* [All] Don't hide original error when failing to scan an assembly for plugin (#3896) (by @MangelMaxime)
 
 ### Fixed
 

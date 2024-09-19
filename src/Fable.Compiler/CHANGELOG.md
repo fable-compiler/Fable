@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [All] Don't hide original error when failing to scan an assembly for plugin (#3896) (by @MangelMaxime)
+
 ## 4.0.0-alpha-012 - 2024-06-17
 
 ### Fixed
