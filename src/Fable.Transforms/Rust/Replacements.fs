@@ -147,6 +147,15 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) = value
 
 let toNativeIndex expr = TypeCast(expr, UNativeInt.Number)
 
+let toLowerFirstWithArgsCountSuffix (args: Expr list) meth =
+    let argCount = List.length args
+    let meth = Naming.lowerFirst meth
+
+    if argCount > 1 then
+        meth + (string argCount)
+    else
+        meth
+
 let toChar com (arg: Expr) =
     match arg.Type with
     | Char -> arg
@@ -337,7 +346,6 @@ let emitFormat (com: ICompiler) r t (args: Expr list) macro =
 
     let unboxedArgs = args |> FSharp2Fable.Util.unboxBoxedArgs
     Helper.LibCall(com, "String", macro, t, unboxedArgs)
-
 
 let getMut expr =
     Helper.InstanceCall(expr, "get_mut", expr.Type, [])
@@ -1601,79 +1609,39 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, [] ->
-        // makeArray (getElementType t) [] |> Some
-        Helper.LibCall(com, "NativeArray", "new_empty", t, [], ?loc = r) |> Some
-    | ".ctor", _, [ ExprTypeAs(Number(Int32, _), idx) ] ->
-        Helper.LibCall(com, "NativeArray", "new_with_capacity", t, [ idx ], ?loc = r)
+    | ".ctor", _, [] -> Helper.LibCall(com, "NativeArray", "new_empty", t, args, ?loc = r) |> Some
+    | ".ctor", _, [ ExprType(Number(Int32, _)) ] ->
+        Helper.LibCall(com, "NativeArray", "new_with_capacity", t, args, ?loc = r)
         |> Some
-    // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [ ArrayOrListLiteral(vals, typ) ] -> makeArray typ vals |> Some
+    | ".ctor", _, [ ExprType(IEnumerable) ] ->
+        Helper.LibCall(com, "NativeArray", "new_from_enumerable", t, args, ?loc = r)
+        |> Some
     | ".ctor", _, [ arg ] -> toArray com t arg |> Some
+    | "get_Capacity", Some ar, _ -> Helper.LibCall(com, "NativeArray", "get_Capacity", t, [ ar ], ?loc = r) |> Some
+    | "get_Count", Some ar, _ -> Helper.LibCall(com, "NativeArray", "get_Count", t, [ ar ], ?loc = r) |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
-    | "Add", Some(MaybeCasted(ar)), [ arg ] ->
-        Helper.LibCall(com, "NativeArray", "add", t, [ ar; arg ], ?loc = r) |> Some
-    | "Remove", Some(MaybeCasted(ar)), [ arg ] ->
-        Helper.LibCall(com, "Array", "removeInPlace", t, [ arg; ar ], ?loc = r) |> Some
-    | "RemoveAll", Some ar, [ arg ] ->
-        Helper.LibCall(com, "Array", "removeAllInPlace", t, [ arg; ar ], ?loc = r)
-        |> Some
-    | "FindIndex", Some ar, [ arg ] ->
-        Helper.LibCall(com, "NativeArray", "FindIndex", t, [ ar; arg ], ?loc = r)
-        |> Some
-    | "FindLastIndex", Some ar, [ arg ] ->
-        Helper.LibCall(com, "Array", "findLastIndex", t, [ arg; ar ], ?loc = r) |> Some
-    | "ForEach", Some ar, [ arg ] -> makeInstanceCall r t i ar "forEach" [ arg ] |> Some
     | "GetEnumerator", Some(MaybeCasted(ar)), _ ->
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
-    | "get_Count", Some(MaybeCasted(ar)), _ -> Helper.LibCall(com, "NativeArray", "count", t, [ ar ], ?loc = r) |> Some
-    | "Clear", Some(MaybeCasted(ar)), [] -> makeInstanceCall r t i (getMut ar) "clear" [] |> Some
-    | "ConvertAll", Some ar, [ arg ] -> Helper.LibCall(com, "Array", "map", t, [ arg; ar ], ?loc = r) |> Some
-    | "Find", Some ar, [ arg ] ->
-        let opt = Helper.LibCall(com, "Array", "tryFind", t, [ arg; ar ], ?loc = r)
-
-        Helper.LibCall(com, "Option", "defaultArg", t, [ opt; getZero com ctx t ], ?loc = r)
+    | ("Add" | "AddRange" | "Clear" | "Contains" | "ConvertAll" | "Exists" | "GetRange" | "Slice" | "ForEach" | "FindAll" | "Find" | "FindLast" | "FindIndex" | "FindLastIndex" | "Insert" | "InsertRange" | "Remove" | "RemoveAt" | "RemoveAll" | "RemoveRange" | "ToArray" | "TrimExcess" | "TrueForAll") as meth,
+      Some ar,
+      args ->
+        // methods without overrides
+        let meth = Naming.lowerFirst meth
+        Helper.LibCall(com, "NativeArray", meth, t, (ar :: args), ?loc = r) |> Some
+    | ("BinarySearch" | "CopyTo" | "IndexOf" | "LastIndexOf" | "Reverse") as meth, Some ar, args ->
+        // methods with some overrides
+        let meth = meth |> toLowerFirstWithArgsCountSuffix args
+        Helper.LibCall(com, "NativeArray", meth, t, (ar :: args), ?loc = r) |> Some
+    | "Sort", Some ar, [] -> Helper.LibCall(com, "NativeArray", "sort", t, (ar :: args), ?loc = r) |> Some
+    | "Sort", Some ar, [ ExprType(DelegateType _) ] ->
+        Helper.LibCall(com, "NativeArray", "sortBy", t, (ar :: args), ?loc = r) |> Some
+    | "Sort", Some ar, [ comparer ] ->
+        Helper.LibCall(com, "NativeArray", "sortWith", t, (ar :: args), ?loc = r)
         |> Some
-    | "Exists", Some ar, [ arg ] ->
-        Helper.LibCall(com, "Array", "exists", t, [ arg; ar ], i.SignatureArgTypes, ?loc = r)
+    | "Sort", Some ar, [ index; count; comparer ] ->
+        Helper.LibCall(com, "NativeArray", "sortWith2", t, (ar :: args), ?loc = r)
         |> Some
-    | "FindLast", Some ar, [ arg ] ->
-        let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [ arg; ar ], ?loc = r)
-
-        Helper.LibCall(com, "Option", "defaultArg", t, [ opt; getZero com ctx t ], ?loc = r)
-        |> Some
-    | "FindAll", Some ar, [ arg ] -> Helper.LibCall(com, "Array", "filter", t, [ arg; ar ], ?loc = r) |> Some
-    | "AddRange", Some ar, [ arg ] ->
-        Helper.LibCall(com, "Array", "addRangeInPlace", t, [ arg; ar ], ?loc = r)
-        |> Some
-    | "GetRange", Some ar, [ idx; cnt ] ->
-        Helper.LibCall(com, "Array", "getSubArray", t, [ ar; idx; cnt ], ?loc = r)
-        |> Some
-    | "Contains", Some(MaybeCasted(ar)), [ arg ] ->
-        Helper.LibCall(com, "Array", "contains", t, [ arg; ar ], i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "IndexOf", Some ar, [ arg ] ->
-        Helper.LibCall(com, "Array", "indexOf", t, [ ar; arg ], i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Insert", Some ar, [ idx; arg ] -> makeInstanceCall r t i (getMut ar) "insert" [ toNativeIndex idx; arg ] |> Some
-    | "InsertRange", Some ar, [ idx; arg ] ->
-        Helper.LibCall(com, "Array", "insertRangeInPlace", t, [ idx; arg; ar ], ?loc = r)
-        |> Some
-    | "RemoveRange", Some ar, args -> makeInstanceCall r t i ar "splice" args |> Some
-    | "RemoveAt", Some ar, [ idx ] -> makeInstanceCall r t i (getMut ar) "remove" [ toNativeIndex idx ] |> Some
-    | "Reverse", Some ar, [] -> makeInstanceCall r t i (getMut ar) "reverse" args |> Some
-    | "Sort", Some ar, [] ->
-        // can't use .sort() as it needs T: Ord
-        Helper.LibCall(com, "Array", "sortInPlace", t, [ ar ], i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Sort", Some ar, [ ExprType(DelegateType _) as comparer ] ->
-        let cmp = Helper.LibCall(com, "Native", "makeCompare", t, [ comparer ], ?loc = r)
-
-        makeInstanceCall r t i (getMut ar) "sort_by" [ cmp ] |> Some
-    // | "Sort", Some ar, [arg] ->
-    //     Helper.LibCall(com, "Array", "sortInPlaceWithComparer", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
-    | "ToArray", Some ar, [] -> Helper.LibCall(com, "NativeArray", "new_copy", t, [ ar ], ?loc = r) |> Some
     | _ -> None
 
 let collectionExtensions
@@ -1743,30 +1711,22 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Length", Some ar, _ -> Helper.LibCall(com, "NativeArray", "count", t, [ ar ], ?loc = r) |> Some
+    | "get_Length", Some ar, _ -> Helper.LibCall(com, "NativeArray", "get_Count", t, [ ar ], ?loc = r) |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
-    | "Clone", Some ar, _ -> Helper.LibCall(com, "NativeArray", "new_copy", t, [ ar ], ?loc = r) |> Some
+    | "Clone", Some ar, _ -> Helper.LibCall(com, "NativeArray", "toArray", t, [ ar ], ?loc = r) |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
     | "Copy", None, [ source; target; count ] ->
         copyToArray com r t i [ source; makeIntConst 0; target; makeIntConst 0; count ]
     | "ConvertAll", None, [ source; mapping ] ->
-        Helper.LibCall(com, "Array", "map", t, [ mapping; source ], ?loc = r) |> Some
-    | "IndexOf", None, [ ar; arg ] ->
-        Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        Helper.LibCall(com, "NativeArray", "convertAll", t, args, ?loc = r) |> Some
+    | "IndexOf", None, [ ar; arg ] -> Helper.LibCall(com, "NativeArray", "indexOf", t, args, ?loc = r) |> Some
     | "GetEnumerator", Some ar, _ -> Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
-    | "Reverse", None, [ ar ] -> makeInstanceCall r t i (getMut ar) "reverse" [] |> Some
-    | "Sort", None, [ ar ] ->
-        // can't use .sort() as it needs T: Ord
-        Helper.LibCall(com, "Array", "sortInPlace", t, [ ar ], i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "Reverse", None, [ ar ] -> Helper.LibCall(com, "NativeArray", "reverse", t, args, ?loc = r) |> Some
+    | "Sort", None, [ ar ] -> Helper.LibCall(com, "NativeArray", "sort", t, args, ?loc = r) |> Some
     | "Sort", None, [ ar; ExprType(DelegateType _) as comparer ] ->
-        let cmp = Helper.LibCall(com, "Native", "makeCompare", t, [ comparer ], ?loc = r)
-
-        makeInstanceCall r t i (getMut ar) "sort_by" [ cmp ] |> Some
-    // | "Sort", None, [ar; arg] ->
-    //     Helper.LibCall(com, "Array", "sortInPlaceWithComparer", t, [ar; arg], i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "NativeArray", "sortBy", t, args, ?loc = r) |> Some
+    | "Sort", None, [ ar; comparer ] -> Helper.LibCall(com, "NativeArray", "sortWith", t, args, ?loc = r) |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1783,7 +1743,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "ToList", args ->
         Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("Length" | "Count"), [ ar ] -> Helper.LibCall(com, "NativeArray", "count", t, [ ar ], ?loc = r) |> Some
+    | ("Length" | "Count"), [ ar ] -> Helper.LibCall(com, "NativeArray", "get_Count", t, [ ar ], ?loc = r) |> Some
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
     | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
     | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
@@ -1792,9 +1752,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "Empty", [] -> createArray com ctx r t i (makeIntConst 0) None |> Some
     | "Singleton", [ value ] -> createArray com ctx r t i (makeIntConst 1) (Some value) |> Some
     | "IsEmpty", [ ar ] -> makeInstanceCall r t i ar "is_empty" [] |> Some
-    | "Copy", [ ar ] ->
-        Helper.LibCall(com, "NativeArray", "new_copy", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "Copy", [ ar ] -> Helper.LibCall(com, "NativeArray", "toArray", t, args, ?loc = r) |> Some
     | "CopyTo", args -> copyToArray com r t i args
     | ("Concat" | "Transpose" as meth), [ arg ] ->
         Helper.LibCall(com, "Array", Naming.lowerFirst meth, t, [ toArray com t arg ], i.SignatureArgTypes, ?loc = r)
