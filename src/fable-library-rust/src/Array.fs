@@ -467,41 +467,6 @@ let truncate (count: int) (source: 'T[]) : 'T[] =
 
     getSubArray source 0 count
 
-// let addInPlace (x: 'T) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
-//     pushImpl source x |> ignore
-
-// let addRangeInPlace (range: seq<'T>) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
-//     for x in range do
-//         addInPlace x source
-
-// let insertRangeInPlace index (range: seq<'T>) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
-//     let mutable i = index
-//     for x in range do
-//         insertImpl source i x |> ignore
-//         i <- i + 1
-
-// let removeInPlace (item: 'T) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
-//     let i = indexOfImpl source item 0
-//     if i > -1 then
-//         spliceImpl source i 1 |> ignore
-//         true
-//     else
-//         false
-
-// let removeAllInPlace predicate (source: 'T[]) =
-//     let rec countRemoveAll count =
-//         let i = findIndexImpl predicate source
-//         if i > -1 then
-//             spliceImpl source i 1 |> ignore
-//             countRemoveAll count + 1
-//         else
-//             count
-//     countRemoveAll 0
-
 // TODO: Check array lengths
 let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
     let diff = targetIndex - sourceIndex

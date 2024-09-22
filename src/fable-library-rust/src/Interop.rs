@@ -63,7 +63,7 @@ pub mod ListExt {
 }
 
 pub mod SetExt {
-    use crate::Native_::{makeCompare, seq_to_iter, Func2, Vec};
+    use crate::Native_::{make_compare, seq_to_iter, Func2, Vec};
     use crate::Set_::{add, compareTo, empty, equals, toSeq, Set};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
@@ -98,13 +98,13 @@ pub mod SetExt {
 
     impl<T: Clone + PartialOrd> PartialOrd for Set<T> {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            Some(makeCompare(Func2::from(compareTo))(self, other))
+            Some(make_compare(Func2::from(compareTo))(self, other))
         }
     }
 
     impl<T: Clone + PartialOrd> Ord for Set<T> {
         fn cmp(&self, other: &Self) -> Ordering {
-            makeCompare(Func2::from(compareTo))(self, other)
+            make_compare(Func2::from(compareTo))(self, other)
         }
     }
 
@@ -147,7 +147,7 @@ pub mod SetExt {
 
 pub mod MapExt {
     use crate::Map_::{add, compareTo, empty, equals, iterate, toSeq, Map};
-    use crate::Native_::{makeCompare, seq_to_iter, Func2, Vec};
+    use crate::Native_::{make_compare, seq_to_iter, Func2, Vec};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
 
@@ -181,13 +181,13 @@ pub mod MapExt {
 
     impl<K: Clone + PartialOrd, V: Clone + PartialOrd> PartialOrd for Map<K, V> {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            Some(makeCompare(Func2::from(compareTo))(self, other))
+            Some(make_compare(Func2::from(compareTo))(self, other))
         }
     }
 
     impl<K: Clone + PartialOrd, V: Clone + PartialOrd> Ord for Map<K, V> {
         fn cmp(&self, other: &Self) -> Ordering {
-            makeCompare(Func2::from(compareTo))(self, other)
+            make_compare(Func2::from(compareTo))(self, other)
         }
     }
 

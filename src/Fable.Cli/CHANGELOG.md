@@ -7,14 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Rust] Added support for Dictionary/HashSet comparers (by @ncave)
+* [Rust] Updated support for interface object expressions (by @ncave)
+* [Rust] Added missing ResizeArray methods and tests (by @ncave)
+
 ## 4.21.0 - 2024-09-19
 
 ### Added
 
 * [JS/TS] Add support for `OrdinalIgnoreCase` overload for `String.EndsWith` (#3892) (by @goswinr)
 * [JS/TS] Add `uri.Port`, `uri.IsDefaultPort` (by @MangelMaxime)
-* [Rust] Added support for Dictionary/HashSet comparers (by @ncave)
-* [Rust] Updated support for interface object expressions (by @ncave)
 
 ### Changed
 

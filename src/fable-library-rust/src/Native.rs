@@ -130,7 +130,16 @@ pub mod Native_ {
         }
     }
 
-    pub fn makeCompare<T: Clone + 'static>(
+    pub fn partial_compare<T: PartialOrd>(x: &T, y: &T) -> Ordering {
+        match x.partial_cmp(y) {
+            Some(ordering) => ordering,
+            None if y == y => Ordering::Less,    // y is not NaN
+            None if x == x => Ordering::Greater, // x is not NaN
+            None => Ordering::Equal,
+        }
+    }
+
+    pub fn make_compare<T: Clone + 'static>(
         comparer: Func2<T, T, i32>,
     ) -> impl Fn(&T, &T) -> Ordering {
         move |x, y| match comparer(x.clone(), y.clone()) {
