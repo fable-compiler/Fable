@@ -24,7 +24,7 @@
     "ghreleases": "^3.0.2",
     "mocha": "^10.7.3",
     "nodemon": "^3.1.4",
-    "rollup": "^4.21.0",
+    "rollup": "^4.22.4",
     "terser": "^5.31.6",
     "typescript": "^5.5.4"
   },
