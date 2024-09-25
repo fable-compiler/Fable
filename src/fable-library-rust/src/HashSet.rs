@@ -9,9 +9,10 @@ pub mod HashSet_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::System::Collections::Generic::IEqualityComparer_1;
     use crate::NativeArray_::{array_from, Array};
     use crate::Native_::{mkRefMut, seq_to_iter, HashKey, Lrc, LrcPtr, MutCell, Seq, Vec};
+    use crate::System::Collections::Generic::EqualityComparer_1;
+    use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::Hash;
@@ -21,10 +22,13 @@ pub mod HashSet_ {
     #[derive(Clone)] //, Debug, Default, PartialEq, PartialOrd, Eq, Hash, Ord)]
     pub struct HashSet<T: Clone> {
         hash_set: Lrc<MutHashSet<T>>,
-        comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>,
+        comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     }
 
-    impl<T: Clone> Default for HashSet<T> {
+    impl<T> Default for HashSet<T>
+    where
+        T: Clone + Hash + PartialEq + 'static,
+    {
         fn default() -> HashSet<T> {
             new_empty()
         }
@@ -49,17 +53,14 @@ pub mod HashSet_ {
         }
     }
 
-    fn from_iter<T, I: Iterator<Item = T>>(
+    fn from_iter<T: Clone + 'static, I: Iterator<Item = T>>(
         iter: I,
-        comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>,
-    ) -> HashSet<T>
-    where
-        T: Clone + Hash + PartialEq + 'static,
-    {
+        comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
+    ) -> HashSet<T> {
         let it = iter.map(|v| HashKey::new(v, comparer.clone()));
         HashSet {
             hash_set: mkRefMut(collections::HashSet::from_iter(it)),
-            comparer: comparer.clone(),
+            comparer,
         }
     }
 
@@ -67,24 +68,30 @@ pub mod HashSet_ {
         set.iter().map(|k| k.key.clone())
     }
 
-    pub fn new_empty<T: Clone>() -> HashSet<T> {
+    pub fn new_empty<T>() -> HashSet<T>
+    where
+        T: Clone + Hash + PartialEq + 'static,
+    {
         HashSet {
             hash_set: mkRefMut(collections::HashSet::new()),
-            comparer: None,
+            comparer: EqualityComparer_1::<T>::get_Default(),
         }
     }
 
-    pub fn new_with_capacity<T: Clone>(capacity: i32) -> HashSet<T> {
+    pub fn new_with_capacity<T>(capacity: i32) -> HashSet<T>
+    where
+        T: Clone + Hash + PartialEq + 'static,
+    {
         HashSet {
             hash_set: mkRefMut(collections::HashSet::with_capacity(capacity as usize)),
-            comparer: None,
+            comparer: EqualityComparer_1::<T>::get_Default(),
         }
     }
 
     pub fn new_with_comparer<T: Clone>(comparer: LrcPtr<dyn IEqualityComparer_1<T>>) -> HashSet<T> {
         HashSet {
             hash_set: mkRefMut(collections::HashSet::new()),
-            comparer: Some(comparer),
+            comparer,
         }
     }
 
@@ -94,7 +101,7 @@ pub mod HashSet_ {
     ) -> HashSet<T> {
         HashSet {
             hash_set: mkRefMut(collections::HashSet::with_capacity(capacity as usize)),
-            comparer: Some(comparer),
+            comparer,
         }
     }
 
@@ -102,17 +109,14 @@ pub mod HashSet_ {
     where
         T: Clone + Hash + PartialEq + 'static,
     {
-        from_iter(seq_to_iter(&seq), None)
+        from_iter(seq_to_iter(&seq), EqualityComparer_1::<T>::get_Default())
     }
 
-    pub fn new_from_enumerable_comparer<T>(
+    pub fn new_from_enumerable_comparer<T: Clone + 'static>(
         seq: Seq<T>,
         comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
-    ) -> HashSet<T>
-    where
-        T: Clone + Hash + PartialEq + 'static,
-    {
-        from_iter(seq_to_iter(&seq), Some(comparer))
+    ) -> HashSet<T> {
+        from_iter(seq_to_iter(&seq), comparer)
     }
 
     pub fn isReadOnly<T: Clone>(set: HashSet<T>) -> bool {
@@ -123,26 +127,17 @@ pub mod HashSet_ {
         set.len() as i32
     }
 
-    pub fn contains<T>(set: HashSet<T>, v: T) -> bool
-    where
-        T: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn contains<T: Clone + 'static>(set: HashSet<T>, v: T) -> bool {
         let key = HashKey::new(v, set.comparer.clone());
         set.contains(&key)
     }
 
-    pub fn add<T>(set: HashSet<T>, v: T) -> bool
-    where
-        T: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn add<T: Clone + 'static>(set: HashSet<T>, v: T) -> bool {
         let key = HashKey::new(v, set.comparer.clone());
         set.get_mut().insert(key)
     }
 
-    pub fn remove<T>(set: HashSet<T>, v: T) -> bool
-    where
-        T: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn remove<T: Clone + 'static>(set: HashSet<T>, v: T) -> bool {
         let key = HashKey::new(v, set.comparer.clone());
         set.get_mut().remove(&key)
     }

@@ -383,17 +383,19 @@ module Paths =
             tokens = None
         }
 
-    let mkGenericPath (names: Symbol seq) (genArgs: GenericArgs option) : Path =
+    let mkGenericOffsetPath (names: Symbol seq) (genArgs: GenericArgs option) (offset: int) : Path =
         let len = Seq.length names
         let idents = mkPathIdents names
 
         let args i =
-            if i < len - 1 then
-                None
-            else
+            if i = len - 1 - offset then
                 genArgs
+            else
+                None
 
         idents |> Seq.mapi (fun i ident -> mkPathSegment ident (args i)) |> mkPath
+
+    let mkGenericPath (names: Symbol seq) (genArgs: GenericArgs option) : Path = mkGenericOffsetPath names genArgs 0
 
 [<AutoOpen>]
 module Patterns =

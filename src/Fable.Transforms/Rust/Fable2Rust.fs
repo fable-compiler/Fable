@@ -304,6 +304,12 @@ module TypeInfo =
         let parts = splitNameParts fullName
         mkGenericPath parts genArgsOpt
 
+    let makeStaticCallPathExpr importName membName genArgsOpt =
+        let fullName = importName + "::" + membName
+        let parts = splitNameParts fullName
+        let offset = 1 // genArgs position offset is one before last
+        mkGenericOffsetPath parts genArgsOpt offset |> mkPathExpr
+
     let makeFullNamePathExpr fullName genArgsOpt =
         makeFullNamePath fullName genArgsOpt |> mkPathExpr
 
@@ -665,12 +671,12 @@ module TypeInfo =
                     // for constructors or static members, import just the type
                     let selector, membName = Fable.Naming.splitLastBy "." info.Selector
                     let importName = com.GetImportName(ctx, selector, info.Path, r)
-                    makeFullNamePathExpr (importName + "::" + membName) genArgsOpt
+                    makeStaticCallPathExpr importName membName genArgsOpt
             | Fable.LibraryImport mi when not (mi.IsInstanceMember) && not (mi.IsModuleMember) ->
                 // for static (non-module and non-instance) members, import just the type
                 let selector, membName = Fable.Naming.splitLastBy "::" info.Selector
                 let importName = com.GetImportName(ctx, selector, info.Path, r)
-                makeFullNamePathExpr (importName + "::" + membName) genArgsOpt
+                makeStaticCallPathExpr importName membName genArgsOpt
             | _ ->
                 // all other imports
                 let importName = com.GetImportName(ctx, info.Selector, info.Path, r)
@@ -2338,9 +2344,9 @@ module Util =
                     mkCallExpr callee [] |> mutableGet
                 else
                     mkCallExpr callee args
-            | None, Fable.LibraryImport memberInfo ->
+            | None, Fable.LibraryImport mi ->
                 let genArgsOpt =
-                    if needGenArgs && memberInfo.IsModuleMember then
+                    if needGenArgs && (mi.IsModuleMember || not mi.IsInstanceMember) then
                         match typ with
                         | Fable.Tuple _ -> transformGenArgs com ctx [ typ ]
                         | _ -> transformGenArgs com ctx typ.Generics
@@ -3678,7 +3684,7 @@ module Util =
             | Fable.Constraint.CoercesTo(targetType) ->
                 match targetType with
                 | IFormattable -> [ makeGenBound ("core" :: "fmt" :: "Display" :: []) [] ]
-                | IEquatable _ -> [ makeRawBound "Eq"; makeGenBound ("core" :: "hash" :: "Hash" :: []) [] ]
+                | IEquatable _ -> [ makeGenBound ("core" :: "hash" :: "Hash" :: []) []; makeRawBound "PartialEq" ]
                 | Fable.DeclaredType(entRef, genArgs) ->
                     let ent = com.GetEntity(entRef)
 
@@ -3697,8 +3703,8 @@ module Util =
             | Fable.Constraint.HasComparison -> [ makeRawBound "PartialOrd" ]
             | Fable.Constraint.HasEquality ->
                 [
-                    makeRawBound "Eq" // "PartialEq"
                     makeGenBound ("core" :: "hash" :: "Hash" :: []) []
+                    makeRawBound "PartialEq" // "Eq"
                 ]
             | Fable.Constraint.IsUnmanaged -> []
             | Fable.Constraint.IsEnum -> []

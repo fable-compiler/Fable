@@ -156,11 +156,11 @@ pub mod Native_ {
     #[derive(Clone)]
     pub struct HashKey<T: Clone> {
         pub key: T,
-        pub comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>,
+        pub comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     }
 
     impl<T: Clone> HashKey<T> {
-        pub fn new(key: T, comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>) -> HashKey<T> {
+        pub fn new(key: T, comparer: LrcPtr<dyn IEqualityComparer_1<T>>) -> HashKey<T> {
             HashKey { key, comparer }
         }
     }
@@ -177,27 +177,21 @@ pub mod Native_ {
         }
     }
 
-    impl<T: Clone + Hash + 'static> Hash for HashKey<T> {
+    impl<T: Clone + 'static> Hash for HashKey<T> {
         #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
-            match &self.comparer {
-                Some(comp) => comp.GetHashCode(self.key.clone()).hash(state),
-                None => self.key.hash(state),
-            }
+            self.comparer.GetHashCode(self.key.clone()).hash(state)
         }
     }
 
-    impl<T: Clone + PartialEq + 'static> PartialEq for HashKey<T> {
+    impl<T: Clone + 'static> PartialEq for HashKey<T> {
         #[inline]
         fn eq(&self, other: &Self) -> bool {
-            match &self.comparer {
-                Some(comp) => comp.Equals(self.key.clone(), other.key.clone()),
-                None => self.key.eq(&other.key),
-            }
+            self.comparer.Equals(self.key.clone(), other.key.clone())
         }
     }
 
-    impl<T: Clone + Hash + PartialEq + 'static> Eq for HashKey<T> {}
+    impl<T: Clone + 'static> Eq for HashKey<T> {}
 
     // -----------------------------------------------------------
     // Type testing
