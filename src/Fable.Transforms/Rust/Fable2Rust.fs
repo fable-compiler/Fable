@@ -2116,7 +2116,10 @@ module Util =
                     memberDecl
                 )
 
-            let fieldIdents = fieldsMap.Values |> Seq.toList
+            let fieldIdents =
+                fieldsMap.Values
+                |> Seq.map (fun ident -> { ident with Type = FableTransforms.uncurryType ident.Type })
+                |> Seq.toList
 
             let fields =
                 fieldIdents
