@@ -9,9 +9,10 @@ pub mod HashMap_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::System::Collections::Generic::IEqualityComparer_1;
     use crate::NativeArray_::{array_from, Array};
     use crate::Native_::{mkRefMut, seq_to_iter, HashKey, Lrc, LrcPtr, MutCell, Seq, Vec};
+    use crate::System::Collections::Generic::EqualityComparer_1;
+    use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{Hash, Hasher};
@@ -21,10 +22,13 @@ pub mod HashMap_ {
     #[derive(Clone)] //, Debug, Default, PartialEq, PartialOrd, Eq, Hash, Ord)]
     pub struct HashMap<K: Clone, V: Clone> {
         hash_map: Lrc<MutHashMap<K, V>>,
-        comparer: Option<LrcPtr<dyn IEqualityComparer_1<K>>>,
+        comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
     }
 
-    impl<K: Clone, V: Clone> Default for HashMap<K, V> {
+    impl<K, V: Clone> Default for HashMap<K, V>
+    where
+        K: Clone + Hash + PartialEq + 'static,
+    {
         fn default() -> HashMap<K, V> {
             new_empty()
         }
@@ -49,13 +53,10 @@ pub mod HashMap_ {
         }
     }
 
-    fn from_iter<K, V: Clone, I: Iterator<Item = (K, V)>>(
+    fn from_iter<K: Clone + 'static, V: Clone, I: Iterator<Item = (K, V)>>(
         iter: I,
-        comparer: Option<LrcPtr<dyn IEqualityComparer_1<K>>>,
-    ) -> HashMap<K, V>
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
+        comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
+    ) -> HashMap<K, V> {
         let it = iter.map(|(k, v)| {
             let key = HashKey::new(k, comparer.clone());
             (key, v)
@@ -70,17 +71,23 @@ pub mod HashMap_ {
         map.iter().map(|(k, v)| (k.key.clone(), v.clone()))
     }
 
-    pub fn new_empty<K: Clone, V: Clone>() -> HashMap<K, V> {
+    pub fn new_empty<K, V: Clone>() -> HashMap<K, V>
+    where
+        K: Clone + Hash + PartialEq + 'static,
+    {
         HashMap {
             hash_map: mkRefMut(collections::HashMap::new()),
-            comparer: None,
+            comparer: EqualityComparer_1::<K>::get_Default(),
         }
     }
 
-    pub fn new_with_capacity<K: Clone, V: Clone>(capacity: i32) -> HashMap<K, V> {
+    pub fn new_with_capacity<K, V: Clone>(capacity: i32) -> HashMap<K, V>
+    where
+        K: Clone + Hash + PartialEq + 'static,
+    {
         HashMap {
             hash_map: mkRefMut(collections::HashMap::with_capacity(capacity as usize)),
-            comparer: None,
+            comparer: EqualityComparer_1::<K>::get_Default(),
         }
     }
 
@@ -89,7 +96,7 @@ pub mod HashMap_ {
     ) -> HashMap<K, V> {
         HashMap {
             hash_map: mkRefMut(collections::HashMap::new()),
-            comparer: Some(comparer),
+            comparer,
         }
     }
 
@@ -99,7 +106,7 @@ pub mod HashMap_ {
     ) -> HashMap<K, V> {
         HashMap {
             hash_map: mkRefMut(collections::HashMap::with_capacity(capacity as usize)),
-            comparer: Some(comparer),
+            comparer,
         }
     }
 
@@ -107,34 +114,25 @@ pub mod HashMap_ {
     where
         K: Clone + Hash + PartialEq + 'static,
     {
-        from_iter(seq_to_iter(&seq), None)
+        from_iter(seq_to_iter(&seq), EqualityComparer_1::<K>::get_Default())
     }
 
-    pub fn new_from_enumerable_comparer<K, V: Clone + 'static>(
+    pub fn new_from_enumerable_comparer<K: Clone + 'static, V: Clone + 'static>(
         seq: Seq<(K, V)>,
         comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
-    ) -> HashMap<K, V>
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
-        from_iter(seq_to_iter(&seq), Some(comparer))
+    ) -> HashMap<K, V> {
+        from_iter(seq_to_iter(&seq), comparer)
     }
 
-    pub fn new_from_dictionary<K, V: Clone + 'static>(map: HashMap<K, V>) -> HashMap<K, V>
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
-        from_iter(to_iter(&map), None)
+    pub fn new_from_dictionary<K: Clone + 'static, V: Clone>(map: HashMap<K, V>) -> HashMap<K, V> {
+        from_iter(to_iter(&map), map.comparer.clone())
     }
 
-    pub fn new_from_dictionary_comparer<K, V: Clone + 'static>(
+    pub fn new_from_dictionary_comparer<K: Clone + 'static, V: Clone>(
         map: HashMap<K, V>,
         comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
-    ) -> HashMap<K, V>
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
-        from_iter(to_iter(&map), Some(comparer))
+    ) -> HashMap<K, V> {
+        from_iter(to_iter(&map), comparer)
     }
 
     pub fn new_from_tuple_array<K, V: Clone>(a: Array<LrcPtr<(K, V)>>) -> HashMap<K, V>
@@ -142,7 +140,7 @@ pub mod HashMap_ {
         K: Clone + Hash + PartialEq + 'static,
     {
         let it = a.iter().map(|tup| tup.as_ref().clone());
-        from_iter(it, None)
+        from_iter(it, EqualityComparer_1::<K>::get_Default())
     }
 
     pub fn isReadOnly<K: Clone, V: Clone>(map: HashMap<K, V>) -> bool {
@@ -153,10 +151,7 @@ pub mod HashMap_ {
         map.len() as i32
     }
 
-    pub fn containsKey<K, V: Clone>(map: HashMap<K, V>, k: K) -> bool
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn containsKey<K: Clone + 'static, V: Clone>(map: HashMap<K, V>, k: K) -> bool {
         let key = HashKey::new(k, map.comparer.clone());
         map.contains_key(&key)
     }
@@ -165,10 +160,7 @@ pub mod HashMap_ {
         map.values().any(|x| x.eq(&v))
     }
 
-    pub fn tryAdd<K, V: Clone>(map: HashMap<K, V>, k: K, v: V) -> bool
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn tryAdd<K: Clone + 'static, V: Clone>(map: HashMap<K, V>, k: K, v: V) -> bool {
         let key = HashKey::new(k, map.comparer.clone());
         // map.get_mut().try_insert(key, v).is_ok() // nightly only
         if map.contains_key(&key) {
@@ -178,10 +170,7 @@ pub mod HashMap_ {
         }
     }
 
-    pub fn add<K, V: Clone>(map: HashMap<K, V>, k: K, v: V)
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn add<K: Clone + 'static, V: Clone>(map: HashMap<K, V>, k: K, v: V) {
         let key = HashKey::new(k, map.comparer.clone());
         match map.get_mut().insert(key, v) {
             Some(v) => {
@@ -191,10 +180,7 @@ pub mod HashMap_ {
         }
     }
 
-    pub fn remove<K, V: Clone>(map: HashMap<K, V>, k: K) -> bool
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn remove<K: Clone + 'static, V: Clone>(map: HashMap<K, V>, k: K) -> bool {
         let key = HashKey::new(k, map.comparer.clone());
         map.get_mut().remove(&key).is_some()
     }
@@ -203,10 +189,7 @@ pub mod HashMap_ {
         map.get_mut().clear();
     }
 
-    pub fn get<K, V: Clone>(map: HashMap<K, V>, k: K) -> V
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn get<K: Clone + 'static, V: Clone>(map: HashMap<K, V>, k: K) -> V {
         let key = HashKey::new(k, map.comparer.clone());
         match map.get_mut().get(&key) {
             Some(v) => v.clone(),
@@ -216,18 +199,16 @@ pub mod HashMap_ {
         }
     }
 
-    pub fn set<K, V: Clone>(map: HashMap<K, V>, k: K, v: V)
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn set<K: Clone + 'static, V: Clone>(map: HashMap<K, V>, k: K, v: V) {
         let key = HashKey::new(k, map.comparer.clone());
         map.get_mut().insert(key, v); // ignore return value
     }
 
-    pub fn tryGetValue<K, V: Clone>(map: HashMap<K, V>, k: K, res: &MutCell<V>) -> bool
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
+    pub fn tryGetValue<K: Clone + 'static, V: Clone>(
+        map: HashMap<K, V>,
+        k: K,
+        res: &MutCell<V>,
+    ) -> bool {
         let key = HashKey::new(k, map.comparer.clone());
         match map.get_mut().get(&key) {
             Some(v) => {

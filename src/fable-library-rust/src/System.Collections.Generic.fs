@@ -2,9 +2,10 @@ namespace System.Collections.Generic
 
 open Global_
 
-type Comparer<'T when 'T: comparison>(comparison: 'T -> 'T -> int) =
+type Comparer<'T>(comparison: 'T -> 'T -> int) =
 
-    static member Default = Comparer<'T>(LanguagePrimitives.GenericComparison)
+    static member get_Default<'V when 'V: comparison>() =
+        Comparer<'V>(LanguagePrimitives.GenericComparison)
 
     static member Create(comparison) = Comparer<'T>(comparison)
 
@@ -13,10 +14,10 @@ type Comparer<'T when 'T: comparison>(comparison: 'T -> 'T -> int) =
     interface IComparer<'T> with
         member _.Compare(x, y) = comparison x y
 
-type EqualityComparer<'T when 'T: equality>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
+type EqualityComparer<'T>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
 
-    static member Default =
-        EqualityComparer<'T>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
+    static member get_Default<'V when 'V: equality>() =
+        EqualityComparer<'V>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
 
     static member Create(equals, getHashCode) =
         EqualityComparer<'T>(equals, getHashCode)
