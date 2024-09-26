@@ -732,7 +732,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
                 | _ ->
                     let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
 
-                    IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_"))
+                    IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_").Replace("-", "_"))
 
             copyDirIfDoesNotExist false sourceDir targetDir
 
