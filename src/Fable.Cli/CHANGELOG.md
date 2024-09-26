@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Rust] Updated support for interface object expressions (by @ncave)
 * [Rust] Added missing ResizeArray methods and tests (by @ncave)
 
+### Fixed
+
+* [GH-3900](https://github.com/fable-compiler/Fable/pull/3900) [Python] Fix nuget packages with hypens in their names  (by @MangelMaxime)
+
 ## 4.21.0 - 2024-09-19
 
 ### Added
