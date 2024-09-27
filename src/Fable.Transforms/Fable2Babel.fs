@@ -757,6 +757,7 @@ module Annotation =
     // Move this to Replacements.tryEntity?
     let tryNativeOrFableLibraryInterface com ctx genArgs (ent: Fable.Entity) =
         match ent.FullName with
+        | Types.fsharpAsyncGeneric -> makeFableLibImportTypeAnnotation com ctx genArgs "AsyncBuilder" "IAsync" |> Some
         | _ when not ent.IsInterface -> None
         | Types.icollection -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
         // -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
