@@ -155,7 +155,7 @@ export class AsyncBuilder {
     }));
   }
 
-  public Return<T>(value?: T) {
+  public Return<T>(value: T) {
     return protectedReturn(value);
   }
 
