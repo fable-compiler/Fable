@@ -3500,7 +3500,14 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.InstanceCall(x, "Using", t, [ arg; f ], i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | Some x, meth, _ ->
-        Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        let typ =
+            // Progressively add types to AsyncBuilder
+            // "Delay" is what is exposed to the end user, so for now we only care about it
+            match meth with
+            | "Delay" -> t
+            | _ -> Any
+
+        Helper.InstanceCall(x, meth, typ, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | None, meth, _ ->
         Helper.LibCall(
