@@ -475,8 +475,12 @@ let ``min works with records`` () =
 
 [<Fact>]
 let ``GetHashCode with arrays works`` () =
-    ([|1; 2|].GetHashCode(), [|1; 2|].GetHashCode()) ||> notEqual
-    ([|2; 1|].GetHashCode(), [|1; 2|].GetHashCode()) ||> notEqual
+    let o1 = [|1; 2|]
+    let o2 = [|1; 2|]
+    let o3 = [|2; 1|]
+    (o1.GetHashCode(), o1.GetHashCode()) ||> equal
+    (o2.GetHashCode(), o1.GetHashCode()) ||> notEqual
+    (o3.GetHashCode(), o1.GetHashCode()) ||> notEqual
 
 [<Fact>]
 let ``GetHashCode with lists works`` () =
@@ -513,8 +517,12 @@ let ``GetHashCode with structs works`` () =
 
 [<Fact>]
 let ``GetHashCode with objects works`` () =
-    (OTest(1).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
-    (OTest(2).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
+    let o1 = OTest(1)
+    let o2 = OTest(1)
+    let o3 = OTest(2)
+    (o1.GetHashCode(), o1.GetHashCode()) ||> equal
+    (o2.GetHashCode(), o1.GetHashCode()) ||> notEqual
+    (o3.GetHashCode(), o1.GetHashCode()) ||> notEqual
 
 // [<Fact>]
 // let ``GetHashCode with objects that overwrite it works`` () =
@@ -581,8 +589,19 @@ let ``hash with structs works`` () =
 
 [<Fact>]
 let ``hash with objects works`` () =
-    (hash (OTest(1)), hash (OTest(1))) ||> notEqual
-    (hash (OTest(2)), hash (OTest(1))) ||> notEqual
+    // In Release mode for Rust, sequentially allocated objects that
+    // are immediately released can get allocated at the same address.
+    // This breaks referential equality, so delaying their release by
+    // increasing their scope makes it work. See ReferenceEquals tests.
+    //
+    // (hash (OTest(1)), hash (OTest(1))) ||> notEqual // broken in Release mode
+    // (hash (OTest(2)), hash (OTest(1))) ||> notEqual // broken in Release mode
+    let o1 = OTest(1)
+    let o2 = OTest(1)
+    let o3 = OTest(2)
+    (hash o1, hash o1) ||> equal
+    (hash o2, hash o1) ||> notEqual
+    (hash o3, hash o1) ||> notEqual
 
 [<Fact>]
 let ``hash with same object works`` () =
@@ -687,18 +706,30 @@ let ``LanguagePrimitives.PhysicalHash with primitives works`` () =
 
 [<Fact>]
 let ``LanguagePrimitives.PhysicalHash with lists works`` () =
-    (LanguagePrimitives.PhysicalHash [1;2], LanguagePrimitives.PhysicalHash [1;2]) ||> notEqual
-    (LanguagePrimitives.PhysicalHash [2;1], LanguagePrimitives.PhysicalHash [1;2]) ||> notEqual
+    let o1 = [1; 2]
+    let o2 = [1; 2]
+    let o3 = [2; 1]
+    (LanguagePrimitives.PhysicalHash o1, LanguagePrimitives.PhysicalHash o1) ||> equal
+    (LanguagePrimitives.PhysicalHash o2, LanguagePrimitives.PhysicalHash o1) ||> notEqual
+    (LanguagePrimitives.PhysicalHash o3, LanguagePrimitives.PhysicalHash o1) ||> notEqual
 
 [<Fact>]
 let ``LanguagePrimitives.PhysicalHash with arrays works`` () =
-    (LanguagePrimitives.PhysicalHash [|1;2|], LanguagePrimitives.PhysicalHash [|1;2|]) ||> notEqual
-    (LanguagePrimitives.PhysicalHash [|2;1|], LanguagePrimitives.PhysicalHash [|1;2|]) ||> notEqual
+    let o1 = [|1; 2|]
+    let o2 = [|1; 2|]
+    let o3 = [|2; 1|]
+    (LanguagePrimitives.PhysicalHash o1, LanguagePrimitives.PhysicalHash o1) ||> equal
+    (LanguagePrimitives.PhysicalHash o2, LanguagePrimitives.PhysicalHash o1) ||> notEqual
+    (LanguagePrimitives.PhysicalHash o3, LanguagePrimitives.PhysicalHash o1) ||> notEqual
 
 [<Fact>]
 let ``LanguagePrimitives.PhysicalHash with tuples works`` () =
-    (LanguagePrimitives.PhysicalHash (1,2), LanguagePrimitives.PhysicalHash (1,2)) ||> notEqual
-    (LanguagePrimitives.PhysicalHash (2,1), LanguagePrimitives.PhysicalHash (1,2)) ||> notEqual
+    let o1 = (1, 2)
+    let o2 = (1, 2)
+    let o3 = (2, 1)
+    (LanguagePrimitives.PhysicalHash o1, LanguagePrimitives.PhysicalHash o1) ||> equal
+    (LanguagePrimitives.PhysicalHash o2, LanguagePrimitives.PhysicalHash o1) ||> notEqual
+    (LanguagePrimitives.PhysicalHash o3, LanguagePrimitives.PhysicalHash o1) ||> notEqual
 
 [<Fact>]
 let ``LanguagePrimitives.GenericComparison works`` () =
