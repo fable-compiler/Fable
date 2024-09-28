@@ -1,11 +1,7 @@
 import { OperationCanceledError, Trampoline } from "./AsyncBuilder.js";
 import { Continuation, Continuations } from "./AsyncBuilder.js";
-import { CancellationToken } from "./AsyncBuilder.js";
-import { IAsync } from "./AsyncBuilder.js";
-import { IAsyncContext } from "./AsyncBuilder.js";
-import { protectedCont } from "./AsyncBuilder.js";
-import { protectedBind } from "./AsyncBuilder.js";
-import { protectedReturn } from "./AsyncBuilder.js";
+import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.js";
+import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.js";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
 import { TimeoutException } from "./SystemException.js";
 
@@ -14,24 +10,24 @@ function emptyContinuation<T>(_x: T) {
 }
 
 // see AsyncBuilder.Delay
-function delay<T>(generator: () => IAsync<T>) {
+function delay<T>(generator: () => Async<T>) {
   return protectedCont((ctx: IAsyncContext<T>) => generator()(ctx));
 }
 
 // MakeAsync: body:(AsyncActivation<'T> -> AsyncReturn) -> Async<'T>
-export function makeAsync<T>(body: IAsync<T>) {
+export function makeAsync<T>(body: Async<T>) {
   return body;
 }
 // Invoke: computation: Async<'T> -> ctxt:AsyncActivation<'T> -> AsyncReturn
-export function invoke<T>(computation: IAsync<T>, ctx: IAsyncContext<T>) {
+export function invoke<T>(computation: Async<T>, ctx: IAsyncContext<T>) {
   return computation(ctx);
 }
 // CallThenInvoke: ctxt:AsyncActivation<'T> -> result1:'U -> part2:('U -> Async<'T>) -> AsyncReturn
-export function callThenInvoke<T, U>(ctx: IAsyncContext<T>, result1: U, part2: (x: U) => IAsync<T>) {
+export function callThenInvoke<T, U>(ctx: IAsyncContext<T>, result1: U, part2: (x: U) => Async<T>) {
   return part2(result1)(ctx);
 }
 // Bind: ctxt:AsyncActivation<'T> -> part1:Async<'U> -> part2:('U -> Async<'T>) -> AsyncReturn
-export function bind<T, U>(ctx: IAsyncContext<T>, part1: IAsync<U>, part2: (x: U) => IAsync<T>) {
+export function bind<T, U>(ctx: IAsyncContext<T>, part1: Async<U>, part2: (x: U) => Async<T>) {
   return protectedBind(part1, part2)(ctx);
 }
 
@@ -61,7 +57,7 @@ export function throwIfCancellationRequested(token: CancellationToken) {
   }
 }
 
-function throwAfter(millisecondsDueTime: number) : IAsync<void> {
+function throwAfter(millisecondsDueTime: number): Async<void> {
   return protectedCont((ctx: IAsyncContext<void>) => {
     let tokenId: number;
     const timeoutId = setTimeout(() => {
@@ -75,7 +71,7 @@ function throwAfter(millisecondsDueTime: number) : IAsync<void> {
   });
 }
 
-export function startChild<T>(computation: IAsync<T>, ms?: number): IAsync<IAsync<T>> {
+export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
   if (ms) {
     const computationWithTimeout = protectedBind(
       parallel2(
@@ -107,7 +103,7 @@ export function cancellationToken() {
 
 export const defaultCancellationToken = new CancellationToken();
 
-export function catchAsync<T>(work: IAsync<T>) {
+export function catchAsync<T>(work: Async<T>) {
   return protectedCont((ctx: IAsyncContext<FSharpChoice$2_$union<T, Error>>) => {
     work({
       onSuccess: (x) => ctx.onSuccess(Choice_makeChoice1Of2(x)),
@@ -124,21 +120,21 @@ export function fromContinuations<T>(f: (conts: Continuations<T>) => void) {
     f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
 }
 
-export function ignore<T>(computation: IAsync<T>) {
+export function ignore<T>(computation: Async<T>) {
   return protectedBind(computation, (_x) => protectedReturn(void 0));
 }
 
-export function parallel<T>(computations: Iterable<IAsync<T>>) {
+export function parallel<T>(computations: Iterable<Async<T>>) {
   return delay(() => awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w)))));
 }
 
-function parallel2<T, U>(a: IAsync<T>, b: IAsync<U>): IAsync<[T, U]> {
-  return delay(() => awaitPromise(Promise.all([ startAsPromise(a), startAsPromise(b) ])));
+function parallel2<T, U>(a: Async<T>, b: Async<U>): Async<[T, U]> {
+  return delay(() => awaitPromise(Promise.all([startAsPromise(a), startAsPromise(b)])));
 }
 
-export function sequential<T>(computations: Iterable<IAsync<T>>) {
+export function sequential<T>(computations: Iterable<Async<T>>) {
 
-  function _sequential<T>(computations: Iterable<IAsync<T>>): Promise<T[]> {
+  function _sequential<T>(computations: Iterable<Async<T>>): Promise<T[]> {
     let pr: Promise<T[]> = Promise.resolve([]);
     for (const c of computations) {
       pr = pr.then(results => startAsPromise(c).then(r => results.concat([r])))
@@ -167,16 +163,16 @@ export function runSynchronously(): never {
   throw new Error("Asynchronous code cannot be run synchronously in JS");
 }
 
-export function start<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
+export function start<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
   return startWithContinuations(computation, cancellationToken);
 }
 
-export function startImmediate<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
+export function startImmediate<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
   return start(computation, cancellationToken);
 }
 
 export function startWithContinuations<T>(
-  computation: IAsync<T>,
+  computation: Async<T>,
   continuation?: Continuation<T> | CancellationToken,
   exceptionContinuation?: Continuation<any>,
   cancellationContinuation?: Continuation<any>,
@@ -195,7 +191,7 @@ export function startWithContinuations<T>(
   });
 }
 
-export function startAsPromise<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
+export function startAsPromise<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
   return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
