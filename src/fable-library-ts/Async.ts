@@ -9,9 +9,6 @@ import { protectedReturn } from "./AsyncBuilder.js";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
 import { TimeoutException } from "./SystemException.js";
 
-// Implemented just for type references
-export class Async<_T> { }
-
 function emptyContinuation<T>(_x: T) {
   // NOP
 }
@@ -203,5 +200,3 @@ export function startAsPromise<T>(computation: IAsync<T>, cancellationToken?: Ca
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
 }
-
-export default Async;

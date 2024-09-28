@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Removed
+
+* Remove `Async` class (by @MangelMaxime)
+
 ## 1.5.0 - 2024-09-19
 
 ### Added
