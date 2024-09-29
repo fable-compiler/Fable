@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Rust] Added support for Dictionary/HashSet comparers (by @ncave)
 * [Rust] Updated support for interface object expressions (by @ncave)
 * [Rust] Added missing ResizeArray methods and tests (by @ncave)
+* [Rust] Added Async.Sleep and test (by @ncave)
 
 ### Fixed
 

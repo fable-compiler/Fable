@@ -119,17 +119,17 @@ let inline show< ^T when ^T : (member show : unit -> string)> (x:^T) : string =
 let inline showStatic< ^T when ^T : (static member show : ^T -> string)> (x:^T) : string =
    (^T : (static member show : ^T -> string) (x))
 
-// [<AllowNullLiteral>]
-// type Serializable(?i: int) =
-//     let mutable deserialized = false
-//     let mutable publicValue = 1
-//     let mutable privateValue = defaultArg i 0
-//     member x.PublicValue
-//         with get() = publicValue
-//         and set(i) = deserialized <- true; publicValue <- i
-//     override x.ToString() =
-//         sprintf "Public: %i - Private: %i - Deserialized: %b"
-//                 publicValue privateValue deserialized
+[<AllowNullLiteral>]
+type Serializable(?i: int) =
+    let mutable deserialized = false
+    let mutable publicValue = 1
+    let mutable privateValue = defaultArg i 0
+    member x.PublicValue
+        with get() = publicValue
+        and set(i) = deserialized <- true; publicValue <- i
+    override x.ToString() =
+        sprintf "Public: %i - Private: %i - Deserialized: %b"
+                publicValue privateValue deserialized
 
 type SecondaryCons(x: int) =
     new () = SecondaryCons(5)

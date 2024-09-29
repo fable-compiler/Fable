@@ -547,7 +547,7 @@ let tests =
         equal x "ABCDEF"
       }
 
-    testCaseAsync "Async.StartChild applys timeout" <| fun () ->
+    testCaseAsync "Async.StartChild applies timeout" <| fun () ->
         async {
             let mutable x = ""
 

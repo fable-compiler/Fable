@@ -9,6 +9,7 @@ pub mod Async_ {
     use futures::executor::{self, LocalPool};
     use futures::lock::Mutex;
     use futures::FutureExt;
+    use futures_timer::Delay;
 
     use super::Task_::Task;
 
@@ -36,6 +37,14 @@ pub mod Async_ {
                 });
             p
         }
+    }
+
+    pub fn sleep(milliseconds: i32) -> Arc<Async<()>> {
+        let fut = Delay::new(Duration::from_millis(milliseconds as u64));
+        let a: Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> = Box::pin(fut);
+        Arc::from(Async {
+            future: Arc::from(Mutex::from(a)),
+        })
     }
 
     pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<Async<T>>) -> Arc<Task<T>> {
