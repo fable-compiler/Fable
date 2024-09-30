@@ -322,6 +322,7 @@ let private getImplementedSignatureInfo
     nonMangledNameConflicts
     (implementingEntity: FSharpEntity option)
     (sign: FSharpAbstractSignature)
+    isInstance
     =
     let implementingEntityFields = HashSet<_>()
 
@@ -347,7 +348,7 @@ let private getImplementedSignatureInfo
             else
                 None
 
-        tryFindAbstractMember com ent sign.Name paramTypes
+        tryFindAbstractMember com ent sign.Name isInstance paramTypes
         |> Option.map (fun m -> ent, m)
     )
     |> Option.map (fun (ent, memb) ->
@@ -424,7 +425,7 @@ let private transformObjExpr
             let r = makeRangeFrom over.Body
 
             let info =
-                getImplementedSignatureInfo com ctx r nonMangledNameConflicts None signature
+                getImplementedSignatureInfo com ctx r nonMangledNameConflicts None signature true
 
             let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
             let! body = transformExpr com ctx [] over.Body
@@ -1832,6 +1833,7 @@ let private transformImplementedSignature
             com.NonMangledAttachedMemberConflicts
             (Some implementingEntity)
             signature
+            memb.IsInstanceMember
 
     com.AddAttachedMember(
         entFullName,

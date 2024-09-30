@@ -1645,6 +1645,7 @@ module TypeHelpers =
         (com: IFableCompiler)
         (ent: FSharpEntity)
         (compiledName: string)
+        (isInstance: bool)
         (argTypes: Fable.Type[] option)
         =
         let entRef = FsEnt.Ref ent
@@ -1653,7 +1654,7 @@ module TypeHelpers =
         |> Option.bind (fun ent ->
             match ent with
             | :? FsEnt as entity ->
-                entity.TryFindMember(compiledName, isInstance = true, ?argTypes = argTypes, requireDispatchSlot = true)
+                entity.TryFindMember(compiledName, isInstance, ?argTypes = argTypes, requireDispatchSlot = true)
             | _ -> None
         )
 
@@ -2799,7 +2800,8 @@ module Util =
 
                     entity
                     |> tryFindBaseEntity (fun ent ->
-                        tryFindAbstractMember com ent memb.CompiledName paramTypes |> Option.isSome
+                        tryFindAbstractMember com ent memb.CompiledName memb.IsInstanceMember paramTypes
+                        |> Option.isSome
                     )
                     |> Option.defaultValue entity
                 | _ -> entity
