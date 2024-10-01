@@ -1245,6 +1245,11 @@ module Util =
         else
             mkGenericPathExpr (splitNameParts ident.Name) None
 
+    let isThisArgumentIdentExpr (expr: Fable.Expr) =
+        match expr with
+        | Fable.IdentExpr ident -> ident.IsThisArgument
+        | _ -> false
+
     // let transformExprMaybeIdentExpr (com: IRustCompiler) ctx (expr: Fable.Expr) =
     //     match expr with
     //     | Fable.IdentExpr ident when ident.IsThisArgument ->
@@ -1602,7 +1607,9 @@ module Util =
     let prepareRefForPatternMatch (com: IRustCompiler) ctx typ (name: string option) fableExpr =
         let expr = com.TransformExpr(ctx, fableExpr)
 
-        if (name.IsSome && isRefScoped ctx name.Value) || (isInRefType com typ) then
+        if isThisArgumentIdentExpr fableExpr then
+            expr
+        elif (name.IsSome && isRefScoped ctx name.Value) || (isInRefType com typ) then
             expr
         elif shouldBeRefCountWrapped com ctx typ |> Option.isSome then
             expr |> makeAsRef
@@ -4576,7 +4583,7 @@ module Util =
         let isIgnoredMember (memb: Fable.MemberFunctionOrValue) = ent.IsFSharpExceptionDeclaration // to filter out compiler-generated exception equality
 
         let isInterfaceMember (memb: Fable.MemberFunctionOrValue) =
-            memb.IsDispatchSlot
+            (memb.IsDispatchSlot || memb.IsOverrideOrExplicitInterfaceImplementation)
             && (memb.DeclaringEntity
                 |> Option.bind com.TryGetEntity
                 |> Option.map (fun ent -> ent.IsInterface)
