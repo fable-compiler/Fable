@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [GH-3900](https://github.com/fable-compiler/Fable/pull/3900) [Python] Fix nuget packages with hypens in their names  (by @MangelMaxime)
 * [Rust] Uncurry field types for object expressions (by @ncave)
+* [Rust] Fixed pattern matching on `this` argument (by @ncave)
+* [All] Fixed Missing DU member with interface (#3915) (by @ncave)
 * [TS] Fixed missing Async type signature (#3864) (by @MangelMaxime)
 
 ## 4.21.0 - 2024-09-19
