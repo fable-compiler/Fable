@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.6.0 - 2024-10-02
+
 ### Removed
 
-* Remove `Async` class (by @MangelMaxime)
+* Remove `Async` (from `Async.ts`) class (by @MangelMaxime)
+
+### Changed
+
+* Renamed `IAsync` to `Async` in `AsyncBuilder.ts` (#3906) (by @ncave)
 
 ## 1.5.0 - 2024-09-19
 

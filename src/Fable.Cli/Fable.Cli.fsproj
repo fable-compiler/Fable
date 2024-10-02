@@ -4,22 +4,21 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.21.0</Version>
+    <Version>4.22.0</Version>
     <PackageReleaseNotes>## Added
 
-- [JS/TS] Add support for `OrdinalIgnoreCase` overload for `String.EndsWith` (#3892) (by @goswinr)
-- [JS/TS] Add `uri.Port`, `uri.IsDefaultPort` (by @MangelMaxime)
-
-## Changed
-
-- [Python] Remove `$` sign when reporting an error from `assert_equal` and `assert_not_equal` (#3878) (by @joprice)
-- [All] Don't hide original error when failing to scan an assembly for plugin (#3896) (by @MangelMaxime)
+- [Rust] Added support for Dictionary/HashSet comparers (by @ncave)
+- [Rust] Updated support for interface object expressions (by @ncave)
+- [Rust] Added missing ResizeArray methods and tests (by @ncave)
+- [Rust] Added Async.Sleep and test (by @ncave)
 
 ## Fixed
 
-- [JS/TS] Fix escaping of `{` and `}` in FormattableString (#3890) (by @roboz0r)
-- [JS/TS] Fix `uri.Host` to return the host name without the port (by @MangelMaxime)
-- [JS/TS] Fix TypeScript compilation by resolving type of `jsOptions` (#3894) (by @ManngelMaxime)
+- [GH-3900](https://github.com/fable-compiler/Fable/pull/3900) [Python] Fix nuget packages with hypens in their names  (by @MangelMaxime)
+- [Rust] Uncurry field types for object expressions (by @ncave)
+- [Rust] Fixed pattern matching on `this` argument (by @ncave)
+- [All] Fixed Missing DU member with interface (#3915) (by @ncave)
+- [TS] Fixed missing Async type signature (#3864) (by @MangelMaxime)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

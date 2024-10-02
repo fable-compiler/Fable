@@ -6,10 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-013</Version>
+        <Version>4.0.0-alpha-014</Version>
         <PackageReleaseNotes>## Changed
 
-- [All] Don't hide original error when failing to scan an assembly for plugin (#3896) (by @MangelMaxime)
+- Fable 4.22.0
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
