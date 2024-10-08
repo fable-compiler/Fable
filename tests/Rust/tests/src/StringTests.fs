@@ -989,6 +989,12 @@ let ``String.Replace works`` () =
     "...".Replace(".", "..") |> equal "......"
 
 [<Fact>]
+let ``String.Replace with characters works`` () =
+    "abc abc abc".Replace('c', 'd') |> equal "abd abd abd"
+    // String.Replace does not get stuck in endless loop
+    "...".Replace('.', '.') |> equal "..."
+
+[<Fact>]
 let ``Access char by index works`` () =
     let c = "abcd"[2]
     equal 'c' c

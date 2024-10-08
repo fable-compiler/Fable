@@ -916,7 +916,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let cont = Helper.LibCall(com, "Util", "kbprintf", t, [ cont; sb ])
         Helper.Application(cont, t, [ template ], ?loc = r) |> Some
     | ".ctor", _, (StringConst fmt) :: (Value(NewArray(ArrayValues templateArgs, _, _), _)) :: _ ->
-        let rustFmt, _count = makeRustFormatString true fmt
+        let rustFmt, _argCount = makeRustFormatString true fmt
         StringTemplate(None, [ rustFmt ], templateArgs) |> makeValue r |> Some
     | ".ctor", _, [ format ] -> format |> Some // just passing along the format
     | _ -> None
@@ -1403,6 +1403,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         | [ ExprType String; ExprType String ] ->
             Helper.LibCall(com, "String", "replace", t, c :: args, ?loc = r) |> Some
+        | [ ExprType Char; ExprType Char ] ->
+            Helper.LibCall(com, "String", "replaceChar", t, c :: args, ?loc = r) |> Some
         | _ -> None
     | "Split", Some c, _ ->
         match args with
@@ -2026,10 +2028,11 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style |> Some
     | "Pow", (thisArg :: restArgs) -> makeInstanceCall r t i thisArg "powf" restArgs |> Some
-    // | "ToString", [ExprTypeAs(String, fmt)] ->
-    //     let format = makeStrConst ("{0:" + fmt + "}")
-    //     Helper.LibCall(com, "String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
-    | "ToString", _ -> Helper.GlobalCall("String", String, [ thisArg.Value ], ?loc = r) |> Some
+    // | "ToString", [StringConst fmt] ->
+    //     let rustFmt = fmt // TODO: replace format specifiers with proper Rust format
+    //     let format = makeStrConst ("{0:" + rustFmt + "}")
+    //     "sprintf!" |> emitFormat com r t [format; thisArg.Value] |> Some
+    | "ToString", _ -> toString com ctx r [ thisArg.Value ] |> Some
     | _ -> None
 
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2084,9 +2087,10 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             Helper.LibCall(com, "Decimal", "roundToMode", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
         | _ -> None
-    // | "ToString", [ExprTypeAs(String, format)] ->
-    //     let format = makeStrConst ("{0:" + fmt + "}")
-    //     Helper.LibCall(com, "String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
+    // | "ToString", [StringConst fmt] ->
+    //     let rustFmt = fmt // TODO: replace format specifiers with proper Rust format
+    //     let format = makeStrConst ("{0:" + rustFmt + "}")
+    //     "sprintf!" |> emitFormat com r t [format; thisArg.Value] |> Some
     | "ToString", _ ->
         Helper.LibCall(com, "Decimal", "toString", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -2456,16 +2460,9 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "WriteLine" -> "printfn!" |> emitFormat com r t args |> Some
     | "Break" -> makeDebugger r |> Some
     | "Assert" ->
-        let unit = Value(Null Unit, None)
-
         match args with
-        | []
-        | [ Value(BoolConstant true, _) ] -> Some unit
-        | [ Value(BoolConstant false, _) ] -> makeDebugger r |> Some
-        | arg :: _ ->
-            // emit i "if (!$0) { debugger; }" i.args |> Some
-            let cond = Operation(Unary(UnaryNot, arg), Tags.empty, Boolean, r)
-            IfThenElse(cond, makeDebugger r, unit, r) |> Some
+        | [ condition ] -> "assert!" |> emitExpr r t args |> Some
+        | _ -> None
     | _ -> None
 
 let ignoreFormatProvider compiledName args =
@@ -3355,6 +3352,7 @@ let private replacedModules =
             "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators", operators
             "System.Runtime.CompilerServices.RuntimeHelpers", runtimeHelpers
             "System.Runtime.ExceptionServices.ExceptionDispatchInfo", exceptionDispatchInfo
+            Types.attribute, bclType
             Types.char, chars
             Types.string, strings
             "Microsoft.FSharp.Core.StringModule", stringModule
@@ -3536,6 +3534,17 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
                 getTypeName com ctx loc exprType |> StringConstant |> makeValue r |> Some
             | c -> Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r) |> Some
         | _ -> None
+    | _ -> None
+
+let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
+    match ent.FullName with
+    // | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
+    // | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
+    // | fullName when
+    //     fullName.StartsWith("Fable.Core.", StringComparison.Ordinal)
+    //     && fullName.EndsWith("Attribute", StringComparison.Ordinal)
+    //     ->
+    //     Some(makeImportLib com Any "Attribute" "Types", args)
     | _ -> None
 
 let tryType typ =

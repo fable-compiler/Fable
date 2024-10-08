@@ -454,8 +454,14 @@ pub mod String_ {
         fromString(v.join(&sep))
     }
 
-    pub fn replace(s: string, old: string, new: string) -> string {
-        fromString(s.replace(old.as_str(), new.as_str()))
+    pub fn replace(s: string, oldValue: string, newValue: string) -> string {
+        fromString(s.replace(oldValue.as_str(), newValue.as_str()))
+    }
+
+    pub fn replaceChar(s: string, oldChar: char, newChar: char) -> string {
+        let mut buf = [0u8; 4];
+        let newStr = newChar.encode_utf8(&mut buf);
+        fromString(s.replace(oldChar, newStr))
     }
 
     pub fn substring_safe(s: string, i: i32) -> string {

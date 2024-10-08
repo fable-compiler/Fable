@@ -12,6 +12,7 @@ pub mod Async_ {
     use futures_timer::Delay;
 
     use super::Task_::Task;
+    use crate::System::Threading::CancellationToken;
 
     pub struct Async<T: Sized + Send + Sync> {
         pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>,
@@ -47,7 +48,11 @@ pub mod Async_ {
         })
     }
 
-    pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<Async<T>>) -> Arc<Task<T>> {
+    pub fn startAsTask<T: Clone + Send + Sync + 'static>(
+        a: Arc<Async<T>>,
+        taskCreationOptions: Option<i32>,
+        cancellationToken: Option<CancellationToken>,
+    ) -> Arc<Task<T>> {
         let unitFut = async move {
             let mut res = a.future.lock().await;
             let res = res.as_mut().await;
@@ -58,7 +63,11 @@ pub mod Async_ {
         task
     }
 
-    pub fn runSynchronously<T: Clone + Send + Sync + 'static>(a: Arc<Async<T>>) -> T {
+    pub fn runSynchronously<T: Clone + Send + Sync + 'static>(
+        a: Arc<Async<T>>,
+        timeout: Option<i32>,
+        cancellationToken: Option<CancellationToken>,
+    ) -> T {
         let unitFut = async move {
             let mut res = a.future.lock().await;
             let res = res.as_mut().await;

@@ -863,13 +863,12 @@ module TypeInfo =
         let traitBound = mkTypeTraitGenericBound nameParts genArgsOpt
 
         match entRef.FullName with
-        | "System.Collections.Generic.Comparer`1"
-        | "System.Collections.Generic.EqualityComparer`1" ->
-            // some abstract classes are implemented as non-abstract
-            makeFullNamePathTy entName genArgsOpt
-        | _ ->
-            // abstract classes implemented as interfaces
+        | "System.Text.Encoding" ->
+            // some abstract classes are implemented as interfaces
             mkDynTraitTy [ traitBound ]
+        | _ ->
+            // most abstract classes are implemented as non-abstract
+            makeFullNamePathTy entName genArgsOpt
 
     let (|HasEmitAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes
@@ -1872,9 +1871,15 @@ module Util =
 
         expr |> maybeWrapSmartPtr com ctx ent
 
-    let selfName = rawIdent "_self_"
+    let baseName = "__base__"
+    let selfName = "__self__"
 
+    let makeBase (com: IRustCompiler) ctx r _typ = mkGenericPathExpr [ baseName ] None
     let makeThis (com: IRustCompiler) ctx r _typ = mkGenericPathExpr [ selfName ] None
+
+    let makeBaseValue (com: IRustCompiler) ctx r ident =
+        let expr = transformIdent com ctx r ident
+        getField r expr baseName
 
     let makeFormatString (parts: string list) =
         let sb = System.Text.StringBuilder()
@@ -1906,12 +1911,8 @@ module Util =
             TODO_EXPR $"%A{value}"
 
         match value with
-        | Fable.BaseValue(None, _) ->
-            // Super(None)
-            unimplemented ()
-        | Fable.BaseValue(Some boundIdent, _) ->
-            // identAsExpr boundIdent
-            unimplemented ()
+        | Fable.BaseValue(None, typ) -> makeBase com ctx r typ
+        | Fable.BaseValue(Some ident, _) -> makeBaseValue com ctx r ident
         | Fable.ThisValue typ -> makeThis com ctx r typ
         | Fable.TypeInfo(typ, _tags) -> makeTypeInfo com ctx r typ
         | Fable.Null typ -> makeNull com ctx typ
@@ -2157,6 +2158,22 @@ module Util =
                 |> Seq.map (fun ident -> { ident with Type = FableTransforms.uncurryType ident.Type })
                 |> Seq.toList
 
+            let exprFields =
+                fieldIdents
+                |> List.map (fun ident ->
+                    let expr = transformIdent com ctx None ident |> makeClone
+                    let fieldName = ident.Name |> sanitizeMember
+                    mkExprField [] fieldName expr false false
+                )
+
+            let fieldIdents =
+                if isValidBaseType com entRef then
+                    let typ = Fable.DeclaredType(entRef, genArgs)
+                    let baseIdent = makeTypedIdent typ baseName
+                    baseIdent :: fieldIdents
+                else
+                    fieldIdents
+
             let fields =
                 fieldIdents
                 |> List.map (fun ident ->
@@ -2166,22 +2183,19 @@ module Util =
                 )
 
             let exprFields =
-                fieldIdents
-                |> List.map (fun ident ->
-                    let expr = transformIdent com ctx None ident |> makeClone
-                    let fieldName = ident.Name |> sanitizeMember
-                    mkExprField [] fieldName expr false false
-                )
+                match baseCall with
+                | Some ctorExpr when isValidBaseType com entRef ->
+                    let baseExpr = transformExpr com ctx ctorExpr
+                    let fieldName = baseName |> sanitizeMember
+                    let exprField = mkExprField [] fieldName baseExpr false false
+                    exprField :: exprFields
+                | _ -> exprFields
 
             let attrs = [ mkAttr "derive" (makeDerivedFrom com ent) ]
             let generics = makeGenerics com ctx genArgs
             let genParams = FSharp2Fable.Util.getGenParamTypes genArgs
 
-            let structItems =
-                if baseCall.IsSome then
-                    [] // TODO: if base type is not an interface
-                else
-                    [ mkStructItem attrs entName fields generics ]
+            let structItems = [ mkStructItem attrs entName fields generics ]
 
             let memberItems = transformClassMembers com ctx genArgs decl
 
@@ -2452,14 +2466,14 @@ module Util =
                 // anonymous records are tuples, transpile as tuple get
                 let idx = fields |> Array.findIndex (fun f -> f = info.Name)
                 (Fable.TupleIndex(idx)) |> transformGet com ctx range typ fableExpr
-            | t when isInterface com t ->
-                // for interfaces, transpile get_property as instance call
-                makeInstanceCall com ctx info.Name fableExpr []
-            | Fable.GenericParam(_name, _isMeasure, _constraints) ->
-                // for generic types, transpile get_property as instance call
-                makeInstanceCall com ctx info.Name fableExpr []
+            // | t when isInterface com t ->
+            //     // for interfaces, transpile get_property as instance call
+            //     makeInstanceCall com ctx info.Name fableExpr []
+            // | Fable.GenericParam(_name, _isMeasure, _constraints) ->
+            //     // for generic types, transpile get_property as instance call
+            //     makeInstanceCall com ctx info.Name fableExpr []
             | _ ->
-                // for everything else, transpile get_property as field get
+                // for everything else, transpile as field get
                 let expr = transformCallee com ctx fableExpr
                 let field = getField range expr info.Name
 
@@ -2577,9 +2591,9 @@ module Util =
                 mkAssignExpr left value // ?loc=range)
         | Fable.FieldSet(fieldName) ->
             match fableExpr.Type with
-            | t when isInterface com t ->
-                // for interfaces, transpile property_set as instance call
-                makeInstanceCall com ctx fieldName fableExpr [ value ]
+            // | t when isInterface com t ->
+            //     // for interfaces, transpile property_set as instance call
+            //     makeInstanceCall com ctx fieldName fableExpr [ value ]
             | _ ->
                 let field = getField None expr fieldName
                 mutableSet field value
@@ -3405,15 +3419,23 @@ module Util =
 
         phantomGenParams
 
-    let getEntityFieldsAsIdents _com (ent: Fable.Entity) : Fable.Ident list =
-        ent.FSharpFields
-        |> List.map (fun field ->
-            let name = field.Name
-            let typ = FableTransforms.uncurryType field.FieldType
-            let isMutable = field.IsMutable
-            let ident = makeTypedIdent typ name
-            { ident with IsMutable = isMutable }
-        )
+    let getEntityFieldsAsIdents com (ent: Fable.Entity) : Fable.Ident list =
+        let fieldIdents =
+            ent.FSharpFields
+            |> List.map (fun field ->
+                let name = field.Name
+                let typ = FableTransforms.uncurryType field.FieldType
+                let isMutable = field.IsMutable
+                let ident = makeTypedIdent typ name
+                { ident with IsMutable = isMutable }
+            )
+        // add the base type as a field, if applicable
+        match ent.BaseType with
+        | Some t when isValidBaseType com t.Entity ->
+            let typ = Fable.DeclaredType(t.Entity, t.GenericArgs)
+            let baseIdent = makeTypedIdent typ baseName
+            baseIdent :: fieldIdents
+        | _ -> fieldIdents
 
     let makeTypedParam (com: IRustCompiler) ctx (ident: Fable.Ident) returnType =
         if ident.IsThisArgument then
@@ -3703,8 +3725,8 @@ module Util =
 
             mkTypeTraitGenericBound ("core" :: "ops" :: op :: []) genArgsOpt
 
-        let makeConstraint =
-            function
+        let makeConstraint c =
+            match c with
             | Fable.Constraint.HasMember(membName, isStatic) ->
                 match membName, isStatic with
                 | Operators.addition, true -> [ makeOpBound "Add" ]
@@ -3916,12 +3938,9 @@ module Util =
 
         match argTypes with
         | Fable.DeclaredType(entRef, genArgs) :: _ ->
-            // let ent = com.GetEntity(entRef)
+            let entName = getEntityFullName com ctx entRef
             let memberItem = makeMemberItem com ctx true (decl, memb)
-            let self_ty = transformEntityType com ctx entRef genArgs
-            let generics = makeGenerics com ctx genArgs
-            let implItem = mkImplItem [] "" self_ty generics [ memberItem ] None
-            [ implItem ]
+            [ memberItem ] |> makeTraitImpls com ctx entName genArgs None
         | _ -> []
 
     let transformModuleFunction (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
@@ -4007,6 +4026,13 @@ module Util =
     //     | Fable.DeclaredType(entRef, _) -> entRef.FullName = ent.FullName
     //     | _ -> false
 
+    let isInterfaceMember (com: IRustCompiler) (memb: Fable.MemberFunctionOrValue) =
+        (memb.IsDispatchSlot || memb.IsOverrideOrExplicitInterfaceImplementation)
+        && (memb.DeclaringEntity
+            |> Option.bind com.TryGetEntity
+            |> Option.map (fun ent -> ent.IsInterface)
+            |> Option.defaultValue false)
+
     let isIdentAtTailPos (predicate: Fable.Ident -> bool) (body: Fable.Expr) =
         let rec loop =
             function
@@ -4031,7 +4057,7 @@ module Util =
         let name = memb.CompiledName
         let args = args |> discardUnitArg []
         let parameters = memb.CurriedParameterGroups |> List.concat
-        let returnType = memb.ReturnParameter.Type
+        let returnType = memb.ReturnParameter.Type //|> FableTransforms.uncurryType
         let fnDecl = transformFunctionDecl com ctx args parameters returnType
         let genArgs = FSharp2Fable.Util.getMemberGenArgs memb
         let generics = makeGenerics com ctx genArgs
@@ -4047,6 +4073,24 @@ module Util =
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
 
+    let maybeConstructorBaseCall (com: IRustCompiler) (body: Fable.Expr) =
+        // support explicit field constructor base calls
+        // body pattern: Sequential([Call _; NewRecord _])
+        match body with
+        | Fable.Sequential([ first; second ]) ->
+            match first, second with
+            | Fable.Call(_, info, typ, _), Fable.Value(Fable.NewRecord(values, entRef, genArgs), r) ->
+                let membOpt = info.MemberRef |> Option.bind com.TryGetMember
+
+                match membOpt, typ with
+                | Some memb, Fable.DeclaredType(baseEntRef, _) when memb.IsConstructor && isValidBaseType com baseEntRef ->
+                    let values = first :: values // add base call as first field value to the record
+                    let body = Fable.Value(Fable.NewRecord(values, entRef, genArgs), r)
+                    body
+                | _ -> body
+            | _ -> body
+        | _ -> body
+
     let transformAssocMember
         com
         ctx
@@ -4056,13 +4100,20 @@ module Util =
         (body: Fable.Expr)
         =
         let ctx = { ctx with IsAssocMember = true }
-        let name = Fable.Naming.splitLast membName
+
+        let name =
+            if isInterfaceMember com memb then
+                memb.CompiledName // no name mangling for interfaces
+            else
+                Fable.Naming.splitLast membName
 
         let body =
             if memb.IsInstance && not (memb.IsConstructor) then
                 let ident = makeIdent selfName
                 let thisArg = makeIdentExpr (rawIdent "self")
                 Fable.Let(ident, thisArg, body)
+            elif memb.IsConstructor then
+                body |> maybeConstructorBaseCall com
             else
                 body
 
@@ -4165,6 +4216,13 @@ module Util =
         let enumItem = mkEnumItem attrs entName variants generics
         enumItem
 
+    let isValidBaseType (com: IRustCompiler) (entRef: Fable.EntityRef) =
+        if entRef.FullName = Types.object || entRef.FullName = Types.valueType then
+            false
+        else
+            let ent = com.GetEntity(entRef)
+            not ent.IsInterface && not ent.IsValueType
+
     let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         let entName = Fable.Naming.splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
@@ -4222,7 +4280,7 @@ module Util =
         let fnItem = fnItem |> memberAssocItemWithVis com ctx memb
         fnItem
 
-    let transformPrimaryConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) =
+    let transformPrimaryConstructor (com: IRustCompiler) ctx (ent: Fable.Entity) (ctor: Fable.MemberDecl) baseCall =
         let body =
             match ctor.Body with
             | Fable.Sequential exprs ->
@@ -4248,6 +4306,16 @@ module Util =
                 let fieldIdents = idents |> List.map (fun ident -> Map.find ident.Name identMap)
 
                 let fieldValues = fieldIdents |> List.map Fable.IdentExpr
+
+                let exprs =
+                    match ent.BaseType, baseCall with
+                    | Some t, Some ctorExpr when isValidBaseType com t.Entity ->
+                        let baseIdent = identMap |> Map.find baseName
+                        let identExpr = baseIdent |> Fable.IdentExpr
+                        let baseExpr = Fable.Set(identExpr, Fable.ValueSet, baseIdent.Type, ctorExpr, None)
+                        baseExpr :: exprs
+                    | _ -> exprs
+
                 let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
 
                 // add return value after the body
@@ -4298,7 +4366,8 @@ module Util =
                 |> List.collect id
                 |> List.mapi (fun i p ->
                     let name = defaultArg p.Name $"arg{i}"
-                    makeTypedIdent p.Type name
+                    let typ = FableTransforms.uncurryType p.Type
+                    makeTypedIdent typ name
                 )
 
             let args =
@@ -4342,6 +4411,7 @@ module Util =
             let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
             mkTraitItem attrs entName assocItems traitBounds generics
 
+        // implements the interface for the Lrc<dyn interface> type
         let implItem =
             let memberItems = makeInterfaceItems com ctx true typeName ent
             let genArgsOpt = transformGenArgs com ctx genArgs
@@ -4391,6 +4461,42 @@ module Util =
         else
             []
 
+    let makeDerefTraitImpls com ctx entName genArgs (baseType: Fable.Type option) (bodyExpr: string) =
+        // expected output:
+        // impl<T> core::ops::Deref for EntType<T> {
+        //     type Target = Lrc<BaseType<T>>;
+        //
+        //     #[inline]
+        //     fn deref(&self) -> &Self::Target {
+        //         bodyExpr
+        //     }
+        // }
+        match baseType with
+        | Some(Fable.DeclaredType(baseEntRef, baseGenArgs)) when isValidBaseType com baseEntRef ->
+            let baseTy = transformEntityType com ctx baseEntRef baseGenArgs
+            let targetTy = baseTy |> makeLrcPtrTy com ctx
+            let tyItem = mkTyAliasAssocItem [] "Target" targetTy NO_GENERICS []
+
+            let bodyStmt = bodyExpr |> mkEmitExprStmt
+            let fnBody = [ bodyStmt ] |> mkBlock |> Some
+
+            let fnDecl =
+                let inputs = [ mkImplSelfParam false false ]
+                let selfTy = mkGenericPathTy ("Self" :: "Target" :: []) None
+                let output = selfTy |> mkRefTy None |> mkFnRetTy
+                mkFnDecl inputs output
+
+            let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+            let attrs = [ mkAttr "inline" [] ]
+            let fnItem = mkFnAssocItem attrs "deref" fnKind
+
+            let path = mkGenericPath ("core" :: "ops" :: "Deref" :: []) None
+            let ofTrait = mkTraitRef path |> Some
+            let assocItems = [ tyItem; fnItem ]
+
+            assocItems |> makeTraitImpls com ctx entName genArgs ofTrait
+        | _ -> []
+
     let makeDisplayTraitImpls com ctx entName genArgs hasToString =
         // expected output:
         // impl core::fmt::Display for {self_ty} {
@@ -4426,7 +4532,7 @@ module Util =
         let path = mkGenericPath ("core" :: "fmt" :: "Display" :: []) None
         let ofTrait = mkTraitRef path |> Some
 
-        makeTraitImpls com ctx entName genArgs ofTrait [ fnItem ]
+        [ fnItem ] |> makeTraitImpls com ctx entName genArgs ofTrait
 
     let op_impl_map =
         Map
@@ -4513,7 +4619,7 @@ module Util =
             else
                 memberItem
 
-    let makePrimaryConstructorItems com ctx (ent: Fable.Entity) (declOpt: Fable.MemberDecl option) =
+    let makePrimaryConstructorItems com ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
         if
             ent.IsFSharpUnion
             || ent.IsFSharpRecord
@@ -4523,17 +4629,18 @@ module Util =
             []
         else
             let ctorItem =
-                match declOpt with
+                match decl.Constructor with
                 | Some ctor ->
                     withCurrentScope ctx ctor.UsedNames
-                    <| fun ctx -> transformPrimaryConstructor com ctx ent ctor
+                    <| fun ctx -> transformPrimaryConstructor com ctx ent ctor decl.BaseCall
                 | _ -> transformCompilerGeneratedConstructor com ctx ent
 
             [ ctorItem ]
 
     let makeTraitImpls (com: IRustCompiler) ctx entName genArgs ofTrait memberItems =
+        let nameParts = entName |> splitNameParts
         let genArgsOpt = transformGenArgs com ctx genArgs
-        let traitBound = mkTypeTraitGenericBound [ entName ] genArgsOpt
+        let traitBound = mkTypeTraitGenericBound nameParts genArgsOpt
         let self_ty = mkTraitTy [ traitBound ]
         let generics = makeGenerics com ctx genArgs
         let implItem = mkImplItem [] "" self_ty generics memberItems ofTrait
@@ -4568,7 +4675,7 @@ module Util =
         let entRef = classDecl.Entity
         let ent = com.GetEntity(entRef)
 
-        let isObjectExpr = ent.IsInterface || ent.FullName = "System.Object"
+        let isObjectExpr = classDecl.Name = "ObjectExpr"
 
         let entName =
             if isObjectExpr then
@@ -4582,19 +4689,10 @@ module Util =
 
         let isIgnoredMember (memb: Fable.MemberFunctionOrValue) = ent.IsFSharpExceptionDeclaration // to filter out compiler-generated exception equality
 
-        let isInterfaceMember (memb: Fable.MemberFunctionOrValue) =
-            (memb.IsDispatchSlot || memb.IsOverrideOrExplicitInterfaceImplementation)
-            && (memb.DeclaringEntity
-                |> Option.bind com.TryGetEntity
-                |> Option.map (fun ent -> ent.IsInterface)
-                |> Option.defaultValue false)
-        // || memb.IsOverrideOrExplicitInterfaceImplementation)
-        // && not (Set.contains memb.CompiledName objectMemberNames)
-
         let interfaceMembers, nonInterfaceMembers =
             classDecl.AttachedMembers
             |> List.map (fun decl -> decl, getDeclMember com decl)
-            |> List.partition (snd >> isInterfaceMember)
+            |> List.partition (snd >> isInterfaceMember com)
 
         let nonInterfaceImpls =
             let memberItems =
@@ -4608,12 +4706,23 @@ module Util =
                 else
                     memberItems
                     |> List.append (makeFSharpExceptionItems com ctx ent)
-                    |> List.append (makePrimaryConstructorItems com ctx ent classDecl.Constructor)
+                    |> List.append (makePrimaryConstructorItems com ctx ent classDecl)
 
             if List.isEmpty memberItems then
                 []
             else
                 memberItems |> makeTraitImpls com ctx entName genArgs None
+
+        let baseTypeOpt =
+            if isObjectExpr then
+                Some(Fable.DeclaredType(entRef, genArgs))
+            else
+                ent.BaseType
+                |> Option.map (fun t -> Fable.DeclaredType(t.Entity, t.GenericArgs))
+
+        let derefTraitImpls =
+            (baseTypeOpt, "&self." + baseName)
+            ||> makeDerefTraitImpls com ctx entName genArgs
 
         let displayTraitImpls =
             let hasToString =
@@ -4651,7 +4760,11 @@ module Util =
                 |> makeInterfaceTraitImpls com ctx entName genParams ifcEntRef ifcGenArgs
             )
 
-        nonInterfaceImpls @ displayTraitImpls @ operatorTraitImpls @ interfaceTraitImpls
+        derefTraitImpls
+        @ nonInterfaceImpls
+        @ displayTraitImpls
+        @ operatorTraitImpls
+        @ interfaceTraitImpls
 
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
         let ent = com.GetEntity(decl.Entity)

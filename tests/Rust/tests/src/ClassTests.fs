@@ -87,7 +87,7 @@ let ``Object expression from obj works`` () =
               interface IHasAdd with
                 member _.Add x y = x + y }
     // b.ToString() |> equal "Adder" // TODO: enable once lrc_ptr is default
-    (b :> IHasAdd).Add 2 3 |> equal 5
+    b.Add 2 3 |> equal 5
 
 [<Fact>]
 let ``Object expression instance calls works`` () =
