@@ -2329,7 +2329,7 @@ module Util =
                 getMangledAbstractMemberName ent memb.CompiledName overloadHash
             else if
                 // use DisplayName for getters/setters (except for Rust)
-                (isGetter || isSetter) && com.Options.Language <> Rust
+                (isGetter || isSetter) && not (com.Options.Language = Rust)
             then
                 getMemberDisplayName memb
             else
@@ -2399,7 +2399,12 @@ module Util =
             let isPythonStaticMember =
                 com.Options.Language = Python && not memb.IsInstanceMember
 
-            if not info.isMangled && info.isGetter && not isPythonStaticMember then
+            if
+                not info.isMangled
+                && info.isGetter
+                && not isPythonStaticMember
+                && not (com.Options.Language = Rust)
+            then
                 // Set the field as maybe calculated so it's not displaced by beta reduction
                 let kind =
                     Fable.FieldInfo.Create(
@@ -2410,7 +2415,7 @@ module Util =
                     )
 
                 Fable.Get(callee, kind, typ, r)
-            elif not info.isMangled && info.isSetter then
+            elif not info.isMangled && info.isSetter && not (com.Options.Language = Rust) then
                 let membType = memb.CurriedParameterGroups[0].[0].Type |> makeType Map.empty
                 let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
                 Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)
@@ -2578,7 +2583,7 @@ module Util =
                 match tryGlobalOrImportedFSharpEntity com e with
                 | Some expr -> Some expr
                 // AttachMembers classes behave the same as global/imported classes
-                | None when com.Options.Language <> Rust && isAttachMembersEntity com e ->
+                | None when not (com.Options.Language = Rust) && isAttachMembersEntity com e ->
                     FsEnt.Ref e |> entityIdent com |> Some
                 | None -> None
 
@@ -2696,7 +2701,7 @@ module Util =
 
     /// Removes optional arguments set to None in tail position
     let transformOptionalArguments
-        (_com: IFableCompiler)
+        (com: IFableCompiler)
         (_ctx: Context)
         (_r: SourceLocation option)
         (memb: FSharpMemberOrFunctionOrValue)
@@ -2705,6 +2710,7 @@ module Util =
         if
             memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups[0].Count <> (List.length args)
+            || com.Options.Language = Rust // keep all optional args for Rust
         then
             args
         else

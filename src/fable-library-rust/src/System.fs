@@ -4,6 +4,8 @@ open Global_
 
 type Array() = class end
 
+type Attribute() = class end
+
 type Enum() = class end
 
 type Exception(message: string) =

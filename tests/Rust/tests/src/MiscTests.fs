@@ -920,15 +920,15 @@ let ``Properties in object expression work`` () =
     o.Bar <- 10
     o.Bar |> equal 10
 
-// [<Fact>]
-// let ``Object expression from class works`` () =
-//     let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
-//     // TODO: Type testing for object expressions?
-//     // match box o with
-//     // | :? SomeClass as c -> c.ToString()
-//     // | _ -> "Unknown"
-//     // |> equal "Hello World"
-//     o.ToString() |> equal "Hello World"
+[<Fact>]
+let ``Object expression from class works`` () =
+    let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
+    // TODO: Type testing for object expressions?
+    // match box o with
+    // | :? SomeClass as c -> c.ToString()
+    // | _ -> "Unknown"
+    // |> equal "Hello World"
+    o.ToString() |> equal "Hello World"
 
 // [<Fact>]
 // let ``Inlined object expression doesn't change argument this context`` () = // See #1291
@@ -952,13 +952,13 @@ let ``Object expressions don't optimize members away`` () = // See #1434
 //     let x = ref 5
 //     let obj = { new ObjectExprBase(x) with
 //                     override _.dup x = x * x }
-//     equal 25 x.contents
+//     x.contents |> equal 25
 
 // [<Fact>]
 // let ``Composition with recursive `this` works`` () =
 //     let mutable x = 0
 //     RecursiveType(fun f -> x <- f()) |> ignore
-//     equal 11 x
+//     x |> equal 11
 
 [<Fact>]
 let ``Type extension static methods work`` () =

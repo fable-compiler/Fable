@@ -34,6 +34,18 @@ let applyUncurryUnion x y = function
 type TestClass(add: (int -> int -> int)) =
     member _.Add(x, y) = add x y
 
+type ExplicitBaseClass =
+    val string1 : string
+    new (str) = { string1 = str }
+    new () = { string1 = "D" }
+
+type ExplicitDerivedClass =
+    inherit ExplicitBaseClass
+
+    val string2 : string
+    new (str1, str2) = { inherit ExplicitBaseClass(str1); string2 = str2 }
+    new (str2) = { inherit ExplicitBaseClass(); string2 = str2 }
+
 module ModuleBindings =
     let inc1 (x: byref<int>) =
         x <- x + 1
@@ -102,6 +114,15 @@ let ``Functions in class fields are uncurried`` () =
 let ``automatically generated generic names don't conflict`` () =
     MyRecord<string>.Stringify 456
     |> equal 456
+
+[<Fact>]
+let ``Classes with explicit fields can call base constructors`` () =
+    let o1 = ExplicitDerivedClass("A", "B")
+    let o2 = ExplicitDerivedClass("C")
+    o1.string1 |> equal "A"
+    o1.string2 |> equal "B"
+    o2.string1 |> equal "D"
+    o2.string2 |> equal "C"
 
 #if FABLE_COMPILER_RUST
 // open Fable.Core

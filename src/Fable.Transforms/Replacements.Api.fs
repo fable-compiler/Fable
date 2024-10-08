@@ -40,6 +40,7 @@ let tryBaseConstructor (com: ICompiler) ctx (ent: EntityRef) (argTypes: Lazy<Typ
     match com.Options.Language with
     | Python -> Py.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
     | Dart -> Dart.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
+    | Rust -> Rust.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
     | _ -> JS.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
 
 let makeMethodInfo (com: ICompiler) r (name: string) (parameters: (string * Type) list) (returnType: Type) =

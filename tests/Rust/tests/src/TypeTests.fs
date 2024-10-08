@@ -42,13 +42,13 @@ type TestType5(greeting: string) =
     member _.Overload(x) = x + x
     member _.Overload(x, y) = x + y
 
-// type TestType8(?greeting) =
-//     member _.Value = defaultArg greeting "Hi"
+type TestType8(?greeting) =
+    member _.Value = defaultArg greeting "Hi"
 
-// type TestType9() =
-//     inherit TestType8()
-//     let foo = TestType8("Hello")
-//     member _.Greet(name) = foo.Value + " " + name
+type TestType9() =
+    inherit TestType8()
+    let foo = TestType8("Hello")
+    member _.Greet(name) = foo.Value + " " + name
 
 // type TestType10Base() =
 //     interface ITest4 with
@@ -135,8 +135,8 @@ type SecondaryCons(x: int) =
     new () = SecondaryCons(5)
     member _.Value = x
 
-// // type SecondaryConsChild() =
-// //     inherit SecondaryCons()
+type SecondaryConsChild() =
+    inherit SecondaryCons()
 
 type MultipleCons(x: int, y: int) =
     new () = MultipleCons(2,3)
@@ -162,14 +162,14 @@ type MultipleCons(x: int, y: int) =
 //     override x.MethodWithDefault () = "Hi "
 //     override x.MustImplement () = "World!!"
 
-// [<AbstractClass>]
-// type AbstractClass3() =
-//     abstract MyProp: int with get, set
+[<AbstractClass>]
+type AbstractClass3() =
+    abstract MyProp: int with get, set
 
-// type ConcreteClass3() =
-//     inherit AbstractClass3()
-//     let mutable v = 5
-//     override _.MyProp with get() = v and set(v2) = v <- v + v2
+type ConcreteClass3() =
+    inherit AbstractClass3()
+    let mutable v = 5
+    override _.MyProp with get() = v and set(v2) = v <- v + v2
 
 type ISomeInterface =
     abstract OnlyGetProp: int with get
@@ -222,25 +222,25 @@ let mangleFoo(x: IFoo) = x.Foo()
 //     inherit AbstractFoo()
 //     override this.Foo2() = "BAR"
 
-// type BaseClass (x: int) =
-//     abstract member Init: unit -> int
-//     default _.Init () = x
-//     abstract member Prop: string
-//     default _.Prop = "base"
+type BaseClass (x: int) =
+    abstract member Init: unit -> int
+    default _.Init () = x
+    abstract member Prop: string
+    default _.Prop = "base"
 
-// type ExtendedClass () =
-//     inherit BaseClass(5)
-//     override _.Init() = base.Init() + 2
-//     override _.Prop = base.Prop + "-extension"
+type ExtendedClass () =
+    inherit BaseClass(5)
+    override _.Init() = base.Init() + 2
+    override _.Prop = base.Prop + "-extension"
 
-// type BaseClass2() =
-//     let field = 1
-//     member _.A() = field
+type BaseClass2() =
+    let field = 1
+    member _.A() = field
 
-// type ExtendedClass2() =
-//     inherit BaseClass2()
-//     member _.A() = 2
-//     member _.B() = base.A()
+type ExtendedClass2() =
+    inherit BaseClass2()
+    member _.A() = 2
+    member _.B() = base.A()
 
 type Employee = { name: string; age: float; location: Location }
 and Location = { name: string; mutable employees: Employee list }
@@ -357,11 +357,11 @@ type TypeWithClassAttribute =
 //     override this.WithInfo(infoA) =
 //         InfoBClass({ info with InfoA = infoA }) :> InfoAClass
 
-// type FooInterface =
-//     abstract Foo: string with get, set
-//     abstract DoSomething: f: (float -> float -> float) * v: float -> float
-//     abstract Item: int -> char with get, set
-//     abstract Sum: [<ParamArray>] items: string[] -> string
+type FooInterface =
+    abstract Foo: string with get, set
+    abstract DoSomething: f: (float -> float -> float) * v: float -> float
+    abstract Item: int -> char with get, set
+    abstract Sum: [<System.ParamArray>] items: string[] -> string
 
 // [<Fable.Core.Mangle>]
 // type BarInterface =
@@ -369,30 +369,30 @@ type TypeWithClassAttribute =
 //     abstract DoSomething: f: (float -> float -> float) * v: float -> float
 //     abstract Item: int -> char with get, set
 //     abstract Item: char -> bool with get
-//     abstract Sum: [<ParamArray>] items: string[] -> string
+//     abstract Sum: [<System.ParamArray>] items: string[] -> string
 
-// [<AbstractClass>]
-// type FooAbstractClass(x: float) =
-//     member _.Value = x
-//     member _.DoSomething(x, y) = x * y
-//     abstract DoSomething: float -> float
+[<AbstractClass>]
+type FooAbstractClass(x: float) =
+    member _.Value = x
+    member _.DoSomething(x, y) = x * y
+    abstract DoSomething: float -> float
 
-// type FooClass(x) =
-//     inherit FooAbstractClass(5.)
-//     let mutable x = x
-//     override this.DoSomething(x) =
-//         this.DoSomething(x, this.Value)
-//     static member ChangeChar(s: string, i: int, c: char) =
-//         s.ToCharArray() |> Array.mapi (fun i2 c2 -> if i = i2 then c else c2) |> String
-//     interface FooInterface with
-//         member _.Foo with get() = x and set(y) = x <- y
-//         member this.DoSomething(f, x) =
-//             let f = f x
-//             let x = f 2.
-//             let y = f 8.
-//             this.DoSomething(x + y)
-//         member _.Item with get(i) = x[i] and set i c = x <- FooClass.ChangeChar(x, i, c)
-//         member _.Sum(items) = Array.reduce (fun x y -> x + y + x + y) items
+type FooClass(x) =
+    inherit FooAbstractClass(5.)
+    let mutable x = x
+    override this.DoSomething(x) =
+        this.DoSomething(x, this.Value)
+    static member ChangeChar(s: string, i: int, c: char) =
+        s.ToCharArray() |> Array.mapi (fun i2 c2 -> if i = i2 then c else c2) |> System.String
+    interface FooInterface with
+        member _.Foo with get() = x and set(y) = x <- y
+        member this.DoSomething(f, x) =
+            let f = f x
+            let x = f 2.
+            let y = f 8.
+            this.DoSomething(x + y)
+        member _.Item with get(i) = x[i] and set i c = x <- FooClass.ChangeChar(x, i, c)
+        member _.Sum(items) = Array.reduce (fun x y -> x + y + x + y) items
 
 // [<AbstractClass>]
 // type BarAbstractClass(x: float) =
@@ -706,10 +706,10 @@ let ``Static interface calls work`` () =
     getTwo<I32>() |> equal 2
     getSum<I32>() |> equal 3
 
-// [<Fact>]
-// let ``Types can instantiate their parent in the constructor`` () =
-//     let t = TestType9()
-//     t.Greet("Maxime") |> equal "Hello Maxime"
+[<Fact>]
+let ``Types can instantiate their parent in the constructor`` () =
+    let t = TestType9()
+    t.Greet("Maxime") |> equal "Hello Maxime"
 
 [<Fact>]
 let ``Type testing`` () =
@@ -948,10 +948,10 @@ let ``Secondary constructors work`` () =
     equal 3 s1.Value
     equal 5 s2.Value
 
-// [<Fact>]
-// let ``Inheriting from secondary constructors works`` () =
-//     let s = SecondaryConsChild()
-//     equal 5 s.Value
+[<Fact>]
+let ``Inheriting from secondary constructors works`` () =
+    let s = SecondaryConsChild()
+    equal 5 s.Value
 
 [<Fact>]
 let ``Multiple constructors work`` () =
@@ -971,11 +971,11 @@ let ``Multiple constructors work`` () =
 //     let x = ConcreteClass2()
 //     x.CallMethodWithDefault() |> equal "Hi World!!"
 
-// [<Fact>]
-// let ``Abstract properties with getters and setters work`` () =
-//     let x = ConcreteClass3() :> AbstractClass3
-//     x.MyProp <- 2
-//     equal 7 x.MyProp
+[<Fact>]
+let ``Abstract properties with getters and setters work`` () =
+    let x = ConcreteClass3() // :> AbstractClass3 //TODO: cast to abstract type
+    x.MyProp <- 2
+    equal 7 x.MyProp
 
 [<Fact>]
 let ``Interface setters don't conflict`` () = // See #505
@@ -1030,22 +1030,22 @@ let ``Interface setters don't conflict`` () = // See #505
 //         | :? DowncastTest as t2 -> t2.Value
 //         | _ -> 5
 
-// [<Fact>]
-// let ``Calling default implementation of base members don't cause infinite recursion`` () = // See #701
-//     let x = ExtendedClass()
-//     x.Init() |> equal 7
-//     (x :> BaseClass).Init() |> equal 7
+[<Fact>]
+let ``Calling default implementation of base members don't cause infinite recursion`` () = // See #701
+    let x = ExtendedClass()
+    x.Init() |> equal 7
+    (x :> BaseClass).Init() |> equal 7
 
-// [<Fact>]
-// let ``Calling default implementation of base properties don't cause infinite recursion`` () = // See #701
-//     let x = ExtendedClass()
-//     x.Prop |> equal "base-extension"
-//     (x :> BaseClass).Prop |> equal "base-extension"
+[<Fact>]
+let ``Calling default implementation of base properties don't cause infinite recursion`` () = // See #701
+    let x = ExtendedClass()
+    x.Prop |> equal "base-extension"
+    (x :> BaseClass).Prop |> equal "base-extension"
 
-// [<Fact>]
-// let ``Calling base members works`` () = // See #1464
-//     let bar = ExtendedClass2()
-//     bar.B() |> equal 1
+[<Fact>]
+let ``Calling base members works`` () = // See #1464
+    let bar = ExtendedClass2()
+    bar.B() |> equal 1
 
 [<Fact>]
 let ``Circular dependencies work`` () = // See #569
@@ -1224,16 +1224,16 @@ let ``ClassAttribute works`` () = // See #573
 
 //     bar.Bar |> equal "Zar77.40rfalsefalsedbca"
 
-// // See #2084
-// [<Fact>]
-// let ``Non-mangled interfaces work with classes`` () =
-//     let addPlus2 x y = x + y + 2.
-//     let multiplyTwice x y = x * y * y
-//     let foo2 = FooClass("Foo") :> FooInterface
-//     foo2[0] <- 'W'
-//     foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString("F2").Replace(',', '.') + foo2[2].ToString()
-//     foo2.Foo <- foo2.Foo + foo2.Sum("a", "bc", "d")
-//     foo2.Foo |> equal "Woo1020.00oabcabcdabcabcd"
+// See #2084
+[<Fact>]
+let ``Non-mangled interfaces work with classes`` () =
+    let addPlus2 x y = x + y + 2.
+    let multiplyTwice x y = x * y * y
+    let foo2 = FooClass("Foo") :> FooInterface
+    foo2[0] <- 'W'
+    foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString().Replace(',', '.') + foo2[2].ToString()
+    foo2.Foo <- foo2.Foo + foo2.Sum("a", "bc", "d")
+    foo2.Foo |> equal "Woo1020oabcabcdabcabcd"
 
 // // See #2084
 // [<Fact>]

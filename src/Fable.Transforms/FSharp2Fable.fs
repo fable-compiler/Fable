@@ -46,7 +46,7 @@ let private transformBaseConsCall
             "Only inheriting from primary constructors is supported" |> addWarning com [] r
 
         match makeCallFrom com ctx r Fable.Unit genArgs None baseArgs baseCons with
-        | Fable.Call(_baseExpr, info, t, r) ->
+        | Fable.Call(_baseExpr, info, t, r) when not (com.Options.Language = Rust) ->
             // The baseExpr will be the exposed constructor function,
             // replace with a direct reference to the entity
             let baseExpr =
@@ -381,7 +381,7 @@ let private getImplementedSignatureInfo
             && countNonCurriedParamsForSignature sign = 1
 
         let name =
-            if (isGetter || isSetter) && com.Options.Language <> Rust then
+            if (isGetter || isSetter) && not (com.Options.Language = Rust) then
                 Naming.removeGetSetPrefix sign.Name
             else
                 sign.Name
@@ -778,7 +778,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     &&
                     // The replacement only needs to happen when var.FullType = byref<fsExpr.Type>
                     fsExpr.Type = var.FullType.GenericArguments.[0]
-                    && com.Options.Language <> Rust
+                    && not (com.Options.Language = Rust)
                 then
                     // Getting byref value is compiled as FSharpRef op_Dereference
                     return Replacements.Api.getRefCell com r (List.head v.Type.Generics) v
@@ -1909,7 +1909,7 @@ let private transformMemberDecl
     // for Rust, retain inlined functions that have [<CompiledName("...")>] attribute
     elif
         isInline memb
-        && (Compiler.Language <> Rust || not (hasAttrib Atts.compiledName memb.Attributes))
+        && not (Compiler.Language = Rust && (hasAttrib Atts.compiledName memb.Attributes))
     then
         []
     elif memb.IsImplicitConstructor then
@@ -1949,7 +1949,7 @@ let private transformMemberDecl
         | _ -> transformMemberFunctionOrValue com ctx memb args body
 
 let private addUsedRootName (com: Compiler) name (usedRootNames: Set<string>) =
-    if com.Options.Language <> Rust && Set.contains name usedRootNames then
+    if not (com.Options.Language = Rust) && Set.contains name usedRootNames then
         "Cannot have two module members with same name: " + name |> addError com [] None
 
     Set.add name usedRootNames
