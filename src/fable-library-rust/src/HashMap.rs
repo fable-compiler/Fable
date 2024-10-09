@@ -25,14 +25,14 @@ pub mod HashMap_ {
         comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
     }
 
-    impl<K, V: Clone> Default for HashMap<K, V>
-    where
-        K: Clone + Hash + PartialEq + 'static,
-    {
-        fn default() -> HashMap<K, V> {
-            new_empty()
-        }
-    }
+    // impl<K, V: Clone> Default for HashMap<K, V>
+    // where
+    //     K: Clone + Hash + PartialEq + 'static,
+    // {
+    //     fn default() -> HashMap<K, V> {
+    //         new_empty()
+    //     }
+    // }
 
     impl<K: Clone, V: Clone> core::ops::Deref for HashMap<K, V> {
         type Target = Lrc<MutHashMap<K, V>>;
