@@ -436,7 +436,8 @@ module TypeInfo =
         | _ -> isTypeOfType com isDefaultableType isDefaultableEntity entNames typ
 
     let isDefaultableEntity com entNames (ent: Fable.Entity) =
-        not (ent.IsInterface)
+        ent.IsValueType
+        && not (ent.IsInterface)
         && not (ent.IsFSharpUnion) // deriving 'Default' on enums is experimental
         && (isEntityOfType com isDefaultableType entNames ent)
 
@@ -4046,7 +4047,7 @@ module Util =
 
         loop body
 
-    let makeAssocMemberItem
+    let makeMemberAssocItem
         com
         ctx
         (memb: Fable.MemberFunctionOrValue)
@@ -4393,7 +4394,7 @@ module Util =
                 else
                     None
 
-            makeAssocMemberItem com ctx memb args bodyOpt
+            makeMemberAssocItem com ctx memb args bodyOpt
         )
 
     let transformInterface (com: IRustCompiler) ctx (ent: Fable.Entity) (decl: Fable.ClassDecl) =
@@ -4664,12 +4665,19 @@ module Util =
     //             "ToString"
     //         ]
 
-    let ignoredInterfaceNames = set [ Types.ienumerable; Types.ienumerator ]
+    let findInterfaceGenArgs (com: IRustCompiler) (ent: Fable.Entity) (ifcEntRef: Fable.EntityRef) =
+        let ifcOpt =
+            ent.AllInterfaces
+            |> Seq.tryFind (fun ifc -> ifc.Entity.FullName = ifcEntRef.FullName)
 
-    let getDeclaringEntities (members: Fable.MemberFunctionOrValue list) =
-        members
-        |> List.choose (fun memb -> memb.DeclaringEntity)
-        |> List.distinctBy (fun entRef -> entRef.FullName)
+        match ifcOpt with
+        | Some ifc -> ifc.GenericArgs
+        | _ ->
+            // shouldn't really happen
+            let ifcEnt = com.GetEntity(ifcEntRef)
+            FSharp2Fable.Util.getEntityGenArgs ifcEnt
+
+    let ignoredInterfaceNames = set [ Types.ienumerable; Types.ienumerator ]
 
     let transformClassMembers (com: IRustCompiler) ctx genArgs (classDecl: Fable.ClassDecl) =
         let entRef = classDecl.Entity
@@ -4735,19 +4743,18 @@ module Util =
 
         let interfaceTraitImpls =
             interfaceMembers
-            |> List.map snd
-            |> getDeclaringEntities
+            |> List.choose (fun (d, m) -> m.DeclaringEntity)
+            |> List.distinctBy (fun ifcEntRef -> ifcEntRef.FullName)
             |> List.filter (fun ifcEntRef ->
                 // throws out anything on the ignored interfaces list
                 not (ignoredInterfaceNames |> Set.contains ifcEntRef.FullName)
             )
             |> List.collect (fun ifcEntRef ->
                 let ifcGenArgs =
-                    if ent.IsInterface then
+                    if isObjectExpr then
                         genArgs
                     else
-                        let ifcEnt = com.GetEntity(ifcEntRef)
-                        FSharp2Fable.Util.getEntityGenArgs ifcEnt
+                        ifcEntRef |> findInterfaceGenArgs com ent
 
                 let memberNames = getInterfaceMemberNames com ifcEntRef
 

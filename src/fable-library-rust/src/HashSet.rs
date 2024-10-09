@@ -25,14 +25,14 @@ pub mod HashSet_ {
         comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     }
 
-    impl<T> Default for HashSet<T>
-    where
-        T: Clone + Hash + PartialEq + 'static,
-    {
-        fn default() -> HashSet<T> {
-            new_empty()
-        }
-    }
+    // impl<T> Default for HashSet<T>
+    // where
+    //     T: Clone + Hash + PartialEq + 'static,
+    // {
+    //     fn default() -> HashSet<T> {
+    //         new_empty()
+    //     }
+    // }
 
     impl<T: Clone> core::ops::Deref for HashSet<T> {
         type Target = Lrc<MutHashSet<T>>;
