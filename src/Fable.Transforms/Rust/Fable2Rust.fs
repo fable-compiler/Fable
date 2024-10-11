@@ -1241,7 +1241,7 @@ module Util =
 
         // prevents emitting self on inlined code
         if ident.IsThisArgument && ctx.IsAssocMember then
-            makeThis com ctx r ident.Type
+            makeSelf com ctx r ident.Type
         else
             mkGenericPathExpr (splitNameParts ident.Name) None
 
@@ -1876,7 +1876,7 @@ module Util =
     let selfName = "__self__"
 
     let makeBase (com: IRustCompiler) ctx r _typ = mkGenericPathExpr [ baseName ] None
-    let makeThis (com: IRustCompiler) ctx r _typ = mkGenericPathExpr [ selfName ] None
+    let makeSelf (com: IRustCompiler) ctx r _typ = mkGenericPathExpr [ selfName ] None
 
     let makeBaseValue (com: IRustCompiler) ctx r ident =
         let expr = transformIdent com ctx r ident
@@ -1891,7 +1891,7 @@ module Util =
 
         sb.ToString()
 
-    let formatString (com: IRustCompiler) ctx fmt values : Rust.Expr =
+    let makeFormatExpr (com: IRustCompiler) ctx fmt values : Rust.Expr =
         let unboxedArgs = values |> FSharp2Fable.Util.unboxBoxedArgs
         let args = transformCallArgs com ctx unboxedArgs [] []
         let fmtArgs = (mkStrLitExpr fmt) :: args
@@ -1899,7 +1899,7 @@ module Util =
 
     let makeStringTemplate (com: IRustCompiler) ctx parts values : Rust.Expr =
         let fmt = makeFormatString parts
-        formatString com ctx fmt values
+        makeFormatExpr com ctx fmt values
 
     let makeTypeInfo (com: IRustCompiler) ctx r (typ: Fable.Type) : Rust.Expr =
         let importName = getLibraryImportName com ctx "Reflection" "TypeId"
@@ -1914,7 +1914,7 @@ module Util =
         match value with
         | Fable.BaseValue(None, typ) -> makeBase com ctx r typ
         | Fable.BaseValue(Some ident, _) -> makeBaseValue com ctx r ident
-        | Fable.ThisValue typ -> makeThis com ctx r typ
+        | Fable.ThisValue typ -> makeSelf com ctx r typ
         | Fable.TypeInfo(typ, _tags) -> makeTypeInfo com ctx r typ
         | Fable.Null typ -> makeNull com ctx typ
         | Fable.UnitConstant -> mkUnitExpr ()
@@ -4234,8 +4234,10 @@ module Util =
         let enumItem = mkEnumItem attrs entName variants generics
         enumItem
 
+    let ignoredBaseTypes = set [ Types.object; Types.valueType; Types.exception_ ]
+
     let isValidBaseType (com: IRustCompiler) (entRef: Fable.EntityRef) =
-        if entRef.FullName = Types.object || entRef.FullName = Types.valueType then
+        if Set.contains entRef.FullName ignoredBaseTypes then
             false
         else
             let ent = com.GetEntity(entRef)
@@ -4400,7 +4402,7 @@ module Util =
 
                     let body =
                         if memb.IsInstance then
-                            // let thisExpr = makeThis com ctx None ifcTyp
+                            // let thisExpr = makeSelf com ctx None ifcTyp
                             let thisExpr = mkGenericPathExpr [ rawIdent "self" ] None
                             let callee = thisExpr |> mkDerefExpr |> mkDerefExpr
                             mkMethodCallExpr membName None callee args
@@ -4449,7 +4451,8 @@ module Util =
         // expected output:
         // impl {entityName} {
         //     fn get_Message(&self) -> string {
-        //         sformat!("{} {:?}", entName, (self.Data0.clone(), self.Data1.clone(), ...)))
+        //         __self__ = self;
+        //         sformat!("{} {:?}", entName, (__self__.Data0.clone(), __self__.Data1.clone(), ...)))
         //     }
         // }
         if ent.IsFSharpExceptionDeclaration then
@@ -4467,8 +4470,17 @@ module Util =
 
             let fieldsAsTuple = Fable.Value(Fable.NewTuple(fieldValues, true), None)
 
-            let body = formatString com ctx "{} {:?}" [ entNameExpr; fieldsAsTuple ]
+            let formatExpr =
+                let rustFmt = "{} {:?}"
+                let templateArgs = [ entNameExpr; fieldsAsTuple ]
+                Fable.Value(Fable.StringTemplate(None, [ rustFmt ], templateArgs), None)
 
+            let bodyExpr =
+                let ident = makeIdent selfName
+                let thisArg = makeIdentExpr (rawIdent "self")
+                Fable.Let(ident, thisArg, formatExpr)
+
+            let body = transformExpr com ctx bodyExpr
             let fnBody = [ mkExprStmt body ] |> mkBlock |> Some
             let fnRetTy = Fable.String |> transformType com ctx |> mkFnRetTy
             let fnDecl = mkFnDecl [ mkImplSelfParam false false ] fnRetTy
@@ -4764,7 +4776,7 @@ module Util =
             |> List.distinctBy (fun ifcEntRef -> ifcEntRef.FullName)
             |> List.filter (fun ifcEntRef ->
                 // throws out anything on the ignored interfaces list
-                not (ignoredInterfaceNames |> Set.contains ifcEntRef.FullName)
+                not (Set.contains ifcEntRef.FullName ignoredInterfaceNames)
             )
             |> List.collect (fun ifcEntRef ->
                 let ifcGenArgs =
