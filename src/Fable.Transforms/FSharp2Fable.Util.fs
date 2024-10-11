@@ -705,9 +705,12 @@ module Helpers =
 
         let name, part =
             match com.Options.Language, memb.DeclaringEntity with
+            | Rust, Some ent when memb.IsExtensionMember ->
+                // For Rust, add entity prefix to extension methods
+                cleanNameAsRustIdentifier name, part.Replace(cleanNameAsRustIdentifier)
             | Rust, Some ent when ent.IsInterface && not memb.IsDispatchSlot ->
                 // For Rust, add entity prefix to default static interface members
-                cleanNameAsRustIdentifier name, part.Replace(cleanNameAsJsIdentifier)
+                cleanNameAsRustIdentifier name, part.Replace(cleanNameAsRustIdentifier)
             | Rust, _ ->
                 // for Rust, no entity prefix for other members
                 memberNameAsRustIdentifier name part
@@ -2145,7 +2148,7 @@ module Util =
 
         let memberName =
             match com.Options.Language, memb.DeclaringEntity with
-            | Rust, Some ent when not memb.IsInstanceMember ->
+            | Rust, Some ent when not memb.IsInstanceMember || memb.IsExtensionMember ->
                 // for Rust, use the namespace for default static interface calls,
                 // for other non-instance calls, prefix with the full entity name
                 if ent.IsInterface && not memb.IsDispatchSlot && ent.FullName.Contains(".") then
