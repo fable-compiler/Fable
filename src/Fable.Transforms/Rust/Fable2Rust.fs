@@ -1245,14 +1245,14 @@ module Util =
         else
             mkGenericPathExpr (splitNameParts ident.Name) None
 
-    let isThisArgumentIdentExpr (expr: Fable.Expr) =
+    let isThisArgumentIdentExpr (ctx: Context) (expr: Fable.Expr) =
         match expr with
-        | Fable.IdentExpr ident -> ident.IsThisArgument
+        | Fable.IdentExpr ident -> ident.IsThisArgument && ctx.IsAssocMember
         | _ -> false
 
     // let transformExprMaybeIdentExpr (com: IRustCompiler) ctx (expr: Fable.Expr) =
     //     match expr with
-    //     | Fable.IdentExpr ident when ident.IsThisArgument ->
+    //     | Fable.IdentExpr ident when ident.IsThisArgument && ctx.IsAssocMember ->
     //         // avoids the extra Lrc wrapping for self that transformIdentGet does
     //         transformIdent com ctx None id
     //     | _ -> com.TransformExpr(ctx, expr)
@@ -1607,7 +1607,7 @@ module Util =
     let prepareRefForPatternMatch (com: IRustCompiler) ctx typ (name: string option) fableExpr =
         let expr = com.TransformExpr(ctx, fableExpr)
 
-        if isThisArgumentIdentExpr fableExpr then
+        if isThisArgumentIdentExpr ctx fableExpr then
             expr
         elif (name.IsSome && isRefScoped ctx name.Value) || (isInRefType com typ) then
             expr
@@ -2380,7 +2380,12 @@ module Util =
             | Some thisArg, Fable.MemberImport memberRef ->
                 let memb = com.GetMember(memberRef)
 
-                if memb.IsInstance then
+                if memb.IsInstance && memb.IsExtension then
+                    // extension method calls compiled as static method calls
+                    let thisExpr = transformLeaveContext com ctx None thisArg
+                    let callee = transformImport com ctx r t info genArgsOpt
+                    mkCallExpr callee (thisExpr :: args)
+                elif memb.IsInstance then
                     let callee = transformCallee com ctx thisArg
                     mkMethodCallExpr info.Selector None callee args
                 else
@@ -2416,8 +2421,16 @@ module Util =
             | _ ->
                 match callInfo.ThisArg, calleeExpr with
                 | Some thisArg, Fable.IdentExpr ident ->
-                    let callee = transformCallee com ctx thisArg
-                    mkMethodCallExpr ident.Name None callee args
+                    match membOpt with
+                    | Some memb when memb.IsExtension ->
+                        // transform extension calls as static calls
+                        let thisExpr = transformLeaveContext com ctx None thisArg
+                        let callee = makeFullNamePathExpr ident.Name genArgsOpt
+                        mkCallExpr callee (thisExpr :: args)
+                    | _ ->
+                        // other instance calls
+                        let callee = transformCallee com ctx thisArg
+                        mkMethodCallExpr ident.Name None callee args
                 | None, Fable.IdentExpr ident ->
                     let callee = makeFullNamePathExpr ident.Name genArgsOpt
                     mkCallExpr callee args
@@ -3439,7 +3452,7 @@ module Util =
         | _ -> fieldIdents
 
     let makeTypedParam (com: IRustCompiler) ctx (ident: Fable.Ident) returnType =
-        if ident.IsThisArgument then
+        if ident.IsThisArgument && ctx.IsAssocMember then
             // is this a fluent API?
             match ident.Type, shouldBeRefCountWrapped com ctx ident.Type with
             | Fable.DeclaredType(entRef, genArgs), Some ptrType when ident.Type = returnType ->
@@ -3583,7 +3596,10 @@ module Util =
                 let scopedVarAttrs =
                     {
                         IsArm = false
-                        IsRef = arg.IsThisArgument || isByRefType com arg.Type || ctx.IsParamByRefPreferred
+                        IsRef =
+                            arg.IsThisArgument && ctx.IsAssocMember
+                            || isByRefType com arg.Type
+                            || ctx.IsParamByRefPreferred
                         IsBox = false
                         IsFunc = false
                         UsageCount = countIdentUsage arg.Name body
@@ -3617,7 +3633,8 @@ module Util =
             let label = tc.Label
 
             let args =
-                args |> List.filter (fun arg -> not (arg.IsMutable || arg.IsThisArgument))
+                args
+                |> List.filter (fun arg -> not (arg.IsMutable || arg.IsThisArgument && ctx.IsAssocMember))
 
             let mutArgs = args |> List.map (fun arg -> { arg with IsMutable = true })
 
@@ -3934,19 +3951,19 @@ module Util =
         let macroItem = mkMacroItem attrs macroName [ expr ]
         [ macroItem ]
 
-    let transformExtensionMethod (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
-        let argTypes = decl.Args |> List.map (fun arg -> arg.Type)
-
-        match argTypes with
-        | Fable.DeclaredType(entRef, genArgs) :: _ ->
-            let entName = getEntityFullName com ctx entRef
-            let memberItem = makeMemberItem com ctx true (decl, memb)
-            [ memberItem ] |> makeTraitImpls com ctx entName genArgs None
-        | _ -> []
+    // // not used anymore, as extension methods are compiled as normal module members
+    // let transformExtensionMethod (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
+    //     let argTypes = decl.Args |> List.map (fun arg -> arg.Type)
+    //     match argTypes with
+    //     | Fable.DeclaredType(entRef, genArgs) :: _ ->
+    //         let entName = getEntityFullName com ctx entRef
+    //         let memberItem = makeMemberItem com ctx true (decl, memb)
+    //         [ memberItem ] |> makeTraitImpls com ctx entName genArgs None
+    //     | _ -> []
 
     let transformModuleFunction (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let name = Fable.Naming.splitLast decl.Name
-        //if name = "someProblematicFunction" then System.Diagnostics.Debugger.Break()
+
         let isByRefPreferred =
             memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
 
@@ -4909,9 +4926,9 @@ module Util =
         let memb = com.GetMember(decl.MemberRef)
 
         let memberItems =
-            if memb.IsExtension && memb.IsInstance then
-                transformExtensionMethod com ctx memb decl
-            elif memb.IsValue then
+            // if memb.IsExtension && memb.IsInstance then
+            //     transformExtensionMethod com ctx memb decl
+            if memb.IsValue then
                 transformModuleLetValue com ctx memb decl
             else
                 transformModuleFunction com ctx memb decl

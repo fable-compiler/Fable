@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Rust] Added basic class inheritance support (by @ncave)
 * [Rust] Added String.Replace(char, char) and test (by @ncave)
+* [Rust] Support type extensions for external types (by @ncave)
 
 ## 4.22.0 - 2024-10-02
 
