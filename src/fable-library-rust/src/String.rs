@@ -693,6 +693,14 @@ pub mod String_ {
         withSplitOptions(a, count, options)
     }
 
+    pub fn splitStrings(s: string, ps: Array<string>, options: i32) -> Array<string> {
+        let mut a: Vec<&str> = vec![s.as_str()];
+        for p in ps.iter() {
+            a = a.iter().flat_map(|&s| s.split(p.as_str())).collect();
+        }
+        withSplitOptions(a, -1, options)
+    }
+
     pub fn toCharArray(s: string) -> Array<char> {
         array_from(s.chars().collect())
     }

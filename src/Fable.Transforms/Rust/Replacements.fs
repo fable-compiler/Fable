@@ -893,16 +893,21 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("PrintFormatThen" | "PrintFormatToStringThen"), None, [ cont; MaybeCasted(template) ] ->
         Helper.Application(cont, t, [ template ], ?loc = r) |> Some
     | "PrintFormatToError", None, [ StringConst fmt ] -> "eprintf!" |> makeRustFormatExpr com r t fmt [] |> Some
-    | "PrintFormatToError", None, [ StringTempl _ ] -> "eprintf!" |> emitFormat com r t args |> Some
+    | "PrintFormatToError", None, _ -> "eprintf!" |> emitFormat com r t args |> Some
     | "PrintFormatLineToError", None, [ StringConst fmt ] -> "eprintfn!" |> makeRustFormatExpr com r t fmt [] |> Some
     | "PrintFormatLineToError", None, _ -> "eprintfn!" |> emitFormat com r t args |> Some
     | "PrintFormat", None, [ StringConst fmt ] -> "printf!" |> makeRustFormatExpr com r t fmt [] |> Some
-    | "PrintFormat", None, [ StringTempl _ ] -> "printf!" |> emitFormat com r t args |> Some
+    | "PrintFormat", None, _ -> "printf!" |> emitFormat com r t args |> Some
     | "PrintFormatLine", None, [ StringConst fmt ] -> "printfn!" |> makeRustFormatExpr com r t fmt [] |> Some
-    | "PrintFormatLine", None, [ StringTempl _ ] -> "printfn!" |> emitFormat com r t args |> Some
+    | "PrintFormatLine", None, _ -> "printfn!" |> emitFormat com r t args |> Some
+    | "PrintFormatToTextWriter", None, [ StringConst fmt ] -> "printf!" |> makeRustFormatExpr com r t fmt [] |> Some
+    | "PrintFormatToTextWriter", None, _ -> "printf!" |> emitFormat com r t args |> Some
+    | "PrintFormatLineToTextWriter", None, [ StringConst fmt ] ->
+        "printfn!" |> makeRustFormatExpr com r t fmt [] |> Some
+    | "PrintFormatLineToTextWriter", None, _ -> "printfn!" |> emitFormat com r t args |> Some
     | "PrintFormatToStringThenFail", None, [ StringConst fmt ] ->
         "failwithf!" |> makeRustFormatExpr com r t fmt [] |> Some
-    | "PrintFormatToStringThenFail", None, [ StringTempl _ ] -> "failwithf!" |> emitFormat com r t args |> Some
+    | "PrintFormatToStringThenFail", None, _ -> "failwithf!" |> emitFormat com r t args |> Some
     | "PrintFormatToStringBuilder", None, [ sb; StringConst fmt ] ->
         let cont = Helper.LibCall(com, "Util", "bprintf", t, [ sb ])
         "kprintf!" |> makeRustFormatExpr com r t fmt [ cont ] |> Some
@@ -1429,6 +1434,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             |> Some
         | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
             Helper.LibCall(com, "String", "split", t, [ c; arg1; makeIntConst -1; arg2 ], ?loc = r)
+            |> Some
+        | [ ExprTypeAs(Array(String, _), arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
+            Helper.LibCall(com, "String", "splitStrings", t, [ c; arg1; arg2 ], ?loc = r)
             |> Some
         | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _)
             ExprTypeAs(Number(Int32, _), arg2)

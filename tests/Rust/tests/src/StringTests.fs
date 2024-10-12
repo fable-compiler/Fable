@@ -895,10 +895,10 @@ let ``String.Split with single separator works`` () =
 let ``String.Split with multiple char args works`` () =
     "a;b,c".Split(',', ';') |> equal [|"a"; "b"; "c"|]
 
-// [<Fact>]
-// let ``String.Split with string array works`` () =
-//     "a;b,c".Split([|","; ";"|], StringSplitOptions.None)
-//     |> equal [|"a"; "b"; "c"|]
+[<Fact>]
+let ``String.Split with string array works`` () =
+    "a;b,c".Split([|","; ";"|], StringSplitOptions.None)
+    |> equal [|"a"; "b"; "c"|]
 
 [<Fact>]
 let ``String.Split with RemoveEmptyEntries works`` () =
