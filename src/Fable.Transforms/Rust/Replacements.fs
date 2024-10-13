@@ -148,7 +148,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) = value
 let toNativeIndex expr = TypeCast(expr, UNativeInt.Number)
 
 let toLowerFirstWithArgsCountSuffix (args: Expr list) meth =
-    let argCount = List.length args
+    let argCount = List.length args - 1 // don't count first arg
     let meth = Naming.lowerFirst meth
 
     if argCount > 1 then
@@ -1185,11 +1185,7 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
         Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("GetNumericValue"
-      // | "GetUnicodeCategory"
-      | "ConvertToUtf32" as meth),
-      None,
-      _ ->
+    | ("GetNumericValue" | "GetUnicodeCategory" | "ConvertToUtf32" as meth), None, _ ->
         let meth = getMethod meth args
 
         Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
@@ -1641,7 +1637,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "NativeArray", meth, t, (ar :: args), ?loc = r) |> Some
     | ("BinarySearch" | "CopyTo" | "IndexOf" | "LastIndexOf" | "Reverse") as meth, Some ar, args ->
         // methods with some overrides
-        let meth = meth |> toLowerFirstWithArgsCountSuffix args
+        let meth = meth |> toLowerFirstWithArgsCountSuffix (ar :: args)
         Helper.LibCall(com, "NativeArray", meth, t, (ar :: args), ?loc = r) |> Some
     | "Sort", Some ar, [] -> Helper.LibCall(com, "NativeArray", "sort", t, (ar :: args), ?loc = r) |> Some
     | "Sort", Some ar, [ ExprType(DelegateType _) ] ->
@@ -1728,11 +1724,17 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
     | "Copy", None, [ source; target; count ] ->
         copyToArray com r t i [ source; makeIntConst 0; target; makeIntConst 0; count ]
-    | "ConvertAll", None, [ source; mapping ] ->
-        Helper.LibCall(com, "NativeArray", "convertAll", t, args, ?loc = r) |> Some
-    | "IndexOf", None, [ ar; arg ] -> Helper.LibCall(com, "NativeArray", "indexOf", t, args, ?loc = r) |> Some
     | "GetEnumerator", Some ar, _ -> Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
-    | "Reverse", None, [ ar ] -> Helper.LibCall(com, "NativeArray", "reverse", t, args, ?loc = r) |> Some
+    | ("ConvertAll" | "Exists" | "GetRange" | "ForEach" | "FindAll" | "Find" | "FindLast" | "FindIndex" | "FindLastIndex" | "TrueForAll") as meth,
+      None,
+      args ->
+        // methods without overrides
+        let meth = Naming.lowerFirst meth
+        Helper.LibCall(com, "NativeArray", meth, t, args, ?loc = r) |> Some
+    | ("BinarySearch" | "CopyTo" | "IndexOf" | "LastIndexOf" | "Reverse") as meth, None, args ->
+        // methods with some overrides
+        let meth = meth |> toLowerFirstWithArgsCountSuffix args
+        Helper.LibCall(com, "NativeArray", meth, t, args, ?loc = r) |> Some
     | "Sort", None, [ ar ] -> Helper.LibCall(com, "NativeArray", "sort", t, args, ?loc = r) |> Some
     | "Sort", None, [ ar; ExprType(DelegateType _) as comparer ] ->
         Helper.LibCall(com, "NativeArray", "sortBy", t, args, ?loc = r) |> Some

@@ -489,19 +489,10 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
 
             let startInThreadPool toMsg work = postTo toMsg work |> Async.Start
 
-            let runSynchronously toMsg work =
-                postTo toMsg work |> Async.RunSynchronously
-
             let fableCompile state fileName =
                 let fableProj = state.FableProj
 
-                let runner =
-                    // for Rust, sequential compilation captures all imports and namespaces
-                    match projCracked.CliArgs.CompilerOptions.Language with
-                    | Rust -> runSynchronously // sequential file compilation
-                    | _ -> startInThreadPool // parallel file compilation
-
-                runner
+                startInThreadPool
                     FableFileCompiled
                     (fun () ->
                         async {
@@ -577,6 +568,17 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                         return! loop state
 
                     | FSharpFileTypeChecked file ->
+                        // It seems when there's a pair .fsi/.fs the F# compiler gives the .fsi extension to the implementation file
+                        let fileName = file.FileName |> Path.normalizePath |> Path.ensureFsExtension
+
+                        // For Rust, delay last file's compilation until other files finish compiling
+                        if
+                            projCracked.CliArgs.CompilerOptions.Language = Rust
+                            && fileName = Array.last state.FilesToCompile
+                            && state.FableFilesCompiledCount < state.FableFilesToCompileExpectedCount - 1
+                        then
+                            do! Async.Sleep(100)
+
                         Log.verbose (
                             lazy $"Type checked: {IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, file.FileName)}"
                         )
@@ -586,9 +588,6 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                             let outPath = getOutPath projCracked.CliArgs state.PathResolver file.FileName
                             let outDir = IO.Path.GetDirectoryName(outPath)
                             Printers.printAst outDir [ file ]
-
-                        // It seems when there's a pair .fsi/.fs the F# compiler gives the .fsi extension to the implementation file
-                        let fileName = file.FileName |> Path.normalizePath |> Path.ensureFsExtension
 
                         let state =
                             if not (state.FilesToCompileSet.Contains(fileName)) then

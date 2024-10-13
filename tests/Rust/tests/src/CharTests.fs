@@ -2,6 +2,7 @@ module Fable.Tests.CharTests
 
 open System
 open Util.Testing
+open System.Globalization
 
 [<Fact>]
 let ``Char.ToUpper works`` () =
@@ -23,17 +24,17 @@ let ``Char.ToLowerInvariant works`` () =
 let ``Char.ToString works`` () =
     Char.ToString('b') |> equal "b"
 
-// [<Fact>]
-// let ``Char.GetUnicodeCategory works`` () =
-//     Char.GetUnicodeCategory('a') |> equal UnicodeCategory.LowercaseLetter
-//     Char.GetUnicodeCategory('1') |> equal UnicodeCategory.DecimalDigitNumber
+[<Fact>]
+let ``Char.GetUnicodeCategory works`` () =
+    Char.GetUnicodeCategory('a') |> equal UnicodeCategory.LowercaseLetter
+    Char.GetUnicodeCategory('1') |> equal UnicodeCategory.DecimalDigitNumber
 
-// [<Fact>]
-// let ``Char.GetUnicodeCategory with two args works`` () =
-//     let str = "Ba6"
-//     Char.GetUnicodeCategory(str,0) |> int |> equal 0 //UnicodeCategory.UppercaseLetter
-//     Char.GetUnicodeCategory(str,1) |> int |> equal 1 //UnicodeCategory.LowercaseLetter
-//     Char.GetUnicodeCategory(str,2) |> int |> equal 8 //UnicodeCategory.DecimalDigitNumber
+[<Fact>]
+let ``Char.GetUnicodeCategory with two args works`` () =
+    let str = "Ba6"
+    Char.GetUnicodeCategory(str, 0) |> equal UnicodeCategory.UppercaseLetter
+    Char.GetUnicodeCategory(str, 1) |> equal UnicodeCategory.LowercaseLetter
+    Char.GetUnicodeCategory(str, 2) |> equal UnicodeCategory.DecimalDigitNumber
 
 [<Fact>]
 let ``Char.IsControl works`` () =

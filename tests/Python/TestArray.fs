@@ -43,6 +43,8 @@ type Things =
     { MainThing: int
       OtherThing: string }
 
+type Animal = Duck of int | Dog of int
+
 [<Fact>]
 let ``test Pattern matching with arrays works`` () =
     match [||] with [||] -> true | _ -> false
@@ -175,6 +177,12 @@ let ``test Array.create works`` () =
     let xs = Array.create 2 5
     equal 2 xs.Length
     Array.sum xs |> equal 10
+
+// [<Fact>]
+// let ``test System.Array.ConvertAll works`` () =
+//     let xs = [| 1.; 2.; 3.; 4. |]
+//     let ys = System.Array.ConvertAll(xs, System.Converter(fun x -> int x))
+//     ys |> Seq.toList |> equal [1;2;3;4]
 
 [<Fact>]
 let ``test Array.blit works`` () =
@@ -359,6 +367,17 @@ let ``test Array.find works`` () =
     let xs = [|1us; 2us; 3us; 4us|]
     xs |> Array.find ((=) 2us)
     |> equal 2us
+
+// [<Fact>]
+// let ``test System.Array.IndexOf works with non-primitive types`` () =
+//     let myArray = [|Duck 5|]
+//     System.Array.IndexOf(myArray, Duck 3) |> equal -1
+//     System.Array.IndexOf(myArray, Dog 5) |> equal -1
+//     System.Array.IndexOf(myArray, Duck 5) |> equal 0
+//     let myArray = [|Duck 5; Dog 3|]
+//     System.Array.IndexOf(myArray, Dog 3) |> equal 1
+//     System.Array.IndexOf(myArray, Dog 3, 0, 1) |> equal -1
+//     System.Array.IndexOf(myArray, Duck 5, 1) |> equal -1
 
 [<Fact>]
 let ``test Array.findIndex works`` () =
