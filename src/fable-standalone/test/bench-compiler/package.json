@@ -12,7 +12,7 @@
     "prebuild-cli-js": "npm run clean && FABLE=fable-cli npm run build-lib-ts",
     "build-cli-js": "npm run fable-cli -- src/bench-compiler.fsproj --outDir ./out-node --fableLib ./out-lib-js",
     "postbuild-cli-js": "npm run rollup-bundle",
-    "build-cli-rust": "npm run fable-cli -- src/bench-compiler.fsproj --outDir ./out-rust --lang Rust --noCache --noParallelTypeCheck --test:MSBuildCracker",
+    "build-cli-rust": "npm run fable-cli -- src/bench-compiler.fsproj --outDir ./out-rust --lang Rust --noCache --test:MSBuildCracker",
 
     "fable": "dotnet run -c Release --project src/bench-compiler.fsproj",
     "prebuild-js": "npm run clean && FABLE=fable npm run build-lib-ts",
@@ -98,7 +98,8 @@
     "speedscope": "speedscope profile.v8log.json",
     "flamegraph": "perf script | ../../../../../FlameGraph/stackcollapse-perf.pl | ../../../../../FlameGraph/flamegraph.pl > perf.svg",
     "trace-node": "node --trace-deopt out-node/app.js src/bench-compiler.fsproj --outDir ./out-node2 > deopt.log",
-    "trace-rust": "dotnet trace collect --duration 00:00:01:00 --format speedscope -- dotnet src/bin/Release/net8.0/bench-compiler.dll ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir ./out-tests-rust --fableLib ./out-lib-rust --lang Rust",
+    "trace-rust": "dotnet trace collect --duration 00:00:03:00 --format speedscope -- dotnet src/bin/Release/net8.0/bench-compiler.dll src/bench-compiler.fsproj --outDir ./out-rust2 --fableLib ./out-lib-rust --lang Rust",
+    "trace-rust-tests": "dotnet trace collect --duration 00:00:01:00 --format speedscope -- dotnet src/bin/Release/net8.0/bench-compiler.dll ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir ./out-tests-rust --fableLib ./out-lib-rust --lang Rust",
     "heaptrack-native": "heaptrack ./src/bin/Release/net8.0/linux-x64/native/bench-compiler src/bench-compiler.fsproj --outDir ./out-node2 --benchmark",
     "heaptrack-print": "heaptrack_print heaptrack.*.gz -F heap_alloc.log",
     "heaptrack-flamegraph": "../../../../../FlameGraph/flamegraph.pl --title \"heaptrack: allocations\" --colors mem --countname allocations < heap_alloc.log > heap_alloc.svg",

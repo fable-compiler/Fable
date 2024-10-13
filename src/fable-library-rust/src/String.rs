@@ -694,7 +694,7 @@ pub mod String_ {
     }
 
     pub fn splitStrings(s: string, ps: Array<string>, options: i32) -> Array<string> {
-        let mut a: Vec<&str> = vec![s.as_str()];
+        let mut a: Vec<&str> = [s.as_str()].into_iter().collect();
         for p in ps.iter() {
             a = a.iter().flat_map(|&s| s.split(p.as_str())).collect();
         }

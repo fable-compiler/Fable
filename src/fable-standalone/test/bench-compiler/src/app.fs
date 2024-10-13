@@ -291,8 +291,9 @@ let parseFiles projectFileName options =
             for fileName in fileNames do
 
                 // transform F# AST to target language AST
+                printf $"File: %s{fileName}"
                 let res, ms2 = measureTime parseFable (parseRes, fileName)
-                printfn $"File: %s{fileName}, Fable time: %d{ms2} ms"
+                printfn $", Fable time: %d{ms2} ms"
                 res.FableErrors |> printErrors showWarnings
 
                 // get output path
