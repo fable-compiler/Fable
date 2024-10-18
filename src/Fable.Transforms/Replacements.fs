@@ -1616,6 +1616,34 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", "concat", t, args, hasSpread = true, ?loc = r)
             |> Some
     | "CompareOrdinal", None, _ -> Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc = r) |> Some
+    | "Normalize", Some str, _ ->
+        match args with
+        | [] ->
+            Helper.InstanceCall(
+                str,
+                Naming.lowerFirst i.CompiledName,
+                t,
+                [ makeStrConst "NFC" ],
+                i.SignatureArgTypes,
+                genArgs = i.GenericArgs,
+                ?loc = r
+            )
+            |> Some
+        | [ NormalizationFormEnumValue normalizationForm ] ->
+            Helper.InstanceCall(
+                str,
+                Naming.lowerFirst i.CompiledName,
+                t,
+                [ makeStrConst normalizationForm ],
+                i.SignatureArgTypes,
+                genArgs = i.GenericArgs,
+                ?loc = r
+            )
+            |> Some
+        | _ ->
+            "Normalization expects an optional System.Text.NormalizationForm"
+            |> addErrorAndReturnNull com ctx.InlinePath r
+            |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         Helper.LibCall(
             com,
