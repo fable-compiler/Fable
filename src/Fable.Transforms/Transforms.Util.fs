@@ -823,6 +823,19 @@ module AST =
             Some()
         | _ -> None
 
+    let (|NormalizationFormEnumValue|_|) e =
+        match e with
+        | Expr.Value(
+            kind = NumberConstant(NumberValue.Int32 value,
+                                  NumberInfo.IsEnum({ FullName = "System.Text.NormalizationForm" }))) ->
+            match value with
+            | 1 -> Some "NFC"
+            | 2 -> Some "NFD"
+            | 5 -> Some "NFKC"
+            | 6 -> Some "NFKD"
+            | _ -> None
+        | _ -> None
+
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     // This is mainly used for inlining so a computation or a reference to a mutable value are understood
     // as a side effects too (because we don't want to duplicate or change the order of execution)

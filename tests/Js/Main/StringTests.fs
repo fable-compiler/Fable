@@ -831,12 +831,12 @@ let tests = testList "Strings" [
         for arg in args do
                 "abcd".EndsWith(fst arg)
                 |> equal (snd arg)
-    
+
     testCase "String.EndsWith with OrdinalIgnoreCase works" <| fun () ->
         let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
         for arg in args do
                 "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-                |> equal (snd arg)                
+                |> equal (snd arg)
 
     testCase "String.Trim works" <| fun () ->
         "   abc   ".Trim()
@@ -965,6 +965,15 @@ let tests = testList "Strings" [
         |> equal "abc"
         String.Concat(seq { yield "a"; yield "b"; yield "c" })
         |> equal "abc"
+
+    testCase "System.String.Normalize works" <| fun () ->
+        let name1 = "\u0041\u006d\u00e9\u006c\u0069\u0065";
+        let name2 = "\u0041\u006d\u0065\u0301\u006c\u0069\u0065";
+        notEqual name1 name2
+
+        let normalized1 = name1.Normalize System.Text.NormalizationForm.FormC
+        let normalized2 = name2.Normalize System.Text.NormalizationForm.FormC
+        equal normalized1 normalized2
 
     testCase "System.String.Join with long array works" <| fun () ->
         let n = 1_000_000
