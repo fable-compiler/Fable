@@ -166,7 +166,7 @@ module UsageTracking =
     //         | Fable.DecisionTree(expr, targets) ->
     //             loop "dectree" targets true expr //@ (List.map snd targets |> List.collect (loop consumingRef))
     //         | Fable.DecisionTreeSuccess(targetIdx, boundValues, _ ) ->
-    //             //getDecisionTargetAndBindValues
+    //             //getDecisionTargetAndBoundValues
     //             let dcexpr = List.tryItem targetIdx decTreeTargets |> Option.map snd |> Option.toList
     //             (boundValues @ dcexpr) |> List.collect (loop $"dtsuc{targetIdx}" decTreeTargets consumingRef)
     //         | Fable.Get(expr, kind, _, _) ->
@@ -295,8 +295,19 @@ module UsageTracking =
         | Fable.IdentExpr ident when ident.Name = name -> subCount + 1 // count each ident with the same name
         | Fable.ForLoop _
         | Fable.WhileLoop _ -> subCount * 2 // usage in loops counts as multiple uses
-        | Fable.DecisionTree _ when subCount > 1 -> subCount * 2 // usage in complex decision trees can vary
+        | Fable.DecisionTree _ -> subCount * 2 // usage in complex decision trees can vary
         | _ -> subCount + 0 // anything else is zero
+
+    let calcIdentUsages idents exprs =
+        let usageCounts =
+            idents
+            |> List.map (fun (ident: Fable.Ident) ->
+                let count = exprs |> List.map (fun e -> countIdentUsage ident.Name e) |> List.sum
+
+                ident.Name, count
+            )
+
+        usageCounts |> Map
 
 module TypeInfo =
 
@@ -1232,12 +1243,15 @@ module Util =
         | None -> failwith $"Cannot find DecisionTree target %i{targetIndex}"
         | Some(idents, target) -> idents, target
 
-    let transformIdent com ctx r (ident: Fable.Ident) =
+    let updateUsageCount com ctx (ident: Fable.Ident) =
         match ctx.ScopedSymbols |> Map.tryFind ident.Name with
         | Some varAttrs ->
-            //ident has been seen, subtract 1
+            // ident has been seen, subtract 1
             varAttrs.UsageCount <- varAttrs.UsageCount - 1
         | None -> ()
+
+    let transformIdent com ctx r (ident: Fable.Ident) =
+        updateUsageCount com ctx ident
 
         // prevents emitting self on inlined code
         if ident.IsThisArgument && ctx.IsAssocMember then
@@ -1461,8 +1475,8 @@ module Util =
     let makeClone expr =
         mkMethodCallExprOnce "clone" None expr []
 
-    // let makeUnwrap expr =
-    //     mkMethodCallExprOnce "unwrap" None expr []
+    let makeUnwrap expr =
+        mkMethodCallExprOnce "unwrap" None expr []
 
     /// Calling this on an rc guarantees a &T, regardless of if the Rc is a ref or not
     let makeAsRef expr = mkMethodCallExpr "as_ref" None expr []
@@ -1570,21 +1584,6 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformExpr(ctx, last))]
         | args ->
-            let optionalArgs =
-                if args.Length < parameters.Length then
-                    parameters
-                    |> List.skip args.Length
-                    |> List.filter (fun p -> p.IsOptional)
-                    |> List.map (fun p ->
-                        match p.Type with
-                        | Fable.Option(t, isStruct) -> Fable.Value(Fable.NewOption(None, t, isStruct), None)
-                        | _ -> failwith "unreachable"
-                    )
-                else
-                    []
-
-            let args = List.append args optionalArgs
-
             let argsWithTypes =
                 if argTypes.Length = args.Length then
                     args |> List.zip argTypes |> List.map (fun (t, a) -> Some t, a)
@@ -1857,6 +1856,14 @@ module Util =
             entName + "::" + unionCase.Name
         )
 
+    let getUnionCaseFields com ctx name tag (unionCase: Fable.UnionCase) =
+        unionCase.UnionCaseFields
+        |> List.mapi (fun i field ->
+            let fieldName = $"{name}_{tag}_{i}"
+            let fieldType = FableTransforms.uncurryType field.FieldType
+            makeTypedIdent fieldType fieldName
+        )
+
     let makeUnion (com: IRustCompiler) ctx r values tag entRef genArgs =
         let ent = com.GetEntity(entRef)
         let genArgsOpt = transformGenArgs com ctx genArgs
@@ -1995,9 +2002,11 @@ module Util =
         let mustClone =
             match e with
             | MaybeCasted(Fable.IdentExpr ident) ->
+                // isArmScoped ctx ident.Name ||
                 // clone non-mutable idents if used more than once
                 not (ident.IsMutable) && not (isUsedOnce ctx ident.Name) //&& not (isByRefType com ident.Type)
             | Fable.Get(_, Fable.FieldGet _, _, _) -> true // always clone field get exprs
+            | Fable.Get(_, Fable.UnionField _, _, _) -> true // always clone union case get exprs
             // | Fable.Get(_, _, _, _) -> //TODO: clone other gets ???
             | _ -> false
 
@@ -2514,7 +2523,10 @@ module Util =
                 // if arm scoped, just output the ident value
                 let name = $"{ident.Name}_{0}_{0}"
                 mkGenericPathExpr [ name ] None
-            | _ -> libCall com ctx range [] "Option" "getValue" [ fableExpr ]
+            | _ ->
+                // libCall com ctx range [] "Option" "getValue" [ fableExpr ]
+                let expr = com.TransformExpr(ctx, fableExpr)
+                expr |> makeClone |> makeUnwrap
 
         | Fable.UnionTag ->
             let expr = com.TransformExpr(ctx, fableExpr)
@@ -2524,11 +2536,11 @@ module Util =
         | Fable.UnionField info ->
             match fableExpr with
             | Fable.IdentExpr ident when isArmScoped ctx ident.Name ->
-                // if arm scoped, just output the ident value
+                // if ident is match arm scoped, just output the ident value
                 let name = $"{ident.Name}_{info.CaseIndex}_{info.FieldIndex}"
                 mkGenericPathExpr [ name ] None
             | _ ->
-                // compile as: "if let MyUnion::Case(x, _) = opt { x } else { unreachable!() }"
+                // Compile as: "match opt { MyUnion::Case(x, _) => x.clone() }"
                 let ent = com.GetEntity(info.Entity)
                 assert (ent.IsFSharpUnion)
                 // let genArgsOpt = transformGenArgs com ctx genArgs // TODO:
@@ -2560,11 +2572,6 @@ module Util =
                         arms
 
                 mkMatchExpr expr arms
-    // TODO : Cannot use if let because it moves references out of their Rc's, which breaks borrow checker. We cannot bind
-    // let ifExpr = mkLetExpr pat expr
-    // let thenExpr = mkGenericPathExpr [fieldName] None
-    // let elseExpr = mkMacroExpr "unreachable" []
-    // mkIfThenElseExpr ifExpr thenExpr elseExpr
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (fableValue: Fable.Expr) kind =
         let expr = transformCallee com ctx fableExpr
@@ -2635,22 +2642,24 @@ module Util =
         | Fable.DelegateType _ -> true
         | t -> t.Generics |> List.exists hasFuncOrAnyType
 
-    let makeLocalStmt com ctx (ident: Fable.Ident) tyOpt initOpt isRef usages =
-        let local = mkIdentLocal [] ident.Name tyOpt initOpt
-
+    let getScopedIdentCtx com ctx (ident: Fable.Ident) isArm isRef isBox isFunc usages =
         let scopedVarAttrs =
             {
-                IsArm = false
+                IsArm = isArm
                 IsRef = isRef
-                IsBox = false
-                IsFunc = false
+                IsBox = isBox
+                IsFunc = isFunc
                 UsageCount = usageCount ident.Name usages
             }
 
         let scopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs
 
-        let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
-        mkLocalStmt local, ctxNext
+        { ctx with ScopedSymbols = scopedSymbols }
+
+    let makeLocalStmt com ctx (ident: Fable.Ident) tyOpt initOpt isRef usages =
+        let local = mkIdentLocal [] ident.Name tyOpt initOpt
+        let ctx = getScopedIdentCtx com ctx ident false isRef false false usages
+        mkLocalStmt local, ctx
 
     let makeLetStmt com ctx (ident: Fable.Ident) value isCaptured usages =
         // TODO: traverse body and follow references to decide if this should be wrapped or not
@@ -2730,16 +2739,7 @@ module Util =
         let usages =
             let idents, values = List.unzip bindings
             let exprs = body :: values
-
-            let usageCounts =
-                idents
-                |> List.map (fun ident ->
-                    let count = exprs |> List.map (fun e -> countIdentUsage ident.Name e) |> List.sum
-
-                    ident.Name, count
-                )
-
-            usageCounts |> Map
+            calcIdentUsages idents exprs
 
         let letStmts, ctx = makeLetStmts com ctx bindings body usages
 
@@ -2756,13 +2756,28 @@ module Util =
         exprs |> List.map (transformAsStmt com ctx) |> mkStmtBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
+        // match transformDecisionTreeAsSwitch guard thenBody elseBody with
+        // | Some(evalExpr, cases, defaultCase) ->
+        //     transformSwitch com ctx evalExpr cases defaultCase ctx.DecisionTargets
+        // | _ ->
         let guardExpr =
             match guard with
             | Fable.Test(expr, Fable.TypeTest typ, r) -> transformTypeTest com ctx r true typ expr
-            | Fable.Test(expr, Fable.UnionCaseTest tag, r) -> transformUnionCaseTest com ctx r tag expr
-            | _ -> transformExpr com ctx guard
+            | Fable.Test(expr, Fable.OptionTest isSome, r) -> makeOptionTest com ctx r isSome expr
+            | Fable.Test(expr, Fable.UnionCaseTest tag, r) -> makeUnionCaseTest com ctx r tag expr
+            | _ -> transformLeaveContext com ctx None guard
 
-        let thenExpr = transformLeaveContext com ctx None thenBody
+        let thenExpr =
+            let ctx =
+                match guard with
+                // | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest _, _)
+                | Fable.Test(Fable.IdentExpr ident, Fable.UnionCaseTest _, _) ->
+                    // add scoped ident to ctx for thenBody
+                    let usages = calcIdentUsages [ ident ] [ thenBody ]
+                    getScopedIdentCtx com ctx ident true true false false usages
+                | _ -> ctx
+
+            transformLeaveContext com ctx None thenBody
 
         match elseBody with
         | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr guardExpr thenExpr // ?loc=range)
@@ -2788,7 +2803,6 @@ module Util =
             else
                 // downward loop
                 let rangeExpr = mkRangeExpr (Some limitExpr) (Some startExpr) true |> mkParenExpr
-
                 mkMethodCallExpr "rev" None rangeExpr []
 
         mkForLoopExpr None varPat rangeExpr bodyExpr // ?loc=range)
@@ -2874,7 +2888,7 @@ module Util =
             mkLetExpr pat downcastExpr
         | _ -> makeLibCall com ctx genArgsOpt "Native" "type_test" [ expr ]
 
-    let transformUnionCaseTest (com: IRustCompiler) ctx range tag (fableExpr: Fable.Expr) : Rust.Expr =
+    let makeUnionCaseTest (com: IRustCompiler) ctx range tag (fableExpr: Fable.Expr) =
         match fableExpr.Type with
         | Fable.DeclaredType(entRef, genArgs) ->
             let ent = com.GetEntity(entRef)
@@ -2885,11 +2899,8 @@ module Util =
             let fields =
                 match fableExpr with
                 | Fable.IdentExpr ident ->
-                    unionCase.UnionCaseFields
-                    |> List.mapi (fun i _field ->
-                        let fieldName = $"{ident.Name}_{tag}_{i}"
-                        makeFullNameIdentPat fieldName
-                    )
+                    let fieldIdents = getUnionCaseFields com ctx ident.Name tag unionCase
+                    fieldIdents |> List.map (fun fi -> makeFullNameIdentPat fi.Name)
                 | _ ->
                     if List.isEmpty unionCase.UnionCaseFields then
                         []
@@ -2903,21 +2914,25 @@ module Util =
                 fableExpr
                 |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
 
-            mkLetExpr pat expr
+            let letExpr = mkLetExpr pat expr
+            letExpr
         | _ -> failwith "unreachable"
 
-    let transformTest (com: IRustCompiler) ctx range kind (fableExpr: Fable.Expr) : Rust.Expr =
+    let makeTest isSome thenValue elseValue =
+        if isSome then
+            thenValue
+        else
+            elseValue
+
+    let makeOptionTest com ctx range isSome (fableExpr: Fable.Expr) =
+        let test = makeTest isSome "is_some" "is_none"
+        let expr = com.TransformExpr(ctx, fableExpr)
+        mkMethodCallExpr test None expr []
+
+    let transformTest com ctx range kind (fableExpr: Fable.Expr) : Rust.Expr =
         match kind with
         | Fable.TypeTest typ -> transformTypeTest com ctx range false typ fableExpr
-        | Fable.OptionTest isSome ->
-            let test =
-                if isSome then
-                    "is_some"
-                else
-                    "is_none"
-
-            let expr = com.TransformExpr(ctx, fableExpr)
-            mkMethodCallExpr test None expr []
+        | Fable.OptionTest isSome -> makeOptionTest com ctx range isSome fableExpr
         | Fable.ListTest nonEmpty ->
             let expr = libCall com ctx range [] "List" "isEmpty" [ fableExpr ]
 
@@ -2926,31 +2941,10 @@ module Util =
             else
                 expr //, ?loc=range
         | Fable.UnionCaseTest tag ->
-            match fableExpr.Type with
-            | Fable.DeclaredType(entRef, genArgs) ->
-                let ent = com.GetEntity(entRef)
-                assert (ent.IsFSharpUnion)
-                // let genArgsOpt = transformGenArgs com ctx genArgs // TODO:
-                let unionCase = ent.UnionCases |> List.item tag
-
-                let fields =
-                    if List.isEmpty unionCase.UnionCaseFields then
-                        []
-                    else
-                        [ WILD_PAT ]
-
-                let unionCaseName = getUnionCaseName com ctx entRef unionCase
-                let pat = makeUnionCasePat unionCaseName fields
-
-                let expr =
-                    fableExpr
-                    |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
-
-                let guardExpr = mkLetExpr pat expr
-                let thenExpr = mkBoolLitExpr true
-                let elseExpr = mkBoolLitExpr false
-                mkIfThenElseExpr guardExpr thenExpr elseExpr
-            | _ -> failwith "unreachable"
+            let guardExpr = makeUnionCaseTest com ctx range tag fableExpr
+            let thenExpr = mkBoolLitExpr true
+            let elseExpr = mkBoolLitExpr false
+            mkIfThenElseExpr guardExpr thenExpr elseExpr
 
     let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase targets : Rust.Expr =
         let namesForIndex evalType evalName caseIndex = //todo refactor with below
@@ -2988,31 +2982,17 @@ module Util =
             // TODO: vars, boundValues
             let body =
                 //com.TransformExpr(ctx, bodyExpr)
-                // let usages = calcIdentUsages bodyExpr
-                let getScope name =
-                    let scopedVarAttrs =
-                        {
-                            IsArm = true
-                            IsRef = true
-                            IsBox = false
-                            IsFunc = false
-                            UsageCount = countIdentUsage name bodyExpr
-                        }
+                let extraIdents =
+                    extraVals
+                    |> List.map (fun (_name, friendlyName, typ) -> makeTypedIdent typ friendlyName)
 
-                    name, scopedVarAttrs
+                let allIdents = idents @ extraIdents
+                let usages = calcIdentUsages allIdents [ bodyExpr ]
 
-                let symbolsAndNames =
-                    let fromIdents = idents |> List.map (fun ident -> getScope ident.Name)
+                let ctx =
+                    (ctx, allIdents)
+                    ||> List.fold (fun ctx ident -> getScopedIdentCtx com ctx ident true true false false usages)
 
-                    let fromExtra =
-                        extraVals |> List.map (fun (_name, friendlyName, _t) -> getScope friendlyName)
-
-                    fromIdents @ fromExtra
-
-                let scopedSymbols =
-                    Helpers.Map.merge ctx.ScopedSymbols (symbolsAndNames |> Map.ofList)
-
-                let ctx = { ctx with ScopedSymbols = scopedSymbols }
                 transformLeaveContext com ctx None bodyExpr
 
             mkArm attrs pat guard body
@@ -3130,7 +3110,7 @@ module Util =
         else
             failwith "Target idents/values lengths differ"
 
-    let getDecisionTargetAndBindValues (com: IRustCompiler) (ctx: Context) targetIndex boundValues =
+    let getDecisionTargetAndBoundValues (com: IRustCompiler) (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex
         let identsAndValues = matchTargetIdentAndValues idents boundValues
 
@@ -3145,13 +3125,13 @@ module Util =
                 )
 
             let target = FableTransforms.replaceValues replacements target
-            List.rev bindings, target
+            target, List.rev bindings
         else
-            identsAndValues, target
+            target, identsAndValues
 
     let transformDecisionTreeSuccess (com: IRustCompiler) (ctx: Context) targetIndex boundValues =
-        let bindings, target =
-            getDecisionTargetAndBindValues com ctx targetIndex boundValues
+        let target, bindings =
+            getDecisionTargetAndBoundValues com ctx targetIndex boundValues
 
         match bindings with
         | [] -> transformLeaveContext com ctx None target
@@ -3161,7 +3141,7 @@ module Util =
 
             transformLeaveContext com ctx None target
 
-    let transformDecisionTreeAsSwitch expr =
+    let transformDecisionTreeAsSwitch guardExpr thenExpr elseExpr =
         let (|Equals|_|) =
             function
             | Fable.Operation(Fable.Binary(BinaryEqual, left, right), _, _, _) ->
@@ -3175,14 +3155,7 @@ module Util =
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
 
-                let right =
-                    makeIntConst (
-                        if isSome then
-                            0
-                        else
-                            1
-                    )
-
+                let right = makeIntConst (makeTest isSome 0 1)
                 Some(evalExpr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, r) ->
                 let evalExpr =
@@ -3218,7 +3191,6 @@ module Util =
                 match treeExpr with
                 | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
                     let cases = (caseExpr, targetIndex, boundValues) :: cases
-
                     Some(evalExpr, List.rev cases, (defaultTargetIndex, defaultBoundValues))
                 | treeExpr ->
                     let cases = (caseExpr, targetIndex, boundValues) :: cases
@@ -3227,13 +3199,15 @@ module Util =
                 Some(evalExpr, List.rev cases, (defaultTargetIndex, defaultBoundValues))
             | _ -> None
 
-        match expr with
-        | Fable.IfThenElse(Equals(evalExpr, caseExpr),
-                           Fable.DecisionTreeSuccess(targetIndex, boundValues, _),
-                           treeExpr,
-                           _) ->
+        match guardExpr, thenExpr with
+        | Equals(evalExpr, caseExpr), Fable.DecisionTreeSuccess(targetIndex, boundValues, _) ->
             let cases = [ (caseExpr, targetIndex, boundValues) ]
-            checkInner cases evalExpr treeExpr
+
+            match checkInner cases evalExpr elseExpr with
+            | Some(evalExpr, cases, defaultCase) ->
+                // let cases = groupSwitchCases cases defaultCase
+                Some(evalExpr, cases, defaultCase)
+            | _ -> None
         | _ -> None
 
     // let simplifyDecisionTree (treeExpr: Fable.Expr) =
@@ -3252,13 +3226,82 @@ module Util =
     //                 Fable.DecisionTreeSuccess(index2,[],t),r)
     //         | e -> e)
 
+    // let simplifyDecisionTree_tuples (treeExpr: Fable.Expr) =
+    //     let rec gatherTuple acc index r expr =
+    //         match expr with
+    //         | Fable.IfThenElse(
+    //             guardExpr,
+    //             thenExpr,
+    //             Fable.DecisionTreeSuccess(index2, [], t2), r2)
+    //             when index2 = index ->
+    //                 gatherTuple (guardExpr::acc) index r thenExpr
+    //         | _ ->
+    //             match acc with
+    //             | [] -> expr
+    //             | [guardExpr] -> expr // no tuple found
+    //             | _ ->
+    //                 let guardExpr = Fable.Value(Fable.NewTuple(List.rev acc, true), None)
+    //                 Fable.IfThenElse(
+    //                     guardExpr,
+    //                     expr,
+    //                     Fable.DecisionTreeSuccess(index, [], guardExpr.Type), r)
+
+    //     match treeExpr with
+    //     | Fable.IfThenElse(_, _, Fable.DecisionTreeSuccess(index, [], t), r) ->
+    //         gatherTuple [] index r treeExpr
+    //     | expr -> expr
+
+    let tryTransformAsSwitch =
+        function
+        | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, _) ->
+            transformDecisionTreeAsSwitch guardExpr thenExpr elseExpr
+        | _ -> None
+
     let transformDecisionTree (com: IRustCompiler) ctx targets (expr: Fable.Expr) : Rust.Expr =
         // let expr = simplifyDecisionTree expr
-        match transformDecisionTreeAsSwitch expr with
+        match tryTransformAsSwitch expr with
         | Some(evalExpr, cases, defaultCase) -> transformSwitch com ctx evalExpr cases defaultCase targets
         | None ->
             let ctx = { ctx with DecisionTargets = targets }
             com.TransformExpr(ctx, expr)
+
+    // let groupSwitchCases (cases: (Fable.Expr * Fable.Expr) list) defaultCase =
+    //     let canBeGrouped, cannotBeGrouped =
+    //         cases
+    //         |> List.partition (
+    //             function
+    //             | _, Fable.DecisionTreeSuccess(_, [], _) -> true
+    //             | _ -> false
+    //         )
+
+    //     let grouped =
+    //         canBeGrouped
+    //         |> List.groupBy (
+    //             function
+    //             | _, Fable.DecisionTreeSuccess(idx, _, _) -> idx
+    //             | _ -> failwith "unexpected group candidate"
+    //         )
+    //         |> List.map (fun (_, cases) ->
+    //             let caseExprs = cases |> List.map fst
+    //             caseExprs, List.head cases |> snd
+    //         )
+
+    //     let cases =
+    //         if grouped |> List.exists (fst >> List.isMultiple) then
+    //             grouped @ List.map (fun (e, b) -> [ e ], b) cannotBeGrouped
+    //         else
+    //             List.map (fun (e, b) -> [ e ], b) cases
+
+    //     match defaultCase with
+    //     // Remove cases that can be grouped with the default branch, see #2357
+    //     | Fable.DecisionTreeSuccess(defaultIndex, [], _) ->
+    //         cases
+    //         |> List.filter (
+    //             function
+    //             | _, Fable.DecisionTreeSuccess(idx, [], _) -> idx <> defaultIndex
+    //             | _ -> true
+    //         )
+    //     | _ -> cases
 
     let rec transformExpr (com: IRustCompiler) ctx (fableExpr: Fable.Expr) : Rust.Expr =
         match fableExpr with
@@ -3588,25 +3631,6 @@ module Util =
         capturedIdents
 
     let getFunctionBodyCtx com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) isTailRec =
-        // let usages = calcIdentUsages body
-        let scopedSymbols =
-            (ctx.ScopedSymbols, args)
-            ||> List.fold (fun acc arg ->
-                //TODO: optimizations go here
-                let scopedVarAttrs =
-                    {
-                        IsArm = false
-                        IsRef =
-                            arg.IsThisArgument && ctx.IsAssocMember
-                            || isByRefType com arg.Type
-                            || ctx.IsParamByRefPreferred
-                        IsBox = false
-                        IsFunc = false
-                        UsageCount = countIdentUsage arg.Name body
-                    }
-
-                acc |> Map.add arg.Name scopedVarAttrs
-            )
 
         let tco =
             if isTailRec then
@@ -3614,8 +3638,20 @@ module Util =
             else
                 None
 
+        let usages = calcIdentUsages args [ body ]
+
+        let ctx =
+            (ctx, args)
+            ||> List.fold (fun ctx arg ->
+                let isRef =
+                    arg.IsThisArgument && ctx.IsAssocMember
+                    || isByRefType com arg.Type
+                    || ctx.IsParamByRefPreferred
+
+                getScopedIdentCtx com ctx arg false isRef false false usages
+            )
+
         { ctx with
-            ScopedSymbols = scopedSymbols
             IsParamByRefPreferred = false
             TailCallOpportunity = tco
         }
@@ -3816,21 +3852,6 @@ module Util =
     let makeMemberGenerics com ctx (genParams: Fable.GenericParam list) =
         makeGenericParams com ctx genParams |> mkGenerics
 
-    let makeNestedFuncCtx com ctx (ident: Fable.Ident) usages =
-        let scopedVarAttrs =
-            {
-                IsArm = false
-                IsRef = false
-                IsBox = false
-                IsFunc = true // means it's a local (nested) fn, not a closure
-                UsageCount = usageCount ident.Name usages
-            }
-
-        let scopedSymbols = ctx.ScopedSymbols |> Map.add ident.Name scopedVarAttrs
-
-        let ctxNext = { ctx with ScopedSymbols = scopedSymbols }
-        ctxNext
-
     let makeFnHeader com ctx (attributes: Fable.Attribute seq) : Rust.FnHeader =
         let isAsync = attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustAsync)
         let isConst = attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustConst)
@@ -3869,8 +3890,9 @@ module Util =
         let fnKind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs = []
         let fnItem = mkFnItem attrs name fnKind
-        let ctxNext = makeNestedFuncCtx com ctx ident usages
-        mkItemStmt fnItem, ctxNext
+        let isFunc = true
+        let ctx = getScopedIdentCtx com ctx ident false false false isFunc usages
+        mkItemStmt fnItem, ctx
 
     let transformXmlDoc com ctx (xmlDoc: string option) =
         // convert XmlDoc to line comment attributes

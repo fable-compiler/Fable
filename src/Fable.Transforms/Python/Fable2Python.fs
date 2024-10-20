@@ -2590,9 +2590,8 @@ module Util =
         else
             failwith "Target idents/values lengths differ"
 
-    let getDecisionTargetAndBindValues (com: IPythonCompiler) (ctx: Context) targetIndex boundValues =
+    let getDecisionTargetAndBoundValues (com: IPythonCompiler) (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex
-
         let identsAndValues = matchTargetIdentAndValues idents boundValues
 
         if not com.Options.DebugMode then
@@ -2606,13 +2605,13 @@ module Util =
                 )
 
             let target = FableTransforms.replaceValues replacements target
-            List.rev bindings, target
+            target, List.rev bindings
         else
-            identsAndValues, target
+            target, identsAndValues
 
     let transformDecisionTreeSuccessAsExpr (com: IPythonCompiler) (ctx: Context) targetIndex boundValues =
-        let bindings, target =
-            getDecisionTargetAndBindValues com ctx targetIndex boundValues
+        let target, bindings =
+            getDecisionTargetAndBoundValues com ctx targetIndex boundValues
 
         match bindings with
         | [] -> com.TransformAsExpr(ctx, target)
@@ -2667,8 +2666,8 @@ module Util =
 
             targetAssignment @ assignments
         | ret ->
-            let bindings, target =
-                getDecisionTargetAndBindValues com ctx targetIndex boundValues
+            let target, bindings =
+                getDecisionTargetAndBoundValues com ctx targetIndex boundValues
 
             let bindings =
                 bindings
