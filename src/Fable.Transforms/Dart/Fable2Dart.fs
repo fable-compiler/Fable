@@ -1590,7 +1590,7 @@ module Util =
         else
             failwith "Target idents/values lengths differ"
 
-    let getDecisionTargetAndBindValues (com: IDartCompiler) (ctx: Context) targetIndex boundValues =
+    let getDecisionTargetAndBoundValues (com: IDartCompiler) (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex
         let identsAndValues = matchTargetIdentAndValues idents boundValues
 
@@ -1605,9 +1605,9 @@ module Util =
                 )
 
             let target = FableTransforms.replaceValues replacements target
-            List.rev bindings, target
+            target, List.rev bindings
         else
-            identsAndValues, target
+            target, identsAndValues
 
     let transformDecisionTreeSuccess (com: IDartCompiler) (ctx: Context) returnStrategy targetIndex boundValues =
         match returnStrategy with
@@ -1627,8 +1627,8 @@ module Util =
 
             targetAssignment :: assignments, None
         | ret ->
-            let bindings, target =
-                getDecisionTargetAndBindValues com ctx targetIndex boundValues
+            let target, bindings =
+                getDecisionTargetAndBoundValues com ctx targetIndex boundValues
 
             let ctx, bindings =
                 ((ctx, []), bindings)
