@@ -2896,14 +2896,14 @@ module Util =
             let unionCaseFullName = [ "Some"; "None" ] |> List.item caseIndex |> rawIdent
 
             let fields =
-                match nameOpt with
-                | Some identName ->
-                    match caseIndex with
-                    | 0 ->
+                match caseIndex with
+                | 0 ->
+                    match nameOpt with
+                    | Some identName ->
                         let fieldName = $"{identName}_{caseIndex}_{0}"
                         [ makeFullNameIdentPat fieldName ]
-                    | _ -> []
-                | _ -> [ WILD_PAT ]
+                    | _ -> [ WILD_PAT ]
+                | _ -> []
 
             let unionCaseName =
                 tryUseKnownUnionCaseNames unionCaseFullName
@@ -2926,11 +2926,7 @@ module Util =
                             let fieldName = $"{identName}_{caseIndex}_{i}"
                             makeFullNameIdentPat fieldName
                         )
-                    | _ ->
-                        if List.isEmpty unionCase.UnionCaseFields then
-                            []
-                        else
-                            [ WILD_PAT ]
+                    | _ -> unionCase.UnionCaseFields |> List.map (fun _field -> WILD_PAT)
 
                 let unionCaseName = getUnionCaseName com ctx entRef unionCase
                 let pat = makeUnionCasePat unionCaseName fields
