@@ -2829,10 +2829,12 @@ module Util =
             // try...finally
             match finalizer with
             | Some finBody ->
-                let f = makeLocalLambda com ctx [] finBody
-                let finAlloc = makeLibCall com ctx None "Exception" "finally" [ f ]
+                let f = transformLambda com ctx None [] finBody
+                let finCall = makeLibCall com ctx None "Exception" "finally" [ f ]
+                let finPat = makeFullNameIdentPat "__finally__"
+                let letExpr = mkLetExpr finPat finCall
                 let bodyExpr = transformExpr com ctx body
-                [ finAlloc |> mkSemiStmt; bodyExpr |> mkExprStmt ] |> mkStmtBlockExpr
+                [ letExpr |> mkSemiStmt; bodyExpr |> mkExprStmt ] |> mkStmtBlockExpr
             | _ ->
                 // no catch, no finalizer
                 transformExpr com ctx body
@@ -3635,11 +3637,10 @@ module Util =
             TailCallOpportunity = tco
         }
 
-    let isTailRecursive (name: string option) (body: Fable.Expr) =
-        if name.IsNone then
-            false, false
-        else
-            FableTransforms.isTailRecursive name.Value body
+    let isTailRecursive (nameOpt: string option) (body: Fable.Expr) =
+        match nameOpt with
+        | Some name -> FableTransforms.isTailRecursive name body
+        | None -> false, false
 
     let transformFunctionBody com ctx (args: Fable.Ident list) (body: Fable.Expr) =
         match ctx.TailCallOpportunity with

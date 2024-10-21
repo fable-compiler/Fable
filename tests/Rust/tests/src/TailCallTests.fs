@@ -73,28 +73,28 @@ module Functions =
         | 0 -> x
         | _ -> iterate f (n - 1) (f x)
 
-    // let recWithFinally () =
-    //     let mutable log = ""
-    //     let rec test n =
-    //       try
-    //         log <- log + string "abcde"[n]
-    //         if n < 4 then test (n+1)
-    //       finally
-    //         log <- log + string "ABCDE"[n]
-    //     test 0
-    //     log
+    let recWithFinally () =
+        let mutable log = ""
+        let rec test n =
+            try
+                log <- log + string "abcde".[n]
+                if n < 4 then test (n+1)
+            finally
+                log <- log + string "ABCDE".[n]
+        test 0
+        log
 
-    // let recWithUse () =
-    //     let mutable log = ""
-    //     let disp(n) =
-    //       { new System.IDisposable with
-    //           member x.Dispose() = log <- log + string "ABCDE"[n] }
-    //     let rec test n =
-    //       use _disp = disp(n)
-    //       log <- log + string "abcde"[n]
-    //       if n < 4 then test (n+1) else 0
-    //     test 0 |> ignore
-    //     log
+    let recWithUse () =
+        let mutable log = ""
+        let disp(n) =
+            { new System.IDisposable with
+                member x.Dispose() = log <- log + string "ABCDE".[n] }
+        let rec test n =
+            use _disp = disp(n)
+            log <- log + string "abcde".[n]
+            if n < 4 then test (n+1) else 0
+        test 0 |> ignore
+        log
 
 open Functions
 
@@ -133,13 +133,13 @@ and parseTokens tokens = function
     | x::xs -> parseTokens tokens xs
     | [] -> List.rev tokens
 
-// type Element =
-//     | Element of action: (unit->unit) * children: Element list
-//     member this.Activate() =
-//         match this with
-//         | Element(action, children) ->
-//             action()
-//             for child in children do child.Activate()
+type Element =
+    | Element of action: (unit->unit) * children: Element list
+    member this.Activate() =
+        match this with
+        | Element(action, children) ->
+            action()
+            for child in children do child.Activate()
 
 [<Fact>]
 let ``Tailcall works in tail position`` () =
@@ -204,13 +204,13 @@ let ``Tailcall optimization doesn't cause endless loops`` () = // See #675
     |> tryFind "a"
     |> equal None
 
-// [<Fact>]
-// let ``Recursive functions containing finally work`` () =
-//     recWithFinally () |> equal "abcdeEDCBA"
+[<Fact>]
+let ``Recursive functions containing finally work`` () =
+    recWithFinally () |> equal "abcdeEDCBA"
 
-// [<Fact>]
-// let ``Recursive functions containing use work`` () =
-//     recWithUse () |> equal "abcdeEDCBA"
+[<Fact>]
+let ``Recursive functions containing use work`` () =
+    recWithUse () |> equal "abcdeEDCBA"
 
 [<Fact>]
 let ``Function arguments can be optimized`` () = // See #681
@@ -220,22 +220,22 @@ let ``Function arguments can be optimized`` () = // See #681
 let ``Function arguments can be optimized II`` () = // See #681
     iterate ((*) 2) 5 10 |> equal 320
 
-// // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
-// [<Fact>]
-// let ``State of internally mutated tail called function parameters is preserved properly`` () =
-//     let rec loop i lst =
-//         if i <= 0
-//         then lst
-//         else loop (i - 1) ((fun () -> i) :: lst)
-//     loop 3 [] |> List.map (fun f -> f()) |> equal [1;2;3]
+// See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
+[<Fact>]
+let ``State of internally mutated tail called function parameters is preserved properly`` () =
+    let rec loop i lst =
+        if i <= 0
+        then lst
+        else loop (i - 1) ((fun () -> i) :: lst)
+    loop 3 [] |> List.map (fun f -> f()) |> equal [1;2;3]
 
-// [<Fact>]
-// let ``State of internally mutated tail called function parameters is preserved properly II`` () =
-//     let rec loop lst i =
-//         if i <= 0
-//         then lst
-//         else loop ((fun () -> i) :: lst) (i - 1)
-//     loop [] 3 |> List.map (fun f -> f()) |> equal [1;2;3]
+[<Fact>]
+let ``State of internally mutated tail called function parameters is preserved properly II`` () =
+    let rec loop lst i =
+        if i <= 0
+        then lst
+        else loop ((fun () -> i) :: lst) (i - 1)
+    loop [] 3 |> List.map (fun f -> f()) |> equal [1;2;3]
 
 // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
 [<Fact>]

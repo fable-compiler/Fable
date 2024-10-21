@@ -35,7 +35,7 @@ let isTailRecursive identName expr =
             getSubExpressions e |> List.iter (loop false)
         | Sequential exprs ->
             let lastIndex = (List.length exprs) - 1
-            exprs |> List.iteri (fun i e -> loop (i = lastIndex) e)
+            exprs |> List.iteri (fun i e -> loop (inTailPos && i = lastIndex) e)
         | Let(_, value, body) ->
             loop false value
             loop inTailPos body
