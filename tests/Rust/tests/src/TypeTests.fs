@@ -1132,7 +1132,7 @@ let ``copying struct records works`` () = // See #3371
 // let ``reraise works`` () =
 //     try
 //         try
-//             Exception("Will I be reraised?") |> raise
+//             System.Exception("Will I be reraised?") |> raise
 //         with _ ->
 //             try
 //                 reraise()

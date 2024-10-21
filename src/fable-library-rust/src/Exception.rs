@@ -1,5 +1,5 @@
 pub mod Exception_ {
-    use crate::Native_::{Any, Box_, LrcPtr};
+    use crate::Native_::{Any, Box_, Func0, LrcPtr};
     use crate::String_::{fromSlice, string};
     use crate::System::Exception;
     use crate::Util_::new_Exception;
@@ -41,14 +41,9 @@ pub mod Exception_ {
         }
     }
 
-    pub struct finally<F, R>(pub F)
-    where
-        F: FnMut() -> R;
+    pub struct finally<R: 'static>(pub Func0<R>);
 
-    impl<F, R> Drop for finally<F, R>
-    where
-        F: FnMut() -> R,
-    {
+    impl<R: 'static> Drop for finally<R> {
         fn drop(&mut self) {
             (self.0)();
         }
