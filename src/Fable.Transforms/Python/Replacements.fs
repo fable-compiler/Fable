@@ -1313,7 +1313,6 @@ let implementedStringFunctions =
         [|
             "Compare"
             "CompareTo"
-            "EndsWith"
             "Format"
             "IndexOfAny"
             "Insert"
@@ -1369,11 +1368,28 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | "StartsWith", Some c, [ _str ] ->
-        let left = Helper.InstanceCall(c, "find", Int32.Number, args)
-
-        makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
+        Helper.LibCall(com, "string", "startsWithExact", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
     | "StartsWith", Some c, [ _str; _comp ] ->
         Helper.LibCall(com, "string", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
+    | "StartsWith", Some c, [ value; ignoreCase; _culture ] ->
+        addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
+        let args = [ value; ignoreCase ]
+
+        Helper.LibCall(com, "string", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
+    | "EndsWith", Some c, [ _str ] ->
+        Helper.LibCall(com, "string", "endsWithExact", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
+    | "EndsWith", Some c, [ _str; _comp ] ->
+        Helper.LibCall(com, "string", "endsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
+    | "EndsWith", Some c, [ value; ignoreCase; _culture ] ->
+        addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
+        let args = [ value; ignoreCase ]
+
+        Helper.LibCall(com, "string", "endsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | ReplaceName [ "ToUpper", "upper"; "ToUpperInvariant", "upper"; "ToLower", "lower"; "ToLowerInvariant", "lower" ] methName,
       Some c,
