@@ -63,7 +63,7 @@ export function compareTo(x: string, y: string) {
   return cmp(x, y, StringComparison.CurrentCulture);
 }
 
-export function startsWith(str: string, pattern: string, ic: number) {
+export function startsWith(str: string, pattern: string, ic: boolean | StringComparison) {
   if (ic === StringComparison.Ordinal) { // to avoid substring allocation
     return str.startsWith(pattern);
   }
@@ -73,7 +73,7 @@ export function startsWith(str: string, pattern: string, ic: number) {
   return false;
 }
 
-export function endsWith(str: string, pattern: string, ic: number) {
+export function endsWith(str: string, pattern: string, ic: boolean | StringComparison) {
   if (ic === StringComparison.Ordinal) { // to avoid substring allocation
     return str.endsWith(pattern);
   }

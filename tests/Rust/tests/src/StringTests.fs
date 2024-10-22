@@ -1060,28 +1060,9 @@ let ``String.LastIndexOfAny works`` () =
     "abcdbcebc".LastIndexOfAny([|'f';'e'|], 7, 1) |> equal -1
 
 [<Fact>]
-let ``String.StartsWith works`` () =
-    "abcd".StartsWith("ab") |> equal true
-    "abcd".StartsWith("cd") |> equal false
-    "abcd".StartsWith("abcdx") |> equal false
-
-[<Fact>]
 let ``String.StartsWith char works`` () =
     "abcd".StartsWith('a') |> equal true
     "abcd".StartsWith('d') |> equal false
-
-[<Fact>]
-let ``String.StartsWith with StringComparison works`` () =
-    let args = [("ab", true); ("cd", false); ("abcdx", false)]
-    for arg in args do
-        "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-        |> equal (snd arg)
-
-[<Fact>]
-let ``String.EndsWith works`` () =
-    "abcd".EndsWith("ab") |> equal false
-    "abcd".EndsWith("cd") |> equal true
-    "abcd".EndsWith("abcdx") |> equal false
 
 [<Fact>]
 let ``String.EndsWith char works`` () =
@@ -1089,10 +1070,45 @@ let ``String.EndsWith char works`` () =
     "abcd".EndsWith('d') |> equal true
 
 [<Fact>]
-let ``String.EndsWith with StringComparison works`` () =
-    let args = [("ab", false); ("cd", true); ("abcdx", false)]
+let ``String.StartsWith works`` () =
+    let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "abcd".StartsWith(fst arg)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.StartsWith with OrdinalIgnoreCase works`` () =
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.StartsWith with ignoreCase boolean works`` () =
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".StartsWith(fst arg, true, CultureInfo.InvariantCulture)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.EndsWith works`` () =
+    let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "abcd".EndsWith(fst arg)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.EndsWith with OrdinalIgnoreCase works`` () =
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
     for arg in args do
         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.EndsWith with ignoreCase boolean works`` () =
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
         |> equal (snd arg)
 
 [<Fact>]
