@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Rust] Added String.Replace(char, char) and test (by @ncave)
 * [Rust] Support type extensions for external types (by @ncave)
 * [Rust] Support more System.Array methods and tests (by @ncave)
+* [Rust] Added decision tree multiple target references (by @ncave)
 * [JS] Add `System.String.Normalize` support (by @DashieTM)
 
 ### Fixed

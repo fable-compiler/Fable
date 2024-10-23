@@ -483,8 +483,8 @@ module Locals =
             tokens = None
         }
 
-    let mkIdentLocal attrs name ty init : Local =
-        let pat = mkIdentPat name false false
+    let mkIdentLocal attrs name isRef isMut ty init : Local =
+        let pat = mkIdentPat name isRef isMut
         mkLocal attrs pat ty init
 
 [<AutoOpen>]

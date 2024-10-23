@@ -46,6 +46,7 @@ type Context =
         File: Fable.File
         UsedNames: UsedNames
         DecisionTargets: (Fable.Ident list * Fable.Expr) list
+        TargetAssignment: Fable.Ident option
         // HoistVars: Fable.Ident list -> bool
         // OptimizeTailCall: unit -> unit
         TailCallOpportunity: ITailCallOpportunity option
@@ -1724,6 +1725,10 @@ module Util =
     let makeNull com ctx (typ: Fable.Type) =
         //TODO: some other representation perhaps?
         let genArgsOpt = transformGenArgs com ctx [ typ ]
+        makeLibCall com ctx genArgsOpt "Native" "getZero" []
+
+    let makeDefault com ctx (typ: Fable.Type) =
+        let genArgsOpt = transformGenArgs com ctx [ typ ]
         makeLibCall com ctx genArgsOpt "Native" "defaultOf" []
 
     let makeOption (com: IRustCompiler) ctx r typ value isStruct =
@@ -2657,9 +2662,9 @@ module Util =
 
         { ctx with ScopedSymbols = scopedSymbols }
 
-    let makeLocalStmt com ctx (ident: Fable.Ident) tyOpt initOpt isRef usages =
-        let local = mkIdentLocal [] ident.Name tyOpt initOpt
-        let ctx = getScopedIdentCtx com ctx ident false isRef false false usages
+    let makeLocalStmt com ctx (ident: Fable.Ident) isRef isMut tyOpt initOpt isByRef usages =
+        let local = mkIdentLocal [] ident.Name isRef isMut tyOpt initOpt
+        let ctx = getScopedIdentCtx com ctx ident false isByRef false false usages
         mkLocalStmt local, ctx
 
     let makeLetStmt com ctx (ident: Fable.Ident) value isCaptured usages =
@@ -2704,8 +2709,8 @@ module Util =
                     init
             )
 
-        let isRef = isAddrOfExpr value
-        makeLocalStmt com ctx ident tyOpt initOpt isRef usages
+        let isByRef = isAddrOfExpr value
+        makeLocalStmt com ctx ident false false tyOpt initOpt isByRef usages
 
     let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages =
         // Context will be threaded through all let bindings, appending itself to ScopedSymbols each time
@@ -2757,9 +2762,9 @@ module Util =
         exprs |> List.map (transformAsStmt com ctx) |> mkStmtBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
-        // match transformDecisionTreeAsSwitch guard thenBody elseBody with
+        // match canTransformDecisionTreeAsSwitch guard thenBody elseBody with
         // | Some(evalExpr, cases, defaultCase) ->
-        //     transformSwitch com ctx evalExpr cases defaultCase ctx.DecisionTargets
+        //     transformSwitch com ctx evalExpr cases (Some defaultCase)
         // | _ ->
         let guardExpr =
             match guard with
@@ -2977,7 +2982,7 @@ module Util =
             let elseExpr = mkBoolLitExpr false
             mkIfThenElseExpr guardExpr thenExpr elseExpr
 
-    let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase targets : Rust.Expr =
+    let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase : Rust.Expr =
         let namesForIndex evalType evalName caseIndex = //todo refactor with below
             match evalType with
             | Fable.Option(genArg, _) ->
@@ -3008,7 +3013,7 @@ module Util =
         let makeArm pat targetIndex boundValues (extraVals: (string * string * Fable.Type) list) =
             let attrs = []
             let guard = None // TODO:
-            let idents, (bodyExpr: Fable.Expr) = targets |> List.item targetIndex // TODO:
+            let idents, (bodyExpr: Fable.Expr) = ctx.DecisionTargets |> List.item targetIndex // TODO:
             let vars = idents |> List.map (fun (ident: Fable.Ident) -> ident.Name)
             // TODO: vars, boundValues
             let body =
@@ -3051,37 +3056,40 @@ module Util =
                 makeArm pat targetIndex (boundValues) extraVals
             )
 
-        let defaultArm =
-            let targetIndex, boundValues = defaultCase
-            // To see if the default arm should actually be a union case pattern, we have to
-            // examine its body to see if it starts with union field get. // TODO: look deeper
-            // If it does, we'll replace the wildcard "_" with a union case pattern
-            let idents, bodyExpr = targets |> List.item targetIndex
+        let defaultArms =
+            match defaultCase with
+            | Some(targetIndex, boundValues) ->
+                // To see if the default arm should actually be a union case pattern, we have to
+                // examine its body to see if it starts with union field get. // TODO: look deeper
+                // If it does, we'll replace the wildcard "_" with a union case pattern
+                let idents, bodyExpr = ctx.DecisionTargets |> List.item targetIndex
 
-            let patOpt =
-                let rec getUnionPat expr =
-                    match expr with
-                    | Fable.Get(Fable.IdentExpr ident, Fable.OptionValue, _, _) when
-                        Some ident.Name = evalName && ident.Type = evalType
-                        ->
-                        makeUnionCasePatOpt com ctx evalType evalName 0
-                    | Fable.Get(Fable.IdentExpr ident, Fable.UnionField info, _, _) when
-                        Some ident.Name = evalName && ident.Type = evalType
-                        ->
-                        makeUnionCasePatOpt com ctx evalType evalName info.CaseIndex
-                    | _ ->
-                        //need to recurse or this only works for trivial expressions
-                        let subExprs = getSubExpressions expr
-                        subExprs |> List.tryPick getUnionPat
+                let patOpt =
+                    let rec getUnionPat expr =
+                        match expr with
+                        | Fable.Get(Fable.IdentExpr ident, Fable.OptionValue, _, _) when
+                            Some ident.Name = evalName && ident.Type = evalType
+                            ->
+                            makeUnionCasePatOpt com ctx evalType evalName 0
+                        | Fable.Get(Fable.IdentExpr ident, Fable.UnionField info, _, _) when
+                            Some ident.Name = evalName && ident.Type = evalType
+                            ->
+                            makeUnionCasePatOpt com ctx evalType evalName info.CaseIndex
+                        | _ ->
+                            //need to recurse or this only works for trivial expressions
+                            let subExprs = getSubExpressions expr
+                            subExprs |> List.tryPick getUnionPat
 
-                getUnionPat bodyExpr
+                    getUnionPat bodyExpr
 
-            let pat = patOpt |> Option.defaultValue WILD_PAT
-            let extraVals = namesForIndex evalType evalName targetIndex
-            makeArm pat targetIndex boundValues extraVals
+                let pat = patOpt |> Option.defaultValue WILD_PAT
+                let extraVals = namesForIndex evalType evalName targetIndex
+                let arm = makeArm pat targetIndex boundValues extraVals
+                [ arm ]
+            | _ -> []
 
         let expr = makeRefForPatternMatch com ctx evalType evalName evalExpr
-        mkMatchExpr expr (arms @ [ defaultArm ])
+        mkMatchExpr expr (arms @ defaultArms)
 
     let matchTargetIdentAndValues idents values =
         if List.isEmpty idents then
@@ -3111,18 +3119,33 @@ module Util =
             target, identsAndValues
 
     let transformDecisionTreeSuccess (com: IRustCompiler) (ctx: Context) targetIndex boundValues =
-        let target, bindings =
-            getDecisionTargetAndBoundValues com ctx targetIndex boundValues
+        match ctx.TargetAssignment with
+        | Some targetId ->
+            let idents, _target = getDecisionTarget ctx targetIndex
+            let identsAndValues = matchTargetIdentAndValues idents boundValues
 
-        match bindings with
-        | [] -> transformLeaveContext com ctx None target
-        | bindings ->
-            let target =
-                List.rev bindings |> List.fold (fun e (i, v) -> Fable.Let(i, v, e)) target
+            let assignments =
+                (targetId, makeIntConst targetIndex) :: identsAndValues
+                |> List.map (fun (ident, value) ->
+                    let ident = transformIdent com ctx None ident
+                    let value = transformLeaveContext com ctx None value
+                    mkAssignExpr ident value
+                )
 
-            transformLeaveContext com ctx None target
+            assignments |> List.map mkSemiStmt |> mkStmtBlockExpr
+        | None ->
+            let target, bindings =
+                getDecisionTargetAndBoundValues com ctx targetIndex boundValues
 
-    let transformDecisionTreeAsSwitch guardExpr thenExpr elseExpr =
+            match bindings with
+            | [] -> transformLeaveContext com ctx None target
+            | bindings ->
+                let target =
+                    List.rev bindings |> List.fold (fun e (i, v) -> Fable.Let(i, v, e)) target
+
+                transformLeaveContext com ctx None target
+
+    let canTransformDecisionTreeAsSwitch guardExpr thenExpr elseExpr =
         let (|Equals|_|) =
             function
             | Fable.Operation(Fable.Binary(BinaryEqual, left, right), _, _, _) ->
@@ -3191,98 +3214,175 @@ module Util =
             | _ -> None
         | _ -> None
 
-    // let simplifyDecisionTree (treeExpr: Fable.Expr) =
-    //     treeExpr |> visitFromInsideOut (function
-    //         | Fable.IfThenElse(
-    //             guardExpr1,
-    //             Fable.IfThenElse(
-    //                 guardExpr2,
-    //                 thenExpr,
-    //                 Fable.DecisionTreeSuccess(index2,[],_),_),
-    //             Fable.DecisionTreeSuccess(index1,[],t),r)
-    //             when index1 = index2 ->
-    //             Fable.IfThenElse(
-    //                 makeLogOp None guardExpr1 guardExpr2 LogicalAnd,
-    //                 thenExpr,
-    //                 Fable.DecisionTreeSuccess(index2,[],t),r)
-    //         | e -> e)
+    let simplifyDecisionTree (treeExpr: Fable.Expr) =
+        treeExpr
+        |> visitFromInsideOut (
+            function
+            | Fable.IfThenElse(guardExpr1,
+                               Fable.IfThenElse(guardExpr2, thenExpr, Fable.DecisionTreeSuccess(index2, [], _), _),
+                               Fable.DecisionTreeSuccess(index1, [], t),
+                               r) when index1 = index2 ->
+                Fable.IfThenElse(
+                    makeLogOp None guardExpr1 guardExpr2 LogicalAnd,
+                    thenExpr,
+                    Fable.DecisionTreeSuccess(index2, [], t),
+                    r
+                )
+            | e -> e
+        )
 
-    // let simplifyDecisionTree_tuples (treeExpr: Fable.Expr) =
-    //     let rec gatherTuple acc index r expr =
-    //         match expr with
-    //         | Fable.IfThenElse(
-    //             guardExpr,
-    //             thenExpr,
-    //             Fable.DecisionTreeSuccess(index2, [], t2), r2)
-    //             when index2 = index ->
-    //                 gatherTuple (guardExpr::acc) index r thenExpr
-    //         | _ ->
-    //             match acc with
-    //             | [] -> expr
-    //             | [guardExpr] -> expr // no tuple found
-    //             | _ ->
-    //                 let guardExpr = Fable.Value(Fable.NewTuple(List.rev acc, true), None)
-    //                 Fable.IfThenElse(
-    //                     guardExpr,
-    //                     expr,
-    //                     Fable.DecisionTreeSuccess(index, [], guardExpr.Type), r)
+    // let groupSwitchCases t (cases: (Fable.Expr * int * Fable.Expr list) list) (defaultIndex, defaultBoundValues) =
+    //     cases
+    //     |> List.groupBy (fun (_, idx, boundValues) ->
+    //         // Try to group cases with some target index and empty bound values
+    //         // If bound values are non-empty use also a non-empty Guid to prevent grouping
+    //         if List.isEmpty boundValues then
+    //             idx, System.Guid.Empty
+    //         else
+    //             idx, System.Guid.NewGuid()
+    //     )
+    //     |> List.map (fun ((idx, _), cases) ->
+    //         let caseExprs = cases |> List.map Tuple3.item1
+    //         // If there are multiple cases, it means boundValues are empty
+    //         // (see `groupBy` above), so it doesn't mind which one we take as reference
+    //         let boundValues = cases |> List.head |> Tuple3.item3
+    //         caseExprs, Fable.DecisionTreeSuccess(idx, boundValues, t)
+    //     )
+    //     |> function
+    //         | [] -> []
+    //         // Check if the last case can also be grouped with the default branch, see #2357
+    //         | cases when List.isEmpty defaultBoundValues ->
+    //             match List.splitLast cases with
+    //             | cases, (_, Fable.DecisionTreeSuccess(idx, [], _)) when idx = defaultIndex -> cases
+    //             | _ -> cases
+    //         | cases -> cases
 
-    //     match treeExpr with
-    //     | Fable.IfThenElse(_, _, Fable.DecisionTreeSuccess(index, [], t), r) ->
-    //         gatherTuple [] index r treeExpr
-    //     | expr -> expr
+    let getTargetsWithMultipleReferences expr =
+        let rec findSuccess (targetRefs: Map<int, int>) =
+            function
+            | [] -> targetRefs
+            | expr :: exprs ->
+                match expr with
+                // We shouldn't actually see this, but short-circuit just in case
+                | Fable.DecisionTree _ -> findSuccess targetRefs exprs
+                | Fable.DecisionTreeSuccess(idx, _, _) ->
+                    let count = Map.tryFind idx targetRefs |> Option.defaultValue 0
+
+                    let targetRefs = Map.add idx (count + 1) targetRefs
+                    findSuccess targetRefs exprs
+                | expr ->
+                    let exprs2 = getSubExpressions expr
+                    findSuccess targetRefs (exprs @ exprs2)
+
+        findSuccess Map.empty [ expr ]
+        |> Seq.choose (fun kv ->
+            if kv.Value > 1 then
+                Some kv.Key
+            else
+                None
+        )
+        |> Seq.toList
 
     let tryTransformAsSwitch =
         function
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, _) ->
-            transformDecisionTreeAsSwitch guardExpr thenExpr elseExpr
+            canTransformDecisionTreeAsSwitch guardExpr thenExpr elseExpr
         | _ -> None
 
-    let transformDecisionTree (com: IRustCompiler) ctx targets (expr: Fable.Expr) : Rust.Expr =
-        // let expr = simplifyDecisionTree expr
-        match tryTransformAsSwitch expr with
-        | Some(evalExpr, cases, defaultCase) -> transformSwitch com ctx evalExpr cases defaultCase targets
-        | None ->
+    let transformDecisionTreeWithTwoSwitches
+        (com: IRustCompiler)
+        ctx
+        (targets: (Fable.Ident list * Fable.Expr) list)
+        treeExpr
+        =
+        // Declare target and bound idents
+        let typ = Fable.Number(Int32, Fable.NumberInfo.Empty)
+
+        let targetId =
+            getUniqueNameInDeclarationScope ctx "matchResult" |> makeTypedIdent typ
+
+        // Transform decision tree
+        let ctx =
+            { ctx with
+                DecisionTargets = targets
+                TargetAssignment = Some targetId
+            }
+
+        let varIdents = targetId :: (List.collect fst targets)
+
+        // vars will be transformed as declarations only
+        let varDecls, ctx =
+            (ctx, varIdents)
+            ||> List.mapFold (fun ctx ident ->
+                let ty = transformType com ctx ident.Type
+                let init = makeNull com ctx ident.Type
+                makeLocalStmt com ctx ident false true (Some ty) (Some init) false Map.empty
+            )
+
+        // Transform targets as switch
+        let switch2 =
+            let cases =
+                targets |> List.mapi (fun i (_, target) -> makeIntConst i, i, [ target ])
+
+            let defaultIndex = List.length targets
+            let defaultValue = "unreachable!" |> AST.emitExpr None Fable.Any []
+            let defaultCase = defaultIndex, []
+            let targets = targets @ [ ([], defaultValue) ]
             let ctx = { ctx with DecisionTargets = targets }
-            com.TransformExpr(ctx, expr)
+            transformSwitch com ctx (targetId |> Fable.IdentExpr) cases (Some defaultCase)
 
-    // let groupSwitchCases (cases: (Fable.Expr * Fable.Expr) list) defaultCase =
-    //     let canBeGrouped, cannotBeGrouped =
-    //         cases
-    //         |> List.partition (
-    //             function
-    //             | _, Fable.DecisionTreeSuccess(_, [], _) -> true
-    //             | _ -> false
-    //         )
+        match tryTransformAsSwitch treeExpr with
+        | Some(evalExpr, cases, defaultCase) ->
+            // let cases = groupSwitchCases typ cases defaultCase
+            let switch1 = transformSwitch com ctx evalExpr cases (Some defaultCase)
 
-    //     let grouped =
-    //         canBeGrouped
-    //         |> List.groupBy (
-    //             function
-    //             | _, Fable.DecisionTreeSuccess(idx, _, _) -> idx
-    //             | _ -> failwith "unexpected group candidate"
-    //         )
-    //         |> List.map (fun (_, cases) ->
-    //             let caseExprs = cases |> List.map fst
-    //             caseExprs, List.head cases |> snd
-    //         )
+            varDecls @ [ switch1 |> mkSemiStmt ] @ [ switch2 |> mkExprStmt ]
+            |> mkStmtBlockExpr
+        | None ->
+            let decisionTree = com.TransformExpr(ctx, treeExpr)
 
-    //     let cases =
-    //         if grouped |> List.exists (fst >> List.isMultiple) then
-    //             grouped @ List.map (fun (e, b) -> [ e ], b) cannotBeGrouped
-    //         else
-    //             List.map (fun (e, b) -> [ e ], b) cases
+            varDecls @ [ decisionTree |> mkSemiStmt ] @ [ switch2 |> mkExprStmt ]
+            |> mkStmtBlockExpr
 
-    //     match defaultCase with
-    //     // Remove cases that can be grouped with the default branch, see #2357
-    //     | Fable.DecisionTreeSuccess(defaultIndex, [], _) ->
-    //         cases
-    //         |> List.filter (
-    //             function
-    //             | _, Fable.DecisionTreeSuccess(idx, [], _) -> idx <> defaultIndex
-    //             | _ -> true
-    //         )
-    //     | _ -> cases
+    let transformDecisionTree (com: IRustCompiler) ctx targets (treeExpr: Fable.Expr) : Rust.Expr =
+        let treeExpr = simplifyDecisionTree treeExpr
+
+        // If some targets are referenced multiple times, hoist bound idents,
+        // resolve the decision index and compile the targets as a switch
+        match getTargetsWithMultipleReferences treeExpr with
+        | [] ->
+            let ctx = { ctx with DecisionTargets = targets }
+
+            match tryTransformAsSwitch treeExpr with
+            | Some(evalExpr, cases, defaultCase) -> transformSwitch com ctx evalExpr cases (Some defaultCase)
+            | None -> com.TransformExpr(ctx, treeExpr)
+
+        | targetsWithMultiRefs ->
+            // If the bound idents are not referenced in the target, remove them
+            let targets =
+                targets
+                |> List.map (fun (idents, expr) ->
+                    idents
+                    |> List.exists (fun i -> isIdentUsed i.Name expr)
+                    |> function
+                        | true -> idents, expr
+                        | false -> [], expr
+                )
+
+            let hasAnyTargetWithMultiRefsBoundValues =
+                targetsWithMultiRefs
+                |> List.exists (fun idx -> targets[idx] |> fst |> List.isEmpty |> not)
+
+            if not hasAnyTargetWithMultiRefsBoundValues then
+                match tryTransformAsSwitch treeExpr with
+                | Some(evalExpr, cases, defaultCase) ->
+                    // let t = treeExpr.Type
+                    // let cases = groupSwitchCases t cases defaultCase
+                    let ctx = { ctx with DecisionTargets = targets }
+                    transformSwitch com ctx evalExpr cases (Some defaultCase)
+                | None -> transformDecisionTreeWithTwoSwitches com ctx targets treeExpr
+            else
+                transformDecisionTreeWithTwoSwitches com ctx targets treeExpr
 
     let rec transformExpr (com: IRustCompiler) ctx (fableExpr: Fable.Expr) : Rust.Expr =
         match fableExpr with
@@ -3736,7 +3836,7 @@ module Util =
                         fnBody
 
                 let closureExpr = mkClosureExpr true fnDecl fnBody
-                mkStmtBlockExpr (cloneStmts @ [ closureExpr |> mkExprStmt ])
+                cloneStmts @ [ closureExpr |> mkExprStmt ] |> mkStmtBlockExpr
 
         let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
 
@@ -5215,6 +5315,7 @@ module Compiler =
                         CurrentDeclarationScope = HashSet []
                     }
                 DecisionTargets = []
+                TargetAssignment = None
                 // HoistVars = fun _ -> false
                 // OptimizeTailCall = fun () -> ()
                 TailCallOpportunity = None
@@ -5248,6 +5349,7 @@ module Compiler =
                     mkInnerAttr "allow" [ "unused_macros" ]
                     mkInnerAttr "allow" [ "unused_parens" ]
                     mkInnerAttr "allow" [ "unused_variables" ]
+                    mkInnerAttr "allow" [ "unused_assignments" ]
 
             // these require nightly
             // mkInnerAttr "feature" ["stmt_expr_attributes"]
