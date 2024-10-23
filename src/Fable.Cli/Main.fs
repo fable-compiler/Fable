@@ -571,13 +571,13 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                         // It seems when there's a pair .fsi/.fs the F# compiler gives the .fsi extension to the implementation file
                         let fileName = file.FileName |> Path.normalizePath |> Path.ensureFsExtension
 
-                        // For Rust, delay last file's compilation until other files finish compiling
+                        // For Rust, delay last file's compilation so other files can finish compiling
                         if
                             projCracked.CliArgs.CompilerOptions.Language = Rust
                             && fileName = Array.last state.FilesToCompile
                             && state.FableFilesCompiledCount < state.FableFilesToCompileExpectedCount - 1
                         then
-                            do! Async.Sleep(100)
+                            do! Async.Sleep(1000)
 
                         Log.verbose (
                             lazy $"Type checked: {IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, file.FileName)}"

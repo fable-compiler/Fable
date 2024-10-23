@@ -633,7 +633,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
-    | _ -> Helper.LibCall(com, "Native", "defaultOf", t, [])
+    | _ -> Helper.LibCall(com, "Native", "getZero", t, [])
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
@@ -2161,7 +2161,10 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         else
             applyOp com ctx r t operation args |> Some
     | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args |> Some
-    | "GenericZero", _ -> Helper.LibCall(com, "Native", "getZero", t, []) |> Some
+    | "GenericZero", _ ->
+        // getZero com ctx t |> Some
+        Helper.LibCall(com, "Native", "defaultOf", t, []) |> Some
+    | "GenericZero", _ -> getZero com ctx t |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some
     | ("SByteWithMeasure" | "Int16WithMeasure" | "Int32WithMeasure" | "Int64WithMeasure" | "Float32WithMeasure" | "FloatWithMeasure" | "DecimalWithMeasure"),
       [ arg ] -> arg |> Some

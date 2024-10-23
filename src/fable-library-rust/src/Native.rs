@@ -73,11 +73,11 @@ pub mod Native_ {
 
     pub fn ignore<T>(arg: &T) -> () {}
 
-    pub fn defaultOf<T>() -> T {
+    pub fn getZero<T>() -> T {
         unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
-    pub fn getZero<T: Default>() -> T {
+    pub fn defaultOf<T: Default>() -> T {
         Default::default()
     }
 
