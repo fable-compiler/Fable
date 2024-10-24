@@ -609,19 +609,27 @@ module Helpers =
             name.Replace('.', '_').Replace('`', '$')
 
     let cleanNameAsRustIdentifier (name: string) =
-        // name |> Naming.sanitizeIdentForbiddenChars
-        let name = Regex.Replace(name, @"[\s`'"".]", "_")
-
         let name =
             if name.Length > 0 && Char.IsDigit(name, 0) then
                 "_" + name
             else
                 name
 
-        let name =
-            Regex.Replace(name, @"[^\w]", (fun c -> String.Format(@"_{0:x4}", int c.Value[0])))
-
-        name
+        if name |> String.exists (fun c -> not (c = '_' || Char.IsLetterOrDigit(c))) then
+            name
+            |> String.collect (
+                function
+                | '_'
+                | ' '
+                | '`'
+                | '.'
+                | '\''
+                | '\"' -> "_"
+                | c when Char.IsLetterOrDigit(c) -> string c
+                | c -> String.Format(@"_{0:x4}", int c)
+            )
+        else
+            name
 
     let memberNameAsRustIdentifier (name: string) part =
         let f = cleanNameAsRustIdentifier
@@ -1692,7 +1700,8 @@ module Identifiers =
             // The F# compiler sometimes adds a numeric suffix. Remove it because it's not deterministic.
             // See https://github.com/fable-compiler/Fable/issues/2869#issuecomment-1169574962
             if fsRef.IsCompilerGenerated then
-                Regex.Replace(fsRef.CompiledName, @"\d+$", "", RegexOptions.Compiled)
+                // Regex.Replace(fsRef.CompiledName, @"\d+$", "", RegexOptions.Compiled)
+                fsRef.CompiledName.TrimEnd([| '0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9' |])
             else
                 fsRef.CompiledName
 

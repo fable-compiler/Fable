@@ -488,8 +488,8 @@ module TypeInfo =
         | _ -> isTypeOfType com isCopyableType isCopyableEntity entNames typ
 
     let isCopyableEntity com entNames (ent: Fable.Entity) =
-        not (ent.IsInterface)
-        && ent.IsValueType
+        ent.IsValueType
+        && not (ent.IsInterface)
         && not (hasMutableFields com ent)
         && (isEntityOfType com isCopyableType entNames ent)
 
@@ -2946,13 +2946,10 @@ module Util =
         let typ = fableExpr.Type
         let nameOpt = tryGetIdentName fableExpr
         let patOpt = makeUnionCasePatOpt com ctx typ nameOpt tag
-
-        match patOpt with
-        | Some pat ->
-            let expr = makeRefForPatternMatch com ctx typ nameOpt fableExpr
-            let letExpr = mkLetExpr pat expr
-            letExpr
-        | _ -> failwith "unreachable"
+        let pat = patOpt |> Option.defaultValue WILD_PAT
+        let expr = makeRefForPatternMatch com ctx typ nameOpt fableExpr
+        let letExpr = mkLetExpr pat expr
+        letExpr
 
     let makeTest isSome thenValue elseValue =
         if isSome then
