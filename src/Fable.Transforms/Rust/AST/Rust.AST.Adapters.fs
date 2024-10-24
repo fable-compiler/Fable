@@ -164,34 +164,44 @@ type System.String with
             Some(self.Chars(self.Length - 1))
 
     member self.escape_debug() =
-        // escapes \\, \', \", \t, \r, \n, [\x00-\x1F]
-        let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
-
-        let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
-
-        let res =
-            System.Text.RegularExpressions.Regex.Replace(
-                res,
-                @"[\x00-\x1F]",
-                fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value[0], "}")
+        if
+            self
+            |> String.exists (fun c -> c = '\\' || c = '\'' || c = '\"' || System.Char.IsControl(c))
+        then
+            self
+            |> String.collect (
+                function
+                | '\t' -> @"\t"
+                | '\r' -> @"\r"
+                | '\n' -> @"\n"
+                | '\\' -> @"\\"
+                | '\'' -> @"\'"
+                | '\"' -> @"\"""
+                | c when System.Char.IsControl(c) -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c, "}")
+                | c -> string c
             )
-
-        res
+        else
+            self
 
     member self.escape_default() =
-        // escapes \\, \', \", \t, \r, \n, [^\x20-\x7F]
-        let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
-
-        let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
-
-        let res =
-            System.Text.RegularExpressions.Regex.Replace(
-                res,
-                @"[^\x20-\x7F]",
-                fun c -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c.Value[0], "}")
+        if
+            self
+            |> String.exists (fun c -> c = '\\' || c = '\'' || c = '\"' || c < '\x20' || c > '\x7e')
+        then
+            self
+            |> String.collect (
+                function
+                | '\t' -> @"\t"
+                | '\r' -> @"\r"
+                | '\n' -> @"\n"
+                | '\\' -> @"\\"
+                | '\'' -> @"\'"
+                | '\"' -> @"\"""
+                | c when c < '\x20' || c > '\x7e' -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c, "}")
+                | c -> string c
             )
-
-        res
+        else
+            self
 
 type System.Text.StringBuilder with
 
