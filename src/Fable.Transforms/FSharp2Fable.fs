@@ -1579,7 +1579,7 @@ let private transformImportValue com r typ name (memb: FSharpMemberOrFunctionOrV
         "Imported members cannot be mutable and public, please make it private: " + name
         |> addError com [] None
 
-    let memberRef = Fable.GeneratedMember.Value(name, typ)
+    let memberRef = Fable.GeneratedMember.Value(name, typ, isMutable = memb.IsMutable)
     transformImport com r typ name [] memberRef selector path
 
 let private transformMemberValue
