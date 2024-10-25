@@ -332,11 +332,6 @@ pub mod Char_ {
         }
     }
 
-    pub fn IsSurrogate(c: char) -> bool {
-        // c as u32 >= 0xD800 && c as u32 <= 0xDFFF
-        c.len_utf16() > 1
-    }
-
     pub fn IsSymbol(c: char) -> bool {
         // isUnicodeCategory(c, isSymbolMask)
         c.is_ascii_punctuation() //TODO: imprecise, fix this
@@ -398,11 +393,6 @@ pub mod Char_ {
         IsSeparator(c)
     }
 
-    pub fn IsSurrogate_2(s: string, index: i32) -> bool {
-        let c: char = getCharAt(s, index);
-        IsSurrogate(c)
-    }
-
     pub fn IsSymbol_2(s: string, index: i32) -> bool {
         let c: char = getCharAt(s, index);
         IsSymbol(c)
@@ -441,35 +431,48 @@ pub mod Char_ {
         ToLower(c) //TODO: use invariant culture
     }
 
-    // pub fn IsHighSurrogate(c: char) -> bool {
-    //     c as u32 >= 0xD800 && c as u32 <= 0xDBFF
-    // }
+    // ----------------------------------------------------
+    // Rust chars are Unicode scalar values, so surrogate tests will be false
+    // ----------------------------------------------------
 
-    // pub fn IsHighSurrogate_2(s: string, index: i32) -> bool {
-    //     let c: char = getCharAt(s, index);
-    //     IsHighSurrogate(c)
-    // }
+    pub fn IsSurrogate(c: char) -> bool {
+        c as u32 >= 0xD800 && c as u32 <= 0xDFFF
+    }
 
-    // pub fn IsLowSurrogate(c: char) -> bool {
-    //     c as u32 >= 0xDC00 && c as u32 <= 0xDFFF
-    // }
+    pub fn IsSurrogate_2(s: string, index: i32) -> bool {
+        let c: char = getCharAt(s, index);
+        IsSurrogate(c)
+    }
 
-    // pub fn IsLowSurrogate_2(s: string, index: i32) -> bool {
-    //     let c: char = getCharAt(s, index);
-    //     IsLowSurrogate(c)
-    // }
+    pub fn IsHighSurrogate(c: char) -> bool {
+        c as u32 >= 0xD800 && c as u32 <= 0xDBFF
+    }
 
-    // pub fn IsSurrogatePair(c1: char, c2: char) -> bool {
-    //     IsHighSurrogate(c1) && IsLowSurrogate(c2)
-    // }
+    pub fn IsHighSurrogate_2(s: string, index: i32) -> bool {
+        let c: char = getCharAt(s, index);
+        IsHighSurrogate(c)
+    }
 
-    // pub fn IsSurrogatePair_2(s: string, index: i32) -> bool {
-    //     let c1: char = getCharAt(s.clone(), index);
-    //     if (index + 1 < length(s.clone())) {
-    //         let c2: char = getCharAt(s.clone(), index + 1);
-    //         IsSurrogatePair(c1, c2)
-    //     } else {
-    //         false
-    //     }
-    // }
+    pub fn IsLowSurrogate(c: char) -> bool {
+        c as u32 >= 0xDC00 && c as u32 <= 0xDFFF
+    }
+
+    pub fn IsLowSurrogate_2(s: string, index: i32) -> bool {
+        let c: char = getCharAt(s, index);
+        IsLowSurrogate(c)
+    }
+
+    pub fn IsSurrogatePair(c1: char, c2: char) -> bool {
+        IsHighSurrogate(c1) && IsLowSurrogate(c2)
+    }
+
+    pub fn IsSurrogatePair_2(s: string, index: i32) -> bool {
+        let c1: char = getCharAt(s.clone(), index);
+        if (index + 1 < length(s.clone())) {
+            let c2: char = getCharAt(s.clone(), index + 1);
+            IsSurrogatePair(c1, c2)
+        } else {
+            false
+        }
+    }
 }
