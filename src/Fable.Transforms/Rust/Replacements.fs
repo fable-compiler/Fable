@@ -1163,11 +1163,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | _ -> None
 
 let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let getMethod meth args =
-        if List.length args > 1 then
-            meth + "_2"
-        else
-            meth
+    let getMethodName meth args =
+        match args with
+        | (ExprType String) :: _ -> meth + "_2"
+        | _ -> meth
 
     match i.CompiledName, thisArg, args with
     | ("IsBetween" as meth), None, _ ->
@@ -1178,15 +1177,15 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
       [ c ] ->
         Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("IsControl" | "IsDigit" | "IsLetter" | "IsLetterOrDigit" | "IsLower" | "IsUpper" | "IsNumber" | "IsPunctuation" | "IsSeparator" | "IsSurrogate" | "IsSymbol" | "IsWhiteSpace" as meth),
+    | ("IsControl" | "IsDigit" | "IsLetter" | "IsLetterOrDigit" | "IsLower" | "IsUpper" | "IsNumber" | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsWhiteSpace" as meth),
       None,
       _ ->
-        let meth = getMethod meth args
+        let meth = getMethodName meth args
 
         Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("GetNumericValue" | "GetUnicodeCategory" | "ConvertToUtf32" as meth), None, _ ->
-        let meth = getMethod meth args
+        let meth = getMethodName meth args
 
         Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -1198,13 +1197,14 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | ("TryParse" | "Parse" as meth), None, _ ->
         Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | ("IsSurrogate" | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogatePair" as meth), None, _ ->
+        $"Rust chars are Unicode scalar values, so surrogate tests will be false."
+        |> addWarning com ctx.InlinePath r
 
-    // | ("IsHighSurrogate" | "IsLowSurrogate" as meth), None, _ ->
-    //     let meth = getMethod meth args
-    //     Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | ("IsSurrogatePair" as meth), None, _ ->
-    //     let meth = if args.Head.Type = String then meth + "_2" else meth
-    //     Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        let meth = getMethodName meth args
+
+        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | _ -> None
 
 let getEnumerator com r t i (expr: Expr) =
