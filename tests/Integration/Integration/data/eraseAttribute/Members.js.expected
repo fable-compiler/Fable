@@ -1,0 +1,15 @@
+import { class_type } from "./fable_modules/fable-library-js.4.22.0/Reflection.js";
+
+export class input {
+    constructor() {
+    }
+}
+
+export function input_$reflection() {
+    return class_type("EraseAttributeMembers.input", undefined, input);
+}
+
+export function input_$ctor() {
+    return new input();
+}
+
