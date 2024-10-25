@@ -1,0 +1,4 @@
+import { path } from "toastr";
+
+export let Toastr_theOptions = path;
+
