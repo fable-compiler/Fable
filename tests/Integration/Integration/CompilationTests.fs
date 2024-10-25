@@ -10,7 +10,7 @@ let tests =
     Directory.EnumerateDirectories(data)
     |> Seq.map (fun testCaseDir -> //
         testCaseAsync
-            (Path.GetDirectoryName(testCaseDir))
+            testCaseDir
             (async {
                 let project =
                     Directory.GetFileSystemEntries(testCaseDir, "*.fsproj") |> Seq.exactlyOne
