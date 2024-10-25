@@ -12,6 +12,17 @@ type MyRecord = { a: int }
 
 type R = { i: int; s: string }
 
+type Table<'K,'V when 'K:equality> () =
+
+    let dic = new Dictionary<'K,'V>()
+
+    let addKeyValue key value =
+        dic.[key] <- value
+
+    member _.add key value =
+        addKeyValue key value
+
+    member _.Dic = dic
 let tests =
   testList "Dictionaries" [
     testCase "Dictionary KeyValuePattern works" <| fun () -> // See #509
@@ -251,4 +262,11 @@ let tests =
         equal cache.[typeof<int>] 1
         equal cache.[typeof<string>] 2
         equal cache.[typeof<int64>] 3
+
+    testCase "Check that generics are not duplicated " <| fun _ -> // See #3911
+        let table = Table<_,_>()
+        table.add "A" 1
+        table.add "B" 2
+        table.add "C" 3
+        table.Dic.Count |> equal 3
   ]

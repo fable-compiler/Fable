@@ -565,6 +565,7 @@ module Annotation =
                 TypeParameter.typeParameter (name, ?bound = bound) |> Some
             | _ -> None
         )
+        |> Array.distinct
 
     let makeTypeParamInstantiation (com: IBabelCompiler) ctx genArgs =
         if List.isEmpty genArgs then

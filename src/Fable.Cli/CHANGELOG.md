@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS/Python/Rust] Fixed String.StartsWith/EndsWith (#3934) (by @ncave)
 * [All/Rust] Removed Regex.Replace from hot paths (by @ncave)
 * [JS] Fix regression, generate `let` variable when using `import` on a private mutable variable (by @MangelMaxime)
+* [TS] Prevent generics to be duplicated (by @MangelMaxime)
 
 ## 4.22.0 - 2024-10-02
 
