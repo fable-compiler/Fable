@@ -3858,7 +3858,11 @@ module Util =
         let methods =
             methods
             |> Array.map (fun info ->
-                let prop, isComputed = memberFromName info.CompiledName
+                let prop, isComputed =
+                    if ent.Attributes |> hasAttribute Atts.mangle then
+                        memberFromName info.FullName
+                    else
+                        memberFromName info.CompiledName
 
                 let args =
                     info.CurriedParameterGroups

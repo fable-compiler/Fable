@@ -351,6 +351,16 @@ type InfoB = {
     Bar: string
 }
 
+[<Mangle>]
+type IUpperMangledInterface =
+    abstract Upper: string -> string
+    abstract Ping: unit -> string
+
+type UpperMangledClass() =
+    interface IUpperMangledInterface with
+        member _.Upper s = s.ToUpper()
+        member _.Ping () = "pong"
+
 #if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type InfoAClass(info: InfoA) =
@@ -370,7 +380,7 @@ type FooInterface =
     abstract Item: int -> char with get, set
     abstract Sum: [<ParamArray>] items: string[] -> string
 
-[<Fable.Core.Mangle>]
+[<Mangle>]
 type BarInterface =
     abstract Bar: string with get, set
     abstract DoSomething: f: (float -> float -> float) * v: float -> float
@@ -1322,4 +1332,9 @@ let tests =
         let mutable arr = [| 1; 2; 3 |]
         let result = genericByrefFunc &arr
         result |> equal 3
+
+    testCase "mangled method on interface works" <| fun () ->
+        let upper = UpperMangledClass()
+        (upper :> IUpperMangledInterface).Upper("hello") |> equal "HELLO"
+        (upper :> IUpperMangledInterface).Ping() |> equal "pong"
   ]
