@@ -55,6 +55,7 @@ pub mod Native_ {
         value
     }
 
+    use crate::System::Collections::Generic::EqualityComparer_1;
     use crate::System::Collections::Generic::IEnumerable_1;
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
@@ -115,7 +116,7 @@ pub mod Native_ {
         ((h >> 32) ^ h) as i32
     }
 
-    pub fn referenceHash<T>(p: &T) -> i32 {
+    pub fn referenceHash<T: ?Sized>(p: &T) -> i32 {
         getHashCode(p as *const T)
     }
 
@@ -147,6 +148,16 @@ pub mod Native_ {
             i if i > 0 => Ordering::Greater,
             _ => Ordering::Equal,
         }
+    }
+
+    pub fn default_eq_comparer<T>() -> LrcPtr<dyn IEqualityComparer_1<T>>
+    where
+        T: Clone + Hash + PartialEq + 'static,
+    {
+        interface_cast!(
+            EqualityComparer_1::<T>::get_Default(),
+            Lrc<dyn IEqualityComparer_1<T>>,
+        )
     }
 
     // -----------------------------------------------------------
@@ -299,8 +310,8 @@ pub mod Native_ {
     // -----------------------------------------------------------
 
     #[inline]
-    pub fn mkRef<T>(x: T) -> Lrc<T> {
-        Lrc::from(x)
+    pub fn mkRef<T>(x: T) -> LrcPtr<T> {
+        LrcPtr::new(x)
     }
 
     #[inline]
@@ -309,7 +320,7 @@ pub mod Native_ {
     }
 
     #[inline]
-    pub fn mkRefMut<T>(x: T) -> Lrc<MutCell<T>> {
+    pub fn mkRefMut<T>(x: T) -> LrcPtr<MutCell<T>> {
         mkRef(mkMut(x))
     }
 

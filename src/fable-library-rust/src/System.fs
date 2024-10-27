@@ -17,6 +17,10 @@ type Exception(message: string) =
         else
             message
 
+    interface System.Collections.IStructuralEquatable with
+        member x.Equals(y, comparer) = false
+        member x.GetHashCode(comparer) = 0
+
 type InvalidOperationException(message: string) =
     new() = InvalidOperationException("")
 

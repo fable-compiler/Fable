@@ -10,8 +10,8 @@ pub mod HashMap_ {
     use std::collections;
 
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{mkRefMut, seq_to_iter, HashKey, Lrc, LrcPtr, MutCell, Seq, Vec};
-    use crate::System::Collections::Generic::EqualityComparer_1;
+    use crate::Native_::{default_eq_comparer, mkRefMut, seq_to_iter};
+    use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};
@@ -21,7 +21,7 @@ pub mod HashMap_ {
 
     #[derive(Clone)] //, Debug, Default, PartialEq, PartialOrd, Eq, Hash, Ord)]
     pub struct HashMap<K: Clone, V: Clone> {
-        hash_map: Lrc<MutHashMap<K, V>>,
+        hash_map: LrcPtr<MutHashMap<K, V>>,
         comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
     }
 
@@ -35,7 +35,7 @@ pub mod HashMap_ {
     // }
 
     impl<K: Clone, V: Clone> core::ops::Deref for HashMap<K, V> {
-        type Target = Lrc<MutHashMap<K, V>>;
+        type Target = LrcPtr<MutHashMap<K, V>>;
         fn deref(&self) -> &Self::Target {
             &self.hash_map
         }
@@ -77,7 +77,7 @@ pub mod HashMap_ {
     {
         HashMap {
             hash_map: mkRefMut(collections::HashMap::new()),
-            comparer: EqualityComparer_1::<K>::get_Default(),
+            comparer: default_eq_comparer::<K>(),
         }
     }
 
@@ -87,7 +87,7 @@ pub mod HashMap_ {
     {
         HashMap {
             hash_map: mkRefMut(collections::HashMap::with_capacity(capacity as usize)),
-            comparer: EqualityComparer_1::<K>::get_Default(),
+            comparer: default_eq_comparer::<K>(),
         }
     }
 
@@ -114,7 +114,7 @@ pub mod HashMap_ {
     where
         K: Clone + Hash + PartialEq + 'static,
     {
-        from_iter(seq_to_iter(&seq), EqualityComparer_1::<K>::get_Default())
+        from_iter(seq_to_iter(&seq), default_eq_comparer::<K>())
     }
 
     pub fn new_from_enumerable_comparer<K: Clone + 'static, V: Clone + 'static>(
@@ -140,7 +140,7 @@ pub mod HashMap_ {
         K: Clone + Hash + PartialEq + 'static,
     {
         let it = a.iter().map(|tup| tup.as_ref().clone());
-        from_iter(it, EqualityComparer_1::<K>::get_Default())
+        from_iter(it, default_eq_comparer::<K>())
     }
 
     pub fn isReadOnly<K: Clone, V: Clone>(map: HashMap<K, V>) -> bool {

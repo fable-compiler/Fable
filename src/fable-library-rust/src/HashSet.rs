@@ -10,8 +10,8 @@ pub mod HashSet_ {
     use std::collections;
 
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{mkRefMut, seq_to_iter, HashKey, Lrc, LrcPtr, MutCell, Seq, Vec};
-    use crate::System::Collections::Generic::EqualityComparer_1;
+    use crate::Native_::{default_eq_comparer, mkRefMut, seq_to_iter};
+    use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};
@@ -21,7 +21,7 @@ pub mod HashSet_ {
 
     #[derive(Clone)] //, Debug, Default, PartialEq, PartialOrd, Eq, Hash, Ord)]
     pub struct HashSet<T: Clone> {
-        hash_set: Lrc<MutHashSet<T>>,
+        hash_set: LrcPtr<MutHashSet<T>>,
         comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     }
 
@@ -35,7 +35,7 @@ pub mod HashSet_ {
     // }
 
     impl<T: Clone> core::ops::Deref for HashSet<T> {
-        type Target = Lrc<MutHashSet<T>>;
+        type Target = LrcPtr<MutHashSet<T>>;
         fn deref(&self) -> &Self::Target {
             &self.hash_set
         }
@@ -74,7 +74,7 @@ pub mod HashSet_ {
     {
         HashSet {
             hash_set: mkRefMut(collections::HashSet::new()),
-            comparer: EqualityComparer_1::<T>::get_Default(),
+            comparer: default_eq_comparer::<T>(),
         }
     }
 
@@ -84,7 +84,7 @@ pub mod HashSet_ {
     {
         HashSet {
             hash_set: mkRefMut(collections::HashSet::with_capacity(capacity as usize)),
-            comparer: EqualityComparer_1::<T>::get_Default(),
+            comparer: default_eq_comparer::<T>(),
         }
     }
 
@@ -109,7 +109,7 @@ pub mod HashSet_ {
     where
         T: Clone + Hash + PartialEq + 'static,
     {
-        from_iter(seq_to_iter(&seq), EqualityComparer_1::<T>::get_Default())
+        from_iter(seq_to_iter(&seq), default_eq_comparer::<T>())
     }
 
     pub fn new_from_enumerable_comparer<T: Clone + 'static>(
