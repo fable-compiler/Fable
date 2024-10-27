@@ -1,6 +1,6 @@
 pub mod Char_ {
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{compare, Lrc, MutCell, ToString, Vec};
+    use crate::Native_::{compare, MutCell, ToString};
     use crate::String_::{getCharAt, length, string, toString};
 
     // https://docs.microsoft.com/en-us/dotnet/api/system.globalization.unicodecategory?view=net-6.0

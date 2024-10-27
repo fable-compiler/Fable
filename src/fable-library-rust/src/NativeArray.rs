@@ -1,7 +1,7 @@
 pub mod NativeArray_ {
     use crate::Global_::SR::indexOutOfBounds;
     use crate::Native_::{alloc, make_compare, mkRefMut, partial_compare, seq_to_iter};
-    use crate::Native_::{Func1, Func2, Lrc, LrcPtr, MutCell, Seq, Vec};
+    use crate::Native_::{Func1, Func2, LrcPtr, MutCell, Seq, Vec};
     use crate::System::Collections::Generic::IComparer_1;
 
     // -----------------------------------------------------------
@@ -10,12 +10,12 @@ pub mod NativeArray_ {
 
     type MutArray<T> = MutCell<Vec<T>>;
 
-    #[repr(transparent)]
     #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
-    pub struct Array<T: Clone>(Lrc<MutArray<T>>);
+    #[repr(transparent)]
+    pub struct Array<T: Clone>(LrcPtr<MutArray<T>>);
 
     impl<T: Clone> core::ops::Deref for Array<T> {
-        type Target = Lrc<MutArray<T>>;
+        type Target = LrcPtr<MutArray<T>>;
         fn deref(&self) -> &Self::Target {
             &self.0
         }

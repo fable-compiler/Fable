@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Rust] Updated derived traits mapping (by @ncave)
 * [Rust] Fixed try finally handler order of execution (by @ncave)
 * [JS/TS/Python/Rust] Fixed String.StartsWith/EndsWith (#3934) (by @ncave)
 * [All/Rust] Removed Regex.Replace from hot paths (by @ncave)

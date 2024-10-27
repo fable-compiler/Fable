@@ -1,4 +1,6 @@
 use crate::Native_::{Any, Lrc};
+use core::cmp::Ordering;
+use core::hash::{Hash, Hasher};
 use core::ops::*;
 
 // -----------------------------------------------------------
@@ -14,9 +16,11 @@ impl<T> LrcPtr<T> {
     pub fn new(value: T) -> Self {
         LrcPtr(Some(Lrc::new(value)))
     }
+}
 
+impl<T: ?Sized> LrcPtr<T> {
     #[inline]
-    pub fn null(value: T) -> Self {
+    pub fn null() -> Self {
         LrcPtr(None)
     }
 
@@ -25,6 +29,12 @@ impl<T> LrcPtr<T> {
         self.0.is_none()
     }
 }
+
+// impl<T> Default for LrcPtr<T> {
+//     fn default() -> Self {
+//         Self::null()
+//     }
+// }
 
 impl<T: ?Sized> From<Lrc<T>> for LrcPtr<T> {
     #[inline]
@@ -76,6 +86,60 @@ impl<T: Index<Idx>, Idx> Index<Idx> for LrcPtr<T> {
         self.deref().index(idx)
     }
 }
+
+// -----------------------------------------------------------
+// LrcPtr equality and comparison
+// -----------------------------------------------------------
+
+// impl<T: Hash> Hash for LrcPtr<T> {
+//     #[inline]
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         self.as_ref().hash(state);
+//     }
+// }
+
+// impl<T: PartialEq> PartialEq for LrcPtr<T> {
+//     #[inline]
+//     fn eq(&self, other: &Self) -> bool {
+//         self.as_ref().eq(other.as_ref())
+//     }
+// }
+
+// impl<T: PartialEq> Eq for LrcPtr<T> {}
+
+// impl<T: PartialOrd> PartialOrd for LrcPtr<T> {
+//     #[inline]
+//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+//         self.as_ref().partial_cmp(other.as_ref())
+//     }
+
+//     #[inline]
+//     fn lt(&self, other: &Self) -> bool {
+//         self.as_ref() < other.as_ref()
+//     }
+
+//     #[inline]
+//     fn le(&self, other: &Self) -> bool {
+//         self.as_ref() <= other.as_ref()
+//     }
+
+//     #[inline]
+//     fn gt(&self, other: &Self) -> bool {
+//         self.as_ref() > other.as_ref()
+//     }
+
+//     #[inline]
+//     fn ge(&self, other: &Self) -> bool {
+//         self.as_ref() >= other.as_ref()
+//     }
+// }
+
+// impl<T: Ord> Ord for LrcPtr<T> {
+//     #[inline]
+//     fn cmp(&self, other: &Self) -> Ordering {
+//         self.as_ref().cmp(other.as_ref())
+//     }
+// }
 
 // -----------------------------------------------------------
 // LrcPtr operator traits

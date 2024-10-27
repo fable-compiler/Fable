@@ -433,7 +433,8 @@ let isCompatibleWithNativeComparison =
     | GenericParam _
     | Array _
     | List _
-    | Builtin(BclGuid | BclTimeSpan) -> true
+    | Builtin(BclGuid) -> true
+    | Builtin(BclTimeSpan) -> true
     | _ -> false
 
 // Overview of hash rules:
@@ -474,7 +475,8 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Boolean
     | Char
     | String
-    | Number _ -> makeEqOp r left right BinaryEqual
+    | Number _
+    | Builtin(FSharpChoice _ | FSharpResult _) -> makeEqOp r left right BinaryEqual
     | Builtin kind -> Helper.LibCall(com, coreModFor kind, "equals", t, [ left; right ], ?loc = r)
     | Array _ -> Helper.LibCall(com, "Array", "equals", t, [ left; right ], ?loc = r)
     | List _ -> Helper.LibCall(com, "List", "equals", t, [ left; right ], ?loc = r)
@@ -499,7 +501,8 @@ let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Boolean
     | Char
     | String
-    | Number _ -> Helper.LibCall(com, "Native", "compare", t, [ left; right ], ?loc = r)
+    | Number _
+    | Builtin(FSharpChoice _ | FSharpResult _) -> Helper.LibCall(com, "Native", "compare", t, [ left; right ], ?loc = r)
     | Builtin kind -> Helper.LibCall(com, coreModFor kind, "compareTo", t, [ left; right ], ?loc = r)
     | Array _ -> Helper.LibCall(com, "Array", "compareTo", t, [ left; right ], ?loc = r)
     | List _ -> Helper.LibCall(com, "List", "compareTo", t, [ left; right ], ?loc = r)
