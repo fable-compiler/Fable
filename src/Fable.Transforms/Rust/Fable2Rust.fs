@@ -443,8 +443,8 @@ module TypeInfo =
     let isNonDefaultableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more undefaultable types?
-        | Fable.LambdaType _
-        | Fable.DelegateType _ -> true
+        // | Fable.LambdaType _
+        // | Fable.DelegateType _ -> true
         | _ -> hasTypeOfType com isNonDefaultableType isNonDefaultableEntity entNames typ
 
     let isNonDefaultableEntity com entNames (ent: Fable.Entity) =
@@ -1162,6 +1162,11 @@ module Util =
     let (|IFormattable|_|) =
         function
         | Replacements.Util.IsEntity (Types.iformattable) _ -> Some()
+        | _ -> None
+
+    let (|IComparable|_|) =
+        function
+        | Replacements.Util.IsEntity (Types.icomparableGeneric) (_, [ genArg ]) -> Some(genArg)
         | _ -> None
 
     let (|IEquatable|_|) =
@@ -3864,7 +3869,8 @@ module Util =
             | Fable.Constraint.CoercesTo(targetType) ->
                 match targetType with
                 | IFormattable -> [ makeGenBound ("core" :: "fmt" :: "Display" :: []) [] ]
-                | IEquatable _ -> [ makeGenBound ("core" :: "hash" :: "Hash" :: []) []; makeRawBound "PartialEq" ]
+                | IComparable _ -> [ makeRawBound "PartialOrd" ]
+                | IEquatable _ -> [ makeRawBound "PartialEq" ]
                 | Fable.DeclaredType(entRef, genArgs) ->
                     let ent = com.GetEntity(entRef)
 

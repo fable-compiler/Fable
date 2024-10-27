@@ -532,7 +532,7 @@ let compareTo (xs: 'T seq) (ys: 'T seq) =
     // LanguagePrimitives.GenericComparison xs ys
     compareWith compare xs ys
 
-let equals (xs: 'T seq) (ys: 'T seq) =
+let equals<'T when 'T :> System.IEquatable<'T>> (xs: 'T seq) (ys: 'T seq) =
     // LanguagePrimitives.GenericEquality xs ys
     use e1 = ofSeq xs
     use e2 = ofSeq ys
@@ -541,13 +541,13 @@ let equals (xs: 'T seq) (ys: 'T seq) =
     let mutable b2 = e2.MoveNext()
 
     while res && b1 && b2 do
-        res <- e1.Current = e2.Current
+        res <- e1.Current.Equals(e2.Current)
 
         if res then
             b1 <- e1.MoveNext()
             b2 <- e2.MoveNext()
 
-    res
+    res && b1 = b2
 
 // let enumerateFromFunctions create moveNext current =
 //     generate

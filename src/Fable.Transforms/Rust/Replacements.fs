@@ -431,8 +431,8 @@ let isCompatibleWithNativeComparison =
     | String
     | Number _
     | GenericParam _
-    | Array _
-    | List _
+    // | Array _
+    // | List _
     | Builtin(BclGuid) -> true
     | Builtin(BclTimeSpan) -> true
     | _ -> false
@@ -3377,6 +3377,7 @@ let private replacedModules =
             "System.Text.StringBuilder", stringBuilder
             Types.array, arrays
             Types.list, lists
+            "Microsoft.FSharp.Collections.ArrayModule.Parallel", arrayModule
             "Microsoft.FSharp.Collections.ArrayModule", arrayModule
             "Microsoft.FSharp.Collections.ListModule", listModule
             "Microsoft.FSharp.Collections.HashIdentity", fsharpModule
@@ -3386,6 +3387,8 @@ let private replacedModules =
             Types.keyValuePair, keyValuePairs
             "System.Collections.Generic.Comparer`1", bclType
             "System.Collections.Generic.EqualityComparer`1", bclType
+            Types.iequatableGeneric, valueTypes
+            Types.icomparableGeneric, valueTypes
             Types.dictionary, dictionaries
             Types.idictionary, dictionaries
             Types.ireadonlydictionary, dictionaries
