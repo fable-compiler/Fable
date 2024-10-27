@@ -145,10 +145,10 @@ let ``List comparison works`` () =
     a1 < a2 |> equal false
     a1 < a3 |> equal true
     a1 < a4 |> equal true
-    a1 > a1 |> equal false
-    a1 > a2 |> equal false
-    a1 > a3 |> equal false
-    a1 > a4 |> equal false
+    a3 < a4 |> equal false
+    a3 < a2 |> equal false
+    a4 < a2 |> equal false
+    a4 < a3 |> equal true
 
 [<Fact>]
 let ``List compare works`` () =

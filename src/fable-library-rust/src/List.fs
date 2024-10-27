@@ -289,14 +289,14 @@ let compareTo (xs: 'T list) (ys: 'T list) =
     // LanguagePrimitives.GenericComparison xs ys
     compareWith compare xs ys
 
-let rec equals (xs: 'T list) (ys: 'T list) =
+let rec equals<'T when 'T :> System.IEquatable<'T>> (xs: 'T list) (ys: 'T list) =
     // LanguagePrimitives.GenericEquality xs ys
     match (isEmpty xs), (isEmpty ys) with
     | true, true -> true
     | true, false -> false
     | false, true -> false
     | false, false ->
-        if (head xs) = (head ys) then
+        if (head xs).Equals(head ys) then
             equals (tail xs) (tail ys)
         else
             false

@@ -171,7 +171,7 @@ let compareTo (source1: 'T[]) (source2: 'T[]) =
 
         res
 
-let equals (source1: 'T[]) (source2: 'T[]) =
+let equals<'T when 'T :> System.IEquatable<'T>> (source1: 'T[]) (source2: 'T[]) =
     // LanguagePrimitives.GenericEquality source1 source2
     let len1 = source1.Length
     let len2 = source2.Length
@@ -181,7 +181,7 @@ let equals (source1: 'T[]) (source2: 'T[]) =
         let mutable res = true
 
         while res && i < len1 do
-            res <- source1[i] = source2[i]
+            res <- source1[i].Equals(source2[i])
             i <- i + 1
 
         res

@@ -3529,6 +3529,7 @@ let private replacedModules =
             "System.Text.StringBuilder", bclType
             Types.array, arrays
             Types.list, lists
+            "Microsoft.FSharp.Collections.ArrayModule.Parallel", arrayModule
             "Microsoft.FSharp.Collections.ArrayModule", arrayModule
             "Microsoft.FSharp.Collections.ListModule", listModule
             "Microsoft.FSharp.Collections.HashIdentity", fsharpModule
