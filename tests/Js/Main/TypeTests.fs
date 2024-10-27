@@ -355,11 +355,48 @@ type InfoB = {
 type IUpperMangledInterface =
     abstract Upper: string -> string
     abstract Ping: unit -> string
+    abstract Value: string with get, set
+    abstract ReadOnlyValue: string with get
+    abstract SetterOnlyValue: string with set
 
 type UpperMangledClass() =
+    let mutable innerValue = ""
+
     interface IUpperMangledInterface with
         member _.Upper s = s.ToUpper()
-        member _.Ping () = "pong"
+        member _.Ping() = "pong"
+
+        member _.Value
+            with get () = innerValue
+            and set v = innerValue <- v
+
+        member _.ReadOnlyValue = innerValue
+        member _.SetterOnlyValue
+            with set v = innerValue <- v
+
+[<Mangle>]
+type IGenericMangledInterface<'T> =
+    abstract Upper: string -> string
+    abstract Ping: unit -> string
+    abstract Value: 'T with get, set
+    abstract ReadOnlyValue: string with get
+    abstract SetterOnlyValue: 'T with set
+
+type GenericMangledClass() =
+    let mutable innerValue = ""
+
+    interface IGenericMangledInterface<string> with
+        member _.Upper s = s.ToUpper()
+        member _.Ping() = "pong"
+
+        member _.Value
+            with get () = innerValue
+            and set v = innerValue <- v
+
+        member _.ReadOnlyValue = innerValue
+
+        member _.SetterOnlyValue
+            with set v = innerValue <- v
 
 #if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
@@ -1333,8 +1370,27 @@ let tests =
         let result = genericByrefFunc &arr
         result |> equal 3
 
-    testCase "mangled method on interface works" <| fun () ->
+    testCase "mangled method on interface works"
+    <| fun () ->
         let upper = UpperMangledClass()
         (upper :> IUpperMangledInterface).Upper("hello") |> equal "HELLO"
         (upper :> IUpperMangledInterface).Ping() |> equal "pong"
+        (upper :> IUpperMangledInterface).Value |> equal ""
+        (upper :> IUpperMangledInterface).Value <- "value"
+        (upper :> IUpperMangledInterface).Value |> equal "value"
+        (upper :> IUpperMangledInterface).ReadOnlyValue |> equal "value"
+        (upper :> IUpperMangledInterface).SetterOnlyValue <- "setter only value"
+        (upper :> IUpperMangledInterface).Value |> equal "setter only value"
+
+    testCase "mangled method on generic interface works"
+    <| fun () ->
+        let upper = GenericMangledClass()
+        (upper :> IGenericMangledInterface<string>).Upper("hello") |> equal "HELLO"
+        (upper :> IGenericMangledInterface<string>).Ping() |> equal "pong"
+        (upper :> IGenericMangledInterface<string>).Value |> equal ""
+        (upper :> IGenericMangledInterface<string>).Value <- "value"
+        (upper :> IGenericMangledInterface<string>).Value |> equal "value"
+        (upper :> IGenericMangledInterface<string>).ReadOnlyValue |> equal "value"
+        (upper :> IGenericMangledInterface<string>).SetterOnlyValue <- "setter only value"
+        (upper :> IGenericMangledInterface<string>).Value |> equal "setter only value"
   ]

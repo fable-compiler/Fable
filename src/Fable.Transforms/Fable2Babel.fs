@@ -3826,95 +3826,144 @@ module Util =
         ]
 
     let transformInterfaceDeclaration (com: IBabelCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
-        let getters, methods =
+        let makeAbstractMembers (info: Fable.MemberFunctionOrValue) (prop: Expression) (isComputed: bool) =
+            let args =
+                info.CurriedParameterGroups
+                |> List.concat
+                // |> FSharp2Fable.Util.discardUnitArg
+                |> List.toArray
+
+            let argsLen = Array.length args
+
+            let args =
+                args
+                |> Array.mapi (fun i a ->
+                    let name = defaultArg a.Name $"arg{i}"
+
+                    let ta =
+                        if a.IsOptional then
+                            unwrapOptionalType a.Type
+                        else
+                            a.Type
+                        |> FableTransforms.uncurryType
+                        |> makeTypeAnnotation com ctx
+
+                    Parameter
+                        .parameter(name, ta)
+                        .WithFlags(
+                            ParameterFlags(
+                                isOptional = a.IsOptional,
+                                isSpread = (i = argsLen - 1 && info.HasSpread),
+                                isNamed = a.IsNamed
+                            )
+                        )
+                )
+
+            let typeParams =
+                info.GenericParameters
+                |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
+                |> makeTypeParamDecl com ctx
+
+            let returnType = makeTypeAnnotation com ctx info.ReturnParameter.Type
+
+            AbstractMember.abstractMethod (
+                ObjectMeth,
+                prop,
+                args,
+                returnType = returnType,
+                typeParameters = typeParams,
+                isComputed = isComputed,
+                ?doc = info.XmlDoc
+            )
+
+        let filterdMembers =
             ent.MembersFunctionsAndValues
-            // It's not usual to have getters/setters in TS interfaces, so let's ignore setters
-            // and compile getters as fields
             |> Seq.filter (fun info ->
                 not (info.IsProperty || info.IsSetter)
                 // TODO: Deal with other emit attributes like EmitMethod or EmitConstructor
                 && not (hasAttribute Atts.emitAttr info.Attributes)
             )
-            |> Seq.toArray
-            |> Array.partition (fun info -> info.IsGetter)
 
-        let getters =
-            getters
-            |> Array.map (fun info ->
-                let prop, isComputed = memberFromName info.DisplayName
+        let members =
+            if hasAttribute Atts.mangle ent.Attributes then
+                let generateMemberName (info: Fable.MemberFunctionOrValue) =
+                    let entityGenericParameters = ent.GenericParameters |> List.map (fun g -> g.Name)
 
-                let isOptional, typ =
-                    makeAbstractPropertyAnnotation com ctx info.ReturnParameter.Type
+                    let overloadSuffix =
+                        if info.IsGetter || info.IsSetter then
+                            ""
+                        else
+                            info.CurriedParameterGroups
+                            |> List.map (fun groups -> groups |> List.map (fun group -> group.Type))
+                            |> OverloadSuffix.getHash entityGenericParameters
 
-                AbstractMember.abstractProperty (
-                    prop,
-                    typ,
-                    isComputed = isComputed,
-                    isOptional = isOptional,
-                    ?doc = info.XmlDoc
+                    let genericSuffix =
+                        if ent.GenericParameters.Length > 0 then
+                            $"`{ent.GenericParameters.Length}"
+                        else
+                            ""
+
+                    let getterOrSetterPrefix =
+                        if info.IsGetter then
+                            "get_"
+                        else if info.IsSetter then
+                            "set_"
+                        else
+                            ""
+
+                    let fullNamePath, memberName =
+                        let lastDotIndex = info.FullName.LastIndexOf('.')
+
+                        info.FullName.Substring(0, lastDotIndex), info.FullName.Substring(lastDotIndex + 1)
+
+                    let name =
+                        fullNamePath
+                        + genericSuffix
+                        + "."
+                        + getterOrSetterPrefix
+                        + memberName
+                        + overloadSuffix
+
+                    memberFromName name
+
+                filterdMembers
+                |> Seq.map (fun info ->
+                    let prop, isComputed = generateMemberName info
+
+                    makeAbstractMembers info prop isComputed
                 )
-            )
+                |> Seq.toArray
 
-        let methods =
-            methods
-            |> Array.map (fun info ->
-                let prop, isComputed =
-                    if ent.Attributes |> hasAttribute Atts.mangle then
-                        memberFromName info.FullName
-                    else
-                        memberFromName info.CompiledName
+            else
+                let getters, methods =
+                    filterdMembers |> Seq.toArray |> Array.partition (fun info -> info.IsGetter)
 
-                let args =
-                    info.CurriedParameterGroups
-                    |> List.concat
-                    // |> FSharp2Fable.Util.discardUnitArg
-                    |> List.toArray
+                let getters =
+                    getters
+                    |> Array.map (fun info ->
+                        let prop, isComputed = memberFromName info.DisplayName
 
-                let argsLen = Array.length args
+                        let isOptional, typ =
+                            makeAbstractPropertyAnnotation com ctx info.ReturnParameter.Type
 
-                let args =
-                    args
-                    |> Array.mapi (fun i a ->
-                        let name = defaultArg a.Name $"arg{i}"
-
-                        let ta =
-                            if a.IsOptional then
-                                unwrapOptionalType a.Type
-                            else
-                                a.Type
-                            |> FableTransforms.uncurryType
-                            |> makeTypeAnnotation com ctx
-
-                        Parameter
-                            .parameter(name, ta)
-                            .WithFlags(
-                                ParameterFlags(
-                                    isOptional = a.IsOptional,
-                                    isSpread = (i = argsLen - 1 && info.HasSpread),
-                                    isNamed = a.IsNamed
-                                )
-                            )
+                        AbstractMember.abstractProperty (
+                            prop,
+                            typ,
+                            isComputed = isComputed,
+                            isOptional = isOptional,
+                            ?doc = info.XmlDoc
+                        )
                     )
 
-                let typeParams =
-                    info.GenericParameters
-                    |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
-                    |> makeTypeParamDecl com ctx
+                let methods =
+                    methods
+                    |> Array.map (fun info ->
+                        let prop, isComputed = memberFromName info.CompiledName
 
-                let returnType = makeTypeAnnotation com ctx info.ReturnParameter.Type
+                        makeAbstractMembers info prop isComputed
+                    )
 
-                AbstractMember.abstractMethod (
-                    ObjectMeth,
-                    prop,
-                    args,
-                    returnType = returnType,
-                    typeParameters = typeParams,
-                    isComputed = isComputed,
-                    ?doc = info.XmlDoc
-                )
-            )
-
-        let members = Array.append getters methods
+                Array.append getters methods
 
         let extends =
             ent.DeclaredInterfaces
