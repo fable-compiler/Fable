@@ -437,14 +437,12 @@ module TypeInfo =
         // TODO: more unprintable types?
         | _ -> hasTypeOfType com isNonPrintableType isNonPrintableEntity entNames typ
 
-    let isNonPrintableEntity com entNames (ent: Fable.Entity) = false
-    // || (hasFieldOfType com isNonPrintableType entNames ent)
+    let isNonPrintableEntity com entNames (ent: Fable.Entity) =
+        ent.IsInterface || (hasFieldOfType com isNonPrintableType entNames ent)
 
     let isNonDefaultableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more undefaultable types?
-        // | Fable.LambdaType _
-        // | Fable.DelegateType _ -> true
         | _ -> hasTypeOfType com isNonDefaultableType isNonDefaultableEntity entNames typ
 
     let isNonDefaultableEntity com entNames (ent: Fable.Entity) =
@@ -470,7 +468,8 @@ module TypeInfo =
         | _ -> hasTypeOfType com isNonCopyableType isNonCopyableEntity entNames typ
 
     let isNonCopyableEntity com entNames (ent: Fable.Entity) =
-        not ent.IsValueType
+        ent.IsInterface
+        || not ent.IsValueType
         || (hasMutableFields com ent)
         || (hasFieldOfType com isNonCopyableType entNames ent)
 
@@ -488,8 +487,9 @@ module TypeInfo =
         | _ -> hasTypeOfType com isNonEquatableType isNonEquatableEntity entNames typ
 
     let isNonEquatableEntity com entNames (ent: Fable.Entity) =
-        ent.IsInterface || not (FSharp2Fable.Util.hasStructuralEquality ent)
-    // || (hasFieldOfType com isNonEquatableType entNames ent)
+        ent.IsInterface
+        || not (FSharp2Fable.Util.hasStructuralEquality ent)
+        || (hasFieldOfType com isNonEquatableType entNames ent)
 
     let isNonComparableType (com: IRustCompiler) entNames typ =
         match typ with
@@ -3897,15 +3897,24 @@ module Util =
     let defaultTypeBounds =
         [
             mkTypeTraitGenericBound [ rawIdent "Clone" ] None
+            // mkTypeTraitGenericBound [ rawIdent "Send" ] None
+            // mkTypeTraitGenericBound [ rawIdent "Sync" ] None
             mkLifetimeGenericBound "'static" //TODO: add it only when needed
         ]
+
+    let makeDefaultTypeBounds com ctx =
+        // let importName = getLibraryImportName com ctx "Native" "IObject"
+        // let objectBound = mkTypeTraitGenericBound [ importName ] None
+        // objectBound :: defaultTypeBounds
+        defaultTypeBounds
 
     let makeGenericParams com ctx (genParams: Fable.GenericParam list) =
         genParams
         |> List.filter (fun p -> not p.IsMeasure)
         |> List.map (fun p ->
             let typeBounds = makeTypeBounds com ctx p.Name p.Constraints
-            mkGenericParamFromName [] p.Name (typeBounds @ defaultTypeBounds)
+            let typeBounds = typeBounds @ (makeDefaultTypeBounds com ctx)
+            mkGenericParamFromName [] p.Name typeBounds
         )
 
     let makeGenericParamsFromArgs com ctx (genArgs: Fable.Type list) =
@@ -3914,7 +3923,8 @@ module Util =
             function
             | Fable.GenericParam(name, isMeasure, constraints) when not isMeasure ->
                 let typeBounds = makeTypeBounds com ctx name constraints
-                mkGenericParamFromName [] name (typeBounds @ defaultTypeBounds) |> Some
+                let typeBounds = typeBounds @ (makeDefaultTypeBounds com ctx)
+                mkGenericParamFromName [] name typeBounds |> Some
             | _ -> None
         )
 
@@ -4052,7 +4062,8 @@ module Util =
     //     | Fable.DeclaredType(entRef, genArgs) :: _ ->
     //         let entName = getEntityFullName com ctx entRef
     //         let memberItem = makeMemberItem com ctx true (decl, memb)
-    //         [ memberItem ] |> makeTraitImpls com ctx entName genArgs None
+    //         let implItem = [ memberItem ] |> makeTraitImpl com ctx entName genArgs None
+    //         [ implItem ]
     //     | _ -> []
 
     let transformModuleFunction (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
@@ -4254,7 +4265,8 @@ module Util =
         fnItem
 
     let makeDerivedFrom com (ent: Fable.Entity) =
-        // let isCopyable = not (ent |> isNonCopyableEntity com Set.empty)
+        let isCopyable = false //not (ent |> isNonCopyableEntity com Set.empty)
+        let isCloneable = true //not (ent |> isNonCloneableEntity com Set.empty)
         let isPrintable = not (ent |> isNonPrintableEntity com Set.empty)
         let isDefaultable = not (ent |> isNonDefaultableEntity com Set.empty)
         let isHashable = not (ent |> isNonHashableEntity com Set.empty)
@@ -4263,9 +4275,10 @@ module Util =
 
         let derivedFrom =
             [
-                rawIdent "Clone"
-                // if isCopyable then
-                //     rawIdent "Copy"
+                if isCopyable then
+                    rawIdent "Copy"
+                if isCloneable then
+                    rawIdent "Clone"
                 if isPrintable then
                     rawIdent "Debug"
                 if isDefaultable then
@@ -4515,9 +4528,7 @@ module Util =
         let traitItem =
             let assocItems = makeInterfaceItems com ctx false typeName ent
             let generics = makeGenerics com ctx genArgs
-            // let sendBound = mkTypeTraitGenericBound [ rawIdent "Send" ] None
-            // let syncBound = mkTypeTraitGenericBound [ rawIdent "Sync" ] None
-            let traitBounds = [] // [ sendBound; syncBound ]
+            let traitBounds = [] // (makeDefaultTypeBounds com ctx)
             let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
             mkTraitItem attrs entName assocItems traitBounds generics
 
@@ -4526,7 +4537,7 @@ module Util =
             let memberItems = makeInterfaceItems com ctx true typeName ent
             let genArgsOpt = transformGenArgs com ctx genArgs
             let traitBound = mkTypeTraitGenericBound [ entName ] genArgsOpt
-            let typeBounds = traitBound :: defaultTypeBounds
+            let typeBounds = traitBound :: (makeDefaultTypeBounds com ctx)
             let typeParam = mkGenericParamFromName [] typeName typeBounds
             let genParams = makeGenericParamsFromArgs com ctx genArgs
             let generics = typeParam :: genParams |> mkGenerics
@@ -4614,10 +4625,11 @@ module Util =
             let ofTrait = mkTraitRef path |> Some
             let assocItems = [ tyItem; fnItem ]
 
-            assocItems |> makeTraitImpls com ctx entName genArgs ofTrait
+            let implItem = assocItems |> makeTraitImpl com ctx entName genArgs ofTrait
+            [ implItem ]
         | _ -> []
 
-    let makeDisplayTraitImpls com ctx entName genArgs hasToString =
+    let makeDisplayTraitImpls com ctx entName genArgs hasToString hasDebug =
         // expected output:
         // impl core::fmt::Display for {self_ty} {
         //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -4649,10 +4661,16 @@ module Util =
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
         let fnItem = mkFnAssocItem [] "fmt" fnKind
 
-        let path = mkGenericPath ("core" :: "fmt" :: "Display" :: []) None
-        let ofTrait = mkTraitRef path |> Some
+        let makeItem fmtTrait =
+            let path = mkGenericPath ("core" :: "fmt" :: fmtTrait :: []) None
+            let ofTrait = mkTraitRef path |> Some
+            let implItem = [ fnItem ] |> makeTraitImpl com ctx entName genArgs ofTrait
+            implItem
 
-        [ fnItem ] |> makeTraitImpls com ctx entName genArgs ofTrait
+        if hasDebug then
+            [ makeItem "Debug"; makeItem "Display" ]
+        else
+            [ makeItem "Display" ]
 
     let op_impl_map =
         Map
@@ -4757,21 +4775,22 @@ module Util =
 
             [ ctorItem ]
 
-    let makeTraitImpls (com: IRustCompiler) ctx entName genArgs ofTrait memberItems =
+    let makeTraitImpl (com: IRustCompiler) ctx entName genArgs ofTrait memberItems =
         let nameParts = entName |> splitNameParts
         let genArgsOpt = transformGenArgs com ctx genArgs
         let traitBound = mkTypeTraitGenericBound nameParts genArgsOpt
         let self_ty = mkTraitTy [ traitBound ]
         let generics = makeGenerics com ctx genArgs
         let implItem = mkImplItem [] "" self_ty generics memberItems ofTrait
-        [ implItem ]
+        implItem
 
     let makeInterfaceTraitImpls (com: IRustCompiler) ctx entName genArgs ifcEntRef ifcGenArgs memberItems =
         let ifcFullName = getEntityFullName com ctx ifcEntRef
         let ifcGenArgsOpt = transformGenArgs com ctx ifcGenArgs
         let path = makeFullNamePath ifcFullName ifcGenArgsOpt
         let ofTrait = mkTraitRef path |> Some
-        memberItems |> makeTraitImpls com ctx entName genArgs ofTrait
+        let implItem = memberItems |> makeTraitImpl com ctx entName genArgs ofTrait
+        [ implItem ]
 
     // let objectMemberNames =
     //     set
@@ -4838,7 +4857,8 @@ module Util =
             if List.isEmpty memberItems then
                 []
             else
-                memberItems |> makeTraitImpls com ctx entName genArgs None
+                let implItem = memberItems |> makeTraitImpl com ctx entName genArgs None
+                [ implItem ]
 
         let baseTypeOpt =
             if isObjectExpr then
@@ -4855,7 +4875,7 @@ module Util =
             let hasToString =
                 nonInterfaceMembers |> List.exists (fun (d, m) -> m.CompiledName = "ToString")
 
-            makeDisplayTraitImpls com ctx entName genParams hasToString
+            makeDisplayTraitImpls com ctx entName genParams hasToString false
 
         let operatorTraitImpls =
             nonInterfaceMembers |> makeOpTraitImpls com ctx ent entName genArgs
