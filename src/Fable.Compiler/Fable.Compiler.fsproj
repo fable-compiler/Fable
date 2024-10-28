@@ -6,10 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-014</Version>
+        <Version>4.0.0-alpha-015</Version>
         <PackageReleaseNotes>## Changed
 
-- Fable 4.22.0
+- Fable 4.23.0
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

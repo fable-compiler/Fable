@@ -7,12 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.23.0 - 2024-10-28
+
 ### Added
 
 * [Rust] Added basic class inheritance support (by @ncave)
-* [Rust] Added String.Replace(char, char) and test (by @ncave)
+* [Rust] Added `String.Replace(char, char)` and test (by @ncave)
 * [Rust] Support type extensions for external types (by @ncave)
-* [Rust] Support more System.Array methods and tests (by @ncave)
+* [Rust] Support more `System.Array` methods and tests (by @ncave)
 * [Rust] Added decision tree multiple target references (by @ncave)
 * [Rust] Added Char surrogate tests for completeness (by @ncave)
 * [JS] Add `System.String.Normalize` support (by @DashieTM)
@@ -23,8 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Rust] Updated derived traits mapping (by @ncave)
 * [Rust] Updated some collections equality (by @ncave)
 * [Rust] Fixed try finally handler order of execution (by @ncave)
-* [JS/TS/Python/Rust] Fixed String.StartsWith/EndsWith (#3934) (by @ncave)
-* [All/Rust] Removed Regex.Replace from hot paths (by @ncave)
+* [JS/TS/Python/Rust] Fixed `String.StartsWith/EndsWith` (#3934) (by @ncave)
+* [All/Rust] Removed `Regex.Replace` from hot paths (by @ncave)
 * [JS] Fix regression, generate `let` variable when using `import` on a private mutable variable (by @MangelMaxime)
 * [TS] Prevent generics to be duplicated (by @MangelMaxime)
 * [TS] Fix interface generation when decorated with `Mangle` (by @MangelMaxime)
