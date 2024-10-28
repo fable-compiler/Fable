@@ -68,6 +68,9 @@ pub mod Native_ {
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{BuildHasher, Hash, Hasher};
 
+    // default object trait
+    // pub trait IObject: Clone + Debug + 'static {}
+
     // -----------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------
