@@ -1,5 +1,6 @@
 module Fable.Tests.ResizeArrays
 
+open System.Collections.Generic
 open Util.Testing
 
 type Animal = Duck of int | Dog of int
@@ -299,4 +300,68 @@ let tests =
         myResizeArray.IndexOf(Dog 3) |> equal 1
         myResizeArray.IndexOf(Dog 3, 0, 1) |> equal -1
         myResizeArray.IndexOf(Duck 5, 1) |> equal -1
+
+    testCase "ResizeArray.CopyTo works" <| fun _ ->
+        let xs = ResizeArray<_> [|1;2;3;4|]
+        let ys = [|5;6;7;8;9|]
+        xs.CopyTo(ys)
+        ys |> equal [|1;2;3;4;9|]
+
+    testCase "ResizeArray.CopyTo works II" <| fun _ ->
+        let xs = ResizeArray<_> [|1;2;3;4|]
+        let ys = [|5;6;7;8;9|]
+        xs.CopyTo(ys, 1)
+        ys |> equal [|5;1;2;3;4|]
+
+    testCase "ResizeArray.CopyTo works III" <| fun _ ->
+        let xs = ResizeArray<_> [|1;2;3;4|]
+        let ys = [|5;6;7;8;9|]
+        xs.CopyTo(2, ys, 1, 2)
+        ys |> equal [|5;3;4;8;9|]
+
+    testCase "ResizeArray ICollection.IsReadOnly works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (ResizeArray xs) :> ICollection<_>
+        coll.IsReadOnly |> equal false
+
+    testCase "ResizeArray ICollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (ResizeArray xs) :> ICollection<_>
+        coll.Count |> equal 3
+
+    testCase "ResizeArray ICollection.Contains works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (ResizeArray xs) :> ICollection<_>
+        coll.Contains(("B", 3)) |> equal false
+        coll.Contains(("D", 3)) |> equal false
+        coll.Contains(("B", 2)) |> equal true
+
+    testCase "Dictionary ICollection.CopyTo works" <| fun _ -> // See #3914
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (ResizeArray xs) :> ICollection<_>
+        let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
+        coll.CopyTo(ys, 0)
+        ys = xs |> equal true
+
+    testCase "ResizeArray ICollection.Clear works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (ResizeArray xs) :> ICollection<_>
+        coll.Clear()
+        coll.Count |> equal 0
+
+    testCase "ResizeArray ICollection.Add works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (ResizeArray xs) :> ICollection<_>
+        coll.Add(("A", 1))
+        coll.Add(("A", 2))
+        coll.Add(("D", 4))
+        coll.Count |> equal 6
+
+    testCase "ResizeArray ICollection.Remove works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (ResizeArray xs) :> ICollection<_>
+        coll.Remove(("B", 3)) |> equal false
+        coll.Remove(("D", 3)) |> equal false
+        coll.Remove(("B", 2)) |> equal true
+        coll.Count |> equal 2
   ]

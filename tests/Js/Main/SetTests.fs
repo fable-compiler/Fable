@@ -1,4 +1,6 @@
 module Fable.Tests.Sets
+
+open System.Collections.Generic
 open Util.Testing
 
 let tests =
@@ -289,4 +291,28 @@ let tests =
             largeSetB.IsSupersetOf(largeSetA) |> equal true
             largeSetA.IsProperSubsetOf(largeSetB) |> equal false
             largeSetA.IsSubsetOf(largeSetB) |> equal true
+
+        testCase "Set ICollection.IsReadOnly works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Set xs) :> ICollection<_>
+            coll.IsReadOnly |> equal true
+
+        testCase "Set ICollection.Count works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Set xs) :> ICollection<_>
+            coll.Count |> equal 3
+
+        testCase "Set ICollection.Contains works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Set xs) :> ICollection<_>
+            coll.Contains(("B", 3)) |> equal false
+            coll.Contains(("D", 3)) |> equal false
+            coll.Contains(("B", 2)) |> equal true
+
+        testCase "Set ICollection.CopyTo works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Set xs) :> ICollection<_>
+            let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
+            coll.CopyTo(ys, 0)
+            ys = xs |> equal true
     ]

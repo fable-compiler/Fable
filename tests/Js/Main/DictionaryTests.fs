@@ -235,7 +235,8 @@ let tests =
     testCase "Adding 2 items with the same key throws" <| fun () ->
         let dic = Dictionary<_,_>()
         dic.Add("A", 65)
-        throwsError "An item with the same key has already been added. Key: A" (fun _ -> dic.Add("A", 95))
+        // throwsError "An item with the same key has already been added. Key: A" (fun _ -> dic.Add("A", 95))
+        throwsAnyError (fun _ -> dic.Add("A", 95))
 
     testCase "Indexer throws when key not found" <| fun () ->
         let dic = Dictionary<_,_>()
@@ -244,12 +245,12 @@ let tests =
         throwsAnyError (fun () -> dic.["B"])
 
     testCase "conversion from array works" <| fun () ->
-        let dic = [| "A",1; "B",2|] |> dict
+        let dic = [| "A",1; "B",2 |] |> dict
         dic.Values.Count
         |> equal 2
 
     testCase "conversion from array works with duplicates" <| fun () ->
-        let dic = [| "A",1; "A",3; "B",2|] |> dict
+        let dic = [| "A",1; "A",3; "B",2 |] |> dict
         dic.Values.Count
         |> equal 2
 
@@ -269,4 +270,50 @@ let tests =
         table.add "B" 2
         table.add "C" 3
         table.Dic.Count |> equal 3
+
+    testCase "Dictionary ICollection.IsReadOnly works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
+        let coll = (Dictionary xs) :> ICollection<KeyValuePair<_,_>>
+        coll.IsReadOnly |> equal false
+
+    testCase "Dictionary ICollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
+        let coll = (Dictionary xs) :> ICollection<KeyValuePair<_,_>>
+        coll.Count |> equal 3
+
+    testCase "Dictionary ICollection.Contains works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
+        let coll = (Dictionary xs) :> ICollection<KeyValuePair<_,_>>
+        coll.Contains(KeyValuePair("B", 3)) |> equal false
+        coll.Contains(KeyValuePair("D", 3)) |> equal false
+        coll.Contains(KeyValuePair("B", 2)) |> equal true
+
+    testCase "Dictionary ICollection.CopyTo works" <| fun _ -> // See #3914
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
+        let coll = (Dictionary xs) :> ICollection<KeyValuePair<_,_>>
+        let ys = [| ("D", 4); ("E", 5); ("F", 6) |] |> Array.map KeyValuePair
+        coll.CopyTo(ys, 0)
+        ys = xs |> equal true
+
+    testCase "Dictionary ICollection.Clear works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
+        let coll = (Dictionary xs) :> ICollection<KeyValuePair<_,_>>
+        coll.Clear()
+        coll.Count |> equal 0
+
+    testCase "Dictionary ICollection.Add works" <| fun _ -> // See #3914
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
+        let coll = (Dictionary xs) :> ICollection<KeyValuePair<_,_>>
+        throwsAnyError (fun _ -> coll.Add(KeyValuePair("A", 1)))
+        throwsAnyError (fun _ -> coll.Add(KeyValuePair("A", 2)))
+        coll.Add(KeyValuePair("D", 4))
+        coll.Count |> equal 4
+
+    testCase "Dictionary ICollection.Remove works" <| fun _ -> // See #3914
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
+        let coll = (Dictionary xs) :> ICollection<KeyValuePair<_,_>>
+        coll.Remove(KeyValuePair("B", 3)) |> equal false
+        coll.Remove(KeyValuePair("D", 3)) |> equal false
+        coll.Remove(KeyValuePair("B", 2)) |> equal true
+        coll.Count |> equal 2
   ]

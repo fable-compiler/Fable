@@ -1,11 +1,10 @@
 module Fable.Tests.Arrays
 
-open System
 open Util.Testing
 open Fable.Tests.Util
 
 type ParamArrayTest =
-    static member Add([<ParamArray>] xs: int[]) = Array.sum xs
+    static member Add([<System.ParamArray>] xs: int[]) = Array.sum xs
 
 let add (xs: int[]) = ParamArrayTest.Add(xs)
 
@@ -359,7 +358,7 @@ let ``test Array.filter works`` () =
 [<Fact>]
 let ``test Array.filter with chars works`` () =
     let xs = [|'a'; '2'; 'b'; 'c'|]
-    let ys = xs |> Array.filter Char.IsLetter
+    let ys = xs |> Array.filter System.Char.IsLetter
     ys.Length |> equal 3
 
 [<Fact>]
@@ -1008,17 +1007,17 @@ let ``test Testing against System.Array works`` () =
     zs :? System.Array |> equal false
 
 [<Fact>]
-let ``test Array.Copy works with numeric arrays`` () =
+let ``test System.Array.Copy works with numeric arrays`` () =
     let source = [| 99 |]
     let destination = [| 1; 2; 3 |]
-    Array.Copy(source, 0, destination, 0, 1)
+    System.Array.Copy(source, 0, destination, 0, 1)
     equal [| 99; 2; 3 |] destination
 
 [<Fact>]
-let ``test Array.Copy works with non-numeric arrays`` () =
+let ``test System.Array.Copy works with non-numeric arrays`` () =
     let source = [| "xy"; "xx"; "xyz" |]
     let destination = [| "a"; "b"; "c" |]
-    Array.Copy(source, 1, destination, 1, 2)
+    System.Array.Copy(source, 1, destination, 1, 2)
     equal [| "a"; "xx"; "xyz" |] destination
 
 [<Fact>]
@@ -1174,3 +1173,19 @@ let ``test Array.removeManyAt works`` () =
 //     equal c1 true
 //     equal c2 -1
 //     equal c3 1
+
+// [<Fact>]
+// let ``test System.Array.Resize works`` () =
+//     let mutable xs = [|1; 2; 3; 4; 5|]
+//     System.Array.Resize(&xs, 3)
+//     xs |> equal [|1; 2; 3|]
+//     System.Array.Resize(&xs, 7)
+//     xs |> equal [|1; 2; 3; 0; 0; 0; 0|]
+//     System.Array.Resize(&xs, 0)
+//     xs |> equal [||]
+//     xs <- null
+//     System.Array.Resize(&xs, 3)
+//     xs |> equal [|0; 0; 0|]
+//     xs <- null
+//     System.Array.Resize(&xs, 0)
+//     xs |> equal [||]

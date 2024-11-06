@@ -1,11 +1,11 @@
 module Fable.Tests.Arrays
 
-open System
+open System.Collections.Generic
 open Util.Testing
 open Fable.Tests.Util
 
 type ParamArrayTest =
-    static member Add([<ParamArray>] xs: int[]) = Array.sum xs
+    static member Add([<System.ParamArray>] xs: int[]) = Array.sum xs
 
 let add (xs: int[]) = ParamArrayTest.Add(xs)
 
@@ -423,7 +423,7 @@ let tests =
 
     testCase "Array.filter with chars works" <| fun () ->
         let xs = [|'a'; '2'; 'b'; 'c'|]
-        let ys = xs |> Array.filter Char.IsLetter
+        let ys = xs |> Array.filter System.Char.IsLetter
         ys.Length |> equal 3
 
     testCase "Array.find works" <| fun () ->
@@ -1066,16 +1066,16 @@ let tests =
         ys :? System.Array |> equal true
         zs :? System.Array |> equal false
 
-    testCase "Array.Copy works with numeric arrays" <| fun () ->
+    testCase "System.Array.Copy works with numeric arrays" <| fun () ->
         let source = [| 99 |]
         let destination = [| 1; 2; 3 |]
-        Array.Copy(source, 0, destination, 0, 1)
+        System.Array.Copy(source, 0, destination, 0, 1)
         equal [| 99; 2; 3 |] destination
 
-    testCase "Array.Copy works with non-numeric arrays" <| fun () ->
+    testCase "System.Array.Copy works with non-numeric arrays" <| fun () ->
         let source = [| "xy"; "xx"; "xyz" |]
         let destination = [| "a"; "b"; "c" |]
-        Array.Copy(source, 1, destination, 1, 2)
+        System.Array.Copy(source, 1, destination, 1, 2)
         equal [| "a"; "xx"; "xyz" |] destination
 
     testCase "Array.splitInto works" <| fun () ->
@@ -1221,18 +1221,42 @@ let tests =
         equal c2 -1
         equal c3 1
 
-    testCase "Array.Resize works" <| fun () ->
+    testCase "System.Array.Resize works" <| fun () ->
         let mutable xs = [|1; 2; 3; 4; 5|]
-        Array.Resize(&xs, 3)
+        System.Array.Resize(&xs, 3)
         xs |> equal [|1; 2; 3|]
-        Array.Resize(&xs, 7)
+        System.Array.Resize(&xs, 7)
         xs |> equal [|1; 2; 3; 0; 0; 0; 0|]
-        Array.Resize(&xs, 0)
+        System.Array.Resize(&xs, 0)
         xs |> equal [||]
         xs <- null
-        Array.Resize(&xs, 3)
+        System.Array.Resize(&xs, 3)
         xs |> equal [|0; 0; 0|]
         xs <- null
-        Array.Resize(&xs, 0)
+        System.Array.Resize(&xs, 0)
         xs |> equal [||]
+
+    // testCase "Array ICollection.IsReadOnly works" <| fun _ ->
+    //     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+    //     let coll = xs :> ICollection<_>
+    //     coll.IsReadOnly |> equal false
+
+    testCase "Array ICollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> ICollection<_>
+        coll.Count |> equal 3
+
+    testCase "Array ICollection.Contains works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> ICollection<_>
+        coll.Contains(("B", 3)) |> equal false
+        coll.Contains(("D", 3)) |> equal false
+        coll.Contains(("B", 2)) |> equal true
+
+    testCase "Array ICollection.CopyTo works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> ICollection<_>
+        let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
+        coll.CopyTo(ys, 0)
+        ys = xs |> equal true
   ]
