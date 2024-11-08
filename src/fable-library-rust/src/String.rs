@@ -339,58 +339,132 @@ pub mod String_ {
         fromIter(a.iter().copied().skip(i as usize).take(count as usize))
     }
 
+    // pub mod StringComparison {
+    //     pub const CurrentCulture: i32 = 0;
+    //     pub const CurrentCultureIgnoreCase: i32 = 1;
+    //     pub const InvariantCulture: i32 = 2;
+    //     pub const InvariantCultureIgnoreCase: i32 = 3;
+    //     pub const Ordinal: i32 = 4;
+    //     pub const OrdinalIgnoreCase: i32 = 5;
+    // }
+
+    fn isIgnoreCase(comparison: i32) -> bool {
+        comparison == 1 || comparison == 3 || comparison == 5
+    }
+
     pub fn containsChar(s: string, c: char) -> bool {
         s.contains(c)
+    }
+
+    pub fn containsChar2(s: string, c: char, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
+            let mut buf = [0u8; 4];
+            let c_str = c.encode_utf8(&mut buf);
+            s.to_uppercase().contains(&c_str.to_uppercase())
+        } else {
+            s.contains(c)
+        }
     }
 
     pub fn contains(s: string, p: string) -> bool {
         s.contains(p.as_str())
     }
 
-    pub fn equalsOrdinal(s1: string, s2: string, ignoreCase: bool) -> bool {
-        if ignoreCase {
+    pub fn contains2(s: string, p: string, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
+            s.to_uppercase().contains(&p.to_uppercase())
+        } else {
+            s.contains(p.as_str())
+        }
+    }
+
+    pub fn equalsOrdinal(s1: string, s2: string) -> bool {
+        s1.eq(&s2)
+    }
+
+    pub fn equals2(s1: string, s2: string, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
             s1.to_uppercase().eq(&s2.to_uppercase())
         } else {
             s1.eq(&s2)
         }
     }
 
-    pub fn compareOrdinal(s1: string, s2: string, ignoreCase: bool) -> i32 {
-        if ignoreCase {
+    pub fn compareOrdinal(s1: string, s2: string) -> i32 {
+        compare(&s1, &s2)
+    }
+
+    pub fn compareOrdinal2(s1: string, i1: i32, s2: string, i2: i32, count: i32) -> i32 {
+        let s1 = substring2(s1, i1, count);
+        let s2 = substring2(s2, i2, count);
+        compareOrdinal(s1, s2)
+    }
+
+    pub fn compareWith(s1: string, s2: string, comparison: i32) -> i32 {
+        if isIgnoreCase(comparison) {
             compare(&s1.to_uppercase(), &s2.to_uppercase())
         } else {
             compare(&s1, &s2)
         }
     }
 
-    pub fn compareOrdinal2(s1: string, i1: i32, s2: string, i2: i32, count: i32, ignoreCase: bool) -> i32 {
+    pub fn compareWith2(s1: string, i1: i32, s2: string, i2: i32, count: i32, comparison: i32) -> i32 {
         let s1 = substring2(s1, i1, count);
         let s2 = substring2(s2, i2, count);
-        compareOrdinal(s1, s2, ignoreCase)
+        compareWith(s1, s2, comparison)
+    }
+
+    pub fn compareCase(s1: string, s2: string, ignoreCase: bool) -> i32 {
+        let comparison = if ignoreCase { 5 } else { 4 };
+        compareWith(s1, s2, comparison)
+    }
+
+    pub fn compareCase2(s1: string, i1: i32, s2: string, i2: i32, count: i32, ignoreCase: bool) -> i32 {
+        let s1 = substring2(s1, i1, count);
+        let s2 = substring2(s2, i2, count);
+        compareCase(s1, s2, ignoreCase)
     }
 
     pub fn startsWithChar(s: string, c: char) -> bool {
         s.starts_with(c)
     }
 
-    pub fn startsWith(s: string, p: string, ignoreCase: bool) -> bool {
-        if ignoreCase {
+    pub fn startsWith(s: string, p: string) -> bool {
+        s.starts_with(p.as_str())
+    }
+
+    pub fn startsWith2(s: string, p: string, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
             s.to_uppercase().starts_with(&p.to_uppercase())
         } else {
             s.starts_with(p.as_str())
         }
     }
 
+    pub fn startsWith3(s: string, p: string, ignoreCase: bool) -> bool {
+        let comparison = if ignoreCase { 5 } else { 4 };
+        startsWith2(s, p, comparison)
+    }
+
     pub fn endsWithChar(s: string, c: char) -> bool {
         s.ends_with(c)
     }
 
-    pub fn endsWith(s: string, p: string, ignoreCase: bool) -> bool {
-        if ignoreCase {
+    pub fn endsWith(s: string, p: string) -> bool {
+        s.ends_with(p.as_str())
+    }
+
+    pub fn endsWith2(s: string, p: string, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
             s.to_uppercase().ends_with(&p.to_uppercase())
         } else {
             s.ends_with(p.as_str())
         }
+    }
+
+    pub fn endsWith3(s: string, p: string, ignoreCase: bool) -> bool {
+        let comparison = if ignoreCase { 5 } else { 4 };
+        endsWith2(s, p, comparison)
     }
 
     pub fn isEmpty(s: string) -> bool {

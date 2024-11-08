@@ -814,6 +814,11 @@ let ``String.Compare substring works`` () =
     String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
 
 [<Fact>]
+let ``String.Compare substring case-insensitive works`` () =
+    String.Compare("ABC", 0, "bcd", 0, 3, true) |> equal -1
+    String.Compare("ABC", 1, "bcd", 0, 2, true) |> equal 0
+
+[<Fact>]
 let ``String.Compare with comparison works`` () =
     // String.Compare("ABC", "abc", StringComparison.InvariantCulture) > 0 |> equal true
     String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
@@ -845,6 +850,23 @@ let ``String.IsNullOrWhiteSpace works`` () =
 let ``String.Contains works`` () =
     "ABC".Contains("B") |> equal true
     "ABC".Contains("Z") |> equal false
+
+[<Fact>]
+let ``String.Contains with char works`` () =
+    "ABC".Contains('B') |> equal true
+    "ABC".Contains('Z') |> equal false
+
+[<Fact>]
+let ``String.Contains with comparison works`` () =
+    "ABC".Contains("b", StringComparison.OrdinalIgnoreCase) |> equal true
+    "Abc".Contains("B", StringComparison.OrdinalIgnoreCase) |> equal true
+    "Abc".Contains("B", StringComparison.Ordinal) |> equal false
+
+[<Fact>]
+let ``String.Contains with char comparison works`` () =
+    "ABC".Contains('b', StringComparison.OrdinalIgnoreCase) |> equal true
+    "Abc".Contains('B', StringComparison.OrdinalIgnoreCase) |> equal true
+    "Abc".Contains('B', StringComparison.Ordinal) |> equal false
 
 [<Fact>]
 let ``String.PadLeft works`` () =

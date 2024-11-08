@@ -1235,15 +1235,15 @@ let getEnumerator com r t i (expr: Expr) =
         makeInstanceCall r t i expr "GetEnumerator" []
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let isIgnoreCase args =
-        match args with
-        | [] -> false
-        | [ BoolConst ignoreCase ] -> ignoreCase
-        | [ BoolConst ignoreCase; _cultureInfo ] -> ignoreCase
-        | [ NumberConst(NumberValue.Int32 kind, NumberInfo.IsEnum _) ] -> kind = 1 || kind = 3 || kind = 5
-        | [ _cultureInfo; NumberConst(NumberValue.Int32 options, NumberInfo.IsEnum _) ] ->
-            (options &&& 1 <> 0) || (options &&& 268435456 <> 0)
-        | _ -> false
+    // let isIgnoreCase args =
+    //     match args with
+    //     | [] -> false
+    //     | [ BoolConst ignoreCase ] -> ignoreCase
+    //     | [ BoolConst ignoreCase; _cultureInfo ] -> ignoreCase
+    //     | [ NumberConst(NumberValue.Int32 kind, NumberInfo.IsEnum _) ] -> kind = 1 || kind = 3 || kind = 5
+    //     | [ _cultureInfo; NumberConst(NumberValue.Int32 options, NumberInfo.IsEnum _) ] ->
+    //         (options &&& 1 <> 0) || (options &&& 268435456 <> 0)
+    //     | _ -> false
 
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ ->
@@ -1255,28 +1255,44 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | _ -> None
     | "get_Length", Some c, _ -> Helper.LibCall(com, "String", "length", t, c :: args, ?loc = r) |> Some
     | "get_Chars", Some c, _ -> Helper.LibCall(com, "String", "getCharAt", t, c :: args, ?loc = r) |> Some
-    | ("Compare" | "CompareOrdinal"), None, _ ->
-        if i.CompiledName = "Compare" then
-            $"String.Compare will be compiled as String.CompareOrdinal"
-            |> addWarning com ctx.InlinePath r
-
+    | "CompareOrdinal", None, _ ->
         match args with
-        | ExprType String :: ExprType String :: restArgs ->
-            let args = (args |> List.take 2) @ [ makeBoolConst (isIgnoreCase restArgs) ]
-
+        | [ ExprType String; ExprType String ] ->
             Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc = r) |> Some
-        | ExprType String :: ExprType(Number(Int32, _)) :: ExprType String :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                            _)) :: restArgs ->
-            let args = (args |> List.take 5) @ [ makeBoolConst (isIgnoreCase restArgs) ]
-
-            Helper.LibCall(com, "String", "compareOrdinal2", t, args, ?loc = r) |> Some
+        | [ ExprType String
+            ExprType(Number(Int32, _))
+            ExprType String
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _)) ] -> Helper.LibCall(com, "String", "compareOrdinal2", t, args, ?loc = r) |> Some
         | _ -> None
     | "CompareTo", Some c, [ ExprTypeAs(String, arg) ] ->
         $"String.CompareTo will be compiled as String.CompareOrdinal"
         |> addWarning com ctx.InlinePath r
 
-        Helper.LibCall(com, "String", "compareOrdinal", t, [ c; arg; makeBoolConst false ], ?loc = r)
-        |> Some
+        Helper.LibCall(com, "String", "compareOrdinal", t, [ c; arg ], ?loc = r) |> Some
+    | "Compare", None, _ ->
+        $"String.Compare will be compiled as String.CompareOrdinal"
+        |> addWarning com ctx.InlinePath r
+
+        match args with
+        | [ ExprType String; ExprType String ] ->
+            Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc = r) |> Some
+        | ExprType String :: ExprType String :: ExprType Boolean :: restArgs ->
+            Helper.LibCall(com, "String", "compareCase", t, args, ?loc = r) |> Some
+        | [ ExprType String; ExprType String; comparison ] ->
+            Helper.LibCall(com, "String", "compareWith", t, args, ?loc = r) |> Some
+        | [ ExprType String
+            ExprType(Number(Int32, _))
+            ExprType String
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _)) ] -> Helper.LibCall(com, "String", "compareOrdinal2", t, args, ?loc = r) |> Some
+        | ExprType String :: ExprType(Number(Int32, _)) :: ExprType String :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
+                                                                                                                            _)) :: ExprType Boolean :: restArgs ->
+            Helper.LibCall(com, "String", "compareCase2", t, args, ?loc = r) |> Some
+        | ExprType String :: ExprType(Number(Int32, _)) :: ExprType String :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
+                                                                                                                            _)) :: comparison :: restArgs ->
+            Helper.LibCall(com, "String", "compareWith2", t, args, ?loc = r) |> Some
+        | _ -> None
     | "Concat", None, _ ->
         match args with
         | [ ExprTypeAs(IEnumerable, arg) ] ->
@@ -1292,32 +1308,28 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Contains", Some c, _ ->
         match args with
         | [ ExprType Char ] -> Helper.LibCall(com, "String", "containsChar", t, c :: args, ?loc = r) |> Some
+        | [ ExprType Char; _comparison ] ->
+            Helper.LibCall(com, "String", "containsChar2", t, c :: args, ?loc = r) |> Some
         | [ ExprType String ] -> Helper.LibCall(com, "String", "contains", t, c :: args, ?loc = r) |> Some
+        | [ ExprType String; _comparison ] -> Helper.LibCall(com, "String", "contains2", t, c :: args, ?loc = r) |> Some
         | _ -> None
     | "EndsWith", Some c, _ ->
         match args with
         | [ ExprType Char ] -> Helper.LibCall(com, "String", "endsWithChar", t, c :: args, ?loc = r) |> Some
-        | ExprType String :: restArgs ->
-            let args = (args |> List.take 1) @ [ makeBoolConst (isIgnoreCase restArgs) ]
-
-            Helper.LibCall(com, "String", "endsWith", t, c :: args, ?loc = r) |> Some
+        | [ ExprType String ] -> Helper.LibCall(com, "String", "endsWith", t, c :: args, ?loc = r) |> Some
+        | [ ExprType String; _comparison ] -> Helper.LibCall(com, "String", "endsWith2", t, c :: args, ?loc = r) |> Some
+        | [ pattern; ignoreCase; _culture ] ->
+            Helper.LibCall(com, "String", "endsWith3", t, [ c; pattern; ignoreCase ], ?loc = r)
+            |> Some
         | _ -> None
     | "Equals", _, _ ->
         match thisArg, args with
         | Some x, [ ExprTypeAs(String, y) ]
         | None, [ ExprTypeAs(String, x); ExprTypeAs(String, y) ] ->
-            Helper.LibCall(com, "String", "equalsOrdinal", t, [ x; y; makeBoolConst false ], ?loc = r)
-            |> Some
-        | Some x, [ ExprTypeAs(String, y); NumberConst(NumberValue.Int32 kind, NumberInfo.IsEnum _) ]
-        | None,
-          [ ExprTypeAs(String, x); ExprTypeAs(String, y); NumberConst(NumberValue.Int32 kind, NumberInfo.IsEnum _) ] ->
-            if kind <> 4 && kind <> 5 then
-                $"String.Equals will be compiled with ordinal equality"
-                |> addWarning com ctx.InlinePath r
-
-            let ignoreCase = kind = 1 || kind = 3 || kind = 5
-
-            Helper.LibCall(com, "String", "equalsOrdinal", t, [ x; y; makeBoolConst ignoreCase ], ?loc = r)
+            Helper.LibCall(com, "String", "equalsOrdinal", t, [ x; y ], ?loc = r) |> Some
+        | Some x, [ ExprTypeAs(String, y); comparison ]
+        | None, [ ExprTypeAs(String, x); ExprTypeAs(String, y); comparison ] ->
+            Helper.LibCall(com, "String", "equals2", t, [ x; y; comparison ], ?loc = r)
             |> Some
         | _ -> None
     | "Format", None, _ ->
@@ -1487,10 +1499,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "StartsWith", Some c, _ ->
         match args with
         | [ ExprType Char ] -> Helper.LibCall(com, "String", "startsWithChar", t, c :: args, ?loc = r) |> Some
-        | ExprType String :: restArgs ->
-            let args = (args |> List.take 1) @ [ makeBoolConst (isIgnoreCase restArgs) ]
-
-            Helper.LibCall(com, "String", "startsWith", t, c :: args, ?loc = r) |> Some
+        | [ ExprType String ] -> Helper.LibCall(com, "String", "startsWith", t, c :: args, ?loc = r) |> Some
+        | [ ExprType String; _comparison ] ->
+            Helper.LibCall(com, "String", "startsWith2", t, c :: args, ?loc = r) |> Some
+        | [ pattern; ignoreCase; _culture ] ->
+            Helper.LibCall(com, "String", "startsWith3", t, [ c; pattern; ignoreCase ], ?loc = r)
+            |> Some
         | _ -> None
     | "Substring", Some c, _ ->
         match args with
