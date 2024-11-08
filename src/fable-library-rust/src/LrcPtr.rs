@@ -30,7 +30,7 @@ impl<T: ?Sized> LrcPtr<T> {
     }
 }
 
-// impl<T> Default for LrcPtr<T> {
+// impl<T: ?Sized> Default for LrcPtr<T> {
 //     fn default() -> Self {
 //         Self::null()
 //     }
@@ -59,27 +59,27 @@ impl<T: ?Sized> Deref for LrcPtr<T> {
     }
 }
 
-impl<T: core::fmt::Debug> core::fmt::Debug for LrcPtr<T> {
+impl<T: ?Sized + core::fmt::Debug> core::fmt::Debug for LrcPtr<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:?}", self.deref())
     }
 }
 
-impl<T: core::fmt::Display> core::fmt::Display for LrcPtr<T> {
+impl<T: ?Sized + core::fmt::Display> core::fmt::Display for LrcPtr<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{}", self.deref())
     }
 }
 
 // // Custom code within the destructor.
-// impl<T: Drop> Drop for LrcPtr<T> {
+// impl<T: ?Sized + Drop> Drop for LrcPtr<T> {
 //     fn drop(&mut self) {
 //         self.0.drop();
 //     }
 // }
 
 // Used for indexing operations (container[index])
-impl<T: Index<Idx>, Idx> Index<Idx> for LrcPtr<T> {
+impl<T: ?Sized + Index<Idx>, Idx> Index<Idx> for LrcPtr<T> {
     type Output = T::Output;
 
     fn index(&self, idx: Idx) -> &Self::Output {

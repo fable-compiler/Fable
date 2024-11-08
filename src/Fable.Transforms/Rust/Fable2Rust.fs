@@ -402,78 +402,78 @@ module TypeInfo =
             ent.IsValueType
         | _ -> false
 
-    let hasTypeOfType (com: IRustCompiler) isTypeOf isEntityOf entNames typ =
+    let isTypeOfType (com: IRustCompiler) isTypeOf isEntityOf entNames typ =
         match typ with
         | Fable.Option(genArg, _) -> isTypeOf com entNames genArg
         | Fable.Array(genArg, _) -> isTypeOf com entNames genArg
         | Fable.List genArg -> isTypeOf com entNames genArg
-        | Fable.Tuple(genArgs, _) -> List.exists (isTypeOf com entNames) genArgs
-        | Fable.AnonymousRecordType(_, genArgs, _) -> List.exists (isTypeOf com entNames) genArgs
+        | Fable.Tuple(genArgs, _) -> List.forall (isTypeOf com entNames) genArgs
+        | Fable.AnonymousRecordType(_, genArgs, _) -> List.forall (isTypeOf com entNames) genArgs
         | Replacements.Util.Builtin(Replacements.Util.FSharpSet genArg) -> isTypeOf com entNames genArg
         | Replacements.Util.Builtin(Replacements.Util.FSharpMap(k, v)) ->
-            isTypeOf com entNames k || isTypeOf com entNames v
+            isTypeOf com entNames k && isTypeOf com entNames v
         | Fable.DeclaredType(entRef, _genArgs) ->
             let ent = com.GetEntity(entRef)
-            isEntityOf com entNames ent //|| hasFieldOfType com isTypeOf entNames ent
-        | _ -> false
+            isEntityOf com entNames ent
+        | _ -> true
 
-    let hasFieldOfType (com: IRustCompiler) isTypeOf entNames (ent: Fable.Entity) =
+    let hasFieldsOfType (com: IRustCompiler) isTypeOf entNames (ent: Fable.Entity) =
         if Set.contains ent.FullName entNames then
-            false // already checked, avoids circular checks
+            true // already checked, avoids circular checks
         else
             let entNames = Set.add ent.FullName entNames
 
             if ent.IsFSharpUnion then
                 ent.UnionCases
-                |> Seq.exists (fun uci ->
+                |> Seq.forall (fun uci ->
                     uci.UnionCaseFields
-                    |> List.exists (fun fi -> isTypeOf com entNames fi.FieldType)
+                    |> List.forall (fun fi -> isTypeOf com entNames fi.FieldType)
                 )
             else
-                ent.FSharpFields |> Seq.exists (fun fi -> isTypeOf com entNames fi.FieldType)
+                ent.FSharpFields |> Seq.forall (fun fi -> isTypeOf com entNames fi.FieldType)
 
-    let isNonPrintableType (com: IRustCompiler) entNames typ =
-        match typ with
-        // TODO: more unprintable types?
-        | _ -> hasTypeOfType com isNonPrintableType isNonPrintableEntity entNames typ
+    // let isPrintableType (com: IRustCompiler) entNames typ =
+    //     match typ with
+    //     // TODO: more unprintable types?
+    //     | _ -> isTypeOfType com isPrintableType isPrintableEntity entNames typ
 
-    let isNonPrintableEntity com entNames (ent: Fable.Entity) =
-        ent.IsInterface || (hasFieldOfType com isNonPrintableType entNames ent)
+    let isPrintableEntity com entNames (ent: Fable.Entity) = (List.isEmpty ent.GenericParameters)
+    // && (hasFieldsOfType com isPrintableType entNames ent) // commented as it kills performance
 
-    let isNonDefaultableType (com: IRustCompiler) entNames typ =
+    let isDefaultableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more undefaultable types?
-        | _ -> hasTypeOfType com isNonDefaultableType isNonDefaultableEntity entNames typ
+        | _ -> isTypeOfType com isDefaultableType isDefaultableEntity entNames typ
 
-    let isNonDefaultableEntity com entNames (ent: Fable.Entity) =
-        ent.IsInterface
-        || not ent.IsValueType
-        || ent.IsFSharpUnion // deriving 'Default' on enums is experimental
-        || (hasFieldOfType com isNonDefaultableType entNames ent)
+    let isDefaultableEntity com entNames (ent: Fable.Entity) =
+        ent.IsValueType
+        && not ent.IsFSharpUnion // default union cases are quite limited
+        && (hasFieldsOfType com isDefaultableType entNames ent)
 
-    let isNonCopyableType (com: IRustCompiler) entNames typ =
-        match typ with
-        // TODO: more uncopyable types?
-        | Fable.Any
-        | Fable.Unit
-        | Fable.Measure _
-        | Fable.MetaType
-        | Fable.LambdaType _
-        | Fable.DelegateType _
-        | Fable.GenericParam _
-        | Fable.String
-        | Fable.Regex -> true
-        | Fable.Tuple(genArgs, isStruct) when not isStruct -> true
-        | Fable.AnonymousRecordType(_, genArgs, isStruct) when not isStruct -> true
-        | _ -> hasTypeOfType com isNonCopyableType isNonCopyableEntity entNames typ
+    // let isCopyableType (com: IRustCompiler) entNames typ =
+    //     match typ with
+    //     // TODO: more uncopyable types?
+    //     | Fable.Any
+    //     | Fable.Unit
+    //     | Fable.Measure _
+    //     | Fable.MetaType
+    //     | Fable.LambdaType _
+    //     | Fable.DelegateType _
+    //     | Fable.GenericParam _
+    //     | Fable.String
+    //     | Fable.Regex
+    //     | Fable.List _ -> false
+    //     | Fable.Option(_, isStruct) when not isStruct -> false
+    //     | Fable.Tuple(_, isStruct) when not isStruct -> false
+    //     | Fable.AnonymousRecordType(_, _, isStruct) when not isStruct -> false
+    //     | _ -> isTypeOfType com isCopyableType isCopyableEntity entNames typ
 
-    let isNonCopyableEntity com entNames (ent: Fable.Entity) =
-        ent.IsInterface
-        || not ent.IsValueType
-        || (hasMutableFields com ent)
-        || (hasFieldOfType com isNonCopyableType entNames ent)
+    // let isCopyableEntity com entNames (ent: Fable.Entity) =
+    //     ent.IsValueType
+    //     && not (hasMutableFields com ent)
+    //     && (hasFieldsOfType com isCopyableType entNames ent)
 
-    let isNonEquatableType (com: IRustCompiler) entNames typ =
+    let isEquatableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more unequatable types?
         | Fable.Any
@@ -481,17 +481,16 @@ module TypeInfo =
         | Fable.Measure _
         | Fable.MetaType
         | Fable.LambdaType _
-        | Fable.DelegateType _ -> true
+        | Fable.DelegateType _ -> false
         // | Fable.GenericParam(_, _, constraints) ->
-        //     not (constraints |> List.contains Fable.Constraint.HasEquality)
-        | _ -> hasTypeOfType com isNonEquatableType isNonEquatableEntity entNames typ
+        //     constraints |> List.contains Fable.Constraint.HasEquality
+        | _ -> isTypeOfType com isEquatableType isEquatableEntity entNames typ
 
-    let isNonEquatableEntity com entNames (ent: Fable.Entity) =
-        ent.IsInterface
-        || not (FSharp2Fable.Util.hasStructuralEquality ent)
-        || (hasFieldOfType com isNonEquatableType entNames ent)
+    let isEquatableEntity com entNames (ent: Fable.Entity) =
+        (FSharp2Fable.Util.hasStructuralEquality ent)
+        && (hasFieldsOfType com isEquatableType entNames ent)
 
-    let isNonComparableType (com: IRustCompiler) entNames typ =
+    let isComparableType (com: IRustCompiler) entNames typ =
         match typ with
         // TODO: more uncomparable types?
         | Fable.Any
@@ -500,17 +499,16 @@ module TypeInfo =
         | Fable.MetaType
         | Fable.LambdaType _
         | Fable.DelegateType _
-        | Fable.Regex -> true
+        | Fable.Regex -> false
         // | Fable.GenericParam(_, _, constraints) ->
-        //     not (constraints |> List.contains Fable.Constraint.HasComparison)
-        | _ -> hasTypeOfType com isNonComparableType isNonComparableEntity entNames typ
+        //     constraints |> List.contains Fable.Constraint.HasComparison
+        | _ -> isTypeOfType com isComparableType isComparableEntity entNames typ
 
-    let isNonComparableEntity com entNames (ent: Fable.Entity) =
-        ent.IsInterface
-        || not (FSharp2Fable.Util.hasStructuralComparison ent)
-        || (hasFieldOfType com isNonComparableType entNames ent)
+    let isComparableEntity com entNames (ent: Fable.Entity) =
+        (FSharp2Fable.Util.hasStructuralComparison ent)
+        && (hasFieldsOfType com isComparableType entNames ent)
 
-    let isNonHashableType com entNames typ =
+    let isHashableType com entNames typ =
         match typ with
         // TODO: more unhashable types?
         | Fable.Any
@@ -519,13 +517,12 @@ module TypeInfo =
         | Fable.MetaType
         | Fable.Number((Float32 | Float64), _)
         | Fable.LambdaType _
-        | Fable.DelegateType _ -> true
-        | _ -> hasTypeOfType com isNonHashableType isNonHashableEntity entNames typ
+        | Fable.DelegateType _ -> false
+        | _ -> isTypeOfType com isHashableType isHashableEntity entNames typ
 
-    let isNonHashableEntity com entNames (ent: Fable.Entity) =
-        ent.IsInterface
-        || not (FSharp2Fable.Util.hasStructuralEquality ent)
-        || (hasFieldOfType com isNonHashableType entNames ent)
+    let isHashableEntity com entNames (ent: Fable.Entity) =
+        (FSharp2Fable.Util.hasStructuralEquality ent)
+        && (hasFieldsOfType com isHashableType entNames ent)
 
     let isWrappedType com typ =
         match typ with
@@ -3894,6 +3891,12 @@ module Util =
 
         constraints |> List.distinct |> List.collect makeConstraint
 
+    let defaultInterfaceTypeBounds =
+        [
+            mkTypeTraitGenericBound ("core" :: "fmt" :: "Debug" :: []) None
+            mkTypeTraitGenericBound ("core" :: "fmt" :: "Display" :: []) None
+        ]
+
     let defaultTypeBounds =
         [
             mkTypeTraitGenericBound [ rawIdent "Clone" ] None
@@ -3902,18 +3905,17 @@ module Util =
             mkLifetimeGenericBound "'static" //TODO: add it only when needed
         ]
 
-    let makeDefaultTypeBounds com ctx =
-        // let importName = getLibraryImportName com ctx "Native" "IObject"
-        // let objectBound = mkTypeTraitGenericBound [ importName ] None
-        // objectBound :: defaultTypeBounds
-        defaultTypeBounds
+    // let makeDefaultTypeBounds com ctx =
+    //     let importName = getLibraryImportName com ctx "Native" "IObject"
+    //     let objectBound = mkTypeTraitGenericBound [ importName ] None
+    //     objectBound :: defaultTypeBounds
 
     let makeGenericParams com ctx (genParams: Fable.GenericParam list) =
         genParams
         |> List.filter (fun p -> not p.IsMeasure)
         |> List.map (fun p ->
             let typeBounds = makeTypeBounds com ctx p.Name p.Constraints
-            let typeBounds = typeBounds @ (makeDefaultTypeBounds com ctx)
+            let typeBounds = typeBounds @ defaultTypeBounds
             mkGenericParamFromName [] p.Name typeBounds
         )
 
@@ -3923,7 +3925,7 @@ module Util =
             function
             | Fable.GenericParam(name, isMeasure, constraints) when not isMeasure ->
                 let typeBounds = makeTypeBounds com ctx name constraints
-                let typeBounds = typeBounds @ (makeDefaultTypeBounds com ctx)
+                let typeBounds = typeBounds @ defaultTypeBounds
                 mkGenericParamFromName [] name typeBounds |> Some
             | _ -> None
         )
@@ -4265,13 +4267,13 @@ module Util =
         fnItem
 
     let makeDerivedFrom com (ent: Fable.Entity) =
-        let isCopyable = false //not (ent |> isNonCopyableEntity com Set.empty)
-        let isCloneable = true //not (ent |> isNonCloneableEntity com Set.empty)
-        let isPrintable = not (ent |> isNonPrintableEntity com Set.empty)
-        let isDefaultable = not (ent |> isNonDefaultableEntity com Set.empty)
-        let isHashable = not (ent |> isNonHashableEntity com Set.empty)
-        let isEquatable = not (ent |> isNonEquatableEntity com Set.empty)
-        let isComparable = not (ent |> isNonComparableEntity com Set.empty)
+        let isCopyable = false //ent |> isCopyableEntity com Set.empty
+        let isCloneable = true //ent |> isCloneableEntity com Set.empty
+        let isPrintable = ent |> isPrintableEntity com Set.empty
+        let isDefaultable = ent |> isDefaultableEntity com Set.empty
+        let isHashable = ent |> isHashableEntity com Set.empty
+        let isEquatable = ent |> isEquatableEntity com Set.empty
+        let isComparable = ent |> isComparableEntity com Set.empty
 
         let derivedFrom =
             [
@@ -4528,7 +4530,7 @@ module Util =
         let traitItem =
             let assocItems = makeInterfaceItems com ctx false typeName ent
             let generics = makeGenerics com ctx genArgs
-            let traitBounds = [] // (makeDefaultTypeBounds com ctx)
+            let traitBounds = defaultInterfaceTypeBounds
             let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
             mkTraitItem attrs entName assocItems traitBounds generics
 
@@ -4537,7 +4539,7 @@ module Util =
             let memberItems = makeInterfaceItems com ctx true typeName ent
             let genArgsOpt = transformGenArgs com ctx genArgs
             let traitBound = mkTypeTraitGenericBound [ entName ] genArgsOpt
-            let typeBounds = traitBound :: (makeDefaultTypeBounds com ctx)
+            let typeBounds = traitBound :: defaultInterfaceTypeBounds
             let typeParam = mkGenericParamFromName [] typeName typeBounds
             let genParams = makeGenericParamsFromArgs com ctx genArgs
             let generics = typeParam :: genParams |> mkGenerics
@@ -4875,7 +4877,8 @@ module Util =
             let hasToString =
                 nonInterfaceMembers |> List.exists (fun (d, m) -> m.CompiledName = "ToString")
 
-            makeDisplayTraitImpls com ctx entName genParams hasToString false
+            let hasDebug = not (List.isEmpty ent.GenericParameters)
+            makeDisplayTraitImpls com ctx entName genParams hasToString hasDebug
 
         let operatorTraitImpls =
             nonInterfaceMembers |> makeOpTraitImpls com ctx ent entName genArgs
