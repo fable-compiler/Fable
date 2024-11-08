@@ -17,6 +17,8 @@ type Exception(message: string) =
         else
             message
 
+    member _.StackTrace = ""
+
     interface System.Collections.IStructuralEquatable with
         member x.Equals(y, comparer) = false
         member x.GetHashCode(comparer) = 0

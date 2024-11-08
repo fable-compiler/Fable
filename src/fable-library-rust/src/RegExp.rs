@@ -472,6 +472,12 @@ pub mod RegExp_ {
         }
     }
 
+    impl core::fmt::Display for CaptureCollection {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
     impl GroupCollection {
         pub fn count(&self) -> i32 {
             self.0.len() as i32
@@ -519,6 +525,12 @@ pub mod RegExp_ {
         }
     }
 
+    impl core::fmt::Display for GroupCollection {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
     impl MatchCollection {
         pub fn count(&self) -> i32 {
             self.0.len() as i32
@@ -532,6 +544,12 @@ pub mod RegExp_ {
     impl IEnumerable_1<Match> for MatchCollection {
         fn GetEnumerator(&self) -> LrcPtr<dyn IEnumerator_1<Match>> {
             ofArray(self.0.clone()).GetEnumerator()
+        }
+    }
+
+    impl core::fmt::Display for MatchCollection {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
         }
     }
 }

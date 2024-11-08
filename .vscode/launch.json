@@ -272,6 +272,21 @@
       "cwd": "${workspaceRoot}/../fable-test",
       "stopAtEntry": false,
       "console": "internalConsole"
+    },
+    {
+      "name": "Bench.Cli on ../fable-test",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/src/bin/Debug/net8.0/bench-compiler.dll",
+      "args": [
+        "fable-test.fsproj",
+        "--outDir", "${workspaceRoot}/../fable-test",
+        "--fableLib", "${workspaceRoot}/temp/fable-library-rust",
+        "--lang", "Rust"
+      ],
+      "cwd": "${workspaceRoot}/../fable-test",
+      "stopAtEntry": false,
+      "console": "internalConsole"
     }
   ]
 }

@@ -2367,8 +2367,8 @@ let collections (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> bclType com ctx r t i thisArg args
-    | "get_Message", Some callee -> makeInstanceCall r t i callee i.CompiledName args |> Some
-    // | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
+    | "get_Message", Some ex -> makeInstanceCall r t i ex i.CompiledName args |> Some
+    | "get_StackTrace", Some ex -> makeInstanceCall r t i ex i.CompiledName args |> Some
     | _ -> None
 
 let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
