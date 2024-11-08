@@ -1,10 +1,9 @@
 module Fable.Tests.Dart.Array
 
-open System
 open Util
 
 type ParamArrayTest =
-    static member Add([<ParamArray>] xs: int[]) = Array.sum xs
+    static member Add([<System.ParamArray>] xs: int[]) = Array.sum xs
 
 let add (xs: int[]) = ParamArrayTest.Add(xs)
 
@@ -312,7 +311,7 @@ let tests () =
 // TODO: Char.IsLetter
     // testCase "Array.filter with chars works" <| fun () ->
     //     let xs = [|'a'; '2'; 'b'; 'c'|]
-    //     let ys = xs |> Array.filter Char.IsLetter
+    //     let ys = xs |> Array.filter System.Char.IsLetter
     //     ys.Length |> equal 3
 
     testCase "Array.find works" <| fun () ->
@@ -960,16 +959,16 @@ let tests () =
         ys :? System.Array |> equal true
         zs :? System.Array |> equal false
 
-    testCase "Array.Copy works with numeric arrays" <| fun () ->
+    testCase "System.Array.Copy works with numeric arrays" <| fun () ->
         let source = [| 99 |]
         let destination = [| 1; 2; 3 |]
-        Array.Copy(source, 0, destination, 0, 1)
+        System.Array.Copy(source, 0, destination, 0, 1)
         equal [| 99; 2; 3 |] destination
 
-    testCase "Array.Copy works with non-numeric arrays" <| fun () ->
+    testCase "System.Array.Copy works with non-numeric arrays" <| fun () ->
         let source = [| "xy"; "xx"; "xyz" |]
         let destination = [| "a"; "b"; "c" |]
-        Array.Copy(source, 1, destination, 1, 2)
+        System.Array.Copy(source, 1, destination, 1, 2)
         equal [| "a"; "xx"; "xyz" |] destination
 
     testCase "Array.splitInto works" <| fun () ->
@@ -1102,3 +1101,30 @@ let tests () =
         throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
         throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
         throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
+
+    // testCase "Array.compareWith works" <| fun () -> // See #2961
+    //     let a = [|1;3|]
+    //     let b = [|1;2;3|]
+    //     // compares lengths first, then elements
+    //     let c1 = a < b
+    //     let c2 = compare a b
+    //     // should compare elements first, then lengths
+    //     let c3 = Array.compareWith compare a b
+    //     equal c1 true
+    //     equal c2 -1
+    //     equal c3 1
+
+    // testCase "System.Array.Resize works" <| fun () ->
+    //     let mutable xs = [|1; 2; 3; 4; 5|]
+    //     System.Array.Resize(&xs, 3)
+    //     xs |> equal [|1; 2; 3|]
+    //     System.Array.Resize(&xs, 7)
+    //     xs |> equal [|1; 2; 3; 0; 0; 0; 0|]
+    //     System.Array.Resize(&xs, 0)
+    //     xs |> equal [||]
+    //     xs <- null
+    //     System.Array.Resize(&xs, 3)
+    //     xs |> equal [|0; 0; 0|]
+    //     xs <- null
+    //     System.Array.Resize(&xs, 0)
+    //     xs |> equal [||]

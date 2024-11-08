@@ -1291,14 +1291,14 @@ let ``Array.allPairs works`` () =
 //     zs :? System.Array |> equal false
 
 [<Fact>]
-let ``Array.Copy works with numeric arrays`` () =
+let ``System.Array.Copy works with numeric arrays`` () =
     let source = [| 99 |]
     let destination = [| 1; 2; 3 |]
     System.Array.Copy(source, 0, destination, 0, 1)
     equal [| 99; 2; 3 |] destination
 
 [<Fact>]
-let ``Array.Copy works with non-numeric arrays`` () =
+let ``System.Array.Copy works with non-numeric arrays`` () =
     let source = [| "xy"; "xx"; "xyz" |]
     let destination = [| "a"; "b"; "c" |]
     System.Array.Copy(source, 1, destination, 1, 2)
@@ -1433,3 +1433,19 @@ let ``Array.removeManyAt works`` () =
     throwsAnyError (fun () -> Array.removeManyAt<int> 0 2 [||] |> ignore)
     throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
     throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
+
+// [<Fact>]
+// let ``System.Array.Resize works`` () =
+//     let mutable xs = [|1; 2; 3; 4; 5|]
+//     System.Array.Resize(&xs, 3)
+//     xs |> equal [|1; 2; 3|]
+//     System.Array.Resize(&xs, 7)
+//     xs |> equal [|1; 2; 3; 0; 0; 0; 0|]
+//     System.Array.Resize(&xs, 0)
+//     xs |> equal [||]
+//     xs <- null
+//     System.Array.Resize(&xs, 3)
+//     xs |> equal [|0; 0; 0|]
+//     xs <- null
+//     System.Array.Resize(&xs, 0)
+//     xs |> equal [||]

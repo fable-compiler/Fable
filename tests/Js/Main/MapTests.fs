@@ -291,4 +291,28 @@ let tests =
             |> Map.add { Bar = "a"; Foo = 10 } 2
             |> Map.count
             |> equal 1
+
+        testCase "Map ICollection.IsReadOnly works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Map xs) :> ICollection<_>
+            coll.IsReadOnly |> equal true
+
+        testCase "Map ICollection.Count works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Map xs) :> ICollection<_>
+            coll.Count |> equal 3
+
+        testCase "Map ICollection.Contains works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Map xs) :> ICollection<_>
+            coll.Contains(KeyValuePair("B", 3)) |> equal false
+            coll.Contains(KeyValuePair("D", 3)) |> equal false
+            coll.Contains(KeyValuePair("B", 2)) |> equal true
+
+        testCase "Map ICollection.CopyTo works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Map xs) :> ICollection<_>
+            let ys = [| ("D", 4); ("E", 5); ("F", 6) |] |> Array.map KeyValuePair
+            coll.CopyTo(ys, 0)
+            ys = (xs |> Array.map KeyValuePair) |> equal true
     ]

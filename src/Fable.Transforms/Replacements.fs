@@ -1790,6 +1790,10 @@ let injectIndexOfArgs com ctx r genArgs args =
 
     injectArg com ctx r "Array" "indexOf" genArgs args
 
+let copyToArray (com: ICompiler) r t (i: CallInfo) args =
+    Helper.LibCall(com, "Util", "copyToArray", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+    |> Some
+
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
@@ -1803,6 +1807,13 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
+    | "CopyTo", Some ar, [ target ] ->
+        let count = getFieldWith r t ar "length"
+        copyToArray com r t i [ ar; makeIntConst 0; target; makeIntConst 0; count ]
+    | "CopyTo", Some ar, [ target; targetIndex ] ->
+        let count = getFieldWith r t ar "length"
+        copyToArray com r t i [ ar; makeIntConst 0; target; targetIndex; count ]
+    | "CopyTo", Some ar, [ _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i (ar :: args)
     | "Add", Some ar, [ arg ] ->
         "void ($0)"
         |> emitExpr r t [ Helper.InstanceCall(ar, "push", t, [ arg ]) ]
@@ -1941,10 +1952,6 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "ToValueTuple", _ -> changeKind true args
     | "ToTuple", _ -> changeKind false args
     | _ -> None
-
-let copyToArray (com: ICompiler) r t (i: CallInfo) args =
-    Helper.LibCall(com, "Util", "copyToArray", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
-    |> Some
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -2649,6 +2656,11 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             makeComparerFromEqualityComparer eqComp
             |> makeDictionaryWithComparer com r t arg
             |> Some
+        | [ IEnumerable ], [ arg ] -> makeDictionary com ctx r t arg |> Some
+        | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] ->
+            makeComparerFromEqualityComparer eqComp
+            |> makeDictionaryWithComparer com r t arg
+            |> Some
         | [ IEqualityComparer ], [ eqComp ]
         | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
             makeComparerFromEqualityComparer eqComp
@@ -2678,6 +2690,13 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                     "Clear", "clear"
                     "Remove", "delete" ] methName,
       Some c -> Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | _ -> None
+
+let collections (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ("get_Count" | "get_IsReadOnly" | "Add" | "Remove" | "Clear" | "Contains" | "CopyTo") as meth, Some ar ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        Helper.LibCall(com, "CollectionUtil", meth, t, ar :: args, ?loc = r) |> Some
     | _ -> None
 
 let conditionalWeakTable (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3975,8 +3994,8 @@ let private replacedModules =
             Types.resizeArray, resizeArrays
             "System.Collections.Generic.IList`1", resizeArrays
             "System.Collections.IList", resizeArrays
-            Types.icollectionGeneric, resizeArrays
-            Types.icollection, resizeArrays
+            Types.icollectionGeneric, collections
+            Types.icollection, collections
             "System.Collections.Generic.CollectionExtensions", collectionExtensions
             "System.ReadOnlySpan`1", readOnlySpans
             Types.hashset, hashSets
