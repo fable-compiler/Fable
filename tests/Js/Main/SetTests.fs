@@ -292,6 +292,11 @@ let tests =
             largeSetA.IsProperSubsetOf(largeSetB) |> equal false
             largeSetA.IsSubsetOf(largeSetB) |> equal true
 
+        testCase "Set IReadOnlyCollection.Count works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Set xs) :> IReadOnlyCollection<_>
+            coll.Count |> equal 3
+
         testCase "Set ICollection.IsReadOnly works" <| fun _ ->
             let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
             let coll = (Set xs) :> ICollection<_>

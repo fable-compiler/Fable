@@ -222,6 +222,11 @@ let tests =
         apa.Contains ({ i = 5; s = "foo"}) |> equal true
         apa.Contains ({ i = 5; s = "fo"}) |> equal false
 
+    testCase "HashSet IReadOnlyCollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> IReadOnlyCollection<_>
+        coll.Count |> equal 3
+
     testCase "HashSet ICollection.IsReadOnly works" <| fun _ ->
         let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
         let coll = (HashSet xs) :> ICollection<_>

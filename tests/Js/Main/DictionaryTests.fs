@@ -271,6 +271,11 @@ let tests =
         table.add "C" 3
         table.Dic.Count |> equal 3
 
+    testCase "Dictionary IReadOnlyCollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
+        let coll = (Dictionary xs) :> IReadOnlyCollection<_>
+        coll.Count |> equal 3
+
     testCase "Dictionary ICollection.IsReadOnly works" <| fun _ ->
         let xs = [| ("A", 1); ("B", 2); ("C", 3) |] |> Array.map KeyValuePair
         let coll = (Dictionary xs) :> ICollection<KeyValuePair<_,_>>

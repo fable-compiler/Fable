@@ -10,7 +10,7 @@ pub mod Native_ {
 
     // re-export at module level
     // pub use alloc::borrow::Cow;
-    pub use alloc::boxed::Box as Box_;
+    pub use alloc::boxed::Box;
     pub use alloc::rc::Rc;
     pub use alloc::string::{String, ToString};
     pub use alloc::sync::Arc;
@@ -161,6 +161,15 @@ pub mod Native_ {
             EqualityComparer_1::<T>::get_Default(),
             Lrc<dyn IEqualityComparer_1<T>>,
         )
+    }
+
+    #[cfg(feature = "no_std")]
+    pub fn get_args(argc: isize, argv: *const *const u8) -> impl Iterator<Item = &'static str> {
+        (0..argc as usize).map(move |i| unsafe {
+            let curr_argv = argv.add(i).read_volatile();
+            let c_str = core::ffi::CStr::from_ptr(curr_argv as *const _);
+            c_str.to_str().unwrap()
+        })
     }
 
     // -----------------------------------------------------------

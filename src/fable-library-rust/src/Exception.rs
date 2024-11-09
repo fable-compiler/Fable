@@ -1,5 +1,5 @@
 pub mod Exception_ {
-    use crate::Native_::{Any, Box_, Func0, LrcPtr};
+    use crate::Native_::{Any, Box, Func0, LrcPtr};
     use crate::String_::{fromSlice, string};
     use crate::System::Exception;
     use crate::Util_::new_Exception;

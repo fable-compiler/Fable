@@ -2697,6 +2697,7 @@ let collections (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisA
     | ("get_Count" | "get_IsReadOnly" | "Add" | "Remove" | "Clear" | "Contains" | "CopyTo") as meth, Some ar ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "CollectionUtil", meth, t, ar :: args, ?loc = r) |> Some
+    | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | _ -> None
 
 let conditionalWeakTable (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3983,8 +3984,6 @@ let private replacedModules =
             Types.conditionalWeakTable, conditionalWeakTable
             Types.ienumerableGeneric, enumerables
             Types.ienumerable, enumerables
-            Types.valueCollection, enumerables
-            Types.keyCollection, enumerables
             "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
             "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
             "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
@@ -3994,6 +3993,9 @@ let private replacedModules =
             Types.resizeArray, resizeArrays
             "System.Collections.Generic.IList`1", resizeArrays
             "System.Collections.IList", resizeArrays
+            Types.valueCollection, collections
+            Types.keyCollection, collections
+            Types.ireadonlycollection, collections
             Types.icollectionGeneric, collections
             Types.icollection, collections
             "System.Collections.Generic.CollectionExtensions", collectionExtensions
