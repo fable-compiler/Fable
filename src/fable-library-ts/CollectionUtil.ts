@@ -4,17 +4,21 @@ export function count<T>(col: Iterable<T>): number {
   if (typeof (col as any)["System.Collections.Generic.ICollection`1.get_Count"] === "function") {
     return (col as any)["System.Collections.Generic.ICollection`1.get_Count"](); // collection
   } else {
-    if (isArrayLike(col)) {
-      return col.length; // resize array
+    if (typeof (col as any)["System.Collections.Generic.IReadOnlyCollection`1.get_Count"] === "function") {
+      return (col as any)["System.Collections.Generic.IReadOnlyCollection`1.get_Count"](); // collection
     } else {
-      if (typeof (col as any).size === "number") {
-        return (col as any).size; // map, set
+      if (isArrayLike(col)) {
+        return col.length; // array, resize array
       } else {
-        let count = 0;
-        for (const _ of col) {
-          count++;
+        if (typeof (col as any).size === "number") {
+          return (col as any).size; // map, set
+        } else {
+          let count = 0;
+          for (const _ of col) {
+            count++;
+          }
+          return count; // other collections
         }
-        return count;
       }
     }
   }
@@ -24,7 +28,16 @@ export function isReadOnly<T>(col: Iterable<T>): boolean {
   if (typeof (col as any)["System.Collections.Generic.ICollection`1.get_IsReadOnly"] === "function") {
     return (col as any)["System.Collections.Generic.ICollection`1.get_IsReadOnly"](); // collection
   } else {
-    return false;
+    if (isArrayLike(col)) {
+      return ArrayBuffer.isView(col); // true for typed arrays, false for other arrays
+    } else {
+      if (typeof (col as any).size === "number") {
+        return false; // map, set
+      } else {
+        return true; // other collections
+      }
+    }
+
   }
 }
 
@@ -45,7 +58,7 @@ export function contains<T>(col: Iterable<T>, item: T): boolean {
     return (col as any)["System.Collections.Generic.ICollection`1.Contains2B595"](item); // collection
   } else {
     if (isArrayLike(col)) {
-      let i = col.findIndex(x => equals(x, item)); // resize array
+      let i = col.findIndex(x => equals(x, item)); // array, resize array
       return i >= 0;
     } else {
       if (typeof (col as any).has === "function") {
@@ -55,7 +68,7 @@ export function contains<T>(col: Iterable<T>, item: T): boolean {
           return (col as any).has(item); // set
         }
       } else {
-        return false; // unknown collection
+        return false; // other collections
       }
     }
   }
@@ -66,7 +79,11 @@ export function add<T>(col: Iterable<T>, item: T): void {
     return (col as any)["System.Collections.Generic.ICollection`1.Add2B595"](item); // collection
   } else {
     if (isArrayLike(col)) {
-      col.push(item); // resize array
+      if (ArrayBuffer.isView(col)) {
+        // TODO: throw for typed arrays?
+      } else {
+        col.push(item); // array, resize array
+      }
     } else {
       if (typeof (col as any).add === "function") {
         return (col as any).add(item); // set
@@ -80,7 +97,7 @@ export function add<T>(col: Iterable<T>, item: T): void {
             throw new Error("An item with the same key has already been added. Key: " + item[0]);
           }
         } else {
-          // unknown collection
+          // TODO: throw for other collections?
         }
       }
     }
@@ -92,12 +109,17 @@ export function remove<T>(col: Iterable<T>, item: T): boolean {
     return (col as any)["System.Collections.Generic.ICollection`1.Remove2B595"](item); // collection
   } else {
     if (isArrayLike(col)) {
-      let i = col.findIndex(x => equals(x, item));
-      if (i >= 0) {
-        col.splice(i, 1); // resize array
-        return true;
-      } else {
+      if (ArrayBuffer.isView(col)) {
+        // TODO: throw for typed arrays
         return false;
+      } else {
+        let i = col.findIndex(x => equals(x, item));
+        if (i >= 0) {
+          col.splice(i, 1); // array, resize array
+          return true;
+        } else {
+          return false;
+        }
       }
     } else {
       if (typeof (col as any).delete === "function") {
@@ -111,7 +133,8 @@ export function remove<T>(col: Iterable<T>, item: T): boolean {
           return (col as any).delete(item); // set
         }
       } else {
-        return false; // unknown collection
+        // TODO: throw for other collections?
+        return false; // other collections
       }
     }
   }
@@ -122,12 +145,16 @@ export function clear<T>(col: Iterable<T>): void {
     return (col as any)["System.Collections.Generic.ICollection`1.Clear"](); // collection
   } else {
     if (isArrayLike(col)) {
-      col.splice(0); // resize array
+      if (ArrayBuffer.isView(col)) {
+        // TODO: throw for typed arrays?
+      } else {
+        col.splice(0); // array, resize array
+      }
     } else {
       if (typeof (col as any).clear === "function") {
         (col as any).clear(); // map, set
       } else {
-        // unknown collection
+        // TODO: throw for other collections?
       }
     }
   }

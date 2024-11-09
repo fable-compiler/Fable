@@ -362,7 +362,7 @@ module TypeInfo =
         [ ty ] |> makeImportType com ctx "Native" "Arc"
 
     let makeBoxTy com ctx (ty: Rust.Ty) : Rust.Ty =
-        [ ty ] |> makeImportType com ctx "Native" "Box"
+        [ ty ] |> makeImportType com ctx "Native" (rawIdent "Box")
 
     let makeMutTy com ctx (ty: Rust.Ty) : Rust.Ty =
         [ ty ] |> makeImportType com ctx "Native" "MutCell"
@@ -1511,7 +1511,7 @@ module Util =
         [ value ] |> makeNew com ctx "Native" "Arc"
 
     let makeBoxValue com ctx (value: Rust.Expr) =
-        [ value ] |> makeNew com ctx "Native" "Box"
+        [ value ] |> makeNew com ctx "Native" (rawIdent "Box")
 
     let makeMutValue com ctx (value: Rust.Expr) =
         [ value ] |> makeNew com ctx "Native" "MutCell"

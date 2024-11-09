@@ -319,6 +319,11 @@ let tests =
         xs.CopyTo(2, ys, 1, 2)
         ys |> equal [|5;3;4;8;9|]
 
+    testCase "ResizeArray IReadOnlyCollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (ResizeArray xs) :> IReadOnlyCollection<_>
+        coll.Count |> equal 3
+
     testCase "ResizeArray ICollection.IsReadOnly works" <| fun _ ->
         let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
         let coll = (ResizeArray xs) :> ICollection<_>

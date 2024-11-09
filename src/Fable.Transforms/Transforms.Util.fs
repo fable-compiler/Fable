@@ -328,6 +328,9 @@ module Types =
     let idictionary = "System.Collections.Generic.IDictionary`2"
 
     [<Literal>]
+    let ireadonlycollection = "System.Collections.Generic.IReadOnlyCollection`1"
+
+    [<Literal>]
     let ireadonlydictionary = "System.Collections.Generic.IReadOnlyDictionary`2"
 
     [<Literal>]

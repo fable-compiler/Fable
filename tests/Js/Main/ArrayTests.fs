@@ -69,7 +69,7 @@ let tests =
         ParamArrayTest.Add(let ar = [|1;2;3|] in sideEffect ar; ar)
         |> equal 9
 
-#if FABLE_COMPILER && FABLE_TYPED_ARRAYS
+#if FABLE_COMPILER_JAVASCRIPT
     testCase "Typed Arrays work" <| fun () ->
         let xs = [| 1; 2; 3; |]
         let ys = [| 1.; 2.; 3.; |]
@@ -1236,10 +1236,19 @@ let tests =
         System.Array.Resize(&xs, 0)
         xs |> equal [||]
 
-    // testCase "Array ICollection.IsReadOnly works" <| fun _ ->
-    //     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
-    //     let coll = xs :> ICollection<_>
-    //     coll.IsReadOnly |> equal false
+    testCase "Array IReadOnlyCollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> IReadOnlyCollection<_>
+        coll.Count |> equal 3
+
+    testCase "Array ICollection.IsReadOnly works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> ICollection<_>
+#if FABLE_COMPILER_JAVASCRIPT || FABLE_COMPILER_TYPESCRIPT
+        coll.IsReadOnly |> equal false // Arrays are the same as ResizeArrays
+#else
+        coll.IsReadOnly |> equal true
+#endif
 
     testCase "Array ICollection.Count works" <| fun _ ->
         let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
@@ -1257,6 +1266,38 @@ let tests =
         let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
         let coll = xs :> ICollection<_>
         let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
+        coll.CopyTo(ys, 0)
+        ys = xs |> equal true
+
+    testCase "Array IReadOnlyCollection.Count with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> IReadOnlyCollection<_>
+        coll.Count |> equal 3
+
+    testCase "Array ICollection.IsReadOnly with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> ICollection<_>
+#if FABLE_COMPILER_TYPESCRIPT
+        coll.IsReadOnly |> equal false // Arrays are the same as ResizeArrays
+#else
+        coll.IsReadOnly |> equal true
+#endif
+
+    testCase "Array ICollection.Count with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> ICollection<_>
+        coll.Count |> equal 3
+
+    testCase "Array ICollection.Contains with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> ICollection<_>
+        coll.Contains(4) |> equal false
+        coll.Contains(2) |> equal true
+
+    testCase "Array ICollection.CopyTo with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> ICollection<_>
+        let ys = [| 4; 5; 6 |]
         coll.CopyTo(ys, 0)
         ys = xs |> equal true
   ]

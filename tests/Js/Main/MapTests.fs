@@ -292,6 +292,11 @@ let tests =
             |> Map.count
             |> equal 1
 
+        testCase "Map IReadOnlyCollection.Count works" <| fun _ ->
+            let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+            let coll = (Map xs) :> IReadOnlyCollection<_>
+            coll.Count |> equal 3
+
         testCase "Map ICollection.IsReadOnly works" <| fun _ ->
             let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
             let coll = (Map xs) :> ICollection<_>
