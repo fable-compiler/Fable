@@ -2228,9 +2228,8 @@ module Util =
 
     let maybeAddParens fableExpr (expr: Rust.Expr) : Rust.Expr =
         match fableExpr with
-        | Fable.IfThenElse _ -> mkParenExpr expr
-        // TODO: add more expressions that need parens
-        | _ -> expr
+        | Fable.Value _ -> expr
+        | _ -> mkParenExpr expr
 
     let transformOperation com ctx range typ opKind : Rust.Expr =
         match opKind with
@@ -5103,6 +5102,7 @@ module Util =
     let isFableLibraryPath (com: IRustCompiler) (path: string) =
         not (isFableLibrary com)
         && (path.StartsWith(com.LibraryDir, StringComparison.Ordinal)
+            || path.Contains("fable-library-rust")
             || path = "fable_library_rust")
 
     let getImportModulePath (com: IRustCompiler) (path: string) =
@@ -5235,7 +5235,8 @@ module Compiler =
                         // add import module to a global list (across files)
                         if
                             path.Length > 0
-                            && path <> "fable_library_rust"
+                            && not (path = "fable_library_rust")
+                            && not (path.Contains("fable-library-rust"))
                             && not (isFableLibraryPath self path)
                         then
                             importModules.TryAdd(modulePath, true) |> ignore

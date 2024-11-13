@@ -4,10 +4,10 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let getMetadataDir () : string =
-    __SOURCE_DIRECTORY__ + "/../../../../fable-metadata/lib/"
+    __SOURCE_DIRECTORY__ + "/../../../fable-metadata/lib/"
 
 let getFableLibDir () : string =
-    __SOURCE_DIRECTORY__ + "/../../../../../temp/fable-library-js"
+    __SOURCE_DIRECTORY__ + "/../../../../temp/fable-library-js"
 
 let getVersion () : string = ".next"
 

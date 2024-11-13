@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Rust] Fixed import path rewrite (by @ncave)
 * [Rust] Updated derived interfaces (by @ncave)
 * [Rust] Updated string comparisons (by @ncave)
 * [Rust] Fixed derived traits mapping (by @ncave)

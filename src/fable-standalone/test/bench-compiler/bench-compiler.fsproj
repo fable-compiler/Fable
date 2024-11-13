@@ -46,8 +46,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../../../Fable.Core/Fable.Core.fsproj" />
-    <ProjectReference Include="../../../src/Fable.Standalone.fsproj" />
+    <ProjectReference Include="../../../Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="../../src/Fable.Standalone.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
