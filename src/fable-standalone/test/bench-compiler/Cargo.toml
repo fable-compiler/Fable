@@ -1,0 +1,15 @@
+[package]
+name = "bench-compiler"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "bench-compiler"
+path = "./out-rust/app.rs"
+
+[features]
+threaded = ["fable_library_rust/threaded"]
+default = ["threaded"]
+
+[dependencies]
+fable_library_rust = { path = "./out-rust/fable_modules/fable-library-rust" }

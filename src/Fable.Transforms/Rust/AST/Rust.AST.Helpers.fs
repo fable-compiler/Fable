@@ -20,7 +20,7 @@ module Naming =
     let rustPrelude = HashSet(kw.RustPrelude)
 
     let rawIdent (ident: string) =
-        if ident.StartsWith("r#") then
+        if ident = "" || ident = "_" || ident.StartsWith("r#") then
             ident
         else
             "r#" + ident

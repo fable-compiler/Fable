@@ -84,7 +84,26 @@ let getGlobFiles (path: string) =
 let serializeToJson (value: obj) =
     System.Text.Json.JsonSerializer.Serialize(value)
 
-#else
+#endif
+
+#if FABLE_COMPILER_RUST
+
+let readAllBytes (filePath: string) : byte[] = [||]
+let readAllText (filePath: string) : string = ""
+let writeAllText (filePath: string) (text: string) : unit = ()
+let measureTime (f: 'a -> 'b) x = f x, 0
+let ensureDirExists (path: string) : unit = ()
+let normalizePath (path: string) = path.Replace('\\', '/')
+let normalizeFullPath (path: string) = path
+let getRelativePath (path: string) (pathTo: string) = path
+let getHomePath () = ""
+let getDirFiles (path: string) (extension: string) : string[] = [||]
+let getGlobFiles (path: string) : string[] = [||]
+let serializeToJson (value: obj) = ""
+
+#endif
+
+#if FABLE_COMPILER_JAVASCRIPT || FABLE_COMPILER_TYPESCRIPT
 
 open Fable.Core.JsInterop
 

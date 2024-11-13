@@ -442,7 +442,21 @@ module Rust =
         let stream = new IO.StreamWriter(targetPath)
 
         interface Printer.Writer with
-            member _.Write(str) =
+            member self.Write(str) =
+
+                let str =
+                    // rewrite import paths in last file
+                    if com.CurrentFile = (Array.last com.SourceFiles) then
+                        System.Text.RegularExpressions.Regex.Replace(
+                            str,
+                            @"(#\[path\s*=\s*\"")([^""]*)(\""])",
+                            fun m ->
+                                let path = (self :> Printer.Writer).MakeImportPath(m.Groups[2].Value)
+                                m.Groups[1].Value + path + m.Groups[3].Value
+                        )
+                    else
+                        str
+
                 stream.WriteAsync(str) |> Async.AwaitTask
 
             member _.MakeImportPath(path) =
