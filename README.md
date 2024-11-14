@@ -37,7 +37,7 @@ Make sure the following **requirements** are installed in your system:
 
 ### Build
 
-Run `./builsh.sh` or `./build.cmd` to see the build options.
+Run `./build.sh` or `./build.cmd` to see the build options.
 
 When using VSCode, you can also run the build tasks from the command palette (Ctrl+Shift+P) by typing `Run Task` and selecting the task you want to run.
 
