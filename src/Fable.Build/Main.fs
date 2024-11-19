@@ -108,7 +108,7 @@ let main argv =
     let argv = argv |> Array.map (fun x -> x.ToLower()) |> Array.toList
 
     SimpleExec.Command.Run(name = "dotnet", args = "tool restore")
-    SimpleExec.Command.Run(name = "dotnet", args = "husky install --allow-roll-forward")
+    SimpleExec.Command.Run(name = "dotnet", args = "husky install")
 
     try
         match argv with
