@@ -7,14 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.24.0 - 2024-11-19
+
+### Added
+
+* [JS/TS] Added missing `ResizeArray.CopyTo` replacements (by @ncave)
+* [JS/TS] Added missing `Dictionary` constructors from enumerable (by @ncave)
+
 ### Fixed
 
 * [Rust] Fixed import path rewrite (by @ncave)
 * [Rust] Updated derived interfaces (by @ncave)
 * [Rust] Updated string comparisons (by @ncave)
 * [Rust] Fixed derived traits mapping (by @ncave)
-* [JS/TS] Added missing ICollection helpers (#3914) (by @ncave)
-* [JS/TS] Added missing IReadOnlyCollection helpers (by @ncave)
+* [JS/TS] Added missing `ICollection` helpers (#3914) (by @ncave)
+* [JS/TS] Added missing `IReadOnlyCollection` helpers (by @ncave)
 
 ## 4.23.0 - 2024-10-28
 

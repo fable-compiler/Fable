@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.7.0 - 2024-11-19
+
+### Fixed
+
+* [JS/TS] Added missing IReadOnlyCollection helpers (#3953)
+
 ## 1.6.0 - 2024-10-02
 
 ### Removed
