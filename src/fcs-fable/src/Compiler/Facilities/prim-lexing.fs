@@ -6,6 +6,11 @@ namespace FSharp.Compiler.Text
 
 open System
 open System.IO
+open System.Collections.Immutable
+open Internal.Utilities.Library
+
+open Internal.Utilities.Collections
+open Internal.Utilities.Hashing
 
 type ISourceText =
 
@@ -29,6 +34,11 @@ type ISourceText =
 
     abstract GetSubTextFromRange: range: range -> string
 
+type ISourceTextNew =
+    inherit ISourceText
+
+    abstract GetChecksum: unit -> System.Collections.Immutable.ImmutableArray<byte>
+
 [<Sealed>]
 type StringText(str: string) =
 
@@ -42,7 +52,7 @@ type StringText(str: string) =
             let mutable line = reader.ReadLine()
 
             while not (isNull line) do
-                yield line
+                yield !!line
                 line <- reader.ReadLine()
 
             if str.EndsWith("\n", StringComparison.Ordinal) then
@@ -70,7 +80,7 @@ type StringText(str: string) =
 
     override _.ToString() = str
 
-    interface ISourceText with
+    interface ISourceTextNew with
 
         member _.Item
             with get index = str[index]
@@ -101,11 +111,10 @@ type StringText(str: string) =
             if lastIndex <= startIndex || lastIndex >= str.Length then
                 invalidArg "target" "Too big."
 
-
 #if FABLE_COMPILER
             str.IndexOf(target, startIndex) <> -1
 #else
-            str.IndexOf(target, startIndex, target.Length) <> -1
+            str.IndexOfOrdinal(target, startIndex, target.Length) <> -1
 #endif
 
         member _.Length = str.Length
@@ -157,9 +166,49 @@ type StringText(str: string) =
                     let lastLine = sourceText.GetLineString(range.EndLine - 1)
                     sb.Append(lastLine.Substring(0, range.EndColumn)).ToString()
 
+        member _.GetChecksum() =
+            str
+            |> Md5Hasher.hashString
+            |> fun byteArray -> ImmutableArray.Create<byte>(byteArray, 0, byteArray.Length)
+
 module SourceText =
 
     let ofString str = StringText(str) :> ISourceText
+
+module SourceTextNew =
+
+    let ofString str = StringText(str) :> ISourceTextNew
+
+    let ofISourceText (sourceText: ISourceText) =
+        { new ISourceTextNew with
+            member _.Item
+                with get index = sourceText[index]
+
+            member _.GetLineString(x) = sourceText.GetLineString(x)
+
+            member _.GetLineCount() = sourceText.GetLineCount()
+
+            member _.GetLastCharacterPosition() = sourceText.GetLastCharacterPosition()
+
+            member _.GetSubTextString(x, y) = sourceText.GetSubTextString(x, y)
+
+            member _.SubTextEquals(x, y) = sourceText.SubTextEquals(x, y)
+
+            member _.Length = sourceText.Length
+
+            member _.ContentEquals(x) = sourceText.ContentEquals(x)
+
+            member _.CopyTo(a, b, c, d) = sourceText.CopyTo(a, b, c, d)
+
+            member _.GetSubTextFromRange(x) = sourceText.GetSubTextFromRange(x)
+
+            member _.GetChecksum() =
+                // TODO: something better...
+                !! sourceText.ToString()
+                |> Md5Hasher.hashString
+                |> fun byteArray -> ImmutableArray.Create<byte>(byteArray, 0, byteArray.Length)
+        }
+
 // NOTE: the code in this file is a drop-in replacement runtime for Lexing.fs from the FsLexYacc repository
 
 namespace Internal.Utilities.Text.Lexing
@@ -201,13 +250,13 @@ type internal Position =
         Position(x.FileIndex, x.Line, x.OriginalLine, x.StartOfLineAbsoluteOffset, x.StartOfLineAbsoluteOffset - 1)
 
     member x.ApplyLineDirective(fileIdx, line) =
-        Position(fileIdx, line, x.OriginalLine, x.AbsoluteOffset, x.AbsoluteOffset)
+        Position(fileIdx, line, x.OriginalLine + 1, x.AbsoluteOffset, x.AbsoluteOffset)
 
     override p.ToString() = $"({p.Line},{p.Column})"
 
     static member Empty = Position()
 
-    static member FirstLine fileIdx = Position(fileIdx, 1, 0, 0, 0)
+    static member FirstLine fileIdx = Position(fileIdx, 1, 1, 0, 0)
 
 #if FABLE_COMPILER
     type internal LexBufferChar = uint16

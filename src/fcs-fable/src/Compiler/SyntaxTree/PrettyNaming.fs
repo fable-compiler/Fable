@@ -363,6 +363,8 @@ let IsOperatorDisplayName (name: string) =
 
 let IsPossibleOpName (name: string) = name.StartsWithOrdinal(opNamePrefix)
 
+let ordinalStringComparer: IEqualityComparer<string> = StringComparer.Ordinal
+
 /// Compiles a custom operator into a mangled operator name.
 /// For example, "!%" becomes "op_DereferencePercent".
 /// This function should only be used for custom operators
@@ -387,35 +389,36 @@ let compileCustomOpName =
 
     /// Memoize compilation of custom operators.
     /// They're typically used more than once so this avoids some CPU and GC overhead.
-    let compiledOperators = ConcurrentDictionary<_, string> StringComparer.Ordinal
+    let compiledOperators = ConcurrentDictionary<string, string> ordinalStringComparer
+
+    // Cache this as a delegate.
+    let compiledOperatorsAddDelegate =
+        Func<string, string>(fun (op: string) ->
+            let opLength = op.Length
+
+            let sb =
+                StringBuilder(opNamePrefix, opNamePrefix.Length + (opLength * maxOperatorNameLength))
+
+            for i = 0 to opLength - 1 do
+                let c = op[i]
+
+                match t2.TryGetValue c with
+                | true, x -> sb.Append(x) |> ignore
+                | false, _ -> sb.Append(c) |> ignore
+
+            /// The compiled (mangled) operator name.
+            let opName = sb.ToString()
+
+            // Cache the compiled name so it can be reused.
+            opName)
 
     fun opp ->
         // Has this operator already been compiled?
-        compiledOperators.GetOrAdd(
-            opp,
-            fun (op: string) ->
-                let opLength = op.Length
-
-                let sb =
-                    StringBuilder(opNamePrefix, opNamePrefix.Length + (opLength * maxOperatorNameLength))
-
-                for i = 0 to opLength - 1 do
-                    let c = op[i]
-
-                    match t2.TryGetValue c with
-                    | true, x -> sb.Append(x) |> ignore
-                    | false, _ -> sb.Append(c) |> ignore
-
-                /// The compiled (mangled) operator name.
-                let opName = sb.ToString()
-
-                // Cache the compiled name so it can be reused.
-                opName
-        )
+        compiledOperators.GetOrAdd(opp, compiledOperatorsAddDelegate)
 
 /// Maps the built-in F# operators to their mangled operator names.
 let standardOpNames =
-    let opNames = Dictionary<_, _>(opNameTable.Length, StringComparer.Ordinal)
+    let opNames = Dictionary<_, _>(opNameTable.Length, ordinalStringComparer)
 
     for x, y in opNameTable do
         opNames.Add(x, y)
@@ -439,7 +442,7 @@ let CompileOpName op =
 let decompileCustomOpName =
     // Memoize this operation. Custom operators are typically used more than once
     // so this avoids repeating decompilation.
-    let decompiledOperators = ConcurrentDictionary<_, _> StringComparer.Ordinal
+    let decompiledOperators = ConcurrentDictionary<_, _> ordinalStringComparer
 
     /// The minimum length of the name for a custom operator character.
     /// This value is used when initializing StringBuilders to avoid resizing.
@@ -506,7 +509,7 @@ let decompileCustomOpName =
 
 /// Maps the mangled operator names of built-in F# operators back to the operators.
 let standardOpsDecompile =
-    let ops = Dictionary<string, string>(opNameTable.Length, StringComparer.Ordinal)
+    let ops = Dictionary<string, string>(opNameTable.Length, ordinalStringComparer)
 
     for x, y in opNameTable do
         ops.Add(y, x)
@@ -623,7 +626,7 @@ let IsValidPrefixOperatorUse s =
     if String.IsNullOrEmpty s then
         false
     else
-        match s with
+        match !!s with
         | "?+"
         | "?-"
         | "+"
@@ -634,12 +637,13 @@ let IsValidPrefixOperatorUse s =
         | "%%"
         | "&"
         | "&&" -> true
-        | _ -> s[0] = '!' || isTildeOnlyString s
+        | s -> s[0] = '!' || isTildeOnlyString s
 
 let IsValidPrefixOperatorDefinitionName s =
     if String.IsNullOrEmpty s then
         false
     else
+        let s = !!s
 
         match s[0] with
         | '~' ->
@@ -666,8 +670,8 @@ let IsLogicalPrefixOperator logicalName =
     if String.IsNullOrEmpty logicalName then
         false
     else
-        let displayName = ConvertValLogicalNameToDisplayNameCore logicalName
-        displayName <> logicalName && IsValidPrefixOperatorDefinitionName displayName
+        let displayName = ConvertValLogicalNameToDisplayNameCore !!logicalName
+        displayName <> !!logicalName && IsValidPrefixOperatorDefinitionName displayName
 
 let IsLogicalTernaryOperator logicalName =
     let displayName = ConvertValLogicalNameToDisplayNameCore logicalName
@@ -719,7 +723,7 @@ let ignoredChars = [| '.'; '?' |]
 // where certain operator tokens are accepted in infix forms, i.e. <expr> <op> <expr>.
 // The lexer defines the strings that lead to those tokens.
 //------
-// This function recognises these "infix operator" names.
+// This function recognizes these "infix operator" names.
 let IsLogicalInfixOpName logicalName =
     let s = ConvertValLogicalNameToDisplayNameCore logicalName
     let skipIgnoredChars = s.TrimStart(ignoredChars)
@@ -963,6 +967,14 @@ type ActivePatternInfo =
 
     member x.ActiveTagsWithRanges = let (APInfo(_, tags, _)) = x in tags
 
+    member x.LogicalName =
+        let (APInfo(isTotal, tags, _)) = x
+
+        tags
+        |> List.map fst
+        |> String.concat "|"
+        |> (fun s -> if isTotal then "(|" + s + "|)" else "(|" + s + "|_|)")
+
     member x.Range = let (APInfo(_, _, m)) = x in m
 
 let ActivePatternInfoOfValName nm (m: range) =
@@ -1038,7 +1050,7 @@ let MangleProvidedTypeName (typeLogicalName, nonDefaultArgs) =
     let nonDefaultArgsText =
         nonDefaultArgs |> Array.map mangleStaticStringArg |> String.concat ","
 
-    if nonDefaultArgsText = "" then
+    if String.IsNullOrEmpty(nonDefaultArgsText) then
         typeLogicalName
     else
         typeLogicalName + "," + nonDefaultArgsText
@@ -1101,11 +1113,20 @@ let FSharpOptimizationDataResourceName = "FSharpOptimizationData."
 
 let FSharpSignatureDataResourceName = "FSharpSignatureData."
 
+let FSharpOptimizationDataResourceNameB = "FSharpOptimizationDataB."
+
+let FSharpSignatureDataResourceNameB = "FSharpSignatureDataB."
+
 // Compressed OptimizationData/SignatureData name for embedded resource
 let FSharpOptimizationCompressedDataResourceName =
     "FSharpOptimizationCompressedData."
 
 let FSharpSignatureCompressedDataResourceName = "FSharpSignatureCompressedData."
+
+let FSharpOptimizationCompressedDataResourceNameB =
+    "FSharpOptimizationCompressedDataB."
+
+let FSharpSignatureCompressedDataResourceNameB = "FSharpSignatureCompressedDataB."
 
 // For historical reasons, we use a different resource name for FSharp.Core, so older F# compilers
 // don't complain when they see the resource. The prefix of these names must not be 'FSharpOptimizationData'

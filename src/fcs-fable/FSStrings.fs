@@ -14,6 +14,18 @@ let resources =
       ( "ConstraintSolverMissingConstraint",
         "A type parameter is missing a constraint '{0}'"
       );
+      ( "ConstraintSolverNullnessWarningEquivWithTypes",
+        "Nullness warning: The types '{0}' and '{1}' do not have equivalent nullability."
+      );
+      ( "ConstraintSolverNullnessWarningWithTypes",
+        "Nullness warning: The types '{0}' and '{1}' do not have compatible nullability."
+      );
+      ( "ConstraintSolverNullnessWarningWithType",
+        "Nullness warning: The type '{0}' does not support 'null'."
+      );
+      ( "ConstraintSolverNullnessWarning",
+        "Nullness warning: {0}."
+      );
       ( "ConstraintSolverTypesNotInEqualityRelation1",
         "The unit of measure '{0}' does not match the unit of measure '{1}'"
       );
@@ -69,7 +81,7 @@ let resources =
         "Duplicate definition of {0} '{1}'"
       );
       ( "NameClash2",
-        "The {0} '{1}' can not be defined because the name '{2}' clashes with the {3} '{4}' in this type or module"
+        "The {0} '{1}' cannot be defined because the name '{2}' clashes with the {3} '{4}' in this type or module"
       );
       ( "Duplicate1",
         "Two members called '{0}' have the same signature"
@@ -105,7 +117,7 @@ let resources =
         "A coercion from the value type \n    {0}    \nto the type \n    {1}    \nwill involve boxing. Consider using 'box' instead"
       );
       ( "TypeIsImplicitlyAbstract",
-        "This type is 'abstract' since some abstract members have not been given an implementation. If this is intentional then add the '[<AbstractClass>]' attribute to your type."
+        "Non-abstract classes cannot contain abstract members. Either provide a default member implementation or add the '[<AbstractClass>]' attribute to your type."
       );
       ( "NonRigidTypar1",
         "This construct causes code to be less generic than indicated by its type annotations. The type variable implied by the use of a '#', '_' or other type annotation at or near '{0}' has been constrained to be type '{1}'."
@@ -298,6 +310,9 @@ let resources =
       );
       ( "Parser.TOKEN.BAR.RBRACE",
         "symbol '|}'"
+      );
+      ( "Parser.TOKEN.BAR_JUST_BEFORE_NULL",
+        "symbol '|' (directly before 'null')"
       );
       ( "Parser.TOKEN.GREATER.RBRACE",
         "symbol '>}'"
@@ -914,20 +929,11 @@ let resources =
       ( "MissingFields",
         "The following fields require values: {0}"
       );
-      ( "ValueRestriction1",
-        "Value restriction. The value '{0}' has generic type\n    {1}    \nEither make the arguments to '{2}' explicit or, if you do not intend for it to be generic, add a type annotation."
+      ( "ValueRestrictionFunction",
+        """Value restriction: The value '{0}' has an inferred generic function type\n    {1}\nHowever, values cannot have generic type variables like '_a in "let f: '_a". You should define '{2}' as a function instead by doing one of the following:\n- Add an explicit parameter that is applied instead of using a partial application "let f param"\n- Add a unit parameter like "let f()"\n- Write explicit type parameters like "let f<'a>"\nor if you do not intend for it to be generic, either:\n- Add an explicit type annotation like "let f : obj -> obj"\n- Apply arguments of non-generic types to the function value in later code for type inference like "do f()".\nThis error is because a let binding without parameters defines a value, not a function. Values cannot be generic because reading a value is assumed to result in the same everywhere but generic type parameters may invalidate this assumption by enabling type-dependent results."""
       );
-      ( "ValueRestriction2",
-        "Value restriction. The value '{0}' has generic type\n    {1}    \nEither make '{2}' into a function with explicit arguments or, if you do not intend for it to be generic, add a type annotation."
-      );
-      ( "ValueRestriction3",
-        "Value restriction. This member has been inferred to have generic type\n    {0}    \nConstructors and property getters/setters cannot be more generic than the enclosing type.  Add a type annotation to indicate the exact types involved."
-      );
-      ( "ValueRestriction4",
-        "Value restriction. The value '{0}' has been inferred to have generic type\n    {1}    \nEither make the arguments to '{2}' explicit or, if you do not intend for it to be generic, add a type annotation."
-      );
-      ( "ValueRestriction5",
-        "Value restriction. The value '{0}' has been inferred to have generic type\n    {1}    \nEither define '{2}' as a simple data term, make it a function with explicit arguments or, if you do not intend for it to be generic, add a type annotation."
+      ( "ValueRestriction",
+        """Value restriction: The value '{0}' has an inferred generic type\n    {1}\nHowever, values cannot have generic type variables like '_a in "let x: '_a". You can do one of the following:\n- Define it as a simple data term like an integer literal, a string literal or a union case like "let x = 1"\n- Add an explicit type annotation like "let x : int"\n- Use the value as a non-generic type in later code for type inference like "do x"\nor if you still want type-dependent results, you can define '{2}' as a function instead by doing either:\n- Add a unit parameter like "let x()"\n- Write explicit type parameters like "let x<'a>".\nThis error is because a let binding without parameters defines a value, not a function. Values cannot be generic because reading a value is assumed to result in the same everywhere but generic type parameters may invalidate this assumption by enabling type-dependent results."""
       );
       ( "RecoverableParseError",
         "syntax error"
@@ -945,7 +951,7 @@ let resources =
         "Override implementations should be given as part of the initial declaration of a type."
       );
       ( "IntfImplInIntrinsicAugmentation",
-        "Interface implementations should normally be given on the initial declaration of a type. Interface implementations in augmentations may lead to accessing static bindings before they are initialized, though only if the interface implementation is invoked during initialization of the static data, and in turn access the static data. You may remove this warning using #nowarn \"69\" if you have checked this is not the case."
+        "Interface implementations should normally be given on the initial declaration of a type. Interface implementations in augmentations may lead to accessing static bindings before they are initialized, though only if the interface implementation is invoked during initialization of the static data, and in turn access the static data. You may remove this warning using '#nowarn \"69\"' if you have checked this is not the case."
       );
       ( "IntfImplInExtrinsicAugmentation",
         "Interface implementations should be given on the initial declaration of a type."
@@ -957,10 +963,10 @@ let resources =
         "The type referenced through '{0}' is defined in an assembly that is not referenced. You must add a reference to assembly '{1}'."
       );
       ( "HashIncludeNotAllowedInNonScript",
-        "#I directives may only occur in F# script files (extensions .fsx or .fsscript). Either move this code to a script file, add a '-I' compiler option for this reference or delimit the directive with delimit it with '#if INTERACTIVE'/'#endif'."
+        "#I directives may only be used in F# script files (extensions .fsx or .fsscript). Either move this code to a script file, add a '-I' compiler option for this reference or delimit the directive with delimit it with '#if INTERACTIVE'/'#endif'."
       );
       ( "HashReferenceNotAllowedInNonScript",
-        "#r directives may only occur in F# script files (extensions .fsx or .fsscript). Either move this code to a script file or replace this reference with the '-r' compiler option. If this directive is being executed as user input, you may delimit it with '#if INTERACTIVE'/'#endif'."
+        "#r directives may only be used in F# script files (extensions .fsx or .fsscript). Either move this code to a script file or replace this reference with the '-r' compiler option. If this directive is being executed as user input, you may delimit it with '#if INTERACTIVE'/'#endif'."
       );
       ( "HashDirectiveNotAllowedInNonScript",
         "This directive may only be used in F# script files (extensions .fsx or .fsscript). Either remove the directive, move this code to a script file or delimit the directive with '#if INTERACTIVE'/'#endif'."
@@ -1006,6 +1012,9 @@ let resources =
       );
       ( "ArgumentsInSigAndImplMismatch",
         "The argument names in the signature '{0}' and implementation '{1}' do not match. The argument name from the signature file will be used. This may cause problems when debugging or profiling."
+      );
+      ( "DefinitionsInSigAndImplNotCompatibleAbbreviationsDiffer",
+        "The {0} definitions for type '{1}' in the signature and implementation are not compatible because the abbreviations differ:\n    {2}\nversus\n    {3}"
       );
       ( "Parser.TOKEN.WHILE.BANG",
         "keyword 'while!'"

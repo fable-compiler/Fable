@@ -55,6 +55,7 @@ type internal TrieNode =
 
 /// A significant construct found in the syntax tree of a file.
 /// This construct needs to be processed in order to deduce potential links to other files in the project.
+[<RequireQualifiedAccess; NoComparison; NoEquality>]
 type internal FileContentEntry =
     /// Any toplevel namespace a file might have.
     /// In case a file has `module X.Y.Z`, then `X.Y` is considered to be the toplevel namespace
@@ -67,6 +68,9 @@ type internal FileContentEntry =
     /// Being explicit about nested modules allows for easier reasoning what namespaces (paths) are open.
     /// For example we can limit the scope of an `OpenStatement` to symbols defined inside the nested module.
     | NestedModule of name: string * nestedContent: FileContentEntry list
+    /// A single identifier that could be the name of a module.
+    /// Example use-case: `let x = nameof Foo` where `Foo` is a module.
+    | ModuleName of name: Identifier
 
 /// File identifiers and its content extract for dependency resolution
 type internal FileContent =

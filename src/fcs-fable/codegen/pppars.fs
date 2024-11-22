@@ -2,11 +2,14 @@
 module internal FSharp.Compiler.PPParser
 #nowarn "64";; // turn off warnings that type variables used in production annotations are instantiated to concrete type
 open FSharp.Compiler.ParseHelpers
+open FSharp.Compiler.LexerStore
 open Internal.Utilities.Text.Lexing
 open Internal.Utilities.Text.Parsing.ParseHelpers
 //# 3 "src/Compiler/pppars.fsy"
 
 open FSharp.Compiler.DiagnosticsLogger
+
+#nowarn "3261"  // the generated code would need to properly annotate nulls, e.g. changing System.Object to `obj|null`
 
 let dummy       = IfdefId("DUMMY")
 
@@ -19,7 +22,7 @@ let fail (ps : Internal.Utilities.Text.Parsing.IParseState) i e =
     errorR(Error(e,m))
     dummy
 
-//# 22 "pppars.fs"
+//# 25 "pppars.fs"
 // This type is the type of tokens accepted by the parser
 type token = 
   | OP_NOT
@@ -138,7 +141,7 @@ let _fsyacc_reductionSymbolCounts = [|1us;1us;1us;3us;1us;3us;1us;2us;3us;3us;2u
 let _fsyacc_productionToNonTerminalTable = [|0us;1us;2us;3us;3us;4us;4us;4us;4us;4us;4us;4us;4us;4us;4us;4us;4us;4us;4us;|]
 let _fsyacc_immediateActions = [|65535us;49152us;16385us;16386us;65535us;65535us;65535us;16387us;16388us;65535us;65535us;16389us;16390us;65535us;65535us;65535us;65535us;65535us;65535us;65535us;16394us;65535us;16395us;16396us;16397us;65535us;16399us;65535us;16400us;16401us;16402us;|]
 let _fsyacc_reductions = lazy [|
-//# 141 "pppars.fs"
+//# 144 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?>  LexerIfdefExpression  in
             Microsoft.FSharp.Core.Operators.box
@@ -147,207 +150,207 @@ let _fsyacc_reductions = lazy [|
                       raise (Internal.Utilities.Text.Parsing.Accept(Microsoft.FSharp.Core.Operators.box _1))
                    )
                  : 'gentype__startstart));
-//# 150 "pppars.fs"
+//# 153 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_Full in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 36 "src/Compiler/pppars.fsy"
+//# 38 "src/Compiler/pppars.fsy"
                                    _1 
                    )
-//# 36 "src/Compiler/pppars.fsy"
+//# 38 "src/Compiler/pppars.fsy"
                  :  LexerIfdefExpression ));
-//# 161 "pppars.fs"
+//# 164 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 39 "src/Compiler/pppars.fsy"
+//# 41 "src/Compiler/pppars.fsy"
                                                    doNothing parseState ()                                         
                    )
-//# 39 "src/Compiler/pppars.fsy"
+//# 41 "src/Compiler/pppars.fsy"
                  : 'gentype_Recover));
-//# 171 "pppars.fs"
+//# 174 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Expr in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 42 "src/Compiler/pppars.fsy"
+//# 44 "src/Compiler/pppars.fsy"
                                                    _2                                                            
                    )
-//# 42 "src/Compiler/pppars.fsy"
+//# 44 "src/Compiler/pppars.fsy"
                  : 'gentype_Full));
-//# 182 "pppars.fs"
+//# 185 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_Recover in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 43 "src/Compiler/pppars.fsy"
+//# 45 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsMissingToken("#if/#elif")) 
                    )
-//# 43 "src/Compiler/pppars.fsy"
+//# 45 "src/Compiler/pppars.fsy"
                  : 'gentype_Full));
-//# 193 "pppars.fs"
+//# 196 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Expr in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 46 "src/Compiler/pppars.fsy"
+//# 48 "src/Compiler/pppars.fsy"
                                                    _2                                                            
                    )
-//# 46 "src/Compiler/pppars.fsy"
+//# 48 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 204 "pppars.fs"
+//# 207 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 47 "src/Compiler/pppars.fsy"
+//# 49 "src/Compiler/pppars.fsy"
                                                    IfdefId(_1)                                                   
                    )
-//# 47 "src/Compiler/pppars.fsy"
+//# 49 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 215 "pppars.fs"
+//# 218 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Expr in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 48 "src/Compiler/pppars.fsy"
+//# 50 "src/Compiler/pppars.fsy"
                                                    IfdefNot(_2)                                                  
                    )
-//# 48 "src/Compiler/pppars.fsy"
+//# 50 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 226 "pppars.fs"
+//# 229 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_Expr in
             let _3 = parseState.GetInput(3) :?> 'gentype_Expr in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 49 "src/Compiler/pppars.fsy"
+//# 51 "src/Compiler/pppars.fsy"
                                                    IfdefAnd(_1,_3)                                               
                    )
-//# 49 "src/Compiler/pppars.fsy"
+//# 51 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 238 "pppars.fs"
+//# 241 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_Expr in
             let _3 = parseState.GetInput(3) :?> 'gentype_Expr in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 50 "src/Compiler/pppars.fsy"
+//# 52 "src/Compiler/pppars.fsy"
                                                    IfdefOr(_1,_3)                                                
                    )
-//# 50 "src/Compiler/pppars.fsy"
+//# 52 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 250 "pppars.fs"
+//# 253 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Recover in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 52 "src/Compiler/pppars.fsy"
+//# 54 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("&&"))     
                    )
-//# 52 "src/Compiler/pppars.fsy"
+//# 54 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 261 "pppars.fs"
+//# 264 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Recover in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 53 "src/Compiler/pppars.fsy"
+//# 55 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("||"))     
                    )
-//# 53 "src/Compiler/pppars.fsy"
+//# 55 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 272 "pppars.fs"
+//# 275 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Recover in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 54 "src/Compiler/pppars.fsy"
+//# 56 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("!"))      
                    )
-//# 54 "src/Compiler/pppars.fsy"
+//# 56 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 283 "pppars.fs"
+//# 286 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 55 "src/Compiler/pppars.fsy"
+//# 57 "src/Compiler/pppars.fsy"
                                                    doNothing parseState dummy                                    
                    )
-//# 55 "src/Compiler/pppars.fsy"
+//# 57 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 293 "pppars.fs"
+//# 296 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Expr in
             let _3 = parseState.GetInput(3) :?> 'gentype_Recover in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 56 "src/Compiler/pppars.fsy"
+//# 58 "src/Compiler/pppars.fsy"
                                                    fail parseState 3 (FSComp.SR.ppparsMissingToken(")"))         
                    )
-//# 56 "src/Compiler/pppars.fsy"
+//# 58 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 305 "pppars.fs"
+//# 308 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Recover in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 57 "src/Compiler/pppars.fsy"
+//# 59 "src/Compiler/pppars.fsy"
                                                    fail parseState 2 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 57 "src/Compiler/pppars.fsy"
+//# 59 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 316 "pppars.fs"
+//# 319 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_Recover in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 58 "src/Compiler/pppars.fsy"
+//# 60 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken(")"))      
                    )
-//# 58 "src/Compiler/pppars.fsy"
+//# 60 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 327 "pppars.fs"
+//# 330 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_Expr in
             let _2 = parseState.GetInput(2) :?> 'gentype_Recover in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 59 "src/Compiler/pppars.fsy"
+//# 61 "src/Compiler/pppars.fsy"
                                                    fail parseState 2 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 59 "src/Compiler/pppars.fsy"
+//# 61 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
-//# 339 "pppars.fs"
+//# 342 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 60 "src/Compiler/pppars.fsy"
+//# 62 "src/Compiler/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 60 "src/Compiler/pppars.fsy"
+//# 62 "src/Compiler/pppars.fsy"
                  : 'gentype_Expr));
 |]
-//# 350 "pppars.fs"
+//# 353 "pppars.fs"
 let tables : Internal.Utilities.Text.Parsing.Tables<_> = 
   { reductions = _fsyacc_reductions.Value;
     endOfInputTag = _fsyacc_endOfInputTag;

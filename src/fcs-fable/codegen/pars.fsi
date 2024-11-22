@@ -45,6 +45,7 @@ type token =
   | TYPE_IS_HERE
   | MODULE_COMING_SOON
   | MODULE_IS_HERE
+  | BAR_JUST_BEFORE_NULL
   | EXTERN
   | VOID
   | PUBLIC
@@ -249,6 +250,7 @@ type tokenId =
     | TOKEN_TYPE_IS_HERE
     | TOKEN_MODULE_COMING_SOON
     | TOKEN_MODULE_IS_HERE
+    | TOKEN_BAR_JUST_BEFORE_NULL
     | TOKEN_EXTERN
     | TOKEN_VOID
     | TOKEN_PUBLIC
@@ -529,6 +531,7 @@ type nonTerminalId =
     | NONTERM_explicitValTyparDeclsCore
     | NONTERM_explicitValTyparDecls
     | NONTERM_opt_explicitValTyparDecls
+    | NONTERM_hashConstraint
     | NONTERM_opt_typeConstraints
     | NONTERM_typeConstraints
     | NONTERM_intersectionConstraints
@@ -579,10 +582,9 @@ type nonTerminalId =
     | NONTERM_atomicRationalConstant
     | NONTERM_constant
     | NONTERM_bindingPattern
-    | NONTERM_simplePattern
-    | NONTERM_simplePatternCommaList
     | NONTERM_opt_simplePatterns
     | NONTERM_simplePatterns
+    | NONTERM_barCanBeRightBeforeNull
     | NONTERM_headBindingPattern
     | NONTERM_tuplePatternElements
     | NONTERM_conjPatternElements
@@ -680,7 +682,9 @@ type nonTerminalId =
     | NONTERM_intersectionType
     | NONTERM_appTypeCon
     | NONTERM_appTypeConPower
-    | NONTERM_appType
+    | NONTERM_appTypeCanBeNullable
+    | NONTERM_appTypeNullableInParens
+    | NONTERM_appTypeWithoutNull
     | NONTERM_arrayTypeSuffix
     | NONTERM_appTypePrefixArguments
     | NONTERM_typeArgListElements
@@ -717,11 +721,9 @@ type nonTerminalId =
     | NONTERM_opt_declEnd
     | NONTERM_opt_ODECLEND
     | NONTERM_deprecated_opt_equals
-    | NONTERM_opt_equals
     | NONTERM_opt_OBLOCKSEP
     | NONTERM_opt_seps
     | NONTERM_opt_rec
-    | NONTERM_opt_bar
     | NONTERM_opt_inline
     | NONTERM_opt_mutable
     | NONTERM_doToken
