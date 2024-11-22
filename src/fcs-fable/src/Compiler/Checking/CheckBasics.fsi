@@ -6,6 +6,7 @@ open System.Collections.Concurrent
 open System.Collections.Generic
 open FSharp.Compiler.Diagnostics
 open Internal.Utilities.Library
+open Internal.Utilities.Collections
 open FSharp.Compiler.AccessibilityLogic
 open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.ConstraintSolver
@@ -46,7 +47,7 @@ type CtorInfo =
         /// A handle to the boolean ref cell to hold success of initialized 'this' for 'type X() as x = ...' constructs
         safeInitInfo: SafeInitData
 
-        /// Is the an implicit constructor or an explicit one?
+        /// Is there an implicit constructor or an explicit one?
         ctorIsImplicit: bool
     }
 
@@ -128,6 +129,10 @@ type TcEnv =
         eLambdaArgInfos: ArgReprInfo list list
 
         eIsControlFlow: bool
+
+        // In order to avoid checking implicit-yield expressions multiple times, we cache the resulting checked expressions.
+        // This avoids exponential behavior in the type checker when nesting implicit-yield expressions.
+        eCachedImplicitYieldExpressions: HashMultiMap<range, SynExpr * TType * Expr>
     }
 
     member DisplayEnv: DisplayEnv
@@ -192,7 +197,7 @@ type TcPatPhase2Input =
 /// Represents the context flowed left-to-right through pattern checking
 type TcPatLinearEnv = TcPatLinearEnv of tpenv: UnscopedTyparEnv * names: NameMap<PrelimVal1> * takenNames: Set<string>
 
-/// Represents the flags passsed to TcPat regarding the binding location
+/// Represents the flags passed to TcPat regarding the binding location
 type TcPatValFlags =
     | TcPatValFlags of
         inlineFlag: ValInline *

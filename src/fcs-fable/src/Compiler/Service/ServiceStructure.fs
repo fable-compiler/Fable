@@ -246,15 +246,15 @@ module Structure =
                 rcheck Scope.New Collapse.Below r e.Range
                 parseExpr e
 
-            | SynExpr.YieldOrReturn(_, e, r) ->
+            | SynExpr.YieldOrReturn(_, e, r, _) ->
                 rcheck Scope.YieldOrReturn Collapse.Below r r
                 parseExpr e
 
-            | SynExpr.YieldOrReturnFrom(_, e, r) ->
+            | SynExpr.YieldOrReturnFrom(_, e, r, _) ->
                 rcheck Scope.YieldOrReturnBang Collapse.Below r r
                 parseExpr e
 
-            | SynExpr.DoBang(e, r) ->
+            | SynExpr.DoBang(expr = e; range = r) ->
                 rcheck Scope.Do Collapse.Below r <| Range.modStart 3 r
                 parseExpr e
 
@@ -337,7 +337,7 @@ module Structure =
                 parseExpr argExpr
                 parseExpr funcExpr
 
-            | SynExpr.Sequential(_, _, e1, e2, _) ->
+            | SynExpr.Sequential(expr1 = e1; expr2 = e2) ->
                 parseExpr e1
                 parseExpr e2
 

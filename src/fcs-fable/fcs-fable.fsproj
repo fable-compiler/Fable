@@ -6,6 +6,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);NO_CHECKNULLS</DefineConstants>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
     <DefineConstants>$(DefineConstants);COMPILER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_WEAKTABLE</DefineConstants>
@@ -27,8 +28,11 @@
     <Compile Include="$(FsYaccOutputFolder)/FSComp.fs" />
     <Compile Include="$(FsYaccOutputFolder)/FSIstrings.fs" />
     <!-- <EmbeddedResource Include="$(FSharpSourcesRoot)/fsharp/FSStrings.resx" /> -->
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/NullnessShims.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/Activity.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/Activity.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/illib.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/illib.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/sformat.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/sformat.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/sr.fsi" /> -->
@@ -41,8 +45,6 @@
     <Compile Include="$(FSharpSourcesRoot)/Utilities/EditDistance.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/TaggedCollections.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/TaggedCollections.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/Utilities/illib.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/Utilities/illib.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/Cancellable.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/Cancellable.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/FileSystem.fsi" />
@@ -61,6 +63,8 @@
     <Compile Include="$(FSharpSourcesRoot)/Utilities/QueueList.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/lib.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/lib.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/LruCache.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/LruCache.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/ImmutableArray.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/ImmutableArray.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/Utilities/rational.fsi" />
@@ -81,6 +85,8 @@
     <Compile Include="$(FSharpSourcesRoot)/Facilities/DiagnosticsLogger.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/DiagnosticResolutionHints.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/DiagnosticResolutionHints.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Facilities/Hashing.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Facilities/Hashing.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/prim-lexing.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/prim-lexing.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/prim-parsing.fsi" />
@@ -93,6 +99,8 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/Facilities/CompilerLocation.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/Facilities/BuildGraph.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/BuildGraph.fs" />
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Facilities/AsyncMemoize.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Facilities/AsyncMemoize.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/ReadOnlySpan.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/ReadOnlySpan.fs" /> -->
     <!-- <FsLex Include="$(FSharpSourcesRoot)/AbstractIL/illex.fsl" /> -->
@@ -149,6 +157,8 @@
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/SyntaxTree.fs" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/SyntaxTreeOps.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/SyntaxTreeOps.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/LexerStore.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/LexerStore.fs" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/ParseHelpers.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/ParseHelpers.fs" />
     <!-- <Compile Include="$(FsYaccOutputFolder)/pppars.fsi" /> -->
@@ -175,6 +185,7 @@
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTree.fs" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTreeBasics.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTreeBasics.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/TypedTree/TcGlobals.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TcGlobals.fs" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTreeOps.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTreeOps.fs" />
@@ -182,6 +193,7 @@
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/TypedTreePickle.fs" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/UpdatePrettyTyparNames.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/TypedTree/UpdatePrettyTyparNames.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/TypeHashing.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/import.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/import.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/TypeHierarchy.fsi" />
@@ -226,12 +238,15 @@
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckBasics.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckRecordSyntaxHelpers.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckRecordSyntaxHelpers.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckExpressions.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckExpressions.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/Expressions/CheckExpressionsOps.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/Expressions/CheckExpressions.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/Expressions/CheckExpressions.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckPatterns.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckPatterns.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckComputationExpressions.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/Checking/CheckComputationExpressions.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/Expressions/CheckComputationExpressions.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/Expressions/CheckComputationExpressions.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/Expressions/CheckSequenceExpressions.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Checking/Expressions/CheckArrayOrListComputedExpressions.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckIncrementalClasses.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckIncrementalClasses.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Checking/CheckDeclarations.fsi" />
@@ -342,6 +357,10 @@
     <Compile Include="$(FSharpSourcesRoot)/Service/ServiceLexing.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Service/ServiceParseTreeWalk.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Service/ServiceParseTreeWalk.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Service/SynExpr.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Service/SynExpr.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Service/SynPat.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/Service/SynPat.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Service/ServiceNavigation.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Service/ServiceNavigation.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Service/ServiceParamInfoLocations.fsi" />
@@ -360,6 +379,11 @@
     <Compile Include="$(FSharpSourcesRoot)/Service/QuickParse.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Service/FSharpCheckerResults.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Service/FSharpCheckerResults.fs" />
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Service/FSharpProjectSnapshot.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Service/BackgroundCompiler.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Service/BackgroundCompiler.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Service/TransparentCompiler.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Service/TransparentCompiler.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/Service/service.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Service/service.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceInterfaceStubGenerator.fsi" /> -->
@@ -371,6 +395,8 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/FSharpInteractiveServer.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/FSharpInteractiveServer.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/ControlledExecution.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/fsihelp.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/fsihelp.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/fsi.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Interactive/fsi.fs" /> -->
 
@@ -381,7 +407,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="8.0.0" /> -->
+    <!-- <PackageReference Include="FSharp.Core" Version="9.0.0" /> -->
     <!-- <Reference Include="../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" /> -->
   </ItemGroup>
 

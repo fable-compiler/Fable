@@ -12,7 +12,7 @@ module private ImmutableHashSet =
     let singleton (value: 'T) =
         ImmutableHashSet.Create<'T>(Array.singleton value)
 
-    /// Create new new HashSet<'T> with zero elements.
+    /// Create a new HashSet<'T> with zero elements.
     let empty () = ImmutableHashSet.Empty
 
 let autoOpenShapes =
@@ -123,7 +123,7 @@ let processSynModuleOrNamespace<'Decl>
         // Only the last node can be a module, depending on the SynModuleOrNamespaceKind.
         let rec visit continuation (xs: LongIdent) =
             match xs with
-            | [] -> failwith "should not be empty"
+            | [] -> ImmutableDictionary.Empty |> continuation
             | [ finalPart ] ->
                 let name = finalPart.idText
 
@@ -215,7 +215,8 @@ let rec mkTrieNodeFor (file: FileInProject) : FileIndex * TrieNode =
                         let hasTypesOrAutoOpenNestedModules =
                             decls
                             |> List.exists (function
-                                | SynModuleSigDecl.Types _ -> true
+                                | SynModuleSigDecl.Types _
+                                | SynModuleSigDecl.Exception _ -> true
                                 | SynModuleSigDecl.NestedModule(moduleInfo = SynComponentInfo(attributes = attributes)) ->
                                     isAnyAttributeAutoOpen attributes
                                 | _ -> false)
@@ -230,7 +231,8 @@ let rec mkTrieNodeFor (file: FileInProject) : FileIndex * TrieNode =
                         let hasTypesOrAutoOpenNestedModules =
                             List.exists
                                 (function
-                                | SynModuleDecl.Types _ -> true
+                                | SynModuleDecl.Types _
+                                | SynModuleDecl.Exception _ -> true
                                 | SynModuleDecl.NestedModule(moduleInfo = SynComponentInfo(attributes = attributes)) ->
                                     isAnyAttributeAutoOpen attributes
                                 | _ -> false)
