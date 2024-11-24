@@ -507,8 +507,11 @@ let ``test can check compiler version with constant`` () =
     #if FABLE_COMPILER_JAVASCRIPT
     x <- x + 16
     #endif
+    #if FABLE_COMPILER_5
+    x <- x + 32
+    #endif
 
-    equal 13 x
+    equal 41 x
 
 [<Fact>]
 let ``test Can check compiler version at runtime`` () =

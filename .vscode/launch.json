@@ -250,8 +250,7 @@
         "--define", "FABLE_LIBRARY",
         "--lang", "Rust",
         "--noCache",
-        "--noParallelTypeCheck",
-        "--test:MSBuildCracker"
+        "--noParallelTypeCheck"
       ]
     },
     {
@@ -266,8 +265,7 @@
         "--exclude", "Fable.Core",
         "--lang", "Rust",
         "--noCache",
-        "--noParallelTypeCheck",
-        "--test:MSBuildCracker"
+        "--noParallelTypeCheck"
       ],
       "cwd": "${workspaceRoot}/../fable-test",
       "stopAtEntry": false,
