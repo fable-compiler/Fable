@@ -560,9 +560,15 @@ let ``Can check compiler version with constant`` () =
     x <- x + 4
     #endif
     #if FABLE_COMPILER_5
+    x <- x + 8
+    #endif
+    #if FABLE_COMPILER_6
     x <- x + 16
     #endif
-    equal 5 x
+    #if FABLE_COMPILER_RUST
+    x <- x + 32
+    #endif
+    equal 41 x
 
 // [<Fact>]
 // let ``Can check compiler version at runtime`` () =
