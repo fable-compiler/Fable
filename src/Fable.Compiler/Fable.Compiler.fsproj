@@ -6,10 +6,16 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-016</Version>
-        <PackageReleaseNotes>## Changed
+        <Version>5.0.0-alpha.1</Version>
+        <PackageReleaseNotes>## Added
 
-- Fable 4.24.0
+- [All] Add `--legacyCracker` as a fallback
+
+## Changed
+
+- [All] Make MSBuildCracker the default
+- [All] Replace `FABLE_COMPILER_4` with `FABLE_COMPILER_5` as the compiler directive
+- [All] Move TargetFramework to `net8.0`
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

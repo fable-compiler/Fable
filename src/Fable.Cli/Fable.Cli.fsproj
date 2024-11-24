@@ -4,20 +4,16 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <Version>4.24.0</Version>
+    <Version>5.0.0-alpha.1</Version>
     <PackageReleaseNotes>## Added
 
-- [JS/TS] Added missing `ResizeArray.CopyTo` replacements (by @ncave)
-- [JS/TS] Added missing `Dictionary` constructors from enumerable (by @ncave)
+- [All] Add `--legacyCracker` as a fallback
 
-## Fixed
+## Changed
 
-- [Rust] Fixed import path rewrite (by @ncave)
-- [Rust] Updated derived interfaces (by @ncave)
-- [Rust] Updated string comparisons (by @ncave)
-- [Rust] Fixed derived traits mapping (by @ncave)
-- [JS/TS] Added missing `ICollection` helpers (#3914) (by @ncave)
-- [JS/TS] Added missing `IReadOnlyCollection` helpers (by @ncave)
+- [All] Make MSBuildCracker the default
+- [All] Replace `FABLE_COMPILER_4` with `FABLE_COMPILER_5` as the compiler directive
+- [All] Move TargetFramework to `net8.0`
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
