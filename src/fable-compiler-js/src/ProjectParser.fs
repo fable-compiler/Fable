@@ -111,7 +111,7 @@ let parseCompilerOptions projectXml =
         |> Seq.append
             [
                 "FABLE_COMPILER"
-                "FABLE_COMPILER_4"
+                "FABLE_COMPILER_5"
                 "FABLE_COMPILER_JAVASCRIPT"
                 "NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT"
             ]
@@ -206,7 +206,7 @@ let parseProjectScript projectFilePath =
     let otherOptions =
         [|
             "--define:FABLE_COMPILER"
-            "--define:FABLE_COMPILER_4"
+            "--define:FABLE_COMPILER_5"
             "--define:FABLE_COMPILER_JAVASCRIPT"
             "--define:NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT"
         |]

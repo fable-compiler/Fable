@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.1 - 2024-11-24
+
+### Added
+
+* [All] Add `--legacyCracker` as a fallback
+
+### Changed
+
+* [All] Make MSBuildCracker the default
+* [All] Replace `FABLE_COMPILER_4` with `FABLE_COMPILER_5` as the compiler directive
+* [All] Move TargetFramework to `net8.0`
+
 ## 4.0.0-alpha-016 - 2024-11-19
 
 ### Changed

@@ -74,7 +74,7 @@
 </member>
 <member name="M:FSDependencyManager.SR.cantReferenceSystemPackage(System.String)">
 <summary>
- PackageManager can not reference the System Package &apos;%s&apos;
+ PackageManager cannot reference the System Package &apos;%s&apos;
  (Originally from FSDependencyManager.txt:2)
 </summary>
 </member>
@@ -107,7 +107,7 @@
 </member>
 <member name="P:FSharp.DependencyManager.Nuget.ResolveDependenciesResult.Success">
 <summary>
- Succeded?
+ Succeeded?
 </summary>
 </member>
 <member name="P:FSharp.DependencyManager.Nuget.ResolveDependenciesResult.StdOut">
@@ -135,7 +135,7 @@
      the dependency manager will be able to probe and resolve any native dependencies
      required by the nuget package.
 
- This path is also equivant to
+ This path is also equivalent to
      #I @&quot;c:\somepath\to\packages\ResolvedPackage\1.1.1\&quot;
 </summary>
 </member>

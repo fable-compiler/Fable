@@ -2,6 +2,23 @@
 <doc>
 <assembly><name>FSharp.Core</name></assembly>
 <members>
+<member name="P:System.Runtime.CompilerServices.CollectionBuilderAttribute.MethodName">
+ <summary>Gets the name of the method on the builder to use to construct the collection.</summary>
+ <remarks>This should match the metadata name of the target method. For example, this might be ".ctor" if targeting the type's constructor.</remarks>
+</member>
+<member name="P:System.Runtime.CompilerServices.CollectionBuilderAttribute.BuilderType">
+ <summary>Gets the type of the builder to use to construct the collection.</summary>
+</member>
+<member name="M:System.Runtime.CompilerServices.CollectionBuilderAttribute.#ctor(System.Type,System.String)">
+ <summary>Initialize the attribute to refer to the <paramref name="methodName"/> method on the <paramref name="builderType"/> type.</summary>
+ <param name="builderType">The type of the builder to use to construct the collection.</param>
+ <param name="methodName">The name of the method on the builder to use to construct the collection.</param>
+ <remarks>
+ <paramref name="methodName"/> must refer to a static method that accepts a single parameter of
+ type <see cref="T:System.ReadOnlySpan`1"/> and returns an instance of the collection being built containing
+ a copy of the data from that span. In future releases of .NET, additional patterns may be supported.
+ </remarks>
+</member>
 <member name="T:System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes">
  <summary>
  Specifies the types of members that are dynamically accessed.
@@ -952,7 +969,7 @@
  <code>
  open System.Collections.Generic
 
- let dict = new Dictionary&lt;int[],int&gt;(HashIdentity.Structural)
+ let dict = new Dictionary&lt;int array,int&gt;(HashIdentity.Structural)
 
  let arr1 = [| 1;2;3 |]
  let arr2 = [| 1;2;3 |]
@@ -963,7 +980,7 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.HashIdentity.LimitedStructural``1(System.Int32)">
- <summary>Get an implementation of equality semantics semantics using limited structural equality and structural hashing.</summary>
+ <summary>Get an implementation of equality semantics using limited structural equality and structural hashing.</summary>
 
  <param name="limit">The limit on the number of hashing operations used.</param>
 
@@ -1011,7 +1028,7 @@
  <code>
  open System.Collections.Generic
 
- let dict = new Dictionary&lt;int[],int&gt;(HashIdentity.Structural)
+ let dict = new Dictionary&lt;int array,int&gt;(HashIdentity.Structural)
 
  let arr1 = [| 1;2;3 |]
  let arr2 = [| 1;2;3 |]
@@ -1073,6 +1090,280 @@
 <member name="T:Microsoft.FSharp.Collections.ComparisonIdentity">
  <summary>Common notions of value ordering implementing the <see cref="T:System.Collections.Generic.IComparer`1"/>
  interface, for constructing sorted data structures and performing sorting operations.</summary>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomSampleBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},System.Int32,System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns a random sample of elements from the given sequence with the specified <c>randomizer</c> function, each element can be selected only once.
+ </summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>A sequence of randomly selected elements from the input sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input sequence.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a number outside the range [0.0..1.0).</exception>
+
+ <example id="randomSampleBy-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomSampleBy Random.Shared.NextDouble 3
+ </code>
+ Can evaluate to <c>seq { 3; 1; 2 }</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomSampleWith``1(System.Random,System.Int32,System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns a random sample of elements from the given sequence with the specified <c>Random</c> instance, each element can be selected only once.
+ </summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>A sequence of randomly selected elements from the input sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input sequence.</exception>
+
+ <example id="randomSampleWith-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomSampleWith Random.Shared 3
+ </code>
+ Can evaluate to <c>seq { 3; 1; 2 }</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomSample``1(System.Int32,System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns a random sample of elements from the given sequence, each element can be selected only once.
+ </summary>
+
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>A sequence of randomly selected elements from the input sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input sequence.</exception>
+
+ <example id="randomSample-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomSample 3
+ </code>
+ Can evaluate to <c>seq { 3; 1; 2 }</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomChoicesBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},System.Int32,System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns a sequence of random elements from the given sequence with the specified <c>randomizer</c> function, each element can be selected multiple times.
+ </summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>A sequence of randomly selected elements from the input sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a number outside the range [0.0..1.0).</exception>
+
+ <example id="randomChoicesBy-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomChoicesBy Random.Shared.NextDouble 3
+ </code>
+ Can evaluate to <c>seq { 3; 1; 3 }</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomChoicesWith``1(System.Random,System.Int32,System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns a sequence of random elements from the given sequence with the specified <c>Random</c> instance, each element can be selected multiple times.
+ </summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>A sequence of randomly selected elements from the input sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+
+ <example id="randomChoicesWith-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomChoicesWith Random.Shared 3
+ </code>
+ Can evaluate to <c>seq { 3; 1; 3 }</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomChoices``1(System.Int32,System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns an sequence of random elements from the given sequence, each element can be selected multiple times.
+ </summary>
+
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>A sequence of randomly selected elements from the input sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+
+ <example id="randomChoices-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomChoices 3
+ </code>
+ Can evaluate to <c>seq { 3; 1; 3 }</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomChoiceBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns a random element from the given sequence with the specified <c>randomizer</c> function.
+ </summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>A randomly selected element from the input sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a number outside the range [0.0..1.0).</exception>
+
+ <example id="randomChoiceBy-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+ let randomizer = Random.Shared.NextDouble
+
+ inputs |> Seq.randomChoiceBy randomizer
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomChoiceWith``1(System.Random,System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns a random element from the given sequence with the specified <c>Random</c> instance.
+ </summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>A randomly selected element from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+
+ <example id="randomChoiceWith-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomChoiceWith Random.Shared
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomChoice``1(System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+ Returns a random element from the given sequence.
+ </summary>
+
+ <param name="source">The input sequence.</param>
+
+ <returns>A randomly selected element from the input sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+
+ <example id="randomChoice-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomChoice
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomShuffleBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},System.Collections.Generic.IEnumerable{``0})">
+ <summary>Return a new sequence shuffled in a random order with the specified <c>randomizer</c> function.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>The result sequence.</returns>
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a number outside the range [0.0..1.0).</exception>
+
+ <example id="randomShuffleBy-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomShuffleBy Random.Shared.NextDouble
+ </code>
+ Can evaluate to <c>seq { 0; 2; 4; 3; 1 }</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomShuffleWith``1(System.Random,System.Collections.Generic.IEnumerable{``0})">
+ <summary>Return a new sequence shuffled in a random order with the specified <c>Random</c> instance.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="source">The input sequence.</param>
+
+ <returns>The result sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+
+ <example id="randomShuffleWith-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomShuffleWith Random.Shared
+ </code>
+ Can evaluate to <c>seq { 0; 2; 4; 3; 1 }</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.SeqModule.RandomShuffle``1(System.Collections.Generic.IEnumerable{``0})">
+ <summary>Return a new sequence shuffled in a random order.</summary>
+
+ <param name="source">The input sequence.</param>
+
+ <returns>The result sequence.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+
+ <example id="randomShuffle-1">
+ <code lang="fsharp">
+ let inputs = seq { 0; 1; 2; 3; 4 }
+
+ inputs |> Seq.randomShuffle
+ </code>
+ Can evaluate to <c>seq { 0; 2; 4; 3; 1 }</c>.
+ </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.SeqModule.InsertManyAt``1(System.Int32,System.Collections.Generic.IEnumerable{``0},System.Collections.Generic.IEnumerable{``0})">
  <summary>Return a new sequence with new items inserted before the given index.</summary>
@@ -1891,7 +2182,7 @@
      | In i -> acc + i
      | Out o -> acc - o)
  </code>
- Evaluates to a sequence yielding the same results as <c>seq { 2; 1; 3; 0 }</c> by processing each input from back to front. Note <c>0</c> is the intial
+ Evaluates to a sequence yielding the same results as <c>seq { 2; 1; 3; 0 }</c> by processing each input from back to front. Note <c>0</c> is the initial
  state, <c>3</c> the next state, <c>1</c> the next state, and <c>2</c> the final state, and the states
  are produced from back to front.
  </example>
@@ -1920,7 +2211,7 @@
      | In i -> acc + i
      | Out o -> acc - o)
  </code>
- Evaluates to a sequence yielding the same results as <c>seq { 0; 1; -1; 2 }</c>. Note <c>0</c> is the intial
+ Evaluates to a sequence yielding the same results as <c>seq { 0; 1; -1; 2 }</c>. Note <c>0</c> is the initial
  state, <c>1</c> the next state, <c>-1</c> the next state, and <c>2</c> the final state.
  </example>
 </member>
@@ -2035,7 +2326,7 @@
 
  let readonlyView = input |> Seq.readonly
 
- (readonlyView :?> int[]).[1] &lt;- 4
+ (readonlyView :?> int array).[1] &lt;- 4
  </code>
  Throws an <c>InvalidCastException</c>.
  </example>
@@ -2703,7 +2994,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
 
- <example id="try-exacly-one-1">
+ <example id="try-exactly-one-1">
  <code lang="fsharp">
  let inputs = ["banana"]
 
@@ -2712,7 +3003,7 @@
  Evaluates to <c>Some banana</c>
  </example>
 
- <example id="try-exacly-one-2">
+ <example id="try-exactly-one-2">
  <code lang="fsharp">
  let inputs = ["pear"; "banana"]
 
@@ -2721,7 +3012,7 @@
  Evaluates to <c>None</c>
  </example>
 
- <example id="try-exacly-one-3">
+ <example id="try-exactly-one-3">
  <code lang="fsharp">
  [] |> Seq.tryExactlyOne
  </code>
@@ -2738,7 +3029,7 @@
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
  <exception cref="T:System.ArgumentException">Thrown when the input does not have precisely one element.</exception>
 
- <example id="exacly-one-1">
+ <example id="exactly-one-1">
  <code lang="fsharp">
  let inputs = ["banana"]
 
@@ -2747,7 +3038,7 @@
  Evaluates to <c>banana</c>
  </example>
 
- <example id="exacly-one-2">
+ <example id="exactly-one-2">
  <code lang="fsharp">
  let inputs = ["pear"; "banana"]
 
@@ -2756,7 +3047,7 @@
  Throws <c>ArgumentException</c>
  </example>
 
- <example id="exacly-one-3">
+ <example id="exactly-one-3">
  <code lang="fsharp">
  [] |> Seq.exactlyOne
  </code>
@@ -3877,6 +4168,249 @@
 </member>
 <member name="T:Microsoft.FSharp.Collections.SeqModule">
  <summary>Contains operations for working with values of type <see cref="T:Microsoft.FSharp.Collections.seq`1"/>.</summary>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomSampleBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},System.Int32,Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a random sample of elements from the given list using the specified <c>randomizer</c> function, each element can be selected only once.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input list.</param>
+
+ <returns>A list of randomly selected elements from the input list.</returns>
+
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input list.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomSampleBy-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomSampleBy Random.Shared.NextDouble 3
+ </code>
+ Can evaluate to <c>[ 3; 1; 2 ]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomSampleWith``1(System.Random,System.Int32,Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a random sample of elements from the given list with the specified <c>Random</c> instance, each element can be selected only once.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input list.</param>
+
+ <returns>A list of randomly selected elements from the input list.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input list.</exception>
+
+ <example id="randomSampleWith-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomSampleWith Random.Shared 3
+ </code>
+ Can evaluate to <c>[ 3; 1; 2 ]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomSample``1(System.Int32,Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a random sample of elements from the given list, each element can be selected only once.</summary>
+
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input list.</param>
+
+ <returns>A list of randomly selected elements from the input list.</returns>
+
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input list.</exception>
+
+ <example id="randomSample-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomSample 3
+ </code>
+ Can evaluate to <c>[ 3; 1; 2 ]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomChoicesBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},System.Int32,Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a list of random elements from the given list using the specified <c>randomizer</c> function.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input list.</param>
+
+ <returns>A list of randomly selected elements from the input list.</returns>
+
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomChoicesBy-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomChoicesBy Random.Shared.NextDouble 3
+ </code>
+ Can evaluate to <c>[ 3; 1; 3 ]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomChoicesWith``1(System.Random,System.Int32,Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a list of random elements from the given list with the specified <c>Random</c> instance, each element can be selected multiple times.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input list.</param>
+
+ <returns>A list of randomly selected elements from the input list.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+
+ <example id="randomChoicesWith-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> Array.randomChoicesWith Random.Shared 3
+ </code>
+ Can evaluate to <c>[ 3; 1; 3 ]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomChoices``1(System.Int32,Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a list of random elements from the given list.</summary>
+
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input list.</param>
+
+ <returns>A list of randomly selected elements from the input list.</returns>
+
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+
+ <example id="randomChoices-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomChoices 3
+ </code>
+ Can evaluate to <c>[ 3; 1; 3 ]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomChoiceBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a random element from the given list using the specified <c>randomizer</c> function.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="source">The input list.</param>
+
+ <returns>A randomly selected element from the input list.</returns>
+
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomChoiceBy-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomChoiceBy Random.Shared.NextDouble
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomChoiceWith``1(System.Random,Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a random element from the given list with the specified <c>Random</c> instance, each element can be selected multiple times.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="source">The input list.</param>
+
+ <returns>A randomly selected element from the input list.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+
+ <example id="randomChoiceWith-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomChoiceWith Random.Shared
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomChoice``1(Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Returns a random element from the given list.</summary>
+
+ <param name="source">The input list.</param>
+
+ <returns>A randomly selected element from the input list.</returns>
+
+ <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+
+ <example id="randomChoice-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomChoice
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomShuffleBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Return a new list shuffled in a random order using the specified <c>randomizer</c> function.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="source">The input list.</param>
+
+ <returns>The result list.</returns>
+
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomShuffleBy-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomShuffleBy Random.Shared.NextDouble
+ </code>
+ Can evaluate to <c>[ 0; 2; 4; 3; 1 ]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomShuffleWith``1(System.Random,Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Return a new list shuffled in a random order with the specified <c>Random</c> instance.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="source">The input list.</param>
+
+ <returns>The result list.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+
+ <example id="randomShuffleWith-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomShuffleWith Random.Shared
+ </code>
+ Can evaluate to <c>[ 0; 2; 4; 3; 1 ]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ListModule.RandomShuffle``1(Microsoft.FSharp.Collections.FSharpList{``0})">
+ <summary>Return a new list shuffled in a random order.</summary>
+
+ <param name="source">The input list.</param>
+
+ <returns>The result list.</returns>
+
+ <example id="randomShuffle-1">
+ <code lang="fsharp">
+ let inputs = [ 0; 1; 2; 3; 4 ]
+
+ inputs |> List.randomShuffle
+ Can evaluate to <c>[ 0; 2; 4; 3; 1 ]</c>.
+ </code>
+ </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ListModule.InsertManyAt``1(System.Int32,System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Collections.FSharpList{``0})">
  <summary>Return a new list with new items inserted before the given index.</summary>
@@ -5690,7 +6224,7 @@
      | Tails, Tails -> acc + 1
      | _ -> acc)
  </code>
- Evaluates to <c>1</c>. Note <c>acc</c> is a commonly used abbreviation for "accumulator".
+ Evaluates to <c>2</c>. Note <c>acc</c> is a commonly used abbreviation for "accumulator".
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ListModule.Fold``2(Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``0,``1}},``1,Microsoft.FSharp.Collections.FSharpList{``0})">
@@ -6445,6 +6979,313 @@
  <namespacedoc><summary>Operations for collections such as lists, arrays, sets, maps and sequences. See also 
     <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/fsharp-collection-types">F# Collection Types</a> in the F# Language Guide.
  </summary></namespacedoc>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomSampleBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},System.Int32,``0[])">
+ <summary>Returns a random sample of elements from the given array using the specified <c>randomizer</c> function, each element can be selected only once.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input array.</param>
+
+ <returns>An array of randomly selected elements from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input array.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomSampleBy-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomSampleBy Random.Shared.NextDouble 3
+ </code>
+ Can evaluate to <c>[| 3; 1; 2 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomSampleWith``1(System.Random,System.Int32,``0[])">
+ <summary>Returns a random sample of elements from the given array with the specified <c>Random</c> instance, each element can be selected only once.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input array.</param>
+
+ <returns>An array of randomly selected elements from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input array.</exception>
+
+ <example id="randomSampleWith-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomSampleWith Random.Shared 3
+ </code>
+ Can evaluate to <c>[| 3; 1; 2 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomSample``1(System.Int32,``0[])">
+ <summary>Returns a random sample of elements from the given array, each element can be selected only once.</summary>
+
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input array.</param>
+
+ <returns>An array of randomly selected elements from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input array.</exception>
+
+ <example id="randomSample-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomSample 3
+ </code>
+ Can evaluate to <c>[| 3; 1; 2 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomChoicesBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},System.Int32,``0[])">
+ <summary>Returns an array of random elements from the given array using the specified <c>randomizer</c> function, each element can be selected multiple times.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input array.</param>
+
+ <returns>An array of randomly selected elements from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomChoicesBy-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomChoicesBy Random.Shared.NextDouble 3
+ </code>
+ Can evaluate to <c>[| 3; 1; 3 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomChoicesWith``1(System.Random,System.Int32,``0[])">
+ <summary>Returns an array of random elements from the given array with the specified <c>Random</c> instance, each element can be selected multiple times.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input array.</param>
+
+ <returns>An array of randomly selected elements from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+
+ <example id="randomChoicesWith-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomChoicesWith Random.Shared 3
+ </code>
+ Can evaluate to <c>[| 3; 1; 3 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomChoices``1(System.Int32,``0[])">
+ <summary>Returns an array of random elements from the given array, each element can be selected multiple times.</summary>
+
+ <param name="count">The number of elements to return.</param>
+ <param name="source">The input array.</param>
+
+ <returns>An array of randomly selected elements from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
+
+ <example id="randomChoices-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomChoices 3
+ </code>
+ Can evaluate to <c>[| 3; 1; 3 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomChoiceBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},``0[])">
+ <summary>Returns a random element from the given array using the specified <c>randomizer</c> function.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="source">The input array.</param>
+
+ <returns>A randomly selected element from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomChoiceBy-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomChoiceBy Random.Shared.NextDouble
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomChoiceWith``1(System.Random,``0[])">
+ <summary>Returns a random element from the given array with the specified <c>Random</c> instance.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="source">The input array.</param>
+
+ <returns>A randomly selected element from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+
+ <example id="randomChoiceWith-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomChoiceWith Random.Shared
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomChoice``1(``0[])">
+ <summary>Returns a random element from the given array.</summary>
+
+ <param name="source">The input array.</param>
+
+ <returns>A randomly selected element from the input array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+
+ <example id="randomChoice-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomChoice
+ </code>
+ Can evaluate to <c>3</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomShuffleInPlaceBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},``0[])">
+ <summary>Sorts input array in a random order using the specified <c>randomizer</c> function by mutating the array in-place.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="source">The input array.</param>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomShuffleInPlaceBy-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomShuffleInPlaceBy Random.Shared.NextDouble
+ </code>
+ After evaluation <c>array</c> can contain <c>[| 0; 2; 4; 3; 1 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomShuffleInPlaceWith``1(System.Random,``0[])">
+ <summary>Sorts input array in a random order with the specified <c>Random</c> instance by mutating the array in-place.</summary>
+
+ <param name="source">The input array.</param>
+ <param name="random">The <c>Random</c> instance.</param>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="randomShuffleInPlaceWith-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomShuffleInPlaceWith Random.Shared
+ </code>
+ After evaluation <c>array</c> can contain <c>[| 0; 2; 4; 3; 1 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomShuffleInPlace``1(``0[])">
+ <summary>Sorts input array in a random order by mutating the array in-place.</summary>
+
+ <param name="source">The input array.</param>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="randomShuffleInPlace-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomShuffleInPlace
+ </code>
+ After evaluation <c>array</c> can contain <c>[| 0; 2; 4; 3; 1 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomShuffleBy``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Double},``0[])">
+ <summary>Return a new array shuffled in a random order using the specified <c>randomizer</c> function.</summary>
+
+ <param name="randomizer">The randomizer function, must return a float number from [0.0..1.0) range.</param>
+ <param name="source">The input array.</param>
+
+ <returns>The result array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
+
+ <example id="randomShuffleBy-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomShuffleBy Random.Shared.NextDouble
+ </code>
+ Can evaluate to <c>[| 0; 2; 4; 3; 1 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomShuffleWith``1(System.Random,``0[])">
+ <summary>Return a new array shuffled in a random order with the specified <c>Random</c> instance.</summary>
+
+ <param name="random">The <c>Random</c> instance.</param>
+ <param name="source">The input array.</param>
+
+ <returns>The result array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+ <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
+
+ <example id="randomShuffleWith-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomShuffleWith Random.Shared
+ </code>
+ Can evaluate to <c>[| 0; 2; 4; 3; 1 |]</c>.
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Collections.ArrayModule.RandomShuffle``1(``0[])">
+ <summary>Return a new array shuffled in a random order.</summary>
+
+ <param name="source">The input array.</param>
+
+ <returns>The result array.</returns>
+
+ <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
+
+ <example id="randomShuffle-1">
+ <code lang="fsharp">
+ let inputs = [| 0; 1; 2; 3; 4 |]
+
+ inputs |> Array.randomShuffle
+ </code>
+ Can evaluate to <c>[| 0; 2; 4; 3; 1 |]</c>.
+ </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.InsertManyAt``1(System.Int32,System.Collections.Generic.IEnumerable{``0},``0[])">
  <summary>Return a new array with new items inserted before the given index.</summary>
@@ -7398,7 +8239,7 @@
      | In i -> acc + i
      | Out o -> acc - o)
  </code>
- Evaluates to <c> [|2; 1; 3; 0|]</c> by processing each input from back to front. Note <c>0</c> is the intial
+ Evaluates to <c> [|2; 1; 3; 0|]</c> by processing each input from back to front. Note <c>0</c> is the initial
  state, <c>3</c> the next state, <c>1</c> the next state, and <c>2</c> the final state.
  </example>
 </member>
@@ -7426,7 +8267,7 @@
      | In i -> acc + i
      | Out o -> acc - o)
  </code>
- Evaluates to <c>[|0; 1; -1; 2|]</c>. Note <c>0</c> is the intial
+ Evaluates to <c>[|0; 1; -1; 2|]</c>. Note <c>0</c> is the initial
  state, <c>1</c> the next state, <c>-1</c> the next state, and <c>2</c> the final state.
  </example>
 </member>
@@ -7629,7 +8470,7 @@
 
  <example id="minby-2">
  <code lang="fsharp">
- let inputs: string[]= [| |]
+ let inputs: string array= [| |]
 
  inputs |> Array.minBy (fun s -> s.Length)
  </code>
@@ -7659,7 +8500,7 @@
 
  <example id="min-2">
  <code lang="fsharp">
- let inputs: int[]= [| |]
+ let inputs: int array= [| |]
 
  inputs |> Array.min
  </code>
@@ -7690,7 +8531,7 @@
 
  <example id="maxby-2">
  <code lang="fsharp">
- let inputs: string[]= [| |]
+ let inputs: string array= [| |]
 
  inputs |> Array.maxBy (fun s -> s.Length)
  </code>
@@ -7720,7 +8561,7 @@
 
  <example id="max-2">
  <code lang="fsharp">
- let inputs: int[]= [| |]
+ let inputs: int array= [| |]
 
  inputs |> Array.max
  </code>
@@ -8140,7 +8981,7 @@
 
  <example id="zerocreate-1">
  <code lang="fsharp">
- let arr : int[] = Array.zeroCreate 4
+ let arr : int array = Array.zeroCreate 4
  </code>
  Evaluates to <c>[| 0; 0; 0; 0 |]</c>
  </example>
@@ -8755,7 +9596,7 @@
 
  <example id="try-exactly-one-3">
  <code lang="fsharp">
- let inputs: int[] = [| |]
+ let inputs: int array = [| |]
 
  inputs |> Array.tryExactlyOne
  </code>
@@ -8792,7 +9633,7 @@
 
  <example id="exactly-one-3">
  <code lang="fsharp">
- let inputs: int[] = [| |]
+ let inputs: int array = [| |]
 
  inputs |> Array.exactlyOne
  </code>
@@ -9043,7 +9884,7 @@
 
  <example id="tryhead-2">
  <code lang="fsharp">
- let inputs : int[] = [| |]
+ let inputs : int array = [| |]
 
  inputs |> Array.tryHead
  </code>
@@ -9249,7 +10090,7 @@
 
  <example id="collect-1">
  <code lang="fsharp">
- type Foo = { Bar: int[] }
+ type Foo = { Bar: int array }
 
  let input = [| {Bar = [| 1; 2 |]}; {Bar = [| 3; 4 |]} |]
 
@@ -9326,7 +10167,7 @@
  <code lang="fsharp">
  type Foo = { Bar: float }
 
- let input : Foo[] = [| |]
+ let input : Foo array = [| |]
 
  input |> Array.averageBy (fun foo -> foo.Bar)
  </code>
@@ -9780,13 +10621,13 @@
  <param name="mapping"></param>
  <param name="array">The input array.</param>
 
- <returns>'U[]</returns>
+ <returns>'U array</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
 
  <example id="collect-1">
  <code lang="fsharp">
- type Foo = { Bar: int[] }
+ type Foo = { Bar: int array }
 
  let input = [| {Bar = [| 1; 2 |]}; {Bar = [| 3; 4 |]} |]
 
@@ -9864,7 +10705,7 @@
  <code lang="fsharp">
  type Foo = { Bar: float }
 
- let input : Foo[] = [| |]
+ let input : Foo array = [| |]
 
  input |> Array.Parallel.averageBy (fun foo -> foo.Bar)
  </code>
@@ -9956,7 +10797,7 @@
 
  <example id="para-minby-2">
  <code lang="fsharp">
- let inputs: string[]= [| |]
+ let inputs: string array= [| |]
 
  inputs |> Array.Parallel.minBy (fun s -> s.Length)
  </code>
@@ -9986,7 +10827,7 @@
 
  <example id="min-2">
  <code lang="fsharp">
- let inputs: int[]= [| |]
+ let inputs: int array= [| |]
 
  inputs |> Array.Parallel.min
  </code>
@@ -10017,7 +10858,7 @@
 
  <example id="para-maxby-2">
  <code lang="fsharp">
- let inputs: string[]= [| |]
+ let inputs: string array= [| |]
 
  inputs |> Array.Parallel.maxBy (fun s -> s.Length)
  </code>
@@ -10047,7 +10888,7 @@
 
  <example id="para-max-2">
  <code lang="fsharp">
- let inputs: int[]= [| |]
+ let inputs: int array= [| |]
 
  inputs |> Array.Parallel.max
  </code>
@@ -11291,7 +12132,7 @@
  let array = Set.toArray set
  printfn$ "The set is {set} and type is {array.GetType().Name}"
  </code>
- The sample evaluates to the following output: <c>The set is [|1; 2; 3|] and type is System.Int32[]</c>
+ The sample evaluates to the following output: <c>The set is [|1; 2; 3|] and type is System.Int32 array</c>
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.SetModule.OfArray``1(``0[])">
@@ -12905,7 +13746,7 @@
 </member>
 <member name="T:Microsoft.FSharp.Quotations.FSharpExpr`1">
  <summary>Type-carrying quoted expressions. Expressions are generated either
- by quotations in source text or programatically</summary>
+ by quotations in source text or programmatically</summary>
 </member>
 <member name="P:Microsoft.FSharp.Quotations.FSharpExpr.Type">
  <summary>Returns type of an expression.</summary>
@@ -13223,7 +14064,7 @@
  Expr.TryGetReflectedDefinition(methInfoAtString)
  </code>
  Evaluates to a quotation with the same structure as <c>&lt;@ fun (x: string) -> (x, x) @&gt;</c>, which is the implementation of the
- generic method <c>f</c> instanatiated at type <c>string</c>.
+ generic method <c>f</c> instantiated at type <c>string</c>.
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Quotations.FSharpExpr.TryFinally(Microsoft.FSharp.Quotations.FSharpExpr,Microsoft.FSharp.Quotations.FSharpExpr)">
@@ -13962,7 +14803,7 @@
 
  <returns>The resulting expression.</returns>
 
- <example id="callwithwitnesses-1">In this example, we show how to use a witness to cosntruct an `op_Addition` call for a type that doesn't support addition directly:
+ <example id="callwithwitnesses-1">In this example, we show how to use a witness to construct an `op_Addition` call for a type that doesn't support addition directly:
  <code lang="fsharp">
  open FSharp.Quotations
  open FSharp.Quotations.Patterns
@@ -14095,7 +14936,7 @@
 
  <returns>The resulting expression.</returns>
 
- <example id="addresset-1">
+ <example id="addressset-1">
  <code lang="fsharp">
  open FSharp.Quotations
 
@@ -14269,8 +15110,8 @@
      | _ -> failwith "unexpected"
  </code>
  Evaluates <c>implExpr</c> to a quotation with the same structure as <c>&lt;@ fun (x: C&lt;int&gt;) (v: int) -> () @&gt;</c>, which is the implementation of the
- setter for the property <c>Count</c>. Note that the correct generic instantaition has been applied to the implementation to reflect
- the the type at the callsite.
+ setter for the property <c>Count</c>. Note that the correct generic instantiation has been applied to the implementation to reflect
+ the type at the callsite.
  </example>
 
 </member>
@@ -14299,8 +15140,8 @@
      | _ -> failwith "unexpected"
  </code>
  Evaluates <c>implExpr</c> to a quotation with the same structure as <c>&lt;@ fun (x: C&lt;int&gt;) () -> x @&gt;</c>, which is the implementation of the
- property <c>Identity</c>. Note that the correct generic instantaition has been applied to the implementation to reflect
- the the type at the callsite.
+ property <c>Identity</c>. Note that the correct generic instantiation has been applied to the implementation to reflect
+ the type at the callsite.
  </example>
 
 </member>
@@ -14328,8 +15169,8 @@
      | _ -> failwith "unexpected"
  </code>
  Evaluates <c>implExpr</c> to a quotation with the same structure as <c>&lt;@ fun (x: int) -> (x, x) @&gt;</c>, which is the implementation of the
- method <c>f</c>. Note that the correct generic instantaition has been applied to the implementation to reflect
- the the type at the callsite.
+ method <c>f</c>. Note that the correct generic instantiation has been applied to the implementation to reflect
+ the type at the callsite.
  </example>
 
 </member>
@@ -15246,7 +16087,7 @@
  result in the generation of unverifiable code.</summary>
 
  <namespacedoc><summary>
-   Library functionality for native interopability. See
+   Library functionality for native interoperability. See
    also <a href="https://learn.microsoft.com/dotnet/fsharp/language-reference/functions/external-functions">F# External Functions</a> in
    the F# Language Guide.
  </summary></namespacedoc>
@@ -15764,7 +16605,7 @@
  </summary>
 
  <remarks>If no cancellation token is provided then the default cancellation token is used.
- You may prefer using this method if you want to achive a similar behviour to async await in C# as 
+ You may prefer using this method if you want to achieve a similar behavior to async await in C# as 
  async computation starts on the current thread with an ability to return a result.
  </remarks>
 
@@ -16689,12 +17530,12 @@
 </member>
 <member name="M:Microsoft.FSharp.Control.TaskBuilderBase.TryWith``2(Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``0},``1},Microsoft.FSharp.Core.FSharpFunc{System.Exception,Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``0},``1}})">
  <summary>
- Specifies a unit of task code which excuted using try/with semantics
+ Specifies a unit of task code which executed using try/with semantics
  </summary>
 </member>
 <member name="M:Microsoft.FSharp.Control.TaskBuilderBase.TryFinally``2(Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``0},``1},Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Microsoft.FSharp.Core.Unit})">
  <summary>
- Specifies a unit of task code which excuted using try/finally semantics
+ Specifies a unit of task code which executed using try/finally semantics
  </summary>
 </member>
 <member name="M:Microsoft.FSharp.Control.TaskBuilderBase.Return``1(``0)">
@@ -16837,6 +17678,22 @@
 
  <example-tbd></example-tbd>
 </member>
+<member name="M:Microsoft.FSharp.Control.FSharpMailboxProcessor`1.StartImmediate(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Control.FSharpMailboxProcessor{`0},Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},System.Boolean,Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>Creates and starts an agent immediately on the current operating system thread. The <c>body</c>
+ function is used to generate the asynchronous computation executed by the agent.</summary>
+
+ <param name="body">The function to produce an asynchronous computation that will be executed
+ as the read loop for the MailboxProcessor when StartImmediately is called.</param>
+ <param name="isThrowExceptionAfterDisposed">A flag denotes will be thrown exception
+ when <see cref="F:Microsoft.FSharp.Control.MailboxProcessor.Post"/> is called
+ after <see cref="F:Microsoft.FSharp.Control.MailboxProcessor"/> disposed.</param>
+ <param name="cancellationToken">An optional cancellation token for the <c>body</c>.
+ Defaults to <c>Async.DefaultCancellationToken</c>.</param>
+
+ <returns>The created MailboxProcessor.</returns>
+
+ <example-tbd></example-tbd>
+</member>
 <member name="M:Microsoft.FSharp.Control.FSharpMailboxProcessor`1.StartImmediate(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Control.FSharpMailboxProcessor{`0},Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
  <summary>Creates and starts an agent immediately on the current operating system thread. The <c>body</c>
  function is used to generate the asynchronous computation executed by the agent.</summary>
@@ -16852,6 +17709,22 @@
 </member>
 <member name="M:Microsoft.FSharp.Control.FSharpMailboxProcessor`1.Start">
  <summary>Starts the agent.</summary>
+
+ <example-tbd></example-tbd>
+</member>
+<member name="M:Microsoft.FSharp.Control.FSharpMailboxProcessor`1.Start(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Control.FSharpMailboxProcessor{`0},Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},System.Boolean,Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>Creates and starts an agent. The <c>body</c> function is used to generate the asynchronous
+ computation executed by the agent.</summary>
+
+ <param name="body">The function to produce an asynchronous computation that will be executed
+ as the read loop for the MailboxProcessor when Start is called.</param>
+ <param name="isThrowExceptionAfterDisposed">A flag denoting that an exception will be thrown
+ when <see cref="F:Microsoft.FSharp.Control.MailboxProcessor.Post"/> is called
+ after <see cref="F:Microsoft.FSharp.Control.MailboxProcessor"/> has been disposed.</param>
+ <param name="cancellationToken">An optional cancellation token for the <c>body</c>.
+ Defaults to <c>Async.DefaultCancellationToken</c>.</param>
+
+ <returns>The created MailboxProcessor.</returns>
 
  <example-tbd></example-tbd>
 </member>
@@ -16956,6 +17829,23 @@
 </member>
 <member name="M:Microsoft.FSharp.Control.FSharpMailboxProcessor`1.Dispose">
  <summary>Disposes the agent's internal resources.</summary>
+
+ <example-tbd></example-tbd>
+</member>
+<member name="M:Microsoft.FSharp.Control.FSharpMailboxProcessor`1.#ctor(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Control.FSharpMailboxProcessor{`0},Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},System.Boolean,Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>Creates an agent. The <c>body</c> function is used to generate the asynchronous
+ computation executed by the agent. This function is not executed until
+ <c>Start</c> is called.</summary>
+
+ <param name="body">The function to produce an asynchronous computation that will be executed
+ as the read loop for the MailboxProcessor when Start is called.</param>
+ <param name="isThrowExceptionAfterDisposed">A flag denoting that an exception will be thrown
+ when <see cref="F:Microsoft.FSharp.Control.MailboxProcessor.Post"/> is called
+ after <see cref="F:Microsoft.FSharp.Control.MailboxProcessor"/> has been disposed.</param>
+ <param name="cancellationToken">An optional cancellation token for the <c>body</c>.
+ Defaults to <c>Async.DefaultCancellationToken</c>.</param>
+
+ <returns>The created MailboxProcessor.</returns>
 
  <example-tbd></example-tbd>
 </member>
@@ -17131,7 +18021,7 @@
 
  <param name="count">The number of bytes to read.</param>
 
- <returns>An asynchronous computation that returns the read byte[] when run.</returns> 
+ <returns>An asynchronous computation that returns the read byte array when run.</returns> 
  
  <example-tbd></example-tbd>
 </member>
@@ -19472,7 +20362,7 @@
  <category>ByRef and Pointer Types</category>
 </member>
 <member name="T:Microsoft.FSharp.Core.array`1">
- <summary>Single dimensional, zero-based arrays, written <c>int[]</c>, <c>string[]</c> etc.</summary>
+ <summary>Single dimensional, zero-based arrays, written <c>int array</c>, <c>string array</c> etc.</summary>
  
  <remarks>Use the values in the <see cref="T:Microsoft.FSharp.Collections.ArrayModule" /> module to manipulate values 
  of this type, or the notation <c>arr.[x]</c> to get/set array
@@ -19711,7 +20601,7 @@
  <exclude />
 </member>
 <member name="T:Microsoft.FSharp.Core.[]`1">
- <summary>Single dimensional, zero-based arrays, written <c>int[]</c>, <c>string[]</c> etc.</summary>
+ <summary>Single dimensional, zero-based arrays, written <c>int array</c>, <c>string array</c> etc.</summary>
 
  <remarks>Use the values in the <c>Array</c> module to manipulate values 
  of this type, or the notation <c>arr.[x]</c> to get/set array
@@ -19832,6 +20722,12 @@
 </member>
 <member name="T:Microsoft.FSharp.Core.exn">
  <summary>An abbreviation for the CLI type <see cref="T:System.Exception"/>.</summary>
+
+ <category>Basic Types</category>
+</member>
+<member name="T:Microsoft.FSharp.Core.objnull">
+ <summary>An abbreviation for the CLI type <see cref="T:System.Object"/> or null.
+ With the 'nullable reference types' feature, this is an alias to 'obj | null'.</summary>
 
  <category>Basic Types</category>
 </member>
@@ -20533,6 +21429,19 @@
  </code>
  </example>
 </member>
+<member name="P:Microsoft.FSharp.Core.WarnOnWithoutNullArgumentAttribute.WarningMessage">
+ <summary>Warning message displayed when the annotated function is used with a value known to be without null</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.WarnOnWithoutNullArgumentAttribute.#ctor(System.String)">
+ <summary>Creates an instance of the attribute</summary>
+ <param name="warningMessage">The message displayed when the annotated function is used with a value known to be without null</param>
+ <returns>WarnOnWithoutNullArgumentAttribute</returns>
+</member>
+<member name="T:Microsoft.FSharp.Core.WarnOnWithoutNullArgumentAttribute">
+ <summary>When used in a compilation with null-checking enabled, indicates that a function is meant to be used only with potentially-nullable values and warns accordingly.</summary>
+
+ <category>Attributes</category>
+</member>
 <member name="M:Microsoft.FSharp.Core.NoCompilerInliningAttribute.#ctor">
  <summary>Creates an instance of the attribute</summary>
  <returns>NoCompilerInliningAttribute</returns>
@@ -21006,6 +21915,10 @@
 </member>
 <member name="P:Microsoft.FSharp.Core.CustomOperationAttribute.AllowIntoPattern">
  <summary>Indicates if the custom operation supports the use of 'into' immediately after the use of the operation in a query or other computation expression to consume the results of the operation</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.CustomOperationAttribute.#ctor">
+ <summary>Create an instance of attribute with empty name</summary>
+ <returns>CustomOperationAttribute</returns>
 </member>
 <member name="M:Microsoft.FSharp.Core.CustomOperationAttribute.#ctor(System.String)">
  <summary>Creates an instance of the attribute</summary>
@@ -21513,7 +22426,7 @@
 <member name="P:Microsoft.FSharp.Core.SR.printfSpecifierAfterIllegal">
  <summary>Bad format specifier (after {0})</summary>
 </member>
-<member name="P:Microsoft.FSharp.Core.SR.printfPrecisonSpecifierIllegal">
+<member name="P:Microsoft.FSharp.Core.SR.printfPrecisionSpecifierIllegal">
  <summary>Bad format specifier (precision)</summary>
 </member>
 <member name="P:Microsoft.FSharp.Core.SR.printfNotAFunType">
@@ -21531,7 +22444,7 @@
 <member name="P:Microsoft.FSharp.Core.SR.printfExpectedPrecision">
  <summary>Expected a precision argument</summary>
 </member>
-<member name="P:Microsoft.FSharp.Core.SR.printfBadIntegerForDynamicFomatter">
+<member name="P:Microsoft.FSharp.Core.SR.printfBadIntegerForDynamicFormatter">
  <summary>Bad integer supplied to dynamic formatter</summary>
 </member>
 <member name="P:Microsoft.FSharp.Core.SR.printfBadFormatSpecifier">
@@ -22793,7 +23706,7 @@
  otherwise raise an exception. Calls <see cref="M:System.Environment.Exit"/>.</summary>
 
  <param name="exitcode">The exit code to use.</param>
- 
+
  <returns>Never returns.</returns>
  
  <example id="exit-example">
@@ -22852,7 +23765,7 @@
  <code lang="fsharp">
  let l1 = ['a'; 'b'; 'c']
  let l2 = ['d'; 'e'; 'f']
- l1 @ l2   //  Evalulates to ['a'; 'b'; 'c'; 'd'; 'e'; 'f']
+ l1 @ l2   //  Evaluates to ['a'; 'b'; 'c'; 'd'; 'e'; 'f']
  </code>
  </example>
  
@@ -22943,8 +23856,8 @@
  
  <example id="id-example">
  <code lang="fsharp">
- id 12     //  Evaulates to 12
- id "abc"  //  Evaulates to "abc"
+ id 12     //  Evaluates to 12
+ id "abc"  //  Evaluates to "abc"
  </code>
  </example>
  
@@ -22971,6 +23884,13 @@
  </code>
  </example>
  
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.NullArgCheck``1(System.String,``0)">
+ <summary>Throw a <c>System.ArgumentNullException if the given value is null</c> exception</summary>
+ 
+ <param name="argumentName">The argument name.</param>
+ 
+ <returns>The result value.</returns>
 </member>
 <member name="M:Microsoft.FSharp.Core.Operators.NullArg``1(System.String)">
  <summary>Throw a <see cref="T:System.ArgumentNullException"/> exception</summary>
@@ -23033,12 +23953,67 @@
  </example>
  
 </member>
+<member name="M:Microsoft.FSharp.Core.Operators.WithNullV``1(``0)">
+ <summary>Asserts that the value is non-null.</summary>
+ <remarks>In a future revision of nullness support this may be unified with 'withNull'.</remarks>
+ <param name="value">The value to check.</param>
+ <returns>True when value is null, false otherwise.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.WithNull``1(``0)">
+ <summary>Asserts that the value is non-null.</summary>
+ <param name="value">The value to check.</param>
+ <returns>True when value is null, false otherwise.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.NonNullV``1(System.Nullable{``0})">
+ <summary>Asserts that the value is non-null.</summary>
+ <remarks>In a future revision of nullness support this may be unified with 'nonNull'.</remarks>
+ <param name="value">The value to check.</param>
+ <returns>True when value is null, false otherwise.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.NonNull``1(``0)">
+ <summary>Asserts that the value is non-null.</summary>
+ <param name="value">The value to check.</param>
+ <returns>The value when it is not null. If the value is null an exception is raised.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.NullV``1">
+ <summary>Get the null value for a value type.</summary>
+ <remarks>In a future revision of nullness support this may be unified with 'null'.</remarks>
+ <returns>The null value for a value type.</returns>
+</member>
 <member name="M:Microsoft.FSharp.Core.Operators.IsNotNull``1(``0)">
  <summary>Determines whether the given value is not null.</summary>
 
  <param name="value">The value to check.</param>
 
  <returns>True when value is not null, false otherwise.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.IsNullV``1(System.Nullable{``0})">
+ <summary>Determines whether the given value is null.</summary>
+ <remarks>In a future revision of nullness support this may be unified with 'isNull'.</remarks>
+ <param name="value">The value to check.</param>
+ <returns>True when value is null, false otherwise.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.NonNullQuickValuePattern``1(System.Nullable{``0})">
+ <summary>When used in a pattern checks the given value is not null.</summary>
+ <remarks>In a future revision of nullness support this may be unified with 'NonNullQuick'.</remarks>
+ <param name="value">The value to check.</param>
+ <returns>The non-null value.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.NonNullQuickPattern``1(``0)">
+ <summary>When used in a pattern checks the given value is not null.</summary>
+ <param name="value">The value to check.</param>
+ <returns>The non-null value.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.NullValueMatchPattern``1(System.Nullable{``0})">
+ <summary>Determines whether the given value is null.</summary>
+ <remarks>In a future revision of nullness support this may be unified with 'Null|NonNull'.</remarks>
+ <param name="value">The value to check.</param>
+ <returns>A choice indicating whether the value is null or not-null.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.NullMatchPattern``1(``0)">
+ <summary>Determines whether the given value is null.</summary>
+ <param name="value">The value to check.</param>
+ <returns>A choice indicating whether the value is null or not-null.</returns>
 </member>
 <member name="M:Microsoft.FSharp.Core.Operators.IsNull``1(``0)">
  <summary>Determines whether the given value is null.</summary>
@@ -23319,6 +24294,18 @@
  </example>
  
 </member>
+<member name="M:Microsoft.FSharp.Core.Operators.DefaultIfNullV``1(``0,System.Nullable{``0})">
+ <summary>Used to specify a default value for an nullable value argument in the implementation of a function</summary>
+ <param name="defaultValue">The default value of the argument.</param>
+ <param name="arg">A nullable value representing the argument.</param>
+ <returns>The argument value. If it is null, the defaultValue is returned.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.DefaultIfNull``1(``0,``0)">
+ <summary>Used to specify a default value for a nullable reference argument in the implementation of a function</summary>
+ <param name="defaultValue">The default value of the argument.</param>
+ <param name="arg">A nullable value representing the argument.</param>
+ <returns>The argument value. If it is null, the defaultValue is returned.</returns>
+</member>
 <member name="M:Microsoft.FSharp.Core.Operators.op_PipeLeft3``4(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``2,``3}}},``0,``1,``2)">
  <summary>Apply a function to three values, the values being a triple on the right, the function on the left</summary>
 
@@ -23534,7 +24521,7 @@
 
  <returns>The result of the comparison.</returns>
  
- <example id="compare-greather-than-example">
+ <example id="compare-greater-than-example">
  <code lang="fsharp">
   5 &gt; 1               // Evaluates to true
   5 &gt; 5               // Evaluates to false
@@ -23738,7 +24725,7 @@
  <example id="addition-example-1">
  <code lang="fsharp">
  2 + 2 //  Evaluates to 4
- "Hello " + "Word" // Evaluates to "Hello World"
+ "Hello " + "World" // Evaluates to "Hello World"
  </code>
  </example>
  
@@ -24065,6 +25052,16 @@
 <member name="T:Microsoft.FSharp.Core.Operators.NonStructuralComparison">
  <summary>A module of comparison and equality operators that are statically resolved, but which are not fully generic and do not make structural comparison. Opening this
  module may make code that relies on structural or generic comparison no longer compile.</summary>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.Unchecked.NonNullQuickPattern``1(``0)">
+ <summary>When used in a pattern forgets 'nullness' of the value without any runtime check. This is an unsafe operation, as null check is being skipped and null value can be returned.</summary>
+ <param name="value">The value to retype from ('T | null) to 'T .</param>
+ <returns>The non-null value.</returns>
+</member>
+<member name="M:Microsoft.FSharp.Core.Operators.Unchecked.NonNull``1(``0)">
+ <summary>Unsafely retypes the value from ('T | null) to 'T without doing any null check at runtime. This is an unsafe operation.</summary>
+ <param name="value">The possibly nullable value.</param>
+ <returns>The same value as in the input.</returns>
 </member>
 <member name="M:Microsoft.FSharp.Core.Operators.Unchecked.Hash``1(``0)">
  <summary>Perform generic hashing on a value where the type of the value is not
@@ -25672,6 +26669,34 @@
  <summary>Represents the types of byrefs in F# 4.5+</summary>
  <category>ByRef and Pointer Types</category>
 </member>
+<member name="M:Microsoft.FSharp.Core.ValueOption.ToOption``1(Microsoft.FSharp.Core.FSharpValueOption{``0})">
+ <summary>Convert a value option to an option.</summary>
+
+ <param name="voption">The input value option.</param>
+
+ <returns>The resulting option.</returns>
+
+ <example id="toOption-1">
+ <code lang="fsharp">
+ ValueSome 42 |> ValueOption.toOption // evaluates to Some 42
+ (ValueNone: int voption) |> ValueOption.toOption // evaluates to None
+ </code>
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Core.ValueOption.OfOption``1(Microsoft.FSharp.Core.FSharpOption{``0})">
+ <summary>Convert an option to a value option.</summary>
+
+ <param name="option">The input option.</param>
+
+ <returns>The resulting value option.</returns>
+
+ <example id="ofOption-1">
+ <code lang="fsharp">
+ Some 42 |> ValueOption.ofOption // evaluates to ValueSome 42
+ (None: int option) |> ValueOption.ofOption // evaluates to ValueNone
+ </code>
+ </example>
+</member>
 <member name="M:Microsoft.FSharp.Core.ValueOption.ToObj``1(Microsoft.FSharp.Core.FSharpValueOption{``0})">
  <summary>Convert an option to a potentially null value.</summary>
 
@@ -26089,6 +27114,34 @@
  <summary>Contains operations for working with value options.</summary>
 
  <category>Options</category>
+</member>
+<member name="M:Microsoft.FSharp.Core.OptionModule.ToValueOption``1(Microsoft.FSharp.Core.FSharpOption{``0})">
+ <summary>Convert an option to a value option.</summary>
+
+ <param name="option">The input option.</param>
+
+ <returns>The resulting value option.</returns>
+
+ <example id="toValueOption-1">
+ <code lang="fsharp">
+ Some 42 |> Option.toValueOption // evaluates to ValueSome 42
+ (None: int option) |> Option.toValueOption // evaluates to ValueNone
+ </code>
+ </example>
+</member>
+<member name="M:Microsoft.FSharp.Core.OptionModule.OfValueOption``1(Microsoft.FSharp.Core.FSharpValueOption{``0})">
+ <summary>Convert a value option to an option.</summary>
+
+ <param name="voption">The input value option.</param>
+
+ <returns>The resulting option.</returns>
+
+ <example id="ofValueOption-1">
+ <code lang="fsharp">
+ ValueSome 42 |> Option.ofValueOption // evaluates to Some 42
+ (ValueNone: int voption) |> Option.ofValueOption // evaluates to None
+ </code>
+ </example>
 </member>
 <member name="M:Microsoft.FSharp.Core.OptionModule.ToObj``1(Microsoft.FSharp.Core.FSharpOption{``0})">
  <summary>Convert an option to a potentially null value.</summary>
@@ -26630,7 +27683,7 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Core.ResultModule.FoldBack``3(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``2,``2}},Microsoft.FSharp.Core.FSharpResult{``0,``1},``2)">
- <summary><c>fold f inp s</c> evaluates to <c>match inp with Error _ -> s | Ok x -> f x s</c>.</summary>
+ <summary><c>foldBack f inp s</c> evaluates to <c>match inp with Error _ -> s | Ok x -> f x s</c>.</summary>
 
  <param name="folder">A function to update the state data when given a value from an result.</param>
  <param name="result">The input result.</param>
@@ -26872,7 +27925,7 @@
  <param name="str">The input string.</param>
 
  <example id="iteri-1"> Numbering the characters and printing the associated ASCII code
- for each characater in the input string
+ for each character in the input string
  <code lang="fsharp">
  let input = "Hello"
  input |> String.iteri (fun i c -> printfn "%d. %c %d" (i + 1) c (int c))
@@ -26893,7 +27946,7 @@
  <param name="action">The function to be applied to each character of the string.</param>
  <param name="str">The input string.</param>
 
- <example id="iter-1"> Printing the ASCII code for each characater in the string
+ <example id="iter-1"> Printing the ASCII code for each character in the string
  <code lang="fsharp">
  let input = "Hello"
  input |> String.iter (fun c -> printfn "%c %d" c (int c))
