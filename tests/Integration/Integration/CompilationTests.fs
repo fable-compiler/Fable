@@ -25,7 +25,7 @@ let tests =
                 Expect.equal exitCode 0 "Expected exit code to be 0"
 
                 let normalize content =
-                    Regex.Replace(content, @"(/fable-library-js)[.0-9]+", "$1")
+                    Regex.Replace(content, @"(/fable-library-js)[^/]+", "$1")
                     |> _.ReplaceLineEndings()
                     |> _.Trim()
 
