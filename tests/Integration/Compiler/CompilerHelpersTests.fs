@@ -18,7 +18,7 @@ let tests =
             Fable.CompilerExt.expectedVersionMatchesActual "4.1.0" "5.0.0" |> equal true
 
         testCase "expectedVersionMatchesActual reject if actual version is highter than expected version" <| fun _ ->
-            Fable.CompilerExt.expectedVersionMatchesActual "4.0.0" "3.0.0" |> equal true
-            Fable.CompilerExt.expectedVersionMatchesActual "4.0.1" "3.0.0" |> equal true
-            Fable.CompilerExt.expectedVersionMatchesActual "4.1.0" "3.0.0" |> equal true
+            Fable.CompilerExt.expectedVersionMatchesActual "4.0.0" "3.0.0" |> equal false
+            Fable.CompilerExt.expectedVersionMatchesActual "4.0.1" "3.0.0" |> equal false
+            Fable.CompilerExt.expectedVersionMatchesActual "4.1.0" "3.0.0" |> equal false
     ]
