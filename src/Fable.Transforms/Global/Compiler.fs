@@ -99,7 +99,7 @@ type InlineExprLazy(f: Compiler -> InlineExpr) =
 
 [<AutoOpen>]
 module CompilerExt =
-    let private expectedVersionMatchesActual (expected: string) (actual: string) =
+    let expectedVersionMatchesActual (expected: string) (actual: string) =
         try
             let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
 
