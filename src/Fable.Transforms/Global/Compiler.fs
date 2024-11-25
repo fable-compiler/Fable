@@ -119,7 +119,7 @@ module CompilerExt =
             actualMajor > expectedMajor
             || (actualMajor = expectedMajor
                 && (actualMinor > expectedMinor
-                    || actualMinor = expectedMinor && actualPatch >= expectedPatch))
+                    || (actualMinor = expectedMinor && actualPatch >= expectedPatch)))
         with _ ->
             false
 
