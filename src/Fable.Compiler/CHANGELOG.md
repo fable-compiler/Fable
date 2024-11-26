@@ -7,17 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.2 - 2024-11-25
+
+### Fixed
+
+* [All] Allow Fable 5 to be used with Fable 4 plugins (@ncave)
+
 ## 5.0.0-alpha.1 - 2024-11-24
 
 ### Added
 
-* [All] Add `--legacyCracker` as a fallback
+* [All] Add `--legacyCracker` as a fallback (@MangelMaxime)
 
 ### Changed
 
-* [All] Make MSBuildCracker the default
-* [All] Replace `FABLE_COMPILER_4` with `FABLE_COMPILER_5` as the compiler directive
-* [All] Move TargetFramework to `net8.0`
+* [All] Make MSBuildCracker the default (@MangelMaxime)
+* [All] Replace `FABLE_COMPILER_4` with `FABLE_COMPILER_5` as the compiler directive (@MangelMaxime)
+* [All] Move TargetFramework to `net8.0` (@ncave)
 
 ## 4.0.0-alpha-016 - 2024-11-19
 
