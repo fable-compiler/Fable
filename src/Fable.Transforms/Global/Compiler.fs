@@ -99,7 +99,7 @@ type InlineExprLazy(f: Compiler -> InlineExpr) =
 
 [<AutoOpen>]
 module CompilerExt =
-    let private expectedVersionMatchesActual (expected: string) (actual: string) =
+    let expectedVersionMatchesActual (expected: string) (actual: string) =
         try
             let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
 
@@ -116,10 +116,10 @@ module CompilerExt =
             let actualMajor, actualMinor, actualPatch = parse actual
             let expectedMajor, expectedMinor, expectedPatch = parse expected
 
-            // Fail also if actual major is bigger than expected major version
-            actualMajor = expectedMajor
-            && (actualMinor > expectedMinor
-                || (actualMinor = expectedMinor && actualPatch >= expectedPatch))
+            actualMajor > expectedMajor
+            || (actualMajor = expectedMajor
+                && (actualMinor > expectedMinor
+                    || (actualMinor = expectedMinor && actualPatch >= expectedPatch)))
         with _ ->
             false
 
