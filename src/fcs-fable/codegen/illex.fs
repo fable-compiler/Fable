@@ -442,7 +442,7 @@ and token  lexbuf =
           )
   | 12 -> ( 
 //# 112 "src/Compiler/AbstractIL/illex.fsl"
-                           ELIPSES 
+                           ELLIPSES 
 //# 446 "illex.fs"
           )
   | 13 -> ( 
@@ -462,7 +462,7 @@ and token  lexbuf =
           )
   | 16 -> ( 
 //# 125 "src/Compiler/AbstractIL/illex.fsl"
-                       VAL_INT32_ELIPSES(int32(lexemeTrimBoth lexbuf 0 3)) 
+                       VAL_INT32_ELLIPSES(int32(lexemeTrimBoth lexbuf 0 3)) 
 //# 466 "illex.fs"
           )
   | 17 -> ( 

@@ -4,6 +4,7 @@ module FSharp.Compiler.SyntaxTreeOps
 
 open Internal.Utilities.Library
 open FSharp.Compiler.DiagnosticsLogger
+open FSharp.Compiler.Features
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.SyntaxTrivia
 open FSharp.Compiler.Syntax.PrettyNaming
@@ -100,71 +101,82 @@ let rec pushUnaryArg expr arg =
     | SynExpr.TypeApp(innerExpr, mLess, tyargs, mCommas, mGreater, mTypars, m) ->
         let innerExpr = pushUnaryArg innerExpr arg
         SynExpr.TypeApp(innerExpr, mLess, tyargs, mCommas, mGreater, mTypars, m)
+    | SynExpr.ArbitraryAfterError(_, m) when m.Start = m.End ->
+        SynExpr.DiscardAfterMissingQualificationAfterDot(SynExpr.Ident arg, m.StartRange, unionRanges arg.idRange m)
     | _ ->
         errorR (Error(FSComp.SR.tcDotLambdaAtNotSupportedExpression (), expr.Range))
         expr
 
+[<return: Struct>]
 let (|SynSingleIdent|_|) x =
     match x with
-    | SynLongIdent([ id ], _, _) -> Some id
-    | _ -> None
+    | SynLongIdent([ id ], _, _) -> ValueSome id
+    | _ -> ValueNone
 
 /// Match a long identifier, including the case for single identifiers which gets a more optimized node in the syntax tree.
+[<return: Struct>]
 let (|LongOrSingleIdent|_|) inp =
     match inp with
-    | SynExpr.LongIdent(isOpt, lidwd, altId, _m) -> Some(isOpt, lidwd, altId, lidwd.RangeWithoutAnyExtraDot)
-    | SynExpr.Ident id -> Some(false, SynLongIdent([ id ], [], [ None ]), None, id.idRange)
+    | SynExpr.LongIdent(isOpt, lidwd, altId, _m) -> ValueSome(isOpt, lidwd, altId, lidwd.RangeWithoutAnyExtraDot)
+    | SynExpr.Ident id -> ValueSome(false, SynLongIdent([ id ], [], [ None ]), None, id.idRange)
 
     | SynExpr.DiscardAfterMissingQualificationAfterDot(synExpr, dotRange, _) ->
         match synExpr with
-        | SynExpr.Ident ident -> Some(false, SynLongIdent([ ident ], [ dotRange ], [ None ]), None, ident.idRange)
+        | SynExpr.Ident ident -> ValueSome(false, SynLongIdent([ ident ], [ dotRange ], [ None ]), None, ident.idRange)
         | SynExpr.LongIdent(false, SynLongIdent(idents, dotRanges, trivia), _, range) ->
-            Some(false, SynLongIdent(idents, dotRanges @ [ dotRange ], trivia), None, range)
-        | _ -> None
+            ValueSome(false, SynLongIdent(idents, dotRanges @ [ dotRange ], trivia), None, range)
+        | _ -> ValueNone
 
-    | _ -> None
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|SingleIdent|_|) inp =
     match inp with
-    | SynExpr.LongIdent(false, SynSingleIdent(id), None, _) -> Some id
-    | SynExpr.Ident id -> Some id
-    | _ -> None
+    | SynExpr.LongIdent(false, SynSingleIdent(id), None, _) -> ValueSome id
+    | SynExpr.Ident id -> ValueSome id
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|SynBinOp|_|) input =
     match input with
     | SynExpr.App(ExprAtomicFlag.NonAtomic,
                   false,
                   SynExpr.App(ExprAtomicFlag.NonAtomic, true, SynExpr.LongIdent(longDotId = SynLongIdent(id = [ synId ])), x1, _m1),
                   x2,
-                  _m2) -> Some(synId, x1, x2)
-    | _ -> None
+                  _m2) -> ValueSome(synId, x1, x2)
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|SynPipeRight|_|) input =
     match input with
-    | SynBinOp(synId, x1, x2) when synId.idText = "op_PipeRight" -> Some(x1, x2)
-    | _ -> None
+    | SynBinOp(synId, x1, x2) when synId.idText = "op_PipeRight" -> ValueSome(x1, x2)
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|SynPipeRight2|_|) input =
     match input with
     | SynBinOp(synId, SynExpr.Paren(SynExpr.Tuple(false, [ x1a; x1b ], _, _), _, _, _), x2) when synId.idText = "op_PipeRight2" ->
-        Some(x1a, x1b, x2)
-    | _ -> None
+        ValueSome(x1a, x1b, x2)
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|SynPipeRight3|_|) input =
     match input with
     | SynBinOp(synId, SynExpr.Paren(SynExpr.Tuple(false, [ x1a; x1b; x1c ], _, _), _, _, _), x2) when synId.idText = "op_PipeRight3" ->
-        Some(x1a, x1b, x1c, x2)
-    | _ -> None
+        ValueSome(x1a, x1b, x1c, x2)
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|SynAndAlso|_|) input =
     match input with
-    | SynBinOp(synId, x1, x2) when synId.idText = "op_BooleanAnd" -> Some(x1, x2)
-    | _ -> None
+    | SynBinOp(synId, x1, x2) when synId.idText = "op_BooleanAnd" -> ValueSome(x1, x2)
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|SynOrElse|_|) input =
     match input with
-    | SynBinOp(synId, x1, x2) when synId.idText = "op_BooleanOr" -> Some(x1, x2)
-    | _ -> None
+    | SynBinOp(synId, x1, x2) when synId.idText = "op_BooleanOr" -> ValueSome(x1, x2)
+    | _ -> ValueNone
 
 /// This affects placement of debug points
 let rec IsControlFlowExpression e =
@@ -198,7 +210,7 @@ let rec IsControlFlowExpression e =
 //
 // For example
 //    let x = 1 + 1
-// gets extended to inludde the 'let x'.
+// gets extended to include the 'let x'.
 //
 // A corner case: some things that look like simple value bindings get generalized, e.g.
 //    let empty = []
@@ -237,26 +249,29 @@ let mkSynPatMaybeVar lidwd vis m =
     SynPat.LongIdent(lidwd, None, None, SynArgPats.Pats [], vis, m)
 
 /// Extract the argument for patterns corresponding to the declaration of 'new ... = ...'
+[<return: Struct>]
 let (|SynPatForConstructorDecl|_|) x =
     match x with
-    | SynPat.LongIdent(longDotId = SynSingleIdent _; argPats = SynArgPats.Pats [ arg ]) -> Some arg
-    | _ -> None
+    | SynPat.LongIdent(longDotId = SynSingleIdent _; argPats = SynArgPats.Pats [ arg ]) -> ValueSome arg
+    | _ -> ValueNone
 
 /// Recognize the '()' in 'new()'
+[<return: Struct>]
 let (|SynPatForNullaryArgs|_|) x =
     match x with
-    | SynPat.Paren(SynPat.Const(SynConst.Unit, _), _) -> Some()
-    | _ -> None
+    | SynPat.Paren(SynPat.Const(SynConst.Unit, _), _) -> ValueSome()
+    | _ -> ValueNone
 
 let (|SynExprErrorSkip|) (p: SynExpr) =
     match p with
     | SynExpr.FromParseError(p, _) -> p
     | _ -> p
 
+[<return: Struct>]
 let (|SynExprParen|_|) (e: SynExpr) =
     match e with
-    | SynExpr.Paren(SynExprErrorSkip e, a, b, c) -> Some(e, a, b, c)
-    | _ -> None
+    | SynExpr.Paren(SynExprErrorSkip e, a, b, c) -> ValueSome(e, a, b, c)
+    | _ -> ValueNone
 
 let (|SynPatErrorSkip|) (p: SynPat) =
     match p with
@@ -409,7 +424,10 @@ let opNameQMark = CompileOpName qmark
 
 let mkSynOperator (opm: range) (oper: string) =
     let trivia =
-        if oper.StartsWith("~") && ((opm.EndColumn - opm.StartColumn) = (oper.Length - 1)) then
+        if
+            oper.StartsWithOrdinal("~")
+            && ((opm.EndColumn - opm.StartColumn) = (oper.Length - 1))
+        then
             // PREFIX_OP token where the ~ was actually absent
             IdentTrivia.OriginalNotation(string (oper.[1..]))
         else
@@ -865,9 +883,9 @@ let rec synExprContainsError inpExpr =
         | SynExpr.InferredDowncast(e, _)
         | SynExpr.Lazy(e, _)
         | SynExpr.TraitCall(_, _, e, _)
-        | SynExpr.YieldOrReturn(_, e, _)
-        | SynExpr.YieldOrReturnFrom(_, e, _)
-        | SynExpr.DoBang(e, _)
+        | SynExpr.YieldOrReturn(_, e, _, _)
+        | SynExpr.YieldOrReturnFrom(_, e, _, _)
+        | SynExpr.DoBang(e, _, _)
         | SynExpr.Fixed(e, _)
         | SynExpr.DebugPoint(_, _, e)
         | SynExpr.Paren(e, _, _, _) -> walkExpr e
@@ -925,7 +943,7 @@ let rec synExprContainsError inpExpr =
 
         | SynExpr.TryFinally(tryExpr = e1; finallyExpr = e2) -> walkExpr e1 || walkExpr e2
 
-        | SynExpr.Sequential(_, _, e1, e2, _) -> walkExpr e1 || walkExpr e2
+        | SynExpr.Sequential(expr1 = e1; expr2 = e2) -> walkExpr e1 || walkExpr e2
 
         | SynExpr.SequentialOrImplicitYield(_, e1, e2, _, _) -> walkExpr e1 || walkExpr e2
 
@@ -965,11 +983,52 @@ let rec synExprContainsError inpExpr =
 
     walkExpr inpExpr
 
-let (|ParsedHashDirectiveArguments|) (input: ParsedHashDirectiveArgument list) =
+let longIdentToString (ident: SynLongIdent) =
+    System.String.Join(".", ident.LongIdent |> List.map (fun ident -> ident.idText.ToString()))
+
+let parsedHashDirectiveArguments (input: ParsedHashDirectiveArgument list) (langVersion: LanguageVersion) =
+    List.choose
+        (function
+        | ParsedHashDirectiveArgument.String(s, _, _) -> Some s
+        | ParsedHashDirectiveArgument.SourceIdentifier(_, v, _) -> Some v
+        | ParsedHashDirectiveArgument.Int32(n, m) ->
+            match tryCheckLanguageFeatureAndRecover langVersion LanguageFeature.ParsedHashDirectiveArgumentNonQuotes m with
+            | true -> Some(string n)
+            | false -> None
+        | ParsedHashDirectiveArgument.Ident(ident, m) ->
+            match tryCheckLanguageFeatureAndRecover langVersion LanguageFeature.ParsedHashDirectiveArgumentNonQuotes m with
+            | true -> Some(ident.idText)
+            | false -> None
+        | ParsedHashDirectiveArgument.LongIdent(ident, m) ->
+            match tryCheckLanguageFeatureAndRecover langVersion LanguageFeature.ParsedHashDirectiveArgumentNonQuotes m with
+            | true -> Some(longIdentToString ident)
+            | false -> None)
+        input
+
+let parsedHashDirectiveArgumentsNoCheck (input: ParsedHashDirectiveArgument list) =
     List.map
         (function
         | ParsedHashDirectiveArgument.String(s, _, _) -> s
-        | ParsedHashDirectiveArgument.SourceIdentifier(_, v, _) -> v)
+        | ParsedHashDirectiveArgument.SourceIdentifier(_, v, _) -> v
+        | ParsedHashDirectiveArgument.Int32(n, m) -> string n
+        | ParsedHashDirectiveArgument.Ident(ident, m) -> ident.idText
+        | ParsedHashDirectiveArgument.LongIdent(ident, m) -> longIdentToString ident)
+        input
+
+let parsedHashDirectiveStringArguments (input: ParsedHashDirectiveArgument list) (_langVersion: LanguageVersion) =
+    List.choose
+        (function
+        | ParsedHashDirectiveArgument.String(s, _, _) -> Some s
+        | ParsedHashDirectiveArgument.Int32(n, m) ->
+            errorR (Error(FSComp.SR.featureParsedHashDirectiveUnexpectedInteger (n), m))
+            None
+        | ParsedHashDirectiveArgument.SourceIdentifier(_, v, _) -> Some v
+        | ParsedHashDirectiveArgument.Ident(ident, m) ->
+            errorR (Error(FSComp.SR.featureParsedHashDirectiveUnexpectedIdentifier (ident.idText), m))
+            None
+        | ParsedHashDirectiveArgument.LongIdent(ident, m) ->
+            errorR (Error(FSComp.SR.featureParsedHashDirectiveUnexpectedIdentifier (longIdentToString ident), m))
+            None)
         input
 
 let prependIdentInLongIdentWithTrivia (SynIdent(ident, identTrivia)) mDot lid =
@@ -1022,6 +1081,7 @@ let getTypeFromTuplePath (path: SynTupleTypeSegment list) : SynType list =
         | SynTupleTypeSegment.Type t -> Some t
         | _ -> None)
 
+[<return: Struct>]
 let (|MultiDimensionArrayType|_|) (t: SynType) =
     match t with
     | SynType.App(StripParenTypes(SynType.LongIdent(SynLongIdent([ identifier ], _, _))), _, [ elementType ], _, _, true, m) ->
@@ -1033,10 +1093,10 @@ let (|MultiDimensionArrayType|_|) (t: SynType) =
                 |> System.String
                 |> int
 
-            Some(rank, elementType, m)
+            ValueSome(rank, elementType, m)
         else
-            None
-    | _ -> None
+            ValueNone
+    | _ -> ValueNone
 
 let (|TypesForTypar|) (t: SynType) =
     let rec visit continuation t =
@@ -1046,3 +1106,64 @@ let (|TypesForTypar|) (t: SynType) =
         | _ -> continuation [ t ]
 
     visit id t
+
+[<return: Struct>]
+let (|Get_OrSet_Ident|_|) (ident: Ident) =
+    if ident.idText.StartsWithOrdinal("get_") then ValueSome()
+    elif ident.idText.StartsWithOrdinal("set_") then ValueSome()
+    else ValueNone
+
+let getGetterSetterAccess synValSigAccess memberKind (langVersion: Features.LanguageVersion) =
+    match synValSigAccess with
+    | SynValSigAccess.Single(access) -> access, access
+    | SynValSigAccess.GetSet(access, getterAccess, setterAccess) ->
+        let checkAccess (access: SynAccess option) (accessBeforeGetSet: SynAccess option) =
+            match accessBeforeGetSet, access with
+            | None, _ -> access
+            | Some x, Some _ ->
+                errorR (Error(FSComp.SR.parsMultipleAccessibilitiesForGetSet (), x.Range))
+                None
+            | Some x, None ->
+                checkLanguageFeatureAndRecover
+                    langVersion
+                    Features.LanguageFeature.AllowAccessModifiersToAutoPropertiesGettersAndSetters
+                    x.Range
+
+                accessBeforeGetSet
+
+        match memberKind with
+        | SynMemberKind.PropertyGetSet ->
+            match access, (getterAccess, setterAccess) with
+            | _, (None, None) -> access, access
+            | None, (Some x, _)
+            | None, (_, Some x) ->
+                checkLanguageFeatureAndRecover
+                    langVersion
+                    Features.LanguageFeature.AllowAccessModifiersToAutoPropertiesGettersAndSetters
+                    x.Range
+
+                getterAccess, setterAccess
+            | _, (Some x, _)
+            | _, (_, Some x) ->
+                errorR (Error(FSComp.SR.parsMultipleAccessibilitiesForGetSet (), x.Range))
+                None, None
+
+        | SynMemberKind.PropertySet -> None, checkAccess access setterAccess
+        | SynMemberKind.Member
+        | SynMemberKind.PropertyGet
+        | _ -> checkAccess access getterAccess, None
+
+let addEmptyMatchClause (mBar1: range) (mBar2: range) (clauses: SynMatchClause list) =
+    let rec addOrPat (pat: SynPat) =
+        match pat with
+        | SynPat.As(lhsPat, rhsPat, range) -> SynPat.As(addOrPat lhsPat, rhsPat, range)
+        | _ ->
+            let mPat1 = mBar1.EndRange
+            let pat1 = SynPat.Wild(mPat1)
+            SynPat.Or(pat1, pat, unionRanges mPat1 pat.Range, { BarRange = mBar2 })
+
+    match clauses with
+    | [] -> []
+    | SynMatchClause(pat, whenExpr, resultExpr, range, debugPoint, trivia) :: restClauses ->
+        SynMatchClause(addOrPat pat, whenExpr, resultExpr, range, debugPoint, trivia)
+        :: restClauses

@@ -75,7 +75,7 @@ exception UnionPatternsBindDifferentNames of range
 
 exception VarBoundTwice of Ident
 
-exception ValueRestriction of DisplayEnv * InfoReader * bool * Val * Typar * range
+exception ValueRestriction of DisplayEnv * InfoReader * Val * Typar * range
 
 exception ValNotMutable of DisplayEnv * ValRef * range
 
@@ -122,9 +122,6 @@ exception StandardOperatorRedefinitionWarning of string * range
 exception InvalidInternalsVisibleToAssemblyName of badName: string * fileName: string option
 
 val TcFieldInit: range -> ILFieldInit -> Const
-
-val LightweightTcValForUsingInBuildMethodCall:
-    g: TcGlobals -> vref: ValRef -> vrefFlags: ValUseFlag -> vrefTypeInst: TTypes -> m: range -> Expr * TType
 
 /// Indicates whether a syntactic type is allowed to include new type variables
 /// not declared anywhere, e.g. `let f (x: 'T option) = x.Value`
@@ -256,7 +253,7 @@ type NormalizedBinding =
     | NormalizedBinding of
         visibility: SynAccess option *
         kind: SynBindingKind *
-        mustInline: bool *
+        shouldInline: bool *
         isMutable: bool *
         attribs: SynAttribute list *
         xmlDoc: XmlDoc *
@@ -348,6 +345,19 @@ type PostSpecialValsRecursiveBinding =
     { ValScheme: ValScheme
       Binding: Binding }
 
+[<RequireQualifiedAccess>]
+type TcCanFail =
+    | IgnoreMemberResoutionError
+    | IgnoreAllErrors
+    | ReportAllErrors
+
+/// Represents a pattern  that is used in a true match clause e.g. | pat -> expr
+[<RequireQualifiedAccess>]
+[<Struct>]
+type TcTrueMatchClause =
+    | Yes
+    | No
+
 /// Represents a recursive binding after it has been both checked and generalized, but
 /// before initialization recursion has been rewritten
 type PreInitializationGraphEliminationBinding =
@@ -413,7 +423,7 @@ val CheckSuperType: cenv: TcFileState -> ty: TType -> m: range -> unit
 val ChooseCanonicalDeclaredTyparsAfterInference:
     g: TcGlobals -> denv: DisplayEnv -> declaredTypars: Typar list -> m: range -> Typar list
 
-/// After inference, view a ValSchem in a canonical way.
+/// After inference, view a ValScheme in a canonical way.
 val ChooseCanonicalValSchemeAfterInference:
     g: TcGlobals -> denv: DisplayEnv -> vscheme: ValScheme -> m: range -> ValScheme
 
@@ -428,8 +438,9 @@ val ComputeAccessRights:
     eFamilyType: TyconRef option ->
         AccessorDomain
 
-/// Compute the available access rights and module/entity compilation path for a paricular location in code
+/// Compute the available access rights and module/entity compilation path for a particular location in code
 val ComputeAccessAndCompPath:
+    g: TcGlobals ->
     env: TcEnv ->
     declKindOpt: DeclKind option ->
     m: range ->
@@ -440,20 +451,6 @@ val ComputeAccessAndCompPath:
 
 /// Get the expression resulting from turning an expression into an enumerable value, e.g. at 'for' loops
 val ConvertArbitraryExprToEnumerable: cenv: TcFileState -> ty: TType -> env: TcEnv -> expr: Expr -> Expr * TType
-
-/// Invoke pattern match compilation
-val CompilePatternForMatchClauses:
-    cenv: TcFileState ->
-    env: TcEnv ->
-    mExpr: range ->
-    mMatch: range ->
-    warnOnUnused: bool ->
-    actionOnFailure: ActionOnFailure ->
-    inputExprOpt: Expr option ->
-    inputTy: TType ->
-    resultTy: TType ->
-    tclauses: MatchClause list ->
-        Val * Expr
 
 /// Process recursive bindings so that initialization is through laziness and is checked.
 /// The bindings may be either plain 'let rec' bindings or mutually recursive nestings of modules and types.
@@ -556,7 +553,7 @@ val MakeInnerEnv:
         TcEnv * ModuleOrNamespaceType ref
 
 /// Return a new environment suitable for processing declarations in the interior of a module definition
-/// given that the accumulator for the module type already exisits.
+/// given that the accumulator for the module type already exists.
 val MakeInnerEnvWithAcc:
     addOpenToNameEnv: bool ->
     env: TcEnv ->
@@ -566,7 +563,7 @@ val MakeInnerEnvWithAcc:
         TcEnv
 
 /// Produce a post-generalization type scheme for a simple type where no type inference generalization
-/// is appplied.
+/// is applied.
 val NonGenericTypeScheme: ty: TType -> GeneralizedType
 
 /// Publish a module definition to the module/namespace type accumulator.
@@ -614,7 +611,7 @@ val TcAttributesCanFail:
 
 /// Check a set of attributes which can only target specific elements
 val TcAttributesWithPossibleTargets:
-    canFail: bool ->
+    canFail: TcCanFail ->
     cenv: TcFileState ->
     env: TcEnv ->
     attrTgt: AttributeTargets ->
@@ -639,9 +636,8 @@ val TcExpr:
 val CheckTupleIsCorrectLength:
     g: TcGlobals -> env: TcEnv -> m: range -> tupleTy: TType -> args: 'a list -> tcArgs: (TType list -> unit) -> unit
 
-/// Converts 'a..b' to a call to the '(..)' operator in FSharp.Core
-/// Converts 'a..b..c' to a call to the '(.. ..)' operator in FSharp.Core
-val RewriteRangeExpr: synExpr: SynExpr -> SynExpr option
+/// Check record names and types for cases like cases like `query { for ... join(for x in f(). }`
+val RecordNameAndTypeResolutions: cenv: TcFileState -> env: TcEnv -> tpenv: UnscopedTyparEnv -> expr: SynExpr -> unit
 
 /// Check a syntactic expression and convert it to a typed tree expression
 val TcExprOfUnknownType:
@@ -700,7 +696,11 @@ val TcLinearExprs:
 
 /// Try to check a syntactic statement and indicate if it's type is not unit without emitting a warning
 val TryTcStmt:
-    cenv: TcFileState -> env: TcEnv -> tpenv: UnscopedTyparEnv -> synExpr: SynExpr -> bool * Expr * UnscopedTyparEnv
+    cenv: TcFileState ->
+    env: TcEnv ->
+    tpenv: UnscopedTyparEnv ->
+    synExpr: SynExpr ->
+        bool * TType * Expr * UnscopedTyparEnv
 
 /// Check a pattern being used as a pattern match
 val TcMatchPattern:
@@ -710,9 +710,11 @@ val TcMatchPattern:
     tpenv: UnscopedTyparEnv ->
     synPat: SynPat ->
     synWhenExprOpt: SynExpr option ->
+    tcTrueMatchClause: TcTrueMatchClause ->
         Pattern * Expr option * Val list * TcEnv * UnscopedTyparEnv
 
-val (|BinOpExpr|_|): SynExpr -> (Ident * SynExpr * SynExpr) option
+[<return: Struct>]
+val (|BinOpExpr|_|): SynExpr -> (Ident * SynExpr * SynExpr) voption
 
 /// Check a set of let bindings in a class or module
 val TcLetBindings:
@@ -743,7 +745,7 @@ val TcLetrecBinding:
                 UnscopedTyparEnv *
                 Map<Stamp, PreCheckingRecursiveBinding>
 
-/// Get the binding for the implicit safe initialziation check value if it is being used
+/// Get the binding for the implicit safe initialization check value if it is being used
 val TcLetrecComputeCtorSafeThisValBind: cenv: TcFileState -> safeThisValOpt: Val option -> Binding option
 
 /// Check a collection of `let rec` bindings
@@ -792,7 +794,7 @@ val TcTyparConstraints:
     cenv: TcFileState ->
     newOk: ImplicitlyBoundTyparsAllowed ->
     checkConstraints: CheckConstraints ->
-    occ: ItemOccurence ->
+    occ: ItemOccurrence ->
     env: TcEnv ->
     tpenv: UnscopedTyparEnv ->
     synConstraints: SynTypeConstraint list ->
@@ -806,7 +808,7 @@ val TcType:
     cenv: TcFileState ->
     newOk: ImplicitlyBoundTyparsAllowed ->
     checkConstraints: CheckConstraints ->
-    occ: ItemOccurence ->
+    occ: ItemOccurrence ->
     iwsam: WarnOnIWSAM ->
     env: TcEnv ->
     tpenv: UnscopedTyparEnv ->
@@ -819,7 +821,7 @@ val TcTypeOrMeasureAndRecover:
     cenv: TcFileState ->
     newOk: ImplicitlyBoundTyparsAllowed ->
     checkConstraints: CheckConstraints ->
-    occ: ItemOccurence ->
+    occ: ItemOccurrence ->
     iwsam: WarnOnIWSAM ->
     env: TcEnv ->
     tpenv: UnscopedTyparEnv ->
@@ -831,7 +833,7 @@ val TcTypeAndRecover:
     cenv: TcFileState ->
     newOk: ImplicitlyBoundTyparsAllowed ->
     checkConstraints: CheckConstraints ->
-    occ: ItemOccurence ->
+    occ: ItemOccurrence ->
     iwsam: WarnOnIWSAM ->
     env: TcEnv ->
     tpenv: UnscopedTyparEnv ->
@@ -865,9 +867,6 @@ val TranslateSynValInfo:
 /// Given the declaration of a function or member, complete the processing of its ValReprInfo
 /// once type parameters have been fully inferred via generalization.
 val TranslatePartialValReprInfo: tps: Typar list -> PrelimValReprInfo -> ValReprInfo
-
-/// Constrain two types to be equal within this type checking context
-val UnifyTypes: cenv: TcFileState -> env: TcEnv -> m: range -> expectedTy: TType -> actualTy: TType -> unit
 
 val TcRuntimeTypeTest:
     isCast: bool ->
@@ -933,12 +932,12 @@ val TcVal:
 module GeneralizationHelpers =
 
     /// Given an environment, compute the set of inference type variables which may not be
-    /// generalised, because they appear somewhere in the types of the constructs availabe
+    /// generalised, because they appear somewhere in the types of the constructs available
     /// in the environment.
     val ComputeUngeneralizableTypars: env: TcEnv -> Zset<Typar>
 
     /// Given an environment, compute the set of trait solutions which must appear before
-    /// the current location, not after (to prevent use-before definitiosn and
+    /// the current location, not after (to prevent use-before definitions and
     /// forward calls via type inference filling in trait solutions).
     val ComputeUnabstractableTraitSolutions: env: TcEnv -> FreeLocals
 

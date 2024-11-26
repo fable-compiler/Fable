@@ -38,7 +38,7 @@ type token =
   | FIELD
   | EXPLICIT
   | EOF
-  | ELIPSES
+  | ELLIPSES
   | DOT
   | DEFAULT
   | DCOLON
@@ -65,7 +65,7 @@ type token =
   | INSTR_I32_I32 of (Int32Int32Instr)
   | INSTR_I of (Int32Instr)
   | VAL_FLOAT64 of (double)
-  | VAL_INT32_ELIPSES of (int32)
+  | VAL_INT32_ELLIPSES of (int32)
   | VAL_INT64 of (int64)
 type tokenId = 
     | TOKEN_VOID
@@ -103,7 +103,7 @@ type tokenId =
     | TOKEN_FIELD
     | TOKEN_EXPLICIT
     | TOKEN_EOF
-    | TOKEN_ELIPSES
+    | TOKEN_ELLIPSES
     | TOKEN_DOT
     | TOKEN_DEFAULT
     | TOKEN_DCOLON
@@ -130,7 +130,7 @@ type tokenId =
     | TOKEN_INSTR_I32_I32
     | TOKEN_INSTR_I
     | TOKEN_VAL_FLOAT64
-    | TOKEN_VAL_INT32_ELIPSES
+    | TOKEN_VAL_INT32_ELLIPSES
     | TOKEN_VAL_INT64
     | TOKEN_end_of_input
     | TOKEN_error

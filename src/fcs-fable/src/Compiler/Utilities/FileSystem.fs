@@ -167,7 +167,7 @@ type ByteArrayMemory(bytes: byte[], offset, length) =
 type SafeUnmanagedMemoryStream =
     inherit UnmanagedMemoryStream
 
-    val mutable private holder: obj
+    val mutable private holder: objnull
     val mutable private isDisposed: bool
 
     new(addr, length, holder) =
@@ -447,7 +447,7 @@ module internal FileSystemUtils =
             if not (hasExtensionWithValidate false path) then
                 raise (ArgumentException("chopExtension")) // message has to be precisely this, for OCaml compatibility, and no argument name can be set
 
-            Path.Combine(Path.GetDirectoryName path, Path.GetFileNameWithoutExtension(path))
+            Path.Combine(!! Path.GetDirectoryName(path), !! Path.GetFileNameWithoutExtension(path))
 
     let fileNameOfPath path =
         checkPathForIllegalChars path
@@ -592,7 +592,7 @@ type DefaultFileSystem() as this =
         let fileStream = new FileStream(filePath, fileMode, fileAccess, fileShare)
         let length = fileStream.Length
 
-        // We want to use mmaped files only when:
+        // We want to use mmapped files only when:
         //   -  Opening large binary files (no need to use for source or resource files really)
 
         if not useMemoryMappedFile then
@@ -680,16 +680,16 @@ type DefaultFileSystem() as this =
 
     default _.IsInvalidPathShim(path: string) =
         let isInvalidPath (p: string MaybeNull) =
-            match p with
-            | Null
-            | "" -> true
-            | NonNull p -> p.IndexOfAny(Path.GetInvalidPathChars()) <> -1
+            if String.IsNullOrEmpty(p) then
+                true
+            else
+                p.IndexOfAny(Path.GetInvalidPathChars()) <> -1
 
         let isInvalidFilename (p: string MaybeNull) =
-            match p with
-            | Null
-            | "" -> true
-            | NonNull p -> p.IndexOfAny(Path.GetInvalidFileNameChars()) <> -1
+            if String.IsNullOrEmpty(p) then
+                true
+            else
+                p.IndexOfAny(Path.GetInvalidFileNameChars()) <> -1
 
         let isInvalidDirectory (d: string MaybeNull) =
             match d with
@@ -709,7 +709,7 @@ type DefaultFileSystem() as this =
     default _.GetDirectoryNameShim(path: string) =
         FileSystemUtils.checkPathForIllegalChars path
 
-        if path = "" then
+        if String.IsNullOrEmpty(path) then
             "."
         else
             match Path.GetDirectoryName(path) with
@@ -718,7 +718,7 @@ type DefaultFileSystem() as this =
                     path
                 else
                     "."
-            | res -> if res = "" then "." else res
+            | res -> if String.IsNullOrEmpty(res) then "." else res
 
     abstract GetLastWriteTimeShim: fileName: string -> DateTime
     default _.GetLastWriteTimeShim(fileName: string) = File.GetLastWriteTimeUtc fileName
@@ -758,15 +758,19 @@ type DefaultFileSystem() as this =
     default _.IsStableFileHeuristic(fileName: string) =
         let directory = Path.GetDirectoryName fileName
 
-        directory.Contains("Reference Assemblies/")
-        || directory.Contains("Reference Assemblies\\")
-        || directory.Contains("packages/")
-        || directory.Contains("packages\\")
-        || directory.Contains("lib/mono/")
+        match directory with
+        | Null -> false
+        | NonNull directory ->
+            directory.Contains("Reference Assemblies/")
+            || directory.Contains("Reference Assemblies\\")
+            || directory.Contains("packages/")
+            || directory.Contains("packages\\")
+            || directory.Contains("lib/mono/")
 
     abstract ChangeExtensionShim: path: string * extension: string -> string
 
-    default _.ChangeExtensionShim(path: string, extension: string) : string = Path.ChangeExtension(path, extension)
+    default _.ChangeExtensionShim(path: string, extension: string) : string =
+        !! Path.ChangeExtension(path, extension)
 
     interface IFileSystem with
         member _.AssemblyLoader = this.AssemblyLoader
@@ -884,7 +888,7 @@ module public StreamExtensions =
                 use sr = new StreamReader(s, encoding, true)
 
                 while not <| sr.EndOfStream do
-                    yield sr.ReadLine()
+                    yield !! sr.ReadLine()
             }
 
         member s.ReadAllLines(?encoding: Encoding) : string array =
@@ -988,16 +992,6 @@ type internal ByteStream =
         res
 
     member b.Position = b.pos
-#if LAZY_UNPICKLE
-    member b.CloneAndSeek =
-        {
-            bytes = b.bytes
-            pos = pos
-            max = b.max
-        }
-
-    member b.Skip = b.pos <- b.pos + n
-#endif
 
 type internal ByteBuffer =
     {

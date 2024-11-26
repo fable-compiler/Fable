@@ -7,15 +7,19 @@ namespace System.Collections
 module Immutable =
     open System.Collections.Generic
 
-    // not immutable, just a ResizeArray // TODO: immutable implementation
-    type ImmutableArray<'T> =
-        static member CreateBuilder() = ResizeArray<'T>()
+    // not immutable, just an Array // TODO: immutable implementation
+    type ImmutableArray<'T> = 'T array
+
+    module ImmutableArray =
+        let CreateBuilder<'T>() = ResizeArray<'T>()
+        let Create<'T>(items: 'T[], start: int, length: int) =
+            items[start..(start + length - 1)]
 
     [<Sealed>]
     type ImmutableHashSet<'T when 'T: equality>(values: 'T seq) =
         let xs = HashSet<'T>(values)
 
-        static member Create<'T>(values) = ImmutableHashSet<'T>(values)
+        static member Create<'T>(values: 'T seq) = ImmutableHashSet<'T>(values)
         static member Empty = ImmutableHashSet<'T>(Array.empty)
 
         member _.Add (value: 'T) =
@@ -187,3 +191,36 @@ module Concurrent =
         interface System.Collections.IEnumerable with
             member _.GetEnumerator() =
                 (xs.GetEnumerator() :> System.Collections.IEnumerator)
+
+        interface ICollection<KeyValuePair<'K, 'V>> with
+            member _.Add(item: KeyValuePair<'K, 'V>) : unit =
+                (xs :> ICollection<_>).Add(item)
+
+            member _.Clear() : unit = (xs :> ICollection<_>).Clear()
+
+            member _.Contains(item: KeyValuePair<'K, 'V>) : bool =
+                (xs :> ICollection<_>).Contains(item)
+
+            member _.CopyTo(array: KeyValuePair<'K, 'V>[], arrayIndex: int) : unit =
+                (xs :> ICollection<_>).CopyTo(array, arrayIndex)
+
+            member _.Count: int = (xs :> ICollection<_>).Count
+            member _.IsReadOnly: bool = (xs :> ICollection<_>).IsReadOnly
+
+            member _.Remove(item: KeyValuePair<'K, 'V>) : bool =
+                (xs :> ICollection<_>).Remove(item)
+
+        interface IDictionary<'K, 'V> with
+            member _.Add(key: 'K, value: 'V) = xs.Add(key, value)
+            member _.ContainsKey(key: 'K) = xs.ContainsKey(key)
+
+            member _.Item
+                with get (key: 'K): 'V = xs.[key]
+                and set (key: 'K) (v: 'V): unit = xs.[key] <- v
+
+            member _.TryGetValue(key: 'K, value: byref<'V>) =
+                xs.TryGetValue(key, &value)
+
+            member _.Remove(key: 'K) = xs.Remove(key)
+            member _.Keys = xs.Keys
+            member _.Values = xs.Values
