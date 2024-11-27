@@ -6,21 +6,6 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.12</Version>
-        <PackageReleaseNotes>## Added
-
-- [Python] Add support for `nullArgCheck`(by @MangelMaxime)
-- [All] Add support for F# `nullness` (by @MangelMaxime)
-- [JS/TS] Add support for `Unchecked.nonNull` (by @MangelMaxime)
-- [All] Add support for `TreatWarningsAsErrors` (by @MangelMaxime)
-- [JS] Don't generate an import statement for pojos defined in another file (by @shayanhabibi)
-
-## Fixed
-
-- [JS/TS] Make `nullArgCheck` report the same error message as on .NET (by @MangelMaxime)
-- [TS] Sanitize DUs case names when generating constructor function (by @MangelMaxime)
-
-</PackageReleaseNotes>
         <DebugType>embedded</DebugType>
     </PropertyGroup>
 
@@ -33,8 +18,8 @@
         <Compile Include="ProjectCracker.fsi" />
         <Compile Include="ProjectCracker.fs" />
         <Compile Include="MSBuildCrackerResolver.fs" />
-        <Compile Include="Library.fsi"/>
-        <Compile Include="Library.fs"/>
+        <Compile Include="Library.fsi" />
+        <Compile Include="Library.fs" />
     </ItemGroup>
 
     <ItemGroup>
@@ -49,6 +34,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="EasyBuild.PackageReleaseNotes.Tasks" Version="2.0.0">
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+          <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
         <PackageReference Include="FSharp.SystemTextJson" Version="1.3.13" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
     </ItemGroup>
