@@ -870,16 +870,6 @@ let ``test Type test with Date`` () =
     box 5 |> isDate |> equal false
 
 [<Fact>]
-let ``test Type test with Long`` () =
-    let isLong (x: obj) =
-        match x with
-        | :? int64 -> true
-        | _ -> false
-
-    box 5L |> isLong |> equal true
-//box 50 |> isLong |> equal false
-
-[<Fact>]
 let ``test Type test with BigInt`` () =
     let isBigInd (x: obj) =
         match x with
@@ -1559,3 +1549,113 @@ let ``test Choice with arity 3+ is represented correctly`` () = // See #2485
 let ``test Can call the base version of a mangled abstract method that was declared above in the hierarchy`` () =
     let c = ConcreteClass1()
     c.MyMethod(4) |> equal 58
+
+[<Fact>]
+let ``test Type test uint8`` () =
+    let isUInt8 (x: obj) =
+        match x with
+        | :? byte -> true
+        | _ -> false
+
+    box 5uy |> isUInt8 |> equal true
+    box 5 |> isUInt8 |> equal false
+
+[<Fact>]
+let ``test Type test int8`` () =
+    let isInt8 (x: obj) =
+        match x with
+        | :? sbyte -> true
+        | _ -> false
+
+    box 5y |> isInt8 |> equal true
+    box 5 |> isInt8 |> equal false
+
+[<Fact>]
+let ``test Type test uint16`` () =
+    let isUInt16 (x: obj) =
+        match x with
+        | :? uint16 -> true
+        | _ -> false
+
+    box 5us |> isUInt16 |> equal true
+    box 5 |> isUInt16 |> equal false
+
+[<Fact>]
+let ``test Type test int16`` () =
+    let isInt16 (x: obj) =
+        match x with
+        | :? int16 -> true
+        | _ -> false
+
+    box 5s |> isInt16 |> equal true
+    box 5 |> isInt16 |> equal false
+
+[<Fact>]
+let ``test Type test uint32`` () =
+    let isUInt32 (x: obj) =
+        match x with
+        | :? uint32 -> true
+        | _ -> false
+
+    box 5u |> isUInt32 |> equal true
+    box 5 |> isUInt32 |> equal false
+
+[<Fact>]
+let ``test Type test int32`` () =
+    let isInt32 (x: obj) =
+        match x with
+        | :? int32 -> true
+        | _ -> false
+
+    box 5 |> isInt32 |> equal true
+    box 5L |> isInt32 |> equal false
+
+[<Fact>]
+let ``test Type test uint64`` () =
+    let isUInt64 (x: obj) =
+        match x with
+        | :? uint64 -> true
+        | _ -> false
+
+    box 5UL |> isUInt64 |> equal true
+    box 5 |> isUInt64 |> equal false
+
+[<Fact>]
+let ``test Type test int64`` () =
+    let isInt64 (x: obj) =
+        match x with
+        | :? int64 -> true
+        | _ -> false
+
+    box 5L |> isInt64 |> equal true
+    box 5 |> isInt64 |> equal false
+
+[<Fact>]
+let ``test Type test float32`` () =
+    let isFloat32 (x: obj) =
+        match x with
+        | :? float32 -> true
+        | _ -> false
+
+    box 5.f |> isFloat32 |> equal true
+    box 5. |> isFloat32 |> equal false
+
+[<Fact>]
+let ``test Type test float64`` () =
+    let isFloat64 (x: obj) =
+        match x with
+        | :? float -> true
+        | _ -> false
+
+    box 5. |> isFloat64 |> equal true
+    box 5.f |> isFloat64 |> equal false
+
+[<Fact>]
+let ``test Type test decimal`` () =
+    let isDecimal (x: obj) =
+        match x with
+        | :? decimal -> true
+        | _ -> false
+
+    box 5M |> isDecimal |> equal true
+    box 5 |> isDecimal |> equal false
