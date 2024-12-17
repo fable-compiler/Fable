@@ -1779,6 +1779,40 @@ module AccessorFunctionShorthand =
                 equal (namePropertyGetter student) "Jane"
         ]
 
+module DiscriminatedUnionIsGenerated =
+
+    type Test =
+        | A
+        | Value of string
+
+    let tests =
+        [
+            testCase "Discriminated union .Is* generated works" <| fun () ->
+                let testA = A
+                let testValue = Value "test"
+
+                equal true testA.IsA
+                equal false testA.IsValue
+                equal false testValue.IsA
+                equal true testValue.IsValue
+        ]
+
+module PartialActivePatternsCanReturnBool =
+
+    let (|CaseInsensitive|_|) (pattern: string) (value: string) =
+        String.Equals(value, pattern, StringComparison.OrdinalIgnoreCase)
+
+    let isFoo key =
+        match key with
+        | CaseInsensitive "foo" -> true
+        | _ -> false
+
+    let tests =
+        [
+            testCase "Partial active patterns can return bool" <| fun () ->
+                let result = isFoo "FOO"
+                equal true result
+        ]
 let tests =
     testList "Applicative" (
         tests1
@@ -1793,4 +1827,6 @@ let tests =
         @ Uncurry.tests
         @ MultipleInlines.tests
         @ AccessorFunctionShorthand.tests
+        @ DiscriminatedUnionIsGenerated.tests
+        @ PartialActivePatternsCanReturnBool.tests
     )

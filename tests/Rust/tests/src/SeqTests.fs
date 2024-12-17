@@ -427,6 +427,12 @@ let ``Seq.isEmpty works`` () =
     // Seq.isEmpty [] |> equal true //TODO: untyped
     Seq.isEmpty<int> [] |> equal true
 
+#if FABLE_COMPILER || NET9_0_OR_GREATER
+let ``seq {} works`` () =
+    let xs = seq {}
+    Seq.isEmpty xs |> equal true
+#endif
+
 [<Fact>]
 let ``Seq.iter works`` () =
     let xs = seq {1.; 2.; 3.; 4.}

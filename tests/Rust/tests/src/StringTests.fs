@@ -385,7 +385,7 @@ let ``Backslash is escaped in interpolated strings`` () = // See #2649
     @$"\{4}".Length |> equal 2
 
 [<Fact>]
-let ``Extended string interpolation syntax`` =
+let ``Extended string interpolation syntax`` () =
     let classAttr = "item-panel"
     let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
     cssNew |> equal ".item-panel:hover {background-color: #eee;}"
@@ -473,7 +473,7 @@ let ``sprintf integers with sign and padding works`` () = // See #1931
     // sprintf "%- 4i" 5 |> equal " 5  " //TODO:
 
 [<Fact>]
-let ``format string can use and compose string literals`` =
+let ``format string can use and compose string literals`` () =
     let renderedCoordinates = sprintf formatCoordinateBody 0.25 0.75
     let renderedText = sprintf fullFormat 0.25 0.75
 

@@ -186,7 +186,7 @@ let ``Box record multiple owner should clone and fork`` () =
     y2.a |> equal 2
 
 [<Fact>]
-let ``Should correctly import record in other file and allow creation`` =
+let ``Should correctly import record in other file and allow creation`` () =
     let r = { Common.Imports.MyRecord.a = 1}
     let expected = Common.Imports.MyRecord.create 1
     r |> equal expected
@@ -380,7 +380,7 @@ let ``Mutating records work`` () =
     equal -20 x''.uniqueB
 
 [<Fact>]
-let ``Nested record field copy and update works for records`` =
+let ``Nested record field copy and update works for records`` () =
     let car =
         { Interior = { Seats = 4 } }
     let car2 =
@@ -388,7 +388,7 @@ let ``Nested record field copy and update works for records`` =
     equal 5 car2.Interior.Seats
 
 [<Fact>]
-let ``Nested record field copy and update works for anonymous records`` =
+let ``Nested record field copy and update works for anonymous records`` () =
     let car =
         {| Interior = {| Seats = 4 |} |}
     let car2 =

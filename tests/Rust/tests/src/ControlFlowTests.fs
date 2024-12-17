@@ -59,7 +59,7 @@ let ``for_downto loop works`` () =
     a |> equal 57
 
 [<Fact>]
-let ``while loop works`` =
+let ``while loop works`` () =
     let mutable i = 0
     let mutable total = 0
     while i < 10 do
