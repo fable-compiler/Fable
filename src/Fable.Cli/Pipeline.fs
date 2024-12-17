@@ -169,9 +169,15 @@ module Js =
                         defaultArg file sourcePath
                         |> Path.getRelativeFileOrDirPath false targetPath false
 
-                    mapGenerator
-                        .Force()
-                        .AddMapping(generated, original, source = sourcePath, ?name = displayName)
+                    // This is a workaround for:
+                    // https://github.com/fable-compiler/Fable/issues/3980
+                    // We are still investigating why some of the F# code don't have source information
+                    // I believe for now we can ship it like that because it only deteriorate the source map
+                    // it should not break them completely.
+                    if srcLine <> 0 && srcCol <> 0 && file <> Some "unknown" then
+                        mapGenerator
+                            .Force()
+                            .AddMapping(generated, original, source = sourcePath, ?name = displayName)
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
         async {
