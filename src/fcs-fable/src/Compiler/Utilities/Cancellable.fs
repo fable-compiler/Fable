@@ -2,32 +2,30 @@ namespace FSharp.Compiler
 
 open System
 open System.Threading
+open Internal.Utilities.Library
 
 [<Sealed>]
 type Cancellable =
-    [<ThreadStatic; DefaultValue>]
-    static val mutable private token: CancellationToken
+    static let token = AsyncLocal<CancellationToken>()
+
+    static member Token = token.Value
 
     static member UsingToken(ct) =
-        let oldCt = Cancellable.token
-
-        Cancellable.token <- ct
+        let oldCt = token.Value
+        token.Value <- ct
 
         { new IDisposable with
-            member this.Dispose() = Cancellable.token <- oldCt
+            member this.Dispose() = token.Value <- oldCt
         }
 
-    static member Token
-        with get () = Cancellable.token
-        and internal set v = Cancellable.token <- v
-
     static member CheckAndThrow() =
-        Cancellable.token.ThrowIfCancellationRequested()
+        token.Value.ThrowIfCancellationRequested()
 
 namespace Internal.Utilities.Library
 
 open System
 open System.Threading
+open FSharp.Compiler
 
 #if !FSHARPCORE_USE_PACKAGE
 open FSharp.Core.CompilerServices.StateMachineHelpers
@@ -51,6 +49,7 @@ module Cancellable =
             oper ct
 #else
             try
+                use _ = Cancellable.UsingToken(ct)
                 oper ct
             with :? OperationCanceledException as e ->
                 ValueOrCancelled.Cancelled(OperationCanceledException e.CancellationToken)

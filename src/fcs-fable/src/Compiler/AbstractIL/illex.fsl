@@ -109,7 +109,7 @@ rule token = parse
   | "/" { SLASH }
   | "<" { LESS }
   | ">" { GREATER }
-  | "..." { ELIPSES }
+  | "..." { ELLIPSES }
   | "::" { DCOLON }
   | "+" { PLUS }
   | (['0'-'9']) | (['0'-'9']['0'-'9']['0'-'9']+)
@@ -119,10 +119,10 @@ rule token = parse
   (* ldc.r8     0. *)
   (* float64(-657435.)     *)
   (* and int32[0...,0...] *)
-  (* The problem is telling an integer-followed-by-ellipses from a floating-point-nubmer-followed-by-dots *)
+  (* The problem is telling an integer-followed-by-ellipses from a floating-point-number-followed-by-dots *)
 
   | ((['0'-'9']) | (['0'-'9']['0'-'9']['0'-'9']+)) "..."
-      { VAL_INT32_ELIPSES(int32(lexemeTrimBoth lexbuf 0 3)) }
+      { VAL_INT32_ELLIPSES(int32(lexemeTrimBoth lexbuf 0 3)) }
   | ['0'-'9' 'A'-'F' 'a'-'f' ] ['0'-'9' 'A'-'F' 'a'-'f' ] 
       { let c1 = (lexemeChar lexbuf 0) in 
         let c2 = (lexemeChar lexbuf 1) in 

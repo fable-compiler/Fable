@@ -5,10 +5,17 @@
 namespace FSharp.Compiler
 
 module SR =
-    let GetString(name: string) =
+    let GetString (name: string) =
         match SR.Resources.resources.TryGetValue(name) with
         | true, value -> value
         | _ -> "Missing FSStrings error message for: " + name
+
+module FSComp =
+    module SR =
+        let GetTextOpt (name: string) =
+            match SR.Resources.resources.TryGetValue(name) with
+            | true, value -> Some value
+            | _ -> None
 
 module DiagnosticMessage =
     type ResourceString<'T>(sfmt: string, fmt: string) =
