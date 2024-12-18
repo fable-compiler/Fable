@@ -6,10 +6,11 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.2</Version>
+        <Version>5.0.0-alpha.3</Version>
         <PackageReleaseNotes>## Fixed
 
-- [All] Allow Fable 5 to be used with Fable 4 plugins (@ncave)
+- [Python] Fix type testing against `uint8`, `uint32`, `uint64`, `decimal` (@MangelMaxime)
+- [JS/TS] Workaround source map generation bug (deteriorate them a little) (@MangelMaxime)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

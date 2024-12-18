@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.3 - 2024-12-18
+
+### Fixed
+
+* [Python] Fix type testing against `uint8`, `uint32`, `uint64`, `decimal` (@MangelMaxime)
+* [JS/TS] Workaround source map generation bug (deteriorate them a little) (@MangelMaxime)
+
 ## 5.0.0-alpha.2 - 2024-11-25
 
 ### Fixed
