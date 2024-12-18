@@ -2331,7 +2331,13 @@ module Util =
                 else
                     expr
 
-            getExpr range (getExpr None expr (Expression.stringLiteral ("fields"))) (ofInt info.FieldIndex)
+            let expr =
+                getExpr range (getExpr None expr (Expression.stringLiteral ("fields"))) (ofInt info.FieldIndex)
+
+            if com.IsTypeScript then
+                AsExpression(expr, makeTypeAnnotation com ctx Fable.Type.Any)
+            else
+                expr
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
