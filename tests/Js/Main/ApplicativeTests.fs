@@ -1797,7 +1797,7 @@ module DiscriminatedUnionIsGenerated =
                 equal true testValue.IsValue
         ]
 
-#if !FABLE_COMPILER_JS
+#if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
 module PartialActivePatternsCanReturnBool =
 
     let (|CaseInsensitive|_|) (pattern: string) (value: string) =
@@ -1831,7 +1831,7 @@ let tests =
         @ MultipleInlines.tests
         @ AccessorFunctionShorthand.tests
         @ DiscriminatedUnionIsGenerated.tests
-        #if !FABLE_COMPILER_JS
+        #if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
         @ PartialActivePatternsCanReturnBool.tests
         #endif
     )
