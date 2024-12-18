@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Fix type testing against `uint8`, `uint32`, `uint64`, `decimal` (@MangelMaxime)
 * [JS/TS] Workaround source map generation bug (deteriorate them a little) (@MangelMaxime)
+* [TS] Make discriminated union `.Is*` properties works (@MangelMaxime)
 
 ## 5.0.0-alpha.2 - 2024-11-25
 
