@@ -56,7 +56,7 @@ let allTests =
     Uri.tests
   |]
 
-#if FABLE_COMPILER
+#if FABLE_COMPILER || FABLE_COMPILER_TYPESCRIPT
 
 open Fable.Core
 open Fable.Core.JsInterop

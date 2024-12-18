@@ -2,7 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RollForward>Major</RollForward>
-    <DefineConstants>FABLE_COMPILER;FABLE_COMPILER_TYPESCRIPT;$(DefineConstants)</DefineConstants>
+    <DefineConstants>FABLE_COMPILER_TYPESCRIPT;$(DefineConstants)</DefineConstants>
+    <LangVersion>Preview</LangVersion>
   </PropertyGroup>
  <ItemGroup>
     <PackageReference Include="Fable.JsonProvider" Version="1.1.1" />
