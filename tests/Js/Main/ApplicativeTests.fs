@@ -1797,6 +1797,7 @@ module DiscriminatedUnionIsGenerated =
                 equal true testValue.IsValue
         ]
 
+#if !FABLE_COMPILER_JS
 module PartialActivePatternsCanReturnBool =
 
     let (|CaseInsensitive|_|) (pattern: string) (value: string) =
@@ -1813,6 +1814,8 @@ module PartialActivePatternsCanReturnBool =
                 let result = isFoo "FOO"
                 equal true result
         ]
+#endif
+
 let tests =
     testList "Applicative" (
         tests1
@@ -1828,5 +1831,7 @@ let tests =
         @ MultipleInlines.tests
         @ AccessorFunctionShorthand.tests
         @ DiscriminatedUnionIsGenerated.tests
+        #if !FABLE_COMPILER_JS
         @ PartialActivePatternsCanReturnBool.tests
+        #endif
     )
