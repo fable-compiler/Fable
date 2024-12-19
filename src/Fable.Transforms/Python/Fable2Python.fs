@@ -492,22 +492,14 @@ module Reflection =
             | _ ->
                 let ent = com.GetEntity(ent)
 
-                if ent.IsInterface then
-                    match FSharp2Fable.Util.tryGlobalOrImportedEntity com ent with
-                    | Some typeExpr ->
-                        let typeExpr, stmts = com.TransformAsExpr(ctx, typeExpr)
-                        let expr, stmts' = pyInstanceof typeExpr expr
-                        expr, stmts @ stmts'
-                    | None -> warnAndEvalToFalse "interfaces", []
-                else
-                    match tryPyConstructor com ctx ent with
-                    | Some(cons, stmts) ->
-                        if not (List.isEmpty genArgs) then
-                            com.WarnOnlyOnce("Generic args are ignored in type testing", ?range = range)
+                match tryPyConstructor com ctx ent with
+                | Some(cons, stmts) ->
+                    if not (List.isEmpty genArgs) then
+                        com.WarnOnlyOnce("Generic args are ignored in type testing", ?range = range)
 
-                        let expr, stmts' = pyInstanceof cons expr
-                        expr, stmts @ stmts'
-                    | None -> warnAndEvalToFalse ent.FullName, []
+                    let expr, stmts' = pyInstanceof cons expr
+                    expr, stmts @ stmts'
+                | None -> warnAndEvalToFalse ent.FullName, []
 
 module Helpers =
     /// Returns true if the first field type can be None in Python
@@ -3670,10 +3662,10 @@ module Util =
 
             ent.AllInterfaces
             |> List.ofSeq
-            |> List.filter (fun int ->
-                let name = Helpers.removeNamespace (int.Entity.FullName)
-                allowedInterfaces |> List.contains name
-            )
+            // |> List.filter (fun int ->
+            //     let name = Helpers.removeNamespace (int.Entity.FullName)
+            //     allowedInterfaces |> List.contains name
+            // )
             |> List.map (fun int ->
                 let genericArgs =
                     match int.GenericArgs with
@@ -4065,7 +4057,6 @@ module Util =
         ]
 
     let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_classDecl: Fable.ClassDecl) =
-        // printfn "transformInterface"
         let classIdent = com.GetIdentifier(ctx, Helpers.removeNamespace classEnt.FullName)
 
         let members =
@@ -4120,6 +4111,13 @@ module Util =
 
                 if members.IsEmpty then
                     Statement.Pass
+
+                // @runtime_checkable use strucutural subtyping to check if a class implements the interface
+                // in order make all interface unique we generate a unique "private" member
+                let uniqueMemberName =
+                    $"unique_interface_%s{Guid.NewGuid().ToString()}" |> Helpers.clean |> Identifier
+
+                Statement.functionDef (uniqueMemberName, Arguments.arguments [ Arg.arg "self" ], [ Pass ])
             ]
 
         let bases =
@@ -4148,7 +4146,18 @@ module Util =
                     Expression.subscript (com.GetImportExpr(ctx, "typing", "Generic"), com.AddTypeVar(ctx, gen.Name))
             ]
 
-        [ Statement.classDef (classIdent, body = classMembers, bases = bases) ]
+        let decorators =
+            let needsRuntimeCheckable =
+                bases |> List.contains (com.GetImportExpr(ctx, "typing", "Protocol"))
+
+            if needsRuntimeCheckable then
+                [ com.GetImportExpr(ctx, "typing", "runtime_checkable") ]
+            else
+                []
+
+        [
+            Statement.classDef (classIdent, body = classMembers, bases = bases, decoratorList = decorators)
+        ]
 
     let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration) =
         // printfn "transformDeclaration: %A" decl
