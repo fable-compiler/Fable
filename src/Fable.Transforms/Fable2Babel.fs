@@ -2331,7 +2331,13 @@ module Util =
                 else
                     expr
 
-            getExpr range (getExpr None expr (Expression.stringLiteral ("fields"))) (ofInt info.FieldIndex)
+            let expr =
+                getExpr range (getExpr None expr (Expression.stringLiteral ("fields"))) (ofInt info.FieldIndex)
+
+            if com.IsTypeScript then
+                AsExpression(expr, makeTypeAnnotation com ctx Fable.Type.Any)
+            else
+                expr
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -2438,7 +2444,17 @@ module Util =
                 expr
         | Fable.UnionCaseTest tag ->
             let expected = transformUnionCaseTag com range expr.Type tag
-            let actual = getUnionExprTag com ctx None expr
+
+            let unionExprTag = getUnionExprTag com ctx None expr
+
+            let actual =
+                if com.IsTypeScript then
+                    // In TypeScript, we need to cast the union case tag to a number
+                    // otherwise TypeScript compiler is too smart and test against the literal value (0, 1, 2, etc.)
+                    let number = Fable.Number(Int32, Fable.NumberInfo.Empty)
+                    (AsExpression(unionExprTag, makeTypeAnnotation com ctx number))
+                else
+                    unionExprTag
 
             Expression.binaryExpression (BinaryEqual, actual, expected, ?loc = range)
 
