@@ -29,6 +29,6 @@
     "typescript": "^5.5.4"
   },
   "devDependencies": {
-    "markdownlint-cli": "^0.41.0"
+    "markdownlint-cli": "^0.43.0"
   }
 }
