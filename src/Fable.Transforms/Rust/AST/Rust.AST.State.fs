@@ -2187,11 +2187,7 @@ type State with
             self.s.space ()
             self.s.word_space (":")
 
-            self.commasep (
-                pp.Breaks.Inconsistent,
-                a.clobbers,
-                fun (s, co) -> s.print_symbol (co, ast.StrStyle.Cooked)
-            )
+            self.commasep (pp.Breaks.Inconsistent, a.clobbers, fun (s, co) -> s.print_symbol (co, ast.StrStyle.Cooked))
 
             let mutable options = Vec()
 
@@ -2208,11 +2204,7 @@ type State with
                 self.s.space ()
                 self.s.word_space (":")
 
-                self.commasep (
-                    pp.Breaks.Inconsistent,
-                    options,
-                    fun (s, co) -> s.print_string (co, ast.StrStyle.Cooked)
-                )
+                self.commasep (pp.Breaks.Inconsistent, options, fun (s, co) -> s.print_string (co, ast.StrStyle.Cooked))
 
             self.s.pclose ()
         | ast.ExprKind.MacCall(m) -> self.print_mac (m)
