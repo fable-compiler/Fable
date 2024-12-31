@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [TS] Make discriminated union `.Is*` properties works (@MangelMaxime)
+* [JS/TS/Python] Fix `h` in `DateTime.ToString` (@MangelMaxime)
+* [JS/TS] Fix `hh` in `DateTime.ToString` (@MangelMaxime)
 
 ## 5.0.0-alpha.3 - 2024-12-18
 

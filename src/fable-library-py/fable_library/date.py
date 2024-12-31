@@ -276,7 +276,10 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                 cursor_pos += token_length
                 match token_length:
                     case 1:
-                        result += str(localized_date.hour % 12)
+                        h1Value = localized_date.hour % 12
+                        if h1Value == 0:
+                            h1Value = 12
+                        result += str(h1Value)
                     case 2:
                         result += localized_date.strftime("%I")
                     case _:
