@@ -166,10 +166,12 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
         cursorPos += tokenLength;
         switch (tokenLength) {
           case 1:
-            result += hour(localizedDate) % 12
+            const h1Value = hour(localizedDate) % 12;
+            result += h1Value ? h1Value : 12;
             break;
           case 2:
-            result += padWithZeros(hour(localizedDate) % 12, 2);
+            const h2Value = hour(localizedDate) % 12;
+            result += padWithZeros(h2Value ? h2Value : 12, 2);
             break;
           default:
             break;

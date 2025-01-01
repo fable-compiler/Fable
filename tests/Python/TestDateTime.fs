@@ -155,11 +155,21 @@ let ``test DateTime.ToString with custom format works`` () =
     |> equal "r 4"
     DateTime(2014, 7, 1, 4, 37, 0).ToString("r h", CultureInfo.InvariantCulture)
     |> equal "r 4"
+    // Test edge case where hour is 12
+    DateTime(2014, 7, 1, 0, 0, 0).ToString("r h", CultureInfo.InvariantCulture)
+    |> equal "r 12"
+    DateTime(2014, 7, 1, 12, 0, 0).ToString("r h", CultureInfo.InvariantCulture)
+    |> equal "r 12"
 
     DateTime(2014, 7, 1, 16, 37, 0).ToString("r hh", CultureInfo.InvariantCulture)
     |> equal "r 04"
     DateTime(2014, 7, 1, 4, 37, 0).ToString("r hh", CultureInfo.InvariantCulture)
     |> equal "r 04"
+    // Test edge case where hour is 12
+    DateTime(2014, 7, 1, 0, 0, 0).ToString("r hh", CultureInfo.InvariantCulture)
+    |> equal "r 12"
+    DateTime(2014, 7, 1, 12, 0, 0).ToString("r hh", CultureInfo.InvariantCulture)
+    |> equal "r 12"
 
     DateTime(2014, 7, 1, 4, 37, 0).ToString("r H", CultureInfo.InvariantCulture)
     |> equal "r 4"
