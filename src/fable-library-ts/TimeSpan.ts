@@ -35,20 +35,24 @@ export function fromTicks(ticks: number | bigint) {
   return Number(BigInt(ticks) / 10000n);
 }
 
-export function fromDays(d: number) {
-  return create(d, 0, 0, 0);
+export function fromDays(d: number, h: number = 0, m: bigint = 0n, s: bigint = 0n, ms: bigint = 0n) {
+  return create(d, h, Number(m), Number(s), Number(ms));
 }
 
-export function fromHours(h: number) {
-  return create(h, 0, 0);
+export function fromHours(h: number, m: bigint = 0n, s: bigint = 0n, ms: bigint = 0n) {
+  return create(0, h, Number(m), Number(s), Number(ms));
 }
 
-export function fromMinutes(m: number) {
-  return create(0, m, 0);
+export function fromMinutes(m: number | bigint, s: bigint = 0n, ms: bigint = 0n) {
+  return create(0, 0, Number(m), Number(s), Number(ms));
 }
 
-export function fromSeconds(s: number) {
-  return create(0, 0, s);
+export function fromSeconds(s: number | bigint, ms: bigint = 0n) {
+  return create(0, 0, 0, Number(s), Number(ms));
+}
+
+export function fromMilliseconds(ms: number | bigint) {
+  return Number(ms);
 }
 
 export function days(ts: TimeSpan) {
