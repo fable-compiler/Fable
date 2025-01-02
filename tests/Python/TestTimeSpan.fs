@@ -74,10 +74,66 @@ let ``test TimeSpan components work`` () =
     t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
     |> equal 686.
 
+
+[<Fact>]
+let ``test TimeSpan.FromDays works`` () =
+    TimeSpan.FromDays(1.0).TotalHours |> equal 24.0
+    TimeSpan.FromDays(0.9).TotalHours |> equal 21.6
+    TimeSpan.FromDays(1).TotalHours |> equal 24.0
+    TimeSpan.FromDays(1, 1).TotalMilliseconds |> equal 90000000.0
+    TimeSpan.FromDays(1, 1, 1).TotalMilliseconds |> equal 90060000.0
+    TimeSpan.FromDays(1, 1, 1, 1).TotalMilliseconds |> equal 90061000.0
+    TimeSpan.FromDays(1, 1, 1, 1, 1).TotalMilliseconds |> equal 90061001.0
+    TimeSpan.FromDays(1, 1, 1, 1, 1, 1).TotalMilliseconds |> equal 90061001.001
+    TimeSpan.FromDays(1, 1, 1L, 1L, 1L, 1L).TotalMilliseconds |> equal 90061001.001
+    TimeSpan.FromDays(1, 1, 1L, 1L, 1L).TotalMilliseconds |> equal 90061001.0
+
+[<Fact>]
+let ``test TimeSpan.FromHours works`` () =
+    TimeSpan.FromHours(1.0).TotalMinutes |> equal 60.0
+    TimeSpan.FromHours(0.9).TotalMinutes |> equal 54.0
+    TimeSpan.FromHours(1).TotalMinutes |> equal 60.0
+    TimeSpan.FromHours(1, 1).TotalMinutes |> equal 61.0
+    TimeSpan.FromHours(1, 1, 1).TotalMilliseconds |> equal 3661000.0
+    TimeSpan.FromHours(1, 1, 1, 1).TotalMilliseconds |> equal 3661001.0
+    TimeSpan.FromHours(1, 1, 1, 1, 1).TotalMilliseconds |> equal 3661001.001
+    TimeSpan.FromHours(1, 1L, 1L, 1L, 1L).TotalMilliseconds |> equal 3661001.001
+    TimeSpan.FromHours(1, 1L, 1L, 1L).TotalMilliseconds |> equal 3661001.0
+
+[<Fact>]
+let ``test TimeSpan.FromMinutes works`` () =
+    TimeSpan.FromMinutes(1.0).TotalSeconds |> equal 60.0
+    TimeSpan.FromMinutes(0.9).TotalSeconds |> equal 54.0
+    TimeSpan.FromMinutes(1L).TotalSeconds |> equal 60.0
+    TimeSpan.FromMinutes(1, 1).TotalSeconds |> equal 61.0
+    TimeSpan.FromMinutes(1, 1, 1).TotalMilliseconds |> equal 61001.0
+    TimeSpan.FromMinutes(1, 1, 1, 1).TotalMilliseconds |> equal 61001.001
+    TimeSpan.FromMinutes(1L, 1L, 1L, 1L).TotalMilliseconds |> equal 61001.001
+    TimeSpan.FromMinutes(1L, 1L, 1L).TotalMilliseconds |> equal 61001.0
+
+[<Fact>]
+let ``test TimeSpan.FromSeconds works`` () =
+    TimeSpan.FromSeconds(60.0).TotalMilliseconds |> equal 60000.0
+    TimeSpan.FromSeconds(54.0).TotalMilliseconds |> equal 54000.0
+    TimeSpan.FromSeconds(60L).TotalMilliseconds |> equal 60000.0
+    TimeSpan.FromSeconds(60, 1).TotalMilliseconds |> equal 60001.0
+    TimeSpan.FromSeconds(60, 1, 1).TotalMilliseconds |> equal 60001.001
+    TimeSpan.FromSeconds(60L, 1L, 1L).TotalMilliseconds |> equal 60001.001
+    TimeSpan.FromSeconds(60L, 1L).TotalMilliseconds |> equal 60001
+
 [<Fact>]
 let ``test TimeSpan.FromMilliseconds works`` () =
-    let t = TimeSpan.FromMilliseconds(1. / 3.)
-    t.Ticks |> equal 3333L
+    TimeSpan.FromMilliseconds(1000.0).TotalSeconds |> equal 1.0
+    TimeSpan.FromMilliseconds(900.0).TotalSeconds |> equal 0.9
+    TimeSpan.FromMilliseconds(1000L).TotalSeconds |> equal 1.0
+    TimeSpan.FromMilliseconds(1000, 1).TotalSeconds |> equal 1.000001
+    TimeSpan.FromMilliseconds(1. / 3.).Ticks |> equal 3333L
+
+[<Fact>]
+let ``test TimeSpan.FromMicroseconds works`` () =
+    TimeSpan.FromMicroseconds(1000000.0).TotalMilliseconds |> equal 1000.0
+    TimeSpan.FromMicroseconds(0.9).TotalMilliseconds |> equal 0.0009
+    TimeSpan.FromMicroseconds(1000000L).TotalMilliseconds |> equal 1000.0
 
 [<Fact>]
 let ``test TimeSpan.Ticks works`` () =
@@ -147,10 +203,10 @@ let ``test TimeSpan implementation coherence`` () =
     TimeSpan.FromTicks(1L).Ticks |> equal 1L
     TimeSpan.FromMilliseconds(1).Milliseconds |> equal 1
     TimeSpan.FromMilliseconds(1).TotalMilliseconds |> equal 1.
-    TimeSpan.FromSeconds(1).Seconds |> equal 1
-    TimeSpan.FromSeconds(1).TotalSeconds |> equal 1.
-    TimeSpan.FromMinutes(1).Minutes |> equal 1
-    TimeSpan.FromMinutes(1).TotalMinutes |> equal 1.
+    TimeSpan.FromSeconds(1.).Seconds |> equal 1
+    TimeSpan.FromSeconds(1.).TotalSeconds |> equal 1.
+    TimeSpan.FromMinutes(1.).Minutes |> equal 1
+    TimeSpan.FromMinutes(1.).TotalMinutes |> equal 1.
     TimeSpan.FromHours(1).Hours |> equal 1
     TimeSpan.FromHours(1).TotalHours |> equal 1.
     TimeSpan.FromDays(1).Days |> equal 1
@@ -158,10 +214,10 @@ let ``test TimeSpan implementation coherence`` () =
 
     TimeSpan.FromMilliseconds(-1).Milliseconds |> equal -1
     TimeSpan.FromMilliseconds(-1).TotalMilliseconds |> equal -1.
-    TimeSpan.FromSeconds(-1).Seconds |> equal -1
-    TimeSpan.FromSeconds(-1).TotalSeconds |> equal -1.
-    TimeSpan.FromMinutes(-1).Minutes |> equal -1
-    TimeSpan.FromMinutes(-1).TotalMinutes |> equal -1.
+    TimeSpan.FromSeconds(-1.).Seconds |> equal -1
+    TimeSpan.FromSeconds(-1.).TotalSeconds |> equal -1.
+    TimeSpan.FromMinutes(-1.).Minutes |> equal -1
+    TimeSpan.FromMinutes(-1.).TotalMinutes |> equal -1.
     TimeSpan.FromHours(-1).Hours |> equal -1
     TimeSpan.FromHours(-1).TotalHours |> equal -1.
     TimeSpan.FromDays(-1).Days |> equal -1
