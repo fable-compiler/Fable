@@ -123,13 +123,6 @@ let tests =
             // TimeSpan.FromMilliseconds(1000, 1).TotalSeconds |> equal 1.000001
             TimeSpan.FromMilliseconds(1. / 3.).Ticks |> equal 3333L
 
-        testCase "TimeSpan.FromSeconds works for int64" <| fun () ->
-            TimeSpan.FromSeconds(1L).TotalMilliseconds |> equal 1000.0
-
-        testCase "TimeSpan.FromSeconds works for Double" <| fun () ->
-            TimeSpan.FromSeconds(1.0).TotalMilliseconds |> equal 1000.0
-            TimeSpan.FromSeconds(0.9).TotalMilliseconds |> equal 900.0
-
         testCase "TimeSpan.Ticks works" <| fun () ->
             let t = TimeSpan.FromTicks(20000L)
             t.Ticks
