@@ -10,7 +10,7 @@ let handle (args: string list) =
 
     let srcDir = Path.Resolve "src/quicktest"
     let outDir = Path.Resolve "temp/quicktest-ts"
-    let mainFile = outDir </> "Quicktest.fs.js"
+    let mainFile = outDir </> "QuickTest.fs.js"
 
     // Make sure the output directory exists, so nodemon doesn't complain
     Directory.CreateDirectory(outDir) |> ignore
