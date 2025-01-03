@@ -41,10 +41,15 @@ val ConvExprPublic: QuotationGenerationScope -> suppressWitnesses: bool -> Expr 
 val ConvReflectedDefinition:
     QuotationGenerationScope -> string -> Val -> Expr -> QuotationPickler.MethodBaseData * QuotationPickler.ExprData
 
+[<return: Struct>]
 val (|ModuleValueOrMemberUse|_|):
-    TcGlobals -> Expr -> (ValRef * ValUseFlag * Expr * TType * TypeInst * Expr list) option
+    TcGlobals -> Expr -> (ValRef * ValUseFlag * Expr * TType * TypeInst * Expr list) voption
 
-val (|SimpleArrayLoopUpperBound|_|): Expr -> unit option
-val (|SimpleArrayLoopBody|_|): TcGlobals -> Expr -> (Expr * TType * Expr) option
-val (|ObjectInitializationCheck|_|): TcGlobals -> Expr -> unit option
-val isSplice: TcGlobals -> ValRef -> bool
+[<return: Struct>]
+val (|SimpleArrayLoopUpperBound|_|): Expr -> unit voption
+
+[<return: Struct>]
+val (|SimpleArrayLoopBody|_|): TcGlobals -> Expr -> (Expr * TType * Expr) voption
+
+[<return: Struct>]
+val (|ObjectInitializationCheck|_|): TcGlobals -> Expr -> unit voption
