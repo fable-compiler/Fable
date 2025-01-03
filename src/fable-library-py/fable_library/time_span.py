@@ -4,7 +4,7 @@ import re
 from math import ceil, floor, fmod
 from typing import Any
 
-from .types import FSharpRef
+from .types import FSharpRef, int64
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
 
@@ -75,32 +75,47 @@ def total_days(ts: TimeSpan) -> float:
     return ts / 864000000000
 
 
-def from_microseconds(micros: float) -> TimeSpan:
+def from_microseconds(micros: int64 | float) -> TimeSpan:
     return create(0, 0, 0, 0, 0, micros)
 
 
-def from_milliseconds(msecs: int) -> TimeSpan:
-    return create(0, 0, 0, 0, msecs)
+def from_milliseconds(msecs: int64 | float, mc: int64 | None = None) -> TimeSpan:
+    return create(0, 0, 0, 0, msecs, mc)
 
 
 def from_ticks(ticks: int) -> TimeSpan:
     return create(ticks)
 
 
-def from_seconds(s: int) -> TimeSpan:
-    return create(0, 0, s)
+def from_seconds(s: int64 | float, ms: int64 | None = None, mc: int64 | None = None) -> TimeSpan:
+    return create(0, 0, 0, s, ms or 0, mc or 0)
 
 
-def from_minutes(m: int) -> TimeSpan:
-    return create(0, m, 0)
+def from_minutes(
+    m: int64 | float, s: int64 | None = None, ms: int64 | None = None, mc: int64 | None = None
+) -> TimeSpan:
+    return create(0, 0, m or 0, s or 0, ms or 0, mc or 0)
 
 
-def from_hours(h: int) -> TimeSpan:
-    return create(h, 0, 0)
+def from_hours(
+    h: int | float,
+    m: int64 | None = None,
+    s: int64 | None = None,
+    ms: int64 | None = None,
+    mc: int64 | None = None,
+) -> TimeSpan:
+    return create(0, h, m or 0, s or 0, ms or 0, mc or 0)
 
 
-def from_days(d: int) -> TimeSpan:
-    return create(d, 0, 0, 0)
+def from_days(
+    d: int | float,
+    h: int | None = None,
+    m: int64 | None = None,
+    s: int64 | None = None,
+    ms: int64 | None = None,
+    mc: int64 | None = None,
+) -> TimeSpan:
+    return create(d, h or 0, m or 0, s or 0, ms or 0, mc or 0)
 
 
 def ticks(ts: TimeSpan) -> int:

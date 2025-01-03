@@ -51,6 +51,7 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
         |> CmdLine.appendPrefix "--extension" config.Extension
         |> CmdLine.appendPrefix "--exclude" "Fable.Core"
         |> CmdLine.appendRaw "--noCache"
+        |> CmdLine.appendRaw "--verbose"
         |> CmdLine.appendRaw "--watch"
         |> appendRunMode,
         workingDirectory = projectDir

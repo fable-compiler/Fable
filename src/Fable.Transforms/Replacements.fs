@@ -3129,18 +3129,43 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
 
-let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let timeSpanLibCall meth args =
+        let args = ignoreFormatProvider meth args
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+
+        Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+
+    let isNotDefaultInt64ZeroValue (expr: Expr) =
+        match expr with
+        | Value(NumberConstant(NumberValue.Int64 0L, _), _) -> false
+        | _ -> true
+
+    let limitArgsCountToMilliseconds (meth: string) (maxArgsCount: int) =
+        if args.Length > maxArgsCount then
+            if isNotDefaultInt64ZeroValue args.[maxArgsCount] then
+                addWarning
+                    com
+                    ctx.InlinePath
+                    r
+                    "TimeSpan precision is limited to milliseconds, microsecond arguments will be ignored"
+
+            args |> List.take maxArgsCount |> timeSpanLibCall meth
+
+        else
+            timeSpanLibCall meth args
+
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" ->
         let meth =
             match args with
-            | [ ticks ] -> "fromTicks"
+            | [ _ticks ] -> "fromTicks"
             | _ -> "create"
 
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
     | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends on local culture, please add CultureInfo.InvariantCulture"
@@ -3159,12 +3184,13 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> addError com ctx.InlinePath r
 
             None
-    | meth ->
-        let args = ignoreFormatProvider meth args
-        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+    | "FromDays" -> limitArgsCountToMilliseconds "fromDays" 5
+    | "FromHours" -> limitArgsCountToMilliseconds "fromHours" 4
+    | "FromMinutes" -> limitArgsCountToMilliseconds "fromMinutes" 3
+    | "FromSeconds" -> limitArgsCountToMilliseconds "fromSeconds" 2
+    | "FromMilliseconds" -> limitArgsCountToMilliseconds "fromMilliseconds" 1
 
-        Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
+    | meth -> timeSpanLibCall meth args
 
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
