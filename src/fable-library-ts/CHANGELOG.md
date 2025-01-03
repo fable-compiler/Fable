@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.8.0 - 2024-11-19
+
+* [JS/TS] Fix `h` in `DateTime.ToString` (@MangelMaxime)
+* [JS/TS] Fix `hh` in `DateTime.ToString` (@MangelMaxime)
+
 ## 1.7.0 - 2024-11-19
 
 ### Fixed

@@ -6,11 +6,13 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.3</Version>
+        <Version>5.0.0-alpha.4</Version>
         <PackageReleaseNotes>## Fixed
 
-- [Python] Fix type testing against `uint8`, `uint32`, `uint64`, `decimal` (@MangelMaxime)
-- [JS/TS] Workaround source map generation bug (deteriorate them a little) (@MangelMaxime)
+- [TS] Make discriminated union `.Is*` properties works (@MangelMaxime)
+- [JS/TS/Python] Fix `h` in `DateTime.ToString` (@MangelMaxime)
+- [JS/TS] Fix `hh` in `DateTime.ToString` (@MangelMaxime)
+- [JS/TS] Don't generate the setter code if a property is decorated with `[&lt;Erase&gt;]` (@MangelMaxime)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

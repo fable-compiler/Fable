@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.4 - 2025-01-03
+
+### Fixed
+
+* [TS] Make discriminated union `.Is*` properties works (@MangelMaxime)
+* [JS/TS/Python] Fix `h` in `DateTime.ToString` (@MangelMaxime)
+* [JS/TS] Fix `hh` in `DateTime.ToString` (@MangelMaxime)
+* [JS/TS] Don't generate the setter code if a property is decorated with `[<Erase>]` (@MangelMaxime)
+
 ## 5.0.0-alpha.3 - 2024-12-18
 
 ### Fixed
