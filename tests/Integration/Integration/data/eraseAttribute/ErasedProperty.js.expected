@@ -1,0 +1,16 @@
+import { class_type } from "./fable_modules/fable-library-js.5.0.0-alpha.3/Reflection.js";
+
+export class LanguageInjectionAttribute {
+    constructor() {
+        this["Prefix@"] = "";
+    }
+}
+
+export function LanguageInjectionAttribute_$reflection() {
+    return class_type("ErasedProperty.LanguageInjectionAttribute", undefined, LanguageInjectionAttribute);
+}
+
+export function LanguageInjectionAttribute_$ctor() {
+    return new LanguageInjectionAttribute();
+}
+

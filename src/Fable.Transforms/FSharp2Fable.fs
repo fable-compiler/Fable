@@ -1899,6 +1899,22 @@ let private transformMemberDecl
             UsedNamesInDeclarationScope = HashSet()
         }
 
+    let isErasedPropertySetter (memb: FSharpMemberOrFunctionOrValue) =
+        if memb.IsPropertySetterMethod then
+            match memb.DeclaringEntity with
+            | Some ent ->
+                // Remove the "set_" prefix
+                let logicalName = memb.LogicalName.Substring(4)
+
+                ent.MembersFunctionsAndValues
+                |> Seq.tryFind (fun (m: FSharpMemberOrFunctionOrValue) ->
+                    m.LogicalName = logicalName && hasAttrib Atts.erase m.Attributes
+                )
+                |> Option.isSome
+            | _ -> false
+        else
+            false
+
     if isIgnoredNonAttachedMember memb then
         if memb.IsMutable && isNotPrivate memb && hasAttrib Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: "
@@ -1921,7 +1937,11 @@ let private transformMemberDecl
     elif isCompilerGenerated memb args then
         []
     // Ignore members that are decorated with [<Erase>]
-    elif hasAttrib Atts.erase memb.Attributes then
+    elif
+        hasAttrib Atts.erase memb.Attributes || isErasedPropertySetter memb
+    // Attributes are not universally propagated so for setter properties we need
+    // to check the declaring entity, https://github.com/fable-compiler/Fable/issues/3948
+    then
         []
     elif memb.IsOverrideOrExplicitInterfaceImplementation then
         if not memb.IsCompilerGenerated then

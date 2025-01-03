@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <Compile Include="Members.fs" />
+    <Compile Include="ErasedTypeWithProperty.fs" />
+    <Compile Include="ErasedProperty.fs" />
   </ItemGroup>
 
   <ItemGroup>
