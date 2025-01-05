@@ -225,3 +225,7 @@ tests/**/*.actual
 
 # Temp proj file
 *.fable-temp.csproj
+
+# Rust
+target/
+Cargo.lock
