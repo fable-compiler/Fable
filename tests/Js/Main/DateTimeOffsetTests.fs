@@ -60,6 +60,14 @@ let tests =
         | Some date when date <> DateTimeOffset.MinValue -> ()
         | _ -> failwith "expected pattern match above"
 
+    // TODO: Enable this tests when we support TimeZone for tests
+    // This test is configured for Europe/Paris timezone
+    // testCase "DateTimeOffset.ToLocalTime works" <| fun _ ->
+    //     let dt = System.DateTimeOffset.FromUnixTimeMilliseconds(1578294840000L)
+
+    //     equal dt.Hour 7
+    //     equal (dt.ToLocalTime().Hour) 8
+
     // TODO: Enable these tests
     // testCase "DateTimeOffset.ToLocalTime works" <| fun () ->
     //     let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)

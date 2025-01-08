@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* [JS/TS/Python] Add new `TimSpan` overload support coming from .NET 9
+* [JS/TS/Python] Add new `TimSpan` overload support coming from .NET 9 (by @MangelMaxime)
+
+### Fixed
+
+* [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
 
 ## 5.0.0-alpha.4 - 2025-01-03
 

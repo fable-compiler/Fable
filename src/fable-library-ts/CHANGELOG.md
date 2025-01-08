@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS] Add new `TimSpan` overload support coming from .NET 9 (by @MangelMaxime)
+
+### Fixed
+
+* [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
+
 ## 1.8.0 - 2024-11-19
 
 * [JS/TS] Fix `h` in `DateTime.ToString` (@MangelMaxime)
