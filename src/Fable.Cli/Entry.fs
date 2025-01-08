@@ -500,6 +500,21 @@ let private logPrelude commands language =
 
 [<EntryPoint>]
 let main argv =
+
+    let createLogger level =
+        use factory =
+            LoggerFactory.Create(fun builder ->
+                builder
+                    .SetMinimumLevel(level)
+                    .AddCustomConsole(fun options -> options.UseNoPrefixMsgStyle <- true)
+                |> ignore
+            )
+
+        factory.CreateLogger("")
+
+    // Set an initial logger in case, we fail to parse the CLI args
+    Log.setLogger Verbosity.Normal (createLogger LogLevel.Information)
+
     result {
         let! argv, runProc =
             argv
@@ -541,17 +556,8 @@ let main argv =
                 else
                     LogLevel.Information, Verbosity.Normal
 
-        // Initialize logging
-        let factory =
-            LoggerFactory.Create(fun builder ->
-                builder
-                    .SetMinimumLevel(level)
-                    .AddCustomConsole(fun options -> options.UseNoPrefixMsgStyle <- true)
-                |> ignore
-            )
-
-        Log.setLogger verbosity (factory.CreateLogger(""))
-        factory.Dispose()
+        // Override the logger now that we know the verbosity level
+        Log.setLogger verbosity (createLogger level)
 
         logPrelude commands language
 
@@ -584,4 +590,5 @@ let main argv =
         | Ok _ -> 0
         | Error msg ->
             Log.error msg
+            printHelp ()
             1

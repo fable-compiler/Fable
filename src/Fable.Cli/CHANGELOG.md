@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
+* [All] Don't fails silently if an unknown argument is provided, instead log the error and print the help message (by @MangelMaxime)
 
 ## 5.0.0-alpha.4 - 2025-01-03
 
