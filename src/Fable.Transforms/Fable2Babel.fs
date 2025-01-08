@@ -3782,6 +3782,44 @@ module Util =
 
         declareType com ctx ent entName args body baseExpr classMembers
 
+    let transformParamObjectClassPatternToInterface
+        (com: IBabelCompiler)
+        ctx
+        (classDecl: Fable.ClassDecl)
+        (ent: Fable.Entity)
+        =
+        let members =
+            ent.MembersFunctionsAndValues
+            |> Seq.filter _.IsConstructor
+            |> Seq.map (fun constructor ->
+                constructor.CurriedParameterGroups
+                |> List.concat
+                |> List.mapi (fun index arg ->
+                    let name = defaultArg arg.Name $"arg{index}"
+
+                    let typeAnnotation =
+                        if arg.IsOptional then
+                            unwrapOptionalType arg.Type
+                        else
+                            arg.Type
+                        |> FableTransforms.uncurryType
+                        |> makeTypeAnnotation com ctx
+
+                    AbstractMember.abstractProperty (
+                        name |> Identifier.identifier |> Expression.Identifier,
+                        typeAnnotation,
+                        isOptional = arg.IsOptional
+                    )
+                )
+            )
+            |> Seq.concat
+            |> Seq.toArray
+
+        Declaration.interfaceDeclaration (Identifier.identifier classDecl.Name, members, [||])
+        |> asModuleDeclaration ent.IsPublic
+        |> List.singleton
+
+
     let transformClassWithPrimaryConstructor
         (com: IBabelCompiler)
         ctx
@@ -4124,33 +4162,40 @@ module Util =
                 else
                     []
             | ent ->
-                let classMembers =
-                    decl.AttachedMembers
-                    |> List.toArray
-                    |> Array.collect (fun memb ->
-                        withCurrentScope ctx memb.UsedNames
-                        <| fun ctx ->
-                            memb.ImplementedSignatureRef
-                            |> Option.bind (com.TryGetMember)
-                            |> Option.orElseWith (fun () -> com.TryGetMember(memb.MemberRef))
-                            |> function
-                                | None -> [||]
-                                | Some info ->
-                                    if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
-                                        transformAttachedProperty com ctx ent info memb
-                                    else
-                                        transformAttachedMethod com ctx ent info memb
-                    )
+                if
+                    Compiler.Language = TypeScript
+                    && FSharp2Fable.Helpers.isParamObjectClassPattern ent
+                then
+                    transformParamObjectClassPatternToInterface com ctx decl ent
+                else
 
-                match decl.Constructor with
-                | Some cons ->
-                    withCurrentScope ctx cons.UsedNames
-                    <| fun ctx -> transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
-                | None ->
-                    if ent.IsFSharpUnion then
-                        transformUnion com ctx ent decl.Name classMembers
-                    else
-                        transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
+                    let classMembers =
+                        decl.AttachedMembers
+                        |> List.toArray
+                        |> Array.collect (fun memb ->
+                            withCurrentScope ctx memb.UsedNames
+                            <| fun ctx ->
+                                memb.ImplementedSignatureRef
+                                |> Option.bind (com.TryGetMember)
+                                |> Option.orElseWith (fun () -> com.TryGetMember(memb.MemberRef))
+                                |> function
+                                    | None -> [||]
+                                    | Some info ->
+                                        if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
+                                            transformAttachedProperty com ctx ent info memb
+                                        else
+                                            transformAttachedMethod com ctx ent info memb
+                        )
+
+                    match decl.Constructor with
+                    | Some cons ->
+                        withCurrentScope ctx cons.UsedNames
+                        <| fun ctx -> transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
+                    | None ->
+                        if ent.IsFSharpUnion then
+                            transformUnion com ctx ent decl.Name classMembers
+                        else
+                            transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformImports (imports: Import seq) : ModuleDeclaration list =
         let statefulImports = ResizeArray()

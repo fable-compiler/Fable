@@ -2044,7 +2044,8 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
 
                 if
                     (isErasedOrStringEnumEntity ent && Compiler.Language <> TypeScript)
-                    || isGlobalOrImportedEntity ent
+                    || (isGlobalOrImportedEntity ent
+                        && (Compiler.Language = TypeScript && not (isParamObjectClassPattern ent)))
                 then
                     []
                 else

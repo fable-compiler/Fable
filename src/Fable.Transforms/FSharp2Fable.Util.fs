@@ -817,6 +817,35 @@ module Helpers =
             | None -> false
         )
 
+    // When compiling to TypeScript, we want to captuer classes that use the
+    // [<Global>] attribute on the type and[<ParamObject>] on the constructors
+    // so we can transform it into an interface
+
+    /// <summary>
+    /// Check if the entity is decorated with the <code>Global</code> attribute
+    /// and all its constructors are decorated with <code>ParamObject</code> attribute.
+    ///
+    /// This is used to identify classes that should be transformed into interfaces.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <returns>
+    /// <code>true</code> if the entity is a global type with all constructors as param objects,
+    /// <code>false</code> otherwise.
+    /// </returns>
+    let isParamObjectClassPattern (entity: Fable.Entity) =
+        let isGlobalType =
+            entity.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.global_)
+
+        let areAllConstructorsParamObject =
+            entity.MembersFunctionsAndValues
+            |> Seq.filter _.IsConstructor
+            |> Seq.forall (fun memb ->
+                memb.Attributes
+                |> Seq.exists (fun att -> att.Entity.FullName = Atts.paramObject)
+            )
+
+        isGlobalType && areAllConstructorsParamObject
+
     let tryPickAttrib attFullNames (attributes: FSharpAttribute seq) =
         let attFullNames = Map attFullNames
 
