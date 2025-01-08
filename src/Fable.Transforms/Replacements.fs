@@ -3043,9 +3043,6 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
     | "get_Offset" ->
         Helper.LibCall(com, moduleName, "offset", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
-    | "get_LocalDateTime" ->
-        Helper.LibCall(com, "DateOffset", "toLocalTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
     | "get_UtcDateTime" ->
         Helper.LibCall(com, "DateOffset", "toUniversalTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some

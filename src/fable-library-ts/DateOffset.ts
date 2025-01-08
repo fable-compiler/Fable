@@ -166,6 +166,10 @@ export function toUniversalTime(date: IDateTimeOffset): Date {
 }
 
 export function toLocalTime(date: IDateTimeOffset): Date {
+  return DateTime(date.getTime() + offset(now()), DateKind.Local);
+}
+
+export function localDateTime(date: IDateTimeOffset) : Date {
   return DateTime(date.getTime(), DateKind.Local);
 }
 
