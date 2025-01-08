@@ -3815,7 +3815,13 @@ module Util =
             |> Seq.concat
             |> Seq.toArray
 
-        Declaration.interfaceDeclaration (Identifier.identifier classDecl.Name, members, [||])
+
+        let typeParameters =
+            ent.GenericParameters
+            |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
+            |> makeTypeParamDecl com ctx
+
+        Declaration.interfaceDeclaration (Identifier.identifier classDecl.Name, members, [||], typeParameters)
         |> asModuleDeclaration ent.IsPublic
         |> List.singleton
 
