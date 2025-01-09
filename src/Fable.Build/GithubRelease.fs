@@ -67,4 +67,5 @@ let handle (args: string list) =
 
     createReleaseCommitAndPush versionInfo
 
-    createGithubRelease githubToken versionInfo
+// Disable Github release for now, because it's not working
+// createGithubRelease githubToken versionInfo

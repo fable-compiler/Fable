@@ -4,13 +4,16 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <Version>5.0.0-alpha.4</Version>
-    <PackageReleaseNotes>## Fixed
+    <Version>5.0.0-alpha.5</Version>
+    <PackageReleaseNotes>## Added
 
-- [TS] Make discriminated union `.Is*` properties works (@MangelMaxime)
-- [JS/TS/Python] Fix `h` in `DateTime.ToString` (@MangelMaxime)
-- [JS/TS] Fix `hh` in `DateTime.ToString` (@MangelMaxime)
-- [JS/TS] Don't generate the setter code if a property is decorated with `[&lt;Erase&gt;]` (@MangelMaxime)
+- [JS/TS/Python] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @MangelMaxime)
+- [Rust] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @ncave)
+
+## Fixed
+
+- [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
+- [All] Don't fails silently if an unknown argument is provided, instead log the error and print the help message (by @MangelMaxime)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
