@@ -67,14 +67,14 @@ pub mod DateTimeOffset_ {
 
         pub fn new_utc(ndt: NaiveDateTime, offset: TimeSpan) -> DateTimeOffset {
             Self::validate(ndt, offset);
-            let ofs = FixedOffset::east_opt(offset.total_seconds() as i32).unwrap();
+            let ofs = FixedOffset::east_opt(offset.totalSeconds() as i32).unwrap();
             let cdt = ofs.from_utc_datetime(&ndt);
             DateTimeOffset(cdt.into())
         }
 
         pub fn new_local(ndt: NaiveDateTime, offset: TimeSpan) -> DateTimeOffset {
             Self::validate(ndt, offset);
-            let ofs = FixedOffset::east_opt(offset.total_seconds() as i32).unwrap();
+            let ofs = FixedOffset::east_opt(offset.totalSeconds() as i32).unwrap();
             let cdt = ofs.from_local_datetime(&ndt).unwrap();
             DateTimeOffset(cdt.into())
         }
@@ -88,7 +88,7 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn new_ticks(ticks: i64, offset: TimeSpan) -> DateTimeOffset {
-            let ts = TimeSpan::from_ticks(ticks);
+            let ts = TimeSpan::fromTicks(ticks);
             let ndt = Self::minValue().add(ts).0.naive_local();
             Self::new_local(ndt, offset)
         }
@@ -221,7 +221,7 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn subtract2(&self, other: DateTimeOffset) -> TimeSpan {
-            TimeSpan::from_ticks(duration_to_ticks((self.0 - other.0)))
+            TimeSpan::fromTicks(duration_to_ticks((self.0 - other.0)))
         }
 
         pub fn equalsExact(&self, other: DateTimeOffset) -> bool {
@@ -230,7 +230,7 @@ pub mod DateTimeOffset_ {
 
         pub fn offset(&self) -> TimeSpan {
             let seconds = self.0.offset().local_minus_utc();
-            TimeSpan::from_seconds(seconds as f64)
+            TimeSpan::fromSeconds(seconds as f64)
         }
 
         pub fn ticks(&self) -> i64 {
@@ -306,16 +306,16 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn microsecond(&self) -> i32 {
-            self.0.timestamp_subsec_micros() as i32
+            (self.0.timestamp_subsec_micros() % 1000) as i32
         }
 
         pub fn nanosecond(&self) -> i32 {
-            self.0.timestamp_subsec_nanos() as i32
+            (self.0.timestamp_subsec_nanos() % 1000) as i32
         }
 
         pub fn timeOfDay(&self) -> TimeSpan {
             let d = self.0.time() - NaiveTime::MIN;
-            TimeSpan::from_ticks(duration_to_ticks(d))
+            TimeSpan::fromTicks(duration_to_ticks(d))
         }
 
         // pub fn totalOffsetMinutes(&self) -> i32 {
@@ -360,31 +360,31 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn addDays(&self, days: f64) -> DateTimeOffset {
-            self.add(TimeSpan::from_days(days))
+            self.add(TimeSpan::fromDays(days))
         }
 
         pub fn addHours(&self, hours: f64) -> DateTimeOffset {
-            self.add(TimeSpan::from_hours(hours))
+            self.add(TimeSpan::fromHours(hours))
         }
 
         pub fn addMinutes(&self, minutes: f64) -> DateTimeOffset {
-            self.add(TimeSpan::from_minutes(minutes))
+            self.add(TimeSpan::fromMinutes(minutes))
         }
 
         pub fn addSeconds(&self, seconds: f64) -> DateTimeOffset {
-            self.add(TimeSpan::from_seconds(seconds))
+            self.add(TimeSpan::fromSeconds(seconds))
         }
 
         pub fn addMilliseconds(&self, millis: f64) -> DateTimeOffset {
-            self.add(TimeSpan::from_milliseconds(millis))
+            self.add(TimeSpan::fromMilliseconds(millis))
         }
 
         pub fn addMicroseconds(&self, micros: f64) -> DateTimeOffset {
-            self.add(TimeSpan::from_microseconds(micros))
+            self.add(TimeSpan::fromMicroseconds(micros))
         }
 
         pub fn addTicks(&self, ticks: i64) -> DateTimeOffset {
-            self.add(TimeSpan::from_ticks(ticks))
+            self.add(TimeSpan::fromTicks(ticks))
         }
 
         pub fn toString(&self, format: string) -> string {

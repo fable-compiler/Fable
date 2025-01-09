@@ -46,6 +46,8 @@ let tests() =
         let t3 = TimeSpan(5, 5, 5, 5)
         let t4 = TimeSpan(7, 7, 7, 7, 7)
         let t5 = TimeSpan(-2,0,0,0)
+        // let t6 = TimeSpan(1, 2, 3, 4, 5, 6)
+        // let t7 = TimeSpan(8L)
 
         t1.TotalMilliseconds |> equal 2.0
         t2.TotalMilliseconds |> equal 10983000.0
@@ -55,6 +57,15 @@ let tests() =
 
         t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds
         |> equal 1091715009.0
+
+        // t6.Days |> equal 1
+        // t6.Hours |> equal 2
+        // t6.Minutes |> equal 3
+        // t6.Seconds |> equal 4
+        // t6.Milliseconds |> equal 5
+        // t6.Microseconds |> equal 6
+        // t6.Nanoseconds |> equal 0
+        // t7.Nanoseconds |> equal 800
 
     testCase "TimeSpan static creation works" <| fun () ->
         let t1 = TimeSpan.FromTicks(20000L)

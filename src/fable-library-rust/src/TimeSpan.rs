@@ -22,7 +22,7 @@ pub mod TimeSpan_ {
 
     impl core::fmt::Display for TimeSpan {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-            write!(f, "{}", self.to_string(string("")))
+            write!(f, "{}", self.toString(string("")))
         }
     }
 
@@ -40,85 +40,164 @@ pub mod TimeSpan_ {
         }
 
         pub fn new_hms(h: i32, m: i32, s: i32) -> TimeSpan {
-            let hoursTicks = (h as i64) * ticks_per_hour;
-            let minsTicks = (m as i64) * ticks_per_minute;
-            let secTicks = (s as i64) * ticks_per_second;
-            Self::new_ticks(hoursTicks + minsTicks + secTicks)
+            Self::fromDays6(0, h, m as i64, s as i64, 0, 0)
         }
 
         pub fn new_dhms(d: i32, h: i32, m: i32, s: i32) -> TimeSpan {
-            let hours = d * 24 + h;
-            Self::new_hms(hours, m, s)
+            Self::fromDays6(d, h, m as i64, s as i64, 0, 0)
         }
 
         pub fn new_dhms_milli(d: i32, h: i32, m: i32, s: i32, ms: i32) -> TimeSpan {
-            let hours = (d * 24 + h) as i64;
-            let hoursTicks = hours * ticks_per_hour;
-            let minsTicks = (m as i64) * ticks_per_minute;
-            let secTicks = (s as i64) * ticks_per_second;
-            let msTicks = (ms as i64) * ticks_per_millisecond;
-            Self::new_ticks(hoursTicks + minsTicks + secTicks + msTicks)
+            Self::fromDays6(d, h, m as i64, s as i64, ms as i64, 0)
         }
 
-        pub fn from_ticks(ticks: i64) -> TimeSpan {
+        pub fn new_dhms_micro(d: i32, h: i32, m: i32, s: i32, ms: i32, mi: i32) -> TimeSpan {
+            Self::fromDays6(d, h, m as i64, s as i64, ms as i64, mi as i64)
+        }
+
+        pub fn fromTicks(ticks: i64) -> TimeSpan {
             Self::new_ticks(ticks)
         }
 
-        pub fn from_days(days: f64) -> TimeSpan {
-            Self::from_hours(days * 24.)
+        pub fn fromDays(days: f64) -> TimeSpan {
+            Self::fromHours(days * 24.)
         }
 
-        pub fn from_hours(hours: f64) -> TimeSpan {
-            Self::from_minutes(hours * 60.)
+        pub fn fromDays1(d: i32) -> TimeSpan {
+            Self::fromDays6(d, 0, 0, 0, 0, 0)
         }
 
-        pub fn from_minutes(minutes: f64) -> TimeSpan {
-            Self::from_seconds(minutes * 60.)
+        pub fn fromDays2(d: i32, h: i32) -> TimeSpan {
+            Self::fromDays6(d, h, 0, 0, 0, 0)
         }
 
-        pub fn from_seconds(seconds: f64) -> TimeSpan {
-            TimeSpan {
-                ticks: (seconds * (ticks_per_second as f64)) as i64,
-            }
+        pub fn fromDays3(d: i32, h: i32, m: i64) -> TimeSpan {
+            Self::fromDays6(d, h, m, 0, 0, 0)
         }
 
-        pub fn from_milliseconds(millis: f64) -> TimeSpan {
-            TimeSpan {
-                ticks: (millis * (ticks_per_millisecond as f64)) as i64,
-            }
+        pub fn fromDays4(d: i32, h: i32, m: i64, s: i64) -> TimeSpan {
+            Self::fromDays6(d, h, m, s, 0, 0)
         }
 
-        pub fn from_microseconds(micros: f64) -> TimeSpan {
-            TimeSpan {
-                ticks: (micros * (ticks_per_microsecond as f64)) as i64,
-            }
+        pub fn fromDays5(d: i32, h: i32, m: i64, s: i64, ms: i64) -> TimeSpan {
+            Self::fromDays6(d, h, m, s, ms, 0)
         }
 
-        pub fn total_days(&self) -> f64 {
+        pub fn fromDays6(d: i32, h: i32, m: i64, s: i64, ms: i64, mi: i64) -> TimeSpan {
+            let hours = (d * 24 + h) as i64;
+            let hoursTicks = hours * ticks_per_hour;
+            let minsTicks = m * ticks_per_minute;
+            let secTicks = s * ticks_per_second;
+            let msTicks = ms * ticks_per_millisecond;
+            let miTicks = mi * ticks_per_microsecond;
+            Self::new_ticks(hoursTicks + minsTicks + secTicks + msTicks + miTicks)
+        }
+
+        pub fn fromHours(hours: f64) -> TimeSpan {
+            Self::fromMinutes(hours * 60.)
+        }
+
+        pub fn fromHours1(h: i32) -> TimeSpan {
+            Self::fromDays6(0, h, 0, 0, 0, 0)
+        }
+
+        pub fn fromHours2(h: i32, m: i64) -> TimeSpan {
+            Self::fromDays6(0, h, m, 0, 0, 0)
+        }
+
+        pub fn fromHours3(h: i32, m: i64, s: i64) -> TimeSpan {
+            Self::fromDays6(0, h, m, s, 0, 0)
+        }
+
+        pub fn fromHours4(h: i32, m: i64, s: i64, ms: i64) -> TimeSpan {
+            Self::fromDays6(0, h, m, s, ms, 0)
+        }
+
+        pub fn fromHours5(h: i32, m: i64, s: i64, ms: i64, mi: i64) -> TimeSpan {
+            Self::fromDays6(0, h, m, s, ms, mi)
+        }
+
+        pub fn fromMinutes(minutes: f64) -> TimeSpan {
+            Self::fromSeconds(minutes * 60.)
+        }
+
+        pub fn fromMinutes1(m: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, m, 0, 0, 0)
+        }
+
+        pub fn fromMinutes2(m: i64, s: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, m, s, 0, 0)
+        }
+
+        pub fn fromMinutes3(m: i64, s: i64, ms: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, m, s, ms, 0)
+        }
+
+        pub fn fromMinutes4(m: i64, s: i64, ms: i64, mi: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, m, s, ms, mi)
+        }
+
+        pub fn fromSeconds(seconds: f64) -> TimeSpan {
+            Self::new_ticks((seconds * (ticks_per_second as f64)) as i64)
+        }
+
+        pub fn fromSeconds1(s: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, 0, s, 0, 0)
+        }
+
+        pub fn fromSeconds2(s: i64, ms: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, 0, s, ms, 0)
+        }
+
+        pub fn fromSeconds3(s: i64, ms: i64, mi: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, 0, s, ms, mi)
+        }
+
+        pub fn fromMilliseconds(millis: f64) -> TimeSpan {
+            Self::new_ticks((millis * (ticks_per_millisecond as f64)) as i64)
+        }
+
+        pub fn fromMilliseconds1(ms: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, 0, 0, ms, 0)
+        }
+
+        pub fn fromMilliseconds2(ms: i64, mi: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, 0, 0, ms, mi)
+        }
+
+        pub fn fromMicroseconds(micros: f64) -> TimeSpan {
+            Self::new_ticks((micros * (ticks_per_microsecond as f64)) as i64)
+        }
+
+        pub fn fromMicroseconds1(mi: i64) -> TimeSpan {
+            Self::fromDays6(0, 0, 0, 0, 0, mi)
+        }
+
+        pub fn totalDays(&self) -> f64 {
             self.ticks as f64 / ticks_per_day as f64
         }
 
-        pub fn total_hours(&self) -> f64 {
+        pub fn totalHours(&self) -> f64 {
             self.ticks as f64 / ticks_per_hour as f64
         }
 
-        pub fn total_minutes(&self) -> f64 {
+        pub fn totalMinutes(&self) -> f64 {
             self.ticks as f64 / ticks_per_minute as f64
         }
 
-        pub fn total_seconds(&self) -> f64 {
+        pub fn totalSeconds(&self) -> f64 {
             self.ticks as f64 / ticks_per_second as f64
         }
 
-        pub fn total_milliseconds(&self) -> f64 {
+        pub fn totalMilliseconds(&self) -> f64 {
             self.ticks as f64 / ticks_per_millisecond as f64
         }
 
-        pub fn total_microseconds(&self) -> f64 {
+        pub fn totalMicroseconds(&self) -> f64 {
             self.ticks as f64 / ticks_per_microsecond as f64
         }
 
-        pub fn total_nanoseconds(&self) -> f64 {
+        pub fn totalNanoseconds(&self) -> f64 {
             (self.ticks * nanoseconds_per_tick) as f64
         }
 
@@ -131,38 +210,38 @@ pub mod TimeSpan_ {
         }
 
         pub fn days(&self) -> i32 {
-            self.total_days() as i32
+            self.totalDays() as i32
         }
 
         pub fn hours(&self) -> i32 {
-            (self.total_hours() - self.total_days() as i32 as f64 * 24.0) as i32
+            (self.totalHours() - self.totalDays().trunc() * 24.0) as i32
         }
 
         pub fn minutes(&self) -> i32 {
-            (self.total_minutes() - self.total_hours() as i32 as f64 * 60.0) as i32
+            (self.totalMinutes() - self.totalHours().trunc() * 60.0) as i32
         }
 
         pub fn seconds(&self) -> i32 {
-            (self.total_seconds() - self.total_minutes() as i32 as f64 * 60.0) as i32
+            (self.totalSeconds() - self.totalMinutes().trunc() * 60.0) as i32
         }
 
         pub fn milliseconds(&self) -> i32 {
-            (self.total_milliseconds() - self.total_seconds() as i32 as f64 * 1000.0) as i32
+            (self.totalMilliseconds() - self.totalSeconds().trunc() * 1000.0) as i32
         }
 
         pub fn microseconds(&self) -> i32 {
-            (self.total_microseconds() - self.total_milliseconds() as i32 as f64 * 1000.0) as i32
+            (self.totalMicroseconds() - self.totalMilliseconds().trunc() * 1000.0) as i32
         }
 
         pub fn nanoseconds(&self) -> i32 {
-            (self.total_nanoseconds() - self.total_microseconds() as i32 as f64 * 1000.0) as i32
+            (self.totalNanoseconds() - self.totalMicroseconds().trunc() * 1000.0) as i32
         }
 
         pub fn negate(&self) -> TimeSpan {
             Self::new_ticks(-self.ticks)
         }
 
-        pub fn to_string(&self, format: string) -> string {
+        pub fn toString(&self, format: string) -> string {
             let sign = if self.ticks < 0 { "-" } else { "" };
             let days = self.days().abs();
             let days = if days == 0 {
@@ -229,14 +308,14 @@ pub mod TimeSpan_ {
                             + m as i64 * ticks_per_minute
                             + (s * ticks_per_second as f64) as i64;
                         let ticks = if isNeg { -ticks } else { ticks };
-                        Ok(Self::from_ticks(ticks))
+                        Ok(Self::fromTicks(ticks))
                     }
                     _ => error,
                 }
             }
         }
 
-        pub fn try_parse(s: string, res: &MutCell<TimeSpan>) -> bool {
+        pub fn tryParse(s: string, res: &MutCell<TimeSpan>) -> bool {
             match Self::try_parse_str(s.trim()) {
                 Ok(ts) => {
                     res.set(ts);
@@ -258,9 +337,7 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn add(self, rhs: TimeSpan) -> Self::Output {
-            TimeSpan {
-                ticks: self.ticks + rhs.ticks,
-            }
+            TimeSpan::new_ticks(self.ticks + rhs.ticks)
         }
     }
 
@@ -268,9 +345,7 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn sub(self, rhs: TimeSpan) -> Self::Output {
-            TimeSpan {
-                ticks: self.ticks - rhs.ticks,
-            }
+            TimeSpan::new_ticks(self.ticks - rhs.ticks)
         }
     }
 
@@ -278,9 +353,7 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn mul(self, rhs: TimeSpan) -> Self::Output {
-            TimeSpan {
-                ticks: self.ticks * rhs.ticks,
-            }
+            TimeSpan::new_ticks(self.ticks * rhs.ticks)
         }
     }
 
@@ -296,9 +369,7 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn mul(self, rhs: f64) -> Self::Output {
-            TimeSpan {
-                ticks: ((self.ticks as f64) * rhs) as i64,
-            }
+            TimeSpan::new_ticks(((self.ticks as f64) * rhs) as i64)
         }
     }
 
@@ -306,9 +377,7 @@ pub mod TimeSpan_ {
         type Output = TimeSpan;
 
         fn div(self, rhs: f64) -> Self::Output {
-            TimeSpan {
-                ticks: ((self.ticks as f64) / rhs) as i64,
-            }
+            TimeSpan::new_ticks(((self.ticks as f64) / rhs) as i64)
         }
     }
 }
