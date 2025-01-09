@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* [JS/TS/Python] Add new `TimSpan` overload support coming from .NET 9 (by @MangelMaxime)
+* [JS/TS/Python] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @MangelMaxime)
+* [Rust] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @ncave)
 
 ### Fixed
 

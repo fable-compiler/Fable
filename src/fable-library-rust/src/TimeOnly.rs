@@ -85,7 +85,7 @@ pub mod TimeOnly_ {
                 hours as u32,
                 mins as u32,
                 secs as u32,
-                (millis * 100 + micros) as u32,
+                (millis * 1000 + micros) as u32,
             )
             .unwrap();
             TimeOnly(t)
@@ -134,15 +134,15 @@ pub mod TimeOnly_ {
         }
 
         pub fn millisecond(&self) -> i32 {
-            (self.0.nanosecond() / 1_000_000) as i32
+            (self.0.nanosecond() / 1_000_000 % 1000) as i32
         }
 
         pub fn microsecond(&self) -> i32 {
-            (self.0.nanosecond() / 1000) as i32
+            (self.0.nanosecond() / 1000 % 1000) as i32
         }
 
         pub fn nanosecond(&self) -> i32 {
-            self.0.nanosecond() as i32
+            (self.0.nanosecond() % 1000) as i32
         }
 
         pub fn ticks(&self) -> i64 {
@@ -183,15 +183,15 @@ pub mod TimeOnly_ {
             } else {
                 ticks
             };
-            TimeSpan::from_ticks(ticks)
+            TimeSpan::fromTicks(ticks)
         }
 
         pub fn addHours(&self, hours: f64) -> TimeOnly {
-            self.add(TimeSpan::from_hours(hours))
+            self.add(TimeSpan::fromHours(hours))
         }
 
         pub fn addMinutes(&self, minutes: f64) -> TimeOnly {
-            self.add(TimeSpan::from_minutes(minutes))
+            self.add(TimeSpan::fromMinutes(minutes))
         }
 
         pub fn toString(&self, format: string) -> string {

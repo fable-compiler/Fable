@@ -2508,6 +2508,7 @@ let ignoreFormatProvider compiledName args =
     | _ -> args
 
 let makeDateOrTimeMemberCall com ctx r t i moduleName memberName (thisArg: Expr option) (args: Expr list) =
+    let memberName = Naming.removeGetSetPrefix memberName |> Naming.lowerFirst
     let args = ignoreFormatProvider i.CompiledName args
 
     match thisArg with
@@ -2584,10 +2585,7 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Subtract" ->
         Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
         |> Some
-    | meth ->
-        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-
-        makeDateOrTimeMemberCall com ctx r t i "DateTime" meth thisArg args |> Some
+    | meth -> makeDateOrTimeMemberCall com ctx r t i "DateTime" meth thisArg args |> Some
 
 let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2598,24 +2596,30 @@ let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: 
         | ExprType(DeclaredType(ent, [])) :: [] when ent.FullName = Types.datetime -> "new_datetime" |> Some
         | ExprType(DeclaredType(ent, [])) :: _ when ent.FullName = Types.datetime -> "new_datetime2" |> Some
         | ExprType(DeclaredType(ent, [])) :: _ when ent.FullName = Types.dateOnly -> "new_date_time" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: _offset :: [] ->
-            "new_ymdhms" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                         _)) :: _offset :: [] ->
-            "new_ymdhms_milli" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                         _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                                                _)) :: _offset :: [] ->
-            "new_ymdhms_micro" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            _offset ] -> "new_ymdhms" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            _offset ] -> "new_ymdhms_milli" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            _offset ] -> "new_ymdhms_micro" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "DateTimeOffset" meth args)
     | "Compare"
@@ -2629,8 +2633,6 @@ let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: 
         Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
         |> Some
     | meth ->
-        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-
         makeDateOrTimeMemberCall com ctx r t i "DateTimeOffset" meth thisArg args
         |> Some
 
@@ -2646,10 +2648,7 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "Equals"
     | "GetHashCode" -> valueTypes com ctx r t i thisArg args
     | "ToDateTime" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "toDateTime2" args |> Some
-    | meth ->
-        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-
-        makeDateOrTimeMemberCall com ctx r t i "DateOnly" meth thisArg args |> Some
+    | meth -> makeDateOrTimeMemberCall com ctx r t i "DateOnly" meth thisArg args |> Some
 
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2674,26 +2673,30 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "Equals"
     | "GetHashCode" -> valueTypes com ctx r t i thisArg args
     | "Add" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "add2" args |> Some
-    | meth ->
-        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-
-        makeDateOrTimeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
+    | meth -> makeDateOrTimeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" ->
         match args with
-        | ExprType(Number(Int64, _)) :: [] -> "new_ticks" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: [] ->
-            "new_hms" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: [] ->
-            "new_dhms" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: [] ->
-            "new_dhms_milli" |> Some
+        | [ ExprType(Number(Int64, _)) ] -> "new_ticks" |> Some
+        | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] -> "new_hms" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _)) ] -> "new_dhms" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _)) ] -> "new_dhms_milli" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _)) ] -> "new_dhms_micro" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "TimeSpan" meth args)
     | "Compare"
@@ -2713,12 +2716,22 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Divide" ->
         Operation(Binary(BinaryOperator.BinaryDivide, thisArg.Value, args.Head), Tags.empty, t, r)
         |> Some
-    | meth ->
-        let meth =
-            Naming.removeGetSetPrefix meth
-            |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
-
-        makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+    | "FromDays"
+    | "FromHours"
+    | "FromMinutes"
+    | "FromSeconds"
+    | "FromMilliseconds"
+    | "FromMicroseconds" as meth ->
+        match args with
+        | [ ExprType(Number(Float64, _)) ] ->
+            // overloads that take a float
+            makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+        | _ ->
+            // overloads with variable argument counts
+            let argCount = List.length args
+            let meth = meth + (string argCount)
+            makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+    | meth -> makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with

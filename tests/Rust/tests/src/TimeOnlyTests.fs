@@ -5,13 +5,15 @@ open System.Globalization
 open Util.Testing
 
 [<Fact>]
-let ``TimeSpan constructors work`` () =
+let ``TimeOnly constructors work`` () =
     let t1 = TimeOnly(20000L)
     let t2 = TimeOnly(3, 3, 3)
     let t3 = TimeOnly(5, 5, 5, 5)
     let t4 = TimeOnly(7, 7, 7, 7)
     let t5 = TimeOnly.MaxValue
     let t6 = TimeOnly.MinValue
+    let t7 = TimeOnly(1, 2, 3, 4, 5)
+    let t8 = TimeOnly(8L)
 
     t1.Ticks |> equal 20000L
     t2.Second |> equal 3
@@ -21,6 +23,14 @@ let ``TimeSpan constructors work`` () =
     t5.Minute |> equal 59
     t5.Millisecond |> equal 999
     t6.Ticks |> equal 0L
+
+    t7.Hour |> equal 1
+    t7.Minute |> equal 2
+    t7.Second |> equal 3
+    t7.Millisecond |> equal 4
+    t7.Microsecond |> equal 5
+    t7.Nanosecond |> equal 0
+    t8.Nanosecond |> equal 800
 
 [<Fact>]
 let ``FromTimeSpan works`` () =
