@@ -244,8 +244,9 @@ let ``test StringBuilder.Append works with various overloads`` () =
                         .Append(true)
                         .AppendFormat(CultureInfo.InvariantCulture, "{0}", 5.2)
                         .Append(34)
+                        .Append('x', 4)
     let actual = sb.ToString().ToLower()
-    actual |> equal "aaabcd/true5.234"
+    actual |> equal "aaabcd/true5.234xxxx"
 
 [<Fact>]
 let ``test StringBuilder.AppendFormat works`` () =

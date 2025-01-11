@@ -199,7 +199,8 @@ let ``test StringBuilder.Append works with various overloads`` () =
                         .Append(true)
                         .Append(5.2)
                         .Append(34)
-    equal "aaabcd/true5.234" (sb.ToString().ToLower())
+                        .Append('x', 4)
+    equal "aaabcd/true5.234xxxx" (sb.ToString().ToLower())
 
 [<Fact>]
 let ``StringBuilder.AppendFormat works`` () =
