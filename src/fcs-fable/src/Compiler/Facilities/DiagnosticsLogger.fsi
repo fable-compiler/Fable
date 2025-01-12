@@ -481,6 +481,7 @@ type CompilationGlobalsScope =
 
     member BuildPhase: BuildPhase
 
+#if !FABLE_COMPILER
 module MultipleDiagnosticsLoggers =
 
     /// Run computations using Async.Parallel.
@@ -490,3 +491,4 @@ module MultipleDiagnosticsLoggers =
 
     /// Run computations sequentially starting immediately on the current thread.
     val Sequential: computations: Async<'T> seq -> Async<'T array>
+#endif //!FABLE_COMPILER

@@ -38,7 +38,9 @@ val processGraph<'Item, 'Result when 'Item: equality and 'Item: comparison> :
     parentCt: CancellationToken ->
         ('Item * 'Result)[]
 
+#if !FABLE_COMPILER
 val processGraphAsync<'Item, 'Result when 'Item: equality and 'Item: comparison> :
     graph: Graph<'Item> ->
     work: (('Item -> ProcessedNode<'Item, 'Result>) -> NodeInfo<'Item> -> Async<'Result>) ->
         Async<('Item * 'Result)[]>
+#endif //!FABLE_COMPILER

@@ -180,6 +180,7 @@ let processGraph<'Item, 'Result when 'Item: equality and 'Item: comparison>
     |> Seq.sortBy fst
     |> Seq.toArray
 
+#if !FABLE_COMPILER
 let processGraphAsync<'Item, 'Result when 'Item: equality and 'Item: comparison>
     (graph: Graph<'Item>)
     (work: ('Item -> ProcessedNode<'Item, 'Result>) -> NodeInfo<'Item> -> Async<'Result>)
@@ -312,3 +313,4 @@ let processGraphAsync<'Item, 'Result when 'Item: equality and 'Item: comparison>
             |> Seq.sortBy fst
             |> Seq.toArray
     }
+#endif //!FABLE_COMPILER

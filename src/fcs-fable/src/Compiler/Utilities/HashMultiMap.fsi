@@ -19,8 +19,10 @@ type internal HashMultiMap<'Key, 'Value
     /// and with the given key hash/equality functions.
     new: size: int * comparer: IEqualityComparer<'Key> * ?useConcurrentDictionary: bool -> HashMultiMap<'Key, 'Value>
 
+#if !FABLE_COMPILER
     /// Build a map that contains the bindings of the given IEnumerable.
     new: entries: seq<'Key * 'Value> * comparer: IEqualityComparer<'Key> * ?useConcurrentDictionary: bool -> HashMultiMap<'Key, 'Value>
+#endif
 
     /// Make a shallow copy of the collection.
     member Copy: unit -> HashMultiMap<'Key, 'Value>

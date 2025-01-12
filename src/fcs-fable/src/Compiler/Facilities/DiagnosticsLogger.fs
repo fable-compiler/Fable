@@ -943,6 +943,7 @@ type StackGuard(maxDepth: int, name: string) =
     static member GetDepthOption(name: string) =
         GetEnvInteger ("FSHARP_" + name + "StackGuardDepth") StackGuard.DefaultDepth
 
+#if !FABLE_COMPILER
 // UseMultipleDiagnosticLoggers in ParseAndCheckProject.fs provides similar functionality.
 // We should probably adapt and reuse that code.
 module MultipleDiagnosticsLoggers =
@@ -1008,3 +1009,4 @@ module MultipleDiagnosticsLoggers =
 
             return results.ToArray()
         }
+#endif //!FABLE_COMPILER

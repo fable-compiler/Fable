@@ -128,8 +128,13 @@ module rec HashTypes =
 
     let stampEquals g ty1 ty2 =
         match (stripTyEqns g ty1), (stripTyEqns g ty2) with
+#if FABLE_COMPILER
+        | TType_app(tcref1, _, _), TType_app(tcref2, _, _) -> tcref1.Stamp = tcref2.Stamp
+        | TType_var(r1, _), TType_var(r2, _) -> r1.Stamp = r2.Stamp
+#else
         | TType_app(tcref1, _, _), TType_app(tcref2, _, _) -> tcref1.Stamp.Equals(tcref2.Stamp)
         | TType_var(r1, _), TType_var(r2, _) -> r1.Stamp.Equals(r2.Stamp)
+#endif
         | _ -> false
 
     /// Get has for Stamp for TType_app tyconref and TType_var typar

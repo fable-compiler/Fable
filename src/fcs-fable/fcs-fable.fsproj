@@ -20,7 +20,9 @@
   <ItemGroup>
     <!-- BCL shims -->
     <Compile Include="System.fs" />
-    <Compile Include="System.Collections.fs" />
+    <Compile Include="System.Collections.Immutable.fs" />
+    <Compile Include="System.Collections.Concurrent.fs" />
+    <Compile Include="System.Collections.Generic.fs" />
     <Compile Include="System.IO.fs" />
     <!-- string resources -->
     <Compile Include="FSStrings.fs" />
@@ -85,8 +87,8 @@
     <Compile Include="$(FSharpSourcesRoot)/Facilities/DiagnosticsLogger.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/DiagnosticResolutionHints.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/DiagnosticResolutionHints.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/Facilities/Hashing.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/Facilities/Hashing.fs" />
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Facilities/Hashing.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Facilities/Hashing.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/Facilities/prim-lexing.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/prim-lexing.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Facilities/prim-parsing.fsi" />
