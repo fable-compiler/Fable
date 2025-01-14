@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [All] Add `StringBuiler.Append(c: char, repeatCount: int)` overload (by @roboz0r)
+
 ## 5.0.0-alpha.5 - 2025-01-09
 
 ### Added
