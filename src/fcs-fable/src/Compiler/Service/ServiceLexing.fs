@@ -392,6 +392,7 @@ module internal TokenClassifications =
         | HIGH_PRECEDENCE_PAREN_APP
         | FIXED
         | HIGH_PRECEDENCE_BRACK_APP
+        | BAR_JUST_BEFORE_NULL
         | TYPE_COMING_SOON
         | TYPE_IS_HERE
         | MODULE_COMING_SOON
@@ -438,7 +439,7 @@ module internal TestExpose =
 /// many allocated objects.
 ///
 /// The encoding is lossy so some incremental lexing scenarios such as deeply nested #if
-/// or accurate error messages from lexing for mismtached #if are not supported.
+/// or accurate error messages from lexing for mismatched #if are not supported.
 [<Struct; CustomEquality; NoComparison>]
 type FSharpTokenizerLexState =
     {
@@ -621,12 +622,12 @@ module internal LexerStateEncoding =
             let tag1, i1, kind1, rest =
                 match stringNest with
                 | [] -> false, 0, 0, []
-                | (i1, kind1, _, _) :: rest -> true, i1, encodeStringStyle kind1, rest
+                | (i1, kind1, _, _, _) :: rest -> true, i1, encodeStringStyle kind1, rest
 
             let tag2, i2, kind2 =
                 match rest with
                 | [] -> false, 0, 0
-                | (i2, kind2, _, _) :: _ -> true, i2, encodeStringStyle kind2
+                | (i2, kind2, _, _, _) :: _ -> true, i2, encodeStringStyle kind2
 
             (if tag1 then 0b100000000000 else 0)
             ||| (if tag2 then 0b010000000000 else 0)
@@ -696,9 +697,9 @@ module internal LexerStateEncoding =
             let nest =
                 [
                     if tag1 then
-                        i1, decodeStringStyle kind1, 0, range0
+                        i1, decodeStringStyle kind1, 0, None, range0
                     if tag2 then
-                        i2, decodeStringStyle kind2, 0, range0
+                        i2, decodeStringStyle kind2, 0, None, range0
                 ]
 
             nest
@@ -733,7 +734,7 @@ module internal LexerStateEncoding =
             )
         | LexCont.EndLine(ifdefs, stringNest, econt) ->
             match econt with
-            | LexerEndlineContinuation.Skip(n, m) ->
+            | LexerEndlineContinuation.IfdefSkip(n, m) ->
                 encodeLexCont (
                     FSharpTokenizerColorState.EndLineThenSkip,
                     int64 n,
@@ -833,7 +834,7 @@ module internal LexerStateEncoding =
             | FSharpTokenizerColorState.ExtendedInterpolatedString ->
                 LexCont.String(ifdefs, stringNest, LexerStringStyle.ExtendedInterpolated, stringKind, delimLen, mkRange "file" p1 p1)
             | FSharpTokenizerColorState.EndLineThenSkip ->
-                LexCont.EndLine(ifdefs, stringNest, LexerEndlineContinuation.Skip(n1, mkRange "file" p1 p1))
+                LexCont.EndLine(ifdefs, stringNest, LexerEndlineContinuation.IfdefSkip(n1, mkRange "file" p1 p1))
             | FSharpTokenizerColorState.EndLineThenToken -> LexCont.EndLine(ifdefs, stringNest, LexerEndlineContinuation.Token)
             | _ -> LexCont.Token([], stringNest)
 
@@ -1046,8 +1047,8 @@ type FSharpLineTokenizer(lexbuf: UnicodeLexing.Lexbuf, maxLength: int option, fi
                     false, (RQUOTE(s, raw), leftc, rightc - 1)
                 | INFIX_COMPARE_OP(LexFilter.TyparsCloseOp(greaters, afterOp) as opstr) ->
                     match afterOp with
-                    | None -> ()
-                    | Some tok -> delayToken (tok, leftc + greaters.Length, rightc)
+                    | ValueNone -> ()
+                    | ValueSome tok -> delayToken (tok, leftc + greaters.Length, rightc)
 
                     for i = greaters.Length - 1 downto 1 do
                         delayToken (greaters[i]false, leftc + i, rightc - opstr.Length + i + 1)

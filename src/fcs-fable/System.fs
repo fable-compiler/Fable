@@ -8,6 +8,7 @@ type Environment() =
     static member ProcessorCount = 1
     static member Exit(_exitcode) = ()
     static member GetEnvironmentVariable(_variable) = null
+    static member StackTrace = ""
 
 module Diagnostics =
     type Trace() =
@@ -18,6 +19,10 @@ module Reflection =
         member x.Name = assemblyName //TODO: proper implementation
 
 module Threading =
+    type AsyncLocal<'T>() =
+        let mutable value: 'T = Unchecked.defaultof<'T>
+        member val Value = value with get, set
+
     type Interlocked() =
         //TODO: threaded implementation
         static member Increment(i: int32 byref): int32 = i <- i + 1; i

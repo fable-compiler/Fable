@@ -69,19 +69,46 @@ type System.Collections.Generic.IList<'T> with
         else
             Some(self.Item(self.Count - 1))
 
-type System.Collections.Generic.IEnumerable<'T> with
+// // These no longer work on .NET 9.0, see https://github.com/dotnet/fsharp/issues/18001
 
-    member self.iter() = self.GetEnumerator()
+// type System.Collections.Generic.IEnumerable<'T> with
 
-type System.Collections.Generic.IEnumerator<'T> with
+//     member self.iter() = self.GetEnumerator()
 
-    member self.next() =
+// type System.Collections.Generic.IEnumerator<'T> with
+
+//     member self.next() =
+//         if self.MoveNext() then
+//             Some(self.Current)
+//         else
+//             None
+
+//     member self.enumerate() =
+//         { new System.Collections.Generic.IEnumerable<'T> with
+//             member x.GetEnumerator() = self
+//           interface System.Collections.IEnumerable with
+//               member x.GetEnumerator() =
+//                   (self :> System.Collections.IEnumerator)
+//         }
+
+[<System.Runtime.CompilerServices.Extension>]
+type IEnumerableExtensions =
+
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline iter(self: System.Collections.Generic.IEnumerable<'T>) = self.GetEnumerator()
+
+[<System.Runtime.CompilerServices.Extension>]
+type IEnumeratorExtensions =
+
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline next(self: System.Collections.Generic.IEnumerator<'T>) =
         if self.MoveNext() then
             Some(self.Current)
         else
             None
 
-    member self.enumerate() =
+    [<System.Runtime.CompilerServices.Extension>]
+    static member inline enumerate(self: System.Collections.Generic.IEnumerator<'T>) =
         { new System.Collections.Generic.IEnumerable<'T> with
             member x.GetEnumerator() = self
           interface System.Collections.IEnumerable with
@@ -235,7 +262,7 @@ type Macros =
     static member panic() = failwith "panic!"
     static member panic(str: string) = failwith str
 
-    static member format(fmt: string, [<System.ParamArray>] args) = System.String.Format(fmt, args)
+    static member format(fmt: string, [<System.ParamArray>] args: obj array) = System.String.Format(fmt, args)
 
     static member write(buf: String, str: string) = buf.push_str (str)
 

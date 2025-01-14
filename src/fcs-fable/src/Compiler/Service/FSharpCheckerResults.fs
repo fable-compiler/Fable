@@ -6,6 +6,7 @@
 namespace FSharp.Compiler.CodeAnalysis
 
 open System
+open System.Collections.Generic
 open System.Diagnostics
 open System.IO
 open System.Reflection
@@ -14,12 +15,13 @@ open FSharp.Compiler.IO
 open FSharp.Compiler.NicePrint
 open Internal.Utilities.Library
 open Internal.Utilities.Library.Extras
+open Internal.Utilities.TypeHashing
 open FSharp.Core.Printf
 open FSharp.Compiler
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AccessibilityLogic
-open FSharp.Compiler.CheckExpressions
+open FSharp.Compiler.CheckExpressionsOps
 open FSharp.Compiler.CheckDeclarations
 open FSharp.Compiler.CompilerConfig
 open FSharp.Compiler.CompilerDiagnostics
@@ -53,8 +55,18 @@ open FSharp.Compiler.TypedTreeOps
 open Internal.Utilities
 open Internal.Utilities.Collections
 open FSharp.Compiler.AbstractIL.ILBinaryReader
+open System.Threading.Tasks
+open System.Runtime.CompilerServices
+#if !FABLE_COMPILER
+open Internal.Utilities.Hashing
+#endif
 
 type FSharpUnresolvedReferencesSet = FSharpUnresolvedReferencesSet of UnresolvedAssemblyReference list
+
+[<RequireQualifiedAccess>]
+type DocumentSource =
+    | FileSystem
+    | Custom of (string -> Async<ISourceText option>)
 
 [<Sealed>]
 type DelayedILModuleReader =
@@ -201,7 +213,10 @@ module internal FSharpCheckerResultsSettings =
 #else
     let defaultFSharpBinariesDir =
         FSharpEnvironment
-            .BinFolderOfDefaultFSharpCompiler(Some(Path.GetDirectoryName(typeof<IncrementalBuilder>.Assembly.Location)))
+            .BinFolderOfDefaultFSharpCompiler(
+                Path.GetDirectoryName(typeof<IncrementalBuilder>.Assembly.Location)
+                |> Option.ofObj
+            )
             .Value
 #endif
 
@@ -220,27 +235,27 @@ type FSharpSymbolUse(denv: DisplayEnv, symbol: FSharpSymbol, inst: TyparInstanti
 
     member x.IsDefinition = x.IsFromDefinition
 
-    member _.IsFromDefinition = itemOcc = ItemOccurence.Binding
+    member _.IsFromDefinition = itemOcc = ItemOccurrence.Binding
 
-    member _.IsFromPattern = itemOcc = ItemOccurence.Pattern
+    member _.IsFromPattern = itemOcc = ItemOccurrence.Pattern
 
-    member _.IsFromType = itemOcc = ItemOccurence.UseInType
+    member _.IsFromType = itemOcc = ItemOccurrence.UseInType
 
-    member _.IsFromAttribute = itemOcc = ItemOccurence.UseInAttribute
+    member _.IsFromAttribute = itemOcc = ItemOccurrence.UseInAttribute
 
-    member _.IsFromDispatchSlotImplementation = itemOcc = ItemOccurence.Implemented
+    member _.IsFromDispatchSlotImplementation = itemOcc = ItemOccurrence.Implemented
 
-    member _.IsFromUse = itemOcc = ItemOccurence.Use
+    member _.IsFromUse = itemOcc = ItemOccurrence.Use
 
     member _.IsFromComputationExpression =
         match symbol.Item, itemOcc with
         // 'seq' in 'seq { ... }' gets colored as keywords
-        | Item.Value vref, ItemOccurence.Use when valRefEq denv.g denv.g.seq_vref vref -> true
+        | Item.Value vref, ItemOccurrence.Use when valRefEq denv.g denv.g.seq_vref vref -> true
         // custom builders, custom operations get colored as keywords
-        | (Item.CustomBuilder _ | Item.CustomOperation _), ItemOccurence.Use -> true
+        | (Item.CustomBuilder _ | Item.CustomOperation _), ItemOccurrence.Use -> true
         | _ -> false
 
-    member _.IsFromOpenStatement = itemOcc = ItemOccurence.Open
+    member _.IsFromOpenStatement = itemOcc = ItemOccurrence.Open
 
     member _.FileName = range.FileName
 
@@ -491,6 +506,8 @@ type internal TypeCheckInfo
         //
         // If we're looking for members using a residue, we'd expect only
         // a single item (pick the first one) and we need the residue (which may be "")
+        | CNR(_, ItemOccurrence.InvalidUse, _, _, _, _) :: _, _ -> NameResResult.Empty
+
         | CNR(Item.Types(_, ty :: _), _, denv, nenv, ad, m) :: _, Some _ ->
             let targets =
                 ResolveCompletionTargets.All(ConstraintSolver.IsApplicableMethApprox g amap m)
@@ -515,8 +532,8 @@ type internal TypeCheckInfo
         //   let varA = if b then 0 else varA.
         // then the expression typings get confused (thinking 'varA:int'), so we use name resolution even for usual values.
 
-        | CNR(Item.Value(vref), occurence, denv, nenv, ad, m) :: _, Some _ ->
-            if occurence = ItemOccurence.Binding || occurence = ItemOccurence.Pattern then
+        | CNR(Item.Value(vref), occurrence, denv, nenv, ad, m) :: _, Some _ ->
+            if occurrence = ItemOccurrence.Binding || occurrence = ItemOccurrence.Pattern then
                 // Return empty list to stop further lookup - for value declarations
                 NameResResult.Cancel(denv, m)
             else
@@ -531,7 +548,7 @@ type internal TypeCheckInfo
                         // check that type of value is the same or subtype of tcref
                         // yes - allow access to protected members
                         // no - strip ability to access protected members
-                        if TypeRelations.TypeFeasiblySubsumesType 0 g amap m thisTy TypeRelations.CanCoerce ty then
+                        if TypeRelations.TypeFeasiblySubsumesType 0 g amap m thisTy Import.CanCoerce ty then
                             ad
                         else
                             AccessibleFrom(paths, None)
@@ -569,12 +586,77 @@ type internal TypeCheckInfo
 
         match items, membersByResidue with
         | CNR(Item.Types(_, ty :: _), _, _, _, _, _) :: _, Some _ -> Some ty
-        | CNR(Item.Value(vref), occurence, _, _, _, _) :: _, Some _ ->
-            if (occurence = ItemOccurence.Binding || occurence = ItemOccurence.Pattern) then
+        | CNR(Item.Value(vref), occurrence, _, _, _, _) :: _, Some _ ->
+            if (occurrence = ItemOccurrence.Binding || occurrence = ItemOccurrence.Pattern) then
                 None
             else
                 Some(StripSelfRefCell(g, vref.BaseOrThisInfo, vref.TauType))
         | _, _ -> None
+
+    /// Build a CompletionItem
+    let CompletionItemWithMoreSetting
+        (ty: TyconRef voption)
+        (assemblySymbol: AssemblySymbol voption)
+        minorPriority
+        insertText
+        displayText
+        (item: ItemWithInst)
+        =
+        let kind =
+            match item.Item with
+            | Item.DelegateCtor _
+            | Item.CtorGroup _ -> CompletionItemKind.Method false
+            | Item.MethodGroup(_, minfos, _) ->
+                match minfos with
+                | [] -> CompletionItemKind.Method false
+                | minfo :: _ -> CompletionItemKind.Method minfo.IsExtensionMember
+            | Item.AnonRecdField _
+            | Item.RecdField _
+            | Item.UnionCaseField _
+            | Item.Property _ -> CompletionItemKind.Property
+            | Item.Event _ -> CompletionItemKind.Event
+            | Item.ILField _
+            | Item.Value _ -> CompletionItemKind.Field
+            | Item.CustomOperation _ -> CompletionItemKind.CustomOperation
+            // These items are not given a completion kind. This could be reviewed
+            | Item.ActivePatternResult _
+            | Item.ExnCase _
+            | Item.ImplicitOp _
+            | Item.ModuleOrNamespaces _
+            | Item.Trait _
+            | Item.TypeVar _
+            | Item.Types _
+            | Item.UnionCase _
+            | Item.UnqualifiedType _
+            | Item.NewDef _
+            | Item.SetterArg _
+            | Item.CustomBuilder _
+            | Item.OtherName _
+            | Item.ActivePatternCase _ -> CompletionItemKind.Other
+
+        let isUnresolved =
+            match assemblySymbol with
+            | ValueSome x -> Some x.UnresolvedSymbol
+            | _ -> None
+
+        let ty =
+            match ty with
+            | ValueSome x -> Some x
+            | _ -> None
+
+        {
+            ItemWithInst = item
+            MinorPriority = minorPriority
+            Kind = kind
+            IsOwnMember = false
+            Type = ty
+            Unresolved = isUnresolved
+            CustomInsertText = insertText
+            CustomDisplayText = displayText
+        }
+
+    let CompletionItem (ty: TyconRef voption) (assemblySymbol: AssemblySymbol voption) (item: ItemWithInst) =
+        CompletionItemWithMoreSetting ty assemblySymbol 0 ValueNone ValueNone item
 
     let CollectParameters (methods: MethInfo list) amap m : Item list =
         methods
@@ -895,60 +977,6 @@ type internal TypeCheckInfo
 
             if p >= 0 then Some p else None
 
-    /// Build a CompetionItem
-    let CompletionItem (ty: TyconRef voption) (assemblySymbol: AssemblySymbol voption) (item: ItemWithInst) =
-        let kind =
-            match item.Item with
-            | Item.FakeInterfaceCtor _
-            | Item.DelegateCtor _
-            | Item.CtorGroup _ -> CompletionItemKind.Method false
-            | Item.MethodGroup(_, minfos, _) ->
-                match minfos with
-                | [] -> CompletionItemKind.Method false
-                | minfo :: _ -> CompletionItemKind.Method minfo.IsExtensionMember
-            | Item.AnonRecdField _
-            | Item.RecdField _
-            | Item.UnionCaseField _
-            | Item.Property _ -> CompletionItemKind.Property
-            | Item.Event _ -> CompletionItemKind.Event
-            | Item.ILField _
-            | Item.Value _ -> CompletionItemKind.Field
-            | Item.CustomOperation _ -> CompletionItemKind.CustomOperation
-            // These items are not given a completion kind. This could be reviewed
-            | Item.ActivePatternResult _
-            | Item.ExnCase _
-            | Item.ImplicitOp _
-            | Item.ModuleOrNamespaces _
-            | Item.Trait _
-            | Item.TypeVar _
-            | Item.Types _
-            | Item.UnionCase _
-            | Item.UnqualifiedType _
-            | Item.NewDef _
-            | Item.SetterArg _
-            | Item.CustomBuilder _
-            | Item.OtherName _
-            | Item.ActivePatternCase _ -> CompletionItemKind.Other
-
-        let isUnresolved =
-            match assemblySymbol with
-            | ValueSome x -> Some x.UnresolvedSymbol
-            | _ -> None
-
-        let ty =
-            match ty with
-            | ValueSome x -> Some x
-            | _ -> None
-
-        {
-            ItemWithInst = item
-            MinorPriority = 0
-            Kind = kind
-            IsOwnMember = false
-            Type = ty
-            Unresolved = isUnresolved
-        }
-
     let DefaultCompletionItem item = CompletionItem ValueNone ValueNone item
 
     let CompletionItemSuggestedName displayName =
@@ -959,6 +987,8 @@ type internal TypeCheckInfo
             Kind = CompletionItemKind.SuggestedName
             IsOwnMember = false
             Unresolved = None
+            CustomInsertText = ValueNone
+            CustomDisplayText = ValueNone
         }
 
     let getItem (x: ItemWithInst) = x.Item
@@ -971,7 +1001,7 @@ type internal TypeCheckInfo
         if String.IsNullOrWhiteSpace name then
             None
         else
-            let name = String.lowerCaseFirstChar name
+            let name = String.lowerCaseFirstChar !!name
 
             let unused =
                 sResolutions.CapturedNameResolutions
@@ -1043,45 +1073,341 @@ type internal TypeCheckInfo
         |> Option.defaultValue completions
 
     /// Gets all methods that a type can override, but has not yet done so.
-    let GetOverridableMethods pos typeNameRange =
-        let isMethodOverridable alreadyOverridden (candidate: MethInfo) =
+    let GetOverridableMethods pos ctx (typeNameRange: range) spacesBeforeOverrideKeyword hasThis isStatic =
+        let checkImplementedSlotDeclareType ty slots =
+            slots
+            |> Option.map (List.exists (fun (TSlotSig(declaringType = ty2)) -> typeEquiv g ty ty2))
+            |> Option.defaultValue false
+
+        let isMethodOverridable superTy alreadyOverridden (candidate: MethInfo) =
             not candidate.IsFinal
             && not (
                 alreadyOverridden
-                |> List.exists (MethInfosEquivByNameAndSig EraseNone true g amap range0 candidate)
+                |> ResizeArray.exists (fun i ->
+                    MethInfosEquivByNameAndSig EraseNone true g amap range0 candidate i
+                    && (tyconRefEq g candidate.DeclaringTyconRef i.DeclaringTyconRef
+                        || checkImplementedSlotDeclareType superTy (Option.attempt (fun () -> i.ImplementedSlotSignatures))))
             )
 
+        let isMethodOptionOverridable superTy alreadyOverridden candidate =
+            candidate
+            |> ValueOption.map (fun i -> isMethodOverridable superTy alreadyOverridden i)
+            |> ValueOption.defaultValue false
+
+        let isPropertyOverridable superTy alreadyOverridden (candidate: PropInfo) =
+            if candidate.IsVirtualProperty then
+                let getterOverridden, setterOverridden =
+                    alreadyOverridden
+                    |> List.filter (fun i ->
+                        PropInfosEquivByNameAndSig EraseNone g amap range0 candidate i
+                        && (tyconRefEq g candidate.DeclaringTyconRef i.DeclaringTyconRef
+                            || checkImplementedSlotDeclareType superTy (Option.attempt (fun () -> i.ImplementedSlotSignatures))))
+                    |> List.fold
+                        (fun (getterOverridden, setterOverridden) i -> getterOverridden || i.HasGetter, setterOverridden || i.HasSetter)
+                        (false, false)
+
+                not getterOverridden, not setterOverridden
+            else
+                false, false
+
+        let rec checkOrGenerateArgName (nameSet: HashSet<_>) name =
+            let name = if String.IsNullOrEmpty name then "arg" else name
+
+            if nameSet.Add(name) then
+                name
+            else
+                checkOrGenerateArgName nameSet $"{name}_{nameSet.Count}"
+
         let (nenv, ad), m = GetBestEnvForPos pos
+        let denv = nenv.DisplayEnv
 
-        sResolutions.CapturedNameResolutions
-        |> ResizeArray.tryPick (fun r ->
-            match r.Item with
-            | Item.Types(_, ty :: _) when equals r.Range typeNameRange && isAppTy g ty ->
-                let superTy =
-                    (tcrefOfAppTy g ty).TypeContents.tcaug_super |> Option.defaultValue g.obj_ty
+        let checkMethAbstractAndGetImplementBody (meth: MethInfo) implementBody =
+            if meth.IsAbstract then
+                if nenv.DisplayEnv.openTopPathsSorted.Force() |> List.contains [ "System" ] then
+                    "raise (NotImplementedException())"
+                else
+                    "raise (System.NotImplementedException())"
+            else
+                implementBody
 
-                let overriddenMethods =
-                    GetImmediateIntrinsicMethInfosOfType (None, ad) g amap typeNameRange ty
-                    |> List.filter (fun x -> x.IsDefiniteFSharpOverride)
+        let newlineIndent =
+            Environment.NewLine + String.make (spacesBeforeOverrideKeyword + 4) ' '
 
-                let overridableMethods =
-                    GetIntrinsicMethInfosOfType
-                        infoReader
+        let getOverridableMethods superTy (overriddenMethods: MethInfo list) overriddenProperties =
+            // Do not check a method with same name twice
+            //type AA() =
+            //    abstract a: unit -> unit
+            //    default _.a() = printfn "A"
+            //type BB() =
+            //    inherit AA()
+            //    member _.a() = printfn "B" (* This method covered the `AA.a` *)
+            //type CC() =
+            //    inherit BB()
+            //    override | (* Here should not suggest to override `AA.a` *)
+            let checkedMethods = ResizeArray(overriddenMethods)
+
+            let isInterface = isInterfaceTy g superTy
+
+            // reuse between props and methods
+            let argNames = HashSet()
+
+            let overridableProps =
+                let generatePropertyOverrideBody (prop: PropInfo) getterMeth setterMeth =
+                    argNames.Clear()
+
+                    let parameters =
+                        prop.GetParamNamesAndTypes(amap, m)
+                        |> List.map (fun (ParamNameAndType(name, ty)) ->
+                            let name =
+                                name
+                                |> Option.map _.idText
+                                |> Option.defaultValue String.Empty
+                                |> checkOrGenerateArgName argNames
+
+                            $"{name}: {stringOfTy denv ty}")
+                        |> String.concat ", "
+
+                    let retTy = prop.GetPropertyType(amap, m)
+                    let retTy = stringOfTy denv retTy
+
+                    let getter, getterWithBody =
+                        match getterMeth with
+                        | ValueSome meth ->
+                            let implementBody =
+                                checkMethAbstractAndGetImplementBody
+                                    meth
+                                    ($"base.{prop.DisplayName}" + (if prop.IsIndexer then $"({parameters})" else ""))
+
+                            let getter = $"get ({parameters}): {retTy}"
+                            getter, $"{getter} = {implementBody}"
+                        | _ -> String.Empty, String.Empty
+
+                    let setter, setterWithBody =
+                        match setterMeth with
+                        | ValueSome meth ->
+                            let argValue = checkOrGenerateArgName argNames "value"
+
+                            let implementBody =
+                                checkMethAbstractAndGetImplementBody
+                                    meth
+                                    ($"base.{prop.DisplayName}"
+                                     + (if prop.IsIndexer then $"({parameters})" else String.Empty)
+                                     + $" <- {argValue}")
+
+                            let parameters = if prop.IsIndexer then $"({parameters}) " else String.Empty
+                            let setter = $"set {parameters}({argValue}: {retTy})"
+                            setter, $"{setter} = {implementBody}"
+                        | _ -> String.Empty, String.Empty
+
+                    let keywordAnd =
+                        if getterMeth.IsNone || setterMeth.IsNone then
+                            String.Empty
+                        else
+                            " and "
+
+                    let this = if hasThis || prop.IsStatic then String.Empty else "this."
+
+                    let getterWithBody =
+                        if String.IsNullOrWhiteSpace getterWithBody then
+                            String.Empty
+                        else
+                            getterWithBody + newlineIndent
+
+                    let name = $"{prop.DisplayName} with {getter}{keywordAnd}{setter}"
+
+                    let textInCode =
+                        this
+                        + prop.DisplayName
+                        + newlineIndent
+                        + "with "
+                        + getterWithBody
+                        + keywordAnd
+                        + setterWithBody
+
+                    name, textInCode
+
+                GetIntrinsicPropInfoWithOverriddenPropOfType
+                    infoReader
+                    None
+                    ad
+                    TypeHierarchy.AllowMultiIntfInstantiations.No
+                    FindMemberFlag.PreferOverrides
+                    range0
+                    superTy
+                |> List.choose (fun struct (prop, baseProp) ->
+                    let getterMeth =
+                        if prop.HasGetter then
+                            ValueSome prop.GetterMethod
+                        else
+                            baseProp |> ValueOption.map _.GetterMethod
+
+                    let setterMeth =
+                        if prop.HasSetter then
+                            ValueSome prop.SetterMethod
+                        else
+                            baseProp |> ValueOption.map _.SetterMethod
+
+                    let isGetterOverridable, isSetterOverridable =
+                        isPropertyOverridable superTy overriddenProperties prop
+
+                    let isGetterOverridable =
+                        isGetterOverridable
+                        && isMethodOptionOverridable superTy checkedMethods getterMeth
+
+                    let isSetterOverridable =
+                        isSetterOverridable
+                        && isMethodOptionOverridable superTy checkedMethods setterMeth
+
+                    let canPick =
+                        prop.IsStatic = isStatic && (isGetterOverridable || isSetterOverridable)
+
+                    getterMeth |> ValueOption.iter checkedMethods.Add
+                    setterMeth |> ValueOption.iter checkedMethods.Add
+
+                    if not canPick then
                         None
-                        ad
-                        TypeHierarchy.AllowMultiIntfInstantiations.No
-                        FindMemberFlag.PreferOverrides
-                        range0
-                        superTy
-                    |> List.filter (isMethodOverridable overriddenMethods)
-                    |> List.groupBy (fun x -> x.DisplayName)
-                    |> List.map (fun (name, overloads) ->
-                        Item.MethodGroup(name, overloads, None)
-                        |> ItemWithNoInst
-                        |> DefaultCompletionItem)
+                    else
+                        let getterMeth = if isGetterOverridable then getterMeth else ValueNone
+                        let setterMeth = if isSetterOverridable then setterMeth else ValueNone
+                        let name, textInCode = generatePropertyOverrideBody prop getterMeth setterMeth
 
-                Some(overridableMethods, nenv.DisplayEnv, m)
-            | _ -> None)
+                        Item.Property(
+                            name,
+                            [
+                                prop
+                                if baseProp.IsSome then
+                                    baseProp.Value
+                            ],
+                            None
+                        )
+                        |> ItemWithNoInst
+                        |> CompletionItemWithMoreSetting ValueNone ValueNone -1 (ValueSome textInCode) (ValueSome name)
+                        |> Some)
+
+            let overridableMeths =
+                let generateMethodOverrideBody (meth: MethInfo) =
+                    argNames.Clear()
+
+                    let parameters =
+                        meth.GetParamNames()
+                        |> List.zip (meth.GetParamTypes(amap, m, meth.FormalMethodInst))
+                        |> List.map (fun (types, names) ->
+                            let names =
+                                names
+                                |> List.zip types
+                                |> List.map (fun (ty, name) ->
+                                    let name =
+                                        name |> Option.defaultValue String.Empty |> checkOrGenerateArgName argNames
+
+                                    $"{name}: {stringOfTy denv ty}")
+                                |> String.concat ", "
+
+                            $"({names})")
+                        |> String.concat " "
+
+                    let retTy = meth.GetFSharpReturnType(amap, m, meth.FormalMethodInst)
+
+                    let name = $"{meth.DisplayName} {parameters}: {stringOfTy denv retTy}"
+
+                    let textInCode =
+                        let nameWithThis =
+                            if hasThis || not meth.IsInstance then
+                                $"{name} = "
+                            else
+                                $"this.{name} = "
+
+                        let implementBody =
+                            checkMethAbstractAndGetImplementBody meth $"base.{meth.DisplayName}{parameters}"
+
+                        nameWithThis + newlineIndent + implementBody
+
+                    name, textInCode
+
+                GetIntrinsicMethInfosOfType
+                    infoReader
+                    None
+                    ad
+                    TypeHierarchy.AllowMultiIntfInstantiations.No
+                    FindMemberFlag.PreferOverrides
+                    range0
+                    superTy
+                |> List.choose (fun meth ->
+                    let canPick =
+                        meth.IsInstance <> isStatic
+                        && isMethodOverridable superTy checkedMethods meth
+                        && (not isInterface
+                            || not (tyconRefEq g meth.DeclaringTyconRef g.system_Object_tcref))
+
+                    checkedMethods.Add meth
+
+                    if not canPick then
+                        None
+                    else
+                        let name, textInCode = generateMethodOverrideBody meth
+
+                        Item.MethodGroup(name, [ meth ], None)
+                        |> ItemWithNoInst
+                        |> CompletionItemWithMoreSetting ValueNone ValueNone -1 (ValueSome textInCode) (ValueSome name)
+                        |> Some)
+
+            overridableProps @ overridableMeths
+
+        let getTyFromTypeNamePos (endPos: pos) =
+            let nameResItems =
+                GetPreciseItemsFromNameResolution(endPos.Line, endPos.Column, None, ResolveTypeNamesToTypeRefs, ResolveOverloads.Yes)
+
+            match nameResItems with
+            | NameResResult.Members(ls, _, _) ->
+                ls
+                |> List.tryPick (function
+                    | { Item = Item.Types(_, ty :: _) } -> Some ty
+                    | _ -> None)
+            | _ -> None
+
+        let ctx =
+            match ctx with
+            | MethodOverrideCompletionContext.Class ->
+                sResolutions.CapturedNameResolutions
+                |> ResizeArray.tryPick (fun r ->
+                    match r.Item with
+                    | Item.Types(_, ty :: _) when equals r.Range typeNameRange && isAppTy g ty ->
+                        let superTy =
+                            (tcrefOfAppTy g ty).TypeContents.tcaug_super
+                            |> Option.defaultValue g.obj_ty_noNulls
+
+                        Some(ty, superTy)
+                    | _ -> None)
+
+            | MethodOverrideCompletionContext.Interface mTy ->
+                sResolutions.CapturedNameResolutions
+                |> ResizeArray.tryPick (fun r ->
+                    match r.Item with
+                    | Item.Types(_, ty :: _) when equals r.Range typeNameRange && isAppTy g ty ->
+                        let superTy = getTyFromTypeNamePos mTy.End |> Option.defaultValue g.obj_ty_noNulls
+                        Some(ty, superTy)
+                    | _ -> None)
+            | MethodOverrideCompletionContext.ObjExpr m ->
+                let _, quals = GetExprTypingForPosition(m.End)
+
+                quals
+                |> Array.tryFind (fun (_, _, _, r) -> posEq m.Start r.Start)
+                |> Option.map (fun (ty, _, _, _) -> ty, getTyFromTypeNamePos typeNameRange.End |> Option.defaultValue g.obj_ty_noNulls)
+
+        match ctx with
+        | Some(ty, superTy) ->
+            let overriddenMethods =
+                GetImmediateIntrinsicMethInfosWithExplicitImplOfType (None, ad) g amap typeNameRange ty
+                |> List.filter (fun x -> x.IsDefiniteFSharpOverride)
+
+            let overriddenProperties =
+                GetImmediateIntrinsicPropInfosWithExplicitImplOfType (None, ad) g amap typeNameRange ty
+                |> List.filter (fun x -> x.IsDefiniteFSharpOverride)
+
+            let overridableMethods =
+                getOverridableMethods superTy overriddenMethods overriddenProperties
+
+            Some(overridableMethods, denv, m)
+        | _ -> None
 
     /// Gets all field identifiers of a union case that can be referred to in a pattern.
     let GetUnionCaseFields caseIdRange alreadyReferencedFields =
@@ -1577,6 +1903,8 @@ type internal TypeCheckInfo
                                 IsOwnMember = false
                                 Type = None
                                 Unresolved = None
+                                CustomInsertText = ValueNone
+                                CustomDisplayText = ValueNone
                             })
 
                     match declaredItems with
@@ -1639,7 +1967,8 @@ type internal TypeCheckInfo
                     getDeclaredItemsNotInRangeOpWithAllSymbols ()
                     |> Option.bind (FilterRelevantItemsBy getItem2 None IsPatternCandidate)
 
-            | Some(CompletionContext.MethodOverride enclosingTypeNameRange) -> GetOverridableMethods pos enclosingTypeNameRange
+            | Some(CompletionContext.MethodOverride(ctx, enclosingTypeNameRange, spacesBeforeOverrideKeyword, hasThis, isStatic)) ->
+                GetOverridableMethods pos ctx enclosingTypeNameRange spacesBeforeOverrideKeyword hasThis isStatic
 
             // Other completions
             | cc ->
@@ -1808,10 +2137,9 @@ type internal TypeCheckInfo
                         |> List.sortBy (fun d ->
                             let n =
                                 match d.Item with
-                                | Item.Types(_, AbbrevOrAppTy tcref :: _) -> 1 + tcref.TyparsNoRange.Length
+                                | Item.Types(_, AbbrevOrAppTy(tcref, _) :: _) -> 1 + tcref.TyparsNoRange.Length
                                 // Put delegate ctors after types, sorted by #typars. RemoveDuplicateItems will remove FakeInterfaceCtor and DelegateCtor if an earlier type is also reported with this name
-                                | Item.FakeInterfaceCtor(AbbrevOrAppTy tcref)
-                                | Item.DelegateCtor(AbbrevOrAppTy tcref) -> 1000 + tcref.TyparsNoRange.Length
+                                | Item.DelegateCtor(AbbrevOrAppTy(tcref, _)) -> 1000 + tcref.TyparsNoRange.Length
                                 // Put type ctors after types, sorted by #typars. RemoveDuplicateItems will remove DefaultStructCtors if a type is also reported with this name
                                 | Item.CtorGroup(_, cinfo :: _) -> 1000 + 10 * cinfo.DeclaringTyconRef.TyparsNoRange.Length
                                 | _ -> 0
@@ -1827,11 +2155,10 @@ type internal TypeCheckInfo
                         items
                         |> List.groupBy (fun d ->
                             match d.Item with
-                            | Item.Types(_, AbbrevOrAppTy tcref :: _)
+                            | Item.Types(_, AbbrevOrAppTy(tcref, _) :: _)
                             | Item.ExnCase tcref -> tcref.LogicalName
                             | Item.UnqualifiedType(tcref :: _)
-                            | Item.FakeInterfaceCtor(AbbrevOrAppTy tcref)
-                            | Item.DelegateCtor(AbbrevOrAppTy tcref) -> tcref.CompiledName
+                            | Item.DelegateCtor(AbbrevOrAppTy(tcref, _)) -> tcref.CompiledName
                             | Item.CtorGroup(_, cinfo :: _) -> cinfo.ApparentEnclosingTyconRef.CompiledName
                             | _ -> d.Item.DisplayName)
 
@@ -1860,7 +2187,7 @@ type internal TypeCheckInfo
                                 items
                                 |> List.map (fun item ->
                                     let symbol = FSharpSymbol.Create(cenv, item.Item)
-                                    FSharpSymbolUse(denv, symbol, item.ItemWithInst.TyparInstantiation, ItemOccurence.Use, m)))
+                                    FSharpSymbolUse(denv, symbol, item.ItemWithInst.TyparInstantiation, ItemOccurrence.Use, m)))
 
                     //end filtering
                     items)
@@ -1917,7 +2244,7 @@ type internal TypeCheckInfo
                 | Some(_, lines) ->
                     let lines =
                         lines
-                        |> List.filter (fun line -> not (line.StartsWith("//")) && not (String.IsNullOrEmpty line))
+                        |> List.filter (fun line -> not (line.StartsWithOrdinal("//")) && not (String.IsNullOrEmpty line))
 
                     ToolTipText.ToolTipText
                         [
@@ -2260,7 +2587,7 @@ type internal TypeCheckInfo
                         | Some itemRange ->
                             let projectDir =
                                 FileSystem.GetDirectoryNameShim(
-                                    if projectFileName = "" then
+                                    if String.IsNullOrEmpty(projectFileName) then
                                         mainInputFileName
                                     else
                                         projectFileName
@@ -2526,6 +2853,11 @@ module internal ParseAndCheckFile =
 
         member _.AnyErrors = errorCount > 0
 
+        member _.CollectedPhasedDiagnostics =
+            [|
+                for struct (diagnostic, severity) in diagnosticsCollector -> diagnostic, severity
+            |]
+
         member _.CollectedDiagnostics(symbolEnv: SymbolEnv option) =
             [|
                 for struct (diagnostic, severity) in diagnosticsCollector do
@@ -2686,7 +3018,7 @@ module internal ParseAndCheckFile =
                 | INTERP_STRING_BEGIN_PART _ | INTERP_STRING_PART _ as tok, _ ->
                     let braceOffset =
                         match tok with
-                        | INTERP_STRING_BEGIN_PART(_, SynStringKind.TripleQuote, (LexerContinuation.Token(_, (_, _, dl, _) :: _))) ->
+                        | INTERP_STRING_BEGIN_PART(_, SynStringKind.TripleQuote, (LexerContinuation.Token(_, (_, _, dl, _, _) :: _))) ->
                             dl - 1
                         | _ -> 0
 
@@ -2707,7 +3039,7 @@ module internal ParseAndCheckFile =
     let parseFile
         (
             sourceText: ISourceText,
-            fileName,
+            fileName: string,
             options: FSharpParsingOptions,
             userOpName: string,
             suggestNamesForErrors: bool,
@@ -2764,7 +3096,7 @@ module internal ParseAndCheckFile =
         (
             tcConfig,
             parsedMainInput,
-            mainInputFileName,
+            mainInputFileName: string,
             loadClosure: LoadClosure option,
             tcImports: TcImports,
             backgroundDiagnostics
@@ -2856,7 +3188,7 @@ module internal ParseAndCheckFile =
             ApplyMetaCommandsFromInputToTcConfig(
                 tcConfig,
                 parsedMainInput,
-                Path.GetDirectoryName mainInputFileName,
+                !! Path.GetDirectoryName(mainInputFileName),
                 tcImports.DependencyProvider
             )
             |> ignore
@@ -2910,16 +3242,11 @@ module internal ParseAndCheckFile =
 #if !FABLE_COMPILER
             // Apply nowarns to tcConfig (may generate errors, so ensure diagnosticsLogger is installed)
             let tcConfig =
-                ApplyNoWarnsToTcConfig(tcConfig, parsedMainInput, Path.GetDirectoryName mainInputFileName)
+                ApplyNoWarnsToTcConfig(tcConfig, parsedMainInput, !! Path.GetDirectoryName(mainInputFileName))
 #endif
 
             // update the error handler with the modified tcConfig
             errHandler.DiagnosticOptions <- tcConfig.diagnosticsOptions
-
-            // Play background errors and warnings for this file.
-            do
-                for err, severity in backgroundDiagnostics do
-                    diagnosticSink (err, severity)
 
 #if !FABLE_COMPILER
             // If additional references were brought in by the preprocessor then we need to process them
@@ -2965,6 +3292,11 @@ module internal ParseAndCheckFile =
 
                         return ((tcState.TcEnvFromSignatures, EmptyTopAttrs, [], [ mty ]), tcState)
                 }
+
+            // Play background errors and warnings for this file.
+            do
+                for err, severity in backgroundDiagnostics do
+                    diagnosticSink (err, severity)
 
             let (tcEnvAtEnd, _, implFiles, ccuSigsForFiles), tcState = resOpt
 
@@ -3106,7 +3438,7 @@ type FSharpCheckFileResults
         | Some(scope, _builderOpt) ->
             scope.GetSymbolUsesAtLocation(line, lineText, colAtEndOfNames, names)
             |> List.map (fun (sym, itemWithInst, denv, m) ->
-                FSharpSymbolUse(denv, sym, itemWithInst.TyparInstantiation, ItemOccurence.Use, m))
+                FSharpSymbolUse(denv, sym, itemWithInst.TyparInstantiation, ItemOccurrence.Use, m))
 
     member _.GetMethodsAsSymbols(line, colAtEndOfNames, lineText, names) =
         match details with
@@ -3115,7 +3447,7 @@ type FSharpCheckFileResults
             scope.GetMethodsAsSymbols(line, lineText, colAtEndOfNames, names)
             |> Option.map (fun (symbols, denv, m) ->
                 symbols
-                |> List.map (fun (sym, itemWithInst) -> FSharpSymbolUse(denv, sym, itemWithInst.TyparInstantiation, ItemOccurence.Use, m)))
+                |> List.map (fun (sym, itemWithInst) -> FSharpSymbolUse(denv, sym, itemWithInst.TyparInstantiation, ItemOccurrence.Use, m)))
 
     member _.GetSymbolAtLocation(line, colAtEndOfNames, lineStr, names) =
         match details with
@@ -3161,10 +3493,10 @@ type FSharpCheckFileResults
                     for symbolUse in symbolUseChunk do
                         cancellationToken |> Option.iter (fun ct -> ct.ThrowIfCancellationRequested())
 
-                        if symbolUse.ItemOccurence <> ItemOccurence.RelatedText then
+                        if symbolUse.ItemOccurrence <> ItemOccurrence.RelatedText then
                             let symbol = FSharpSymbol.Create(cenv, symbolUse.ItemWithInst.Item)
                             let inst = symbolUse.ItemWithInst.TyparInstantiation
-                            FSharpSymbolUse(symbolUse.DisplayEnv, symbol, inst, symbolUse.ItemOccurence, symbolUse.Range)
+                            FSharpSymbolUse(symbolUse.DisplayEnv, symbol, inst, symbolUse.ItemOccurrence, symbolUse.Range)
             }
 
     member _.GetUsesOfSymbolInFile(symbol: FSharpSymbol, ?cancellationToken: CancellationToken) =
@@ -3174,12 +3506,12 @@ type FSharpCheckFileResults
             [|
                 for symbolUse in
                     scope.ScopeSymbolUses.GetUsesOfSymbol(symbol.Item)
-                    |> Seq.distinctBy (fun symbolUse -> symbolUse.ItemOccurence, symbolUse.Range) do
+                    |> Seq.distinctBy (fun symbolUse -> symbolUse.ItemOccurrence, symbolUse.Range) do
                     cancellationToken |> Option.iter (fun ct -> ct.ThrowIfCancellationRequested())
 
-                    if symbolUse.ItemOccurence <> ItemOccurence.RelatedText then
+                    if symbolUse.ItemOccurrence <> ItemOccurrence.RelatedText then
                         let inst = symbolUse.ItemWithInst.TyparInstantiation
-                        FSharpSymbolUse(symbolUse.DisplayEnv, symbol, inst, symbolUse.ItemOccurence, symbolUse.Range)
+                        FSharpSymbolUse(symbolUse.DisplayEnv, symbol, inst, symbolUse.ItemOccurrence, symbolUse.Range)
             |]
 
     member _.GetVisibleNamespacesAndModulesAtPoint(pos: pos) =
@@ -3233,7 +3565,7 @@ type FSharpCheckFileResults
                 |> SourceText.ofString)
 
     member internal _.CalculateSignatureHash() =
-        let visibility = Fsharp.Compiler.SignatureHash.PublicAndInternal
+        let visibility = PublicAndInternal
 
         match details with
         | None -> failwith "Typechecked details not available for CalculateSignatureHash() operation."
@@ -3297,7 +3629,7 @@ type FSharpCheckFileResults
             tcConfig,
             tcGlobals,
             isIncompleteTypeCheckEnvironment: bool,
-            builder: IncrementalBuilder,
+            builder: IncrementalBuilder option,
             projectOptions,
             dependencyFiles,
             creationErrors: FSharpDiagnostic[],
@@ -3338,7 +3670,7 @@ type FSharpCheckFileResults
         let errors =
             FSharpCheckFileResults.JoinErrors(isIncompleteTypeCheckEnvironment, creationErrors, parseErrors, tcErrors)
 
-        FSharpCheckFileResults(mainInputFileName, errors, Some tcFileInfo, dependencyFiles, Some builder, keepAssemblyContents)
+        FSharpCheckFileResults(mainInputFileName, errors, Some tcFileInfo, dependencyFiles, builder, keepAssemblyContents)
 
 #if !FABLE_COMPILER
 
@@ -3357,7 +3689,7 @@ type FSharpCheckFileResults
             backgroundDiagnostics: (PhasedDiagnostic * FSharpDiagnosticSeverity)[],
             isIncompleteTypeCheckEnvironment: bool,
             projectOptions: FSharpProjectOptions,
-            builder: IncrementalBuilder,
+            builder: IncrementalBuilder option,
             dependencyFiles: string[],
             creationErrors: FSharpDiagnostic[],
             parseErrors: FSharpDiagnostic[],
@@ -3386,7 +3718,7 @@ type FSharpCheckFileResults
                 FSharpCheckFileResults.JoinErrors(isIncompleteTypeCheckEnvironment, creationErrors, parseErrors, tcErrors)
 
             let results =
-                FSharpCheckFileResults(mainInputFileName, errors, Some tcFileInfo, dependencyFiles, Some builder, keepAssemblyContents)
+                FSharpCheckFileResults(mainInputFileName, errors, Some tcFileInfo, dependencyFiles, builder, keepAssemblyContents)
 
             return results
         }
@@ -3406,7 +3738,7 @@ type FSharpCheckProjectResults
             TcImports *
             CcuThunk *
             ModuleOrNamespaceType *
-            Choice<IncrementalBuilder, TcSymbolUses> *
+            Choice<IncrementalBuilder, Async<TcSymbolUses seq>> *
             TopAttribs option *
             (unit -> IRawFSharpAssemblyData option) *
             ILAssemblyRef *
@@ -3444,6 +3776,7 @@ type FSharpCheckProjectResults
 
         FSharpAssemblySignature(tcGlobals, thisCcu, ccuSig, tcImports, topAttribs, ccuSig)
 
+    // TODO: Looks like we don't need this
     member _.TypedImplementationFiles =
         if not keepAssemblyContents then
             invalidOp
@@ -3504,6 +3837,7 @@ type FSharpCheckProjectResults
         FSharpAssemblyContents(tcGlobals, thisCcu, Some ccuSig, tcImports, mimpls)
 
     // Not, this does not have to be a SyncOp, it can be called from any thread
+    // TODO: this should be async
     member _.GetUsesOfSymbol(symbol: FSharpSymbol, ?cancellationToken: CancellationToken) =
         let _, _, _, _, builderOrSymbolUses, _, _, _, _, _, _, _ = getDetails ()
 
@@ -3512,7 +3846,7 @@ type FSharpCheckProjectResults
             | Choice1Of2 builder ->
 #if FABLE_COMPILER
                 ignore builder
-                [||]
+                seq {}
 #else
                 builder.SourceFiles
                 |> Array.ofList
@@ -3523,19 +3857,33 @@ type FSharpCheckProjectResults
                         | Some(_, tcInfoExtras) -> tcInfoExtras.TcSymbolUses.GetUsesOfSymbol symbol.Item
                         | _ -> [||]
                     | _ -> [||])
+                |> Array.toSeq
 #endif //!FABLE_COMPILER
-            | Choice2Of2 tcSymbolUses -> tcSymbolUses.GetUsesOfSymbol symbol.Item
+            | Choice2Of2 task ->
+                Async.RunSynchronously(
+                    async {
+                        let! tcSymbolUses = task
+
+                        return
+                            seq {
+                                for symbolUses in tcSymbolUses do
+                                    yield! symbolUses.GetUsesOfSymbol symbol.Item
+                            }
+                    },
+                    ?cancellationToken = cancellationToken
+                )
 
         results
-        |> Seq.filter (fun symbolUse -> symbolUse.ItemOccurence <> ItemOccurence.RelatedText)
-        |> Seq.distinctBy (fun symbolUse -> symbolUse.ItemOccurence, symbolUse.Range)
+        |> Seq.filter (fun symbolUse -> symbolUse.ItemOccurrence <> ItemOccurrence.RelatedText)
+        |> Seq.distinctBy (fun symbolUse -> symbolUse.ItemOccurrence, symbolUse.Range)
         |> Seq.map (fun symbolUse ->
             cancellationToken |> Option.iter (fun ct -> ct.ThrowIfCancellationRequested())
             let inst = symbolUse.ItemWithInst.TyparInstantiation
-            FSharpSymbolUse(symbolUse.DisplayEnv, symbol, inst, symbolUse.ItemOccurence, symbolUse.Range))
+            FSharpSymbolUse(symbolUse.DisplayEnv, symbol, inst, symbolUse.ItemOccurrence, symbolUse.Range))
         |> Seq.toArray
 
     // Not, this does not have to be a SyncOp, it can be called from any thread
+    // TODO: this should be async
     member _.GetAllUsesOfAllSymbols(?cancellationToken: CancellationToken) =
         let tcGlobals, tcImports, thisCcu, ccuSig, builderOrSymbolUses, _, _, _, _, _, _, _ =
             getDetails ()
@@ -3547,7 +3895,7 @@ type FSharpCheckProjectResults
             | Choice1Of2 builder ->
 #if FABLE_COMPILER
                 ignore builder
-                [||]
+                seq {}
 #else
                 builder.SourceFiles
                 |> Array.ofList
@@ -3558,8 +3906,9 @@ type FSharpCheckProjectResults
                         | Some(_, tcInfoExtras) -> tcInfoExtras.TcSymbolUses
                         | _ -> TcSymbolUses.Empty
                     | _ -> TcSymbolUses.Empty)
+                |> Array.toSeq
 #endif //!FABLE_COMPILER
-            | Choice2Of2 tcSymbolUses -> [| tcSymbolUses |]
+            | Choice2Of2 tcSymbolUses -> Async.RunSynchronously(tcSymbolUses, ?cancellationToken = cancellationToken)
 
         [|
             for r in tcSymbolUses do
@@ -3567,10 +3916,10 @@ type FSharpCheckProjectResults
                     for symbolUse in symbolUseChunk do
                         cancellationToken |> Option.iter (fun ct -> ct.ThrowIfCancellationRequested())
 
-                        if symbolUse.ItemOccurence <> ItemOccurence.RelatedText then
+                        if symbolUse.ItemOccurrence <> ItemOccurrence.RelatedText then
                             let symbol = FSharpSymbol.Create(cenv, symbolUse.ItemWithInst.Item)
                             let inst = symbolUse.ItemWithInst.TyparInstantiation
-                            FSharpSymbolUse(symbolUse.DisplayEnv, symbol, inst, symbolUse.ItemOccurence, symbolUse.Range)
+                            FSharpSymbolUse(symbolUse.DisplayEnv, symbol, inst, symbolUse.ItemOccurrence, symbolUse.Range)
         |]
 
     member _.ProjectContext =
@@ -3602,9 +3951,6 @@ type FsiInteractiveChecker(legacyReferenceResolver, tcConfig: TcConfig, tcGlobal
 
     member _.ParseAndCheckInteraction(sourceText: ISourceText, ?userOpName: string) =
         cancellable {
-            let! ct = Cancellable.token ()
-            use _ = Cancellable.UsingToken(ct)
-
             let userOpName = defaultArg userOpName "Unknown"
             let fileName = Path.Combine(tcConfig.implicitIncludeDir, "stdin.fsx")
             let suggestNamesForErrors = true // Will always be true, this is just for readability
@@ -3700,7 +4046,7 @@ type FsiInteractiveChecker(legacyReferenceResolver, tcConfig: TcConfig, tcGlobal
                  tcImports,
                  tcFileInfo.ThisCcu,
                  tcFileInfo.CcuSigForFile,
-                 Choice2Of2 tcFileInfo.ScopeSymbolUses,
+                 Choice2Of2(tcFileInfo.ScopeSymbolUses |> Seq.singleton |> async.Return),
                  None,
                  (fun () -> None),
                  mkSimpleAssemblyRef "stdin",

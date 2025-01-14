@@ -9,6 +9,7 @@ open Internal.Utilities.Text.Parsing.ParseHelpers
 
 
 #nowarn "1182"  // the generated code often has unused variable "parseState"
+#nowarn "3261"  // the generated code would need to properly annotate nulls, e.g. changing System.Object to `obj|null`
 
 open Internal.Utilities.Library
 
@@ -24,7 +25,7 @@ let resolveCurrentMethodSpecScope obj =
     resolveMethodSpecScope obj mkILEmptyGenericParams
 
 
-//# 27 "ilpars.fs"
+//# 28 "ilpars.fs"
 // This type is the type of tokens accepted by the parser
 type token = 
   | VOID
@@ -62,7 +63,7 @@ type token =
   | FIELD
   | EXPLICIT
   | EOF
-  | ELIPSES
+  | ELLIPSES
   | DOT
   | DEFAULT
   | DCOLON
@@ -89,7 +90,7 @@ type token =
   | INSTR_I32_I32 of (Int32Int32Instr)
   | INSTR_I of (Int32Instr)
   | VAL_FLOAT64 of (double)
-  | VAL_INT32_ELIPSES of (int32)
+  | VAL_INT32_ELLIPSES of (int32)
   | VAL_INT64 of (int64)
 // This type is used to give symbolic names to token indexes, useful for error messages
 type tokenId = 
@@ -128,7 +129,7 @@ type tokenId =
     | TOKEN_FIELD
     | TOKEN_EXPLICIT
     | TOKEN_EOF
-    | TOKEN_ELIPSES
+    | TOKEN_ELLIPSES
     | TOKEN_DOT
     | TOKEN_DEFAULT
     | TOKEN_DCOLON
@@ -155,7 +156,7 @@ type tokenId =
     | TOKEN_INSTR_I32_I32
     | TOKEN_INSTR_I
     | TOKEN_VAL_FLOAT64
-    | TOKEN_VAL_INT32_ELIPSES
+    | TOKEN_VAL_INT32_ELLIPSES
     | TOKEN_VAL_INT64
     | TOKEN_end_of_input
     | TOKEN_error
@@ -226,7 +227,7 @@ let tagOfToken (t:token) =
   | FIELD  -> 32 
   | EXPLICIT  -> 33 
   | EOF  -> 34 
-  | ELIPSES  -> 35 
+  | ELLIPSES  -> 35 
   | DOT  -> 36 
   | DEFAULT  -> 37 
   | DCOLON  -> 38 
@@ -253,7 +254,7 @@ let tagOfToken (t:token) =
   | INSTR_I32_I32 _ -> 59 
   | INSTR_I _ -> 60 
   | VAL_FLOAT64 _ -> 61 
-  | VAL_INT32_ELIPSES _ -> 62 
+  | VAL_INT32_ELLIPSES _ -> 62 
   | VAL_INT64 _ -> 63 
 
 // This function maps integer indexes to symbolic token ids
@@ -294,7 +295,7 @@ let tokenTagToTokenId (tokenIdx:int) =
   | 32 -> TOKEN_FIELD 
   | 33 -> TOKEN_EXPLICIT 
   | 34 -> TOKEN_EOF 
-  | 35 -> TOKEN_ELIPSES 
+  | 35 -> TOKEN_ELLIPSES 
   | 36 -> TOKEN_DOT 
   | 37 -> TOKEN_DEFAULT 
   | 38 -> TOKEN_DCOLON 
@@ -321,7 +322,7 @@ let tokenTagToTokenId (tokenIdx:int) =
   | 59 -> TOKEN_INSTR_I32_I32 
   | 60 -> TOKEN_INSTR_I 
   | 61 -> TOKEN_VAL_FLOAT64 
-  | 62 -> TOKEN_VAL_INT32_ELIPSES 
+  | 62 -> TOKEN_VAL_INT32_ELLIPSES 
   | 63 -> TOKEN_VAL_INT64 
   | 66 -> TOKEN_end_of_input
   | 64 -> TOKEN_error
@@ -459,7 +460,7 @@ let token_to_string (t:token) =
   | FIELD  -> "FIELD" 
   | EXPLICIT  -> "EXPLICIT" 
   | EOF  -> "EOF" 
-  | ELIPSES  -> "ELIPSES" 
+  | ELLIPSES  -> "ELLIPSES" 
   | DOT  -> "DOT" 
   | DEFAULT  -> "DEFAULT" 
   | DCOLON  -> "DCOLON" 
@@ -486,7 +487,7 @@ let token_to_string (t:token) =
   | INSTR_I32_I32 _ -> "INSTR_I32_I32" 
   | INSTR_I _ -> "INSTR_I" 
   | VAL_FLOAT64 _ -> "VAL_FLOAT64" 
-  | VAL_INT32_ELIPSES _ -> "VAL_INT32_ELIPSES" 
+  | VAL_INT32_ELLIPSES _ -> "VAL_INT32_ELLIPSES" 
   | VAL_INT64 _ -> "VAL_INT64" 
 
 // This function gets the data carried by a token as an object
@@ -527,7 +528,7 @@ let _fsyacc_dataOfToken (t:token) =
   | FIELD  -> (null : System.Object) 
   | EXPLICIT  -> (null : System.Object) 
   | EOF  -> (null : System.Object) 
-  | ELIPSES  -> (null : System.Object) 
+  | ELLIPSES  -> (null : System.Object) 
   | DOT  -> (null : System.Object) 
   | DEFAULT  -> (null : System.Object) 
   | DCOLON  -> (null : System.Object) 
@@ -554,7 +555,7 @@ let _fsyacc_dataOfToken (t:token) =
   | INSTR_I32_I32 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
   | INSTR_I _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
   | VAL_FLOAT64 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
-  | VAL_INT32_ELIPSES _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | VAL_INT32_ELLIPSES _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
   | VAL_INT64 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
 let _fsyacc_gotos = [| 0us;65535us;0us;65535us;1us;65535us;2us;3us;1us;65535us;0us;1us;0us;65535us;0us;65535us;2us;65535us;0us;6us;8us;9us;2us;65535us;0us;8us;8us;8us;12us;65535us;21us;33us;24us;33us;26us;33us;28us;33us;36us;32us;37us;33us;40us;33us;52us;33us;55us;33us;57us;33us;108us;33us;112us;33us;9us;65535us;21us;44us;24us;44us;26us;44us;28us;44us;52us;42us;55us;42us;57us;42us;108us;44us;112us;44us;11us;65535us;21us;39us;24us;39us;26us;39us;28us;39us;37us;38us;40us;41us;52us;39us;55us;39us;57us;39us;108us;39us;112us;39us;3us;65535us;52us;53us;55us;56us;57us;58us;6us;65535us;21us;45us;24us;45us;26us;45us;28us;45us;108us;45us;112us;45us;6us;65535us;21us;22us;24us;25us;26us;27us;28us;29us;108us;111us;112us;113us;0us;65535us;0us;65535us;8us;65535us;2us;4us;21us;46us;24us;46us;26us;46us;28us;46us;47us;48us;108us;46us;112us;46us;1us;65535us;59us;61us;2us;65535us;59us;90us;91us;92us;13us;65535us;21us;30us;24us;30us;26us;30us;28us;30us;34us;35us;36us;30us;37us;30us;40us;30us;52us;30us;55us;30us;57us;30us;108us;30us;112us;30us;9us;65535us;11us;12us;13us;14us;14us;15us;23us;24us;59us;93us;88us;89us;91us;93us;94us;95us;96us;97us;3us;65535us;16us;17us;18us;20us;104us;105us;1us;65535us;18us;19us;1us;65535us;42us;43us;1us;65535us;42us;107us;1us;65535us;108us;109us;|]
 let _fsyacc_sparseGotoTableRowOffsets = [|0us;1us;2us;4us;6us;7us;8us;11us;14us;27us;37us;49us;53us;60us;67us;68us;69us;78us;80us;83us;97us;107us;111us;113us;115us;117us;|]
@@ -567,7 +568,7 @@ let _fsyacc_reductionSymbolCounts = [|1us;1us;2us;2us;1us;3us;1us;2us;0us;1us;2u
 let _fsyacc_productionToNonTerminalTable = [|0us;1us;2us;3us;4us;4us;5us;6us;6us;7us;7us;7us;7us;7us;7us;7us;7us;7us;7us;8us;8us;8us;9us;9us;10us;10us;11us;12us;13us;13us;13us;14us;14us;14us;15us;15us;15us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;16us;17us;17us;18us;18us;18us;18us;18us;18us;19us;19us;20us;21us;22us;22us;23us;23us;24us;25us;25us;|]
 let _fsyacc_immediateActions = [|65535us;49152us;65535us;49152us;65535us;16386us;65535us;16387us;65535us;16391us;16393us;65535us;16394us;65535us;65535us;16395us;65535us;16396us;65535us;16397us;16398us;65535us;16399us;65535us;65535us;16400us;65535us;16401us;65535us;16402us;16403us;16404us;65535us;65535us;65535us;16405us;65535us;65535us;16406us;16407us;65535us;16409us;65535us;16410us;16411us;16412us;65535us;65535us;65535us;16414us;16421us;16422us;65535us;16423us;65535us;65535us;16424us;65535us;16425us;65535us;16426us;65535us;16427us;16428us;16429us;16430us;16431us;16432us;16433us;16434us;16435us;16436us;16437us;16438us;65535us;16439us;16440us;16441us;16442us;16443us;16444us;16445us;16446us;65535us;16447us;65535us;16448us;16449us;65535us;16450us;16451us;65535us;16452us;65535us;65535us;16455us;65535us;16457us;16459us;16460us;16461us;16462us;16463us;65535us;65535us;65535us;16464us;16466us;65535us;65535us;16467us;16468us;65535us;16469us;|]
 let _fsyacc_reductions = lazy [|
-//# 570 "ilpars.fs"
+//# 571 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ILInstr array in
             Microsoft.FSharp.Core.Operators.box
@@ -576,7 +577,7 @@ let _fsyacc_reductions = lazy [|
                       raise (Internal.Utilities.Text.Parsing.Accept(Microsoft.FSharp.Core.Operators.box _1))
                    )
                  : 'gentype__startilInstrs));
-//# 579 "ilpars.fs"
+//# 580 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ILType in
             Microsoft.FSharp.Core.Operators.box
@@ -585,108 +586,108 @@ let _fsyacc_reductions = lazy [|
                       raise (Internal.Utilities.Text.Parsing.Accept(Microsoft.FSharp.Core.Operators.box _1))
                    )
                  : 'gentype__startilType));
-//# 588 "ilpars.fs"
+//# 589 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ILType ResolvedAtMethodSpecScope in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 102 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 103 "src/Compiler/AbstractIL/ilpars.fsy"
                               resolveMethodSpecScope _1 [] 
                    )
-//# 102 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 103 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType));
-//# 599 "ilpars.fs"
+//# 600 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_instrs2 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 106 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 107 "src/Compiler/AbstractIL/ilpars.fsy"
                               Array.ofList _1 
                    )
-//# 106 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 107 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILInstr array));
-//# 610 "ilpars.fs"
+//# 611 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 110 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 111 "src/Compiler/AbstractIL/ilpars.fsy"
                                         _1 
                    )
-//# 110 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 111 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_compQstring));
-//# 621 "ilpars.fs"
+//# 622 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_compQstring in
             let _3 = parseState.GetInput(3) :?> string in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 111 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 112 "src/Compiler/AbstractIL/ilpars.fsy"
                                                          _1 + _3 
                    )
-//# 111 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 112 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_compQstring));
-//# 633 "ilpars.fs"
+//# 634 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 113 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 114 "src/Compiler/AbstractIL/ilpars.fsy"
                                           _1 
                    )
-//# 113 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 114 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_methodName));
-//# 644 "ilpars.fs"
+//# 645 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_instr in
             let _2 = parseState.GetInput(2) :?> 'gentype_instrs2 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 117 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 118 "src/Compiler/AbstractIL/ilpars.fsy"
                                _1 :: _2  
                    )
-//# 117 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 118 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instrs2));
-//# 656 "ilpars.fs"
+//# 657 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 118 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 119 "src/Compiler/AbstractIL/ilpars.fsy"
                             [] 
                    )
-//# 118 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 119 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instrs2));
-//# 666 "ilpars.fs"
+//# 667 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> NoArgInstr in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 122 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 123 "src/Compiler/AbstractIL/ilpars.fsy"
                                 (_1 ()) 
                    )
-//# 122 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 123 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 677 "ilpars.fs"
+//# 678 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> Int32Instr in
             let _2 = parseState.GetInput(2) :?> 'gentype_int32 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 124 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 125 "src/Compiler/AbstractIL/ilpars.fsy"
                                 (_1 _2) 
                    )
-//# 124 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 125 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 689 "ilpars.fs"
+//# 690 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> Int32Int32Instr in
             let _2 = parseState.GetInput(2) :?> 'gentype_int32 in
@@ -694,60 +695,60 @@ let _fsyacc_reductions = lazy [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 126 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 127 "src/Compiler/AbstractIL/ilpars.fsy"
                                 (_1 (_2,_3)) 
                    )
-//# 126 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 127 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 702 "ilpars.fs"
+//# 703 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> Int64Instr in
             let _2 = parseState.GetInput(2) :?> 'gentype_int64 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 128 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 129 "src/Compiler/AbstractIL/ilpars.fsy"
                                 (_1 _2) 
                    )
-//# 128 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 129 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 714 "ilpars.fs"
+//# 715 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> DoubleInstr in
             let _2 = parseState.GetInput(2) :?> 'gentype_float64 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 130 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 131 "src/Compiler/AbstractIL/ilpars.fsy"
                                 (_1 (ILConst.R8 _2)) 
                    )
-//# 130 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 131 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 726 "ilpars.fs"
+//# 727 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> DoubleInstr in
             let _2 = parseState.GetInput(2) :?> 'gentype_int64 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 132 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 133 "src/Compiler/AbstractIL/ilpars.fsy"
                                 (_1 (ILConst.R8 (float _2))) 
                    )
-//# 132 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 133 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 738 "ilpars.fs"
+//# 739 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> TypeInstr in
             let _2 = parseState.GetInput(2) :?> 'gentype_typSpec in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 134 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 135 "src/Compiler/AbstractIL/ilpars.fsy"
                                _1 (resolveCurrentMethodSpecScope _2) 
                    )
-//# 134 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 135 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 750 "ilpars.fs"
+//# 751 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> IntTypeInstr in
             let _2 = parseState.GetInput(2) :?> 'gentype_int32 in
@@ -755,768 +756,768 @@ let _fsyacc_reductions = lazy [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 136 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 137 "src/Compiler/AbstractIL/ilpars.fsy"
                                _1 ( _2,resolveCurrentMethodSpecScope _3) 
                    )
-//# 136 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 137 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 763 "ilpars.fs"
+//# 764 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ValueTypeInstr in
             let _2 = parseState.GetInput(2) :?> 'gentype_typSpec in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 138 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 139 "src/Compiler/AbstractIL/ilpars.fsy"
                                _1 (resolveCurrentMethodSpecScope _2) 
                    )
-//# 138 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 139 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 775 "ilpars.fs"
+//# 776 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> TokenInstr in
             let _2 = parseState.GetInput(2) :?> 'gentype_typSpec in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 140 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 141 "src/Compiler/AbstractIL/ilpars.fsy"
                                 (_1 (ILToken.ILType (resolveCurrentMethodSpecScope _2)))  
                    )
-//# 140 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 141 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_instr));
-//# 787 "ilpars.fs"
+//# 788 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_id in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 147 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 148 "src/Compiler/AbstractIL/ilpars.fsy"
                                _1 
                    )
-//# 147 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 148 "src/Compiler/AbstractIL/ilpars.fsy"
                  : string));
-//# 798 "ilpars.fs"
+//# 799 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 149 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 150 "src/Compiler/AbstractIL/ilpars.fsy"
                                _1 
                    )
-//# 149 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 150 "src/Compiler/AbstractIL/ilpars.fsy"
                  : string));
-//# 809 "ilpars.fs"
+//# 810 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             let _3 = parseState.GetInput(3) :?> 'gentype_id in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 151 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 152 "src/Compiler/AbstractIL/ilpars.fsy"
                                _1 + "." + _3 
                    )
-//# 151 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 152 "src/Compiler/AbstractIL/ilpars.fsy"
                  : string));
-//# 821 "ilpars.fs"
+//# 822 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> string in
             let _4 = parseState.GetInput(4) :?> 'gentype_slashedName in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 155 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 156 "src/Compiler/AbstractIL/ilpars.fsy"
                                let (enc,nm) = _4 
                                ILScopeRef.PrimaryAssembly, enc, nm 
                    )
-//# 155 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 156 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_className));
-//# 834 "ilpars.fs"
+//# 835 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_slashedName in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 158 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 159 "src/Compiler/AbstractIL/ilpars.fsy"
                                let enc, nm = _1 in (ILScopeRef.Local, enc, nm) 
                    )
-//# 158 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 159 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_className));
-//# 845 "ilpars.fs"
+//# 846 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 162 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 163 "src/Compiler/AbstractIL/ilpars.fsy"
                                ([],_1) 
                    )
-//# 162 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 163 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_slashedName));
-//# 856 "ilpars.fs"
+//# 857 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             let _3 = parseState.GetInput(3) :?> 'gentype_slashedName in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 164 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 165 "src/Compiler/AbstractIL/ilpars.fsy"
                                let (enc,nm) = _3 in (_1 :: enc, nm)  
                    )
-//# 164 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 165 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_slashedName));
-//# 868 "ilpars.fs"
+//# 869 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_className in
             let _2 = parseState.GetInput(2) :?> 'gentype_opt_actual_tyargs in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 168 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 169 "src/Compiler/AbstractIL/ilpars.fsy"
                                let (a,b,c) = _1 
                                resolveMethodSpecScopeThen _2 (fun inst -> 
                                noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), inst)))) 
                    )
-//# 168 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 169 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_typeNameInst));
-//# 882 "ilpars.fs"
+//# 883 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_className in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 175 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 176 "src/Compiler/AbstractIL/ilpars.fsy"
                                let (a,b,c) = _1 
                                noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), []))) 
                    )
-//# 175 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 176 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_typeName));
-//# 894 "ilpars.fs"
+//# 895 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_typeName in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 181 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 182 "src/Compiler/AbstractIL/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun tref -> 
                                noMethodSpecScope (mkILBoxedType tref))  
                    )
-//# 181 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 182 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_typSpec));
-//# 906 "ilpars.fs"
+//# 907 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ILType ResolvedAtMethodSpecScope in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 184 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 185 "src/Compiler/AbstractIL/ilpars.fsy"
                                _1 
                    )
-//# 184 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 185 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_typSpec));
-//# 917 "ilpars.fs"
+//# 918 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> ILType ResolvedAtMethodSpecScope in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 186 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 187 "src/Compiler/AbstractIL/ilpars.fsy"
                                _2 
                    )
-//# 186 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 187 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_typSpec));
-//# 928 "ilpars.fs"
+//# 929 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_callKind in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 191 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 192 "src/Compiler/AbstractIL/ilpars.fsy"
                                Callconv (ILThisConvention.Instance,_2) 
                    )
-//# 191 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 192 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_callConv));
-//# 939 "ilpars.fs"
+//# 940 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_callKind in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 193 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 194 "src/Compiler/AbstractIL/ilpars.fsy"
                                Callconv (ILThisConvention.InstanceExplicit,_2) 
                    )
-//# 193 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 194 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_callConv));
-//# 950 "ilpars.fs"
+//# 951 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_callKind in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 195 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 196 "src/Compiler/AbstractIL/ilpars.fsy"
                                Callconv (ILThisConvention.Static,_1) 
                    )
-//# 195 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 196 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_callConv));
-//# 961 "ilpars.fs"
+//# 962 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 199 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 200 "src/Compiler/AbstractIL/ilpars.fsy"
                              ILArgConvention.Default 
                    )
-//# 199 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 200 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_callKind));
-//# 971 "ilpars.fs"
+//# 972 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 201 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 202 "src/Compiler/AbstractIL/ilpars.fsy"
                              ILArgConvention.Default 
                    )
-//# 201 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 202 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_callKind));
-//# 981 "ilpars.fs"
+//# 982 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 203 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 204 "src/Compiler/AbstractIL/ilpars.fsy"
                              ILArgConvention.VarArg 
                    )
-//# 203 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 204 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_callKind));
-//# 991 "ilpars.fs"
+//# 992 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 212 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 213 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_String 
                    )
-//# 212 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 213 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1001 "ilpars.fs"
+//# 1002 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 214 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 215 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Object 
                    )
-//# 214 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 215 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1011 "ilpars.fs"
+//# 1012 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_typeNameInst in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 216 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 217 "src/Compiler/AbstractIL/ilpars.fsy"
                               resolveMethodSpecScopeThen _2 (fun tspec -> 
                                noMethodSpecScope (mkILBoxedType tspec)) 
                    )
-//# 216 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 217 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1023 "ilpars.fs"
+//# 1024 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = parseState.GetInput(3) :?> 'gentype_typeNameInst in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 219 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 220 "src/Compiler/AbstractIL/ilpars.fsy"
                               resolveMethodSpecScopeThen _3 (fun tspec -> 
                               noMethodSpecScope (ILType.Value tspec)) 
                    )
-//# 219 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 220 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1035 "ilpars.fs"
+//# 1036 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_typeNameInst in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 222 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 223 "src/Compiler/AbstractIL/ilpars.fsy"
                               resolveMethodSpecScopeThen _2 (fun tspec -> 
                               noMethodSpecScope (ILType.Value tspec)) 
                    )
-//# 222 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 223 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1047 "ilpars.fs"
+//# 1048 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ILType ResolvedAtMethodSpecScope in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 225 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 226 "src/Compiler/AbstractIL/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArr1DTy ty)) 
                    )
-//# 225 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 226 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1058 "ilpars.fs"
+//# 1059 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ILType ResolvedAtMethodSpecScope in
             let _3 = parseState.GetInput(3) :?> 'gentype_bounds1 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 227 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 228 "src/Compiler/AbstractIL/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArrTy (ty,ILArrayShape _3))) 
                    )
-//# 227 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 228 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1070 "ilpars.fs"
+//# 1071 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ILType ResolvedAtMethodSpecScope in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 229 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 230 "src/Compiler/AbstractIL/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Byref ty)) 
                    )
-//# 229 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 230 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1081 "ilpars.fs"
+//# 1082 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> ILType ResolvedAtMethodSpecScope in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 231 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 232 "src/Compiler/AbstractIL/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Ptr ty)) 
                    )
-//# 231 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 232 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1092 "ilpars.fs"
+//# 1093 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 233 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 234 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Char 
                    )
-//# 233 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 234 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1102 "ilpars.fs"
+//# 1103 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 235 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 236 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope ILType.Void 
                    )
-//# 235 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 236 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1112 "ilpars.fs"
+//# 1113 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 237 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 238 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Bool 
                    )
-//# 237 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 238 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1122 "ilpars.fs"
+//# 1123 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 239 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 240 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_SByte 
                    )
-//# 239 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 240 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1132 "ilpars.fs"
+//# 1133 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 241 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 242 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int16 
                    )
-//# 241 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 242 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1142 "ilpars.fs"
+//# 1143 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 243 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 244 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int32 
                    )
-//# 243 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 244 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1152 "ilpars.fs"
+//# 1153 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 245 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 246 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int64 
                    )
-//# 245 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 246 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1162 "ilpars.fs"
+//# 1163 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 247 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 248 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Single 
                    )
-//# 247 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 248 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1172 "ilpars.fs"
+//# 1173 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 249 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 250 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Double 
                    )
-//# 249 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 250 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1182 "ilpars.fs"
+//# 1183 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 251 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 252 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Byte 
                    )
-//# 251 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 252 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1192 "ilpars.fs"
+//# 1193 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 253 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 254 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt16 
                    )
-//# 253 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 254 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1202 "ilpars.fs"
+//# 1203 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 255 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 256 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt32 
                    )
-//# 255 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 256 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1212 "ilpars.fs"
+//# 1213 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 257 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 258 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt64 
                    )
-//# 257 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 258 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1222 "ilpars.fs"
+//# 1223 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 259 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 260 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Byte 
                    )
-//# 259 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 260 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1232 "ilpars.fs"
+//# 1233 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 261 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 262 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt16 
                    )
-//# 261 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 262 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1242 "ilpars.fs"
+//# 1243 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 263 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 264 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt32 
                    )
-//# 263 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 264 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1252 "ilpars.fs"
+//# 1253 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 265 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 266 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt64 
                    )
-//# 265 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 266 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1262 "ilpars.fs"
+//# 1263 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 267 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 268 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_IntPtr 
                    )
-//# 267 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 268 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1272 "ilpars.fs"
+//# 1273 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 269 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 270 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UIntPtr 
                    )
-//# 269 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 270 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1282 "ilpars.fs"
+//# 1283 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 271 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 272 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UIntPtr 
                    )
-//# 271 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 272 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1292 "ilpars.fs"
+//# 1293 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_int32 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 274 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 275 "src/Compiler/AbstractIL/ilpars.fsy"
                               noMethodSpecScope (ILType.TypeVar (uint16 ( _2)))  
                    )
-//# 274 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 275 "src/Compiler/AbstractIL/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1303 "ilpars.fs"
+//# 1304 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_bound in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 279 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 280 "src/Compiler/AbstractIL/ilpars.fsy"
                               [_1] 
                    )
-//# 279 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 280 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_bounds1));
-//# 1314 "ilpars.fs"
+//# 1315 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_bounds1 in
             let _3 = parseState.GetInput(3) :?> 'gentype_bound in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 281 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 282 "src/Compiler/AbstractIL/ilpars.fsy"
                               _1 @ [_3] 
                    )
-//# 281 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 282 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_bounds1));
-//# 1326 "ilpars.fs"
+//# 1327 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 285 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 286 "src/Compiler/AbstractIL/ilpars.fsy"
                               (None, None) 
                    )
-//# 285 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 286 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_bound));
-//# 1336 "ilpars.fs"
+//# 1337 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_int32 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 287 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 288 "src/Compiler/AbstractIL/ilpars.fsy"
                               (None, Some _1) 
                    )
-//# 287 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 288 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_bound));
-//# 1347 "ilpars.fs"
+//# 1348 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_int32 in
             let _3 = parseState.GetInput(3) :?> 'gentype_int32 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 289 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 290 "src/Compiler/AbstractIL/ilpars.fsy"
                               (Some _1, Some (_3 - _1 + 1)) 
                    )
-//# 289 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 290 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_bound));
-//# 1359 "ilpars.fs"
+//# 1360 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_int32 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 291 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 292 "src/Compiler/AbstractIL/ilpars.fsy"
                               (Some _1, None) 
                    )
-//# 291 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 292 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_bound));
-//# 1370 "ilpars.fs"
+//# 1371 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> int32 in
             let _2 = parseState.GetInput(2) :?> 'gentype_int32 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 298 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 299 "src/Compiler/AbstractIL/ilpars.fsy"
                               (Some _1, Some (_2 - _1 + 1)) 
                    )
-//# 298 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 299 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_bound));
-//# 1382 "ilpars.fs"
+//# 1383 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> int32 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 300 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 301 "src/Compiler/AbstractIL/ilpars.fsy"
                               (Some _1, None) 
                    )
-//# 300 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 301 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_bound));
-//# 1393 "ilpars.fs"
+//# 1394 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 304 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 305 "src/Compiler/AbstractIL/ilpars.fsy"
                               _1 
                    )
-//# 304 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 305 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_id));
-//# 1404 "ilpars.fs"
+//# 1405 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> string in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 306 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 307 "src/Compiler/AbstractIL/ilpars.fsy"
                               _1 
                    )
-//# 306 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 307 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_id));
-//# 1415 "ilpars.fs"
+//# 1416 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> int64 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 310 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 311 "src/Compiler/AbstractIL/ilpars.fsy"
                               int32 _1 
                    )
-//# 310 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 311 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_int32));
-//# 1426 "ilpars.fs"
+//# 1427 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> int64 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 314 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 315 "src/Compiler/AbstractIL/ilpars.fsy"
                               _1 
                    )
-//# 314 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 315 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_int64));
-//# 1437 "ilpars.fs"
+//# 1438 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> double in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 318 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 319 "src/Compiler/AbstractIL/ilpars.fsy"
                               _1 
                    )
-//# 318 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 319 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_float64));
-//# 1448 "ilpars.fs"
+//# 1449 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = parseState.GetInput(3) :?> 'gentype_int64 in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 320 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 321 "src/Compiler/AbstractIL/ilpars.fsy"
                               System.BitConverter.Int64BitsToDouble _3 
                    )
-//# 320 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 321 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_float64));
-//# 1459 "ilpars.fs"
+//# 1460 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 324 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 325 "src/Compiler/AbstractIL/ilpars.fsy"
                                noMethodSpecScope [] 
                    )
-//# 324 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 325 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_opt_actual_tyargs));
-//# 1469 "ilpars.fs"
+//# 1470 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_actual_tyargs in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 326 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 327 "src/Compiler/AbstractIL/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun res -> 
                                noMethodSpecScope  res) 
                    )
-//# 326 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 327 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_opt_actual_tyargs));
-//# 1481 "ilpars.fs"
+//# 1482 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_actualTypSpecs in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 331 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 332 "src/Compiler/AbstractIL/ilpars.fsy"
                                _2 
                    )
-//# 331 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 332 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_actual_tyargs));
-//# 1492 "ilpars.fs"
+//# 1493 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_typSpec in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 335 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 336 "src/Compiler/AbstractIL/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun res -> 
                                noMethodSpecScope [ res]) 
                    )
-//# 335 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 336 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_actualTypSpecs));
-//# 1504 "ilpars.fs"
+//# 1505 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = parseState.GetInput(1) :?> 'gentype_actualTypSpecs in
             let _3 = parseState.GetInput(3) :?> 'gentype_typSpec in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 338 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 339 "src/Compiler/AbstractIL/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun x -> 
                                resolveMethodSpecScopeThen _3 (fun y -> 
                                noMethodSpecScope (x @ [ y]))) 
                    )
-//# 338 "src/Compiler/AbstractIL/ilpars.fsy"
+//# 339 "src/Compiler/AbstractIL/ilpars.fsy"
                  : 'gentype_actualTypSpecs));
 |]
-//# 1519 "ilpars.fs"
+//# 1520 "ilpars.fs"
 let tables : Internal.Utilities.Text.Parsing.Tables<_> = 
   { reductions = _fsyacc_reductions.Value;
     endOfInputTag = _fsyacc_endOfInputTag;

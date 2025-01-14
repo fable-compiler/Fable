@@ -572,17 +572,17 @@ let rec convIlxClosureDef cenv encl (td: ILTypeDef) clo =
                         name = td.Name,
                         genericParams = td.GenericParams,
                         attributes = td.Attributes,
-                        implements = [],
+                        implements = emptyILInterfaceImpls,
                         nestedTypes = emptyILTypeDefs,
                         layout = ILTypeDefLayout.Auto,
                         extends = Some cenv.mkILTyFuncTy,
                         methods = mkILMethods (ctorMethodDef :: nowApplyMethDef :: nowMethods),
                         fields = mkILFields (mkILCloFldDefs cenv nowFields @ td.Fields.AsList()),
-                        customAttrs = emptyILCustomAttrs,
+                        customAttrs = emptyILCustomAttrsStored,
                         methodImpls = emptyILMethodImpls,
                         properties = emptyILProperties,
                         events = emptyILEvents,
-                        isKnownToBeAttribute = false,
+                        additionalFlags = ILTypeDefAdditionalFlags.None,
                         securityDecls = emptyILSecurityDecls
                     )
                         .WithSpecialName(false)
@@ -706,17 +706,17 @@ let rec convIlxClosureDef cenv encl (td: ILTypeDef) clo =
                         name = td.Name,
                         genericParams = td.GenericParams,
                         attributes = td.Attributes,
-                        implements = [],
+                        implements = emptyILInterfaceImpls,
                         layout = ILTypeDefLayout.Auto,
                         nestedTypes = emptyILTypeDefs,
                         extends = Some nowEnvParentClass,
                         methods = mkILMethods (ctorMethodDef :: nowApplyMethDef :: nowMethods),
                         fields = mkILFields (mkILCloFldDefs cenv nowFields @ td.Fields.AsList()),
-                        customAttrs = emptyILCustomAttrs,
+                        customAttrs = emptyILCustomAttrsStored,
                         methodImpls = emptyILMethodImpls,
                         properties = emptyILProperties,
                         events = emptyILEvents,
-                        isKnownToBeAttribute = false,
+                        additionalFlags = ILTypeDefAdditionalFlags.None,
                         securityDecls = emptyILSecurityDecls
                     )
                         .WithHasSecurity(false)
