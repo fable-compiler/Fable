@@ -23,6 +23,11 @@ type StringBuilder(value: string, capacity: int) =
         buf.Add(string<char> c)
         x
 
+    member x.Append(c: char, repeatCount: int) =
+        let s = String.replicate repeatCount (string<char> c)
+        buf.Add(s)
+        x
+
     member x.Append(o: int) =
         buf.Add(string<int> o)
         x

@@ -128,8 +128,9 @@ let tests() =
                             .Append(true)
                             .Append(5.2)
                             .Append(34)
+                            .Append('x', 4)
         let actual = sb.ToString().Replace(",", ".").ToLower()
-        actual |> equal "aaabcd/true5.234"
+        actual |> equal "aaabcd/true5.234xxxx"
 
     // testCase "StringBuilder.AppendFormat works" <| fun () ->
     //     let sb = System.Text.StringBuilder()
