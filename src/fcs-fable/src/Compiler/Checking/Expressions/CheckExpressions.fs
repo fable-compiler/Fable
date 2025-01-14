@@ -154,6 +154,16 @@ let (|HasFormatSpecifier|_|) (s: string) =
         Regex.IsMatch(
             s,
             // Regex pattern for something like: %[flags][width][.precision][type]
+#if FABLE_COMPILER
+            @"(^|[^%])" +              // Start with beginning of string or any char other than '%'
+            @"(%%)*%" +                // followed by an odd number of '%' chars
+            @"[+-0 ]{0,3}" +           // optionally followed by flags
+            @"(\d+)?" +                // optionally followed by width
+            @"(\.\d+)?" +              // optionally followed by .precision
+            @"[bscdiuxXoBeEfFgGMOAat]" // and then a char that determines specifier's type
+            ,
+            RegexOptions.Compiled)
+#else
             """
             (^|[^%])                # Start with beginning of string or any char other than '%'
             (%%)*%                  # followed by an odd number of '%' chars
@@ -163,6 +173,7 @@ let (|HasFormatSpecifier|_|) (s: string) =
             [bscdiuxXoBeEfFgGMOAat] # and then a char that determines specifier's type
             """,
             RegexOptions.Compiled ||| RegexOptions.IgnorePatternWhitespace)
+#endif
     then
         ValueSome HasFormatSpecifier
     else

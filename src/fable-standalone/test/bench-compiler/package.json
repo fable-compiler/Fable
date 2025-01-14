@@ -68,6 +68,7 @@
     "build-tests-opt": "npm run build-tests-js -- --optimize",
     "build-tests-node": "npm run fable-node -- ../../../../tests/Js/Main/Fable.Tests.fsproj --outDir ./out-tests --fableLib ./out-lib-js --sourceMaps",
     "postbuild-tests-js": "npm run mocha -- out-tests --colors --reporter dot -t 10000",
+    "postbuild-tests-node": "npm run mocha -- out-tests --colors --reporter dot -t 10000",
 
     "build-tests-rust": "npm run fable -- ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir ./out-tests-rust --fableLib ./out-lib-rust --lang Rust",
     "build-tests-dart": "npm run fable -- ../../../../tests/Dart/src/Fable.Tests.Dart.fsproj --outDir ./out-tests-dart --fableLib ./out-lib-dart --lang Dart",
