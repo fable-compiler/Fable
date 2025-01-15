@@ -127,7 +127,8 @@ type FSharpChecker
         captureIdentifiersWhenParsing,
         getSource,
         useChangeNotifications,
-        useTransparentCompiler
+        useTransparentCompiler,
+        ?transparentCompilerCacheSizes
     ) =
 
     let backgroundCompiler =
@@ -145,7 +146,8 @@ type FSharpChecker
                 parallelReferenceResolution,
                 captureIdentifiersWhenParsing,
                 getSource,
-                useChangeNotifications
+                useChangeNotifications,
+                ?cacheSizes = transparentCompilerCacheSizes
             )
             :> IBackgroundCompiler
         else
@@ -208,7 +210,8 @@ type FSharpChecker
             ?parallelReferenceResolution: bool,
             ?captureIdentifiersWhenParsing: bool,
             ?documentSource: DocumentSource,
-            ?useTransparentCompiler: bool
+            ?useTransparentCompiler: bool,
+            ?transparentCompilerCacheSizes: CacheSizes
         ) =
 
         use _ = Activity.startNoTags "FSharpChecker.Create"
@@ -257,7 +260,8 @@ type FSharpChecker
              | Some(DocumentSource.Custom f) -> Some f
              | _ -> None),
             useChangeNotifications,
-            useTransparentCompiler
+            useTransparentCompiler,
+            ?transparentCompilerCacheSizes = transparentCompilerCacheSizes
         )
 
     member _.UsesTransparentCompiler = useTransparentCompiler = Some true

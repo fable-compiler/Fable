@@ -9,11 +9,10 @@
  </PropertyGroup>
 
  <ItemGroup>
-    <PackageReference Include="Expecto" Version="10.1.0" />
+    <PackageReference Include="Expecto" Version="10.2.1" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="Fable.JsonProvider" Version="1.1.1" />
     <PackageReference Include="FSharp.UMX" Version="1.1.0" />
-    <PackageReference Update="FSharp.Core" Version="9.0.100" />
   </ItemGroup>
 
   <ItemGroup>

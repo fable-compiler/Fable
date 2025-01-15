@@ -15,7 +15,7 @@ let resources =
         "A type parameter is missing a constraint '{0}'"
       );
       ( "ConstraintSolverNullnessWarningEquivWithTypes",
-        "Nullness warning: The types '{0}' and '{1}' do not have equivalent nullability."
+        "Nullness warning: A non-nullable '{0}' was expected but this expression is nullable. Consider either changing the target to also be nullable, or use pattern matching to safely handle the null case of this expression."
       );
       ( "ConstraintSolverNullnessWarningWithTypes",
         "Nullness warning: The types '{0}' and '{1}' do not have compatible nullability."

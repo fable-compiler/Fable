@@ -32,6 +32,11 @@ open FSharp.Compiler.TypeProviders
 open FSharp.Core.CompilerServices
 #endif
 
+[<RequireQualifiedAccess>]
+module WellKnownNames =
+    /// Special name for the defensive copy of a struct, we use it in situations like when we get an address of a field in ax-assembly scenario.
+    let [<Literal>] CopyOfStruct = "copyOfStruct"
+
 type Stamp = int64
 
 type StampMap<'T> = Map<Stamp, 'T>
@@ -4565,16 +4570,16 @@ type Measure =
     | Var of typar: Typar
 
     /// A constant, leaf unit-of-measure such as 'kg' or 'm'
-    | Const of tyconRef: TyconRef
+    | Const of tyconRef: TyconRef * range: range
 
     /// A product of two units of measure
-    | Prod of measure1: Measure * measure2: Measure
+    | Prod of measure1: Measure * measure2: Measure * range: range
 
     /// An inverse of a units of measure expression
     | Inv of measure: Measure
 
     /// The unit of measure '1', e.g. float = float<1>
-    | One
+    | One of range: range
 
     /// Raising a measure to a rational power 
     | RationalPower of measure: Measure * power: Rational
@@ -4583,7 +4588,16 @@ type Measure =
     //[<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     //member x.DebugText = x.ToString()
     
-    override x.ToString() = sprintf "%+A" x 
+    override x.ToString() = sprintf "%+A" x
+    
+    member x.Range = 
+        match x with 
+        | Var(typar) -> typar.Range
+        | Const(range= m) -> m
+        | Prod(range= m) -> m
+        | Inv(m) -> m.Range
+        | One(range= m) -> m
+        | RationalPower(measure= ms) -> ms.Range
 
 type Attribs = Attrib list 
 

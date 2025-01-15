@@ -3222,34 +3222,47 @@ module EstablishTypeDefinitionCores =
                   ignore inSig 
 #endif
 
-                  // This case deals with ordinary type and measure abbreviations 
-                  if not hasMeasureableAttr then 
+                  // This case deals with ordinary type and measure abbreviations
+                  if not hasMeasureableAttr then
                     let kind = if hasMeasureAttr then TyparKind.Measure else TyparKind.Type
                     let ty, _ = TcTypeOrMeasureAndRecover (Some kind) cenv NoNewTypars checkConstraints ItemOccurrence.UseInType WarnOnIWSAM.No envinner tpenv rhsType
 
-                    // Give a warning if `AutoOpenAttribute` is being aliased.
+
+                    // Give a warning if `AutoOpenAttribute` or `StructAttribute` is being aliased.
                     // If the user were to alias the `Microsoft.FSharp.Core.AutoOpenAttribute` type, it would not be detected by the project graph dependency resolution algorithm.
+
+                    let inline checkAttributeAliased ty (tycon: Tycon) (attrib: BuiltinAttribInfo) =
+                        match stripTyEqns g ty with
+                        | AppTy g (tcref, _) when not tcref.IsErased ->
+                            match tcref.CompiledRepresentation with
+                            | CompiledTypeRepr.ILAsmOpen _ -> ()
+                            | CompiledTypeRepr.ILAsmNamed _ ->
+                                if tcref.CompiledRepresentationForNamedType.FullName = attrib.TypeRef.FullName then
+                                    warning(Error(FSComp.SR.chkAttributeAliased(attrib.TypeRef.FullName), tycon.Id.idRange))
+                        | _ -> ()
+
+                    // Check for attributes in unit-of-measure declarations
+                    // [<Measure>] type x = 1<s>
+                    //                        ^
                     match stripTyEqns g ty with
-                    | AppTy g (tcref, _) when not tcref.IsErased ->
-                        match tcref.CompiledRepresentation with
-                        | CompiledTypeRepr.ILAsmOpen _ -> ()
-                        | CompiledTypeRepr.ILAsmNamed _ ->
-                            if tcref.CompiledRepresentationForNamedType.FullName = g.attrib_AutoOpenAttribute.TypeRef.FullName then
-                                warning(Error(FSComp.SR.chkAutoOpenAttributeInTypeAbbrev(), tycon.Id.idRange))
+                    | TType_measure tm -> CheckUnitOfMeasureAttributes g tm
                     | _ -> ()
-                    
-                    if not firstPass then 
-                        let ftyvs = freeInTypeLeftToRight g false ty 
+                        
+                    checkAttributeAliased ty tycon g.attrib_AutoOpenAttribute
+                    checkAttributeAliased ty tycon g.attrib_StructAttribute
+
+                    if not firstPass then
+                        let ftyvs = freeInTypeLeftToRight g false ty
                         let typars = tycon.Typars m
-                        if ftyvs.Length <> typars.Length then 
+                        if ftyvs.Length <> typars.Length then
                             errorR(Deprecated(FSComp.SR.tcTypeAbbreviationHasTypeParametersMissingOnType(), tycon.Range))
 
                     if firstPass then
                         tycon.SetTypeAbbrev (Some ty)
 
             | _ -> ()
-        
-        with RecoverableException exn -> 
+
+        with RecoverableException exn ->
             errorRecovery exn m
 
     // Third phase: check and publish the super types. Run twice, once before constraints are established
@@ -3801,11 +3814,11 @@ module EstablishTypeDefinitionCores =
 
             and accInMeasure measureTy acc =
                 match stripUnitEqns measureTy with
-                | Measure.Const tcref when ListSet.contains (===) tcref.Deref tycons ->  
+                | Measure.Const(tyconRef= tcref) when ListSet.contains (===) tcref.Deref tycons ->  
                     (tycon, tcref.Deref) :: acc
-                | Measure.Const tcref when tcref.IsTypeAbbrev ->              
+                | Measure.Const(tyconRef= tcref) when tcref.IsTypeAbbrev ->              
                     accInMeasure (reduceTyconRefAbbrevMeasureable tcref) acc
-                | Measure.Prod (ms1, ms2) -> accInMeasure ms1 (accInMeasure ms2 acc)
+                | Measure.Prod(measure1= ms1; measure2= ms2) -> accInMeasure ms1 (accInMeasure ms2 acc)
                 | Measure.Inv invTy -> accInMeasure invTy acc
                 | _ -> acc
 
