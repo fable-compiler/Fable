@@ -10,12 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [All] Add `StringBuiler.Append(c: char, repeatCount: int)` overload (by @roboz0r)
+* [All] Added primitive types equality and comparison (by @ncave)
+* [All] Updated FCS to latest F# 9.0 (by @ncave)
+* [All] Updated Fable-FCS to latest F# 9.0 (by @ncave)
+* [All] Updated metadata to latest .NET 9.0 (by @ncave)
 
 ## 5.0.0-alpha.5 - 2025-01-09
 
 ### Added
 
-* [JS/TS/Python] Add new `TimSpan` overload support coming from .NET 9 (by @MangelMaxime)
+* [JS/TS/Python] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @MangelMaxime)
 * [Rust] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @ncave)
 
 ### Fixed
