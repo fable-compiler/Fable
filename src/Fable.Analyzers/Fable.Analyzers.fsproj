@@ -10,7 +10,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="9.0.100"/>
         <PackageReference Include="FSharp.Analyzers.SDK" Version="0.28.0"/>
     </ItemGroup>
 

@@ -7,19 +7,19 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/43.9.200-dev": {
+      "FSharp.Compiler.Service/43.9.300-dev": {
         "dependencies": {
-          "FSharp.Core": "9.0.200-dev",
-          "FSharp.DependencyManager.Nuget": "9.0.200-dev",
-          "Microsoft.DotNet.XliffTasks": "9.0.0-beta.24462.3",
+          "FSharp.Core": "9.0.300-dev",
+          "FSharp.DependencyManager.Nuget": "9.0.300-dev",
+          "Microsoft.DotNet.XliffTasks": "9.0.0-beta.25058.5",
           "NETStandard.Library": "2.0.3",
-          "System.Buffers": "4.5.1",
+          "System.Buffers": "4.6.0",
           "System.Collections.Immutable": "8.0.0",
           "System.Diagnostics.DiagnosticSource": "8.0.0",
           "System.Memory": "4.5.5",
           "System.Reflection.Emit": "4.7.0",
           "System.Reflection.Metadata": "8.0.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.0.0",
+          "System.Runtime.CompilerServices.Unsafe": "6.1.0",
           "optimization.linux-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
           "optimization.linux-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
           "optimization.windows_nt-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
@@ -71,7 +71,7 @@
           }
         }
       },
-      "Microsoft.DotNet.XliffTasks/9.0.0-beta.24462.3": {},
+      "Microsoft.DotNet.XliffTasks/9.0.0-beta.25058.5": {},
       "Microsoft.NETCore.Platforms/1.1.0": {},
       "NETStandard.Library/2.0.3": {
         "dependencies": {
@@ -83,18 +83,18 @@
       "optimization.windows_nt-arm64.MIBC.Runtime/1.0.0-prerelease.24462.2": {},
       "optimization.windows_nt-x64.MIBC.Runtime/1.0.0-prerelease.24462.2": {},
       "optimization.windows_nt-x86.MIBC.Runtime/1.0.0-prerelease.24462.2": {},
-      "System.Buffers/4.5.1": {
+      "System.Buffers/4.6.0": {
         "runtime": {
           "lib/netstandard2.0/System.Buffers.dll": {
-            "assemblyVersion": "4.0.3.0",
-            "fileVersion": "4.6.28619.1"
+            "assemblyVersion": "4.0.2.0",
+            "fileVersion": "4.600.24.56208"
           }
         }
       },
       "System.Collections.Immutable/8.0.0": {
         "dependencies": {
           "System.Memory": "4.5.5",
-          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
+          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Collections.Immutable.dll": {
@@ -106,7 +106,7 @@
       "System.Diagnostics.DiagnosticSource/8.0.0": {
         "dependencies": {
           "System.Memory": "4.5.5",
-          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
+          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Diagnostics.DiagnosticSource.dll": {
@@ -117,9 +117,9 @@
       },
       "System.Memory/4.5.5": {
         "dependencies": {
-          "System.Buffers": "4.5.1",
+          "System.Buffers": "4.6.0",
           "System.Numerics.Vectors": "4.4.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
+          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Memory.dll": {
@@ -167,15 +167,15 @@
           }
         }
       },
-      "System.Runtime.CompilerServices.Unsafe/6.0.0": {
+      "System.Runtime.CompilerServices.Unsafe/6.1.0": {
         "runtime": {
           "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll": {
             "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
+            "fileVersion": "6.100.24.56208"
           }
         }
       },
-      "FSharp.Core/9.0.200-dev": {
+      "FSharp.Core/9.0.300-dev": {
         "dependencies": {
           "optimization.linux-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
           "optimization.linux-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
@@ -185,7 +185,7 @@
         },
         "runtime": {
           "FSharp.Core.dll": {
-            "assemblyVersion": "9.0.200-dev",
+            "assemblyVersion": "9.0.300-dev",
             "fileVersion": "42.42.42.42424"
           }
         },
@@ -231,12 +231,12 @@
           }
         }
       },
-      "FSharp.DependencyManager.Nuget/9.0.200-dev": {
+      "FSharp.DependencyManager.Nuget/9.0.300-dev": {
         "dependencies": {
-          "FSharp.Core": "9.0.200-dev",
+          "FSharp.Core": "9.0.300-dev",
           "System.Reflection.Emit": "4.7.0",
           "System.Reflection.Metadata": "8.0.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.0.0",
+          "System.Runtime.CompilerServices.Unsafe": "6.1.0",
           "optimization.linux-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
           "optimization.linux-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
           "optimization.windows_nt-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
@@ -245,7 +245,7 @@
         },
         "runtime": {
           "FSharp.DependencyManager.Nuget.dll": {
-            "assemblyVersion": "9.0.200-dev",
+            "assemblyVersion": "9.0.300-dev",
             "fileVersion": "42.42.42.42424"
           }
         },
@@ -294,17 +294,17 @@
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/43.9.200-dev": {
+    "FSharp.Compiler.Service/43.9.300-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "Microsoft.DotNet.XliffTasks/9.0.0-beta.24462.3": {
+    "Microsoft.DotNet.XliffTasks/9.0.0-beta.25058.5": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-nvLDQGv1fufauDNemRIJtdWAhhx0K/6X1US+6MU/38thDS5hHbrKegSC6fuIkAEvAOMZDqmkjZFzelZdsrfXrg==",
-      "path": "microsoft.dotnet.xlifftasks/9.0.0-beta.24462.3",
-      "hashPath": "microsoft.dotnet.xlifftasks.9.0.0-beta.24462.3.nupkg.sha512"
+      "sha512": "sha512-jG0YhwaxOBdIPx8xFjQtjRHwxaq/Gk1WN1YGWmeZr1y7Wlx2N3hr8RNVQN5OJnmp9HxMPApH/g4+p7n9Ww2UbA==",
+      "path": "microsoft.dotnet.xlifftasks/9.0.0-beta.25058.5",
+      "hashPath": "microsoft.dotnet.xlifftasks.9.0.0-beta.25058.5.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/1.1.0": {
       "type": "package",
@@ -355,12 +355,12 @@
       "path": "optimization.windows_nt-x86.mibc.runtime/1.0.0-prerelease.24462.2",
       "hashPath": "optimization.windows_nt-x86.mibc.runtime.1.0.0-prerelease.24462.2.nupkg.sha512"
     },
-    "System.Buffers/4.5.1": {
+    "System.Buffers/4.6.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Rw7ijyl1qqRS0YQD/WycNst8hUUMgrMH4FCn1nNm27M4VxchZ1js3fVjQaANHO5f3sN4isvP4a+Met9Y4YomAg==",
-      "path": "system.buffers/4.5.1",
-      "hashPath": "system.buffers.4.5.1.nupkg.sha512"
+      "sha512": "sha512-lN6tZi7Q46zFzAbRYXTIvfXcyvQQgxnY7Xm6C6xQ9784dEL1amjM6S6Iw4ZpsvesAKnRVsM4scrDQaDqSClkjA==",
+      "path": "system.buffers/4.6.0",
+      "hashPath": "system.buffers.4.6.0.nupkg.sha512"
     },
     "System.Collections.Immutable/8.0.0": {
       "type": "package",
@@ -411,19 +411,19 @@
       "path": "system.reflection.metadata/8.0.0",
       "hashPath": "system.reflection.metadata.8.0.0.nupkg.sha512"
     },
-    "System.Runtime.CompilerServices.Unsafe/6.0.0": {
+    "System.Runtime.CompilerServices.Unsafe/6.1.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg==",
-      "path": "system.runtime.compilerservices.unsafe/6.0.0",
-      "hashPath": "system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512"
+      "sha512": "sha512-5o/HZxx6RVqYlhKSq8/zronDkALJZUT2Vz0hx43f0gwe8mwlM0y2nYlqdBwLMzr262Bwvpikeb/yEwkAa5PADg==",
+      "path": "system.runtime.compilerservices.unsafe/6.1.0",
+      "hashPath": "system.runtime.compilerservices.unsafe.6.1.0.nupkg.sha512"
     },
-    "FSharp.Core/9.0.200-dev": {
+    "FSharp.Core/9.0.300-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "FSharp.DependencyManager.Nuget/9.0.200-dev": {
+    "FSharp.DependencyManager.Nuget/9.0.300-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

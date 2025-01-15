@@ -84,5 +84,7 @@ let newStamp =
     fun () -> i.Value <- i.Value + 1L; i.Value
 #else
 let mutable private stampCount = 0L
-let newStamp() = System.Threading.Interlocked.Increment &stampCount
+let newStamp() =
+    let stamp = System.Threading.Interlocked.Increment &stampCount
+    stamp
 #endif

@@ -89,6 +89,8 @@ val ignoreFailureOnMono1_1_16: (unit -> unit) -> unit
 
 val mutable enableConsoleColoring: bool
 
+val formatOptionSwitch: bool -> string
+
 val DoWithColor: ConsoleColor -> (unit -> 'T) -> 'T
 
 val DoWithDiagnosticColor: FSharpDiagnosticSeverity -> (unit -> 'T) -> 'T

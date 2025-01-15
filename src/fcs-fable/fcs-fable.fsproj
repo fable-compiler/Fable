@@ -65,6 +65,7 @@
     <Compile Include="$(FSharpSourcesRoot)/Utilities/QueueList.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/lib.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/lib.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/Utilities/DependencyGraph.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/LruCache.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/LruCache.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/ImmutableArray.fsi" /> -->
@@ -388,6 +389,9 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/TransparentCompiler.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/Service/service.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Service/service.fs" />
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Service/FSharpWorkspaceState.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Service/FSharpWorkspaceQuery.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Service/FSharpWorkspace.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceInterfaceStubGenerator.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceInterfaceStubGenerator.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/Service/ServiceStructure.fsi" /> -->
