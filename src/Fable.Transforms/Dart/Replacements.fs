@@ -1249,7 +1249,28 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "TypeDefOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeTypeDefinitionInfo r |> Some
     | _ -> None
 
-let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | ".ctor", _, _ -> typedObjExpr t [] |> Some
+    | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
+    | "ReferenceEquals", _, [ left; right ] -> Helper.GlobalCall("identical", t, [ left; right ], ?loc = r) |> Some
+    | "Equals", Some arg1, [ arg2 ]
+    | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
+    | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
+    | "GetType", Some arg, _ -> getImmutableFieldWith r t arg "runtimeType" |> Some
+    | _ -> None
+
+let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | ".ctor", _, _ -> typedObjExpr t [] |> Some
+    | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
+    | "Equals", Some arg1, [ arg2 ]
+    | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
+    | "GetHashCode", Some arg, _ -> structuralHash com r arg |> Some
+    | "CompareTo", Some arg1, [ arg2 ] -> compare com ctx r arg1 arg2 |> Some
+    | _ -> None
+
+let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let icall r t args argTypes memb =
         match args, argTypes with
         | thisArg :: args, _ :: argTypes ->
@@ -1294,6 +1315,7 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
 
         Helper.LibCall(com, "Char", methName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode") -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
 let implementedStringFunctions =
@@ -2018,6 +2040,7 @@ let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
         Helper.LibCall(com, "Boolean", func, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
 let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2133,6 +2156,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         )
         |> Some
     | "ToString", _ -> Helper.GlobalCall("String", String, [ thisArg.Value ], ?loc = r) |> Some
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2210,6 +2234,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         )
         |> Some
     | "ToString", _ -> Helper.InstanceCall(thisArg.Value, "toString", String, [], ?loc = r) |> Some
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _, _ -> None
 
 let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2547,27 +2572,6 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.InstanceCall(e, "toString", t, [], ?loc = r) |> Some
     //    | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
-    | _ -> None
-
-let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ -> typedObjExpr t [] |> Some
-    | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
-    | "ReferenceEquals", _, [ left; right ] -> Helper.GlobalCall("identical", t, [ left; right ], ?loc = r) |> Some
-    | "Equals", Some arg1, [ arg2 ]
-    | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
-    | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
-    | "GetType", Some arg, _ -> getImmutableFieldWith r t arg "runtimeType" |> Some
-    | _ -> None
-
-let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ -> typedObjExpr t [] |> Some
-    | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
-    | "Equals", Some arg1, [ arg2 ]
-    | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
-    | "GetHashCode", Some arg, _ -> structuralHash com r arg |> Some
-    | "CompareTo", Some arg1, [ arg2 ] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
