@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Updated FCS to latest F# 9.0 (by @ncave)
 * [All] Updated Fable-FCS to latest F# 9.0 (by @ncave)
 * [All] Updated metadata to latest .NET 9.0 (by @ncave)
+* [All] Updated FCS type constraints (by @ncave)
 
 ### Fixed
 

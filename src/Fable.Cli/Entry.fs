@@ -504,9 +504,7 @@ let main argv =
     let createLogger level =
         use factory =
             LoggerFactory.Create(fun builder ->
-                builder
-                    .SetMinimumLevel(level)
-                    .AddCustomConsole(fun options -> options.UseNoPrefixMsgStyle <- true)
+                builder.SetMinimumLevel(level).AddCustomConsole(fun options -> options.UseNoPrefixMsgStyle <- true)
                 |> ignore
             )
 

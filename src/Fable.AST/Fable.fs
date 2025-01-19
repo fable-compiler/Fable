@@ -83,13 +83,17 @@ type Constraint =
     | HasMember of name: string * isStatic: bool
     | CoercesTo of target: Type
     | IsNullable
+    | IsNotNullable
     | IsValueType
     | IsReferenceType
     | HasDefaultConstructor
+    | HasAllowsRefStruct
     | HasComparison
     | HasEquality
     | IsUnmanaged
-    | IsEnum
+    | IsDelegate of argsType: Type * retType: Type
+    | IsEnum of baseType: Type
+    | SimpleChoice of types: Type list
 
 type GenericParam =
     abstract Name: string

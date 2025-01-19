@@ -1243,7 +1243,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Strings
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail" | "PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // Printf.kbprintf
       _ -> fsFormat com ctx r t i thisArg args
-    | ("Failure" | "FailurePattern" | "LazyPattern" | "Lock" | "NullArg" | "Using"), // using
+    | ("Failure" | "FailurePattern" | "LazyPattern" | "Lock" | "NullArg" | "Using"), _ ->
+        fsharpModule com ctx r t i thisArg args
+    | ("IsNull" | "IsNotNull" | "IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
       _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | "FailWith", [ msg ]
@@ -2196,7 +2198,7 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> List.tryHead args
-    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValueOptionValue) doesn't do a null check
+    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValue) doesn't do a null check
     | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None

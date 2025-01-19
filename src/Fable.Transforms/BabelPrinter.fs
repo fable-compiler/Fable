@@ -843,12 +843,7 @@ module PrinterExtensions =
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc = loc)
             // Note we cannot use Naming.escapeString because it will corrupt the regex pattern
-            printer.Print(
-                Regex
-                    .Replace(pattern, @"(?<!\\)\/", @"\/")
-                    .Replace("\r", @"\r")
-                    .Replace("\n", @"\n")
-            )
+            printer.Print(Regex.Replace(pattern, @"(?<!\\)\/", @"\/").Replace("\r", @"\r").Replace("\n", @"\n"))
 
             printer.Print("/")
             printer.Print(flags)

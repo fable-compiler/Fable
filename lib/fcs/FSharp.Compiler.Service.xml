@@ -32571,6 +32571,11 @@ Get the signature for the value&apos;s XML documentation
  Indicates a constraint that a type is a reference type
 </summary>
 </member>
+<member name="P:FSharp.Compiler.Symbols.FSharpGenericParameterConstraint.IsNotSupportsNullConstraint">
+<summary>
+ Indicates a constraint that a type doesn&apos;t support nullness
+</summary>
+</member>
 <member name="P:FSharp.Compiler.Symbols.FSharpGenericParameterConstraint.IsNonNullableValueTypeConstraint">
 <summary>
  Indicates a constraint that a type is a non-Nullable value type
@@ -32609,6 +32614,11 @@ Get the signature for the value&apos;s XML documentation
 <member name="P:FSharp.Compiler.Symbols.FSharpGenericParameterConstraint.IsCoercesToConstraint">
 <summary>
  Indicates a constraint that a type is a subtype of the given type
+</summary>
+</member>
+<member name="P:FSharp.Compiler.Symbols.FSharpGenericParameterConstraint.IsAllowsRefStructConstraint">
+<summary>
+ An anti-constraint indicating that ref structs (e.g. Span&lt;&gt;) are allowed here
 </summary>
 </member>
 <member name="P:FSharp.Compiler.Symbols.FSharpGenericParameterConstraint.EnumConstraintTarget">

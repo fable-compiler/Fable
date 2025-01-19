@@ -175,9 +175,7 @@ module Js =
                     // I believe for now we can ship it like that because it only deteriorate the source map
                     // it should not break them completely.
                     if srcLine <> 0 && srcCol <> 0 && file <> Some "unknown" then
-                        mapGenerator
-                            .Force()
-                            .AddMapping(generated, original, source = sourcePath, ?name = displayName)
+                        mapGenerator.Force().AddMapping(generated, original, source = sourcePath, ?name = displayName)
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
         async {

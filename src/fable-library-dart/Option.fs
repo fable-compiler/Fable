@@ -111,3 +111,23 @@ let toNullable (opt: 'T option) : Nullable<'T> =
     match opt with
     | Some x -> Nullable x
     | None -> Nullable()
+
+// let ofObj (value: 'T) =
+//     match box value with
+//     | null -> None
+//     | _ -> Some value
+
+// let toObj (opt: 'T option) =
+//     match opt with
+//     | None -> null
+//     | Some x -> x
+
+let ofValueOption (voption: 'T voption) =
+    match voption with
+    | ValueNone -> None
+    | ValueSome x -> Some x
+
+let toValueOption (option: 'T option) =
+    match option with
+    | None -> ValueNone
+    | Some x -> ValueSome x

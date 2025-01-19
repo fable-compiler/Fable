@@ -123,17 +123,3 @@ module Operators =
 module ExtraTopLevelOperators =
     [<CompiledName("LazyPattern")>]
     let (|Lazy|) (input: Lazy<_>) = input.Force()
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Printf =
-
-    [<CompiledName("PrintFormatToStringBuilderThen")>]
-    let kbprintf continuation (builder: System.Text.StringBuilder) format =
-        let append (s: string) =
-            builder.Append(s) |> ignore
-            continuation ()
-
-        Printf.kprintf append format
-
-    [<CompiledName("PrintFormatToStringBuilder")>]
-    let bprintf builder format = kbprintf ignore builder format
