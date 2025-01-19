@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Updated Fable-FCS to latest F# 9.0 (by @ncave)
 * [All] Updated metadata to latest .NET 9.0 (by @ncave)
 
+### Fixed
+
+* [Py] Add missing unicode categories in python library (by @joprice)
+
 ## 5.0.0-alpha.5 - 2025-01-09
 
 ### Added

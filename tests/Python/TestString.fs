@@ -991,3 +991,54 @@ let ``test calling ToString(CultureInfo.InvariantCulture) works`` () =
     (1).ToString(CultureInfo.InvariantCulture) |> equal "1"
     (7923209L).ToString(CultureInfo.InvariantCulture) |> equal "7923209"
     (7923209UL).ToString(CultureInfo.InvariantCulture) |> equal "7923209"
+
+
+#if FABLE_COMPILER
+open Fable.Core
+
+[<Import("category", "unicodedata")>]
+let unicodeCategory: char -> string = nativeOnly
+
+[<Fact>]
+let ``test unicode categories`` () =
+    let chars = [
+      "\x00", "Cc"
+      " ", "Zs"
+      "!", "Po"
+      "$", "Sc"
+      "(", "Ps"
+      ")", "Pe"
+      "+", "Sm"
+      "-", "Pd"
+      "0", "Nd"
+      "A", "Lu"
+      "^", "Sk"
+      "_", "Pc"
+      "a", "Ll"
+      "¦", "So"
+      "ª", "Lo"
+      "«", "Pi"
+      "\xad", "Cf"
+      "²", "No"
+      "»", "Pf"
+      "ǅ", "Lt"
+      "ʰ", "Lm"
+      "", "Mn"
+      "\u0378", "Cn"
+      "\u0488", "Me"
+      "\u0903", "Mc"
+      "\u16ee", "Nl"
+      "\u2028", "Zl"
+      "\u2029", "Zp"
+     //TODO: this fails with error EXCEPTION: Unable to translate Unicode character \\uD800 at index 116 to specified code page.
+      //"\ud800" , "Cs"
+      "\ue000", "Co"
+    ]
+    for (s, cat) in chars do
+      s
+      |> String.iter (fun c ->
+        // this ensures that the character is from the expected category
+        cat |> equal (unicodeCategory c)
+        Char.IsLetterOrDigit c |> ignore
+      )
+#endif

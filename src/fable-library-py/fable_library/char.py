@@ -60,7 +60,19 @@ unicode_category_2_python: dict[str, UnicodeCategory] = {
     "Sk": UnicodeCategory.ModifierSymbol,
     "Mn": UnicodeCategory.NonSpacingMark,
     "Lo": UnicodeCategory.OtherLetter,
-    "No": UnicodeCategory.OtherLetter,
+    "No": UnicodeCategory.OtherNumber,
+    "Lt": UnicodeCategory.TitlecaseLetter,
+    "Cn": UnicodeCategory.OtherNotAssigned,
+    "Co": UnicodeCategory.PrivateUse,
+    "Cs": UnicodeCategory.Surrogate,
+    "Zp": UnicodeCategory.ParagraphSeparator,
+    "Lm": UnicodeCategory.ModifierLetter,
+    "Mc": UnicodeCategory.SpacingCombiningMark,
+    "Me": UnicodeCategory.EnclosingMark,
+    "Pe": UnicodeCategory.ClosePunctuation,
+    "Pf": UnicodeCategory.FinalQuotePunctuation,
+    "Ps": UnicodeCategory.OpenPunctuation,
+    "So": UnicodeCategory.OtherSymbol,
 }
 
 
