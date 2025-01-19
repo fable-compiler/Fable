@@ -19,6 +19,7 @@
     <Compile Include="Util.fs" />
     <Compile Include="FSharp.Control.fs" />
     <Compile Include="FSharp.Collections.fs" />
+    <Compile Include="FSharp.Core.fs" />
     <Compile Include="System.fs" />
     <Compile Include="System.Collections.Generic.fs" />
     <Compile Include="System.Text.fs" />

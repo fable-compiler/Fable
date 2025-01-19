@@ -23,6 +23,24 @@ type Exception(message: string) =
         member x.Equals(y, comparer) = false
         member x.GetHashCode(comparer) = 0
 
+type ArgumentNullException(message: string) =
+    new() = ArgumentNullException("")
+
+    member _.Message =
+        if System.String.IsNullOrEmpty(message) then
+            "Value cannot be null."
+        else
+            message
+
+type NullReferenceException(message: string) =
+    new() = NullReferenceException("")
+
+    member _.Message =
+        if System.String.IsNullOrEmpty(message) then
+            "Object reference not set to an instance of an object."
+        else
+            message
+
 type InvalidOperationException(message: string) =
     new() = InvalidOperationException("")
 

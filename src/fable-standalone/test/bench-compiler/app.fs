@@ -150,9 +150,7 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
                 // I believe for now we can ship it like that because it only deteriorate the source map
                 // it should not break them completely.
                 if srcLine <> 0 && srcCol <> 0 then
-                    mapGenerator
-                        .Force()
-                        .AddMapping(generated, original, source = sourcePath, ?name = name)
+                    mapGenerator.Force().AddMapping(generated, original, source = sourcePath, ?name = name)
 
         member _.Dispose() = ()
 

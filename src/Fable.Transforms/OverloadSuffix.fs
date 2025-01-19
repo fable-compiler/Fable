@@ -36,15 +36,23 @@ let private getConstraintHash genParams =
              "")
         + "member "
         + name
-    | Fable.Constraint.CoercesTo t -> ":>" + getTypeFastFullName genParams t
+    | Fable.Constraint.CoercesTo t -> ":>" + (getTypeFastFullName genParams t)
     | Fable.Constraint.IsNullable -> "null"
+    | Fable.Constraint.IsNotNullable -> "not null"
     | Fable.Constraint.IsValueType -> "struct"
     | Fable.Constraint.IsReferenceType -> "not struct"
-    | Fable.Constraint.IsUnmanaged -> "unmanaged"
     | Fable.Constraint.HasDefaultConstructor -> "new"
+    | Fable.Constraint.HasAllowsRefStruct -> "allows ref struct"
     | Fable.Constraint.HasComparison -> "comparison"
     | Fable.Constraint.HasEquality -> "equality"
-    | Fable.Constraint.IsEnum -> "enum"
+    | Fable.Constraint.IsUnmanaged -> "unmanaged"
+    | Fable.Constraint.IsDelegate(at, rt) ->
+        "delegate"
+        + ([ at; rt ] |> List.map (getTypeFastFullName genParams) |> String.concat "|")
+    | Fable.Constraint.IsEnum t -> "enum" + (getTypeFastFullName genParams t)
+    | Fable.Constraint.SimpleChoice types ->
+        "simple choice"
+        + (types |> List.map (getTypeFastFullName genParams) |> String.concat "|")
 
 let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Type) =
     match t with

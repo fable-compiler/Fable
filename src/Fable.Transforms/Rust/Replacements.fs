@@ -638,6 +638,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
+    | IsEntity (Types.nullable) (_entRef, [ genArg ]) -> NewOption(None, genArg, false) |> makeValue None
     | _ -> Helper.LibCall(com, "Native", "getZero", t, [])
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
@@ -993,11 +994,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Strings
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail" | "PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // Printf.kbprintf
       _ -> fsFormat com ctx r t i thisArg args
-    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using"), // using
-      _ -> fsharpModule com ctx r t i thisArg args
+    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using"), _ -> fsharpModule com ctx r t i thisArg args
     | "Lock", _ ->
         Helper.LibCall(com, "Monitor", "lock", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
+    | ("IsNull" | "IsNotNull" | "IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
+      _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | ("FailWith" | "InvalidOp"), [ msg ] -> makeThrow r t (error msg) |> Some
     | "InvalidArg", [ argName; msg ] ->
@@ -1963,9 +1965,9 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", None -> List.tryHead args
-    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValueOptionValue) doesn't do a null check
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [ c ], ?loc = r) |> Some
+    | ".ctor", None -> NewOption(List.tryHead args, t.Generics.Head, false) |> makeValue r |> Some
+    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValue) doesn't do a null check
+    | "get_Value", Some c -> Helper.LibCall(com, "Option", "getValue", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 
@@ -1983,8 +1985,6 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, isStruct) |> makeValue r |> Some
     | "GetValue", [ c ] -> Get(c, OptionValue, t, r) |> Some
-    | ("OfObj" | "OfNullable"), _ -> None // TODO:
-    | ("ToObj" | "ToNullable"), _ -> None // TODO:
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
     | "ToArray", [ arg ] -> Helper.LibCall(com, "Array", "ofOption", t, args, ?loc = r) |> Some
@@ -2211,10 +2211,8 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         else
             applyOp com ctx r t operation args |> Some
     | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args |> Some
-    | "GenericZero", _ ->
-        // getZero com ctx t |> Some
-        Helper.LibCall(com, "Native", "defaultOf", t, []) |> Some
-    | "GenericZero", _ -> getZero com ctx t |> Some
+    | "GenericZero", _ -> Helper.LibCall(com, "Native", "defaultOf", t, []) |> Some
+    // | "GenericZero", _ -> getZero com ctx t |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some
     | ("SByteWithMeasure" | "Int16WithMeasure" | "Int32WithMeasure" | "Int64WithMeasure" | "Float32WithMeasure" | "FloatWithMeasure" | "DecimalWithMeasure"),
       [ arg ] -> arg |> Some

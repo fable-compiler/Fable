@@ -1600,6 +1600,11 @@ type FSharpGenericParameterConstraint(cenv, cx: TyparConstraint) =
         | TyparConstraint.IsDelegate(ty1, ty2, _) ->  FSharpGenericParameterDelegateConstraint(cenv, ty1, ty2) 
         | _ -> invalidOp "not a delegate constraint"
 
+    member _.IsAllowsRefStructConstraint = 
+        match cx with 
+        | TyparConstraint.AllowsRefStruct _ -> true 
+        | _ -> false
+
     override x.ToString() = "<type constraint>"
 
 type FSharpInlineAnnotation = 

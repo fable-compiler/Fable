@@ -62,7 +62,7 @@ pub mod Native_ {
     // TODO: use these types in generated code
     pub type Seq<T> = LrcPtr<dyn IEnumerable_1<T>>;
     pub type RefCell<T> = LrcPtr<MutCell<T>>;
-    pub type Nullable<T> = Option<Lrc<T>>;
+    pub type Nullable<T> = Option<T>;
 
     use core::cmp::Ordering;
     use core::fmt::{Debug, Display, Formatter, Result};
@@ -76,6 +76,15 @@ pub mod Native_ {
     // -----------------------------------------------------------
 
     pub fn ignore<T>(arg: &T) -> () {}
+
+    pub fn getNull<T>() -> LrcPtr<dyn Any> {
+        static nullPtr: OnceInit<LrcPtr<dyn Any>> = OnceInit::new();
+        nullPtr.get_or_init(move || LrcPtr::new(())).clone()
+    }
+
+    pub fn isNull<T>(value: LrcPtr<dyn Any>) -> bool {
+        referenceEquals(&value, &getNull::<T>())
+    }
 
     pub fn getZero<T>() -> T {
         unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box

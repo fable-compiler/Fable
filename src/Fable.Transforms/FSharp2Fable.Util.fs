@@ -159,26 +159,47 @@ type FsGenParam(gen: FSharpGenericParameter) =
     static member Constraint(c: FSharpGenericParameterConstraint) =
         if c.IsCoercesToConstraint then
             // It seems sometimes there are circular references so skip the constraints here
-            TypeHelpers.makeTypeWithConstraints false Map.empty c.CoercesToTarget
-            |> Fable.Constraint.CoercesTo
-            |> Some
+            let t = TypeHelpers.makeTypeWithConstraints false Map.empty c.CoercesToTarget
+            Fable.Constraint.CoercesTo t |> Some
         elif c.IsMemberConstraint then
             let d = c.MemberConstraintData // TODO: Full member signature hash?
             Fable.Constraint.HasMember(d.MemberName, d.MemberIsStatic) |> Some
         elif c.IsSupportsNullConstraint then
             Some Fable.Constraint.IsNullable
-        elif c.IsRequiresDefaultConstructorConstraint then
-            Some Fable.Constraint.HasDefaultConstructor
+        elif c.IsNotSupportsNullConstraint then
+            Some Fable.Constraint.IsNotNullable
         elif c.IsNonNullableValueTypeConstraint then
             Some Fable.Constraint.IsValueType
         elif c.IsReferenceTypeConstraint then
             Some Fable.Constraint.IsReferenceType
+        elif c.IsRequiresDefaultConstructorConstraint then
+            Some Fable.Constraint.HasDefaultConstructor
+        elif c.IsAllowsRefStructConstraint then
+            Some Fable.Constraint.HasAllowsRefStruct
         elif c.IsComparisonConstraint then
             Some Fable.Constraint.HasComparison
         elif c.IsEqualityConstraint then
             Some Fable.Constraint.HasEquality
         elif c.IsUnmanagedConstraint then
             Some Fable.Constraint.IsUnmanaged
+        elif c.IsDelegateConstraint then
+            let d = c.DelegateConstraintData
+
+            let at =
+                TypeHelpers.makeTypeWithConstraints false Map.empty d.DelegateTupledArgumentType
+
+            let rt = TypeHelpers.makeTypeWithConstraints false Map.empty d.DelegateReturnType
+            Fable.Constraint.IsDelegate(at, rt) |> Some
+        elif c.IsEnumConstraint then
+            let t = TypeHelpers.makeTypeWithConstraints false Map.empty c.EnumConstraintTarget
+            Fable.Constraint.IsEnum t |> Some
+        elif c.IsSimpleChoiceConstraint then
+            let types =
+                c.SimpleChoices
+                |> Seq.map (TypeHelpers.makeTypeWithConstraints false Map.empty)
+                |> Seq.toList
+
+            Fable.Constraint.SimpleChoice types |> Some
         else
             None // TODO: Document these cases
 
@@ -1327,7 +1348,7 @@ module TypeHelpers =
         match lambda with
         | FSharpExprPatterns.Lambda(arg, body) -> ctx // leave lambda context as is
         | _ ->
-            // if not a lambda, resolve the type args not alredy in context to Fable.Any
+            // if not a lambda, resolve the type args not already in context to Fable.Any
             let newGenArgs = genArgs |> List.map (fun arg -> genParamName arg, Fable.Any)
 
             let newCtxGenArgs =
@@ -1474,25 +1495,24 @@ module TypeHelpers =
         else
             Naming.unknown
 
-    let private makeRuntimeTypeWithMeasure (genArgs: IList<FSharpType>) fullName =
-        let genArgs = [ getMeasureFullName genArgs |> Fable.Measure ]
-
+    let private makeDeclaredType assemblyName genArgs fullName =
         let entRef: Fable.EntityRef =
             {
                 FullName = fullName
-                Path = Fable.CoreAssemblyName "System.Runtime"
+                Path = Fable.CoreAssemblyName assemblyName
             }
 
         Fable.DeclaredType(entRef, genArgs)
+
+    let private makeRuntimeType genArgs fullName =
+        makeDeclaredType "System.Runtime" genArgs fullName
 
     let private makeFSharpCoreType genArgs fullName =
-        let entRef: Fable.EntityRef =
-            {
-                FullName = fullName
-                Path = Fable.CoreAssemblyName "FSharp.Core"
-            }
+        makeDeclaredType "FSharp.Core" genArgs fullName
 
-        Fable.DeclaredType(entRef, genArgs)
+    let private makeRuntimeTypeWithMeasure (genArgs: IList<FSharpType>) fullName =
+        let genArgs = [ getMeasureFullName genArgs |> Fable.Measure ]
+        makeRuntimeType genArgs fullName
 
     let makeTypeFromDef withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
@@ -1558,49 +1578,57 @@ module TypeHelpers =
                 Fable.DeclaredType(FsEnt.Ref tdef, genArgs)
 
     let rec makeTypeWithConstraints withConstraints (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
-        // Generic parameter (try to resolve for inline functions)
-        if t.IsGenericParameter then
-            resolveGenParam withConstraints ctxTypeArgs t.GenericParameter
-        // Tuple
-        elif t.IsTupleType then
-            let genArgs =
-                makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs t.GenericArguments
+        let typ =
+            // Generic parameter (try to resolve for inline functions)
+            if t.IsGenericParameter then
+                resolveGenParam withConstraints ctxTypeArgs t.GenericParameter
+            // Tuple
+            elif t.IsTupleType then
+                let genArgs =
+                    makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs t.GenericArguments
 
-            Fable.Tuple(genArgs, t.IsStructTupleType)
-        // Function
-        elif t.IsFunctionType then
-            let argType =
-                makeTypeWithConstraints withConstraints ctxTypeArgs t.GenericArguments[0]
+                Fable.Tuple(genArgs, t.IsStructTupleType)
+            // Function
+            elif t.IsFunctionType then
+                let argType =
+                    makeTypeWithConstraints withConstraints ctxTypeArgs t.GenericArguments[0]
 
-            let returnType =
-                makeTypeWithConstraints withConstraints ctxTypeArgs t.GenericArguments[1]
+                let returnType =
+                    makeTypeWithConstraints withConstraints ctxTypeArgs t.GenericArguments[1]
 
-            Fable.LambdaType(argType, returnType)
-        elif t.IsAnonRecordType then
-            let genArgs =
-                makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs t.GenericArguments
+                Fable.LambdaType(argType, returnType)
+            elif t.IsAnonRecordType then
+                let genArgs =
+                    makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs t.GenericArguments
 
-            let fields = t.AnonRecordTypeDetails.SortedFieldNames
+                let fields = t.AnonRecordTypeDetails.SortedFieldNames
 
-            let isStruct =
-                match t.BaseType with
-                | Some typ -> (getFsTypeFullName typ) = Types.valueType
-                | None -> false
+                let isStruct =
+                    match t.BaseType with
+                    | Some typ -> (getFsTypeFullName typ) = Types.valueType
+                    | None -> false
 
-            Fable.AnonymousRecordType(fields, genArgs, isStruct)
-        elif t.HasTypeDefinition then
-            // No support for provided types when compiling FCS+Fable to JS
+                Fable.AnonymousRecordType(fields, genArgs, isStruct)
+            elif t.HasTypeDefinition then
+                // No support for provided types when compiling FCS+Fable to JS
 #if !FABLE_COMPILER
-            // TODO: Discard provided generated types too?
-            if t.TypeDefinition.IsProvidedAndErased then
-                Fable.Any
-            else
+                // TODO: Discard provided generated types too?
+                if t.TypeDefinition.IsProvidedAndErased then
+                    Fable.Any
+                else
 #endif
-            makeTypeFromDef withConstraints ctxTypeArgs t.GenericArguments t.TypeDefinition
-        elif t.IsMeasureType then
-            Fable.Measure ""
-        else
-            Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
+                makeTypeFromDef withConstraints ctxTypeArgs t.GenericArguments t.TypeDefinition
+            elif t.IsMeasureType then
+                Fable.Measure ""
+            else
+                Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
+
+        // TODO:
+        // if not t.IsGenericParameter && t.HasNullAnnotation // || t.IsNullAmbivalent
+        // then
+        //     makeRuntimeType [ typ ] Types.nullable // represent it as Nullable<T>
+        // else typ
+        typ
 
     let makeType (ctxTypeArgs: Map<string, Fable.Type>) t =
         makeTypeWithConstraints true ctxTypeArgs t

@@ -59,13 +59,13 @@ module Helpers =
 
     // Typed arrays not supported, only dynamic ones do
     let inline insertImpl (array: 'T[]) (index: int) (item: 'T) : 'T[] =
-        !! array?insert(index, item)
+        !!array?insert(index, item)
         array
 
     // Typed arrays not supported, only dynamic ones do
     let spliceImpl (array: 'T[]) (start: int) (deleteCount: int) : 'T[] =
         for _ = 1 to deleteCount do
-            !! array?pop(start)
+            !!array?pop(start)
 
         array
 
@@ -83,7 +83,7 @@ module Helpers =
 
     let indexOfImpl (array: 'T[]) (item: 'T) (start: int) : int =
         try
-            !! array?index(item, start)
+            !!array?index(item, start)
         with ex ->
             -1
 

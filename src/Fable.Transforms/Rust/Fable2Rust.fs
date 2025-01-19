@@ -370,6 +370,9 @@ module TypeInfo =
     let makeOptionTy (ty: Rust.Ty) : Rust.Ty =
         [ ty ] |> mkGenericTy [ rawIdent "Option" ]
 
+    let makeNullableTy com ctx (ty: Rust.Ty) : Rust.Ty =
+        [ ty ] |> makeImportType com ctx "Native" "Nullable"
+
     let makeAnyTy com ctx : Rust.Ty =
         let importName = getLibraryImportName com ctx "Native" "Any"
         let traitBound = mkTypeTraitGenericBound [ importName ] None
@@ -732,6 +735,9 @@ module TypeInfo =
         let importName = getLibraryImportName com ctx moduleName typeName
         transformGenericType com ctx genArgs importName
 
+    let transformNullableType com ctx genArg : Rust.Ty =
+        transformImportType com ctx [ genArg ] "Native" "Nullable"
+
     let transformBigIntType com ctx : Rust.Ty =
         transformImportType com ctx [] "BigInt" "bigint"
 
@@ -985,7 +991,15 @@ module TypeInfo =
            && not (Set.contains name ctx.ScopedEntityGenArgs)
            && not (Set.contains name ctx.ScopedMemberGenArgs)
 
-    let transformGenericParamType com ctx name isMeasure : Rust.Ty =
+    let isNullableReferenceType com ctx constraints =
+        let isNotNullable = constraints |> List.contains Fable.Constraint.IsNotNullable
+        let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
+        isNotNullable && isReferenceType
+
+    let transformGenericParamType com ctx name isMeasure constraints : Rust.Ty =
+        // if isNullableReferenceType com ctx constraints then
+        //     primitiveType name |> makeNullableTy com ctx
+        // elif
         if isInferredGenericParam com ctx name isMeasure then
             mkInferTy () // mkNeverTy ()
         else
@@ -1034,13 +1048,15 @@ module TypeInfo =
                 let argTypes, returnType = ([ argType ], returnType)
                 transformClosureType com ctx argTypes returnType
             | Fable.DelegateType(argTypes, returnType) -> transformClosureType com ctx argTypes returnType
-            | Fable.GenericParam(name, isMeasure, _constraints) -> transformGenericParamType com ctx name isMeasure
+            | Fable.GenericParam(name, isMeasure, constraints) ->
+                transformGenericParamType com ctx name isMeasure constraints
             | Fable.Tuple(genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
             | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
             | Fable.Array(genArg, _kind) -> transformArrayType com ctx genArg
             | Fable.List genArg -> transformListType com ctx genArg
             | Fable.Regex -> transformRegexType com ctx
             | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
+            | Replacements.Util.IsEntity (Types.nullable) (entRef, [ genArg ]) -> transformNullableType com ctx genArg
 
             // interfaces implemented as the type itself
             | Replacements.Util.IsEntity (Types.iset) (entRef, [ genArg ]) -> transformHashSetType com ctx genArg
@@ -1717,7 +1733,10 @@ module Util =
         makeLibCall com ctx None "String" "fromString" [ value ]
 
     let makeNull com ctx (typ: Fable.Type) =
-        //TODO: some other representation perhaps?
+        let genArgsOpt = transformGenArgs com ctx [ typ ]
+        makeLibCall com ctx genArgsOpt "Native" "getNull" []
+
+    let makeInit com ctx (typ: Fable.Type) =
         let genArgsOpt = transformGenArgs com ctx [ typ ]
         makeLibCall com ctx genArgsOpt "Native" "getZero" []
 
@@ -3305,8 +3324,9 @@ module Util =
             (ctx, varIdents)
             ||> List.mapFold (fun ctx ident ->
                 let ty = transformType com ctx ident.Type
-                let init = makeNull com ctx ident.Type
+                let init = makeInit com ctx ident.Type
                 makeLocalStmt com ctx ident false true (Some ty) (Some init) false Map.empty
+            // makeLocalStmt com ctx ident false false (Some ty) None false Map.empty
             )
 
         // Transform targets as switch
@@ -3879,14 +3899,18 @@ module Util =
                         []
                 | _ -> []
             | Fable.Constraint.IsNullable -> []
+            | Fable.Constraint.IsNotNullable -> []
             | Fable.Constraint.IsValueType -> []
             | Fable.Constraint.IsReferenceType -> []
             | Fable.Constraint.HasDefaultConstructor -> []
+            | Fable.Constraint.HasAllowsRefStruct -> []
             | Fable.Constraint.HasComparison -> [ makeRawBound "PartialOrd" ]
             | Fable.Constraint.HasEquality ->
                 [ makeGenBound ("core" :: "hash" :: "Hash" :: []) []; makeRawBound "PartialEq" ]
             | Fable.Constraint.IsUnmanaged -> []
-            | Fable.Constraint.IsEnum -> []
+            | Fable.Constraint.IsDelegate _ -> []
+            | Fable.Constraint.IsEnum _ -> []
+            | Fable.Constraint.SimpleChoice _ -> []
 
         constraints |> List.distinct |> List.collect makeConstraint
 
