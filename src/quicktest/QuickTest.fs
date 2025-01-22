@@ -95,7 +95,7 @@ let measureTime (f: unit -> unit) : unit =
 printfn "Running quick tests..."
 
 
-/// This is a user, a very strange individium which will find each and every edge case existing.
+/// This is a user, a very strange individual which will find each and every edge case existing.
 [<AllowNullLiteral>]
 [<Global>]
 type User [<ParamObjectAttribute; Emit("$0")>] (id: int, ?name: string, ?age: int) =
