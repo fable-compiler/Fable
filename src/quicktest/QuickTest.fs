@@ -94,7 +94,23 @@ let measureTime (f: unit -> unit) : unit =
 
 printfn "Running quick tests..."
 
+
+/// This is a user, a very strange individium which will find each and every edge case existing.
+[<AllowNullLiteral>]
+[<Global>]
+type User [<ParamObjectAttribute; Emit("$0")>] (id: int, ?name: string, ?age: int) =
+    /// Id used for id stuff
+    member val id = id with get, set
+    /// name used for naming conventions
+    member val name: string option = jsNative with get, set
+    /// age because you never tell age
+    member val age: int option = jsNative with get, set
+
+let term = User(1, "test")
+
+printfn "%A" term.id
+
+
 // Write here your unit test, you can later move it
 // to Fable.Tests project. For example:
-// testCase "Addition works" <| fun () ->
-//     2 + 2 |> equal 4
+testCase "Addition works" <| fun () -> 2 + 2 |> equal 5

@@ -3788,6 +3788,10 @@ module Util =
         (classDecl: Fable.ClassDecl)
         (ent: Fable.Entity)
         =
+        printfn "[classDecl] %A" classDecl
+        printfn "[ent] %A" ent
+        printfn "[ctx] %A" ctx
+
         let members =
             ent.MembersFunctionsAndValues
             |> Seq.filter _.IsConstructor
@@ -3796,6 +3800,12 @@ module Util =
                 |> List.concat
                 |> List.mapi (fun index arg ->
                     let name = defaultArg arg.Name $"arg{index}"
+
+                    /// Try to find getter/setter in f# syntax for POJOs. If found propagate its xml doc to interface.
+                    let tryXmlDoc =
+                        ent.MembersFunctionsAndValues
+                        |> Seq.tryFind (fun s -> s.DisplayName = name)
+                        |> Option.bind (fun tgs -> tgs.XmlDoc)
 
                     let typeAnnotation =
                         if arg.IsOptional then
@@ -3808,7 +3818,8 @@ module Util =
                     AbstractMember.abstractProperty (
                         name |> Identifier.identifier |> Expression.Identifier,
                         typeAnnotation,
-                        isOptional = arg.IsOptional
+                        isOptional = arg.IsOptional,
+                        ?doc = tryXmlDoc
                     )
                 )
             )
@@ -3821,7 +3832,13 @@ module Util =
             |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
             |> makeTypeParamDecl com ctx
 
-        Declaration.interfaceDeclaration (Identifier.identifier classDecl.Name, members, [||], typeParameters)
+        Declaration.interfaceDeclaration (
+            Identifier.identifier classDecl.Name,
+            members,
+            [||],
+            typeParameters,
+            ?doc = classDecl.XmlDoc
+        )
         |> asModuleDeclaration ent.IsPublic
         |> List.singleton
 

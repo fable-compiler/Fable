@@ -188,14 +188,16 @@ type Declaration =
         id: Identifier *
         members: AbstractMember array *
         extends: TypeAnnotation array *
-        typeParameters: TypeParameter array
+        typeParameters: TypeParameter array *
+        doc: string option
     | EnumDeclaration of name: string * cases: (string * Expression) array * isConst: bool
     | TypeAliasDeclaration of name: string * typeParameters: TypeParameter array * alias: TypeAnnotation
 
     member this.JsDoc =
         match this with
         | ClassDeclaration(_, _, _, _, _, _, doc)
-        | FunctionDeclaration(_, _, _, _, _, _, doc) -> doc
+        | FunctionDeclaration(_, _, _, _, _, _, doc)
+        | InterfaceDeclaration(_, _, _, _, doc) -> doc
         | _ -> None
 
 /// A module import or export declaration.
@@ -779,8 +781,8 @@ module Helpers =
         static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc, ?doc) =
             ClassDeclaration(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc, doc)
 
-        static member interfaceDeclaration(id, body, ?extends, ?typeParameters) : Declaration = // ?mixins_,
-            InterfaceDeclaration(id, body, defaultArg extends [||], defaultArg typeParameters [||])
+        static member interfaceDeclaration(id, body, ?extends, ?typeParameters, ?doc) : Declaration = // ?mixins_,
+            InterfaceDeclaration(id, body, defaultArg extends [||], defaultArg typeParameters [||], doc)
 
         static member enumDeclaration(name, cases, ?isConst) =
             EnumDeclaration(name, cases, defaultArg isConst false)
