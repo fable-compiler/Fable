@@ -35,8 +35,6 @@ module private MSBuildCrackerResolver =
 
             psi.WorkingDirectory <- Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
 
-            printfn $"Command: msbuild \"%s{fsproj}\" %s{args}"
-
             psi.Arguments <- $"msbuild \"%s{fsproj}\" %s{args}"
             psi.RedirectStandardOutput <- true
             psi.RedirectStandardError <- true
