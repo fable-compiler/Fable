@@ -79,8 +79,18 @@ module private MSBuildCrackerResolver =
 
             let targetFramework =
                 let properties =
-                    JsonDocument.Parse targetFrameworkJson
-                    |> fun json -> json.RootElement.GetProperty "Properties"
+                    try
+                        JsonDocument.Parse targetFrameworkJson
+                        |> fun json -> json.RootElement.GetProperty "Properties"
+                    with ex ->
+                        failwith
+                            $"""Failed to parse MSBuild output
+JSON:
+{targetFrameworkJson}
+
+Exception:
+{ex}
+"""
 
                 let tf, tfs =
                     properties.GetProperty("TargetFramework").GetString(),
@@ -124,7 +134,20 @@ module private MSBuildCrackerResolver =
                 $"/restore /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
 
             let! json = dotnet_msbuild_with_defines fsproj.FullName arguments options.FableOptions.Define
-            let jsonDocument = JsonDocument.Parse json
+
+            let jsonDocument =
+                try
+                    JsonDocument.Parse json
+                with ex ->
+                    failwith
+                        $"""Failed to parse MSBuild output
+JSON:
+{json}
+
+Exception:
+{ex}
+"""
+
             let items = jsonDocument.RootElement.GetProperty "Items"
             let properties = jsonDocument.RootElement.GetProperty "Properties"
 

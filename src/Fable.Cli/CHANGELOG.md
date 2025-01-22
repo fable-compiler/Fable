@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Py] Add missing unicode categories in python library (by @joprice)
+* [All] Log JSON output if we fail to parse MSBuild result (by @MangelMaxime)
 
 ## 5.0.0-alpha.5 - 2025-01-09
 
