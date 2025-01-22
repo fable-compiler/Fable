@@ -11,90 +11,85 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Core.Testing
 
-let log (o: obj) = JS.console.log (o)
-// printfn "%A" o
-
 let equal expected actual =
     let areEqual = expected = actual
-    printfn "%A = %A > %b" expected actual areEqual
+    printfn "%A = %A > 2dd%b" expected actual areEqual
 
     if not areEqual then
         failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
-let throwsError (expected: string) (f: unit -> 'a) : unit =
-    let success =
-        try
-            f () |> ignore
-            true
-        with e ->
-            if not <| String.IsNullOrEmpty(expected) then
-                equal e.Message expected
+// let x = 12
+// let nullableX = Nullable<int> x
 
-            false
-    // TODO better error messages
-    equal false success
+// let x2 = 12
+// let nullableX2 = Nullable x
 
-let testCase (msg: string) f : unit =
-    try
-        printfn "%s" msg
-        f ()
-    with ex ->
-        printfn "%s" ex.Message
+// let mutable a = Nullable 42
+// a <- Nullable()
 
-        if
-            ex.Message <> null
-            && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal) |> not
-        then
-            printfn "%s" (ex.StackTrace ??= "")
+// open System
+open FSharp.Linq
 
-    printfn ""
+// let nullableFloat = Nullable 10.0
+// let standardString = float nullableFloat
+//
+// // let standardString = string nullableString
+// equal (Nullable.float (Nullable 1uy)) (Nullable 1.0)
+// equal (Nullable.float (Nullable 2y)) (Nullable 2.0)
+// equal (Nullable.float (Nullable 3s)) (Nullable 3.0)
+// equal (Nullable.float (Nullable 4us)) (Nullable 4.0)
+// equal (Nullable.float (Nullable 5)) (Nullable 5.0)
+// equal (Nullable.float (Nullable 6u)) (Nullable 6.0)
+// equal (Nullable.float (Nullable 7L)) (Nullable 7.0)
+// equal (Nullable.float (Nullable 8UL)) (Nullable 8.0)
+// equal (Nullable.float (Nullable 9m)) (Nullable 9.0)
+// equal (Nullable.float (Nullable 10.0)) (Nullable 10.0)
+// equal (Nullable.float (Nullable 11.0f)) (Nullable 11.0)
+// equal (Nullable.float (Nullable 'c')) (Nullable 99.0)
+// equal (Nullable.float (Nullable.enum(Nullable 2 ): Nullable<DayOfWeek>)) (Nullable 2.0)
+//
+//
+// equal (Nullable.float32 (Nullable 1uy)) (Nullable 1.0f)
+// equal (Nullable.float32 (Nullable 2y)) (Nullable 2.0f)
+// equal (Nullable.float32 (Nullable 3s)) (Nullable 3.0f)
+// equal (Nullable.float32 (Nullable 4us)) (Nullable 4.0f)
+// equal (Nullable.float32 (Nullable 5)) (Nullable 5.0f)
+// equal (Nullable.float32 (Nullable 6u)) (Nullable 6.0f)
+// equal (Nullable.float32 (Nullable 7L)) (Nullable 7.0f)
+// equal (Nullable.float32 (Nullable 8UL)) (Nullable 8.0f)
+// equal (Nullable.float32 (Nullable 9m)) (Nullable 9.0f)
+// equal (Nullable.float32 (Nullable 10.0)) (Nullable 10.0f)
+// equal (Nullable.float32 (Nullable 11.0f)) (Nullable 11.0f)
+// equal (Nullable.float32 (Nullable 'c')) (Nullable 99.0f)
+// equal (Nullable.float32 (Nullable.enum(Nullable 2 ): Nullable<DayOfWeek>)) (Nullable 2.0f)
+//
+// let float32Value = float32 2L
+// // float32(1y) |> equal 2.0f
 
-let testCaseAsync msg f =
-    testCase
-        msg
-        (fun () ->
-            async {
-                try
-                    do! f ()
-                with ex ->
-                    printfn "%s" ex.Message
+// equal (Nullable.char (Nullable 49uy)) (Nullable '1')
+// equal (Nullable.char (Nullable 50y)) (Nullable '2')
+// equal (Nullable.char (Nullable 51s)) (Nullable '3')
+// equal (Nullable.char (Nullable 52us)) (Nullable '4')
+// equal (Nullable.char (Nullable 53)) (Nullable '5')
+// equal (Nullable.char (Nullable 54u)) (Nullable '6')
+// equal (Nullable.char (Nullable 55L)) (Nullable '7')
+// equal (Nullable.char (Nullable 56UL)) (Nullable '8')
+// equal (Nullable.char (Nullable 57m)) (Nullable '9')
+// equal (Nullable.char (Nullable 58.0)) (Nullable ':')
+// equal (Nullable.char (Nullable 59.0f)) (Nullable ';')
+// equal (Nullable.char (Nullable 'a')) (Nullable 'a')
+//
 
-                    if
-                        ex.Message <> null
-                        && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal) |> not
-                    then
-                        printfn "%s" (ex.StackTrace ??= "")
-            }
-            |> Async.StartImmediate
-        )
+// let c = char 57m
+//
+// let test : decimal = 57m
+//
+// let t : char = Decimal.op_Explicit 57m
 
-let throwsAnyError (f: unit -> 'a) : unit =
-    let success =
-        try
-            f () |> ignore
-            true
-        with e ->
-            printfn "Got expected error: %s" e.Message
-            false
+let test2 = uint16 655356
 
-    if success then
-        printfn "[ERROR EXPECTED]"
+let test = 65535us
 
-let measureTime (f: unit -> unit) : unit =
-    emitJsStatement
-        ()
-        """
-   //js
-   const startTime = process.hrtime();
-   f();
-   const elapsed = process.hrtime(startTime);
-   console.log("Ms:", elapsed[0] * 1e3 + elapsed[1] / 1e6);
-   //!js
-"""
+let te = char 57m
 
-printfn "Running quick tests..."
-
-// Write here your unit test, you can later move it
-// to Fable.Tests project. For example:
-// testCase "Addition works" <| fun () ->
-//     2 + 2 |> equal 4
+printfn "%A" te

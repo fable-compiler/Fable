@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <RollForward>Major</RollForward>
     <LangVersion>Preview</LangVersion>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="QuickTest.fs" />

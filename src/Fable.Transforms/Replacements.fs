@@ -155,12 +155,6 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
 
     makeRefCell com r t [ getter; setter ]
 
-let toChar (arg: Expr) =
-    match arg.Type with
-    | Char -> arg
-    | String -> TypeCast(arg, Char)
-    | _ -> Helper.GlobalCall("String", Char, [ arg ], memb = "fromCharCode")
-
 let toString com (ctx: Context) r (args: Expr list) =
     match args with
     | [] ->
@@ -244,7 +238,15 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
         | Number(kind, _) ->
             match kind with
             | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
-            | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toFloat64", targetType, args)
+            | BigIntegers _ ->
+                let coreMember =
+                    match targetType with
+                    | Number(Float16, _) -> "toFloat16"
+                    | Number(Float32, _) -> "toFloat32"
+                    | Number(Float64, _)
+                    | _ -> "toFloat64"
+
+                Helper.LibCall(com, "BigInt", coreMember, targetType, args)
             | _ -> TypeCast(args.Head, targetType)
         | _ ->
             addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
@@ -356,6 +358,19 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
 
+let toChar com (ctx: Context) r targetType (args: Expr list) =
+    match args.Head.Type with
+    | Char -> args.Head
+    | String -> TypeCast(args.Head, Char)
+    // We need to convert BigInt to number first
+    | Number(Int64, _)
+    | Number(UInt64, _) ->
+        let valueToNumber = toInt com ctx None Int32.Number [ args.Head ]
+
+        Helper.GlobalCall("String", Char, [ valueToNumber ], memb = "fromCharCode")
+
+    | _ -> Helper.GlobalCall("String", Char, [ args.Head ], memb = "fromCharCode")
+
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal, _) ->
@@ -387,7 +402,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         let toUInt16 e = toInt com ctx None UInt16.Number [ e ]
 
         Operation(Binary(op, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r)
-        |> toChar
+        |> List.singleton
+        |> toChar com ctx r t
 
     let truncateUnsigned operation = // see #1550
         match t with
@@ -1223,7 +1239,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"), _ -> toLong com ctx r t args |> Some
     | ("ToSingle" | "ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
-    | "ToChar", _ -> toChar args.Head |> Some
+    | "ToChar", _ -> toChar com ctx r t args |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [ xs ] -> TypeCast(xs, t) |> Some
     | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] -> makeDictionary com ctx r t arg |> Some
@@ -2478,6 +2494,11 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Floats _ -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
             | _ -> None
+        | Char ->
+            let decimalToNumber =
+                Helper.LibCall(com, "Decimal", "toNumber", UInt16.Number, args)
+
+            Some(Helper.GlobalCall("String", Char, [ decimalToNumber ], memb = "fromCharCode"))
         | _ -> None
     | ("Ceiling" | "Floor" | "Round" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth),
       _ ->
@@ -2942,7 +2963,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToSingle"
     | "ToDouble" -> toFloat com ctx r t args |> Some
     | "ToDecimal" -> toDecimal com ctx r t args |> Some
-    | "ToChar" -> toChar args.Head |> Some
+    | "ToChar" -> toChar com ctx r t args |> Some
     | "ToString" -> toString com ctx r args |> Some
     | "ToBase64String"
     | "FromBase64String" ->
@@ -3982,7 +4003,9 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
 
 let linqNullableModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
+    | "ToFloat32"
     | "ToFloat" -> toFloat com ctx r t args |> Some
+    | "ToChar" -> toChar com ctx r t args |> Some
     | _ -> None
 
 let tryField com returnTyp ownerTyp fieldName =
