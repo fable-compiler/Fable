@@ -232,18 +232,35 @@ let needToCast fromKind toKind =
 
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
-    match args.Head.Type with
-    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
-    | String -> Helper.LibCall(com, "Double", "parse", targetType, args)
-    | Number(kind, _) ->
-        match kind with
-        | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
-        | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toFloat64", targetType, args)
-        | _ -> TypeCast(args.Head, targetType)
-    | _ ->
+    let warn () =
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
 
         TypeCast(args.Head, targetType)
+
+    let convertType (typ: Type) =
+        match typ with
+        | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
+        | String -> Helper.LibCall(com, "Double", "parse", targetType, args)
+        | Number(kind, _) ->
+            match kind with
+            | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
+            | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toFloat64", targetType, args)
+            | _ -> TypeCast(args.Head, targetType)
+        | _ ->
+            addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
+
+            TypeCast(args.Head, targetType)
+
+    match args.Head.Type with
+    | DeclaredType(entityRef, genericArgs) ->
+        if
+            entityRef.FullName = "System.Nullable`1"
+            && entityRef.Path = CoreAssemblyName "System.Runtime"
+        then
+            convertType genericArgs.Head
+        else
+            warn ()
+    | _ -> convertType args.Head.Type
 
 let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
     match args.Head.Type with
@@ -2195,12 +2212,22 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
         Helper.LibCall(com, "Result", meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     )
 
-let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let nullables (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> List.tryHead args
     // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValue) doesn't do a null check
     | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
+    | "op_Explicit", _ ->
+        match t with
+        | Number(kind, _) ->
+            match kind with
+            | BigIntegers _ -> toLong com ctx r t args |> Some
+            | Integers _ -> toInt com ctx r t args |> Some
+            | Floats _ -> toFloat com ctx r t args |> Some
+            | Decimal -> toDecimal com ctx r t args |> Some
+            | _ -> None
+        | _ -> None
     | _ -> None
 
 // See fable-library-ts/Option.ts for more info on how options behave in Fable runtime
@@ -3953,6 +3980,11 @@ let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (retu
 
     Helper.LibCall(com, "Reflection", "MethodInfo", t, args, isConstructor = true, ?loc = r)
 
+let linqNullableModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "ToFloat" -> toFloat com ctx r t args |> Some
+    | _ -> None
+
 let tryField com returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
     | Number(Decimal, _), _ -> Helper.LibValue(com, "Decimal", "get_" + fieldName, returnTyp) |> Some
@@ -4110,6 +4142,7 @@ let private replacedModules =
             "Microsoft.FSharp.Control.ObservableModule", observable
             Types.type_, types
             "System.Reflection.TypeInfo", types
+            "Microsoft.FSharp.Linq.NullableModule", linqNullableModule
         ]
 
 let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =
