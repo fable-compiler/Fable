@@ -3788,9 +3788,6 @@ module Util =
         (classDecl: Fable.ClassDecl)
         (ent: Fable.Entity)
         =
-        printfn "[classDecl] %A" classDecl
-        printfn "[ent] %A" ent
-        printfn "[ctx] %A" ctx
 
         let members =
             ent.MembersFunctionsAndValues
