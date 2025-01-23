@@ -24,6 +24,7 @@ module Fsproj =
 
     let fableCli = Path.Combine(ProjectDir.fableCli, "Fable.Cli.fsproj")
     let fableCore = Path.Combine(ProjectDir.fableCore, "Fable.Core.fsproj")
+    let fableCompiler = Path.Combine(ProjectDir.fableCompiler, "Fable.Compiler.fsproj")
 
 module Changelog =
 
