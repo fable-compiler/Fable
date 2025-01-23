@@ -31,7 +31,6 @@ module private MSBuildCrackerResolver =
     let private dotnet_msbuild_with_defines (fsproj: FullPath) (args: string) (defines: string list) : Async<string> =
         backgroundTask {
             let psi = ProcessStartInfo "dotnet"
-            let pwd = Assembly.GetEntryAssembly().Location |> Path.GetDirectoryName
 
             psi.WorkingDirectory <- Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
 
@@ -39,6 +38,9 @@ module private MSBuildCrackerResolver =
             psi.RedirectStandardOutput <- true
             psi.RedirectStandardError <- true
             psi.UseShellExecute <- false
+            // Disable Dotnet Welcome message
+            // https://github.com/fable-compiler/Fable/issues/4014
+            psi.Environment.Add("DOTNET_NOLOGO", "1")
 
             if not (List.isEmpty defines) then
                 let definesValue = defines |> String.concat ";"
@@ -52,10 +54,9 @@ module private MSBuildCrackerResolver =
             do! ps.WaitForExitAsync()
 
             let fullCommand = $"dotnet msbuild %s{fsproj} %s{args}"
-            // printfn "%s" fullCommand
 
             if not (String.IsNullOrWhiteSpace error) then
-                failwithf $"In %s{pwd}:\n%s{fullCommand}\nfailed with\n%s{error}"
+                failwithf $"In %s{psi.WorkingDirectory}:\n%s{fullCommand}\nfailed with\n%s{error}"
 
             return output.Trim()
         }

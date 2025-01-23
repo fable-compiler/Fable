@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.7 - 2025-01-23
+
+### Fixed
+
+* [All] Disable .NET Welcome message when cracking project (#4014) (by @MangelMaxime)
+
 ## 5.0.0-alpha.6 - 2025-01-23
 
 ### Added
