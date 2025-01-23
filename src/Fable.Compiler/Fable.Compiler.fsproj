@@ -6,20 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.6</Version>
-        <PackageReleaseNotes>## Added
+        <Version>5.0.0-alpha.7</Version>
+        <PackageReleaseNotes>## Fixed
 
-- [All] Add `StringBuiler.Append(c: char, repeatCount: int)` overload (by @roboz0r)
-- [All] Added primitive types equality and comparison (by @ncave)
-- [All] Updated FCS to latest F# 9.0 (by @ncave)
-- [All] Updated Fable-FCS to latest F# 9.0 (by @ncave)
-- [All] Updated metadata to latest .NET 9.0 (by @ncave)
-- [All] Updated FCS type constraints (by @ncave)
-
-## Fixed
-
-- [Py] Add missing unicode categories in python library (by @joprice)
-- [All] Log JSON output if we fail to parse MSBuild result (by @MangelMaxime)
+- [All] Disable .NET Welcome message when cracking project (#4014) (by @MangelMaxime)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
