@@ -6,15 +6,20 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.5</Version>
+        <Version>5.0.0-alpha.6</Version>
         <PackageReleaseNotes>## Added
 
-- [JS/TS/Python] Add new `TimSpan` overload support coming from .NET 9 (by @MangelMaxime)
-- [Rust] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @ncave)
+- [All] Add `StringBuiler.Append(c: char, repeatCount: int)` overload (by @roboz0r)
+- [All] Added primitive types equality and comparison (by @ncave)
+- [All] Updated FCS to latest F# 9.0 (by @ncave)
+- [All] Updated Fable-FCS to latest F# 9.0 (by @ncave)
+- [All] Updated metadata to latest .NET 9.0 (by @ncave)
+- [All] Updated FCS type constraints (by @ncave)
 
 ## Fixed
 
-- [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
+- [Py] Add missing unicode categories in python library (by @joprice)
+- [All] Log JSON output if we fail to parse MSBuild result (by @MangelMaxime)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
