@@ -2031,10 +2031,25 @@ module Util =
 
     let tryGlobalOrImportedAttributes (com: Compiler) (entRef: Fable.EntityRef) (attributes: Fable.Attribute seq) =
         let globalRef customName =
-            defaultArg customName entRef.DisplayName
-            |> makeTypedIdent Fable.Any
-            |> Fable.IdentExpr
-            |> Some
+            let name =
+                // Custom name has precedence
+                match customName with
+                | Some name -> name
+                | None ->
+                    let entity = com.GetEntity(entRef)
+
+                    // If we are generating TypeScript, and the entity is an object class pattern
+                    // we need to use the compiled name, replacing '`' with '$' to mimic
+                    // how Fable generates the compiled name for generic types
+                    // I was not able to find where this is done in Fable, so I am doing it manually here
+                    if com.Options.Language = TypeScript && isParamObjectClassPattern entity then
+                        entity.CompiledName.Replace("`", "$")
+                    // Otherwise, we use the display name as `Global` is often used to describe external API
+                    // and we want to keep the original name
+                    else
+                        entRef.DisplayName
+
+            name |> makeTypedIdent Fable.Any |> Fable.IdentExpr |> Some
 
         match attributes with
         | _ when entRef.FullName.StartsWith("Fable.Core.JS.", StringComparison.Ordinal) -> globalRef None
