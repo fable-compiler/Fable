@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [TS] Include XML Doc comment on interface properties (by @Freymaurer)
+* [TS] Generate `interface` type when using the "ParamObject" class pattern (by @MangelMaxime)
 
 ## 5.0.0-alpha.7 - 2025-01-23
 
