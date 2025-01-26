@@ -840,8 +840,23 @@ module Helpers =
             entity.MembersFunctionsAndValues
             |> Seq.filter _.IsConstructor
             |> Seq.forall (fun memb ->
-                memb.Attributes
-                |> Seq.exists (fun att -> att.Entity.FullName = Atts.paramObject)
+                // Empty constructors are considered valid as it allows to simplify unwraping
+                // complex Union types
+                //
+                // [<AllowNullLiteral>]
+                // [<Global>]
+                // type ClassWithUnion private () =
+                //     [<ParamObjectAttribute; Emit("$0")>]
+                //     new (stringOrNumber : string) = ClassWithUnion()
+                //     [<ParamObjectAttribute; Emit("$0")>]
+                //     new (stringOrNumber : int) = ClassWithUnion()
+                //
+                // Without this trick when we have a lot of U2, U3, etc. to map it is really difficult
+                // or verbose to craft the correct F# class. By using, an empty constructor we can
+                // "bypass" the F# type system.
+                memb.CurriedParameterGroups |> List.concat |> List.isEmpty
+                || memb.Attributes
+                   |> Seq.exists (fun att -> att.Entity.FullName = Atts.paramObject)
             )
 
         isGlobalType && areAllConstructorsParamObject

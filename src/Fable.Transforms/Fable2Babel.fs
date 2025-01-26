@@ -3789,39 +3789,45 @@ module Util =
         (ent: Fable.Entity)
         =
 
-        let members =
+        let constructors =
             ent.MembersFunctionsAndValues
             |> Seq.filter _.IsConstructor
-            |> Seq.map (fun constructor ->
-                constructor.CurriedParameterGroups
-                |> List.concat
-                |> List.mapi (fun index arg ->
-                    let name = defaultArg arg.Name $"arg{index}"
+            |> Seq.choose (fun constructor ->
+                let parameters = List.concat constructor.CurriedParameterGroups
 
-                    /// Try to find getter/setter in f# syntax for POJOs. If found propagate its xml doc to interface.
-                    let tryXmlDoc =
-                        ent.MembersFunctionsAndValues
-                        |> Seq.tryFind (fun s -> s.DisplayName = name)
-                        |> Option.bind (fun tgs -> tgs.XmlDoc)
+                if parameters.Length = 0 then
+                    None
+                else
 
-                    let typeAnnotation =
-                        if arg.IsOptional then
-                            unwrapOptionalType arg.Type
-                        else
-                            arg.Type
-                        |> FableTransforms.uncurryType
-                        |> makeTypeAnnotation com ctx
+                    parameters
+                    |> List.mapi (fun index arg ->
+                        let name = defaultArg arg.Name $"arg{index}"
 
-                    AbstractMember.abstractProperty (
-                        name |> Identifier.identifier |> Expression.Identifier,
-                        typeAnnotation,
-                        isOptional = arg.IsOptional,
-                        ?doc = tryXmlDoc
+                        /// Try to find getter/setter in f# syntax for POJOs. If found propagate its xml doc to interface.
+                        let tryXmlDoc =
+                            ent.MembersFunctionsAndValues
+                            |> Seq.tryFind (fun s -> s.DisplayName = name)
+                            |> Option.bind (fun tgs -> tgs.XmlDoc)
+
+                        let typeAnnotation =
+                            if arg.IsOptional then
+                                unwrapOptionalType arg.Type
+                            else
+                                arg.Type
+                            |> FableTransforms.uncurryType
+                            |> makeTypeAnnotation com ctx
+
+                        AbstractMember.abstractProperty (
+                            name |> Identifier.identifier |> Expression.Identifier,
+                            typeAnnotation,
+                            isOptional = arg.IsOptional,
+                            ?doc = tryXmlDoc
+                        )
                     )
-                )
+                    |> Array.ofSeq
+                    |> Some
             )
-            |> Seq.concat
-            |> Seq.toArray
+            |> Seq.toList
 
 
         let typeParameters =
@@ -3829,15 +3835,34 @@ module Util =
             |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
             |> makeTypeParamDecl com ctx
 
-        Declaration.interfaceDeclaration (
-            Identifier.identifier classDecl.Name,
-            members,
-            [||],
-            typeParameters,
-            ?doc = classDecl.XmlDoc
-        )
-        |> asModuleDeclaration ent.IsPublic
-        |> List.singleton
+        match constructors with
+        | [] ->
+            addError
+                com
+                []
+                None
+                "Unable to find a valid constructor for generating interface via ParamObject, please make sure the constructor has at least one parameter."
+
+            []
+        | members :: [] ->
+            Declaration.interfaceDeclaration (
+                Identifier.identifier classDecl.Name,
+                members,
+                [||],
+                typeParameters,
+                ?doc = classDecl.XmlDoc
+            )
+            |> asModuleDeclaration ent.IsPublic
+            |> List.singleton
+        | _ ->
+            let typ =
+                List.map ObjectTypeAnnotation constructors
+                |> Array.ofList
+                |> UnionTypeAnnotation
+
+            TypeAliasDeclaration(classDecl.Name, typeParameters, typ)
+            |> asModuleDeclaration ent.IsPublic
+            |> List.singleton
 
 
     let transformClassWithPrimaryConstructor
