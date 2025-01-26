@@ -992,15 +992,16 @@ module TypeInfo =
            && not (Set.contains name ctx.ScopedMemberGenArgs)
 
     let isNullableReferenceType com ctx constraints =
+        let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
         let isNotNullable = constraints |> List.contains Fable.Constraint.IsNotNullable
         let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
-        isNotNullable && isReferenceType
+        isNullable || isNotNullable && isReferenceType
 
     let transformGenericParamType com ctx name isMeasure constraints : Rust.Ty =
-        // if isNullableReferenceType com ctx constraints then
-        //     primitiveType name |> makeNullableTy com ctx
-        // elif
-        if isInferredGenericParam com ctx name isMeasure then
+        if isNullableReferenceType com ctx constraints then
+            // primitiveType name |> makeNullableTy com ctx
+            primitiveType name |> makeLrcPtrTy com ctx
+        elif isInferredGenericParam com ctx name isMeasure then
             mkInferTy () // mkNeverTy ()
         else
             primitiveType name
@@ -1509,7 +1510,7 @@ module Util =
 
     let unboxValue com ctx typ (value: Rust.Expr) =
         let genArgsOpt = transformGenArgs com ctx [ typ ]
-        [ value |> mkAddrOfExpr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
+        [ value ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
 
     let makeFluentValue com ctx (value: Rust.Expr) =
         [ value ] |> makeLibCall com ctx None "Native" "fromFluent"
@@ -1732,7 +1733,15 @@ module Util =
     let makeStringFrom com ctx (value: Rust.Expr) =
         makeLibCall com ctx None "String" "fromString" [ value ]
 
+    let makeNullCheck com ctx (value: Rust.Expr) =
+        makeLibCall com ctx None "Native" "isNull" [ value ]
+
     let makeNull com ctx (typ: Fable.Type) =
+        let typ =
+            match typ with
+            | Fable.Any -> Fable.Unit
+            | t -> t
+
         let genArgsOpt = transformGenArgs com ctx [ typ ]
         makeLibCall com ctx genArgsOpt "Native" "getNull" []
 
@@ -2289,13 +2298,20 @@ module Util =
                 | BinaryOperator.BinaryXorBitwise -> Rust.BinOpKind.BitXor
                 | BinaryOperator.BinaryAndBitwise -> Rust.BinOpKind.BitAnd
 
-            let left = transformLeaveContext com ctx None leftExpr |> maybeAddParens leftExpr
+            match op, leftExpr, rightExpr with
+            | BinaryEqual, e, Fable.Value(Fable.Null _, _)
+            | BinaryEqual, Fable.Value(Fable.Null _, _), e ->
+                transformLeaveContext com ctx None e |> makeNullCheck com ctx
+            | BinaryUnequal, e, Fable.Value(Fable.Null _, _)
+            | BinaryUnequal, Fable.Value(Fable.Null _, _), e ->
+                transformLeaveContext com ctx None e |> makeNullCheck com ctx |> mkNotExpr
+            | _ ->
+                let left = transformLeaveContext com ctx None leftExpr |> maybeAddParens leftExpr
+                let right = transformLeaveContext com ctx None rightExpr |> maybeAddParens rightExpr
 
-            let right = transformLeaveContext com ctx None rightExpr |> maybeAddParens rightExpr
-
-            match leftExpr.Type, kind with
-            | Fable.String, Rust.BinOpKind.Add -> makeLibCall com ctx None "String" "append" [ left; right ]
-            | _ -> mkBinaryExpr (mkBinOp kind) left right // ?loc=range)
+                match leftExpr.Type, kind with
+                | Fable.String, Rust.BinOpKind.Add -> makeLibCall com ctx None "String" "append" [ left; right ]
+                | _ -> mkBinaryExpr (mkBinOp kind) left right // ?loc=range)
 
         | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             let kind =

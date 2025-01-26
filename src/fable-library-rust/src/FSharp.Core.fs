@@ -39,11 +39,11 @@ module Operators =
     let nullArg x = raise (System.ArgumentNullException(x))
 
     [<CompiledName("Using")>]
-    let using<'T, 'R when 'T :> System.IDisposable> (resource: 'T) (action: 'T -> 'R) =
+    let using<'T, 'R when 'T :> System.IDisposable and 'T: null> (resource: 'T) (action: 'T -> 'R) =
         try
             action resource
         finally
-            match box resource with
+            match resource with
             | null -> ()
             | _ -> resource.Dispose()
 
@@ -52,13 +52,13 @@ module Operators =
 
     [<CompiledName("IsNull")>]
     let isNull (value: 'T) =
-        match box value with
+        match value with
         | null -> true
         | _ -> false
 
     [<CompiledName("IsNotNull")>]
     let isNotNull (value: 'T) =
-        match box value with
+        match value with
         | null -> false
         | _ -> true
 
@@ -67,7 +67,7 @@ module Operators =
 
     [<CompiledName("NonNull")>]
     let nonNull (value: 'T) =
-        match box value with
+        match value with
         | null -> raise (System.NullReferenceException())
         | _ -> value
 
@@ -80,7 +80,7 @@ module Operators =
 
     [<CompiledName("NullMatchPattern")>]
     let (|Null|NonNull|) (value: 'T) =
-        match box value with
+        match value with
         | null -> Null()
         | _ -> NonNull value
 
@@ -93,7 +93,7 @@ module Operators =
 
     [<CompiledName("NonNullQuickPattern")>]
     let (|NonNullQuick|) (value: 'T) =
-        match box value with
+        match value with
         | null -> raise (System.NullReferenceException())
         | _ -> value
 
@@ -116,7 +116,7 @@ module Operators =
 
     [<CompiledName("NullArgCheck")>]
     let nullArgCheck (argumentName: string) (value: 'T) =
-        match box value with
+        match value with
         | null -> raise (new System.ArgumentNullException(argumentName))
         | _ -> value
 

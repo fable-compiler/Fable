@@ -136,14 +136,14 @@ let ofNullable (value: System.Nullable<'T>) =
         None
 
 let ofObj (value: 'T) =
-    match box value with
+    match value with
     | null -> None
     | _ -> Some value
 
 let toObj (opt: 'T option) =
     match opt with
     | None -> null
-    | Some x -> x
+    | Some x -> box x
 
 let ofValueOption (voption: 'T voption) =
     match voption with

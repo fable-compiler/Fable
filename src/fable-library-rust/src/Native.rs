@@ -77,13 +77,43 @@ pub mod Native_ {
 
     pub fn ignore<T>(arg: &T) -> () {}
 
-    pub fn getNull<T>() -> LrcPtr<dyn Any> {
-        static nullPtr: OnceInit<LrcPtr<dyn Any>> = OnceInit::new();
-        nullPtr.get_or_init(move || LrcPtr::new(())).clone()
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn null_ptr<T>() -> *const T {
+        static NULL: OnceInit<LrcPtr<dyn Any>> = OnceInit::new();
+        let null_rc = NULL.get_or_init(move || LrcPtr::new(()));
+        LrcPtr::into_raw(null_rc.clone()) as *const T
     }
 
-    pub fn isNull<T>(value: LrcPtr<dyn Any>) -> bool {
-        referenceEquals(&value, &getNull::<T>())
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn getNull<T>() -> LrcPtr<T> {
+        let nullPtr = null_ptr::<T>();
+        unsafe { LrcPtr::from_raw(nullPtr) }
+    }
+
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn isNull(o: LrcPtr<dyn Any>) -> bool {
+        let null_T: LrcPtr<dyn Any> = getNull::<()>();
+        LrcPtr::ptr_eq(&o, &null_T)
+    }
+
+    // #[cfg(not(feature = "lrc_ptr"))]
+    // pub fn isNull<T: 'static, U: 'static>(x: T) -> bool {
+    //     if let Some(o) = (&x as &dyn Any).downcast_ref::<LrcPtr<U>>() {
+    //         let null_T = getNull::<U>();
+    //         LrcPtr::ptr_eq(o, &null_T)
+    //     } else {
+    //         false
+    //     }
+    // }
+
+    #[cfg(feature = "lrc_ptr")]
+    pub fn getNull<T>() -> LrcPtr<T> {
+        LrcPtr::null()
+    }
+
+    #[cfg(feature = "lrc_ptr")]
+    pub fn isNull<T>(o: LrcPtr<T>) -> bool {
+        o.is_null()
     }
 
     pub fn getZero<T>() -> T {
@@ -350,22 +380,40 @@ pub mod Native_ {
         LrcPtr::new(MutCell::from(x))
     }
 
-    #[cfg(not(feature = "lrc_ptr"))]
     #[inline]
-    pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
-        LrcPtr::new(x) as LrcPtr<dyn Any>
-    }
-
-    #[cfg(feature = "lrc_ptr")]
-    #[inline]
-    pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
-        LrcPtr::from(Lrc::new(x) as Lrc<dyn Any>)
+    pub fn box_<T>(x: T) -> LrcPtr<T> {
+        LrcPtr::new(x)
     }
 
     #[inline]
-    pub fn unbox<T: Clone + 'static>(o: &LrcPtr<dyn Any>) -> T {
-        try_downcast::<_, T>(o).unwrap().clone()
+    pub fn unbox<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> T {
+        try_downcast::<_, T>(&o).unwrap().clone()
     }
+
+    // #[cfg(not(feature = "lrc_ptr"))]
+    // pub fn ofObj<T: Clone + 'static>(value: LrcPtr<dyn Any>) -> Option<T> {
+    //     if isNull(value.clone()) {
+    //         None::<T>
+    //     } else {
+    //         Some(unbox::<T>(value))
+    //     }
+    // }
+
+    // #[cfg(feature = "lrc_ptr")]
+    // pub fn ofObj<T: Clone + 'static>(value: LrcPtr<dyn Any>) -> Option<T> {
+    //     if value.is_null() {
+    //         None::<T>
+    //     } else {
+    //         Some(unbox::<T>(value))
+    //     }
+    // }
+
+    // pub fn toObj<T: Clone + 'static>(opt: Option<T>) -> LrcPtr<T> {
+    //     match opt {
+    //         Some(opt_0_0) => box_(opt_0_0),
+    //         _ => getNull::<T>(),
+    //     }
+    // }
 
     // -----------------------------------------------------------
     // Sequences

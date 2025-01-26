@@ -505,6 +505,7 @@ let ``test using function disposes the resource when action fails`` () =
 [<Fact>]
 let ``test isNull with primitives works`` () =
     isNull null |> equal true
+    isNull (box 5) |> equal false
     isNull "" |> equal false
     isNull "0" |> equal false
     isNull "hello" |> equal false

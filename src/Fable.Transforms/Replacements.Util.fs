@@ -665,18 +665,26 @@ let (|IsInRefType|_|) (com: Compiler) =
         | _ -> None
     | _ -> None
 
-let (|HasReferenceEquality|_|) (com: Compiler) =
-    function
+let (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
+    match t with
     | Any
     | LambdaType _
-    | DelegateType _ -> Some true
+    | DelegateType _ -> Some t
+    | GenericParam(_name, _isMeasure, constraints) ->
+        let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
+        // let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
+
+        if isNullable then // || isReferenceType then
+            Some t
+        else
+            None
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
 
         if ent |> FSharp2Fable.Util.hasStructuralEquality then
             None
         else
-            Some true
+            Some t
     | _ -> None
 
 let (|ListLiteral|_|) expr =

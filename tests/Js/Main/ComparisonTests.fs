@@ -428,6 +428,7 @@ let tests =
 
     testCase "isNull with primitives works" <| fun () ->
         isNull null |> equal true
+        isNull (box 5) |> equal false
         isNull "" |> equal false
         isNull "0" |> equal false
         isNull "hello" |> equal false
