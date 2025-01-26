@@ -463,12 +463,16 @@ let objectHash (com: ICompiler) ctx r (arg: Expr) =
     | _ -> getHashCode com ctx r arg
 
 let referenceEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
-    match left.Type with
-    | Boolean
-    | Char
-    | String
-    | Number _ -> makeEqOp r left right BinaryEqual
-    | _ -> Helper.LibCall(com, "Native", "referenceEquals", Boolean, [ makeRef left; makeRef right ], ?loc = r)
+    match left, right with
+    | Value(Null _, _), o
+    | o, Value(Null _, _) -> Helper.LibCall(com, "Native", "isNull", Boolean, [ o ], ?loc = r)
+    | _ ->
+        match left.Type with
+        | Boolean
+        | Char
+        | String
+        | Number _ -> makeEqOp r left right BinaryEqual
+        | _ -> Helper.LibCall(com, "Native", "referenceEquals", Boolean, [ makeRef left; makeRef right ], ?loc = r)
 
 let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     let t = Boolean
@@ -639,6 +643,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | IsEntity (Types.nullable) (_entRef, [ genArg ]) -> NewOption(None, genArg, false) |> makeValue None
+    | HasReferenceEquality com _ -> Null t |> makeValue None
     | _ -> Helper.LibCall(com, "Native", "getZero", t, [])
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =

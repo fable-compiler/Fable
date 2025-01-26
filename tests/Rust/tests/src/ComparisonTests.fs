@@ -451,6 +451,7 @@ let ``min works with records`` () =
 // [<Fact>]
 // let ``isNull with primitives works`` () =
 //     isNull null |> equal true
+//     isNull (box 5) |> equal false
 //     isNull "" |> equal false
 //     isNull "0" |> equal false
 //     isNull "hello" |> equal false
