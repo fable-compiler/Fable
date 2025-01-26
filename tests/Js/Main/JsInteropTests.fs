@@ -315,6 +315,89 @@ module TaggedUnion =
         | [<CompiledValue(Kind.Bar)>] Bar of Bar<Kind>
         | [<CompiledValue(Kind.Baz)>] Baz of Baz<Kind>
 
+#if FABLE_COMPILER
+module ParamObjectClassPattern =
+
+    open Fable.Core.JsInterop
+
+    [<AllowNullLiteral>]
+    [<Global>]
+    type Person
+        [<ParamObjectAttribute; Emit("$0")>]
+        ( name : string ) =
+
+        member val name: string = jsNative with get, set
+
+    [<AllowNullLiteral>]
+    [<Global>]
+    type User
+        [<ParamObjectAttribute; Emit("$0")>]
+        ( id: int, name: string, ?age: int ) =
+        inherit Person(name)
+        member val id: int = jsNative with get, set
+        member val age: int = jsNative with get, set
+        member val name: string = jsNative with get, set
+
+    [<AllowNullLiteral>]
+    [<Global>]
+    type BaseBag<'T>
+        () =
+
+        [<ParamObjectAttribute; Emit("$0")>]
+        new ( bag : 'T) = BaseBag()
+
+        member val bag: 'T = jsNative with get, set
+
+    [<AllowNullLiteral>]
+    [<Global>]
+    type UserBag<'ExtraData>
+        private () =
+        inherit BaseBag<int>()
+
+        [<ParamObjectAttribute; Emit("$0")>]
+        new ( bag : int, data: 'ExtraData, ?userId : int) = UserBag()
+        [<ParamObjectAttribute; Emit("$0")>]
+        new ( bag : int, data : 'ExtraData, ?userId : Guid) = UserBag()
+
+        member val bag: int = jsNative with get, set
+        member val data: 'ExtraData = jsNative with get, set
+        member val userId: U2<int, Guid> option = jsNative with get, set
+
+    let tests =
+        testList "ParamObjectClassPattern" [
+
+            testCase "does create a POJO" <| fun _ ->
+                let user = User(1, "John")
+                let userObj =
+                    createObj [
+                        "id", box user.id
+                        "name", box user.name
+                    ]
+                    |> unbox<User>
+
+                equal user userObj
+
+            testCase "ParamObject supports downcasting" <| fun _ ->
+                let user = User(1, "John")
+                let person = user :> Person
+
+                equal "John" person.name
+
+                #if !FABLE_COMPILER_TYPESCRIPT
+                // TODO: This should work, but it doesn't
+                let directDowncast = User(1, "Kaladin") :> Person
+                equal "Kaladin" directDowncast.name
+                #endif
+
+            testCase "ParamObject works with generics" <| fun _ ->
+                let userBag = UserBag(42, "data", 1)
+
+                equal 42 userBag.bag
+                equal "data" userBag.data
+                equal (Some (U2.Case1 1)) userBag.userId
+        ]
+#endif
+
 let tests =
   testList "JsInterop" [
     testCase "Class with attached members works" <| fun _ ->
@@ -821,4 +904,8 @@ let tests =
     testCase "StringEnums can have static members" <| fun () ->
         let x = Field.Default
         validatePassword x |> equal "np"
+
+    #if FABLE_COMPILER
+    ParamObjectClassPattern.tests
+    #endif
   ]

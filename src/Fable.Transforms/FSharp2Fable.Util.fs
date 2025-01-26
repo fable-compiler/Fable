@@ -817,6 +817,50 @@ module Helpers =
             | None -> false
         )
 
+    // When compiling to TypeScript, we want to captuer classes that use the
+    // [<Global>] attribute on the type and[<ParamObject>] on the constructors
+    // so we can transform it into an interface
+
+    /// <summary>
+    /// Check if the entity is decorated with the <code>Global</code> attribute
+    /// and all its constructors are decorated with <code>ParamObject</code> attribute.
+    ///
+    /// This is used to identify classes that should be transformed into interfaces.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <returns>
+    /// <code>true</code> if the entity is a global type with all constructors as param objects,
+    /// <code>false</code> otherwise.
+    /// </returns>
+    let isParamObjectClassPattern (entity: Fable.Entity) =
+        let isGlobalType =
+            entity.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.global_)
+
+        let areAllConstructorsParamObject =
+            entity.MembersFunctionsAndValues
+            |> Seq.filter _.IsConstructor
+            |> Seq.forall (fun memb ->
+                // Empty constructors are considered valid as it allows to simplify unwraping
+                // complex Union types
+                //
+                // [<AllowNullLiteral>]
+                // [<Global>]
+                // type ClassWithUnion private () =
+                //     [<ParamObjectAttribute; Emit("$0")>]
+                //     new (stringOrNumber : string) = ClassWithUnion()
+                //     [<ParamObjectAttribute; Emit("$0")>]
+                //     new (stringOrNumber : int) = ClassWithUnion()
+                //
+                // Without this trick when we have a lot of U2, U3, etc. to map it is really difficult
+                // or verbose to craft the correct F# class. By using, an empty constructor we can
+                // "bypass" the F# type system.
+                memb.CurriedParameterGroups |> List.concat |> List.isEmpty
+                || memb.Attributes
+                   |> Seq.exists (fun att -> att.Entity.FullName = Atts.paramObject)
+            )
+
+        isGlobalType && areAllConstructorsParamObject
+
     let tryPickAttrib attFullNames (attributes: FSharpAttribute seq) =
         let attFullNames = Map attFullNames
 
@@ -2002,10 +2046,25 @@ module Util =
 
     let tryGlobalOrImportedAttributes (com: Compiler) (entRef: Fable.EntityRef) (attributes: Fable.Attribute seq) =
         let globalRef customName =
-            defaultArg customName entRef.DisplayName
-            |> makeTypedIdent Fable.Any
-            |> Fable.IdentExpr
-            |> Some
+            let name =
+                // Custom name has precedence
+                match customName with
+                | Some name -> name
+                | None ->
+                    let entity = com.GetEntity(entRef)
+
+                    // If we are generating TypeScript, and the entity is an object class pattern
+                    // we need to use the compiled name, replacing '`' with '$' to mimic
+                    // how Fable generates the compiled name for generic types
+                    // I was not able to find where this is done in Fable, so I am doing it manually here
+                    if com.Options.Language = TypeScript && isParamObjectClassPattern entity then
+                        entity.CompiledName.Replace("`", "$")
+                    // Otherwise, we use the display name as `Global` is often used to describe external API
+                    // and we want to keep the original name
+                    else
+                        entRef.DisplayName
+
+            name |> makeTypedIdent Fable.Any |> Fable.IdentExpr |> Some
 
         match attributes with
         | _ when entRef.FullName.StartsWith("Fable.Core.JS.", StringComparison.Ordinal) -> globalRef None
