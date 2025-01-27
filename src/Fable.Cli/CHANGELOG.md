@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.8 - 2025-01-27
+
 ### Added
 
 * [TS] Include XML Doc comment on interface properties (by @Freymaurer)

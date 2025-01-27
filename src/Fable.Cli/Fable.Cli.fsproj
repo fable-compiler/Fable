@@ -4,10 +4,12 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <Version>5.0.0-alpha.7</Version>
-    <PackageReleaseNotes>## Fixed
+    <Version>5.0.0-alpha.8</Version>
+    <PackageReleaseNotes>## Added
 
-- [All] Disable .NET Welcome message when cracking project (#4014) (by @MangelMaxime)
+- [TS] Include XML Doc comment on interface properties (by @Freymaurer)
+- [TS] Generate `interface` type when using the "ParamObject" class pattern (by @MangelMaxime)
+- [Rust] - Initial support for null values (by @ncave)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
