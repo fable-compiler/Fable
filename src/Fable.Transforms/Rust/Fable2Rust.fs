@@ -4255,21 +4255,17 @@ module Util =
             | _ -> body
         | _ -> body
 
-    let transformAssocMember
-        com
-        ctx
-        (memb: Fable.MemberFunctionOrValue)
-        (membName: string)
-        (args: Fable.Ident list)
-        (body: Fable.Expr)
-        =
+    let transformAssocMember com ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let ctx = { ctx with IsAssocMember = true }
 
         let name =
             if isInterfaceMember com memb then
                 memb.CompiledName // no name mangling for interfaces
             else
-                Fable.Naming.splitLast membName
+                Fable.Naming.splitLast decl.Name
+
+        let args = decl.Args
+        let body = decl.Body
 
         let body =
             if memb.IsInstance && not (memb.IsConstructor) then
@@ -4301,7 +4297,7 @@ module Util =
 
         let generics = makeGenerics com ctx genArgs
         let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics (Some fnBody)
-        let attrs = transformAttributes com ctx memb.Attributes memb.XmlDoc
+        let attrs = transformAttributes com ctx memb.Attributes decl.XmlDoc
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
 
@@ -4438,9 +4434,23 @@ module Util =
         let memberRef =
             Fable.GeneratedMember.Function(entName, paramTypes, body.Type, isInstance = false, entRef = ent.Ref)
 
-        let memb = com.GetMember(memberRef)
         let name = "new"
-        let fnItem = transformAssocMember com ctx memb name args body
+        let memb = com.GetMember(memberRef)
+
+        let ctor: Fable.MemberDecl =
+            {
+                Name = name
+                Args = args
+                Body = body
+                MemberRef = memberRef
+                IsMangled = false
+                ImplementedSignatureRef = None
+                UsedNames = Set.empty
+                XmlDoc = None
+                Tags = []
+            }
+
+        let fnItem = transformAssocMember com ctx memb ctor
         let fnItem = fnItem |> memberAssocItemWithVis com ctx memb
         fnItem
 
@@ -4512,7 +4522,7 @@ module Util =
 
         let ctor = { ctor with Body = body }
         let memb = com.GetMember(ctor.MemberRef)
-        let fnItem = transformAssocMember com ctx memb ctor.Name ctor.Args ctor.Body
+        let fnItem = transformAssocMember com ctx memb ctor
         let fnItem = fnItem |> memberAssocItemWithVis com ctx memb
         fnItem
 
@@ -4791,7 +4801,7 @@ module Util =
     let makeMemberItem (com: IRustCompiler) ctx withVis (decl: Fable.MemberDecl, memb: Fable.MemberFunctionOrValue) =
         withCurrentScope ctx decl.UsedNames
         <| fun ctx ->
-            let memberItem = transformAssocMember com ctx memb decl.Name decl.Args decl.Body
+            let memberItem = transformAssocMember com ctx memb decl
 
             if withVis then
                 memberItem |> memberAssocItemWithVis com ctx memb

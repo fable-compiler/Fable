@@ -3454,7 +3454,7 @@ module Util =
             else
                 returnType
 
-        ClassMember.classMethod (kind, args, body, isStatic = isStatic, ?returnType = returnType) //, ?typeParameters=typeParamDecl)
+        ClassMember.classMethod (kind, args, body, isStatic = isStatic, ?returnType = returnType, ?doc = memb.XmlDoc) //, ?typeParameters=typeParamDecl)
         |> Array.singleton
 
     let transformAttachedMethod
@@ -3475,7 +3475,8 @@ module Util =
                 body,
                 isStatic = isStatic,
                 ?returnType = returnType,
-                ?typeParameters = typeParamDecl
+                ?typeParameters = typeParamDecl,
+                ?doc = memb.XmlDoc
             )
 
         let args, body, returnType, typeParamDecl =
@@ -3742,7 +3743,7 @@ module Util =
         (com: IBabelCompiler)
         ctx
         (ent: Fable.Entity)
-        (entName: string)
+        (decl: Fable.ClassDecl)
         classMembers
         =
         let fieldIds = getEntityFieldsAsIdents ent |> List.toArray
@@ -3780,13 +3781,13 @@ module Util =
                 Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
             )
 
-        declareType com ctx ent entName args body baseExpr classMembers
+        declareType com ctx ent decl.Name args body baseExpr classMembers
 
     let transformParamObjectClassPatternToInterface
         (com: IBabelCompiler)
         ctx
-        (classDecl: Fable.ClassDecl)
         (ent: Fable.Entity)
+        (decl: Fable.ClassDecl)
         =
 
         let constructors =
@@ -3803,7 +3804,7 @@ module Util =
                     |> List.mapi (fun index arg ->
                         let name = defaultArg arg.Name $"arg{index}"
 
-                        /// Try to find getter/setter in f# syntax for POJOs. If found propagate its xml doc to interface.
+                        /// Try to find getter/setter in F# syntax for POJOs. If found propagate its xml doc to interface.
                         let tryXmlDoc =
                             ent.MembersFunctionsAndValues
                             |> Seq.tryFind (fun s -> s.DisplayName = name)
@@ -3846,11 +3847,11 @@ module Util =
             []
         | members :: [] ->
             Declaration.interfaceDeclaration (
-                Identifier.identifier classDecl.Name,
+                Identifier.identifier decl.Name,
                 members,
                 [||],
                 typeParameters,
-                ?doc = classDecl.XmlDoc
+                ?doc = decl.XmlDoc
             )
             |> asModuleDeclaration ent.IsPublic
             |> List.singleton
@@ -3860,7 +3861,7 @@ module Util =
                 |> Array.ofList
                 |> UnionTypeAnnotation
 
-            TypeAliasDeclaration(classDecl.Name, typeParameters, typ)
+            TypeAliasDeclaration(decl.Name, typeParameters, typ)
             |> asModuleDeclaration ent.IsPublic
             |> List.singleton
 
@@ -4075,7 +4076,13 @@ module Util =
         let typeParameters =
             FSharp2Fable.Util.getEntityGenArgs ent |> makeTypeParamDecl com ctx
 
-        Declaration.interfaceDeclaration (Identifier.identifier decl.Name, members, extends, typeParameters)
+        Declaration.interfaceDeclaration (
+            Identifier.identifier decl.Name,
+            members,
+            extends,
+            typeParameters,
+            ?doc = decl.XmlDoc
+        )
         |> asModuleDeclaration ent.IsPublic
 
     let transformStringEnumDeclaration (decl: Fable.ClassDecl) (ent: Fable.Entity) (attArgs: obj list) =
@@ -4211,7 +4218,7 @@ module Util =
                     Compiler.Language = TypeScript
                     && FSharp2Fable.Helpers.isParamObjectClassPattern ent
                 then
-                    transformParamObjectClassPatternToInterface com ctx decl ent
+                    transformParamObjectClassPatternToInterface com ctx ent decl
                 else
 
                     let classMembers =
@@ -4240,7 +4247,7 @@ module Util =
                         if ent.IsFSharpUnion then
                             transformUnion com ctx ent decl.Name classMembers
                         else
-                            transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
+                            transformClassWithCompilerGeneratedConstructor com ctx ent decl classMembers
 
     let transformImports (imports: Import seq) : ModuleDeclaration list =
         let statefulImports = ResizeArray()
