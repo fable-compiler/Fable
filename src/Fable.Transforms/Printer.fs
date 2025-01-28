@@ -2,8 +2,19 @@
 module Fable.Transforms.Printer
 
 open System
+open System.Text.RegularExpressions
 open Fable
 open Fable.AST
+
+type ParsedXmlDoc =
+    {
+        Summary: string option
+    }
+    // TODO: Parse the whole XML
+    static member Parse(xml: string) =
+        let regex = Regex(@"<summary>([\s\S]*?)</summary>", RegexOptions.Compiled)
+        let m = regex.Match(xml)
+        { Summary = if m.Success then Some (m.Groups.[1].Value.Trim()) else None }
 
 type Writer =
     inherit IDisposable

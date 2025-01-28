@@ -613,7 +613,7 @@ module Helpers =
 
         match trimRootModule, ent.Path with
         | TrimRootModule com, (Fable.SourcePath sourcePath | Fable.PrecompiledLib(sourcePath, _)) ->
-            let rootMod = com.GetRootModule(sourcePath)
+            let rootMod, _ = com.GetRootModule(sourcePath)
 
             if fullName.StartsWith(rootMod, StringComparison.Ordinal) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
