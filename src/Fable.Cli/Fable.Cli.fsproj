@@ -4,12 +4,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <Version>5.0.0-alpha.8</Version>
-    <PackageReleaseNotes>## Added
+    <Version>5.0.0-alpha.9</Version>
+    <PackageReleaseNotes>## Fixed
 
-- [TS] Include XML Doc comment on interface properties (by @Freymaurer)
-- [TS] Generate `interface` type when using the "ParamObject" class pattern (by @MangelMaxime)
-- [Rust] - Initial support for null values (by @ncave)
+- [All] Add `--realsig+` to fix `Method not found: 'Boolean Fable.CompilerOptions.Equals` (by @nojaf)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
