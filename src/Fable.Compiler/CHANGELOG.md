@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [TS] Generate `interface` type when using the "ParamObject" class pattern (by @MangelMaxime)
 * [Rust] - Initial support for null values (by @ncave)
 
+### Fixed
+
+* [All] Add `--realsig+` to fix `Method not found: 'Boolean Fable.CompilerOptions.Equals` (by @nojaf)
+
 ## 5.0.0-alpha.7 - 2025-01-23
 
 ### Fixed
