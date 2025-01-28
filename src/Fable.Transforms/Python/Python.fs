@@ -1224,7 +1224,11 @@ module PythonExtensions =
 
     type Module with
 
-        static member module'(body, ?comment) = { Body = body; Comment = comment }
+        static member module'(body, ?comment) =
+            {
+                Body = body
+                Comment = comment
+            }
 
     type Arg with
 

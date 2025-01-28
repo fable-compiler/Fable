@@ -848,6 +848,7 @@ let run writer (program: Module) : Async<unit> =
         match Option.map ParsedXmlDoc.Parse program.Comment with
         | Some { Summary = Some summary } ->
             printer.Print("\"\"\"")
+
             for line in summary.Split('\n') do
                 let line = Naming.xmlDecode line
                 printer.Print(line.Trim())

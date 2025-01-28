@@ -636,6 +636,7 @@ module PrinterExtensions =
             | None -> ()
             | Some doc ->
                 let doc = ParsedXmlDoc.Parse doc
+
                 match doc.Summary with
                 | Some summary ->
                     let lines = summary.Split('\n')

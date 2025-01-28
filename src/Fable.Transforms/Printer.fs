@@ -14,7 +14,14 @@ type ParsedXmlDoc =
     static member Parse(xml: string) =
         let regex = Regex(@"<summary>([\s\S]*?)</summary>", RegexOptions.Compiled)
         let m = regex.Match(xml)
-        { Summary = if m.Success then Some (m.Groups.[1].Value.Trim()) else None }
+
+        {
+            Summary =
+                if m.Success then
+                    Some(m.Groups.[1].Value.Trim())
+                else
+                    None
+        }
 
 type Writer =
     inherit IDisposable

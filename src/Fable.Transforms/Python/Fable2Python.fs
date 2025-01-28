@@ -4462,10 +4462,14 @@ module Compiler =
 
         //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
-        let rootComment = com.GetRootModule(com.CurrentFile) |> snd |> Option.bind FSharp2Fable.TypeHelpers.tryGetXmlDoc
+
+        let rootComment =
+            com.GetRootModule(com.CurrentFile)
+            |> snd
+            |> Option.bind FSharp2Fable.TypeHelpers.tryGetXmlDoc
 
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
         let exports = com.GetAllExports() |> transformExports com ctx
         let body = importDecls @ typeVars @ rootDecls @ exports
-        Module.module'(body, ?comment=rootComment)
+        Module.module' (body, ?comment = rootComment)

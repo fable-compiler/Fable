@@ -2113,7 +2113,7 @@ let rec getRootFSharpEntities (declarations: FSharpImplementationFileDeclaration
 
     Seq.collect getRootFSharpEntitiesInner declarations
 
-let getRootModule (declarations: FSharpImplementationFileDeclaration list): string * (FSharpXmlDoc option) =
+let getRootModule (declarations: FSharpImplementationFileDeclaration list) : string * (FSharpXmlDoc option) =
     let rec getRootModuleInner outerEnt decls =
         match decls, outerEnt with
         | [ FSharpImplementationFileDeclaration.Entity(ent, decls) ], _ when ent.IsFSharpModule || ent.IsNamespace ->
