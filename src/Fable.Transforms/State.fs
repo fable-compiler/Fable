@@ -123,6 +123,7 @@ type ImplFile =
     {
         Declarations: FSharpImplementationFileDeclaration list
         RootModule: string
+        RootComment: FSharpXmlDoc option
         Entities: IReadOnlyDictionary<string, Fable.Entity>
         InlineExprs: (string * InlineExprLazy) list
     }
@@ -147,11 +148,13 @@ type ImplFile =
                 []
 
         FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop entities
+        let rootModule, rootComment = FSharp2Fable.Compiler.getRootModule declarations
 
         {
             Declarations = declarations
             Entities = entities
-            RootModule = FSharp2Fable.Compiler.getRootModule declarations
+            RootModule = rootModule
+            RootComment = rootComment
             InlineExprs = FSharp2Fable.Compiler.getInlineExprs file.FileName declarations
         }
 
@@ -336,17 +339,17 @@ type CompilerImpl
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
 
             match Dictionary.tryFind fileName project.ImplementationFiles with
-            | Some file -> file.RootModule
+            | Some file -> file.RootModule, file.RootComment
             | None ->
                 match project.PrecompiledInfo.TryGetRootModule(fileName) with
-                | Some r -> r
+                | Some r -> r, None
                 | None ->
                     let msg =
                         $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
 
                     (this :> Compiler).AddLog(msg, Severity.Warning, fileName = currentFile)
 
-                    "" // failwith msg
+                    "", None // failwith msg
 
         member _.TryGetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with

@@ -1487,10 +1487,10 @@ module Util =
                 |> Option.map Identifier
                 |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
 
-            let func = createFunction ident args body [] returnType
+            let func = createFunction ident args body [] returnType None
             Expression.name ident, [ func ]
 
-    let createFunction name args body decoratorList returnType =
+    let createFunction name args body decoratorList returnType (comment: string option) =
         let (|Awaitable|_|) expr =
             match expr with
             | Expression.Call {
@@ -1557,7 +1557,8 @@ module Util =
                 args = args,
                 body = body',
                 decoratorList = decoratorList,
-                returns = returnType
+                returns = returnType,
+                ?comment = comment
             )
         | _ ->
             Statement.functionDef (
@@ -1565,13 +1566,14 @@ module Util =
                 args = args,
                 body = body,
                 decoratorList = decoratorList,
-                returns = returnType
+                returns = returnType,
+                ?comment = comment
             )
 
     let makeFunction name (args: Arguments, body: Expression, decoratorList, returnType) : Statement =
         // printfn "makeFunction: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
-        createFunction name args body decoratorList returnType
+        createFunction name args body decoratorList returnType None
 
     let makeFunctionExpression
         (com: IPythonCompiler)
@@ -3769,7 +3771,7 @@ module Util =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
         let name = com.GetIdentifier(ctx, membName)
-        let stmt = createFunction name args body' [] returnType
+        let stmt = createFunction name args body' [] returnType info.XmlDoc
         let expr = Expression.name name
 
         info.Attributes
@@ -4461,8 +4463,13 @@ module Compiler =
         //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
+        let rootComment =
+            com.GetRootModule(com.CurrentFile)
+            |> snd
+            |> Option.bind FSharp2Fable.TypeHelpers.tryGetXmlDoc
+
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
         let exports = com.GetAllExports() |> transformExports com ctx
         let body = importDecls @ typeVars @ rootDecls @ exports
-        Module.module' body
+        Module.module' (body, ?comment = rootComment)

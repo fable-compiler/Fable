@@ -76,7 +76,7 @@ type Compiler =
 
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
 
-    abstract GetRootModule: fileName: string -> string
+    abstract GetRootModule: fileName: string -> string * FSharpXmlDoc option
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
     abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
@@ -167,7 +167,7 @@ module CompilerExt =
                 member _.ProjectFile = com.ProjectFile
                 member _.SourceFiles = com.SourceFiles
                 member _.Options = com.Options
-                member _.GetRootModule(fileName) = com.GetRootModule(fileName)
+                member _.GetRootModule(fileName) = com.GetRootModule(fileName) |> fst
                 member _.GetEntity(ref) = com.GetEntity(ref)
                 member _.GetMember(ref) = com.GetMember(ref)
 

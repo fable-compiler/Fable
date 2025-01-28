@@ -226,6 +226,7 @@ module PrinterExtensions =
                 func.Body,
                 func.Returns,
                 func.DecoratorList,
+                ?comment = func.Comment,
                 isDeclaration = true
             )
 
@@ -238,6 +239,7 @@ module PrinterExtensions =
                 func.Body,
                 func.Returns,
                 func.DecoratorList,
+                ?comment = func.Comment,
                 isDeclaration = true,
                 isAsync = true
             )
@@ -753,6 +755,7 @@ module PrinterExtensions =
                 body: Statement list,
                 returnType: Expression option,
                 decoratorList: Expression list,
+                ?comment: string,
                 ?isDeclaration,
                 ?isAsync
             )
@@ -777,6 +780,24 @@ module PrinterExtensions =
                 printer.PrintOptional(returnType)
 
             printer.Print(":")
+
+            match Option.map ParsedXmlDoc.Parse comment with
+            | Some { Summary = Some summary } ->
+                let lines = summary.Split('\n')
+
+                printer.PrintNewLine()
+                printer.PushIndentation()
+                printer.Print("\"\"\"")
+
+                for line in lines do
+                    let line = Naming.xmlDecode line
+                    printer.Print(line.Trim())
+                    printer.PrintNewLine()
+
+                printer.Print("\"\"\"")
+                printer.PopIndentation()
+            | _ -> ()
+
             printer.PrintBlock(body, skipNewLineAtEnd = true)
 
         member printer.WithParens(expr: Expression) =
@@ -822,6 +843,20 @@ let run writer (program: Module) : Async<unit> =
     async {
         use printerImpl = new PrinterImpl(writer)
         let printer = printerImpl :> Printer
+
+
+        match Option.map ParsedXmlDoc.Parse program.Comment with
+        | Some { Summary = Some summary } ->
+            printer.Print("\"\"\"")
+
+            for line in summary.Split('\n') do
+                let line = Naming.xmlDecode line
+                printer.Print(line.Trim())
+                printer.PrintNewLine()
+
+            printer.Print("\"\"\"")
+            printer.PrintNewLine()
+        | _ -> ()
 
         let imports, restDecls =
             program.Body

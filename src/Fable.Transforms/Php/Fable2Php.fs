@@ -828,7 +828,7 @@ and getPhpTypeForEntity (com: IPhpCompiler) (entity: Fable.Entity) =
     | Some path ->
         match entity with
         | :? Fable.Transforms.FSharp2Fable.FsEnt as fs ->
-            let ns = com.GetRootModule(path) |> nsreplacement |> Some
+            let ns = com.GetRootModule(path) |> fst |> nsreplacement |> Some
 
             {
                 Name = fixName fs.FSharpEntity.CompiledName
@@ -837,7 +837,7 @@ and getPhpTypeForEntity (com: IPhpCompiler) (entity: Fable.Entity) =
             }
 
         | _ ->
-            let rootModule = com.GetRootModule(path)
+            let rootModule = com.GetRootModule(path) |> fst
 
             {
                 Name = fixName entity.DisplayName
@@ -1408,7 +1408,7 @@ and convertValue (com: IPhpCompiler) (value: Fable.ValueKind) range =
                     match ent.Ref.SourcePath with
                     | Some p ->
                         com.AddRequire(p)
-                        Some(com.GetRootModule(p))
+                        Some(com.GetRootModule(p) |> fst)
                     | None -> None
 
                 let t = withNamespace rootModule name
@@ -2169,7 +2169,7 @@ module Compiler =
         let phpComp = PhpCompiler(com) :> IPhpCompiler
         phpComp.ClearRequire(__SOURCE_DIRECTORY__ + @"/src/")
 
-        let rootModule = com.GetRootModule(phpComp.CurrentFile) |> nsreplacement
+        let rootModule = com.GetRootModule(phpComp.CurrentFile) |> fst |> nsreplacement
         phpComp.SetPhpNamespace(rootModule)
 
         let decls =
