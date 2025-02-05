@@ -92,11 +92,11 @@ let last (xs: 'T list) =
     | Some x -> x
     | None -> failwith SR.inputListWasEmpty
 
-// Option.toList redirects here to avoid dependency
-let ofOption<'T> (opt: 'T option) : 'T list =
-    match opt with
-    | Some x -> singleton x
-    | None -> empty ()
+// // Option.toList redirects here to avoid dependency
+// let ofOption<'T> (opt: 'T option) : 'T list =
+//     match opt with
+//     | Some x -> singleton x
+//     | None -> empty ()
 
 let ofSeq (xs: 'T seq) =
     let mutable root = None
