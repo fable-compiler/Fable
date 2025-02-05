@@ -893,11 +893,11 @@ let inline averageBy (projection: 'T -> 'U) (source: 'T[]) : 'U =
 
     LanguagePrimitives.DivideByInt total source.Length
 
-// Option.toArray redirects here to avoid dependency (see Replacements)
-let ofOption<'T> (opt: 'T option) : 'T[] =
-    match opt with
-    | Some x -> Array.singleton x
-    | None -> Array.empty
+// // Option.toArray redirects here to avoid dependency (see Replacements)
+// let ofOption<'T> (opt: 'T option) : 'T[] =
+//     match opt with
+//     | Some x -> Array.singleton x
+//     | None -> Array.empty
 
 // Redirected to List.toArray to avoid dependency (see Replacements)
 // let ofList (xs: 'T list): 'T[] = List.toArray

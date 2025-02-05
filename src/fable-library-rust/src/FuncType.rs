@@ -1,4 +1,4 @@
-use crate::Native_::{referenceEquals, referenceHash, Lrc};
+use crate::Native_::{referenceEquals, referenceHash, Lrc, NullableRef};
 
 macro_rules! func {
     ($f:ident $(,$i:ident)*) => {
@@ -12,7 +12,38 @@ macro_rules! func {
         #[derive(Clone)]
         pub enum $f<$($i, )*R> {
             Static(fn($($i, )*) -> R),
-            Shared(Option<Lrc<dyn Fn($($i, )*) -> R>>),
+            Shared(Lrc<dyn Fn($($i, )*) -> R>),
+            Null
+        }
+
+        #[cfg(not(feature = "enum_func"))]
+        impl<$($i, )*R> NullableRef for $f<$($i, )*R> {
+            #[inline]
+            fn null() -> Self {
+                $f(None)
+            }
+
+            #[inline]
+            fn is_null(&self) -> bool {
+                self.0.is_none()
+            }
+        }
+
+        #[cfg(feature = "enum_func")]
+        impl<$($i, )*R> NullableRef for $f<$($i, )*R> {
+            #[inline]
+            fn null() -> Self {
+                $f::Null
+            }
+
+            #[inline]
+            fn is_null(&self) -> bool {
+                match self {
+                    $f::Static(f) => false,
+                    $f::Shared(p) => false,
+                    $f::Null => true,
+                }
+            }
         }
 
         impl<$($i, )*R> core::fmt::Debug for $f<$($i, )*R> {
@@ -53,7 +84,7 @@ macro_rules! func {
         #[cfg(feature = "enum_func")]
         impl<$($i, )*R> Default for $f<$($i, )*R> {
             fn default() -> Self {
-                $f::Shared(None)
+                $f::Null
             }
         }
 
@@ -75,7 +106,8 @@ macro_rules! func {
             fn deref(&self) -> &Self::Target {
                 match self {
                     $f::Static(f) => f,
-                    $f::Shared(p) => p.as_ref().expect("Null reference exception.").as_ref(),
+                    $f::Shared(p) => p.as_ref(),
+                    $f::Null => panic!("Null reference exception."),
                 }
             }
         }
@@ -96,7 +128,7 @@ macro_rules! func {
                 $f::Static(f)
             }
             pub fn new<F: Fn($($i, )*) -> R + 'static>(f: F) -> Self {
-                $f::Shared(Some(Lrc::new(f) as Lrc<dyn Fn($($i, )*) -> R>))
+                $f::Shared(Lrc::new(f) as Lrc<dyn Fn($($i, )*) -> R>)
             }
         }
 

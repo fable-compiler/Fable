@@ -5,7 +5,7 @@ pub mod String_ {
     // Strings
     // -----------------------------------------------------------
 
-    use crate::Native_::{compare, Func1, Func2, Lrc, String, ToString, Vec};
+    use crate::Native_::{compare, Func1, Func2, NullableRef, String, ToString, Vec};
     use crate::NativeArray_::{array_from, Array};
 
     use core::cmp::Ordering;
@@ -16,35 +16,47 @@ pub mod String_ {
     // -----------------------------------------------------------
 
     mod HeapString {
-        use crate::Native_::{Lrc, String};
+        use crate::Native_::{Lrc, NullableRef, String};
 
         #[repr(transparent)]
         #[derive(Clone)]
-        pub struct LrcStr(Lrc<str>);
+        pub struct LrcStr(Option<Lrc<str>>);
 
         pub type string = LrcStr;
 
+        impl NullableRef for string {
+            #[inline]
+            fn null() -> Self {
+                LrcStr(None)
+            }
+
+            #[inline]
+            fn is_null(&self) -> bool {
+                self.0.is_none()
+            }
+        }
+
         impl string {
             pub fn as_str(&self) -> &str {
-                self.0.as_ref()
+                self.0.as_ref().expect("Null reference exception.")
             }
         }
 
         pub fn string(s: &'static str) -> string {
-            LrcStr(Lrc::from(s))
+            LrcStr(Some(Lrc::from(s)))
         }
 
         pub fn fromSlice(s: &str) -> string {
-            LrcStr(Lrc::from(s))
+            LrcStr(Some(Lrc::from(s)))
         }
 
         pub fn fromString(s: String) -> string {
-            LrcStr(Lrc::from(s))
+            LrcStr(Some(Lrc::from(s)))
         }
 
         pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
             let s = iter.collect::<String>();
-            LrcStr(Lrc::from(s))
+            LrcStr(Some(Lrc::from(s)))
         }
     }
 
@@ -54,7 +66,7 @@ pub mod String_ {
     // TODO: maybe intern strings, maybe add length in chars.
 
     mod EnumString {
-        use crate::Native_::{Lrc, String};
+        use crate::Native_::{Lrc, NullableRef, String};
 
         const INLINE_MAX: usize = 22;
 
@@ -63,9 +75,25 @@ pub mod String_ {
             Static(&'static str),
             Inline { len: u8, buf: [u8; INLINE_MAX] },
             Shared(Lrc<str>),
+            Null,
         }
 
         pub type string = LrcStr;
+
+        impl NullableRef for string {
+            #[inline]
+            fn null() -> Self {
+                LrcStr::Null
+            }
+
+            #[inline]
+            fn is_null(&self) -> bool {
+                match self {
+                    LrcStr::Null => true,
+                    _ => false,
+                }
+            }
+        }
 
         impl string {
             pub fn as_str(&self) -> &str {
@@ -75,6 +103,7 @@ pub mod String_ {
                     LrcStr::Inline { len, buf } => unsafe {
                         core::str::from_utf8_unchecked(&buf[0..*len as usize])
                     },
+                    LrcStr::Null => { panic!("Null reference exception."); },
                 }
             }
         }
@@ -246,7 +275,13 @@ pub mod String_ {
     impl PartialEq for string {
         #[inline]
         fn eq(&self, other: &Self) -> bool {
-            self.as_str().eq(other.as_str())
+            match (self.is_null(), other.is_null()) {
+                (true, true) => true,
+                (true, false) => false,
+                (false, true) => false,
+                (false, false) => self.as_str().eq(other.as_str()),
+            }
+
         }
     }
 
@@ -255,34 +290,24 @@ pub mod String_ {
     impl PartialOrd for string {
         #[inline]
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            self.as_str().partial_cmp(other.as_str())
-        }
-
-        #[inline]
-        fn lt(&self, other: &Self) -> bool {
-            self.as_str() < other.as_str()
-        }
-
-        #[inline]
-        fn le(&self, other: &Self) -> bool {
-            self.as_str() <= other.as_str()
-        }
-
-        #[inline]
-        fn gt(&self, other: &Self) -> bool {
-            self.as_str() > other.as_str()
-        }
-
-        #[inline]
-        fn ge(&self, other: &Self) -> bool {
-            self.as_str() >= other.as_str()
+            match (self.is_null(), other.is_null()) {
+                (true, true) => Some(Ordering::Equal),
+                (true, false) => Some(Ordering::Less),
+                (false, true) => Some(Ordering::Greater),
+                (false, false) => self.as_str().partial_cmp(other.as_str()),
+            }
         }
     }
 
     impl Ord for string {
         #[inline]
         fn cmp(&self, other: &Self) -> Ordering {
-            self.as_str().cmp(other.as_str())
+            match (self.is_null(), other.is_null()) {
+                (true, true) => Ordering::Equal,
+                (true, false) => Ordering::Less,
+                (false, true) => Ordering::Greater,
+                (false, false) => self.as_str().cmp(other.as_str()),
+            }
         }
     }
 
@@ -467,12 +492,12 @@ pub mod String_ {
         endsWith2(s, p, comparison)
     }
 
-    pub fn isEmpty(s: string) -> bool {
-        s.is_empty()
+    pub fn isNullOrEmpty(s: string) -> bool {
+        s.is_null() || s.is_empty()
     }
 
-    pub fn isWhitespace(s: string) -> bool {
-        s.trim().is_empty()
+    pub fn isNullOrWhitespace(s: string) -> bool {
+        s.is_null() || s.trim().is_empty()
     }
 
     pub fn trim(s: string) -> string {

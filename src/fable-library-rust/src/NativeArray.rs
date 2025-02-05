@@ -1,23 +1,35 @@
 pub mod NativeArray_ {
     use crate::Global_::SR::indexOutOfBounds;
     use crate::Native_::{alloc, make_compare, mkRefMut, partial_compare, seq_to_iter};
-    use crate::Native_::{Func1, Func2, LrcPtr, MutCell, Seq, Vec};
+    use crate::Native_::{Func1, Func2, Lrc, LrcPtr, MutCell, NullableRef, Seq, Vec};
     use crate::System::Collections::Generic::IComparer_1;
 
     // -----------------------------------------------------------
     // Arrays
     // -----------------------------------------------------------
 
-    type MutArray<T> = MutCell<Vec<T>>;
+    type MutArray<T> = Lrc<MutCell<Vec<T>>>;
 
     #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
     #[repr(transparent)]
-    pub struct Array<T: Clone>(LrcPtr<MutArray<T>>);
+    pub struct Array<T>(Option<MutArray<T>>);
+
+    impl<T> NullableRef for Array<T> {
+        #[inline]
+        fn null() -> Self {
+            Array(None)
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            self.0.is_none()
+        }
+    }
 
     impl<T: Clone> core::ops::Deref for Array<T> {
-        type Target = LrcPtr<MutArray<T>>;
+        type Target = MutArray<T>;
         fn deref(&self) -> &Self::Target {
-            &self.0
+            &self.0.as_ref().expect("Null reference exception.")
         }
     }
 
@@ -47,7 +59,7 @@ pub mod NativeArray_ {
     }
 
     pub fn array_from<T: Clone>(v: Vec<T>) -> Array<T> {
-        Array(mkRefMut(v))
+        Array(Some(Lrc::new(MutCell::from(v))))
     }
 
     pub fn new_array<T: Clone>(a: &[T]) -> Array<T> {

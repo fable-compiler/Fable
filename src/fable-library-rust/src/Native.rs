@@ -64,6 +64,61 @@ pub mod Native_ {
     pub type RefCell<T> = LrcPtr<MutCell<T>>;
     pub type Nullable<T> = Option<T>;
 
+    // pub trait AsAny: Any {
+    //     fn as_any(&self) -> &dyn Any;
+    // }
+
+    // impl<T: Any> AsAny for T {
+    //     #[inline(always)]
+    //     fn as_any(&self) -> &dyn Any {
+    //         self
+    //     }
+    // }
+
+    // pub trait Downcast: AsAny {
+    //     #[inline]
+    //     fn is<T: AsAny>(&self) -> bool {
+    //         self.as_any().is::<T>()
+    //     }
+
+    //     #[inline]
+    //     fn downcast_ref<T: AsAny>(&self) -> Option<&T> {
+    //         self.as_any().downcast_ref::<T>()
+    //     }
+    // }
+
+    // impl<T: ?Sized + AsAny> Downcast for T {}
+
+    pub trait NullableRef {
+        fn null() -> Self;
+        fn is_null(&self) -> bool;
+    }
+
+    #[cfg(not(feature = "lrc_ptr"))]
+    impl<T> NullableRef for Lrc<T> {
+        #[inline]
+        fn null() -> Self {
+            null_ptr::<T>()
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            is_null_ptr(self)
+        }
+    }
+
+    impl<T> NullableRef for Option<T> {
+        #[inline]
+        fn null() -> Self {
+            None::<T>
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            self.is_none()
+        }
+    }
+
     use core::cmp::Ordering;
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{BuildHasher, Hash, Hasher};
@@ -77,43 +132,25 @@ pub mod Native_ {
 
     pub fn ignore<T>(arg: &T) -> () {}
 
-    #[cfg(not(feature = "lrc_ptr"))]
-    pub fn null_ptr<T>() -> *const T {
-        static NULL: OnceInit<LrcPtr<dyn Any>> = OnceInit::new();
-        let null_rc = NULL.get_or_init(move || LrcPtr::new(()));
-        LrcPtr::into_raw(null_rc.clone()) as *const T
+    #[inline]
+    pub fn null<T: NullableRef>() -> T {
+        T::null()
     }
 
-    #[cfg(not(feature = "lrc_ptr"))]
-    pub fn getNull<T>() -> LrcPtr<T> {
-        let nullPtr = null_ptr::<T>();
-        unsafe { LrcPtr::from_raw(nullPtr) }
-    }
-
-    #[cfg(not(feature = "lrc_ptr"))]
-    pub fn isNull(o: LrcPtr<dyn Any>) -> bool {
-        let null_T: LrcPtr<dyn Any> = getNull::<()>();
-        LrcPtr::ptr_eq(&o, &null_T)
-    }
-
-    // #[cfg(not(feature = "lrc_ptr"))]
-    // pub fn isNull<T: 'static, U: 'static>(x: T) -> bool {
-    //     if let Some(o) = (&x as &dyn Any).downcast_ref::<LrcPtr<U>>() {
-    //         let null_T = getNull::<U>();
-    //         LrcPtr::ptr_eq(o, &null_T)
-    //     } else {
-    //         false
-    //     }
-    // }
-
-    #[cfg(feature = "lrc_ptr")]
-    pub fn getNull<T>() -> LrcPtr<T> {
-        LrcPtr::null()
-    }
-
-    #[cfg(feature = "lrc_ptr")]
-    pub fn isNull<T>(o: LrcPtr<T>) -> bool {
+    #[inline]
+    pub fn is_null<T: NullableRef>(o: T) -> bool {
         o.is_null()
+    }
+
+    pub fn null_ptr<T>() -> Lrc<T> {
+        static NULL: OnceInit<Lrc<dyn Any>> = OnceInit::new();
+        let null_rc = NULL.get_or_init(move || Lrc::new(()));
+        unsafe { Lrc::from_raw(Lrc::into_raw(null_rc.clone()) as *const T) }
+    }
+
+    pub fn is_null_ptr<T>(o: &Lrc<T>) -> bool {
+        let null_T: Lrc<T> = null_ptr::<T>();
+        Lrc::ptr_eq(o, &null_T)
     }
 
     pub fn getZero<T>() -> T {
@@ -380,40 +417,40 @@ pub mod Native_ {
         LrcPtr::new(MutCell::from(x))
     }
 
-    #[inline]
-    pub fn box_<T>(x: T) -> LrcPtr<T> {
-        LrcPtr::new(x)
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
+        match (&x as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
+            Some(o) => o.clone(),
+            None => LrcPtr::new(x) as LrcPtr<dyn Any>,
+        }
     }
 
-    #[inline]
+    #[cfg(feature = "lrc_ptr")]
+    pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
+        match (&x as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
+            Some(o) => o.clone(),
+            None => LrcPtr::from(Lrc::new(x) as Lrc<dyn Any>),
+        }
+    }
+
     pub fn unbox<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> T {
         try_downcast::<_, T>(&o).unwrap().clone()
     }
 
-    // #[cfg(not(feature = "lrc_ptr"))]
-    // pub fn ofObj<T: Clone + 'static>(value: LrcPtr<dyn Any>) -> Option<T> {
-    //     if isNull(value.clone()) {
-    //         None::<T>
-    //     } else {
-    //         Some(unbox::<T>(value))
-    //     }
-    // }
+    pub fn ofObj<T: Clone + NullableRef + 'static>(value: T) -> Option<T> {
+        if is_null(value.clone()) {
+            None::<T>
+        } else {
+            Some(value)
+        }
+    }
 
-    // #[cfg(feature = "lrc_ptr")]
-    // pub fn ofObj<T: Clone + 'static>(value: LrcPtr<dyn Any>) -> Option<T> {
-    //     if value.is_null() {
-    //         None::<T>
-    //     } else {
-    //         Some(unbox::<T>(value))
-    //     }
-    // }
-
-    // pub fn toObj<T: Clone + 'static>(opt: Option<T>) -> LrcPtr<T> {
-    //     match opt {
-    //         Some(opt_0_0) => box_(opt_0_0),
-    //         _ => getNull::<T>(),
-    //     }
-    // }
+    pub fn toObj<T: Clone + NullableRef + 'static>(opt: Option<T>) -> T {
+        match &opt {
+            Some(opt_0_0) => opt_0_0.clone(),
+            _ => null::<T>(),
+        }
+    }
 
     // -----------------------------------------------------------
     // Sequences
