@@ -70,6 +70,16 @@ type MyClass(v) =
     member val Value: int = v with get, set
 
 [<Fact>]
+let ``test PhysicalEquality works`` () = // See #3998
+    let r1 = ResizeArray([1; 2])
+    let r2 = ResizeArray([1; 2])
+    let r3 = r1
+
+    LanguagePrimitives.PhysicalEquality r1 r2 |> equal false
+    LanguagePrimitives.PhysicalEquality r2 r2 |> equal true
+    LanguagePrimitives.PhysicalEquality r3 r1 |> equal true
+
+[<Fact>]
 let ``test Typed array equality works`` () =
     let xs1 = [| 1; 2; 3 |]
     let xs2 = [| 1; 2; 3 |]

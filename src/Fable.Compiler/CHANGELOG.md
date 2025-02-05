@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] - Fix #3998: PhysicalEquality (by @alfonsogarciacaro)
+
 ### Added
 
 * [Python] - Print root module and module function comments (by @alfonsogarciacaro)
