@@ -441,6 +441,7 @@ type ModuleDecl =
         Name: string
         Entity: EntityRef
         Members: Declaration list
+        XmlDoc: string option
     }
 
 and Declaration =

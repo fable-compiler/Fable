@@ -2080,6 +2080,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                             Name = fsEnt.CompiledName
                             Entity = entRef
                             Members = members
+                            XmlDoc = tryGetXmlDoc fsEnt.XmlDoc
                         }
                 ]
             | sub -> transformDeclarations com ctx sub

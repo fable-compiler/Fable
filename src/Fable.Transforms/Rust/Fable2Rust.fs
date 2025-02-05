@@ -5095,7 +5095,7 @@ module Util =
                 com.ClearAllImports(ctx)
                 useItem :: importItems
 
-            let outerAttrs = transformAttributes com ctx ent.Attributes None
+            let outerAttrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
             let innerAttrs = getInnerAttributes com ctx decl.Members
             let attrs = innerAttrs @ outerAttrs
             let modDecls = useDecls @ memberDecls
