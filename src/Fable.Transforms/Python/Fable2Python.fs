@@ -21,7 +21,7 @@ type ReturnStrategy =
 type Import =
     {
         Module: string
-        LocalIdent: Identifier option
+        LocalIdent: Identifier
         Name: string option
     }
 
@@ -4249,17 +4249,17 @@ module Util =
                 match im.Name with
                 | Some "*"
                 | Some "default" ->
-                    let (Identifier local) = im.LocalIdent.Value
+                    let (Identifier local) = im.LocalIdent
 
                     if moduleName <> local then
-                        Some moduleName, Alias.alias im.LocalIdent.Value
+                        Some moduleName, Alias.alias im.LocalIdent
                     else
-                        None, Alias.alias im.LocalIdent.Value
+                        None, Alias.alias im.LocalIdent
                 | Some name ->
                     let name = Naming.toSnakeCase name
 
-                    Some moduleName, Alias.alias (Identifier(Helpers.clean name), ?asname = im.LocalIdent)
-                | None -> None, Alias.alias (Identifier(moduleName), ?asname = im.LocalIdent)
+                    Some moduleName, Alias.alias (Identifier(Helpers.clean name), asname = im.LocalIdent)
+                | None -> None, Alias.alias (Identifier(moduleName), asname = im.LocalIdent)
             )
             |> List.groupBy fst
             |> List.map (fun (a, b) -> a, List.map snd b)
@@ -4290,16 +4290,9 @@ module Util =
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         // printfn "getIdentForImport: %A" (moduleName, name)
         match name with
-        | None -> Path.GetFileNameWithoutExtension(moduleName) |> Identifier |> Some
-        | Some name ->
-            match name with
-            | "default"
-            | "*" -> Path.GetFileNameWithoutExtension(moduleName)
-            | _ -> name
-            |> Naming.toSnakeCase
-            |> getUniqueNameInRootScope ctx
-            |> Identifier
-            |> Some
+        | None -> Path.GetFileNameWithoutExtension(moduleName)
+        | Some name -> name |> Naming.toSnakeCase |> getUniqueNameInRootScope ctx
+        |> Identifier
 
 module Compiler =
     open Util
@@ -4317,47 +4310,59 @@ module Compiler =
 
             member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
                 // printfn "GetImportExpr: %A" (moduleName, name)
-                let cachedName = moduleName + "::" + defaultArg name "module"
+                let name =
+                    match name with
+                    | None
+                    | Some null -> ""
+                    | Some name -> name.Trim()
+
+                let isQualifiedPythonImport =
+                    match name with
+                    | ""
+                    | "default"
+                    | "*" -> false
+                    | _ -> true
+
+                let cachedName =
+                    moduleName
+                    + "::"
+                    + if isQualifiedPythonImport then
+                          name
+                      else
+                          ""
 
                 match imports.TryGetValue(cachedName) with
-                | true, i ->
-                    match i.LocalIdent with
-                    | Some localIdent -> Expression.identifier localIdent
-                    | None -> Expression.none
+                | true, i -> i.LocalIdent |> Expression.identifier
                 | false, _ ->
-                    let local_id = getIdentForImport ctx moduleName name
+                    let local_id =
+                        if isQualifiedPythonImport then
+                            Some name
+                        else
+                            None
+                        |> getIdentForImport ctx moduleName
 
-                    match name with
-                    | Some "*"
-                    | None ->
-                        let i =
-                            {
-                                Name = None
-                                Module = moduleName
-                                LocalIdent = local_id
-                            }
+                    let importName =
+                        match name with
+                        | _ when not isQualifiedPythonImport -> None
+                        | Naming.placeholder ->
+                            "`importMember` must be assigned to a variable" |> addError com [] r
+                            Some name
+                        | _ -> Some name
 
-                        imports.Add(cachedName, i)
-                    | Some name ->
-                        let i =
-                            {
-                                Name =
-                                    if name = Naming.placeholder then
-                                        "`importMember` must be assigned to a variable" |> addError com [] r
+                    let i =
+                        {
+                            Name = importName
+                            Module = moduleName
+                            LocalIdent = local_id
+                        }
 
-                                        name
-                                    else
-                                        name
-                                    |> Some
-                                Module = moduleName
-                                LocalIdent = local_id
-                            }
+                    imports.Add(cachedName, i)
 
-                        imports.Add(cachedName, i)
-
-                    match local_id with
-                    | Some localId -> Expression.identifier localId
-                    | None -> Expression.none
+                    // If the import member is empty we understand this is done for side-effects only
+                    if name = "" then
+                        Expression.none
+                    else
+                        Expression.identifier local_id
 
             member _.GetAllImports() =
                 imports.Values :> Import seq |> List.ofSeq
