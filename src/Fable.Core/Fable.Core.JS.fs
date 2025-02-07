@@ -48,6 +48,9 @@ module JSX =
     let nothing: Element = nativeOnly
 
 module JS =
+    type PojoDefinedByConsArgsAttribute() =
+        inherit Attribute()
+
     /// Used to remove the arguments of a surrounding function immediately calling a function decorated with this argument.
     /// This is convenient to represent JS patterns when a function is actually loaded lazily with a dynamic import.
     type RemoveSurroundingArgsAttribute() =

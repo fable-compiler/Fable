@@ -1878,7 +1878,7 @@ module Util =
 
             Expression.newExpression (classExpr, [||])
 
-    let transformCallArgs
+    let transformCallArgsWithNamedArgs
         (com: IBabelCompiler)
         ctx
         (callInfo: Fable.CallInfo)
@@ -1906,26 +1906,12 @@ module Util =
             paramsInfo
             |> Option.map (splitNamedArgs args)
             |> function
-                | None -> args, None
-                | Some(args, []) ->
-                    // Detect if the method has a ParamObject attribute
-                    // If yes and no argument is passed, pass an empty object
-                    // See https://github.com/fable-compiler/Fable/issues/3480
-                    match callInfo.MemberRef with
-                    | Some(Fable.MemberRef(_, info)) ->
-                        let hasParamObjectAttribute =
-                            info.AttributeFullNames
-                            |> List.tryFind (fun attr -> attr = Atts.paramObject)
-                            |> Option.isSome
-
-                        if hasParamObjectAttribute then
-                            args, Some(makeJsObject [])
-                        else
-                            args, None
-                    | _ ->
-                        // Here detect empty named args
-                        args, None
-                | Some(args, namedArgs) ->
+                | None
+                | Some(_, None) -> args, None
+                // If there are named arguments but none is passed, pass an empty object
+                // See https://github.com/fable-compiler/Fable/issues/3480
+                | Some(args, Some []) -> args, Some(makeJsObject [])
+                | Some(args, Some namedArgs) ->
                     let objArg =
                         namedArgs
                         |> List.choose (fun (p, v) ->
@@ -1958,9 +1944,12 @@ module Util =
             else
                 List.map (fun e -> com.TransformAsExpr(ctx, e)) args
 
-        match objArg with
-        | None -> args
-        | Some objArg -> args @ [ objArg ]
+        args, objArg
+
+    let transformCallArgs com ctx callInfo memberInfo =
+        match transformCallArgsWithNamedArgs com ctx callInfo memberInfo with
+        | args, None -> args
+        | args, Some objArg -> args @ [ objArg ]
 
     let resolveExpr t strategy babelExpr : Statement =
         match strategy with
@@ -2146,7 +2135,11 @@ module Util =
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | memberInfo ->
                 let callee = com.TransformAsExpr(ctx, callee)
-                let args = transformCallArgs com ctx callInfo memberInfo
+
+                let nonNamedArgs, namedArgs =
+                    transformCallArgsWithNamedArgs com ctx callInfo memberInfo
+
+                let args = nonNamedArgs @ Option.toList namedArgs
 
                 match callInfo.ThisArg with
                 | None when List.contains "new" callInfo.Tags ->
@@ -2156,7 +2149,18 @@ module Util =
                         | _ -> None
 
                     Expression.newExpression (callee, List.toArray args, ?typeArguments = typeParamInst, ?loc = range)
-                | None -> callFunction com ctx range callee callInfo.GenericArgs args
+                | None ->
+                    let pojo =
+                        match nonNamedArgs, namedArgs, memberInfo with
+                        | [], Some namedArgs, Some memberInfo ->
+                            match memberInfo.DeclaringEntity |> Option.bind com.TryGetEntity with
+                            | Some e when FSharp2Fable.Helpers.isPojoDefinedByConsArgs e -> Some namedArgs
+                            | _ -> None
+                        | _ -> None
+
+                    match pojo with
+                    | Some pojo -> pojo
+                    | None -> callFunction com ctx range callee callInfo.GenericArgs args
                 | Some(TransformExpr com ctx thisArg) ->
                     callFunction com ctx range callee callInfo.GenericArgs (thisArg :: args)
 
@@ -3783,7 +3787,7 @@ module Util =
 
         declareType com ctx ent decl.Name args body baseExpr classMembers
 
-    let transformParamObjectClassPatternToInterface
+    let transformPojoDefinedByConsArgsToInterface
         (com: IBabelCompiler)
         ctx
         (ent: Fable.Entity)
@@ -4214,11 +4218,11 @@ module Util =
                 else
                     []
             | ent ->
-                if
-                    Compiler.Language = TypeScript
-                    && FSharp2Fable.Helpers.isParamObjectClassPattern ent
-                then
-                    transformParamObjectClassPatternToInterface com ctx ent decl
+                if FSharp2Fable.Helpers.isPojoDefinedByConsArgs ent then
+                    if Compiler.Language = TypeScript then
+                        transformPojoDefinedByConsArgsToInterface com ctx ent decl
+                    else
+                        []
                 else
 
                     let classMembers =
