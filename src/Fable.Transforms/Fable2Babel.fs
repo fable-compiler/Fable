@@ -2143,24 +2143,30 @@ module Util =
 
                 match callInfo.ThisArg with
                 | None when List.contains "new" callInfo.Tags ->
-                    let typeParamInst =
-                        match typ with
-                        | Fable.DeclaredType(_entRef, genArgs) -> makeTypeParamInstantiationIfTypeScript com ctx genArgs
-                        | _ -> None
-
-                    Expression.newExpression (callee, List.toArray args, ?typeArguments = typeParamInst, ?loc = range)
-                | None ->
                     let pojo =
                         match nonNamedArgs, namedArgs, memberInfo with
                         | [], Some namedArgs, Some memberInfo ->
                             match memberInfo.DeclaringEntity |> Option.bind com.TryGetEntity with
-                            | Some e when FSharp2Fable.Helpers.isPojoDefinedByConsArgs e -> Some namedArgs
+                            | Some e when FSharp2Fable.Util.isPojoDefinedByConsArgsEntity e -> Some namedArgs
                             | _ -> None
                         | _ -> None
 
                     match pojo with
                     | Some pojo -> pojo
-                    | None -> callFunction com ctx range callee callInfo.GenericArgs args
+                    | None ->
+                        let typeParamInst =
+                            match typ with
+                            | Fable.DeclaredType(_entRef, genArgs) ->
+                                makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                            | _ -> None
+
+                        Expression.newExpression (
+                            callee,
+                            List.toArray args,
+                            ?typeArguments = typeParamInst,
+                            ?loc = range
+                        )
+                | None -> callFunction com ctx range callee callInfo.GenericArgs args
                 | Some(TransformExpr com ctx thisArg) ->
                     callFunction com ctx range callee callInfo.GenericArgs (thisArg :: args)
 
@@ -4218,7 +4224,7 @@ module Util =
                 else
                     []
             | ent ->
-                if FSharp2Fable.Helpers.isPojoDefinedByConsArgs ent then
+                if FSharp2Fable.Util.isPojoDefinedByConsArgsEntity ent then
                     if Compiler.Language = TypeScript then
                         transformPojoDefinedByConsArgsToInterface com ctx ent decl
                     else

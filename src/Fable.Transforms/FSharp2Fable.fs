@@ -1486,7 +1486,7 @@ let private isIgnoredNonAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
        )
     || (
         match memb.DeclaringEntity with
-        | Some ent -> isGlobalOrImportedFSharpEntity ent
+        | Some ent -> isGlobalOrImportedFSharpEntity ent || isPojoDefinedByConsArgsFSharpEntity ent
         | None -> false
     )
 

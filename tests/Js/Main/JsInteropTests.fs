@@ -316,55 +316,39 @@ module TaggedUnion =
         | [<CompiledValue(Kind.Baz)>] Baz of Baz<Kind>
 
 #if FABLE_COMPILER
-module ParamObjectClassPattern =
-
-    open Fable.Core.JsInterop
+module PojoDefinedByConsArgs =
 
     [<AllowNullLiteral>]
-    [<Global>]
-    type Person
-        [<ParamObjectAttribute; Emit("$0")>]
-        ( name : string ) =
-
-        member val name: string = jsNative with get, set
+    [<PojoDefinedByConsArgs>]
+    type Person( name : string ) =
+        member val name = name
 
     [<AllowNullLiteral>]
-    [<Global>]
-    type User
-        [<ParamObjectAttribute; Emit("$0")>]
-        ( id: int, name: string, ?age: int ) =
+    [<PojoDefinedByConsArgs>]
+    type User( id: int, name: string, ?age: int ) =
         inherit Person(name)
-        member val id: int = jsNative with get, set
-        member val age: int = jsNative with get, set
-        member val name: string = jsNative with get, set
+        member val id = id
+        member val age = age with get, set
+        member val name = name
 
     [<AllowNullLiteral>]
-    [<Global>]
-    type BaseBag<'T>
-        () =
-
-        [<ParamObjectAttribute; Emit("$0")>]
+    [<PojoDefinedByConsArgs>]
+    type BaseBag<'T>() =
         new ( bag : 'T) = BaseBag()
-
-        member val bag: 'T = jsNative with get, set
+        member val bag: 'T = jsNative
 
     [<AllowNullLiteral>]
-    [<Global>]
-    type UserBag<'ExtraData>
-        private () =
+    [<PojoDefinedByConsArgs>]
+    type UserBag<'ExtraData> private () =
         inherit BaseBag<int>()
-
-        [<ParamObjectAttribute; Emit("$0")>]
         new ( bag : int, data: 'ExtraData, ?userId : int) = UserBag()
-        [<ParamObjectAttribute; Emit("$0")>]
         new ( bag : int, data : 'ExtraData, ?userId : Guid) = UserBag()
-
         member val bag: int = jsNative with get, set
-        member val data: 'ExtraData = jsNative with get, set
-        member val userId: U2<int, Guid> option = jsNative with get, set
+        member val data: 'ExtraData = jsNative
+        member val userId: U2<int, Guid> option = jsNative
 
     let tests =
-        testList "ParamObjectClassPattern" [
+        testList "PojoDefinedByConsArgs" [
 
             testCase "does create a POJO" <| fun _ ->
                 let user = User(1, "John")
@@ -377,7 +361,7 @@ module ParamObjectClassPattern =
 
                 equal user userObj
 
-            testCase "ParamObject supports downcasting" <| fun _ ->
+            testCase "PojoDefinedByConsArgs supports downcasting" <| fun _ ->
                 let user = User(1, "John")
                 let person = user :> Person
 
@@ -389,12 +373,18 @@ module ParamObjectClassPattern =
                 equal "Kaladin" directDowncast.name
                 #endif
 
-            testCase "ParamObject works with generics" <| fun _ ->
+            testCase "PojoDefinedByConsArgs works with generics" <| fun _ ->
                 let userBag = UserBag(42, "data", 1)
 
                 equal 42 userBag.bag
                 equal "data" userBag.data
                 equal (Some (U2.Case1 1)) userBag.userId
+
+            testCase "PojoDefinedByConsArgs can mutate members" <| fun _ ->
+                let user = User(1, "John")
+                user.age |> equal None
+                user.age <- Some 42
+                user.age |> equal (Some 4)
         ]
 #endif
 
@@ -906,6 +896,6 @@ let tests =
         validatePassword x |> equal "np"
 
     #if FABLE_COMPILER
-    ParamObjectClassPattern.tests
+    PojoDefinedByConsArgs.tests
     #endif
   ]

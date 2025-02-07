@@ -826,20 +826,6 @@ module Helpers =
     // [<Global>] attribute on the type and[<ParamObject>] on the constructors
     // so we can transform it into an interface
 
-    /// <summary>
-    /// Check if the entity is decorated with the <code>PojoDefinedByConsArgs</code> attribute.
-    ///
-    /// This is used to identify classes that should be transformed into interfaces.
-    /// </summary>
-    /// <param name="entity"></param>
-    /// <returns>
-    /// <code>true</code> if the entity is decorated with PojoDefinedByConsArgs attribute,
-    /// <code>false</code> otherwise.
-    /// </returns>
-    let isPojoDefinedByConsArgs (entity: Fable.Entity) =
-        entity.Attributes
-        |> Seq.exists (fun att -> att.Entity.FullName = Atts.pojoDefinedByConsArgs)
-
     let tryPickAttrib attFullNames (attributes: FSharpAttribute seq) =
         let attFullNames = Map attFullNames
 
@@ -2110,6 +2096,12 @@ module Util =
             | _ -> false
         ))
 
+    let isPojoDefinedByConsArgsEntity (entity: Fable.Entity) =
+        entity |> hasAttribute Atts.pojoDefinedByConsArgs
+
+    let isPojoDefinedByConsArgsFSharpEntity (ent: FSharpEntity) =
+        ent.Attributes |> hasAttrib Atts.pojoDefinedByConsArgs
+
     let isEmittedOrImportedMember (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes
         |> Seq.exists (fun att ->
@@ -2369,7 +2361,12 @@ module Util =
         // Don't mangle interfaces by default (for better interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> tryMangleAttribute ent.Attributes |> Option.defaultValue false
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
-        | _ -> not (isGlobalOrImportedFSharpEntity ent || isAttachMembersEntity com ent)
+        | _ ->
+            not (
+                isGlobalOrImportedFSharpEntity ent
+                || isAttachMembersEntity com ent
+                || isPojoDefinedByConsArgsFSharpEntity ent
+            )
 
     let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
         // TODO: Error if entity doesn't have fullName?
@@ -2645,8 +2642,12 @@ module Util =
             let moduleOrClassExpr =
                 match tryGlobalOrImportedFSharpEntity com e with
                 | Some expr -> Some expr
-                // AttachMembers classes behave the same as global/imported classes
-                | None when not (com.Options.Language = Rust) && isAttachMembersEntity com e ->
+                // AttachMembers/PojoDefinedByConsArgs classes behave
+                // the same as global/imported classes
+                | None when
+                    com.Options.Language <> Rust
+                    && (isAttachMembersEntity com e || isPojoDefinedByConsArgsFSharpEntity e)
+                    ->
                     FsEnt.Ref e |> entityIdent com |> Some
                 | None -> None
 
