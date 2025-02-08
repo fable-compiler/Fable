@@ -317,6 +317,7 @@ module TaggedUnion =
 
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
+    open Fable.Core.JS
 
     [<AllowNullLiteral>]
     [<PojoDefinedByConsArgs>]
@@ -384,7 +385,7 @@ module PojoDefinedByConsArgs =
                 let user = User(1, "John")
                 user.age |> equal None
                 user.age <- Some 42
-                user.age |> equal (Some 4)
+                user.age |> equal (Some 42)
         ]
 #endif
 
