@@ -453,8 +453,9 @@ module PrinterExtensions =
                 )
 
                 printer.PopIndentation()
+
             if List.isEmpty children then
-                printer.Print("/>")
+                printer.Print(" />")
             else
                 printer.Print(">")
                 printer.PrintNewLine()
