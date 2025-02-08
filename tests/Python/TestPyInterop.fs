@@ -164,4 +164,44 @@ let factorial (count : int) : int =
 let ``test emitPyStatement works with parameters`` () =
     factorial 5 |> equal 120
 
+[<Fact>]
+let ``test importSideEffects`` () = // See #3965
+    importSideEffects "./native_code.py"
+    let mutable x = 3
+    Py.python $"""
+    {x} = native_code.add5({x} + 2)
+    """
+    x |> equal 10
+
+type NativeCode =
+    abstract add5: int -> int
+
+[<Fact>]
+let ``test importAll`` () =
+    let nativeCode: NativeCode = importAll "./native_code.py"
+    3 |> nativeCode.add5 |> equal 8
+
+let add5 (x: int): int = importMember "./native_code.py"
+
+[<Fact>]
+let ``test importMember`` () =
+    add5 -1 |> equal 4
+
+    // Cannot use the same name as Fable will mangle the identifier
+    let add7: int -> int = importMember "./native_code.py"
+    add7 12 |> equal 19
+
+    let add5': int -> int = import "add5" "./native_code.py"
+    add5' 12 |> equal 17
+
+    let multiply3 (x: int): int = importMember "./more_native_code.py"
+    multiply3 9 |> equal 27
+
+[<ImportAll("./native_code.py")>]
+let nativeCode: NativeCode = nativeOnly
+
+[<Fact>]
+let ``test ImportAll works with relative paths`` () = // See #3481
+    3 |> nativeCode.add5 |> equal 8
+
 #endif
