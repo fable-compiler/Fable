@@ -453,10 +453,10 @@ module PrinterExtensions =
                 )
 
                 printer.PopIndentation()
-
-            printer.Print(">")
-
-            if not (List.isEmpty children) then
+            if List.isEmpty children then
+                printer.Print("/>")
+            else
+                printer.Print(">")
                 printer.PrintNewLine()
                 printer.PushIndentation()
 
@@ -482,9 +482,9 @@ module PrinterExtensions =
 
                 printer.PopIndentation()
 
-            printer.Print("</")
-            printTag componentOrTag
-            printer.Print(">")
+                printer.Print("</")
+                printTag componentOrTag
+                printer.Print(">")
 
         member printer.Print(expr: Expression) =
             match expr with
