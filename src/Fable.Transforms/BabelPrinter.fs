@@ -449,6 +449,9 @@ module PrinterExtensions =
                             printer.Print(value)
                             printer.Print("}")
                         )
+                    // https://legacy.reactjs.org/docs/jsx-in-depth.html#props-default-to-true
+                    // https://stackoverflow.com/questions/38659884/using-boolean-value-of-attributes-in-jsx
+                    | "__BOOL_PROPERTY__", StringConstant value -> printProp (fun () -> printer.Print(value))
                     | key, StringConstant value -> printProp (fun () -> printer.Print($"{key}=\"{value}\""))
                     | key, value ->
                         printProp (fun () ->
