@@ -46,6 +46,11 @@ Jest.describe("React tests", (fun () ->
         Jest.expect(header).toHaveTextContent("6")
     ))
 
+    Jest.test("JSX EmptyElem render self-closing tags", (fun () ->
+        let elem = Counter.CounterJSX(5)
+        Jest.expect(elem).toStrictEqual(Fable.Core.JSX.jsx "<CounterJSX init={5} />")
+    ))
+
     Jest.test("SpreadSheet renders correctly", (fun () ->
         let elem = RTL.render(SpreadSheet.SpreadSheet() |> unbox)
         Jest.expect(elem.container).toMatchSnapshot()
