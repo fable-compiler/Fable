@@ -454,9 +454,14 @@ module PrinterExtensions =
 
                 printer.PopIndentation()
 
-            printer.Print(">")
-
-            if not (List.isEmpty children) then
+            if List.isEmpty children then
+                // Self closing tag if el has no children. Matches expected behaviour of JSX with React/Solid etc
+                // https://react-cn.github.io/react/tips/self-closing-tag.html
+                // Self closing tag is invalid in HTML5 spec
+                // https://stackoverflow.com/questions/3558119/are-non-void-self-closing-tags-valid-in-html5
+                printer.Print(" />")
+            else
+                printer.Print(">")
                 printer.PrintNewLine()
                 printer.PushIndentation()
 
@@ -482,9 +487,9 @@ module PrinterExtensions =
 
                 printer.PopIndentation()
 
-            printer.Print("</")
-            printTag componentOrTag
-            printer.Print(">")
+                printer.Print("</")
+                printTag componentOrTag
+                printer.Print(">")
 
         member printer.Print(expr: Expression) =
             match expr with
