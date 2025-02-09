@@ -1,9 +1,8 @@
 
 function g(a) {
-    return a + 1;
+    return (a + 1) | 0;
 }
 
 export function f(b) {
-    return g(b);
+    return g(b) | 0;
 }
-
