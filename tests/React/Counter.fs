@@ -42,3 +42,7 @@ let CounterJSX(init: int) =
             </button>
         </div>
         """
+
+[<JSX.Component>]
+let CounterJSXMagic(``__SPREAD_PROPERTY__``:  obj, ``__BOOL_PROPERTY__``: string) =
+    JSX.html $"<div></div>"

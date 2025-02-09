@@ -32,6 +32,12 @@ Jest.describe("React tests", (fun () ->
         Jest.expect(header).toHaveTextContent("6")
     ))
 
+    let object = {| attribute = "value" |} // if within test scope, then fable inlines constructor into spreader
+    Jest.test("Counter JSX renders special properties", (fun () ->
+        let elem = Counter.CounterJSXMagic(object, "required")
+        Jest.expect(elem).toStrictEqual(Fable.Core.JSX.jsx """<CounterJSXMagic {...object} required></CounterJSXMagic>""")
+    ))
+
     Jest.test("Counter JSX renders correctly", (fun () ->
         let elem = RTL.render(Counter.CounterJSX(5) |> unbox)
         Jest.expect(elem.container).toMatchSnapshot()
