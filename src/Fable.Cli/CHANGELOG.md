@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] - Fix anonymous record printing (#4029) (by @alfonsogarciacaro)
 * [Python] - Fix #3998: PhysicalEquality (by @alfonsogarciacaro)
 
+### Changed
+
+* [JS/TS] In `JSX`, generate self closing element when element has no children (#4037) (by @shayanhabibi)
+
 ## 5.0.0-alpha.9 - 2025-01-28
 
 ### Fixed
