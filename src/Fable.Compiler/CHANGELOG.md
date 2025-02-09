@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] - Fix anonymous record printing (#4029) (by @alfonsogarciacaro)
 * [Python] - Fix #3998: PhysicalEquality (by @alfonsogarciacaro)
+* [Python] Resolve relative paths for non-qualified imports (#3481) (by @alfonsogarciacaro)
+* [Python] `importSideEffects` shouldn't generate identifier (#3965) (by @alfonsogarciacaro)
 * [JS/TS] Fix #4031: Hoist vars locally in for and while loops (@alfonsogarciacaro)
 
 ## 5.0.0-alpha.9 - 2025-01-28

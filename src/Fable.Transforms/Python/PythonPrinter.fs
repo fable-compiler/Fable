@@ -873,6 +873,12 @@ let run writer (program: Module) : Async<unit> =
             | ImportFrom({ Module = Some(Identifier path) } as info) ->
                 let path = printer.MakeImportPath(path)
                 ImportFrom { info with Module = Some(Identifier path) }
+            | Import({ Names = names }) ->
+                let names =
+                    names
+                    |> List.map (fun n -> { n with Name = printer.MakeImportPath(n.Name.Name) |> Identifier })
+
+                Import { Names = names }
             | decl -> decl
             |> printDeclWithExtraLine false printer
 
