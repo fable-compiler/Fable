@@ -465,7 +465,7 @@ let objectHash (com: ICompiler) ctx r (arg: Expr) =
 let referenceEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left, right with
     | Value(Null _, _), o
-    | o, Value(Null _, _) -> Helper.LibCall(com, "Native", "isNull", Boolean, [ o ], ?loc = r)
+    | o, Value(Null _, _) -> Helper.LibCall(com, "Native", "is_null", Boolean, [ o ], ?loc = r)
     | _ ->
         match left.Type with
         | Boolean
@@ -631,7 +631,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "Zero", t)
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
-    | String -> makeStrConst "" // TODO: Use null for string?
+    | String -> Null t |> makeValue None
     | Array(typ, _) -> makeArray typ []
     | Builtin BclDateTime -> Helper.LibCall(com, "DateTime", "zero", t, [])
     | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateTimeOffset", "zero", t, [])
@@ -875,10 +875,12 @@ let makeRustFormatString interpolated (fmt: string) =
                     | _ -> ""
 
                 let argFmt =
-                    if g2 + g3 + g4 + g5 = "" then
+                    let formatting = g2 + g3 + g4 + g5
+
+                    if formatting = "" then
                         g1 + "{}"
                     else
-                        g1 + "{:" + g2 + g3 + g4 + g5 + "}"
+                        g1 + "{:" + formatting + "}"
 
                 argFmt
         )
@@ -1400,8 +1402,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", methName, t, c :: args, ?loc = r) |> Some
         | _ -> None
     | "Insert", Some c, _ -> Helper.LibCall(com, "String", "insert", t, c :: args, ?loc = r) |> Some
-    | "IsNullOrEmpty", None, _ -> Helper.LibCall(com, "String", "isEmpty", t, args, ?loc = r) |> Some
-    | "IsNullOrWhiteSpace", None, _ -> Helper.LibCall(com, "String", "isWhitespace", t, args, ?loc = r) |> Some
+    | "IsNullOrEmpty", None, _ -> Helper.LibCall(com, "String", "isNullOrEmpty", t, args, ?loc = r) |> Some
+    | "IsNullOrWhiteSpace", None, _ -> Helper.LibCall(com, "String", "isNullOrWhitespace", t, args, ?loc = r) |> Some
     | "Join", None, _ ->
         let args =
             match args with
@@ -1992,8 +1994,10 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "GetValue", [ c ] -> Get(c, OptionValue, t, r) |> Some
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
-    | "ToArray", [ arg ] -> Helper.LibCall(com, "Array", "ofOption", t, args, ?loc = r) |> Some
-    | "ToList", [ arg ] -> Helper.LibCall(com, "List", "ofOption", t, args, ?loc = r) |> Some
+    | "OfObj", [ arg ] -> Helper.LibCall(com, "Native", "ofObj", t, args, ?loc = r) |> Some
+    | "ToObj", [ arg ] -> Helper.LibCall(com, "Native", "toObj", t, args, ?loc = r) |> Some
+    // | "ToArray", [ arg ] -> Helper.LibCall(com, "Array", "ofOption", t, args, ?loc = r) |> Some
+    // | "ToList", [ arg ] -> Helper.LibCall(com, "List", "ofOption", t, args, ?loc = r) |> Some
     | meth, args ->
         Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some

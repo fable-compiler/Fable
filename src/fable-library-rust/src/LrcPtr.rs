@@ -1,7 +1,8 @@
-use crate::Native_::{Any, Lrc};
+use crate::Native_::{Any, Lrc, NullableRef};
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};
 use core::ops::*;
+use core::panic::{RefUnwindSafe, UnwindSafe};
 
 // -----------------------------------------------------------
 // LrcPtr
@@ -11,6 +12,9 @@ use core::ops::*;
 #[repr(transparent)]
 pub struct LrcPtr<T: ?Sized>(Option<Lrc<T>>);
 
+impl<T: RefUnwindSafe + ?Sized> UnwindSafe for LrcPtr<T> {}
+impl<T: RefUnwindSafe + ?Sized> RefUnwindSafe for LrcPtr<T> {}
+
 impl<T> LrcPtr<T> {
     #[inline]
     pub fn new(value: T) -> Self {
@@ -18,23 +22,17 @@ impl<T> LrcPtr<T> {
     }
 }
 
-impl<T: ?Sized> LrcPtr<T> {
+impl<T: ?Sized> NullableRef for LrcPtr<T> {
     #[inline]
-    pub fn null() -> Self {
+    fn null() -> Self {
         LrcPtr(None)
     }
 
     #[inline]
-    pub fn is_null(&self) -> bool {
+    fn is_null(&self) -> bool {
         self.0.is_none()
     }
 }
-
-// impl<T: ?Sized> Default for LrcPtr<T> {
-//     fn default() -> Self {
-//         Self::null()
-//     }
-// }
 
 impl<T: ?Sized> From<Lrc<T>> for LrcPtr<T> {
     #[inline]

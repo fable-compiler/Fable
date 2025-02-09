@@ -998,10 +998,11 @@ module TypeInfo =
         isNullable || isNotNullable && isReferenceType
 
     let transformGenericParamType com ctx name isMeasure constraints : Rust.Ty =
-        if isNullableReferenceType com ctx constraints then
-            // primitiveType name |> makeNullableTy com ctx
-            primitiveType name |> makeLrcPtrTy com ctx
-        elif isInferredGenericParam com ctx name isMeasure then
+        // if isNullableReferenceType com ctx constraints then
+        //     // primitiveType name |> makeNullableTy com ctx
+        //     primitiveType name |> makeLrcPtrTy com ctx
+        // elif
+        if isInferredGenericParam com ctx name isMeasure then
             mkInferTy () // mkNeverTy ()
         else
             primitiveType name
@@ -1734,7 +1735,7 @@ module Util =
         makeLibCall com ctx None "String" "fromString" [ value ]
 
     let makeNullCheck com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "Native" "isNull" [ value ]
+        makeLibCall com ctx None "Native" "is_null" [ value ]
 
     let makeNull com ctx (typ: Fable.Type) =
         let typ =
@@ -1743,7 +1744,7 @@ module Util =
             | t -> t
 
         let genArgsOpt = transformGenArgs com ctx [ typ ]
-        makeLibCall com ctx genArgsOpt "Native" "getNull" []
+        makeLibCall com ctx genArgsOpt "Native" "null" []
 
     let makeInit com ctx (typ: Fable.Type) =
         let genArgsOpt = transformGenArgs com ctx [ typ ]
@@ -2717,7 +2718,7 @@ module Util =
                 isByRefType com ident2.Type || ident2.IsMutable
                 ->
                 transformIdent com ctx None ident2 |> Some
-            | Fable.Value(Fable.Null _t, _) -> None // no init value, just a name declaration, to be initialized later
+            | Fable.Value(Fable.Null Fable.MetaType, _) -> None // special init value to skip initialization
             | Function(args, body, _name) -> transformLambda com ctx (Some ident.Name) args body |> Some
             | _ ->
                 transformLeaveContext com ctx None value
@@ -3876,6 +3877,11 @@ module Util =
             let genArgsOpt = mkConstraintArgs tys []
             mkTypeTraitGenericBound names genArgsOpt
 
+        let makeImportBound com ctx moduleName typeName =
+            let importName = getLibraryImportName com ctx moduleName typeName
+            let objectBound = mkTypeTraitGenericBound [ importName ] None
+            objectBound
+
         let makeRawBound id = makeGenBound [ rawIdent id ] []
 
         let makeOpBound op =
@@ -3914,7 +3920,7 @@ module Util =
                     else
                         []
                 | _ -> []
-            | Fable.Constraint.IsNullable -> []
+            | Fable.Constraint.IsNullable -> [ makeImportBound com ctx "Native" "NullableRef" ]
             | Fable.Constraint.IsNotNullable -> []
             | Fable.Constraint.IsValueType -> []
             | Fable.Constraint.IsReferenceType -> []
@@ -4513,9 +4519,10 @@ module Util =
                 let body =
                     (body, fieldIdents |> List.rev)
                     ||> List.fold (fun acc ident ->
-                        let nullOfT = Fable.Value(Fable.Null ident.Type, None)
+                        // use special init value to skip initialization (i.e. declaration only)
+                        let nullOfT = Fable.Value(Fable.Null Fable.MetaType, None)
                         Fable.Let(ident, nullOfT, acc)
-                    ) // will be transformed as declaration only
+                    )
 
                 body
             | e -> e
@@ -5088,7 +5095,7 @@ module Util =
                 com.ClearAllImports(ctx)
                 useItem :: importItems
 
-            let outerAttrs = transformAttributes com ctx ent.Attributes None
+            let outerAttrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
             let innerAttrs = getInnerAttributes com ctx decl.Members
             let attrs = innerAttrs @ outerAttrs
             let modDecls = useDecls @ memberDecls

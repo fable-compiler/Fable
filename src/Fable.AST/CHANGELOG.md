@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [All] Add support for module comments (by @ncave)
+
 ## 4.6.0 - 2025-01-28
 
 * Stable release
