@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Fixed
-
-* [Python] - Fix #3998: PhysicalEquality (by @alfonsogarciacaro)
-
 ### Added
 
 * [Python] - Print root module and module function comments (by @alfonsogarciacaro)
@@ -20,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [JS/TS] - Fix anonymous record printing (#4029) (by @alfonsogarciacaro)
+* [Python] - Fix #3998: PhysicalEquality (by @alfonsogarciacaro)
 
 ## 5.0.0-alpha.9 - 2025-01-28
 
