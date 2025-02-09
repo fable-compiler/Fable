@@ -2269,7 +2269,8 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
       [ comp; left; right ] ->
         Helper.InstanceCall(comp, "Equals", t, [ left; right ], i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] -> makeEqOp r left right BinaryEqual |> Some
+    | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] ->
+        makeEqOpStrict r left right BinaryEqual |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] ->
         Helper.LibCall(com, "util", "physicalHash", Int32.Number, [ arg ], ?loc = r)
         |> Some
