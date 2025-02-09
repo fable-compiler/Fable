@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Rust] Add support for module comments (by @ncave)
 * [Rust] Add support for null strings (by @ncave)
 
+### Fixed
+
+* [JS/TS] - Fix anonymous record printing (#4029) (by @alfonsogarciacaro)
+
 ## 5.0.0-alpha.9 - 2025-01-28
 
 ### Fixed
