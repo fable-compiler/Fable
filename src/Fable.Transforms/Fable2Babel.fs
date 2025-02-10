@@ -2024,25 +2024,32 @@ module Util =
         |> List.append thisArg
         |> emitExpression range macro
 
-    let transformJsxProps (com: IBabelCompiler) props =
+    let transformJsxProps (com: IBabelCompiler) (props: ((string * Fable.Attribute seq) * Fable.Expr) list) =
         (Some([], []), props)
         ||> List.fold (fun propsAndChildren prop ->
             match propsAndChildren, prop with
             | None, _ -> None
-            | Some(props, children), Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _) ->
+            | Some(props, children), ((key, attrs), value) ->
                 if key = "children" then
                     match value with
                     | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
                     | value -> Some(props, [ value ])
+                elif hasAttribute Atts.paramObject attrs then
+                    Some((key, value) :: props, children)
                 else
                     Some((key, value) :: props, children)
-            | Some _, e ->
+            | Some _, (_, e) ->
                 addError com [] e.Range "Cannot detect JSX prop key at compile time"
 
                 None
         )
 
-    let transformJsxEl (com: IBabelCompiler) ctx componentOrTag props =
+    let transformJsxEl
+        (com: IBabelCompiler)
+        ctx
+        componentOrTag
+        (props: ((string * Fable.Attribute seq) * Fable.Expr) list)
+        =
         match transformJsxProps com props with
         | None -> Expression.nullLiteral ()
         | Some(props, children) ->
@@ -2062,14 +2069,15 @@ module Util =
             Expression.jsxElement (componentOrTag, props, children)
 
     let transformJsxCall (com: IBabelCompiler) ctx callee (args: Fable.Expr list) (info: Fable.MemberFunctionOrValue) =
-        let names =
-            info.CurriedParameterGroups |> List.concat |> List.choose (fun p -> p.Name)
+        let nameAttrTuples =
+            info.CurriedParameterGroups
+            |> List.concat
+            |> List.choose (fun p -> p.Name |> Option.bind (fun name -> Some(name, p.Attributes)))
 
-        let props =
-            List.zipSafe names args
-            |> List.map (fun (key, value) ->
-                Fable.Value(Fable.NewTuple([ Fable.Value(Fable.StringConstant key, None); value ], false), None)
-            )
+        let props = List.zipSafe nameAttrTuples args
+        // |> List.map (fun (key, value) ->
+        //     Fable.Value(Fable.NewTuple([ Fable.Value(Fable.StringConstant key.Name.Value, None); value ], false), None)
+        // )
 
         transformJsxEl com ctx callee props
 
