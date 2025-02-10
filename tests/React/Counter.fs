@@ -44,5 +44,5 @@ let CounterJSX(init: int) =
         """
 
 [<JSX.Component>]
-let CounterJSXMagic(``__SPREAD_PROPERTY__``:  obj, ``__BOOL_PROPERTY__``: string) =
+let CounterJSXMagic(``__SPREAD_PROPERTY__``:  obj) =
     JSX.html $"<div></div>"
