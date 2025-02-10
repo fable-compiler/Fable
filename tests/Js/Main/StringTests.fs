@@ -308,6 +308,12 @@ let tests = testList "Strings" [
         $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
         |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
 
+    testCase "Printf %A works with anonymous records" <| fun () -> // See #4029
+        let person  = {| FirstName = "John"; LastName = "Doe" |}
+        let s = sprintf "%A" person
+        System.Text.RegularExpressions.Regex.Replace(s.Replace("\"", ""), @"\s+", " ")
+        |> equal """{ FirstName = John LastName = Doe }"""
+
     testCase "Interpolated strings keep empty lines" <| fun () ->
         let s1 = $"""1
 

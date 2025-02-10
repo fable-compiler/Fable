@@ -23,7 +23,7 @@ export function seqToString<T>(self: Iterable<T>): string {
 
 export function toString(x: any, callStack = 0): string {
   if (x != null && typeof x === "object") {
-    if (typeof x.toString === "function") {
+    if (typeof x.toString === "function" && x.toString !== Object.prototype.toString) {
       return x.toString();
     } else if (Symbol.iterator in x) {
       return seqToString(x);

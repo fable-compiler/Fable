@@ -2208,6 +2208,27 @@ module Util =
     let transformBlock (com: IBabelCompiler) ctx ret expr : BlockStatement =
         com.TransformAsStatements(ctx, ret, expr) |> BlockStatement
 
+    let transformBlockWithVarHoisting (com: IBabelCompiler) ctx ret expr : BlockStatement =
+        let declaredVars = ResizeArray()
+
+        let ctx =
+            { ctx with
+                HoistVars =
+                    fun ids ->
+                        declaredVars.AddRange(ids)
+                        true
+            }
+
+        let body = transformBlock com ctx ret expr
+
+        if declaredVars.Count = 0 then
+            body
+        else
+            let varDeclStatement =
+                declaredVars |> Seq.map (fun v -> v, None) |> multiVarDeclaration com ctx Let
+
+            BlockStatement(Array.append [| varDeclStatement |] body.Body)
+
     let transformTryCatch com ctx r returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with TailCallOpportunity = None }
@@ -3053,9 +3074,10 @@ module Util =
             transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
         | Fable.WhileLoop(TransformExpr com ctx guard, body, range) ->
-            [|
-                Statement.whileStatement (guard, transformBlock com ctx None body, ?loc = range)
-            |]
+            // Hoist vars within the loop so if a closure captures the variable
+            // it doesn't change in the next iteration, see #4031
+            let body = transformBlockWithVarHoisting com ctx None body
+            [| Statement.whileStatement (guard, body, ?loc = range) |]
 
         | Fable.ForLoop(var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp, range) ->
             let op1, op2 =
@@ -3066,7 +3088,9 @@ module Util =
 
             [|
                 Statement.forStatement (
-                    transformBlock com ctx None body,
+                    // Hoist vars within the loop so if a closure captures the variable
+                    // it doesn't change in the next iteration, see #4031
+                    transformBlockWithVarHoisting com ctx None body,
                     VariableDeclaration.variableDeclaration (
                         Let,
                         var.Name,
@@ -3084,26 +3108,21 @@ module Util =
             Option.map (fun name -> NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
 
         let args = FSharp2Fable.Util.discardUnitArg args
-        let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
 
         let ctx =
             { ctx with
                 TailCallOpportunity = tailcallChance
-                HoistVars =
-                    fun ids ->
-                        declaredVars.AddRange(ids)
-                        true
                 OptimizeTailCall = fun () -> isTailCallOptimized <- true
             }
 
-        let body =
+        let returnStrategy =
             if body.Type = Fable.Unit then
-                transformBlock com ctx (Some ReturnUnit) body
-            elif isJsStatement ctx (Option.isSome tailcallChance) body then
-                transformBlock com ctx (Some Return) body
+                ReturnUnit
             else
-                transformAsExpr com ctx body |> wrapExprInBlockWithReturn
+                Return
+
+        let body = transformBlockWithVarHoisting com ctx (Some returnStrategy) body
 
         let args, body =
             match isTailCallOptimized, tailcallChance with
@@ -3142,15 +3161,6 @@ module Util =
                     Parameter.parameter (a.Name, ?typeAnnotation = ta)
                 ),
                 body
-
-        let body =
-            if declaredVars.Count = 0 then
-                body
-            else
-                let varDeclStatement =
-                    declaredVars |> Seq.map (fun v -> v, None) |> multiVarDeclaration com ctx Let
-
-                BlockStatement(Array.append [| varDeclStatement |] body.Body)
 
         args |> List.toArray, body
 

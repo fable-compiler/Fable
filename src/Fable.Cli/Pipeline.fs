@@ -252,10 +252,8 @@ module Python =
                         |> Array.choose (fun part ->
                             i <- i + 1
 
-                            if part = "." then
+                            if part = "." || part = ".." then
                                 None
-                            elif part = ".." then
-                                Some ""
                             elif i = parts.Length - 1 then
                                 Some(normalizeFileName part)
                             else
