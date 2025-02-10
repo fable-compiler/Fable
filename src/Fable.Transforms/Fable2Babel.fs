@@ -3370,7 +3370,6 @@ module Util =
         let args, body =
             match args with
             | [] -> args, body
-            | [ arg ] when arg.Type = Fable.Unit -> [], body
             | _ when not isJsx -> args, body
             | _ ->
                 // SolidJS requires values being accessed directly from the props object for reactivity to work properly
