@@ -28,7 +28,7 @@
     "@fable-org/fable-standalone": "^1.4.0"
   },
   "devDependencies": {
-    "esbuild": "^0.19.5",
+    "esbuild": "^0.25.0",
     "rollup": "^4.2.0"
   }
 }
