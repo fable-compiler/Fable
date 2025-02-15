@@ -319,27 +319,23 @@ module TaggedUnion =
 module PojoDefinedByConsArgs =
     open Fable.Core.JS
 
-    [<AllowNullLiteral>]
-    [<PojoDefinedByConsArgs>]
+    [<Pojo; AllowNullLiteral>]
     type Person( name : string ) =
         member val name = name
 
-    [<AllowNullLiteral>]
-    [<PojoDefinedByConsArgs>]
+    [<Pojo; AllowNullLiteral>]
     type User( id: int, name: string, ?age: int ) =
         inherit Person(name)
         member val id = id
         member val age = age with get, set
         member val name = name
 
-    [<AllowNullLiteral>]
-    [<PojoDefinedByConsArgs>]
+    [<Pojo; AllowNullLiteral>]
     type BaseBag<'T>() =
         new ( bag : 'T) = BaseBag()
         member val bag: 'T = jsNative
 
-    [<AllowNullLiteral>]
-    [<PojoDefinedByConsArgs>]
+    [<Pojo; AllowNullLiteral>]
     type UserBag<'ExtraData> private () =
         inherit BaseBag<int>()
         new ( bag : int, data: 'ExtraData, ?userId : int) = UserBag()

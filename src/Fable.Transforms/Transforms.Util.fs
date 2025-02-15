@@ -68,7 +68,7 @@ module Atts =
     let global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
 
     [<Literal>]
-    let pojoDefinedByConsArgs = "Fable.Core.JS.PojoDefinedByConsArgsAttribute" // typeof<Fable.Core.JS.PojoDefinedByConsArgsAttribute>.FullName
+    let pojoDefinedByConsArgs = "Fable.Core.JS.PojoAttribute" // typeof<Fable.Core.JS.PojoAttribute>.FullName
 
     [<Literal>]
     let emit = "Fable.Core.Emit"

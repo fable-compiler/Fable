@@ -2642,7 +2642,7 @@ module Util =
             let moduleOrClassExpr =
                 match tryGlobalOrImportedFSharpEntity com e with
                 | Some expr -> Some expr
-                // AttachMembers/PojoDefinedByConsArgs classes behave
+                // AttachMembers/Pojo classes behave
                 // the same as global/imported classes
                 | None when
                     com.Options.Language <> Rust
