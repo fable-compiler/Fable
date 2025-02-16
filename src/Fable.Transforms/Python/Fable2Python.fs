@@ -1972,8 +1972,8 @@ module Util =
             |> Option.map (splitNamedArgs args)
             |> function
                 | None -> args, None, []
-                | Some(args, []) -> args, None, []
-                | Some(args, namedArgs) ->
+                | Some(args, None) -> args, None, []
+                | Some(args, Some namedArgs) ->
                     let objArg, stmts =
                         namedArgs
                         |> List.choose (fun (p, v) ->

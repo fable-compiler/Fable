@@ -1486,7 +1486,7 @@ let private isIgnoredNonAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
        )
     || (
         match memb.DeclaringEntity with
-        | Some ent -> isGlobalOrImportedFSharpEntity ent
+        | Some ent -> isGlobalOrImportedFSharpEntity ent || isPojoDefinedByConsArgsFSharpEntity ent
         | None -> false
     )
 
@@ -2044,8 +2044,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
 
                 if
                     (isErasedOrStringEnumEntity ent && Compiler.Language <> TypeScript)
-                    || (isGlobalOrImportedEntity ent
-                        && (not (Compiler.Language = TypeScript && isParamObjectClassPattern ent)))
+                    || isGlobalOrImportedEntity ent
                 then
                     []
                 else

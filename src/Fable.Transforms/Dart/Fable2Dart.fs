@@ -461,8 +461,8 @@ module Util =
             |> Option.map (splitNamedArgs args)
             |> function
                 | None -> args, []
-                | Some(args, []) -> args, []
-                | Some(args, namedArgs) ->
+                | Some(args, None) -> args, []
+                | Some(args, Some namedArgs) ->
                     args,
                     namedArgs
                     |> List.choose (fun (p, v) ->
