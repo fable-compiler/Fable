@@ -143,7 +143,7 @@ export function toUInt128(x: bigint): uint128 { return BigInt.asUintN(128, x); }
 export function toNativeInt(x: bigint): nativeint { return BigInt.asIntN(64, x); }
 export function toUNativeInt(x: bigint): unativeint { return BigInt.asUintN(64, x); }
 
-export function toFloat16(x: bigint): float32 { return Number(x); }
+export function toFloat16(x: bigint): float16 { return Number(x); }
 export function toFloat32(x: bigint): float32 { return Number(x); }
 export function toFloat64(x: bigint): float64 { return Number(x); }
 
