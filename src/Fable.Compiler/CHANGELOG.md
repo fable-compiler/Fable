@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.10 - 2025-02-16
+
 ### Added
 
 * [Python] - Print root module and module function comments (by @alfonsogarciacaro)
