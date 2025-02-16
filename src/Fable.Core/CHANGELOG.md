@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* [TS/JS] `PojoDefinedByConsArgs` attribute (by @alfonsogarciacaro)
+* [TS/JS] Add `Pojo` attribute (by @alfonsogarciacaro)
 
 ## 4.3.0 - 2024-01-25
 
