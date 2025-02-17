@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [JS/TS] Fix #4025: No reflection info for pojos (by @alfonsogarciacaro)
+
 ## 5.0.0-alpha.10 - 2025-02-16
 
 ### Added

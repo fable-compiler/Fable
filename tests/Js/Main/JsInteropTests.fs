@@ -317,25 +317,27 @@ module TaggedUnion =
 
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
-    open Fable.Core.JS
-
-    [<Pojo; AllowNullLiteral>]
+    [<JS.Pojo; AllowNullLiteral>]
     type Person( name : string ) =
         member val name = name
 
-    [<Pojo; AllowNullLiteral>]
+    [<JS.Pojo; AllowNullLiteral>]
     type User( id: int, name: string, ?age: int ) =
         inherit Person(name)
         member val id = id
         member val age = age with get, set
         member val name = name
 
-    [<Pojo; AllowNullLiteral>]
+    type Team = {
+        Leader: User
+    }
+
+    [<JS.Pojo; AllowNullLiteral>]
     type BaseBag<'T>() =
         new ( bag : 'T) = BaseBag()
         member val bag: 'T = jsNative
 
-    [<Pojo; AllowNullLiteral>]
+    [<JS.Pojo; AllowNullLiteral>]
     type UserBag<'ExtraData> private () =
         inherit BaseBag<int>()
         new ( bag : int, data: 'ExtraData, ?userId : int) = UserBag()
@@ -382,6 +384,17 @@ module PojoDefinedByConsArgs =
                 user.age |> equal None
                 user.age <- Some 42
                 user.age |> equal (Some 42)
+
+            testCase "Declared types can reference Pojo class" <| fun _ ->
+                let expected = [|"Fable.Tests.JsInterop.PojoDefinedByConsArgs.User"|]
+
+                FSharp.Reflection.FSharpType.GetRecordFields typeof<Team>
+                |> Array.map (fun f -> f.PropertyType.FullName)
+                |> equal expected
+
+                FSharp.Reflection.FSharpType.GetRecordFields typeof<{| Leader: User |}>
+                |> Array.map (fun f -> f.PropertyType.FullName)
+                |> equal expected
         ]
 #endif
 
