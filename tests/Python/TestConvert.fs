@@ -949,6 +949,34 @@ let ``test System.Convert.ToString Decimal works`` () =
     let x = "101"
     Convert.ToString(101.m) |> equal x
 
+// [<Fact>]
+// let ``test Convert.ToHexString works`` () =
+//     let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+//     Convert.ToHexString(bytes)
+//     |> equal "FAFBFCFDFE"
+
+// [<Fact>]
+// let ``test Convert.ToHexStringLower works`` () =
+//     let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+//     Convert.ToHexStringLower(bytes)
+//     |> equal "fafbfcfdfe"
+
+// [<Fact>]
+// let ``test Convert.FromHexString works`` () =
+//     Convert.FromHexString("fafBFCFDFE")
+//     |> equal [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+
+[<Fact>]
+let ``test Convert.ToBase64String works`` () =
+    let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+    Convert.ToBase64String(bytes)
+    |> equal "AgQGCAoMDhASFA=="
+
+[<Fact>]
+let ``test Convert.FromBase64String works`` () =
+    Convert.FromBase64String("AgQGCAoMDhASFA==")
+    |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+
 [<Fact>]
 let ``test FSharp.Core type converters can combined via the >> operator`` () =
     "1" |> (sbyte >> Ok) |> equal (Ok 1y)
@@ -1125,6 +1153,60 @@ let ``test BitConverter.ToString 3 works`` () =
     BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
 //-------------------------------------
+// System.Decimal
+//-------------------------------------
+
+[<Fact>]
+let ``test Decimal.ToSByte works`` () =
+    let value = 0x02y
+    sbyte (decimal (int32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToInt16 works`` () =
+    let value = 0x0102s
+    int16 (decimal (int32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToInt32 works`` () =
+    let value = 0x01020304
+    int32 (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToInt64 works`` () =
+    let value = 0x0102030405060708L
+    int64 (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToByte works`` () =
+    let value = 0x02uy
+    byte (decimal (uint32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToUInt16 works`` () =
+    let value = 0xFF02us
+    uint16 (decimal (uint32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToUInt32 works`` () =
+    let value = 0xFF020304u
+    uint32 (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToUInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    uint64 (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToSingle works`` () =
+    let value = 1.0f
+    single (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToDouble works`` () =
+    let value = -1.0
+    double (decimal value) |> equal value
+
+//-------------------------------------
 // System.Numerics.BigInteger
 //-------------------------------------
 
@@ -1133,86 +1215,78 @@ let ``test BigInt from uint32 works`` () =
     bigint System.UInt32.MaxValue |> equal 4294967295I
 
 [<Fact>]
-let ``test BigInt ToSByte works`` () =
+let ``test BigInt.ToSByte works`` () =
     let value = 0x02y
     sbyte (bigint (int32 value)) |> equal value
 
 [<Fact>]
-let ``test BigInt ToInt16 works`` () =
+let ``test BigInt.ToInt16 works`` () =
     let value = 0x0102s
     int16 (bigint (int32 value)) |> equal value
 
 [<Fact>]
-let ``test BigInt ToInt32 works`` () =
+let ``test BigInt.ToInt32 works`` () =
     let value = 0x01020304
     int32 (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToInt64 works`` () =
+let ``test BigInt.ToInt64 works`` () =
     let value = 0x0102030405060708L
     int64 (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToByte works`` () =
+let ``test BigInt.ToByte works`` () =
     let value = 0x02uy
     byte (bigint (uint32 value)) |> equal value
 
 [<Fact>]
-let ``test BigInt ToUInt16 works`` () =
+let ``test BigInt.ToUInt16 works`` () =
     let value = 0xFF02us
     uint16 (bigint (uint32 value)) |> equal value
 
 [<Fact>]
-let ``test BigInt ToUInt32 works`` () =
-    //let value = 0xFF020304u //TODO: BigInt.FromUInt32 not implemented yet, so this will fail
-    let value = 0x1F020304u
+let ``test BigInt.ToUInt32 works`` () =
+    let value = 0xFF020304u
     uint32 (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToUInt64 works`` () =
+let ``test BigInt.ToUInt64 works`` () =
     let value = 0xFF02030405060708UL
     uint64 (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToSingle works`` () =
+let ``test BigInt.ToSingle works`` () =
     let value = 1.0f
     single (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToDouble works`` () =
+let ``test BigInt.ToDouble works`` () =
     let value = -1.0
     double (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToDecimal works`` () =
+let ``test BigInt.ToDecimal works`` () =
     let value = 1.0m
     decimal (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToDecimal with Decimal.MinValue works`` () =
+let ``test BigInt.ToDecimal with Decimal.MinValue works`` () =
     let value = Decimal.MinValue
     decimal (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToDecimal with Decimal.MaxValue works`` () =
+let ``test BigInt.ToDecimal with Decimal.MaxValue works`` () =
     let value = Decimal.MaxValue
     decimal (bigint value) |> equal value
 
 [<Fact>]
-let ``test BigInt ToString works`` () =
+let ``test BigInt.ToString works`` () =
     let value = 1234567890
     string (bigint value) |> equal "1234567890"
 
-[<Fact>]
-let ``test Convert.ToBase64String works`` () =
-    let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
-    Convert.ToBase64String(bytes)
-    |> equal "AgQGCAoMDhASFA=="
-
-[<Fact>]
-let ``test Convert.FromBase64String works`` () =
-    Convert.FromBase64String("AgQGCAoMDhASFA==")
-    |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+//-------------------------------------
+// System.Guid
+//-------------------------------------
 
 // id is prefixed for guid creation as we check at compile time (if able) to create a string const
 [<Fact>]

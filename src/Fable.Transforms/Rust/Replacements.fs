@@ -2485,7 +2485,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToString", [ arg ] -> toString com ctx r args |> Some
     | "ToString", [ arg; ExprType(Number(Int32, _)) ] ->
         Helper.LibCall(com, "Convert", "toStringRadix", t, args, ?loc = r) |> Some
-    | ("ToHexString" | "FromHexString" | "ToBase64String" | "FromBase64String"), [ arg ] ->
+    | ("ToHexString" | "ToHexStringLower" | "FromHexString" | "ToBase64String" | "FromBase64String"), [ arg ] ->
         Helper.LibCall(com, "Convert", (Naming.lowerFirst i.CompiledName), t, args, ?loc = r)
         |> Some
     | _ -> None

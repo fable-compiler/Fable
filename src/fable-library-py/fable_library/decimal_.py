@@ -144,6 +144,10 @@ def to_number(x: Decimal) -> float:
     return float(x)
 
 
+def to_int(x: Decimal) -> int:
+    return int(x)
+
+
 def parse(string: str) -> Decimal:
     return Decimal(string)
 
@@ -185,6 +189,7 @@ __all__ = [
     "from_parts",
     "to_string",
     "to_number",
+    "to_int",
     "try_parse",
     "parse",
 ]
