@@ -68,6 +68,9 @@ module Atts =
     let global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
 
     [<Literal>]
+    let pojoDefinedByConsArgs = "Fable.Core.JS.PojoAttribute" // typeof<Fable.Core.JS.PojoAttribute>.FullName
+
+    [<Literal>]
     let emit = "Fable.Core.Emit"
 
     [<Literal>]
@@ -1278,12 +1281,12 @@ module AST =
 
     let splitNamedArgs (args: Expr list) (info: ParamsInfo) =
         match info.NamedIndex with
-        | None -> args, []
-        | Some index when index > args.Length || index > info.Parameters.Length -> args, []
+        | None -> args, None
+        | Some index when index > args.Length || index > info.Parameters.Length -> args, Some []
         | Some index ->
             let args, namedArgs = List.splitAt index args
             let namedParams = List.skip index info.Parameters |> List.truncate namedArgs.Length
-            args, List.zipSafe namedParams namedArgs
+            args, List.zipSafe namedParams namedArgs |> Some
 
     /// Used to compare arg idents of a lambda wrapping a function call
     let argEquals (argIdents: Ident list) argExprs =

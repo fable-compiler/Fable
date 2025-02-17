@@ -272,8 +272,6 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.Attributes = m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
         member _.CurriedParameterGroups =
-            let mutable i = -1
-
             let namedParamsIndex =
                 m.Attributes
                 |> Helpers.tryFindAttrib Atts.paramObject
@@ -282,6 +280,13 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
                     | Some(_, (:? int as index)) -> index
                     | _ -> 0
                 )
+                |> Option.orElseWith (fun () ->
+                    m.DeclaringEntity
+                    |> Option.bind (fun ent -> ent.Attributes |> Helpers.tryFindAttrib Atts.pojoDefinedByConsArgs)
+                    |> Option.map (fun _ -> 0)
+                )
+
+            let mutable i = -1
 
             m.CurriedParameterGroups
             |> Seq.mapToList (
@@ -820,46 +825,6 @@ module Helpers =
     // When compiling to TypeScript, we want to captuer classes that use the
     // [<Global>] attribute on the type and[<ParamObject>] on the constructors
     // so we can transform it into an interface
-
-    /// <summary>
-    /// Check if the entity is decorated with the <code>Global</code> attribute
-    /// and all its constructors are decorated with <code>ParamObject</code> attribute.
-    ///
-    /// This is used to identify classes that should be transformed into interfaces.
-    /// </summary>
-    /// <param name="entity"></param>
-    /// <returns>
-    /// <code>true</code> if the entity is a global type with all constructors as param objects,
-    /// <code>false</code> otherwise.
-    /// </returns>
-    let isParamObjectClassPattern (entity: Fable.Entity) =
-        let isGlobalType =
-            entity.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.global_)
-
-        let areAllConstructorsParamObject =
-            entity.MembersFunctionsAndValues
-            |> Seq.filter _.IsConstructor
-            |> Seq.forall (fun memb ->
-                // Empty constructors are considered valid as it allows to simplify unwraping
-                // complex Union types
-                //
-                // [<AllowNullLiteral>]
-                // [<Global>]
-                // type ClassWithUnion private () =
-                //     [<ParamObjectAttribute; Emit("$0")>]
-                //     new (stringOrNumber : string) = ClassWithUnion()
-                //     [<ParamObjectAttribute; Emit("$0")>]
-                //     new (stringOrNumber : int) = ClassWithUnion()
-                //
-                // Without this trick when we have a lot of U2, U3, etc. to map it is really difficult
-                // or verbose to craft the correct F# class. By using, an empty constructor we can
-                // "bypass" the F# type system.
-                memb.CurriedParameterGroups |> List.concat |> List.isEmpty
-                || memb.Attributes
-                   |> Seq.exists (fun att -> att.Entity.FullName = Atts.paramObject)
-            )
-
-        isGlobalType && areAllConstructorsParamObject
 
     let tryPickAttrib attFullNames (attributes: FSharpAttribute seq) =
         let attFullNames = Map attFullNames
@@ -2046,25 +2011,10 @@ module Util =
 
     let tryGlobalOrImportedAttributes (com: Compiler) (entRef: Fable.EntityRef) (attributes: Fable.Attribute seq) =
         let globalRef customName =
-            let name =
-                // Custom name has precedence
-                match customName with
-                | Some name -> name
-                | None ->
-                    let entity = com.GetEntity(entRef)
-
-                    // If we are generating TypeScript, and the entity is an object class pattern
-                    // we need to use the compiled name, replacing '`' with '$' to mimic
-                    // how Fable generates the compiled name for generic types
-                    // I was not able to find where this is done in Fable, so I am doing it manually here
-                    if com.Options.Language = TypeScript && isParamObjectClassPattern entity then
-                        entity.CompiledName.Replace("`", "$")
-                    // Otherwise, we use the display name as `Global` is often used to describe external API
-                    // and we want to keep the original name
-                    else
-                        entRef.DisplayName
-
-            name |> makeTypedIdent Fable.Any |> Fable.IdentExpr |> Some
+            defaultArg customName entRef.DisplayName
+            |> makeTypedIdent Fable.Any
+            |> Fable.IdentExpr
+            |> Some
 
         match attributes with
         | _ when entRef.FullName.StartsWith("Fable.Core.JS.", StringComparison.Ordinal) -> globalRef None
@@ -2145,6 +2095,12 @@ module Util =
             | Some Atts.attachMembers -> true
             | _ -> false
         ))
+
+    let isPojoDefinedByConsArgsEntity (entity: Fable.Entity) =
+        entity |> hasAttribute Atts.pojoDefinedByConsArgs
+
+    let isPojoDefinedByConsArgsFSharpEntity (ent: FSharpEntity) =
+        ent.Attributes |> hasAttrib Atts.pojoDefinedByConsArgs
 
     let isEmittedOrImportedMember (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes
@@ -2405,7 +2361,12 @@ module Util =
         // Don't mangle interfaces by default (for better interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> tryMangleAttribute ent.Attributes |> Option.defaultValue false
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
-        | _ -> not (isGlobalOrImportedFSharpEntity ent || isAttachMembersEntity com ent)
+        | _ ->
+            not (
+                isGlobalOrImportedFSharpEntity ent
+                || isAttachMembersEntity com ent
+                || isPojoDefinedByConsArgsFSharpEntity ent
+            )
 
     let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
         // TODO: Error if entity doesn't have fullName?
@@ -2681,8 +2642,12 @@ module Util =
             let moduleOrClassExpr =
                 match tryGlobalOrImportedFSharpEntity com e with
                 | Some expr -> Some expr
-                // AttachMembers classes behave the same as global/imported classes
-                | None when not (com.Options.Language = Rust) && isAttachMembersEntity com e ->
+                // AttachMembers/Pojo classes behave
+                // the same as global/imported classes
+                | None when
+                    com.Options.Language <> Rust
+                    && (isAttachMembersEntity com e || isPojoDefinedByConsArgsFSharpEntity e)
+                    ->
                     FsEnt.Ref e |> entityIdent com |> Some
                 | None -> None
 

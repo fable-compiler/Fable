@@ -6,10 +6,25 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.9</Version>
-        <PackageReleaseNotes>## Fixed
+        <Version>5.0.0-alpha.10</Version>
+        <PackageReleaseNotes>## Added
 
-- [All] Add `--realsig+` to fix `Method not found: 'Boolean Fable.CompilerOptions.Equals` (by @nojaf)
+- [Python] - Print root module and module function comments (by @alfonsogarciacaro)
+- [Rust] Add support for module comments (by @ncave)
+- [Rust] Add support for null strings (by @ncave)
+- [TS/JS] `Pojo` attribute support (by @alfonsogarciacaro)
+
+## Changed
+
+- [JS/TS] In `JSX`, generate self closing element when element has no children (#4037) (by @shayanhabibi)
+
+## Fixed
+
+- [JS/TS] - Fix anonymous record printing (#4029) (by @alfonsogarciacaro)
+- [Python] - Fix #3998: PhysicalEquality (by @alfonsogarciacaro)
+- [Python] Resolve relative paths for non-qualified imports (#3481) (by @alfonsogarciacaro)
+- [Python] `importSideEffects` shouldn't generate identifier (#3965) (by @alfonsogarciacaro)
+- [JS/TS] Fix #4031: Hoist vars locally in for and while loops (@alfonsogarciacaro)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
