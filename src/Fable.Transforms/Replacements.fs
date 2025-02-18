@@ -237,7 +237,7 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
     | String -> Helper.LibCall(com, "Double", "parse", targetType, args)
     | Number(kind, _) ->
         match kind with
-        | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
+        | Decimal -> Helper.LibCall(com, "Decimal", "toFloat64", targetType, args)
         | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toFloat64", targetType, args)
         | _ -> TypeCast(args.Head, targetType)
     | _ ->
@@ -254,7 +254,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
     | Number(kind, _) ->
         match kind with
         | Decimal -> args.Head
-        | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toDecimal", Float64.Number, args)
+        | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toDecimal", targetType, args)
         | _ -> makeDecimalFromExpr com r targetType args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
@@ -281,8 +281,9 @@ let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
 
 let wrapLong com (ctx: Context) r t (arg: Expr) : Expr =
     match t with
+    | Number(BigInt, _) -> arg
     | Number(kind, _) ->
-        let toMeth = "to" + kind.ToString()
+        let toMeth = "to" + kind.ToString() + "_unchecked"
         Helper.LibCall(com, "BigInt", toMeth, t, [ arg ])
     | _ ->
         addWarning com ctx.InlinePath r "Unexpected conversion to long"
@@ -297,10 +298,18 @@ let toLong com (ctx: Context) r targetType (args: Expr list) : Expr =
         |> wrapLong com ctx r targetType
     | String, _ -> stringToInt com ctx r targetType args |> wrapLong com ctx r targetType
     | Number(fromKind, _), Number(toKind, _) ->
-        let fromMeth = "from" + fromKind.ToString()
+        match fromKind with
+        | BigInt ->
+            let toMeth = "to" + toKind.ToString()
+            Helper.LibCall(com, "BigInt", toMeth, targetType, args)
+        | Decimal ->
+            let toMeth = "to" + toKind.ToString()
+            Helper.LibCall(com, "Decimal", toMeth, targetType, args)
+        | _ ->
+            let fromMeth = "from" + fromKind.ToString()
 
-        Helper.LibCall(com, "BigInt", fromMeth, BigInt.Number, args, ?loc = r)
-        |> wrapLong com ctx r targetType
+            Helper.LibCall(com, "BigInt", fromMeth, BigInt.Number, args, ?loc = r)
+            |> wrapLong com ctx r targetType
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
@@ -327,10 +336,15 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     | Number(fromKind, _), Number(toKind, _) ->
         if needToCast fromKind toKind then
             match fromKind with
+            | BigInt ->
+                let toMeth = "to" + toKind.ToString()
+                Helper.LibCall(com, "BigInt", toMeth, targetType, args)
             | BigIntegers _ ->
-                let meth = "to" + toKind.ToString()
-                Helper.LibCall(com, "BigInt", meth, targetType, args)
-            | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
+                let toMeth = "to" + toKind.ToString() + "_unchecked"
+                Helper.LibCall(com, "BigInt", toMeth, targetType, args)
+            | Decimal ->
+                let toMeth = "to" + toKind.ToString()
+                Helper.LibCall(com, "Decimal", toMeth, targetType, args)
             | _ -> args.Head
             |> emitIntCast toKind
         else
@@ -342,14 +356,10 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal, _) ->
-        let n = Helper.LibCall(com, "Decimal", "toNumber", Float64.Number, [ args.Head ])
-
-        let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [ n ])
-
+        let rounded = Helper.LibCall(com, "Decimal", "round", Decimal.Number, [ args.Head ])
         rounded :: args.Tail
     | Number(Floats _, _) ->
         let rounded = Helper.LibCall(com, "Util", "round", Float64.Number, [ args.Head ])
-
         rounded :: args.Tail
     | _ -> args
 

@@ -2,6 +2,9 @@ import Decimal, { BigSource } from "./lib/big.js";
 import { Numeric, symbol } from "./Numeric.js";
 import { FSharpRef } from "./Types.js";
 import { combineHashCodes } from "./Util.js";
+import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.js";
+import { fromDecimal, int64, uint64, int128, uint128, nativeint, unativeint } from "./BigInt.js";
+import * as bigInt from "./BigInt.js";
 
 Decimal.prototype.GetHashCode = function () {
   return combineHashCodes([this.s, this.e].concat(this.c))
@@ -139,9 +142,26 @@ export function parse(str: string): Decimal {
   }
 }
 
-export function toNumber(x: Decimal) {
+export function toNumber(x: Decimal): number {
   return +x;
 }
+
+export function toInt8(x: Decimal): int8 { return bigInt.toInt8(fromDecimal(x)); }
+export function toUInt8(x: Decimal): uint8 { return bigInt.toUInt8(fromDecimal(x)); }
+export function toInt16(x: Decimal): int16 { return bigInt.toInt16(fromDecimal(x)); }
+export function toUInt16(x: Decimal): uint16 { return bigInt.toUInt16(fromDecimal(x)); }
+export function toInt32(x: Decimal): int32 { return bigInt.toInt32(fromDecimal(x)); }
+export function toUInt32(x: Decimal): uint32 { return bigInt.toUInt32(fromDecimal(x)); }
+export function toInt64(x: Decimal): int64 { return bigInt.toInt64(fromDecimal(x)); }
+export function toUInt64(x: Decimal): uint64 { return bigInt.toUInt64(fromDecimal(x)); }
+export function toInt128(x: Decimal): int128 { return bigInt.toInt128(fromDecimal(x)); }
+export function toUInt128(x: Decimal): uint128 { return bigInt.toUInt128(fromDecimal(x)); }
+export function toNativeInt(x: Decimal): nativeint { return bigInt.toNativeInt(fromDecimal(x)); }
+export function toUNativeInt(x: Decimal): unativeint { return bigInt.toUNativeInt(fromDecimal(x)); }
+
+export function toFloat16(x: Decimal): float16 { return toNumber(x); }
+export function toFloat32(x: Decimal): float32 { return toNumber(x); }
+export function toFloat64(x: Decimal): float64 { return toNumber(x); }
 
 function decimalToHex(dec: Uint8Array, bitSize: number) {
   const hex = new Uint8Array(bitSize / 4 | 0);
