@@ -1206,6 +1206,34 @@ let ``test Decimal.ToDouble works`` () =
     let value = -1.0
     double (decimal value) |> equal value
 
+// [<Fact>]
+// let ``test Decimal to integer conversions are min-checked`` () =
+//     let x = Decimal.MinValue
+//     throwsAnyError (fun () -> int8 x)
+//     throwsAnyError (fun () -> uint8 x)
+//     throwsAnyError (fun () -> int16 x)
+//     throwsAnyError (fun () -> uint16 x)
+//     throwsAnyError (fun () -> int32 x)
+//     throwsAnyError (fun () -> uint32 x)
+//     throwsAnyError (fun () -> int64 x)
+//     throwsAnyError (fun () -> uint64 x)
+//     throwsAnyError (fun () -> nativeint x)
+//     throwsAnyError (fun () -> unativeint x)
+
+// [<Fact>]
+// let ``test Decimal to integer conversions are max-checked`` () =
+//     let x = Decimal.MaxValue
+//     throwsAnyError (fun () -> int8 x)
+//     throwsAnyError (fun () -> uint8 x)
+//     throwsAnyError (fun () -> int16 x)
+//     throwsAnyError (fun () -> uint16 x)
+//     throwsAnyError (fun () -> int32 x)
+//     throwsAnyError (fun () -> uint32 x)
+//     throwsAnyError (fun () -> int64 x)
+//     throwsAnyError (fun () -> uint64 x)
+//     throwsAnyError (fun () -> nativeint x)
+//     throwsAnyError (fun () -> unativeint x)
+
 //-------------------------------------
 // System.Numerics.BigInteger
 //-------------------------------------
@@ -1283,6 +1311,34 @@ let ``test BigInt.ToDecimal with Decimal.MaxValue works`` () =
 let ``test BigInt.ToString works`` () =
     let value = 1234567890
     string (bigint value) |> equal "1234567890"
+
+// [<Fact>]
+// let ``test BigInt to integer conversions are min-checked`` () =
+//     let x = -79228162514264337593543950335000I
+//     throwsAnyError (fun () -> int8 x)
+//     throwsAnyError (fun () -> uint8 x)
+//     throwsAnyError (fun () -> int16 x)
+//     throwsAnyError (fun () -> uint16 x)
+//     throwsAnyError (fun () -> int32 x)
+//     throwsAnyError (fun () -> uint32 x)
+//     throwsAnyError (fun () -> int64 x)
+//     throwsAnyError (fun () -> uint64 x)
+//     throwsAnyError (fun () -> nativeint x)
+//     throwsAnyError (fun () -> unativeint x)
+
+// [<Fact>]
+// let ``test BigInt to integer conversions are max-checked`` () =
+//     let x = 79228162514264337593543950335000I
+//     throwsAnyError (fun () -> int8 x)
+//     throwsAnyError (fun () -> uint8 x)
+//     throwsAnyError (fun () -> int16 x)
+//     throwsAnyError (fun () -> uint16 x)
+//     throwsAnyError (fun () -> int32 x)
+//     throwsAnyError (fun () -> uint32 x)
+//     throwsAnyError (fun () -> int64 x)
+//     throwsAnyError (fun () -> uint64 x)
+//     throwsAnyError (fun () -> nativeint x)
+//     throwsAnyError (fun () -> unativeint x)
 
 //-------------------------------------
 // System.Guid

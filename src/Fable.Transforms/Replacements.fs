@@ -281,8 +281,9 @@ let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
 
 let wrapLong com (ctx: Context) r t (arg: Expr) : Expr =
     match t with
+    | Number(BigInt, _) -> arg
     | Number(kind, _) ->
-        let toMeth = "to" + kind.ToString()
+        let toMeth = "to" + kind.ToString() + "_unchecked"
         Helper.LibCall(com, "BigInt", toMeth, t, [ arg ])
     | _ ->
         addWarning com ctx.InlinePath r "Unexpected conversion to long"
@@ -298,9 +299,12 @@ let toLong com (ctx: Context) r targetType (args: Expr list) : Expr =
     | String, _ -> stringToInt com ctx r targetType args |> wrapLong com ctx r targetType
     | Number(fromKind, _), Number(toKind, _) ->
         match fromKind with
+        | BigInt ->
+            let toMeth = "to" + toKind.ToString()
+            Helper.LibCall(com, "BigInt", toMeth, targetType, args)
         | Decimal ->
-            let meth = "to" + toKind.ToString()
-            Helper.LibCall(com, "Decimal", meth, targetType, args)
+            let toMeth = "to" + toKind.ToString()
+            Helper.LibCall(com, "Decimal", toMeth, targetType, args)
         | _ ->
             let fromMeth = "from" + fromKind.ToString()
 
@@ -332,12 +336,15 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     | Number(fromKind, _), Number(toKind, _) ->
         if needToCast fromKind toKind then
             match fromKind with
+            | BigInt ->
+                let toMeth = "to" + toKind.ToString()
+                Helper.LibCall(com, "BigInt", toMeth, targetType, args)
             | BigIntegers _ ->
-                let meth = "to" + toKind.ToString()
-                Helper.LibCall(com, "BigInt", meth, targetType, args)
+                let toMeth = "to" + toKind.ToString() + "_unchecked"
+                Helper.LibCall(com, "BigInt", toMeth, targetType, args)
             | Decimal ->
-                let meth = "to" + toKind.ToString()
-                Helper.LibCall(com, "Decimal", meth, targetType, args)
+                let toMeth = "to" + toKind.ToString()
+                Helper.LibCall(com, "Decimal", toMeth, targetType, args)
             | _ -> args.Head
             |> emitIntCast toKind
         else
