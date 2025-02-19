@@ -130,20 +130,46 @@ export function toByteArray(value: bigint): number[] {
     return toSignedBytes(value, isBigEndian) as any as number[];
 }
 
-export function toInt8(x: bigint): int8 { return Number(BigInt.asIntN(8, x)); }
-export function toUInt8(x: bigint): uint8 { return Number(BigInt.asUintN(8, x)); }
-export function toInt16(x: bigint): int16 { return Number(BigInt.asIntN(16, x)); }
-export function toUInt16(x: bigint): uint16 { return Number(BigInt.asUintN(16, x)); }
-export function toInt32(x: bigint): int32 { return Number(BigInt.asIntN(32, x)); }
-export function toUInt32(x: bigint): uint32 { return Number(BigInt.asUintN(32, x)); }
-export function toInt64(x: bigint): int64 { return BigInt.asIntN(64, x); }
-export function toUInt64(x: bigint): uint64 { return BigInt.asUintN(64, x); }
-export function toInt128(x: bigint): int128 { return BigInt.asIntN(128, x); }
-export function toUInt128(x: bigint): uint128 { return BigInt.asUintN(128, x); }
-export function toNativeInt(x: bigint): nativeint { return BigInt.asIntN(64, x); }
-export function toUNativeInt(x: bigint): unativeint { return BigInt.asUintN(64, x); }
+export function toIntN_unchecked(bits: number, x: bigint, signed: boolean): bigint {
+    return signed ? BigInt.asIntN(bits, x) : BigInt.asUintN(bits, x);
+}
 
-export function toFloat16(x: bigint): float32 { return Number(x); }
+export function toIntN(bits: number, x: bigint, signed: boolean): bigint {
+    let higher_bits = abs(x) >> BigInt(bits);
+    if (higher_bits !== 0n) {
+        const s = signed ? "a signed" : "an unsigned";
+        throw new Error(`Value was either too large or too small for ${s} ${bits}-bit integer.`);
+    }
+    return signed ? BigInt.asIntN(bits, x) : BigInt.asUintN(bits, x);
+}
+
+export function toInt8(x: bigint): int8 { return Number(toIntN(8, x, true)); }
+export function toUInt8(x: bigint): uint8 { return Number(toIntN(8, x, false)); }
+export function toInt16(x: bigint): int16 { return Number(toIntN(16, x, true)); }
+export function toUInt16(x: bigint): uint16 { return Number(toIntN(16, x, false)); }
+export function toInt32(x: bigint): int32 { return Number(toIntN(32, x, true)); }
+export function toUInt32(x: bigint): uint32 { return Number(toIntN(32, x, false)); }
+export function toInt64(x: bigint): int64 { return toIntN(64, x, true); }
+export function toUInt64(x: bigint): uint64 { return toIntN(64, x, false); }
+export function toInt128(x: bigint): int128 { return toIntN(128, x, true); }
+export function toUInt128(x: bigint): uint128 { return toIntN(128, x, false); }
+export function toNativeInt(x: bigint): nativeint { return toIntN(64, x, true); }
+export function toUNativeInt(x: bigint): unativeint { return toIntN(64, x, false); }
+
+export function toInt8_unchecked(x: bigint): int8 { return Number(toIntN_unchecked(8, x, true)); }
+export function toUInt8_unchecked(x: bigint): uint8 { return Number(toIntN_unchecked(8, x, false)); }
+export function toInt16_unchecked(x: bigint): int16 { return Number(toIntN_unchecked(16, x, true)); }
+export function toUInt16_unchecked(x: bigint): uint16 { return Number(toIntN_unchecked(16, x, false)); }
+export function toInt32_unchecked(x: bigint): int32 { return Number(toIntN_unchecked(32, x, true)); }
+export function toUInt32_unchecked(x: bigint): uint32 { return Number(toIntN_unchecked(32, x, false)); }
+export function toInt64_unchecked(x: bigint): int64 { return toIntN_unchecked(64, x, true); }
+export function toUInt64_unchecked(x: bigint): uint64 { return toIntN_unchecked(64, x, false); }
+export function toInt128_unchecked(x: bigint): int128 { return toIntN_unchecked(128, x, true); }
+export function toUInt128_unchecked(x: bigint): uint128 { return toIntN_unchecked(128, x, false); }
+export function toNativeInt_unchecked(x: bigint): nativeint { return toIntN_unchecked(64, x, true); }
+export function toUNativeInt_unchecked(x: bigint): unativeint { return toIntN_unchecked(64, x, false); }
+
+export function toFloat16(x: bigint): float16 { return Number(x); }
 export function toFloat32(x: bigint): float32 { return Number(x); }
 export function toFloat64(x: bigint): float64 { return Number(x); }
 
@@ -191,14 +217,14 @@ export function modPow(x: bigint, e: bigint, m: bigint): bigint {
 export function divRem(x: bigint, y: bigint): [bigint, bigint];
 export function divRem(x: bigint, y: bigint, out: FSharpRef<bigint>): bigint;
 export function divRem(x: bigint, y: bigint, out?: FSharpRef<bigint>): bigint | [bigint, bigint] {
-  const div = x / y;
-  const rem = x % y;
-  if (out === void 0) {
-    return [div, rem];
-  } else {
-    out.contents = rem;
-    return div;
-  }
+    const div = x / y;
+    const rem = x % y;
+    if (out === void 0) {
+        return [div, rem];
+    } else {
+        out.contents = rem;
+        return div;
+    }
 }
 
 export function greatestCommonDivisor(x: bigint, y: bigint): bigint {

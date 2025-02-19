@@ -894,6 +894,29 @@ let tests =
         let x = "101"
         Convert.ToString(101.m) |> equal x
 
+    // testCase "Convert.ToHexString works" <| fun () ->
+    //     let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+    //     Convert.ToHexString(bytes)
+    //     |> equal "FAFBFCFDFE"
+
+    // testCase "Convert.ToHexStringLower works" <| fun () ->
+    //     let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+    //     Convert.ToHexStringLower(bytes)
+    //     |> equal "fafbfcfdfe"
+
+    // testCase "Convert.FromHexString works" <| fun () ->
+    //     Convert.FromHexString("fafBFCFDFE")
+    //     |> equal [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+
+    testCase "Convert.ToBase64String works" <| fun () ->
+        let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+        Convert.ToBase64String(bytes)
+        |> equal "AgQGCAoMDhASFA=="
+
+    testCase "Convert.FromBase64String works" <| fun () ->
+        Convert.FromBase64String("AgQGCAoMDhASFA==")
+        |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+
     testCase "FSharp.Core type converters can combined via the >> operator" <| fun () ->
         "1" |> (sbyte >> Ok) |> equal (Ok 1y)
         "1" |> (int16 >> Ok) |> equal (Ok 1s)
@@ -1039,77 +1062,167 @@ let tests =
         BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
     //-------------------------------------
+    // System.Decimal
+    //-------------------------------------
+
+    testCase "Decimal.ToSByte works" <| fun () ->
+        let value = 0x02y
+        sbyte (decimal (int32 value)) |> equal value
+
+    testCase "Decimal.ToInt16 works" <| fun () ->
+        let value = 0x0102s
+        int16 (decimal (int32 value)) |> equal value
+
+    testCase "Decimal.ToInt32 works" <| fun () ->
+        let value = 0x01020304
+        int32 (decimal value) |> equal value
+
+    testCase "Decimal.ToInt64 works" <| fun () ->
+        let value = 0x0102030405060708L
+        int64 (decimal value) |> equal value
+
+    testCase "Decimal.ToByte works" <| fun () ->
+        let value = 0x02uy
+        byte (decimal (uint32 value)) |> equal value
+
+    testCase "Decimal.ToUInt16 works" <| fun () ->
+        let value = 0xFF02us
+        uint16 (decimal (uint32 value)) |> equal value
+
+    testCase "Decimal.ToUInt32 works" <| fun () ->
+        let value = 0xFF020304u
+        uint32 (decimal value) |> equal value
+
+    testCase "Decimal.ToUInt64 works" <| fun () ->
+        let value = 0xFF02030405060708UL
+        uint64 (decimal value) |> equal value
+
+    testCase "Decimal.ToSingle works" <| fun () ->
+        let value = 1.0f
+        single (decimal value) |> equal value
+
+    testCase "Decimal.ToDouble works" <| fun () ->
+        let value = -1.0
+        double (decimal value) |> equal value
+
+    testCase "Decimal to integer conversions are min-checked" <| fun () ->
+        let x = Decimal.MinValue
+        throwsAnyError (fun () -> int8 x)
+        throwsAnyError (fun () -> uint8 x)
+        throwsAnyError (fun () -> int16 x)
+        throwsAnyError (fun () -> uint16 x)
+        throwsAnyError (fun () -> int32 x)
+        throwsAnyError (fun () -> uint32 x)
+        throwsAnyError (fun () -> int64 x)
+        throwsAnyError (fun () -> uint64 x)
+        throwsAnyError (fun () -> nativeint x)
+        throwsAnyError (fun () -> unativeint x)
+
+    testCase "Decimal to integer conversions are max-checked" <| fun () ->
+        let x = Decimal.MaxValue
+        throwsAnyError (fun () -> int8 x)
+        throwsAnyError (fun () -> uint8 x)
+        throwsAnyError (fun () -> int16 x)
+        throwsAnyError (fun () -> uint16 x)
+        throwsAnyError (fun () -> int32 x)
+        throwsAnyError (fun () -> uint32 x)
+        throwsAnyError (fun () -> int64 x)
+        throwsAnyError (fun () -> uint64 x)
+        throwsAnyError (fun () -> nativeint x)
+        throwsAnyError (fun () -> unativeint x)
+
+    //-------------------------------------
     // System.Numerics.BigInteger
     //-------------------------------------
 
     testCase "BigInt from uint32 works" <| fun () ->
         bigint System.UInt32.MaxValue |> equal 4294967295I
 
-    testCase "BigInt ToSByte works" <| fun () ->
+    testCase "BigInt.ToSByte works" <| fun () ->
         let value = 0x02y
         sbyte (bigint (int32 value)) |> equal value
 
-    testCase "BigInt ToInt16 works" <| fun () ->
+    testCase "BigInt.ToInt16 works" <| fun () ->
         let value = 0x0102s
         int16 (bigint (int32 value)) |> equal value
 
-    testCase "BigInt ToInt32 works" <| fun () ->
+    testCase "BigInt.ToInt32 works" <| fun () ->
         let value = 0x01020304
         int32 (bigint value) |> equal value
 
-    testCase "BigInt ToInt64 works" <| fun () ->
+    testCase "BigInt.ToInt64 works" <| fun () ->
         let value = 0x0102030405060708L
         int64 (bigint value) |> equal value
 
-    testCase "BigInt ToByte works" <| fun () ->
+    testCase "BigInt.ToByte works" <| fun () ->
         let value = 0x02uy
         byte (bigint (uint32 value)) |> equal value
 
-    testCase "BigInt ToUInt16 works" <| fun () ->
+    testCase "BigInt.ToUInt16 works" <| fun () ->
         let value = 0xFF02us
         uint16 (bigint (uint32 value)) |> equal value
 
-    testCase "BigInt ToUInt32 works" <| fun () ->
-        //let value = 0xFF020304u //TODO: BigInt.FromUInt32 not implemented yet, so this will fail
-        let value = 0x1F020304u
+    testCase "BigInt.ToUInt32 works" <| fun () ->
+        let value = 0xFF020304u
         uint32 (bigint value) |> equal value
 
-    testCase "BigInt ToUInt64 works" <| fun () ->
+    testCase "BigInt.ToUInt64 works" <| fun () ->
         let value = 0xFF02030405060708UL
         uint64 (bigint value) |> equal value
 
-    testCase "BigInt ToSingle works" <| fun () ->
+    testCase "BigInt.ToSingle works" <| fun () ->
         let value = 1.0f
         single (bigint value) |> equal value
 
-    testCase "BigInt ToDouble works" <| fun () ->
+    testCase "BigInt.ToDouble works" <| fun () ->
         let value = -1.0
         double (bigint value) |> equal value
 
-    testCase "BigInt ToDecimal works" <| fun () ->
+    testCase "BigInt.ToDecimal works" <| fun () ->
         let value = 1.0m
         decimal (bigint value) |> equal value
 
-    testCase "BigInt ToDecimal with Decimal.MinValue works" <| fun () ->
+    testCase "BigInt.ToDecimal with Decimal.MinValue works" <| fun () ->
         let value = Decimal.MinValue
         decimal (bigint value) |> equal value
 
-    testCase "BigInt ToDecimal with Decimal.MaxValue works" <| fun () ->
+    testCase "BigInt.ToDecimal with Decimal.MaxValue works" <| fun () ->
         let value = Decimal.MaxValue
         decimal (bigint value) |> equal value
 
-    testCase "BigInt ToString works" <| fun () ->
+    testCase "BigInt.ToString works" <| fun () ->
         let value = 1234567890
         string (bigint value) |> equal "1234567890"
 
-    testCase "Convert.ToBase64String works" <| fun () ->
-        let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
-        Convert.ToBase64String(bytes)
-        |> equal "AgQGCAoMDhASFA=="
+    testCase "BigInt to integer conversions are min-checked" <| fun () ->
+        let x = -79228162514264337593543950335000I
+        throwsAnyError (fun () -> int8 x)
+        throwsAnyError (fun () -> uint8 x)
+        throwsAnyError (fun () -> int16 x)
+        throwsAnyError (fun () -> uint16 x)
+        throwsAnyError (fun () -> int32 x)
+        throwsAnyError (fun () -> uint32 x)
+        throwsAnyError (fun () -> int64 x)
+        throwsAnyError (fun () -> uint64 x)
+        throwsAnyError (fun () -> nativeint x)
+        throwsAnyError (fun () -> unativeint x)
 
-    testCase "Convert.FromBase64String works" <| fun () ->
-        Convert.FromBase64String("AgQGCAoMDhASFA==")
-        |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+    testCase "BigInt to integer conversions are max-checked" <| fun () ->
+        let x = 79228162514264337593543950335000I
+        throwsAnyError (fun () -> int8 x)
+        throwsAnyError (fun () -> uint8 x)
+        throwsAnyError (fun () -> int16 x)
+        throwsAnyError (fun () -> uint16 x)
+        throwsAnyError (fun () -> int32 x)
+        throwsAnyError (fun () -> uint32 x)
+        throwsAnyError (fun () -> int64 x)
+        throwsAnyError (fun () -> uint64 x)
+        throwsAnyError (fun () -> nativeint x)
+        throwsAnyError (fun () -> unativeint x)
+
+    //-------------------------------------
+    // System.Guid
+    //-------------------------------------
 
     // id is prefixed for guid creation as we check at compile time (if able) to create a string const
     testCase "Guid.Parse works" <| fun () ->

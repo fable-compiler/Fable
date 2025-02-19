@@ -971,6 +971,34 @@ let ``System.Convert.ToString Byte with base works`` () =
     Convert.ToString(101uy, 10) |> equal x
 
 [<Fact>]
+let ``Convert.ToHexString works`` () =
+    let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+    Convert.ToHexString(bytes)
+    |> equal "FAFBFCFDFE"
+
+[<Fact>]
+let ``Convert.ToHexStringLower works`` () =
+    let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+    Convert.ToHexStringLower(bytes)
+    |> equal "fafbfcfdfe"
+
+[<Fact>]
+let ``Convert.FromHexString works`` () =
+    Convert.FromHexString("fafBFCFDFE")
+    |> equal [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+
+[<Fact>]
+let ``Convert.ToBase64String works`` () =
+    let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+    Convert.ToBase64String(bytes)
+    |> equal "AgQGCAoMDhASFA=="
+
+[<Fact>]
+let ``Convert.FromBase64String works`` () =
+    Convert.FromBase64String("AgQGCAoMDhASFA==")
+    |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+
+[<Fact>]
 let ``FSharp.Core type converters can combined via the >> operator`` () =
     let res (x: 'T): Result<'T, string> = Ok x
     "1" |> (sbyte >> res) |> equal (Ok 1y)
@@ -985,28 +1013,6 @@ let ``FSharp.Core type converters can combined via the >> operator`` () =
     "1" |> (float >> res) |> equal (Ok 1.)
     "1" |> (double >> res) |> equal (Ok 1.)
     "1" |> (decimal >> res) |> equal (Ok 1.m)
-
-[<Fact>]
-let ``Convert.ToHexString works`` () =
-    let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
-    Convert.ToHexString(bytes)
-    |> equal "FAFBFCFDFE"
-
-[<Fact>]
-let ``Convert.FromHexString works`` () =
-    Convert.FromHexString("FAFBFCFDFE")
-    |> equal [| 250uy; 251uy; 252uy; 253uy; 254uy |]
-
-[<Fact>]
-let ``Convert.ToBase64String works`` () =
-    let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
-    Convert.ToBase64String(bytes)
-    |> equal "AgQGCAoMDhASFA=="
-
-[<Fact>]
-let ``Convert.FromBase64String works`` () =
-    Convert.FromBase64String("AgQGCAoMDhASFA==")
-    |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
 
 //-------------------------------------
 // System.BitConverter
@@ -1195,6 +1201,88 @@ let ``BitConverter.ToString 3 works`` () =
     BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
 //-------------------------------------
+// System.Decimal
+//-------------------------------------
+
+[<Fact>]
+let ``Decimal.ToSByte works`` () =
+    let value = 0x02y
+    sbyte (decimal (int32 value)) |> equal value
+
+[<Fact>]
+let ``Decimal.ToInt16 works`` () =
+    let value = 0x0102s
+    int16 (decimal (int32 value)) |> equal value
+
+[<Fact>]
+let ``Decimal.ToInt32 works`` () =
+    let value = 0x01020304
+    int32 (decimal value) |> equal value
+
+[<Fact>]
+let ``Decimal.ToInt64 works`` () =
+    let value = 0x0102030405060708L
+    int64 (decimal value) |> equal value
+
+[<Fact>]
+let ``Decimal.ToByte works`` () =
+    let value = 0x02uy
+    byte (decimal (uint32 value)) |> equal value
+
+[<Fact>]
+let ``Decimal.ToUInt16 works`` () =
+    let value = 0xFF02us
+    uint16 (decimal (uint32 value)) |> equal value
+
+[<Fact>]
+let ``Decimal.ToUInt32 works`` () =
+    let value = 0xFF020304u
+    uint32 (decimal value) |> equal value
+
+[<Fact>]
+let ``Decimal.ToUInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    uint64 (decimal value) |> equal value
+
+[<Fact>]
+let ``Decimal.ToSingle works`` () =
+    let value = 1.0f
+    single (decimal value) |> equal value
+
+[<Fact>]
+let ``Decimal.ToDouble works`` () =
+    let value = -1.0
+    double (decimal value) |> equal value
+
+[<Fact>]
+let ``Decimal to integer conversions are min-checked`` () =
+    let x = Decimal.MinValue
+    throwsAnyError (fun () -> int8 x)
+    throwsAnyError (fun () -> uint8 x)
+    throwsAnyError (fun () -> int16 x)
+    throwsAnyError (fun () -> uint16 x)
+    throwsAnyError (fun () -> int32 x)
+    throwsAnyError (fun () -> uint32 x)
+    throwsAnyError (fun () -> int64 x)
+    throwsAnyError (fun () -> uint64 x)
+    throwsAnyError (fun () -> nativeint x)
+    throwsAnyError (fun () -> unativeint x)
+
+[<Fact>]
+let ``Decimal to integer conversions are max-checked`` () =
+    let x = Decimal.MaxValue
+    throwsAnyError (fun () -> int8 x)
+    throwsAnyError (fun () -> uint8 x)
+    throwsAnyError (fun () -> int16 x)
+    throwsAnyError (fun () -> uint16 x)
+    throwsAnyError (fun () -> int32 x)
+    throwsAnyError (fun () -> uint32 x)
+    throwsAnyError (fun () -> int64 x)
+    throwsAnyError (fun () -> uint64 x)
+    throwsAnyError (fun () -> nativeint x)
+    throwsAnyError (fun () -> unativeint x)
+
+//-------------------------------------
 // System.Numerics.BigInteger
 //-------------------------------------
 
@@ -1203,74 +1291,102 @@ let ``BigInt from uint32 works`` () =
     bigint System.UInt32.MaxValue |> equal 4294967295I
 
 [<Fact>]
-let ``BigInt ToSByte works`` () =
+let ``BigInt.ToSByte works`` () =
     let value = 0x02y
     sbyte (bigint (int32 value)) |> equal value
 
 [<Fact>]
-let ``BigInt ToInt16 works`` () =
+let ``BigInt.ToInt16 works`` () =
     let value = 0x0102s
     int16 (bigint (int32 value)) |> equal value
 
 [<Fact>]
-let ``BigInt ToInt32 works`` () =
+let ``BigInt.ToInt32 works`` () =
     let value = 0x01020304
     int32 (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToInt64 works`` () =
+let ``BigInt.ToInt64 works`` () =
     let value = 0x0102030405060708L
     int64 (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToByte works`` () =
+let ``BigInt.ToByte works`` () =
     let value = 0x02uy
     byte (bigint (uint32 value)) |> equal value
 
 [<Fact>]
-let ``BigInt ToUInt16 works`` () =
+let ``BigInt.ToUInt16 works`` () =
     let value = 0xFF02us
     uint16 (bigint (uint32 value)) |> equal value
 
 [<Fact>]
-let ``BigInt ToUInt32 works`` () =
+let ``BigInt.ToUInt32 works`` () =
     let value = 0xFF020304u
     uint32 (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToUInt64 works`` () =
+let ``BigInt.ToUInt64 works`` () =
     let value = 0xFF02030405060708UL
     uint64 (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToSingle works`` () =
+let ``BigInt.ToSingle works`` () =
     let value = 1.0f
     single (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToDouble works`` () =
+let ``BigInt.ToDouble works`` () =
     let value = -1.0
     double (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToDecimal works`` () =
+let ``BigInt.ToDecimal works`` () =
     let value = 1.0m
     decimal (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToDecimal with Decimal.MinValue works`` () =
+let ``BigInt.ToDecimal with Decimal.MinValue works`` () =
     let value = Decimal.MinValue
     decimal (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToDecimal with Decimal.MaxValue works`` () =
+let ``BigInt.ToDecimal with Decimal.MaxValue works`` () =
     let value = Decimal.MaxValue
     decimal (bigint value) |> equal value
 
 [<Fact>]
-let ``BigInt ToString works`` () =
+let ``BigInt.ToString works`` () =
     let value = 1234567890
     string (bigint value) |> equal "1234567890"
+
+[<Fact>]
+let ``BigInt to integer conversions are min-checked`` () =
+    let x = -79228162514264337593543950335000I
+    throwsAnyError (fun () -> int8 x)
+    throwsAnyError (fun () -> uint8 x)
+    throwsAnyError (fun () -> int16 x)
+    throwsAnyError (fun () -> uint16 x)
+    throwsAnyError (fun () -> int32 x)
+    throwsAnyError (fun () -> uint32 x)
+    throwsAnyError (fun () -> int64 x)
+    throwsAnyError (fun () -> uint64 x)
+    throwsAnyError (fun () -> nativeint x)
+    throwsAnyError (fun () -> unativeint x)
+
+[<Fact>]
+let ``BigInt to integer conversions are max-checked`` () =
+    let x = 79228162514264337593543950335000I
+    throwsAnyError (fun () -> int8 x)
+    throwsAnyError (fun () -> uint8 x)
+    throwsAnyError (fun () -> int16 x)
+    throwsAnyError (fun () -> uint16 x)
+    throwsAnyError (fun () -> int32 x)
+    throwsAnyError (fun () -> uint32 x)
+    throwsAnyError (fun () -> int64 x)
+    throwsAnyError (fun () -> uint64 x)
+    throwsAnyError (fun () -> nativeint x)
+    throwsAnyError (fun () -> unativeint x)
 
 //-------------------------------------
 // System.Text.Encoding.Unicode

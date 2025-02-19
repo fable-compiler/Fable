@@ -252,7 +252,6 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
         | _ -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-
         TypeCast(args.Head, targetType)
 
 let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
@@ -266,14 +265,9 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         match kind with
         | Decimal -> args.Head
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
-        | Int64
-        | UInt64 ->
-            Helper.LibCall(com, "long", "toNumber", Float64.Number, args)
-            |> makeDecimalFromExpr com r targetType
         | _ -> makeDecimalFromExpr com r targetType args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-
         TypeCast(args.Head, targetType)
 
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
@@ -288,11 +282,8 @@ let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
         | x -> FableError $"Unexpected type in stringToInt: %A{x}" |> raise
 
     let style = int System.Globalization.NumberStyles.Any
-
     let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
-
     let parseArgs = [ makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
-
     Helper.LibCall(com, numberModule, "parse", targetType, [ args.Head ] @ parseArgs @ args.Tail, ?loc = r)
 
 let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : Expr =
@@ -311,10 +302,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
     | String -> stringToInt com ctx r targetType args
     | Number(kind, _) ->
         match kind with
-        | Decimal ->
-            let n = Helper.LibCall(com, "decimal", "toNumber", Float64.Number, args)
-
-            Helper.LibCall(com, "long", "fromNumber", targetType, [ n; makeBoolConst unsigned ])
+        | Decimal -> Helper.LibCall(com, "decimal", "toInt", targetType, args)
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
         | Int64
         | UInt64 -> Helper.LibCall(com, "long", "fromValue", targetType, args @ [ makeBoolConst unsigned ])
@@ -333,7 +321,6 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
         | UNativeInt -> FableError "Converting (u)nativeint to long is not supported" |> raise
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-
         TypeCast(args.Head, targetType)
 
 /// Conversion to integers (excluding longs and bigints)
@@ -361,27 +348,23 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
             match typeFrom with
             | Int64
             | UInt64 -> Helper.LibCall(com, "Long", "to_int", targetType, args) // TODO: make no-op
-            | Decimal -> Helper.LibCall(com, "Decimal", "to_number", targetType, args)
+            | Decimal -> Helper.LibCall(com, "Decimal", "to_int", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo
         else
             TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-
         TypeCast(args.Head, targetType)
 
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal, _) ->
         let n = Helper.LibCall(com, "decimal", "toNumber", Float64.Number, [ args.Head ])
-
         let rounded = Helper.LibCall(com, "util", "round", Float64.Number, [ n ])
-
         rounded :: args.Tail
     | Number((Float32 | Float64), _) ->
         let rounded = Helper.LibCall(com, "util", "round", Float64.Number, [ args.Head ])
-
         rounded :: args.Tail
     | _ -> args
 
