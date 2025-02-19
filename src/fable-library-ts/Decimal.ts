@@ -146,6 +146,14 @@ export function toNumber(x: Decimal): number {
   return +x;
 }
 
+export function toChar(x: Decimal): string {
+  const n = toNumber(x);
+  if (n < 0 || n > 65535 || isNaN(n)) {
+    throw new Error("Value was either too large or too small for a character.");
+  }
+  return String.fromCharCode(n);
+}
+
 export function toInt8(x: Decimal): int8 { return bigInt.toInt8(fromDecimal(x)); }
 export function toUInt8(x: Decimal): uint8 { return bigInt.toUInt8(fromDecimal(x)); }
 export function toInt16(x: Decimal): int16 { return bigInt.toInt16(fromDecimal(x)); }

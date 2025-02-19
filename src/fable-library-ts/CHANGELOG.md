@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* [JS/TS] Fix #4049: decimal/bigint to integer conversion checks (by @ncave)
+* [JS/TS] Fix `decimal` to `char` conversion checks (by @ManngelMaxime)
+
 ## 2.0.0-beta.1 - 2025-02-16
 
 * Compiled with Fable 5.0.0-alpha.10

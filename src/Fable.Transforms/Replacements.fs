@@ -155,10 +155,11 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
 
     makeRefCell com r t [ getter; setter ]
 
-let toChar (arg: Expr) =
+let toChar com (ctx: Context) r targetType (arg: Expr) =
     match arg.Type with
     | Char -> arg
     | String -> TypeCast(arg, Char)
+    | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toChar", Char, [ arg ], ?loc = r)
     | _ -> Helper.GlobalCall("String", Char, [ arg ], memb = "fromCharCode")
 
 let toString com (ctx: Context) r (args: Expr list) =
@@ -380,7 +381,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         let toUInt16 e = toInt com ctx None UInt16.Number [ e ]
 
         Operation(Binary(op, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r)
-        |> toChar
+        |> toChar com ctx r t
 
     let truncateUnsigned operation = // see #1550
         match t with
@@ -1216,7 +1217,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"), _ -> toLong com ctx r t args |> Some
     | ("ToSingle" | "ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
-    | "ToChar", _ -> toChar args.Head |> Some
+    | "ToChar", _ -> toChar com ctx r t args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [ xs ] -> TypeCast(xs, t) |> Some
     | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] -> makeDictionary com ctx r t arg |> Some
@@ -2461,6 +2462,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Floats _ -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
             | _ -> None
+        | Char -> toChar com ctx r t args.Head |> Some
         | _ -> None
     | ("Ceiling" | "Floor" | "Round" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth),
       _ ->
@@ -2925,7 +2927,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToSingle"
     | "ToDouble" -> toFloat com ctx r t args |> Some
     | "ToDecimal" -> toDecimal com ctx r t args |> Some
-    | "ToChar" -> toChar args.Head |> Some
+    | "ToChar" -> toChar com ctx r t args.Head |> Some
     | "ToString" -> toString com ctx r args |> Some
     | "ToBase64String"
     | "FromBase64String" ->
