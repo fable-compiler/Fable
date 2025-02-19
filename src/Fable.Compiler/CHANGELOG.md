@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Fix #4025: No reflection info for pojos (by @alfonsogarciacaro)
 * [JS/TS] Fix #4049: decimal/bigint to integer conversion checks (by @ncave)
+* [JS/TS] Fix `decimal` to `char` conversion checks (by @ManngelMaxime)
 
 ## 5.0.0-alpha.10 - 2025-02-16
 

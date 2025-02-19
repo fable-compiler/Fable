@@ -1065,6 +1065,10 @@ let tests =
     // System.Decimal
     //-------------------------------------
 
+    testCase "Decimal.ToChar works" <| fun () ->
+        let value = 'A'
+        char (decimal (int value)) |> equal value
+
     testCase "Decimal.ToSByte works" <| fun () ->
         let value = 0x02y
         sbyte (decimal (int32 value)) |> equal value
@@ -1107,6 +1111,7 @@ let tests =
 
     testCase "Decimal to integer conversions are min-checked" <| fun () ->
         let x = Decimal.MinValue
+        throwsAnyError (fun () -> char x)
         throwsAnyError (fun () -> int8 x)
         throwsAnyError (fun () -> uint8 x)
         throwsAnyError (fun () -> int16 x)
@@ -1120,6 +1125,7 @@ let tests =
 
     testCase "Decimal to integer conversions are max-checked" <| fun () ->
         let x = Decimal.MaxValue
+        throwsAnyError (fun () -> char x)
         throwsAnyError (fun () -> int8 x)
         throwsAnyError (fun () -> uint8 x)
         throwsAnyError (fun () -> int16 x)
