@@ -262,6 +262,41 @@ let ``test System.Decimal.ToString with culture works`` () =
     let parsed_string = actual.ToString(CultureInfo.InvariantCulture)
     equal "0.7833" parsed_string
 
+//-------------------------------------
+// System.Convert
+//-------------------------------------
+
+[<Fact>]
+let ``test System.Convert.ToChar works`` () =
+    let x = 'a'
+    char(97y) |> equal x
+    char(97uy) |> equal x
+    char(97s) |> equal x
+    char(97) |> equal x
+    // char(0xFFFF + 98) |> equal x
+    char(97L) |> equal x
+    char(97u) |> equal x
+    char(97us) |> equal x
+    char(97uL) |> equal x
+    char(97.f) |> equal x
+    char(97.0) |> equal x
+    char(97.m) |> equal x
+    char(97I) |> equal x
+    char("a") |> equal x
+    char('a') |> equal x
+
+    Convert.ToChar(97y) |> equal x
+    Convert.ToChar(97uy) |> equal x
+    Convert.ToChar(97s) |> equal x
+    Convert.ToChar(97) |> equal x
+    Convert.ToChar(97L) |> equal x
+    Convert.ToChar(97u) |> equal x
+    Convert.ToChar(97us) |> equal x
+    Convert.ToChar(97ul) |> equal x
+    Convert.ToChar(97uL) |> equal x
+    Convert.ToChar("a") |> equal x
+    Convert.ToChar('a') |> equal x
+
 [<Fact>]
 let ``test System.Convert.ToSByte works`` () =
     let x = 1y
@@ -1156,10 +1191,10 @@ let ``test BitConverter.ToString 3 works`` () =
 // System.Decimal
 //-------------------------------------
 
-// [<Fact>]
-// let ``Decimal.ToChar works`` () =
-//     let value = 'A'
-//     char (decimal (int value)) |> equal value
+[<Fact>]
+let ``test Decimal.ToChar works`` () =
+    let value = 'A'
+    char (decimal (int32 value)) |> equal value
 
 [<Fact>]
 let ``test Decimal.ToSByte works`` () =
@@ -1250,6 +1285,11 @@ let ``test BigInt from uint32 works`` () =
     bigint System.UInt32.MaxValue |> equal 4294967295I
 
 [<Fact>]
+let ``test BigInt.ToChar works`` () =
+    let value = 'A'
+    char (bigint (int32 value)) |> equal value
+
+[<Fact>]
 let ``test BigInt.ToSByte works`` () =
     let value = 0x02y
     sbyte (bigint (int32 value)) |> equal value
@@ -1322,6 +1362,7 @@ let ``test BigInt.ToString works`` () =
 // [<Fact>]
 // let ``test BigInt to integer conversions are min-checked`` () =
 //     let x = -79228162514264337593543950335000I
+//     throwsAnyError (fun () -> char x)
 //     throwsAnyError (fun () -> int8 x)
 //     throwsAnyError (fun () -> uint8 x)
 //     throwsAnyError (fun () -> int16 x)
@@ -1336,6 +1377,7 @@ let ``test BigInt.ToString works`` () =
 // [<Fact>]
 // let ``test BigInt to integer conversions are max-checked`` () =
 //     let x = 79228162514264337593543950335000I
+//     throwsAnyError (fun () -> char x)
 //     throwsAnyError (fun () -> int8 x)
 //     throwsAnyError (fun () -> uint8 x)
 //     throwsAnyError (fun () -> int16 x)

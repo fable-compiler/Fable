@@ -240,6 +240,36 @@ let tests =
     // System.Convert
     //-------------------------------------
 
+    testCase "System.Convert.ToChar works" <| fun () ->
+        let x = 'a'
+        char(97y) |> equal x
+        char(97uy) |> equal x
+        char(97s) |> equal x
+        char(97) |> equal x
+        char(0xFFFF + 98) |> equal x
+        char(97L) |> equal x
+        char(97u) |> equal x
+        char(97us) |> equal x
+        char(97uL) |> equal x
+        char(97.f) |> equal x
+        char(97.0) |> equal x
+        char(97.m) |> equal x
+        char(97I) |> equal x
+        char("a") |> equal x
+        char('a') |> equal x
+
+        Convert.ToChar(97y) |> equal x
+        Convert.ToChar(97uy) |> equal x
+        Convert.ToChar(97s) |> equal x
+        Convert.ToChar(97) |> equal x
+        Convert.ToChar(97L) |> equal x
+        Convert.ToChar(97u) |> equal x
+        Convert.ToChar(97us) |> equal x
+        Convert.ToChar(97ul) |> equal x
+        Convert.ToChar(97uL) |> equal x
+        Convert.ToChar("a") |> equal x
+        Convert.ToChar('a') |> equal x
+
     testCase "System.Convert.ToSByte works" <| fun () ->
         let x = 1y
         sbyte(1y) |> equal x
@@ -1067,7 +1097,7 @@ let tests =
 
     testCase "Decimal.ToChar works" <| fun () ->
         let value = 'A'
-        char (decimal (int value)) |> equal value
+        char (decimal (int32 value)) |> equal value
 
     testCase "Decimal.ToSByte works" <| fun () ->
         let value = 0x02y
@@ -1144,6 +1174,10 @@ let tests =
     testCase "BigInt from uint32 works" <| fun () ->
         bigint System.UInt32.MaxValue |> equal 4294967295I
 
+    testCase "BigInt.ToChar works" <| fun () ->
+        let value = 'A'
+        char (bigint (int32 value)) |> equal value
+
     testCase "BigInt.ToSByte works" <| fun () ->
         let value = 0x02y
         sbyte (bigint (int32 value)) |> equal value
@@ -1202,6 +1236,7 @@ let tests =
 
     testCase "BigInt to integer conversions are min-checked" <| fun () ->
         let x = -79228162514264337593543950335000I
+        throwsAnyError (fun () -> char x)
         throwsAnyError (fun () -> int8 x)
         throwsAnyError (fun () -> uint8 x)
         throwsAnyError (fun () -> int16 x)
@@ -1215,6 +1250,7 @@ let tests =
 
     testCase "BigInt to integer conversions are max-checked" <| fun () ->
         let x = 79228162514264337593543950335000I
+        throwsAnyError (fun () -> char x)
         throwsAnyError (fun () -> int8 x)
         throwsAnyError (fun () -> uint8 x)
         throwsAnyError (fun () -> int16 x)
