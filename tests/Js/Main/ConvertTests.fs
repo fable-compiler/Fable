@@ -1067,7 +1067,7 @@ let tests =
 
     testCase "Decimal.ToChar works" <| fun () ->
         let value = 'A'
-        char (decimal (int32 (int value))) |> equal value
+        char (decimal (int value)) |> equal value
 
     testCase "Decimal.ToSByte works" <| fun () ->
         let value = 0x02y
