@@ -396,7 +396,10 @@ module Reflection =
                     |> List.toArray
 
                 match com.GetEntity(entRef) with
-                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum; Atts.erase; Atts.tsTaggedUnion ]) (att, _) as ent ->
+                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum
+                                                              Atts.erase
+                                                              Atts.tsTaggedUnion
+                                                              Atts.pojoDefinedByConsArgs ]) (att, _) as ent ->
                     match att with
                     | Atts.stringEnum -> primitiveTypeInfo "string"
                     | Atts.erase ->
