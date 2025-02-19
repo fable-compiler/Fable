@@ -155,39 +155,6 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
 
     makeRefCell com r t [ getter; setter ]
 
-let toChar com (ctx: Context) r targetType (arg: Expr) =
-    match arg.Type with
-    | Char -> arg
-    | String -> TypeCast(arg, Char)
-    | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toChar", Char, [ arg ], ?loc = r)
-    | _ -> Helper.GlobalCall("String", Char, [ arg ], memb = "fromCharCode")
-
-let toString com (ctx: Context) r (args: Expr list) =
-    match args with
-    | [] ->
-        "toString is called with empty args"
-        |> addErrorAndReturnNull com ctx.InlinePath r
-    | head :: tail ->
-        match head.Type with
-        | String -> head
-        | Char -> TypeCast(head, String)
-        | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin(BclGuid | BclTimeSpan | BclTimeOnly | BclDateOnly as bt) ->
-            Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number(Int16, _) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
-        | Number(Int32, _) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
-        | Number(Int64, _) -> Helper.LibCall(com, "Util", "int64ToString", String, args)
-        | Number(NativeInt, _) -> Helper.LibCall(com, "Util", "int64ToString", String, args)
-        | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toString", String, args)
-        | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toString", String, args)
-        | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
-        | Array _
-        | List _ -> Helper.LibCall(com, "Types", "seqToString", String, [ head ], ?loc = r)
-        // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
-        //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
-        // | DeclaredType(ent, _) ->
-        | _ -> Helper.LibCall(com, "Types", "toString", String, [ head ], ?loc = r)
-
 let getParseParams (kind: NumberKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
         match kind with
@@ -354,6 +321,42 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
 
+let toChar com (ctx: Context) r (arg: Expr) =
+    match arg.Type with
+    | Char -> arg
+    | String -> TypeCast(arg, Char)
+    | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toChar", Char, [ arg ], ?loc = r)
+    | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toChar", Char, [ arg ], ?loc = r)
+    | _ ->
+        let code = toInt com ctx r UInt16.Number [ arg ]
+        Helper.GlobalCall("String", Char, [ code ], memb = "fromCharCode")
+
+let toString com (ctx: Context) r (args: Expr list) =
+    match args with
+    | [] ->
+        "toString is called with empty args"
+        |> addErrorAndReturnNull com ctx.InlinePath r
+    | head :: tail ->
+        match head.Type with
+        | String -> head
+        | Char -> TypeCast(head, String)
+        | Builtin BclGuid when tail.IsEmpty -> head
+        | Builtin(BclGuid | BclTimeSpan | BclTimeOnly | BclDateOnly as bt) ->
+            Helper.LibCall(com, coreModFor bt, "toString", String, args)
+        | Number(Int16, _) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
+        | Number(Int32, _) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
+        | Number(Int64, _) -> Helper.LibCall(com, "Util", "int64ToString", String, args)
+        | Number(NativeInt, _) -> Helper.LibCall(com, "Util", "int64ToString", String, args)
+        | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toString", String, args)
+        | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toString", String, args)
+        | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
+        | Array _
+        | List _ -> Helper.LibCall(com, "Types", "seqToString", String, [ head ], ?loc = r)
+        // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
+        //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
+        // | DeclaredType(ent, _) ->
+        | _ -> Helper.LibCall(com, "Types", "toString", String, [ head ], ?loc = r)
+
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal, _) ->
@@ -381,7 +384,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         let toUInt16 e = toInt com ctx None UInt16.Number [ e ]
 
         Operation(Binary(op, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r)
-        |> toChar com ctx r t
+        |> toChar com ctx r
 
     let truncateUnsigned operation = // see #1550
         match t with
@@ -1217,7 +1220,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"), _ -> toLong com ctx r t args |> Some
     | ("ToSingle" | "ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
-    | "ToChar", _ -> toChar com ctx r t args.Head |> Some
+    | "ToChar", _ -> toChar com ctx r args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [ xs ] -> TypeCast(xs, t) |> Some
     | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] -> makeDictionary com ctx r t arg |> Some
@@ -2455,6 +2458,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
       _ -> applyOp com ctx r t i.CompiledName args |> Some
     | "op_Explicit", _ ->
         match t with
+        | Char -> toChar com ctx r args.Head |> Some
         | Number(kind, _) ->
             match kind with
             | BigIntegers _ -> toLong com ctx r t args |> Some
@@ -2462,7 +2466,6 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Floats _ -> toFloat com ctx r t args |> Some
             | Decimal -> toDecimal com ctx r t args |> Some
             | _ -> None
-        | Char -> toChar com ctx r t args.Head |> Some
         | _ -> None
     | ("Ceiling" | "Floor" | "Round" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth),
       _ ->
@@ -2502,6 +2505,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         | _ -> None
     | "op_Explicit", None ->
         match t with
+        | Char -> toChar com ctx r args.Head |> Some
         | Number(kind, _) ->
             match kind with
             | BigIntegers _ -> toLong com ctx r t args |> Some
@@ -2927,7 +2931,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToSingle"
     | "ToDouble" -> toFloat com ctx r t args |> Some
     | "ToDecimal" -> toDecimal com ctx r t args |> Some
-    | "ToChar" -> toChar com ctx r t args.Head |> Some
+    | "ToChar" -> toChar com ctx r args.Head |> Some
     | "ToString" -> toString com ctx r args |> Some
     | "ToBase64String"
     | "FromBase64String" ->
