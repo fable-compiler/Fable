@@ -1156,6 +1156,11 @@ let ``test BitConverter.ToString 3 works`` () =
 // System.Decimal
 //-------------------------------------
 
+// [<Fact>]
+// let ``Decimal.ToChar works`` () =
+//     let value = 'A'
+//     char (decimal (int value)) |> equal value
+
 [<Fact>]
 let ``test Decimal.ToSByte works`` () =
     let value = 0x02y
@@ -1209,6 +1214,7 @@ let ``test Decimal.ToDouble works`` () =
 // [<Fact>]
 // let ``test Decimal to integer conversions are min-checked`` () =
 //     let x = Decimal.MinValue
+//     throwsAnyError (fun () -> char x)
 //     throwsAnyError (fun () -> int8 x)
 //     throwsAnyError (fun () -> uint8 x)
 //     throwsAnyError (fun () -> int16 x)
@@ -1223,6 +1229,7 @@ let ``test Decimal.ToDouble works`` () =
 // [<Fact>]
 // let ``test Decimal to integer conversions are max-checked`` () =
 //     let x = Decimal.MaxValue
+//     throwsAnyError (fun () -> char x)
 //     throwsAnyError (fun () -> int8 x)
 //     throwsAnyError (fun () -> uint8 x)
 //     throwsAnyError (fun () -> int16 x)
