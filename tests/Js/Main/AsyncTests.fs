@@ -80,12 +80,18 @@ let tests =
             } |> Async.StartImmediate
         )
 
+    #if FABLE_COMPILER
+    // Behaviour of Async.Start, is the same as Async.StartImmediate in JS
+    // We disable this test for .NET, because it seems like we can't capture the exception
+    // This should be fine, because Fable generate a warning about the Async.Start
+    // behaviour being the same as Async.StartImmediate
     testCase "Non captured exception in async is propagated when using Async.Start" <| fun () ->
         throwsAnyError (fun _ ->
             async {
                 failwith "boom!"
             } |> Async.Start
         )
+    #endif
 
     testCase "Simple async is executed correctly" <| fun () ->
         let result = ref false
