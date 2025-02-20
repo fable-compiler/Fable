@@ -1,6 +1,7 @@
 module Fable.Tests.Async
 
 open System
+open Util
 open Util.Testing
 
 #if FABLE_COMPILER
@@ -71,6 +72,20 @@ let tests =
             } |> Async.StartImmediate
             !result
         f true + f false |> equal 22
+
+    testCase "Non captured exception in async is propagated when using Async.StartImmediate" <| fun () ->
+        throwsAnyError (fun _ ->
+            async {
+                failwith "boom!"
+            } |> Async.StartImmediate
+        )
+
+    testCase "Non captured exception in async is propagated when using Async.Start" <| fun () ->
+        throwsAnyError (fun _ ->
+            async {
+                failwith "boom!"
+            } |> Async.Start
+        )
 
     testCase "Simple async is executed correctly" <| fun () ->
         let result = ref false

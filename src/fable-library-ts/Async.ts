@@ -160,7 +160,13 @@ export function sleep(millisecondsDueTime: number) {
 }
 
 export function start<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
-  return startWithContinuations(computation, cancellationToken);
+  return startWithContinuations(
+    computation,
+    emptyContinuation,
+    function (err) { throw err },
+    emptyContinuation,
+    cancellationToken
+  );
 }
 
 export function startImmediate<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
@@ -169,19 +175,16 @@ export function startImmediate<T>(computation: Async<T>, cancellationToken?: Can
 
 export function startWithContinuations<T>(
   computation: Async<T>,
-  continuation?: Continuation<T> | CancellationToken,
-  exceptionContinuation?: Continuation<any>,
-  cancellationContinuation?: Continuation<any>,
+  continuation: Continuation<T>,
+  exceptionContinuation: Continuation<any>,
+  cancellationContinuation: Continuation<any>,
   cancelToken?: CancellationToken) {
-  if (typeof continuation !== "function") {
-    cancelToken = continuation as CancellationToken;
-    continuation = undefined;
-  }
+
   const trampoline = new Trampoline();
   computation({
     onSuccess: continuation ? continuation as Continuation<T> : emptyContinuation,
-    onError: exceptionContinuation ? exceptionContinuation : emptyContinuation,
-    onCancel: cancellationContinuation ? cancellationContinuation : emptyContinuation,
+    onError: exceptionContinuation,
+    onCancel: cancellationContinuation,
     cancelToken: cancelToken ? cancelToken : defaultCancellationToken,
     trampoline,
   });
