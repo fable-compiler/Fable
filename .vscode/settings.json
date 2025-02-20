@@ -27,7 +27,7 @@
         "temp/tests/Rust/Cargo.toml"
     ],
     "editor.inlayHints.enabled": "offUnlessPressed",
-    "dotnet.defaultSolution": "disable",
+    "dotnet.defaultSolution": "Fable.sln",
     "python.testing.pytestArgs": [
         "temp"
     ],
