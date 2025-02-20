@@ -159,10 +159,6 @@ export function sleep(millisecondsDueTime: number) {
   });
 }
 
-export function runSynchronously(): never {
-  throw new Error("Asynchronous code cannot be run synchronously in JS");
-}
-
 export function start<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
   return startWithContinuations(computation, cancellationToken);
 }
