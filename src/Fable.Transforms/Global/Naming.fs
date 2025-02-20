@@ -180,6 +180,7 @@ module Naming =
         | CaseRules.SnakeCase -> dashify "_" name
         | CaseRules.SnakeCaseAllCaps -> (dashify "_" name).ToUpperInvariant()
         | CaseRules.KebabCase -> dashify "-" name
+        | CaseRules.LowerAll -> name.ToLowerInvariant()
         | CaseRules.None
         | _ -> name
 

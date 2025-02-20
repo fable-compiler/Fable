@@ -14,6 +14,8 @@ type CaseRules =
     | SnakeCaseAllCaps = 3
     /// FooBar -> foo-bar
     | KebabCase = 4
+    /// FooBar -> foobar
+    | LowerAll = 5
 
 [<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute() =
