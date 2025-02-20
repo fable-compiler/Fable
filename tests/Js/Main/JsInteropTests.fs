@@ -215,8 +215,13 @@ type UserInfo =
 type UserInfo2 =
     | UserLoginCount
 
-[<StringEnum(CaseRules.KebabCase)>]
+[<StringEnum(CaseRules.KebabCase); RequireQualifiedAccess>]
 type MyCssOptions =
+    | ContentBox
+    | BorderBox
+
+[<StringEnum(CaseRules.LowerAll); RequireQualifiedAccess>]
+type LowerAllOptions =
     | ContentBox
     | BorderBox
 
@@ -792,8 +797,12 @@ let tests =
         UserInfo2.UserLoginCount |> unbox |> equal "USER_LOGIN_COUNT"
 
     testCase "StringEnum works with CaseRules.KebabCase" <| fun () ->
-        BorderBox |> unbox |> equal "border-box"
-        ContentBox |> unbox |> equal "content-box"
+        MyCssOptions.BorderBox |> unbox |> equal "border-box"
+        MyCssOptions.ContentBox |> unbox |> equal "content-box"
+
+    testCase "StringEnum works with CaseRules.LowerAll" <| fun () ->
+        let x = LowerAllOptions.ContentBox
+        x |> unbox |> equal "contentbox"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->

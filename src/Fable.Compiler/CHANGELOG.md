@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS] Add support for `CaseRules.LowerAll` on `StringEnums` (by @shayanhabibi)
+
 ### Fixed
 
 * [JS/TS] Fix #4025: No reflection info for pojos (by @alfonsogarciacaro)

@@ -12,6 +12,8 @@ type CaseRules =
     | SnakeCaseAllCaps = 3
     /// FooBar -> foo-bar
     | KebabCase = 4
+    /// FooBar -> foobar
+    | LowerAll = 5
 
 /// Used on interfaces to mangle member names. This allows overloading and prevents conflicts
 /// other interfaces, but will make interop with native code more difficult.
