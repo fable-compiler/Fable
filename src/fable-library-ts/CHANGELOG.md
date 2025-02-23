@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Propagate non-captured exception when running `Async.Start` or `Async.StartImmediate` (by @MangelMaxime)
 * [JS/TS] Remove `Async.RunSynchronously` (by @MangelMaxime)
 * [JS/TS] Change signature of `startWithContinuations` to always require all its arguments (by @MangelMaxime)
+* [JS/TS] Fix short `DateTime` and `DateTimeOffset` short format strings (by @MangelMaxime)
 
 ## 2.0.0-beta.1 - 2025-02-16
 

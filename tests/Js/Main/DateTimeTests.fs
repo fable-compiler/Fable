@@ -393,6 +393,66 @@ let tests =
         System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
         |> equal "2014-09-11T16:37:02.000Z"
 
+    testCase "DateTime.ToString('D') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("D", CultureInfo.InvariantCulture)
+
+        DateTime(2014, 9, 1, 16, 37, 2)
+        |> format
+        |> equal "Monday, 01 September 2014"
+
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Local)
+        |> format
+        |> equal "Monday, 01 September 2014"
+
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "Monday, 01 September 2014"
+
+    testCase "DateTime.ToString('d') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("d", CultureInfo.InvariantCulture)
+
+        DateTime(2014, 9, 1, 16, 37, 2)
+        |> format
+        |> equal "09/01/2014"
+
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Local)
+        |> format
+        |> equal "09/01/2014"
+
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "09/01/2014"
+
+    testCase "DateTime.ToString('T') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("T", CultureInfo.InvariantCulture)
+
+        DateTime(2014, 9, 1, 5, 7, 2)
+        |> format
+        |> equal "05:07:02"
+
+        DateTime(2014, 9, 1, 5, 7, 2, DateTimeKind.Local)
+        |> format
+        |> equal "05:07:02"
+
+        DateTime(2014, 9, 1, 5, 7, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "05:07:02"
+
+    testCase "DateTime.ToString('t') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("t", CultureInfo.InvariantCulture)
+
+        DateTime(2014, 9, 1, 5, 7, 2)
+        |> format
+        |> equal "05:07"
+
+        DateTime(2014, 9, 1, 5, 7, 2, DateTimeKind.Local)
+        |> format
+        |> equal "05:07"
+
+        DateTime(2014, 9, 1, 5, 7, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "05:07"
+
     // TODO
     // Next test is disabled because it's depends on the time zone of the machine
     //A fix could be to use a regex or detect the time zone

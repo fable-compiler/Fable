@@ -3,6 +3,7 @@ module Fable.Tests.DateTimeOffset
 open System
 open Util.Testing
 open Fable.Core.JsInterop
+open System.Globalization
 
 let toSigFigs nSigFigs x =
     let absX = abs x
@@ -35,6 +36,66 @@ let tests =
         let str = DateTimeOffset(2014, 9, 11, 16, 37, 2, TimeSpan.Zero).ToString("O")
         System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
         |> equal "2014-09-11T16:37:02.000+00:00"
+
+    testCase "DateTimeOffset.ToString('D') works" <| fun _ ->
+        let format (d: DateTimeOffset) = d.ToString("D", CultureInfo.InvariantCulture)
+
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "Monday, 01 September 2014"
+
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "Monday, 01 September 2014"
+
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "Monday, 01 September 2014"
+
+    testCase "DateTimeOffset.ToString('d') works" <| fun _ ->
+        let format (d: DateTimeOffset) = d.ToString("d", CultureInfo.InvariantCulture)
+
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "09/01/2014"
+
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "09/01/2014"
+
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "09/01/2014"
+
+    testCase "DateTimeOffset.ToString('T') works" <| fun _ ->
+        let format (d: DateTimeOffset) = d.ToString("T", CultureInfo.InvariantCulture)
+
+        DateTimeOffset(2014, 9, 1, 5, 7, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "05:07:02"
+
+        DateTimeOffset(2014, 9, 1, 5, 7, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "05:07:02"
+
+        DateTimeOffset(2014, 9, 1, 5, 7, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "05:07:02"
+
+    testCase "DateTimeOffset.ToString('t') works" <| fun _ ->
+        let format (d: DateTimeOffset) = d.ToString("t", CultureInfo.InvariantCulture)
+
+        DateTimeOffset(2014, 9, 1, 5, 7, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "05:07"
+
+        DateTimeOffset(2014, 9, 1, 5, 7, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "05:07"
+
+        DateTimeOffset(2014, 9, 1, 5, 7, 2, TimeSpan.FromHours 2)
+        |> format
+        |> equal "05:07"
 
     testCase "DateTimeOffset from Year 1 to 99 works" <| fun () ->
         let date = DateTimeOffset(1, 1, 2, 0, 0, 0, TimeSpan.Zero)
