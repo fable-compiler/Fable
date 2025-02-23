@@ -55,7 +55,7 @@ function parseNextChar(format: string, pos: number) {
   return format.charCodeAt(pos + 1);
 }
 
-function parseQuotedString(format: string, pos: number) : [string, number] {
+function parseQuotedString(format: string, pos: number): [string, number] {
   let beginPos = pos;
   // Get the character used to quote the string
   const quoteChar = format[pos];
@@ -132,7 +132,7 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           // milliseconds provided to it.
           // This is to have the same behavior as .NET when doing:
           // DateTime(1, 2, 3, 4, 5, 6, DateTimeKind.Utc).ToString("fffff") => 00000
-          result += (""+millisecond(localizedDate)).padEnd(tokenLength, "0");
+          result += ("" + millisecond(localizedDate)).padEnd(tokenLength, "0");
         }
         break;
       case "F":
@@ -393,13 +393,6 @@ export function dateOffsetToString(offset: number) {
     padWithZeros(minutes, 2);
 }
 
-export function dateToHalfUTCString(date: IDateTime, half: "first" | "second") {
-  const str = date.toISOString();
-  return half === "first"
-    ? str.substring(0, str.indexOf("T"))
-    : str.substring(str.indexOf("T") + 1, str.length - 1);
-}
-
 function dateToISOString(d: IDateTime, utc: boolean) {
   if (utc) {
     return d.toISOString();
@@ -428,8 +421,12 @@ function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
     return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString((date.offset ?? 0));
   } else if (format.length === 1) {
     switch (format) {
-      case "D": case "d": return dateToHalfUTCString(d, "first");
-      case "T": case "t": return dateToHalfUTCString(d, "second");
+      case "D": return dateToString_D(d);
+      case "d": return dateToString_d(d);
+      // For 'T' and 't', it seems like .NET don't take into account the offset
+      // so we need to recreate the date without the offset.
+      case "T": return dateToString_T(new Date(date.getTime()));
+      case "t": return dateToString_t(new Date(date.getTime()));
       case "O": case "o": return dateToISOStringWithOffset(d, (date.offset ?? 0));
       default: throw new Error("Unrecognized Date print format");
     }
@@ -438,16 +435,40 @@ function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
   }
 }
 
+function dateToString_D(date: IDateTime) {
+  return longDays[dayOfWeek(date)]
+    + ", " + padWithZeros(day(date), 2)
+    + " " + longMonths[month(date) - 1]
+    + " " + year(date);
+}
+
+function dateToString_d(date: IDateTime) {
+  return padWithZeros(month(date), 2)
+    + "/" + padWithZeros(day(date), 2)
+    + "/" + year(date);
+}
+
+function dateToString_T(date: IDateTime) {
+  return padWithZeros(hour(date), 2)
+    + ":" + padWithZeros(minute(date), 2)
+    + ":" + padWithZeros(second(date), 2);
+}
+
+function dateToString_t(date: IDateTime) {
+  return padWithZeros(hour(date), 2)
+    + ":" + padWithZeros(minute(date), 2);
+}
+
 function dateToStringWithKind(date: IDateTime, format?: string) {
   const utc = date.kind === DateKind.UTC;
   if (typeof format !== "string") {
     return utc ? date.toUTCString() : date.toLocaleString();
   } else if (format.length === 1) {
     switch (format) {
-      case "D": case "d":
-        return utc ? dateToHalfUTCString(date, "first") : date.toLocaleDateString();
-      case "T": case "t":
-        return utc ? dateToHalfUTCString(date, "second") : date.toLocaleTimeString();
+      case "D": return dateToString_D(date);
+      case "d": return dateToString_d(date);
+      case "T": return dateToString_T(date);
+      case "t": return dateToString_t(date);
       case "O": case "o":
         return dateToISOString(date, utc);
       default:
