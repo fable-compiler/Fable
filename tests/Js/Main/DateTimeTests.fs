@@ -417,8 +417,10 @@ let tests =
         |> equal "r PM PM"
         DateTime(2019,1,1).ToString("r yyyyyy yyyyyyyyyy", CultureInfo.InvariantCulture)
         |> equal "r 002019 0000002019"
-        DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzzz zzzzzz", CultureInfo.InvariantCulture)
-        |> equal "r +02:00 +02:00"
+
+        // Timezone dependent (test is configured for Europe/Paris timezone)
+        // DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzzz zzzzzz", CultureInfo.InvariantCulture)
+        // |> equal "r +02:00 +02:00"
 
     testCase "DateTime.ToString without separator works" <| fun () -> // See #1131
         DateTime(2017, 9, 5).ToString("yyyyMM")
