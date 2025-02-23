@@ -423,10 +423,8 @@ function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
     switch (format) {
       case "D": return dateToString_D(d);
       case "d": return dateToString_d(d);
-      // For 'T' and 't', it seems like .NET don't take into account the offset
-      // so we need to recreate the date without the offset.
-      case "T": return dateToString_T(new Date(date.getTime()));
-      case "t": return dateToString_t(new Date(date.getTime()));
+      case "T": return dateToString_T(toUniversalTime(d));
+      case "t": return dateToString_t(toUniversalTime(d));
       case "O": case "o": return dateToISOStringWithOffset(d, (date.offset ?? 0));
       default: throw new Error("Unrecognized Date print format");
     }
