@@ -513,6 +513,8 @@ module Blocks =
             tokens = None
         }
 
+    let mkBodyBlock (expr: Expr) : Block = [ expr |> mkExprStmt ] |> mkBlock
+
     let mkExprBlock (expr: Expr) : Block =
         match expr.kind with
         | ExprKind.Block(block, None) -> block
@@ -786,6 +788,14 @@ module Exprs =
 
     let mkLabelBlockExpr name (statements: Stmt seq) : Expr =
         ExprKind.Block(mkBlock statements, Some(mkLabel name)) |> mkExpr
+
+    let mkUnsafeBlockExpr (expr: Expr) : Expr =
+        let block = mkExprBlock expr
+
+        let unsafeBlock =
+            { block with rules = BlockCheckMode.Unsafe(UnsafeSource.UserProvided) }
+
+        unsafeBlock |> mkBlockExpr
 
     let mkIfThenExpr ifExpr thenExpr : Expr =
         let thenBlock = mkSemiBlock thenExpr
@@ -1409,6 +1419,10 @@ module Items =
         let ident = mkIdent name
         let def = Defaultness.Final
         ItemKind.Const(def, ty, exprOpt) |> mkItem attrs ident
+
+    let mkExternCrateItem attrs name (aliasOpt: Symbol option) : Item =
+        let ident = mkIdent name
+        ItemKind.ExternCrate(aliasOpt) |> mkItem attrs ident
 
     let mkImplItem attrs name ty generics items ofTrait : Item =
         let ident = mkIdent name

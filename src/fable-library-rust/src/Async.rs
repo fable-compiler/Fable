@@ -1,14 +1,14 @@
 #[cfg(feature = "threaded")]
 pub mod Async_ {
-    use std::future::{self, ready, Future};
+    use std::future::{self, Future, ready};
     use std::pin::Pin;
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
 
+    use futures::FutureExt;
     use futures::executor::{self, LocalPool};
     use futures::lock::Mutex;
-    use futures::FutureExt;
     use futures_timer::Delay;
 
     use super::Task_::Task;
@@ -87,7 +87,7 @@ pub mod Async_ {
 
 #[cfg(feature = "threaded")]
 pub mod AsyncBuilder_ {
-    use std::future::{ready, Future};
+    use std::future::{Future, ready};
     use std::pin::Pin;
     use std::sync::Arc;
 
@@ -136,20 +136,13 @@ pub mod AsyncBuilder_ {
 
 #[cfg(feature = "threaded")]
 pub mod ThreadPool {
-    use std::sync::RwLock;
+    use std::sync::{OnceLock, RwLock};
 
     use futures::executor::ThreadPool;
 
-    static mut POOL: Option<RwLock<ThreadPool>> = None;
+    static POOL: OnceLock<RwLock<ThreadPool>> = OnceLock::new();
     pub fn try_init_and_get_pool() -> &'static RwLock<ThreadPool> {
-        unsafe {
-            if POOL.is_none() {
-                let pool = ThreadPool::new().unwrap();
-                POOL = Some(RwLock::new(pool));
-            }
-
-            POOL.as_ref().unwrap()
-        }
+        POOL.get_or_init(|| RwLock::new(ThreadPool::new().unwrap()))
     }
 }
 
@@ -157,22 +150,15 @@ pub mod ThreadPool {
 pub mod Monitor_ {
     use std::any::Any;
     use std::collections::HashSet;
-    use std::sync::{Arc, Mutex, RwLock, Weak};
+    use std::sync::{Arc, Mutex, OnceLock, RwLock, Weak};
     use std::thread;
     use std::time::Duration;
 
     use crate::Native_::{Func0, LrcPtr};
 
-    static mut LOCKS: Option<RwLock<HashSet<usize>>> = None;
+    static LOCKS: OnceLock<RwLock<HashSet<usize>>> = OnceLock::new();
     fn try_init_and_get_locks() -> &'static RwLock<HashSet<usize>> {
-        unsafe {
-            let hs = HashSet::new();
-            if LOCKS.is_none() {
-                LOCKS = Some(RwLock::new(hs));
-            }
-
-            LOCKS.as_ref().unwrap()
-        }
+        LOCKS.get_or_init(|| RwLock::new(HashSet::new()))
     }
 
     pub fn enter<T>(o: LrcPtr<T>) {

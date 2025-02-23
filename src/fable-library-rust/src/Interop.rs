@@ -8,12 +8,12 @@ pub mod ListExt {
         //todo - non-consuming iter by ref
         // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
         //     let s = ofList(self.clone());
-        //     seq_to_iter(&s)
+        //     seq_to_iter(s)
         // }
 
         pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = ofList(self.clone());
-            seq_to_iter(&s)
+            seq_to_iter(s)
         }
     }
 
@@ -72,12 +72,12 @@ pub mod SetExt {
         //todo - non-consuming iter by ref
         // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
         //     let s = toSeq(self.clone());
-        //     seq_to_iter(&s)
+        //     seq_to_iter(s)
         // }
 
         pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = toSeq(self.clone());
-            seq_to_iter(&s)
+            seq_to_iter(s)
         }
     }
 
@@ -92,7 +92,7 @@ pub mod SetExt {
     impl<T: Clone + PartialOrd + Hash> Hash for Set<T> {
         fn hash<H: Hasher>(&self, state: &mut H) {
             let s = toSeq(self.clone());
-            seq_to_iter(&s).for_each(|x| x.hash(state))
+            seq_to_iter(s).for_each(|x| x.hash(state))
         }
     }
 
@@ -155,12 +155,12 @@ pub mod MapExt {
         //todo - non-consuming iter by ref
         // pub fn iter<'a>(&self) -> impl Iterator<Item = (& 'a K, & 'a V)> {
         //     let s = toSeq(self.clone());
-        //     seq_to_iter(&s).map(|kvp| kvp.as_ref().clone())
+        //     seq_to_iter(s).map(|kvp| kvp.as_ref().clone())
         // }
 
         pub fn into_iter(&self) -> impl Iterator<Item = (K, V)> {
             let s = toSeq(self.clone());
-            seq_to_iter(&s).map(|kvp| kvp.as_ref().clone())
+            seq_to_iter(s).map(|kvp| kvp.as_ref().clone())
         }
     }
 
@@ -175,7 +175,7 @@ pub mod MapExt {
     impl<K: Clone + PartialOrd + Hash, V: Clone + Hash> Hash for Map<K, V> {
         fn hash<H: Hasher>(&self, state: &mut H) {
             let s = toSeq(self.clone());
-            seq_to_iter(&s).for_each(|kvp| kvp.hash(state))
+            seq_to_iter(s).for_each(|kvp| kvp.hash(state))
         }
     }
 
