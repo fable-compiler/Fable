@@ -3563,7 +3563,7 @@ module Util =
 
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
 
-            let attrs = []
+            let attrs = [ mkAttr "cfg" [ "not(feature = \"no_std\")" ] ]
             let fnDecl = mkFnDecl [] VOID_RETURN_TY
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
             let fnItem = mkFnItem attrs "main" fnKind
@@ -4125,8 +4125,13 @@ module Util =
             let returnType = memb.ReturnParameter.Type
             transformFunc com ctx parameters returnType (Some memb.FullName) decl.Args decl.Body
 
+        let isUnsafe =
+            memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustUnsafe)
+
         let fnBodyBlock =
-            if decl.Body.Type = Fable.Unit then
+            if isUnsafe then
+                fnBody |> mkUnsafeBlockExpr |> mkBodyBlock
+            else if decl.Body.Type = Fable.Unit then
                 mkSemiBlock fnBody
             else
                 mkExprBlock fnBody
@@ -5403,9 +5408,8 @@ module Compiler =
         let topAttrs =
             [
                 if isLastFileInProject com then
-                    // adds "no_std" for fable library crate if feature is enabled
-                    if isFableLibrary com then
-                        mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_std" ]
+                    // adds "no_std" to crate if feature is enabled
+                    mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_std" ]
 
                     // TODO: make some of those conditional on compiler options
                     mkInnerAttr "allow" [ "dead_code" ]
@@ -5419,6 +5423,7 @@ module Compiler =
                     mkInnerAttr "allow" [ "unused_parens" ]
                     mkInnerAttr "allow" [ "unused_variables" ]
                     mkInnerAttr "allow" [ "unused_assignments" ]
+                    mkInnerAttr "allow" [ "unused_unsafe" ]
 
             // these require nightly
             // mkInnerAttr "feature" ["stmt_expr_attributes"]

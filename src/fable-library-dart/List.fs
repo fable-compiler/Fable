@@ -262,9 +262,9 @@ let foldBack2<'T1, 'T2, 'State> (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T
     // fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
     Array.foldBack2 folder (toArray xs) (toArray ys) state
 
-let unfold<'T, 'State> (gen: 'State -> ('T * 'State) option) (state: 'State) =
+let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'State) =
     let rec loop acc (node: 'T list) =
-        match gen acc with
+        match generator acc with
         | None -> node
         | Some(x, acc) -> loop acc (node.AppendConsNoTail x)
 

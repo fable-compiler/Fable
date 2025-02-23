@@ -150,11 +150,11 @@ type FsAtt(att: FSharpAttribute) =
         member _.Entity = FsEnt.Ref att.AttributeType
         member _.ConstructorArgs = att.ConstructorArguments |> Seq.mapToList snd
 
-type FsGenParam(gen: FSharpGenericParameter) =
+type FsGenParam(p: FSharpGenericParameter) =
     interface Fable.GenericParam with
-        member _.Name = TypeHelpers.genParamName gen
-        member _.IsMeasure = gen.IsMeasure
-        member _.Constraints = FsGenParam.Constraints gen
+        member _.Name = TypeHelpers.genParamName p
+        member _.IsMeasure = p.IsMeasure
+        member _.Constraints = FsGenParam.Constraints p
 
     static member Constraint(c: FSharpGenericParameterConstraint) =
         if c.IsCoercesToConstraint then
@@ -203,8 +203,8 @@ type FsGenParam(gen: FSharpGenericParameter) =
         else
             None // TODO: Document these cases
 
-    static member Constraints(gen: FSharpGenericParameter) =
-        gen.Constraints |> Seq.chooseToList FsGenParam.Constraint
+    static member Constraints(p: FSharpGenericParameter) =
+        p.Constraints |> Seq.chooseToList FsGenParam.Constraint
 
 type FsParam(p: FSharpParameter, ?isNamed) =
     let isOptional = p.IsOptionalArg

@@ -5,8 +5,8 @@ module Fable.Transforms.Rust.AST.Symbols
 // After modifying this list adjust `is_special`, `is_used_keyword`/`is_unused_keyword`,
 // this should be rarely necessary though if the keywords are kept in alphabetic order.
 module kw =
-    // Special reserved identifiers used internally for elided lifetimes
-    // unnamed method parameters crate root module error recovery etc.
+    // Special reserved identifiers used internally for elided lifetimes,
+    // unnamed method parameters, crate root module, error recovery etc.
     let Empty = ""
     let PathRoot = "{{root}}"
     let DollarCrate = "$crate"
@@ -64,24 +64,31 @@ module kw =
     let Yield = "yield"
 
     // Edition-specific keywords that are used in stable Rust.
-    let Async = "async" // >=  2018 Edition only
-    let Await = "await" // >=  2018 Edition only
-    let Dyn = "dyn" // >=  2018 Edition only
+    let Async = "async" // >= 2018 Edition only
+    let Await = "await" // >= 2018 Edition only
+    let Dyn = "dyn" // >= 2018 Edition only
 
     // Edition-specific keywords that are used in unstable Rust or reserved for future use.
-    let Try = "try" // >=  2018 Edition only
+    let Gen = "gen" // >= 2024 Edition only
+    let Try = "try" // >= 2018 Edition only
 
-    // Special lifetime names
+    // "Lifetime keywords" =regular keywords with a leading `'`.
     let UnderscoreLifetime = "'_"
     let StaticLifetime = "'static"
 
-    // Weak keywords have special meaning only in specific contexts.
+    // Weak keywords, have special meaning only in specific contexts.
     let Auto = "auto"
+    let Builtin = "builtin"
     let Catch = "catch"
     let Default = "default"
     let MacroRules = "macro_rules"
     let Raw = "raw"
+    let Reuse = "reuse"
+    let ContractEnsures = "contract_ensures"
+    let ContractRequires = "contract_requires"
+    let Safe = "safe"
     let Union = "union"
+    let Yeet = "yeet"
 
     let RustKeywords =
         [
@@ -149,74 +156,127 @@ module kw =
             Dyn
 
             // Edition-specific keywords that are used in unstable Rust or reserved for future use.
+            Gen
             Try
 
-            // Special lifetime names
+            // "Lifetime keywords"
             UnderscoreLifetime
             StaticLifetime
 
             // Weak keywords have special meaning only in specific contexts.
             Auto
+            Builtin
             Catch
             Default
             MacroRules
             Raw
+            Reuse
+            ContractEnsures
+            ContractRequires
+            Safe
             Union
+            Yeet
         ]
 
     let RustPrelude =
         [
-            "Copy"
+            // Re-exported core operators
             "Send"
             "Sized"
             "Sync"
             "Unpin"
-            "drop"
             "Drop"
             "Fn"
             "FnMut"
             "FnOnce"
-            "Box"
-            "ToOwned"
-            "Clone"
-            "PartialEq"
-            "PartialOrd"
-            "Eq"
-            "Ord"
-            "AsRef"
+            "AsyncFn"
+            "AsyncFnMut"
+            "AsyncFnOnce"
+
+            // Re-exported types and traits
             "AsMut"
-            "Into"
+            "AsRef"
             "From"
-            "Default"
-            "Iterator"
-            "Extend"
-            "IntoIterator"
+            "Into"
             "DoubleEndedIterator"
             "ExactSizeIterator"
+            "Extend"
+            "IntoIterator"
+            "Iterator"
             "Option"
-            "Some"
             "None"
+            "Some"
             "Result"
-            "Ok"
             "Err"
+            "Ok"
+
+            // derive macros
+            "Clone"
+            "Copy"
+            // "Debug"
+            "Default"
+            "Eq"
+            // "Hash"
+            "Ord"
+            "PartialEq"
+            "PartialOrd"
+
+            // items from the alloc crate
+            "ToOwned"
+            "Box"
             "String"
             "ToString"
-            "TryFrom"
-            "TryInto"
             "Vec"
-            "FromIterator"
+
+        // // Re-exported functions
+        // "drop"
+        // "align_of"
+        // "align_of_val"
+        // "size_of"
+        // "size_of_val"
+
+        // // Re-exported built-in macros
+        // "assert"
+        // "cfg"
+        // "column"
+        // "compile_error"
+        // "concat"
+        // "concat_idents"
+        // "env"
+        // "file"
+        // "format_args"
+        // "format_args_nl"
+        // "include"
+        // "include_bytes"
+        // "include_str"
+        // "line"
+        // "log_syntax"
+        // "module_path"
+        // "option_env"
+        // "stringify"
+        // "trace_macros"
+
+        // "alloc_error_handler"
+        // "bench"
+        // "derive"
+        // "global_allocator"
+        // "test"
+        // "test_case"
+
         ]
+
+(*
 
 // Pre-interned symbols that can be referred to with `rustc_span::sym::*`.
 //
 // The symbol is the stringified identifier unless otherwise specified, in
 // which case the name should mention the non-identifier punctuation.
-// E.g. `sym::proc_dash_macro` represents "proc-macro", and it shouldn't be
+// E.g. `sym::proc_dash_macro` represents "proc-macro" and it shouldn't be
 // called `sym::proc_macro` because then it's easy to mistakenly think it
 // represents "proc_macro".
 //
 // As well as the symbols listed, there are symbols for the strings
-// "0", "1", ..., "9", which are accessible via `sym::integer`.
+// "0" "1" ..., "9" which are accessible via `sym::integer`.
 //
 // The proc macro will abort if symbols are not in alphabetical order (as
 // defined by `impl Ord for str`) or if any symbols are duplicated. Vim
@@ -1426,7 +1486,7 @@ module sym =
     let xmm_reg = "xmm_reg"
     let ymm_reg = "ymm_reg"
     let zmm_reg = "zmm_reg"
-
+*)
 (*
 
 type Symbol with

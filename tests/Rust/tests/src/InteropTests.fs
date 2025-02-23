@@ -1,3 +1,4 @@
+[<Fable.Core.Rust.OuterAttr("cfg", [|"not(feature = \"no_std\")"|])>]
 module Fable.Tests.InteropTests
 
 #if FABLE_COMPILER
