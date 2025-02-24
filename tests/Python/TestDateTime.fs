@@ -413,6 +413,7 @@ let ``test DateTime.ToString with custom format works`` () =
     DateTime(2014, 7, 13, 16, 37, 0).ToString("r dddd dddddd", CultureInfo.InvariantCulture)
     |> equal "r Sunday Sunday"
 
+    // These tests are disabled because they cause an issue on the CI (but work locally)
     // throwsAnyError (fun _ ->
     //     DateTime(2014, 7, 13, 16, 37, 0).ToString("r ffffffff", CultureInfo.InvariantCulture)
     // )
