@@ -227,8 +227,10 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         result += localized_date.strftime("%d")
                     case 3:
                         result += short_days[day_of_week(localized_date)]
-                    case 4 | _:
+                    case 4:
                         result += long_days[day_of_week(localized_date)]
+                    case _:
+                        pass
             case "f":
                 token_length = parse_repeat_token(format, cursor_pos, "f")
                 cursor_pos += token_length
@@ -241,7 +243,7 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                     case 7:
                         result += str(localized_date.microsecond).zfill(6).ljust(token_length, "0")
                     case _:
-                        raise Exception("Input string was not in a correct format.")
+                        pass
             case "F":
                 token_length = parse_repeat_token(format, cursor_pos, "F")
                 cursor_pos += token_length
@@ -259,11 +261,16 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         if value != 0:
                             result += str(value).zfill(6).rstrip("0")
                     case _:
-                        raise Exception("Input string was not in a correct format.")
+                        pass
             case "g":
                 token_length = parse_repeat_token(format, cursor_pos, "g")
                 cursor_pos += token_length
-                result += "A.D."
+                match token_length:
+                    case 1 | 2:
+                        result += "A.D."
+                    case _:
+                        pass
+
             case "h":
                 token_length = parse_repeat_token(format, cursor_pos, "h")
                 cursor_pos += token_length
@@ -273,16 +280,20 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         if h1Value == 0:
                             h1Value = 12
                         result += str(h1Value)
-                    case 2 | _:
+                    case 2:
                         result += localized_date.strftime("%I")
+                    case _:
+                        pass
             case "H":
                 token_length = parse_repeat_token(format, cursor_pos, "H")
                 cursor_pos += token_length
                 match token_length:
                     case 1:
                         result += str(localized_date.hour)
-                    case 2 | _:
+                    case 2:
                         result += localized_date.strftime("%H")
+                    case _:
+                        pass
             case "K":
                 token_length = parse_repeat_token(format, cursor_pos, "K")
                 cursor_pos += token_length
@@ -307,8 +318,10 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                 match token_length:
                     case 1:
                         result += str(localized_date.minute)
-                    case 2 | _:
+                    case 2:
                         result += localized_date.strftime("%M")
+                    case _:
+                        pass
             case "M":
                 token_length = parse_repeat_token(format, cursor_pos, "M")
                 cursor_pos += token_length
@@ -319,24 +332,30 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         result += localized_date.strftime("%m")
                     case 3:
                         result += short_months[month(localized_date) - 1]
-                    case 4 | _:
+                    case 4:
                         result += long_months[month(localized_date) - 1]
+                    case _:
+                        pass
             case "s":
                 token_length = parse_repeat_token(format, cursor_pos, "s")
                 cursor_pos += token_length
                 match token_length:
                     case 1:
                         result += str(localized_date.second)
-                    case 2 | _:
+                    case 2:
                         result += localized_date.strftime("%S")
+                    case _:
+                        pass
             case "t":
                 token_length = parse_repeat_token(format, cursor_pos, "t")
                 cursor_pos += token_length
                 match token_length:
                     case 1:
                         result += localized_date.strftime("%p")[:1]
-                    case 2 | _:
+                    case 2:
                         result += localized_date.strftime("%p")
+                    case _:
+                        pass
             case "y":
                 token_length = parse_repeat_token(format, cursor_pos, "y")
                 cursor_pos += token_length
