@@ -114,9 +114,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += shortDays[dayOfWeek(localizedDate)];
             break;
           case 4:
-            result += longDays[dayOfWeek(localizedDate)];
-            break;
           default:
+            result += longDays[dayOfWeek(localizedDate)];
             break;
         }
         break;
@@ -133,6 +132,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           // This is to have the same behavior as .NET when doing:
           // DateTime(1, 2, 3, 4, 5, 6, DateTimeKind.Utc).ToString("fffff") => 00000
           result += ("" + millisecond(localizedDate)).padEnd(tokenLength, "0");
+        } else {
+          throw "Input string was not in a correct format.";
         }
         break;
       case "F":
@@ -152,14 +153,14 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           if (value != 0) {
             result += padWithZeros(value, 3);
           }
+        } else {
+          throw "Input string was not in a correct format.";
         }
         break;
       case "g":
         tokenLength = parseRepeatToken(format, cursorPos, "g");
         cursorPos += tokenLength;
-        if (tokenLength <= 2) {
-          result += "A.D.";
-        }
+        result += "A.D.";
         break;
       case "h":
         tokenLength = parseRepeatToken(format, cursorPos, "h");
@@ -170,10 +171,9 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += h1Value ? h1Value : 12;
             break;
           case 2:
+          default:
             const h2Value = hour(localizedDate) % 12;
             result += padWithZeros(h2Value ? h2Value : 12, 2);
-            break;
-          default:
             break;
         }
         break;
@@ -185,9 +185,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += hour(localizedDate);
             break;
           case 2:
-            result += padWithZeros(hour(localizedDate), 2);
-            break;
           default:
+            result += padWithZeros(hour(localizedDate), 2);
             break;
         }
         break;
@@ -219,9 +218,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += minute(localizedDate);
             break;
           case 2:
-            result += padWithZeros(minute(localizedDate), 2);
-            break;
           default:
+            result += padWithZeros(minute(localizedDate), 2);
             break;
         }
         break;
@@ -239,9 +237,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += shortMonths[month(localizedDate) - 1];
             break;
           case 4:
-            result += longMonths[month(localizedDate) - 1];
-            break;
           default:
+            result += longMonths[month(localizedDate) - 1];
             break;
         }
         break;
@@ -253,9 +250,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += second(localizedDate);
             break;
           case 2:
-            result += padWithZeros(second(localizedDate), 2);
-            break;
           default:
+            result += padWithZeros(second(localizedDate), 2);
             break;
         }
         break;
@@ -267,9 +263,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += localizedDate.getHours() < 12 ? "A" : "P";
             break;
           case 2:
-            result += localizedDate.getHours() < 12 ? "AM" : "PM";
-            break;
           default:
+            result += localizedDate.getHours() < 12 ? "AM" : "PM";
             break;
         }
         break;
@@ -283,16 +278,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           case 2:
             result += padWithZeros(localizedDate.getFullYear() % 100, 2);
             break;
-          case 3:
-            result += padWithZeros(localizedDate.getFullYear(), 3);
-            break;
-          case 4:
-            result += padWithZeros(localizedDate.getFullYear(), 4);
-            break;
-          case 5:
-            result += padWithZeros(localizedDate.getFullYear(), 5);
-            break;
           default:
+            result += padWithZeros(localizedDate.getFullYear(), tokenLength);
             break;
         }
         break;

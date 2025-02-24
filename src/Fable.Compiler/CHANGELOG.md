@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Report an error at compilation time when trying to use `Async.RunSynchronously` (by @MangelMaxime)
 * [JS/TS] Fix short `DateTime` and `DateTimeOffset` short format strings (by @MangelMaxime)
 * [All] Don't scan system packages for plugins (by @MangelMaxime)
+* [JS/TS] Fix date formatting when repeating a format token more than the known format (example repeating 'd' more than 4 times) (by @MangelMaxime)
+* [Python] Fix date formatting when repeating a format token more than the known format (example repeating 'd' more than 4 times) (by @MangelMaxime)
 
 ## 5.0.0-alpha.10 - 2025-02-16
 

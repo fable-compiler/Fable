@@ -1,6 +1,7 @@
 module Fable.Tests.DateTime
 
 open System
+open Util
 open Util.Testing
 open Fable.Tests
 open System.Globalization
@@ -379,6 +380,47 @@ let tests =
         DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("""r \\\zz""", CultureInfo.InvariantCulture)
         |> equal "r \z+0"
 
+        // The tests below are for testing the behaviour when going outside
+        // of the standard token ranges.
+        // For example, the known tokens range for 'H' are "H", "HH", so
+        // we want to test what happens when we do "HHH" or "HHHH" or "HHHHH"
+        // In general, the tests below check what happens when right outside of the known
+        // token ranges and in another exagerated case
+
+        DateTime(2014, 7, 13, 16, 37, 0).ToString("r dddd dddddd", CultureInfo.InvariantCulture)
+        |> equal "r Sunday Sunday"
+
+        throwsAnyError (fun _ ->
+            DateTime(2014, 7, 13, 16, 37, 0).ToString("r ffffffff", CultureInfo.InvariantCulture)
+        )
+
+        throwsAnyError (fun _ ->
+            DateTime(2014, 7, 13, 16, 37, 0).ToString("r FFFFFFFFF", CultureInfo.InvariantCulture)
+        )
+
+        DateTime(2014, 7, 1, 12, 0, 0).ToString("r ggg ggggg", CultureInfo.InvariantCulture)
+        |> equal "r A.D. A.D."
+
+        DateTime(2014, 7, 1, 12, 0, 0).ToString("r hhh hhhhh", CultureInfo.InvariantCulture)
+        |> equal "r 12 12"
+        DateTime(2014, 7, 1, 16, 37, 0).ToString("r HHH HHHHHHHH", CultureInfo.InvariantCulture)
+        |> equal "r 16 16"
+        DateTime(2014, 7, 1, 16, 37, 0).ToString("r KK KKK")
+        |> equal "r  "
+        DateTime(2014, 7, 1, 16, 37, 0).ToString("r mmm mmmm", CultureInfo.InvariantCulture)
+        |> equal "r 37 37"
+        DateTime(2014, 12, 1, 16, 37, 0).ToString("r MMMMM MMMMMMMMM", CultureInfo.InvariantCulture)
+        |> equal "r December December"
+        DateTime(2014, 7, 1, 16, 37, 31).ToString("r sss ssssss", CultureInfo.InvariantCulture)
+        |> equal "r 31 31"
+        DateTime(2014, 7, 1, 16, 37, 0).ToString("r ttt ttttttt", CultureInfo.InvariantCulture)
+        |> equal "r PM PM"
+        DateTime(2019,1,1).ToString("r yyyyyy yyyyyyyyyy", CultureInfo.InvariantCulture)
+        |> equal "r 002019 0000002019"
+
+        // Timezone dependent (test is configured for Europe/Paris timezone)
+        // DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzzz zzzzzz", CultureInfo.InvariantCulture)
+        // |> equal "r +02:00 +02:00"
 
     testCase "DateTime.ToString without separator works" <| fun () -> // See #1131
         DateTime(2017, 9, 5).ToString("yyyyMM")
