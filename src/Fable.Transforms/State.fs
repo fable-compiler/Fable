@@ -33,22 +33,25 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                     coreAssemblies.Add(asmName, asm)
                 else
                     let scanForPlugins =
-                        try
-                            asm.Contents.Attributes
-                            |> Seq.exists (fun attr ->
-                                attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute"
-                            )
-                        with error ->
-                            // To help identify problem, log information about the exception
-                            // but keep the process going to mimic previous Fable behavior
-                            // and because these exception seems harmless
-                            let errorMessage =
-                                $"Could not scan {path} for Fable plugins, skipping this assembly. Original error: {error.Message}"
-
-                            addLog Severity.Info errorMessage
-
-                            hasSkippedAssembly <- true
+                        if Metadata.isSystemPackage asmName then
                             false
+                        else
+                            try
+                                asm.Contents.Attributes
+                                |> Seq.exists (fun attr ->
+                                    attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute"
+                                )
+                            with error ->
+                                // To help identify problem, log information about the exception
+                                // but keep the process going to mimic previous Fable behavior
+                                // and because these exception seems harmless
+                                let errorMessage =
+                                    $"Could not scan {path} for Fable plugins, skipping this assembly. Original error: {error.Message}"
+
+                                addLog Severity.Info errorMessage
+
+                                hasSkippedAssembly <- true
+                                false
 
                     if scanForPlugins then
                         for e in asm.Contents.Entities do
