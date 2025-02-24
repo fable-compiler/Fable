@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Propagate non-captured exception when running `Async.Start` or `Async.StartImmediate` (by @MangelMaxime)
 * [JS/TS] Report an error at compilation time when trying to use `Async.RunSynchronously` (by @MangelMaxime)
 * [JS/TS] Fix short `DateTime` and `DateTimeOffset` short format strings (by @MangelMaxime)
+* [All] Don't scan system packages for plugins (by @MangelMaxime)
 
 ## 5.0.0-alpha.10 - 2025-02-16
 

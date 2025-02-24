@@ -177,14 +177,6 @@ type ProjectCrackerResolver =
     abstract member GetProjectOptionsFromProjectFile:
         isMain: bool * options: CrackerOptions * projectFile: string -> ProjectOptionsResponse
 
-let isSystemPackage (pkgName: string) =
-    pkgName.StartsWith("System.", StringComparison.Ordinal)
-    || pkgName.StartsWith("Microsoft.", StringComparison.Ordinal)
-    || pkgName.StartsWith("runtime.", StringComparison.Ordinal)
-    || pkgName = "NETStandard.Library"
-    || pkgName = "FSharp.Core"
-    || pkgName = "Fable.Core"
-
 type CrackedFsproj =
     {
         ProjectFile: string
@@ -260,7 +252,7 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
         | Some firstGroup -> elements firstGroup
         | None -> dependencies
 
-    if Path.GetFileNameWithoutExtension(dllPath) |> isSystemPackage then
+    if Path.GetFileNameWithoutExtension(dllPath) |> Metadata.isSystemPackage then
         None
     else
         let rootDir = IO.Path.Combine(IO.Path.GetDirectoryName(dllPath), "..", "..")
@@ -295,7 +287,7 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
                     // We don't consider different frameworks
                     |> firstGroupOrAllDependencies
                     |> Seq.map (attr "id")
-                    |> Seq.filter (isSystemPackage >> not)
+                    |> Seq.filter (Metadata.isSystemPackage >> not)
                     |> Set
             }
             : FablePackage
@@ -847,8 +839,8 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
 
                         if not (IO.File.Exists(paketReferences)) then
                             true
+                        // Only check paket.lock for main project and assume it's the same for references
                         else if isOlderThanCache paketReferences then
-                            // Only check paket.lock for main project and assume it's the same for references
                             if fsproj <> cacheInfo.ProjectPath then
                                 true
                             else
