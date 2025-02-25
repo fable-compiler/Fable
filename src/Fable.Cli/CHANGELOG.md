@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Don't scan system packages for plugins (by @MangelMaxime)
 * [JS/TS] Fix date formatting when repeating a format token more than the known format (example repeating 'd' more than 4 times) (by @MangelMaxime)
 * [Python] Fix date formatting when repeating a format token more than the known format (example repeating 'd' more than 4 times) (by @MangelMaxime)
+* [JS/TS] Fix #4010: Supports direct nested types when using `jsOptions` (by @MangelMaxime)
+
+    ```fs
+    let opts =
+        jsOptions<Level1> (fun o ->
+            o.level2.level3.valueA <- 10
+            o.level2.level3.valueB <- 20
+            o.topValueA <- 20
+        )
+    ```
 
 ## 5.0.0-alpha.10 - 2025-02-16
 
