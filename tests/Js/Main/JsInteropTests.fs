@@ -248,6 +248,25 @@ type JsOptions =
     abstract foo: string with get, set
     abstract bar: int with get, set
 
+module JsOptions =
+
+    [<AllowNullLiteral>]
+    type Level3 =
+        abstract member valueA: int with get, set
+        abstract member valueB: int with get, set
+
+    [<AllowNullLiteral>]
+    type Level2 =
+        abstract member level3: Level3 with get, set
+        abstract member valueC: int with get, set
+
+    [<AllowNullLiteral>]
+    type Level1 =
+        abstract member level2: Level2 with get, set
+        abstract member topValueA: int with get, set
+        abstract member topValueB: int with get, set
+
+
 [<Fable.Core.AttachMembers>]
 type ClassWithAttachments(v, ?sign) =
     static let secretSauce = "wasabi"
@@ -842,6 +861,41 @@ let tests =
         )
         opts.foo |> equal "foo"
         opts.bar |> equal 5
+
+
+    testCase "jsOptions works with nested getters" <| fun () ->
+        let options =
+            jsOptions<JsOptions.Level1>(fun o ->
+                o.topValueA <- 20
+                o.level2.level3.valueA <- 10
+                o.level2.level3.valueB <- 20
+                o.level2.valueC <- 44
+                o.topValueB <- 30
+            )
+
+        options.topValueA |> equal 20
+        options.topValueB |> equal 30
+        options.level2.valueC |> equal 44
+        options.level2.level3.valueA |> equal 10
+        options.level2.level3.valueB |> equal 20
+
+    testCase "jsOptions works with mix of nested getter and nested jsOptions" <| fun () ->
+        let options =
+            jsOptions<JsOptions.Level1>(fun o ->
+                o.topValueA <- 20
+                o.level2.level3.valueA <- 10
+                o.level2.level3.valueB <- 20
+                o.topValueB <- 30
+                o.level2 <- jsOptions<JsOptions.Level2> (fun o ->
+                    o.level3.valueA <- 17
+                    o.level3.valueB <- 20
+                )
+            )
+
+        options.topValueA |> equal 20
+        options.topValueB |> equal 30
+        options.level2.level3.valueA |> equal 17
+        options.level2.level3.valueB |> equal 20
 
     testCase "Stringifying a JS object works" <| fun () ->
         let fooOptional = importMember "./js/1foo.js"

@@ -727,6 +727,47 @@ let makeGenericAverager (com: ICompiler) ctx t =
             "DivideByInt", divideFn
         ]
 
+// The code below is not functional because I was not able to make a clean implementation
+// of it using functional approach.
+// I believe this is not an issue because the code is more readable than all my functional attempts.
+type private MakePojoFromLambdaItem =
+    | Property of string * Expr
+    | Object of MakePojoFromLambdaContext
+
+and private MakePojoFromLambdaContext(segment: string) =
+
+    // We can't use ResizeArray alias here because it also exist in Fable AST
+    member val Children = Collections.Generic.List<MakePojoFromLambdaItem>()
+
+    member val Segment = segment
+
+    member this.AddChildAt(segments: string list, property: string * Expr) =
+        let rec add (path: string list) (newProperty: string * Expr) (current: MakePojoFromLambdaContext) =
+            match path with
+            | [] -> current.Children.Add(Property(newProperty))
+            | head :: tailPath ->
+                let child =
+                    let existingObject =
+                        current.Children
+                        |> Seq.tryFind (fun c ->
+                            match c with
+                            | Object b -> b.Segment = head
+                            | _ -> false
+                        )
+
+                    match existingObject with
+                    | Some(Object c) -> c
+                    | None ->
+                        let newChild = MakePojoFromLambdaContext(head)
+                        current.Children.Add(Object(newChild))
+                        newChild
+                    | _ -> failwith "Should not happen, as 'Some' case can only be an Object at this point"
+
+                add tailPath newProperty child
+
+        add segments property this
+        this
+
 let makePojoFromLambda com (arg: Expr) =
     let rec flattenSequential =
         function
@@ -740,15 +781,55 @@ let makePojoFromLambda com (arg: Expr) =
 
     match arg with
     | Lambda(_, lambdaBody, _) ->
-        (flattenSequential lambdaBody, Some [])
-        ||> List.foldBack (fun statement acc ->
-            match acc, statement with
-            | Some acc, Set(_, FieldSet(fieldName), _, value, _) -> objValue (fieldName, value) :: acc |> Some
-            | _ -> None
-        )
+        let flattened = flattenSequential lambdaBody
+
+        let rec groupByGetter (acc: MakePojoFromLambdaContext) (body: Expr list) =
+            match body with
+            | [] -> acc
+            | head :: tail ->
+                match head with
+                | Set(IdentExpr _, FieldSet(fieldName), _, value, _) ->
+                    let updatedAcc = acc.AddChildAt([], (fieldName, value))
+                    groupByGetter updatedAcc tail
+
+                | Set(Get _ as getExpr, FieldSet(fieldName), _, value, _) ->
+                    let rec getGetterSegments (acc: string list) (expr: Expr) =
+                        match expr with
+                        | Get(IdentExpr _, FieldGet(name), _, _) -> name.Name :: acc
+                        | Get(expr, FieldGet(name), _, _) -> getGetterSegments (name.Name :: acc) expr
+                        | _ -> acc
+
+                    let updatedAcc =
+                        let getterSegments = getGetterSegments [] getExpr
+                        acc.AddChildAt(getterSegments, (fieldName, value))
+
+                    // This is a nested property
+                    groupByGetter updatedAcc tail
+                | _ -> groupByGetter acc tail
+
+        let root = groupByGetter (MakePojoFromLambdaContext("/")) flattened
+
+        let rec mapToExpression (node: MakePojoFromLambdaItem) =
+            match node with
+            | Property(name, value) -> objValue (name, value)
+            | Object b ->
+                let mappedChildren = b.Children |> Seq.map mapToExpression |> Seq.toList
+                objValue (b.Segment, ObjectExpr(mappedChildren, Any, None))
+
+        // Note: If the user mix nested getter and jsOptions then the last one will bein effect
+        // We could try to generate a warning/error in this case but it seems complicated for little gain
+        if root.Children.Count = 0 then
+            None
+        else
+            root.Children |> Seq.map mapToExpression |> Seq.toList |> Some
     | _ -> None
     |> Option.map (fun members -> ObjectExpr(members, typ, None))
-    |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", typ, [ arg ], ?genArgs = genArgs))
+    |> Option.defaultWith (fun () ->
+        // TODO: Do we want to support nested getters here too?
+        // This could be complex because here the user can mix any code
+        // so it can be difficult to detect the pattern we want
+        Helper.LibCall(com, "Util", "jsOptions", typ, [ arg ], ?genArgs = genArgs)
+    )
 
 let makePojo (com: Compiler) caseRule keyValueList =
     let makeObjMember caseRule name values =
