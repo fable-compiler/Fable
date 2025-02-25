@@ -730,11 +730,11 @@ let makeGenericAverager (com: ICompiler) ctx t =
 // The code below is not functional because I was not able to make a clean implementation
 // of it using functional approach.
 // I believe this is not an issue because the code is more readable than all my functional attempts.
-type MakePojoFromLambdaItem =
+type private MakePojoFromLambdaItem =
     | Property of string * Expr
     | Object of MakePojoFromLambdaContext
 
-and MakePojoFromLambdaContext(segment: string) =
+and private MakePojoFromLambdaContext(segment: string) =
 
     // We can't use ResizeArray alias here because it also exist in Fable AST
     member val Children = Collections.Generic.List<MakePojoFromLambdaItem>()
