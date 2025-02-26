@@ -236,6 +236,28 @@ let tests =
     testCase "System.Decimal.ToString works" <| fun () ->
         (5592405M).ToString() |> equal "5592405"
 
+    testCase "System.Int32.ToString 'B' works" <| fun () ->
+        (255).ToString("B2") |> equal "11111111"
+        (255).ToString("B15") |> equal "000000011111111"
+        (-255).ToString("B") |> equal "11111111111111111111111100000001"
+
+        (255).ToString("b2") |> equal "11111111"
+        (255).ToString("b15") |> equal "000000011111111"
+        (-255).ToString("b") |> equal "11111111111111111111111100000001"
+
+    testCase "System.Int32.ToString 'C' works" <| fun () ->
+        (0).ToString("C", CultureInfo.InvariantCulture) |> equal "¤0.00"
+        (5592405).ToString("C", CultureInfo.InvariantCulture) |> equal "¤5,592,405.00"
+        (5592405.22453).ToString("C", CultureInfo.InvariantCulture) |> equal "¤5,592,405.22"
+        (5592405).ToString("C0", CultureInfo.InvariantCulture) |> equal "¤5,592,405"
+        (5592405).ToString("C1", CultureInfo.InvariantCulture) |> equal "¤5,592,405.0"
+        (5592405).ToString("C7", CultureInfo.InvariantCulture) |> equal "¤5,592,405.0000000"
+
+        (-5592405).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤5,592,405.00)"
+        (-5592405).ToString("c0", CultureInfo.InvariantCulture) |> equal "(¤5,592,405)"
+        (-5592405).ToString("c1", CultureInfo.InvariantCulture) |> equal "(¤5,592,405.0)"
+        (-5592405).ToString("c2", CultureInfo.InvariantCulture) |> equal "(¤5,592,405.00)"
+
     //-------------------------------------
     // System.Convert
     //-------------------------------------

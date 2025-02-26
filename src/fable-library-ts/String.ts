@@ -313,6 +313,31 @@ export function format(str: string | object, ...args: any[]) {
     if (isNumeric(rep)) {
       precision = precision == null ? null : parseInt(precision, 10);
       switch (format) {
+        case "b": case "B":
+          rep = (rep >>> 0).toString(2).replace(/^0+/, "").padStart(precision || 1, "0");
+          break;
+        case "C": case "c":
+          const isNegative = isLessThan(rep, 0);
+          rep = Math.abs(rep);
+          const decimalPart = isNaN(precision) ? 2 : precision;
+          rep = rep.toFixed(decimalPart);
+          let [repInt, repDecimal] = rep.split(".");
+          repDecimal || (repDecimal = "");
+          repInt = repInt.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+          if (repDecimal) {
+            repDecimal = "." + padRight(repDecimal, decimalPart, "0");
+          }
+          rep = "¤" + repInt + repDecimal;
+          if (isNegative) {
+            rep = "(" + rep + ")";
+          }
+          break;
+        case "d": case "D":
+          rep = precision != null ? padLeft(String(rep), precision, "0") : String(rep);
+          break;
+        case "e": case "E":
+          rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
+          break;
         case "f": case "F":
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
@@ -320,16 +345,18 @@ export function format(str: string | object, ...args: any[]) {
         case "g": case "G":
           rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
           break;
-        case "e": case "E":
-          rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
+        case "N":
+          if (precision != null && precision >= 0) {
+            rep = toFixed(rep, precision);
+          }
+          rep = rep.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
           break;
         case "p": case "P":
           precision = precision != null ? precision : 2;
           rep = toFixed(multiply(rep, 100), precision) + " %";
           break;
-        case "d": case "D":
-          rep = precision != null ? padLeft(String(rep), precision, "0") : String(rep);
-          break;
+        case "R": case "r":
+          throw new Error("The round-trip format is not supported");
         case "x": case "X":
           rep = precision != null ? padLeft(toHex(rep), precision, "0") : toHex(rep);
           if (format === "X") { rep = rep.toUpperCase(); }
