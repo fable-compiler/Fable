@@ -2498,8 +2498,6 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
     | "ToString", [ ExprTypeAs(String, format) ]
     | "ToString", [ ExprTypeAs(String, format); _ (* Culture info *) ] ->
-        // TODO: We should enforce format based on the type
-        // For example, 'B' can only be used with integers
         let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"
 
         Helper.LibCall(

@@ -25,6 +25,10 @@ let parse f (a: string) =
     f(a, CultureInfo("en-US"))
 #endif
 
+
+let private adaptExponentValue (value: string) =
+    value.ToLowerInvariant().Replace("e+00", "e+").Replace("e+0", "e+")
+
 let tests =
   testList "Convert" [
     testCase "System.Double.Parse works" <| fun () ->
@@ -208,35 +212,39 @@ let tests =
         tryParse bigint.TryParse 0I "4234523548923954" |> equal (true, 4234523548923954I)
         tryParse bigint.TryParse 0I "9SayWhat12Huh" |> equal (false, 0I)
 
-    testCase "System.Int32.ToString works" <| fun () ->
-        (5592405).ToString() |> equal "5592405"
+    testCase "byte.ToString 'B' works" <| fun () ->
+        (255uy).ToString("B2") |> equal "11111111"
+        (255uy).ToString("B15") |> equal "000000011111111"
 
-    testCase "System.Int32.ToString 'd' works" <| fun () ->
-        (5592405).ToString("d") |> equal "5592405"
-        (5592405).ToString("d10") |> equal "0005592405"
+        (255uy).ToString("b2") |> equal "11111111"
+        (255uy).ToString("b15") |> equal "000000011111111"
 
-    testCase "System.Int32.ToString 'x' works" <| fun () ->
-        (5592405).ToString("x") |> equal "555555"
-        (5592405).ToString("x10") |> equal "0000555555"
+    testCase "sbyte.ToString 'B' works" <| fun () ->
+        (127y).ToString("B2") |> equal "1111111"
+        (127y).ToString("B15") |> equal "000000001111111"
+        // (-127y).ToString("B") |> equal "10000001"
 
-    testCase "System.Int64.ToString works" <| fun () ->
-        (5592405L).ToString() |> equal "5592405"
+        (127y).ToString("b2") |> equal "1111111"
+        (127y).ToString("b15") |> equal "000000001111111"
+        // (-127y).ToString("b") |> equal "10000001"
 
-    testCase "System.Int64.ToString 'd' works" <| fun () ->
-        (5592405L).ToString("d") |> equal "5592405"
-        (5592405L).ToString("d10") |> equal "0005592405"
+    testCase "int16.ToString 'B' works" <| fun () ->
+        (255s).ToString("B2") |> equal "11111111"
+        (255s).ToString("B15") |> equal "000000011111111"
+        // (-255s).ToString("B") |> equal "1111111100000001"
 
-    testCase "System.Int64.ToString 'x' works" <| fun () ->
-        (5592405L).ToString("x") |> equal "555555"
-        (5592405L).ToString("x10") |> equal "0000555555"
+        (255s).ToString("b2") |> equal "11111111"
+        (255s).ToString("b15") |> equal "000000011111111"
+        // (-255s).ToString("b") |> equal "1111111100000001"
 
-    testCase "System.BigInt.ToString works" <| fun () ->
-        (5592405I).ToString() |> equal "5592405"
+    testCase "uint16.ToString 'B' works" <| fun () ->
+        (255us).ToString("B2") |> equal "11111111"
+        (255us).ToString("B15") |> equal "000000011111111"
 
-    testCase "System.Decimal.ToString works" <| fun () ->
-        (5592405M).ToString() |> equal "5592405"
+        (255us).ToString("b2") |> equal "11111111"
+        (255us).ToString("b15") |> equal "000000011111111"
 
-    testCase "System.Int32.ToString 'B' works" <| fun () ->
+    testCase "int32.ToString 'B' works" <| fun () ->
         (255).ToString("B2") |> equal "11111111"
         (255).ToString("B15") |> equal "000000011111111"
         (-255).ToString("B") |> equal "11111111111111111111111100000001"
@@ -245,18 +253,882 @@ let tests =
         (255).ToString("b15") |> equal "000000011111111"
         (-255).ToString("b") |> equal "11111111111111111111111100000001"
 
-    testCase "System.Int32.ToString 'C' works" <| fun () ->
-        (0).ToString("C", CultureInfo.InvariantCulture) |> equal "¤0.00"
-        (5592405).ToString("C", CultureInfo.InvariantCulture) |> equal "¤5,592,405.00"
-        (5592405.22453).ToString("C", CultureInfo.InvariantCulture) |> equal "¤5,592,405.22"
-        (5592405).ToString("C0", CultureInfo.InvariantCulture) |> equal "¤5,592,405"
-        (5592405).ToString("C1", CultureInfo.InvariantCulture) |> equal "¤5,592,405.0"
-        (5592405).ToString("C7", CultureInfo.InvariantCulture) |> equal "¤5,592,405.0000000"
+    testCase "uint32.ToString 'B' works" <| fun () ->
+        (255u).ToString("B2") |> equal "11111111"
+        (255u).ToString("B15") |> equal "000000011111111"
 
-        (-5592405).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤5,592,405.00)"
-        (-5592405).ToString("c0", CultureInfo.InvariantCulture) |> equal "(¤5,592,405)"
-        (-5592405).ToString("c1", CultureInfo.InvariantCulture) |> equal "(¤5,592,405.0)"
-        (-5592405).ToString("c2", CultureInfo.InvariantCulture) |> equal "(¤5,592,405.00)"
+        (255u).ToString("b2") |> equal "11111111"
+        (255u).ToString("b15") |> equal "000000011111111"
+
+    // Can't mix BigInt and other types, on JavaScript
+    // so we don't test int64, uint64, nativeint, unativeint
+
+    testCase "decimal.ToString 'B' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723m).ToString("B")
+        )
+
+    testCase "float.ToString 'B' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723).ToString("B")
+        )
+
+    testCase "float32.ToString 'B' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723f).ToString("B")
+        )
+
+    testCase "byte.ToString 'C' works" <| fun () ->
+        (255uy).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255uy).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+
+        (255uy).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255uy).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+
+    testCase "sbyte.ToString 'C' works" <| fun () ->
+        (127y).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤127.00"
+        (127y).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤127.000000000000000"
+        (-127y).ToString("C", CultureInfo.InvariantCulture) |> equal "(¤127.00)"
+
+        (127y).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤127.00"
+        (127y).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤127.000000000000000"
+        (-127y).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤127.00)"
+
+    testCase "int16.ToString 'C' works" <| fun () ->
+        (255s).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255s).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+        (-255s).ToString("C", CultureInfo.InvariantCulture) |> equal "(¤255.00)"
+
+        (255s).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255s).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+        (-255s).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤255.00)"
+
+    testCase "uint16.ToString 'C' works" <| fun () ->
+        (255us).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255us).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+
+        (255us).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255us).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+
+    testCase "int32.ToString 'C' works" <| fun () ->
+        (255).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+        (-255).ToString("C", CultureInfo.InvariantCulture) |> equal "(¤255.00)"
+
+        (255).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+        (-255).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤255.00)"
+
+        (235672367).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤235,672,367.00"
+
+    testCase "uint32.ToString 'C' works" <| fun () ->
+        (255u).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255u).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+
+        (255u).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255u).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+
+    testCase "int64.ToString 'C' works" <| fun () ->
+        (255L).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255L).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+        (-255L).ToString("C", CultureInfo.InvariantCulture) |> equal "(¤255.00)"
+
+        (255L).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255L).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+        (-255L).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤255.00)"
+
+        (25523678236826386L).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤25,523,678,236,826,386.00"
+
+    testCase "uint64.ToString 'C' works" <| fun () ->
+        (255UL).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255UL).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+
+        (255UL).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.00"
+        (255UL).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
+
+    testCase "float.ToString 'C' works" <| fun () ->
+        (255.2357).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.24"
+        (255.2357).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.235700000000008"
+        (-255.2357).ToString("C", CultureInfo.InvariantCulture) |> equal "(¤255.24)"
+
+        (255.2357).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.24"
+        (255.2357).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.235700000000008"
+        (-255.2357).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤255.24)"
+
+    testCase "float32.ToString 'C' works" <| fun () ->
+        (255.2357f).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.24"
+        (255.2357f).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.235702514648438"
+        (-255.2357f).ToString("C", CultureInfo.InvariantCulture) |> equal "(¤255.24)"
+
+        (255.2357f).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.24"
+        (255.2357f).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.235702514648438"
+        (-255.2357f).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤255.24)"
+
+    testCase "byte.ToString 'D' works" <| fun () ->
+        (255uy).ToString("D2") |> equal "255"
+        (255uy).ToString("D15") |> equal "000000000000255"
+
+        (255uy).ToString("d2") |> equal "255"
+        (255uy).ToString("d15") |> equal "000000000000255"
+
+    testCase "sbyte.ToString 'D' works" <| fun () ->
+        (127y).ToString("D2") |> equal "127"
+        (127y).ToString("D15") |> equal "000000000000127"
+        (-127y).ToString("D") |> equal "-127"
+
+        (127y).ToString("d2") |> equal "127"
+        (127y).ToString("d15") |> equal "000000000000127"
+        (-127y).ToString("d") |> equal "-127"
+        (-127y).ToString("d15") |> equal "-000000000000127"
+
+    testCase "int16.ToString 'D' works" <| fun () ->
+        (255s).ToString("D2") |> equal "255"
+        (255s).ToString("D15") |> equal "000000000000255"
+        // (-255s).ToString("D") |> equal "255"
+
+        (255s).ToString("d2") |> equal "255"
+        (255s).ToString("d15") |> equal "000000000000255"
+        // (-255s).ToString("d") |> equal "255"
+
+    testCase "uint16.ToString 'D' works" <| fun () ->
+        (255us).ToString("D2") |> equal "255"
+        (255us).ToString("D15") |> equal "000000000000255"
+
+        (255us).ToString("d2") |> equal "255"
+        (255us).ToString("d15") |> equal "000000000000255"
+
+    testCase "int32.ToString 'D' works" <| fun () ->
+        (255).ToString("D2") |> equal "255"
+        (255).ToString("D15") |> equal "000000000000255"
+        (-255).ToString("D") |> equal "-255"
+
+        (255).ToString("d2") |> equal "255"
+        (255).ToString("d15") |> equal "000000000000255"
+        (-255).ToString("d") |> equal "-255"
+
+    testCase "uint32.ToString 'D' works" <| fun () ->
+        (255u).ToString("D2") |> equal "255"
+        (255u).ToString("D15") |> equal "000000000000255"
+
+        (255u).ToString("d2") |> equal "255"
+        (255u).ToString("d15") |> equal "000000000000255"
+
+    testCase "int64.ToString 'D' works" <| fun () ->
+        (255L).ToString("D2", CultureInfo.InvariantCulture) |> equal "255"
+        (255L).ToString("D15", CultureInfo.InvariantCulture) |> equal "000000000000255"
+        (-255L).ToString("D", CultureInfo.InvariantCulture) |> equal "-255"
+
+        (255L).ToString("d2", CultureInfo.InvariantCulture) |> equal "255"
+        (255L).ToString("d15", CultureInfo.InvariantCulture) |> equal "000000000000255"
+        (-255L).ToString("d", CultureInfo.InvariantCulture) |> equal "-255"
+
+    testCase "uint64.ToString 'D' works" <| fun () ->
+        (255UL).ToString("D2", CultureInfo.InvariantCulture) |> equal "255"
+        (255UL).ToString("D15", CultureInfo.InvariantCulture) |> equal "000000000000255"
+
+        (255UL).ToString("d2", CultureInfo.InvariantCulture) |> equal "255"
+        (255UL).ToString("d15", CultureInfo.InvariantCulture) |> equal "000000000000255"
+
+    testCase "decimal.ToString 'D' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723m).ToString("D")
+        )
+
+    testCase "float.ToString 'D' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723).ToString("D")
+        )
+
+    testCase "float32.ToString 'D' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723f).ToString("D")
+        )
+
+    testCase "byte.ToString 'E' works"
+    <| fun () ->
+        (255uy).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255uy).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
+
+        (255uy).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255uy).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
+
+    testCase "sbyte.ToString 'E' works"
+    <| fun () ->
+        (127y).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "1.27e+2"
+
+        (127y).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "1.270000000000000e+2"
+
+        // (-127y).ToString("E", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-1.270000e+2"
+
+        (127y).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "1.27e+2"
+
+        (127y).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "1.270000000000000e+2"
+
+        // (-127y).ToString("e", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-1.270000e+2"
+
+    testCase "int16.ToString 'E' works"
+    <| fun () ->
+        (255s).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255s).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
+
+        // (-255s).ToString("E", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-2.550000e+2"
+
+        (255s).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255s).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
+
+        // (-255s).ToString("e", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-2.550000e+2"
+
+    testCase "uint16.ToString 'E' works"
+    <| fun () ->
+        (255us).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255us).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
+
+        (255us).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255us).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
+
+    testCase "int32.ToString 'E' works"
+    <| fun () ->
+        (255).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
+
+        // (-255).ToString("E", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-2.550000e+2"
+
+        (255).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
+
+        // (-255).ToString("e", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-2.550000e+2"
+
+        (235672367).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.36e+8"
+
+    testCase "uint32.ToString 'E' works"
+    <| fun () ->
+        (255u).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        // (255u).ToString("E15", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "2.550000000000000e+2"
+
+        (255u).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        // (255u).ToString("e15", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "2.550000000000000e+2"
+
+    // testCase "int64.ToString 'E' works"
+    // <| fun () ->
+    //     (255L).ToString("E2", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "2.55e+2"
+
+    //     (255L).ToString("E15", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "2.550000000000000e+2"
+
+    //     (-255L).ToString("E", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "-2.550000e+2"
+
+    //     (255L).ToString("e2", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "2.55e+2"
+
+    //     (255L).ToString("e15", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "2.550000000000000e+2"
+
+    //     (-255L).ToString("e", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "-2.550000e+2"
+
+    // testCase "uint64.ToString 'E' works"
+    // <| fun () ->
+    //     (255UL).ToString("E2", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "2.55e+2"
+
+    //     (255UL).ToString("E15", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "2.550000000000000e+2"
+
+    //     (255UL).ToString("e2", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "2.55e+2"
+
+    //     (255UL).ToString("e15", CultureInfo.InvariantCulture)
+    //     |> adaptExponentValue
+    //     |> equal "2.550000000000000e+2"
+
+    testCase "float.ToString 'E' works"
+    <| fun () ->
+        (255.2357).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255.2357).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.552357000000000e+2"
+
+        // (-255.2357).ToString("E", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-2.552357e+2"
+
+        (255.2357).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255.2357).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.552357000000000e+2"
+
+        // (-255.2357).ToString("e", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-2.552357e+2"
+
+    testCase "float32.ToString 'E' works"
+    <| fun () ->
+        (255.2357f).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255.2357f).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.552357025146484e+2"
+
+        // (-255.2357f).ToString("E", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-2.552357e+2"
+
+        (255.2357f).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
+
+        (255.2357f).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.552357025146484e+2"
+
+        // (-255.2357f).ToString("e", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-2.552357e+2"
+
+
+    testCase "byte.ToString 'F' works"
+    <| fun () ->
+        (255uy).ToString("F2") |> equal "255.00"
+
+        (255uy).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.000000000000000"
+
+    testCase "sbyte.ToString 'F' works"
+    <| fun () ->
+        (127y).ToString("F2", CultureInfo.InvariantCulture) |> equal "127.00"
+
+        (127y).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "127.000000000000000"
+
+        (-127y).ToString("F", CultureInfo.InvariantCulture) |> equal "-127.00"
+
+    testCase "int16.ToString 'F' works"
+    <| fun () ->
+        (255s).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+        (255s).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.000000000000000"
+
+        (-255s).ToString("F", CultureInfo.InvariantCulture) |> equal "-255.00"
+
+    testCase "uint16.ToString 'F' works"
+    <| fun () ->
+        (255us).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+        (255us).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.000000000000000"
+
+    testCase "int32.ToString 'F' works"
+    <| fun () ->
+        (255).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+        (255).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.000000000000000"
+
+        (-255).ToString("F", CultureInfo.InvariantCulture) |> equal "-255.00"
+
+        (235672367).ToString("F2", CultureInfo.InvariantCulture) |> equal "235672367.00"
+
+    testCase "uint32.ToString 'F' works"
+    <| fun () ->
+        (255u).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+        (255u).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.000000000000000"
+
+    // testCase "int64.ToString 'F' works"
+    // <| fun () ->
+    //     (255L).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+    //     (255L).ToString("F15", CultureInfo.InvariantCulture)
+    //     |> equal "255.000000000000000"
+
+    //     (-255L).ToString("F", CultureInfo.InvariantCulture) |> equal "-255.00"
+
+    // testCase "uint64.ToString 'F' works"
+    // <| fun () ->
+    //     // (255UL).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+    //     (255UL).ToString("F15", CultureInfo.InvariantCulture)
+    //     |> equal "255.000000000000000"
+
+    testCase "float.ToString 'F' works"
+    <| fun () ->
+        (255.2357).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.24"
+
+        (255.2357).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.235700000000008"
+
+        (-255.2357).ToString("F", CultureInfo.InvariantCulture) |> equal "-255.24"
+
+    testCase "float32.ToString 'F' works"
+    <| fun () ->
+        (255.2357f).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.24"
+
+        (255.2357f).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.235702514648438"
+
+        (-255.2357f).ToString("F", CultureInfo.InvariantCulture) |> equal "-255.24"
+
+    testCase "byte.ToString 'G' works"
+    <| fun () ->
+        (255uy).ToString("G2") |> adaptExponentValue |> equal "2.6e+2"
+
+        (255uy).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255"
+
+    testCase "sbyte.ToString 'G' works"
+    <| fun () ->
+        (127y).ToString("G2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "1.3e+2"
+
+        (127y).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "127"
+
+        (-127y).ToString("G", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-127"
+
+    testCase "int16.ToString 'G' works"
+    <| fun () ->
+        (255s).ToString("G2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.6e+2"
+
+        (255s).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255"
+
+        (-255s).ToString("G", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-255"
+
+    testCase "uint16.ToString 'G' works"
+    <| fun () ->
+        (255us).ToString("G2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.6e+2"
+
+        (255us).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255"
+
+    testCase "int32.ToString 'G' works"
+    <| fun () ->
+        (255).ToString("G2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.6e+2"
+
+        (255).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255"
+
+        (-255).ToString("G", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-255"
+
+        (235672367).ToString("G2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.4e+8"
+
+    testCase "uint32.ToString 'G' works"
+    <| fun () ->
+        (255u).ToString("G2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.6e+2"
+
+        (255u).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255"
+
+    testCase "int64.ToString 'G' works"
+    <| fun () ->
+        // (255L).ToString("G2", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "2.6e+2"
+
+        (255L).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255"
+
+        (-255L).ToString("G", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-255"
+
+    testCase "uint64.ToString 'G' works"
+    <| fun () ->
+        // (255UL).ToString("G2", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "2.6e+2"
+
+        (255UL).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255"
+
+    testCase "float.ToString 'G' works"
+    <| fun () ->
+        (255.2357).ToString("G2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.6e+2"
+
+        (255.2357).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255.2357"
+
+        (-255.2357).ToString("G", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-255.2357"
+
+    testCase "float32.ToString 'G' works"
+    <| fun () ->
+        (255.2357f).ToString("G2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.6e+2"
+
+        (255.2357f).ToString("G15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "255.235702514648"
+
+        // (-255.2357f).ToString("G", CultureInfo.InvariantCulture)
+        // |> adaptExponentValue
+        // |> equal "-255.2357"
+
+    testCase "byte.ToString 'N' works"
+    <| fun () ->
+        (255uy).ToString("N2") |> equal "255.00"
+
+        // (255uy).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+
+        (255uy).ToString("N", CultureInfo.InvariantCulture) |> equal "255.00"
+
+    testCase "sbyte.ToString 'N' works"
+    <| fun () ->
+        (127y).ToString("N2", CultureInfo.InvariantCulture) |> equal "127.00"
+
+        // (127y).ToString("N15", CultureInfo.InvariantCulture) |> equal "127.000000000000000"
+
+        (-127y).ToString("N", CultureInfo.InvariantCulture) |> equal "-127.00"
+
+    testCase "int16.ToString 'N' works"
+    <| fun () ->
+        (255s).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+        // (255s).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+
+        (-255s).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.00"
+
+    testCase "uint16.ToString 'N' works"
+    <| fun () ->
+        (255us).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+        // (255us).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+
+        (255us).ToString("N", CultureInfo.InvariantCulture) |> equal "255.00"
+
+    testCase "int32.ToString 'N' works"
+    <| fun () ->
+        (255).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+        // (255).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+
+        (-255).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.00"
+
+        (235672367).ToString("N2", CultureInfo.InvariantCulture) |> equal "235,672,367.00"
+
+    testCase "uint32.ToString 'N' works"
+    <| fun () ->
+        (255u).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.00"
+
+        // (255u).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+
+        (255u).ToString("N", CultureInfo.InvariantCulture) |> equal "255.00"
+
+    // testCase "int64.ToString 'N' works"
+    // <| fun () ->
+    //     (255L).ToString("N2", CultureInfo.InvariantCulture)
+    //     |> equal "255.00"
+
+    //     (255L).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+
+    //     (-255L).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.00"
+
+    // testCase "uint64.ToString 'N' works"
+    // <| fun () ->
+    //     (255UL).ToString("N2", CultureInfo.InvariantCulture)
+    //     |> equal "255.00"
+
+    //     (255UL).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+
+    //     (255UL).ToString("N", CultureInfo.InvariantCulture) |> equal "255.00"
+
+    // testCase "float.ToString 'N' works"
+    // <| fun () ->
+    //     (255.2357).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.24"
+
+    //     // (255.2357).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.235700000000008"
+
+    //     (-255.2357).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.24"
+
+    // testCase "float32.ToString 'N' works"
+    // <| fun () ->
+    //     (255.2357f).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.24"
+
+    //     // (255.2357f).ToString("N15", CultureInfo.InvariantCulture)
+    //     // |> equal "255.235702514648438"
+
+    //     (-255.2357f).ToString("N", CultureInfo.InvariantCulture)
+    //     |> equal "-255.24"
+
+    testCase "byte.ToString 'P' works"
+    <| fun () ->
+        (255uy).ToString("P2")
+        // In .NET byte seems to not have a space before the % sign
+        |> fun str -> str.Replace(" %", "%")
+        |> equal "25,500.00%"
+
+        (255uy).ToString("P15", CultureInfo.InvariantCulture) |> equal "25,500.000000000000000 %"
+
+        (255uy).ToString("P", CultureInfo.InvariantCulture) |> equal "25,500.00 %"
+
+    testCase "sbyte.ToString 'P' works"
+    <| fun () ->
+        (127y).ToString("P2", CultureInfo.InvariantCulture) |> equal "12,700.00 %"
+
+        (127y).ToString("P15", CultureInfo.InvariantCulture) |> equal "12,700.000000000000000 %"
+
+        (-127y).ToString("P", CultureInfo.InvariantCulture) |> equal "-12,700.00 %"
+
+    testCase "int16.ToString 'P' works"
+    <| fun () ->
+        (255s).ToString("P2", CultureInfo.InvariantCulture) |> equal "25,500.00 %"
+
+        (255s).ToString("P15", CultureInfo.InvariantCulture) |> equal "25,500.000000000000000 %"
+
+        (-255s).ToString("P", CultureInfo.InvariantCulture) |> equal "-25,500.00 %"
+
+    testCase "uint16.ToString 'P' works"
+    <| fun () ->
+        (255us).ToString("P2", CultureInfo.InvariantCulture) |> equal "25,500.00 %"
+
+        (255us).ToString("P15", CultureInfo.InvariantCulture) |> equal "25,500.000000000000000 %"
+
+        (255us).ToString("P", CultureInfo.InvariantCulture) |> equal "25,500.00 %"
+
+    testCase "int32.ToString 'P' works"
+    <| fun () ->
+        (255).ToString("P2", CultureInfo.InvariantCulture) |> equal "25,500.00 %"
+
+        (255).ToString("P15", CultureInfo.InvariantCulture) |> equal "25,500.000000000000000 %"
+
+        (-255).ToString("P", CultureInfo.InvariantCulture) |> equal "-25,500.00 %"
+
+        (235672367).ToString("P2", CultureInfo.InvariantCulture) |> equal "23,567,236,700.00 %"
+        (1).ToString("P2", CultureInfo.InvariantCulture) |> equal "100.00 %"
+        (0.34).ToString("P2", CultureInfo.InvariantCulture) |> equal "34.00 %"
+
+    testCase "uint32.ToString 'P' works"
+    <| fun () ->
+        (255u).ToString("P2", CultureInfo.InvariantCulture) |> equal "25,500.00 %"
+
+        (255u).ToString("P15", CultureInfo.InvariantCulture) |> equal "25,500.000000000000000 %"
+
+        (255u).ToString("P", CultureInfo.InvariantCulture) |> equal "25,500.00 %"
+
+    testCase "int64.ToString 'P' works"
+    <| fun () ->
+        (255L).ToString("P2", CultureInfo.InvariantCulture)
+        |> equal "25,500.00 %"
+
+        (255L).ToString("P15", CultureInfo.InvariantCulture) |> equal "25,500.000000000000000 %"
+
+        (-255L).ToString("P", CultureInfo.InvariantCulture) |> equal "-25,500.00 %"
+
+    testCase "uint64.ToString 'P' works"
+    <| fun () ->
+        (255UL).ToString("P2", CultureInfo.InvariantCulture)
+        |> equal "25,500.00 %"
+
+        (255UL).ToString("P15", CultureInfo.InvariantCulture) |> equal "25,500.000000000000000 %"
+
+        (255UL).ToString("P", CultureInfo.InvariantCulture) |> equal "25,500.00 %"
+
+    testCase "float.ToString 'P' works"
+    <| fun () ->
+        (255.2357).ToString("P2", CultureInfo.InvariantCulture) |> equal "25,523.57 %"
+
+        (255.2357).ToString("P5", CultureInfo.InvariantCulture) |> equal "25,523.57000 %"
+
+        (-255.2357).ToString("P", CultureInfo.InvariantCulture) |> equal "-25,523.57 %"
+
+    testCase "float32.ToString 'P' works"
+    <| fun () ->
+        (255.2357f).ToString("P2", CultureInfo.InvariantCulture) |> equal "25,523.57 %"
+
+        (255.2357f).ToString("P15", CultureInfo.InvariantCulture)
+        |> equal "25,523.570251464843750 %"
+
+        (-255.2357f).ToString("P", CultureInfo.InvariantCulture)
+        |> equal "-25,523.57 %"
+    testCase "byte.ToString 'X' works" <| fun () ->
+        (255uy).ToString("X2") |> equal "FF"
+        (255uy).ToString("X15") |> equal "0000000000000FF"
+
+    testCase "sbyte.ToString 'X' works" <| fun () ->
+        (1y).ToString("X2") |> equal "01"
+        (127y).ToString("X2") |> equal "7F"
+        (127y).ToString("X15") |> equal "00000000000007F"
+        // (-127y).ToString("X") |> equal "81"
+
+    testCase "int16.ToString 'X' works" <| fun () ->
+        (255s).ToString("X2") |> equal "FF"
+        (255s).ToString("X15") |> equal "0000000000000FF"
+        // (-255s).ToString("X") |> equal "FF01"
+
+    testCase "uint16.ToString 'X' works" <| fun () ->
+        (255us).ToString("X2") |> equal "FF"
+        (255us).ToString("X15") |> equal "0000000000000FF"
+
+    testCase "int32.ToString 'X' works" <| fun () ->
+        (255).ToString("X2") |> equal "FF"
+        (255).ToString("X15") |> equal "0000000000000FF"
+        (-255).ToString("X") |> equal "FFFFFF01"
+
+    testCase "uint32.ToString 'X' works" <| fun () ->
+        (255u).ToString("X2") |> equal "FF"
+        (255u).ToString("X15") |> equal "0000000000000FF"
+
+    testCase "int64.ToString 'X' works" <| fun () ->
+        (255L).ToString("X2", CultureInfo.InvariantCulture) |> equal "FF"
+        (255L).ToString("X15", CultureInfo.InvariantCulture) |> equal "0000000000000FF"
+        (-255L).ToString("X", CultureInfo.InvariantCulture) |> equal "FFFFFFFFFFFFFF01"
+
+        (25523678236826386L).ToString("x2", CultureInfo.InvariantCulture) |> equal "5aada66eaadb12"
+
+    testCase "uint64.ToString 'X' works" <| fun () ->
+        (255UL).ToString("X2", CultureInfo.InvariantCulture) |> equal "FF"
+        (255UL).ToString("X15", CultureInfo.InvariantCulture) |> equal "0000000000000FF"
+
+    testCase "decimal.ToString 'X' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723m).ToString("X")
+        )
+
+    testCase "float.ToString 'X' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723).ToString("X")
+        )
+
+    testCase "float32.ToString 'X' throws" <| fun () ->
+        throwsAnyError( fun _ ->
+            (2323.2368723f).ToString("X")
+        )
+
+    testCase "System.Int32.ToString works" <| fun () ->
+        (5592405).ToString() |> equal "5592405"
+
+    testCase "System.Int64.ToString works" <| fun () ->
+        (5592405L).ToString() |> equal "5592405"
+
+    testCase "System.BigInt.ToString works" <| fun () ->
+        (5592405I).ToString() |> equal "5592405"
+
+    testCase "System.Decimal.ToString works" <| fun () ->
+        (5592405M).ToString() |> equal "5592405"
 
     //-------------------------------------
     // System.Convert
