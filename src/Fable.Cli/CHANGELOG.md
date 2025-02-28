@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Fix numeric formats (`D`, `d`, `G`, `g`, `N`, `n`, `P`, `p`, `X`, `x`) (by @MangelMaxime)
 
+### Changed
+
+* [JS/TS] Throw an error is an invalid Numeric format is provided (mimic .NET behavior) (by @MangelMaxime)
+
 ## 5.0.0-alpha.10 - 2025-02-16
 
 ### Added

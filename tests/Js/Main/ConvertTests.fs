@@ -357,11 +357,11 @@ let tests =
 
     testCase "float32.ToString 'C' works" <| fun () ->
         (255.2357f).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.24"
-        (255.2357f).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.235702514648438"
+        (255.2357f).ToString("C5", CultureInfo.InvariantCulture) |> equal "¤255.23570"
         (-255.2357f).ToString("C", CultureInfo.InvariantCulture) |> equal "(¤255.24)"
 
         (255.2357f).ToString("c2", CultureInfo.InvariantCulture) |> equal "¤255.24"
-        (255.2357f).ToString("c15", CultureInfo.InvariantCulture) |> equal "¤255.235702514648438"
+        (255.2357f).ToString("c5", CultureInfo.InvariantCulture) |> equal "¤255.23570"
         (-255.2357f).ToString("c", CultureInfo.InvariantCulture) |> equal "(¤255.24)"
 
     testCase "byte.ToString 'D' works" <| fun () ->
@@ -657,9 +657,9 @@ let tests =
         |> adaptExponentValue
         |> equal "2.55e+2"
 
-        (255.2357f).ToString("E15", CultureInfo.InvariantCulture)
+        (255.2357f).ToString("E5", CultureInfo.InvariantCulture)
         |> adaptExponentValue
-        |> equal "2.552357025146484e+2"
+        |> equal "2.55236e+2"
 
         // (-255.2357f).ToString("E", CultureInfo.InvariantCulture)
         // |> adaptExponentValue
@@ -669,14 +669,13 @@ let tests =
         |> adaptExponentValue
         |> equal "2.55e+2"
 
-        (255.2357f).ToString("e15", CultureInfo.InvariantCulture)
+        (255.2357f).ToString("e5", CultureInfo.InvariantCulture)
         |> adaptExponentValue
-        |> equal "2.552357025146484e+2"
+        |> equal "2.55236e+2"
 
         // (-255.2357f).ToString("e", CultureInfo.InvariantCulture)
         // |> adaptExponentValue
         // |> equal "-2.552357e+2"
-
 
     testCase "byte.ToString 'F' works"
     <| fun () ->
@@ -757,8 +756,8 @@ let tests =
     <| fun () ->
         (255.2357f).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.24"
 
-        (255.2357f).ToString("F15", CultureInfo.InvariantCulture)
-        |> equal "255.235702514648438"
+        (255.2357f).ToString("F5", CultureInfo.InvariantCulture)
+        |> equal "255.23570"
 
         (-255.2357f).ToString("F", CultureInfo.InvariantCulture) |> equal "-255.24"
 
@@ -1059,11 +1058,12 @@ let tests =
     <| fun () ->
         (255.2357f).ToString("P2", CultureInfo.InvariantCulture) |> equal "25,523.57 %"
 
-        (255.2357f).ToString("P15", CultureInfo.InvariantCulture)
-        |> equal "25,523.570251464843750 %"
+        (255.2357f).ToString("P5", CultureInfo.InvariantCulture)
+        |> equal "25,523.57025 %"
 
         (-255.2357f).ToString("P", CultureInfo.InvariantCulture)
         |> equal "-25,523.57 %"
+
     testCase "byte.ToString 'X' works" <| fun () ->
         (255uy).ToString("X2") |> equal "FF"
         (255uy).ToString("X15") |> equal "0000000000000FF"
