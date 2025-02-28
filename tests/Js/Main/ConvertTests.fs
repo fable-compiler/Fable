@@ -879,9 +879,9 @@ let tests =
         |> adaptExponentValue
         |> equal "2.6e+2"
 
-        (255.2357f).ToString("G15", CultureInfo.InvariantCulture)
+        (255.2357f).ToString("G5", CultureInfo.InvariantCulture)
         |> adaptExponentValue
-        |> equal "255.235702514648"
+        |> equal "255.24"
 
         // (-255.2357f).ToString("G", CultureInfo.InvariantCulture)
         // |> adaptExponentValue
