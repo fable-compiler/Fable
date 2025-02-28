@@ -333,7 +333,7 @@ export function format(str: string | object, ...args: any[]) {
           }
           rep = (rep >>> 0).toString(2).replace(/^0+/, "").padStart(precision || 1, "0");
           break;
-        case "C": case "c":
+        case "c": case "C":
           const isNegative = isLessThan(rep, 0);
           if (isLessThan(rep, 0)) {
             rep = multiply(rep, -1);
@@ -371,7 +371,7 @@ export function format(str: string | object, ...args: any[]) {
           // TODO: Check why some numbers are formatted with decimal part
           rep = trimEnd(trimEnd(rep, "0"), ".");
           break;
-        case "N":
+        case "n": case "N":
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
           rep = thousandSeparate(rep);
@@ -382,7 +382,7 @@ export function format(str: string | object, ...args: any[]) {
           parts = splitIntAndDecimalPart(rep);
           rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0") + " %";
           break;
-        case "R": case "r":
+        case "r": case "R":
           throw new Error("The round-trip format is not supported");
         case "x": case "X":
           if (!isIntegral(rep)) {

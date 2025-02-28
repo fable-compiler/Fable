@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Rust] Support Rust 2024 language edition (by @ncave)
 * [JS/TS] Add `C` and `c` format for numeric types (by @MangelMaxime)
 * [JS/TS] Add `B` and `b` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `n` format for numeric types (by @MangelMaxime)
 
 ### Fixed
 
@@ -36,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         )
     ```
 
-* [JS/TS] Fix `N` and `n` format for numeric types (by @MangelMaxime)
+* [JS/TS] Fix numeric formats (`D`, `d`, `G`, `g`, `N`, `n`, `P`, `p`, `X`, `x`) (by @MangelMaxime)
 
 ## 5.0.0-alpha.10 - 2025-02-16
 
