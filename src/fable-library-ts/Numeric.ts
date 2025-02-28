@@ -18,6 +18,11 @@ export function isNumeric(x: any) {
     return typeof x === "number" || typeof x === "bigint" || x?.[symbol];
 }
 
+export function isIntegral(x: Numeric) {
+    // Not perfect, because in JS we can't distinguish between 1.0 and 1
+    return typeof x === "number" && Number.isInteger(x) || typeof x === "bigint";
+}
+
 export function compare(x: Numeric, y: number) {
     if (typeof x === "number") {
         return x < y ? -1 : (x > y ? 1 : 0);
@@ -42,7 +47,7 @@ export function toFixed(x: Numeric, dp?: number) {
     if (typeof x === "number") {
         return x.toFixed(dp);
     } else if (typeof x === "bigint") {
-        return x;
+        return x.toString();
     } else {
         return x[symbol]().toFixed(dp);
     }
@@ -52,7 +57,7 @@ export function toPrecision(x: Numeric, sd?: number) {
     if (typeof x === "number") {
         return x.toPrecision(sd);
     } else if (typeof x === "bigint") {
-        return x;
+        return x.toString();
     } else {
         return x[symbol]().toPrecision(sd);
     }

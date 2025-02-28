@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Add support for `CaseRules.LowerAll` on `StringEnums` (by @shayanhabibi)
 * [Rust] Support Rust 2024 language edition (by @ncave)
+* [JS/TS] Add `C` and `c` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `B` and `b` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `n` format for numeric types (by @MangelMaxime)
 
 ### Fixed
 
@@ -33,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
             o.topValueA <- 20
         )
     ```
+
+* [JS/TS] Fix numeric formats (`D`, `d`, `G`, `g`, `N`, `n`, `P`, `p`, `X`, `x`) (by @MangelMaxime)
+
+### Changed
+
+* [JS/TS] Throw an error is an invalid Numeric format is provided (mimic .NET behavior) (by @MangelMaxime)
 
 ## 5.0.0-alpha.10 - 2025-02-16
 
