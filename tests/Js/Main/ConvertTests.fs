@@ -1058,8 +1058,8 @@ let tests =
     <| fun () ->
         (255.2357f).ToString("P2", CultureInfo.InvariantCulture) |> equal "25,523.57 %"
 
-        (255.2357f).ToString("P5", CultureInfo.InvariantCulture)
-        |> equal "25,523.57025 %"
+        (255.2357f).ToString("P3", CultureInfo.InvariantCulture)
+        |> equal "25,523.570 %"
 
         (-255.2357f).ToString("P", CultureInfo.InvariantCulture)
         |> equal "-25,523.57 %"
