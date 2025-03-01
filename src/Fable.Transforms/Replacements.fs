@@ -2398,6 +2398,76 @@ let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
+let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) format =
+    let libCallFormat () =
+        let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"
+
+        Helper.LibCall(
+            com,
+            "String",
+            "format",
+            t,
+            [ format; thisArg.Value ],
+            [ format.Type; thisArg.Value.Type ],
+            ?loc = r
+        )
+        |> Some
+
+    match format with
+    | StringConst format ->
+        let m = Regex.Match(format, "^(?<token>[a-zA-Z])(?<precision>\d{0,2})$")
+
+        if m.Success then
+            let token = m.Groups.["token"].Value
+
+            let numberKind =
+                match i.DeclaringEntityFullName with
+                | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> kind
+                | x -> failwithf $"Unexpected type in parse: %A{x}"
+
+            let warningOpt =
+                match token.ToLower() with
+                | "b" ->
+                    match numberKind with
+                    | Integers _ -> None
+                    // We should support BigIntegers, but it's not implemented yet
+                    | _ -> "does not support binary format specifier" |> Some
+
+                | "c" -> None
+                | "d" ->
+                    match numberKind with
+                    | Integers _
+                    | BigIntegers _ -> None
+                    | _ -> "does not support decimal format specifier" |> Some
+                | "e" ->
+                    match numberKind with
+                    | BigIntegers _ -> "does not support exponential format specifier" |> Some
+                    | _ -> None
+                | "f"
+                | "g"
+                | "n"
+                | "p" -> None
+                | "r" -> "with round-trip format specifier is not support by Fable" |> Some
+                | "x" ->
+                    match numberKind with
+                    | Integers _
+                    | BigIntegers _ -> None
+                    | _ -> "does not support hexadecimal format specifier" |> Some
+                | _ -> "received an unknown format specifier" |> Some
+
+            match warningOpt with
+            | Some message ->
+                $"%s{i.DeclaringEntityFullName}.ToString %s{message}"
+                |> addWarning com ctx.InlinePath r
+
+                None
+            | None -> libCallFormat ()
+        else
+            libCallFormat ()
+
+    | _ -> libCallFormat ()
+
+
 let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseCall meth str args style =
         let kind =
@@ -2498,18 +2568,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
     | "ToString", [ ExprTypeAs(String, format) ]
     | "ToString", [ ExprTypeAs(String, format); _ (* Culture info *) ] ->
-        let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"
-
-        Helper.LibCall(
-            com,
-            "String",
-            "format",
-            t,
-            [ format; thisArg.Value ],
-            [ format.Type; thisArg.Value.Type ],
-            ?loc = r
-        )
-        |> Some
+        numericStringFormat com ctx r t i thisArg format
     | "ToString", _ -> Helper.GlobalCall("String", String, [ thisArg.Value ], ?loc = r) |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
@@ -2555,19 +2614,9 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
 
         Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | "ToString", [ ExprTypeAs(String, format) ] ->
-        let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"
-
-        Helper.LibCall(
-            com,
-            "String",
-            "format",
-            t,
-            [ format; thisArg.Value ],
-            [ format.Type; thisArg.Value.Type ],
-            ?loc = r
-        )
-        |> Some
+    | "ToString", [ ExprTypeAs(String, format) ]
+    | "ToString", [ ExprTypeAs(String, format); _ (* Culture info *) ] ->
+        numericStringFormat com ctx r t i thisArg format
     | "ToString", _ -> Helper.InstanceCall(thisArg.Value, "toString", String, [], ?loc = r) |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _, _ -> None

@@ -265,17 +265,23 @@ let tests =
 
     testCase "decimal.ToString 'B' throws" <| fun () ->
         throwsAnyError( fun _ ->
-            (2323.2368723m).ToString("B")
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "B"
+            (2323.2368723m).ToString(format())
         )
 
     testCase "float.ToString 'B' throws" <| fun () ->
         throwsAnyError( fun _ ->
-            (2323.2368723).ToString("B")
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "B"
+            (2323.2368723).ToString(format())
         )
 
     testCase "float32.ToString 'B' throws" <| fun () ->
         throwsAnyError( fun _ ->
-            (2323.2368723f).ToString("B")
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "B"
+            (2323.2368723f).ToString(format())
         )
 
     testCase "byte.ToString 'C' works" <| fun () ->
@@ -430,18 +436,24 @@ let tests =
         (255UL).ToString("d15", CultureInfo.InvariantCulture) |> equal "000000000000255"
 
     testCase "decimal.ToString 'D' throws" <| fun () ->
-        throwsAnyError( fun _ ->
-            (2323.2368723m).ToString("D")
+        throwsAnyError(fun _ ->
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "D"
+            (2323.2368723m).ToString(format())
         )
 
     testCase "float.ToString 'D' throws" <| fun () ->
-        throwsAnyError( fun _ ->
-            (2323.2368723).ToString("D")
+        throwsAnyError(fun _ ->
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "D"
+            (2323.2368723).ToString(format())
         )
 
     testCase "float32.ToString 'D' throws" <| fun () ->
-        throwsAnyError( fun _ ->
-            (2323.2368723f).ToString("D")
+        throwsAnyError(fun _ ->
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "D"
+            (2323.2368723f).ToString(format())
         )
 
     testCase "byte.ToString 'E' works"
@@ -720,6 +732,8 @@ let tests =
 
         (235672367).ToString("F2", CultureInfo.InvariantCulture) |> equal "235672367.00"
 
+        (235672367).ToString("F0", CultureInfo.InvariantCulture) |> equal "235672367"
+
     testCase "uint32.ToString 'F' works"
     <| fun () ->
         (255u).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
@@ -727,21 +741,21 @@ let tests =
         (255u).ToString("F15", CultureInfo.InvariantCulture)
         |> equal "255.000000000000000"
 
-    // testCase "int64.ToString 'F' works"
-    // <| fun () ->
-    //     (255L).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
+    testCase "int64.ToString 'F' works"
+    <| fun () ->
+        (255L).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
 
-    //     (255L).ToString("F15", CultureInfo.InvariantCulture)
-    //     |> equal "255.000000000000000"
+        (255L).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.000000000000000"
 
-    //     (-255L).ToString("F", CultureInfo.InvariantCulture) |> equal "-255.00"
+        (-255L).ToString("F", CultureInfo.InvariantCulture) |> equal "-255.00"
 
-    // testCase "uint64.ToString 'F' works"
-    // <| fun () ->
-    //     // (255UL).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
+    testCase "uint64.ToString 'F' works"
+    <| fun () ->
+        // (255UL).ToString("F2", CultureInfo.InvariantCulture) |> equal "255.00"
 
-    //     (255UL).ToString("F15", CultureInfo.InvariantCulture)
-    //     |> equal "255.000000000000000"
+        (255UL).ToString("F15", CultureInfo.InvariantCulture)
+        |> equal "255.000000000000000"
 
     testCase "float.ToString 'F' works"
     <| fun () ->
@@ -937,41 +951,40 @@ let tests =
 
         (255u).ToString("N", CultureInfo.InvariantCulture) |> equal "255.00"
 
-    // testCase "int64.ToString 'N' works"
-    // <| fun () ->
-    //     (255L).ToString("N2", CultureInfo.InvariantCulture)
-    //     |> equal "255.00"
+    testCase "int64.ToString 'N' works"
+    <| fun () ->
+        (255L).ToString("N2", CultureInfo.InvariantCulture)
+        |> equal "255.00"
 
-    //     (255L).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+        (255L).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
 
-    //     (-255L).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.00"
+        (-255L).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.00"
 
-    // testCase "uint64.ToString 'N' works"
-    // <| fun () ->
-    //     (255UL).ToString("N2", CultureInfo.InvariantCulture)
-    //     |> equal "255.00"
+    testCase "uint64.ToString 'N' works"
+    <| fun () ->
+        (255UL).ToString("N2", CultureInfo.InvariantCulture)
+        |> equal "255.00"
 
-    //     (255UL).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
+        (255UL).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.000000000000000"
 
-    //     (255UL).ToString("N", CultureInfo.InvariantCulture) |> equal "255.00"
+        (255UL).ToString("N", CultureInfo.InvariantCulture) |> equal "255.00"
 
-    // testCase "float.ToString 'N' works"
-    // <| fun () ->
-    //     (255.2357).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.24"
+    testCase "float.ToString 'N' works"
+    <| fun () ->
+        (255.2357).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.24"
 
-    //     // (255.2357).ToString("N15", CultureInfo.InvariantCulture) |> equal "255.235700000000008"
+        (255.2357).ToString("N4", CultureInfo.InvariantCulture) |> equal "255.2357"
 
-    //     (-255.2357).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.24"
+        (-255.2357).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.24"
 
-    // testCase "float32.ToString 'N' works"
-    // <| fun () ->
-    //     (255.2357f).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.24"
+    testCase "float32.ToString 'N' works"
+    <| fun () ->
+        (255.2357f).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.24"
 
-    //     // (255.2357f).ToString("N15", CultureInfo.InvariantCulture)
-    //     // |> equal "255.235702514648438"
+        (255.2357).ToString("N4", CultureInfo.InvariantCulture) |> equal "255.2357"
 
-    //     (-255.2357f).ToString("N", CultureInfo.InvariantCulture)
-    //     |> equal "-255.24"
+        (-255.2357f).ToString("N", CultureInfo.InvariantCulture)
+        |> equal "-255.24"
 
     testCase "byte.ToString 'P' works"
     <| fun () ->
@@ -1105,17 +1118,23 @@ let tests =
 
     testCase "decimal.ToString 'X' throws" <| fun () ->
         throwsAnyError( fun _ ->
-            (2323.2368723m).ToString("X")
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "X"
+            (2323.2368723m).ToString(format())
         )
 
     testCase "float.ToString 'X' throws" <| fun () ->
         throwsAnyError( fun _ ->
-            (2323.2368723).ToString("X")
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "X"
+            (2323.2368723).ToString(format())
         )
 
     testCase "float32.ToString 'X' throws" <| fun () ->
         throwsAnyError( fun _ ->
-            (2323.2368723f).ToString("X")
+            // Use a function to prevet detection at the compile time by Fable
+            let format () = "X"
+            (2323.2368723f).ToString(format())
         )
 
     testCase "System.Int32.ToString works" <| fun () ->

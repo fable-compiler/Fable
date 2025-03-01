@@ -365,6 +365,10 @@ export function format(str: string | object, ...args: any[]) {
         case "f": case "F":
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
+          if (precision > 0) {
+            parts = splitIntAndDecimalPart(rep);
+            rep = parts.integral + "." + padRight(parts.decimal, precision, "0");
+          }
           break;
         case "g": case "G":
           rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
@@ -374,7 +378,8 @@ export function format(str: string | object, ...args: any[]) {
         case "n": case "N":
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
-          rep = thousandSeparate(rep);
+          parts = splitIntAndDecimalPart(rep);
+          rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
           break;
         case "p": case "P":
           precision = precision != null ? precision : 2;
@@ -383,7 +388,7 @@ export function format(str: string | object, ...args: any[]) {
           rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0") + " %";
           break;
         case "r": case "R":
-          throw new Error("The round-trip format is not supported");
+          throw new Error("The round-trip format is not supported by Fable");
         case "x": case "X":
           if (!isIntegral(rep)) {
             throw new Error("Format specifier was invalid.");
