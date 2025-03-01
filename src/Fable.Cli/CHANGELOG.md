@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Add `C` and `c` format for numeric types (by @MangelMaxime)
 * [JS/TS] Add `B` and `b` format for numeric types (by @MangelMaxime)
 * [JS/TS] Add `n` format for numeric types (by @MangelMaxime)
-* [JS/TS] Generate compiler warning when detecting an invalid/unsupported format specifier for numeric types (by @MangelMaxime)
+* [JS/TS] Generate compiler error when detecting an invalid/unsupported format specifier for numeric types (by @MangelMaxime)
 
 ### Fixed
 

@@ -2425,12 +2425,12 @@ let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisA
                 | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> kind
                 | x -> failwithf $"Unexpected type in parse: %A{x}"
 
-            let warningOpt =
+            let errorOpt =
                 match token.ToLower() with
                 | "b" ->
                     match numberKind with
                     | Integers _ -> None
-                    // We should support BigIntegers, but it's not implemented yet
+                    | BigIntegers _ -> "with binary format specifier is not supported by Fable" |> Some
                     | _ -> "does not support binary format specifier" |> Some
 
                 | "c" -> None
@@ -2455,10 +2455,10 @@ let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisA
                     | _ -> "does not support hexadecimal format specifier" |> Some
                 | _ -> "received an unknown format specifier" |> Some
 
-            match warningOpt with
+            match errorOpt with
             | Some message ->
                 $"%s{i.DeclaringEntityFullName}.ToString %s{message}"
-                |> addWarning com ctx.InlinePath r
+                |> addError com ctx.InlinePath r
 
                 None
             | None -> libCallFormat ()
