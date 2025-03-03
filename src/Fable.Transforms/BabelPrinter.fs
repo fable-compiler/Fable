@@ -443,6 +443,12 @@ module PrinterExtensions =
                 |> List.iter (
                     function
                     | _, NullOrUndefinedOrVoid -> ()
+                    | "__SPREAD_PROPERTY__", value ->
+                        printProp (fun () ->
+                            printer.Print("{...")
+                            printer.Print(value)
+                            printer.Print("}")
+                        )
                     | key, StringConstant value -> printProp (fun () -> printer.Print($"{key}=\"{value}\""))
                     | key, value ->
                         printProp (fun () ->
