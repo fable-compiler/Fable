@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.5.0 - 2025-03-03
+
 ### Added
 
 * [JS/TS] Add `CaseRules.LowerAll` (by @shayanhabibi)

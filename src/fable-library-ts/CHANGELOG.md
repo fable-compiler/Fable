@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.0.0-beta.2 - 2025-03-03
+
 * [JS/TS] Fix #4049: decimal/bigint to integer conversion checks (by @ncave)
 * [JS/TS] Fix `decimal` to `char` conversion checks (by @ManngelMaxime)
 * [JS/TS] Propagate non-captured exception when running `Async.Start` or `Async.StartImmediate` (by @MangelMaxime)
 * [JS/TS] Remove `Async.RunSynchronously` (by @MangelMaxime)
 * [JS/TS] Change signature of `startWithContinuations` to always require all its arguments (by @MangelMaxime)
 * [JS/TS] Fix short `DateTime` and `DateTimeOffset` short format strings (by @MangelMaxime)
+* [JS/TS] Add `C` and `c` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `B` and `b` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `n` format for numeric types (by @MangelMaxime)
+* [JS/TS] Fix numeric formats (by @MangelMaxime)
 
 ## 2.0.0-beta.1 - 2025-02-16
 
