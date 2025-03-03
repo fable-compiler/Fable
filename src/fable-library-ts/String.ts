@@ -1,5 +1,5 @@
 import { toString as dateToString } from "./Date.js";
-import { compare as numericCompare, isNumeric, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.js";
+import { compare as numericCompare, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.js";
 import { escape } from "./RegExp.js";
 import { toString } from "./Types.js";
 
@@ -295,6 +295,19 @@ export function fsFormat(str: string) {
   };
 }
 
+function splitIntAndDecimalPart(value: string) {
+  let [repInt, repDecimal] = value.split(".");
+  repDecimal === undefined && (repDecimal = "");
+  return {
+    integral: repInt,
+    decimal: repDecimal
+  }
+}
+
+function thousandSeparate(value: string) {
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 export function format(str: string | object, ...args: any[]) {
   let str2: string;
   if (typeof str === "object") {
@@ -310,31 +323,89 @@ export function format(str: string | object, ...args: any[]) {
       throw new Error("Index must be greater or equal to zero and less than the arguments' length.")
     }
     let rep = args[idx];
+    let parts;
     if (isNumeric(rep)) {
-      precision = precision == null ? null : parseInt(precision, 10);
+      precision = precision == "" ? null : parseInt(precision, 10);
       switch (format) {
-        case "f": case "F":
-          precision = precision != null ? precision : 2;
-          rep = toFixed(rep, precision);
+        case "b": case "B":
+          if (!isIntegral(rep)) {
+            throw new Error("Format specifier was invalid.");
+          }
+          rep = (rep >>> 0).toString(2).replace(/^0+/, "").padStart(precision || 1, "0");
           break;
-        case "g": case "G":
-          rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+        case "c": case "C":
+          const isNegative = isLessThan(rep, 0);
+          if (isLessThan(rep, 0)) {
+            rep = multiply(rep, -1);
+          }
+          precision = precision == null ? 2 : precision;
+          rep = toFixed(rep, precision);
+          parts = splitIntAndDecimalPart(rep);
+          rep = "¤" + thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
+          if (isNegative) {
+            rep = "(" + rep + ")";
+          }
+          break;
+        case "d": case "D":
+          if (!isIntegral(rep)) {
+            throw new Error("Format specifier was invalid.");
+          }
+          rep = String(rep);
+          if (precision != null) {
+            if (rep.startsWith("-")) {
+              rep = "-" + padLeft(rep.substring(1), precision, "0");
+            } else {
+              rep = padLeft(rep, precision, "0");
+            }
+          }
           break;
         case "e": case "E":
           rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
           break;
+        case "f": case "F":
+          precision = precision != null ? precision : 2;
+          rep = toFixed(rep, precision);
+          if (precision > 0) {
+            parts = splitIntAndDecimalPart(rep);
+            rep = parts.integral + "." + padRight(parts.decimal, precision, "0");
+          }
+          break;
+        case "g": case "G":
+          rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+          // TODO: Check why some numbers are formatted with decimal part
+          rep = trimEnd(trimEnd(rep, "0"), ".");
+          break;
+        case "n": case "N":
+          precision = precision != null ? precision : 2;
+          rep = toFixed(rep, precision);
+          parts = splitIntAndDecimalPart(rep);
+          rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
+          break;
         case "p": case "P":
           precision = precision != null ? precision : 2;
-          rep = toFixed(multiply(rep, 100), precision) + " %";
+          rep = toFixed(multiply(rep, 100), precision)
+          parts = splitIntAndDecimalPart(rep);
+          rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0") + " %";
           break;
-        case "d": case "D":
-          rep = precision != null ? padLeft(String(rep), precision, "0") : String(rep);
-          break;
+        case "r": case "R":
+          throw new Error("The round-trip format is not supported by Fable");
         case "x": case "X":
-          rep = precision != null ? padLeft(toHex(rep), precision, "0") : toHex(rep);
-          if (format === "X") { rep = rep.toUpperCase(); }
+          if (!isIntegral(rep)) {
+            throw new Error("Format specifier was invalid.");
+          }
+          precision = precision != null ? precision : 2;
+          rep = padLeft(toHex(rep), precision, "0");
+          if (format === "X") {
+            rep = rep.toUpperCase();
+          }
           break;
         default:
+          // If we have format and were not able to handle it throw
+          // See: https://learn.microsoft.com/en-us/dotnet/standard/base-types/standard-numeric-format-strings#standard-format-specifiers
+          if (format) {
+            throw new Error("Format specifier was invalid.");
+          }
+
           if (pattern) {
             let sign = "";
             rep = (pattern as string).replace(/([0#,]+)(\.[0#]+)?/, (_, intPart: string, decimalPart: string) => {
