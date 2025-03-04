@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [JS/TS] Make `nullArgCheck` report the same error message as on .NET (by @MangelMaxime)
+
 ## 2.0.0-beta.2 - 2025-03-03
 
 * [JS/TS] Fix #4049: decimal/bigint to integer conversion checks (by @ncave)
