@@ -117,7 +117,7 @@ module Operators =
     [<CompiledName("NullArgCheck")>]
     let nullArgCheck (argumentName: string) (value: 'T) =
         match box value with
-        | null -> raise (new System.ArgumentNullException(argumentName))
+        | null -> raise (new System.ArgumentNullException($"Value cannot be null. (Parameter '{argumentName}')"))
         | _ -> value
 
 module ExtraTopLevelOperators =

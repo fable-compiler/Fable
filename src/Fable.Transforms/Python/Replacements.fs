@@ -1091,7 +1091,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Strings
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail" | "PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // bprintf
       _ -> fsFormat com ctx r t i thisArg args
-    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using"), _ -> fsharpModule com ctx r t i thisArg args
+    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using" | "NullArgCheck"), _ ->
+        fsharpModule com ctx r t i thisArg args
     | "Lock", _ ->
         Helper.LibCall(com, "util", "lock", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
