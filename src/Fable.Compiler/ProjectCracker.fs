@@ -430,6 +430,7 @@ let private extractUsefulOptionsAndSources
         elif
             line.StartsWith("--nowarn", StringComparison.Ordinal)
             || line.StartsWith("--warnon", StringComparison.Ordinal)
+            || line.StartsWith("--checknulls+", StringComparison.Ordinal)
         then
             accSources, line :: accOptions
         elif line.StartsWith("--define:", StringComparison.Ordinal) then
