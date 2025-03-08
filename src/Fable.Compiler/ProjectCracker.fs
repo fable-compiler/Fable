@@ -427,6 +427,9 @@ let private extractUsefulOptionsAndSources
                 accSources, line :: accOptions
             else
                 accSources, accOptions
+        // Only forward the nullness flag if it is coming from the main project
+        elif line.StartsWith("--checknulls+", StringComparison.Ordinal) && isMainProj then
+            accSources, line :: accOptions
         elif
             line.StartsWith("--nowarn", StringComparison.Ordinal)
             || line.StartsWith("--warnon", StringComparison.Ordinal)
