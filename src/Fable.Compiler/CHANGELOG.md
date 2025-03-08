@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Add support for `nullArgCheck`(by @MangelMaxime)
 * [All] Add support for F# `nullness` (by @MangelMaxime)
+* [JS/TS] Add support for `Unchecked.nonNull` (by @MangelMaxime)
 
 ### Fixed
 
