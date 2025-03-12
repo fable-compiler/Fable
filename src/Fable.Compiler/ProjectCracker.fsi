@@ -23,6 +23,7 @@ type CacheInfo =
         Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
+        TreatWarningsAsErrors: bool
     }
 
 type CrackerOptions =
@@ -54,6 +55,7 @@ type CrackerResponse =
         TargetFramework: string option
         PrecompiledInfo: PrecompiledInfoImpl option
         CanReuseCompiledFiles: bool
+        TreatWarningsAsErrors: bool
     }
 
 type ProjectOptionsResponse =
