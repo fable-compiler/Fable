@@ -1140,11 +1140,28 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     SilentCompilation = false
                 }
 
-            let logs =
+            // Sometimes errors are duplicated
+            let logs = logs |> Array.distinct
+
+            let filesToCompile = set filesToCompile
+
+            let errorLogs, otherLogs =
                 logs
-                // Sometimes errors are duplicated
-                |> Array.distinct
-                // We can't foward TreatWarningsAsErrors to FCS because it would generate errors
+                // Ignore warnings from packages in `fable_modules` folder
+                |> Array.filter (fun log ->
+                    match log.Severity with
+                    // We deal with errors later
+                    | Severity.Error -> true
+                    | Severity.Info
+                    | Severity.Warning ->
+                        match log.FileName with
+                        | Some filename when
+                            Naming.isInFableModules (filename) || not (filesToCompile.Contains(filename))
+                            ->
+                            false
+                        | _ -> true
+                )
+                // We can't forward TreatWarningsAsErrors to FCS because it would generate errors
                 // in packages code (Fable recreate a single project with all packages source files)
                 // For this reason, we need to handle the conversion ourselves here
                 // It applies to all logs (Fable, F#, etc.)
@@ -1158,30 +1175,15 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                         )
                     else
                         logs
+                |> Array.partition (fun log -> log.Severity = Severity.Error)
 
-            do
-                let filesToCompile = set filesToCompile
-
-                for log in logs do
-                    match log.Severity with
-                    | Severity.Error -> () // We deal with errors below
-                    | Severity.Info
-                    | Severity.Warning ->
-                        // Ignore warnings from packages in `fable_modules` folder
-                        match log.FileName with
-                        | Some filename when
-                            Naming.isInFableModules (filename) || not (filesToCompile.Contains(filename))
-                            ->
-                            ()
-                        | _ ->
-                            let formatted = formatLog cliArgs.RootDir log
-
-                            if log.Severity = Severity.Warning then
-                                Log.warning formatted
-                            else
-                                Log.always formatted
-
-            let errorLogs = logs |> Array.filter (fun log -> log.Severity = Severity.Error)
+            otherLogs
+            |> Array.iter (fun log ->
+                match log.Severity with
+                | Severity.Error -> () // In theory, we shouldn't have errors here
+                | Severity.Info -> formatLog cliArgs.RootDir log |> Log.always
+                | Severity.Warning -> formatLog cliArgs.RootDir log |> Log.warning
+            )
 
             errorLogs |> Array.iter (formatLog cliArgs.RootDir >> Log.error)
             let hasError = Array.isEmpty errorLogs |> not
