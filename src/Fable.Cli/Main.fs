@@ -1078,7 +1078,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
             Log.always "Skipped compilation because all generated files are up-to-date!"
 
             let exitCode, state = checkRunProcess state projCracked 0
-            return state, [||], exitCode
+
+            return
+                {|
+                    State = state
+                    ErrorLogs = [||]
+                    OtherLogs = [||]
+                    ExitCode = exitCode
+                |}
         else
             // Optimization for watch mode, if files haven't changed run the process as with --runFast
             let state, cliArgs =
@@ -1140,13 +1147,12 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     SilentCompilation = false
                 }
 
-            // Sometimes errors are duplicated
-            let logs = logs |> Array.distinct
-
             let filesToCompile = set filesToCompile
 
             let errorLogs, otherLogs =
+                // Sometimes errors are duplicated
                 logs
+                |> Array.distinct
                 // Ignore warnings from packages in `fable_modules` folder
                 |> Array.filter (fun log ->
                     match log.Severity with
@@ -1275,7 +1281,13 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                             state.PendingFiles
                 }
 
-            return state, logs, exitCode
+            return
+                {|
+                    State = state
+                    ErrorLogs = errorLogs
+                    OtherLogs = otherLogs
+                    ExitCode = exitCode
+                |}
     }
 
 type FileWatcherMsg = | Changes of timeStamp: DateTime * changes: ISet<string>
@@ -1291,7 +1303,7 @@ let startCompilationAsync state =
             // Initialize changes with an empty set
             let changes = HashSet() :> ISet<_>
 
-            let! _state, logs, exitCode =
+            let! compilationResult =
                 match state.Watcher with
                 | None -> compilationCycle state changes
                 | Some watcher ->
@@ -1311,11 +1323,11 @@ let startCompilationAsync state =
                                                         $"""Changes:{Log.newLine}    {changes |> String.concat $"{Log.newLine}    "}"""
                                                 )
 
-                                            let! state, _logs, _exitCode = compilationCycle state changes
+                                            let! compilationResult = compilationCycle state changes
 
                                             Log.always $"Watching {File.relPathToCurDir w.Watcher.BasePath}"
 
-                                            return! loop state
+                                            return! loop compilationResult.State
                                         | _ -> return! loop state
                                 }
 
@@ -1330,9 +1342,19 @@ let startCompilationAsync state =
 
                     Async.FromContinuations(fun (_onSuccess, onError, _onCancel) -> agent.Error.Add(onError))
 
-            match exitCode with
+            // TODO: We should propably keep them separated and even use a DUs to represents
+            // logs using one case per level
+            // type LogEntry =
+            //      | Error of LogData
+            //      | Warning of LogData
+            // but for now we are just rebuilding a single array because I don't know how to
+            // adapt the integrations tests suits
+            // Perhaps, we should make the integration tests code more simple
+            let logs = Array.append compilationResult.ErrorLogs compilationResult.OtherLogs
+
+            match compilationResult.ExitCode with
             | 0 -> return Ok(state, logs)
-            | _ -> return Error("Compilation failed", logs)
+            | _ -> return Error("Compilation failed", [||])
 
         with
         | Fable.FableError e -> return Error(e, [||])
