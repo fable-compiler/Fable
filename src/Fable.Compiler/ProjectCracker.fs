@@ -39,6 +39,7 @@ type CacheInfo =
         Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
+        TreatWarningsAsErrors: bool
     }
 
     static member GetPath(fableModulesDir: string, isDebug: bool) =
@@ -163,6 +164,7 @@ type CrackerResponse =
         TargetFramework: string option
         PrecompiledInfo: PrecompiledInfoImpl option
         CanReuseCompiledFiles: bool
+        TreatWarningsAsErrors: bool
     }
 
 type ProjectOptionsResponse =
@@ -187,6 +189,7 @@ type CrackedFsproj =
         OtherCompilerOptions: string list
         OutputType: string option
         TargetFramework: string option
+        TreatWarningsAsErrors: bool
     }
 
 let makeProjectOptions (opts: CrackerOptions) otherOptions sources : FSharpProjectOptions =
@@ -474,16 +477,19 @@ let getCrackedMainFsproj (opts: CrackerOptions) (projectOptionsResponse: Project
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
 
-    let sourceFiles, otherOpts =
-        (projectOptionsResponse.ProjectOptions, ([], []))
-        ||> Array.foldBack (fun line (src, otherOpts) ->
+    let sourceFiles, otherOpts, treatWarningsAsErrors =
+        (projectOptionsResponse.ProjectOptions, ([], [], false))
+        ||> Array.foldBack (fun line (src, otherOpts, treatWarningsAsErrors) ->
             if line.StartsWith("-r:", StringComparison.Ordinal) then
                 let line = Path.normalizePath (line[3..])
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
-                src, otherOpts
+                src, otherOpts, treatWarningsAsErrors
+            else if line = "--warnaserror" then
+                src, otherOpts, true
             else
-                extractUsefulOptionsAndSources true line (src, otherOpts)
+                let (src, otherOpts) = extractUsefulOptionsAndSources true line (src, otherOpts)
+                src, otherOpts, treatWarningsAsErrors
         )
 
     let fablePkgs =
@@ -512,6 +518,7 @@ let getCrackedMainFsproj (opts: CrackerOptions) (projectOptionsResponse: Project
         OtherCompilerOptions = otherOpts
         OutputType = projectOptionsResponse.OutputType
         TargetFramework = projectOptionsResponse.TargetFramework
+        TreatWarningsAsErrors = treatWarningsAsErrors
     }
 
 let getProjectOptionsFromScript (opts: CrackerOptions) : CrackedFsproj =
@@ -567,6 +574,8 @@ let crackReferenceProject
         OtherCompilerOptions = otherOpts
         OutputType = projectOptionsResponse.OutputType
         TargetFramework = projectOptionsResponse.TargetFramework
+        // Treat warnings as errors only applies to the main project
+        TreatWarningsAsErrors = false
     }
 
 let getCrackedProjectsFromMainFsproj
@@ -910,6 +919,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             TargetFramework = cacheInfo.TargetFramework
             PrecompiledInfo = precompiledInfo
             CanReuseCompiledFiles = canReuseCompiledFiles
+            TreatWarningsAsErrors = cacheInfo.TreatWarningsAsErrors
         }
 
     | None ->
@@ -1017,6 +1027,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
                 Exclude = opts.Exclude
                 SourceMaps = opts.SourceMaps
                 SourceMapsRoot = opts.SourceMapsRoot
+                TreatWarningsAsErrors = mainProj.TreatWarningsAsErrors
             }
 
         if not opts.EvaluateOnly && not opts.NoCache then
@@ -1037,4 +1048,5 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             TargetFramework = mainProj.TargetFramework
             PrecompiledInfo = precompiledInfo
             CanReuseCompiledFiles = false
+            TreatWarningsAsErrors = mainProj.TreatWarningsAsErrors
         }

@@ -338,6 +338,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
 
     member _.FableLibDir = crackerResponse.FableLibDir
     member _.FableModulesDir = crackerResponse.FableModulesDir
+    member _.TreatmentWarningsAsErrors = crackerResponse.TreatWarningsAsErrors
 
     member _.MakeCompiler(currentFile, project, ?triggeredByDependency) =
         let opts =
@@ -1139,8 +1140,24 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     SilentCompilation = false
                 }
 
-            // Sometimes errors are duplicated
-            let logs = Array.distinct logs
+            let logs =
+                logs
+                // Sometimes errors are duplicated
+                |> Array.distinct
+                // We can't foward TreatWarningsAsErrors to FCS because it would generate errors
+                // in packages code (Fable recreate a single project with all packages source files)
+                // For this reason, we need to handle the conversion ourselves here
+                // It applies to all logs (Fable, F#, etc.)
+                |> fun logs ->
+                    if projCracked.TreatmentWarningsAsErrors then
+                        logs
+                        |> Array.map (fun log ->
+                            match log.Severity with
+                            | Severity.Warning -> { log with Severity = Severity.Error }
+                            | _ -> log
+                        )
+                    else
+                        logs
 
             do
                 let filesToCompile = set filesToCompile
