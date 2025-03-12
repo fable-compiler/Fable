@@ -1354,7 +1354,7 @@ let startCompilationAsync state =
 
             match compilationResult.ExitCode with
             | 0 -> return Ok(state, logs)
-            | _ -> return Error("Compilation failed", [||])
+            | _ -> return Error("Compilation failed", logs)
 
         with
         | Fable.FableError e -> return Error(e, [||])
