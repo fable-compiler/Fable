@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Add support for F# `nullness` (by @MangelMaxime)
 * [JS/TS] Add support for `Unchecked.nonNull` (by @MangelMaxime)
 * [All] Add support for `TreatWarningsAsErrors` (by @MangelMaxime)
+* [All] Print help message on unexpected arguments (by @MangelMaxime)
 
 ### Fixed
 
 * [JS/TS] Make `nullArgCheck` report the same error message as on .NET (by @MangelMaxime)
 * [TS] Sanitize DUs case names when generating constructor function (by @MangelMaxime)
+* [All] Don't print help message on failed compilation (by @MangelMaxime)
 
 ## 5.0.0-alpha.11 - 2025-03-03
 

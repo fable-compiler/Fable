@@ -142,26 +142,8 @@ let printKnownCliArgs () =
             | desc :: extraLines -> [ $"  %-18s{args}{desc}"; yield! extraLines |> List.map (sprintf "%20s%s" "") ]
     )
 
-let sanitizeCliArgs (args: CliArgs) =
-    let knownCliArgs =
-        knownCliArgs () |> List.collect fst |> List.map (fun a -> a.ToLower()) |> set
-
-    (Ok args, args.LoweredKeys)
-    ||> List.fold (fun res arg ->
-        match res with
-        | Error msg -> Error msg
-        | Ok args ->
-            if knownCliArgs.Contains(arg) then
-                Ok args
-            else
-                Error $"Unknown argument: {arg}"
-    )
-
-let parseCliArgs (args: string list) = CliArgs(args) |> sanitizeCliArgs
-
-let printHelp () =
-    Log.always
-        $"""Usage: fable [watch] [.fsproj file or dir path] [arguments]
+let generateHelp () =
+    $"""Usage: fable [watch] [.fsproj file or dir path] [arguments]
 
 Commands:
   -h|--help         Show help
@@ -178,6 +160,31 @@ Arguments:
    changes. This is required for some file systems, such as network shares,
    Docker mounted volumes, and other virtual file systems.
 """
+
+let generateHelpWithPrefix prefixText =
+    $"""%s{prefixText}
+
+%s{generateHelp ()}
+                """
+
+let printHelp () = generateHelp () |> Log.always
+
+let sanitizeCliArgs (args: CliArgs) =
+    let knownCliArgs =
+        knownCliArgs () |> List.collect fst |> List.map (fun a -> a.ToLower()) |> set
+
+    (Ok args, args.LoweredKeys)
+    ||> List.fold (fun res arg ->
+        match res with
+        | Error msg -> Error msg
+        | Ok args ->
+            if knownCliArgs.Contains(arg) then
+                Ok args
+            else
+                $"Unknown argument: {arg}" |> generateHelpWithPrefix |> Error
+    )
+
+let parseCliArgs (args: string list) = CliArgs(args) |> sanitizeCliArgs
 
 let argLanguage (args: CliArgs) =
     args.Value("--lang", "--language")
@@ -582,11 +589,10 @@ let main argv =
                     watch = args.FlagEnabled("--watch")
                 )
         | [] -> return! Runner.Run(args, language, rootDir, runProc, verbosity, watch = args.FlagEnabled("--watch"))
-        | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."
+        | _ -> return! "Unexpected arguments" |> generateHelpWithPrefix |> Error
     }
     |> function
         | Ok _ -> 0
         | Error msg ->
             Log.error msg
-            printHelp ()
             1
