@@ -176,10 +176,10 @@ let rec forAll2 predicate (xs: 'T1 list) (ys: 'T2 list) =
             false
     | _ -> invalidArg "list2" SR.listsHadDifferentLengths
 
-let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
+let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
     let mutable root = None
     let mutable node = root
-    let mutable acc = gen state
+    let mutable acc = generator state
 
     while acc.IsSome do
         let (x, st) = acc.Value
@@ -188,7 +188,7 @@ let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
         if root.IsNone then
             root <- node
 
-        acc <- gen st
+        acc <- generator st
 
     root |> mkList
 

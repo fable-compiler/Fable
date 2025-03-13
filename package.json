@@ -1,6 +1,7 @@
 {
   "private": true,
   "type": "module",
+  "name": "fable-compiler",
   "scripts": {
     "tsc": "tsc",
     "mocha": "mocha",

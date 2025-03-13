@@ -155,7 +155,7 @@ let f_const () = 3
 [<Unsafe>]
 let f_unsafe () = 4
 
-[<Extern("C"); OuterAttr("no_mangle")>]
+[<Extern("C"); OuterAttr("unsafe(no_mangle)")>]
 let f_extern () = 5
 
 // [<Emit("$0.await")>]

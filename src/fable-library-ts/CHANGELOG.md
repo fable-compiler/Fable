@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [JS/TS] Make `nullArgCheck` report the same error message as on .NET (by @MangelMaxime)
+
+## 2.0.0-beta.2 - 2025-03-03
+
+* [JS/TS] Fix #4049: decimal/bigint to integer conversion checks (by @ncave)
+* [JS/TS] Fix `decimal` to `char` conversion checks (by @ManngelMaxime)
+* [JS/TS] Propagate non-captured exception when running `Async.Start` or `Async.StartImmediate` (by @MangelMaxime)
+* [JS/TS] Remove `Async.RunSynchronously` (by @MangelMaxime)
+* [JS/TS] Change signature of `startWithContinuations` to always require all its arguments (by @MangelMaxime)
+* [JS/TS] Fix short `DateTime` and `DateTimeOffset` short format strings (by @MangelMaxime)
+* [JS/TS] Add `C` and `c` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `B` and `b` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `n` format for numeric types (by @MangelMaxime)
+* [JS/TS] Fix numeric formats (by @MangelMaxime)
+
 ## 2.0.0-beta.1 - 2025-02-16
 
 * Compiled with Fable 5.0.0-alpha.10
@@ -59,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Fix escaping of `{` and `}` in FormattableString (#3890) (by @roboz0r)
 * [JS/TS] Fix `uri.Host` to return the host name without the port (by @MangelMaxime)
-* [JS/TS] Fix TypeScript compilation by resolving type of `jsOptions` (#3894) (by @ManngelMaxime)
+* [JS/TS] Fix TypeScript compilation by resolving type of `jsOptions` (#3894) (by @MangelMaxime)
 
 ## 1.4.3 - 2024-09-04
 

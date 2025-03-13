@@ -1,5 +1,7 @@
 module Fable.Metadata
 
+open System
+
 let coreAssemblies =
     [|
         "Fable.Core"
@@ -39,3 +41,12 @@ let coreAssemblies =
         "System.Threading.Thread"
         "System.ValueTuple"
     |]
+
+let isSystemPackage (pkgName: string) =
+    pkgName.StartsWith("System.", StringComparison.Ordinal)
+    || pkgName.StartsWith("Microsoft.", StringComparison.Ordinal)
+    || pkgName.StartsWith("runtime.", StringComparison.Ordinal)
+    || pkgName = "NETStandard.Library"
+    || pkgName = "FSharp.Core"
+    || pkgName = "Fable.Core"
+    || pkgName = "testhost"

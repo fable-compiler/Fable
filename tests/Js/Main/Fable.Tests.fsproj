@@ -81,6 +81,7 @@
     <Compile Include="TimeOnlyTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
     <Compile Include="ListCollectorTests.fs" />
+    <Compile Include="Nullness.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

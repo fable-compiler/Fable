@@ -254,6 +254,10 @@ pub mod Convert_ {
         fromString(s)
     }
 
+    pub fn toHexStringLower(bytes: Array<u8>) -> string {
+        fromString(toHexString(bytes).to_lowercase())
+    }
+
     pub fn fromHexString(s: string) -> Array<u8> {
         fn decode(c: u8) -> u8 {
             match c {

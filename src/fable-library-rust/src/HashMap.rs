@@ -114,14 +114,14 @@ pub mod HashMap_ {
     where
         K: Clone + Hash + PartialEq + 'static,
     {
-        from_iter(seq_to_iter(&seq), default_eq_comparer::<K>())
+        from_iter(seq_to_iter(seq), default_eq_comparer::<K>())
     }
 
     pub fn new_from_enumerable_comparer<K: Clone + 'static, V: Clone + 'static>(
         seq: Seq<(K, V)>,
         comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
     ) -> HashMap<K, V> {
-        from_iter(seq_to_iter(&seq), comparer)
+        from_iter(seq_to_iter(seq), comparer)
     }
 
     pub fn new_from_dictionary<K: Clone + 'static, V: Clone>(map: HashMap<K, V>) -> HashMap<K, V> {

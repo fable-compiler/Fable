@@ -92,6 +92,11 @@ type T8 = T8
 type T9 = T9
 type 'a more = More of 'a
 
+[<RequireQualifiedAccess>]
+type LangCode =
+    | EN
+    | ``pt-Br``
+
 let tests =
   testList "Unions" [
     testCase "Union cases matches with no arguments can be generated" <| fun () ->
@@ -261,4 +266,10 @@ let tests =
                    U9<T1 more, T2 more, T3 more, int, T5 more, T6 more, T7 more, T8 more, T9 more>> = !^42
         x |> equal (U9.Case4 42)
     #endif
+
+    testCase "Verify that union cases can have `-` in their names" <| fun () ->
+        // See https://github.com/fable-compiler/Fable/issues/4071
+        let x = LangCode.``pt-Br``
+
+        equal x LangCode.``pt-Br``
   ]

@@ -4,6 +4,7 @@ module Fable.Tests.Misc
 
 open System
 open Fable.Core
+open Util
 open Util.Testing
 open Util2.Extensions
 
@@ -1383,3 +1384,15 @@ let ``test Module mutable option values work`` () =
 let ``test attached static getters works`` () =
     let result = FooWithAttachedMembers.Foo.Bar
     result |> equal 42
+
+[<Fact>]
+let ``test nullArgCheck don't throw exception if argument is not null`` () =
+    let expected = "hello"
+    let value = nullArgCheck "arg1" expected
+    equal expected value
+
+[<Fact>]
+let ``test nullArgCheck throws exception if argument is null`` () =
+    throwsError "Value cannot be null. (Parameter 'str')" (fun _ ->
+        nullArgCheck "str" null
+    )

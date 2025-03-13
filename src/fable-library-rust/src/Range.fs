@@ -24,9 +24,9 @@ let inline rangeNumeric (start: 'T) (step: 'T) (stop: 'T) =
 let rangeChar (start: char) (stop: char) =
     let intStop = uint stop
 
-    let stepFn c =
-        if c <= intStop then
-            Some(char c, c + 1u)
+    let stepFn i =
+        if i <= intStop then
+            Some(char i, i + 1u)
         else
             None
 

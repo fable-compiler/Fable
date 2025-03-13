@@ -10,6 +10,7 @@ open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Core.Testing
+open System.Globalization
 
 let log (o: obj) = JS.console.log (o)
 // printfn "%A" o

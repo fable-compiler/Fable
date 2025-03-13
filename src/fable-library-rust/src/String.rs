@@ -165,22 +165,22 @@ pub mod String_ {
 
     #[macro_export]
     macro_rules! printf {
-        ($($arg:tt)*) => {{ print!($($arg)*) }}
+        ($($arg:tt)*) => {{ $crate::Native_::print!($($arg)*) }}
     }
 
     #[macro_export]
     macro_rules! printfn {
-        ($($arg:tt)*) => {{ println!($($arg)*) }}
+        ($($arg:tt)*) => {{ $crate::Native_::println!($($arg)*) }}
     }
 
     #[macro_export]
     macro_rules! eprintf {
-        ($($arg:tt)*) => {{ eprint!($($arg)*) }}
+        ($($arg:tt)*) => {{ $crate::Native_::eprint!($($arg)*) }}
     }
 
     #[macro_export]
     macro_rules! eprintfn {
-        ($($arg:tt)*) => {{ eprintln!($($arg)*) }}
+        ($($arg:tt)*) => {{ $crate::Native_::eprintln!($($arg)*) }}
     }
 
     #[macro_export]
@@ -191,7 +191,7 @@ pub mod String_ {
     #[macro_export]
     macro_rules! sprintf {
         ($($arg:tt)*) => {{
-            let res = format!($($arg)*);
+            let res = $crate::Native_::format!($($arg)*);
             $crate::String_::fromString(res)
         }}
     }
@@ -199,7 +199,7 @@ pub mod String_ {
     #[macro_export]
     macro_rules! kprintf {
         ($f:expr, $($arg:expr),+) => {{
-            let res = format!($($arg),+);
+            let res = $crate::Native_::format!($($arg),+);
             $f($crate::String_::fromString(res))
         }}
     }

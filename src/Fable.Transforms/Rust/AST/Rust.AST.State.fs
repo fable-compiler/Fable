@@ -11,7 +11,7 @@ open type Macros
 module ast = Fable.Transforms.Rust.AST.Types
 module token = Fable.Transforms.Rust.AST.Types.token
 module kw = Fable.Transforms.Rust.AST.Symbols.kw
-module sym = Fable.Transforms.Rust.AST.Symbols.sym
+// module sym = Fable.Transforms.Rust.AST.Symbols.sym
 module pp = Fable.Transforms.Rust.AST.Pretty
 module parser = Fable.Transforms.Rust.AST.Parser
 

@@ -396,7 +396,10 @@ module Reflection =
                     |> List.toArray
 
                 match com.GetEntity(entRef) with
-                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum; Atts.erase; Atts.tsTaggedUnion ]) (att, _) as ent ->
+                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum
+                                                              Atts.erase
+                                                              Atts.tsTaggedUnion
+                                                              Atts.pojoDefinedByConsArgs ]) (att, _) as ent ->
                     match att with
                     | Atts.stringEnum -> primitiveTypeInfo "string"
                     | Atts.erase ->
@@ -1569,7 +1572,7 @@ module Util =
             if com.IsTypeScript then
                 match List.tryItem tag ent.UnionCases with
                 | Some case ->
-                    match tryJsConstructorWithSuffix com ctx ent ("_" + case.Name) with
+                    match tryJsConstructorWithSuffix com ctx ent ("_" + sanitizeName case.Name) with
                     | Some helperRef ->
                         let typeParams = makeTypeParamInstantiation com ctx genArgs
 
@@ -3719,7 +3722,7 @@ module Util =
                                 )
                             )
 
-                        let fnId = entName + "_" + case.Name |> Identifier.identifier
+                        let fnId = entName + "_" + sanitizeName case.Name |> Identifier.identifier
                         // Don't use return type, TypeScript will infer it and sometimes we want to use
                         // the actual constructor type in case it implements an interface
                         // let returnType = AliasTypeAnnotation(Identifier.identifier(entName + UnionHelpers.UNION_SUFFIX), entParamsInst)

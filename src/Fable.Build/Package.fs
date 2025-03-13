@@ -22,7 +22,7 @@ let handle (args: string list) =
 
     Directory.clean packageDestination
 
-    let tempVersion = "4.999.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")
+    let tempVersion = "5.999.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")
 
     let compilerFsPath =
         Path.Resolve("src", "Fable.Transforms", "Global", "Compiler.fs")

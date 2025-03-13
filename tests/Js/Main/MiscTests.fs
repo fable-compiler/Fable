@@ -2,6 +2,7 @@ module Fable.Tests.Misc
 
 open System
 open Fable.Core
+open Util
 open Util.Testing
 open Util2.Extensions
 
@@ -1138,6 +1139,16 @@ let tests =
         // equal null (box y)
         let x: struct (int*int) = Unchecked.defaultof<_>
         equal (struct (0, 0)) x
+
+    testCase "nullArgCheck don't throw exception if argument is not null" <| fun () ->
+        let expected = "hello"
+        let value = nullArgCheck "arg1" expected
+        equal expected value
+
+    testCase "nullArgCheck throws exception if argument is null" <| fun () ->
+        throwsError "Value cannot be null. (Parameter 'str')" (fun _ ->
+            nullArgCheck "str" null
+        )
 
     testCase "Pattern matching optimization works (switch statement)" <| fun () ->
         let mutable x = ""

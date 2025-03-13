@@ -215,8 +215,13 @@ type UserInfo =
 type UserInfo2 =
     | UserLoginCount
 
-[<StringEnum(CaseRules.KebabCase)>]
+[<StringEnum(CaseRules.KebabCase); RequireQualifiedAccess>]
 type MyCssOptions =
+    | ContentBox
+    | BorderBox
+
+[<StringEnum(CaseRules.LowerAll); RequireQualifiedAccess>]
+type LowerAllOptions =
     | ContentBox
     | BorderBox
 
@@ -242,6 +247,25 @@ let validatePassword = function
 type JsOptions =
     abstract foo: string with get, set
     abstract bar: int with get, set
+
+module JsOptions =
+
+    [<AllowNullLiteral>]
+    type Level3 =
+        abstract member valueA: int with get, set
+        abstract member valueB: int with get, set
+
+    [<AllowNullLiteral>]
+    type Level2 =
+        abstract member level3: Level3 with get, set
+        abstract member valueC: int with get, set
+
+    [<AllowNullLiteral>]
+    type Level1 =
+        abstract member level2: Level2 with get, set
+        abstract member topValueA: int with get, set
+        abstract member topValueB: int with get, set
+
 
 [<Fable.Core.AttachMembers>]
 type ClassWithAttachments(v, ?sign) =
@@ -317,25 +341,27 @@ module TaggedUnion =
 
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
-    open Fable.Core.JS
-
-    [<Pojo; AllowNullLiteral>]
+    [<JS.Pojo; AllowNullLiteral>]
     type Person( name : string ) =
         member val name = name
 
-    [<Pojo; AllowNullLiteral>]
+    [<JS.Pojo; AllowNullLiteral>]
     type User( id: int, name: string, ?age: int ) =
         inherit Person(name)
         member val id = id
         member val age = age with get, set
         member val name = name
 
-    [<Pojo; AllowNullLiteral>]
+    type Team = {
+        Leader: User
+    }
+
+    [<JS.Pojo; AllowNullLiteral>]
     type BaseBag<'T>() =
         new ( bag : 'T) = BaseBag()
         member val bag: 'T = jsNative
 
-    [<Pojo; AllowNullLiteral>]
+    [<JS.Pojo; AllowNullLiteral>]
     type UserBag<'ExtraData> private () =
         inherit BaseBag<int>()
         new ( bag : int, data: 'ExtraData, ?userId : int) = UserBag()
@@ -382,6 +408,17 @@ module PojoDefinedByConsArgs =
                 user.age |> equal None
                 user.age <- Some 42
                 user.age |> equal (Some 42)
+
+            testCase "Declared types can reference Pojo class" <| fun _ ->
+                let expected = [|"Fable.Tests.JsInterop.PojoDefinedByConsArgs.User"|]
+
+                FSharp.Reflection.FSharpType.GetRecordFields typeof<Team>
+                |> Array.map (fun f -> f.PropertyType.FullName)
+                |> equal expected
+
+                FSharp.Reflection.FSharpType.GetRecordFields typeof<{| Leader: User |}>
+                |> Array.map (fun f -> f.PropertyType.FullName)
+                |> equal expected
         ]
 #endif
 
@@ -779,8 +816,12 @@ let tests =
         UserInfo2.UserLoginCount |> unbox |> equal "USER_LOGIN_COUNT"
 
     testCase "StringEnum works with CaseRules.KebabCase" <| fun () ->
-        BorderBox |> unbox |> equal "border-box"
-        ContentBox |> unbox |> equal "content-box"
+        MyCssOptions.BorderBox |> unbox |> equal "border-box"
+        MyCssOptions.ContentBox |> unbox |> equal "content-box"
+
+    testCase "StringEnum works with CaseRules.LowerAll" <| fun () ->
+        let x = LowerAllOptions.ContentBox
+        x |> unbox |> equal "contentbox"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->
@@ -820,6 +861,41 @@ let tests =
         )
         opts.foo |> equal "foo"
         opts.bar |> equal 5
+
+
+    testCase "jsOptions works with nested getters" <| fun () ->
+        let options =
+            jsOptions<JsOptions.Level1>(fun o ->
+                o.topValueA <- 20
+                o.level2.level3.valueA <- 10
+                o.level2.level3.valueB <- 20
+                o.level2.valueC <- 44
+                o.topValueB <- 30
+            )
+
+        options.topValueA |> equal 20
+        options.topValueB |> equal 30
+        options.level2.valueC |> equal 44
+        options.level2.level3.valueA |> equal 10
+        options.level2.level3.valueB |> equal 20
+
+    testCase "jsOptions works with mix of nested getter and nested jsOptions" <| fun () ->
+        let options =
+            jsOptions<JsOptions.Level1>(fun o ->
+                o.topValueA <- 20
+                o.level2.level3.valueA <- 10
+                o.level2.level3.valueB <- 20
+                o.topValueB <- 30
+                o.level2 <- jsOptions<JsOptions.Level2> (fun o ->
+                    o.level3.valueA <- 17
+                    o.level3.valueB <- 20
+                )
+            )
+
+        options.topValueA |> equal 20
+        options.topValueB |> equal 30
+        options.level2.level3.valueA |> equal 17
+        options.level2.level3.valueB |> equal 20
 
     testCase "Stringifying a JS object works" <| fun () ->
         let fooOptional = importMember "./js/1foo.js"
