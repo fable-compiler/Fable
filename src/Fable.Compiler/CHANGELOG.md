@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Add support for F# `nullness` (by @MangelMaxime)
 * [JS/TS] Add support for `Unchecked.nonNull` (by @MangelMaxime)
 * [All] Add support for `TreatWarningsAsErrors` (by @MangelMaxime)
+* [JS] Don't generate an import statement for pojos defined in another file (by @shayanhabibi)
 
 ### Fixed
 
