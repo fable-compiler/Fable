@@ -1967,6 +1967,11 @@ module Util =
         atts
         |> Seq.tryPick (
             function
+            // treat pojo as global outside of TypeScript and other exceptions where interface gen is required
+            | AttFullName(Atts.pojoDefinedByConsArgs, att) when Compiler.Language <> TypeScript ->
+                match att.ConstructorArgs with
+                | [ :? string as customName ] -> GlobalAtt(Some customName) |> Some
+                | _ -> GlobalAtt(None) |> Some
             | AttFullName(Atts.global_, att) ->
                 match att.ConstructorArgs with
                 | [ :? string as customName ] -> GlobalAtt(Some customName) |> Some
@@ -2070,6 +2075,7 @@ module Util =
         |> Seq.exists (fun att ->
             match att.Entity.FullName with
             | Atts.global_
+            | Atts.pojoDefinedByConsArgs
             | Naming.StartsWith Atts.import _ -> true
             | _ -> false
         )
@@ -2078,7 +2084,7 @@ module Util =
         ent.Attributes
         |> Seq.exists (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
-            | Some(Atts.global_ | Naming.StartsWith Atts.import _) -> true
+            | Some(Atts.pojoDefinedByConsArgs | Atts.global_ | Naming.StartsWith Atts.import _) -> true
             | _ -> false
         )
 
