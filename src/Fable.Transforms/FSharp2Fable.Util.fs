@@ -2075,7 +2075,6 @@ module Util =
         |> Seq.exists (fun att ->
             match att.Entity.FullName with
             | Atts.global_
-            | Atts.pojoDefinedByConsArgs
             | Naming.StartsWith Atts.import _ -> true
             | _ -> false
         )
@@ -2084,7 +2083,7 @@ module Util =
         ent.Attributes
         |> Seq.exists (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
-            | Some(Atts.pojoDefinedByConsArgs | Atts.global_ | Naming.StartsWith Atts.import _) -> true
+            | Some(Atts.global_ | Naming.StartsWith Atts.import _) -> true
             | _ -> false
         )
 
