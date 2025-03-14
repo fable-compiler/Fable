@@ -2045,8 +2045,6 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                 if
                     (isErasedOrStringEnumEntity ent && Compiler.Language <> TypeScript)
                     || isGlobalOrImportedEntity ent
-                    // No ref to decl file required for POJO if not TypeScript
-                    || (isPojoDefinedByConsArgsEntity ent && Compiler.Language <> TypeScript)
                 then
                     []
                 else
