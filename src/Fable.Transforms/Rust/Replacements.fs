@@ -2882,6 +2882,7 @@ let getArgsSuffix (thisArg: Expr option) (args: Expr list) =
                 | GenericParam _ -> 'g'
                 | DeclaredType _ -> '_'
                 | AnonymousRecordType _ -> '_'
+                | Nullable _ -> '_'
         |]
 
     System.String(chars)
