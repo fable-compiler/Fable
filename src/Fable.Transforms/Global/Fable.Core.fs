@@ -16,12 +16,3 @@ type CaseRules =
     | KebabCase = 4
     /// FooBar -> foobar
     | LowerAll = 5
-
-[<AttributeUsage(AttributeTargets.Class)>]
-type StringEnumAttribute() =
-    inherit Attribute()
-    new(caseRules: CaseRules) = StringEnumAttribute()
-
-[<AttributeUsage(AttributeTargets.Interface)>]
-type MangleAttribute() =
-    inherit Attribute()
