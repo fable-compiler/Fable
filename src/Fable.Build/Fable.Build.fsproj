@@ -6,11 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
-    <Compile Include="Utils/ChangelogParser.fs" />
-    <Compile Include="Utils/Changelog.fs" />
-    <Compile Include="Utils/Fsproj.fs" />
-    <Compile Include="Utils/Npm.fs" />
-    <Compile Include="Utils/Nuget.fs" />
+    <Compile Include="Utils/LastVersionFinder.fs" />
     <Compile Include="Workspace.fs" />
     <Compile Include="SimpleExec.Extensions.fs" />
     <Compile Include="FableLibrary/Core.fs" />
@@ -44,10 +40,11 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
+    <PackageReference Include="EasyBuild.Tools" Version="4.1.0" />
     <PackageReference Include="Fake.IO.FileSystem" Version="6.1.3" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.18.0" />
     <PackageReference Include="SimpleExec" Version="12.0.0" />
     <PackageReference Include="Thoth.Json.Net" Version="12.0.0" />
-    <PackageReference Include="Octokit" Version="8.0.0" />
     <PackageReference Include="Semver" Version="3.0.0" />
   </ItemGroup>
 </Project>
