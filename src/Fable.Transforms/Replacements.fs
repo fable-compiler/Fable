@@ -989,6 +989,7 @@ let rec defaultof (com: ICompiler) (ctx: Context) r t =
             // Null t |> makeValue None
             Helper.LibCall(com, "Util", "defaultOf", t, [], ?loc = r)
         )
+    | Nullable _ -> Value(Null Any, None) // null
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ ->
         // Null t |> makeValue None
