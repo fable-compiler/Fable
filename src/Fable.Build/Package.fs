@@ -2,12 +2,12 @@ module Build.Package
 
 open Build.Utils
 open Build.FableLibrary
-open Octokit
 open System
 open Build.Workspace
 open SimpleExec
 open BlackFox.CommandLine
 open System.IO
+open EasyBuild.Tools.PackageJson
 
 let private packageDestination = Path.Resolve("temp", "packages")
 
@@ -32,8 +32,8 @@ let handle (args: string list) =
     Publish.updateLibraryVersionInFableTransforms
         tempVersion
         {|
-            JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_js
-            TypeScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_ts
+            JavaScript = PackageJson.tempFableLibraryJs |> PackageJson.getVersion
+            TypeScript = PackageJson.tempFableLibraryTs |> PackageJson.getVersion
         |}
 
     Command.Run(

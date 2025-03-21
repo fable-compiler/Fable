@@ -28,6 +28,8 @@ module Fsproj =
 
 module Changelog =
 
+    let fableCLi = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
+
     let fableLibraryTs =
         Path.Combine(ProjectDir.fable_library_ts, "CHANGELOG.md") |> FileInfo
 

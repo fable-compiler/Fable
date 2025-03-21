@@ -66,7 +66,7 @@ let private publishNuget (fsprojDir: string) (noSymbols: bool) =
     let nupkgPath = DotNet.pack fsprojDir
 
     // We skip duplicates because we might have already published the same version
-    // This is because we make an optimistic release and delegate the version set to EasyBuild.
+    // This is because we make an optimistic release and delegate the version set to EasyBuild.PackageReleaseNotes.Tasks
     DotNet.nugetPush (nupkgPath, apiKey = nugetKey, noSymbols = noSymbols, skipDuplicate = true)
 
 let private publishNpm (projectDir: string) =
