@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* [All] Remove unused `Fable.Core` copy types from internal module (by @MangelMaxime)
+
 ## 5.0.0-alpha.12 - 2025-03-14
 
 ### Added
