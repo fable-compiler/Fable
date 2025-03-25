@@ -4291,7 +4291,8 @@ module Util =
         // printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None -> Path.GetFileNameWithoutExtension(moduleName)
-        | Some name -> name |> Naming.toSnakeCase |> getUniqueNameInRootScope ctx
+        | Some name -> name |> Naming.toSnakeCase
+        |> getUniqueNameInRootScope ctx
         |> Identifier
 
 module Compiler =
