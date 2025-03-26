@@ -29,7 +29,20 @@ module Fsproj =
 module Changelog =
 
     let fableCLi = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
-    let fableCore = Path.Combine(ProjectDir.fableCore, "CHANGELOG.md")
+
+    let fableLibraryTs =
+        Path.Combine(ProjectDir.fable_library_ts, "CHANGELOG.md") |> FileInfo
+
+module PackageJson =
+
+    let fableLibraryTs =
+        Path.Combine(ProjectDir.fable_library_ts, "package.json") |> FileInfo
+
+    let tempFableLibraryTs =
+        Path.Combine(ProjectDir.temp_fable_library_ts, "package.json") |> FileInfo
+
+    let tempFableLibraryJs =
+        Path.Combine(ProjectDir.temp_fable_library_js, "package.json") |> FileInfo
 
 module FableLibrary =
 

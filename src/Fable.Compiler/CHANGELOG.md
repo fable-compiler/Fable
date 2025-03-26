@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* [All] Remove unused `Fable.Core` copy types from internal module (by @MangelMaxime)
+
+## 5.0.0-alpha.12 - 2025-03-14
+
 ### Added
 
 * [Python] Add support for `nullArgCheck`(by @MangelMaxime)
 * [All] Add support for F# `nullness` (by @MangelMaxime)
 * [JS/TS] Add support for `Unchecked.nonNull` (by @MangelMaxime)
 * [All] Add support for `TreatWarningsAsErrors` (by @MangelMaxime)
+* [JS] Don't generate an import statement for pojos defined in another file (by @shayanhabibi)
 
 ### Fixed
 

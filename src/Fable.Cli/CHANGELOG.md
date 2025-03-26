@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Removed
+
+* [All] Remove unused `Fable.Core` copy types from internal module (by @MangelMaxime)
+
+## 5.0.0-alpha.12 - 2025-03-14
+
 ### Added
 
 * [Python] Add support for `nullArgCheck`(by @MangelMaxime)
@@ -20,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Make `nullArgCheck` report the same error message as on .NET (by @MangelMaxime)
 * [TS] Sanitize DUs case names when generating constructor function (by @MangelMaxime)
 * [All] Don't print help message on failed compilation (by @MangelMaxime)
+* [JS] Don't generate an import statement for pojos defined in another file (by @shayanhabibi)
 
 ## 5.0.0-alpha.11 - 2025-03-03
 

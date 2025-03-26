@@ -1,51 +1,42 @@
 module Build.GithubRelease
 
-open Build.Utils
-open Octokit
-open System
+open System.IO
 open Build.Workspace
 open SimpleExec
 open BlackFox.CommandLine
+open EasyBuild.Tools.Git
 
-let private createGithubRelease (githubToken: string) (version: ChangelogParser.Types.Version) =
+let private createGithubRelease (version: LastVersionFinder.Version) =
 
     let struct (lastestTag, _) =
         Command.ReadAsync("git", "describe --abbrev=0 --tags")
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
-    // Only create a Github release if the tag doesn't exist
-    // It can happens that we trigger a release whre Fable.Cli
-    // is already up to date.
-    if lastestTag.Trim() <> version.Version.ToString() then
-        let githubClient = GitHubClient(ProductHeaderValue("fable-release-tool"))
-
-        githubClient.Credentials <- Credentials(githubToken)
-
-        let newRelease = NewRelease(version.Version.ToString())
-        newRelease.Name <- version.Version.ToString()
-        newRelease.Body <- ChangelogParser.Version.bodyAsMarkdown version
-        newRelease.Draft <- false
-        newRelease.Prerelease <- false // TODO: Detect if this is a prerelease
-
-        githubClient.Repository.Release.Create("fable-compiler", "Fable", newRelease)
-        |> Async.AwaitTask
-        |> Async.RunSynchronously
-        |> ignore
-
-let private createReleaseCommitAndPush (version: ChangelogParser.Types.Version) =
     let versionText = version.Version.ToString()
 
-    Command.Run(
-        "git",
-        CmdLine.empty
-        |> CmdLine.appendRaw "commit"
-        |> CmdLine.appendPrefix "-am" $"Release {versionText}"
-        |> CmdLine.toString
-    )
+    // Only create a Github release if the tag doesn't exist
+    // It can happens that we trigger a release where Fable.Cli
+    // is already up to date.
+    if lastestTag.Trim() <> versionText then
+        Command.Run(
+            "gh",
+            CmdLine.empty
+            |> CmdLine.appendRaw "release"
+            |> CmdLine.appendRaw "create"
+            |> CmdLine.appendRaw versionText
+            |> CmdLine.appendPrefix "--title" versionText
+            |> CmdLine.appendPrefix "--notes" version.Body
+            |> CmdLine.appendIf version.Version.IsPrerelease "--prerelease"
+            |> CmdLine.toString
+        )
 
-    Command.Run("git", "push")
+let private createReleaseCommitAndPush (version: LastVersionFinder.Version) =
+    let versionText = version.Version.ToString()
 
+    Git.addAll ()
+    Git.commit ($"Release {versionText}")
+    Git.push ()
 
 let handle (args: string list) =
     let struct (currentBranch, _) =
@@ -56,16 +47,15 @@ let handle (args: string list) =
     if currentBranch.Trim() <> "main" then
         failwith "You must be on the main branch to release"
 
+    // Check if the user is authenticated
+    Command.Run("gh", "auth status")
+
     Publish.handle args
 
-    let githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
+    let changelogContent = File.ReadAllText(Changelog.fableCLi)
 
-    if isNull githubToken then
-        failwith "Missing GITHUB_TOKEN_FABLE_ORG environment variable"
-
-    let versionInfo = Changelog.getLastVersion Changelog.fableCLi
-
-    createReleaseCommitAndPush versionInfo
-
-// Disable Github release for now, because it's not working
-// createGithubRelease githubToken versionInfo
+    match LastVersionFinder.tryFindLastVersion changelogContent with
+    | Ok version ->
+        createReleaseCommitAndPush version
+        createGithubRelease version
+    | Error err -> err.ToText() |> failwith

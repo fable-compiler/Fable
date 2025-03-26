@@ -1967,6 +1967,12 @@ module Util =
         atts
         |> Seq.tryPick (
             function
+            // Disable import of the type decorated by Pojo Attribute unless we are targeting TypeScript
+            // See https://github.com/fable-compiler/Fable/issues/4075
+            | AttFullName(Atts.pojoDefinedByConsArgs, att) when Compiler.Language <> TypeScript ->
+                match att.ConstructorArgs with
+                | [ :? string as customName ] -> GlobalAtt(Some customName) |> Some
+                | _ -> GlobalAtt(None) |> Some
             | AttFullName(Atts.global_, att) ->
                 match att.ConstructorArgs with
                 | [ :? string as customName ] -> GlobalAtt(Some customName) |> Some

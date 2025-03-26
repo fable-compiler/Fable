@@ -419,6 +419,12 @@ module PojoDefinedByConsArgs =
                 FSharp.Reflection.FSharpType.GetRecordFields typeof<{| Leader: User |}>
                 |> Array.map (fun f -> f.PropertyType.FullName)
                 |> equal expected
+
+            testCase "PojoDefinedByConsArgs works with types defined in another file" <| fun _ ->
+                let toast = Global.Toast("1", "Hello")
+
+                toast.id |> equal "1"
+                toast.title |> equal "Hello"
         ]
 #endif
 

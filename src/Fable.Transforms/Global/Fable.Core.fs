@@ -21,7 +21,3 @@ type CaseRules =
 type StringEnumAttribute() =
     inherit Attribute()
     new(caseRules: CaseRules) = StringEnumAttribute()
-
-[<AttributeUsage(AttributeTargets.Interface)>]
-type MangleAttribute() =
-    inherit Attribute()
