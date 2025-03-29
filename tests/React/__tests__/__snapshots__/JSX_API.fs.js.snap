@@ -1,0 +1,140 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`JSX API tests (using React) Element can have for loops 1`] = `
+<div>
+  <div>
+    <div>
+      Hello
+    </div>
+    <div>
+      0
+    </div>
+    <div>
+      1
+    </div>
+    <div>
+      2
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Element can have mix of element and list 1`] = `
+<div>
+  <div>
+    <div>
+      Test 1
+    </div>
+    <div>
+      Test 2
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Element can have multi level mix of element and list 1`] = `
+<div>
+  <div>
+    <div>
+      Test 1
+    </div>
+    <div>
+      Test 2
+    </div>
+    <div>
+      <div>
+        Test 2.1
+      </div>
+      <div>
+        Test 2.2
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Element can have multiple nested list 1`] = `
+<div>
+  <div>
+    <div>
+      Test 1
+    </div>
+    <div>
+      Test 2
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Element can have nested list 1`] = `
+<div>
+  <div>
+    <div>
+      Test 1
+    </div>
+    <div>
+      Test 2
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Element can have text directly in them 1`] = `
+<div>
+  <div>
+    Test 1
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Elements can have attributes 1`] = `
+<div>
+  <div
+    class="header"
+  >
+    <div>
+      Test 1
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Fragments are supported 1`] = `
+<div>
+  <div>
+    <div>
+      Test 1
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Test that non optimised condition works 1`] = `
+<div>
+  <div>
+    <div>
+      false
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Test that optimised condition works for the false branch 1`] = `
+<div>
+  <div>
+    <div>
+      false
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Test that optimised condition works for the true branch 1`] = `
+<div>
+  <div>
+    <div>
+      true
+    </div>
+  </div>
+</div>
+`;

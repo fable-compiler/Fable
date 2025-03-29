@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Fixed import path handling for libraries (#4088) (by @dbrattli)
 * [Python] Reenable type aliasing for imports with name "*" (by @freymauer)
+* [JS/TS] Optimise JSX output in order to avoid F# list CEs to surface in it (by @MangelMaxime)
 
 ## 5.0.0-alpha.12 - 2025-03-14
 
