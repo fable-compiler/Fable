@@ -5,97 +5,129 @@ module QuickTest
 // When everything works, move the tests to the appropriate file in tests/Main.
 // Please don't add this file to your commits.
 
-open System
-open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Core.Testing
-open System.Globalization
 
-let log (o: obj) = JS.console.log (o)
-// printfn "%A" o
+[<ImportMember("react")>]
+[<AllowNullLiteral>]
+type ReactElement = interface end
 
-let equal expected actual =
-    let areEqual = expected = actual
-    printfn "%A = %A > %b" expected actual areEqual
+type private IReactProperty = JSX.Prop
 
-    if not areEqual then
-        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
+[<Erase>]
+type prop =
+    static member inline children(children: ReactElement list) : IReactProperty = "children", children
 
-let throwsError (expected: string) (f: unit -> 'a) : unit =
-    let success =
-        try
-            f () |> ignore
-            true
-        with e ->
-            if not <| String.IsNullOrEmpty(expected) then
-                equal e.Message expected
+    static member inline text(value: int) : IReactProperty = "children", [ JSX.text !!value ]
 
-            false
-    // TODO better error messages
-    equal false success
+    static member inline key(value: int) : IReactProperty = "key", string value
 
-let testCase (msg: string) f : unit =
-    try
-        printfn "%s" msg
-        f ()
-    with ex ->
-        printfn "%s" ex.Message
+[<Erase>]
+type Html =
 
-        if
-            ex.Message <> null
-            && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal) |> not
-        then
-            printfn "%s" (ex.StackTrace ??= "")
+    static member inline fragment(children: ReactElement list) : ReactElement =
+        JSX.create "" [ "children" ==> children ] |> unbox
 
-    printfn ""
+    static member inline div(number: int) : ReactElement =
+        JSX.create "div" [ "children" ==> JSX.text (!!number) ] |> unbox
 
-let testCaseAsync msg f =
-    testCase
-        msg
-        (fun () ->
-            async {
-                try
-                    do! f ()
-                with ex ->
-                    printfn "%s" ex.Message
+    static member inline div(children: ReactElement list) : ReactElement =
+        JSX.create "div" [ "children" ==> children ] |> unbox
 
-                    if
-                        ex.Message <> null
-                        && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal) |> not
-                    then
-                        printfn "%s" (ex.StackTrace ??= "")
-            }
-            |> Async.StartImmediate
-        )
+    static member inline div(text: string) : ReactElement =
+        JSX.create "div" [ "children" ==> JSX.text text ] |> unbox
 
-let throwsAnyError (f: unit -> 'a) : unit =
-    let success =
-        try
-            f () |> ignore
-            true
-        with e ->
-            printfn "Got expected error: %s" e.Message
-            false
+    static member inline div(props: IReactProperty list) : ReactElement = JSX.create "div" props |> unbox
 
-    if success then
-        printfn "[ERROR EXPECTED]"
+// let child1 = Html.div [
+//     Html.div "Test 1"
+// ]
+// let child2 = Html.div "Test 3"
 
-let measureTime (f: unit -> unit) : unit =
-    emitJsStatement
-        ()
-        """
-   //js
-   const startTime = process.hrtime();
-   f();
-   const elapsed = process.hrtime(startTime);
-   console.log("Ms:", elapsed[0] * 1e3 + elapsed[1] / 1e6);
-   //!js
-"""
+// let allChildren = [ child1 ]
+let test_0 =
+    Html.div "Test 1"
 
-printfn "Running quick tests..."
+let test_1  =
+    Html.div
+        [
+            yield! [
+                Html.div "Test 1"
+                Html.div "Test 2"
+            ]
+        ]
 
-// Write here your unit test, you can later move it
-// to Fable.Tests project. For example:
-// testCase "Addition works" <| fun () ->
-//     2 + 2 |> equal 4
+let test_2 =
+    Html.div [
+        yield! [
+            Html.div "Test 1"
+        ]
+        yield! [
+            Html.div "Test 2"
+        ]
+    ]
+
+let test_3 =
+    Html.div [
+        Html.div "Test 1"
+        yield! [
+            Html.div "Test 2"
+        ]
+    ]
+
+let test_4 =
+    Html.div [
+        Html.div "Test 1"
+        yield! [
+            Html.div "Test 2"
+            yield! [
+                Html.div "Test 2.2"
+            ]
+        ]
+    ]
+
+let test_5 =
+    Html.div [
+        Html.div "Test 1"
+        yield! [
+            Html.div "Test 2"
+            Html.div [
+                Html.div "Test 2.1"
+                yield! [
+                    Html.div "Test 2.1"
+                ]
+            ]
+        ]
+    ]
+
+let test_6 =
+    Html.div [
+        for i in 0..2 do
+            Html.div [
+                prop.key i
+                prop.text i
+            ]
+    ]
+
+// // Html.div "Test 1"
+//                 // Html.div "Test 2"
+//                 // // Html.fragment
+//                 // //     [
+//                 // for i in 0..2 do
+//                 //     Html.div [
+//                 //         prop.key i
+//                 //         prop.text i
+//                 //     ]
+//                 // //     ]
+//                 // yield! [ Html.div "Test 2" ]
+//                 yield! [
+//                     Html.div "Test 1"
+//                     Html.div "Test 2"
+//                     // Html.div [
+//                     //     yield! [
+//                     //         Html.div "Test 1.1"
+//                     //         Html.div "Test 1.2"
+//                     //     ]
+//                     // ]
+//                 ]
+//                 // Test 1
