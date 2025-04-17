@@ -7,47 +7,6 @@ open Fable.AST.Babel
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
-module List =
-
-    open System
-    open FSharp.Core.CompilerServices
-
-    let partitionMap (mapping: 'T -> Choice<'T1, 'T2>) (source: list<'T>) =
-        let mutable coll1 = new ListCollector<'T1>()
-        let mutable coll2 = new ListCollector<'T2>()
-
-        List.iter
-            (mapping
-             >> function
-                 | Choice1Of2 e -> coll1.Add e
-                 | Choice2Of2 e -> coll2.Add e)
-            source
-
-        coll1.Close(), coll2.Close()
-
-module Array =
-
-    open System
-    open FSharp.Core.CompilerServices
-
-    let inline raiseIfNull paramName paramValue =
-        if isNull paramValue then
-            nullArg paramName
-
-    let partitionMap (mapper: 'T -> Choice<'T1, 'T2>) (source: array<'T>) =
-        raiseIfNull (nameof (source)) source
-
-        let (x, y) = ResizeArray(), ResizeArray()
-
-        Array.iter
-            (mapper
-             >> function
-                 | Choice1Of2 e -> x.Add e
-                 | Choice2Of2 e -> y.Add e)
-            source
-
-        x.ToArray(), y.ToArray()
-
 type ReturnStrategy =
     | Return
     | ReturnUnit
@@ -2075,115 +2034,110 @@ module Util =
                 None
         )
 
-
     module Jsx =
 
-        type CalledExpressionResult =
-            {
-                Ident: Expression
-                Args: Expression array
-                TypeArguments: TypeAnnotation array
-                Loc: SourceLocation option
-                OriginalExpr: Expression
-            }
+        (***
 
-        let (|CalledExpression|_|) identifierString expr =
-            match expr with
-            | CallExpression(Expression.Identifier(Identifier(identifierString, _)) as ident, args, typeArguments, loc) ->
-                {
-                    Ident = ident
-                    Args = args
-                    TypeArguments = typeArguments
-                    Loc = loc
-                    OriginalExpr = expr
-                }
-                |> Some
+For JSX, we want to rewrite the default output in order to remove all the code coming from list CEs
+
+By default, this code
+
+```fs
+Html.div
+    [
+        yield! [
+            Html.div "Test 1"
+            Html.div "Test 2"
+        ]
+    ]
+```
+
+generates something like
+
+```jsx
+<div>
+    {toList(delay(() => [<div>
+        Test 1
+    </div>, <div>
+        Test 2
+    </div>]))}
+</div>;
+```
+
+but thanks to the optimisation done below we get
+
+```jsx
+<div>
+    <div>
+        Test 1
+    </div>
+    <div>
+        Test 2
+    </div>
+</div>
+```
+
+        Initial implementation of this optimiser comes from https://github.com/shayanhabibi/Partas.Solid/blob/master/Partas.Solid.FablePlugin/Plugin.fs
+
+        ***)
+
+        // Check if the provided expression is equal to the expected identiferText (as a string)
+        let rec (|IdentifierIs|_|) (identifierText: string) expression =
+            match expression with
+            | Expression.Identifier(Identifier(currentCallerText, _)) when identifierText = currentCallerText -> Some()
             | _ -> None
 
-        let tempOptimiseDelay (memory: ResizeArray<_>) (delayCallInfo: CalledExpressionResult) =
-            let newArgs =
-                match delayCallInfo.Args |> Seq.toList with
-                | [ ArrowFunctionExpression(_, (BlockStatement body), _, _, _)] ->
-                // | CalledExpression "delay" delayCallInfo ->
-                // let newArgs =
+        // Make it easy to check if we are calling the expected function
+        and (|CalledExpression|_|) (callerText: string) value =
+            match value with
+            | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> Some exprs
+            | _ -> None
 
-                    // let newArgs =
-                    delayCallInfo.Args
-                    |> Array.filter (fun arg ->
-                        match arg with
-                        | ArrowFunctionExpression(_, (BlockStatement body), _, _, _) ->
-                            match body |> Seq.toList with
-                            | [ ReturnStatement((ArrayExpression(elements, _)), _) ] ->
-                                memory.AddRange elements
-                                false
-                            | _ -> true
-                        | _ -> true
+        and (|UnrollerFromSingleton|) (expr: Expression) : Expression list =
+            [ expr ]
+            |> function
+                | Unroller exprs -> exprs
+
+        and (|UnrollerFromArray|) (arrayExpr: Expression array) : Expression list =
+            arrayExpr
+            |> Array.toList
+            |> function
+                | Unroller exprs -> exprs
+
+        and (|Unroller|): Expression list -> Expression list =
+            function
+            | [] -> []
+            | expr :: Unroller rest ->
+                match expr with
+                | CalledExpression "toList" exprs -> exprs @ rest
+                | CalledExpression "delay" exprs -> exprs @ rest
+                | ArrowFunctionExpression([||],
+                                          BlockStatement [| ReturnStatement(ArrayExpression(UnrollerFromArray exprs, _),
+                                                                            _) |],
+                                          _,
+                                          _,
+                                          _) -> exprs @ rest
+                | ArrowFunctionExpression([||],
+                                          BlockStatement [| ReturnStatement(UnrollerFromSingleton exprs, _) |],
+                                          _,
+                                          _,
+                                          _) -> exprs @ rest
+                | CalledExpression "append" exprs -> exprs @ rest
+                | CalledExpression "singleton" exprs -> exprs @ rest
+                // Note: Should we guard this unwrapper by checking that all the elements in the array are JsxElements?
+                | ArrayExpression(UnrollerFromArray exprs, _) -> exprs @ rest
+                | ConditionalExpression(testExpr, UnrollerFromSingleton thenExprs, UnrollerFromSingleton elseExprs, loc) ->
+                    ConditionalExpression(
+                        testExpr,
+                        SequenceExpression(thenExprs |> List.toArray, None),
+                        SequenceExpression(elseExprs |> List.toArray, None),
+                        loc
                     )
-
-                | _ ->
-                    delayCallInfo.Args
-
-            ()
-
-        // We try to be conservative and only optimise the common patterns
-        // as modifying the AST can be dangerous and error-prone
-        let optimiseToListCall (memory: ResizeArray<_>) (children: list<Expression>) =
-            children
-            |> List.choose (fun child ->
-                match child with
-                | CalledExpression "toList" toListCallInfo ->
-                    match toListCallInfo.Args |> Seq.toList with
-                    | [ CalledExpression "delay" delayCallInfo ] ->
-                        tempOptimiseDelay memory delayCallInfo
-                    // | [ CalledExpression "delay" delayCallInfo ] ->
-
-                        // We should only remove the call, if we actually optimised something
-                        // + there are cases where we need to keep with some children extracted and not others
-                        None
-
-                        // let newArgs =
-                        //     if delayCallInfo.Args.Length = 1 && delayCallInfo.Args[0].IsArrowFunctionExpression then
-
-                        //         let newArgs =
-                        //             delayCallInfo.Args
-                        //             |> Array.filter (fun arg ->
-                        //                 match arg with
-                        //                 | ArrowFunctionExpression(_, (BlockStatement body), _, _, _) ->
-                        //                     match body |> Seq.toList with
-                        //                     | [ ReturnStatement((ArrayExpression(elements, _)), _) ] ->
-                        //                         memory.AddRange elements
-                        //                         false
-                        //                     | _ -> true
-                        //                 | _ -> true
-                        //             )
-
-                        //         newArgs
-
-                        //     else
-                        //         delayCallInfo.Args
-
-                        // None
-                        // // All children have been added to memory we can remove the call
-                        // if newArgs.Length > 0 then
-                        // else
-                        //     CallExpression(
-                        //         toListCallInfo.Ident,
-                        //         [|
-                        //             CallExpression(
-                        //                 delayCallInfo.Ident,
-                        //                 newArgs,
-                        //                 delayCallInfo.TypeArguments,
-                        //                 delayCallInfo.Loc
-                        //             )
-                        //         |],
-                        //         toListCallInfo.TypeArguments,
-                        //         toListCallInfo.Loc
-                        //     )
-                        //     |> Some
-
-                    | _ -> Some toListCallInfo.OriginalExpr
-                | _ -> Some child
-            )
+                    :: rest
+                | expr ->
+                    // Tips 💡
+                    // If a pattern is not optimized, you can put a debug point here to capture it
+                    expr :: rest
 
     let transformJsxEl (com: IBabelCompiler) ctx componentOrTag props =
         match transformJsxProps com props with
@@ -2199,23 +2153,18 @@ module Util =
                     | [ ArrayExpression(children, _) ] -> Array.toList children
                     | children -> children
 
-            let memory = ResizeArray()
-
-            let newChildren = Jsx.optimiseToListCall memory children
+            let newChildren =
+                children
+                |> List.map (fun child ->
+                    match child with
+                    | Jsx.UnrollerFromSingleton expr -> expr
+                )
+                |> List.concat
 
             let props =
                 props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
 
-            let children =
-                // An optimization occurred, return extracted children + the rest
-                if memory.Count > 0 then
-                    // Add the rest of the children to the memory
-                    memory.AddRange newChildren
-                    Seq.toList memory
-                else
-                    children
-
-            Expression.jsxElement (componentOrTag, props, children)
+            Expression.jsxElement (componentOrTag, props, newChildren)
 
     let transformJsxCall (com: IBabelCompiler) ctx callee (args: Fable.Expr list) (info: Fable.MemberFunctionOrValue) =
         let names =
