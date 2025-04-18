@@ -517,6 +517,7 @@ type TypeAnnotation =
     | TypeofTypeAnnotation of Expression
     | IndexedTypeAnnotation of typ: TypeAnnotation * prop: TypeAnnotation
     | LiteralTypeAnnotation of Literal
+    // | NullableTypeAnnotation of TypeAnnotation
 
 type TypeParameter = | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotation option
 

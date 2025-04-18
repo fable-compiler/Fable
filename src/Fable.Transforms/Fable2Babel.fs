@@ -341,6 +341,7 @@ module Reflection =
             List.zip (fieldNames |> Array.toList) genArgs
             |> List.map (fun (k, t) -> Expression.arrayExpression [| Expression.stringLiteral (k); t |])
             |> libReflectionCall com ctx None "anonRecord"
+        | Fable.Nullable typ -> transformTypeInfoFor purpose com ctx r genMap typ
         | Fable.DeclaredType(entRef, genArgs) ->
             let fullName = entRef.FullName
 
@@ -491,6 +492,7 @@ module Reflection =
         | Fable.MetaType -> jsInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
         | Fable.Option _ -> warnAndEvalToFalse "options" // TODO
         | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters"
+        | Fable.Nullable typ -> transformTypeTest com ctx range expr typ
         | Fable.DeclaredType(ent, genArgs) ->
             match ent.FullName with
             | Types.idisposable ->
@@ -614,6 +616,7 @@ module Annotation =
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.AnonymousRecordType(fieldNames, fieldTypes, _isStruct) ->
             makeAnonymousRecordTypeAnnotation com ctx fieldNames fieldTypes
+        | Fable.Nullable typ -> makeNullableTypeAnnotation com ctx typ
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx typ kind
         | Fable.DeclaredType(entRef, genArgs) -> com.GetEntity(entRef) |> makeEntityTypeAnnotation com ctx genArgs
 
@@ -688,7 +691,7 @@ module Annotation =
         let typeName = getNumberKindName kind
         makeFableLibImportTypeAnnotation com ctx [] moduleName typeName
 
-    let makeNullableTypeAnnotation com ctx genArg =
+    let makeNullableTypeAnnotation com ctx (genArg: Fable.Type) =
         makeFableLibImportTypeAnnotation com ctx [ genArg ] "Option" "Nullable"
 
     let makeOptionTypeAnnotation com ctx genArg =
