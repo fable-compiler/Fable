@@ -451,7 +451,7 @@ def now() -> datetime:
 
 
 def utc_now() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def today() -> datetime:
@@ -555,7 +555,7 @@ def parse(string: str) -> datetime:
         adapted_string = re.sub(iso_format_regex, adapt_microseconds, string)
         return datetime.strptime(adapted_string, "%Y-%m-%dT%H:%M:%S.%f")
 
-    raise ValueError("Unsupported format by Fable: %s" % (string))
+    raise ValueError(f"Unsupported format by Fable: {string}")
 
 
 def try_parse(string: str, def_value: FSharpRef[datetime]) -> bool:
@@ -713,51 +713,51 @@ def from_ticks(ticks: int, kind: DateKind | None = None) -> datetime:
 
 
 __all__ = [
-    "subtract",
-    "op_subtraction",
-    "create",
-    "year",
-    "month",
-    "day",
-    "hour",
-    "minute",
-    "second",
-    "millisecond",
-    "microsecond",
-    "to_universal_time",
-    "day_of_week",
-    "day_of_year",
-    "to_short_date_string",
-    "to_long_date_string",
-    "to_short_time_string",
-    "to_long_time_string",
-    "to_string",
-    "now",
-    "utc_now",
-    "today",
-    "to_local_time",
-    "compare",
-    "equals",
-    "max_value",
-    "min_value",
-    "op_addition",
     "add",
-    "parse",
-    "try_parse",
-    "date",
-    "is_leap_year",
-    "days_in_month",
-    "add_years",
-    "add_months",
     "add_days",
     "add_hours",
-    "add_minutes",
-    "add_seconds",
-    "add_milliseconds",
     "add_microseconds",
-    "kind",
-    "specify_kind",
-    "ticks",
+    "add_milliseconds",
+    "add_minutes",
+    "add_months",
+    "add_seconds",
+    "add_years",
+    "compare",
+    "create",
+    "date",
     "date_offset",
+    "day",
+    "day_of_week",
+    "day_of_year",
+    "days_in_month",
+    "equals",
     "from_ticks",
+    "hour",
+    "is_leap_year",
+    "kind",
+    "max_value",
+    "microsecond",
+    "millisecond",
+    "min_value",
+    "minute",
+    "month",
+    "now",
+    "op_addition",
+    "op_subtraction",
+    "parse",
+    "second",
+    "specify_kind",
+    "subtract",
+    "ticks",
+    "to_local_time",
+    "to_long_date_string",
+    "to_long_time_string",
+    "to_short_date_string",
+    "to_short_time_string",
+    "to_string",
+    "to_universal_time",
+    "today",
+    "try_parse",
+    "utc_now",
+    "year",
 ]

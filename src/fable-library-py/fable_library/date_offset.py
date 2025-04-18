@@ -58,7 +58,7 @@ def now() -> datetime:
 
 
 def utc_now() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def op_addition(x: datetime, y: timedelta) -> datetime:

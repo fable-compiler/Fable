@@ -383,7 +383,7 @@ def split(
 
         i = m.end()
 
-    if (count is None or count and count > 0) and len(string) - i > -1:
+    if (count is None or (count and count > 0)) and len(string) - i > -1:
         split = string[i:]
         if split or not removeEmpty:
             splits.append(split)

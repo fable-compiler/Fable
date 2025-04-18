@@ -91,7 +91,7 @@ Disposable = TypeVar("Disposable", bound=IDisposable)
 
 
 class AnonymousDisposable(IDisposable):
-    __slots__ = "_is_disposed", "_action", "_lock"
+    __slots__ = "_action", "_is_disposed", "_lock"
 
     def __init__(self, action: Callable[[], None]):
         self._is_disposed = False
@@ -553,7 +553,7 @@ class IDictionary(ICollection[tuple[_Key, _Value]], Protocol):
 
 
 class Enumerator(IEnumerator[_T]):
-    __slots__ = "iter", "current"
+    __slots__ = "current", "iter"
 
     def __init__(self, iter: Iterator[_T]) -> None:
         self.iter = iter
