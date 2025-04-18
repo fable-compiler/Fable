@@ -13,7 +13,7 @@ class UriKind(IntEnum):
 
 
 class Uri:
-    __slots__ = "res", "kind", "orginal"
+    __slots__ = "kind", "orginal", "res"
 
     def __init__(
         self,

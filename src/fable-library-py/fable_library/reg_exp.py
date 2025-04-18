@@ -123,15 +123,15 @@ def get_item(groups: GroupCollection, index: str | int) -> str | None:
 
 
 __all__ = [
+    "create",
     "escape",
+    "get_item",
+    "groups",
     "is_match",
     "match",
     "matches",
-    "create",
     "options",
     "replace",
     "split",
     "unescape",
-    "groups",
-    "get_item",
 ]

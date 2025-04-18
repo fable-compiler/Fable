@@ -38,4 +38,4 @@ def get_utf8() -> UTF8:
     return _UTF8
 
 
-__all__ = ["UTF8", "UTF16LE", "get_utf8", "get_unicode"]
+__all__ = ["UTF8", "UTF16LE", "get_unicode", "get_utf8"]

@@ -47,7 +47,7 @@ class FSharpRef(Generic[_T]):
 
 
 class Union(IComparable):
-    __slots__ = "tag", "fields"
+    __slots__ = "fields", "tag"
 
     def __init__(self):
         self.tag: int
@@ -372,30 +372,30 @@ def is_exception(x: Any):
 
 
 __all__ = [
-    "Attribute",
     "Array",
-    "is_exception",
-    "char",
-    "int8",
-    "uint8",
-    "int16",
-    "uint16",
-    "int32",
-    "uint32",
-    "int64",
-    "uint64",
-    "Int8Array",
-    "Uint8Array",
-    "Int16Array",
-    "Uint16Array",
-    "Int32Array",
-    "Uint32Array",
-    "Float32Array",
-    "Float64Array",
+    "Attribute",
     "FSharpException",
     "FSharpRef",
+    "Float32Array",
+    "Float64Array",
+    "Int8Array",
+    "Int16Array",
+    "Int32Array",
     "Record",
+    "Uint8Array",
+    "Uint16Array",
+    "Uint32Array",
+    "Union",
+    "char",
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "is_exception",
     "seq_to_string",
     "to_string",
-    "Union",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
 ]

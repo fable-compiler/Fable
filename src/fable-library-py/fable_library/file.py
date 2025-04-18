@@ -1,28 +1,28 @@
 import os
-from typing import Awaitable
+from collections.abc import Awaitable
 
 
 def read_all_text(file_name: str) -> str:
-    with open(file_name, "r") as f:
+    with open(file_name) as f:
         return f.read()
 
 
 def read_all_text_async(file_name: str) -> Awaitable[str]:
     async def read_all_text_async():
-        with open(file_name, "r") as f:
+        with open(file_name) as f:
             return f.read()
 
     return read_all_text_async()
 
 
 def read_all_lines(file_name: str) -> list[str]:
-    with open(file_name, "r") as f:
+    with open(file_name) as f:
         return [line.strip("\n") for line in f.readlines()]
 
 
 def read_all_lines_async(file_name: str) -> Awaitable[list[str]]:
     async def read_all_lines_async():
-        with open(file_name, "r") as f:
+        with open(file_name) as f:
             return [line.strip("\n") for line in f.readlines()]
 
     return read_all_lines_async()
