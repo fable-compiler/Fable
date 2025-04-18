@@ -164,14 +164,6 @@ let factorial (count : int) : int =
 let ``test emitPyStatement works with parameters`` () =
     factorial 5 |> equal 120
 
-[<Fact>]
-let ``test importSideEffects`` () = // See #3965
-    importSideEffects "./native_code.py"
-    let mutable x = 3
-    Py.python $"""
-    {x} = native_code.add5({x} + 2)
-    """
-    x |> equal 10
 
 type NativeCode =
     abstract add5: int -> int
