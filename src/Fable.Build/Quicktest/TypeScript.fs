@@ -10,11 +10,12 @@ let handle (args: string list) =
 
     let srcDir = Path.Resolve "src/quicktest"
     let outDir = Path.Resolve "temp/quicktest-ts"
-    let mainFile = outDir </> "Quicktest.fs.js"
+    let mainFile = outDir </> "QuickTest.fs.js"
 
     // Make sure the output directory exists, so nodemon doesn't complain
     Directory.CreateDirectory(outDir) |> ignore
-    FileInfo(mainFile).Create() |> ignore
+    // Make sure to dispose the file handle, to avoid file locking
+    FileInfo(mainFile).Create() |> _.Dispose()
 
     let tscCommand =
         CmdLine.empty

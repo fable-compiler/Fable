@@ -26,7 +26,6 @@ export class Uri {
 
   private static isAbsoluteUri(uri: string): boolean {
     try {
-      // tslint:disable-next-line no-unused-expression
       new URL(uri);
       return true;
     } catch {
@@ -178,7 +177,13 @@ export class Uri {
   }
 
   get host() {
-    return this.asUrl().host;
+    const host = this.asUrl().host;
+
+    if (host.includes(":")) {
+      return host.split(":")[0];
+    } else {
+      return host;
+    }
   }
 
   get absolutePath() {
@@ -187,6 +192,20 @@ export class Uri {
 
   get query() {
     return this.asUrl().search;
+  }
+
+  get isDefaultPort() {
+    return this.port === 80;
+  }
+
+  get port() {
+    const port = this.asUrl().port;
+
+    if (port === "") {
+      return 80;
+    } else {
+      return parseInt(port);
+    }
   }
 
   get pathAndQuery() {

@@ -1723,7 +1723,7 @@ let ``test Accessor function shorthand works for anonymous records`` () =
     equal names ["John"; "Jane"]
 
 [<Fact>]
-let ``test Accessor function shorthand works with STRP syntax`` =
+let ``test Accessor function shorthand works with STRP syntax`` () =
     let user : AccessorFunctionShorthand.User =
         { Name = "John" }
     let student : AccessorFunctionShorthand.Student =
@@ -1731,3 +1731,35 @@ let ``test Accessor function shorthand works with STRP syntax`` =
 
     equal (AccessorFunctionShorthand.namePropertyGetter user) "John"
     equal (AccessorFunctionShorthand.namePropertyGetter student) "Jane"
+
+
+module DiscriminatedUnionIsGenerated =
+
+    type Test =
+        | A
+        | Value of string
+
+[<Fact>]
+let ``test Discriminated union .Is* generated works`` () =
+    let testA = DiscriminatedUnionIsGenerated.A
+    let testValue = DiscriminatedUnionIsGenerated.Value "test"
+
+    equal true testA.IsA
+    equal false testA.IsValue
+    equal false testValue.IsA
+    equal true testValue.IsValue
+
+module PartialActivePatternsCanReturnBool =
+
+    let (|CaseInsensitive|_|) (pattern: string) (value: string) =
+        String.Equals(value, pattern, StringComparison.OrdinalIgnoreCase)
+
+    let isFoo key =
+        match key with
+        | CaseInsensitive "foo" -> true
+        | _ -> false
+
+[<Fact>]
+let ``test Partial active patterns can return bool`` () =
+    let result = PartialActivePatternsCanReturnBool.isFoo "FOO"
+    equal true result

@@ -5,16 +5,27 @@ mod Lazy;
 mod LrcPtr;
 mod Mutable;
 
+#[cfg(feature = "no_std")]
+pub mod print_no_std;
+
 pub mod Native_ {
-    pub(crate) extern crate alloc;
+
+    extern crate alloc;
+
+    #[cfg(not(feature = "no_std"))]
+    pub use std::{eprint, eprintln, print, println};
+
+    #[cfg(feature = "no_std")]
+    pub use super::print_no_std::{eprint, eprintln, print, println};
 
     // re-export at module level
     // pub use alloc::borrow::Cow;
-    pub use alloc::boxed::Box as Box_;
+    pub use alloc::boxed::Box;
     pub use alloc::rc::Rc;
     pub use alloc::string::{String, ToString};
     pub use alloc::sync::Arc;
     pub use alloc::vec::Vec;
+    pub use alloc::{format, vec};
 
     pub use core::any::Any;
 
@@ -55,13 +66,76 @@ pub mod Native_ {
         value
     }
 
+    use crate::System::Collections::Generic::EqualityComparer_1;
+    use crate::System::Collections::Generic::IEnumerable_1;
+    use crate::System::Collections::Generic::IEqualityComparer_1;
+
     // TODO: use these types in generated code
-    pub type Seq<T> = LrcPtr<dyn crate::Interfaces_::System::Collections::Generic::IEnumerable_1<T>>;
+    pub type Seq<T> = LrcPtr<dyn IEnumerable_1<T>>;
     pub type RefCell<T> = LrcPtr<MutCell<T>>;
-    pub type Nullable<T> = Option<Lrc<T>>;
+    pub type Nullable<T> = Option<T>;
+
+    // pub trait AsAny: Any {
+    //     fn as_any(&self) -> &dyn Any;
+    // }
+
+    // impl<T: Any> AsAny for T {
+    //     #[inline(always)]
+    //     fn as_any(&self) -> &dyn Any {
+    //         self
+    //     }
+    // }
+
+    // pub trait Downcast: AsAny {
+    //     #[inline]
+    //     fn is<T: AsAny>(&self) -> bool {
+    //         self.as_any().is::<T>()
+    //     }
+
+    //     #[inline]
+    //     fn downcast_ref<T: AsAny>(&self) -> Option<&T> {
+    //         self.as_any().downcast_ref::<T>()
+    //     }
+    // }
+
+    // impl<T: ?Sized + AsAny> Downcast for T {}
+
+    pub trait NullableRef {
+        fn null() -> Self;
+        fn is_null(&self) -> bool;
+    }
+
+    #[cfg(not(feature = "lrc_ptr"))]
+    impl<T> NullableRef for Lrc<T> {
+        #[inline]
+        fn null() -> Self {
+            null_ptr::<T>()
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            is_null_ptr(self)
+        }
+    }
+
+    impl<T> NullableRef for Option<T> {
+        #[inline]
+        fn null() -> Self {
+            None::<T>
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            self.is_none()
+        }
+    }
 
     use core::cmp::Ordering;
-    use core::hash::{BuildHasher, Hash, Hasher};
+    use core::fmt::{Debug, Display, Formatter, Result};
+    use core::hash::{BuildHasher, BuildHasherDefault, Hash, Hasher};
+
+    // default object trait
+    // pub trait IObject: Clone + Debug + 'static {}
 
     // -----------------------------------------------------------
     // Helpers
@@ -69,11 +143,32 @@ pub mod Native_ {
 
     pub fn ignore<T>(arg: &T) -> () {}
 
-    pub fn defaultOf<T>() -> T {
+    #[inline]
+    pub fn null<T: NullableRef>() -> T {
+        T::null()
+    }
+
+    #[inline]
+    pub fn is_null<T: NullableRef>(o: T) -> bool {
+        o.is_null()
+    }
+
+    pub fn null_ptr<T>() -> Lrc<T> {
+        static NULL: OnceInit<Lrc<dyn Any>> = OnceInit::new();
+        let null_rc = NULL.get_or_init(move || Lrc::new(()));
+        unsafe { Lrc::from_raw(Lrc::into_raw(null_rc.clone()) as *const T) }
+    }
+
+    pub fn is_null_ptr<T>(o: &Lrc<T>) -> bool {
+        let null_T: Lrc<T> = null_ptr::<T>();
+        Lrc::ptr_eq(o, &null_T)
+    }
+
+    pub fn getZero<T>() -> T {
         unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
-    pub fn getZero<T: Default>() -> T {
+    pub fn defaultOf<T: Default>() -> T {
         Default::default()
     }
 
@@ -103,15 +198,19 @@ pub mod Native_ {
 
     pub fn getHashCode<T: Hash>(x: T) -> i32 {
         #[cfg(feature = "no_std")]
-        let mut hasher = hashbrown::hash_map::DefaultHashBuilder::default().build_hasher();
+        type DefaultHashBuilder = hashbrown::DefaultHashBuilder;
         #[cfg(not(feature = "no_std"))]
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        type DefaultHashBuilder = BuildHasherDefault<std::collections::hash_map::DefaultHasher>;
+
+        static builder: OnceInit<DefaultHashBuilder> = OnceInit::new();
+        let default_builder = builder.get_or_init(move || DefaultHashBuilder::default());
+        let mut hasher = default_builder.build_hasher();
         x.hash(&mut hasher);
         let h = hasher.finish();
         ((h >> 32) ^ h) as i32
     }
 
-    pub fn referenceHash<T>(p: &T) -> i32 {
+    pub fn referenceHash<T: ?Sized>(p: &T) -> i32 {
         getHashCode(p as *const T)
     }
 
@@ -126,7 +225,16 @@ pub mod Native_ {
         }
     }
 
-    pub fn makeCompare<T: Clone + 'static>(
+    pub fn partial_compare<T: PartialOrd>(x: &T, y: &T) -> Ordering {
+        match x.partial_cmp(y) {
+            Some(ordering) => ordering,
+            None if y == y => Ordering::Less,    // y is not NaN
+            None if x == x => Ordering::Greater, // x is not NaN
+            None => Ordering::Equal,
+        }
+    }
+
+    pub fn make_compare<T: Clone + 'static>(
         comparer: Func2<T, T, i32>,
     ) -> impl Fn(&T, &T) -> Ordering {
         move |x, y| match comparer(x.clone(), y.clone()) {
@@ -135,6 +243,69 @@ pub mod Native_ {
             _ => Ordering::Equal,
         }
     }
+
+    pub fn default_eq_comparer<T>() -> LrcPtr<dyn IEqualityComparer_1<T>>
+    where
+        T: Clone + Hash + PartialEq + 'static,
+    {
+        interface_cast!(
+            EqualityComparer_1::<T>::get_Default(),
+            Lrc<dyn IEqualityComparer_1<T>>,
+        )
+    }
+
+    #[cfg(feature = "no_std")]
+    pub fn get_args(argc: isize, argv: *const *const u8) -> impl Iterator<Item = &'static str> {
+        (0..argc as usize).map(move |i| unsafe {
+            let curr_argv = argv.add(i).read_volatile();
+            let c_str = core::ffi::CStr::from_ptr(curr_argv as *const _);
+            c_str.to_str().unwrap()
+        })
+    }
+
+    // -----------------------------------------------------------
+    // IEqualityComparer key wrapper
+    // -----------------------------------------------------------
+
+    #[derive(Clone)]
+    pub struct HashKey<T: Clone> {
+        pub key: T,
+        pub comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
+    }
+
+    impl<T: Clone> HashKey<T> {
+        pub fn new(key: T, comparer: LrcPtr<dyn IEqualityComparer_1<T>>) -> HashKey<T> {
+            HashKey { key, comparer }
+        }
+    }
+
+    impl<T: Clone + Debug> Debug for HashKey<T> {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+            f.debug_tuple("ComparerKey").field(&self.key).finish()
+        }
+    }
+
+    impl<T: Clone + Debug> Display for HashKey<T> {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+            self.key.fmt(f)
+        }
+    }
+
+    impl<T: Clone + 'static> Hash for HashKey<T> {
+        #[inline]
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.comparer.GetHashCode(self.key.clone()).hash(state)
+        }
+    }
+
+    impl<T: Clone + 'static> PartialEq for HashKey<T> {
+        #[inline]
+        fn eq(&self, other: &Self) -> bool {
+            self.comparer.Equals(self.key.clone(), other.key.clone())
+        }
+    }
+
+    impl<T: Clone + 'static> Eq for HashKey<T> {}
 
     // -----------------------------------------------------------
     // Type testing
@@ -242,8 +413,8 @@ pub mod Native_ {
     // -----------------------------------------------------------
 
     #[inline]
-    pub fn mkRef<T>(x: T) -> Lrc<T> {
-        Lrc::from(x)
+    pub fn mkRef<T>(x: T) -> LrcPtr<T> {
+        LrcPtr::new(x)
     }
 
     #[inline]
@@ -252,7 +423,7 @@ pub mod Native_ {
     }
 
     #[inline]
-    pub fn mkRefMut<T>(x: T) -> Lrc<MutCell<T>> {
+    pub fn mkRefMut<T>(x: T) -> LrcPtr<MutCell<T>> {
         mkRef(mkMut(x))
     }
 
@@ -262,27 +433,45 @@ pub mod Native_ {
     }
 
     #[cfg(not(feature = "lrc_ptr"))]
-    #[inline]
     pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
-        LrcPtr::new(x) as LrcPtr<dyn Any>
+        match (&x as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
+            Some(o) => o.clone(),
+            None => LrcPtr::new(x) as LrcPtr<dyn Any>,
+        }
     }
 
     #[cfg(feature = "lrc_ptr")]
-    #[inline]
     pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
-        LrcPtr::from(Lrc::new(x) as Lrc<dyn Any>)
+        match (&x as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
+            Some(o) => o.clone(),
+            None => LrcPtr::from(Lrc::new(x) as Lrc<dyn Any>),
+        }
     }
 
-    #[inline]
-    pub fn unbox<T: Clone + 'static>(o: &LrcPtr<dyn Any>) -> T {
-        try_downcast::<_, T>(o).unwrap().clone()
+    pub fn unbox<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> T {
+        try_downcast::<_, T>(&o).unwrap().clone()
+    }
+
+    pub fn ofObj<T: Clone + NullableRef + 'static>(value: T) -> Option<T> {
+        if is_null(value.clone()) {
+            None::<T>
+        } else {
+            Some(value)
+        }
+    }
+
+    pub fn toObj<T: Clone + NullableRef + 'static>(opt: Option<T>) -> T {
+        match &opt {
+            Some(opt_0_0) => opt_0_0.clone(),
+            _ => null::<T>(),
+        }
     }
 
     // -----------------------------------------------------------
     // Sequences
     // -----------------------------------------------------------
 
-    pub fn seq_to_iter<T>(seq: &Seq<T>) -> impl Iterator<Item = T>
+    pub fn seq_to_iter<T>(seq: Seq<T>) -> impl Iterator<Item = T>
     where
         T: Clone + 'static,
     {

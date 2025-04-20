@@ -396,7 +396,10 @@ module Reflection =
                     |> List.toArray
 
                 match com.GetEntity(entRef) with
-                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum; Atts.erase; Atts.tsTaggedUnion ]) (att, _) as ent ->
+                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum
+                                                              Atts.erase
+                                                              Atts.tsTaggedUnion
+                                                              Atts.pojoDefinedByConsArgs ]) (att, _) as ent ->
                     match att with
                     | Atts.stringEnum -> primitiveTypeInfo "string"
                     | Atts.erase ->
@@ -565,6 +568,7 @@ module Annotation =
                 TypeParameter.typeParameter (name, ?bound = bound) |> Some
             | _ -> None
         )
+        |> Array.distinct
 
     let makeTypeParamInstantiation (com: IBabelCompiler) ctx genArgs =
         if List.isEmpty genArgs then
@@ -757,7 +761,9 @@ module Annotation =
     // Move this to Replacements.tryEntity?
     let tryNativeOrFableLibraryInterface com ctx genArgs (ent: Fable.Entity) =
         match ent.FullName with
+        | Types.fsharpAsyncGeneric -> makeFableLibImportTypeAnnotation com ctx genArgs "AsyncBuilder" "Async" |> Some
         | _ when not ent.IsInterface -> None
+        // everything below is an interface
         | Types.icollection -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
         // -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
         | Types.icollectionGeneric -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
@@ -852,12 +858,12 @@ module Annotation =
                 AbstractMember.abstractProperty (prop, tagType, isComputed = isComputed)
 
             match uci.UnionCaseFields with
-            | [ field ] when field.Name = "Item" ->
-                IntersectionTypeAnnotation
-                    [|
-                        field.FieldType |> resolveInlineType genArgs |> makeFieldAnnotation com ctx
-                        ObjectTypeAnnotation [| tagMember |]
-                    |]
+            // | [ field ] when field.Name = "Item" ->
+            //     IntersectionTypeAnnotation
+            //         [|
+            //             field.FieldType |> resolveInlineType genArgs |> makeFieldAnnotation com ctx
+            //             ObjectTypeAnnotation [| tagMember |]
+            //         |]
             | fields ->
                 let names, types =
                     fields |> List.map (fun fi -> fi.Name, fi.FieldType) |> List.unzip
@@ -1271,9 +1277,7 @@ module Util =
 
         let typeParams =
             types
-            |> List.collect FSharp2Fable.Util.getTypeGenParams
-            |> List.distinctBy fst
-            |> List.map snd
+            |> FSharp2Fable.Util.getGenParamTypes
             |> List.filter (fun typ ->
                 match typ with
                 | Fable.GenericParam(name = name) ->
@@ -1568,7 +1572,7 @@ module Util =
             if com.IsTypeScript then
                 match List.tryItem tag ent.UnionCases with
                 | Some case ->
-                    match tryJsConstructorWithSuffix com ctx ent ("_" + case.Name) with
+                    match tryJsConstructorWithSuffix com ctx ent ("_" + sanitizeName case.Name) with
                     | Some helperRef ->
                         let typeParams = makeTypeParamInstantiation com ctx genArgs
 
@@ -1613,27 +1617,26 @@ module Util =
             let values = values |> List.mapToArray (fun e -> com.TransformAsExpr(ctx, e))
 
             StringTemplate(tag, List.toArray parts, values, r) |> Literal
-        | Fable.NumberConstant(x, kind, _) ->
-            match kind, x with
-            | Decimal, (:? decimal as x) -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
-            | BigInt, (:? bigint as x) -> Expression.bigintLiteral (string<bigint> x, ?loc = r)
-            | Int64, (:? int64 as x) -> Expression.bigintLiteral (string<int64> x, ?loc = r)
-            | UInt64, (:? uint64 as x) -> Expression.bigintLiteral (string<uint64> x, ?loc = r)
-            // | Int128,  (:? System.Int128 as x) -> Expression.bigintLiteral(string x, ?loc=r)
-            // | UInt128, (:? System.UInt128 as x) -> Expression.bigintLiteral(string x, ?loc=r)
-            | NativeInt, (:? nativeint as x) -> Expression.bigintLiteral (string<nativeint> x, ?loc = r)
-            | UNativeInt, (:? unativeint as x) -> Expression.bigintLiteral (string<unativeint> x, ?loc = r)
-            | Int8, (:? int8 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | UInt8, (:? uint8 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | Int16, (:? int16 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | UInt16, (:? uint16 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | Int32, (:? int32 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | UInt32, (:? uint32 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            // | Float16, (:? System.Half as x) -> Expression.numericLiteral(float x, ?loc=r)
-            | Float32, (:? float32 as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | Float64, (:? float as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | _, (:? char as x) -> Expression.numericLiteral (float x, ?loc = r)
-            | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: {x.GetType().FullName}"
+        | Fable.NumberConstant(v, _) ->
+            match v with
+            | Fable.NumberValue.Int8 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.UInt8 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Int16 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.UInt16 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Int32 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.UInt32 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Int64 x -> Expression.bigintLiteral (string<int64> x, ?loc = r)
+            | Fable.NumberValue.UInt64 x -> Expression.bigintLiteral (string<uint64> x, ?loc = r)
+            // | Fable.NumberValue.Int128(u,l) -> Expression.bigintLiteral(string System.Int128(u,l), ?loc=r)
+            // | Fable.NumberValue.UInt128(u,l) -> Expression.bigintLiteral(string System.UInt128(u,l), ?loc=r)
+            | Fable.NumberValue.BigInt x -> Expression.bigintLiteral (string<bigint> x, ?loc = r)
+            | Fable.NumberValue.NativeInt x -> Expression.bigintLiteral (string<nativeint> x, ?loc = r)
+            | Fable.NumberValue.UNativeInt x -> Expression.bigintLiteral (string<unativeint> x, ?loc = r)
+            | Fable.NumberValue.Float16 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Float32 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Float64 x -> Expression.numericLiteral (float x, ?loc = r)
+            | Fable.NumberValue.Decimal x -> JS.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}"
         | Fable.RegexConstant(source, flags) -> Expression.regExpLiteral (source, flags, ?loc = r)
         | Fable.NewArray(newKind, typ, kind) ->
             match newKind with
@@ -1878,7 +1881,7 @@ module Util =
 
             Expression.newExpression (classExpr, [||])
 
-    let transformCallArgs
+    let transformCallArgsWithNamedArgs
         (com: IBabelCompiler)
         ctx
         (callInfo: Fable.CallInfo)
@@ -1892,10 +1895,10 @@ module Util =
 
         let args =
             match paramsInfo with
-            | Some i when List.sameLength args i.Parameters ->
-                List.zip args i.Parameters
-                |> List.map (fun (a, i) ->
-                    if i.IsOptional then
+            | Some info when args.Length <= info.Parameters.Length ->
+                List.zipSafe args info.Parameters
+                |> List.map (fun (a, p) ->
+                    if p.IsOptional then
                         unwrapOptionalArg com a |> snd
                     else
                         a
@@ -1906,26 +1909,12 @@ module Util =
             paramsInfo
             |> Option.map (splitNamedArgs args)
             |> function
-                | None -> args, None
-                | Some(args, []) ->
-                    // Detect if the method has a ParamObject attribute
-                    // If yes and no argument is passed, pass an empty object
-                    // See https://github.com/fable-compiler/Fable/issues/3480
-                    match callInfo.MemberRef with
-                    | Some(Fable.MemberRef(_, info)) ->
-                        let hasParamObjectAttribute =
-                            info.Attributes
-                            |> Seq.tryFind (fun attr -> attr.Entity.FullName = Atts.paramObject)
-                            |> Option.isSome
-
-                        if hasParamObjectAttribute then
-                            args, Some(makeJsObject [])
-                        else
-                            args, None
-                    | _ ->
-                        // Here detect empty named args
-                        args, None
-                | Some(args, namedArgs) ->
+                | None
+                | Some(_, None) -> args, None
+                // If there are named arguments but none is passed, pass an empty object
+                // See https://github.com/fable-compiler/Fable/issues/3480
+                | Some(args, Some []) -> args, Some(makeJsObject [])
+                | Some(args, Some namedArgs) ->
                     let objArg =
                         namedArgs
                         |> List.choose (fun (p, v) ->
@@ -1958,9 +1947,12 @@ module Util =
             else
                 List.map (fun e -> com.TransformAsExpr(ctx, e)) args
 
-        match objArg with
-        | None -> args
-        | Some objArg -> args @ [ objArg ]
+        args, objArg
+
+    let transformCallArgs com ctx callInfo memberInfo =
+        match transformCallArgsWithNamedArgs com ctx callInfo memberInfo with
+        | args, None -> args
+        | args, Some objArg -> args @ [ objArg ]
 
     let resolveExpr t strategy babelExpr : Statement =
         match strategy with
@@ -2146,16 +2138,37 @@ module Util =
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | memberInfo ->
                 let callee = com.TransformAsExpr(ctx, callee)
-                let args = transformCallArgs com ctx callInfo memberInfo
+
+                let nonNamedArgs, namedArgs =
+                    transformCallArgsWithNamedArgs com ctx callInfo memberInfo
+
+                let args = nonNamedArgs @ Option.toList namedArgs
 
                 match callInfo.ThisArg with
                 | None when List.contains "new" callInfo.Tags ->
-                    let typeParamInst =
-                        match typ with
-                        | Fable.DeclaredType(_entRef, genArgs) -> makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                    let pojo =
+                        match nonNamedArgs, namedArgs, memberInfo with
+                        | [], Some namedArgs, Some memberInfo ->
+                            match memberInfo.DeclaringEntity |> Option.bind com.TryGetEntity with
+                            | Some e when FSharp2Fable.Util.isPojoDefinedByConsArgsEntity e -> Some namedArgs
+                            | _ -> None
                         | _ -> None
 
-                    Expression.newExpression (callee, List.toArray args, ?typeArguments = typeParamInst, ?loc = range)
+                    match pojo with
+                    | Some pojo -> pojo
+                    | None ->
+                        let typeParamInst =
+                            match typ with
+                            | Fable.DeclaredType(_entRef, genArgs) ->
+                                makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                            | _ -> None
+
+                        Expression.newExpression (
+                            callee,
+                            List.toArray args,
+                            ?typeArguments = typeParamInst,
+                            ?loc = range
+                        )
                 | None -> callFunction com ctx range callee callInfo.GenericArgs args
                 | Some(TransformExpr com ctx thisArg) ->
                     callFunction com ctx range callee callInfo.GenericArgs (thisArg :: args)
@@ -2207,6 +2220,27 @@ module Util =
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr : BlockStatement =
         com.TransformAsStatements(ctx, ret, expr) |> BlockStatement
+
+    let transformBlockWithVarHoisting (com: IBabelCompiler) ctx ret expr : BlockStatement =
+        let declaredVars = ResizeArray()
+
+        let ctx =
+            { ctx with
+                HoistVars =
+                    fun ids ->
+                        declaredVars.AddRange(ids)
+                        true
+            }
+
+        let body = transformBlock com ctx ret expr
+
+        if declaredVars.Count = 0 then
+            body
+        else
+            let varDeclStatement =
+                declaredVars |> Seq.map (fun v -> v, None) |> multiVarDeclaration com ctx Let
+
+            BlockStatement(Array.append [| varDeclStatement |] body.Body)
 
     let transformTryCatch com ctx r returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
@@ -2331,7 +2365,13 @@ module Util =
                 else
                     expr
 
-            getExpr range (getExpr None expr (Expression.stringLiteral ("fields"))) (ofInt info.FieldIndex)
+            let expr =
+                getExpr range (getExpr None expr (Expression.stringLiteral ("fields"))) (ofInt info.FieldIndex)
+
+            if com.IsTypeScript then
+                AsExpression(expr, makeTypeAnnotation com ctx Fable.Type.Any)
+            else
+                expr
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -2438,7 +2478,17 @@ module Util =
                 expr
         | Fable.UnionCaseTest tag ->
             let expected = transformUnionCaseTag com range expr.Type tag
-            let actual = getUnionExprTag com ctx None expr
+
+            let unionExprTag = getUnionExprTag com ctx None expr
+
+            let actual =
+                if com.IsTypeScript then
+                    // In TypeScript, we need to cast the union case tag to a number
+                    // otherwise TypeScript compiler is too smart and test against the literal value (0, 1, 2, etc.)
+                    let number = Fable.Number(Int32, Fable.NumberInfo.Empty)
+                    (AsExpression(unionExprTag, makeTypeAnnotation com ctx number))
+                else
+                    unionExprTag
 
             Expression.binaryExpression (BinaryEqual, actual, expected, ?loc = range)
 
@@ -3037,9 +3087,10 @@ module Util =
             transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
         | Fable.WhileLoop(TransformExpr com ctx guard, body, range) ->
-            [|
-                Statement.whileStatement (guard, transformBlock com ctx None body, ?loc = range)
-            |]
+            // Hoist vars within the loop so if a closure captures the variable
+            // it doesn't change in the next iteration, see #4031
+            let body = transformBlockWithVarHoisting com ctx None body
+            [| Statement.whileStatement (guard, body, ?loc = range) |]
 
         | Fable.ForLoop(var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp, range) ->
             let op1, op2 =
@@ -3050,7 +3101,9 @@ module Util =
 
             [|
                 Statement.forStatement (
-                    transformBlock com ctx None body,
+                    // Hoist vars within the loop so if a closure captures the variable
+                    // it doesn't change in the next iteration, see #4031
+                    transformBlockWithVarHoisting com ctx None body,
                     VariableDeclaration.variableDeclaration (
                         Let,
                         var.Name,
@@ -3068,26 +3121,21 @@ module Util =
             Option.map (fun name -> NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
 
         let args = FSharp2Fable.Util.discardUnitArg args
-        let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
 
         let ctx =
             { ctx with
                 TailCallOpportunity = tailcallChance
-                HoistVars =
-                    fun ids ->
-                        declaredVars.AddRange(ids)
-                        true
                 OptimizeTailCall = fun () -> isTailCallOptimized <- true
             }
 
-        let body =
+        let returnStrategy =
             if body.Type = Fable.Unit then
-                transformBlock com ctx (Some ReturnUnit) body
-            elif isJsStatement ctx (Option.isSome tailcallChance) body then
-                transformBlock com ctx (Some Return) body
+                ReturnUnit
             else
-                transformAsExpr com ctx body |> wrapExprInBlockWithReturn
+                Return
+
+        let body = transformBlockWithVarHoisting com ctx (Some returnStrategy) body
 
         let args, body =
             match isTailCallOptimized, tailcallChance with
@@ -3126,15 +3174,6 @@ module Util =
                     Parameter.parameter (a.Name, ?typeAnnotation = ta)
                 ),
                 body
-
-        let body =
-            if declaredVars.Count = 0 then
-                body
-            else
-                let varDeclStatement =
-                    declaredVars |> Seq.map (fun v -> v, None) |> multiVarDeclaration com ctx Let
-
-                BlockStatement(Array.append [| varDeclStatement |] body.Body)
 
         args |> List.toArray, body
 
@@ -3438,7 +3477,7 @@ module Util =
             else
                 returnType
 
-        ClassMember.classMethod (kind, args, body, isStatic = isStatic, ?returnType = returnType) //, ?typeParameters=typeParamDecl)
+        ClassMember.classMethod (kind, args, body, isStatic = isStatic, ?returnType = returnType, ?doc = memb.XmlDoc) //, ?typeParameters=typeParamDecl)
         |> Array.singleton
 
     let transformAttachedMethod
@@ -3459,7 +3498,8 @@ module Util =
                 body,
                 isStatic = isStatic,
                 ?returnType = returnType,
-                ?typeParameters = typeParamDecl
+                ?typeParameters = typeParamDecl,
+                ?doc = memb.XmlDoc
             )
 
         let args, body, returnType, typeParamDecl =
@@ -3678,7 +3718,7 @@ module Util =
                                 )
                             )
 
-                        let fnId = entName + "_" + case.Name |> Identifier.identifier
+                        let fnId = entName + "_" + sanitizeName case.Name |> Identifier.identifier
                         // Don't use return type, TypeScript will infer it and sometimes we want to use
                         // the actual constructor type in case it implements an interface
                         // let returnType = AliasTypeAnnotation(Identifier.identifier(entName + UnionHelpers.UNION_SUFFIX), entParamsInst)
@@ -3726,7 +3766,7 @@ module Util =
         (com: IBabelCompiler)
         ctx
         (ent: Fable.Entity)
-        (entName: string)
+        (decl: Fable.ClassDecl)
         classMembers
         =
         let fieldIds = getEntityFieldsAsIdents ent |> List.toArray
@@ -3764,7 +3804,90 @@ module Util =
                 Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
             )
 
-        declareType com ctx ent entName args body baseExpr classMembers
+        declareType com ctx ent decl.Name args body baseExpr classMembers
+
+    let transformPojoDefinedByConsArgsToInterface
+        (com: IBabelCompiler)
+        ctx
+        (ent: Fable.Entity)
+        (decl: Fable.ClassDecl)
+        =
+
+        let constructors =
+            ent.MembersFunctionsAndValues
+            |> Seq.filter _.IsConstructor
+            |> Seq.choose (fun constructor ->
+                let parameters = List.concat constructor.CurriedParameterGroups
+
+                if parameters.Length = 0 then
+                    None
+                else
+
+                    parameters
+                    |> List.mapi (fun index arg ->
+                        let name = defaultArg arg.Name $"arg{index}"
+
+                        /// Try to find getter/setter in F# syntax for POJOs. If found propagate its xml doc to interface.
+                        let tryXmlDoc =
+                            ent.MembersFunctionsAndValues
+                            |> Seq.tryFind (fun s -> s.DisplayName = name)
+                            |> Option.bind (fun tgs -> tgs.XmlDoc)
+
+                        let typeAnnotation =
+                            if arg.IsOptional then
+                                unwrapOptionalType arg.Type
+                            else
+                                arg.Type
+                            |> FableTransforms.uncurryType
+                            |> makeTypeAnnotation com ctx
+
+                        AbstractMember.abstractProperty (
+                            name |> Identifier.identifier |> Expression.Identifier,
+                            typeAnnotation,
+                            isOptional = arg.IsOptional,
+                            ?doc = tryXmlDoc
+                        )
+                    )
+                    |> Array.ofSeq
+                    |> Some
+            )
+            |> Seq.toList
+
+
+        let typeParameters =
+            ent.GenericParameters
+            |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
+            |> makeTypeParamDecl com ctx
+
+        match constructors with
+        | [] ->
+            addError
+                com
+                []
+                None
+                "Unable to find a valid constructor for generating interface via ParamObject, please make sure the constructor has at least one parameter."
+
+            []
+        | members :: [] ->
+            Declaration.interfaceDeclaration (
+                Identifier.identifier decl.Name,
+                members,
+                [||],
+                typeParameters,
+                ?doc = decl.XmlDoc
+            )
+            |> asModuleDeclaration ent.IsPublic
+            |> List.singleton
+        | _ ->
+            let typ =
+                List.map ObjectTypeAnnotation constructors
+                |> Array.ofList
+                |> UnionTypeAnnotation
+
+            TypeAliasDeclaration(decl.Name, typeParameters, typ)
+            |> asModuleDeclaration ent.IsPublic
+            |> List.singleton
+
 
     let transformClassWithPrimaryConstructor
         (com: IBabelCompiler)
@@ -3826,91 +3949,144 @@ module Util =
         ]
 
     let transformInterfaceDeclaration (com: IBabelCompiler) ctx (decl: Fable.ClassDecl) (ent: Fable.Entity) =
-        let getters, methods =
+        let makeAbstractMembers (info: Fable.MemberFunctionOrValue) (prop: Expression) (isComputed: bool) =
+            let args =
+                info.CurriedParameterGroups
+                |> List.concat
+                // |> FSharp2Fable.Util.discardUnitArg
+                |> List.toArray
+
+            let argsLen = Array.length args
+
+            let args =
+                args
+                |> Array.mapi (fun i a ->
+                    let name = defaultArg a.Name $"arg{i}"
+
+                    let ta =
+                        if a.IsOptional then
+                            unwrapOptionalType a.Type
+                        else
+                            a.Type
+                        |> FableTransforms.uncurryType
+                        |> makeTypeAnnotation com ctx
+
+                    Parameter
+                        .parameter(name, ta)
+                        .WithFlags(
+                            ParameterFlags(
+                                isOptional = a.IsOptional,
+                                isSpread = (i = argsLen - 1 && info.HasSpread),
+                                isNamed = a.IsNamed
+                            )
+                        )
+                )
+
+            let typeParams =
+                info.GenericParameters
+                |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
+                |> makeTypeParamDecl com ctx
+
+            let returnType = makeTypeAnnotation com ctx info.ReturnParameter.Type
+
+            AbstractMember.abstractMethod (
+                ObjectMeth,
+                prop,
+                args,
+                returnType = returnType,
+                typeParameters = typeParams,
+                isComputed = isComputed,
+                ?doc = info.XmlDoc
+            )
+
+        let filterdMembers =
             ent.MembersFunctionsAndValues
-            // It's not usual to have getters/setters in TS interfaces, so let's ignore setters
-            // and compile getters as fields
             |> Seq.filter (fun info ->
                 not (info.IsProperty || info.IsSetter)
                 // TODO: Deal with other emit attributes like EmitMethod or EmitConstructor
                 && not (hasAttribute Atts.emitAttr info.Attributes)
             )
-            |> Seq.toArray
-            |> Array.partition (fun info -> info.IsGetter)
 
-        let getters =
-            getters
-            |> Array.map (fun info ->
-                let prop, isComputed = memberFromName info.DisplayName
+        let members =
+            if hasAttribute Atts.mangle ent.Attributes then
+                let generateMemberName (info: Fable.MemberFunctionOrValue) =
+                    let entityGenericParameters = ent.GenericParameters |> List.map (fun g -> g.Name)
 
-                let isOptional, typ =
-                    makeAbstractPropertyAnnotation com ctx info.ReturnParameter.Type
+                    let overloadSuffix =
+                        if info.IsGetter || info.IsSetter then
+                            ""
+                        else
+                            info.CurriedParameterGroups
+                            |> List.map (fun groups -> groups |> List.map (fun group -> group.Type))
+                            |> OverloadSuffix.getHash entityGenericParameters
 
-                AbstractMember.abstractProperty (
-                    prop,
-                    typ,
-                    isComputed = isComputed,
-                    isOptional = isOptional,
-                    ?doc = info.XmlDoc
+                    let genericSuffix =
+                        if ent.GenericParameters.Length > 0 then
+                            $"`{ent.GenericParameters.Length}"
+                        else
+                            ""
+
+                    let getterOrSetterPrefix =
+                        if info.IsGetter then
+                            "get_"
+                        else if info.IsSetter then
+                            "set_"
+                        else
+                            ""
+
+                    let fullNamePath, memberName =
+                        let lastDotIndex = info.FullName.LastIndexOf('.')
+
+                        info.FullName.Substring(0, lastDotIndex), info.FullName.Substring(lastDotIndex + 1)
+
+                    let name =
+                        fullNamePath
+                        + genericSuffix
+                        + "."
+                        + getterOrSetterPrefix
+                        + memberName
+                        + overloadSuffix
+
+                    memberFromName name
+
+                filterdMembers
+                |> Seq.map (fun info ->
+                    let prop, isComputed = generateMemberName info
+
+                    makeAbstractMembers info prop isComputed
                 )
-            )
+                |> Seq.toArray
 
-        let methods =
-            methods
-            |> Array.map (fun info ->
-                let prop, isComputed = memberFromName info.DisplayName
+            else
+                let getters, methods =
+                    filterdMembers |> Seq.toArray |> Array.partition (fun info -> info.IsGetter)
 
-                let args =
-                    info.CurriedParameterGroups
-                    |> List.concat
-                    // |> FSharp2Fable.Util.discardUnitArg
-                    |> List.toArray
+                let getters =
+                    getters
+                    |> Array.map (fun info ->
+                        let prop, isComputed = memberFromName info.DisplayName
 
-                let argsLen = Array.length args
+                        let isOptional, typ =
+                            makeAbstractPropertyAnnotation com ctx info.ReturnParameter.Type
 
-                let args =
-                    args
-                    |> Array.mapi (fun i a ->
-                        let name = defaultArg a.Name $"arg{i}"
-
-                        let ta =
-                            if a.IsOptional then
-                                unwrapOptionalType a.Type
-                            else
-                                a.Type
-                            |> FableTransforms.uncurryType
-                            |> makeTypeAnnotation com ctx
-
-                        Parameter
-                            .parameter(name, ta)
-                            .WithFlags(
-                                ParameterFlags(
-                                    isOptional = a.IsOptional,
-                                    isSpread = (i = argsLen - 1 && info.HasSpread),
-                                    isNamed = a.IsNamed
-                                )
-                            )
+                        AbstractMember.abstractProperty (
+                            prop,
+                            typ,
+                            isComputed = isComputed,
+                            isOptional = isOptional,
+                            ?doc = info.XmlDoc
+                        )
                     )
 
-                let typeParams =
-                    info.GenericParameters
-                    |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
-                    |> makeTypeParamDecl com ctx
+                let methods =
+                    methods
+                    |> Array.map (fun info ->
+                        let prop, isComputed = memberFromName info.CompiledName
 
-                let returnType = makeTypeAnnotation com ctx info.ReturnParameter.Type
+                        makeAbstractMembers info prop isComputed
+                    )
 
-                AbstractMember.abstractMethod (
-                    ObjectMeth,
-                    prop,
-                    args,
-                    returnType = returnType,
-                    typeParameters = typeParams,
-                    isComputed = isComputed,
-                    ?doc = info.XmlDoc
-                )
-            )
-
-        let members = Array.append getters methods
+                Array.append getters methods
 
         let extends =
             ent.DeclaredInterfaces
@@ -3923,7 +4099,13 @@ module Util =
         let typeParameters =
             FSharp2Fable.Util.getEntityGenArgs ent |> makeTypeParamDecl com ctx
 
-        Declaration.interfaceDeclaration (Identifier.identifier decl.Name, members, extends, typeParameters)
+        Declaration.interfaceDeclaration (
+            Identifier.identifier decl.Name,
+            members,
+            extends,
+            typeParameters,
+            ?doc = decl.XmlDoc
+        )
         |> asModuleDeclaration ent.IsPublic
 
     let transformStringEnumDeclaration (decl: Fable.ClassDecl) (ent: Fable.Entity) (attArgs: obj list) =
@@ -4055,33 +4237,40 @@ module Util =
                 else
                     []
             | ent ->
-                let classMembers =
-                    decl.AttachedMembers
-                    |> List.toArray
-                    |> Array.collect (fun memb ->
-                        withCurrentScope ctx memb.UsedNames
-                        <| fun ctx ->
-                            memb.ImplementedSignatureRef
-                            |> Option.bind (com.TryGetMember)
-                            |> Option.orElseWith (fun () -> com.TryGetMember(memb.MemberRef))
-                            |> function
-                                | None -> [||]
-                                | Some info ->
-                                    if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
-                                        transformAttachedProperty com ctx ent info memb
-                                    else
-                                        transformAttachedMethod com ctx ent info memb
-                    )
-
-                match decl.Constructor with
-                | Some cons ->
-                    withCurrentScope ctx cons.UsedNames
-                    <| fun ctx -> transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
-                | None ->
-                    if ent.IsFSharpUnion then
-                        transformUnion com ctx ent decl.Name classMembers
+                if FSharp2Fable.Util.isPojoDefinedByConsArgsEntity ent then
+                    if Compiler.Language = TypeScript then
+                        transformPojoDefinedByConsArgsToInterface com ctx ent decl
                     else
-                        transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
+                        []
+                else
+
+                    let classMembers =
+                        decl.AttachedMembers
+                        |> List.toArray
+                        |> Array.collect (fun memb ->
+                            withCurrentScope ctx memb.UsedNames
+                            <| fun ctx ->
+                                memb.ImplementedSignatureRef
+                                |> Option.bind (com.TryGetMember)
+                                |> Option.orElseWith (fun () -> com.TryGetMember(memb.MemberRef))
+                                |> function
+                                    | None -> [||]
+                                    | Some info ->
+                                        if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
+                                            transformAttachedProperty com ctx ent info memb
+                                        else
+                                            transformAttachedMethod com ctx ent info memb
+                        )
+
+                    match decl.Constructor with
+                    | Some cons ->
+                        withCurrentScope ctx cons.UsedNames
+                        <| fun ctx -> transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
+                    | None ->
+                        if ent.IsFSharpUnion then
+                            transformUnion com ctx ent decl.Name classMembers
+                        else
+                            transformClassWithCompilerGeneratedConstructor com ctx ent decl classMembers
 
     let transformImports (imports: Import seq) : ModuleDeclaration list =
         let statefulImports = ResizeArray()

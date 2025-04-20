@@ -51,12 +51,7 @@ module PrinterExtensions =
     type Printer with
 
         member printer.PrintBlock
-            (
-                nodes: 'a array,
-                printNode: Printer -> 'a -> unit,
-                printSeparator: Printer -> unit,
-                ?skipNewLineAtEnd
-            )
+            (nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd)
             =
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
             printer.Print("{")
@@ -420,11 +415,7 @@ module PrinterExtensions =
                 printer.Print(Array.last parts |> escape)
 
         member printer.PrintJsxElement
-            (
-                componentOrTag: Expression,
-                props: (string * Expression) list,
-                children: Expression list
-            )
+            (componentOrTag: Expression, props: (string * Expression) list, children: Expression list)
             =
             let printTag =
                 function
@@ -463,9 +454,14 @@ module PrinterExtensions =
 
                 printer.PopIndentation()
 
-            printer.Print(">")
-
-            if not (List.isEmpty children) then
+            if List.isEmpty children then
+                // Self closing tag if el has no children. Matches expected behaviour of JSX with React/Solid etc
+                // https://react-cn.github.io/react/tips/self-closing-tag.html
+                // Self closing tag is invalid in HTML5 spec
+                // https://stackoverflow.com/questions/3558119/are-non-void-self-closing-tags-valid-in-html5
+                printer.Print(" />")
+            else
+                printer.Print(">")
                 printer.PrintNewLine()
                 printer.PushIndentation()
 
@@ -491,9 +487,9 @@ module PrinterExtensions =
 
                 printer.PopIndentation()
 
-            printer.Print("</")
-            printTag componentOrTag
-            printer.Print(">")
+                printer.Print("</")
+                printTag componentOrTag
+                printer.Print(">")
 
         member printer.Print(expr: Expression) =
             match expr with
@@ -582,7 +578,12 @@ module PrinterExtensions =
             | Literal.DirectiveLiteral(literal) -> printer.Print(literal)
             | StringTemplate(tag, parts, values, loc) ->
                 let escape str =
-                    Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("`", @"\`")
+                    Regex
+                        .Replace(str, @"(?<!\\)\\", @"\\")
+                        .Replace("`", @"\`")
+                        // FormattableString replaces { with {{
+                        .Replace("{{", "{")
+                        .Replace("}}", "}")
 
                 printer.AddLocation(loc)
                 printer.PrintOptional(tag)
@@ -639,13 +640,11 @@ module PrinterExtensions =
             match doc with
             | None -> ()
             | Some doc ->
-                // TODO: Check docs with params, etc
-                let regex = Regex(@"<summary>([\s\S]*?)</summary>", RegexOptions.Compiled)
+                let doc = ParsedXmlDoc.Parse doc
 
-                let m = regex.Match(doc)
-
-                if m.Success then
-                    let lines = m.Groups[1].Value.Trim().Split('\n')
+                match doc.Summary with
+                | Some summary ->
+                    let lines = summary.Split('\n')
                     printer.Print("/**")
                     printer.PrintNewLine()
 
@@ -658,6 +657,7 @@ module PrinterExtensions =
 
                     printer.Print(" */")
                     printer.PrintNewLine()
+                | None -> ()
 
         member printer.PrintDeclaration(decl: Declaration) =
             match decl with
@@ -668,7 +668,7 @@ module PrinterExtensions =
                 printer.PrintFunction(Some id, parameters, body, typeParameters, returnType, loc, isDeclaration = true)
 
                 printer.PrintNewLine()
-            | InterfaceDeclaration(id, body, extends, typeParameters) ->
+            | InterfaceDeclaration(id, body, extends, typeParameters, _doc) ->
                 printer.PrintInterfaceDeclaration(id, body, extends, typeParameters)
             | EnumDeclaration(name, cases, isConst) ->
                 if isConst then
@@ -847,12 +847,7 @@ module PrinterExtensions =
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc = loc)
             // Note we cannot use Naming.escapeString because it will corrupt the regex pattern
-            printer.Print(
-                Regex
-                    .Replace(pattern, @"(?<!\\)\/", @"\/")
-                    .Replace("\r", @"\r")
-                    .Replace("\n", @"\n")
-            )
+            printer.Print(Regex.Replace(pattern, @"(?<!\\)\/", @"\/").Replace("\r", @"\r").Replace("\n", @"\n"))
 
             printer.Print("/")
             printer.Print(flags)
@@ -1366,16 +1361,7 @@ module PrinterExtensions =
             | Some Readonly -> printer.Print("readonly ")
 
         member printer.PrintClassProperty
-            (
-                key,
-                value,
-                isComputed,
-                isStatic,
-                isOptional,
-                typeAnnotation,
-                accessModifier,
-                loc
-            )
+            (key, value, isComputed, isStatic, isOptional, typeAnnotation, accessModifier, loc)
             =
             printer.AddLocation(loc)
 

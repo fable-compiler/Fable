@@ -7,6 +7,7 @@ const CaseRules = {
   SnakeCase: 2,
   SnakeCaseAllCaps: 3,
   KebabCase: 4,
+  LowerAll: 5,
 };
 
 function dashify(str: string, separator: string) {
@@ -25,6 +26,8 @@ function changeCase(str: string, caseRule: number) {
       return dashify(str, "_").toUpperCase();
     case CaseRules.KebabCase:
       return dashify(str, "-");
+    case CaseRules.LowerAll:
+      return str.toLowerCase();
     case CaseRules.None:
     default:
       return str;

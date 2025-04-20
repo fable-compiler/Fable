@@ -71,7 +71,7 @@ let ``test sprintf displays sign correctly`` () =
       sprintf "%.2f" -1. |> equal "-1.00"
 
 [<Fact>]
-let ``test format string can use and compose string literals`` =
+let ``test format string can use and compose string literals`` () =
     let renderedCoordinates = sprintf formatCoordinateBody 0.25 0.75
     let renderedText = sprintf fullFormat 0.25 0.75
 
@@ -122,7 +122,7 @@ let ``test string interpolation works with anonymous records`` () =
     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
 
 [<Fact>]
-let ``test Extended string interpolation syntax`` =
+let ``test Extended string interpolation syntax`` () =
     let classAttr = "item-panel"
     let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
     cssNew |> equal ".item-panel:hover {background-color: #eee;}"
@@ -244,8 +244,9 @@ let ``test StringBuilder.Append works with various overloads`` () =
                         .Append(true)
                         .AppendFormat(CultureInfo.InvariantCulture, "{0}", 5.2)
                         .Append(34)
+                        .Append('x', 4)
     let actual = sb.ToString().ToLower()
-    actual |> equal "aaabcd/true5.234"
+    actual |> equal "aaabcd/true5.234xxxx"
 
 [<Fact>]
 let ``test StringBuilder.AppendFormat works`` () =
@@ -553,26 +554,57 @@ let ``test String.IndexOfAny works`` () =
     "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
     "abcdbcebc".IndexOfAny([|'c';'b'|]) |> equal 1
 
-[<Fact>]
-let ``test String.StartsWith works`` () =
-    let args = [("ab", true); ("cd", false); ("abcdx", false)]
-    for arg in args do
-          "abcd".StartsWith(fst arg)
-          |> equal (snd arg)
+// [<Fact>]
+// let ``test String.StartsWith char works`` () =
+//     "abcd".StartsWith('a') |> equal true
+//     "abcd".StartsWith('d') |> equal false
+
+// [<Fact>]
+// let ``test String.EndsWith char works`` () =
+//     "abcd".EndsWith('a') |> equal false
+//     "abcd".EndsWith('d') |> equal true
 
 [<Fact>]
-let ``test String.StartsWith with StringComparison works`` () =
-    let args = [("ab", true); ("cd", false); ("abcdx", false)]
+let ``test String.StartsWith works`` () =
+    let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true)]
     for arg in args do
-          "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-          |> equal (snd arg)
+        "abcd".StartsWith(fst arg)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``test String.StartsWith with OrdinalIgnoreCase works`` () =
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``test String.StartsWith with ignoreCase boolean works`` () =
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".StartsWith(fst arg, true, CultureInfo.InvariantCulture)
+        |> equal (snd arg)
 
 [<Fact>]
 let ``test String.EndsWith works`` () =
-    let args = [("ab", false); ("cd", true); ("abcdx", false)]
+    let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true)]
     for arg in args do
-          "abcd".EndsWith(fst arg)
-          |> equal (snd arg)
+        "abcd".EndsWith(fst arg)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``test String.EndsWith with OrdinalIgnoreCase works`` () =
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``test String.EndsWith with ignoreCase boolean works`` () =
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
+        |> equal (snd arg)
 
 [<Fact>]
 let ``test String.Trim works`` () =
@@ -959,3 +991,54 @@ let ``test calling ToString(CultureInfo.InvariantCulture) works`` () =
     (1).ToString(CultureInfo.InvariantCulture) |> equal "1"
     (7923209L).ToString(CultureInfo.InvariantCulture) |> equal "7923209"
     (7923209UL).ToString(CultureInfo.InvariantCulture) |> equal "7923209"
+
+
+#if FABLE_COMPILER
+open Fable.Core
+
+[<Import("category", "unicodedata")>]
+let unicodeCategory: char -> string = nativeOnly
+
+[<Fact>]
+let ``test unicode categories`` () =
+    let chars = [
+      "\x00", "Cc"
+      " ", "Zs"
+      "!", "Po"
+      "$", "Sc"
+      "(", "Ps"
+      ")", "Pe"
+      "+", "Sm"
+      "-", "Pd"
+      "0", "Nd"
+      "A", "Lu"
+      "^", "Sk"
+      "_", "Pc"
+      "a", "Ll"
+      "¦", "So"
+      "ª", "Lo"
+      "«", "Pi"
+      "\xad", "Cf"
+      "²", "No"
+      "»", "Pf"
+      "ǅ", "Lt"
+      "ʰ", "Lm"
+      "", "Mn"
+      "\u0378", "Cn"
+      "\u0488", "Me"
+      "\u0903", "Mc"
+      "\u16ee", "Nl"
+      "\u2028", "Zl"
+      "\u2029", "Zp"
+     //TODO: this fails with error EXCEPTION: Unable to translate Unicode character \\uD800 at index 116 to specified code page.
+      //"\ud800" , "Cs"
+      "\ue000", "Co"
+    ]
+    for (s, cat) in chars do
+      s
+      |> String.iter (fun c ->
+        // this ensures that the character is from the expected category
+        cat |> equal (unicodeCategory c)
+        Char.IsLetterOrDigit c |> ignore
+      )
+#endif

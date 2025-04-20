@@ -18,7 +18,7 @@ type MapTree<'K, 'V> =
         Right: Map<'K, 'V>
     }
 
-and [<Struct; CompiledName("Map")>] Map<'K, 'V> = { root: Option<MapTree<'K, 'V>> }
+and [<Struct; NoEquality; NoComparison; CompiledName("Map")>] Map<'K, 'V> = { root: Option<MapTree<'K, 'V>> }
 
 let inline private getRoot m = m.root
 

@@ -69,7 +69,7 @@ let getValue<'T> (opt: 'T option) : 'T =
     | Some x -> x
     | None -> failwith "Option has no value"
 
-let iterate<'T, 'U> (action: 'T -> unit) (opt: 'T option) : unit =
+let iterate<'T> (action: 'T -> unit) (opt: 'T option) : unit =
     match opt with
     | Some x -> action x
     | None -> ()
@@ -114,24 +114,43 @@ let orElseWith<'T> (ifNoneThunk: unit -> 'T option) (opt: 'T option) : 'T option
     | Some _ -> opt
     | None -> ifNoneThunk ()
 
-// moved to Array.ofOption to avoid dependency
-// let toArray<'T> (opt: 'T option): 'T[] = Array.ofOption
+let toArray (opt: 'T option) =
+    match opt with
+    | None -> [||]
+    | Some x -> [| x |]
 
-// moved to List.ofOption to avoid dependency
-// let toList<'T> (opt: 'T option): 'T list = List.ofOption
+let toList (opt: 'T option) =
+    match opt with
+    | None -> []
+    | Some x -> [ x ]
 
-// let ofNullable<'T>(x: 'T): 'T option =
-//     if x != null then Some(x) else None
+let toNullable (opt: 'T option) =
+    match opt with
+    | None -> System.Nullable()
+    | Some v -> System.Nullable(v)
 
-// let ofObj<'T>(x: 'T): 'T option =
-//     if x != null then Some(x) else None
+let ofNullable (value: System.Nullable<'T>) =
+    if value.HasValue then
+        Some(value.Value)
+    else
+        None
 
-// let toNullable<'T> (opt: 'T option): 'T =
+// let ofObj (value: 'T) =
+//     match box value with
+//     | null -> None
+//     | _ -> Some value
+
+// let toObj (opt: 'T option) =
 //     match opt with
-//     | Some x -> x
-//     | None -> null //defaultOf('T)
+//     | None -> null
+//     | Some x -> box x
 
-// let toObj<'T> (opt: 'T option): 'T =
-//     match opt with
-//     | Some x -> x
-//     | None -> null //defaultOf('T)
+let ofValueOption (voption: 'T voption) =
+    match voption with
+    | ValueNone -> None
+    | ValueSome x -> Some x
+
+let toValueOption (option: 'T option) =
+    match option with
+    | None -> ValueNone
+    | Some x -> ValueSome x

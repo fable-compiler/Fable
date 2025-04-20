@@ -3,8 +3,8 @@ module Fable.Tests.Misc
 #nowarn "40" //  warning FSHARP: This and other recursive references to the object(s) being defined will be checked for initialization-soundness at runtime through the use of a delayed reference.
 
 open System
-open System.Runtime.InteropServices
 open Fable.Core
+open Util
 open Util.Testing
 open Util2.Extensions
 
@@ -416,12 +416,6 @@ type Shape =
     | Square of int
     | Rectangle of int * int
 
-type StaticClass =
-    static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
-
-    static member inline Add(x: int, ?y: int) =
-        x + (defaultArg y 2)
-
 type ValueType =
   struct
     val public X : int
@@ -458,13 +452,31 @@ let inline inlineToString (f: 'T -> string): 'T -> string =
     let unused = f
     fun a -> $"{a}"
 
+type MyIntDelegate = delegate of unit -> int
+
+let get42 () = 42
+
+let dtest1 (f: MyIntDelegate -> int) =
+    f get42
+
+let dtest2 (f: MyIntDelegate -> int) =
+    let get43 () = 43
+    f get43
+
+let dInvoke (d: MyIntDelegate) =
+    d.Invoke ()
+
 type Union_TestUnionTag = Union_TestUnionTag of int
 
 [<AttachMembers>]
 type FooWithAttachedMembers () =
     member x.Bar = 42
-
     static member Foo = FooWithAttachedMembers()
+
+[<Fact>]
+let ``test Passing delegate works`` () = // #3862
+    dtest1 dInvoke |> equal 42
+    dtest2 dInvoke |> equal 43
 
 [<Fact>]
 let ``test Generic unit args work`` () = // #3584
@@ -496,8 +508,11 @@ let ``test can check compiler version with constant`` () =
     #if FABLE_COMPILER_JAVASCRIPT
     x <- x + 16
     #endif
+    #if FABLE_COMPILER_5
+    x <- x + 32
+    #endif
 
-    equal 13 x
+    equal 41 x
 
 [<Fact>]
 let ``test Can check compiler version at runtime`` () =
@@ -1184,15 +1199,6 @@ let ``test Removing optional arguments not in tail position works`` () =
     Internal.MyType.Add(y=6) |> equal 26
 
 [<Fact>]
-let ``test Inlined methods can have optional arguments`` () =
-    StaticClass.Add(2, 3) |> equal 5
-    StaticClass.Add(5) |> equal 7
-
-[<Fact>]
-let ``test DefaultParameterValue works`` () =
-    StaticClass.DefaultParam() |> equal true
-
-[<Fact>]
 let ``test Ignore shouldn't return value`` () = // See #1360
     let producer () = 7
     equal (box ()) (box(ignore(producer())))
@@ -1378,3 +1384,15 @@ let ``test Module mutable option values work`` () =
 let ``test attached static getters works`` () =
     let result = FooWithAttachedMembers.Foo.Bar
     result |> equal 42
+
+[<Fact>]
+let ``test nullArgCheck don't throw exception if argument is not null`` () =
+    let expected = "hello"
+    let value = nullArgCheck "arg1" expected
+    equal expected value
+
+[<Fact>]
+let ``test nullArgCheck throws exception if argument is null`` () =
+    throwsError "Value cannot be null. (Parameter 'str')" (fun _ ->
+        nullArgCheck "str" null
+    )

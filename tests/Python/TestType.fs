@@ -1,6 +1,8 @@
 module Fable.Tests.TypeTests
 
 open System
+open System.Runtime.InteropServices
+open Fable.Core
 open Util.Testing
 
 // Check if custom attributes can be created
@@ -95,6 +97,23 @@ type TypeAttachedTest(a1, a2, a3) =
     member _.Item
         with get (i) = arr.[i]
         and set (i) (v) = arr.[i] <- v
+
+type ITestProps =
+    abstract Value1: float with get, set
+    abstract Value: int -> float with get, set
+    abstract Item: int -> float with get, set
+
+type PropsTest(arr: float[]) =
+    interface ITestProps with
+        member _.Value1
+            with get () = arr.[1]
+            and set (v) = arr.[1] <- v
+        member _.Value
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+        member _.Item
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
 
 type A =
     { thing: int }
@@ -549,6 +568,190 @@ type MangledAbstractClass5(v) =
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
+type IndexedProps(v: int) =
+    let mutable v = v
+    member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
+    member _.Item with get (v2: float) = float v + v2 / 2.
+
+[<Interface>]
+type ITesting =
+    static member Testing x = x
+
+// type IOne =
+//     static abstract member GetSum: int * int -> int
+//     static abstract member GetOne: unit -> int
+//     static abstract member Two: int
+
+// type I32() =
+//     interface IOne with
+//         static member GetSum(x, y) = x + y
+//         static member GetOne() = 1
+//         static member Two = 2
+
+// let getSum<'T when 'T :> IOne>() = 'T.GetSum(1, 2)
+// let getOne<'T when 'T :> IOne>() = 'T.GetOne()
+// let getTwo<'T when 'T :> IOne>() = 'T.Two
+
+[<AttachMembersAttribute>]
+type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
+    member val P1 = defaultArg arg1 1.0
+    member val P2 = defaultArg arg2 "1"
+    member val P3 = defaultArg arg3 1
+
+type VeryOptionalInterface =
+    abstract Bar: int option
+    abstract Baz: bool option
+    abstract Bax: float option
+    abstract Wrapped: unit option
+    abstract Foo: string option with get, set
+    abstract Fn: (int -> int -> int) option
+    abstract Fn2: (int -> int -> int)
+
+type VeryOptionalClass () =
+    let mutable foo = "ab"
+    interface VeryOptionalInterface with
+        member _.Bar = Some 3
+        member _.Baz = None
+        member _.Wrapped = Some ()
+        member _.Bax =
+            let mutable h = ["6"] |> List.tryHead
+            h |> Option.map float
+        member _.Foo
+            with get() = Some foo
+            and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+        member _.Fn = Some (+)
+        member _.Fn2 = (*)
+
+type StaticClass =
+    [<NamedParams>]
+    static member NamedParams(foo: string, ?bar: int) = int foo + (defaultArg bar -3)
+    [<NamedParams>]
+    static member NamedParams(?name : string, ?age: int) =
+        let name = defaultArg name "John"
+        let age = defaultArg age 30
+        $"%s{name} is %d{age} years old"
+    static member FSharpOptionalParam(?value: bool) = defaultArg value true
+    static member FSharpOptionalParam2(?value: unit) = Option.isSome value
+    static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
+    static member DefaultParam2([<Optional>] value: Nullable<int>) = if value.HasValue then value.Value + 2 else 3
+    static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
+    static member inline InlineAdd(x: int, ?y: int) = x + (defaultArg y 2)
+
+[<Fact>]
+let ``test Optional arguments work`` () =
+    let x = MyOptionalClass(?arg2 = Some "2")
+    (x.P1, x.P2, x.P3) |> equal (1.0, "2", 1)
+    let y = MyOptionalClass(2.0)
+    (y.P1, y.P2, y.P3) |> equal (2.0, "1", 1)
+    let z = MyOptionalClass(?arg3 = Some 2)
+    (z.P1, z.P2, z.P3) |> equal (1.0, "1", 2)
+
+[<Fact>]
+let ``test Can implement interface optional properties`` () =
+    let veryOptionalValue = VeryOptionalClass() :> VeryOptionalInterface
+    veryOptionalValue.Bar |> equal (Some 3)
+    veryOptionalValue.Baz |> Option.isSome |> equal false
+    veryOptionalValue.Wrapped |> Option.isSome |> equal true
+    veryOptionalValue.Bax |> equal (Some 6.)
+    veryOptionalValue.Foo <- Some "z"
+    veryOptionalValue.Foo |> equal (Some "abz")
+    veryOptionalValue.Foo <- None
+    veryOptionalValue.Foo |> equal (Some "abz")
+    let fn = veryOptionalValue.Fn
+    let fn2 = veryOptionalValue.Fn2
+    let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+    let f2 = match fn with Some f -> f 1 8 | None -> -5
+    f1 + f2 - fn2 9 3 |> equal -3
+
+[<Fact>]
+let ``test Can implement interface optional properties with object expression`` () =
+    let veryOptionalValue =
+        let mutable foo = "ab"
+        { new VeryOptionalInterface with
+            member _.Bar = Some 3
+            member _.Baz = None
+            member _.Wrapped = Some ()
+            member _.Bax = ["6"] |> List.tryHead |> Option.map float
+            member _.Foo
+                with get() = Some foo
+                and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+            member _.Fn = Some (+)
+            member _.Fn2 = (*)
+        }
+
+    veryOptionalValue.Bar |> equal (Some 3)
+    veryOptionalValue.Baz |> Option.isSome |> equal false
+    veryOptionalValue.Wrapped |> Option.isSome |> equal true
+    veryOptionalValue.Bax |> equal (Some 6.)
+    veryOptionalValue.Foo <- Some "z"
+    veryOptionalValue.Foo |> equal (Some "abz")
+    veryOptionalValue.Foo <- None
+    veryOptionalValue.Foo |> equal (Some "abz")
+    let fn = veryOptionalValue.Fn
+    let fn2 = veryOptionalValue.Fn2
+    let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+    let f2 = match fn with Some f -> f 1 8 | None -> -5
+    f1 + f2 - fn2 9 3 |> equal -3
+
+[<Fact>]
+let ``test Optional named params work`` () =
+    StaticClass.NamedParams(foo="5", bar=4) |> equal 9
+    StaticClass.NamedParams(foo="3", ?bar=Some 4) |> equal 7
+    StaticClass.NamedParams(foo="14") |> equal 11
+    StaticClass.NamedParams() |> equal "John is 30 years old"
+
+[<Fact>]
+let ``test F# optional param works`` () =
+    let mutable f1 = fun (v: bool) ->
+        StaticClass.FSharpOptionalParam(value=v)
+    let mutable f2 = fun (v: bool option) ->
+        StaticClass.FSharpOptionalParam(?value=v)
+    StaticClass.FSharpOptionalParam() |> equal true
+    StaticClass.FSharpOptionalParam(true) |> equal true
+    StaticClass.FSharpOptionalParam(false) |> equal false
+    StaticClass.FSharpOptionalParam(?value=None) |> equal true
+    StaticClass.FSharpOptionalParam(?value=Some true) |> equal true
+    StaticClass.FSharpOptionalParam(?value=Some false) |> equal false
+    f1 true |> equal true
+    f1 false |> equal false
+    None |> f2 |> equal true
+    Some false |> f2 |> equal false
+    Some true |> f2 |> equal true
+
+[<Fact>]
+let ``test F# optional param works with no-wrappable options`` () =
+    let mutable f1 = fun (v: unit) ->
+        StaticClass.FSharpOptionalParam2(value=v)
+    let mutable f2 = fun (v: unit option) ->
+        StaticClass.FSharpOptionalParam2(?value=v)
+    StaticClass.FSharpOptionalParam2() |> equal false
+    StaticClass.FSharpOptionalParam2(()) |> equal true
+    StaticClass.FSharpOptionalParam2(?value=None) |> equal false
+    StaticClass.FSharpOptionalParam2(?value=Some ()) |> equal true
+    f1 () |> equal true
+    None |> f2 |> equal false
+    Some () |> f2 |> equal true
+
+[<Fact>]
+let ``test DefaultParameterValue works`` () =
+    StaticClass.DefaultParam() |> equal true
+    StaticClass.DefaultParam(true) |> equal true
+    StaticClass.DefaultParam(false) |> equal false
+
+    StaticClass.DefaultParam2(5) |> equal 7
+    StaticClass.DefaultParam2(Nullable()) |> equal 3
+    StaticClass.DefaultParam2() |> equal 3
+
+[<Fact>]
+let ``test DefaultParameterValue works with null`` () = // See #3326
+    StaticClass.DefaultNullParam() |> isNull |> equal true
+    StaticClass.DefaultNullParam(5) |> isNull |> equal false
+
+[<Fact>]
+let ``test Inlined methods can have optional arguments`` () =
+    StaticClass.InlineAdd(2, 3) |> equal 5
+    StaticClass.InlineAdd(5) |> equal 7
+
 // TODO: This test produces different results in Fable and .NET
 // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
 // [<Fact>]
@@ -557,6 +760,25 @@ type ConcreteClass1() =
 //     |> Array.item 0
 //     |> fun fi -> fi.PropertyType.GetGenericArguments().Length
 //     |> equal 1
+
+[<Fact>]
+let ``test Indexed properties work`` () =
+    let f = IndexedProps(5)
+    f[4] |> equal 9
+    f[3] <- "6"
+    f[4] |> equal 13
+    f[4.] |> equal 11
+
+[<Fact>]
+let ``test Static interface members work`` () =
+    let a = ITesting.Testing 5
+    a |> equal 5
+
+// [<Fact>]
+// let ``test Static interface calls work`` () =
+//     getOne<I32>() |> equal 1
+//     getTwo<I32>() |> equal 2
+//     getSum<I32>() |> equal 3
 
 [<Fact>]
 let ``test Types can instantiate their parent in the constructor`` () =
@@ -648,16 +870,6 @@ let ``test Type test with Date`` () =
     box 5 |> isDate |> equal false
 
 [<Fact>]
-let ``test Type test with Long`` () =
-    let isLong (x: obj) =
-        match x with
-        | :? int64 -> true
-        | _ -> false
-
-    box 5L |> isLong |> equal true
-//box 50 |> isLong |> equal false
-
-[<Fact>]
 let ``test Type test with BigInt`` () =
     let isBigInd (x: obj) =
         match x with
@@ -714,6 +926,19 @@ let ``test Getter and Setter with indexer work`` () =
 [<Fact>]
 let ``test Attached Getters Setters and Indexers work`` () =
     let t = TypeAttachedTest(1, 2, 3)
+    t.Value1 |> equal 2
+    t.Value1 <- 22
+    t.Value1 |> equal 22
+    t.Value(0) |> equal 1
+    t.Value(0) <- 11
+    t.Value(0) |> equal 11
+    t.[2] |> equal 3
+    t.[2] <- 33
+    t.[2] |> equal 33
+
+[<Fact>]
+let ``test Interface Getters Setters and Indexers work`` () =
+    let t = PropsTest([| 1; 2; 3 |]) :> ITestProps
     t.Value1 |> equal 2
     t.Value1 <- 22
     t.Value1 |> equal 22
@@ -1324,3 +1549,113 @@ let ``test Choice with arity 3+ is represented correctly`` () = // See #2485
 let ``test Can call the base version of a mangled abstract method that was declared above in the hierarchy`` () =
     let c = ConcreteClass1()
     c.MyMethod(4) |> equal 58
+
+[<Fact>]
+let ``test Type test uint8`` () =
+    let isUInt8 (x: obj) =
+        match x with
+        | :? byte -> true
+        | _ -> false
+
+    box 5uy |> isUInt8 |> equal true
+    box 5 |> isUInt8 |> equal false
+
+[<Fact>]
+let ``test Type test int8`` () =
+    let isInt8 (x: obj) =
+        match x with
+        | :? sbyte -> true
+        | _ -> false
+
+    box 5y |> isInt8 |> equal true
+    box 5 |> isInt8 |> equal false
+
+[<Fact>]
+let ``test Type test uint16`` () =
+    let isUInt16 (x: obj) =
+        match x with
+        | :? uint16 -> true
+        | _ -> false
+
+    box 5us |> isUInt16 |> equal true
+    box 5 |> isUInt16 |> equal false
+
+[<Fact>]
+let ``test Type test int16`` () =
+    let isInt16 (x: obj) =
+        match x with
+        | :? int16 -> true
+        | _ -> false
+
+    box 5s |> isInt16 |> equal true
+    box 5 |> isInt16 |> equal false
+
+[<Fact>]
+let ``test Type test uint32`` () =
+    let isUInt32 (x: obj) =
+        match x with
+        | :? uint32 -> true
+        | _ -> false
+
+    box 5u |> isUInt32 |> equal true
+    box 5 |> isUInt32 |> equal false
+
+[<Fact>]
+let ``test Type test int32`` () =
+    let isInt32 (x: obj) =
+        match x with
+        | :? int32 -> true
+        | _ -> false
+
+    box 5 |> isInt32 |> equal true
+    box 5L |> isInt32 |> equal false
+
+[<Fact>]
+let ``test Type test uint64`` () =
+    let isUInt64 (x: obj) =
+        match x with
+        | :? uint64 -> true
+        | _ -> false
+
+    box 5UL |> isUInt64 |> equal true
+    box 5 |> isUInt64 |> equal false
+
+[<Fact>]
+let ``test Type test int64`` () =
+    let isInt64 (x: obj) =
+        match x with
+        | :? int64 -> true
+        | _ -> false
+
+    box 5L |> isInt64 |> equal true
+    box 5 |> isInt64 |> equal false
+
+[<Fact>]
+let ``test Type test float32`` () =
+    let isFloat32 (x: obj) =
+        match x with
+        | :? float32 -> true
+        | _ -> false
+
+    box 5.f |> isFloat32 |> equal true
+    box 5. |> isFloat32 |> equal false
+
+[<Fact>]
+let ``test Type test float64`` () =
+    let isFloat64 (x: obj) =
+        match x with
+        | :? float -> true
+        | _ -> false
+
+    box 5. |> isFloat64 |> equal true
+    box 5.f |> isFloat64 |> equal false
+
+[<Fact>]
+let ``test Type test decimal`` () =
+    let isDecimal (x: obj) =
+        match x with
+        | :? decimal -> true
+        | _ -> false
+
+    box 5M |> isDecimal |> equal true
+    box 5 |> isDecimal |> equal false

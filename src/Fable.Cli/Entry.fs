@@ -114,6 +114,10 @@ let knownCliArgs () =
             ""
             "Support for TypeScript, Python, Rust, Php and Dart is experimental."
         ]
+        [ "--legacyCracker" ],
+        [
+            "Use this if you have issues with the new MSBuild Cracker released in Fable 5"
+        ]
 
         // Hidden args
         [ "--precompiledLib" ], []
@@ -123,7 +127,6 @@ let knownCliArgs () =
         [ "--trimRootModule" ], []
         [ "--fableLib" ], []
         [ "--replace" ], []
-        [ "--test:MSBuildCracker" ], []
     ]
 
 let printKnownCliArgs () =
@@ -139,26 +142,8 @@ let printKnownCliArgs () =
             | desc :: extraLines -> [ $"  %-18s{args}{desc}"; yield! extraLines |> List.map (sprintf "%20s%s" "") ]
     )
 
-let sanitizeCliArgs (args: CliArgs) =
-    let knownCliArgs =
-        knownCliArgs () |> List.collect fst |> List.map (fun a -> a.ToLower()) |> set
-
-    (Ok args, args.LoweredKeys)
-    ||> List.fold (fun res arg ->
-        match res with
-        | Error msg -> Error msg
-        | Ok args ->
-            if knownCliArgs.Contains(arg) then
-                Ok args
-            else
-                Error $"Unknown argument: {arg}"
-    )
-
-let parseCliArgs (args: string list) = CliArgs(args) |> sanitizeCliArgs
-
-let printHelp () =
-    Log.always
-        $"""Usage: fable [watch] [.fsproj file or dir path] [arguments]
+let generateHelp () =
+    $"""Usage: fable [watch] [.fsproj file or dir path] [arguments]
 
 Commands:
   -h|--help         Show help
@@ -175,6 +160,31 @@ Arguments:
    changes. This is required for some file systems, such as network shares,
    Docker mounted volumes, and other virtual file systems.
 """
+
+let generateHelpWithPrefix prefixText =
+    $"""%s{prefixText}
+
+%s{generateHelp ()}
+                """
+
+let printHelp () = generateHelp () |> Log.always
+
+let sanitizeCliArgs (args: CliArgs) =
+    let knownCliArgs =
+        knownCliArgs () |> List.collect fst |> List.map (fun a -> a.ToLower()) |> set
+
+    (Ok args, args.LoweredKeys)
+    ||> List.fold (fun res arg ->
+        match res with
+        | Error msg -> Error msg
+        | Ok args ->
+            if knownCliArgs.Contains(arg) then
+                Ok args
+            else
+                $"Unknown argument: {arg}" |> generateHelpWithPrefix |> Error
+    )
+
+let parseCliArgs (args: string list) = CliArgs(args) |> sanitizeCliArgs
 
 let argLanguage (args: CliArgs) =
     args.Value("--lang", "--language")
@@ -268,7 +278,7 @@ type Runner =
                 args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
 
             let fableLib = args.Value "--fableLib" |> Option.map Path.normalizePath
-            let useMSBuildForCracking = args.FlagOr("--test:MSBuildCracker", false)
+            let useMSBuildForCracking = args.FlagOr("--legacyCracker", true)
 
             do!
                 match watch, outDir, fableLib with
@@ -311,7 +321,7 @@ type Runner =
                 |> List.append
                     [
                         "FABLE_COMPILER"
-                        "FABLE_COMPILER_4"
+                        "FABLE_COMPILER_5"
                         match language with
                         | Php -> "FABLE_COMPILER_PHP"
                         | Rust -> "FABLE_COMPILER_RUST"
@@ -385,7 +395,7 @@ type Runner =
 
             let startCompilation () =
                 State.Create(cliArgs, ?watchDelay = watchDelay, useMSBuildForCracking = useMSBuildForCracking)
-                |> startCompilation
+                |> startCompilationAsync
                 |> Async.RunSynchronously
 
             return!
@@ -497,6 +507,19 @@ let private logPrelude commands language =
 
 [<EntryPoint>]
 let main argv =
+
+    let createLogger level =
+        use factory =
+            LoggerFactory.Create(fun builder ->
+                builder.SetMinimumLevel(level).AddCustomConsole(fun options -> options.UseNoPrefixMsgStyle <- true)
+                |> ignore
+            )
+
+        factory.CreateLogger("")
+
+    // Set an initial logger in case, we fail to parse the CLI args
+    Log.setLogger Verbosity.Normal (createLogger LogLevel.Information)
+
     result {
         let! argv, runProc =
             argv
@@ -538,17 +561,8 @@ let main argv =
                 else
                     LogLevel.Information, Verbosity.Normal
 
-        // Initialize logging
-        let factory =
-            LoggerFactory.Create(fun builder ->
-                builder
-                    .SetMinimumLevel(level)
-                    .AddCustomConsole(fun options -> options.UseNoPrefixMsgStyle <- true)
-                |> ignore
-            )
-
-        Log.setLogger verbosity (factory.CreateLogger(""))
-        factory.Dispose()
+        // Override the logger now that we know the verbosity level
+        Log.setLogger verbosity (createLogger level)
 
         logPrelude commands language
 
@@ -575,7 +589,7 @@ let main argv =
                     watch = args.FlagEnabled("--watch")
                 )
         | [] -> return! Runner.Run(args, language, rootDir, runProc, verbosity, watch = args.FlagEnabled("--watch"))
-        | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."
+        | _ -> return! "Unexpected arguments" |> generateHelpWithPrefix |> Error
     }
     |> function
         | Ok _ -> 0

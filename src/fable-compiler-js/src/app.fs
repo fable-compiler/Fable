@@ -33,8 +33,16 @@ let getMetadataDir () : string =
 let getFableLibDir () : string = importMember "./util.js"
 let getVersion () : string = importMember "./util.js"
 
-let initFable () : Fable.Standalone.IFableManager =
-    import "init" "@fable-org/fable-standalone"
+type IFableInit =
+    abstract member init: unit -> Fable.Standalone.IFableManager
+
+// Make __FABLE_STANDALONE__ available in the global scope
+importSideEffects "@fable-org/fable-standalone"
+
+[<Global("__FABLE_STANDALONE__")>]
+let FableInit: IFableInit = jsNative
+
+let initFable () : Fable.Standalone.IFableManager = FableInit.init ()
 #endif
 
 let references = Fable.Metadata.coreAssemblies
@@ -168,9 +176,13 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
                         column = srcCol
                     }
 
-                mapGenerator
-                    .Force()
-                    .AddMapping(generated, original, source = sourcePath, ?name = name)
+                // This is a workaround for:
+                // https://github.com/fable-compiler/Fable/issues/3980
+                // We are still investigating why some of the F# code don't have source information
+                // I believe for now we can ship it like that because it only deteriorate the source map
+                // it should not break them completely.
+                if srcLine <> 0 && srcCol <> 0 then
+                    mapGenerator.Force().AddMapping(generated, original, source = sourcePath, ?name = name)
 
         member _.Dispose() = ()
 

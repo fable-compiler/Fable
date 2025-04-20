@@ -4,6 +4,7 @@ This module implements .NET
 [tasks](https://docs.microsoft.com/en-us/dotnet/standard/async-in-depth)
 using Python async / await.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -16,7 +17,7 @@ _T = TypeVar("_T")
 
 
 class TaskCompletionSource(Generic[_T]):
-    __slots__ = "loop", "future"
+    __slots__ = "future", "loop"
 
     def __init__(self) -> None:
         self.loop: AbstractEventLoop = asyncio.get_event_loop()
@@ -105,11 +106,11 @@ def run_synchronously(task: Awaitable[Any]) -> None:
 
 
 __all__ = [
+    "TaskCompletionSource",
+    "from_result",
     "get_awaiter",
     "get_result",
-    "from_result",
-    "start",
-    "TaskCompletionSource",
-    "zero",
     "run_synchronously",
+    "start",
+    "zero",
 ]

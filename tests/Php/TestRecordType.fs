@@ -95,7 +95,7 @@ let ``test Record methods can be generated`` () =
     |> equal "Hello World! by Alfonso"
 
 [<Fact>]
-let ``test RRecord expression constructors can be generated`` () =
+let ``test Record expression constructors can be generated`` () =
     let x = { name = "Alfonso"; luckyNumber = 7 }
     let y = { x with luckyNumber = 14 }
     equal "Alfonso" y.name

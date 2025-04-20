@@ -62,10 +62,10 @@ def op_unary_negation_int32(x: int) -> int:
 
 
 __all__ = [
-    "parse",
-    "try_parse",
     "get_range",
     "op_unary_negation_int8",
     "op_unary_negation_int16",
     "op_unary_negation_int32",
+    "parse",
+    "try_parse",
 ]

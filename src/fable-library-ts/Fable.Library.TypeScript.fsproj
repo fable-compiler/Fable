@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
+    <!-- <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants> -->
   </PropertyGroup>
 
   <ItemGroup>
@@ -64,7 +64,6 @@
     <TypeScriptCompile Include="Timer.ts" />
     <TypeScriptCompile Include="TimeSpan.ts" />
     <Content Include="tsconfig.json" />
-    <Content Include="tslint.json" />
     <TypeScriptCompile Include="Types.ts" />
     <TypeScriptCompile Include="Unicode.13.0.0.ts" />
     <TypeScriptCompile Include="Uri.ts" />

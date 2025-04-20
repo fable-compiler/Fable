@@ -143,6 +143,6 @@ module Path =
         let i = normPath.LastIndexOf('/')
 
         if i < 0 then
-            ""
+            "."
         else
             normPath.Substring(0, i)

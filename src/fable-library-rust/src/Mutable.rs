@@ -80,6 +80,13 @@ mod NonSyncCell {
         }
     }
 
+    // impl<T> Default for MutCell<T> {
+    //     #[inline]
+    //     fn default() -> MutCell<T> {
+    //         MutCell::new(unsafe { core::mem::zeroed() })
+    //     }
+    // }
+
     impl<T: Clone> Clone for MutCell<T> {
         #[inline]
         fn clone(&self) -> MutCell<T> {

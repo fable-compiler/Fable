@@ -171,7 +171,7 @@ let compareTo (source1: 'T[]) (source2: 'T[]) =
 
         res
 
-let equals (source1: 'T[]) (source2: 'T[]) =
+let equals<'T when 'T :> System.IEquatable<'T>> (source1: 'T[]) (source2: 'T[]) =
     // LanguagePrimitives.GenericEquality source1 source2
     let len1 = source1.Length
     let len2 = source2.Length
@@ -181,7 +181,7 @@ let equals (source1: 'T[]) (source2: 'T[]) =
         let mutable res = true
 
         while res && i < len1 do
-            res <- source1[i] = source2[i]
+            res <- source1[i].Equals(source2[i])
             i <- i + 1
 
         res
@@ -466,41 +466,6 @@ let truncate (count: int) (source: 'T[]) : 'T[] =
             count
 
     getSubArray source 0 count
-
-// let addInPlace (x: 'T) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
-//     pushImpl source x |> ignore
-
-// let addRangeInPlace (range: seq<'T>) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
-//     for x in range do
-//         addInPlace x source
-
-// let insertRangeInPlace index (range: seq<'T>) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
-//     let mutable i = index
-//     for x in range do
-//         insertImpl source i x |> ignore
-//         i <- i + 1
-
-// let removeInPlace (item: 'T) (source: 'T[]) =
-//     // if isTypedArrayImpl source then invalidArg "array" "Typed arrays not supported"
-//     let i = indexOfImpl source item 0
-//     if i > -1 then
-//         spliceImpl source i 1 |> ignore
-//         true
-//     else
-//         false
-
-// let removeAllInPlace predicate (source: 'T[]) =
-//     let rec countRemoveAll count =
-//         let i = findIndexImpl predicate source
-//         if i > -1 then
-//             spliceImpl source i 1 |> ignore
-//             countRemoveAll count + 1
-//         else
-//             count
-//     countRemoveAll 0
 
 // TODO: Check array lengths
 let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
@@ -928,11 +893,11 @@ let inline averageBy (projection: 'T -> 'U) (source: 'T[]) : 'U =
 
     LanguagePrimitives.DivideByInt total source.Length
 
-// Option.toArray redirects here to avoid dependency (see Replacements)
-let ofOption<'T> (opt: 'T option) : 'T[] =
-    match opt with
-    | Some x -> Array.singleton x
-    | None -> Array.empty
+// // Option.toArray redirects here to avoid dependency (see Replacements)
+// let ofOption<'T> (opt: 'T option) : 'T[] =
+//     match opt with
+//     | Some x -> Array.singleton x
+//     | None -> Array.empty
 
 // Redirected to List.toArray to avoid dependency (see Replacements)
 // let ofList (xs: 'T list): 'T[] = List.toArray

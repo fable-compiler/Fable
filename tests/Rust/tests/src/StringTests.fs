@@ -115,8 +115,9 @@ let ``StringBuilder.Append works with various overloads`` () =
                         .Append(true)
                         .Append(5.2)
                         .Append(34)
+                        .Append('x', 4)
     let actual = sb.ToString().Replace(",", ".").ToLower()
-    actual |> equal "aaabcd/true5.234"
+    actual |> equal "aaabcd/true5.234xxxx"
 
 [<Fact>]
 let ``StringBuilder.AppendFormat works`` () =
@@ -385,7 +386,7 @@ let ``Backslash is escaped in interpolated strings`` () = // See #2649
     @$"\{4}".Length |> equal 2
 
 [<Fact>]
-let ``Extended string interpolation syntax`` =
+let ``Extended string interpolation syntax`` () =
     let classAttr = "item-panel"
     let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
     cssNew |> equal ".item-panel:hover {background-color: #eee;}"
@@ -473,7 +474,7 @@ let ``sprintf integers with sign and padding works`` () = // See #1931
     // sprintf "%- 4i" 5 |> equal " 5  " //TODO:
 
 [<Fact>]
-let ``format string can use and compose string literals`` =
+let ``format string can use and compose string literals`` () =
     let renderedCoordinates = sprintf formatCoordinateBody 0.25 0.75
     let renderedText = sprintf fullFormat 0.25 0.75
 
@@ -814,6 +815,11 @@ let ``String.Compare substring works`` () =
     String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
 
 [<Fact>]
+let ``String.Compare substring case-insensitive works`` () =
+    String.Compare("ABC", 0, "bcd", 0, 3, true) |> equal -1
+    String.Compare("ABC", 1, "bcd", 0, 2, true) |> equal 0
+
+[<Fact>]
 let ``String.Compare with comparison works`` () =
     // String.Compare("ABC", "abc", StringComparison.InvariantCulture) > 0 |> equal true
     String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
@@ -845,6 +851,23 @@ let ``String.IsNullOrWhiteSpace works`` () =
 let ``String.Contains works`` () =
     "ABC".Contains("B") |> equal true
     "ABC".Contains("Z") |> equal false
+
+[<Fact>]
+let ``String.Contains with char works`` () =
+    "ABC".Contains('B') |> equal true
+    "ABC".Contains('Z') |> equal false
+
+[<Fact>]
+let ``String.Contains with comparison works`` () =
+    "ABC".Contains("b", StringComparison.OrdinalIgnoreCase) |> equal true
+    "Abc".Contains("B", StringComparison.OrdinalIgnoreCase) |> equal true
+    "Abc".Contains("B", StringComparison.Ordinal) |> equal false
+
+[<Fact>]
+let ``String.Contains with char comparison works`` () =
+    "ABC".Contains('b', StringComparison.OrdinalIgnoreCase) |> equal true
+    "Abc".Contains('B', StringComparison.OrdinalIgnoreCase) |> equal true
+    "Abc".Contains('B', StringComparison.Ordinal) |> equal false
 
 [<Fact>]
 let ``String.PadLeft works`` () =
@@ -895,10 +918,10 @@ let ``String.Split with single separator works`` () =
 let ``String.Split with multiple char args works`` () =
     "a;b,c".Split(',', ';') |> equal [|"a"; "b"; "c"|]
 
-// [<Fact>]
-// let ``String.Split with string array works`` () =
-//     "a;b,c".Split([|","; ";"|], StringSplitOptions.None)
-//     |> equal [|"a"; "b"; "c"|]
+[<Fact>]
+let ``String.Split with string array works`` () =
+    "a;b,c".Split([|","; ";"|], StringSplitOptions.None)
+    |> equal [|"a"; "b"; "c"|]
 
 [<Fact>]
 let ``String.Split with RemoveEmptyEntries works`` () =
@@ -989,6 +1012,12 @@ let ``String.Replace works`` () =
     "...".Replace(".", "..") |> equal "......"
 
 [<Fact>]
+let ``String.Replace with characters works`` () =
+    "abc abc abc".Replace('c', 'd') |> equal "abd abd abd"
+    // String.Replace does not get stuck in endless loop
+    "...".Replace('.', '.') |> equal "..."
+
+[<Fact>]
 let ``Access char by index works`` () =
     let c = "abcd"[2]
     equal 'c' c
@@ -1054,28 +1083,9 @@ let ``String.LastIndexOfAny works`` () =
     "abcdbcebc".LastIndexOfAny([|'f';'e'|], 7, 1) |> equal -1
 
 [<Fact>]
-let ``String.StartsWith works`` () =
-    "abcd".StartsWith("ab") |> equal true
-    "abcd".StartsWith("cd") |> equal false
-    "abcd".StartsWith("abcdx") |> equal false
-
-[<Fact>]
 let ``String.StartsWith char works`` () =
     "abcd".StartsWith('a') |> equal true
     "abcd".StartsWith('d') |> equal false
-
-[<Fact>]
-let ``String.StartsWith with StringComparison works`` () =
-    let args = [("ab", true); ("cd", false); ("abcdx", false)]
-    for arg in args do
-        "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-        |> equal (snd arg)
-
-[<Fact>]
-let ``String.EndsWith works`` () =
-    "abcd".EndsWith("ab") |> equal false
-    "abcd".EndsWith("cd") |> equal true
-    "abcd".EndsWith("abcdx") |> equal false
 
 [<Fact>]
 let ``String.EndsWith char works`` () =
@@ -1083,10 +1093,45 @@ let ``String.EndsWith char works`` () =
     "abcd".EndsWith('d') |> equal true
 
 [<Fact>]
-let ``String.EndsWith with StringComparison works`` () =
-    let args = [("ab", false); ("cd", true); ("abcdx", false)]
+let ``String.StartsWith works`` () =
+    let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "abcd".StartsWith(fst arg)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.StartsWith with OrdinalIgnoreCase works`` () =
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.StartsWith with ignoreCase boolean works`` () =
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".StartsWith(fst arg, true, CultureInfo.InvariantCulture)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.EndsWith works`` () =
+    let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "abcd".EndsWith(fst arg)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.EndsWith with OrdinalIgnoreCase works`` () =
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
     for arg in args do
         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``String.EndsWith with ignoreCase boolean works`` () =
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
         |> equal (snd arg)
 
 [<Fact>]

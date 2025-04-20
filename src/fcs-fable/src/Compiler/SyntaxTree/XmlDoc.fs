@@ -25,7 +25,7 @@ type XmlDoc(unprocessedLines: string[], range: range) =
         | lineA :: rest as lines ->
             let lineAT = lineA.TrimStart([| ' ' |])
 
-            if lineAT = "" then
+            if String.IsNullOrEmpty(lineAT) then
                 processLines rest
             elif lineAT.StartsWithOrdinal("<") then
                 lines
@@ -82,7 +82,7 @@ type XmlDoc(unprocessedLines: string[], range: range) =
             | Some paramNames ->
 
                 for p in xml.Descendants(XName.op_Implicit "param") do
-                    match p.Attribute(XName.op_Implicit "name") with
+                    match p.Attribute(!!(XName.op_Implicit "name")) with
                     | null -> warning (Error(FSComp.SR.xmlDocMissingParameterName (), doc.Range))
                     | attr ->
                         let nm = attr.Value
@@ -93,9 +93,9 @@ type XmlDoc(unprocessedLines: string[], range: range) =
                 let paramsWithDocs =
                     [
                         for p in xml.Descendants(XName.op_Implicit "param") do
-                            match p.Attribute(XName.op_Implicit "name") with
-                            | null -> ()
-                            | attr -> attr.Value
+                            match p.Attribute(!!(XName.op_Implicit "name")) with
+                            | Null -> ()
+                            | NonNull attr -> attr.Value
                     ]
 
                 if paramsWithDocs.Length > 0 then
@@ -110,7 +110,7 @@ type XmlDoc(unprocessedLines: string[], range: range) =
                     warning (Error(FSComp.SR.xmlDocDuplicateParameter (d), doc.Range))
 
                 for pref in xml.Descendants(XName.op_Implicit "paramref") do
-                    match pref.Attribute(XName.op_Implicit "name") with
+                    match pref.Attribute(!!(XName.op_Implicit "name")) with
                     | null -> warning (Error(FSComp.SR.xmlDocMissingParameterName (), doc.Range))
                     | attr ->
                         let nm = attr.Value
@@ -121,46 +121,6 @@ type XmlDoc(unprocessedLines: string[], range: range) =
         with e ->
             warning (Error(FSComp.SR.xmlDocBadlyFormed (e.Message), doc.Range))
 #endif //!FABLE_COMPILER
-
-#if CREF_ELABORATION
-    member doc.Elaborate(crefResolver) =
-        for see in
-            seq {
-                yield! xml.Descendants(XName.op_Implicit "see")
-                yield! xml.Descendants(XName.op_Implicit "seealso")
-                yield! xml.Descendants(XName.op_Implicit "exception")
-            } do
-            match see.Attribute(XName.op_Implicit "cref") with
-            | null -> warning (Error(FSComp.SR.xmlDocMissingCrossReference (), doc.Range))
-            | attr ->
-                let cref = attr.Value
-
-                if
-                    cref.StartsWith("T:")
-                    || cref.StartsWith("P:")
-                    || cref.StartsWith("M:")
-                    || cref.StartsWith("E:")
-                    || cref.StartsWith("F:")
-                then
-                    ()
-                else
-                    match crefResolver cref with
-                    | None -> warning (Error(FSComp.SR.xmlDocUnresolvedCrossReference (nm), doc.Range))
-                    | Some text ->
-                        attr.Value <- text
-                        modified <- true
-
-        if modified then
-            let m = doc.Range
-
-            let newLines =
-                [|
-                    for e in xml.Elements() do
-                        yield! e.ToString().Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
-                |]
-
-            lines <- newLines
-#endif
 
 // Discriminated unions can't contain statics, so we use a separate type
 and XmlDocStatics() =
@@ -366,7 +326,7 @@ type XmlDocumentationInfo private (tryGetXmlDocument: unit -> XmlDocument option
             let lines = Array.zeroCreate childNodes.Count
 
             for i = 0 to childNodes.Count - 1 do
-                let childNode = childNodes[i]
+                let childNode = !!childNodes[i]
                 lines[i] <- childNode.OuterXml
 
             XmlDoc(lines, range0))

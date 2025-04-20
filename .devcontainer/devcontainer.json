@@ -51,7 +51,7 @@
 	// Restore the dotnet tools when the container is attached
     // This makes fanomas available directly without having the user needing to
     // run `dotnet tool restore` or build the project once
-    "postAttachCommand": "/bin/zsh -c 'source ~/.zshrc && dotnet tool restore'"
+    "postAttachCommand": "/bin/zsh -c 'source ~/.zshrc && dotnet tool restore'",
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
@@ -64,5 +64,9 @@
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root",
+
+    "remoteEnv": {
+        "TZ": "Europe/Paris"
+    }
 
 }

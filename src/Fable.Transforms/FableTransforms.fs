@@ -35,7 +35,7 @@ let isTailRecursive identName expr =
             getSubExpressions e |> List.iter (loop false)
         | Sequential exprs ->
             let lastIndex = (List.length exprs) - 1
-            exprs |> List.iteri (fun i e -> loop (i = lastIndex) e)
+            exprs |> List.iteri (fun i e -> loop (inTailPos && i = lastIndex) e)
         | Let(_, value, body) ->
             loop false value
             loop inTailPos body
@@ -427,7 +427,7 @@ module private Transforms =
         | Value(BoolConstant a, _), Value(BoolConstant b, _) -> Some(a = b)
         | Value(CharConstant a, _), Value(CharConstant b, _) -> Some(a = b)
         | Value(StringConstant a, _), Value(StringConstant b, _) -> Some(a = b)
-        | Value(NumberConstant(a, _, _), _), Value(NumberConstant(b, _, _), _) -> Some(a = b)
+        | Value(NumberConstant(a, _), _), Value(NumberConstant(b, _), _) -> Some(a = b)
         | Value(NewOption(None, _, _), _), Value(NewOption(None, _, _), _) -> Some true
         | Value(NewOption(Some a, _, _), _), Value(NewOption(Some b, _, _), _) -> tryEqualsAtCompileTime a b
         | _ -> None
@@ -440,9 +440,9 @@ module private Transforms =
             | Value(StringConstant v1, r1), Value(StringConstant v2, r2) ->
                 Value(StringConstant(v1 + v2), addRanges [ r1; r2 ])
             // Assume NumberKind and NumberInfo are the same
-            | Value(NumberConstant(:? int as v1, AST.Int32, NumberInfo.Empty), r1),
-              Value(NumberConstant(:? int as v2, AST.Int32, NumberInfo.Empty), r2) ->
-                Value(NumberConstant(v1 + v2, AST.Int32, NumberInfo.Empty), addRanges [ r1; r2 ])
+            | Value(NumberConstant(NumberValue.Int32 v1, NumberInfo.Empty), r1),
+              Value(NumberConstant(NumberValue.Int32 v2, NumberInfo.Empty), r2) ->
+                Value(NumberConstant(NumberValue.Int32(v1 + v2), NumberInfo.Empty), addRanges [ r1; r2 ])
             | _ -> e
 
         | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), [], _, _) ->

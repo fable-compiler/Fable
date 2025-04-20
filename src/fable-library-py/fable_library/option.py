@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar, cast, overload
 
 
 _T = TypeVar("_T")
@@ -11,20 +11,20 @@ _W = TypeVar("_W")
 
 
 class Some(Generic[_T]):
-    ___slots__ = "value"
+    __slots__ = "value"
 
     def __init__(self, value: _T):
-        self.value = value
+        self.value: _T = value
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if self is other:
             return True
 
-        if other is None:
-            return False
+        if isinstance(other, Some):
+            other_some = cast(Some[Any], other)
 
-        if self.value == other.value:
-            return True
+            if self.value == other_some.value:
+                return True
 
         return False
 
@@ -49,7 +49,7 @@ def filter(predicate: Callable[[_T], bool], opt: _T | None) -> _T | None:
     return opt
 
 
-def map(mapping: Callable[[_T], _U], opt: _T | None) -> _U | None:
+def map(mapping: Callable[[_T], _U], opt: _T | None) -> _U | Some[_U] | None:
     return some(mapping(value(opt))) if opt is not None else None
 
 
@@ -70,7 +70,19 @@ def map3(
     )
 
 
-def some(x: Any) -> Any | None:
+@overload
+def some(x: None) -> Some[None]: ...
+
+
+@overload
+def some(x: Some[_T]) -> Some[Some[_T]]: ...
+
+
+@overload
+def some(x: _T) -> _T: ...
+
+
+def some(x: None | _T | Some[_T]) -> Some[None] | Some[Some[_T]] | _T:
     return Some[Any](x) if x is None or isinstance(x, Some) else x
 
 
@@ -112,6 +124,7 @@ def or_else_with(opt: _T | None, if_none_thunk: Callable[[], _T | None]) -> _T |
 
 
 __all__ = [
+    "Some",
     "bind",
     "default_arg",
     "default_arg_with",
@@ -121,7 +134,6 @@ __all__ = [
     "map3",
     "of_nullable",
     "some",
-    "Some",
     "to_array",
     "to_nullable",
     "value",

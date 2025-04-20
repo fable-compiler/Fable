@@ -2,10 +2,10 @@ namespace Fable
 
 module Literals =
     [<Literal>]
-    let VERSION = "4.17.0"
+    let VERSION = "5.0.0-alpha.12"
 
     [<Literal>]
-    let JS_LIBRARY_VERSION = "1.4.0"
+    let JS_LIBRARY_VERSION = "2.0.0-beta.3"
 
 type CompilerOptionsHelper =
     static member Make
@@ -76,7 +76,7 @@ type Compiler =
 
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
 
-    abstract GetRootModule: fileName: string -> string
+    abstract GetRootModule: fileName: string -> string * FSharpXmlDoc option
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
     abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
@@ -99,7 +99,7 @@ type InlineExprLazy(f: Compiler -> InlineExpr) =
 
 [<AutoOpen>]
 module CompilerExt =
-    let private expectedVersionMatchesActual (expected: string) (actual: string) =
+    let expectedVersionMatchesActual (expected: string) (actual: string) =
         try
             let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
 
@@ -116,10 +116,10 @@ module CompilerExt =
             let actualMajor, actualMinor, actualPatch = parse actual
             let expectedMajor, expectedMinor, expectedPatch = parse expected
 
-            // Fail also if actual major is bigger than expected major version
-            actualMajor = expectedMajor
-            && (actualMinor > expectedMinor
-                || (actualMinor = expectedMinor && actualPatch >= expectedPatch))
+            actualMajor > expectedMajor
+            || (actualMajor = expectedMajor
+                && (actualMinor > expectedMinor
+                    || (actualMinor = expectedMinor && actualPatch >= expectedPatch)))
         with _ ->
             false
 
@@ -167,7 +167,7 @@ module CompilerExt =
                 member _.ProjectFile = com.ProjectFile
                 member _.SourceFiles = com.SourceFiles
                 member _.Options = com.Options
-                member _.GetRootModule(fileName) = com.GetRootModule(fileName)
+                member _.GetRootModule(fileName) = com.GetRootModule(fileName) |> fst
                 member _.GetEntity(ref) = com.GetEntity(ref)
                 member _.GetMember(ref) = com.GetMember(ref)
 
@@ -200,12 +200,7 @@ module CompilerExt =
             }
 
         member com.ApplyPlugin<'Plugin, 'Input when 'Plugin :> PluginAttribute>
-            (
-                plugins: Map<_, _>,
-                atts: Fable.Attribute seq,
-                input: 'Input,
-                transform
-            )
+            (plugins: Map<_, _>, atts: Fable.Attribute seq, input: 'Input, transform)
             =
             if Map.isEmpty plugins then
                 input

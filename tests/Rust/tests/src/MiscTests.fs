@@ -466,12 +466,6 @@ type Shape =
     | Square of int
     | Rectangle of int * int
 
-type StaticClass =
-    // static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
-    // static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
-    static member inline Add(x: int, ?y: int) =
-        x + (defaultArg y 2)
-
 type ValueType =
   struct
     val public X : int
@@ -512,6 +506,25 @@ let inline inlineToString (f: 'T -> string): 'T -> string =
     let unused = f
     fun a -> sprintf "%A" a
 
+type MyIntDelegate = delegate of unit -> int
+
+let get42 () = 42
+
+let dtest1 (f: MyIntDelegate -> int) =
+    f get42
+
+let dtest2 (f: MyIntDelegate -> int) =
+    let get43 () = 43
+    f get43
+
+let dInvoke (d: MyIntDelegate) =
+    d.Invoke ()
+
+[<Fact>]
+let ``Passing delegate works`` () = // #3862
+    dtest1 dInvoke |> equal 42
+    dtest2 dInvoke |> equal 43
+
 [<Fact>]
 let ``Generic unit args work`` () = // #3584
     let to_str = inlineToString (fun (props: unit) -> "s")
@@ -547,9 +560,15 @@ let ``Can check compiler version with constant`` () =
     x <- x + 4
     #endif
     #if FABLE_COMPILER_5
+    x <- x + 8
+    #endif
+    #if FABLE_COMPILER_6
     x <- x + 16
     #endif
-    equal 5 x
+    #if FABLE_COMPILER_RUST
+    x <- x + 32
+    #endif
+    equal 41 x
 
 // [<Fact>]
 // let ``Can check compiler version at runtime`` () =
@@ -907,15 +926,15 @@ let ``Properties in object expression work`` () =
     o.Bar <- 10
     o.Bar |> equal 10
 
-// [<Fact>]
-// let ``Object expression from class works`` () =
-//     let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
-//     // TODO: Type testing for object expressions?
-//     // match box o with
-//     // | :? SomeClass as c -> c.ToString()
-//     // | _ -> "Unknown"
-//     // |> equal "Hello World"
-//     o.ToString() |> equal "Hello World"
+[<Fact>]
+let ``Object expression from class works`` () =
+    let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
+    // TODO: Type testing for object expressions?
+    // match box o with
+    // | :? SomeClass as c -> c.ToString()
+    // | _ -> "Unknown"
+    // |> equal "Hello World"
+    o.ToString() |> equal "Hello World"
 
 // [<Fact>]
 // let ``Inlined object expression doesn't change argument this context`` () = // See #1291
@@ -939,13 +958,13 @@ let ``Object expressions don't optimize members away`` () = // See #1434
 //     let x = ref 5
 //     let obj = { new ObjectExprBase(x) with
 //                     override _.dup x = x * x }
-//     equal 25 x.contents
+//     x.contents |> equal 25
 
 // [<Fact>]
 // let ``Composition with recursive `this` works`` () =
 //     let mutable x = 0
 //     RecursiveType(fun f -> x <- f()) |> ignore
-//     equal 11 x
+//     x |> equal 11
 
 [<Fact>]
 let ``Type extension static methods work`` () =
@@ -1322,20 +1341,6 @@ let ``While with isNone doesn't hang with Some ()`` () =
 [<Fact>]
 let ``Removing optional arguments not in tail position works`` () =
     Internal.MyType.Add(y=6) |> equal 26
-
-[<Fact>]
-let ``Inlined methods can have optional arguments`` () =
-    StaticClass.Add(2, 3) |> equal 5
-    StaticClass.Add(5) |> equal 7
-
-// [<Fact>]
-// let ``DefaultParameterValue works`` () =
-//     StaticClass.DefaultParam() |> equal true
-
-// [<Fact>]
-// let ``DefaultParameterValue works with null`` () =
-//     StaticClass.DefaultNullParam() |> isNull |> equal true
-//     StaticClass.DefaultNullParam(5) |> isNull |> equal false
 
 [<Fact>]
 let ``Ignore shouldn't return value`` () = // See #1360

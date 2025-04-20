@@ -461,8 +461,8 @@ module Util =
             |> Option.map (splitNamedArgs args)
             |> function
                 | None -> args, []
-                | Some(args, []) -> args, []
-                | Some(args, namedArgs) ->
+                | Some(args, None) -> args, []
+                | Some(args, Some namedArgs) ->
                     args,
                     namedArgs
                     |> List.choose (fun (p, v) ->
@@ -719,22 +719,20 @@ module Util =
         |> Expression.identExpression
         |> getParts t parts
 
-    let transformNumberLiteral com r kind (x: obj) =
-        match kind, x with
-        | Dart.Replacements.DartInt, (:? char as x) -> Expression.integerLiteral (int64 x)
-        | Int8, (:? int8 as x) -> Expression.integerLiteral (int64 x)
-        | UInt8, (:? uint8 as x) -> Expression.integerLiteral (int64 x)
-        | Int16, (:? int16 as x) -> Expression.integerLiteral (int64 x)
-        | UInt16, (:? uint16 as x) -> Expression.integerLiteral (int64 x)
-        | Int32, (:? int32 as x) -> Expression.integerLiteral (x)
-        | UInt32, (:? uint32 as x) -> Expression.integerLiteral (int64 x)
-        | Int64, (:? int64 as x) -> Expression.integerLiteral (x)
-        | UInt64, (:? uint64 as x) -> Expression.integerLiteral (int64 x)
-        | Float32, (:? float32 as x) -> Expression.doubleLiteral (float x)
-        | Float64, (:? float as x) -> Expression.doubleLiteral (x)
-        | _ ->
-            $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
-            |> addErrorAndReturnNull com r
+    let transformNumberLiteral com (r: Option<SourceLocation>) (v: Fable.NumberValue) =
+        match v with
+        | Fable.NumberValue.Int8 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.UInt8 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Int16 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.UInt16 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Int32 x -> Expression.integerLiteral (x)
+        | Fable.NumberValue.UInt32 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Int64 x -> Expression.integerLiteral (x)
+        | Fable.NumberValue.UInt64 x -> Expression.integerLiteral (int64 x)
+        | Fable.NumberValue.Float16 x -> Expression.doubleLiteral (float x)
+        | Fable.NumberValue.Float32 x -> Expression.doubleLiteral (float x)
+        | Fable.NumberValue.Float64 x -> Expression.doubleLiteral (x)
+        | _ -> $"Numeric literal is not supported: %A{v}" |> addErrorAndReturnNull com r
 
     let transformTuple (com: IDartCompiler) ctx (args: Expression list) =
         let tup = List.length args |> getTupleTypeIdent com ctx
@@ -777,7 +775,7 @@ module Util =
 
         // Dart enums are limited as we cannot set arbitrary values or combine them as flags
         // so for now we compile F# enums as integers
-        | Fable.NumberConstant(x, kind, _) -> transformNumberLiteral com r kind x |> resolveExpr returnStrategy
+        | Fable.NumberConstant(x, _) -> transformNumberLiteral com r x |> resolveExpr returnStrategy
 
         | Fable.RegexConstant(source, flags) ->
             let flagToArg =
@@ -1592,7 +1590,7 @@ module Util =
         else
             failwith "Target idents/values lengths differ"
 
-    let getDecisionTargetAndBindValues (com: IDartCompiler) (ctx: Context) targetIndex boundValues =
+    let getDecisionTargetAndBoundValues (com: IDartCompiler) (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex
         let identsAndValues = matchTargetIdentAndValues idents boundValues
 
@@ -1607,9 +1605,9 @@ module Util =
                 )
 
             let target = FableTransforms.replaceValues replacements target
-            List.rev bindings, target
+            target, List.rev bindings
         else
-            identsAndValues, target
+            target, identsAndValues
 
     let transformDecisionTreeSuccess (com: IDartCompiler) (ctx: Context) returnStrategy targetIndex boundValues =
         match returnStrategy with
@@ -1629,8 +1627,8 @@ module Util =
 
             targetAssignment :: assignments, None
         | ret ->
-            let bindings, target =
-                getDecisionTargetAndBindValues com ctx targetIndex boundValues
+            let target, bindings =
+                getDecisionTargetAndBoundValues com ctx targetIndex boundValues
 
             let ctx, bindings =
                 ((ctx, []), bindings)
@@ -2184,13 +2182,7 @@ module Util =
         : string list
         =
 
-        let genParams =
-            (Set.empty, argTypes)
-            ||> List.fold (fun genArgs t ->
-                (genArgs, FSharp2Fable.Util.getGenParamNames t)
-                ||> List.fold (fun genArgs n -> Set.add n genArgs)
-            )
-            |> List.ofSeq
+        let genParams = argTypes |> FSharp2Fable.Util.getGenParamNames
 
         let genParams =
             match genParams, ctx.EntityAndMemberGenericParams with

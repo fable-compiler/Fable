@@ -16,7 +16,19 @@ type Ident(text: string, range: range) =
     member _.idRange = range
     override _.ToString() = text
 
-type SynIdent = SynIdent of ident: Ident * trivia: IdentTrivia option
+type SynIdent =
+    | SynIdent of ident: Ident * trivia: IdentTrivia option
+
+    member this.Range =
+        match this with
+        | SynIdent(ident, trivia) ->
+            match trivia with
+            | Some value ->
+                match value with
+                | IdentTrivia.OriginalNotationWithParen(leftParen, _, rightParen)
+                | IdentTrivia.HasParenthesis(leftParen, rightParen) -> unionRanges leftParen rightParen
+                | _ -> ident.idRange
+            | None -> ident.idRange
 
 type LongIdent = Ident list
 
@@ -25,7 +37,7 @@ type SynLongIdent =
 
     member this.Range =
         match this with
-        | SynLongIdent([], _, _) -> failwith "rangeOfLidwd"
+        | SynLongIdent([], _, _) -> failwith "rangeOfLid"
         | SynLongIdent([ id ], [], _) -> id.idRange
         | SynLongIdent([ id ], [ m ], _) -> unionRanges id.idRange m
         | SynLongIdent(h :: t, [], _) -> unionRanges h.idRange (List.last t).idRange
@@ -190,6 +202,18 @@ type SynMeasure =
 
     | Paren of measure: SynMeasure * range: range
 
+    member x.Range =
+        match x with
+        | SynMeasure.Named(range = m)
+        | SynMeasure.Product(range = m)
+        | SynMeasure.Seq(range = m)
+        | SynMeasure.Divide(range = m)
+        | SynMeasure.Power(range = m)
+        | SynMeasure.One(range = m)
+        | SynMeasure.Anon(range = m)
+        | SynMeasure.Var(range = m)
+        | SynMeasure.Paren(range = m) -> m
+
 [<NoEquality; NoComparison; RequireQualifiedAccess>]
 type SynRationalConst =
 
@@ -269,13 +293,9 @@ type DebugPointAtWhile =
 [<RequireQualifiedAccess>]
 type DebugPointAtBinding =
     | Yes of range: range
-
     | NoneAtDo
-
     | NoneAtLet
-
     | NoneAtSticky
-
     | NoneAtInvisible
 
     member x.Combine(y: DebugPointAtBinding) =
@@ -324,6 +344,8 @@ type SynTypeConstraint =
 
     | WhereTyparSupportsNull of typar: SynTypar * range: range
 
+    | WhereTyparNotSupportsNull of genericName: SynTypar * range: range * trivia: SynTypeConstraintWhereTyparNotSupportsNullTrivia
+
     | WhereTyparIsComparable of typar: SynTypar * range: range
 
     | WhereTyparIsEquatable of typar: SynTypar * range: range
@@ -346,6 +368,7 @@ type SynTypeConstraint =
         | WhereTyparIsReferenceType(range = range)
         | WhereTyparIsUnmanaged(range = range)
         | WhereTyparSupportsNull(range = range)
+        | WhereTyparNotSupportsNull(range = range)
         | WhereTyparIsComparable(range = range)
         | WhereTyparIsEquatable(range = range)
         | WhereTyparDefaultsToType(range = range)
@@ -448,9 +471,13 @@ type SynType =
 
     | StaticConstant of constant: SynConst * range: range
 
+    | StaticConstantNull of range: range
+
     | StaticConstantExpr of expr: SynExpr * range: range
 
     | StaticConstantNamed of ident: SynType * value: SynType * range: range
+
+    | WithNull of innerType: SynType * ambivalent: bool * range: range * trivia: SynTypeWithNullTrivia
 
     | Paren of innerType: SynType * range: range
 
@@ -474,9 +501,11 @@ type SynType =
         | SynType.Anon(range = m)
         | SynType.WithGlobalConstraints(range = m)
         | SynType.StaticConstant(range = m)
+        | SynType.StaticConstantNull(range = m)
         | SynType.StaticConstantExpr(range = m)
         | SynType.StaticConstantNamed(range = m)
         | SynType.HashConstraint(range = m)
+        | SynType.WithNull(range = m)
         | SynType.MeasurePower(range = m)
         | SynType.Paren(range = m)
         | SynType.SignatureParameter(range = m)
@@ -618,7 +647,13 @@ type SynExpr =
 
     | Lazy of expr: SynExpr * range: range
 
-    | Sequential of debugPoint: DebugPointAtSequential * isTrueSeq: bool * expr1: SynExpr * expr2: SynExpr * range: range
+    | Sequential of
+        debugPoint: DebugPointAtSequential *
+        isTrueSeq: bool *
+        expr1: SynExpr *
+        expr2: SynExpr *
+        range: range *
+        trivia: SynExprSequentialTrivia
 
     | IfThenElse of
         ifExpr: SynExpr *
@@ -681,9 +716,9 @@ type SynExpr =
 
     | SequentialOrImplicitYield of debugPoint: DebugPointAtSequential * expr1: SynExpr * expr2: SynExpr * ifNotStmt: SynExpr * range: range
 
-    | YieldOrReturn of flags: (bool * bool) * expr: SynExpr * range: range
+    | YieldOrReturn of flags: (bool * bool) * expr: SynExpr * range: range * trivia: SynExprYieldOrReturnTrivia
 
-    | YieldOrReturnFrom of flags: (bool * bool) * expr: SynExpr * range: range
+    | YieldOrReturnFrom of flags: (bool * bool) * expr: SynExpr * range: range * trivia: SynExprYieldOrReturnFromTrivia
 
     | LetOrUseBang of
         bindDebugPoint: DebugPointAtBinding *
@@ -703,7 +738,7 @@ type SynExpr =
         range: range *
         trivia: SynExprMatchBangTrivia
 
-    | DoBang of expr: SynExpr * range: range
+    | DoBang of expr: SynExpr * range: range * trivia: SynExprDoBangTrivia
 
     | WhileBang of whileDebugPoint: DebugPointAtWhile * whileExpr: SynExpr * doExpr: SynExpr * range: range
 
@@ -823,9 +858,9 @@ type SynExpr =
         match e with
         // these are better than just .Range, and also commonly applicable inside queries
         | SynExpr.Paren(_, m, _, _) -> m
-        | SynExpr.Sequential(_, _, e1, _, _)
-        | SynExpr.SequentialOrImplicitYield(_, e1, _, _, _)
-        | SynExpr.App(_, _, e1, _, _) -> e1.RangeOfFirstPortion
+        | SynExpr.Sequential(expr1 = e1)
+        | SynExpr.SequentialOrImplicitYield(expr1 = e1)
+        | SynExpr.App(funcExpr = e1) -> e1.RangeOfFirstPortion
         | SynExpr.ForEach(pat = pat; range = r) ->
             let e = (pat.Range: range).Start
             withEnd e r
@@ -846,6 +881,14 @@ type SynExprAndBang =
         body: SynExpr *
         range: range *
         trivia: SynExprAndBangTrivia
+
+    member x.Range =
+        match x with
+        | SynExprAndBang(range = range) -> range
+
+    member this.Trivia =
+        match this with
+        | SynExprAndBang(trivia = trivia) -> trivia
 
 [<NoEquality; NoComparison>]
 type SynExprRecordField =
@@ -1016,6 +1059,10 @@ type SynMatchClause =
             | None -> e.Range
             | Some x -> unionRanges e.Range x.Range
 
+    member this.IsTrueMatchClause =
+        let (SynMatchClause(trivia = trivia)) = this
+        trivia.BarRange.IsSome && trivia.ArrowRange.IsSome
+
     member this.Range =
         match this with
         | SynMatchClause(range = m) -> m
@@ -1184,7 +1231,7 @@ type SynTypeDefnSimpleRepr =
         fields: SynField list *
         isConcrete: bool *
         isIncrClass: bool *
-        implicitCtorSynPats: SynSimplePats option *
+        implicitCtorSynPats: SynPat option *
         range: range
 
     | LibraryOnlyILAssembly of
@@ -1308,6 +1355,24 @@ type SynComponentInfo =
         match this with
         | SynComponentInfo(range = m) -> m
 
+[<NoEquality; NoComparison; RequireQualifiedAccess>]
+type SynValSigAccess =
+    | Single of accessibility: SynAccess option
+    | GetSet of accessibility: SynAccess option * getterAccessibility: SynAccess option * setterAccessibility: SynAccess option
+
+    member this.SingleAccess() =
+        match this with
+        | Single(access)
+        | GetSet(accessibility = access) -> access
+
+    member this.GetSetAccessNoCheck() =
+        match this with
+        | Single(access) -> access, access
+        | GetSet(access, getterAccess, setterAccess) ->
+            let getterAccess = getterAccess |> Option.orElse access
+            let setterAccess = setterAccess |> Option.orElse access
+            getterAccess, setterAccess
+
 [<NoEquality; NoComparison>]
 type SynValSig =
     | SynValSig of
@@ -1319,7 +1384,7 @@ type SynValSig =
         isInline: bool *
         isMutable: bool *
         xmlDoc: PreXmlDoc *
-        accessibility: SynAccess option *
+        accessibility: SynValSigAccess *
         synExpr: SynExpr option *
         range: range *
         trivia: SynValSigTrivia
@@ -1433,13 +1498,18 @@ type SynMemberDefn =
     | ImplicitCtor of
         accessibility: SynAccess option *
         attributes: SynAttributes *
-        ctorArgs: SynSimplePats *
+        ctorArgs: SynPat *
         selfIdentifier: Ident option *
         xmlDoc: PreXmlDoc *
         range: range *
         trivia: SynMemberDefnImplicitCtorTrivia
 
-    | ImplicitInherit of inheritType: SynType * inheritArgs: SynExpr * inheritAlias: Ident option * range: range
+    | ImplicitInherit of
+        inheritType: SynType *
+        inheritArgs: SynExpr *
+        inheritAlias: Ident option *
+        range: range *
+        trivia: SynMemberDefnInheritTrivia
 
     | LetBindings of bindings: SynBinding list * isStatic: bool * isRecursive: bool * range: range
 
@@ -1447,7 +1517,7 @@ type SynMemberDefn =
 
     | Interface of interfaceType: SynType * withKeyword: range option * members: SynMemberDefns option * range: range
 
-    | Inherit of baseType: SynType * asIdent: Ident option * range: range
+    | Inherit of baseType: SynType option * asIdent: Ident option * range: range * trivia: SynMemberDefnInheritTrivia
 
     | ValField of fieldInfo: SynField * range: range
 
@@ -1462,7 +1532,7 @@ type SynMemberDefn =
         memberFlags: SynMemberFlags *
         memberFlagsForSet: SynMemberFlags *
         xmlDoc: PreXmlDoc *
-        accessibility: SynAccess option *
+        accessibility: SynValSigAccess *
         synExpr: SynExpr *
         range: range *
         trivia: SynMemberDefnAutoPropertyTrivia
@@ -1629,13 +1699,19 @@ type SynModuleOrNamespaceSig =
 
 [<NoEquality; NoComparison; RequireQualifiedAccess>]
 type ParsedHashDirectiveArgument =
+    | Ident of value: Ident * range: range
+    | Int32 of value: Int32 * range: range
+    | LongIdent of value: SynLongIdent * range: range
     | String of value: string * stringKind: SynStringKind * range: range
     | SourceIdentifier of constant: string * value: string * range: range
 
     member this.Range =
         match this with
+        | ParsedHashDirectiveArgument.Ident(range = m)
+        | ParsedHashDirectiveArgument.Int32(range = m)
         | ParsedHashDirectiveArgument.String(range = m)
-        | ParsedHashDirectiveArgument.SourceIdentifier(range = m) -> m
+        | ParsedHashDirectiveArgument.SourceIdentifier(range = m)
+        | ParsedHashDirectiveArgument.LongIdent(range = m) -> m
 
 [<NoEquality; NoComparison>]
 type ParsedHashDirective = ParsedHashDirective of ident: string * args: ParsedHashDirectiveArgument list * range: range

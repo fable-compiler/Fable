@@ -41,13 +41,13 @@ let ``IDictionary ctor works`` () =
     let dict = dict <| seq { ("A", 1); ("B", 2); ("A", 3) }
     dict.Count |> equal 2
 
-// [<Fact>]
-// let ``Dictionary ctor from IDictionary works`` () =
-//     let idic = dict <| seq { ("A", 1); ("B", 2); ("A", 3) }
-//     let dict = Dictionary<_,_>(idic)
-//     dict.Add("100", 100)
-//     equal 3 idic.Count
-//     equal 4 dict.Count
+[<Fact>]
+let ``Dictionary ctor from IDictionary works`` () =
+    let idic = dict <| seq { ("A", 1); ("B", 2); ("A", 3) }
+    let dict = Dictionary<_,_>(idic)
+    dict.Add("100", 100)
+    idic.Count |> equal 2
+    dict.Count |> equal 3
 
 // [<Fact>]
 // let ``Dictionaries with IEqualityComparer work`` () =
@@ -67,6 +67,26 @@ let ``IDictionary ctor works`` () =
 //     dic2.ContainsKey(x) |> equal true
 //     dic2.ContainsKey(y) |> equal true
 //     dic2.ContainsKey(z) |> equal false
+
+[<Fact>]
+let ``Dictionaries with IEqualityComparer work II`` () =
+    let x = { a = 4 }
+    let y = { a = 4 }
+    let z = { a = 6 }
+    let dic1 = Dictionary<_,_>()
+    dic1.Add(x, "foo")
+    dic1.ContainsKey(x) |> equal true
+    dic1.ContainsKey(y) |> equal true
+    dic1.ContainsKey(z) |> equal false
+    let comparer =
+        { new IEqualityComparer<MyRecord> with
+            member _.Equals(x, y) = x.a = y.a
+            member _.GetHashCode(x) = x.a }
+    let dic2 = Dictionary<_,_>(comparer)
+    dic2.Add(x, "bar")
+    dic2.ContainsKey(x) |> equal true
+    dic2.ContainsKey(y) |> equal true
+    dic2.ContainsKey(z) |> equal false
 
 [<Fact>]
 let ``Interface IDictionary iteration works`` () =

@@ -5,6 +5,7 @@ open Internal.Utilities.Text.Lexing
 open FSharp.Compiler.Parser
 open FSharp.Compiler.Text
 open FSharp.Compiler.ParseHelpers
+open FSharp.Compiler.LexerStore
 
 /// Rule token
 val token: args: LexArgs -> skip: bool -> lexbuf: LexBuffer<char> -> token

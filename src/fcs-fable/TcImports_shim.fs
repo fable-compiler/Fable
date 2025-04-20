@@ -45,16 +45,14 @@ module TcImports =
         let tcImports = TcImports ()
 
         let sigDataReaders ilModule =
-            [ for resource in ilModule.Resources.AsList() do
-                if IsSignatureDataResource resource then 
-                    let _ccuName, getBytes = GetResourceNameAndSignatureDataFunc resource
-                    getBytes() ]
+            ilModule.Resources.AsList()
+            |> GetResourceNameAndSignatureDataFuncs
+            |> List.map snd
 
         let optDataReaders ilModule =
-            [ for resource in ilModule.Resources.AsList() do
-                if IsOptimizationDataResource resource then
-                    let _ccuName, getBytes = GetResourceNameAndOptimizationDataFunc resource
-                    getBytes() ]
+            ilModule.Resources.AsList()
+            |> GetResourceNameAndOptimizationDataFuncs
+            |> List.map snd
 
         let LoadMod (ccuName: string) =
             let fileName =
@@ -71,11 +69,25 @@ module TcImports =
             let reader = ILBinaryReader.OpenILModuleReaderFromBytes fileName bytes opts
             reader.ILModuleDef //, reader.ILAssemblyRefs
 
-        let GetSignatureData (fileName:string, ilScopeRef, ilModule:ILModuleDef option, bytes: ReadOnlyByteMemory) =
-            unpickleObjWithDanglingCcus fileName ilScopeRef ilModule unpickleCcuInfo bytes
+        let GetSignatureData (file, ilScopeRef, ilModule, byteReaderA, byteReaderB) : PickledDataWithReferences<PickledCcuInfo> =
+            let memA = byteReaderA ()
 
-        let GetOptimizationData (fileName:string, ilScopeRef, ilModule:ILModuleDef option, bytes: ReadOnlyByteMemory) =
-            unpickleObjWithDanglingCcus fileName ilScopeRef ilModule Optimizer.u_CcuOptimizationInfo bytes
+            let memB =
+                (match byteReaderB with
+                | None -> ByteMemory.Empty.AsReadOnly()
+                | Some br -> br ())
+
+            unpickleObjWithDanglingCcus file ilScopeRef ilModule unpickleCcuInfo memA memB
+
+        let GetOptimizationData (file:string, ilScopeRef, ilModule, byteReaderA, byteReaderB) =
+            let memA = byteReaderA ()
+
+            let memB =
+                (match byteReaderB with
+                | None -> ByteMemory.Empty.AsReadOnly()
+                | Some br -> br ())
+
+            unpickleObjWithDanglingCcus file ilScopeRef ilModule Optimizer.u_CcuOptimizationInfo memA memB
 
         let memoize_mod = new MemoizationTable<_,_> (LoadMod, keyComparer=HashIdentity.Structural)
 
@@ -86,7 +98,7 @@ module TcImports =
             let fileName = ilModule.Name //TODO: try with ".sigdata" extension
             match sigDataReaders ilModule with
             | [] -> None
-            | bytes::_ -> Some (GetSignatureData (fileName, ilScopeRef, Some ilModule, bytes))
+            | (readerA, readerB)::_ -> Some (GetSignatureData (fileName, ilScopeRef, Some ilModule, readerA, readerB))
 
         let LoadOptData ccuName =
             let ilModule = memoize_mod.Apply ccuName
@@ -95,7 +107,7 @@ module TcImports =
             let fileName = ilModule.Name //TODO: try with ".optdata" extension
             match optDataReaders ilModule with
             | [] -> None
-            | bytes::_ -> Some (GetOptimizationData (fileName, ilScopeRef, Some ilModule, bytes))
+            | (readerA, readerB)::_ -> Some (GetOptimizationData (fileName, ilScopeRef, Some ilModule, readerA, readerB))
 
         let memoize_sig = new MemoizationTable<_,_> (LoadSigData, keyComparer=HashIdentity.Structural)
         let memoize_opt = new MemoizationTable<_,_> (LoadOptData, keyComparer=HashIdentity.Structural)
@@ -250,6 +262,7 @@ module TcImports =
 #endif
                 None
 
+        let fslibCcu = fslibCcuInfo.FSharpViewOfMetadata
         let primaryScopeRef = primaryCcuInfo.ILScopeRef
         let fsharpCoreScopeRef = fslibCcuInfo.ILScopeRef
         let assembliesThatForwardToPrimaryAssembly = []
@@ -259,16 +272,19 @@ module TcImports =
             TcGlobals(
                 tcConfig.compilingFSharpCore,
                 ilGlobals,
-                fslibCcuInfo.FSharpViewOfMetadata,
+                fslibCcu,
                 tcConfig.implicitIncludeDir,
                 tcConfig.mlCompatibility,
                 tcConfig.isInteractive,
+                tcConfig.checkNullness,
                 tcConfig.useReflectionFreeCodeGen,
                 tryFindSysTypeCcu,
                 tcConfig.emitDebugInfoInQuotations,
                 tcConfig.noDebugAttributes,
                 tcConfig.pathMap,
-                tcConfig.langVersion
+                tcConfig.langVersion,
+                tcConfig.realsig,
+                tcConfig.compilationMode
             )
 
 #if DEBUG

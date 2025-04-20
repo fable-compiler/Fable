@@ -4,14 +4,14 @@ open System.Collections
 open System.Collections.Generic
 open Util
 
-type Enumerable<'T>(gen: unit -> IEnumerator<'T>) =
+type Enumerable<'T>(get_en: unit -> IEnumerator<'T>) =
     interface System.IDisposable with
         member _.Dispose() = ()
     interface IEnumerable<'T> with
-        member x.GetEnumerator() = gen()
-        member x.GetEnumerator() = (gen() :> IEnumerator)
-    static member Create(gen: unit -> IEnumerator<'T>) =
-        new Enumerable<'T>(gen) :> IEnumerable<'T>
+        member x.GetEnumerator() = get_en()
+        member x.GetEnumerator() = (get_en() :> IEnumerator)
+    static member Create(get_en: unit -> IEnumerator<'T>) =
+        new Enumerable<'T>(get_en) :> IEnumerable<'T>
 
 type Fibonacci() =
     let mutable state = (1,1)

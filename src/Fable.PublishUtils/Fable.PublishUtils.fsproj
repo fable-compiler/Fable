@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <RollForward>Major</RollForward>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>2.4.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PublishUtils.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="EasyBuild.PackageReleaseNotes.Tasks" Version="2.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

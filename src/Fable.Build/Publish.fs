@@ -6,6 +6,10 @@ open System.Text.RegularExpressions
 open Build.FableLibrary
 open System
 open Build.Workspace
+open EasyBuild.Tools.DotNet
+open EasyBuild.Tools.Changelog
+open EasyBuild.Tools.PackageJson
+open EasyBuild.Tools.Npm
 
 let updateLibraryVersionInFableTransforms
     (compilerVersion: string)
@@ -52,66 +56,34 @@ let private publishNuget (fsprojDir: string) (noSymbols: bool) =
     if Array.length fsprojFiles <> 1 then
         failwithf $"Expected to find exactly one fsproj file in %s{fsprojDir}"
 
-    let fsprojPath = fsprojFiles[0]
-    let fsprojContent = File.ReadAllText fsprojPath
-    let changelogPath = Path.Combine(fsprojDir, "CHANGELOG.md")
-    let lastChangelogVersion = Changelog.getLastVersion changelogPath
-    let lastVersion = lastChangelogVersion |> fun v -> v.Version.ToString()
-
-    let lastVersionBody = ChangelogParser.Version.bodyAsMarkdown lastChangelogVersion
-
-    printfn $"Publishing: %s{fsprojDir}"
-
     let nugetKey = Environment.GetEnvironmentVariable("FABLE_NUGET_KEY")
 
     if isNull nugetKey then
         failwithf $"Missing FABLE_NUGET_KEY environment variable"
 
-    if Fsproj.needPublishing fsprojContent lastVersion then
-        let updatedFsprojContent =
-            fsprojContent
-            |> Fsproj.replaceVersion lastVersion
-            |> Fsproj.replacePackageReleaseNotes lastVersionBody
+    printfn $"Publishing: %s{fsprojDir}"
 
-        File.WriteAllText(fsprojPath, updatedFsprojContent)
-        let nupkgPath = Dotnet.pack fsprojDir
-        Dotnet.Nuget.push (nupkgPath, nugetKey, noSymbols = noSymbols)
-        printfn $"Published!"
-    else
-        printfn $"Already up-to-date, skipping..."
+    let nupkgPath = DotNet.pack fsprojDir
+
+    // We skip duplicates because we might have already published the same version
+    // This is because we make an optimistic release and delegate the version set to EasyBuild.PackageReleaseNotes.Tasks
+    DotNet.nugetPush (nupkgPath, apiKey = nugetKey, noSymbols = noSymbols, skipDuplicate = true)
 
 let private publishNpm (projectDir: string) =
-    let packageJsonPath = Path.Combine(projectDir, "package.json")
-    let packageJsonContent = File.ReadAllText(packageJsonPath)
-    let changelogPath = Path.Combine(projectDir, "CHANGELOG.md")
+    let packageJsonFile = Path.Combine(projectDir, "package.json") |> FileInfo
 
     let lastChangelogVersion =
-        Changelog.getLastVersion changelogPath |> fun v -> v.Version.ToString()
+        Path.Combine(projectDir, "CHANGELOG.md")
+        |> FileInfo
+        |> Changelog.findLastVersion
 
-    printfn $"Publishing: %s{projectDir}"
+    PackageJson.replaceVersion (packageJsonFile, lastChangelogVersion)
 
-    if Npm.needPublishing packageJsonContent lastChangelogVersion then
-        let updatedPackageJsonContent =
-            Npm.replaceVersion packageJsonContent lastChangelogVersion
-
-        File.WriteAllText(packageJsonPath, updatedPackageJsonContent)
+    if PackageJson.needPublishing packageJsonFile then
         Npm.publish projectDir
         printfn $"Published!"
     else
         printfn $"Already up-to-date, skipping..."
-
-let private updateFableLibraryTsPackageJsonVersion () =
-    let packageJsonPath = Path.Combine(ProjectDir.fable_library_ts, "package.json")
-    let packageJsonContent = File.ReadAllText(packageJsonPath)
-    let changelogPath = Path.Combine(ProjectDir.fable_library_ts, "CHANGELOG.md")
-
-    let lastChangelogVersion =
-        Changelog.getLastVersion changelogPath |> fun v -> v.Version.ToString()
-
-    let updatedPackageJsonContent =
-        Npm.replaceVersion packageJsonContent lastChangelogVersion
-
-    File.WriteAllText(packageJsonPath, updatedPackageJsonContent)
 
 let handle (args: string list) =
     // Build all the fable-libraries
@@ -130,21 +102,21 @@ let handle (args: string list) =
 
     // We also want to update the original package.json if needed
     // This is to keep the versions consistent across the project
-    updateFableLibraryTsPackageJsonVersion ()
+    PackageJson.replaceVersion (PackageJson.fableLibraryTs, Changelog.fableLibraryTs |> Changelog.findLastVersion)
 
     publishNpm ProjectDir.fable_metadata
 
     // Update embedded version (both compiler and libraries)
-    let changelogPath = Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
-
     let compilerVersion =
-        Changelog.getLastVersion changelogPath |> fun v -> v.Version.ToString()
+        Path.Combine(ProjectDir.fableCli, "CHANGELOG.md")
+        |> FileInfo
+        |> Changelog.findLastVersion
 
     updateLibraryVersionInFableTransforms
         compilerVersion
         {|
-            JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_js
-            TypeScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_ts
+            JavaScript = PackageJson.tempFableLibraryJs |> PackageJson.getVersion
+            TypeScript = PackageJson.tempFableLibraryTs |> PackageJson.getVersion
         |}
 
     publishNuget ProjectDir.fableAst false

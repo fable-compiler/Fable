@@ -6,7 +6,7 @@ open Fable.AST
 
 val getRootFSharpEntities: declarations: FSharpImplementationFileDeclaration list -> FSharpEntity seq
 
-val getRootModule: declarations: FSharpImplementationFileDeclaration list -> string
+val getRootModule: declarations: FSharpImplementationFileDeclaration list -> string * FSharpXmlDoc option
 
 val getInlineExprs:
     fileName: string -> declarations: FSharpImplementationFileDeclaration list -> (string * InlineExprLazy) list

@@ -196,7 +196,6 @@ type FileIndexTable() =
         match fileToIndexTable.TryGetValue filePath with
         | true, idx -> idx
         | _ ->
-
             // Try again looking for a normalized entry.
 #if FABLE_COMPILER
             ignore normalize
@@ -213,11 +212,7 @@ type FileIndexTable() =
             | true, idx ->
                 // Record the non-normalized entry if necessary
                 if filePath <> normalizedFilePath then
-#if FABLE_COMPILER
                     fileToIndexTable[filePath] <- idx
-#else
-                    lock fileToIndexTable (fun () -> fileToIndexTable[filePath] <- idx)
-#endif
 
                 // Return the index
                 idx
@@ -226,21 +221,25 @@ type FileIndexTable() =
 #if FABLE_COMPILER
                 (
 #else
-                lock fileToIndexTable (fun () ->
+                lock indexToFileTable (fun () ->
 #endif
-                    // Get the new index
-                    let idx = indexToFileTable.Count
+                    // See if it was added on another thread
+                    match fileToIndexTable.TryGetValue normalizedFilePath with
+                    | true, idx -> idx
+                    | _ ->
+                        // Okay it's really not there
+                        let idx = indexToFileTable.Count
 
-                    // Record the normalized entry
-                    indexToFileTable.Add normalizedFilePath
-                    fileToIndexTable[normalizedFilePath] <- idx
+                        // Record the normalized entry
+                        indexToFileTable.Add normalizedFilePath
+                        fileToIndexTable[normalizedFilePath] <- idx
 
-                    // Record the non-normalized entry if necessary
-                    if filePath <> normalizedFilePath then
-                        fileToIndexTable[filePath] <- idx
+                        // Record the non-normalized entry if necessary
+                        if filePath <> normalizedFilePath then
+                            fileToIndexTable[filePath] <- idx
 
-                    // Return the index
-                    idx)
+                        // Return the index
+                        idx)
 
     member t.IndexToFile n =
         if n < 0 then
@@ -375,7 +374,7 @@ type Range(code1: int64, code2: int64) =
                 if FileSystem.IsInvalidPathShim m.FileName then
                     "path invalid: " + m.FileName
                 elif not (FileSystem.FileExistsShim m.FileName) then
-                    "non existing file: " + m.FileName
+                    "nonexistent file: " + m.FileName
                 else
                     FileSystem.OpenFileForReadShim(m.FileName).ReadLines()
                     |> Seq.skip (m.StartLine - 1)

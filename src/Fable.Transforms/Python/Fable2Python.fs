@@ -21,7 +21,7 @@ type ReturnStrategy =
 type Import =
     {
         Module: string
-        LocalIdent: Identifier option
+        LocalIdent: Identifier
         Name: string option
     }
 
@@ -156,7 +156,7 @@ module Reflection =
 
                 let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                (Expression.tuple [ Expression.stringConstant (name); typeInfo ]), stmts
+                (Expression.tuple [ Expression.stringConstant name; typeInfo ]), stmts
             )
             |> Seq.toList
             |> Helpers.unzipArgs
@@ -383,6 +383,8 @@ module Reflection =
                     | [] -> yield Util.undefined None, []
                     | generics -> yield Expression.list generics, []
                     match tryPyConstructor com ctx ent with
+                    | Some(Expression.Name { Id = name }, stmts) ->
+                        yield Expression.name (name.Name |> Naming.toSnakeCase), stmts
                     | Some(cons, stmts) -> yield cons, stmts
                     | None -> ()
                     match ent.BaseType with
@@ -438,18 +440,18 @@ module Reflection =
         | Fable.String -> pyTypeof "<class 'str'>" expr
         | Fable.Number(kind, _b) ->
             match kind, typ with
-            | _, Fable.Type.Number(UInt8, _) -> pyInstanceof (libValue com ctx "types" "uint8") expr
-            | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "types" "int8") expr
-            | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "types" "int16") expr
-            | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "types" "uint16") expr
-            | _, Fable.Type.Number(Int32, _) ->
-                pyInstanceof (Expression.binOp (Expression.name "int", BitOr, libValue com ctx "types" "int32")) expr
-            | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "types" "uint32") expr
-            | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "types" "int64") expr
-            | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "types" "uint64") expr
+            | _, Fable.Type.Number(Int8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int8'>" expr
+            | _, Fable.Type.Number(UInt8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint8'>" expr
+            | _, Fable.Type.Number(Int16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int16'>" expr
+            | _, Fable.Type.Number(UInt16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint16'>" expr
+            | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'int'>" expr
+            | _, Fable.Type.Number(UInt32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint32'>" expr
+            | _, Fable.Type.Number(Int64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int64'>" expr
+            | _, Fable.Type.Number(UInt64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint64'>" expr
             | _, Fable.Type.Number(Float32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.float32'>" expr
             | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
-            | _ -> pyInstanceof (Expression.name "int") expr
+            | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
+            | _ -> pyTypeof "<class 'int'>" expr
 
         | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
         | Fable.LambdaType _
@@ -1128,7 +1130,8 @@ module Util =
 
     let ident (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifier(ctx, id.Name)
 
-    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifierAsExpr(ctx, id.Name)
+    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) =
+        com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase id.Name)
 
     let thisExpr = Expression.name "self"
 
@@ -1339,12 +1342,12 @@ module Util =
     let undefined _range : Expression = Expression.none
 
     let getGenericTypeParams (types: Fable.Type list) =
-        types |> List.collect FSharp2Fable.Util.getGenParamNames |> Set.ofList
+        types |> FSharp2Fable.Util.getGenParamNames |> Set.ofList
 
     // Returns type parameters that is used more than once
     let getRepeatedGenericTypeParams ctx (types: Fable.Type list) =
         types
-        |> List.collect FSharp2Fable.Util.getGenParamNames
+        |> FSharp2Fable.Util.getGenParamNames
         |> List.append (ctx.ScopedTypeParams |> Set.toList)
         |> List.countBy id
         |> List.choose (fun (param, count) ->
@@ -1483,10 +1486,10 @@ module Util =
                 |> Option.map Identifier
                 |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
 
-            let func = createFunction ident args body [] returnType
+            let func = createFunction ident args body [] returnType None
             Expression.name ident, [ func ]
 
-    let createFunction name args body decoratorList returnType =
+    let createFunction name args body decoratorList returnType (comment: string option) =
         let (|Awaitable|_|) expr =
             match expr with
             | Expression.Call {
@@ -1553,7 +1556,8 @@ module Util =
                 args = args,
                 body = body',
                 decoratorList = decoratorList,
-                returns = returnType
+                returns = returnType,
+                ?comment = comment
             )
         | _ ->
             Statement.functionDef (
@@ -1561,13 +1565,14 @@ module Util =
                 args = args,
                 body = body,
                 decoratorList = decoratorList,
-                returns = returnType
+                returns = returnType,
+                ?comment = comment
             )
 
     let makeFunction name (args: Arguments, body: Expression, decoratorList, returnType) : Statement =
         // printfn "makeFunction: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
-        createFunction name args body decoratorList returnType
+        createFunction name args body decoratorList returnType None
 
     let makeFunctionExpression
         (com: IPythonCompiler)
@@ -1718,26 +1723,34 @@ module Util =
                     makeBinOp None Fable.String acc (makeStrConst part) BinaryPlus
                 )
             |> transformAsExpr com ctx
-        | Fable.NumberConstant(x, kind, _) ->
-            match kind, x with
-            | Decimal, (:? decimal as x) -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
-            | Int64, (:? int64 as x) -> makeInteger com ctx r value.Type "int64" x
-            | UInt64, (:? uint64 as x) -> makeInteger com ctx r value.Type "uint64" x
-            | Int8, (:? int8 as x) -> makeInteger com ctx r value.Type "sbyte" x
-            | UInt8, (:? uint8 as x) -> makeInteger com ctx r value.Type "byte" x
-            | Int16, (:? int16 as x) -> makeInteger com ctx r value.Type "int16" x
-            | UInt16, (:? uint16 as x) -> makeInteger com ctx r value.Type "uint16" x
-            | Int32, (:? int32 as x) -> Expression.intConstant (x, ?loc = r), []
-            | UInt32, (:? uint32 as x) -> makeInteger com ctx r value.Type "uint32" x
-            //| _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
-            | _, x when x = infinity -> Expression.name "float('inf')", []
-            | _, x when x = -infinity -> Expression.name "float('-inf')", []
-            | _, (:? float as x) when Double.IsNaN(x) -> Expression.name "float('nan')", []
-            | _, (:? float32 as x) when Single.IsNaN(x) ->
+        | Fable.NumberConstant(v, _) ->
+            match v with
+            | Fable.NumberValue.Int8 x -> makeInteger com ctx r value.Type "int8" x
+            | Fable.NumberValue.UInt8 x -> makeInteger com ctx r value.Type "uint8" x
+            | Fable.NumberValue.Int16 x -> makeInteger com ctx r value.Type "int16" x
+            | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
+            | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
+            | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
+            | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
+            // | Fable.NumberValue.Int128(u,l) -> Expression.intConstant (System.Int128(u,l), ?loc = r), []
+            // | Fable.NumberValue.UInt128(u,l) -> Expression.intConstant (System.UInt128(u,l), ?loc = r), []
+            | Fable.NumberValue.BigInt x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.NativeInt x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.UNativeInt x -> Expression.intConstant (x, ?loc = r), []
+            // TODO: special consts also need attention
+            | Fable.NumberValue.Float64 x when x = infinity -> Expression.name "float('inf')", []
+            | Fable.NumberValue.Float64 x when x = -infinity -> Expression.name "float('-inf')", []
+            | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> Expression.name "float('nan')", []
+            | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
-            | _, (:? float32 as x) -> makeFloat com ctx r value.Type "float32" (float x)
-            | _, (:? float as x) -> Expression.floatConstant (x, ?loc = r), []
-            | _ -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.Float16 x when Single.IsNaN(x) ->
+                libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
+            | Fable.NumberValue.Float16 x -> makeFloat com ctx r value.Type "float32" (float x)
+            | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
+            | Fable.NumberValue.Float64 x -> Expression.floatConstant (x, ?loc = r), []
+            | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}", []
         | Fable.NewArray(newKind, typ, kind) ->
             match newKind with
             | Fable.ArrayValues values -> makeArray com ctx values kind typ
@@ -1968,8 +1981,8 @@ module Util =
             |> Option.map (splitNamedArgs args)
             |> function
                 | None -> args, None, []
-                | Some(args, []) -> args, None, []
-                | Some(args, namedArgs) ->
+                | Some(args, None) -> args, None, []
+                | Some(args, Some namedArgs) ->
                     let objArg, stmts =
                         namedArgs
                         |> List.choose (fun (p, v) ->
@@ -2441,7 +2454,7 @@ module Util =
             stmts @ [ decl ] @ body
         else
             let value, stmts = transformBindingExprBody com ctx var value
-            let varName = com.GetIdentifierAsExpr(ctx, var.Name)
+            let varName = com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase var.Name)
             let ta, stmts' = typeAnnotation com ctx None var.Type
             let decl = varDeclaration ctx varName (Some ta) value
             stmts @ stmts' @ decl
@@ -2580,9 +2593,8 @@ module Util =
         else
             failwith "Target idents/values lengths differ"
 
-    let getDecisionTargetAndBindValues (com: IPythonCompiler) (ctx: Context) targetIndex boundValues =
+    let getDecisionTargetAndBoundValues (com: IPythonCompiler) (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex
-
         let identsAndValues = matchTargetIdentAndValues idents boundValues
 
         if not com.Options.DebugMode then
@@ -2596,13 +2608,13 @@ module Util =
                 )
 
             let target = FableTransforms.replaceValues replacements target
-            List.rev bindings, target
+            target, List.rev bindings
         else
-            identsAndValues, target
+            target, identsAndValues
 
     let transformDecisionTreeSuccessAsExpr (com: IPythonCompiler) (ctx: Context) targetIndex boundValues =
-        let bindings, target =
-            getDecisionTargetAndBindValues com ctx targetIndex boundValues
+        let target, bindings =
+            getDecisionTargetAndBoundValues com ctx targetIndex boundValues
 
         match bindings with
         | [] -> com.TransformAsExpr(ctx, target)
@@ -2657,8 +2669,8 @@ module Util =
 
             targetAssignment @ assignments
         | ret ->
-            let bindings, target =
-                getDecisionTargetAndBindValues com ctx targetIndex boundValues
+            let target, bindings =
+                getDecisionTargetAndBoundValues com ctx targetIndex boundValues
 
             let bindings =
                 bindings
@@ -3736,7 +3748,8 @@ module Util =
 
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
 
-            let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
+            let name =
+                com.GetIdentifier(ctx, Naming.toSnakeCase entName + Naming.reflectionSuffix)
 
             expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
 
@@ -3754,7 +3767,7 @@ module Util =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
         let name = com.GetIdentifier(ctx, membName)
-        let stmt = createFunction name args body' [] returnType
+        let stmt = createFunction name args body' [] returnType info.XmlDoc
         let expr = Expression.name name
 
         info.Attributes
@@ -4164,7 +4177,7 @@ module Util =
                 let decls =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
-                        let name = com.GetIdentifier(ctx, decl.Name)
+                        let name = com.GetIdentifier(ctx, Naming.toSnakeCase decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts @ declareModuleMember com ctx info.IsPublic name (Some ta) value
@@ -4232,17 +4245,17 @@ module Util =
                 match im.Name with
                 | Some "*"
                 | Some "default" ->
-                    let (Identifier local) = im.LocalIdent.Value
+                    let (Identifier local) = im.LocalIdent
 
                     if moduleName <> local then
-                        Some moduleName, Alias.alias im.LocalIdent.Value
+                        Some moduleName, Alias.alias im.LocalIdent
                     else
-                        None, Alias.alias im.LocalIdent.Value
+                        None, Alias.alias im.LocalIdent
                 | Some name ->
                     let name = Naming.toSnakeCase name
 
-                    Some moduleName, Alias.alias (Identifier(Helpers.clean name), ?asname = im.LocalIdent)
-                | None -> None, Alias.alias (Identifier(moduleName), ?asname = im.LocalIdent)
+                    Some moduleName, Alias.alias (Identifier(Helpers.clean name), asname = im.LocalIdent)
+                | None -> None, Alias.alias (Identifier(moduleName), asname = im.LocalIdent)
             )
             |> List.groupBy fst
             |> List.map (fun (a, b) -> a, List.map snd b)
@@ -4273,16 +4286,9 @@ module Util =
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
         // printfn "getIdentForImport: %A" (moduleName, name)
         match name with
-        | None -> Path.GetFileNameWithoutExtension(moduleName) |> Identifier |> Some
-        | Some name ->
-            match name with
-            | "default"
-            | "*" -> Path.GetFileNameWithoutExtension(moduleName)
-            | _ -> name
-            |> Naming.toSnakeCase
-            |> getUniqueNameInRootScope ctx
-            |> Identifier
-            |> Some
+        | None -> Path.GetFileNameWithoutExtension(moduleName)
+        | Some name -> name |> Naming.toSnakeCase |> getUniqueNameInRootScope ctx
+        |> Identifier
 
 module Compiler =
     open Util
@@ -4300,47 +4306,59 @@ module Compiler =
 
             member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
                 // printfn "GetImportExpr: %A" (moduleName, name)
-                let cachedName = moduleName + "::" + defaultArg name "module"
+                let name =
+                    match name with
+                    | None
+                    | Some null -> ""
+                    | Some name -> name.Trim()
+
+                let isQualifiedPythonImport =
+                    match name with
+                    | ""
+                    | "default"
+                    | "*" -> false
+                    | _ -> true
+
+                let cachedName =
+                    moduleName
+                    + "::"
+                    + if isQualifiedPythonImport then
+                          name
+                      else
+                          ""
 
                 match imports.TryGetValue(cachedName) with
-                | true, i ->
-                    match i.LocalIdent with
-                    | Some localIdent -> Expression.identifier localIdent
-                    | None -> Expression.none
+                | true, i -> i.LocalIdent |> Expression.identifier
                 | false, _ ->
-                    let local_id = getIdentForImport ctx moduleName name
+                    let local_id =
+                        if isQualifiedPythonImport then
+                            Some name
+                        else
+                            None
+                        |> getIdentForImport ctx moduleName
 
-                    match name with
-                    | Some "*"
-                    | None ->
-                        let i =
-                            {
-                                Name = None
-                                Module = moduleName
-                                LocalIdent = local_id
-                            }
+                    let importName =
+                        match name with
+                        | _ when not isQualifiedPythonImport -> None
+                        | Naming.placeholder ->
+                            "`importMember` must be assigned to a variable" |> addError com [] r
+                            Some name
+                        | _ -> Some name
 
-                        imports.Add(cachedName, i)
-                    | Some name ->
-                        let i =
-                            {
-                                Name =
-                                    if name = Naming.placeholder then
-                                        "`importMember` must be assigned to a variable" |> addError com [] r
+                    let i =
+                        {
+                            Name = importName
+                            Module = moduleName
+                            LocalIdent = local_id
+                        }
 
-                                        name
-                                    else
-                                        name
-                                    |> Some
-                                Module = moduleName
-                                LocalIdent = local_id
-                            }
+                    imports.Add(cachedName, i)
 
-                        imports.Add(cachedName, i)
-
-                    match local_id with
-                    | Some localId -> Expression.identifier localId
-                    | None -> Expression.none
+                    // If the import member is empty we understand this is done for side-effects only
+                    if name = "" then
+                        Expression.none
+                    else
+                        Expression.identifier local_id
 
             member _.GetAllImports() =
                 // printfn "GetAllImports: %A" imports
@@ -4447,8 +4465,13 @@ module Compiler =
         // printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
+        let rootComment =
+            com.GetRootModule(com.CurrentFile)
+            |> snd
+            |> Option.bind FSharp2Fable.TypeHelpers.tryGetXmlDoc
+
         let typeVars = com.GetAllTypeVars() |> transformTypeVars com ctx
         let importDecls = com.GetAllImports() |> transformImports com
         let exports = com.GetAllExports() |> transformExports com ctx
         let body = importDecls @ typeVars @ rootDecls @ exports
-        Module.module' body
+        Module.module' (body, ?comment = rootComment)

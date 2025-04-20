@@ -127,6 +127,24 @@ module Naming =
             else
                 s.Substring(i1 + 1, i2 - i1 - 1)
 
+    let splitFirstBy (sep: string) (s: string) =
+        let i = s.IndexOf(sep, StringComparison.Ordinal)
+
+        if i < 0 then
+            s, ""
+        else
+            s.Substring(0, i), s.Substring(i + sep.Length)
+
+    let splitLastBy (sep: string) (s: string) =
+        let i = s.LastIndexOf(sep, StringComparison.Ordinal)
+
+        if i < 0 then
+            "", s
+        else
+            s.Substring(0, i), s.Substring(i + sep.Length)
+
+    let splitLast (s: string) = splitLastBy "." s |> snd
+
     let lowerFirst (s: string) =
         s.Substring(0, 1).ToLowerInvariant() + s.Substring(1)
 
@@ -162,6 +180,7 @@ module Naming =
         | CaseRules.SnakeCase -> dashify "_" name
         | CaseRules.SnakeCaseAllCaps -> (dashify "_" name).ToUpperInvariant()
         | CaseRules.KebabCase -> dashify "-" name
+        | CaseRules.LowerAll -> name.ToLowerInvariant()
         | CaseRules.None
         | _ -> name
 

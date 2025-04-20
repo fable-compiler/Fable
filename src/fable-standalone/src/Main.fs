@@ -436,14 +436,7 @@ let init () =
             parseAndCheckProject c.Checker projectFileName fileNames sources otherFSharpOptions :> IParseAndCheckResults
 
         member _.ParseAndCheckFileInProject
-            (
-                checker,
-                fileName,
-                projectFileName,
-                fileNames,
-                sources,
-                ?otherFSharpOptions
-            )
+            (checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions)
             =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
@@ -466,13 +459,7 @@ let init () =
             getCompletionsAtLocation res line col lineText
 
         member _.CompileToTargetAst
-            (
-                fableLibrary: string,
-                results: IParseAndCheckResults,
-                fileName: string,
-                typedArrays,
-                language
-            )
+            (fableLibrary: string, results: IParseAndCheckResults, fileName: string, typedArrays, language)
             =
             let language = getLanguage language
 

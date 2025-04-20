@@ -17,9 +17,9 @@ exception Accept of obj
 [<Sealed>]
 type internal IParseState
 #if FABLE_COMPILER
-    (ruleStartPoss: Position[], ruleEndPoss: Position[], lhsPos: Position[], ruleValues: obj[], lexbuf: LexBuffer<LexBufferChar>) =
+    (ruleStartPoss: Position[], ruleEndPoss: Position[], lhsPos: Position[], ruleValues: objnull[], lexbuf: LexBuffer<LexBufferChar>) =
 #else
-    (ruleStartPoss: Position[], ruleEndPoss: Position[], lhsPos: Position[], ruleValues: obj[], lexbuf: LexBuffer<char>) =
+    (ruleStartPoss: Position[], ruleEndPoss: Position[], lhsPos: Position[], ruleValues: objnull[], lexbuf: LexBuffer<char>) =
 #endif
     member _.LexBuffer = lexbuf
 
@@ -131,7 +131,7 @@ type Stack<'a>(n) =
 
     member buf.PrintStack() =
         for i = 0 to (count - 1) do
-            Console.Write("{0}{1}", contents[i], (if i = count - 1 then ":" else "-"))
+            Console.Write("{0}{1}", contents[i] :> objnull, (if i = count - 1 then ":" else "-"))
 
 module Flags =
 #if DEBUG
@@ -157,7 +157,10 @@ module internal Implementation =
     //-------------------------------------------------------------------------
     // Read the tables written by FSYACC.
 
-    type AssocTable(elemTab: uint16[], offsetTab: uint16[], cache: int[], cacheSize: int) =
+    type AssocTable(elemTab: uint16[], offsetTab: uint16[], cache: int[]) =
+
+        do Array.fill cache 0 cache.Length -1
+        let cacheSize = cache.Length / 2
 
         member t.ReadAssoc(minElemNum, maxElemNum, defaultValueOfAssoc, keyToFind) =
             // do a binary chop on the table
@@ -237,7 +240,7 @@ module internal Implementation =
     [<NoEquality; NoComparison>]
     [<Struct>]
     type ValueInfo =
-        val value: obj
+        val value: objnull
         val startPos: Position
         val endPos: Position
 
@@ -275,21 +278,16 @@ module internal Implementation =
         // The 100 here means a maximum of 100 elements for each rule
         let ruleStartPoss = (Array.zeroCreate 100: Position[])
         let ruleEndPoss = (Array.zeroCreate 100: Position[])
-        let ruleValues = (Array.zeroCreate 100: obj[])
+        let ruleValues = (Array.zeroCreate 100: objnull[])
         let lhsPos = (Array.zeroCreate 2: Position[])
         let reductions = tables.reductions
         let cacheSize = 7919 // the 1000'th prime
-        // Use a simpler hash table with faster lookup, but only one
-        // hash bucket per key.
 #if FABLE_COMPILER
         let actionTableCache = Array.zeroCreate<int> (cacheSize * 2)
         let gotoTableCache = Array.zeroCreate<int> (cacheSize * 2)
 #else
         let actionTableCache = ArrayPool<int>.Shared.Rent(cacheSize * 2)
         let gotoTableCache = ArrayPool<int>.Shared.Rent(cacheSize * 2)
-        // Clear the arrays since ArrayPool does not
-        Array.Clear(actionTableCache, 0, actionTableCache.Length)
-        Array.Clear(gotoTableCache, 0, gotoTableCache.Length)
 
         use _cacheDisposal =
             { new IDisposable with
@@ -300,10 +298,10 @@ module internal Implementation =
 #endif //!FABLE_COMPILER
 
         let actionTable =
-            AssocTable(tables.actionTableElements, tables.actionTableRowOffsets, actionTableCache, cacheSize)
+            AssocTable(tables.actionTableElements, tables.actionTableRowOffsets, actionTableCache)
 
         let gotoTable =
-            AssocTable(tables.gotos, tables.sparseGotoTableRowOffsets, gotoTableCache, cacheSize)
+            AssocTable(tables.gotos, tables.sparseGotoTableRowOffsets, gotoTableCache)
 
         let stateToProdIdxsTable =
             IdxToIdxListTable(tables.stateToProdIdxsTableElements, tables.stateToProdIdxsTableRowOffsets)

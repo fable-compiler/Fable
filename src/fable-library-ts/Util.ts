@@ -1,5 +1,3 @@
-// tslint:disable:ban-types
-
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,
@@ -590,8 +588,8 @@ export function createObj(fields: Iterable<[string, any]>) {
   return obj;
 }
 
-export function jsOptions(mutator: (x: object) => void): object {
-  const opts = {};
+export function jsOptions<T>(mutator: (x: T) => void): T {
+  const opts = {} as T;
   mutator(opts);
   return opts;
 }

@@ -2,6 +2,7 @@ module Fable.Tests.Misc
 
 open System
 open Fable.Core
+open Util
 open Util.Testing
 open Util2.Extensions
 
@@ -481,8 +482,70 @@ let inline inlineToString (f: 'T -> string): 'T -> string =
     let unused = f
     fun a -> $"{a}"
 
+type MyIntDelegate = delegate of unit -> int
+
+let get42 () = 42
+
+let dtest1 (f: MyIntDelegate -> int) =
+    f get42
+
+let dtest2 (f: MyIntDelegate -> int) =
+    let get43 () = 43
+    f get43
+
+let dInvoke (d: MyIntDelegate) =
+    d.Invoke ()
+
+let (>>*) (f: string -> unit) () (x: string) =
+    f x
+
+type RecordWithMutableFn = { mutable MutableFn: string -> unit }
+
+let buildRecordWithMutableFnWithWhile (xs: RecordWithMutableFn list) =
+    let mutable items = []
+    for x in xs do
+        items <- (x.MutableFn >>* ()) :: items
+    items
+
+let buildRecordWithMutableFnWithFor (xs: RecordWithMutableFn list) =
+    let mutable items = []
+    for i = 0 to xs.Length - 1 do
+        let x = xs[i]
+        items <- (x.MutableFn >>* ()) :: items
+    items
 let tests =
   testList "Miscellaneous" [
+    testCase "Hoisted vars don't conflict with while loop" <| fun () -> // see #4031
+        let mutable output = ""
+
+        let xs = [
+            { MutableFn = fun s -> output <- sprintf "%s\n%s %s" output "First" s }
+            { MutableFn = fun s -> output <- sprintf "%s\n%s %s" output "Second" s }
+        ]
+        let ys = buildRecordWithMutableFnWithWhile xs
+
+        xs |> List.iter (fun x -> x.MutableFn "output")
+        ys |> List.iter (fun y -> y "output")
+        System.Text.RegularExpressions.Regex.Replace(output.Trim(), @"\s+", " ")
+        |> equal "First output Second output Second output First output"
+
+    testCase "Hoisted vars don't conflict with for loop" <| fun () -> // see #4031
+        let mutable output = ""
+
+        let xs = [
+            { MutableFn = fun s -> output <- sprintf "%s\n%s %s" output "First" s }
+            { MutableFn = fun s -> output <- sprintf "%s\n%s %s" output "Second" s }
+        ]
+        let ys = buildRecordWithMutableFnWithFor xs
+
+        xs |> List.iter (fun x -> x.MutableFn "output")
+        ys |> List.iter (fun y -> y "output")
+        System.Text.RegularExpressions.Regex.Replace(output.Trim(), @"\s+", " ")
+        |> equal "First output Second output Second output First output"
+
+    testCase "Passing delegate works" <| fun _ -> // #3862
+        dtest1 dInvoke |> equal 42
+        dtest2 dInvoke |> equal 43
 
     testCase "Generic unit args work" <| fun _ -> // #3584
         let to_str = inlineToString (fun (props: unit) -> "s")
@@ -519,9 +582,12 @@ let tests =
         x <- x + 4
         #endif
         #if FABLE_COMPILER_5
+        x <- x + 8
+        #endif
+        #if FABLE_COMPILER_6
         x <- x + 16
         #endif
-        equal 5 x
+        equal 9 x
 
     testCase "Can check compiler version at runtime" <| fun _ ->
         Compiler.majorMinorVersion >= 4.0 |> equal true
@@ -1073,6 +1139,16 @@ let tests =
         // equal null (box y)
         let x: struct (int*int) = Unchecked.defaultof<_>
         equal (struct (0, 0)) x
+
+    testCase "nullArgCheck don't throw exception if argument is not null" <| fun () ->
+        let expected = "hello"
+        let value = nullArgCheck "arg1" expected
+        equal expected value
+
+    testCase "nullArgCheck throws exception if argument is null" <| fun () ->
+        throwsError "Value cannot be null. (Parameter 'str')" (fun _ ->
+            nullArgCheck "str" null
+        )
 
     testCase "Pattern matching optimization works (switch statement)" <| fun () ->
         let mutable x = ""

@@ -2,7 +2,7 @@ module Util.Testing
 
 open System
 
-#if FABLE_COMPILER
+#if FABLE_COMPILER || FABLE_COMPILER_TYPESCRIPT
 type TestKind =
 | TestList of string * TestKind seq
 | TestCase of (string*obj)

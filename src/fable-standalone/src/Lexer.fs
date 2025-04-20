@@ -80,10 +80,7 @@ let inline private isKeyword t =
     t.ColorClass = FSharpTokenColorKind.Keyword
 
 let inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|)
-    (
-        (token: FSharpTokenInfo),
-        (lineStr: string)
-    )
+    ((token: FSharpTokenInfo), (lineStr: string))
     =
     if token.Tag = FSharpTokenTag.QUOTE then
         GenericTypeParameterPrefix

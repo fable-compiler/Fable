@@ -18,7 +18,7 @@ let stmt1 =
     |> mkBracketCommaDelimitedMacCall "vec"
     |> mkMacCallExpr
     |> Some
-    |> mkIdentLocal [] "a" None
+    |> mkIdentLocal [] "a" false false None
     |> mkLocalStmt
 
 let stmt2 =

@@ -31,7 +31,6 @@ module private MSBuildCrackerResolver =
     let private dotnet_msbuild_with_defines (fsproj: FullPath) (args: string) (defines: string list) : Async<string> =
         backgroundTask {
             let psi = ProcessStartInfo "dotnet"
-            let pwd = Assembly.GetEntryAssembly().Location |> Path.GetDirectoryName
 
             psi.WorkingDirectory <- Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
 
@@ -39,6 +38,9 @@ module private MSBuildCrackerResolver =
             psi.RedirectStandardOutput <- true
             psi.RedirectStandardError <- true
             psi.UseShellExecute <- false
+            // Disable Dotnet Welcome message
+            // https://github.com/fable-compiler/Fable/issues/4014
+            psi.Environment.Add("DOTNET_NOLOGO", "1")
 
             if not (List.isEmpty defines) then
                 let definesValue = defines |> String.concat ";"
@@ -52,10 +54,9 @@ module private MSBuildCrackerResolver =
             do! ps.WaitForExitAsync()
 
             let fullCommand = $"dotnet msbuild %s{fsproj} %s{args}"
-            // printfn "%s" fullCommand
 
             if not (String.IsNullOrWhiteSpace error) then
-                failwithf $"In %s{pwd}:\n%s{fullCommand}\nfailed with\n%s{error}"
+                failwithf $"In %s{psi.WorkingDirectory}:\n%s{fullCommand}\nfailed with\n%s{error}"
 
             return output.Trim()
         }
@@ -79,8 +80,18 @@ module private MSBuildCrackerResolver =
 
             let targetFramework =
                 let properties =
-                    JsonDocument.Parse targetFrameworkJson
-                    |> fun json -> json.RootElement.GetProperty "Properties"
+                    try
+                        JsonDocument.Parse targetFrameworkJson
+                        |> fun json -> json.RootElement.GetProperty "Properties"
+                    with ex ->
+                        failwith
+                            $"""Failed to parse MSBuild output
+JSON:
+{targetFrameworkJson}
+
+Exception:
+{ex}
+"""
 
                 let tf, tfs =
                     properties.GetProperty("TargetFramework").GetString(),
@@ -124,7 +135,20 @@ module private MSBuildCrackerResolver =
                 $"/restore /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
 
             let! json = dotnet_msbuild_with_defines fsproj.FullName arguments options.FableOptions.Define
-            let jsonDocument = JsonDocument.Parse json
+
+            let jsonDocument =
+                try
+                    JsonDocument.Parse json
+                with ex ->
+                    failwith
+                        $"""Failed to parse MSBuild output
+JSON:
+{json}
+
+Exception:
+{ex}
+"""
+
             let items = jsonDocument.RootElement.GetProperty "Items"
             let properties = jsonDocument.RootElement.GetProperty "Properties"
 

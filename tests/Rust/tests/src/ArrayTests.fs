@@ -46,6 +46,8 @@ type Things =
     { MainThing: int
       OtherThing: string }
 
+type Animal = Duck of int | Dog of int
+
 [<Fact>]
 let ``Array expressions works`` () =
     let a1: int[] = [||]
@@ -91,10 +93,10 @@ let ``Array comparison works`` () =
     a1 < a2 |> equal false
     a1 < a3 |> equal true
     a1 < a4 |> equal true
-    a1 > a1 |> equal false
-    a1 > a2 |> equal false
-    a1 > a3 |> equal false
-    a1 > a4 |> equal false
+    a3 < a4 |> equal true
+    a3 < a2 |> equal false
+    a4 < a2 |> equal false
+    a4 < a3 |> equal false
 
 [<Fact>]
 let ``Array compare works`` () =
@@ -210,10 +212,12 @@ let ``Array.zeroCreate with struct tuple works`` () =
 //     xs.Length |> equal 3
 //     //xs |> equal [|null; null; null|]
 
-[<Fact>]
-let ``Array.length works`` () =
-    let xs = [|1;2;3|]
-    Array.length xs |> equal 3
+// // See https://github.com/fable-compiler/repl/issues/96
+// [<Fact>]
+// let ``Array.zeroCreate works with KeyValuePair`` () =
+//     let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
+//     equal 0. a[1].Key
+//     equal false a[2].Value
 
 [<Fact>]
 let ``Array.copy works`` () =
@@ -340,6 +344,11 @@ let ``Array setter works`` () =
     equal 10. x[3]
 
 [<Fact>]
+let ``Array.length works`` () =
+    let xs = [|1;2;3|]
+    Array.length xs |> equal 3
+
+[<Fact>]
 let ``Array.Length works`` () =
     let xs = [| 1.; 2.; 3.; 4. |]
     xs.Length |> equal 4
@@ -349,18 +358,11 @@ let ``Array.length works with non-numeric arrays`` () =
     let xs = [|"a"; "a"; "a"; "a"|]
     Array.length xs |> equal 4
 
-// [<Fact>]
-// let ``Array.ConvertAll works`` () =
-//     let xs = [| 1.; 2.; 3.; 4. |]
-//     let ys = System.Array.ConvertAll(xs, System.Converter(fun x -> int x))
-//     ys |> Seq.toList |> equal [1;2;3;4]
-
-// // See https://github.com/fable-compiler/repl/issues/96
-// [<Fact>]
-// let ``Array.zeroCreate works with KeyValuePair`` () =
-//     let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
-//     equal 0. a[1].Key
-//     equal false a[2].Value
+[<Fact>]
+let ``System.Array.ConvertAll works`` () =
+    let xs = [| 1.; 2.; 3.; 4. |]
+    let ys = System.Array.ConvertAll(xs, System.Converter(fun x -> int x))
+    ys |> Seq.toList |> equal [1;2;3;4]
 
 [<Fact>]
 let ``Array.blit works`` () =
@@ -546,6 +548,17 @@ let ``Array.find works`` () =
     let xs = [|1us; 2us; 3us; 4us|]
     xs |> Array.find ((=) 2us)
     |> equal 2us
+
+[<Fact>]
+let ``System.Array.IndexOf works with non-primitive types`` () =
+    let myArray = [|Duck 5|]
+    System.Array.IndexOf(myArray, Duck 3) |> equal -1
+    System.Array.IndexOf(myArray, Dog 5) |> equal -1
+    System.Array.IndexOf(myArray, Duck 5) |> equal 0
+    let myArray = [|Duck 5; Dog 3|]
+    System.Array.IndexOf(myArray, Dog 3) |> equal 1
+    System.Array.IndexOf(myArray, Dog 3, 0, 1) |> equal -1
+    System.Array.IndexOf(myArray, Duck 5, 1) |> equal -1
 
 [<Fact>]
 let ``Array.findIndex works`` () =
@@ -1278,14 +1291,14 @@ let ``Array.allPairs works`` () =
 //     zs :? System.Array |> equal false
 
 [<Fact>]
-let ``Array.Copy works with numeric arrays`` () =
+let ``System.Array.Copy works with numeric arrays`` () =
     let source = [| 99 |]
     let destination = [| 1; 2; 3 |]
     System.Array.Copy(source, 0, destination, 0, 1)
     equal [| 99; 2; 3 |] destination
 
 [<Fact>]
-let ``Array.Copy works with non-numeric arrays`` () =
+let ``System.Array.Copy works with non-numeric arrays`` () =
     let source = [| "xy"; "xx"; "xyz" |]
     let destination = [| "a"; "b"; "c" |]
     System.Array.Copy(source, 1, destination, 1, 2)
@@ -1420,3 +1433,19 @@ let ``Array.removeManyAt works`` () =
     throwsAnyError (fun () -> Array.removeManyAt<int> 0 2 [||] |> ignore)
     throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
     throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
+
+// [<Fact>]
+// let ``System.Array.Resize works`` () =
+//     let mutable xs = [|1; 2; 3; 4; 5|]
+//     System.Array.Resize(&xs, 3)
+//     xs |> equal [|1; 2; 3|]
+//     System.Array.Resize(&xs, 7)
+//     xs |> equal [|1; 2; 3; 0; 0; 0; 0|]
+//     System.Array.Resize(&xs, 0)
+//     xs |> equal [||]
+//     xs <- null
+//     System.Array.Resize(&xs, 3)
+//     xs |> equal [|0; 0; 0|]
+//     xs <- null
+//     System.Array.Resize(&xs, 0)
+//     xs |> equal [||]

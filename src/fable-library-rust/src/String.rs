@@ -5,7 +5,7 @@ pub mod String_ {
     // Strings
     // -----------------------------------------------------------
 
-    use crate::Native_::{compare, Func1, Func2, Lrc, String, ToString, Vec};
+    use crate::Native_::{compare, Func1, Func2, NullableRef, String, ToString, Vec};
     use crate::NativeArray_::{array_from, Array};
 
     use core::cmp::Ordering;
@@ -16,35 +16,47 @@ pub mod String_ {
     // -----------------------------------------------------------
 
     mod HeapString {
-        use crate::Native_::{Lrc, String};
+        use crate::Native_::{Lrc, NullableRef, String};
 
         #[repr(transparent)]
         #[derive(Clone)]
-        pub struct LrcStr(Lrc<str>);
+        pub struct LrcStr(Option<Lrc<str>>);
 
         pub type string = LrcStr;
 
+        impl NullableRef for string {
+            #[inline]
+            fn null() -> Self {
+                LrcStr(None)
+            }
+
+            #[inline]
+            fn is_null(&self) -> bool {
+                self.0.is_none()
+            }
+        }
+
         impl string {
             pub fn as_str(&self) -> &str {
-                self.0.as_ref()
+                self.0.as_ref().expect("Null reference exception.")
             }
         }
 
         pub fn string(s: &'static str) -> string {
-            LrcStr(Lrc::from(s))
+            LrcStr(Some(Lrc::from(s)))
         }
 
         pub fn fromSlice(s: &str) -> string {
-            LrcStr(Lrc::from(s))
+            LrcStr(Some(Lrc::from(s)))
         }
 
         pub fn fromString(s: String) -> string {
-            LrcStr(Lrc::from(s))
+            LrcStr(Some(Lrc::from(s)))
         }
 
         pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
             let s = iter.collect::<String>();
-            LrcStr(Lrc::from(s))
+            LrcStr(Some(Lrc::from(s)))
         }
     }
 
@@ -54,7 +66,7 @@ pub mod String_ {
     // TODO: maybe intern strings, maybe add length in chars.
 
     mod EnumString {
-        use crate::Native_::{Lrc, String};
+        use crate::Native_::{Lrc, NullableRef, String};
 
         const INLINE_MAX: usize = 22;
 
@@ -63,9 +75,25 @@ pub mod String_ {
             Static(&'static str),
             Inline { len: u8, buf: [u8; INLINE_MAX] },
             Shared(Lrc<str>),
+            Null,
         }
 
         pub type string = LrcStr;
+
+        impl NullableRef for string {
+            #[inline]
+            fn null() -> Self {
+                LrcStr::Null
+            }
+
+            #[inline]
+            fn is_null(&self) -> bool {
+                match self {
+                    LrcStr::Null => true,
+                    _ => false,
+                }
+            }
+        }
 
         impl string {
             pub fn as_str(&self) -> &str {
@@ -75,6 +103,7 @@ pub mod String_ {
                     LrcStr::Inline { len, buf } => unsafe {
                         core::str::from_utf8_unchecked(&buf[0..*len as usize])
                     },
+                    LrcStr::Null => { panic!("Null reference exception."); },
                 }
             }
         }
@@ -136,22 +165,22 @@ pub mod String_ {
 
     #[macro_export]
     macro_rules! printf {
-        ($($arg:tt)*) => {{ print!($($arg)*) }}
+        ($($arg:tt)*) => {{ $crate::Native_::print!($($arg)*) }}
     }
 
     #[macro_export]
     macro_rules! printfn {
-        ($($arg:tt)*) => {{ println!($($arg)*) }}
+        ($($arg:tt)*) => {{ $crate::Native_::println!($($arg)*) }}
     }
 
     #[macro_export]
     macro_rules! eprintf {
-        ($($arg:tt)*) => {{ eprint!($($arg)*) }}
+        ($($arg:tt)*) => {{ $crate::Native_::eprint!($($arg)*) }}
     }
 
     #[macro_export]
     macro_rules! eprintfn {
-        ($($arg:tt)*) => {{ eprintln!($($arg)*) }}
+        ($($arg:tt)*) => {{ $crate::Native_::eprintln!($($arg)*) }}
     }
 
     #[macro_export]
@@ -162,7 +191,7 @@ pub mod String_ {
     #[macro_export]
     macro_rules! sprintf {
         ($($arg:tt)*) => {{
-            let res = format!($($arg)*);
+            let res = $crate::Native_::format!($($arg)*);
             $crate::String_::fromString(res)
         }}
     }
@@ -170,7 +199,7 @@ pub mod String_ {
     #[macro_export]
     macro_rules! kprintf {
         ($f:expr, $($arg:expr),+) => {{
-            let res = format!($($arg),+);
+            let res = $crate::Native_::format!($($arg),+);
             $f($crate::String_::fromString(res))
         }}
     }
@@ -246,7 +275,13 @@ pub mod String_ {
     impl PartialEq for string {
         #[inline]
         fn eq(&self, other: &Self) -> bool {
-            self.as_str().eq(other.as_str())
+            match (self.is_null(), other.is_null()) {
+                (true, true) => true,
+                (true, false) => false,
+                (false, true) => false,
+                (false, false) => self.as_str().eq(other.as_str()),
+            }
+
         }
     }
 
@@ -255,34 +290,24 @@ pub mod String_ {
     impl PartialOrd for string {
         #[inline]
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            self.as_str().partial_cmp(other.as_str())
-        }
-
-        #[inline]
-        fn lt(&self, other: &Self) -> bool {
-            self.as_str() < other.as_str()
-        }
-
-        #[inline]
-        fn le(&self, other: &Self) -> bool {
-            self.as_str() <= other.as_str()
-        }
-
-        #[inline]
-        fn gt(&self, other: &Self) -> bool {
-            self.as_str() > other.as_str()
-        }
-
-        #[inline]
-        fn ge(&self, other: &Self) -> bool {
-            self.as_str() >= other.as_str()
+            match (self.is_null(), other.is_null()) {
+                (true, true) => Some(Ordering::Equal),
+                (true, false) => Some(Ordering::Less),
+                (false, true) => Some(Ordering::Greater),
+                (false, false) => self.as_str().partial_cmp(other.as_str()),
+            }
         }
     }
 
     impl Ord for string {
         #[inline]
         fn cmp(&self, other: &Self) -> Ordering {
-            self.as_str().cmp(other.as_str())
+            match (self.is_null(), other.is_null()) {
+                (true, true) => Ordering::Equal,
+                (true, false) => Ordering::Less,
+                (false, true) => Ordering::Greater,
+                (false, false) => self.as_str().cmp(other.as_str()),
+            }
         }
     }
 
@@ -339,66 +364,140 @@ pub mod String_ {
         fromIter(a.iter().copied().skip(i as usize).take(count as usize))
     }
 
+    // pub mod StringComparison {
+    //     pub const CurrentCulture: i32 = 0;
+    //     pub const CurrentCultureIgnoreCase: i32 = 1;
+    //     pub const InvariantCulture: i32 = 2;
+    //     pub const InvariantCultureIgnoreCase: i32 = 3;
+    //     pub const Ordinal: i32 = 4;
+    //     pub const OrdinalIgnoreCase: i32 = 5;
+    // }
+
+    fn isIgnoreCase(comparison: i32) -> bool {
+        comparison == 1 || comparison == 3 || comparison == 5
+    }
+
     pub fn containsChar(s: string, c: char) -> bool {
         s.contains(c)
+    }
+
+    pub fn containsChar2(s: string, c: char, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
+            let mut buf = [0u8; 4];
+            let c_str = c.encode_utf8(&mut buf);
+            s.to_uppercase().contains(&c_str.to_uppercase())
+        } else {
+            s.contains(c)
+        }
     }
 
     pub fn contains(s: string, p: string) -> bool {
         s.contains(p.as_str())
     }
 
-    pub fn equalsOrdinal(s1: string, s2: string, ignoreCase: bool) -> bool {
-        if ignoreCase {
+    pub fn contains2(s: string, p: string, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
+            s.to_uppercase().contains(&p.to_uppercase())
+        } else {
+            s.contains(p.as_str())
+        }
+    }
+
+    pub fn equalsOrdinal(s1: string, s2: string) -> bool {
+        s1.eq(&s2)
+    }
+
+    pub fn equals2(s1: string, s2: string, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
             s1.to_uppercase().eq(&s2.to_uppercase())
         } else {
             s1.eq(&s2)
         }
     }
 
-    pub fn compareOrdinal(s1: string, s2: string, ignoreCase: bool) -> i32 {
-        if ignoreCase {
+    pub fn compareOrdinal(s1: string, s2: string) -> i32 {
+        compare(&s1, &s2)
+    }
+
+    pub fn compareOrdinal2(s1: string, i1: i32, s2: string, i2: i32, count: i32) -> i32 {
+        let s1 = substring2(s1, i1, count);
+        let s2 = substring2(s2, i2, count);
+        compareOrdinal(s1, s2)
+    }
+
+    pub fn compareWith(s1: string, s2: string, comparison: i32) -> i32 {
+        if isIgnoreCase(comparison) {
             compare(&s1.to_uppercase(), &s2.to_uppercase())
         } else {
             compare(&s1, &s2)
         }
     }
 
-    pub fn compareOrdinal2(s1: string, i1: i32, s2: string, i2: i32, count: i32, ignoreCase: bool) -> i32 {
+    pub fn compareWith2(s1: string, i1: i32, s2: string, i2: i32, count: i32, comparison: i32) -> i32 {
         let s1 = substring2(s1, i1, count);
         let s2 = substring2(s2, i2, count);
-        compareOrdinal(s1, s2, ignoreCase)
+        compareWith(s1, s2, comparison)
+    }
+
+    pub fn compareCase(s1: string, s2: string, ignoreCase: bool) -> i32 {
+        let comparison = if ignoreCase { 5 } else { 4 };
+        compareWith(s1, s2, comparison)
+    }
+
+    pub fn compareCase2(s1: string, i1: i32, s2: string, i2: i32, count: i32, ignoreCase: bool) -> i32 {
+        let s1 = substring2(s1, i1, count);
+        let s2 = substring2(s2, i2, count);
+        compareCase(s1, s2, ignoreCase)
     }
 
     pub fn startsWithChar(s: string, c: char) -> bool {
         s.starts_with(c)
     }
 
-    pub fn startsWith(s: string, p: string, ignoreCase: bool) -> bool {
-        if ignoreCase {
+    pub fn startsWith(s: string, p: string) -> bool {
+        s.starts_with(p.as_str())
+    }
+
+    pub fn startsWith2(s: string, p: string, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
             s.to_uppercase().starts_with(&p.to_uppercase())
         } else {
             s.starts_with(p.as_str())
         }
     }
 
+    pub fn startsWith3(s: string, p: string, ignoreCase: bool) -> bool {
+        let comparison = if ignoreCase { 5 } else { 4 };
+        startsWith2(s, p, comparison)
+    }
+
     pub fn endsWithChar(s: string, c: char) -> bool {
         s.ends_with(c)
     }
 
-    pub fn endsWith(s: string, p: string, ignoreCase: bool) -> bool {
-        if ignoreCase {
+    pub fn endsWith(s: string, p: string) -> bool {
+        s.ends_with(p.as_str())
+    }
+
+    pub fn endsWith2(s: string, p: string, comparison: i32) -> bool {
+        if isIgnoreCase(comparison) {
             s.to_uppercase().ends_with(&p.to_uppercase())
         } else {
             s.ends_with(p.as_str())
         }
     }
 
-    pub fn isEmpty(s: string) -> bool {
-        s.is_empty()
+    pub fn endsWith3(s: string, p: string, ignoreCase: bool) -> bool {
+        let comparison = if ignoreCase { 5 } else { 4 };
+        endsWith2(s, p, comparison)
     }
 
-    pub fn isWhitespace(s: string) -> bool {
-        s.trim().is_empty()
+    pub fn isNullOrEmpty(s: string) -> bool {
+        s.is_null() || s.is_empty()
+    }
+
+    pub fn isNullOrWhitespace(s: string) -> bool {
+        s.is_null() || s.trim().is_empty()
     }
 
     pub fn trim(s: string) -> string {
@@ -454,8 +553,14 @@ pub mod String_ {
         fromString(v.join(&sep))
     }
 
-    pub fn replace(s: string, old: string, new: string) -> string {
-        fromString(s.replace(old.as_str(), new.as_str()))
+    pub fn replace(s: string, oldValue: string, newValue: string) -> string {
+        fromString(s.replace(oldValue.as_str(), newValue.as_str()))
+    }
+
+    pub fn replaceChar(s: string, oldChar: char, newChar: char) -> string {
+        let mut buf = [0u8; 4];
+        let newStr = newChar.encode_utf8(&mut buf);
+        fromString(s.replace(oldChar, newStr))
     }
 
     pub fn substring_safe(s: string, i: i32) -> string {
@@ -685,6 +790,14 @@ pub mod String_ {
                 }
             };
         withSplitOptions(a, count, options)
+    }
+
+    pub fn splitStrings(s: string, ps: Array<string>, options: i32) -> Array<string> {
+        let mut a: Vec<&str> = [s.as_str()].into_iter().collect();
+        for p in ps.iter() {
+            a = a.iter().flat_map(|&s| s.split(p.as_str())).collect();
+        }
+        withSplitOptions(a, -1, options)
     }
 
     pub fn toCharArray(s: string) -> Array<char> {

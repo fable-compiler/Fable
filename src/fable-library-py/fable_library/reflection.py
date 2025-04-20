@@ -87,7 +87,7 @@ def lambda_type(argType: TypeInfo, returnType: TypeInfo):
 
 
 def delegate_type(*generics: TypeInfo) -> TypeInfo:
-    return TypeInfo("System.Func`%d" % len(generics), list(generics))
+    return TypeInfo(f"System.Func`{len(generics)}", list(generics))
 
 
 def record_type(
@@ -305,7 +305,7 @@ def get_enum_case(t: TypeInfo, v: int | str) -> EnumCase:
             if kv[0] == v:
                 return kv
 
-        raise ValueError(f"{v}' was not found in ${t.fullname}")
+        raise ValueError(f"{v}' was not found in {t.fullname}")
 
     for kv in t.enum_cases:
         if kv[1] == v:
@@ -357,7 +357,7 @@ def is_enum_defined(t: TypeInfo, v: str | int) -> bool:
         kv = get_enum_case(t, v)
         return kv[0] is not None and kv[0] != ""
     except Exception:
-        # Supress error
+        # Suppress error
         pass
 
     return False

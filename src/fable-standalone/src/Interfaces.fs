@@ -45,9 +45,7 @@ type Completion =
 
 type SourceMapping = int * int * int * int * string option
 
-type IChecker =
-    interface
-    end
+type IChecker = interface end
 
 type IParseAndCheckResults =
     abstract OtherFSharpOptions: string[]

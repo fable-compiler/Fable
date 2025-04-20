@@ -386,7 +386,7 @@ def split(
 
         i = m.end()
 
-    if (count is None or count and count > 0) and len(string) - i > -1:
+    if (count is None or (count and count > 0)) and len(string) - i > -1:
         split = string[i:]
         if split or not removeEmpty:
             splits.append(split)
@@ -529,15 +529,25 @@ def compare_to(this: str, other: str) -> int:
     return cmp(this, other, StringComparison.CurrentCulture)
 
 
-def ends_with(string: str, search: str):
-    idx = string.rfind(search)
-    return idx >= 0 and idx == len(string) - len(search)
+def ends_with_exact(string: str, pattern: str):
+    idx = string.rfind(pattern)
+    return idx >= 0 and idx == len(string) - len(pattern)
 
 
-def starts_with(string: str, pattern: str, ic: int):
+def ends_with(string: str, pattern: str, ic: bool | StringComparison):
     if len(string) >= len(pattern):
-        return cmp(string[0 : len(pattern)], pattern, True if ic else False) == 0
+        return cmp(string[len(string) - len(pattern) : len(string)], pattern, ic) == 0
+    return False
 
+
+def starts_with_exact(string: str, pattern: str):
+    idx = string.find(pattern)
+    return idx == 0
+
+
+def starts_with(string: str, pattern: str, ic: bool | StringComparison):
+    if len(string) >= len(pattern):
+        return cmp(string[0 : len(pattern)], pattern, ic) == 0
     return False
 
 

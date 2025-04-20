@@ -1,7 +1,6 @@
-// tslint:disable:max-line-length
 import { FSharpRef } from "./Types.js";
 import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
-import { toInt64 } from "./BigInt.js";
+import { toInt64, fromFloat64 } from "./BigInt.js";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 export type TimeSpan = number;
@@ -36,20 +35,24 @@ export function fromTicks(ticks: number | bigint) {
   return Number(BigInt(ticks) / 10000n);
 }
 
-export function fromDays(d: number) {
-  return create(d, 0, 0, 0);
+export function fromDays(d: number, h: number = 0, m: bigint = 0n, s: bigint = 0n, ms: bigint = 0n) {
+  return create(d, h, Number(m), Number(s), Number(ms));
 }
 
-export function fromHours(h: number) {
-  return create(h, 0, 0);
+export function fromHours(h: number, m: bigint = 0n, s: bigint = 0n, ms: bigint = 0n) {
+  return create(0, h, Number(m), Number(s), Number(ms));
 }
 
-export function fromMinutes(m: number) {
-  return create(0, m, 0);
+export function fromMinutes(m: number | bigint, s: bigint = 0n, ms: bigint = 0n) {
+  return create(0, 0, Number(m), Number(s), Number(ms));
 }
 
-export function fromSeconds(s: number) {
-  return create(0, 0, s);
+export function fromSeconds(s: number | bigint, ms: bigint = 0n) {
+  return create(0, 0, 0, Number(s), Number(ms));
+}
+
+export function fromMilliseconds(ms: number | bigint) {
+  return Number(ms);
 }
 
 export function days(ts: TimeSpan) {
@@ -73,7 +76,7 @@ export function milliseconds(ts: TimeSpan) {
 }
 
 export function ticks(ts: TimeSpan) {
-  return toInt64(BigInt(ts) * 10000n);
+  return toInt64(fromFloat64(ts * 10000));
 }
 
 export function totalDays(ts: TimeSpan) {

@@ -23,7 +23,7 @@ export function seqToString<T>(self: Iterable<T>): string {
 
 export function toString(x: any, callStack = 0): string {
   if (x != null && typeof x === "object") {
-    if (typeof x.toString === "function") {
+    if (typeof x.toString === "function" && x.toString !== Object.prototype.toString) {
       return x.toString();
     } else if (Symbol.iterator in x) {
       return seqToString(x);
@@ -199,7 +199,7 @@ export function isPromise(x: any) {
   return x instanceof Promise;
 }
 
-export function ensureErrorOrException(e: any) {
+export function ensureErrorOrException(e: any): any {
   // Exceptionally admitting promises as errors for compatibility with React.suspense (see #3298)
   return (isException(e) || isPromise(e)) ? e : new Error(String(e));
 }

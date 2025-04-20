@@ -1,17 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="Global.fs" />
-    <Compile Include="FSharp.Control.fs" />
-    <Compile Include="System.fs" />
-    <Compile Include="System.Collections.Generic.fs" />
-    <Compile Include="System.Text.fs" />
-    <Compile Include="Interfaces.fs" />
     <Compile Include="Range.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
@@ -22,6 +17,14 @@
     <Compile Include="Result.fs" />
     <Compile Include="Choice.fs" />
     <Compile Include="Util.fs" />
+    <Compile Include="FSharp.Control.fs" />
+    <Compile Include="FSharp.Collections.fs" />
+    <Compile Include="FSharp.Core.fs" />
+    <Compile Include="System.fs" />
+    <Compile Include="System.Collections.Generic.fs" />
+    <Compile Include="System.Text.fs" />
+    <Compile Include="System.Threading.fs" />
+    <Compile Include="Interfaces.fs" />
     <Compile Include="lib.fs" />
   </ItemGroup>
 

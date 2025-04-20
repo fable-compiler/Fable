@@ -39,6 +39,7 @@ type CacheInfo =
         Exclude: string list
         SourceMaps: bool
         SourceMapsRoot: string option
+        TreatWarningsAsErrors: bool
     }
 
     static member GetPath(fableModulesDir: string, isDebug: bool) =
@@ -163,6 +164,7 @@ type CrackerResponse =
         TargetFramework: string option
         PrecompiledInfo: PrecompiledInfoImpl option
         CanReuseCompiledFiles: bool
+        TreatWarningsAsErrors: bool
     }
 
 type ProjectOptionsResponse =
@@ -177,14 +179,6 @@ type ProjectCrackerResolver =
     abstract member GetProjectOptionsFromProjectFile:
         isMain: bool * options: CrackerOptions * projectFile: string -> ProjectOptionsResponse
 
-let isSystemPackage (pkgName: string) =
-    pkgName.StartsWith("System.", StringComparison.Ordinal)
-    || pkgName.StartsWith("Microsoft.", StringComparison.Ordinal)
-    || pkgName.StartsWith("runtime.", StringComparison.Ordinal)
-    || pkgName = "NETStandard.Library"
-    || pkgName = "FSharp.Core"
-    || pkgName = "Fable.Core"
-
 type CrackedFsproj =
     {
         ProjectFile: string
@@ -195,6 +189,7 @@ type CrackedFsproj =
         OtherCompilerOptions: string list
         OutputType: string option
         TargetFramework: string option
+        TreatWarningsAsErrors: bool
     }
 
 let makeProjectOptions (opts: CrackerOptions) otherOptions sources : FSharpProjectOptions =
@@ -228,14 +223,16 @@ let makeProjectOptions (opts: CrackerOptions) otherOptions sources : FSharpProje
 let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
     let tryFileWithPattern dir pattern =
         try
-            let files = IO.Directory.GetFiles(dir, pattern)
+            if IO.Directory.Exists dir then
+                let files = IO.Directory.GetFiles(dir, pattern)
 
-            match files.Length with
-            | 0 -> None
-            | 1 -> Some files[0]
-            | _ ->
-                Log.always ("More than one file found in " + dir + " with pattern " + pattern)
-
+                match files.Length with
+                | 0 -> None
+                | 1 -> Some files[0]
+                | _ ->
+                    Log.always ("More than one file found in " + dir + " with pattern " + pattern)
+                    None
+            else
                 None
         with _ ->
             None
@@ -258,7 +255,7 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
         | Some firstGroup -> elements firstGroup
         | None -> dependencies
 
-    if Path.GetFileNameWithoutExtension(dllPath) |> isSystemPackage then
+    if Path.GetFileNameWithoutExtension(dllPath) |> Metadata.isSystemPackage then
         None
     else
         let rootDir = IO.Path.Combine(IO.Path.GetDirectoryName(dllPath), "..", "..")
@@ -293,7 +290,7 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
                     // We don't consider different frameworks
                     |> firstGroupOrAllDependencies
                     |> Seq.map (attr "id")
-                    |> Seq.filter (isSystemPackage >> not)
+                    |> Seq.filter (Metadata.isSystemPackage >> not)
                     |> Set
             }
             : FablePackage
@@ -303,7 +300,11 @@ let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
 let sortFablePackages (pkgs: FablePackage list) =
     ([], pkgs)
     ||> List.fold (fun acc pkg ->
-        match List.tryFindIndexBack (fun (x: FablePackage) -> pkg.Dependencies.Contains(x.Id)) acc with
+        let isPkgDependency (dependency: FablePackage) =
+            pkg.Dependencies
+            |> Set.exists (fun dep -> dep.ToLowerInvariant() = dependency.Id.ToLowerInvariant())
+
+        match List.tryFindIndexBack isPkgDependency acc with
         | None -> pkg :: acc
         | Some targetIdx ->
             let rec insertAfter x targetIdx i before after =
@@ -429,6 +430,9 @@ let private extractUsefulOptionsAndSources
                 accSources, line :: accOptions
             else
                 accSources, accOptions
+        // Only forward the nullness flag if it is coming from the main project
+        elif line.StartsWith("--checknulls+", StringComparison.Ordinal) && isMainProj then
+            accSources, line :: accOptions
         elif
             line.StartsWith("--nowarn", StringComparison.Ordinal)
             || line.StartsWith("--warnon", StringComparison.Ordinal)
@@ -473,16 +477,19 @@ let getCrackedMainFsproj (opts: CrackerOptions) (projectOptionsResponse: Project
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
 
-    let sourceFiles, otherOpts =
-        (projectOptionsResponse.ProjectOptions, ([], []))
-        ||> Array.foldBack (fun line (src, otherOpts) ->
+    let sourceFiles, otherOpts, treatWarningsAsErrors =
+        (projectOptionsResponse.ProjectOptions, ([], [], false))
+        ||> Array.foldBack (fun line (src, otherOpts, treatWarningsAsErrors) ->
             if line.StartsWith("-r:", StringComparison.Ordinal) then
                 let line = Path.normalizePath (line[3..])
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
-                src, otherOpts
+                src, otherOpts, treatWarningsAsErrors
+            else if line = "--warnaserror" then
+                src, otherOpts, true
             else
-                extractUsefulOptionsAndSources true line (src, otherOpts)
+                let (src, otherOpts) = extractUsefulOptionsAndSources true line (src, otherOpts)
+                src, otherOpts, treatWarningsAsErrors
         )
 
     let fablePkgs =
@@ -511,6 +518,7 @@ let getCrackedMainFsproj (opts: CrackerOptions) (projectOptionsResponse: Project
         OtherCompilerOptions = otherOpts
         OutputType = projectOptionsResponse.OutputType
         TargetFramework = projectOptionsResponse.TargetFramework
+        TreatWarningsAsErrors = treatWarningsAsErrors
     }
 
 let getProjectOptionsFromScript (opts: CrackerOptions) : CrackedFsproj =
@@ -566,6 +574,8 @@ let crackReferenceProject
         OtherCompilerOptions = otherOpts
         OutputType = projectOptionsResponse.OutputType
         TargetFramework = projectOptionsResponse.TargetFramework
+        // Treat warnings as errors only applies to the main project
+        TreatWarningsAsErrors = false
     }
 
 let getCrackedProjectsFromMainFsproj
@@ -726,7 +736,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
                 | _ ->
                     let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
 
-                    IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_"))
+                    IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_").Replace("-", "_"))
 
             copyDirIfDoesNotExist false sourceDir targetDir
 
@@ -841,8 +851,8 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
 
                         if not (IO.File.Exists(paketReferences)) then
                             true
+                        // Only check paket.lock for main project and assume it's the same for references
                         else if isOlderThanCache paketReferences then
-                            // Only check paket.lock for main project and assume it's the same for references
                             if fsproj <> cacheInfo.ProjectPath then
                                 true
                             else
@@ -909,6 +919,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             TargetFramework = cacheInfo.TargetFramework
             PrecompiledInfo = precompiledInfo
             CanReuseCompiledFiles = canReuseCompiledFiles
+            TreatWarningsAsErrors = cacheInfo.TreatWarningsAsErrors
         }
 
     | None ->
@@ -1016,6 +1027,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
                 Exclude = opts.Exclude
                 SourceMaps = opts.SourceMaps
                 SourceMapsRoot = opts.SourceMapsRoot
+                TreatWarningsAsErrors = mainProj.TreatWarningsAsErrors
             }
 
         if not opts.EvaluateOnly && not opts.NoCache then
@@ -1036,4 +1048,5 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             TargetFramework = mainProj.TargetFramework
             PrecompiledInfo = precompiledInfo
             CanReuseCompiledFiles = false
+            TreatWarningsAsErrors = mainProj.TreatWarningsAsErrors
         }

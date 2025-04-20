@@ -28,6 +28,7 @@ let allTests =
     HashSets.tests
     // Import.tests
     // JsInterop.tests
+    LiteTsInterop.tests
     Lists.tests
     Maps.tests
     Misc.tests
@@ -55,7 +56,7 @@ let allTests =
     Uri.tests
   |]
 
-#if FABLE_COMPILER
+#if FABLE_COMPILER || FABLE_COMPILER_TYPESCRIPT
 
 open Fable.Core
 open Fable.Core.JsInterop

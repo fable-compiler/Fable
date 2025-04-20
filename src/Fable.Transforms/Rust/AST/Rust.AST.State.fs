@@ -11,7 +11,7 @@ open type Macros
 module ast = Fable.Transforms.Rust.AST.Types
 module token = Fable.Transforms.Rust.AST.Types.token
 module kw = Fable.Transforms.Rust.AST.Symbols.kw
-module sym = Fable.Transforms.Rust.AST.Symbols.sym
+// module sym = Fable.Transforms.Rust.AST.Symbols.sym
 module pp = Fable.Transforms.Rust.AST.Pretty
 module parser = Fable.Transforms.Rust.AST.Parser
 
@@ -49,9 +49,7 @@ type AsmArg =
     | Operand of ast.InlineAsmOperand
     | Options of ast.InlineAsmOptions
 
-type SourceMap() =
-    class
-    end
+type SourceMap() = class end
 
 [<RequireQualifiedAccess>]
 type CommentStyle =
@@ -132,15 +130,7 @@ let INDENT_UNIT: usize = 4
 /// Requires you to pass an input filename and reader so that
 /// it can scan the input text for comments to copy forward.
 let print_crate
-    (
-        sm: SourceMap,
-        krate: ast.Crate,
-        filename: FileName,
-        input: string,
-        ann: PpAnn,
-        is_expanded: bool,
-        edition: Edition
-    )
+    (sm: SourceMap, krate: ast.Crate, filename: FileName, input: string, ann: PpAnn, is_expanded: bool, edition: Edition)
     : string
     =
 
@@ -483,12 +473,7 @@ type State with
         self.print_either_attributes (attrs, ast.AttrStyle.Outer, true, true)
 
     member self.print_either_attributes
-        (
-            attrs: Vec<ast.Attribute>,
-            kind: ast.AttrStyle,
-            is_inline: bool,
-            trailing_hardbreak: bool
-        )
+        (attrs: Vec<ast.Attribute>, kind: ast.AttrStyle, is_inline: bool, trailing_hardbreak: bool)
         =
 
         let mutable count = 0
@@ -1370,13 +1355,7 @@ type State with
         self.print_trait_ref (t.trait_ref)
 
     member self.print_enum_def
-        (
-            enum_definition: ast.EnumDef,
-            generics: ast.Generics,
-            ident: Ident,
-            span: Span,
-            visibility: ast.Visibility
-        )
+        (enum_definition: ast.EnumDef, generics: ast.Generics, ident: Ident, span: Span, visibility: ast.Visibility)
         =
 
         self.head (visibility_qualified (visibility, "enum"))
@@ -1423,13 +1402,7 @@ type State with
         | _ -> ()
 
     member self.print_struct
-        (
-            struct_def: ast.VariantData,
-            generics: ast.Generics,
-            ident: Ident,
-            span: Span,
-            print_finalizer: bool
-        )
+        (struct_def: ast.VariantData, generics: ast.Generics, ident: Ident, span: Span, print_finalizer: bool)
         =
 
         self.print_ident (ident)
@@ -1725,12 +1698,7 @@ type State with
         self.s.end_ ()
 
     member self.print_expr_struct
-        (
-            path: ast.Path,
-            fields: Vec<ast.ExprField>,
-            rest: ast.StructRest,
-            attrs: Vec<ast.Attribute>
-        )
+        (path: ast.Path, fields: Vec<ast.ExprField>, rest: ast.StructRest, attrs: Vec<ast.Attribute>)
         =
 
         self.print_path (path, true, 0)
@@ -2219,11 +2187,7 @@ type State with
             self.s.space ()
             self.s.word_space (":")
 
-            self.commasep (
-                pp.Breaks.Inconsistent,
-                a.clobbers,
-                fun (s, co) -> s.print_symbol (co, ast.StrStyle.Cooked)
-            )
+            self.commasep (pp.Breaks.Inconsistent, a.clobbers, fun (s, co) -> s.print_symbol (co, ast.StrStyle.Cooked))
 
             let mutable options = Vec()
 
@@ -2240,11 +2204,7 @@ type State with
                 self.s.space ()
                 self.s.word_space (":")
 
-                self.commasep (
-                    pp.Breaks.Inconsistent,
-                    options,
-                    fun (s, co) -> s.print_string (co, ast.StrStyle.Cooked)
-                )
+                self.commasep (pp.Breaks.Inconsistent, options, fun (s, co) -> s.print_string (co, ast.StrStyle.Cooked))
 
             self.s.pclose ()
         | ast.ExprKind.MacCall(m) -> self.print_mac (m)

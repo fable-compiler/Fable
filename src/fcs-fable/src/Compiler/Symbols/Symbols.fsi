@@ -108,7 +108,7 @@ type FSharpSymbol =
 
     /// Gets the display name for the symbol. Double backticks are added if the name is not a valid identifier.
     ///
-    /// For FSharpParameter symbols without a name for the paramater, this returns "````"
+    /// For FSharpParameter symbols without a name for the parameter, this returns "````"
     member DisplayName: string
 
     /// Get the implementation location for the symbol if it was declared in a signature that has an implementation
@@ -265,6 +265,10 @@ type FSharpEntity =
 
     /// Get the generic parameters, possibly including unit-of-measure parameters
     member GenericParameters: IList<FSharpGenericParameter>
+
+    /// Get the generic parameters, possibly including unit-of-measure parameters
+    member GenericArguments: IList<FSharpType>
+
 #if !NO_TYPEPROVIDERS
     /// Get the static parameters for a provided type
     member StaticParameters: IList<FSharpStaticParameter>
@@ -656,7 +660,7 @@ type FSharpGenericParameterMemberConstraint =
     /// Get the name of the method required by the constraint
     member MemberName: string
 
-    /// Indicates if the the method required by the constraint must be static
+    /// Indicates if the method required by the constraint must be static
     member MemberIsStatic: bool
 
     /// Get the argument types of the method required by the constraint
@@ -704,6 +708,9 @@ type FSharpGenericParameterConstraint =
     /// Indicates a constraint that a type has a 'null' value
     member IsSupportsNullConstraint: bool
 
+    /// Indicates a constraint that a type doesn't support nullness
+    member IsNotSupportsNullConstraint: bool
+
     /// Indicates a constraint that a type supports F# generic comparison
     member IsComparisonConstraint: bool
 
@@ -745,6 +752,9 @@ type FSharpGenericParameterConstraint =
 
     /// Gets further information about a delegate constraint
     member DelegateConstraintData: FSharpGenericParameterDelegateConstraint
+
+    /// An anti-constraint indicating that ref structs (e.g. Span<>) are allowed here
+    member IsAllowsRefStructConstraint: bool
 
 [<RequireQualifiedAccess>]
 type FSharpInlineAnnotation =
@@ -973,7 +983,7 @@ type FSharpMemberOrFunctionOrValue =
     /// Get the signature text to include this Symbol into an existing signature file.
     member GetValSignatureText: displayContext: FSharpDisplayContext * m: range -> string option
 
-    /// Check if this method has an entrpoint that accepts witness arguments and if so return
+    /// Check if this method has an entrypoint that accepts witness arguments and if so return
     /// the name of that entrypoint and information about the additional witness arguments
     member GetWitnessPassingInfo: unit -> (string * IList<FSharpParameter>) option
 
@@ -1084,6 +1094,12 @@ type FSharpType =
     /// Get the type definition for a type
     member TypeDefinition: FSharpEntity
 
+    /// Indicates this type is known to have a null annotation
+    member HasNullAnnotation: bool
+
+    /// Indicates this type is assumed to support the null value
+    member IsNullAmbivalent: bool
+
     /// Get the generic arguments for a tuple type, a function type or a type constructed using a named entity
     member GenericArguments: IList<FSharpType>
 
@@ -1193,7 +1209,7 @@ type FSharpAttribute =
     /// Get the range of the name of the attribute
     member Range: range
 
-    /// Indicates if attribute matchies the full name of the given type parameter
+    /// Indicates if attribute matches the full name of the given type parameter
     member IsAttribute<'T> : unit -> bool
 
 /// Represents open declaration in F# code.

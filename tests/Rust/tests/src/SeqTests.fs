@@ -89,31 +89,31 @@ let ``Seq.empty works`` () =
     let xs = Seq.empty<int>
     Seq.length xs |> equal 0
 
-// [<Fact>]
-// let ``Seq equality works`` () =
-//     let a1 = seq {1; 2; 3}
-//     let a2 = seq {1; 2; 3}
-//     let a3 = seq {1; 2; 4}
-//     let a4 = seq {1; 2; 3; 4}
-//     a1 = a1 |> equal true
-//     // a1 = a2 |> equal false //TODO: reference equality
-//     a1 = a3 |> equal false
-//     a1 = a4 |> equal false
-//     a1 <> a1 |> equal false
-//     // a1 <> a2 |> equal true //TODO: reference inequality
-//     a1 <> a3 |> equal true
-//     a1 <> a4 |> equal true
+[<Fact>]
+let ``Seq equality works`` () =
+    let a1 = seq {1; 2; 3}
+    let a2 = seq {1; 2; 3}
+    let a3 = seq {1; 2; 4}
+    let a4 = seq {1; 2; 3; 4}
+    a1 = a1 |> equal true
+    // a1 = a2 |> equal false //TODO: reference equality
+    a1 = a3 |> equal false
+    a1 = a4 |> equal false
+    a1 <> a1 |> equal false
+    // a1 <> a2 |> equal true //TODO: reference inequality
+    a1 <> a3 |> equal true
+    a1 <> a4 |> equal true
 
-// [<Fact>]
-// let ``Seq.Equals works`` () =
-//     let a1 = seq {1; 2; 3}
-//     let a2 = seq {1; 2; 3}
-//     let a3 = seq {1; 2; 4}
-//     let a4 = seq {1; 2; 3; 4}
-//     a1.Equals(a1) |> equal true
-//     // a1.Equals(a2) |> equal false //TODO: reference equality
-//     a1.Equals(a3) |> equal false
-//     a1.Equals(a4) |> equal false
+[<Fact>]
+let ``Seq.Equals works`` () =
+    let a1 = seq {1; 2; 3}
+    let a2 = seq {1; 2; 3}
+    let a3 = seq {1; 2; 4}
+    let a4 = seq {1; 2; 3; 4}
+    a1.Equals(a1) |> equal true
+    // a1.Equals(a2) |> equal false //TODO: reference equality
+    a1.Equals(a3) |> equal false
+    a1.Equals(a4) |> equal false
 
 [<Fact>]
 let ``Seq.compareWith works`` () =
@@ -426,6 +426,12 @@ let ``Seq.isEmpty works`` () =
     Seq.isEmpty xs |> equal false
     // Seq.isEmpty [] |> equal true //TODO: untyped
     Seq.isEmpty<int> [] |> equal true
+
+#if FABLE_COMPILER || NET9_0_OR_GREATER
+let ``seq {} works`` () =
+    let xs = seq {}
+    Seq.isEmpty xs |> equal true
+#endif
 
 [<Fact>]
 let ``Seq.iter works`` () =

@@ -70,6 +70,16 @@ type MyClass(v) =
     member val Value: int = v with get, set
 
 [<Fact>]
+let ``test PhysicalEquality works`` () = // See #3998
+    let r1 = ResizeArray([1; 2])
+    let r2 = ResizeArray([1; 2])
+    let r3 = r1
+
+    LanguagePrimitives.PhysicalEquality r1 r2 |> equal false
+    LanguagePrimitives.PhysicalEquality r2 r2 |> equal true
+    LanguagePrimitives.PhysicalEquality r3 r1 |> equal true
+
+[<Fact>]
 let ``test Typed array equality works`` () =
     let xs1 = [| 1; 2; 3 |]
     let xs2 = [| 1; 2; 3 |]
@@ -440,6 +450,7 @@ let ``test Comparison with objects implementing IComparable works`` () =
 [<Fact>]
 let ``test max works with primitives`` () =
     max 1 2 |> equal 2
+    max 10m 2m |> equal 10m
     Math.Max(1, 2) |> equal 2
     max "a" "b" |> equal "b"
 
@@ -448,6 +459,25 @@ let ``test max works with records`` () =
     let r1 = {a=1; b=1}
     let r2 = {a=1; b=2}
     max r1 r2 |> equal r2
+
+[<Fact>]
+let ``test max with objects implementing IComparable works`` () =
+    let c1 = MyTest(5)
+    let c2 = MyTest(5)
+    System.Object.ReferenceEquals(max c1 c2, c1) |> equal true
+
+[<Fact>]
+let ``test min works with primitives`` () =
+    min 1 2 |> equal 1
+    min 10m 2m |> equal 2m
+    System.Math.Min(1, 2) |> equal 1
+    min "a" "b" |> equal "a"
+
+[<Fact>]
+let ``test min works with records`` () =
+    let r1 = {a=1; b=1}
+    let r2 = {a=1; b=2}
+    min r1 r2 |> equal r1
 
 [<Fact>]
 let ``test min with objects implementing IComparable works`` () =
@@ -485,6 +515,7 @@ let ``test using function disposes the resource when action fails`` () =
 [<Fact>]
 let ``test isNull with primitives works`` () =
     isNull null |> equal true
+    isNull (box 5) |> equal false
     isNull "" |> equal false
     isNull "0" |> equal false
     isNull "hello" |> equal false
@@ -526,3 +557,46 @@ let ``test Classes must use identity hashing by default`` () =
 // let ``test GetHashCode with lists works`` () =
 //     ([1; 2].GetHashCode(), [1; 2].GetHashCode()) ||> equal
 //     ([2; 1].GetHashCode(), [1; 2].GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``GetHashCode with primitives works`` () =
+    ((1).GetHashCode(), (1).GetHashCode()) ||> equal
+    ((2).GetHashCode(), (1).GetHashCode()) ||> notEqual
+    ("1".GetHashCode(), "1".GetHashCode()) ||> equal
+    ("2".GetHashCode(), "1".GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``Equals with primitives works`` () =
+    (true).Equals(true) |> equal true
+    ('1').Equals('1') |> equal true
+    (1y).Equals(1y) |> equal true
+    (1uy).Equals(1uy) |> equal true
+    (1s).Equals(1s) |> equal true
+    (1).Equals(1) |> equal true
+    (1L).Equals(1L) |> equal true
+    (1u).Equals(1u) |> equal true
+    (1us).Equals(1us) |> equal true
+    (1ul).Equals(1ul) |> equal true
+    (1uL).Equals(1uL) |> equal true
+    (1.f).Equals(1.f) |> equal true
+    (1.).Equals(1.) |> equal true
+    (1.m).Equals(1.m) |> equal true
+    ("1").Equals("1") |> equal true
+
+[<Fact>]
+let ``CompareTo with primitives works`` () =
+    (true).CompareTo(true) |> equal 0
+    ('1').CompareTo('1') |> equal 0
+    (1y).CompareTo(1y) |> equal 0
+    (1uy).CompareTo(1uy) |> equal 0
+    (1s).CompareTo(1s) |> equal 0
+    (1).CompareTo(1) |> equal 0
+    (1L).CompareTo(1L) |> equal 0
+    (1u).CompareTo(1u) |> equal 0
+    (1us).CompareTo(1us) |> equal 0
+    (1ul).CompareTo(1ul) |> equal 0
+    (1uL).CompareTo(1uL) |> equal 0
+    (1.f).CompareTo(1.f) |> equal 0
+    (1.).CompareTo(1.) |> equal 0
+    (1.m).CompareTo(1.m) |> equal 0
+    ("1").CompareTo("1") |> equal 0

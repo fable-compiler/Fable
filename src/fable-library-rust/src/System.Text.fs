@@ -19,6 +19,12 @@ type StringBuilder(value: string, capacity: int) =
 
     member x.Append(o: bool) = x.Append(string o)
     member x.Append(c: char) = x.Append(string c)
+
+    member x.Append(c: char, repeatCount: int) =
+        let s = String.replicate repeatCount (string<char> c)
+        buf.Add(s)
+        x
+
     member x.Append(o: int8) = x.Append(string o)
     member x.Append(o: byte) = x.Append(string o)
     member x.Append(o: int16) = x.Append(string o)

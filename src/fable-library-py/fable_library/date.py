@@ -227,10 +227,8 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         result += localized_date.strftime("%d")
                     case 3:
                         result += short_days[day_of_week(localized_date)]
-                    case 4:
+                    case 4 | _:
                         result += long_days[day_of_week(localized_date)]
-                    case _:
-                        pass
             case "f":
                 token_length = parse_repeat_token(format, cursor_pos, "f")
                 cursor_pos += token_length
@@ -243,7 +241,7 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                     case 7:
                         result += str(localized_date.microsecond).zfill(6).ljust(token_length, "0")
                     case _:
-                        pass
+                        raise Exception("Input string was not in a correct format.")
             case "F":
                 token_length = parse_repeat_token(format, cursor_pos, "F")
                 cursor_pos += token_length
@@ -261,36 +259,30 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         if value != 0:
                             result += str(value).zfill(6).rstrip("0")
                     case _:
-                        pass
+                        raise Exception("Input string was not in a correct format.")
             case "g":
                 token_length = parse_repeat_token(format, cursor_pos, "g")
                 cursor_pos += token_length
-                match token_length:
-                    case 1 | 2:
-                        result += "A.D."
-                    case _:
-                        pass
-
+                result += "A.D."
             case "h":
                 token_length = parse_repeat_token(format, cursor_pos, "h")
                 cursor_pos += token_length
                 match token_length:
                     case 1:
-                        result += str(localized_date.hour % 12)
-                    case 2:
+                        h1Value = localized_date.hour % 12
+                        if h1Value == 0:
+                            h1Value = 12
+                        result += str(h1Value)
+                    case 2 | _:
                         result += localized_date.strftime("%I")
-                    case _:
-                        pass
             case "H":
                 token_length = parse_repeat_token(format, cursor_pos, "H")
                 cursor_pos += token_length
                 match token_length:
                     case 1:
                         result += str(localized_date.hour)
-                    case 2:
+                    case 2 | _:
                         result += localized_date.strftime("%H")
-                    case _:
-                        pass
             case "K":
                 token_length = parse_repeat_token(format, cursor_pos, "K")
                 cursor_pos += token_length
@@ -315,10 +307,8 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                 match token_length:
                     case 1:
                         result += str(localized_date.minute)
-                    case 2:
+                    case 2 | _:
                         result += localized_date.strftime("%M")
-                    case _:
-                        pass
             case "M":
                 token_length = parse_repeat_token(format, cursor_pos, "M")
                 cursor_pos += token_length
@@ -329,30 +319,24 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
                         result += localized_date.strftime("%m")
                     case 3:
                         result += short_months[month(localized_date) - 1]
-                    case 4:
+                    case 4 | _:
                         result += long_months[month(localized_date) - 1]
-                    case _:
-                        pass
             case "s":
                 token_length = parse_repeat_token(format, cursor_pos, "s")
                 cursor_pos += token_length
                 match token_length:
                     case 1:
                         result += str(localized_date.second)
-                    case 2:
+                    case 2 | _:
                         result += localized_date.strftime("%S")
-                    case _:
-                        pass
             case "t":
                 token_length = parse_repeat_token(format, cursor_pos, "t")
                 cursor_pos += token_length
                 match token_length:
                     case 1:
                         result += localized_date.strftime("%p")[:1]
-                    case 2:
+                    case 2 | _:
                         result += localized_date.strftime("%p")
-                    case _:
-                        pass
             case "y":
                 token_length = parse_repeat_token(format, cursor_pos, "y")
                 cursor_pos += token_length
@@ -467,7 +451,7 @@ def now() -> datetime:
 
 
 def utc_now() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def today() -> datetime:
@@ -571,7 +555,7 @@ def parse(string: str) -> datetime:
         adapted_string = re.sub(iso_format_regex, adapt_microseconds, string)
         return datetime.strptime(adapted_string, "%Y-%m-%dT%H:%M:%S.%f")
 
-    raise ValueError("Unsupported format by Fable: %s" % (string))
+    raise ValueError(f"Unsupported format by Fable: {string}")
 
 
 def try_parse(string: str, def_value: FSharpRef[datetime]) -> bool:
@@ -729,51 +713,51 @@ def from_ticks(ticks: int, kind: DateKind | None = None) -> datetime:
 
 
 __all__ = [
-    "subtract",
-    "op_subtraction",
-    "create",
-    "year",
-    "month",
-    "day",
-    "hour",
-    "minute",
-    "second",
-    "millisecond",
-    "microsecond",
-    "to_universal_time",
-    "day_of_week",
-    "day_of_year",
-    "to_short_date_string",
-    "to_long_date_string",
-    "to_short_time_string",
-    "to_long_time_string",
-    "to_string",
-    "now",
-    "utc_now",
-    "today",
-    "to_local_time",
-    "compare",
-    "equals",
-    "max_value",
-    "min_value",
-    "op_addition",
     "add",
-    "parse",
-    "try_parse",
-    "date",
-    "is_leap_year",
-    "days_in_month",
-    "add_years",
-    "add_months",
     "add_days",
     "add_hours",
-    "add_minutes",
-    "add_seconds",
-    "add_milliseconds",
     "add_microseconds",
-    "kind",
-    "specify_kind",
-    "ticks",
+    "add_milliseconds",
+    "add_minutes",
+    "add_months",
+    "add_seconds",
+    "add_years",
+    "compare",
+    "create",
+    "date",
     "date_offset",
+    "day",
+    "day_of_week",
+    "day_of_year",
+    "days_in_month",
+    "equals",
     "from_ticks",
+    "hour",
+    "is_leap_year",
+    "kind",
+    "max_value",
+    "microsecond",
+    "millisecond",
+    "min_value",
+    "minute",
+    "month",
+    "now",
+    "op_addition",
+    "op_subtraction",
+    "parse",
+    "second",
+    "specify_kind",
+    "subtract",
+    "ticks",
+    "to_local_time",
+    "to_long_date_string",
+    "to_long_time_string",
+    "to_short_date_string",
+    "to_short_time_string",
+    "to_string",
+    "to_universal_time",
+    "today",
+    "try_parse",
+    "utc_now",
+    "year",
 ]

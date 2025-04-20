@@ -3,7 +3,7 @@ pub mod RegExp_ {
     use core::borrow::{Borrow, BorrowMut};
 
     use crate::{
-        Interfaces_::System::Collections::Generic::{IEnumerable_1, IEnumerator_1},
+        System::Collections::Generic::{IEnumerable_1, IEnumerator_1},
         NativeArray_::{array_from, new_array, new_empty, Array},
         Native_::{Func1, LrcPtr, ToString, Vec},
         Seq_::ofArray,
@@ -472,6 +472,12 @@ pub mod RegExp_ {
         }
     }
 
+    impl core::fmt::Display for CaptureCollection {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
     impl GroupCollection {
         pub fn count(&self) -> i32 {
             self.0.len() as i32
@@ -519,6 +525,12 @@ pub mod RegExp_ {
         }
     }
 
+    impl core::fmt::Display for GroupCollection {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
     impl MatchCollection {
         pub fn count(&self) -> i32 {
             self.0.len() as i32
@@ -532,6 +544,12 @@ pub mod RegExp_ {
     impl IEnumerable_1<Match> for MatchCollection {
         fn GetEnumerator(&self) -> LrcPtr<dyn IEnumerator_1<Match>> {
             ofArray(self.0.clone()).GetEnumerator()
+        }
+    }
+
+    impl core::fmt::Display for MatchCollection {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
         }
     }
 }

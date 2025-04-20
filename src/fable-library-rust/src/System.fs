@@ -2,13 +2,11 @@ namespace System
 
 open Global_
 
-type Array() =
-    class
-    end
+type Array() = class end
 
-type Enum() =
-    class
-    end
+type Attribute() = class end
+
+type Enum() = class end
 
 type Exception(message: string) =
     new() = Exception("")
@@ -16,6 +14,30 @@ type Exception(message: string) =
     member _.Message =
         if System.String.IsNullOrEmpty(message) then
             "Specified argument was out of the range of valid values."
+        else
+            message
+
+    member _.StackTrace = ""
+
+    interface System.Collections.IStructuralEquatable with
+        member x.Equals(y, comparer) = false
+        member x.GetHashCode(comparer) = 0
+
+type ArgumentNullException(message: string) =
+    new() = ArgumentNullException("")
+
+    member _.Message =
+        if System.String.IsNullOrEmpty(message) then
+            "Value cannot be null."
+        else
+            message
+
+type NullReferenceException(message: string) =
+    new() = NullReferenceException("")
+
+    member _.Message =
+        if System.String.IsNullOrEmpty(message) then
+            "Object reference not set to an instance of an object."
         else
             message
 

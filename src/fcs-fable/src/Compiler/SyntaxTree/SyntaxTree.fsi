@@ -16,7 +16,10 @@ type Ident =
     member idRange: range
 
 /// Represents an identifier with potentially additional trivia information.
-type SynIdent = SynIdent of ident: Ident * trivia: IdentTrivia option
+type SynIdent =
+    | SynIdent of ident: Ident * trivia: IdentTrivia option
+
+    member Range: range
 
 /// Represents a long identifier e.g. 'A.B.C'
 type LongIdent = Ident list
@@ -209,6 +212,8 @@ type SynMeasure =
 
     /// A parenthesized measure
     | Paren of measure: SynMeasure * range: range
+
+    member Range: range
 
 /// Represents an unchecked syntax tree of F# unit of measure exponents.
 [<NoEquality; NoComparison; RequireQualifiedAccess>]
@@ -405,6 +410,12 @@ type SynTypeConstraint =
     /// F# syntax is 'typar: null
     | WhereTyparSupportsNull of typar: SynTypar * range: range
 
+    /// F# syntax is 'typar : null
+    | WhereTyparNotSupportsNull of
+        genericName: SynTypar *
+        range: range *
+        trivia: SynTypeConstraintWhereTyparNotSupportsNullTrivia
+
     /// F# syntax is 'typar: comparison
     | WhereTyparIsComparable of typar: SynTypar * range: range
 
@@ -512,11 +523,16 @@ type SynType =
     /// For the dimensionless units i.e. 1, and static parameters to provided types
     | StaticConstant of constant: SynConst * range: range
 
+    /// F# syntax: null, used in parameters to type providers
+    | StaticConstantNull of range: range
+
     /// F# syntax: const expr, used in static parameters to type providers
     | StaticConstantExpr of expr: SynExpr * range: range
 
     /// F# syntax: ident=1 etc., used in static parameters to type providers
     | StaticConstantNamed of ident: SynType * value: SynType * range: range
+
+    | WithNull of innerType: SynType * ambivalent: bool * range: range * trivia: SynTypeWithNullTrivia
 
     | Paren of innerType: SynType * range: range
 
@@ -751,7 +767,8 @@ type SynExpr =
         isTrueSeq: bool *
         expr1: SynExpr *
         expr2: SynExpr *
-        range: range
+        range: range *
+        trivia: SynExprSequentialTrivia
 
     /// F# syntax: if expr then expr
     /// F# syntax: if expr then expr else expr
@@ -862,12 +879,12 @@ type SynExpr =
     /// F# syntax: yield expr
     /// F# syntax: return expr
     /// Computation expressions only
-    | YieldOrReturn of flags: (bool * bool) * expr: SynExpr * range: range
+    | YieldOrReturn of flags: (bool * bool) * expr: SynExpr * range: range * trivia: SynExprYieldOrReturnTrivia
 
     /// F# syntax: yield! expr
     /// F# syntax: return! expr
     /// Computation expressions only
-    | YieldOrReturnFrom of flags: (bool * bool) * expr: SynExpr * range: range
+    | YieldOrReturnFrom of flags: (bool * bool) * expr: SynExpr * range: range * trivia: SynExprYieldOrReturnFromTrivia
 
     /// F# syntax: let! pat = expr in expr
     /// F# syntax: use! pat = expr in expr
@@ -894,7 +911,7 @@ type SynExpr =
 
     /// F# syntax: do! expr
     /// Computation expressions only
-    | DoBang of expr: SynExpr * range: range
+    | DoBang of expr: SynExpr * range: range * trivia: SynExprDoBangTrivia
 
     /// F# syntax: 'while! ... do ...'
     | WhileBang of whileDebugPoint: DebugPointAtWhile * whileExpr: SynExpr * doExpr: SynExpr * range: range
@@ -969,6 +986,12 @@ type SynExprAndBang =
         body: SynExpr *
         range: range *
         trivia: SynExprAndBangTrivia
+
+    /// Gets the syntax range of this construct
+    member Range: range
+
+    /// Gets the trivia associated with this construct
+    member Trivia: SynExprAndBangTrivia
 
 [<NoEquality; NoComparison>]
 type SynExprRecordField =
@@ -1155,6 +1178,9 @@ type SynMatchClause =
 
     /// Gets the syntax range of part of this construct
     member RangeOfGuardAndRhs: range
+
+    /// Is a pattern used in a true match clause e.g. | pat -> expr
+    member IsTrueMatchClause: bool
 
     /// Gets the syntax range of this construct
     member Range: range
@@ -1343,7 +1369,7 @@ type SynTypeDefnSimpleRepr =
         fields: SynField list *
         isConcrete: bool *
         isIncrClass: bool *
-        implicitCtorSynPats: SynSimplePats option *
+        implicitCtorSynPats: SynPat option *
         range: range
 
     /// A type defined by using an IL assembly representation. Only used in FSharp.Core.
@@ -1477,6 +1503,18 @@ type SynComponentInfo =
     /// Gets the syntax range of this construct
     member Range: range
 
+/// Represents one or two access modifier(s) in a property signature
+[<NoEquality; NoComparison; RequireQualifiedAccess>]
+type SynValSigAccess =
+    | Single of accessibility: SynAccess option
+    | GetSet of
+        accessibility: SynAccess option *
+        getterAccessibility: SynAccess option *
+        setterAccessibility: SynAccess option
+
+    member SingleAccess: unit -> SynAccess option
+    member GetSetAccessNoCheck: unit -> SynAccess option * SynAccess option
+
 /// Represents the syntax tree for a 'val' definition in an abstract slot or a signature file
 [<NoEquality; NoComparison>]
 type SynValSig =
@@ -1489,7 +1527,7 @@ type SynValSig =
         isInline: bool *
         isMutable: bool *
         xmlDoc: PreXmlDoc *
-        accessibility: SynAccess option *
+        accessibility: SynValSigAccess *
         synExpr: SynExpr option *
         range: range *
         trivia: SynValSigTrivia
@@ -1614,14 +1652,19 @@ type SynMemberDefn =
     | ImplicitCtor of
         accessibility: SynAccess option *
         attributes: SynAttributes *
-        ctorArgs: SynSimplePats *
+        ctorArgs: SynPat *
         selfIdentifier: Ident option *
         xmlDoc: PreXmlDoc *
         range: range *
         trivia: SynMemberDefnImplicitCtorTrivia
 
     /// An implicit inherit definition, 'inherit <typ>(args...) as base'
-    | ImplicitInherit of inheritType: SynType * inheritArgs: SynExpr * inheritAlias: Ident option * range: range
+    | ImplicitInherit of
+        inheritType: SynType *
+        inheritArgs: SynExpr *
+        inheritAlias: Ident option *
+        range: range *
+        trivia: SynMemberDefnInheritTrivia
 
     /// A 'let' definition within a class
     | LetBindings of bindings: SynBinding list * isStatic: bool * isRecursive: bool * range: range
@@ -1637,7 +1680,7 @@ type SynMemberDefn =
     | Interface of interfaceType: SynType * withKeyword: range option * members: SynMemberDefns option * range: range
 
     /// An 'inherit' definition within a class
-    | Inherit of baseType: SynType * asIdent: Ident option * range: range
+    | Inherit of baseType: SynType option * asIdent: Ident option * range: range * trivia: SynMemberDefnInheritTrivia
 
     /// A 'val' definition within a class
     | ValField of fieldInfo: SynField * range: range
@@ -1655,7 +1698,7 @@ type SynMemberDefn =
         memberFlags: SynMemberFlags *
         memberFlagsForSet: SynMemberFlags *
         xmlDoc: PreXmlDoc *
-        accessibility: SynAccess option *
+        accessibility: SynValSigAccess *
         synExpr: SynExpr *
         range: range *
         trivia: SynMemberDefnAutoPropertyTrivia
@@ -1822,6 +1865,9 @@ type SynModuleOrNamespaceSig =
 /// Represents a parsed hash directive argument
 [<NoEquality; NoComparison; RequireQualifiedAccess>]
 type ParsedHashDirectiveArgument =
+    | Ident of value: Ident * range: range
+    | Int32 of value: Int32 * range: range
+    | LongIdent of value: SynLongIdent * range: range
     | String of value: string * stringKind: SynStringKind * range: range
     | SourceIdentifier of constant: string * value: string * range: range
 

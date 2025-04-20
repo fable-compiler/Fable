@@ -106,8 +106,9 @@ let tests = testList "Strings" [
                             .Append(true)
                             .Append(5.2)
                             .Append(34)
+                            .Append('x', 4)
         let actual = sb.ToString().Replace(",", ".").ToLower()
-        actual |> equal "aaabcd/true5.234"
+        actual |> equal "aaabcd/true5.234xxxx"
 
     testCase "StringBuilder.AppendFormat works" <| fun () ->
         let sb = System.Text.StringBuilder()
@@ -306,6 +307,12 @@ let tests = testList "Strings" [
             |}
         $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
         |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
+
+    testCase "Printf %A works with anonymous records" <| fun () -> // See #4029
+        let person  = {| FirstName = "John"; LastName = "Doe" |}
+        let s = sprintf "%A" person
+        System.Text.RegularExpressions.Regex.Replace(s.Replace("\"", ""), @"\s+", " ")
+        |> equal """{ FirstName = John LastName = Doe }"""
 
     testCase "Interpolated strings keep empty lines" <| fun () ->
         let s1 = $"""1
@@ -814,24 +821,49 @@ let tests = testList "Strings" [
         "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
         "abcdbcebc".IndexOfAny([|'c';'b'|]) |> equal 1
 
+    // testCase "String.StartsWith char works" <| fun () ->
+    //     "abcd".StartsWith('a') |> equal true
+    //     "abcd".StartsWith('d') |> equal false
+
+    // testCase "String.EndsWith char works" <| fun () ->
+    //     "abcd".EndsWith('a') |> equal false
+    //     "abcd".EndsWith('d') |> equal true
+
     testCase "String.StartsWith works" <| fun () ->
-        let args = [("ab", true); ("cd", false); ("abcdx", false)]
+        let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true)]
         for arg in args do
-                "abcd".StartsWith(fst arg)
-                |> equal (snd arg)
+            "abcd".StartsWith(fst arg)
+            |> equal (snd arg)
 
-    testCase "String.StartsWith with StringComparison works" <| fun () ->
-        let args = [("ab", true); ("cd", false); ("abcdx", false)]
+    testCase "String.StartsWith with OrdinalIgnoreCase works" <| fun () ->
+        let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
         for arg in args do
-                "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
-                |> equal (snd arg)
+            "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+            |> equal (snd arg)
 
+    testCase "String.StartsWith with ignoreCase boolean works" <| fun () ->
+        let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+        for arg in args do
+            "ABCD".StartsWith(fst arg, true, CultureInfo.InvariantCulture)
+            |> equal (snd arg)
 
     testCase "String.EndsWith works" <| fun () ->
-        let args = [("ab", false); ("cd", true); ("abcdx", false)]
+        let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true)]
         for arg in args do
-                "abcd".EndsWith(fst arg)
-                |> equal (snd arg)
+            "abcd".EndsWith(fst arg)
+            |> equal (snd arg)
+
+    testCase "String.EndsWith with OrdinalIgnoreCase works" <| fun () ->
+        let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+        for arg in args do
+            "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+            |> equal (snd arg)
+
+    testCase "String.EndsWith with ignoreCase boolean works" <| fun () ->
+        let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+        for arg in args do
+            "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
+            |> equal (snd arg)
 
     testCase "String.Trim works" <| fun () ->
         "   abc   ".Trim()
@@ -960,6 +992,15 @@ let tests = testList "Strings" [
         |> equal "abc"
         String.Concat(seq { yield "a"; yield "b"; yield "c" })
         |> equal "abc"
+
+    testCase "System.String.Normalize works" <| fun () ->
+        let name1 = "\u0041\u006d\u00e9\u006c\u0069\u0065";
+        let name2 = "\u0041\u006d\u0065\u0301\u006c\u0069\u0065";
+        notEqual name1 name2
+
+        let normalized1 = name1.Normalize System.Text.NormalizationForm.FormC
+        let normalized2 = name2.Normalize System.Text.NormalizationForm.FormC
+        equal normalized1 normalized2
 
     testCase "System.String.Join with long array works" <| fun () ->
         let n = 1_000_000
@@ -1161,6 +1202,8 @@ let tests = testList "Strings" [
         s4.Format |> equal "I have `backticks`"
         let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
         s5.Format |> equal "I have {{escaped braces}} and %percentage%"
+        let s6: FormattableString = $$$$"""I have {{escaped braces}} and %%percentage%%"""
+        s6.Format |> equal "I have {{{{escaped braces}}}} and %%percentage%%"
         ()
 
 #if FABLE_COMPILER
@@ -1179,5 +1222,43 @@ let tests = testList "Strings" [
         s2.GetStrings() |> toArray |> equal [|""; "This is \""; "\" awesome!"|]
         let s3: FormattableString = $"""I have no holes"""
         s3.GetStrings() |> toArray |> equal [|"I have no holes"|]
+
+    testCase "FormattableString fragments handle { and }" <| fun () ->
+// TypeScript will complain because TemplateStringsArray is not equivalent to string[]
+#if FABLE_COMPILER_TYPESCRIPT
+        let toArray = Seq.toArray
+#else
+        let toArray = id
+#endif
+        let classAttr = "item-panel"
+        let cssNew :FormattableString = $$""".{{classAttr}}:hover {background-color: #eee;}"""
+        let strs = cssNew.GetStrings() |> toArray
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let cssNew :FormattableString = $""".{classAttr}:hover {{background-color: #eee;}}"""
+        let strs = cssNew.GetStrings() |> toArray
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let cssNew :FormattableString = $".{classAttr}:hover {{background-color: #eee;}}"
+        let strs = cssNew.GetStrings() |> toArray
+        strs |> equal [|"."; ":hover {background-color: #eee;}"|]
+        let args = cssNew.GetArguments()
+        args |> equal [|classAttr|]
+
+        let another :FormattableString = $$"""{ { } {{classAttr}} } } }"""
+        let strs = another.GetStrings() |> toArray
+        strs |> equal [|"{ { } "; " } } }"|]
+        let args = another.GetArguments()
+        args |> equal [|classAttr|]
+
+        let another :FormattableString = $"""{{ {{{{ }}}}}} {classAttr} }}}} }} }}}}"""
+        let strs = another.GetStrings() |> toArray
+        strs |> equal [|"{ {{ }}} "; " }} } }}"|]
+        let args = another.GetArguments()
+        args |> equal [|classAttr|]
 #endif
 ]

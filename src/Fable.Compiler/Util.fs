@@ -46,9 +46,7 @@ type CliArgs =
 
         [ "NODE_ENV", nodeEnv ]
 
-type private TypeInThisAssembly =
-    class
-    end
+type private TypeInThisAssembly = class end
 
 type Agent<'T> private (mbox: MailboxProcessor<'T>, cts: CancellationTokenSource) =
     static member Start(f: 'T -> unit) =
@@ -619,7 +617,10 @@ module Imports =
                     importPath
 
             if isAbsolutePath importPath then
-                if importPath.EndsWith(".fs", StringComparison.Ordinal) then
+                if
+                    importPath.EndsWith(".fs", StringComparison.Ordinal)
+                    || importPath.EndsWith(".rs", StringComparison.Ordinal)
+                then
                     getTargetRelativePath pathResolver importPath targetDir projDir outDir
                 else
                     getRelativePath targetDir importPath

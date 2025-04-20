@@ -1,6 +1,7 @@
 module Fable.Tests.ClassTests
 
 open Util.Testing
+open Common.Imports
 
 [<Struct>]
 type Point(x: float, y: float) =
@@ -51,10 +52,10 @@ type FluentB(a: FluentA) =
         a
 
 type WithCrossModuleInterface(m: int) =
-    interface Common.Imports.IHasAdd with
+    interface IHasAdd with
       member this.Add x y = x + y + m
 
-type AdderWrapper<'a when 'a :> Common.Imports.IHasAdd> (adder: 'a) =
+type AdderWrapper<'a when 'a :> IHasAdd> (adder: 'a) =
     member this.AddThroughCaptured x y = adder.Add x y
 
 type TestClass(name: string) =
@@ -70,14 +71,26 @@ type IPrintable2 =
     abstract Print2: unit -> string
 
 [<Fact>]
-let ``Object expressions work`` () =
+let ``Object expression from interface works`` () =
     let a = { new IPrintable with member x.Print() = "Hello" }
     a.Print() |> equal "Hello"
-    let b = { new Common.Imports.IHasAdd with member _.Add x y = x + y }
+    let b = { new IHasAdd with member _.Add x y = x + y }
     b.Add 2 3 |> equal 5
 
 [<Fact>]
-let ``Object expressions instance calls work`` () =
+let ``Object expression from obj works`` () =
+    let a = { new obj() with
+                override _.ToString() = "Hello" }
+    a.ToString() |> equal "Hello"
+    let b = { new obj() with
+                override _.ToString() = "Adder"
+              interface IHasAdd with
+                member _.Add x y = x + y }
+    // b.ToString() |> equal "Adder" // TODO: enable once lrc_ptr is default
+    b.Add 2 3 |> equal 5
+
+[<Fact>]
+let ``Object expression instance calls works`` () =
     let a = { new IPrintable2 with
                 member _.Print() = "Hello"
                 member x.Print2() = x.Print() }
@@ -168,7 +181,7 @@ let ``Class fluent/builder should be sharing same reference and not cloning when
 [<Fact>]
 let ``Class interface from another module works`` () =
     let a = WithCrossModuleInterface(1)
-    let res = (a :> Common.Imports.IHasAdd).Add 2 1
+    let res = (a :> IHasAdd).Add 2 1
     res |> equal 4
 
 [<Fact>]
@@ -180,11 +193,11 @@ let ``Class generic interface constraints work`` () =
 
 [<Fact>]
 let ``Class methods imported from another file work`` () =
-    let a = Common.Imports.MyClass()
-    let res = (a :> Common.Imports.IHasAdd).Add 2 3
+    let a = MyClass()
+    let res = (a :> IHasAdd).Add 2 3
     res |> equal 5
     a.Sub 2 3 |> equal -1
-    Common.Imports.MyClass.Mul 2 3 |> equal 6
+    MyClass.Mul 2 3 |> equal 6
 
 #if FABLE_COMPILER
 open Fable.Core

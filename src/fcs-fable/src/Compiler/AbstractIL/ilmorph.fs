@@ -368,17 +368,24 @@ let rec tdef_ty2ty_ilmbody2ilmbody_mdefs2mdefs isInKnownSet enc fs (tdef: ILType
     let mdefsR = fMethodDefs (enc, tdef) tdef.Methods
     let fdefsR = fdefs_ty2ty fTyInCtxtR tdef.Fields
 
+    let implements =
+        tdef.Implements.Value
+        |> List.map (fun x -> { x with Type = fTyInCtxtR x.Type })
+        |> notlazy
+
+    let extends = tdef.Extends.Value |> Option.map fTyInCtxtR |> notlazy
+
     tdef.With(
-        implements = List.map fTyInCtxtR tdef.Implements,
+        implements = implements,
         genericParams = gparams_ty2ty fTyInCtxtR tdef.GenericParams,
-        extends = Option.map fTyInCtxtR tdef.Extends,
+        extends = extends,
         methods = mdefsR,
         nestedTypes = tdefs_ty2ty_ilmbody2ilmbody_mdefs2mdefs isInKnownSet (enc @ [ tdef ]) fs tdef.NestedTypes,
         fields = fdefsR,
         methodImpls = mimpls_ty2ty fTyInCtxtR tdef.MethodImpls,
         events = edefs_ty2ty fTyInCtxtR tdef.Events,
         properties = pdefs_ty2ty fTyInCtxtR tdef.Properties,
-        customAttrs = cattrs_ty2ty fTyInCtxtR tdef.CustomAttrs
+        customAttrs = storeILCustomAttrs (cattrs_ty2ty fTyInCtxtR tdef.CustomAttrs)
     )
 
 and tdefs_ty2ty_ilmbody2ilmbody_mdefs2mdefs isInKnownSet enc fs tdefs =

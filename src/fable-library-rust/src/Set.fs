@@ -17,7 +17,7 @@ type SetTree<'T> =
         Right: Set<'T>
     }
 
-and [<Struct; CompiledName("Set")>] Set<'T> = { root: Option<SetTree<'T>> }
+and [<Struct; NoEquality; NoComparison; CompiledName("Set")>] Set<'T> = { root: Option<SetTree<'T>> }
 
 type 'T set = Set<'T>
 

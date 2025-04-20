@@ -400,12 +400,6 @@ type internal ByteStream =
 
     static member FromBytes: ReadOnlyByteMemory * start: int * length: int -> ByteStream
 
-#if LAZY_UNPICKLE
-    member CloneAndSeek: int -> ByteStream
-
-    member Skip: int -> unit
-#endif
-
 #if FABLE_COMPILER
 
 /// Imperative buffers and streams of byte[]

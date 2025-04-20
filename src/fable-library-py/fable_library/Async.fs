@@ -14,13 +14,7 @@ let defaultCancellationToken = new CancellationToken()
 [<Erase>]
 type Async =
     static member StartWithContinuations
-        (
-            computation: IAsync<'T>,
-            continuation,
-            exceptionContinuation,
-            cancellationContinuation,
-            ?cancellationToken
-        )
+        (computation: Async<'T>, continuation, exceptionContinuation, cancellationContinuation, ?cancellationToken)
         : unit
         =
         let trampoline = Trampoline()
@@ -37,7 +31,7 @@ type Async =
             }
         )
 
-    static member StartWithContinuations(computation: IAsync<'T>, ?cancellationToken) : unit =
+    static member StartWithContinuations(computation: Async<'T>, ?cancellationToken) : unit =
         Async.StartWithContinuations(
             computation,
             emptyContinuation,
@@ -50,8 +44,8 @@ type Async =
         Async.StartWithContinuations(computation, ?cancellationToken = cancellationToken)
 
 
-    static member StartImmediate(computation: IAsync<'T>, ?cancellationToken) =
+    static member StartImmediate(computation: Async<'T>, ?cancellationToken) =
         Async.Start(computation, ?cancellationToken = cancellationToken)
 
-let startImmediate (computation: IAsync<'T>) =
+let startImmediate (computation: Async<'T>) =
     Async.StartImmediate(computation, ?cancellationToken = None)

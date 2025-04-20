@@ -226,6 +226,7 @@ module PrinterExtensions =
                 func.Body,
                 func.Returns,
                 func.DecoratorList,
+                ?comment = func.Comment,
                 isDeclaration = true
             )
 
@@ -238,6 +239,7 @@ module PrinterExtensions =
                 func.Body,
                 func.Returns,
                 func.DecoratorList,
+                ?comment = func.Comment,
                 isDeclaration = true,
                 isAsync = true
             )
@@ -650,12 +652,7 @@ module PrinterExtensions =
             | AST.WithItem wi -> printer.Print(wi)
 
         member printer.PrintBlock
-            (
-                nodes: 'a list,
-                printNode: Printer -> 'a -> unit,
-                printSeparator: Printer -> unit,
-                ?skipNewLineAtEnd
-            )
+            (nodes: 'a list, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd)
             =
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
             printer.Print("")
@@ -758,6 +755,7 @@ module PrinterExtensions =
                 body: Statement list,
                 returnType: Expression option,
                 decoratorList: Expression list,
+                ?comment: string,
                 ?isDeclaration,
                 ?isAsync
             )
@@ -782,6 +780,24 @@ module PrinterExtensions =
                 printer.PrintOptional(returnType)
 
             printer.Print(":")
+
+            match Option.map ParsedXmlDoc.Parse comment with
+            | Some { Summary = Some summary } ->
+                let lines = summary.Split('\n')
+
+                printer.PrintNewLine()
+                printer.PushIndentation()
+                printer.Print("\"\"\"")
+
+                for line in lines do
+                    let line = Naming.xmlDecode line
+                    printer.Print(line.Trim())
+                    printer.PrintNewLine()
+
+                printer.Print("\"\"\"")
+                printer.PopIndentation()
+            | _ -> ()
+
             printer.PrintBlock(body, skipNewLineAtEnd = true)
 
         member printer.WithParens(expr: Expression) =
@@ -828,6 +844,20 @@ let run writer (program: Module) : Async<unit> =
         use printerImpl = new PrinterImpl(writer)
         let printer = printerImpl :> Printer
 
+
+        match Option.map ParsedXmlDoc.Parse program.Comment with
+        | Some { Summary = Some summary } ->
+            printer.Print("\"\"\"")
+
+            for line in summary.Split('\n') do
+                let line = Naming.xmlDecode line
+                printer.Print(line.Trim())
+                printer.PrintNewLine()
+
+            printer.Print("\"\"\"")
+            printer.PrintNewLine()
+        | _ -> ()
+
         let imports, restDecls =
             program.Body
             |> List.splitWhile (
@@ -843,6 +873,12 @@ let run writer (program: Module) : Async<unit> =
             | ImportFrom({ Module = Some(Identifier path) } as info) ->
                 let path = printer.MakeImportPath(path)
                 ImportFrom { info with Module = Some(Identifier path) }
+            | Import({ Names = names }) ->
+                let names =
+                    names
+                    |> List.map (fun n -> { n with Name = printer.MakeImportPath(n.Name.Name) |> Identifier })
+
+                Import { Names = names }
             | decl -> decl
             |> printDeclWithExtraLine false printer
 

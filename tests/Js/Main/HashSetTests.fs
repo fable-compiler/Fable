@@ -1,7 +1,7 @@
 ﻿module Fable.Tests.HashSets
 
-open Util.Testing
 open System.Collections.Generic
+open Util.Testing
 
 type MyRefType(i: int) =
     member x.Value = i
@@ -222,4 +222,54 @@ let tests =
         apa.Contains ({ i = 5; s = "foo"}) |> equal true
         apa.Contains ({ i = 5; s = "fo"}) |> equal false
 
+    testCase "HashSet IReadOnlyCollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> IReadOnlyCollection<_>
+        coll.Count |> equal 3
+
+    testCase "HashSet ICollection.IsReadOnly works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> ICollection<_>
+        coll.IsReadOnly |> equal false
+
+    testCase "HashSet ICollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> ICollection<_>
+        coll.Count |> equal 3
+
+    testCase "HashSet ICollection.Contains works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> ICollection<_>
+        coll.Contains(("B", 3)) |> equal false
+        coll.Contains(("D", 3)) |> equal false
+        coll.Contains(("B", 2)) |> equal true
+
+    testCase "HashSet ICollection.CopyTo works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> ICollection<_>
+        let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
+        coll.CopyTo(ys, 0)
+        ys = xs |> equal true
+
+    testCase "HashSet ICollection.Clear works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> ICollection<_>
+        coll.Clear()
+        coll.Count |> equal 0
+
+    testCase "HashSet ICollection.Add works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> ICollection<_>
+        coll.Add(("A", 1))
+        coll.Add(("A", 2))
+        coll.Add(("D", 4))
+        coll.Count |> equal 5
+
+    testCase "HashSet ICollection.Remove works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = (HashSet xs) :> ICollection<_>
+        coll.Remove(("B", 3)) |> equal false
+        coll.Remove(("D", 3)) |> equal false
+        coll.Remove(("B", 2)) |> equal true
+        coll.Count |> equal 2
   ]

@@ -130,7 +130,7 @@ let ``Multi-case Union with wrapped type works`` () =
     res |> equal "hello world"
 
 [<Fact>]
-let ``Should correctly import union in other file and allow creation`` =
+let ``Should correctly import union in other file and allow creation`` () =
     let r = Common.Imports.MyUnion.A 1
     let expected = Common.Imports.MyUnion.createA 1
     r |> equal expected

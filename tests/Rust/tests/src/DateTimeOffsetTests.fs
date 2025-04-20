@@ -77,14 +77,22 @@ let ``DateTimeOffset.Hour works`` () =
     let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)
     d.Hour |> equal 13
 
-// TODO: Unfortunately, JS will happily create invalid dates like DateTimeOffset(2014,2,29)
-//       But this problem also happens when parsing, so I haven't tried to fix it
 [<Fact>]
 let ``DateTimeOffset constructors work`` () =
     let d3 = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)
     let d5 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.Zero)
-    d3.Second + d5.Millisecond
-    |> equal 530
+    let d6 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, 222, TimeSpan.Zero)
+    d3.Second + d5.Millisecond |> equal 530
+
+    d6.Year |> equal 2014
+    d6.Month |> equal 10
+    d6.Day |> equal 9
+    d6.Hour |> equal 13
+    d6.Minute |> equal 23
+    d6.Second |> equal 30
+    d6.Millisecond |> equal 500
+    d6.Microsecond |> equal 222
+    d6.Nanosecond |> equal 0
 
 [<Fact>]
 let ``DateTimeOffset constructor from Ticks works`` () =

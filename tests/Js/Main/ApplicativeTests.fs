@@ -1779,6 +1779,45 @@ module AccessorFunctionShorthand =
                 equal (namePropertyGetter student) "Jane"
         ]
 
+#if !FABLE_COMPILER_TYPESCRIPT
+module DiscriminatedUnionIsGenerated =
+
+    type Test =
+        | A
+        | Value of string
+
+    let tests =
+        [
+            testCase "Discriminated union .Is* generated works" <| fun () ->
+                let testA = A
+                let testValue = Value "test"
+
+                equal true testA.IsA
+                equal false testA.IsValue
+                equal false testValue.IsA
+                equal true testValue.IsValue
+        ]
+#endif
+
+#if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
+module PartialActivePatternsCanReturnBool =
+
+    let (|CaseInsensitive|_|) (pattern: string) (value: string) =
+        String.Equals(value, pattern, StringComparison.OrdinalIgnoreCase)
+
+    let isFoo key =
+        match key with
+        | CaseInsensitive "foo" -> true
+        | _ -> false
+
+    let tests =
+        [
+            testCase "Partial active patterns can return bool" <| fun () ->
+                let result = isFoo "FOO"
+                equal true result
+        ]
+#endif
+
 let tests =
     testList "Applicative" (
         tests1
@@ -1793,4 +1832,10 @@ let tests =
         @ Uncurry.tests
         @ MultipleInlines.tests
         @ AccessorFunctionShorthand.tests
+        #if !FABLE_COMPILER_TYPESCRIPT
+        @ DiscriminatedUnionIsGenerated.tests
+        #endif
+        #if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
+        @ PartialActivePatternsCanReturnBool.tests
+        #endif
     )

@@ -169,9 +169,13 @@ module Js =
                         defaultArg file sourcePath
                         |> Path.getRelativeFileOrDirPath false targetPath false
 
-                    mapGenerator
-                        .Force()
-                        .AddMapping(generated, original, source = sourcePath, ?name = displayName)
+                    // This is a workaround for:
+                    // https://github.com/fable-compiler/Fable/issues/3980
+                    // We are still investigating why some of the F# code don't have source information
+                    // I believe for now we can ship it like that because it only deteriorate the source map
+                    // it should not break them completely.
+                    if srcLine <> 0 && srcCol <> 0 && file <> Some "unknown" then
+                        mapGenerator.Force().AddMapping(generated, original, source = sourcePath, ?name = displayName)
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
         async {
@@ -248,10 +252,8 @@ module Python =
                         |> Array.choose (fun part ->
                             i <- i + 1
 
-                            if part = "." then
+                            if part = "." || part = ".." then
                                 None
-                            elif part = ".." then
-                                Some ""
                             elif i = parts.Length - 1 then
                                 Some(normalizeFileName part)
                             else
@@ -442,7 +444,21 @@ module Rust =
         let stream = new IO.StreamWriter(targetPath)
 
         interface Printer.Writer with
-            member _.Write(str) =
+            member self.Write(str) =
+
+                let str =
+                    // rewrite import paths in last file
+                    if com.CurrentFile = (Array.last com.SourceFiles) then
+                        System.Text.RegularExpressions.Regex.Replace(
+                            str,
+                            @"(#\[path\s*=\s*\"")([^""]*)(\""])",
+                            fun m ->
+                                let path = (self :> Printer.Writer).MakeImportPath(m.Groups[2].Value)
+                                m.Groups[1].Value + path + m.Groups[3].Value
+                        )
+                    else
+                        str
+
                 stream.WriteAsync(str) |> Async.AwaitTask
 
             member _.MakeImportPath(path) =

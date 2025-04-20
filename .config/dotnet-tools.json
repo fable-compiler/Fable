@@ -3,19 +3,19 @@
   "isRoot": true,
   "tools": {
     "fantomas": {
-      "version": "6.2.3",
+      "version": "7.0.0",
       "commands": [
         "fantomas"
       ]
     },
     "husky": {
-      "version": "0.6.4",
+      "version": "0.7.2",
       "commands": [
         "husky"
       ]
     },
     "fsharp-analyzers": {
-      "version": "0.24.0",
+      "version": "0.28.0",
       "commands": [
         "fsharp-analyzers"
       ]

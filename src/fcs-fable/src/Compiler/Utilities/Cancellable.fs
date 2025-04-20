@@ -5,29 +5,41 @@ open System.Threading
 
 [<Sealed>]
 type Cancellable =
-    [<ThreadStatic; DefaultValue>]
-    static val mutable private token: CancellationToken
+    static let tokenHolder = AsyncLocal<CancellationToken voption>()
+
+    static let guard =
+        String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DISABLE_CHECKANDTHROW_ASSERT"))
+
+    static let ensureToken msg =
+        tokenHolder.Value
+        |> ValueOption.defaultWith (fun () -> if guard then failwith msg else CancellationToken.None)
+
+    static member HasCancellationToken = tokenHolder.Value.IsSome
+
+    static member Token = ensureToken "Token not available outside of Cancellable computation."
 
     static member UsingToken(ct) =
-        let oldCt = Cancellable.token
-
-        Cancellable.token <- ct
+        let oldCt = tokenHolder.Value
+        tokenHolder.Value <- ValueSome ct
 
         { new IDisposable with
-            member this.Dispose() = Cancellable.token <- oldCt
+            member _.Dispose() = tokenHolder.Value <- oldCt
         }
 
-    static member Token
-        with get () = Cancellable.token
-        and internal set v = Cancellable.token <- v
-
     static member CheckAndThrow() =
-        Cancellable.token.ThrowIfCancellationRequested()
+        let token = ensureToken "CheckAndThrow invoked outside of Cancellable computation."
+        token.ThrowIfCancellationRequested()
+
+    static member TryCheckAndThrow() =
+        match tokenHolder.Value with
+        | ValueNone -> ()
+        | ValueSome token -> token.ThrowIfCancellationRequested()
 
 namespace Internal.Utilities.Library
 
 open System
 open System.Threading
+open FSharp.Compiler
 
 #if !FSHARPCORE_USE_PACKAGE
 open FSharp.Core.CompilerServices.StateMachineHelpers
@@ -51,6 +63,7 @@ module Cancellable =
             oper ct
 #else
             try
+                use _ = Cancellable.UsingToken(ct)
                 oper ct
             with :? OperationCanceledException as e ->
                 ValueOrCancelled.Cancelled(OperationCanceledException e.CancellationToken)

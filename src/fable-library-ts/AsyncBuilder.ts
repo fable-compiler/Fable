@@ -86,9 +86,9 @@ export interface IAsyncContext<T> {
   trampoline: Trampoline;
 }
 
-export type IAsync<T> = (x: IAsyncContext<T>) => void;
+export type Async<T> = (x: IAsyncContext<T>) => void;
 
-export function protectedCont<T>(f: IAsync<T>) {
+export function protectedCont<T>(f: Async<T>) {
   return (ctx: IAsyncContext<T>) => {
     if (ctx.cancelToken.isCancelled) {
       ctx.onCancel(new OperationCanceledError());
@@ -110,7 +110,7 @@ export function protectedCont<T>(f: IAsync<T>) {
   };
 }
 
-export function protectedBind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
+export function protectedBind<T, U>(computation: Async<T>, binder: (x: T) => Async<U>) {
   return protectedCont((ctx: IAsyncContext<U>) => {
     computation({
       onSuccess: (x: T) => {
@@ -133,19 +133,19 @@ export function protectedReturn<T>(value: T) {
 }
 
 export class AsyncBuilder {
-  public Bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
+  public Bind<T, U>(computation: Async<T>, binder: (x: T) => Async<U>) {
     return protectedBind(computation, binder);
   }
 
-  public Combine<T>(computation1: IAsync<void>, computation2: IAsync<T>) {
+  public Combine<T>(computation1: Async<void>, computation2: Async<T>) {
     return this.Bind(computation1, () => computation2);
   }
 
-  public Delay<T>(generator: () => IAsync<T>) {
+  public Delay<T>(generator: () => Async<T>) {
     return protectedCont((ctx: IAsyncContext<T>) => generator()(ctx));
   }
 
-  public For<T>(sequence: Iterable<T>, body: (x: T) => IAsync<void>) {
+  public For<T>(sequence: Iterable<T>, body: (x: T) => Async<void>) {
     const iter = sequence[Symbol.iterator]();
     let cur = iter.next();
     return this.While(() => !cur.done, this.Delay(() => {
@@ -155,15 +155,15 @@ export class AsyncBuilder {
     }));
   }
 
-  public Return<T>(value?: T) {
+  public Return<T>(value: T) {
     return protectedReturn(value);
   }
 
-  public ReturnFrom<T>(computation: IAsync<T>) {
+  public ReturnFrom<T>(computation: Async<T>) {
     return computation;
   }
 
-  public TryFinally<T>(computation: IAsync<T>, compensation: () => void) {
+  public TryFinally<T>(computation: Async<T>, compensation: () => void) {
     return protectedCont((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: (x: T) => {
@@ -184,7 +184,7 @@ export class AsyncBuilder {
     });
   }
 
-  public TryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => IAsync<T>) {
+  public TryWith<T>(computation: Async<T>, catchHandler: (e: any) => Async<T>) {
     return protectedCont((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: ctx.onSuccess,
@@ -202,11 +202,11 @@ export class AsyncBuilder {
     });
   }
 
-  public Using<T extends IDisposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
+  public Using<T extends IDisposable, U>(resource: T, binder: (x: T) => Async<U>) {
     return this.TryFinally(binder(resource), () => resource.Dispose());
   }
 
-  public While(guard: () => boolean, computation: IAsync<void>): IAsync<void> {
+  public While(guard: () => boolean, computation: Async<void>): Async<void> {
     if (guard()) {
       return this.Bind(computation, () => this.While(guard, computation));
     } else {

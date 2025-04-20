@@ -95,7 +95,7 @@ pub mod DateTime_ {
         }
 
         pub fn new_ticks(ticks: i64) -> DateTime {
-            Self::minValue().add(TimeSpan::from_ticks(ticks))
+            Self::minValue().add(TimeSpan::fromTicks(ticks))
         }
 
         pub fn new_ticks_kind(ticks: i64, kind: i32) -> DateTime {
@@ -281,7 +281,7 @@ pub mod DateTime_ {
 
         pub fn subtract2(&self, other: DateTime) -> TimeSpan {
             let ticks = duration_to_ticks(self.ndt - other.ndt);
-            TimeSpan::from_ticks(ticks)
+            TimeSpan::fromTicks(ticks)
         }
 
         pub fn kind(&self) -> i32 {
@@ -369,16 +369,16 @@ pub mod DateTime_ {
         }
 
         pub fn microsecond(&self) -> i32 {
-            self.ndt.and_utc().timestamp_subsec_micros() as i32
+            (self.ndt.and_utc().timestamp_subsec_micros() % 1000) as i32
         }
 
         pub fn nanosecond(&self) -> i32 {
-            self.ndt.and_utc().timestamp_subsec_nanos() as i32
+            (self.ndt.and_utc().timestamp_subsec_nanos() % 1000) as i32
         }
 
         pub fn timeOfDay(&self) -> TimeSpan {
             let d = self.ndt.time() - NaiveTime::MIN;
-            TimeSpan::from_ticks(duration_to_ticks(d))
+            TimeSpan::fromTicks(duration_to_ticks(d))
         }
 
         pub fn dayNumber(&self) -> i32 {
@@ -421,31 +421,31 @@ pub mod DateTime_ {
         }
 
         pub fn addDays(&self, days: f64) -> DateTime {
-            self.add(TimeSpan::from_days(days))
+            self.add(TimeSpan::fromDays(days))
         }
 
         pub fn addHours(&self, hours: f64) -> DateTime {
-            self.add(TimeSpan::from_hours(hours))
+            self.add(TimeSpan::fromHours(hours))
         }
 
         pub fn addMinutes(&self, minutes: f64) -> DateTime {
-            self.add(TimeSpan::from_minutes(minutes))
+            self.add(TimeSpan::fromMinutes(minutes))
         }
 
         pub fn addSeconds(&self, seconds: f64) -> DateTime {
-            self.add(TimeSpan::from_seconds(seconds))
+            self.add(TimeSpan::fromSeconds(seconds))
         }
 
         pub fn addMilliseconds(&self, millis: f64) -> DateTime {
-            self.add(TimeSpan::from_milliseconds(millis))
+            self.add(TimeSpan::fromMilliseconds(millis))
         }
 
         pub fn addMicroseconds(&self, micros: f64) -> DateTime {
-            self.add(TimeSpan::from_microseconds(micros))
+            self.add(TimeSpan::fromMicroseconds(micros))
         }
 
         pub fn addTicks(&self, ticks: i64) -> DateTime {
-            self.add(TimeSpan::from_ticks(ticks))
+            self.add(TimeSpan::fromTicks(ticks))
         }
 
         pub fn toString(&self, format: string) -> string {

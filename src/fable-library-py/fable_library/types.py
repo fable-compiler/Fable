@@ -49,7 +49,7 @@ class FSharpRef(Generic[_T]):
 
 
 class Union(IComparable):
-    __slots__ = "tag", "fields"
+    __slots__ = "fields", "tag"
 
     def __init__(self):
         self.tag: int
@@ -67,14 +67,19 @@ class Union(IComparable):
         if not len(self.fields):
             return self.name
 
+        def to_string(value: Any) -> str:
+            if isinstance(value, str):
+                return f'"{value}"'
+            return str(value)
+
         fields = ""
         with_parens = True
         if len(self.fields) == 1:
-            field = str(self.fields[0])
+            field = to_string(self.fields[0])
             with_parens = field.find(" ") >= 0
             fields = field
         else:
-            fields = ", ".join(map(str, self.fields))
+            fields = ", ".join(map(to_string, self.fields))
 
         return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
 
@@ -338,7 +343,6 @@ def is_exception(x: Any):
 
 
 __all__ = [
-    "Attribute",
     "Array",
     "is_exception",
     "char",
@@ -358,11 +362,29 @@ __all__ = [
     "Uint32Array",
     "Float32Array",
     "Float64Array",
+    "Attribute",
     "FSharpException",
     "FSharpRef",
+    "Float32Array",
+    "Float64Array",
+    "Int8Array",
+    "Int16Array",
+    "Int32Array",
     "Record",
+    "Uint8Array",
+    "Uint16Array",
+    "Uint32Array",
+    "Union",
+    "char",
+    "int16",
+    "int32",
+    "int64",
+    "is_exception",
     "seq_to_string",
     "to_string",
     "Union",
     "IntegerTypes",
+    "uint16",
+    "uint32",
+    "uint64",
 ]

@@ -1,5 +1,6 @@
 module Fable.Tests.NonRegression
 
+open Fable.Core
 open Util.Testing
 
 module Issue3496 =
@@ -47,6 +48,17 @@ module Issue3674 =
 
     type Y = | X of X
 
+module Issue3811 =
+    type FlowchartDirection =
+    | TB
+    | TD
+
+    [<AttachMembers>]
+    type flowchartDirection =
+        static member tb = FlowchartDirection.TB
+        static member td = FlowchartDirection.TD
+        static member tb' () =
+            flowchartDirection.tb
 
 [<Fact>]
 let ``test hashcodes are unique`` () =
@@ -68,6 +80,7 @@ let ``test hashcodes are unique`` () =
     xHash <> 0 |> equal true
     yHash <> 0 |> equal true
 
+[<Fact>]
 let ``test record hashcodes are unique`` () =
     let x =
         {
@@ -96,7 +109,7 @@ let ``test record hashcodes are unique`` () =
     xHash <> 0 |> equal true
     yHash <> 0 |> equal true
 
-
+[<Fact>]
 let ``test Nested type with Custom Hashcode works`` () =
     let x =
         {
@@ -128,6 +141,7 @@ module Issue3717 =
     type Y =
         {X : X}
 
+[<Fact>]
 let ``test nested type with custom equality works`` () =
 
     // Should be equal according to custom equality
@@ -156,7 +170,13 @@ type MyRecord =
     override this.GetHashCode() =
         this.Age
 
+[<Fact>]
 let ``test custom equality and hashcode works`` () =
     let p1 = {Name = "John"; Age = 30}
 
     equal 30 (p1.GetHashCode())
+
+[<Fact>]
+let ``test class name casing`` () =
+    let x = Issue3811.flowchartDirection.tb' ()
+    equal Issue3811.FlowchartDirection.TB x

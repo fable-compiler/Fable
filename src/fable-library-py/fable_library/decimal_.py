@@ -148,6 +148,10 @@ def to_number(x: Decimal) -> float:
     return float(x)
 
 
+def to_int(x: Decimal) -> int:
+    return int(x)
+
+
 def parse(string: str) -> Decimal:
     return Decimal(string)
 
@@ -169,35 +173,36 @@ def create(value: float | IntegerTypes | str) -> Decimal:
 
 
 __all__ = [
-    "compare",
-    "equals",
     "abs",
-    "sign",
+    "add",
+    "compare",
+    "divide",
+    "equals",
+    "from_parts",
     "max",
     "min",
-    "add",
-    "subtract",
     "multiply",
-    "divide",
-    "remainder",
     "negate",
-    "op_unary_negation",
-    "op_unary_plus",
     "op_addition",
-    "op_subtraction",
-    "op_multiply",
     "op_division",
-    "op_modulus",
-    "op_less_than",
-    "op_less_than_or_equal",
+    "op_equality",
     "op_greater_than",
     "op_greater_than_or_equal",
-    "op_equality",
     "op_inequality",
-    "from_parts",
-    "to_string",
-    "to_number",
-    "try_parse",
+    "op_less_than",
+    "op_less_than_or_equal",
+    "op_modulus",
+    "op_multiply",
+    "op_subtraction",
+    "op_unary_negation",
+    "op_unary_plus",
     "parse",
     "Decimal",
+    "remainder",
+    "sign",
+    "subtract",
+    "to_int",
+    "to_number",
+    "to_string",
+    "try_parse",
 ]

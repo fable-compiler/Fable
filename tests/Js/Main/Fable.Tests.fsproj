@@ -1,14 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <RollForward>Major</RollForward>
     <OtherFlags>$(OtherFlags) --crossoptimize- --nowarn:3370</OtherFlags>
     <FableDefinesQueue>True</FableDefinesQueue>
+    <LangVersion>Preview</LangVersion>
  </PropertyGroup>
 
  <ItemGroup>
-    <PackageReference Include="Expecto" Version="10.1.0" />
+    <PackageReference Include="Expecto" Version="10.2.1" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="Fable.JsonProvider" Version="1.1.1" />
     <PackageReference Include="FSharp.UMX" Version="1.1.0" />
@@ -33,6 +34,7 @@
     <Compile Include="Util/Util3.fs" />
     <Compile Include="../../../tests_external/Util3.fs" />
     <Compile Include="Util/UtilTests.fs" />
+    <Compile Include="Global.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
@@ -80,6 +82,7 @@
     <Compile Include="TimeOnlyTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
     <Compile Include="ListCollectorTests.fs" />
+    <Compile Include="Nullness.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

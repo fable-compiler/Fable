@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <RollForward>Major</RollForward>
-    <DefineConstants>FABLE_COMPILER;FABLE_COMPILER_TYPESCRIPT;$(DefineConstants)</DefineConstants>
+    <DefineConstants>FABLE_COMPILER_TYPESCRIPT;$(DefineConstants)</DefineConstants>
+    <LangVersion>Preview</LangVersion>
   </PropertyGroup>
  <ItemGroup>
     <PackageReference Include="Fable.JsonProvider" Version="1.1.1" />
@@ -46,6 +47,7 @@
     <Compile Include="../Js/Main/HashSetTests.fs" />
     <!-- <Compile Include="../Js/Main/ImportTests.fs" /> -->
     <!-- <Compile Include="../Js/Main/JsInteropTests.fs" /> -->
+     <Compile Include="LiteTsInteropTests.fs" />
     <Compile Include="../Js/Main/ListTests.fs" />
     <Compile Include="../Js/Main/MapTests.fs" />
     <Compile Include="../Js/Main/MiscTestsHelper.fs" />

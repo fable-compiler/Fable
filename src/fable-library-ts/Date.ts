@@ -55,7 +55,7 @@ function parseNextChar(format: string, pos: number) {
   return format.charCodeAt(pos + 1);
 }
 
-function parseQuotedString(format: string, pos: number) : [string, number] {
+function parseQuotedString(format: string, pos: number): [string, number] {
   let beginPos = pos;
   // Get the character used to quote the string
   const quoteChar = format[pos];
@@ -114,9 +114,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += shortDays[dayOfWeek(localizedDate)];
             break;
           case 4:
-            result += longDays[dayOfWeek(localizedDate)];
-            break;
           default:
+            result += longDays[dayOfWeek(localizedDate)];
             break;
         }
         break;
@@ -132,7 +131,9 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           // milliseconds provided to it.
           // This is to have the same behavior as .NET when doing:
           // DateTime(1, 2, 3, 4, 5, 6, DateTimeKind.Utc).ToString("fffff") => 00000
-          result += (""+millisecond(localizedDate)).padEnd(tokenLength, "0");
+          result += ("" + millisecond(localizedDate)).padEnd(tokenLength, "0");
+        } else {
+          throw "Input string was not in a correct format.";
         }
         break;
       case "F":
@@ -152,26 +153,27 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           if (value != 0) {
             result += padWithZeros(value, 3);
           }
+        } else {
+          throw "Input string was not in a correct format.";
         }
         break;
       case "g":
         tokenLength = parseRepeatToken(format, cursorPos, "g");
         cursorPos += tokenLength;
-        if (tokenLength <= 2) {
-          result += "A.D.";
-        }
+        result += "A.D.";
         break;
       case "h":
         tokenLength = parseRepeatToken(format, cursorPos, "h");
         cursorPos += tokenLength;
         switch (tokenLength) {
           case 1:
-            result += hour(localizedDate) % 12
+            const h1Value = hour(localizedDate) % 12;
+            result += h1Value ? h1Value : 12;
             break;
           case 2:
-            result += padWithZeros(hour(localizedDate) % 12, 2);
-            break;
           default:
+            const h2Value = hour(localizedDate) % 12;
+            result += padWithZeros(h2Value ? h2Value : 12, 2);
             break;
         }
         break;
@@ -183,9 +185,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += hour(localizedDate);
             break;
           case 2:
-            result += padWithZeros(hour(localizedDate), 2);
-            break;
           default:
+            result += padWithZeros(hour(localizedDate), 2);
             break;
         }
         break;
@@ -217,9 +218,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += minute(localizedDate);
             break;
           case 2:
-            result += padWithZeros(minute(localizedDate), 2);
-            break;
           default:
+            result += padWithZeros(minute(localizedDate), 2);
             break;
         }
         break;
@@ -237,9 +237,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += shortMonths[month(localizedDate) - 1];
             break;
           case 4:
-            result += longMonths[month(localizedDate) - 1];
-            break;
           default:
+            result += longMonths[month(localizedDate) - 1];
             break;
         }
         break;
@@ -251,9 +250,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += second(localizedDate);
             break;
           case 2:
-            result += padWithZeros(second(localizedDate), 2);
-            break;
           default:
+            result += padWithZeros(second(localizedDate), 2);
             break;
         }
         break;
@@ -265,9 +263,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             result += localizedDate.getHours() < 12 ? "A" : "P";
             break;
           case 2:
-            result += localizedDate.getHours() < 12 ? "AM" : "PM";
-            break;
           default:
+            result += localizedDate.getHours() < 12 ? "AM" : "PM";
             break;
         }
         break;
@@ -281,16 +278,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           case 2:
             result += padWithZeros(localizedDate.getFullYear() % 100, 2);
             break;
-          case 3:
-            result += padWithZeros(localizedDate.getFullYear(), 3);
-            break;
-          case 4:
-            result += padWithZeros(localizedDate.getFullYear(), 4);
-            break;
-          case 5:
-            result += padWithZeros(localizedDate.getFullYear(), 5);
-            break;
           default:
+            result += padWithZeros(localizedDate.getFullYear(), tokenLength);
             break;
         }
         break;
@@ -391,13 +380,6 @@ export function dateOffsetToString(offset: number) {
     padWithZeros(minutes, 2);
 }
 
-export function dateToHalfUTCString(date: IDateTime, half: "first" | "second") {
-  const str = date.toISOString();
-  return half === "first"
-    ? str.substring(0, str.indexOf("T"))
-    : str.substring(str.indexOf("T") + 1, str.length - 1);
-}
-
 function dateToISOString(d: IDateTime, utc: boolean) {
   if (utc) {
     return d.toISOString();
@@ -426,8 +408,10 @@ function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
     return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString((date.offset ?? 0));
   } else if (format.length === 1) {
     switch (format) {
-      case "D": case "d": return dateToHalfUTCString(d, "first");
-      case "T": case "t": return dateToHalfUTCString(d, "second");
+      case "D": return dateToString_D(d);
+      case "d": return dateToString_d(d);
+      case "T": return dateToString_T(toUniversalTime(d));
+      case "t": return dateToString_t(toUniversalTime(d));
       case "O": case "o": return dateToISOStringWithOffset(d, (date.offset ?? 0));
       default: throw new Error("Unrecognized Date print format");
     }
@@ -436,16 +420,40 @@ function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
   }
 }
 
+function dateToString_D(date: IDateTime) {
+  return longDays[dayOfWeek(date)]
+    + ", " + padWithZeros(day(date), 2)
+    + " " + longMonths[month(date) - 1]
+    + " " + year(date);
+}
+
+function dateToString_d(date: IDateTime) {
+  return padWithZeros(month(date), 2)
+    + "/" + padWithZeros(day(date), 2)
+    + "/" + year(date);
+}
+
+function dateToString_T(date: IDateTime) {
+  return padWithZeros(hour(date), 2)
+    + ":" + padWithZeros(minute(date), 2)
+    + ":" + padWithZeros(second(date), 2);
+}
+
+function dateToString_t(date: IDateTime) {
+  return padWithZeros(hour(date), 2)
+    + ":" + padWithZeros(minute(date), 2);
+}
+
 function dateToStringWithKind(date: IDateTime, format?: string) {
   const utc = date.kind === DateKind.UTC;
   if (typeof format !== "string") {
     return utc ? date.toUTCString() : date.toLocaleString();
   } else if (format.length === 1) {
     switch (format) {
-      case "D": case "d":
-        return utc ? dateToHalfUTCString(date, "first") : date.toLocaleDateString();
-      case "T": case "t":
-        return utc ? dateToHalfUTCString(date, "second") : date.toLocaleTimeString();
+      case "D": return dateToString_D(date);
+      case "d": return dateToString_d(date);
+      case "T": return dateToString_T(date);
+      case "t": return dateToString_t(date);
       case "O": case "o":
         return dateToISOString(date, utc);
       default:
@@ -498,12 +506,12 @@ export function getTicks(date: IDateTime | IDateTimeOffset) {
 
 export function minValue() {
   // This is "0001-01-01T00:00:00.000Z", actual JS min value is -8640000000000000
-  return DateTime(-62135596800000, DateKind.Unspecified);
+  return DateTime(-62135596800000, DateKind.UTC);
 }
 
 export function maxValue() {
   // This is "9999-12-31T23:59:59.999Z", actual JS max value is 8640000000000000
-  return DateTime(253402300799999, DateKind.Unspecified);
+  return DateTime(253402300799999, DateKind.UTC);
 }
 
 export function parseRaw(input: string): [Date, Offset] {
@@ -524,7 +532,6 @@ export function parseRaw(input: string): [Date, Offset] {
 
   if (isNaN(date.getTime())) {
     // Try to check strings JS Date cannot parse (see #1045, #1422)
-    // tslint:disable-next-line:max-line-length
     const m = /^\s*(\d+[^\w\s:]\d+[^\w\s:]\d+)?\s*(\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*([AaPp][Mm])?\s*(Z|[+-]([01]?\d):?([0-5]?\d)?)?\s*$/.exec(input);
     if (m != null) {
       let baseDate: Date;

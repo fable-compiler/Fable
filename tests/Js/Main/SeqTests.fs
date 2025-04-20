@@ -293,6 +293,12 @@ let tests =
         Seq.isEmpty xs |> equal false
         Seq.isEmpty [] |> equal true
 
+    #if (FABLE_COMPILER || NET9_0_OR_GREATER) && !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
+    testCase "seq {} works" <| fun () ->
+        let xs : obj seq = seq { }
+        Seq.isEmpty xs |> equal true
+    #endif
+
     testCase "Seq.iter works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
         let total = ref 0.

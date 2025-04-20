@@ -27,9 +27,7 @@ module JSX =
     /// The actual representation of JSX elements depend on the framework used.
     /// E.g. if using React, JSX.Element will be the same as ReactElement
     [<AllowNullLiteral>]
-    type Element =
-        class
-        end
+    type Element = class end
 
     /// Instantiates a JSX Element with F# code. The `props` argument must be a list literal
     /// that can be resolved at compile-time.
@@ -50,6 +48,32 @@ module JSX =
     let nothing: Element = nativeOnly
 
 module JS =
+    /// <summary>
+    /// Constructor calls to class decorated with this attribute will be compiled as JS pojos defined by the constructor arguments.
+    /// The class declaration will be erased, but in Typescript an interface will be generated.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// [&lt;Pojo&gt;]
+    /// type Person(name: string, ?age: int) =
+    ///     member val name = name
+    ///     member val age = age
+    ///
+    /// let p = Person("Alice")
+    ///
+    /// // Typescript
+    /// export interface Person {
+    ///     name: string,
+    ///     age?: number
+    /// }
+    ///
+    /// export const p: Person = { name: "Alice" }
+    /// </code>
+    /// </example>
+    [<AttributeUsage(AttributeTargets.Class, AllowMultiple = false)>]
+    type PojoAttribute() =
+        inherit Attribute()
+
     /// Used to remove the arguments of a surrounding function immediately calling a function decorated with this argument.
     /// This is convenient to represent JS patterns when a function is actually loaded lazily with a dynamic import.
     type RemoveSurroundingArgsAttribute() =
@@ -111,17 +135,6 @@ module JS =
         /// that is representable as a Number value, which is approximately:
         /// 2.2204460492503130808472633361816 x 10‍−‍16.
         abstract EPSILON: float
-        /// <summary>
-        /// Returns true if passed value is finite.
-        /// Unlike the global isFinite, Number.isFinite doesn't forcibly convert the parameter to a
-        /// number. Only finite values of the type number, result in true.
-        /// </summary>
-        /// <param name="number">A numeric value.</param>
-        abstract isFinite: number: obj -> bool
-        /// <summary>Returns true if the value passed is an integer, false otherwise.</summary>
-        /// <param name="number">A numeric value.</param>
-        abstract isInteger: number: obj -> bool
-        /// <summary>
         /// Returns a Boolean value that indicates whether a value is the reserved value NaN (not a
         /// number). Unlike the global isNaN(), Number.isNaN() doesn't forcefully convert the parameter
         /// to a number. Only values of the type number, that are also NaN, result in true.
@@ -377,9 +390,7 @@ module JS =
         [<Emit("new $0($1...)")>]
         abstract Create: ?iterable: seq<'T> -> WeakSet<'T>
 
-    and [<AllowNullLiteral>] AsyncIterable =
-        interface
-        end
+    and [<AllowNullLiteral>] AsyncIterable = interface end
 
     and [<AllowNullLiteral>] AsyncIterable<'T> =
         inherit AsyncIterable

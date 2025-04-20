@@ -128,8 +128,9 @@ let tests() =
                             .Append(true)
                             .Append(5.2)
                             .Append(34)
+                            .Append('x', 4)
         let actual = sb.ToString().Replace(",", ".").ToLower()
-        actual |> equal "aaabcd/true5.234"
+        actual |> equal "aaabcd/true5.234xxxx"
 
     // testCase "StringBuilder.AppendFormat works" <| fun () ->
     //     let sb = System.Text.StringBuilder()
@@ -800,24 +801,49 @@ let tests() =
         // failing
         //"abcdbcebc".IndexOfAny([|'c';'b'|]) |> equal 1
 
+    // testCase "String.StartsWith char works" <| fun () ->
+    //     "abcd".StartsWith('a') |> equal true
+    //     "abcd".StartsWith('d') |> equal false
+
+    // testCase "String.EndsWith char works" <| fun () ->
+    //     "abcd".EndsWith('a') |> equal false
+    //     "abcd".EndsWith('d') |> equal true
+
     testCase "String.StartsWith works" <| fun () ->
-        let args = [("ab", true); ("cd", false); ("abcdx", false)]
+        let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true)]
         for arg in args do
             "abcd".StartsWith(fst arg)
             |> equal (snd arg)
 
-    // // TODO: StartsWith with StringComparison
-    // testCase "String.StartsWith with StringComparison works" <| fun () ->
-    //     let args = [("ab", true); ("cd", false); ("abcdx", false)]
+    // testCase "String.StartsWith with OrdinalIgnoreCase works" <| fun () ->
+    //     let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
     //     for arg in args do
     //         "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
     //         |> equal (snd arg)
 
+    // testCase "String.StartsWith with ignoreCase boolean works" <| fun () ->
+    //     let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    //     for arg in args do
+    //         "ABCD".StartsWith(fst arg, true, CultureInfo.InvariantCulture)
+    //         |> equal (snd arg)
+
     testCase "String.EndsWith works" <| fun () ->
-        let args = [("ab", false); ("cd", true); ("abcdx", false)]
+        let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true)]
         for arg in args do
-                "abcd".EndsWith(fst arg)
-                |> equal (snd arg)
+            "abcd".EndsWith(fst arg)
+            |> equal (snd arg)
+
+    // testCase "String.EndsWith with OrdinalIgnoreCase works" <| fun () ->
+    //     let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    //     for arg in args do
+    //         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+    //         |> equal (snd arg)
+
+    // testCase "String.EndsWith with ignoreCase boolean works" <| fun () ->
+    //     let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    //     for arg in args do
+    //         "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
+    //         |> equal (snd arg)
 
     testCase "String.Trim works" <| fun () ->
         "   abc   ".Trim()

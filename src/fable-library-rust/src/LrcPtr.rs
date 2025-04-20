@@ -1,5 +1,8 @@
-use crate::Native_::{Any, Lrc};
+use crate::Native_::{Any, Lrc, NullableRef};
+use core::cmp::Ordering;
+use core::hash::{Hash, Hasher};
 use core::ops::*;
+use core::panic::{RefUnwindSafe, UnwindSafe};
 
 // -----------------------------------------------------------
 // LrcPtr
@@ -9,19 +12,24 @@ use core::ops::*;
 #[repr(transparent)]
 pub struct LrcPtr<T: ?Sized>(Option<Lrc<T>>);
 
+impl<T: RefUnwindSafe + ?Sized> UnwindSafe for LrcPtr<T> {}
+impl<T: RefUnwindSafe + ?Sized> RefUnwindSafe for LrcPtr<T> {}
+
 impl<T> LrcPtr<T> {
     #[inline]
     pub fn new(value: T) -> Self {
         LrcPtr(Some(Lrc::new(value)))
     }
+}
 
+impl<T: ?Sized> NullableRef for LrcPtr<T> {
     #[inline]
-    pub fn null(value: T) -> Self {
+    fn null() -> Self {
         LrcPtr(None)
     }
 
     #[inline]
-    pub fn is_null(&self) -> bool {
+    fn is_null(&self) -> bool {
         self.0.is_none()
     }
 }
@@ -49,33 +57,87 @@ impl<T: ?Sized> Deref for LrcPtr<T> {
     }
 }
 
-impl<T: core::fmt::Debug> core::fmt::Debug for LrcPtr<T> {
+impl<T: ?Sized + core::fmt::Debug> core::fmt::Debug for LrcPtr<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:?}", self.deref())
     }
 }
 
-impl<T: core::fmt::Display> core::fmt::Display for LrcPtr<T> {
+impl<T: ?Sized + core::fmt::Display> core::fmt::Display for LrcPtr<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{}", self.deref())
     }
 }
 
 // // Custom code within the destructor.
-// impl<T: Drop> Drop for LrcPtr<T> {
+// impl<T: ?Sized + Drop> Drop for LrcPtr<T> {
 //     fn drop(&mut self) {
 //         self.0.drop();
 //     }
 // }
 
 // Used for indexing operations (container[index])
-impl<T: Index<Idx>, Idx> Index<Idx> for LrcPtr<T> {
+impl<T: ?Sized + Index<Idx>, Idx> Index<Idx> for LrcPtr<T> {
     type Output = T::Output;
 
     fn index(&self, idx: Idx) -> &Self::Output {
         self.deref().index(idx)
     }
 }
+
+// -----------------------------------------------------------
+// LrcPtr equality and comparison
+// -----------------------------------------------------------
+
+// impl<T: Hash> Hash for LrcPtr<T> {
+//     #[inline]
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         self.as_ref().hash(state);
+//     }
+// }
+
+// impl<T: PartialEq> PartialEq for LrcPtr<T> {
+//     #[inline]
+//     fn eq(&self, other: &Self) -> bool {
+//         self.as_ref().eq(other.as_ref())
+//     }
+// }
+
+// impl<T: PartialEq> Eq for LrcPtr<T> {}
+
+// impl<T: PartialOrd> PartialOrd for LrcPtr<T> {
+//     #[inline]
+//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+//         self.as_ref().partial_cmp(other.as_ref())
+//     }
+
+//     #[inline]
+//     fn lt(&self, other: &Self) -> bool {
+//         self.as_ref() < other.as_ref()
+//     }
+
+//     #[inline]
+//     fn le(&self, other: &Self) -> bool {
+//         self.as_ref() <= other.as_ref()
+//     }
+
+//     #[inline]
+//     fn gt(&self, other: &Self) -> bool {
+//         self.as_ref() > other.as_ref()
+//     }
+
+//     #[inline]
+//     fn ge(&self, other: &Self) -> bool {
+//         self.as_ref() >= other.as_ref()
+//     }
+// }
+
+// impl<T: Ord> Ord for LrcPtr<T> {
+//     #[inline]
+//     fn cmp(&self, other: &Self) -> Ordering {
+//         self.as_ref().cmp(other.as_ref())
+//     }
+// }
 
 // -----------------------------------------------------------
 // LrcPtr operator traits

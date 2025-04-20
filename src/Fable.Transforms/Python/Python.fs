@@ -124,7 +124,11 @@ type Statement =
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
 
-type Module = { Body: Statement list }
+type Module =
+    {
+        Body: Statement list
+        Comment: string option
+    }
 
 /// Both parameters are raw strings of the names. asname can be None if the regular name is to be used.
 ///
@@ -425,6 +429,7 @@ type FunctionDef =
         DecoratorList: Expression list
         Returns: Expression option
         TypeComment: string option
+        Comment: string option
     }
 
 /// global and nonlocal statements. names is a list of raw strings.
@@ -485,9 +490,10 @@ type AsyncFunctionDef =
         DecoratorList: Expression list
         Returns: Expression option
         TypeComment: string option
+        Comment: string option
     }
 
-    static member Create(name, args, body, decoratorList, ?returns, ?typeComment) =
+    static member Create(name, args, body, decoratorList, ?returns, ?typeComment, ?comment) =
         {
             Name = name
             Args = args
@@ -495,6 +501,7 @@ type AsyncFunctionDef =
             DecoratorList = decoratorList
             Returns = returns
             TypeComment = typeComment
+            Comment = comment
         }
 
 /// An import statement. names is a list of alias nodes.
@@ -902,7 +909,7 @@ module PythonExtensions =
             }
             |> ClassDef
 
-        static member functionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
+        static member functionDef(name, args, body, ?decoratorList, ?returns, ?typeComment, ?comment) : Statement =
             {
                 FunctionDef.Name = name
                 Args = args
@@ -910,10 +917,11 @@ module PythonExtensions =
                 DecoratorList = defaultArg decoratorList []
                 Returns = returns
                 TypeComment = typeComment
+                Comment = comment
             }
             |> FunctionDef
 
-        static member asyncFunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
+        static member asyncFunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment, ?comment) : Statement =
             {
                 AsyncFunctionDef.Name = name
                 Args = args
@@ -921,6 +929,7 @@ module PythonExtensions =
                 DecoratorList = defaultArg decoratorList []
                 Returns = returns
                 TypeComment = typeComment
+                Comment = comment
             }
             |> AsyncFunctionDef
 
@@ -1215,7 +1224,11 @@ module PythonExtensions =
 
     type Module with
 
-        static member module'(body) = { Body = body }
+        static member module'(body, ?comment) =
+            {
+                Body = body
+                Comment = comment
+            }
 
     type Arg with
 

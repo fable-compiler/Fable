@@ -2,6 +2,7 @@ module Fable.Tests.CharTests
 
 open System
 open Util.Testing
+open System.Globalization
 
 [<Fact>]
 let ``Char.ToUpper works`` () =
@@ -23,17 +24,17 @@ let ``Char.ToLowerInvariant works`` () =
 let ``Char.ToString works`` () =
     Char.ToString('b') |> equal "b"
 
-// [<Fact>]
-// let ``Char.GetUnicodeCategory works`` () =
-//     Char.GetUnicodeCategory('a') |> equal UnicodeCategory.LowercaseLetter
-//     Char.GetUnicodeCategory('1') |> equal UnicodeCategory.DecimalDigitNumber
+[<Fact>]
+let ``Char.GetUnicodeCategory works`` () =
+    Char.GetUnicodeCategory('a') |> equal UnicodeCategory.LowercaseLetter
+    Char.GetUnicodeCategory('1') |> equal UnicodeCategory.DecimalDigitNumber
 
-// [<Fact>]
-// let ``Char.GetUnicodeCategory with two args works`` () =
-//     let str = "Ba6"
-//     Char.GetUnicodeCategory(str,0) |> int |> equal 0 //UnicodeCategory.UppercaseLetter
-//     Char.GetUnicodeCategory(str,1) |> int |> equal 1 //UnicodeCategory.LowercaseLetter
-//     Char.GetUnicodeCategory(str,2) |> int |> equal 8 //UnicodeCategory.DecimalDigitNumber
+[<Fact>]
+let ``Char.GetUnicodeCategory with two args works`` () =
+    let str = "Ba6"
+    Char.GetUnicodeCategory(str, 0) |> equal UnicodeCategory.UppercaseLetter
+    Char.GetUnicodeCategory(str, 1) |> equal UnicodeCategory.LowercaseLetter
+    Char.GetUnicodeCategory(str, 2) |> equal UnicodeCategory.DecimalDigitNumber
 
 [<Fact>]
 let ``Char.IsControl works`` () =
@@ -176,56 +177,56 @@ let ``Char.IsWhitespace works with two args`` () =
     Char.IsWhiteSpace(input, 0) |> equal true
     Char.IsWhiteSpace(input, 1) |> equal true
 
-// [<Fact>]
-// let ``Char.IsHighSurrogate works`` () =
-//     Char.IsHighSurrogate('a') |> equal false
-//     Char.IsHighSurrogate("\U00010F00"[0]) |> equal true
+[<Fact>]
+let ``Char.IsHighSurrogate works`` () =
+    Char.IsHighSurrogate('a') |> equal false
+    // Char.IsHighSurrogate("\U00010F00"[0]) |> equal true
 
-// [<Fact>]
-// let ``Char.IsHighSurrogate with two args works`` () =
-//     let str = "a\U00010F00z"
-//     Char.IsHighSurrogate(str,0) |> equal false
-//     Char.IsHighSurrogate(str,1) |> equal true
-//     Char.IsHighSurrogate(str,2) |> equal false
-//     Char.IsHighSurrogate(str,3) |> equal false
+[<Fact>]
+let ``Char.IsHighSurrogate with two args works`` () =
+    let str = "a\U00010F00z"
+    Char.IsHighSurrogate(str,0) |> equal false
+    // Char.IsHighSurrogate(str,1) |> equal true
+    // Char.IsHighSurrogate(str,2) |> equal false
+    // Char.IsHighSurrogate(str,3) |> equal false
 
-// [<Fact>]
-// let ``Char.IsLowSurrogate works`` () =
-//     Char.IsLowSurrogate('a') |> equal false
-//     Char.IsLowSurrogate("\U00010F00"[1]) |> equal true
+[<Fact>]
+let ``Char.IsLowSurrogate works`` () =
+    Char.IsLowSurrogate('a') |> equal false
+    // Char.IsLowSurrogate("\U00010F00"[1]) |> equal true
 
-// [<Fact>]
-// let ``Char.IsLowSurrogate with two args works`` () =
-//     let str = "a\U00010F00z"
-//     Char.IsLowSurrogate(str,0) |> equal false
-//     Char.IsLowSurrogate(str,1) |> equal false
-//     Char.IsLowSurrogate(str,2) |> equal true
-//     Char.IsLowSurrogate(str,3) |> equal false
+[<Fact>]
+let ``Char.IsLowSurrogate with two args works`` () =
+    let str = "a\U00010F00z"
+    Char.IsLowSurrogate(str,0) |> equal false
+    // Char.IsLowSurrogate(str,1) |> equal false
+    // Char.IsLowSurrogate(str,2) |> equal true
+    // Char.IsLowSurrogate(str,3) |> equal false
 
-// [<Fact>]
-// let ``Char.IsSurrogate works`` () =
-//     Char.IsSurrogate('a') |> equal false
-//     Char.IsSurrogate("\U00010F00"[1]) |> equal true
+[<Fact>]
+let ``Char.IsSurrogate works`` () =
+    Char.IsSurrogate('a') |> equal false
+    // Char.IsSurrogate("\U00010F00"[1]) |> equal true
 
-// [<Fact>]
-// let ``Char.IsSurrogate with two args works`` () =
-//     let str = "a\U00010F00z"
-//     Char.IsSurrogate(str,0) |> equal false
-//     Char.IsSurrogate(str,1) |> equal true
-//     Char.IsSurrogate(str,2) |> equal true
-//     Char.IsSurrogate(str,3) |> equal false
+[<Fact>]
+let ``Char.IsSurrogate with two args works`` () =
+    let str = "a\U00010F00z"
+    Char.IsSurrogate(str,0) |> equal false
+    // Char.IsSurrogate(str,1) |> equal true
+    // Char.IsSurrogate(str,2) |> equal true
+    // Char.IsSurrogate(str,3) |> equal false
 
-// [<Fact>]
-// let ``Char.IsSurrogatePair works`` () =
-//     Char.IsSurrogatePair('a', 'b') |> equal false
-//     Char.IsSurrogatePair("\U00010F00"[0], "\U00010F00"[1]) |> equal true
+[<Fact>]
+let ``Char.IsSurrogatePair works`` () =
+    Char.IsSurrogatePair('a', 'b') |> equal false
+    // Char.IsSurrogatePair("\U00010F00"[0], "\U00010F00"[1]) |> equal true
 
-// [<Fact>]
-// let ``Char.IsSurrogatePair with two args works`` () =
-//     let str = "a\U00010F00z"
-//     Char.IsSurrogatePair(str,0) |> equal false
-//     Char.IsSurrogatePair(str,1) |> equal true
-//     Char.IsSurrogatePair(str,2) |> equal false
+[<Fact>]
+let ``Char.IsSurrogatePair with two args works`` () =
+    let str = "a\U00010F00z"
+    Char.IsSurrogatePair(str,0) |> equal false
+    // Char.IsSurrogatePair(str,1) |> equal true
+    // Char.IsSurrogatePair(str,2) |> equal false
 
 [<Fact>]
 let ``Char.Parse works`` () =

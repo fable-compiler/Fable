@@ -5,6 +5,7 @@ open System.Collections.Immutable
 open System.Text
 open FSharp.Compiler.IO
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.SyntaxTreeOps
 
 [<RequireQualifiedAccess>]
 module private ImmutableHashSet =
@@ -12,37 +13,10 @@ module private ImmutableHashSet =
     let singleton (value: 'T) =
         ImmutableHashSet.Create<'T>(Array.singleton value)
 
-    /// Create new new HashSet<'T> with zero elements.
+    /// Create a new HashSet<'T> with zero elements.
     let empty () = ImmutableHashSet.Empty
 
-let autoOpenShapes =
-    set
-        [|
-            "FSharp.Core.AutoOpenAttribute"
-            "Core.AutoOpenAttribute"
-            "AutoOpenAttribute"
-            "FSharp.Core.AutoOpen"
-            "Core.AutoOpen"
-            "AutoOpen"
-        |]
-
-/// This isn't bullet proof, we do prompt a warning when the user is aliasing the AutoOpenAttribute.
-let isAutoOpenAttribute (attribute: SynAttribute) =
-    match attribute.ArgExpr with
-    | SynExpr.Const(constant = SynConst.Unit)
-    | SynExpr.Const(constant = SynConst.String _)
-    | SynExpr.Paren(expr = SynExpr.Const(constant = SynConst.String _)) ->
-        let attributeName =
-            attribute.TypeName.LongIdent
-            |> List.map (fun ident -> ident.idText)
-            |> String.concat "."
-
-        autoOpenShapes.Contains attributeName
-    | _ -> false
-
-let isAnyAttributeAutoOpen (attributes: SynAttributes) =
-    attributes
-    |> List.exists (fun (atl: SynAttributeList) -> List.exists isAutoOpenAttribute atl.Attributes)
+let isAnyAttributeAutoOpen (attributes: SynAttributes) = findSynAttribute "AutoOpen" attributes
 
 /// Checks to see if the top level ModuleOrNamespace exposes content that could be inferred by any of the subsequent files.
 /// This can happen when a `namespace global` is used, or when a module (with a single ident name) has the `[<AutoOpen>]` attribute.
@@ -123,7 +97,7 @@ let processSynModuleOrNamespace<'Decl>
         // Only the last node can be a module, depending on the SynModuleOrNamespaceKind.
         let rec visit continuation (xs: LongIdent) =
             match xs with
-            | [] -> failwith "should not be empty"
+            | [] -> ImmutableDictionary.Empty |> continuation
             | [ finalPart ] ->
                 let name = finalPart.idText
 
@@ -215,7 +189,8 @@ let rec mkTrieNodeFor (file: FileInProject) : FileIndex * TrieNode =
                         let hasTypesOrAutoOpenNestedModules =
                             decls
                             |> List.exists (function
-                                | SynModuleSigDecl.Types _ -> true
+                                | SynModuleSigDecl.Types _
+                                | SynModuleSigDecl.Exception _ -> true
                                 | SynModuleSigDecl.NestedModule(moduleInfo = SynComponentInfo(attributes = attributes)) ->
                                     isAnyAttributeAutoOpen attributes
                                 | _ -> false)
@@ -230,7 +205,8 @@ let rec mkTrieNodeFor (file: FileInProject) : FileIndex * TrieNode =
                         let hasTypesOrAutoOpenNestedModules =
                             List.exists
                                 (function
-                                | SynModuleDecl.Types _ -> true
+                                | SynModuleDecl.Types _
+                                | SynModuleDecl.Exception _ -> true
                                 | SynModuleDecl.NestedModule(moduleInfo = SynComponentInfo(attributes = attributes)) ->
                                     isAnyAttributeAutoOpen attributes
                                 | _ -> false)

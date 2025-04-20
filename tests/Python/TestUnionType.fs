@@ -205,3 +205,9 @@ let ``test Equality works in filter`` () =
     |> Array.filter (fun r -> r.Case = MyUnion3.Case1)
     |> Array.length
     |> equal 2
+
+type S = S of string
+[<Fact>]
+let ``test sprintf formats strings cases correctly`` () =
+    let s = sprintf "%A" (S "1")
+    s |> equal "S \"1\""

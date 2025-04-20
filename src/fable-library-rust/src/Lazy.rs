@@ -1,10 +1,11 @@
 // Lazy values and one-time initialization.
 
-#[cfg(feature = "threaded")]
-pub type OnceInit<T> = std::sync::OnceLock<T>;
+// #[cfg(feature = "threaded")]
+// pub type OnceInit<T> = std::sync::OnceLock<T>;
 
-#[cfg(not(feature = "threaded"))]
+// #[cfg(not(feature = "threaded"))]
 // pub type OnceInit<T> = core::cell::OnceCell<T>;
+
 pub type OnceInit<T> = NonSyncLazy::OnceInit<T>;
 
 // #[cfg(feature = "threaded")]

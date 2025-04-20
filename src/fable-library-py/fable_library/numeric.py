@@ -40,4 +40,4 @@ def multiply(x: float, y: float) -> float:
     return x * y
 
 
-__all__ = ["to_fixed", "to_precision", "to_exponential", "to_hex", "multiply"]
+__all__ = ["multiply", "to_exponential", "to_fixed", "to_hex", "to_precision"]

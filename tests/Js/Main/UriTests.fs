@@ -28,6 +28,32 @@ let tests =
         equal "#c" uri.Fragment
         equal "http://www.test1.com/hello?a=b#c" uri.AbsoluteUri
 
+    testCase "Host from uri with port works" <| fun _ ->
+        let uri = Uri("http://www.test2.com:8080/hello?a=b#c")
+        equal "www.test2.com" uri.Host
+
+    testCase "Port default to 80 if no port is specified" <| fun _ ->
+        let uri = Uri("http://www.test3.com/hello?a=b#c")
+        equal 80 uri.Port
+
+    testCase "Port returns specified port" <| fun _ ->
+        let uri = Uri("http://www.test4.com:80/hello?a=b#c")
+        equal 80 uri.Port
+        let uri = Uri("http://www.test5.com:8080/hello?a=b#c")
+        equal 8080 uri.Port
+
+    testCase "IsDefaultPort returns true if no port is specified" <| fun _ ->
+        let uri = Uri("http://www.test3.com/hello?a=b#c")
+        equal true uri.IsDefaultPort
+
+    testCase "IsDefaultPort returns true if specified port is default" <| fun _ ->
+        let uri = Uri("http://www.test4.com:80/hello?a=b#c")
+        equal true uri.IsDefaultPort
+
+    testCase "IsDefaultPort returns false if specified port is not default" <| fun _ ->
+        let uri = Uri("http://www.test5.com:8080/hello?a=b#c")
+        equal false uri.IsDefaultPort
+
     testCase "Uri from relative uri string works" <| fun _ ->
         let uri = Uri("/hello.html", UriKind.Relative)
         equal false uri.IsAbsoluteUri

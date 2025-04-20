@@ -752,8 +752,9 @@ let goutput_superclass env os =
         output_string os "extends "
         (goutput_typ_with_shortened_class_syntax env) os typ
 
-let goutput_implements env os (imp: ILTypes) =
+let goutput_implements env os (imp: InterfaceImpl list) =
     if not (List.isEmpty imp) then
+        let imp = imp |> Seq.map _.Type
         output_string os "implements "
         output_seq ", " (goutput_typ_with_shortened_class_syntax env) os imp
 
@@ -834,9 +835,9 @@ let rec goutput_tdef enc env contents os (cd: ILTypeDef) =
         output_sqstring os cd.Name
         goutput_gparams env os cd.GenericParams
         output_string os "\n\t"
-        goutput_superclass env os cd.Extends
+        goutput_superclass env os cd.Extends.Value
         output_string os "\n\t"
-        goutput_implements env os cd.Implements
+        goutput_implements env os cd.Implements.Value
         output_string os "\n{\n "
 
         if contents then

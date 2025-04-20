@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
@@ -33,6 +33,7 @@
     <Compile Include="TailCallTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
     <Compile Include="TupleTests.fs" />
+    <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTests.fs" />
     <Content Include="..\main.dart" />
   </ItemGroup>

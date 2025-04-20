@@ -1,5 +1,9 @@
 module Fable.Tests.TypeTests
 
+#nowarn "3535"
+
+// open System.Runtime.InteropServices
+open Fable.Core
 open Util.Testing
 
 // Check if custom attributes can be created
@@ -38,13 +42,13 @@ type TestType5(greeting: string) =
     member _.Overload(x) = x + x
     member _.Overload(x, y) = x + y
 
-// type TestType8(?greeting) =
-//     member _.Value = defaultArg greeting "Hi"
+type TestType8(?greeting) =
+    member _.Value = defaultArg greeting "Hi"
 
-// type TestType9() =
-//     inherit TestType8()
-//     let foo = TestType8("Hello")
-//     member _.Greet(name) = foo.Value + " " + name
+type TestType9() =
+    inherit TestType8()
+    let foo = TestType8("Hello")
+    member _.Greet(name) = foo.Value + " " + name
 
 // type TestType10Base() =
 //     interface ITest4 with
@@ -84,6 +88,23 @@ type TestTypeAttached(a1, a2, a3) =
         with get (i) = arr.[i]
         and set (i) (v) = arr.[i] <- v
 
+type ITestProps =
+    abstract Value1: float with get, set
+    abstract Value: int -> float with get, set
+    abstract Item: int -> float with get, set
+
+type TestProps(arr: float[]) =
+    interface ITestProps with
+        member _.Value1
+            with get () = arr.[1]
+            and set (v) = arr.[1] <- v
+        member _.Value
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+        member _.Item
+            with get (i) = arr.[i]
+            and set (i) (v) = arr.[i] <- v
+
 type A  = { thing: int } with
     member x.show() = string x.thing
     static member show (x: A) = "Static: " + (string x.thing)
@@ -98,24 +119,24 @@ let inline show< ^T when ^T : (member show : unit -> string)> (x:^T) : string =
 let inline showStatic< ^T when ^T : (static member show : ^T -> string)> (x:^T) : string =
    (^T : (static member show : ^T -> string) (x))
 
-// [<AllowNullLiteral>]
-// type Serializable(?i: int) =
-//     let mutable deserialized = false
-//     let mutable publicValue = 1
-//     let mutable privateValue = defaultArg i 0
-//     member x.PublicValue
-//         with get() = publicValue
-//         and set(i) = deserialized <- true; publicValue <- i
-//     override x.ToString() =
-//         sprintf "Public: %i - Private: %i - Deserialized: %b"
-//                 publicValue privateValue deserialized
+[<AllowNullLiteral>]
+type Serializable(?i: int) =
+    let mutable deserialized = false
+    let mutable publicValue = 1
+    let mutable privateValue = defaultArg i 0
+    member x.PublicValue
+        with get() = publicValue
+        and set(i) = deserialized <- true; publicValue <- i
+    override x.ToString() =
+        sprintf "Public: %i - Private: %i - Deserialized: %b"
+                publicValue privateValue deserialized
 
 type SecondaryCons(x: int) =
     new () = SecondaryCons(5)
     member _.Value = x
 
-// // type SecondaryConsChild() =
-// //     inherit SecondaryCons()
+type SecondaryConsChild() =
+    inherit SecondaryCons()
 
 type MultipleCons(x: int, y: int) =
     new () = MultipleCons(2,3)
@@ -141,14 +162,14 @@ type MultipleCons(x: int, y: int) =
 //     override x.MethodWithDefault () = "Hi "
 //     override x.MustImplement () = "World!!"
 
-// [<AbstractClass>]
-// type AbstractClass3() =
-//     abstract MyProp: int with get, set
+[<AbstractClass>]
+type AbstractClass3() =
+    abstract MyProp: int with get, set
 
-// type ConcreteClass3() =
-//     inherit AbstractClass3()
-//     let mutable v = 5
-//     override _.MyProp with get() = v and set(v2) = v <- v + v2
+type ConcreteClass3() =
+    inherit AbstractClass3()
+    let mutable v = 5
+    override _.MyProp with get() = v and set(v2) = v <- v + v2
 
 type ISomeInterface =
     abstract OnlyGetProp: int with get
@@ -201,25 +222,25 @@ let mangleFoo(x: IFoo) = x.Foo()
 //     inherit AbstractFoo()
 //     override this.Foo2() = "BAR"
 
-// type BaseClass (x: int) =
-//     abstract member Init: unit -> int
-//     default _.Init () = x
-//     abstract member Prop: string
-//     default _.Prop = "base"
+type BaseClass (x: int) =
+    abstract member Init: unit -> int
+    default _.Init () = x
+    abstract member Prop: string
+    default _.Prop = "base"
 
-// type ExtendedClass () =
-//     inherit BaseClass(5)
-//     override _.Init() = base.Init() + 2
-//     override _.Prop = base.Prop + "-extension"
+type ExtendedClass () =
+    inherit BaseClass(5)
+    override _.Init() = base.Init() + 2
+    override _.Prop = base.Prop + "-extension"
 
-// type BaseClass2() =
-//     let field = 1
-//     member _.A() = field
+type BaseClass2() =
+    let field = 1
+    member _.A() = field
 
-// type ExtendedClass2() =
-//     inherit BaseClass2()
-//     member _.A() = 2
-//     member _.B() = base.A()
+type ExtendedClass2() =
+    inherit BaseClass2()
+    member _.A() = 2
+    member _.B() = base.A()
 
 type Employee = { name: string; age: float; location: Location }
 and Location = { name: string; mutable employees: Employee list }
@@ -336,11 +357,11 @@ type TypeWithClassAttribute =
 //     override this.WithInfo(infoA) =
 //         InfoBClass({ info with InfoA = infoA }) :> InfoAClass
 
-// type FooInterface =
-//     abstract Foo: string with get, set
-//     abstract DoSomething: f: (float -> float -> float) * v: float -> float
-//     abstract Item: int -> char with get, set
-//     abstract Sum: [<ParamArray>] items: string[] -> string
+type FooInterface =
+    abstract Foo: string with get, set
+    abstract DoSomething: f: (float -> float -> float) * v: float -> float
+    abstract Item: int -> char with get, set
+    abstract Sum: [<System.ParamArray>] items: string[] -> string
 
 // [<Fable.Core.Mangle>]
 // type BarInterface =
@@ -348,30 +369,30 @@ type TypeWithClassAttribute =
 //     abstract DoSomething: f: (float -> float -> float) * v: float -> float
 //     abstract Item: int -> char with get, set
 //     abstract Item: char -> bool with get
-//     abstract Sum: [<ParamArray>] items: string[] -> string
+//     abstract Sum: [<System.ParamArray>] items: string[] -> string
 
-// [<AbstractClass>]
-// type FooAbstractClass(x: float) =
-//     member _.Value = x
-//     member _.DoSomething(x, y) = x * y
-//     abstract DoSomething: float -> float
+[<AbstractClass>]
+type FooAbstractClass(x: float) =
+    member _.Value = x
+    member _.DoSomething(x, y) = x * y
+    abstract DoSomething: float -> float
 
-// type FooClass(x) =
-//     inherit FooAbstractClass(5.)
-//     let mutable x = x
-//     override this.DoSomething(x) =
-//         this.DoSomething(x, this.Value)
-//     static member ChangeChar(s: string, i: int, c: char) =
-//         s.ToCharArray() |> Array.mapi (fun i2 c2 -> if i = i2 then c else c2) |> String
-//     interface FooInterface with
-//         member _.Foo with get() = x and set(y) = x <- y
-//         member this.DoSomething(f, x) =
-//             let f = f x
-//             let x = f 2.
-//             let y = f 8.
-//             this.DoSomething(x + y)
-//         member _.Item with get(i) = x[i] and set i c = x <- FooClass.ChangeChar(x, i, c)
-//         member _.Sum(items) = Array.reduce (fun x y -> x + y + x + y) items
+type FooClass(x) =
+    inherit FooAbstractClass(5.)
+    let mutable x = x
+    override this.DoSomething(x) =
+        this.DoSomething(x, this.Value)
+    static member ChangeChar(s: string, i: int, c: char) =
+        s.ToCharArray() |> Array.mapi (fun i2 c2 -> if i = i2 then c else c2) |> System.String
+    interface FooInterface with
+        member _.Foo with get() = x and set(y) = x <- y
+        member this.DoSomething(f, x) =
+            let f = f x
+            let x = f 2.
+            let y = f 8.
+            this.DoSomething(x + y)
+        member _.Item with get(i) = x[i] and set i c = x <- FooClass.ChangeChar(x, i, c)
+        member _.Sum(items) = Array.reduce (fun x y -> x + y + x + y) items
 
 // [<AbstractClass>]
 // type BarAbstractClass(x: float) =
@@ -478,6 +499,185 @@ type IndexedProps(v: int) =
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
     member _.Item with get (v2: float) = float v + v2 / 2.
 
+[<Interface>]
+type ITesting =
+    static member Testing x = x
+
+type IOne =
+    static abstract member GetSum: int * int -> int
+    static abstract member GetOne: unit -> int
+    static abstract member Two: int
+
+type I32() =
+    interface IOne with
+        static member GetSum(x, y) = x + y
+        static member GetOne() = 1
+        static member Two = 2
+
+let getSum<'T when 'T :> IOne>() = 'T.GetSum(1, 2)
+let getOne<'T when 'T :> IOne>() = 'T.GetOne()
+let getTwo<'T when 'T :> IOne>() = 'T.Two
+
+[<AttachMembersAttribute>]
+type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
+    member val P1 = defaultArg arg1 1.0
+    member val P2 = defaultArg arg2 "1"
+    member val P3 = defaultArg arg3 1
+
+// type VeryOptionalInterface =
+//     abstract Bar: int option
+//     abstract Baz: bool option
+//     abstract Bax: float option
+//     abstract Wrapped: unit option
+//     abstract Foo: string option with get, set
+//     abstract Fn: (int -> int -> int) option
+//     abstract Fn2: (int -> int -> int)
+
+// type VeryOptionalClass () =
+//     let mutable foo = "ab"
+//     interface VeryOptionalInterface with
+//         member _.Bar = Some 3
+//         member _.Baz = None
+//         member _.Wrapped = Some ()
+//         member _.Bax =
+//             let mutable h = ["6"] |> List.tryHead
+//             h |> Option.map float
+//         member _.Foo
+//             with get() = Some foo
+//             and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+//         member _.Fn = Some (+)
+//         member _.Fn2 = (*)
+
+type StaticClass =
+//     [<NamedParams>]
+//     static member NamedParams(foo: string, ?bar: int) = int foo + (defaultArg bar -3)
+//     [<NamedParams>]
+//     static member NamedParams(?name : string, ?age: int) =
+//         let name = defaultArg name "John"
+//         let age = defaultArg age 30
+//         $"%s{name} is %d{age} years old"
+//     static member FSharpOptionalParam(?value: bool) = defaultArg value true
+//     static member FSharpOptionalParam2(?value: unit) = Option.isSome value
+//     static member DefaultParam([<Optional; DefaultParameterValue(true)>] value: bool) = value
+//     static member DefaultParam2([<Optional>] value: Nullable<int>) = if value.HasValue then value.Value + 2 else 3
+//     static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
+    static member inline InlineAdd(x: int, ?y: int) = x + (defaultArg y 2)
+
+[<Fact>]
+let ``Optional arguments work`` () =
+    let x = MyOptionalClass(?arg2 = Some "2")
+    (x.P1, x.P2, x.P3) |> equal (1.0, "2", 1)
+    let y = MyOptionalClass(2.0)
+    (y.P1, y.P2, y.P3) |> equal (2.0, "1", 1)
+    let z = MyOptionalClass(?arg3 = Some 2)
+    (z.P1, z.P2, z.P3) |> equal (1.0, "1", 2)
+
+// [<Fact>]
+// let ``Can implement interface optional properties`` () =
+//     let veryOptionalValue = VeryOptionalClass() :> VeryOptionalInterface
+//     veryOptionalValue.Bar |> equal (Some 3)
+//     veryOptionalValue.Baz |> Option.isSome |> equal false
+//     veryOptionalValue.Wrapped |> Option.isSome |> equal true
+//     veryOptionalValue.Bax |> equal (Some 6.)
+//     veryOptionalValue.Foo <- Some "z"
+//     veryOptionalValue.Foo |> equal (Some "abz")
+//     veryOptionalValue.Foo <- None
+//     veryOptionalValue.Foo |> equal (Some "abz")
+//     let fn = veryOptionalValue.Fn
+//     let fn2 = veryOptionalValue.Fn2
+//     let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+//     let f2 = match fn with Some f -> f 1 8 | None -> -5
+//     f1 + f2 - fn2 9 3 |> equal -3
+
+// [<Fact>]
+// let ``Can implement interface optional properties with object expression`` () =
+//     let veryOptionalValue =
+//         let mutable foo = "ab"
+//         { new VeryOptionalInterface with
+//             member _.Bar = Some 3
+//             member _.Baz = None
+//             member _.Wrapped = Some ()
+//             member _.Bax = ["6"] |> List.tryHead |> Option.map float
+//             member _.Foo
+//                 with get() = Some foo
+//                 and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+//             member _.Fn = Some (+)
+//             member _.Fn2 = (*)
+//         }
+
+//     veryOptionalValue.Bar |> equal (Some 3)
+//     veryOptionalValue.Baz |> Option.isSome |> equal false
+//     veryOptionalValue.Wrapped |> Option.isSome |> equal true
+//     veryOptionalValue.Bax |> equal (Some 6.)
+//     veryOptionalValue.Foo <- Some "z"
+//     veryOptionalValue.Foo |> equal (Some "abz")
+//     veryOptionalValue.Foo <- None
+//     veryOptionalValue.Foo |> equal (Some "abz")
+//     let fn = veryOptionalValue.Fn
+//     let fn2 = veryOptionalValue.Fn2
+//     let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+//     let f2 = match fn with Some f -> f 1 8 | None -> -5
+//     f1 + f2 - fn2 9 3 |> equal -3
+
+// [<Fact>]
+// let ``Optional named params work`` () =
+//     StaticClass.NamedParams(foo="5", bar=4) |> equal 9
+//     StaticClass.NamedParams(foo="3", ?bar=Some 4) |> equal 7
+//     StaticClass.NamedParams(foo="14") |> equal 11
+//     StaticClass.NamedParams() |> equal "John is 30 years old"
+
+// [<Fact>]
+// let ``F# optional param works`` () =
+//     let mutable f1 = fun (v: bool) ->
+//         StaticClass.FSharpOptionalParam(value=v)
+//     let mutable f2 = fun (v: bool option) ->
+//         StaticClass.FSharpOptionalParam(?value=v)
+//     StaticClass.FSharpOptionalParam() |> equal true
+//     StaticClass.FSharpOptionalParam(true) |> equal true
+//     StaticClass.FSharpOptionalParam(false) |> equal false
+//     StaticClass.FSharpOptionalParam(?value=None) |> equal true
+//     StaticClass.FSharpOptionalParam(?value=Some true) |> equal true
+//     StaticClass.FSharpOptionalParam(?value=Some false) |> equal false
+//     f1 true |> equal true
+//     f1 false |> equal false
+//     None |> f2 |> equal true
+//     Some false |> f2 |> equal false
+//     Some true |> f2 |> equal true
+
+// [<Fact>]
+// let ``F# optional param works with no-wrappable options`` () =
+//     let mutable f1 = fun (v: unit) ->
+//         StaticClass.FSharpOptionalParam2(value=v)
+//     let mutable f2 = fun (v: unit option) ->
+//         StaticClass.FSharpOptionalParam2(?value=v)
+//     StaticClass.FSharpOptionalParam2() |> equal false
+//     StaticClass.FSharpOptionalParam2(()) |> equal true
+//     StaticClass.FSharpOptionalParam2(?value=None) |> equal false
+//     StaticClass.FSharpOptionalParam2(?value=Some ()) |> equal true
+//     f1 () |> equal true
+//     None |> f2 |> equal false
+//     Some () |> f2 |> equal true
+
+// [<Fact>]
+// let ``DefaultParameterValue works`` () =
+//     StaticClass.DefaultParam() |> equal true
+//     StaticClass.DefaultParam(true) |> equal true
+//     StaticClass.DefaultParam(false) |> equal false
+
+//     StaticClass.DefaultParam2(5) |> equal 7
+//     StaticClass.DefaultParam2(Nullable()) |> equal 3
+//     StaticClass.DefaultParam2() |> equal 3
+
+// [<Fact>]
+// let ``DefaultParameterValue works with null`` () = // See #3326
+//     StaticClass.DefaultNullParam() |> isNull |> equal true
+//     StaticClass.DefaultNullParam(5) |> isNull |> equal false
+
+[<Fact>]
+let ``Inlined methods can have optional arguments`` () =
+    StaticClass.InlineAdd(2, 3) |> equal 5
+    StaticClass.InlineAdd(5) |> equal 7
+
 // // TODO: This test produces different results in Fable and .NET
 // // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
 // // [<Fact>]
@@ -495,10 +695,21 @@ let ``Indexed properties work`` () =
     f[4] |> equal 13
     f[4.] |> equal 11
 
-// [<Fact>]
-// let ``Types can instantiate their parent in the constructor`` () =
-//     let t = TestType9()
-//     t.Greet("Maxime") |> equal "Hello Maxime"
+[<Fact>]
+let ``Static interface members work`` () =
+    let a = ITesting.Testing 5
+    a |> equal 5
+
+[<Fact>]
+let ``Static interface calls work`` () =
+    getOne<I32>() |> equal 1
+    getTwo<I32>() |> equal 2
+    getSum<I32>() |> equal 3
+
+[<Fact>]
+let ``Types can instantiate their parent in the constructor`` () =
+    let t = TestType9()
+    t.Greet("Maxime") |> equal "Hello Maxime"
 
 [<Fact>]
 let ``Type testing`` () =
@@ -659,6 +870,19 @@ let ``Attached Getters Setters and Indexers work`` () =
     t[2] |> equal 33
 
 [<Fact>]
+let ``Interface Getters Setters and Indexers work`` () =
+    let t = TestProps([| 1; 2; 3 |]) :> ITestProps
+    t.Value1 |> equal 2
+    t.Value1 <- 22
+    t.Value1 |> equal 22
+    t.Value(0) |> equal 1
+    t.Value(0) <- 11
+    t.Value(0) |> equal 11
+    t[2] |> equal 3
+    t[2] <- 33
+    t[2] |> equal 33
+
+[<Fact>]
 let ``Statically resolved instance calls work`` () =
     let a = { thing = 5 }
     let b = { label = "five" }
@@ -724,10 +948,10 @@ let ``Secondary constructors work`` () =
     equal 3 s1.Value
     equal 5 s2.Value
 
-// [<Fact>]
-// let ``Inheriting from secondary constructors works`` () =
-//     let s = SecondaryConsChild()
-//     equal 5 s.Value
+[<Fact>]
+let ``Inheriting from secondary constructors works`` () =
+    let s = SecondaryConsChild()
+    equal 5 s.Value
 
 [<Fact>]
 let ``Multiple constructors work`` () =
@@ -747,11 +971,11 @@ let ``Multiple constructors work`` () =
 //     let x = ConcreteClass2()
 //     x.CallMethodWithDefault() |> equal "Hi World!!"
 
-// [<Fact>]
-// let ``Abstract properties with getters and setters work`` () =
-//     let x = ConcreteClass3() :> AbstractClass3
-//     x.MyProp <- 2
-//     equal 7 x.MyProp
+[<Fact>]
+let ``Abstract properties with getters and setters work`` () =
+    let x = ConcreteClass3() // :> AbstractClass3 //TODO: cast to abstract type
+    x.MyProp <- 2
+    equal 7 x.MyProp
 
 [<Fact>]
 let ``Interface setters don't conflict`` () = // See #505
@@ -806,22 +1030,22 @@ let ``Interface setters don't conflict`` () = // See #505
 //         | :? DowncastTest as t2 -> t2.Value
 //         | _ -> 5
 
-// [<Fact>]
-// let ``Calling default implementation of base members don't cause infinite recursion`` () = // See #701
-//     let x = ExtendedClass()
-//     x.Init() |> equal 7
-//     (x :> BaseClass).Init() |> equal 7
+[<Fact>]
+let ``Calling default implementation of base members don't cause infinite recursion`` () = // See #701
+    let x = ExtendedClass()
+    x.Init() |> equal 7
+    (x :> BaseClass).Init() |> equal 7
 
-// [<Fact>]
-// let ``Calling default implementation of base properties don't cause infinite recursion`` () = // See #701
-//     let x = ExtendedClass()
-//     x.Prop |> equal "base-extension"
-//     (x :> BaseClass).Prop |> equal "base-extension"
+[<Fact>]
+let ``Calling default implementation of base properties don't cause infinite recursion`` () = // See #701
+    let x = ExtendedClass()
+    x.Prop |> equal "base-extension"
+    (x :> BaseClass).Prop |> equal "base-extension"
 
-// [<Fact>]
-// let ``Calling base members works`` () = // See #1464
-//     let bar = ExtendedClass2()
-//     bar.B() |> equal 1
+[<Fact>]
+let ``Calling base members works`` () = // See #1464
+    let bar = ExtendedClass2()
+    bar.B() |> equal 1
 
 [<Fact>]
 let ``Circular dependencies work`` () = // See #569
@@ -908,7 +1132,7 @@ let ``copying struct records works`` () = // See #3371
 // let ``reraise works`` () =
 //     try
 //         try
-//             Exception("Will I be reraised?") |> raise
+//             System.Exception("Will I be reraised?") |> raise
 //         with _ ->
 //             try
 //                 reraise()
@@ -1000,16 +1224,16 @@ let ``ClassAttribute works`` () = // See #573
 
 //     bar.Bar |> equal "Zar77.40rfalsefalsedbca"
 
-// // See #2084
-// [<Fact>]
-// let ``Non-mangled interfaces work with classes`` () =
-//     let addPlus2 x y = x + y + 2.
-//     let multiplyTwice x y = x * y * y
-//     let foo2 = FooClass("Foo") :> FooInterface
-//     foo2[0] <- 'W'
-//     foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString("F2").Replace(',', '.') + foo2[2].ToString()
-//     foo2.Foo <- foo2.Foo + foo2.Sum("a", "bc", "d")
-//     foo2.Foo |> equal "Woo1020.00oabcabcdabcabcd"
+// See #2084
+[<Fact>]
+let ``Non-mangled interfaces work with classes`` () =
+    let addPlus2 x y = x + y + 2.
+    let multiplyTwice x y = x * y * y
+    let foo2 = FooClass("Foo") :> FooInterface
+    foo2[0] <- 'W'
+    foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString().Replace(',', '.') + foo2[2].ToString()
+    foo2.Foo <- foo2.Foo + foo2.Sum("a", "bc", "d")
+    foo2.Foo |> equal "Woo1020oabcabcdabcabcd"
 
 // // See #2084
 // [<Fact>]

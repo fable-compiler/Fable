@@ -16,9 +16,7 @@ module Glob =
 
     // Normalizes path for different OS
     let inline normalizePath (path: string) =
-        path
-            .Replace('\\', Path.DirectorySeparatorChar)
-            .Replace('/', Path.DirectorySeparatorChar)
+        path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar)
 
     type private SearchOption =
         | Directory of string

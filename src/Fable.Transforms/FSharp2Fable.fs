@@ -15,10 +15,10 @@ open Identifiers
 open Helpers
 open Util
 
-let inline private transformExprList com ctx xs =
+let private transformExprList com ctx xs =
     trampolineListMap (transformExpr com ctx []) xs
 
-let inline private transformExprOpt com ctx opt =
+let private transformExprOpt com ctx opt =
     trampolineOptionMap (transformExpr com ctx []) opt
 
 let private transformBaseConsCall
@@ -46,7 +46,7 @@ let private transformBaseConsCall
             "Only inheriting from primary constructors is supported" |> addWarning com [] r
 
         match makeCallFrom com ctx r Fable.Unit genArgs None baseArgs baseCons with
-        | Fable.Call(_baseExpr, info, t, r) ->
+        | Fable.Call(_baseExpr, info, t, r) when not (com.Options.Language = Rust) ->
             // The baseExpr will be the exposed constructor function,
             // replace with a direct reference to the entity
             let baseExpr =
@@ -74,7 +74,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
 
     | TypeScriptTaggedUnion(_, _, tagName, rule) ->
         match argExprs with
-        | [ argExpr ] when not (FsUnionCase.HasNamedFields unionCase) -> argExpr
+        // | [ argExpr ] when not (FsUnionCase.HasNamedFields unionCase) -> argExpr
         | _ ->
             let isCompiledValue, tagExpr =
                 match FsUnionCase.CompiledValue unionCase with
@@ -322,6 +322,7 @@ let private getImplementedSignatureInfo
     nonMangledNameConflicts
     (implementingEntity: FSharpEntity option)
     (sign: FSharpAbstractSignature)
+    isInstance
     =
     let implementingEntityFields = HashSet<_>()
 
@@ -347,7 +348,7 @@ let private getImplementedSignatureInfo
             else
                 None
 
-        tryFindAbstractMember com ent sign.Name paramTypes
+        tryFindAbstractMember com ent sign.Name isInstance paramTypes
         |> Option.map (fun m -> ent, m)
     )
     |> Option.map (fun (ent, memb) ->
@@ -380,7 +381,7 @@ let private getImplementedSignatureInfo
             && countNonCurriedParamsForSignature sign = 1
 
         let name =
-            if isGetter || isSetter then
+            if (isGetter || isSetter) && not (com.Options.Language = Rust) then
                 Naming.removeGetSetPrefix sign.Name
             else
                 sign.Name
@@ -424,7 +425,7 @@ let private transformObjExpr
             let r = makeRangeFrom over.Body
 
             let info =
-                getImplementedSignatureInfo com ctx r nonMangledNameConflicts None signature
+                getImplementedSignatureInfo com ctx r nonMangledNameConflicts None signature true
 
             let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
             let! body = transformExpr com ctx [] over.Body
@@ -471,10 +472,11 @@ let private transformDelegate com ctx (delegateType: FSharpType) expr =
         // applies a unit arg to the expression, see #2400
         let expr =
             match tryDefinition delegateType with
-            | Some(_, Some "System.Func`1") ->
+            | Some(_, Some _fullName) ->
                 match expr with
-                | Fable.CurriedApply(expr, [ Fable.Value(Fable.UnitConstant, _) ], _, _) -> expr
-                | Fable.Call(expr, { Args = [ Fable.Value(Fable.UnitConstant, _) ] }, _, _) -> expr
+                | Fable.CurriedApply(expr2, [ Fable.Value(Fable.UnitConstant, _) ], _, _) -> expr2
+                | Fable.Call(expr2, { Args = [ Fable.Value(Fable.UnitConstant, _) ] }, _, _) -> // expr2
+                    Fable.Delegate([], expr, None, Fable.Tags.empty)
                 | _ -> expr
             | _ -> expr
 
@@ -776,7 +778,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     &&
                     // The replacement only needs to happen when var.FullType = byref<fsExpr.Type>
                     fsExpr.Type = var.FullType.GenericArguments.[0]
-                    && com.Options.Language <> Rust
+                    && not (com.Options.Language = Rust)
                 then
                     // Getting byref value is compiled as FSharpRef op_Dereference
                     return Replacements.Api.getRefCell com r (List.head v.Type.Generics) v
@@ -924,7 +926,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 match tryFindWitness ctx argTypes flags.IsInstance traitName with
                 | None ->
                     let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
-
                     return transformTraitCall com ctx r typ sourceTypes traitName flags.IsInstance argTypes argExprs
                 | Some w ->
                     let callInfo = makeCallInfo None argExprs argTypes
@@ -932,9 +933,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
             let typ = makeType ctx.GenericArgs fsExpr.Type
-
             let callGenArgs = ownerGenArgs @ membGenArgs |> List.map (makeType ctx.GenericArgs)
-
             let! args = transformExprList com ctx args
 
             // Sometimes args may include local generics (e.g. an identifier referencing a local generic function)
@@ -955,8 +954,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 else
                     args
 
-            match callee with
-            | Some(CreateEvent(callee, event) as createEvent) ->
+            match callee, memb with
+            | Some(CreateEvent(callee, event) as createEvent), _ ->
                 let! callee = transformExpr com ctx [] callee
                 let eventType = makeType ctx.GenericArgs createEvent.Type
 
@@ -965,7 +964,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
                 return makeCallFrom com ctx (makeRangeFrom fsExpr) typ callGenArgs (Some callee) args memb
 
-            | callee ->
+            | Some unionExpr, UnionCaseTesterFor unionCase ->
+                return! transformUnionCaseTest com ctx (makeRangeFrom fsExpr) unionExpr unionExpr.Type unionCase
+
+            | callee, _ ->
                 let r = makeRangeFrom fsExpr
                 let! callee = transformExprOpt com ctx callee
 
@@ -1176,16 +1178,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
                     return Fable.Get(unionExpr, Fable.TupleIndex index, fieldType, r)
             | TypeScriptTaggedUnion _ ->
-                if FsUnionCase.HasNamedFields unionCase then
-                    let kind =
-                        Fable.FieldInfo.Create(
-                            FsField.FSharpFieldName field,
-                            fieldType = makeType Map.empty field.FieldType
-                        )
+                // if not (FsUnionCase.HasNamedFields unionCase) then
+                //     return unionExpr
+                // else
+                let kind =
+                    Fable.FieldInfo.Create(
+                        FsField.FSharpFieldName field,
+                        fieldType = makeType Map.empty field.FieldType
+                    )
 
-                    return Fable.Get(unionExpr, kind, fieldType, r)
-                else
-                    return unionExpr
+                return Fable.Get(unionExpr, kind, fieldType, r)
             | StringEnum _ ->
                 return
                     "StringEnum types cannot have fields"
@@ -1474,19 +1476,25 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
     }
 
-let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
-    Option.isSome meth.LiteralValue
-    || meth.Attributes
+let private isIgnoredNonAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
+    Option.isSome memb.LiteralValue
+    || memb.Attributes
        |> Seq.exists (fun att ->
            match att.AttributeType.TryFullName with
            | Some(Atts.global_ | Naming.StartsWith Atts.import _ | Naming.StartsWith Atts.emit _) -> true
            | _ -> false
        )
     || (
-        match meth.DeclaringEntity with
-        | Some ent -> isGlobalOrImportedFSharpEntity ent
+        match memb.DeclaringEntity with
+        | Some ent -> isGlobalOrImportedFSharpEntity ent || isPojoDefinedByConsArgsFSharpEntity ent
         | None -> false
     )
+
+let private isUnionCaseTester (memb: FSharpMemberOrFunctionOrValue) =
+    // memb.IsUnionCaseTester // TODO: this currently fails, use when fixed
+    match memb with
+    | UnionCaseTesterFor _ -> true
+    | _ -> false
 
 let private isCompilerGenerated (memb: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) =
     memb.IsCompilerGenerated
@@ -1571,7 +1579,7 @@ let private transformImportValue com r typ name (memb: FSharpMemberOrFunctionOrV
         "Imported members cannot be mutable and public, please make it private: " + name
         |> addError com [] None
 
-    let memberRef = Fable.GeneratedMember.Value(name, typ)
+    let memberRef = Fable.GeneratedMember.Value(name, typ, isMutable = memb.IsMutable)
     transformImport com r typ name [] memberRef selector path
 
 let private transformMemberValue
@@ -1825,6 +1833,7 @@ let private transformImplementedSignature
             com.NonMangledAttachedMemberConflicts
             (Some implementingEntity)
             signature
+            memb.IsInstanceMember
 
     com.AddAttachedMember(
         entFullName,
@@ -1890,6 +1899,22 @@ let private transformMemberDecl
             UsedNamesInDeclarationScope = HashSet()
         }
 
+    let isErasedPropertySetter (memb: FSharpMemberOrFunctionOrValue) =
+        if memb.IsPropertySetterMethod then
+            match memb.DeclaringEntity with
+            | Some ent ->
+                // Remove the "set_" prefix
+                let logicalName = memb.LogicalName.Substring(4)
+
+                ent.MembersFunctionsAndValues
+                |> Seq.tryFind (fun (m: FSharpMemberOrFunctionOrValue) ->
+                    m.LogicalName = logicalName && hasAttrib Atts.erase m.Attributes
+                )
+                |> Option.isSome
+            | _ -> false
+        else
+            false
+
     if isIgnoredNonAttachedMember memb then
         if memb.IsMutable && isNotPrivate memb && hasAttrib Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: "
@@ -1900,13 +1925,23 @@ let private transformMemberDecl
     // for Rust, retain inlined functions that have [<CompiledName("...")>] attribute
     elif
         isInline memb
-        && (Compiler.Language <> Rust || not (hasAttrib Atts.compiledName memb.Attributes))
+        && not (Compiler.Language = Rust && (hasAttrib Atts.compiledName memb.Attributes))
     then
         []
     elif memb.IsImplicitConstructor then
         transformPrimaryConstructor com ctx memb args body
+    // ignore union case testers as they will be inlined
+    elif isUnionCaseTester memb then
+        []
     // Ignore members generated by the F# compiler (for comparison and equality)
     elif isCompilerGenerated memb args then
+        []
+    // Ignore members that are decorated with [<Erase>]
+    elif
+        hasAttrib Atts.erase memb.Attributes || isErasedPropertySetter memb
+    // Attributes are not universally propagated so for setter properties we need
+    // to check the declaring entity, https://github.com/fable-compiler/Fable/issues/3948
+    then
         []
     elif memb.IsOverrideOrExplicitInterfaceImplementation then
         if not memb.IsCompilerGenerated then
@@ -1937,7 +1972,7 @@ let private transformMemberDecl
         | _ -> transformMemberFunctionOrValue com ctx memb args body
 
 let private addUsedRootName (com: Compiler) name (usedRootNames: Set<string>) =
-    if com.Options.Language <> Rust && Set.contains name usedRootNames then
+    if not (com.Options.Language = Rust) && Set.contains name usedRootNames then
         "Cannot have two module members with same name: " + name |> addError com [] None
 
     Set.add name usedRootNames
@@ -2044,11 +2079,12 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                             Name = fsEnt.CompiledName
                             Entity = entRef
                             Members = members
+                            XmlDoc = tryGetXmlDoc fsEnt.XmlDoc
                         }
                 ]
             | sub -> transformDeclarations com ctx sub
-        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
-            transformMemberDecl com ctx meth args body
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, args, body) ->
+            transformMemberDecl com ctx memb args body
         | FSharpImplementationFileDeclaration.InitAction fe ->
             let ctx = { ctx with UsedNamesInDeclarationScope = HashSet() }
             let e = transformExpr com ctx [] fe |> run
@@ -2077,22 +2113,22 @@ let rec getRootFSharpEntities (declarations: FSharpImplementationFileDeclaration
 
     Seq.collect getRootFSharpEntitiesInner declarations
 
-let getRootModule (declarations: FSharpImplementationFileDeclaration list) =
+let getRootModule (declarations: FSharpImplementationFileDeclaration list) : string * (FSharpXmlDoc option) =
     let rec getRootModuleInner outerEnt decls =
         match decls, outerEnt with
         | [ FSharpImplementationFileDeclaration.Entity(ent, decls) ], _ when ent.IsFSharpModule || ent.IsNamespace ->
             getRootModuleInner (Some ent) decls
         | CommonNamespace(ent, decls), _ -> getRootModuleInner (Some ent) decls
-        | _, Some e -> FsEnt.FullName e
-        | _, None -> ""
+        | _, Some e -> FsEnt.FullName e, Some e.XmlDoc
+        | _, None -> "", None
 
     getRootModuleInner None declarations
 
 let resolveFieldType (ctx: Context) (entityType: FSharpType) (fieldType: FSharpType) =
     let entityGenArgs =
         match tryDefinition entityType with
-        | Some(def, _) when def.GenericParameters.Count = entityType.GenericArguments.Count ->
-            Seq.zip def.GenericParameters entityType.GenericArguments
+        | Some(tdef, _) when tdef.GenericParameters.Count = entityType.GenericArguments.Count ->
+            Seq.zip tdef.GenericParameters entityType.GenericArguments
             |> Seq.map (fun (p, a) -> genParamName p, makeType Map.empty a)
             |> Map
         | _ -> Map.empty

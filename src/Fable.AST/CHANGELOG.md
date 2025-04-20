@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-beta.1 - 2025-02-16
+
+### Added
+
+* [All] Add support for module comments (by @ncave)
+
+## 4.6.0 - 2025-01-28
+
+* Stable release
+
+## 4.6.0-beta.1 - 2025-01-28
+
+### Fixed
+
+* [All] Re-package with `--realsig+` to fix `Method not found: 'Boolean Fable.CompilerOptions.Equals` (by @nojaf)
+
+## 4.5.0 - 2024-05-23
+
+### Removed
+
+* Remove `MemberRefInfo.Attributes` [GH-3817](https://github.com/fable-compiler/Fable/pull/3817) (by @DunetsNM)
+
+### Added
+
+* Add `MemberRefInfo.AttributeFullNames` [GH-3817](https://github.com/fable-compiler/Fable/pull/3817) (by @DunetsNM)
+
 ## 4.4.0 - 2024-02-13
 
 ### Changed

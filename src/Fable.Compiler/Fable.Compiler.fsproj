@@ -1,18 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-008</Version>
-        <PackageReleaseNotes>## Fixed
-
-- [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) The dependent files of the current file should be detected for the signature file if there is one present. (by @nojaf)
-- [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) Local plugin build does not run indefinably. (by @nojaf)
-
-</PackageReleaseNotes>
         <DebugType>embedded</DebugType>
     </PropertyGroup>
 
@@ -25,8 +18,8 @@
         <Compile Include="ProjectCracker.fsi" />
         <Compile Include="ProjectCracker.fs" />
         <Compile Include="MSBuildCrackerResolver.fs" />
-        <Compile Include="Library.fsi"/>
-        <Compile Include="Library.fs"/>
+        <Compile Include="Library.fsi" />
+        <Compile Include="Library.fs" />
     </ItemGroup>
 
     <ItemGroup>
@@ -41,8 +34,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+        <PackageReference Include="EasyBuild.PackageReleaseNotes.Tasks" Version="2.0.0">
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+          <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="FSharp.SystemTextJson" Version="1.3.13" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
     </ItemGroup>
 
     <ItemGroup>

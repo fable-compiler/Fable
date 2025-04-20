@@ -91,7 +91,7 @@ Disposable = TypeVar("Disposable", bound=IDisposable)
 
 
 class AnonymousDisposable(IDisposable):
-    __slots__ = "_is_disposed", "_action", "_lock"
+    __slots__ = "_action", "_is_disposed", "_lock"
 
     def __init__(self, action: Callable[[], None]):
         self._is_disposed = False
@@ -355,12 +355,12 @@ def clamp(comparer: Callable[[_T, _T], int], value: _T, min: _T, max: _T):
 
 def assert_equal(actual: Any, expected: Any, msg: str | None = None) -> None:
     if not equals(actual, expected):
-        raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
+        raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
 
 
 def assert_not_equal(actual: _T, expected: _T, msg: str | None = None) -> None:
     if equals(actual, expected):
-        raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
+        raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
 
 
 MAX_LOCKS = 1024
@@ -539,7 +539,7 @@ class IDictionary(ICollection[tuple[_Key, _Value]], Protocol):
 
 
 class Enumerator(IEnumerator[_T]):
-    __slots__ = "iter", "current"
+    __slots__ = "current", "iter"
 
     def __init__(self, iter: Iterator[_T]) -> None:
         self.iter = iter

@@ -331,13 +331,7 @@ type Statement =
         )
 
     static member functionDeclaration
-        (
-            name: string,
-            args: FunctionArg list,
-            body: Statement list,
-            returnType: Type,
-            ?genParams: GenericParam list
-        )
+        (name: string, args: FunctionArg list, body: Statement list, returnType: Type, ?genParams: GenericParam list)
         =
         LocalFunctionDeclaration
             {
@@ -425,13 +419,7 @@ type Declaration =
     static member variableDeclaration(ident, kind, value) = VariableDeclaration(ident, kind, value)
 
     static member functionDeclaration
-        (
-            name: string,
-            args: FunctionArg list,
-            body: Statement list,
-            returnType: Type,
-            ?genParams: GenericParam list
-        )
+        (name: string, args: FunctionArg list, body: Statement list, returnType: Type, ?genParams: GenericParam list)
         =
         FunctionDeclaration
             {
@@ -443,16 +431,7 @@ type Declaration =
             }
 
     static member classDeclaration
-        (
-            name,
-            ?genParams,
-            ?isAbstract,
-            ?constructor,
-            ?extends,
-            ?implements,
-            ?variables,
-            ?methods
-        )
+        (name, ?genParams, ?isAbstract, ?constructor, ?extends, ?implements, ?variables, ?methods)
         =
         Class(
             name,

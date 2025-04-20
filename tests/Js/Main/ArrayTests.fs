@@ -1,11 +1,11 @@
 module Fable.Tests.Arrays
 
-open System
+open System.Collections.Generic
 open Util.Testing
 open Fable.Tests.Util
 
 type ParamArrayTest =
-    static member Add([<ParamArray>] xs: int[]) = Array.sum xs
+    static member Add([<System.ParamArray>] xs: int[]) = Array.sum xs
 
 let add (xs: int[]) = ParamArrayTest.Add(xs)
 
@@ -69,7 +69,7 @@ let tests =
         ParamArrayTest.Add(let ar = [|1;2;3|] in sideEffect ar; ar)
         |> equal 9
 
-#if FABLE_COMPILER && FABLE_TYPED_ARRAYS
+#if FABLE_COMPILER_JAVASCRIPT
     testCase "Typed Arrays work" <| fun () ->
         let xs = [| 1; 2; 3; |]
         let ys = [| 1.; 2.; 3.; |]
@@ -224,7 +224,7 @@ let tests =
         let xs = [| 1.; 2.; 3.; 4. |]
         xs.Length |> equal 4
 
-    testCase "Array.ConvertAll works" <| fun () ->
+    testCase "System.Array.ConvertAll works" <| fun () ->
         let xs = [| 1.; 2.; 3.; 4. |]
         let ys = System.Array.ConvertAll(xs, System.Converter(fun x -> int x))
         ys |> Seq.toList |> equal [1;2;3;4]
@@ -423,7 +423,7 @@ let tests =
 
     testCase "Array.filter with chars works" <| fun () ->
         let xs = [|'a'; '2'; 'b'; 'c'|]
-        let ys = xs |> Array.filter Char.IsLetter
+        let ys = xs |> Array.filter System.Char.IsLetter
         ys.Length |> equal 3
 
     testCase "Array.find works" <| fun () ->
@@ -431,15 +431,15 @@ let tests =
         xs |> Array.find ((=) 2us)
         |> equal 2us
 
-    testCase "Array.IndexOf works with non-primitive types" <| fun _ ->
-            let myArray = [|Duck 5|]
-            Array.IndexOf(myArray, Duck 3) |> equal -1
-            Array.IndexOf(myArray, Dog 5) |> equal -1
-            Array.IndexOf(myArray, Duck 5) |> equal 0
-            let myArray = [|Duck 5; Dog 3|]
-            Array.IndexOf(myArray, Dog 3) |> equal 1
-            Array.IndexOf(myArray, Dog 3, 0, 1) |> equal -1
-            Array.IndexOf(myArray, Duck 5, 1) |> equal -1
+    testCase "System.Array.IndexOf works with non-primitive types" <| fun _ ->
+        let myArray = [|Duck 5|]
+        System.Array.IndexOf(myArray, Duck 3) |> equal -1
+        System.Array.IndexOf(myArray, Dog 5) |> equal -1
+        System.Array.IndexOf(myArray, Duck 5) |> equal 0
+        let myArray = [|Duck 5; Dog 3|]
+        System.Array.IndexOf(myArray, Dog 3) |> equal 1
+        System.Array.IndexOf(myArray, Dog 3, 0, 1) |> equal -1
+        System.Array.IndexOf(myArray, Duck 5, 1) |> equal -1
 
     testCase "Array.findIndex works" <| fun () ->
         let xs = [|1.f; 2.f; 3.f; 4.f|]
@@ -1066,16 +1066,16 @@ let tests =
         ys :? System.Array |> equal true
         zs :? System.Array |> equal false
 
-    testCase "Array.Copy works with numeric arrays" <| fun () ->
+    testCase "System.Array.Copy works with numeric arrays" <| fun () ->
         let source = [| 99 |]
         let destination = [| 1; 2; 3 |]
-        Array.Copy(source, 0, destination, 0, 1)
+        System.Array.Copy(source, 0, destination, 0, 1)
         equal [| 99; 2; 3 |] destination
 
-    testCase "Array.Copy works with non-numeric arrays" <| fun () ->
+    testCase "System.Array.Copy works with non-numeric arrays" <| fun () ->
         let source = [| "xy"; "xx"; "xyz" |]
         let destination = [| "a"; "b"; "c" |]
-        Array.Copy(source, 1, destination, 1, 2)
+        System.Array.Copy(source, 1, destination, 1, 2)
         equal [| "a"; "xx"; "xyz" |] destination
 
     testCase "Array.splitInto works" <| fun () ->
@@ -1221,18 +1221,83 @@ let tests =
         equal c2 -1
         equal c3 1
 
-    testCase "Array.Resize works" <| fun () ->
+    testCase "System.Array.Resize works" <| fun () ->
         let mutable xs = [|1; 2; 3; 4; 5|]
-        Array.Resize(&xs, 3)
+        System.Array.Resize(&xs, 3)
         xs |> equal [|1; 2; 3|]
-        Array.Resize(&xs, 7)
+        System.Array.Resize(&xs, 7)
         xs |> equal [|1; 2; 3; 0; 0; 0; 0|]
-        Array.Resize(&xs, 0)
+        System.Array.Resize(&xs, 0)
         xs |> equal [||]
         xs <- null
-        Array.Resize(&xs, 3)
+        System.Array.Resize(&xs, 3)
         xs |> equal [|0; 0; 0|]
         xs <- null
-        Array.Resize(&xs, 0)
+        System.Array.Resize(&xs, 0)
         xs |> equal [||]
+
+    testCase "Array IReadOnlyCollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> IReadOnlyCollection<_>
+        coll.Count |> equal 3
+
+    testCase "Array ICollection.IsReadOnly works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> ICollection<_>
+#if FABLE_COMPILER_JAVASCRIPT || FABLE_COMPILER_TYPESCRIPT
+        coll.IsReadOnly |> equal false // Arrays are the same as ResizeArrays
+#else
+        coll.IsReadOnly |> equal true
+#endif
+
+    testCase "Array ICollection.Count works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> ICollection<_>
+        coll.Count |> equal 3
+
+    testCase "Array ICollection.Contains works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> ICollection<_>
+        coll.Contains(("B", 3)) |> equal false
+        coll.Contains(("D", 3)) |> equal false
+        coll.Contains(("B", 2)) |> equal true
+
+    testCase "Array ICollection.CopyTo works" <| fun _ ->
+        let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+        let coll = xs :> ICollection<_>
+        let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
+        coll.CopyTo(ys, 0)
+        ys = xs |> equal true
+
+    testCase "Array IReadOnlyCollection.Count with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> IReadOnlyCollection<_>
+        coll.Count |> equal 3
+
+    testCase "Array ICollection.IsReadOnly with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> ICollection<_>
+#if FABLE_COMPILER_TYPESCRIPT
+        coll.IsReadOnly |> equal false // Arrays are the same as ResizeArrays
+#else
+        coll.IsReadOnly |> equal true
+#endif
+
+    testCase "Array ICollection.Count with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> ICollection<_>
+        coll.Count |> equal 3
+
+    testCase "Array ICollection.Contains with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> ICollection<_>
+        coll.Contains(4) |> equal false
+        coll.Contains(2) |> equal true
+
+    testCase "Array ICollection.CopyTo with typed arrays works" <| fun _ ->
+        let xs = [| 1; 2; 3 |]
+        let coll = xs :> ICollection<_>
+        let ys = [| 4; 5; 6 |]
+        coll.CopyTo(ys, 0)
+        ys = xs |> equal true
   ]

@@ -33,22 +33,25 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                     coreAssemblies.Add(asmName, asm)
                 else
                     let scanForPlugins =
-                        try
-                            asm.Contents.Attributes
-                            |> Seq.exists (fun attr ->
-                                attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute"
-                            )
-                        with _ ->
-                            // To help identify problem, log information about the exception
-                            // but keep the process going to mimic previous Fable behavior
-                            // and because these exception seems harmless
-                            let errorMessage =
-                                $"Could not scan {path} for Fable plugins, skipping this assembly"
-
-                            addLog Severity.Info errorMessage
-
-                            hasSkippedAssembly <- true
+                        if Metadata.isSystemPackage asmName then
                             false
+                        else
+                            try
+                                asm.Contents.Attributes
+                                |> Seq.exists (fun attr ->
+                                    attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute"
+                                )
+                            with error ->
+                                // To help identify problem, log information about the exception
+                                // but keep the process going to mimic previous Fable behavior
+                                // and because these exception seems harmless
+                                let errorMessage =
+                                    $"Could not scan {path} for Fable plugins, skipping this assembly. Original error: {error.Message}"
+
+                                addLog Severity.Info errorMessage
+
+                                hasSkippedAssembly <- true
+                                false
 
                     if scanForPlugins then
                         for e in asm.Contents.Entities do
@@ -123,6 +126,7 @@ type ImplFile =
     {
         Declarations: FSharpImplementationFileDeclaration list
         RootModule: string
+        RootComment: FSharpXmlDoc option
         Entities: IReadOnlyDictionary<string, Fable.Entity>
         InlineExprs: (string * InlineExprLazy) list
     }
@@ -139,14 +143,21 @@ type ImplFile =
 
         // add all entities to the entity cache
         let entities = Dictionary()
-        let declarations = file.Declarations
+
+        let declarations =
+            try
+                file.Declarations // this may throw
+            with _ex ->
+                []
 
         FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop entities
+        let rootModule, rootComment = FSharp2Fable.Compiler.getRootModule declarations
 
         {
             Declarations = declarations
             Entities = entities
-            RootModule = FSharp2Fable.Compiler.getRootModule declarations
+            RootModule = rootModule
+            RootComment = rootComment
             InlineExprs = FSharp2Fable.Compiler.getInlineExprs file.FileName declarations
         }
 
@@ -331,17 +342,17 @@ type CompilerImpl
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
 
             match Dictionary.tryFind fileName project.ImplementationFiles with
-            | Some file -> file.RootModule
+            | Some file -> file.RootModule, file.RootComment
             | None ->
                 match project.PrecompiledInfo.TryGetRootModule(fileName) with
-                | Some r -> r
+                | Some r -> r, None
                 | None ->
                     let msg =
                         $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
 
                     (this :> Compiler).AddLog(msg, Severity.Warning, fileName = currentFile)
 
-                    "" // failwith msg
+                    "", None // failwith msg
 
         member _.TryGetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with

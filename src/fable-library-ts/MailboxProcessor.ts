@@ -1,7 +1,7 @@
 import { defaultCancellationToken } from "./Async.js";
 import { fromContinuations } from "./Async.js";
 import { startImmediate } from "./Async.js";
-import { IAsync } from "./AsyncBuilder.js";
+import { Async } from "./AsyncBuilder.js";
 import { Continuation, Continuations } from "./AsyncBuilder.js";
 import { CancellationToken } from "./AsyncBuilder.js";
 
@@ -41,7 +41,7 @@ class MailboxQueue<Msg> {
   }
 }
 
-export type MailboxBody<Msg> = (m: MailboxProcessor<Msg>) => IAsync<void>;
+export type MailboxBody<Msg> = (m: MailboxProcessor<Msg>) => Async<void>;
 
 export interface AsyncReplyChannel<Reply> {
   reply: (r: Reply) => void;

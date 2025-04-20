@@ -42,6 +42,7 @@ type Cmd =
             CmdLine.empty
             |> CmdLine.appendRaw "dotnet"
             |> CmdLine.appendRaw "watch"
+            |> CmdLine.appendRaw "--no-hot-reload"
             |> CmdLine.appendPrefix "--project" localFableDir
             |> CmdLine.appendRaw "run"
             // Without the release mode, Fable stack overflow when compiling the tests
