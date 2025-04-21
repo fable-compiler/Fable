@@ -16,7 +16,7 @@ python-dateutil = "^2.9.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"
 ruff = "^0.11.6"
-maturin = "^1.5.0"
+maturin = "^1.8.3"
 
 [tool.pyright]
 reportMissingTypeStubs = false

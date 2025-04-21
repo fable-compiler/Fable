@@ -49,7 +49,7 @@ class FSharpRef(Generic[_T]):
 
 
 class Union(IComparable):
-    __slots__ = "tag", "fields"
+    __slots__ = "fields", "tag"
 
     def __init__(self):
         self.tag: int
@@ -230,18 +230,16 @@ def seq_to_string(self: Iterable[Any]) -> str:
     return str + "]"
 
 
-def to_string(x: Iterable[Any] | Any, call_stack: int = 0) -> str:
-    if x is not None:
-        if isinstance(x, float) and int(x) == x:
+def to_string(x: object | None, call_stack: int = 0) -> str:
+    match x:
+        case float() if int(x) == x:
             return str(int(x))
-
-        if isinstance(x, bool):
+        case bool():
             return str(x).lower()
-
-        if isinstance(x, Iterable) and not hasattr(x, "__str__"):
-            return seq_to_string(x)
-
-    return str(x)
+        case Iterable() if not hasattr(cast(Iterable[Any], x), "__str__"):
+            return seq_to_string(cast(Iterable[Any], x))
+        case _:
+            return str(x)
 
 
 class FSharpException(Exception, IComparable):

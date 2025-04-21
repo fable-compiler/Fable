@@ -2,6 +2,11 @@
 
 This module is used as the [Fable](https://fable.io/) library for Python.
 
+This document outlines the distribution strategy for the Fable Python
+target, which includes both Python code and Rust-based extensions for
+features like unsigned integers that aren't natively supported in
+Python.
+
 The code should be annotated using [type
 hints](https://docs.python.org/3/library/typing.html) and statically
 type checked using
@@ -13,18 +18,12 @@ The code should be formatted using the
 
 ## Fable Python Target Distribution Design
 
-### Overview
-
-This document outlines the distribution strategy for the Fable Python
-target, which includes both Python code and Rust-based extensions for
-features like unsigned integers that aren't natively supported in
-Python.
-
 ### Design Goals
 
-- Provide proper type support for F# (including uint8, etc.) using Rust extensions
+- Provide proper type support for F# (including uint8, etc.) and
+  performance using Rust extensions
 - Support cross-platform usage of libraries compiled with Fable
-- Maintain version compatibility while allowing evolution
+- Maintain version compatibility while avoiding breaking changes and allowing evolution.
 - Offer flexibility for library authors (bundled vs PyPI dependency)
 - Minimize duplication while ensuring stability
 
@@ -58,12 +57,12 @@ Library authors can choose which approach to use based on their distribution nee
 fable_library/
 ├── v4/           # Python components for Fable v4
 │   ├── __init__.py
-│   ├── functions.py
+│   ├── date.py
 │   └── ...
 ├── v5/           # Python components for Fable v5
 │   ├── __init__.py
-│   ├── functions.py
-│   ├── functions_v51.py  # New functions for v5.1
+│   ├── date.py
+│   ├── date.py  # New date for v5.1 with breaking changes
 │   └── ...
 └── core/         # Rust extensions
     ├── v4/       # Rust extensions for v4
@@ -76,22 +75,24 @@ fable_library/
 
 To avoid breaking changes, we use a versioning scheme that allows for
 backward compatibility. The latest version of `fable-library` will
-include different modules for different major versions, thus using
-the latest version of the library will not break existing code.
+include different modules for each major version, thus using the latest
+version of the library will not break existing code, even if they
+upgrade to a new major version of the library.
 
 Eventually, the `fable-library` package will need to retire the old
 versions, but the latest versions will always be available. For
 example:
 
 ```text
+fable-library 6.x.y  # Contains v5 and v6 modules
 fable-library 5.x.y  # Contains v4 and v5 modules
 fable-library 4.x.y  # Contains v3 and v4 modules
-fable-library 3.x.y  # Contains v2 and v3 modules
 ```
 
 #### Non-Breaking Fixes Within Versions
 
-For backward compatibility with bug fixes, we use suffixed function names:
+For backward compatibility with bug fixes, we use suffixed function
+names:
 
 ```python
 # Original function
@@ -99,11 +100,11 @@ def parse_date(date_string):
     # Original implementation
 
 # Fixed version in same module
-def parse_date_v5_1(date_string):
+def parse_date_v51(date_string):
     # Fixed implementation
 
 # Fable compiler will generate:
-from fable.library.core.v5 import parse_date_v5_1 as parse_date
+from fable.library.core.v5 import parse_date_v51 as parse_date
 ```
 
 #### Code Sharing Between Versions
