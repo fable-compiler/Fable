@@ -9,6 +9,8 @@ def test_byte_create() -> None:
     assert byte(byte(42)) == 42
     assert byte(uint16(42)) == 42
     assert byte(1.0) == 1
+    assert byte(byte(42)) == 42
+    assert byte(byte(-1)) == 255
 
 
 def test_sbyte_create() -> None:
@@ -16,6 +18,8 @@ def test_sbyte_create() -> None:
     assert sbyte(sbyte(42)) == 42
     assert sbyte(42) == 42
     assert sbyte(-42) == -42
+    assert sbyte(sbyte(1)) == 1
+    assert sbyte(sbyte(-1)) == -1
 
 
 def test_uint16_create() -> None:
@@ -25,6 +29,8 @@ def test_uint16_create() -> None:
     assert uint16(65535) == 65535
     assert uint16(65536) == 0
     assert uint16(-1) == 65535
+    assert uint16(uint32(1)) == 1
+    assert uint16(uint32(-1)) == 65535
 
 
 def test_int16_create() -> None:
@@ -34,6 +40,17 @@ def test_int16_create() -> None:
     assert int16(32767) == 32767
     assert int16(32768) == -32768
     assert int16(-1) == -1
+    assert int16(int32(1)) == 1
+    assert int16(int32(-1)) == -1
+
+
+def test_uint64_create() -> None:
+    assert uint64(15210016002388773605) == 15210016002388773605
+    assert uint64(0) == 0
+    assert uint64(uint64(42)) == 42
+    assert uint64(42) == 42
+    assert uint64(uint64(1)) == 1
+    assert uint64(uint32(-1)) == 4294967295
 
 
 def test_byte_add() -> None:
@@ -49,7 +66,7 @@ def test_byte_add() -> None:
 
 def test_byte_coerce():
     assert int(byte(42)) == 42  # Uses the __int__ method
-    assert array("B", [byte(42), byte(42)]) == array("B", [42, 42])  # Uses the __index__ method
+    assert array("B", [byte(42), byte(42)]) == array("B", [42, 42])  # type: ignore Uses the __index__ method
     # Can be used as slice indices
     assert [1, 2, 3][byte(1) : byte(2)] == [2]
 

@@ -68,14 +68,14 @@ let coreModFor =
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
 
-    Helper.LibCall(com, "decimal_", "create", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
+    Helper.LibCall(com, "decimal", "Decimal", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
 
 let makeDecimalFromExpr com r t (e: Expr) =
     match e with
     | Value(Fable.NumberConstant(NumberValue.Float32 x, _), _) -> makeDecimal com r t (decimal x)
     | Value(Fable.NumberConstant(NumberValue.Float64 x, _), _) -> makeDecimal com r t (decimal x)
     | Value(Fable.NumberConstant(NumberValue.Decimal x, _), _) -> makeDecimal com r t x
-    | _ -> Helper.LibCall(com, "decimal", "Decimal", t, [ e ], isConstructor = true, ?loc = r)
+    | _ -> Helper.LibCall(com, "decimal_", "create", t, [ e ], isConstructor = true, ?loc = r)
 
 let createAtom com (value: Expr) =
     let typ = value.Type
@@ -208,7 +208,9 @@ let needToCast fromKind toKind =
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
     match args.Head.Type with
-    | Char -> Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
+    | Char ->
+        //Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
+        Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
     | String -> Helper.LibCall(com, "double", "parse", targetType, args)
     | Number(kind, _) ->
         match kind with
@@ -237,6 +239,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
 
+
 let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
     let kind =
         match targetType with
@@ -252,11 +255,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
     let fromInteger kind arg =
         let kind = makeIntConst (kindIndex kind)
 
-        //Helper.LibCall(com, "long", "fromInteger", targetType, [ arg; makeBoolConst unsigned; kind ])
-        if unsigned then
-            Helper.LibCall(com, "types", "uint64", targetType, args)
-        else
-            Helper.LibCall(com, "types", "int64", targetType, args)
+        Helper.LibCall(com, "long", "fromInteger", targetType, [ arg; makeBoolConst unsigned; kind ])
 
     let sourceType = args.Head.Type
 
@@ -271,7 +270,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
         | Decimal -> Helper.LibCall(com, "decimal", "toInt", targetType, args)
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
         | Int64
-        | UInt64
+        | UInt64 -> Helper.LibCall(com, "long", "fromValue", targetType, args @ [ makeBoolConst unsigned ])
         | Int8
         | Int16
         | Int32
@@ -295,12 +294,12 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
 
     let emitCast typeTo arg =
         match typeTo with
-        | Int8 -> Helper.LibCall(com, "types", "sbyte", targetType, args)
-        | Int16 -> Helper.LibCall(com, "types", "int16", targetType, args)
-        | Int32 -> Helper.LibCall(com, "types", "int16", targetType, args)
-        | UInt8 -> Helper.LibCall(com, "types", "byte", targetType, args)
-        | UInt16 -> Helper.LibCall(com, "types", "uint16", targetType, args)
-        | UInt32 -> Helper.LibCall(com, "types", "uint32", targetType, args)
+        | Int8 -> Helper.LibCall(com, "types", "sbyte", targetType, [ arg ])
+        | Int16 -> Helper.LibCall(com, "types", "int16", targetType, [ arg ])
+        | Int32 -> Helper.LibCall(com, "types", "int32", targetType, [ arg ])
+        | UInt8 -> Helper.LibCall(com, "types", "byte", targetType, [ arg ])
+        | UInt16 -> Helper.LibCall(com, "types", "uint16", targetType, [ arg ])
+        | UInt32 -> Helper.LibCall(com, "types", "uint32", targetType, [ arg ])
         | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
 
     match sourceType, targetType with
@@ -313,7 +312,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         if needToCast typeFrom typeTo then
             match typeFrom with
             | Int64
-            | UInt64 -> Helper.LibCall(com, "Long", "to_int", targetType, args) // TODO: make no-op
+            | UInt64 -> Helper.LibCall(com, "types", "int32", targetType, args)
             | Decimal -> Helper.LibCall(com, "Decimal", "to_int", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo
@@ -341,14 +340,18 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Char -> TypeCast(head, String)
         | String -> head
         | Builtin BclGuid when tail.IsEmpty -> Helper.GlobalCall("str", String, [ head ], ?loc = r)
-        | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number((Int64 | UInt64 | BigInt), _) -> Helper.LibCall(com, "util", "int64_to_string", String, args)
-        | Number(Int8, _)
-        | Number(UInt8, _) -> Helper.LibCall(com, "util", "int8_to_string", String, args)
-        | Number(Int16, _) -> Helper.LibCall(com, "util", "int16_to_string", String, args)
-        | Number(Int32, _) -> Helper.LibCall(com, "util", "int32_to_string", String, args)
-        | Number(Decimal, _) -> Helper.LibCall(com, "decimal", "toString", String, args)
-        | Number _ -> Helper.LibCall(com, "types", "toString", String, [ head ], ?loc = r)
+        | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "to_string", String, args)
+        | Number(Int32, _) ->
+            let expr = Helper.LibCall(com, "types", "int32", head.Type, [ head ], ?loc = r)
+            Helper.InstanceCall(expr, "to_string", String, tail, ?loc = r)
+        | Number((Int8 | UInt8 | UInt16 | Int16 | UInt32 | Int64 | UInt64), _) ->
+            if tail.Length > 0 then
+                Helper.InstanceCall(head, "to_string", String, tail, ?loc = r)
+            else
+                Helper.GlobalCall("str", String, [ head ], ?loc = r)
+        | Number(BigInt, _) -> Helper.LibCall(com, "util", "int_to_string", String, args)
+        | Number(Decimal, _) -> Helper.LibCall(com, "decimal", "to_string", String, args)
+        | Number _ -> Helper.LibCall(com, "types", "to_string", String, [ head ], ?loc = r)
         | Array _
         | List _ -> Helper.LibCall(com, "types", "seqToString", String, [ head ], ?loc = r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
@@ -2209,7 +2212,6 @@ let errorStrings =
     | _ -> None
 
 let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    // printfn "languagePrimitives: %A" (i.CompiledName, thisArg, args)
     match i.CompiledName, args with
     | Naming.EndsWith "Dynamic" operation, arg :: _ ->
         let operation =

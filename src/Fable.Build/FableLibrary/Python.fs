@@ -50,8 +50,8 @@ type BuildFableLibraryPython() =
             Path.Combine(this.BuildDir, "fable_library", "fable-library-ts")
 
         Command.Run("poetry", "config virtualenvs.in-project true", this.BuildDir)
-        Command.Run("poetry", "install", this.BuildDir) // Maturn needs a local virtual environment
-        Command.Run("maturin", "develop --release", this.BuildDir)
+        Command.Run("poetry", "install", this.BuildDir) // Maturin needs a local virtual environment
+        Command.Run("poetry", "run maturin develop --release", this.BuildDir)
 
         Directory.GetFiles(linkedFileFolder, "*") |> Shell.copyFiles this.OutDir
 

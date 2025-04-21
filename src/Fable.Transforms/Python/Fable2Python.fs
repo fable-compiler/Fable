@@ -440,18 +440,19 @@ module Reflection =
         | Fable.String -> pyTypeof "<class 'str'>" expr
         | Fable.Number(kind, _b) ->
             match kind, typ with
-            | _, Fable.Type.Number(Int8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int8'>" expr
-            | _, Fable.Type.Number(UInt8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint8'>" expr
-            | _, Fable.Type.Number(Int16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int16'>" expr
-            | _, Fable.Type.Number(UInt16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint16'>" expr
-            | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'int'>" expr
-            | _, Fable.Type.Number(UInt32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint32'>" expr
-            | _, Fable.Type.Number(Int64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int64'>" expr
-            | _, Fable.Type.Number(UInt64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint64'>" expr
-            | _, Fable.Type.Number(Float32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.float32'>" expr
+            | _, Fable.Type.Number(UInt8, _) -> pyInstanceof (libValue com ctx "types" "uint8") expr
+            | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "types" "int8") expr
+            | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "types" "int16") expr
+            | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "types" "uint16") expr
+            | _, Fable.Type.Number(Int32, _) ->
+                pyInstanceof (Expression.binOp (Expression.name "int", BitOr, libValue com ctx "types" "int32")) expr
+            | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "types" "uint32") expr
+            | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "types" "int64") expr
+            | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "types" "uint64") expr
+            | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "types" "float32") expr
             | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
             | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
-            | _ -> pyTypeof "<class 'int'>" expr
+            | _ -> pyInstanceof (Expression.name "int") expr
 
         | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
         | Fable.LambdaType _

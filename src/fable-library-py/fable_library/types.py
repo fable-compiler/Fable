@@ -11,7 +11,7 @@ from typing import (
     cast,
 )
 
-from .core import byte, int16, int32, int64, sbyte, uint16, uint32, uint64
+from .core import byte, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
 from .util import Array, IComparable, compare
 
 
@@ -49,7 +49,7 @@ class FSharpRef(Generic[_T]):
 
 
 class Union(IComparable):
-    __slots__ = "fields", "tag"
+    __slots__ = "tag", "fields"
 
     def __init__(self):
         self.tag: int
@@ -344,24 +344,6 @@ def is_exception(x: Any):
 
 __all__ = [
     "Array",
-    "is_exception",
-    "char",
-    "sbyte",
-    "byte",
-    "int16",
-    "uint16",
-    "int32",
-    "uint32",
-    "int64",
-    "uint64",
-    "Int8Array",
-    "Uint8Array",
-    "Int16Array",
-    "Uint16Array",
-    "Int32Array",
-    "Uint32Array",
-    "Float32Array",
-    "Float64Array",
     "Attribute",
     "FSharpException",
     "FSharpRef",
@@ -370,20 +352,23 @@ __all__ = [
     "Int8Array",
     "Int16Array",
     "Int32Array",
+    "IntegerTypes",
     "Record",
     "Uint8Array",
     "Uint16Array",
     "Uint32Array",
     "Union",
+    "byte",
     "char",
+    "int8",
     "int16",
     "int32",
     "int64",
     "is_exception",
+    "sbyte",
     "seq_to_string",
     "to_string",
-    "Union",
-    "IntegerTypes",
+    "uint8",
     "uint16",
     "uint32",
     "uint64",
