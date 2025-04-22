@@ -66,15 +66,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: fable-library-py
-          path: ./temp/fable-library-py
+          path: ./src/fable-library-py
       - name: Build and install
         uses: PyO3/maturin-action@v1
         with:
-          working-directory: ./temp/fable-library-py
+          working-directory: ./src/fable-library-py
           args: --release --features=pyo3/extension-module
       - name: Test
         run: |
-          cd temp/fable-library-py
+          cd src/fable-library-py
           poetry install
           poetry run pytest tests
 
