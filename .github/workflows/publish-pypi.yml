@@ -76,6 +76,7 @@ jobs:
         run: |
           cd src/fable-library-py
           poetry install
+          poetry run maturin develop --release
           poetry run pytest tests
 
   linux:
