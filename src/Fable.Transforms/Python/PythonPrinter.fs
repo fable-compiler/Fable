@@ -205,7 +205,7 @@ module PrinterExtensions =
                     printer.PrintBlock(body)
                     printElse els
                 | xs ->
-                    printer.Print("else: ")
+                    printer.Print("else:")
                     printer.PrintBlock(xs)
 
 
