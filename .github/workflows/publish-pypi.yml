@@ -21,6 +21,10 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '9.0.x'
+      - name: Install Poetry and Maturin
+        run: |
+          pipx install poetry
+          pipx install maturin
       - name: Transpile F# to Python
         run: ./build.sh fable-library --python
       - name: Install Dunamai
