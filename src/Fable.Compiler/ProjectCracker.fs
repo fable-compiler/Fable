@@ -662,7 +662,7 @@ let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
     if File.isDirectoryEmpty target then
         copyDir replaceFsprojExt source target
 
-let getFableLibraryPath (opts: CrackerOptions) =
+let getFableLibraryPath (opts: CrackerOptions) (shouldCopy: bool) =
     let buildDir, libDir =
         match opts.FableOptions.Language, opts.FableLib with
         | Dart, None -> "fable-library-dart", "fable_library"
@@ -700,7 +700,9 @@ let getFableLibraryPath (opts: CrackerOptions) =
 
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)
         // Always overwrite fable-library in case it has been updated, see #3208
-        copyDir false fableLibrarySource fableLibraryTarget
+        if shouldCopy then
+            copyDir false fableLibrarySource fableLibraryTarget
+
         Path.normalizeFullPath fableLibraryTarget
 
 let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
@@ -718,13 +720,16 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
             { pkg with FsprojPath = IO.Path.Combine(targetDir, fsprojFile) }
         )
 
-    getFableLibraryPath opts, pkgRefs
+    getFableLibraryPath opts true, pkgRefs
 
 // Separate handling for Python. Use plain lowercase package names without dots or version info.
 let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePackage list) =
+    printfn "copyFableLibraryAndPackageSourcesPy"
+
     let pkgRefs =
         pkgs
         |> List.map (fun pkg ->
+            printfn "Processing package: %s" pkg.Id
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
 
             let targetDir =
@@ -737,7 +742,12 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) }
         )
 
-    getFableLibraryPath opts, pkgRefs
+    let shouldCopy =
+        match opts.FableLib with
+        | Some path when path.ToLowerInvariant() = Py.Naming.pypi -> false
+        | _ -> true
+
+    getFableLibraryPath opts shouldCopy, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
 let removeFilesInObjFolder (sourceFiles: string[]) =
