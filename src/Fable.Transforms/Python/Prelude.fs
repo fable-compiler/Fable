@@ -8,7 +8,7 @@ module Naming =
     open System.Text.RegularExpressions
 
     [<Literal>]
-    let sitePackages = "site-packages"
+    let pypi = "pypi"
 
     let lowerFirst (s: string) =
         s.Substring(0, 1).ToLowerInvariant() + s.Substring(1)

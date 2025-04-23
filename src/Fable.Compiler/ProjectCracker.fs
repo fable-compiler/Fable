@@ -671,7 +671,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
         | Php, None -> "fable-library-php", "fable-library-php"
         | JavaScript, None -> "fable-library-js", $"fable-library-js.%s{Literals.VERSION}"
         | Python, None -> "fable-library-py/fable_library", "fable_library"
-        | Python, Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
+        | Python, Some Py.Naming.pypi -> "fable-library-py", "fable_library"
         | _, Some path ->
             if path.StartsWith("./", StringComparison.Ordinal) then
                 "", Path.normalizeFullPath path
@@ -728,15 +728,9 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
 
             let targetDir =
-                match opts.FableLib with
-                | Some Py.Naming.sitePackages ->
-                    let name = Naming.applyCaseRule Core.CaseRules.KebabCase pkg.Id
+                let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
 
-                    IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "-"))
-                | _ ->
-                    let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
-
-                    IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_").Replace("-", "_"))
+                IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_").Replace("-", "_"))
 
             copyDirIfDoesNotExist false sourceDir targetDir
 
