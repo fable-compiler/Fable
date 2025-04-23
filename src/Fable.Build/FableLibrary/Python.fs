@@ -16,21 +16,6 @@ type BuildFableLibraryPython() =
             outDir = Path.Combine("temp", "fable-library-py", "fable_library")
         )
 
-    override this.FableBuildStage() =
-        let args =
-            CmdLine.appendRaw this.SourceDir
-            >> CmdLine.appendPrefix "--outDir" this.OutDir
-            >> CmdLine.appendPrefix "--fableLib" "."
-            >> CmdLine.appendPrefix "--lang" this.Language
-            >> CmdLine.appendPrefix "--exclude" "Fable.Core"
-            >> CmdLine.appendPrefix "--define" "FABLE_LIBRARY"
-            >> CmdLine.appendRaw "--noCache"
-            // Target implementation can require additional arguments
-            >> this.FableArgsBuilder
-
-        Command.Fable(args)
-
-
     override this.CopyStage() =
         // Copy all Python/F# files to the build directory
         Directory.GetFiles(this.LibraryDir, "*") |> Shell.copyFiles this.BuildDir
@@ -43,7 +28,6 @@ type BuildFableLibraryPython() =
         // Rust sources for building the extension modules
         Directory.GetFiles(Path.Combine(this.LibraryDir, "src"), "*")
         |> Shell.copyFiles (Path.Combine(this.BuildDir, "src"))
-
 
     override this.PostFableBuildStage() =
         Command.Run("poetry", "config virtualenvs.in-project true", this.BuildDir)

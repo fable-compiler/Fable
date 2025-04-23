@@ -47,23 +47,6 @@ type BuildFableLibrary
     abstract member CopyStage: unit -> unit
     default _.CopyStage() = ()
 
-    abstract member FableBuildStage: unit -> unit
-
-    default this.FableBuildStage() =
-        let args =
-            CmdLine.appendRaw sourceDir
-            >> CmdLine.appendPrefix "--outDir" outDir
-            >> CmdLine.appendPrefix "--fableLib" fableLibArg
-            >> CmdLine.appendPrefix "--lang" language
-            >> CmdLine.appendPrefix "--exclude" "Fable.Core"
-            >> CmdLine.appendPrefix "--define" "FABLE_LIBRARY"
-            >> CmdLine.appendRaw "--noCache"
-            // Target implementation can require additional arguments
-            >> this.FableArgsBuilder
-
-        Command.Fable(args)
-
-
     member this.Run(?skipIfExist: bool) =
         let toConsole (s: string) = System.Console.WriteLine(s)
 
@@ -79,7 +62,6 @@ type BuildFableLibrary
             if Directory.Exists buildDir then
                 Directory.Delete(buildDir, true)
 
-            this.FableBuildStage()
             "Building Fable.Library" |> toConsole
 
             let args =
