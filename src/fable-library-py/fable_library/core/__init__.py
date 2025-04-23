@@ -24,7 +24,7 @@ uint32: TypeAlias = UInt32
 int64: TypeAlias = Int64
 uint64: TypeAlias = UInt64
 
-__all__ = [
+__all__: list[str] = [
     "Int8",
     "Int16",
     "Int32",

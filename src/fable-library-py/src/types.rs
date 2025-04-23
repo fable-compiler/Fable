@@ -404,11 +404,11 @@ macro_rules! integer_variant {
     };
 }
 
-integer_variant!(UInt8, u8, 0xff);
 integer_variant!(Int8, i8, 0xff_u32);
-integer_variant!(UInt16, u16, 0xffff_u32);
+integer_variant!(UInt8, u8, 0xff);
 integer_variant!(Int16, i16, 0xffff_u32);
-integer_variant!(UInt32, u32, 0xffffffff_u32);
+integer_variant!(UInt16, u16, 0xffff_u32);
 integer_variant!(Int32, i32, 0xffffffff_u32);
+integer_variant!(UInt32, u32, 0xffffffff_u32);
 integer_variant!(Int64, i64, 0xffffffffffffffff_u64);
 integer_variant!(UInt64, u64, 0xffffffffffffffff_u64);

@@ -1,3 +1,7 @@
+"""
+Fable library for Python
+"""
+
 from ._version import __version__
 
 

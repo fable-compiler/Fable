@@ -47,8 +47,8 @@ def test_int16_create() -> None:
 def test_uint64_create() -> None:
     assert uint64(15210016002388773605) == 15210016002388773605
     assert uint64(0) == 0
-    assert uint64(uint64(42)) == 42
     assert uint64(42) == 42
+    assert uint64(uint64(42)) == 42
     assert uint64(uint64(1)) == 1
     assert uint64(uint32(-1)) == 4294967295
 
