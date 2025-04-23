@@ -31,7 +31,10 @@ jobs:
         run: pipx install dunamai
       - name: Set version
         run: |
-          VERSION=$(dunamai from any --no-metadata --style pep440)
+          VERSION=$(dunamai from git --format "{base}{stage}{revision}" --pattern "^(?P<base>\d+\.\d+\.\d+)((-(?P<stage>alpha|beta|theta))\.(?P<revision>\d+))?$" --latest-tag)
+          # Convert stage names to PEP440 equivalents
+          VERSION=${VERSION/alpha/a}
+          VERSION=${VERSION/beta/b}
           echo "Setting version to $VERSION"
           cd temp/fable-library-py
           poetry version $VERSION
