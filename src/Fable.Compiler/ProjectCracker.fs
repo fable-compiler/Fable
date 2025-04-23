@@ -724,12 +724,9 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
 
 // Separate handling for Python. Use plain lowercase package names without dots or version info.
 let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePackage list) =
-    printfn "copyFableLibraryAndPackageSourcesPy"
-
     let pkgRefs =
         pkgs
         |> List.map (fun pkg ->
-            printfn "Processing package: %s" pkg.Id
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
 
             let targetDir =
