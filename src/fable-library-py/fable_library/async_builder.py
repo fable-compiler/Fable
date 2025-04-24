@@ -118,13 +118,13 @@ class IAsyncContext(Generic[_T]):
 
     @staticmethod
     def create(
-        on_success: Callable[[_T], None] | None,
+        trampoline: Trampoline,
+        cancel_token: CancellationToken,
+        on_success: Callable[[_U], None] | None,
         on_error: Callable[[Exception], None] | None,
         on_cancel: Callable[[OperationCanceledError], None] | None,
-        trampoline: Trampoline | None,
-        cancel_token: CancellationToken | None,
-    ) -> IAsyncContext[_T]:
-        return AnonymousAsyncContext(on_success, on_error, on_cancel, trampoline, cancel_token)
+    ) -> IAsyncContext[_U]:
+        return AnonymousAsyncContext(trampoline, cancel_token, on_success, on_error, on_cancel)
 
 
 """ FSharpAsync"""
@@ -140,12 +140,12 @@ class AnonymousAsyncContext(IAsyncContext[_T]):
 
     def __init__(
         self,
+        trampoline: Trampoline,
+        cancel_token: CancellationToken,
         on_success: Callable[[_T], None] | None = None,
         on_error: Callable[[Exception], None] | None = None,
         on_cancel: Callable[[OperationCanceledError], None] | None = None,
-        trampoline: Trampoline | None = None,
-        cancel_token: CancellationToken | None = None,
-    ):
+    ) -> None:
         self._on_success: Callable[[_T], None] = on_success or empty_continuation
         self._on_error: Callable[[Exception], None] = on_error or empty_continuation
         self._on_cancel: Callable[[OperationCanceledError], None] = on_cancel or empty_continuation
@@ -163,22 +163,18 @@ class AnonymousAsyncContext(IAsyncContext[_T]):
         return self._on_cancel(error)
 
     @property
-    @abstractmethod
     def trampoline(self) -> Trampoline:
         return self._trampoline
 
     @trampoline.setter
-    @abstractmethod
     def trampoline(self, val: Trampoline):
         self._trampoline = val
 
     @property
-    @abstractmethod
     def cancel_token(self) -> CancellationToken:
         return self._cancel_token
 
     @cancel_token.setter
-    @abstractmethod
     def cancel_token(self, val: CancellationToken):
         self._cancel_token = val
 
@@ -195,7 +191,7 @@ class Trampoline:
 
     MaxTrampolineCallCount = 75  # Max recursion depth: 1000
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.call_count: int = 0
         self.lock = Lock()
         self.running = False
@@ -252,7 +248,7 @@ def protected_bind(
                 # print("Exception: ", err)
                 ctx.on_error(err)
 
-        ctx_ = IAsyncContext.create(on_success, ctx.on_error, ctx.on_cancel, ctx.trampoline, ctx.cancel_token)
+        ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, ctx.on_error, ctx.on_cancel)
         return computation(ctx_)
 
     return protected_cont(cont)
@@ -325,7 +321,7 @@ class AsyncBuilder:
                 compensation()
                 ctx.on_cancel(x)
 
-            ctx_ = IAsyncContext.create(on_success, on_error, on_cancel, ctx.trampoline, ctx.cancel_token)
+            ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, on_error, on_cancel)
             computation(ctx_)
 
         return protected_cont(cont)
