@@ -440,6 +440,14 @@ class StringComparison(IntEnum):
     OrdinalIgnoreCase = 5
 
 
+# Determine the comparison strategy once at module level
+try:
+    current_locale = locale.getlocale(locale.LC_COLLATE)
+    use_strcoll = current_locale[0] is not None
+except (locale.Error, TypeError):
+    use_strcoll = False
+
+
 def cmp(x: str, y: str, ic: bool | StringComparison) -> int:
     def is_ignore_case(i: bool | StringComparison) -> bool:
         return (
@@ -467,7 +475,7 @@ def cmp(x: str, y: str, ic: bool | StringComparison) -> int:
         x = x.lower()
         y = y.lower()
 
-    return locale.strcoll(x, y)
+    return locale.strcoll(x, y) if use_strcoll else (0 if x == y else -1 if x < y else 1)
 
 
 @overload
