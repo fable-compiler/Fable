@@ -475,7 +475,12 @@ def cmp(x: str, y: str, ic: bool | StringComparison) -> int:
         x = x.lower()
         y = y.lower()
 
-    return locale.strcoll(x, y) if use_strcoll else (0 if x == y else -1 if x < y else 1)
+    if use_strcoll:
+        result = locale.strcoll(x, y)
+        # Normalize result to -1, 0, 1
+        return -1 if result < 0 else (1 if result > 0 else 0)
+    else:
+        return -1 if x < y else (1 if x > y else 0)
 
 
 @overload
