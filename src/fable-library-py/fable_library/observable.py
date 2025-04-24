@@ -5,9 +5,9 @@ from collections.abc import Callable
 from typing import Any, Generic, Protocol, TypeVar
 
 from .choice import (
-    Choice_tryValueIfChoice1Of2,  # type: ignore
-    Choice_tryValueIfChoice2Of2,  # type: ignore
-    FSharpChoice_2,  # type: ignore
+    Choice_tryValueIfChoice1Of2,
+    Choice_tryValueIfChoice2Of2,
+    FSharpChoice_2,
 )
 from .option import value
 from .util import IDisposable
@@ -17,6 +17,7 @@ _T = TypeVar("_T")
 _T_co = TypeVar("_T_co", covariant=True)
 _T_contra = TypeVar("_T_contra", contravariant=True)
 _U = TypeVar("_U")
+_V = TypeVar("_V")
 
 
 class IObserver(Protocol, Generic[_T_contra]):
@@ -215,7 +216,9 @@ def scan(collector: Callable[[_U, _T], _U], state: _U, source: IObservable[_T]) 
     return Observable(subscribe)
 
 
-def split(splitter: Callable[[_T], FSharpChoice_2], source: IObservable[_T]) -> tuple[IObservable[_T], IObservable[_T]]:
+def split(
+    splitter: Callable[[_T], FSharpChoice_2[_U, _V]], source: IObservable[_T]
+) -> tuple[IObservable[_U], IObservable[_V]]:
     return (
         choose(lambda v: Choice_tryValueIfChoice1Of2(splitter(v)), source),
         choose(lambda v: Choice_tryValueIfChoice2Of2(splitter(v)), source),
