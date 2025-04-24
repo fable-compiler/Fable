@@ -290,7 +290,8 @@ def start_child(computation: Async[_T], ms: int | None = None) -> Async[Async[_T
     if ms is not None:
 
         def binder(results: list[_T | _U]) -> Async[_T]:
-            # FIXME: the type error is correct and the implementation looks wrong
+            # TODO: the type error is correct and the implementation looks suspicious
+            # since we use parallel2 which will wait for both computations to finish
             return protected_return(results[0])
 
         computation_with_timeout: Async[_T] = protected_bind(parallel2(computation, throw_after(ms)), binder)
