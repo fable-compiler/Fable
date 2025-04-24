@@ -70,15 +70,15 @@ def cancel(token: CancellationToken) -> None:
 
 
 def cancel_after(token: CancellationToken, ms: int) -> None:
-    timer = Timer(ms / 1000.0, token.cancel)
+    timer = Timer(float(ms) / 1000.0, token.cancel)
     timer.start()
 
 
 def is_cancellation_requested(token: CancellationToken) -> bool:
-    return token and token.is_cancelled
+    return token.is_cancelled
 
 
-def sleep(millisecondsDueTime: int) -> Async[None]:
+def sleep(milliseconds_duetime: int) -> Async[None]:
     def cont(ctx: IAsyncContext[None]):
         def cancel():
             ctx.on_cancel(OperationCanceledError())
@@ -89,7 +89,7 @@ def sleep(millisecondsDueTime: int) -> Async[None]:
             ctx.cancel_token.remove_listener(token_id)
             ctx.on_success(None)
 
-        due_time = millisecondsDueTime / 1000.0
+        due_time = float(milliseconds_duetime) / 1000.0
         ctx.trampoline.run_later(timeout, due_time)
 
     return protected_cont(cont)
@@ -112,16 +112,16 @@ def parallel(computations: Iterable[Async[_T]]) -> Async[list[_T]]:
 
 
 def parallel2(a: Async[_T], b: Async[_U]) -> Async[list[_T | _U]]:
-    def delayed() -> Async[list[_T, _T]]:
-        tasks: Iterable[Future[_T]] = map(start_as_task, [a, b])  # type: ignore
-        all: Future[list[_T]] = asyncio.gather(*tasks)
+    def delayed() -> Async[list[_T | _U]]:
+        tasks: Iterable[Future[_T | _U]] = map(start_as_task, [a, b])  # type: ignore
+        all: Future[list[_T | _U]] = asyncio.gather(*tasks)
         return await_task(all)
 
     return delay(delayed)
 
 
-def sequential(computations: Iterable[Async[_T]]) -> Async[list[_T | None]]:
-    def delayed() -> Async[list[_T | None]]:
+def sequential(computations: Iterable[Async[_T]]) -> Async[list[_T]]:
+    def delayed() -> Async[list[_T]]:
         results: list[_T] = []
 
         def _arrow20(_arg: Async[_T]) -> Async[None]:
@@ -150,7 +150,7 @@ def catch_async(work: Async[_T]) -> Async[_T]:
         def on_error(err: Exception):
             ctx.on_success(Choice_makeChoice2Of2(err))  # type: ignore
 
-        ctx_ = IAsyncContext.create(on_success, on_error, ctx.on_cancel, ctx.trampoline, ctx.cancel_token)
+        ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, on_error, ctx.on_cancel)
         work(ctx_)
 
     return protected_cont(cont)
@@ -230,11 +230,11 @@ def start_with_continuations(
     trampoline = Trampoline()
 
     ctx = IAsyncContext.create(
+        trampoline,
+        cancellation_token or default_cancellation_token,
         continuation or empty_continuation,
         exception_continuation or empty_continuation,
         cancellation_continuation or empty_continuation,
-        trampoline,
-        cancellation_token or default_cancellation_token,
     )
 
     def runner() -> None:
@@ -287,10 +287,15 @@ def throw_after(milliseconds_due_time: int) -> Async[None]:
 
 
 def start_child(computation: Async[_T], ms: int | None = None) -> Async[Async[_T]]:
-    if ms:
-        computation_with_timeout = protected_bind(
-            parallel2(computation, throw_after(ms)), lambda xs: protected_return(xs[0])
-        )
+    if ms is not None:
+
+        def binder(results: list[_T | _U]) -> Async[_T]:
+            # TODO: the type error is correct and the implementation looks suspicious
+            # since we use parallel2 which will wait for both computations to finish
+            return protected_return(results[0])
+
+        computation_with_timeout: Async[_T] = protected_bind(parallel2(computation, throw_after(ms)), binder)
+
         return start_child(computation_with_timeout)
 
     task = start_as_task(computation)
@@ -349,7 +354,7 @@ def run_synchronously(
     one. This call is blocking.
     """
 
-    async def runner() -> _T | None:
+    async def runner() -> _T:
         return await start_as_task(computation, cancellation_token=cancellation_token)
 
     return asyncio.run(runner())
