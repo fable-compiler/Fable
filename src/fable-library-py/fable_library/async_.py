@@ -27,8 +27,9 @@ from .async_builder import (
 
 # F# generated code (from Choice.fs)
 from .choice import (
-    Choice_makeChoice1Of2,  # type: ignore
-    Choice_makeChoice2Of2,  # type: ignore
+    Choice_makeChoice1Of2,
+    Choice_makeChoice2Of2,
+    FSharpChoice_2,
 )
 from .task import TaskCompletionSource
 
@@ -142,13 +143,13 @@ def sequential(computations: Iterable[Async[_T]]) -> Async[list[_T]]:
     return delay(delayed)
 
 
-def catch_async(work: Async[_T]) -> Async[_T]:
-    def cont(ctx: IAsyncContext[_T]) -> None:
+def catch_async(work: Async[_T]) -> Async[FSharpChoice_2[_T, Exception]]:
+    def cont(ctx: IAsyncContext[FSharpChoice_2[_T, Exception]]) -> None:
         def on_success(x: _T):
-            ctx.on_success(Choice_makeChoice1Of2(x))  # type: ignore
+            ctx.on_success(Choice_makeChoice1Of2(x))
 
         def on_error(err: Exception):
-            ctx.on_success(Choice_makeChoice2Of2(err))  # type: ignore
+            ctx.on_success(Choice_makeChoice2Of2(err))
 
         ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, on_error, ctx.on_cancel)
         work(ctx_)
