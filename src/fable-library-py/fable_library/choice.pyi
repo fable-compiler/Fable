@@ -14,8 +14,6 @@ _T5 = TypeVar("_T5")
 _T6 = TypeVar("_T6")
 _T7 = TypeVar("_T7")
 
-def _expr35(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo: ...
-
 class FSharpChoice_2(Union, Generic[_T1, _T2]):
     tag: int
     fields: Array[Any]
@@ -25,8 +23,6 @@ class FSharpChoice_2(Union, Generic[_T1, _T2]):
     def cases() -> list[str]: ...
 
 FSharpChoice_2_reflection: Callable[[TypeInfo, TypeInfo], TypeInfo]
-
-def _expr36(gen0: TypeInfo, gen1: TypeInfo, gen2: TypeInfo) -> TypeInfo: ...
 
 class FSharpChoice_3(Union, Generic[_T1, _T2, _T3]):
     tag: int
@@ -38,8 +34,6 @@ class FSharpChoice_3(Union, Generic[_T1, _T2, _T3]):
 
 FSharpChoice_3_reflection: Callable[[TypeInfo, TypeInfo, TypeInfo], TypeInfo]
 
-def _expr37(gen0: TypeInfo, gen1: TypeInfo, gen2: TypeInfo, gen3: TypeInfo) -> TypeInfo: ...
-
 class FSharpChoice_4(Union, Generic[_T1, _T2, _T3, _T4]):
     tag: int
     fields: Array[Any]
@@ -49,8 +43,6 @@ class FSharpChoice_4(Union, Generic[_T1, _T2, _T3, _T4]):
     def cases() -> list[str]: ...
 
 FSharpChoice_4_reflection: Callable[[TypeInfo, TypeInfo, TypeInfo, TypeInfo], TypeInfo]
-
-def _expr38(gen0: TypeInfo, gen1: TypeInfo, gen2: TypeInfo, gen3: TypeInfo, gen4: TypeInfo) -> TypeInfo: ...
 
 class FSharpChoice_5(Union, Generic[_T1, _T2, _T3, _T4, _T5]):
     tag: int
@@ -62,10 +54,6 @@ class FSharpChoice_5(Union, Generic[_T1, _T2, _T3, _T4, _T5]):
 
 FSharpChoice_5_reflection: Callable[[TypeInfo, TypeInfo, TypeInfo, TypeInfo, TypeInfo], TypeInfo]
 
-def _expr39(
-    gen0: TypeInfo, gen1: TypeInfo, gen2: TypeInfo, gen3: TypeInfo, gen4: TypeInfo, gen5: TypeInfo
-) -> TypeInfo: ...
-
 class FSharpChoice_6(Union, Generic[_T1, _T2, _T3, _T4, _T5, _T6]):
     tag: int
     fields: Array[Any]
@@ -75,10 +63,6 @@ class FSharpChoice_6(Union, Generic[_T1, _T2, _T3, _T4, _T5, _T6]):
     def cases() -> list[str]: ...
 
 FSharpChoice_6_reflection: Callable[[TypeInfo, TypeInfo, TypeInfo, TypeInfo, TypeInfo, TypeInfo], TypeInfo]
-
-def _expr40(
-    gen0: TypeInfo, gen1: TypeInfo, gen2: TypeInfo, gen3: TypeInfo, gen4: TypeInfo, gen5: TypeInfo, gen6: TypeInfo
-) -> TypeInfo: ...
 
 class FSharpChoice_7(Union, Generic[_T1, _T2, _T3, _T4, _T5, _T6, _T7]):
     tag: int
