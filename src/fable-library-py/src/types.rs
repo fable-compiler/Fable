@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions;
@@ -53,7 +54,16 @@ macro_rules! integer_variant {
     ($name:ident, $type:ty, $mask:expr) => {
         #[pyclass(module = "fable", frozen)]
         #[derive(Clone)]
-        pub struct $name($type);
+        pub struct $name(pub $type); // Make the inner field public
+
+        // Implement Deref trait to allow automatic dereferencing
+        impl Deref for $name {
+            type Target = $type;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
 
         #[pymethods]
         impl $name {
@@ -399,6 +409,10 @@ macro_rules! integer_variant {
                 let int = int.into_pyobject(py)?;
                 let result = int.call_method1("__format__", (format,))?;
                 result.extract::<String>()
+            }
+
+            pub fn value(&self) -> $type {
+                self.0
             }
         }
     };

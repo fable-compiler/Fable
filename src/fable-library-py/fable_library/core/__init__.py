@@ -9,6 +9,7 @@ from ._core import (
     UInt16,
     UInt32,
     UInt64,
+    array,
 )
 
 
@@ -33,6 +34,7 @@ __all__: list[str] = [
     "UInt16",
     "UInt32",
     "UInt64",
+    "array",
     "byte",
     "int8",
     "int16",

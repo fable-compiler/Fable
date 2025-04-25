@@ -12,8 +12,9 @@ name = "_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.24.1", features = ["extension-module"] }
+pyo3 = { version = "0.24.1", features = ["extension-module", "chrono"] }
 byteorder = "1.5.0"
+chrono = "0.4.40"
 
 [features]
 # must be enabled when building with `cargo build`, maturin enables this automatically

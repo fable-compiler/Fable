@@ -4,11 +4,13 @@ This is only needed so that the static type checker can find the types for the e
 methods we have written in Rust. The file will never be used by Python at runtime.
 """
 
-from typing import Any, final
+from typing import Any, Protocol, final
 
 from typing_extensions import Self
 
-class Numeric:
+from . import array
+
+class Numeric(Protocol):
     def to_string(self, radix: int = 10) -> str: ...
     def __init__(self, value: int | Numeric | float) -> None: ...
     def __add__(self, other: Any) -> Self: ...
@@ -71,3 +73,15 @@ class UInt64(Numeric): ...
 
 @final
 class Int64(Numeric): ...
+
+__all__: list[str] = [
+    "Int8",
+    "Int16",
+    "Int32",
+    "Int64",
+    "UInt8",
+    "UInt16",
+    "UInt32",
+    "UInt64",
+    "array",
+]
