@@ -245,26 +245,18 @@ module Python =
 
             member _.MakeImportPath(path) =
                 let relativePath parts =
-                    let path =
-                        let mutable i = -1
-
-                        parts
-                        |> Array.choose (fun part ->
-                            i <- i + 1
-
-                            if part = "." || part = ".." then
-                                None
-                            elif i = parts.Length - 1 then
-                                Some(normalizeFileName part)
-                            else
-                                part.Replace(".", "_") |> Some // Do not lowercase dir names. See #3079
-                        )
-                        |> String.concat "."
-
-                    if isLibrary then
-                        "." + path
-                    else
-                        path
+                    parts
+                    |> Array.mapi (fun i part ->
+                        match part with
+                        | "." when isLibrary -> Some ""
+                        | ".." when isLibrary -> Some "."
+                        | "."
+                        | ".." -> None
+                        | _ when i = parts.Length - 1 -> Some(normalizeFileName part)
+                        | _ -> Some(part.Replace(".", "_")) // Do not lowercase dir names. See #3079
+                    )
+                    |> Array.choose id
+                    |> String.concat "."
 
                 let packagePath parts =
                     let mutable i = -1

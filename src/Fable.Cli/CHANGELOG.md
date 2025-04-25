@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fixed import path handling for libraries (#4088) (by @dbrattli)
+* [Python] Reenable type aliasing for imports with name "*" (by @freymauer)
+
 ### Removed
 
 * [All] Remove unused `Fable.Core` copy types from internal module (by @MangelMaxime)
