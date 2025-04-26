@@ -713,6 +713,10 @@ impl ArrayBuilder {
     // Pushes the original element at `index` from `source_storage` into the builder.
     // Used by `filter`. Assumes `self` matches `source_storage` type.
     fn push_original(&mut self, source_storage: &ArrayStorage, index: usize, py: Python<'_>) {
+         // Get type names before the match to avoid borrow-after-move in panic!
+         let builder_type_name = std::any::type_name_of_val(self);
+         let storage_type_name = std::any::type_name_of_val(source_storage);
+
          match (self, source_storage) {
             (ArrayBuilder::Int8(res), ArrayStorage::Int8(src)) => res.push(src[index]),
             (ArrayBuilder::UInt8(res), ArrayStorage::UInt8(src)) => res.push(src[index]),
@@ -727,7 +731,7 @@ impl ArrayBuilder {
             (ArrayBuilder::String(res), ArrayStorage::String(src)) => res.push(src[index].clone()),
             (ArrayBuilder::Generic(res), ArrayStorage::PyObject(src)) => res.push(src[index].clone_ref(py)),
             // Add a catch-all for safety, although it shouldn't be reached if types match
-            _ => panic!("Mismatched ArrayBuilder and ArrayStorage types in push_original. Builder: {:?}, Storage: {:?}", std::any::type_name_of_val(self), std::any::type_name_of_val(source_storage)),
+            _ => panic!("Mismatched ArrayBuilder and ArrayStorage types in push_original. Builder: {:?}, Storage: {:?}", builder_type_name, storage_type_name),
         }
     }
 
