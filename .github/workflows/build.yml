@@ -2,9 +2,9 @@ name: build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fable4 ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, fable4 ]
 
 permissions:
     id-token: write
