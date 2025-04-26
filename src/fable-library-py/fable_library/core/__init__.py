@@ -1,6 +1,8 @@
 from typing import TypeAlias
 
 from ._core import (
+    Float32,
+    Float64,
     Int8,
     Int16,
     Int32,
@@ -24,8 +26,12 @@ int32: TypeAlias = Int32
 uint32: TypeAlias = UInt32
 int64: TypeAlias = Int64
 uint64: TypeAlias = UInt64
+float32: TypeAlias = Float32
+float64: TypeAlias = Float64
 
 __all__: list[str] = [
+    "Float32",
+    "Float64",
     "Int8",
     "Int16",
     "Int32",
@@ -36,6 +42,8 @@ __all__: list[str] = [
     "UInt64",
     "array",
     "byte",
+    "float32",
+    "float64",
     "int8",
     "int16",
     "int32",

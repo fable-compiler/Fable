@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use pyo3::{prelude::*, types::{PyAnyMethods, PyList, PyListMethods}, };
-use crate::types::{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64};
+use crate::ints::{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64};
+use crate::floats::{Float32, Float64};
 use pyo3::exceptions;
 
 
@@ -27,6 +28,8 @@ enum ArrayType {
     UInt32,
     Int64,
     UInt64,
+    Float32,
+    Float64,
     String,
     Generic,
 }
@@ -44,6 +47,8 @@ impl<'source> FromPyObject<'source> for ArrayType {
             "UInt32" => Ok(ArrayType::UInt32),
             "Int64" => Ok(ArrayType::Int64),
             "UInt64" => Ok(ArrayType::UInt64),
+            "Float32" => Ok(ArrayType::Float32),
+            "Float64" => Ok(ArrayType::Float64),
             "String" => Ok(ArrayType::String),
             _ => Ok(ArrayType::Generic),
         }
@@ -66,6 +71,8 @@ impl<'py> IntoPyObject<'py> for ArrayType {
             ArrayType::UInt32 => "UInt32",
             ArrayType::Int64 => "Int64",
             ArrayType::UInt64 => "UInt64",
+            ArrayType::Float32 => "Float32",
+            ArrayType::Float64 => "Float64",
             ArrayType::String => "String",
             ArrayType::Generic => "Generic",
         };
@@ -86,6 +93,8 @@ enum ArrayStorage {
     UInt32(Vec<u32>),
     Int64(Vec<i64>),
     UInt64(Vec<u64>),
+    Float32(Vec<f32>),
+    Float64(Vec<f64>),
     String(Vec<String>),
     PyObject(Arc<Vec<PyObject>>),
 }
@@ -112,6 +121,8 @@ impl FSharpArray {
                 "UInt32" => ArrayType::UInt32,
                 "Int64" => ArrayType::Int64,
                 "UInt64" => ArrayType::UInt64,
+                "Float32" => ArrayType::Float32,
+                "Float64" => ArrayType::Float64,
                 "String" => ArrayType::String,
                 _ => ArrayType::Generic,
             }
@@ -205,6 +216,22 @@ impl FSharpArray {
                         });
                     }
                 },
+                ArrayType::Float32 => {
+                    if let Ok(vec) = extract_typed_vec::<Float32, f32>(elements, |x| Ok(*x)) {
+                        return Ok(FSharpArray {
+                            storage: ArrayStorage::Float32(vec),
+                            nominal_type,
+                        });
+                    }
+                },
+                ArrayType::Float64 => {
+                    if let Ok(vec) = extract_typed_vec::<Float64, f64>(elements, |x| Ok(*x)) {
+                        return Ok(FSharpArray {
+                            storage: ArrayStorage::Float64(vec),
+                            nominal_type,
+                        });
+                    }
+                },
                 ArrayType::String => {
                     if let Ok(vec) = extract_typed_vec::<String, String>(elements, Ok) {
                         return Ok(FSharpArray {
@@ -261,6 +288,14 @@ impl FSharpArray {
                     storage: ArrayStorage::UInt64(Vec::new()),
                     nominal_type,
                 }),
+                ArrayType::Float32 => Ok(FSharpArray {
+                    storage: ArrayStorage::Float32(Vec::new()),
+                    nominal_type,
+                }),
+                ArrayType::Float64 => Ok(FSharpArray {
+                    storage: ArrayStorage::Float64(Vec::new()),
+                    nominal_type,
+                }),
                 ArrayType::String => Ok(FSharpArray {
                     storage: ArrayStorage::String(Vec::new()),
                     nominal_type,
@@ -283,6 +318,8 @@ impl FSharpArray {
             ArrayStorage::UInt32(vec) => vec.len(),
             ArrayStorage::Int64(vec) => vec.len(),
             ArrayStorage::UInt64(vec) => vec.len(),
+            ArrayStorage::Float32(vec) => vec.len(),
+            ArrayStorage::Float64(vec) => vec.len(),
             ArrayStorage::String(vec) => vec.len(),
             ArrayStorage::PyObject(vec) => vec.len(),
         }
@@ -330,6 +367,14 @@ impl FSharpArray {
                 let value = vec[idx as usize];
                 Ok(UInt64(value).into_pyobject(py)?.into())
             },
+            ArrayStorage::Float32(vec) => {
+                let value = vec[idx as usize];
+                Ok(Float32(value).into_pyobject(py)?.into())
+            },
+            ArrayStorage::Float64(vec) => {
+                let value = vec[idx as usize];
+                Ok(Float64(value).into_pyobject(py)?.into())
+            },
             ArrayStorage::String(vec) => Ok(vec[idx as usize].clone().into_pyobject(py)?.into()),
             ArrayStorage::PyObject(vec) => Ok(vec[idx as usize].clone_ref(py)),
         }
@@ -375,6 +420,14 @@ impl FSharpArray {
             ArrayStorage::UInt64(vec) => {
                 let uint64: UInt64 = value.extract()?;
                 vec[idx as usize] = *uint64;
+            },
+            ArrayStorage::Float32(vec) => {
+                let float32: Float32 = value.extract()?;
+                vec[idx as usize] = *float32;
+            },
+            ArrayStorage::Float64(vec) => {
+                let float64: Float64 = value.extract()?;
+                vec[idx as usize] = *float64;
             },
             ArrayStorage::String(vec) => {
                 vec[idx as usize] = value.extract()?;
@@ -493,6 +546,8 @@ impl FSharpCons {
             "UInt32" => ArrayType::UInt32,
             "Int64" => ArrayType::Int64,
             "UInt64" => ArrayType::UInt64,
+            "Float32" => ArrayType::Float32,
+            "Float64" => ArrayType::Float64,
             "String" => ArrayType::String,
             _ => ArrayType::Generic,
         };
@@ -534,6 +589,14 @@ impl FSharpCons {
             ArrayType::UInt64 => FSharpArray {
                 storage: ArrayStorage::UInt64(vec![0; length]),
                 nominal_type: ArrayType::UInt64,
+            },
+            ArrayType::Float32 => FSharpArray {
+                storage: ArrayStorage::Float32(vec![0.0; length]),
+                nominal_type: ArrayType::Float32,
+            },
+            ArrayType::Float64 => FSharpArray {
+                storage: ArrayStorage::Float64(vec![0.0; length]),
+                nominal_type: ArrayType::Float64,
             },
             ArrayType::String => FSharpArray {
                 storage: ArrayStorage::String(vec![String::new(); length]),
@@ -621,6 +684,8 @@ enum ArrayBuilder {
     UInt32(Vec<u32>),
     Int64(Vec<i64>),
     UInt64(Vec<u64>),
+    Float32(Vec<f32>),
+    Float64(Vec<f64>),
     String(Vec<String>),
     Generic(Vec<PyObject>),
 }
@@ -638,6 +703,8 @@ impl ArrayBuilder {
             ArrayType::UInt32 => ArrayBuilder::UInt32(Vec::with_capacity(cap)),
             ArrayType::Int64 => ArrayBuilder::Int64(Vec::with_capacity(cap)),
             ArrayType::UInt64 => ArrayBuilder::UInt64(Vec::with_capacity(cap)),
+            ArrayType::Float32 => ArrayBuilder::Float32(Vec::with_capacity(cap)),
+            ArrayType::Float64 => ArrayBuilder::Float64(Vec::with_capacity(cap)),
             ArrayType::String => ArrayBuilder::String(Vec::with_capacity(cap)),
             ArrayType::Generic => ArrayBuilder::Generic(Vec::with_capacity(cap)),
         }
@@ -655,9 +722,12 @@ impl ArrayBuilder {
             (ArrayBuilder::UInt32(res), ArrayStorage::UInt32(src)) => res.push(src[index]),
             (ArrayBuilder::Int64(res), ArrayStorage::Int64(src)) => res.push(src[index]),
             (ArrayBuilder::UInt64(res), ArrayStorage::UInt64(src)) => res.push(src[index]),
+            (ArrayBuilder::Float32(res), ArrayStorage::Float32(src)) => res.push(src[index]),
+            (ArrayBuilder::Float64(res), ArrayStorage::Float64(src)) => res.push(src[index]),
             (ArrayBuilder::String(res), ArrayStorage::String(src)) => res.push(src[index].clone()),
             (ArrayBuilder::Generic(res), ArrayStorage::PyObject(src)) => res.push(src[index].clone_ref(py)),
-            _ => panic!("Mismatched ArrayBuilder and ArrayStorage types in push_original"),
+            // Add a catch-all for safety, although it shouldn't be reached if types match
+            _ => panic!("Mismatched ArrayBuilder and ArrayStorage types in push_original. Builder: {:?}, Storage: {:?}", std::any::type_name_of_val(self), std::any::type_name_of_val(source_storage)),
         }
     }
 
@@ -673,6 +743,8 @@ impl ArrayBuilder {
             ArrayBuilder::UInt32(vec) => vec.push(mapped_item.extract::<UInt32>()?.0),
             ArrayBuilder::Int64(vec) => vec.push(mapped_item.extract::<Int64>()?.0),
             ArrayBuilder::UInt64(vec) => vec.push(mapped_item.extract::<UInt64>()?.0),
+            ArrayBuilder::Float32(vec) => vec.push(mapped_item.extract::<Float32>()?.0),
+            ArrayBuilder::Float64(vec) => vec.push(mapped_item.extract::<Float64>()?.0),
             ArrayBuilder::String(vec) => vec.push(mapped_item.extract()?),
             // Clone the Bound, then use .into() as Py<PyAny> implements From<Bound<'_, T>>
             ArrayBuilder::Generic(vec) => vec.push(mapped_item.clone().into()),
@@ -691,6 +763,8 @@ impl ArrayBuilder {
             ArrayBuilder::UInt32(vec) => ArrayStorage::UInt32(vec),
             ArrayBuilder::Int64(vec) => ArrayStorage::Int64(vec),
             ArrayBuilder::UInt64(vec) => ArrayStorage::UInt64(vec),
+            ArrayBuilder::Float32(vec) => ArrayStorage::Float32(vec),
+            ArrayBuilder::Float64(vec) => ArrayStorage::Float64(vec),
             ArrayBuilder::String(vec) => ArrayStorage::String(vec),
             ArrayBuilder::Generic(vec) => ArrayStorage::PyObject(Arc::new(vec)),
         }
