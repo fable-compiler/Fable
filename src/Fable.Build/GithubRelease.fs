@@ -53,8 +53,8 @@ let handle (args: string list) =
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
-    if currentBranch.Trim() <> "main" then
-        failwith "You must be on the main branch to release"
+    if currentBranch.Trim() <> "fable4" then
+        failwith "You must be on the fable4 branch to release"
 
     Publish.handle args
 
@@ -67,4 +67,4 @@ let handle (args: string list) =
 
     createReleaseCommitAndPush versionInfo
 
-    createGithubRelease githubToken versionInfo
+// createGithubRelease githubToken versionInfo
