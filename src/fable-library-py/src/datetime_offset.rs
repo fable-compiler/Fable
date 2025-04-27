@@ -28,7 +28,7 @@ pub fn register_datetime_offset_module(parent_module: &Bound<'_, PyModule>) -> P
 fn now() -> PyResult<PyObject> {
     // Get the current local time using chrono
     // Convert to Python datetime using PyO3's chrono feature
-    pyo3::prepare_freethreaded_python();
+    // pyo3::prepare_freethreaded_python();
     Python::with_gil(|py| {
         let now = Utc::now();
         let py_now = now.into_pyobject(py)?;

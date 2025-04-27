@@ -152,8 +152,9 @@ macro_rules! integer_variant {
                     Ok(other) => other,
                     Err(_) => {
                         return Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                            "Cannot convert argument to {}",
-                            stringify!($name)
+                            "Cannot convert argument {} to {}",
+                            other.call_method0("__str__")?.extract::<String>()?,
+                            stringify!($type)
                         )))
                     }
                 };
@@ -196,7 +197,7 @@ macro_rules! integer_variant {
                         }
                     },
                 };
-                Ok($name(self.0 * other))
+                Ok($name(self.0.wrapping_mul(other)))
             }
 
             pub fn __rmul__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {

@@ -12,8 +12,9 @@ packages = [{ include = "fable_library", from = "." }]
 python = ">= 3.10, < 4.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.1"
+pytest = "^8.3.5"
 maturin = "^1.8.3"
+hypothesis = "^6.131.9"
 
 [tool.maturin]
 python-source = "fable_library"

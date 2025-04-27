@@ -1,4 +1,4 @@
-from typing import TypeAlias
+from typing import TypeAlias, TypeVar
 
 from ._core import (
     Float32,
@@ -12,10 +12,15 @@ from ._core import (
     UInt32,
     UInt64,
     array,
+    datetime_offset,
 )
 
 
+_T = TypeVar("_T")
+
 # Type aliases for the built-in types
+Array: TypeAlias = array.FSharpArray
+
 byte: TypeAlias = UInt8
 sbyte: TypeAlias = Int8
 uint8: TypeAlias = UInt8
@@ -42,6 +47,7 @@ __all__: list[str] = [
     "UInt64",
     "array",
     "byte",
+    "datetime_offset",
     "float32",
     "float64",
     "int8",

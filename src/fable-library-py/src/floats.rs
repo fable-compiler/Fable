@@ -5,6 +5,9 @@ use pyo3::prelude::*;
 use std::ops::Deref;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher; // Using the same hasher as integers for consistency, though float hashing needs care.
+use pyo3::types::PyNotImplemented;
+use pyo3::types::PyBool;
+use pyo3::BoundObject;
 
 // Macro to generate float wrapper types (Float32, Float64)
 macro_rules! float_variant {
@@ -167,34 +170,22 @@ macro_rules! float_variant {
             }
 
             // --- Comparison ---
-            pub fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
-                // Attempt to convert 'other' to our float type.
-                // If conversion fails, Python's default behavior is often False for Eq/Ne
-                // and TypeError for ordered comparisons. We'll try to mimic this.
-                match Self::new(other) {
-                    Ok(other_float) => {
-                        let other_val = other_float.0;
-                        match op {
-                            CompareOp::Eq => Ok(self.0 == other_val),
-                            CompareOp::Ne => Ok(self.0 != other_val),
-                            CompareOp::Lt => Ok(self.0 < other_val),
-                            CompareOp::Le => Ok(self.0 <= other_val),
-                            CompareOp::Gt => Ok(self.0 > other_val),
-                            CompareOp::Ge => Ok(self.0 >= other_val),
-                        }
-                    },
-                    Err(_) => match op {
-                        // If comparison isn't possible, Eq is false, Ne is true.
-                        CompareOp::Eq => Ok(false),
-                        CompareOp::Ne => Ok(true),
-                        // Ordered comparisons raise TypeError if types are incompatible.
-                        _ => Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                            "'>', '<', '>=', '<=' not supported between instances of '{}' and '{}'",
-                            stringify!($name),
-                            other.get_type().qualname()?
-                        )))
-                    }
+            fn __richcmp__<'py>(&self, other: &Bound<'_, PyAny>, op: CompareOp, py: Python<'py>) -> PyResult<Borrowed<'py, 'py, PyAny>> {
+                // Try to convert other to our type first
+                if let Ok(other_float) = Self::new(other) {
+                    let other_val = other_float.0;
+                    let result = match op {
+                        CompareOp::Eq => self.0 == other_val,
+                        CompareOp::Ne => self.0 != other_val,
+                        CompareOp::Lt => self.0 < other_float.0,
+                        CompareOp::Le => self.0 <= other_float.0,
+                        CompareOp::Gt => self.0 > other_float.0,
+                        CompareOp::Ge => self.0 >= other_float.0,
+                    };
+                    return Ok(PyBool::new(py, result).into_any());
                 }
+                // Return NotImplemented to let Python try the other object's comparison
+                Ok(PyNotImplemented::get(py).into_any())
             }
 
             // --- Hashing ---

@@ -199,3 +199,31 @@ def test_to_string():
     assert byte(10).to_string(radix=10) == "10"
     assert byte(10).to_string(radix=16) == "a"
     assert byte(255).to_string(radix=2) == "11111111"
+
+
+def test_addition():
+    assert byte(1) + byte(1) == 2
+    assert byte(1) + 1 == 2
+    assert 1 + byte(1) == 2
+    assert byte(1) + sbyte(1) == 2
+    assert sbyte(1) + byte(1) == 2
+    assert byte(1) + int16(1) == 2
+    assert int16(1) + byte(1) == 2
+    assert byte(1) + int32(1) == 2
+    assert int32(1) + byte(1) == 2
+    assert byte(1) + int64(1) == 2
+    assert int64(1) + byte(1) == 2
+
+
+def test_addition_overflow():
+    assert byte(255) + byte(1) == 0
+    assert byte(255) + 1 == 0
+    assert 1 + byte(255) == 256  # Python ints are unbounded
+    assert byte(255) + sbyte(1) == 0
+    assert sbyte(1) + byte(127) == -128
+    assert byte(255) + int16(1) == 0
+    assert int16(1) + 32767 == -32768
+    assert byte(255) + int32(1) == 0
+    assert int32(1) + 2147483647 == -2147483648
+    assert byte(255) + int64(1) == 0
+    assert int64(1) + 9223372036854775807 == -9223372036854775808
