@@ -2306,7 +2306,14 @@ module Util =
         let expr, stmts = com.TransformAsExpr(ctx, guardExpr)
 
         match expr with
-        | Constant(value = BoolLiteral value) -> stmts @ com.TransformAsStatements(ctx, ret, thenStmnt)
+        | Constant(value = BoolLiteral value) ->
+            let e =
+                if value then
+                    thenStmnt
+                else
+                    elseStmnt
+
+            stmts @ com.TransformAsStatements(ctx, ret, e)
         | guardExpr ->
             let thenStmnt, stmts' =
                 transformBlock com ctx ret thenStmnt
