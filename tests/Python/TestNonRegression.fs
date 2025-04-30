@@ -197,3 +197,10 @@ let ``test with interfaces does not not lead to incorrect pattern matching`` () 
         | _ -> 3
 
     equal (typeMatchSomeBoxedObject "lol") 3
+
+module Issue3986 =
+    // We don't need a test for this, just that the generated
+    // Python code is valid and doesn't throw an error when
+    // interpreted.
+    type FieldFnCreator<'b, 'c> =
+        abstract eval<'a> : string -> ('c -> 'a)

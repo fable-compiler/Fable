@@ -4153,8 +4153,14 @@ module Util =
                 if List.isEmpty interfaces then
                     com.GetImportExpr(ctx, "typing", "Protocol")
 
-                for gen in classEnt.GenericParameters do
-                    Expression.subscript (com.GetImportExpr(ctx, "typing", "Generic"), com.AddTypeVar(ctx, gen.Name))
+                // Collect all generic type variables and create a single `Generic` base
+                let genericTypeVars =
+                    classEnt.GenericParameters
+                    |> Seq.map (fun gen -> com.AddTypeVar(ctx, gen.Name))
+                    |> Seq.toList
+
+                if not (List.isEmpty genericTypeVars) then
+                    Expression.subscript (com.GetImportExpr(ctx, "typing", "Generic"), Expression.tuple genericTypeVars)
             ]
 
         [ Statement.classDef (classIdent, body = classMembers, bases = bases) ]
