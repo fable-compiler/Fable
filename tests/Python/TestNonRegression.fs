@@ -181,6 +181,23 @@ let ``test class name casing`` () =
     let x = Issue3811.flowchartDirection.tb' ()
     equal Issue3811.FlowchartDirection.TB x
 
+module Issue3972 =
+    type IInterface =
+        abstract member LOL : int
+
+[<Fact>]
+let ``test with interfaces does not not lead to incorrect pattern matching`` () =
+    let sideEffect () = ()
+    let typeMatchSomeBoxedObject (o:obj) =
+        match o with
+        | :? int -> 1
+        | :? Issue3972.IInterface ->
+            sideEffect () // To avoid any code optimizations
+            2
+        | _ -> 3
+
+    equal (typeMatchSomeBoxedObject "lol") 3
+
 module Issue3986 =
     // We don't need a test for this, just that the generated
     // Python code is valid and doesn't throw an error when
