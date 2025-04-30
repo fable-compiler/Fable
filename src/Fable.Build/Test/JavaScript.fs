@@ -12,7 +12,7 @@ let private mainTestSourceDir = Path.Resolve("tests", "Js", "Main")
 
 let private mainTestProject = Path.Resolve("tests", "Js", "Main", "Fable.Tests.fsproj")
 
-let private mocha_bin = Path.Resolve("node_modules", ".bin", "mocha")
+let private mochaBin = Path.Resolve("node_modules", ".bin", "mocha")
 
 let private testReact(isWatch: bool) =
     let workingDirectory = Path.Resolve("tests", "React")
@@ -48,7 +48,7 @@ let private testAdaptive(isWatch: bool) =
         CmdLine.empty
         |> CmdLine.appendRaw "node"
         |> CmdLine.appendRaw "--enable-experimental-regexp-engine"
-        |> CmdLine.appendRaw mocha_bin
+        |> CmdLine.appendRaw mochaBin
         |> CmdLine.appendRaw destinationDir
         |> CmdLine.appendPrefix "--reporter" "dot"
         |> CmdLine.appendPrefix "-t" "10000"
@@ -90,7 +90,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
         CmdLine.empty
         |> CmdLine.appendRaw "node"
         |> CmdLine.appendRaw "--enable-experimental-regexp-engine"
-        |> CmdLine.appendRaw mocha_bin
+        |> CmdLine.appendRaw mochaBin
         |> CmdLine.appendRaw destinationDir
         |> CmdLine.appendPrefix "--reporter" "dot"
         |> CmdLine.appendPrefix "-t" "10000"
