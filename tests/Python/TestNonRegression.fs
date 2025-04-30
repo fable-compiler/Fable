@@ -180,3 +180,10 @@ let ``test custom equality and hashcode works`` () =
 let ``test class name casing`` () =
     let x = Issue3811.flowchartDirection.tb' ()
     equal Issue3811.FlowchartDirection.TB x
+
+module Issue3986 =
+    // We don't need a test for this, just that the generated
+    // Python code is valid and doesn't throw an error when
+    // interpreted.
+    type FieldFnCreator<'b, 'c> =
+        abstract eval<'a> : string -> ('c -> 'a)
