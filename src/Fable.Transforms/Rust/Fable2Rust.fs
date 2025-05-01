@@ -5416,6 +5416,7 @@ module Compiler =
                     mkInnerAttr "allow" [ "non_camel_case_types" ]
                     mkInnerAttr "allow" [ "non_snake_case" ]
                     mkInnerAttr "allow" [ "non_upper_case_globals" ]
+                    mkInnerAttr "allow" [ "unexpected_cfgs" ]
                     mkInnerAttr "allow" [ "unreachable_code" ]
                     mkInnerAttr "allow" [ "unused_attributes" ]
                     mkInnerAttr "allow" [ "unused_imports" ]
