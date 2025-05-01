@@ -179,8 +179,8 @@ let ``Async.Sleep works`` () =
     let mutable s = ""
     let a1 =
         async {
-            do! Async.Sleep(200)
-            s <- s + "200"
+            do! Async.Sleep(300)
+            s <- s + "300"
         }
     let a2 =
         async {
@@ -191,7 +191,7 @@ let ``Async.Sleep works`` () =
     let t2 = a2 |> Async.StartAsTask
     let r1 = t1.Result
     let r2 = t2.Result
-    s |> equal "100200"
+    s |> equal "100300"
 
 // type DisposableAction(f) =
 //     interface IDisposable with
