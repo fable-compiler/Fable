@@ -10,10 +10,11 @@ open SimpleExec
 
 let private mainTestSourceDir = Path.Resolve("tests", "Js", "Main")
 
-let private mainTestProject =
-    Path.Resolve("tests", "Js", "Main", "Fable.Tests.fsproj")
+let private mainTestProject = Path.Resolve("tests", "Js", "Main", "Fable.Tests.fsproj")
 
-let private testReact (isWatch: bool) =
+let private mochaBin = Path.Resolve("node_modules", ".bin", "mocha")
+
+let private testReact(isWatch: bool) =
     let workingDirectory = Path.Resolve("tests", "React")
 
     Command.Run("npm", "install", workingDirectory = workingDirectory)
@@ -21,7 +22,10 @@ let private testReact (isWatch: bool) =
     if isWatch then
         Async.Parallel
             [
-                Command.WatchFableAsync(CmdLine.appendRaw "--noCache", workingDirectory = workingDirectory)
+                Command.WatchFableAsync(
+                    CmdLine.appendRaw "--noCache",
+                    workingDirectory = workingDirectory
+                )
                 |> Async.AwaitTask
 
                 Command.RunAsync("npx", "jest --watch", workingDirectory = workingDirectory)
@@ -34,7 +38,7 @@ let private testReact (isWatch: bool) =
 
         Command.Run("npx", "jest", workingDirectory = workingDirectory)
 
-let private testAdaptive (isWatch: bool) =
+let private testAdaptive(isWatch: bool) =
     let folderName = "Adaptive"
     let sourceDir = Path.Resolve("tests", "Js", folderName)
 
@@ -42,8 +46,9 @@ let private testAdaptive (isWatch: bool) =
 
     let mochaCommand =
         CmdLine.empty
-        |> CmdLine.appendRaw "npx"
-        |> CmdLine.appendRaw "mocha"
+        |> CmdLine.appendRaw "node"
+        |> CmdLine.appendRaw "--enable-experimental-regexp-engine"
+        |> CmdLine.appendRaw mochaBin
         |> CmdLine.appendRaw destinationDir
         |> CmdLine.appendPrefix "--reporter" "dot"
         |> CmdLine.appendPrefix "-t" "10000"
@@ -83,8 +88,9 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
 
     let mochaCommand =
         CmdLine.empty
-        |> CmdLine.appendRaw "npx"
-        |> CmdLine.appendRaw "mocha"
+        |> CmdLine.appendRaw "node"
+        |> CmdLine.appendRaw "--enable-experimental-regexp-engine"
+        |> CmdLine.appendRaw mochaBin
         |> CmdLine.appendRaw destinationDir
         |> CmdLine.appendPrefix "--reporter" "dot"
         |> CmdLine.appendPrefix "-t" "10000"
@@ -129,7 +135,11 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
         |> Async.RunSynchronously
         |> ignore
     else
-        Command.Run("dotnet", "run -c Release", workingDirectory = Path.Combine("tests", "Js", "Main"))
+        Command.Run(
+            "dotnet",
+            "run -c Release",
+            workingDirectory = Path.Combine("tests", "Js", "Main")
+        )
 
         // Test the Main tests against JavaScript
         Command.Fable(fableArgs, workingDirectory = destinationDir)
@@ -143,7 +153,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
 // if isCI.IsSome then
 //     Standalone.handleStandaloneFast ()
 
-let handle (args: string list) =
+let handle(args: string list) =
     let isReactOnly = args |> List.contains "--react-only"
     let isStandaloneOnly = args |> List.contains "--standalone-only"
     let isAdaptiveOnly = args |> List.contains "--adaptive-only"
@@ -155,7 +165,8 @@ let handle (args: string list) =
     | (true, true, _)
     | (true, _, true)
     | (_, true, true) ->
-        failwith "Cannot use '--react-only', '--standalone-only' and '--adaptive-only' at the same time"
+        failwith
+            "Cannot use '--react-only', '--standalone-only' and '--adaptive-only' at the same time"
 
     | _ -> ()
 

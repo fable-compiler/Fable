@@ -37,6 +37,37 @@ let tests =
         let r = Regex("[a-z]", options)
         int r.Options |> equal 257
 
+    testCase "RegexOptions.NonBacktracking = 1024" <| fun _ ->
+        let options = RegexOptions.NonBacktracking
+        int options |> equal 1024
+
+    // these tests depend on 'node --enable-experimental-regexp-engine' or
+    // a newer version of V8 that supports 'l' flag
+    // /lu (with unicode) is not supported
+    // /lm (with multiline) is not supported
+    testCase "Nonbacktracking regex tests" <| fun _ ->
+        let none = RegexOptions.None
+        let nonb = RegexOptions.NonBacktracking
+        // let ignorecase = RegexOptions.IgnoreCase
+        // let multilineignorecase = multiline ||| ignorecase
+
+        let sameResult extraopts str pat =
+            let result1 = Regex.Match(str, pat, none ||| extraopts).Success
+            let result2 = Regex.Match(str, pat, nonb ||| extraopts).Success
+            equal result1 result2
+
+        let str = "For more information, see Chapter 3.4.5.1"
+        sameResult none str "Chapter \d+(\.\d)*"
+        sameResult none str "chapter \d+(\.\d)*"
+
+        // some combinations of settings are not allowed with linear:
+        // Invalid regular expression: /ab\ncd/ilm: Cannot be executed in linear time
+        // sameResult multilineignorecase "^ab" "ab\ncd"
+        // sameResult multilineignorecase "^cd" "ab\ncd"
+        // sameResult multilineignorecase "^AB" "ab\ncd"
+        // sameResult multilineignorecase "^bc" "ab\ncd"
+
+
     testCase "Regex.IsMatch with IgnoreCase and Multiline works" <| fun _ ->
         let str = "ab\ncd"
         let option1 = RegexOptions.IgnoreCase
