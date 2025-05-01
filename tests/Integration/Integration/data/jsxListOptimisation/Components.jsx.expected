@@ -1,0 +1,99 @@
+import * as react from "react";
+import { map, singleton, append, delay, toList } from "./fable_modules/fable-library-js.5.0.0-alpha.12/Seq.js";
+import { int32ToString } from "./fable_modules/fable-library-js.5.0.0-alpha.12/Util.js";
+import { rangeDouble } from "./fable_modules/fable-library-js.5.0.0-alpha.12/Range.js";
+
+export const React = react;
+
+export const divWithText = <div>
+    Test 1
+</div>;
+
+export const divWithNestedList = <div>
+    <div>
+        Test 1
+    </div>
+    <div>
+        Test 2
+    </div>
+</div>;
+
+export const divWithMultipleNestedList = <div>
+    <div>
+        Test 1
+    </div>
+    <div>
+        Test 2
+    </div>
+</div>;
+
+export const divWithMixOfElementAndList = <div>
+    <div>
+        Test 1
+    </div>
+    <div>
+        Test 2
+    </div>
+</div>;
+
+export const multiLevelMixOfElementAndList = <div>
+    <div>
+        Test 1
+    </div>
+    <div>
+        Test 2
+    </div>
+    <div>
+        <div>
+            Test 2.1
+        </div>
+        <div>
+            Test 2.2
+        </div>
+    </div>
+</div>;
+
+export const divWithOptimisedTrueCondition = <div>
+    <div>
+        true
+    </div>
+</div>;
+
+export const divWithOptimisedFalseCondition = <div>
+    <div>
+        false
+    </div>
+</div>;
+
+export function divWithConditionalChildren(a) {
+    return <div>
+        {(a === "b") ? (<div>
+            true
+        </div>) : (<div>
+            false
+        </div>)}
+    </div>;
+}
+
+export const divWithForLoop = <div>
+    <div>
+        Hello
+    </div>
+    {map((i) => <div key={int32ToString(i)}>
+        {i}
+    </div>, rangeDouble(0, 1, 2))}
+</div>;
+
+export const divWithFragment = <div>
+    <>
+        <div>
+            Test 1
+        </div>
+    </>
+</div>;
+
+export const divWithAttributes = <div className="header">
+    <div>
+        Test 1
+    </div>
+</div>;

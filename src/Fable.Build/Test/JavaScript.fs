@@ -21,11 +21,23 @@ let private testReact (isWatch: bool) =
     if isWatch then
         Async.Parallel
             [
-                Command.WatchFableAsync(CmdLine.appendRaw "--noCache", workingDirectory = workingDirectory)
+                Command.WatchFableAsync(
+                    CmdLine.appendRaw "watch"
+                    >> CmdLine.appendRaw "--noCache"
+                    // There seems to be some strange console Log writting
+                    >> CmdLine.appendRaw "--verbose"
+                    >> CmdLine.appendRaw "--runWatch"
+                    >> CmdLine.appendRaw "npx jest",
+                    workingDirectory = workingDirectory
+                )
                 |> Async.AwaitTask
 
-                Command.RunAsync("npx", "jest --watch", workingDirectory = workingDirectory)
-                |> Async.AwaitTask
+            // Running both command in the same shell don't seems to be working as expected.
+
+            // For now, we expect the user to use `./build.sh test javascript --react-only --watch`
+            // and `npx jest --watch` in a second terminal
+            // Command.RunAsync("npx", "jest --watch", workingDirectory = workingDirectory)
+            // |> Async.AwaitTask
             ]
         |> Async.RunSynchronously
         |> ignore
