@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBool, PyList};
+use pyo3::types::{PyAny, PyList};
 use pyo3::exceptions::PyValueError;
 use core::convert::Into;
 use pyo3::IntoPyObjectExt;
@@ -32,7 +32,7 @@ pub fn register_option_module(parent_module: &Bound<'_, PyModule>) -> PyResult<(
     Ok(())
 }
 
-#[pyclass]
+#[pyclass(module = "fable", frozen)]
 #[derive(Debug)]
 pub struct SomeWrapper {
     #[pyo3(get)]
