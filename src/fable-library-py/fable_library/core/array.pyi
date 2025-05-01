@@ -7,10 +7,52 @@ methods we have written in Rust. The file will never be used by Python at runtim
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from typing import Any, TypeVar
+from typing import Any, Literal, overload
+
+from .floats import Float32, Float64
+from .ints import Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64
+
+ArrayType = Literal[
+    "Int8",
+    "UInt8",
+    "Int16",
+    "UInt16",
+    "Int32",
+    "UInt32",
+    "Int64",
+    "UInt64",
+    "Float32",
+    "Float64",
+    "String",
+    "Generic",
+]
 
 class FSharpArray:
-    def __init__(self, elements: list[Any] | None = None, array_type: str | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[UInt8] | None = None, array_type: Literal["UInt8"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[Int8] | None = None, array_type: Literal["Int8"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[UInt16] | None = None, array_type: Literal["UInt16"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[Int16] | None = None, array_type: Literal["Int16"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[UInt32] | None = None, array_type: Literal["UInt32"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[Int32] | None = None, array_type: Literal["Int32"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[UInt64] | None = None, array_type: Literal["UInt64"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[Int64] | None = None, array_type: Literal["Int64"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[Float32] | None = None, array_type: Literal["Float32"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[Float64] | None = None, array_type: Literal["Float64"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[str] | None = None, array_type: Literal["String"] | None = None) -> None: ...
+    @overload
+    def __init__(self, elements: list[object] | None = None, array_type: Literal["Generic"] | None = None) -> None: ...
+    def __init__(self, elements: list[Any] | None = None, array_type: ArrayType | None = None) -> None: ...
     def __len__(self) -> int: ...
     def __getitem__(self, idx: int) -> Any: ...  # Use Any as return type since FSharpArray is not generic
     def __setitem__(self, idx: int, value: Any) -> None: ...
@@ -22,7 +64,7 @@ class FSharpArray:
 
 class FSharpCons:
     array_type: str
-    def __init__(self, array_type: str) -> None: ...
+    def __init__(self, array_type: ArrayType) -> None: ...
     # Allocate should probably return FSharpArray[Any] or a specific type based on cons?
     # For now, let's keep it simple, but this might need refinement.
     def allocate(self, length: int) -> FSharpArray: ...
