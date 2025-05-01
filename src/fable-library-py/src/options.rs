@@ -1,9 +1,9 @@
+use core::convert::Into;
+use pyo3::class::basic::CompareOp;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList};
-use pyo3::exceptions::PyValueError;
-use core::convert::Into;
 use pyo3::IntoPyObjectExt;
-use pyo3::class::basic::CompareOp;
 
 pub fn register_option_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
     let py = parent_module.py();
@@ -58,7 +58,12 @@ impl SomeWrapper {
         SomeWrapper { value }
     }
 
-    fn __richcmp__<'py>(&self, other: &Bound<'_, PyAny>, op: CompareOp, py: Python<'py>) -> PyResult<bool> {
+    fn __richcmp__<'py>(
+        &self,
+        other: &Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'py>,
+    ) -> PyResult<bool> {
         let other_value = extract_value(py, other)?;
         let result = self.value.bind(py).rich_compare(other_value, op)?;
         return Ok(result.is_truthy()?);
@@ -78,7 +83,8 @@ impl SomeWrapper {
 
 // Helper function to check if an object is a Some wrapper
 fn is_some_wrapper(py: Python<'_>, obj: &Bound<'_, PyAny>) -> bool {
-    obj.is_instance(&py.get_type::<SomeWrapper>()).unwrap_or(false)
+    obj.is_instance(&py.get_type::<SomeWrapper>())
+        .unwrap_or(false)
 }
 
 // Helper function to extract value from an option (None or SomeWrapper)
@@ -94,8 +100,26 @@ fn extract_value(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
     }
 }
 
+// Helper function to wrap a value in a SomeWrapper or return as is
+fn wrap_value(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    // Check if x is None or an instance of Some
+    if x.is_none() || is_some_wrapper(py, x) {
+        // Create a new SomeWrapper instance
+        let some_type = py.get_type::<SomeWrapper>();
+        let some_instance = some_type.call1((x,))?;
+        some_instance.into_py_any(py)
+    } else {
+        // If it's neither None nor a Some wrapper, just return x as is
+        x.into_py_any(py)
+    }
+}
+
 #[pyfunction]
-fn default_arg(py: Python<'_>, opt: &Bound<'_, PyAny>, default_value: PyObject) -> PyResult<PyObject> {
+fn default_arg(
+    py: Python<'_>,
+    opt: &Bound<'_, PyAny>,
+    default_value: PyObject,
+) -> PyResult<PyObject> {
     if opt.is_none() {
         Ok(default_value)
     } else {
@@ -104,7 +128,11 @@ fn default_arg(py: Python<'_>, opt: &Bound<'_, PyAny>, default_value: PyObject) 
 }
 
 #[pyfunction]
-fn default_arg_with(py: Python<'_>, opt: &Bound<'_, PyAny>, def_thunk: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn default_arg_with(
+    py: Python<'_>,
+    opt: &Bound<'_, PyAny>,
+    def_thunk: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
     if opt.is_none() {
         // Call the thunk function to get the default value
         Ok(def_thunk.call0()?.into())
@@ -114,7 +142,11 @@ fn default_arg_with(py: Python<'_>, opt: &Bound<'_, PyAny>, def_thunk: &Bound<'_
 }
 
 #[pyfunction]
-fn filter(py: Python<'_>, predicate: &Bound<'_, PyAny>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn filter(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    opt: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
     if opt.is_none() {
         return Ok(py.None());
     }
@@ -123,11 +155,7 @@ fn filter(py: Python<'_>, predicate: &Bound<'_, PyAny>, opt: &Bound<'_, PyAny>) 
     let result = predicate.call1((val.clone_ref(py),))?;
 
     if result.is_truthy()? {
-        if is_some_wrapper(py, opt) {
-            opt.into_py_any(py)
-        } else {
-            Ok(val)
-        }
+        opt.into_py_any(py)
     } else {
         Ok(py.None())
     }
@@ -142,14 +170,16 @@ fn map(py: Python<'_>, mapping: &Bound<'_, PyAny>, opt: &Bound<'_, PyAny>) -> Py
     let val = extract_value(py, opt)?;
     let result = mapping.call1((val,))?;
 
-    // Wrap the result in Some
-    let some_type = py.get_type::<SomeWrapper>();
-    let some_instance = some_type.call1((result,))?;
-    Ok(some_instance.into_pyobject(py)?.into())
+    wrap_value(py, &result)
 }
 
 #[pyfunction]
-fn map2(py: Python<'_>, mapping: &Bound<'_, PyAny>, opt1: &Bound<'_, PyAny>, opt2: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn map2(
+    py: Python<'_>,
+    mapping: &Bound<'_, PyAny>,
+    opt1: &Bound<'_, PyAny>,
+    opt2: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
     if opt1.is_none() || opt2.is_none() {
         return Ok(py.None());
     }
@@ -161,7 +191,13 @@ fn map2(py: Python<'_>, mapping: &Bound<'_, PyAny>, opt1: &Bound<'_, PyAny>, opt
 }
 
 #[pyfunction]
-fn map3(py: Python<'_>, mapping: &Bound<'_, PyAny>, opt1: &Bound<'_, PyAny>, opt2: &Bound<'_, PyAny>, opt3: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn map3(
+    py: Python<'_>,
+    mapping: &Bound<'_, PyAny>,
+    opt1: &Bound<'_, PyAny>,
+    opt2: &Bound<'_, PyAny>,
+    opt3: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
     if opt1.is_none() || opt2.is_none() || opt3.is_none() {
         return Ok(py.None());
     }
@@ -173,19 +209,9 @@ fn map3(py: Python<'_>, mapping: &Bound<'_, PyAny>, opt1: &Bound<'_, PyAny>, opt
     Ok(mapping.call1((val1, val2, val3))?.into())
 }
 
-
 #[pyfunction]
 fn some(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    // Check if x is None or an instance of Some
-    if x.is_none() || is_some_wrapper(py, x) {
-        // Create a new SomeWrapper instance
-        let some_type = py.get_type::<SomeWrapper>();
-        let some_instance = some_type.call1((x,))?;
-        return some_instance.into_py_any(py);
-    } else {
-        // If it's neither None nor a Some wrapper, just return x as is
-        return x.into_py_any(py)
-    }
+    wrap_value(py, x)
 }
 
 #[pyfunction]
@@ -241,7 +267,11 @@ fn bind(py: Python<'_>, binder: &Bound<'_, PyAny>, opt: &Bound<'_, PyAny>) -> Py
 }
 
 #[pyfunction]
-fn or_else(py: Python<'_>, opt: &Bound<'_, PyAny>, if_none: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn or_else(
+    py: Python<'_>,
+    opt: &Bound<'_, PyAny>,
+    if_none: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
     if opt.is_none() {
         if_none.into_pyobject(py)?.into_py_any(py)
     } else {
@@ -250,7 +280,11 @@ fn or_else(py: Python<'_>, opt: &Bound<'_, PyAny>, if_none: &Bound<'_, PyAny>) -
 }
 
 #[pyfunction]
-fn or_else_with(py: Python<'_>, opt: &Bound<'_, PyAny>, if_none_thunk: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn or_else_with(
+    py: Python<'_>,
+    opt: &Bound<'_, PyAny>,
+    if_none_thunk: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
     if opt.is_none() {
         if_none_thunk.call0()?.into_py_any(py)
     } else {
