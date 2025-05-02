@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Generic, TypeVar
+from typing import Generic, TypeAlias, TypeVar
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -17,7 +17,7 @@ class SomeWrapper(Generic[T]):
     def __eq__(self, other: object) -> bool: ...
 
 # Type alias for Option based on SomeWrapper or None
-Option = SomeWrapper[T] | None
+Option: TypeAlias = SomeWrapper[T] | None
 
 def default_arg(opt: Option[T], default_value: T) -> T: ...
 def default_arg_with(opt: Option[T], def_thunk: Callable[[], T]) -> T: ...

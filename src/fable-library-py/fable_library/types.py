@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import array
 from abc import abstractmethod
-from collections.abc import Callable, Iterable, MutableSequence
+from collections.abc import Callable, Iterable
 from typing import (
     Any,
     Generic,
@@ -11,7 +10,7 @@ from typing import (
     cast,
 )
 
-from .core import byte, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
+from .core import byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
 from .util import Array, IComparable, compare
 
 
@@ -51,7 +50,7 @@ class FSharpRef(Generic[_T]):
 class Union(IComparable):
     __slots__ = "fields", "tag"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.tag: int
         self.fields: Array[Any] = []
 
@@ -296,44 +295,8 @@ class char(int):
     __slots__ = ()
 
 
-class float32(float):
-    __slots__ = ()
-
-
 float = float  # use native float for float64
 IntegerTypes: TypeAlias = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
-
-
-def Int8Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("b", lst)
-
-
-def Uint8Array(lst: list[int]) -> MutableSequence[int]:
-    return bytearray(lst)
-
-
-def Int16Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("h", lst)
-
-
-def Uint16Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("H", lst)
-
-
-def Int32Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("i", lst)
-
-
-def Uint32Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("I", lst)
-
-
-def Float32Array(lst: list[float]) -> MutableSequence[float]:
-    return array.array("f", lst)
-
-
-def Float64Array(lst: list[float]) -> MutableSequence[float]:
-    return array.array("d", lst)
 
 
 def is_exception(x: Any):
@@ -345,19 +308,11 @@ __all__ = [
     "Attribute",
     "FSharpException",
     "FSharpRef",
-    "Float32Array",
-    "Float64Array",
-    "Int8Array",
-    "Int16Array",
-    "Int32Array",
-    "IntegerTypes",
-    "Record",
-    "Uint8Array",
-    "Uint16Array",
-    "Uint32Array",
     "Union",
     "byte",
     "char",
+    "float32",
+    "float64",
     "int8",
     "int16",
     "int32",
