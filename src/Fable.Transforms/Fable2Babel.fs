@@ -2951,13 +2951,17 @@ but thanks to the optimisation done below we get
 
         | _ -> transformDecisionTreeWithExtraSwitch com ctx returnStrategy targets treeExpr
 
-    let transformIdent (com: IBabelCompiler) ctx id =
-        let e = identAsExpr id
+    let transformIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
+        match id.Type with
+        // Remove unit idents, because the declaration may have been erased #4041
+        | Fable.Unit -> undefined id.Range None
+        | _ ->
+            let e = identAsExpr id
 
-        if com.IsTypeScript && ctx.ForcedIdents.Contains id.Name then
-            Expression.unaryExpression (UnaryNot, e, isSuffix = true)
-        else
-            e
+            if com.IsTypeScript && ctx.ForcedIdents.Contains id.Name then
+                Expression.unaryExpression (UnaryNot, e, isSuffix = true)
+            else
+                e
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr) : Expression =
         match expr with
