@@ -2957,6 +2957,12 @@ module Util =
         let name = Expression.name name
         Expression.call name, [ func ]
 
+    let transformIdent (com: IPythonCompiler) ctx (id: Fable.Ident) =
+        match id.Type with
+        // Remove unit idents, because the declaration may have been erased #4041
+        | Fable.Unit -> undefined id.Range
+        | _ -> identAsExpr com ctx id
+
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expression * Statement list =
         // printfn "transformAsExpr: %A" expr
         match expr with
@@ -2966,7 +2972,7 @@ module Util =
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
-        | Fable.IdentExpr id -> identAsExpr com ctx id, []
+        | Fable.IdentExpr id -> transformIdent com ctx id, []
 
         | Fable.Import({
                            Selector = selector
@@ -3161,7 +3167,7 @@ module Util =
 
             stmts @ (expr |> resolveExpr ctx kind.Type returnStrategy)
 
-        | Fable.IdentExpr id -> identAsExpr com ctx id |> resolveExpr ctx id.Type returnStrategy
+        | Fable.IdentExpr id -> transformIdent com ctx id |> resolveExpr ctx id.Type returnStrategy
 
         | Fable.Import({
                            Selector = selector

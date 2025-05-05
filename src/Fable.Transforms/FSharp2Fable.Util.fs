@@ -1818,8 +1818,7 @@ module Util =
     open TypeHelpers
     open Identifiers
 
-    let isUnitArg (ident: Fable.Ident) =
-        ident.IsCompilerGenerated && ident.Type = Fable.Unit
+    let isUnitArg (ident: Fable.Ident) = ident.Type = Fable.Unit
     // && (ident.DisplayName.StartsWith("unitVar") || ident.DisplayName.Contains("@"))
 
     let discardUnitArg (args: Fable.Ident list) =
