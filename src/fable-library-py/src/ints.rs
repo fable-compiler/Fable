@@ -65,50 +65,39 @@ macro_rules! integer_variant {
             }
         }
 
+        // No From trait implementations - using extract directly
+
         #[pymethods]
         impl $name {
             #[new]
             pub fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
-                // Fast path: Try to extract our own type directly
-                if let Ok(same_type) = value.extract::<Self>() {
-                    return Ok(same_type);
+                // Fast path: Try to extract directly as the raw type
+                if let Ok(i_val) = value.extract::<$type>() {
+                    return Ok(Self(i_val));
                 }
 
-                // Get the integer value via __int__ (single method call)
-                let int_value = match value.call_method0("__int__") {
-                    Ok(val) => val,
-                    Err(_) => {
-                        return Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                            "Cannot convert argument to {}",
-                            stringify!($name)
-                        )))
-                    }
-                };
-
-                // Extract as an i64 to preserve sign information
-                if let Ok(signed_val) = int_value.extract::<i64>() {
-                    // For signed types, convert directly
-                    if stringify!($type).starts_with('i') {
-                        return Ok(Self(signed_val as $type));
-                    }
-                    // For unsigned types, properly handle negative values by applying the mask
-                    else {
-                        // Convert to u64 and apply mask to get proper wraparound behavior
-                        let unsigned_val = signed_val as u64;
-                        let masked_val = unsigned_val & ($mask as u64);
-                        return Ok(Self(masked_val as $type));
-                    }
+                // Fast paths for our custom types
+                if let Ok(float64_val) = value.extract::<crate::floats::Float64>() {
+                    return Ok(Self(float64_val.value() as $type));
                 }
 
-                // Fallback to direct u64 extraction (should be rare)
-                if let Ok(unsigned_val) = int_value.extract::<u64>() {
-                    let masked_val = unsigned_val & ($mask as u64);
-                    return Ok(Self(masked_val as $type));
+                // Try extracting as integers
+                if let Ok(i_val) = value.extract::<i64>() {
+                    return Ok(Self(i_val as $type));
                 }
 
-                // If extraction fails, return error
+                if let Ok(u_val) = value.extract::<u64>() {
+                    return Ok(Self(u_val as $type));
+                }
+
+                // Fallback for other numeric types
+                if let Ok(f64_val) = value.extract::<f64>() {
+                    return Ok(Self(f64_val as $type));
+                }
+
                 Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                    "Cannot convert argument to {}",
+                    "Cannot convert argument of type {} to {}",
+                    value.get_type().name()?,
                     stringify!($name)
                 )))
             }
@@ -416,7 +405,20 @@ macro_rules! integer_variant {
                 self.0
             }
         }
-    };
+
+        // Implement the `Into` trait to allow automatic conversion to the underlying type
+        impl Into<$type> for $name {
+            fn into(self) -> $type {
+                self.0
+            }
+        }
+
+        impl Into<$name> for $type {
+            fn into(self) -> $name {
+                $name(self)
+            }
+        }
+     };
 }
 
 integer_variant!(Int8, i8, 0xff_u32);

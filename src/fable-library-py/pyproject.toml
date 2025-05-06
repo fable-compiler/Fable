@@ -15,6 +15,7 @@ python = ">= 3.10, < 4.0"
 pytest = "^8.3.5"
 maturin = "^1.8.3"
 hypothesis = "^6.131.9"
+pytest-benchmark = "^5.1.0"
 
 [tool.maturin]
 python-source = "fable_library"
@@ -24,7 +25,8 @@ module-name = "core._core"
 [tool.pytest.ini_options]
 minversion = "8.0"
 pythonpath = "."
-testpaths = ["tests"]
+testpaths = ["tests", "tests-benchmark"]
+addopts = "--benchmark-columns=min,max,mean,stddev,iqr"
 
 [build-system]
 requires = ["poetry-core>=1.0.0", "maturin>=1.5,<2.0"]

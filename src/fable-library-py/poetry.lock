@@ -51,14 +51,14 @@ test = ["pytest (>=6)"]
 
 [[package]]
 name = "hypothesis"
-version = "6.131.9"
+version = "6.131.10"
 description = "A library for property-based testing"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "hypothesis-6.131.9-py3-none-any.whl", hash = "sha256:7c2d9d6382e98e5337b27bd34e5b223bac23956787a827e1d087e00d893561d6"},
-    {file = "hypothesis-6.131.9.tar.gz", hash = "sha256:ee9b0e1403e1121c91921dbdc79d7f509fdb96d457a0389222d2a68d6c8a8f8e"},
+    {file = "hypothesis-6.131.10-py3-none-any.whl", hash = "sha256:cb41cba873bfe8ead52799be7196fc2dbf85f3b74338bfc94fee1221d24c66c4"},
+    {file = "hypothesis-6.131.10.tar.gz", hash = "sha256:d5becbd7a240b5bea4b93ec805ab09fc773707d78f4d8a27811c0216901c6dca"},
 ]
 
 [package.dependencies]
@@ -155,6 +155,18 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "py-cpuinfo"
+version = "9.0.0"
+description = "Get CPU info with pure Python"
+optional = false
+python-versions = "*"
+groups = ["dev"]
+files = [
+    {file = "py-cpuinfo-9.0.0.tar.gz", hash = "sha256:3cdbbf3fac90dc6f118bfd64384f309edeadd902d7c8fb17f02ffa1fc3f49690"},
+    {file = "py_cpuinfo-9.0.0-py3-none-any.whl", hash = "sha256:859625bc251f64e21f077d099d4162689c762b5d6a4c3c97553d56241c9674d5"},
+]
+
+[[package]]
 name = "pytest"
 version = "8.3.5"
 description = "pytest: simple powerful testing with Python"
@@ -176,6 +188,27 @@ tomli = {version = ">=1", markers = "python_version < \"3.11\""}
 
 [package.extras]
 dev = ["argcomplete", "attrs (>=19.2)", "hypothesis (>=3.56)", "mock", "pygments (>=2.7.2)", "requests", "setuptools", "xmlschema"]
+
+[[package]]
+name = "pytest-benchmark"
+version = "5.1.0"
+description = "A ``pytest`` fixture for benchmarking code. It will group the tests into rounds that are calibrated to the chosen timer."
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "pytest-benchmark-5.1.0.tar.gz", hash = "sha256:9ea661cdc292e8231f7cd4c10b0319e56a2118e2c09d9f50e1b3d150d2aca105"},
+    {file = "pytest_benchmark-5.1.0-py3-none-any.whl", hash = "sha256:922de2dfa3033c227c96da942d1878191afa135a29485fb942e85dff1c592c89"},
+]
+
+[package.dependencies]
+py-cpuinfo = "*"
+pytest = ">=8.1"
+
+[package.extras]
+aspect = ["aspectlib"]
+elasticsearch = ["elasticsearch"]
+histogram = ["pygal", "pygaljs", "setuptools"]
 
 [[package]]
 name = "sortedcontainers"
@@ -235,4 +268,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">= 3.10, < 4.0"
-content-hash = "247705a6d9da181625adcf7173e7b368daf21f698587ac6fe6f37922282d30b6"
+content-hash = "f3dccc877e24a24771b57bdbff2e1cfc8d69b0e20a9f8ec557e37edf3bcdc3c8"

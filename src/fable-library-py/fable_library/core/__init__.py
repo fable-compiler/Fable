@@ -20,7 +20,7 @@ from ._core import (
 _T = TypeVar("_T")
 
 # Type aliases for the built-in types
-Array: TypeAlias = array.FSharpArray
+Array: TypeAlias = array.FSharpArray[_T]
 ArrayType = Literal[
     "Int8",
     "UInt8",
@@ -50,6 +50,7 @@ float32: TypeAlias = Float32
 float64: TypeAlias = Float64
 
 __all__: list[str] = [
+    "ArrayType",
     "Float32",
     "Float64",
     "Int8",

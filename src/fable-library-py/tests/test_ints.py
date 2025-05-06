@@ -227,3 +227,36 @@ def test_addition_overflow():
     assert int32(1) + 2147483647 == -2147483648
     assert byte(255) + int64(1) == 0
     assert int64(1) + 9223372036854775807 == -9223372036854775808
+
+
+def test_float_to_int_conversion():
+    """Test the optimized conversion path from Float32/Float64 to integer types."""
+    from fable_library.core import float32, float64
+
+    # Test Float32 to various integer types
+    assert byte(float32(42.7)) == 42
+    assert sbyte(float32(42.7)) == 42
+    assert sbyte(float32(-42.7)) == -42
+    assert int16(float32(42.7)) == 42
+    assert int16(float32(-42.7)) == -42
+    assert uint16(float32(42.7)) == 42
+    assert int32(float32(42.7)) == 42
+    assert int32(float32(-42.7)) == -42
+    assert uint32(float32(42.7)) == 42
+    assert int64(float32(42.7)) == 42
+    assert int64(float32(-42.7)) == -42
+    assert uint64(float32(42.7)) == 42
+
+    # Test Float64 to various integer types
+    assert byte(float64(42.7)) == 42
+    assert sbyte(float64(42.7)) == 42
+    assert sbyte(float64(-42.7)) == -42
+    assert int16(float64(42.7)) == 42
+    assert int16(float64(-42.7)) == -42
+    assert uint16(float64(42.7)) == 42
+    assert int32(float64(42.7)) == 42
+    assert int32(float64(-42.7)) == -42
+    assert uint32(float64(42.7)) == 42
+    assert int64(float64(42.7)) == 42
+    assert int64(float64(-42.7)) == -42
+    assert uint64(float64(42.7)) == 42

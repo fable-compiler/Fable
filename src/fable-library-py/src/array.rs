@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use pyo3::class::basic::CompareOp;
-use pyo3::types::{PyTuple, PyType};
+use pyo3::types::{PyBytes, PyTuple, PyType};
 use crate::floats::{Float32, Float64};
 use crate::ints::{Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8};
 use pyo3::{exceptions, IntoPyObjectExt};
@@ -16,6 +16,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_class::<FSharpArray>()?;
 
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
+    m.add_function(wrap_pyfunction!(append, &m)?)?;
     m.add_function(wrap_pyfunction!(chunk_by_size, &m)?)?;
     m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
     m.add_function(wrap_pyfunction!(create, &m)?)?;
@@ -280,7 +281,7 @@ impl FSharpArray {
                     }
                 }
                 ArrayType::Float32 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<Float32, f32>(elements, |x| Ok(*Float32::new(x)?)) {
+                    if let Ok(vec) = extract_typed_vec_from_iterable::<Float32, f32>(elements, |x| Ok(*x.extract::<Float32>()?)) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::Float32(vec),
                             nominal_type,
@@ -288,7 +289,7 @@ impl FSharpArray {
                     }
                 }
                 ArrayType::Float64 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<Float64, f64>(elements, |x| Ok(*Float64::new(x)?)) {
+                    if let Ok(vec) = extract_typed_vec_from_iterable::<Float64, f64>(elements, |x| Ok(*x.extract::<Float64>()?)) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::Float64(vec),
                             nominal_type,
@@ -347,7 +348,6 @@ impl FSharpArray {
     ) -> PyResult<FSharpArray> {
         // Attempt to create specialized arrays based on value type
         if let Ok(int8) = value.extract::<Int8>() {
-            println!("Creating Int8 array");
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *int8);
             return Ok(FSharpArray {
@@ -502,6 +502,105 @@ impl FSharpArray {
         }
     }
 
+    pub fn __bytes__(&self, py: Python<'_>) -> PyResult<PyObject> {
+        match &self.storage {
+            // For UInt8/Int8 arrays, we can create bytes directly
+            ArrayStorage::UInt8(vec) => {
+                let bytes = PyBytes::new(py, vec.as_slice());
+                Ok(bytes.into())
+            },
+            ArrayStorage::Int8(vec) => {
+                // Convert i8 slice to u8 slice with unsafe transmute
+                // This is safe because we're just reinterpreting the bits
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            // For other numeric types, create a bytearray from their raw memory
+            ArrayStorage::Int16(vec) => {
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len() * std::mem::size_of::<i16>()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            ArrayStorage::UInt16(vec) => {
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len() * std::mem::size_of::<u16>()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            // Similar patterns for other numeric types
+            ArrayStorage::Int32(vec) => {
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len() * std::mem::size_of::<i32>()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            ArrayStorage::UInt32(vec) => {
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len() * std::mem::size_of::<u32>()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            ArrayStorage::Int64(vec) => {
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len() * std::mem::size_of::<i64>()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            ArrayStorage::UInt64(vec) => {
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len() * std::mem::size_of::<u64>()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            ArrayStorage::Float32(vec) => {
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len() * std::mem::size_of::<f32>()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            ArrayStorage::Float64(vec) => {
+                let bytes = PyBytes::new(py, unsafe {
+                    std::slice::from_raw_parts(
+                        vec.as_ptr() as *const u8,
+                        vec.len() * std::mem::size_of::<f64>()
+                    )
+                });
+                Ok(bytes.into())
+            },
+            // For non-numeric types, return NotImplemented
+            _ => {
+                Ok(py.NotImplemented())
+            }
+        }
+    }
+
     // Separate function to handle slice access
     fn get_item_slice(&self, slice: &Bound<'_, pyo3::types::PySlice>, py: Python<'_>) -> PyResult<PyObject> {
         let len = self.__len__();
@@ -583,8 +682,6 @@ impl FSharpArray {
         let len = self.__len__();
         let idx = if idx < 0 { len as isize + idx } else { idx };
 
-        // println!("get_item_at_index::Index: {:?}", idx);
-        // println!("get_item_at_index::Length: {:?}", len);
 
         if idx < 0 || idx as usize >= len {
             return Err(PyErr::new::<exceptions::PyIndexError, _>(
@@ -656,43 +753,113 @@ impl FSharpArray {
 
         match &mut self.storage {
             ArrayStorage::Int8(vec) => {
-                let int8_value: Int8 = Int8::new(value)?;
-                vec[idx as usize] = *int8_value;
+                if let Ok(i_val) = value.extract::<i8>() {
+                    vec[idx as usize] = i_val;
+                    return Ok(());
+                }
             }
             ArrayStorage::UInt8(vec) => {
-                let uint8_value: UInt8 = UInt8::new(value)?;
-                vec[idx as usize] = *uint8_value;
+                if let Ok(u_val) = value.extract::<u8>() {
+                    vec[idx as usize] = u_val;
+                    return Ok(());
+                }
             }
             ArrayStorage::Int16(vec) => {
-                let int16_value: Int16 = Int16::new(value)?;
-                vec[idx as usize] = *int16_value;
+                if let Ok(i_val) = value.extract::<i16>() {
+                    vec[idx as usize] = i_val;
+                    return Ok(());
+                }
             }
             ArrayStorage::UInt16(vec) => {
-                let uint16_value: UInt16 = UInt16::new(value)?;
-                vec[idx as usize] = *uint16_value;
+                if let Ok(u_val) = value.extract::<u16>() {
+                    vec[idx as usize] = u_val;
+                    return Ok(());
+                }
             }
             ArrayStorage::Int32(vec) => {
-                let int32_value: Int32 = Int32::new(value)?;
-                vec[idx as usize] = *int32_value;
+                if let Ok(i_val) = value.extract::<i32>() {
+                    vec[idx as usize] = i_val;
+                    return Ok(());
+                }
             }
             ArrayStorage::UInt32(vec) => {
-                let uint32_value: UInt32 = UInt32::new(value)?;
-                vec[idx as usize] = *uint32_value;
+                if let Ok(u_val) = value.extract::<u32>() {
+                    vec[idx as usize] = u_val;
+                    return Ok(());
+                }
             }
             ArrayStorage::Int64(vec) => {
-                let int64_value: Int64 = Int64::new(value)?;
-                vec[idx as usize] = *int64_value;
+                if let Ok(i_val) = value.extract::<i64>() {
+                    vec[idx as usize] = i_val;
+                    return Ok(());
+                }
             }
             ArrayStorage::UInt64(vec) => {
+                // Fast path: Try to extract directly as u64
+                if let Ok(u_val) = value.extract::<u64>() {
+                    vec[idx as usize] = u_val;
+                    return Ok(());
+                }
+
+                // Fast path: Try to extract as UInt64 wrapper
+                if let Ok(uint64_value) = value.extract::<UInt64>() {
+                    vec[idx as usize] = *uint64_value;
+                    return Ok(());
+                }
+
+                // Fast path: Try to extract as Float32/Float64 and convert
+                if let Ok(f32_val) = value.extract::<crate::floats::Float32>() {
+                    vec[idx as usize] = f32_val.0 as u64;
+                    return Ok(());
+                }
+
+                if let Ok(f64_val) = value.extract::<crate::floats::Float64>() {
+                    vec[idx as usize] = f64_val.0 as u64;
+                    return Ok(());
+                }
+
+                // Fast path: Try to extract as other integer types
+                if let Ok(i_val) = value.extract::<i64>() {
+                    vec[idx as usize] = i_val as u64;
+                    return Ok(());
+                }
+
+                // Fallback to full conversion
                 let uint64_value: UInt64 = UInt64::new(value)?;
                 vec[idx as usize] = *uint64_value;
             }
             ArrayStorage::Float32(vec) => {
-                let float32_value: Float32 = Float32::new(value)?;
+                // Fast path: Try to extract as Float32 wrapper first
+                if let Ok(float32_value) = value.extract::<Float32>() {
+                    vec[idx as usize] = *float32_value;
+                    return Ok(());
+                }
+
+                // Fast path: Try to extract directly as f32
+                if let Ok(f_val) = value.extract::<f32>() {
+                    vec[idx as usize] = f_val;
+                    return Ok(());
+                }
+
+                // Fallback to full conversion
+                let float32_value = value.extract::<Float32>()?;
                 vec[idx as usize] = *float32_value;
             }
             ArrayStorage::Float64(vec) => {
-                let float64_value: Float64 = Float64::new(value)?;
+                // Fast path: Try to extract as Float64 wrapper first
+                if let Ok(float64_value) = value.extract::<Float64>() {
+                    vec[idx as usize] = *float64_value;
+                    return Ok(());
+                }
+
+                // Fast path: Try to extract directly as f64
+                if let Ok(f_val) = value.extract::<f64>() {
+                    vec[idx as usize] = f_val;
+                    return Ok(());
+                }
+
+                // Fallback to full conversion
+                let float64_value = value.extract::<Float64>()?;
                 vec[idx as usize] = *float64_value;
             }
             ArrayStorage::String(vec) => {
@@ -2204,6 +2371,44 @@ impl FSharpArray {
         Ok(ArrayBuilder::create_array(results, &fs_cons.array_type))
     }
 
+    #[pyo3(signature = (array2, cons=None))]
+    pub fn append(
+        &self,
+        py: Python<'_>,
+        array2: &Bound<'_, PyAny>,
+        cons: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<FSharpArray> {
+        let array2 = ensure_array(py, array2)?;
+
+        // Verify that both arrays have the same type
+        if self.nominal_type != array2.nominal_type {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                "Cannot append arrays of different types: {:?} and {:?}",
+                self.nominal_type, array2.nominal_type
+            )));
+        }
+
+        let len1 = self.__len__();
+        let len2 = array2.__len__();
+
+        // Get constructor from cons parameter or use default
+        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let mut builder = fs_cons.create_builder(len1 + len2);
+
+        // Copy elements from first array
+        for i in 0..len1 {
+            builder.push_from_storage(&self.storage, i, py);
+        }
+
+        // Copy elements from second array
+        for i in 0..len2 {
+            builder.push_from_storage(&array2.storage, i, py);
+        }
+
+        // Create the final array
+        Ok(ArrayBuilder::create_array(builder, &fs_cons.array_type))
+    }
+
     pub fn map_indexed3(
         &self,
         py: Python<'_>,
@@ -2240,6 +2445,17 @@ impl FSharpArray {
 }
 
 // Loose functions that delegate to member functions
+#[pyfunction]
+#[pyo3(signature = (array1, array2, cons=None))]
+pub fn append(
+    py: Python<'_>,
+    array1: &FSharpArray,
+    array2: &Bound<'_, PyAny>,
+    cons: Option<&Bound<'_, PyAny>>,
+) -> PyResult<FSharpArray> {
+    array1.append(py, array2, cons)
+}
+
 #[pyfunction]
 pub fn singleton(
     py: Python<'_>,
@@ -2903,6 +3119,8 @@ where
     Ok(vec)
 }
 
+// Buffer protocol implementation removed
+
 // Helper enum for building result arrays efficiently for map/filter
 #[derive(Debug)]
 enum ArrayBuilder {
@@ -3041,8 +3259,8 @@ impl ArrayBuilder {
         // Get type names before the match to avoid borrow-after-move in panic!
         let builder_type_name = std::any::type_name_of_val(self);
         let storage_type_name = std::any::type_name_of_val(source_storage);
-        // println!("Builder: {:?}", self);
-        // println!("Storage: {:?}", source_storage);
+        println!("Builder: {:?}", self);
+        println!("Storage: {:?}", source_storage);
 
         match (self, source_storage) {
             (ArrayBuilder::Int8(res), ArrayStorage::Int8(src)) => res.push(src[index]),
@@ -3058,7 +3276,7 @@ impl ArrayBuilder {
             (ArrayBuilder::String(res), ArrayStorage::String(src)) => res.push(src[index].clone()),
             (ArrayBuilder::Generic(res), ArrayStorage::PyObject(src)) => res.push(src[index].clone_ref(py)),
             // Add a catch-all for safety, although it shouldn't be reached if types match
-            _ => panic!("Mismatched ArrayBuilder and ArrayStorage types in push_original. Builder: {:?}, Storage: {:?}", builder_type_name, storage_type_name),
+            _ => panic!("Mismatched ArrayBuilder and ArrayStorage types in push_from_storage. Builder: {:?}, Storage: {:?}", builder_type_name, storage_type_name),
         }
     }
 

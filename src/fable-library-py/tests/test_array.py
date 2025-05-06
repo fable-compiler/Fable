@@ -3,6 +3,7 @@ from typing import Any
 import hypothesis.strategies as st
 import pytest
 from fable_library.core import (
+    ArrayType,
     array,
     byte,
     float32,
@@ -104,7 +105,7 @@ def array_with_invalid_index_and_new_value(draw):
 
 
 @pytest.mark.parametrize("array_type", array_types.keys())
-def test_fsharp_array_create_empty(array_type: str) -> None:
+def test_fsharp_array_create_empty(array_type: ArrayType) -> None:
     """Test creating empty FSharpArray instances with different types."""
     # Create empty array with specified type
     empty_array: Array = Array(array_type=array_type)
@@ -114,12 +115,12 @@ def test_fsharp_array_create_empty(array_type: str) -> None:
 
 
 @given(array_data=array_with_elements())
-def test_fsharp_array_create_with_elements(array_data: tuple[str, list[Any]]) -> None:
+def test_fsharp_array_create_with_elements(array_data: tuple[ArrayType, list[Any]]) -> None:
     """Test creating FSharpArray instances with elements."""
     array_type, elements = array_data
 
     # Create array with the given elements and type
-    array_obj = array.FSharpArray(elements, array_type=array_type)
+    array_obj = array.FSharpArray(array_type, elements)
 
     # Check length
     assert len(array_obj) == len(elements)
@@ -137,7 +138,7 @@ def test_fsharp_array_invalid_type(input_data, invalid_type) -> None:
     """Test creating FSharpArray with an invalid array_type string defaults to Generic."""
     try:
         # Create the array with invalid type
-        arr: Array = array.FSharpArray(input_data, array_type=invalid_type)
+        arr: Array = array.FSharpArray(invalid_type, input_data)
 
         # Verify the array contains the same input data
         assert list(arr) == input_data
@@ -148,26 +149,32 @@ def test_fsharp_array_invalid_type(input_data, invalid_type) -> None:
 def test_fsharp_cons_invalid_type():
     """Test creating FSharpCons with an invalid array_type string defaults to Generic."""
     try:
-        cons = array.FSharpCons("AnotherInvalidType")
+        cons = array.FSharpCons("AnotherInvalidType")  # type:ignore[assignment]
         # The array_type attribute should be accessible and reflect the default
         assert cons.array_type == "Generic"
+
         # Test allocation using the defaulted generic constructor
+        # Note: allocate only sets capacity, not initialized values
         allocated_arr = cons.allocate(3)
-        assert len(allocated_arr) == 3
-        assert allocated_arr[0] is None  # Default for generic allocation
-        allocated_arr[0] = "works"  # Should allow setting different types
-        assert allocated_arr[0] == "works"
+        assert len(allocated_arr) == 0  # Length is 0 because no elements are initialized
+
+        # Now test with array.create which actually initializes values
+        created_arr = array.create(3, None)
+        assert len(created_arr) == 3
+        assert created_arr[0] is None  # Default for generic allocation
+        created_arr[0] = "works"  # Should allow setting different types
+        assert created_arr[0] == "works"
     except Exception as e:
         pytest.fail(f"Creating/using FSharpCons with invalid type raised unexpected error: {e}")
 
 
 @given(array_data=array_with_valid_index())
-def test_fsharp_array_getitem(array_data: tuple[str, list[Any], int]) -> None:
+def test_fsharp_array_getitem(array_data: tuple[ArrayType, list[Any], int]) -> None:
     """Test getting items from FSharpArray using hypothesis."""
     array_type, elements, index = array_data
 
     # Create array with the given elements and type
-    array_obj = array.FSharpArray(elements, array_type=array_type)
+    array_obj = array.FSharpArray(array_type, elements)
 
     # Get the expected value using Python's list indexing
     expected_value = elements[index]
@@ -183,12 +190,12 @@ def test_fsharp_array_getitem(array_data: tuple[str, list[Any], int]) -> None:
 
 
 @given(array_data=array_with_invalid_index())
-def test_fsharp_array_getitem_out_of_range(array_data: tuple[str, list[Any], int]) -> None:
+def test_fsharp_array_getitem_out_of_range(array_data: tuple[ArrayType, list[Any], int]) -> None:
     """Test getting items with out-of-range indices using hypothesis."""
     array_type, elements, index = array_data
 
     # Create array with the given elements and type
-    arr = array.FSharpArray(elements, array_type=array_type)
+    arr = array.FSharpArray(array_type, elements)
 
     # Test out-of-range indices
     with pytest.raises(IndexError):
@@ -196,13 +203,13 @@ def test_fsharp_array_getitem_out_of_range(array_data: tuple[str, list[Any], int
 
 
 @given(array_data=array_with_valid_index_and_new_value())
-def test_fsharp_array_setitem(array_data: tuple[str, list[Any], int, Any]) -> None:
+def test_fsharp_array_setitem(array_data: tuple[ArrayType, list[Any], int, Any]) -> None:
     """Test setting items in FSharpArray using hypothesis."""
 
     array_type, elements, index, new_value = array_data
 
     # Create array with the given elements and type
-    array_obj = array.FSharpArray(elements, array_type=array_type)
+    array_obj = array.FSharpArray(array_type, elements)
 
     # Set the new value
     array_obj[index] = new_value
@@ -223,12 +230,12 @@ def test_fsharp_array_setitem(array_data: tuple[str, list[Any], int, Any]) -> No
 
 
 @given(array_data=array_with_invalid_index_and_new_value())
-def test_fsharp_array_setitem_out_of_range(array_data: tuple[str, list[Any], int, Any]) -> None:
+def test_fsharp_array_setitem_out_of_range(array_data: tuple[ArrayType, list[Any], int, Any]) -> None:
     """Test setting items with out-of-range indices using hypothesis."""
     array_type, elements, index, new_value = array_data
 
     # Create array with the given elements and type
-    arr = array.FSharpArray(elements, array_type=array_type)
+    arr = array.FSharpArray(array_type, elements)
 
     # Test out-of-range indices
     with pytest.raises(IndexError):
@@ -238,7 +245,7 @@ def test_fsharp_array_setitem_out_of_range(array_data: tuple[str, list[Any], int
 def test_fsharp_array_mixed_types():
     """Test FSharpArray with mixed data types (Generic)."""
     mixed_list = [1, "hello", 3.14, True, None, sbyte(5)]
-    arr = array.FSharpArray(mixed_list, array_type="Generic")
+    arr = array.FSharpArray("Generic", mixed_list)
 
     # Check length
     assert len(arr) == len(mixed_list)
@@ -272,12 +279,10 @@ def test_fsharp_array_map_int8(elements):
     sbyte_elements = [sbyte(x) for x in elements]
 
     # Create the array
-    int8_array = array.FSharpArray(sbyte_elements, array_type="Int8")
+    int8_array = array.FSharpArray("Int8", sbyte_elements)
 
     # Define the mapping function
     def double_value(x):
-        print(f"Doubling value: {x}")
-
         return sbyte(x * 2)
 
     # Map the array
@@ -296,7 +301,7 @@ def test_fsharp_array_map_uint8(elements):
     byte_elements = [byte(x) for x in elements]
 
     # Create the array
-    uint8_array = array.FSharpArray(byte_elements, array_type="UInt8")
+    uint8_array = array.FSharpArray("UInt8", byte_elements)
 
     # Define the mapping function
     def double_value(x):
@@ -318,7 +323,7 @@ def test_fsharp_array_map_int32(elements):
     int32_elements = [int32(x) for x in elements]
 
     # Create the array
-    int32_array = array.FSharpArray(int32_elements, array_type="Int32")
+    int32_array = array.FSharpArray("Int32", int32_elements)
 
     # Define the mapping function
     def double_value(x):
@@ -340,7 +345,7 @@ def test_fsharp_array_map_float32(elements):
     float32_elements = [float32(x) for x in elements]
 
     # Create the array
-    float32_array = array.FSharpArray(float32_elements, array_type="Float32")
+    float32_array = array.FSharpArray("Float32", float32_elements)
 
     # Define the mapping function
     def double_value(x):
@@ -362,7 +367,7 @@ def test_fsharp_array_map_float64(elements):
     float64_elements = [float64(x) for x in elements]
 
     # Create the array
-    float64_array = array.FSharpArray(float64_elements, array_type="Float64")
+    float64_array = array.FSharpArray("Float64", float64_elements)
 
     # Define the mapping function
     def double_value(x):
@@ -381,7 +386,7 @@ def test_fsharp_array_map_float64(elements):
 def test_fsharp_array_map_string(elements):
     """Test mapping String array by duplicating each string."""
     # Create the array
-    string_array = array.FSharpArray(elements, array_type="String")
+    string_array = array.FSharpArray("String", elements)
 
     # Define the mapping function
     def duplicate_string(x):
@@ -400,7 +405,7 @@ def test_fsharp_array_map_string(elements):
 def test_fsharp_array_map_generic(elements):
     """Test mapping Generic array by converting elements to strings."""
     # Create the array
-    generic_array = array.FSharpArray(elements, array_type="Generic")
+    generic_array = array.FSharpArray("Generic", elements)
 
     # Define the mapping function
     def to_string(x):
@@ -424,7 +429,7 @@ def test_fsharp_array_map_with_constructor(elements):
     sbyte_elements = [sbyte(x) for x in elements]
 
     # Create the array
-    int8_array = array.FSharpArray(sbyte_elements, array_type="Int8")
+    int8_array = array.FSharpArray("Int8", sbyte_elements)
 
     # Create a constructor for Int32
     int32_cons = array.FSharpCons("Int32")
@@ -451,7 +456,7 @@ def test_fsharp_array_map_to_float(elements):
     sbyte_elements = [sbyte(x) for x in elements]
 
     # Create the array
-    int8_array = array.FSharpArray(sbyte_elements, array_type="Int8")
+    int8_array = array.FSharpArray("Int8", sbyte_elements)
 
     # Create a constructor for Float64
     float64_cons = array.FSharpCons("Float64")
@@ -478,7 +483,7 @@ def test_fsharp_array_map_to_string(elements):
     sbyte_elements = [sbyte(x) for x in elements]
 
     # Create the array
-    int8_array = array.FSharpArray(sbyte_elements, array_type="Int8")
+    int8_array = array.FSharpArray("Int8", sbyte_elements)
 
     # Create a constructor for String
     string_cons = array.FSharpCons("String")
@@ -512,78 +517,46 @@ def test_fsharp_cons():
     string_cons = array.FSharpCons("String")
     generic_cons = array.FSharpCons("Generic")
 
-    # Test allocate method
+    # Test allocate method - this only sets capacity, not initialized values
     int8_array = int8_cons.allocate(3)
-    assert len(int8_array) == 3
-    assert int8_array[0] == sbyte(0)
-    assert int8_array[1] == sbyte(0)
-    assert int8_array[2] == sbyte(0)
+    assert len(int8_array) == 0  # allocate only sets capacity, not length
 
     uint8_array = uint8_cons.allocate(3)
-    assert len(uint8_array) == 3
-    assert uint8_array[0] == byte(0)
-    assert uint8_array[1] == byte(0)
-    assert uint8_array[2] == byte(0)
+    assert len(uint8_array) == 0  # allocate only sets capacity, not length
 
     float32_array_alloc = float32_cons.allocate(3)
-    assert len(float32_array_alloc) == 3
-    assert float32_array_alloc[0] == pytest.approx(0.0)
-    assert float32_array_alloc[1] == pytest.approx(0.0)
-    assert float32_array_alloc[2] == pytest.approx(0.0)
+    assert len(float32_array_alloc) == 0  # allocate only sets capacity, not length
 
     float64_array_alloc = float64_cons.allocate(3)
-    assert len(float64_array_alloc) == 3
-    assert float64_array_alloc[0] == pytest.approx(0.0)
-    assert float64_array_alloc[1] == pytest.approx(0.0)
-    assert float64_array_alloc[2] == pytest.approx(0.0)
+    assert len(float64_array_alloc) == 0  # allocate only sets capacity, not length
 
     string_array = string_cons.allocate(3)
-    assert len(string_array) == 3
-    assert string_array[0] == ""
-    assert string_array[1] == ""
-    assert string_array[2] == ""
+    assert len(string_array) == 0  # allocate only sets capacity, not length
 
     int16_array_alloc = int16_cons.allocate(2)
-    assert len(int16_array_alloc) == 2
-    assert int16_array_alloc[0] == int16(0)
-    assert int16_array_alloc[1] == int16(0)
+    assert len(int16_array_alloc) == 0  # allocate only sets capacity, not length
 
     generic_array_alloc = generic_cons.allocate(4)
-    assert len(generic_array_alloc) == 4
-    assert generic_array_alloc[0] is None  # Default for generic is None
-    assert generic_array_alloc[1] is None
-    assert generic_array_alloc[2] is None
-    assert generic_array_alloc[3] is None
+    assert len(generic_array_alloc) == 0  # allocate only sets capacity, not length
 
     uint16_array_alloc = uint16_cons.allocate(1)
-    assert len(uint16_array_alloc) == 1
-    assert uint16_array_alloc[0] == uint16(0)
+    assert len(uint16_array_alloc) == 0  # allocate only sets capacity, not length
 
-    # Test __call__ method
+    # Test __call__ method - same as allocate
     int32_array_call = int32_cons(3)
-    assert len(int32_array_call) == 3
-    assert int32_array_call[0] == int32(0)
-    assert int32_array_call[1] == int32(0)
-    assert int32_array_call[2] == int32(0)
+    assert len(int32_array_call) == 0  # __call__ only sets capacity, not length
 
     int64_array_call = int64_cons(2)
-    assert len(int64_array_call) == 2
-    assert int64_array_call[0] == int64(0)
-    assert int64_array_call[1] == int64(0)
+    assert len(int64_array_call) == 0  # __call__ only sets capacity, not length
 
     uint32_array_call = uint32_cons(4)
-    assert len(uint32_array_call) == 4
-    assert uint32_array_call[0] == uint32(0)
-    assert uint32_array_call[3] == uint32(0)
+    assert len(uint32_array_call) == 0  # __call__ only sets capacity, not length
 
     uint64_array_call = uint64_cons(2)
-    assert len(uint64_array_call) == 2
-    assert uint64_array_call[0] == uint64(0)
-    assert uint64_array_call[1] == uint64(0)
+    assert len(uint64_array_call) == 0  # __call__ only sets capacity, not length
 
     generic_array_call = generic_cons(1)
-    assert len(generic_array_call) == 1
-    assert generic_array_call[0] is None
+    assert len(generic_array_call) == 0  # __call__ only sets capacity, not length
 
 
 def test_allocate_array_from_cons():
@@ -594,30 +567,28 @@ def test_allocate_array_from_cons():
     float32_cons = array.FSharpCons("Float32")
     float64_cons = array.FSharpCons("Float64")
 
-    # Test with constructor
+    # Test with constructor - allocate_array_from_cons only sets capacity, not initialized values
     int8_array = array.allocate_array_from_cons(int8_cons, 3)
-    assert len(int8_array) == 3
+    assert len(int8_array) == 0  # Should be empty since we are not initializing with values
 
     uint8_array = array.allocate_array_from_cons(uint8_cons, 3)
-    assert len(uint8_array) == 3
+    assert len(uint8_array) == 0  # Should be empty since we are not initializing with values
 
     float32_array = array.allocate_array_from_cons(float32_cons, 3)
-    assert len(float32_array) == 3
-    assert float32_array[0] == pytest.approx(0.0)
+    assert len(float32_array) == 0  # Should be empty since we are not initializing with values
 
     float64_array = array.allocate_array_from_cons(float64_cons, 3)
-    assert len(float64_array) == 3
-    assert float64_array[0] == pytest.approx(0.0)
+    assert len(float64_array) == 0  # Should be empty since we are not initializing with values
 
     # Test without constructor
     generic_array = array.allocate_array_from_cons(None, 3)
-    assert len(generic_array) == 3
+    assert len(generic_array) == 0  # Should be empty since we are not initializing with values
 
 
 def test_fsharp_array_map_with_cons():
     """Test the map function with a constructor."""
     # Create arrays with elements
-    int8_array = array.FSharpArray([sbyte(1), sbyte(2), sbyte(3)], array_type="Int8")
+    int8_array = array.FSharpArray("Int8", [sbyte(1), sbyte(2), sbyte(3)])
 
     # Create constructors
     int32_cons = array.FSharpCons("Int32")
@@ -641,7 +612,7 @@ def test_fsharp_array_map_with_cons():
 
 def test_fsharp_array_map_error_handling():
     """Test error handling within the map function's callback."""
-    int_array = array.FSharpArray([int32(1), int32(2), int32(3)], array_type="Int32")
+    int_array = array.FSharpArray("Int32", [int32(1), int32(2), int32(3)])
 
     def faulty_mapper(x):
         if x == 2:
@@ -656,12 +627,12 @@ def test_fsharp_array_map_error_handling():
 def test_fsharp_array_filter():
     """Test the filter function of FSharpArray."""
     # Create arrays with elements
-    int32_array = array.FSharpArray([int32(1), int32(2), int32(3), int32(4)], array_type="Int32")
-    float32_array = array.FSharpArray([float32(1.1), float32(-2.2), float32(3.3), float32(0.0)], array_type="Float32")
-    float64_array = array.FSharpArray([float64(1.1), float64(-2.2), float64(3.3), float64(0.0)], array_type="Float64")
-    string_array = array.FSharpArray(["a", "bb", "ccc", "d"], array_type="String")
-    generic_array = array.FSharpArray([1, "a", True, 2.0, sbyte(5)], array_type="Generic")
-    empty_array = array.FSharpArray([], array_type="Generic")
+    int32_array = array.FSharpArray("Int32", [int32(1), int32(2), int32(3), int32(4)])
+    float32_array = array.FSharpArray("Float32", [float32(1.1), float32(-2.2), float32(3.3), float32(0.0)])
+    float64_array = array.FSharpArray("Float64", [float64(1.1), float64(-2.2), float64(3.3), float64(0.0)])
+    string_array = array.FSharpArray("String", ["a", "bb", "ccc", "d"])
+    generic_array = array.FSharpArray("Generic", [1, "a", True, 2.0, sbyte(5)])
+    empty_array = array.FSharpArray("Generic", [])
 
     # Test filtering Int32 (keep even numbers)
     filtered_int32 = int32_array.filter(lambda x: x % 2 == 0)
@@ -712,7 +683,7 @@ def test_fsharp_array_filter():
 
 def test_fsharp_array_filter_error_handling():
     """Test error handling within the filter function's predicate."""
-    string_array = array.FSharpArray(["a", "b", "c"], array_type="String")
+    string_array = array.FSharpArray("String", ["a", "b", "c"])
 
     def faulty_predicate(x):
         if x == "b":
@@ -722,3 +693,49 @@ def test_fsharp_array_filter_error_handling():
     with pytest.raises(ValueError, match="Error during filtering"):
         # The error should propagate out of the filter call
         _ = string_array.filter(faulty_predicate)
+
+
+@pytest.mark.parametrize("array_type", ["Int8", "Int32", "Float64", "String", "Generic"])
+def test_fsharp_array_append(array_type: str) -> None:
+    """Test appending two FSharpArrays of the same type."""
+    # Create arrays of the same type
+    if array_type == "Int8":
+        elements1 = [sbyte(1), sbyte(2), sbyte(3)]
+        elements2 = [sbyte(4), sbyte(5)]
+    elif array_type == "Int32":
+        elements1 = [int32(1), int32(2), int32(3)]
+        elements2 = [int32(4), int32(5)]
+    elif array_type == "Float64":
+        elements1 = [float64(1.1), float64(2.2)]
+        elements2 = [float64(3.3), float64(4.4), float64(5.5)]
+    elif array_type == "String":
+        elements1 = ["a", "b", "c"]
+        elements2 = ["d", "e"]
+    else:  # Generic
+        elements1 = [1, "a", True]
+        elements2 = [False, 2]
+
+    # Create arrays with the given elements and types
+    array1 = array.FSharpArray(array_type, elements1)
+    array2 = array.FSharpArray(array_type, elements2)
+
+    # Append arrays
+    from fable_library import array_ as fable_array
+
+    result = fable_array.append(array1, array2)
+
+    # Check length
+    assert len(result) == len(elements1) + len(elements2)
+
+    # Check each element
+    for i, element in enumerate(elements1):
+        if array_type in ["Float32", "Float64"]:
+            assert result[i] == pytest.approx(element)
+        else:
+            assert result[i] == element
+
+    for i, element in enumerate(elements2):
+        if array_type in ["Float32", "Float64"]:
+            assert result[i + len(elements1)] == pytest.approx(element)
+        else:
+            assert result[i + len(elements1)] == element

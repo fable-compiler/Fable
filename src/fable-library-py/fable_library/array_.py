@@ -47,6 +47,7 @@ def Float64Array(lst: list[float64]) -> array.FSharpArray[float64]:
 
 
 # Import loose functions directly from array module
+append = array.append
 chunk_by_size = array.chunk_by_size
 compare_with = array.compare_with
 create = array.create
@@ -115,6 +116,7 @@ __all__ = [
     "UInt16Array",
     "UInt32Array",
     "UInt64Array",
+    "append",
     "chunk_by_size",
     "compare_with",
     "empty",
