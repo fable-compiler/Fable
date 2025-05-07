@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [Python] Fable Library for Python is now partially written in Rust (by @dbrattli)
+
 ## 5.0.0-alpha.13 - 2025-05-04
 
 ### Fixed
