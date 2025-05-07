@@ -720,9 +720,8 @@ def test_fsharp_array_append(array_type: str) -> None:
     array2 = array.FSharpArray(array_type, elements2)
 
     # Append arrays
-    from fable_library import array_ as fable_array
 
-    result = fable_array.append(array1, array2)
+    result = Array.append(array1, array2)
 
     # Check length
     assert len(result) == len(elements1) + len(elements2)
