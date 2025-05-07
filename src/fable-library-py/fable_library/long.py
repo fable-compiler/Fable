@@ -1,18 +1,10 @@
 from typing import Any
 
-from .types import FSharpRef
+from .types import FSharpRef, int32
 
 
 def compare(x: int, y: int) -> int:
     return -1 if x < y else 1 if x > y else 0
-
-
-def equals(a: int, b: int) -> bool:
-    return a == b
-
-
-def abs(x: int) -> int:
-    return -x if x < 0 else x
 
 
 def sign(x: int) -> int:
@@ -32,7 +24,6 @@ def op_unary_negation(value: int) -> int:
     return -value if value != -0x8000000000000000 else -0x8000000000000000
 
 
-# def op_unary_negation(a: int) -> int: return -a
 def op_unary_plus(a: int) -> int:
     return +a
 
@@ -191,50 +182,63 @@ def to_string(x: int) -> str:
     return str(x)
 
 
-def to_int(value: int) -> int:
-    if value > 9223372036854775807:
-        return value - 0x10000000000000000
-    return value
-
-
-long = int
-
 __all__ = [
-    "abs",
     "compare",
-    "equals",
     "from_bits",
     "from_int",
     "from_integer",
     "from_number",
     "from_value",
     "get_range",
-    "long",
+    "max",
     "max",
     "min",
+    "min",
+    "op_addition",
     "op_addition",
     "op_bitwise_and",
+    "op_bitwise_and",
+    "op_bitwise_or",
     "op_bitwise_or",
     "op_division",
+    "op_division",
+    "op_equality",
     "op_equality",
     "op_exclusive_or",
+    "op_exclusive_or",
+    "op_greater_than",
     "op_greater_than",
     "op_greater_than_or_equal",
+    "op_greater_than_or_equal",
+    "op_inequality",
     "op_inequality",
     "op_left_shift",
+    "op_left_shift",
+    "op_less_than",
     "op_less_than",
     "op_less_than_or_equal",
+    "op_less_than_or_equal",
+    "op_logical_not",
     "op_logical_not",
     "op_modulus",
+    "op_modulus",
+    "op_multiply",
     "op_multiply",
     "op_right_shift",
+    "op_right_shift",
+    "op_subtraction",
     "op_subtraction",
     "op_unary_negation",
+    "op_unary_negation",
+    "op_unary_plus",
     "op_unary_plus",
     "parse",
+    "parse",
     "sign",
-    "to_int",
+    "sign",
     "to_number",
     "to_string",
+    "to_string",
+    "try_parse",
     "try_parse",
 ]

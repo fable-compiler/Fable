@@ -212,10 +212,10 @@ module Python =
         let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
         let sourcePath = com.CurrentFile
 
-        let buildPackages =
+        let bundleLibrary =
             match cliArgs.FableLibraryPath with
-            | Some Py.Naming.sitePackages -> true
-            | _ -> false
+            | Some path when path.ToLowerInvariant() = Py.Naming.fableLibPyPI -> false
+            | _ -> true
 
         // Everything within the Fable hidden directory will be compiled as Library. We do this since the files there will be
         // compiled as part of the main project which might be a program (Exe) or library (Library).
@@ -272,8 +272,6 @@ module Python =
                                 None
                         elif part = ".." then
                             None
-                        elif part = Py.Naming.sitePackages then
-                            Some("fable_library")
                         elif part = Naming.fableModules && (not isLibrary) then
                             None
                         elif i = parts.Length - 1 then
@@ -300,8 +298,8 @@ module Python =
 
                         let parts = resolvedPath.Split('/')
 
-                        match buildPackages with
-                        | true -> packagePath parts
+                        match bundleLibrary with
+                        | false -> packagePath parts
                         | _ -> relativePath parts
                 else
                     path

@@ -75,7 +75,7 @@ let makeDecimalFromExpr com r t (e: Expr) =
     | Value(Fable.NumberConstant(NumberValue.Float32 x, _), _) -> makeDecimal com r t (decimal x)
     | Value(Fable.NumberConstant(NumberValue.Float64 x, _), _) -> makeDecimal com r t (decimal x)
     | Value(Fable.NumberConstant(NumberValue.Decimal x, _), _) -> makeDecimal com r t x
-    | _ -> Helper.LibCall(com, "decimal", "Decimal", t, [ e ], isConstructor = true, ?loc = r)
+    | _ -> Helper.LibCall(com, "decimal_", "create", t, [ e ], isConstructor = true, ?loc = r)
 
 let createAtom com (value: Expr) =
     let typ = value.Type
@@ -239,10 +239,6 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
 
-// Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
-let fastIntFloor expr =
-    let inner = makeUnOp None Any expr UnaryNotBitwise
-    makeUnOp None (Int32.Number) inner UnaryNotBitwise
 
 let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
     let kind =
@@ -298,12 +294,12 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
 
     let emitCast typeTo arg =
         match typeTo with
-        | Int8 -> emitExpr None Int8.Number [ arg ] "(int($0) + 0x80 & 0xFF) - 0x80"
-        | Int16 -> emitExpr None Int16.Number [ arg ] "(int($0) + 0x8000 & 0xFFFF) - 0x8000"
-        | Int32 -> fastIntFloor arg
-        | UInt8 -> emitExpr None UInt8.Number [ arg ] "int($0+0x100 if $0 < 0 else $0) & 0xFF"
-        | UInt16 -> emitExpr None UInt16.Number [ arg ] "int($0+0x10000 if $0 < 0 else $0) & 0xFFFF"
-        | UInt32 -> emitExpr None UInt32.Number [ arg ] "int($0+0x100000000 if $0 < 0 else $0)"
+        | Int8 -> Helper.LibCall(com, "types", "sbyte", targetType, [ arg ])
+        | Int16 -> Helper.LibCall(com, "types", "int16", targetType, [ arg ])
+        | Int32 -> Helper.LibCall(com, "types", "int32", targetType, [ arg ])
+        | UInt8 -> Helper.LibCall(com, "types", "byte", targetType, [ arg ])
+        | UInt16 -> Helper.LibCall(com, "types", "uint16", targetType, [ arg ])
+        | UInt32 -> Helper.LibCall(com, "types", "uint32", targetType, [ arg ])
         | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
 
     match sourceType, targetType with
@@ -316,7 +312,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         if needToCast typeFrom typeTo then
             match typeFrom with
             | Int64
-            | UInt64 -> Helper.LibCall(com, "Long", "to_int", targetType, args) // TODO: make no-op
+            | UInt64 -> Helper.LibCall(com, "types", "int32", targetType, args)
             | Decimal -> Helper.LibCall(com, "Decimal", "to_int", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo
@@ -344,14 +340,18 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Char -> TypeCast(head, String)
         | String -> head
         | Builtin BclGuid when tail.IsEmpty -> Helper.GlobalCall("str", String, [ head ], ?loc = r)
-        | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number((Int64 | UInt64 | BigInt), _) -> Helper.LibCall(com, "util", "int64_to_string", String, args)
-        | Number(Int8, _)
-        | Number(UInt8, _) -> Helper.LibCall(com, "util", "int8_to_string", String, args)
-        | Number(Int16, _) -> Helper.LibCall(com, "util", "int16_to_string", String, args)
-        | Number(Int32, _) -> Helper.LibCall(com, "util", "int32_to_string", String, args)
-        | Number(Decimal, _) -> Helper.LibCall(com, "decimal", "toString", String, args)
-        | Number _ -> Helper.LibCall(com, "types", "toString", String, [ head ], ?loc = r)
+        | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "to_string", String, args)
+        | Number(Int32, _) ->
+            let expr = Helper.LibCall(com, "types", "int32", head.Type, [ head ], ?loc = r)
+            Helper.InstanceCall(expr, "to_string", String, tail, ?loc = r)
+        | Number((Int8 | UInt8 | UInt16 | Int16 | UInt32 | Int64 | UInt64), _) ->
+            if tail.Length > 0 then
+                Helper.InstanceCall(head, "to_string", String, tail, ?loc = r)
+            else
+                Helper.GlobalCall("str", String, [ head ], ?loc = r)
+        | Number(BigInt, _) -> Helper.LibCall(com, "util", "int_to_string", String, args)
+        | Number(Decimal, _) -> Helper.LibCall(com, "decimal", "to_string", String, args)
+        | Number _ -> Helper.LibCall(com, "types", "to_string", String, [ head ], ?loc = r)
         | Array _
         | List _ -> Helper.LibCall(com, "types", "seqToString", String, [ head ], ?loc = r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
@@ -420,7 +420,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             match argTypes with
             // Floor result of integer divisions (see #172)
             | Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Int64 | UInt64 | BigInt), _) :: _ ->
-                binOp BinaryDivide left right |> fastIntFloor
+                binOp BinaryDivide left right |> truncateUnsigned
             | _ -> Helper.LibCall(com, "double", "divide", t, [ left; right ], argTypes, ?loc = r)
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530

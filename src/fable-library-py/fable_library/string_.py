@@ -19,7 +19,7 @@ from typing import (
 from .date import to_string as date_to_string
 from .numeric import multiply, to_exponential, to_fixed, to_hex, to_precision
 from .reg_exp import escape
-from .types import to_string
+from .types import byte, int16, int32, int64, sbyte, to_string, uint16, uint32, uint64
 
 
 T = TypeVar("T")
@@ -81,35 +81,36 @@ def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, for
     flags = flags or ""
     format = format or ""
 
-    if isinstance(rep, int | float):
-        if format not in ["x", "X"]:
-            if rep < 0:
-                rep = rep * -1
-                sign = "-"
-            else:
-                if flags.find(" ") >= 0:
-                    sign = " "
-                elif flags.find("+") >= 0:
-                    sign = "+"
+    match rep:
+        case int() | float() | byte() | uint16() | uint32() | uint64() | sbyte() | int16() | int32() | int64():
+            if format not in ["x", "X"]:
+                if rep < 0:
+                    rep = rep * -1
+                    sign = "-"
+                else:
+                    if flags.find(" ") >= 0:
+                        sign = " "
+                    elif flags.find("+") >= 0:
+                        sign = "+"
 
-        if format == "x":
-            rep = to_hex(cast(int, rep))
-        elif format == "X":
-            rep = to_hex(cast(int, rep)).upper()
-        if format in ("f", "F"):
-            precision = int(precision) if precision is not None else 6
-            rep = to_fixed(rep, precision)
-        elif format in ("g", "G"):
-            rep = to_precision(rep, precision) if precision is not None else to_precision(rep)
-        elif format in ("e", "E"):
-            rep = to_exponential(rep, precision) if precision is not None else to_exponential(rep)
-        else:  # AOid
+            if format == "x":
+                rep = to_hex(cast(int, rep))
+            elif format == "X":
+                rep = to_hex(cast(int, rep)).upper()
+            if format in ("f", "F"):
+                precision = int(precision) if precision is not None else 6
+                rep = to_fixed(rep, precision)
+            elif format in ("g", "G"):
+                rep = to_precision(rep, precision) if precision is not None else to_precision(float(rep))
+            elif format in ("e", "E"):
+                rep = to_exponential(rep, precision) if precision is not None else to_exponential(float(rep))
+            else:  # AOid
+                rep = to_string(rep)
+
+        case datetime():
+            rep = date_to_string(rep)
+        case _:
             rep = to_string(rep)
-
-    elif isinstance(rep, datetime):
-        rep = date_to_string(rep)
-    else:
-        rep = to_string(rep)
 
     if padLength is not None:
         padLength = int(padLength)
@@ -189,7 +190,7 @@ def format(string: str, *args: Any) -> str:
     def match(m: Match[str]) -> str:
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
-        if isinstance(rep, int | float):
+        if isinstance(rep, int | byte | int16 | int32 | int64 | sbyte | uint16 | uint32 | uint64 | float):
             precision: int | None = None
             try:
                 precision: int | None = int(precision_)
@@ -213,7 +214,9 @@ def format(string: str, *args: Any) -> str:
             elif format in ["d", "D"]:
                 rep = pad_left(str(rep), precision, "0") if precision is not None else str(rep)
 
-            elif format in ["x", "X"] and isinstance(rep, int):
+            elif format in ["x", "X"] and isinstance(
+                rep, int | byte | int16 | int32 | int64 | sbyte | uint16 | uint32 | uint64
+            ):
                 rep = pad_left(to_hex(rep), precision, "0") if precision is not None else to_hex(rep)
                 if format == "X":
                     rep = rep.upper()

@@ -140,24 +140,11 @@ module private Util =
                         .Substring(outDir.Length, absPath.Length - outDir.Length - fileName.Length)
                         .Trim([| '/'; '\\' |])
                         .Split([| '/'; '\\' |])
-
-                let modules =
-                    match Array.toList modules, cliArgs.FableLibraryPath with
-                    | Naming.fableModules :: package :: modules, Some Py.Naming.sitePackages ->
-                        // When building packages we generate Python snake_case module within the kebab-case package
-                        let packageModule = package.Replace("-", "_")
-                        // Make sure all modules (subdirs) we create within outDir are lower case (PEP8)
-                        let modules = modules |> List.map (fun m -> m.ToLowerInvariant())
-
-                        Naming.fableModules :: package :: packageModule :: modules
-                    | modules, _ ->
-                        modules
-                        |> List.map (fun m ->
-                            match m with
-                            | "." -> ""
-                            | m -> m.Replace(".", "_")
-                        )
-                    |> List.toArray
+                    |> Array.map (fun m ->
+                        match m with
+                        | "." -> ""
+                        | m -> m.Replace(".", "_")
+                    )
                     |> IO.Path.Join
 
                 let fileName = fileName |> Pipeline.Python.getTargetPath cliArgs

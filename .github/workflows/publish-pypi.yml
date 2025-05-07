@@ -1,0 +1,280 @@
+name: Publish to PyPI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build-fable-library:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+      - name: Install Poetry and Maturin
+        run: |
+          pipx install poetry
+          pipx install maturin
+      - name: Transpile F# to Python
+        run: ./build.sh fable-library --python
+      - name: Install Dunamai
+        run: pipx install dunamai
+      - name: Set version
+        run: |
+          VERSION=$(dunamai from git --format "{base}{stage}{revision}" --pattern "^(?P<base>\d+\.\d+\.\d+)((-(?P<stage>alpha|beta|theta))\.(?P<revision>\d+))?$" --latest-tag)
+          # Convert stage names to PEP440 equivalents
+          VERSION=${VERSION/alpha/a}
+          VERSION=${VERSION/beta/b}
+          echo "Setting version to $VERSION"
+          cd temp/fable-library-py
+          poetry version $VERSION
+          mkdir -p fable_library
+          echo "__version__ = \"$VERSION\"" > fable_library/_version.py
+      - name: Upload fable-library-py
+        uses: actions/upload-artifact@v4
+        with:
+          name: fable-library-py
+          path: ./temp/fable-library-py
+          retention-days: 1
+
+  test:
+    needs: build-fable-library
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Download fable-library-py
+        uses: actions/download-artifact@v4
+        with:
+          name: fable-library-py
+          path: ./src/fable-library-py
+      - name: Build and install
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: ./src/fable-library-py
+          args: --release --features=pyo3/extension-module
+      - name: Test
+        run: |
+          cd src/fable-library-py
+          poetry install
+          poetry run maturin develop --release
+          poetry run pytest tests
+
+  linux:
+    needs: build-fable-library
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-22.04
+            target: x86_64
+          - runner: ubuntu-22.04
+            target: x86
+          - runner: ubuntu-22.04
+            target: aarch64
+          - runner: ubuntu-22.04
+            target: armv7
+          - runner: ubuntu-22.04
+            target: s390x
+          - runner: ubuntu-22.04
+            target: ppc64le
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+      - name: Download fable-library-py
+        uses: actions/download-artifact@v4
+        with:
+          name: fable-library-py
+          path: ./temp/fable-library-py
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          manylinux: auto
+          working-directory: ./temp/fable-library-py
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.platform.target }}
+          path: ./temp/fable-library-py/dist
+
+  musllinux:
+    needs: build-fable-library
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-22.04
+            target: x86_64
+          - runner: ubuntu-22.04
+            target: x86
+          - runner: ubuntu-22.04
+            target: aarch64
+          - runner: ubuntu-22.04
+            target: armv7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+      - name: Download fable-library-py
+        uses: actions/download-artifact@v4
+        with:
+          name: fable-library-py
+          path: ./temp/fable-library-py
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          manylinux: musllinux_1_2
+          working-directory: ./temp/fable-library-py
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-musllinux-${{ matrix.platform.target }}
+          path: ./temp/fable-library-py/dist
+
+  windows:
+    needs: build-fable-library
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: windows-latest
+            target: x64
+          - runner: windows-latest
+            target: x86
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+          architecture: ${{ matrix.platform.target }}
+      - name: Download fable-library-py
+        uses: actions/download-artifact@v4
+        with:
+          name: fable-library-py
+          path: ./temp/fable-library-py
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          working-directory: ./temp/fable-library-py
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.platform.target }}
+          path: ./temp/fable-library-py/dist
+
+  macos:
+    needs: build-fable-library
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: macos-13
+            target: x86_64
+          - runner: macos-14
+            target: aarch64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+      - name: Download fable-library-py
+        uses: actions/download-artifact@v4
+        with:
+          name: fable-library-py
+          path: ./temp/fable-library-py
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          working-directory: ./temp/fable-library-py
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.platform.target }}
+          path: ./temp/fable-library-py/dist
+
+  sdist:
+    needs: build-fable-library
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download fable-library-py
+        uses: actions/download-artifact@v4
+        with:
+          name: fable-library-py
+          path: ./temp/fable-library-py
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+          working-directory: ./temp/fable-library-py
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: ./temp/fable-library-py/dist
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
+    needs: [linux, musllinux, windows, macos, sdist]
+    permissions:
+      # Use to sign the release artifacts
+      id-token: write
+      # Used to upload release artifacts
+      contents: write
+      # Used to generate artifact attestation
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'wheels-*/*'
+      - name: Publish to PyPI
+        if: ${{ github.event_name == 'release' }}
+        uses: PyO3/maturin-action@v1
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        with:
+          command: upload
+          args: --non-interactive --skip-existing wheels-*/*
+          working-directory: ./temp/fable-library-py

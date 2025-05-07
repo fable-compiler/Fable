@@ -446,6 +446,8 @@ def tohex(val: int, nbits: int | None = None) -> str:
 
 
 def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
+    i = int(i)  # Translate core pyo3 integers to Python integers
+
     if radix == 10:
         return f"{i:d}"
     if radix == 16:
@@ -455,22 +457,6 @@ def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     if radix == 8:
         return f"{i:o}"
     return str(i)
-
-
-def int8_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
-    return int_to_string(i, radix, 8)
-
-
-def int16_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
-    return int_to_string(i, radix, 16)
-
-
-def int32_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
-    return int_to_string(i, radix, 32)
-
-
-def int64_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
-    return int_to_string(i, radix, 64)
 
 
 def count(col: Iterable[Any]) -> int:
@@ -2560,7 +2546,7 @@ def is_disposable(x: Any) -> bool:
     return x is not None and isinstance(x, IDisposable)
 
 
-def dispose(x: Disposable | AbstractContextManager[Any]) -> None:
+def dispose(x: IDisposable | AbstractContextManager[Any]) -> None:
     """Helper to dispose objects.
 
     Also tries to call `__exit__` if the object turns out to be a Python resource manager.
@@ -2632,7 +2618,7 @@ def string_hash(s: str) -> int:
 
 
 def number_hash(x: int) -> int:
-    return x * 2654435761 | 0
+    return int(x) * 2654435761 | 0
 
 
 def identity_hash(x: Any) -> int:

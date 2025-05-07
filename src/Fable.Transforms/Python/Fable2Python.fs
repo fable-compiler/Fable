@@ -440,18 +440,19 @@ module Reflection =
         | Fable.String -> pyTypeof "<class 'str'>" expr
         | Fable.Number(kind, _b) ->
             match kind, typ with
-            | _, Fable.Type.Number(Int8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int8'>" expr
-            | _, Fable.Type.Number(UInt8, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint8'>" expr
-            | _, Fable.Type.Number(Int16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int16'>" expr
-            | _, Fable.Type.Number(UInt16, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint16'>" expr
-            | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'int'>" expr
-            | _, Fable.Type.Number(UInt32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint32'>" expr
-            | _, Fable.Type.Number(Int64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.int64'>" expr
-            | _, Fable.Type.Number(UInt64, _) -> pyTypeof "<class 'fable_modules.fable_library.types.uint64'>" expr
-            | _, Fable.Type.Number(Float32, _) -> pyTypeof "<class 'fable_modules.fable_library.types.float32'>" expr
+            | _, Fable.Type.Number(UInt8, _) -> pyInstanceof (libValue com ctx "types" "uint8") expr
+            | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "types" "int8") expr
+            | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "types" "int16") expr
+            | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "types" "uint16") expr
+            | _, Fable.Type.Number(Int32, _) ->
+                pyInstanceof (Expression.binOp (Expression.name "int", BitOr, libValue com ctx "types" "int32")) expr
+            | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "types" "uint32") expr
+            | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "types" "int64") expr
+            | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "types" "uint64") expr
+            | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "types" "float32") expr
             | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
             | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
-            | _ -> pyTypeof "<class 'int'>" expr
+            | _ -> pyInstanceof (Expression.name "int") expr
 
         | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
         | Fable.LambdaType _
@@ -763,14 +764,14 @@ module Annotation =
         let numberInfo kind =
             let name =
                 match kind with
-                | Int8 -> "int8"
-                | UInt8 -> "uint8"
+                | Int8 -> "sbyte"
+                | UInt8 -> "byte"
                 | Int16 -> "int16"
                 | UInt16 -> "uint16"
                 | UInt32 -> "uint32"
                 | Int64 -> "int64"
                 | UInt64 -> "uint64"
-                | Int32
+                | Int32 -> "int"
                 | BigInt
                 | Int128
                 | UInt128
@@ -1209,7 +1210,6 @@ module Util =
             Expression.call (bytearray, [ Expression.list expr ]), stmts
         | Some l ->
             let array = com.GetImportExpr(ctx, "array", "array")
-
             Expression.call (array, Expression.stringConstant l :: [ Expression.list expr ]), stmts
         | _ -> expr |> Expression.list, stmts
 
@@ -1655,6 +1655,7 @@ module Util =
         com.GetImportExpr(ctx, moduleName, name) |> getParts com ctx parts
 
     let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * Statement list =
+        // printfn "transformCast: %A" (t, e)
         match t with
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
@@ -1669,6 +1670,15 @@ module Util =
                 libCall com ctx None "util" "to_enumerable" [ xs ], stmts
 
             | _ -> com.TransformAsExpr(ctx, e)
+        | Fable.Number(Float32, _)
+        | Fable.Number(Float64, _) ->
+            let cons = libValue com ctx "types" "float32"
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            Expression.call (cons, [ value ], ?loc = None), stmts
+        | Fable.Number(Int32, _) ->
+            let cons = libValue com ctx "types" "int32"
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            Expression.call (cons, [ value ], ?loc = None), stmts
         | _ -> com.TransformAsExpr(ctx, e)
 
     let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity : Expression * Statement list =
@@ -2036,26 +2046,6 @@ module Util =
 
     let transformOperation com ctx range opKind tags : Expression * Statement list =
         match opKind with
-        // | Fable.Unary (UnaryVoid, TransformExpr com ctx (expr, stmts)) -> Expression.none, stmts
-        // | Fable.Unary (UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
-        //     let func = Expression.name ("type")
-        //     let args = [ expr ]
-        //     Expression.call (func, args), stmts
-
-        // Transform `~(~(a/b))` to `a // b`
-        | Fable.Unary(UnaryOperator.UnaryNotBitwise,
-                      Fable.Operation(
-                          kind = Fable.Unary(UnaryOperator.UnaryNotBitwise,
-                                             Fable.Operation(
-                                                 kind = Fable.Binary(BinaryOperator.BinaryDivide,
-                                                                     TransformExpr com ctx (left, stmts),
-                                                                     TransformExpr com ctx (right, stmts')))))) ->
-            Expression.binOp (left, FloorDiv, right), stmts @ stmts'
-        | Fable.Unary(UnaryOperator.UnaryNotBitwise,
-                      Fable.Operation(
-                          kind = Fable.Unary(UnaryOperator.UnaryNotBitwise, TransformExpr com ctx (left, stmts)))) ->
-            let name = Expression.name "int"
-            Expression.call (name, [ left ]), stmts
         | Fable.Unary(op, TransformExpr com ctx (expr, stmts)) -> Expression.unaryOp (op, expr, ?loc = range), stmts
 
         // | Fable.Binary (BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
@@ -2063,7 +2053,10 @@ module Util =
         //     let args = [ left; right ]
         //     Expression.call (func, args), stmts' @ stmts
 
-        | Fable.Binary(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
+        | Fable.Binary(op, TransformExpr com ctx (left, stmts), right: Fable.Expr) ->
+            let typ = right.Type
+            let right, stmts' = com.TransformAsExpr(ctx, right)
+
             let compare op =
                 Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
 
@@ -2114,6 +2107,14 @@ module Util =
             | BinaryLessOrEqual, _ -> compare LtE
             | BinaryGreater, _ -> compare Gt
             | BinaryGreaterOrEqual, _ -> compare GtE
+            | BinaryDivide, _ ->
+                // For integer division, we need to use the // operator
+                match typ with
+                | Fable.Number(Int32, _)
+                | Fable.Number(Int64, _)
+                | Fable.Number(UInt32, _)
+                | Fable.Number(UInt64, _) -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
+                | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 
         | Fable.Logical(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
@@ -2961,13 +2962,9 @@ module Util =
         // printfn "transformAsExpr: %A" expr
         match expr with
         | Fable.Unresolved(_, _, r) -> addErrorAndReturnNull com r "Unexpected unresolved expression", []
-
         | Fable.TypeCast(e, t) -> transformCast com ctx t e
-
         | Fable.Value(kind, r) -> transformValue com ctx r kind
-
         | Fable.IdentExpr id -> identAsExpr com ctx id, []
-
         | Fable.Import({
                            Selector = selector
                            Path = path
@@ -4379,6 +4376,7 @@ module Compiler =
                         Expression.identifier local_id
 
             member _.GetAllImports() =
+                // printfn "GetAllImports: %A" imports
                 imports.Values :> Import seq |> List.ofSeq
 
             member _.GetAllTypeVars() = typeVars
@@ -4479,7 +4477,7 @@ module Compiler =
                 TypeParamsScope = 0
             }
 
-        //printfn "file: %A" file.Declarations
+        // printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
         let rootComment =

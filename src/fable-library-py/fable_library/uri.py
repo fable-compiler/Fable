@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import IntEnum
 from urllib.parse import ParseResult, unquote, urljoin, urlparse
 
-from .types import FSharpRef
+from .types import FSharpRef, IntegerTypes
 
 
 class UriKind(IntEnum):
@@ -22,7 +22,7 @@ class Uri:
     ) -> None:
         self.res: ParseResult
 
-        kind = kind_or_uri if isinstance(kind_or_uri, int) else UriKind.Absolute
+        kind = kind_or_uri if isinstance(kind_or_uri, int | IntegerTypes) else UriKind.Absolute
         uri = urlparse(base_uri) if isinstance(base_uri, str) else base_uri.res
         relative_uri = (
             urlparse(kind_or_uri)

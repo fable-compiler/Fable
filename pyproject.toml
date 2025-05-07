@@ -14,8 +14,10 @@ python = ">= 3.10, < 4.0"
 python-dateutil = "^2.9.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.1.1"
+pytest = "^8.3.5"
 ruff = "^0.11.6"
+maturin = "^1.8.3"
+dunamai = "^1.23.1"
 
 [tool.pyright]
 reportMissingTypeStubs = false

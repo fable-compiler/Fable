@@ -6,10 +6,12 @@ from collections.abc import Callable, Iterable, MutableSequence
 from typing import (
     Any,
     Generic,
+    TypeAlias,
     TypeVar,
     cast,
 )
 
+from .core import byte, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
 from .util import Array, IComparable, compare
 
 
@@ -228,18 +230,16 @@ def seq_to_string(self: Iterable[Any]) -> str:
     return str + "]"
 
 
-def to_string(x: Iterable[Any] | Any, call_stack: int = 0) -> str:
-    if x is not None:
-        if isinstance(x, float) and int(x) == x:
+def to_string(x: object | None, call_stack: int = 0) -> str:
+    match x:
+        case float() if int(x) == x:
             return str(int(x))
-
-        if isinstance(x, bool):
+        case bool():
             return str(x).lower()
-
-        if isinstance(x, Iterable) and not hasattr(x, "__str__"):
-            return seq_to_string(x)
-
-    return str(x)
+        case Iterable() if not hasattr(cast(Iterable[Any], x), "__str__"):
+            return seq_to_string(cast(Iterable[Any], x))
+        case _:
+            return str(x)
 
 
 class FSharpException(Exception, IComparable):
@@ -277,7 +277,7 @@ class FSharpException(Exception, IComparable):
             else:
                 return True
 
-        return super().__lt__(other)
+        return False
 
     def __hash__(self) -> int:
         return hash(self.Data0)
@@ -296,43 +296,12 @@ class char(int):
     __slots__ = ()
 
 
-class int8(int):
-    __slots__ = ()
-
-
-class int16(int):
-    __slots__ = ()
-
-
-class int32(int):
-    __slots__ = ()
-
-
-class int64(int):
-    __slots__ = ()
-
-
-class uint8(int):
-    __slots__ = ()
-
-
-class uint16(int):
-    __slots__ = ()
-
-
-class uint32(int):
-    __slots__ = ()
-
-
-class uint64(int):
-    __slots__ = ()
-
-
 class float32(float):
     __slots__ = ()
 
 
 float = float  # use native float for float64
+IntegerTypes: TypeAlias = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
 
 
 def Int8Array(lst: list[int]) -> MutableSequence[int]:
@@ -381,17 +350,20 @@ __all__ = [
     "Int8Array",
     "Int16Array",
     "Int32Array",
+    "IntegerTypes",
     "Record",
     "Uint8Array",
     "Uint16Array",
     "Uint32Array",
     "Union",
+    "byte",
     "char",
     "int8",
     "int16",
     "int32",
     "int64",
     "is_exception",
+    "sbyte",
     "seq_to_string",
     "to_string",
     "uint8",
