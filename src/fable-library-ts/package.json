@@ -1,24 +1,24 @@
 {
-  "sideEffects": false,
-  "private": false,
-  "type": "module",
-  "name": "@fable-org/fable-library-ts",
-  "version": "2.0.0-beta.3",
-  "description": "Core library used by F# projects compiled with fable.io",
-  "author": "Fable Contributors",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/fable-compiler/Fable.git"
-  },
-  "bugs": {
-    "url": "https://github.com/fable-compiler/Fable/issues"
-  },
-  "homepage": "https://fable.io",
-  "keywords": [
-    "fable",
-    "fable-compiler",
-    "fsharp",
-    "F#"
-  ]
+    "sideEffects": false,
+    "private": false,
+    "type": "module",
+    "name": "@fable-org/fable-library-ts",
+    "version": "2.0.0-beta.3",
+    "description": "Core library used by F# projects compiled with fable.io",
+    "author": "Fable Contributors",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/fable-compiler/Fable.git"
+    },
+    "bugs": {
+        "url": "https://github.com/fable-compiler/Fable/issues"
+    },
+    "homepage": "https://fable.io",
+    "keywords": [
+        "fable",
+        "fable-compiler",
+        "fsharp",
+        "F#"
+    ]
 }

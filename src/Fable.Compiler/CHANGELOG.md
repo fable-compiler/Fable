@@ -7,14 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Changed
-
-* [All] Remove unused `Fable.Core` copy types from internal module (by @MangelMaxime)
+## 5.0.0-alpha.13 - 2025-05-04
 
 ### Fixed
 
+* [Python] Fixed testing with interfaces leads to incorrect pattern match (#3972) (by @dbrattli)
+* [Python] Fixed error when type contains multiple generic type parameters (#3986) (by @dbrattli)
 * [Python] Fixed import path handling for libraries (#4088) (by @dbrattli)
 * [Python] Reenable type aliasing for imports with name "*" (by @freymauer)
+* [JS/TS] Optimise JSX output in order to avoid F# list CEs to surface in it (by @MangelMaxime)
+
+### Removed
+
+* [All] Remove unused `Fable.Core` copy types from internal module (by @MangelMaxime)
 
 ## 5.0.0-alpha.12 - 2025-03-14
 

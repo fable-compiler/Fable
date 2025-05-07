@@ -1,18 +1,38 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-  </PropertyGroup>
-  <ItemGroup>
-    <Compile Include="Counter.fs" />
-    <Compile Include="SpreadSheet.fs" />
-    <Compile Include="__tests__/Tests.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="4.2.0" />
-    <PackageReference Include="Fable.FluentUI" Version="0.7.0" />
-    <PackageReference Include="Fable.Jester" Version="0.33.0" />
-    <PackageReference Include="Fable.React" Version="8.0.1" />
-    <PackageReference Include="Fable.ReactTestingLibrary" Version="0.33.0" />
-    <PackageReference Include="Feliz" Version="2.0.0-prerelease-002" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+    </PropertyGroup>
+    <!--
+        Because of how files are setup in Fable repo, with multiple package.json
+        we need to copy the re-used Components.fs file locally.
+    -->
+    <!--
+        We need to use _GenerateRestoreProjectSpec instead of Restore because Restore is not
+        triggered when building from the Solution file
+
+        See: https://github.com/dotnet/sdk/issues/7741
+    -->
+    <Target Name="CopyFileBeforeRestore" BeforeTargets="_GenerateRestoreProjectSpec">
+        <ItemGroup>
+            <SourceFiles Include="../Integration/Integration/data/jsxListOptimisation/Components.fs" />
+            <DestinationFiles Include="Components.Copied.fs" />
+        </ItemGroup>
+        <Copy SourceFiles="@(SourceFiles)" DestinationFiles="@(DestinationFiles)"
+            SkipUnchangedFiles="true" />
+    </Target>
+    <ItemGroup>
+        <Compile Include="Counter.fs" />
+        <Compile Include="SpreadSheet.fs" />
+        <Compile Include="Components.Copied.fs" />
+        <Compile Include="__tests__/React.fs" />
+        <Compile Include="__tests__/JSX_API.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Fable.Core" Version="4.2.0" />
+        <PackageReference Include="Fable.FluentUI" Version="0.7.0" />
+        <PackageReference Include="Fable.Jester" Version="0.33.0" />
+        <PackageReference Include="Fable.React" Version="8.0.1" />
+        <PackageReference Include="Fable.ReactTestingLibrary" Version="0.33.0" />
+        <PackageReference Include="Feliz" Version="2.0.0-prerelease-002" />
+    </ItemGroup>
 </Project>

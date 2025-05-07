@@ -32,5 +32,9 @@
         "temp"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "files.associations": {
+        "*.jsx.actual": "javascript",
+        "*.jsx.expected": "javascript"
+    }
 }

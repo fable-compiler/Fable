@@ -2034,6 +2034,111 @@ module Util =
                 None
         )
 
+    module Jsx =
+
+        (***
+
+For JSX, we want to rewrite the default output in order to remove all the code coming from list CEs
+
+By default, this code
+
+```fs
+Html.div
+    [
+        yield! [
+            Html.div "Test 1"
+            Html.div "Test 2"
+        ]
+    ]
+```
+
+generates something like
+
+```jsx
+<div>
+    {toList(delay(() => [<div>
+        Test 1
+    </div>, <div>
+        Test 2
+    </div>]))}
+</div>;
+```
+
+but thanks to the optimisation done below we get
+
+```jsx
+<div>
+    <div>
+        Test 1
+    </div>
+    <div>
+        Test 2
+    </div>
+</div>
+```
+
+        Initial implementation of this optimiser comes from https://github.com/shayanhabibi/Partas.Solid/blob/master/Partas.Solid.FablePlugin/Plugin.fs
+
+        ***)
+
+        // Check if the provided expression is equal to the expected identiferText (as a string)
+        let rec (|IdentifierIs|_|) (identifierText: string) expression =
+            match expression with
+            | Expression.Identifier(Identifier(currentCallerText, _)) when identifierText = currentCallerText -> Some()
+            | _ -> None
+
+        // Make it easy to check if we are calling the expected function
+        and (|CalledExpression|_|) (callerText: string) value =
+            match value with
+            | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> Some exprs
+            | _ -> None
+
+        and (|UnrollerFromSingleton|) (expr: Expression) : Expression list =
+            [ expr ]
+            |> function
+                | Unroller exprs -> exprs
+
+        and (|UnrollerFromArray|) (arrayExpr: Expression array) : Expression list =
+            arrayExpr
+            |> Array.toList
+            |> function
+                | Unroller exprs -> exprs
+
+        and (|Unroller|): Expression list -> Expression list =
+            function
+            | [] -> []
+            | expr :: Unroller rest ->
+                match expr with
+                | CalledExpression "toList" exprs -> exprs @ rest
+                | CalledExpression "delay" exprs -> exprs @ rest
+                | ArrowFunctionExpression([||],
+                                          BlockStatement [| ReturnStatement(ArrayExpression(UnrollerFromArray exprs, _),
+                                                                            _) |],
+                                          _,
+                                          _,
+                                          _) -> exprs @ rest
+                | ArrowFunctionExpression([||],
+                                          BlockStatement [| ReturnStatement(UnrollerFromSingleton exprs, _) |],
+                                          _,
+                                          _,
+                                          _) -> exprs @ rest
+                | CalledExpression "append" exprs -> exprs @ rest
+                | CalledExpression "singleton" exprs -> exprs @ rest
+                // Note: Should we guard this unwrapper by checking that all the elements in the array are JsxElements?
+                | ArrayExpression(UnrollerFromArray exprs, _) -> exprs @ rest
+                | ConditionalExpression(testExpr, UnrollerFromSingleton thenExprs, UnrollerFromSingleton elseExprs, loc) ->
+                    ConditionalExpression(
+                        testExpr,
+                        SequenceExpression(thenExprs |> List.toArray, None),
+                        SequenceExpression(elseExprs |> List.toArray, None),
+                        loc
+                    )
+                    :: rest
+                | expr ->
+                    // Tips 💡
+                    // If a pattern is not optimized, you can put a debug point here to capture it
+                    expr :: rest
+
     let transformJsxEl (com: IBabelCompiler) ctx componentOrTag props =
         match transformJsxProps com props with
         | None -> Expression.nullLiteral ()
@@ -2047,6 +2152,12 @@ module Util =
                     // Because of call optimizations, it may happen a list has been transformed to an array in JS
                     | [ ArrayExpression(children, _) ] -> Array.toList children
                     | children -> children
+                // Optimize AST, removing F# CEs from the output (see documentation in the JSX module)
+                |> List.map (fun child ->
+                    match child with
+                    | Jsx.UnrollerFromSingleton expr -> expr
+                )
+                |> List.concat
 
             let props =
                 props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
