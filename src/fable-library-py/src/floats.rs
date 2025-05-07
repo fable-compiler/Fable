@@ -2,12 +2,12 @@
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions;
 use pyo3::prelude::*;
-use std::ops::Deref;
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher; // Using the same hasher as integers for consistency, though float hashing needs care.
-use pyo3::types::PyNotImplemented;
 use pyo3::types::PyBool;
+use pyo3::types::PyNotImplemented;
 use pyo3::BoundObject;
+use std::collections::hash_map::DefaultHasher; // Using the same hasher as integers for consistency, though float hashing needs care.
+use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 
 // Macro to generate float wrapper types (Float32, Float64)
 macro_rules! float_variant {
@@ -26,6 +26,20 @@ macro_rules! float_variant {
 
         #[pymethods]
         impl $name {
+            #[classattr]
+            pub fn nan() -> Self {
+                Self(<$type>::NAN)
+            }
+
+            #[classattr]
+            pub fn infinity() -> Self {
+                Self(<$type>::INFINITY)
+            }
+            #[classattr]
+            pub fn negative_infinity() -> Self {
+                Self(<$type>::NEG_INFINITY)
+            }
+
             #[new]
             pub fn new(value: $type) -> PyResult<Self> {
                 Ok(Self(value))
@@ -46,14 +60,14 @@ macro_rules! float_variant {
             }
 
             pub fn __rsub__(&self, other: $type) -> PyResult<Self> {
-                 Ok(Self(other - self.0))
+                Ok(Self(other - self.0))
             }
 
             pub fn __mul__(&self, other: $type) -> PyResult<Self> {
                 Ok(Self(self.0 * other))
             }
 
-             pub fn __rmul__(&self, other: $type) -> PyResult<Self> {
+            pub fn __rmul__(&self, other: $type) -> PyResult<Self> {
                 // Multiplication is commutative
                 self.__mul__(other)
             }
@@ -94,7 +108,7 @@ macro_rules! float_variant {
             pub fn __pow__(&self, other: $type, modulo: Option<$type>) -> PyResult<Self> {
                 if modulo.is_some() {
                     return Err(PyErr::new::<exceptions::PyTypeError, _>(
-                        "pow() with modulo not supported for floats"
+                        "pow() with modulo not supported for floats",
                     ));
                 }
 
@@ -133,7 +147,12 @@ macro_rules! float_variant {
             }
 
             // --- Comparison ---
-            fn __richcmp__<'py>(&self, other: &Bound<'_, PyAny>, op: CompareOp, py: Python<'py>) -> PyResult<Borrowed<'py, 'py, PyAny>> {
+            fn __richcmp__<'py>(
+                &self,
+                other: &Bound<'_, PyAny>,
+                op: CompareOp,
+                py: Python<'py>,
+            ) -> PyResult<Borrowed<'py, 'py, PyAny>> {
                 // Try to convert other to our type first
                 if let Ok(other_float) = other.extract::<$type>() {
                     let result = match op {
@@ -156,30 +175,29 @@ macro_rules! float_variant {
             // A simple approach is to convert to bits, but this differs from Python's hash.
             // For consistency with Python, converting to Python float and hashing might be best,
             // but let's use a bit-based hash for now, acknowledging the difference.
-             pub fn __hash__(&self) -> PyResult<isize> {
-                 // Handle NaN and Infinity specially if needed, similar to Python.
-                 // Python hash(float('nan')) == 0
-                 // Python hash(float('inf')) == some large int (sys.hash_info.inf)
-                 // Python hash(float('-inf')) == some large negative int (sys.hash_info.inf)
-                 if self.0.is_nan() {
-                     Ok(0) // Python's hash for NaN
-                 } else if self.0.is_infinite() {
-                     // Use Python's sys.hash_info.inf constants if possible, otherwise approximate
-                     // For simplicity here, use a fixed large value. A better way involves PySys_GetHashInfo
-                     if self.0.is_sign_positive() {
-                         Ok(314159) // Placeholder for sys.hash_info.inf
-                     } else {
-                         Ok(-271828) // Placeholder for -sys.hash_info.inf
-                     }
-                 } else {
-                     // Use DefaultHasher on the bit representation for non-special floats
-                     let mut hasher = DefaultHasher::new();
-                     self.0.to_bits().hash(&mut hasher);
-                     // Convert u64 hash to isize. Might truncate on 32-bit systems.
-                     Ok(hasher.finish() as isize)
-                 }
+            pub fn __hash__(&self) -> PyResult<isize> {
+                // Handle NaN and Infinity specially if needed, similar to Python.
+                // Python hash(float('nan')) == 0
+                // Python hash(float('inf')) == some large int (sys.hash_info.inf)
+                // Python hash(float('-inf')) == some large negative int (sys.hash_info.inf)
+                if self.0.is_nan() {
+                    Ok(0) // Python's hash for NaN
+                } else if self.0.is_infinite() {
+                    // Use Python's sys.hash_info.inf constants if possible, otherwise approximate
+                    // For simplicity here, use a fixed large value. A better way involves PySys_GetHashInfo
+                    if self.0.is_sign_positive() {
+                        Ok(314159) // Placeholder for sys.hash_info.inf
+                    } else {
+                        Ok(-271828) // Placeholder for -sys.hash_info.inf
+                    }
+                } else {
+                    // Use DefaultHasher on the bit representation for non-special floats
+                    let mut hasher = DefaultHasher::new();
+                    self.0.to_bits().hash(&mut hasher);
+                    // Convert u64 hash to isize. Might truncate on 32-bit systems.
+                    Ok(hasher.finish() as isize)
+                }
             }
-
 
             // --- Conversions ---
             pub fn __bool__(&self) -> bool {
@@ -196,7 +214,7 @@ macro_rules! float_variant {
             pub fn __index__(&self) -> PyResult<isize> {
                 if self.0.is_nan() || self.0.is_infinite() {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "cannot convert float NaN or infinity to integer"
+                        "cannot convert float NaN or infinity to integer",
                     ));
                 }
                 Ok(self.0.trunc() as isize)
@@ -204,7 +222,7 @@ macro_rules! float_variant {
 
             // Convert to Python's built-in int (truncates)
             pub fn __int__(&self) -> PyResult<isize> {
-                 return self.__index__();
+                return self.__index__();
             }
 
             pub fn __repr__(&self) -> String {
@@ -244,7 +262,9 @@ macro_rules! float_variant {
                     }
                     if !precision_str.is_empty() {
                         precision = Some(precision_str.parse::<usize>().map_err(|_| {
-                            PyErr::new::<exceptions::PyValueError, _>("Invalid precision in format specifier")
+                            PyErr::new::<exceptions::PyValueError, _>(
+                                "Invalid precision in format specifier",
+                            )
                         })?);
                     }
                 }
@@ -263,24 +283,26 @@ macro_rules! float_variant {
                         } else {
                             Ok(format!("{}", self.0))
                         }
-                    },
+                    }
                     Some('e') => {
                         if let Some(prec) = precision {
                             Ok(format!("{:.1$e}", self.0, prec))
                         } else {
                             Ok(format!("{:e}", self.0))
                         }
-                    },
+                    }
                     Some('g') => {
                         if let Some(prec) = precision {
                             Ok(format!("{:.1$?}", self.0, prec))
                         } else {
                             Ok(format!("{:?}", self.0))
                         }
-                    },
-                    Some(c) => Err(PyErr::new::<exceptions::PyValueError, _>(
-                        format!("Unknown format code '{}' for {}", c, stringify!($name))
-                    )),
+                    }
+                    Some(c) => Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                        "Unknown format code '{}' for {}",
+                        c,
+                        stringify!($name)
+                    ))),
                 }
             }
 
@@ -306,11 +328,6 @@ macro_rules! float_variant {
             }
 
             pub fn sqrt(&self) -> PyResult<Self> {
-                if self.0 < 0.0 {
-                    return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "cannot compute square root of negative number"
-                    ));
-                }
                 Ok(Self(self.0.sqrt()))
             }
 
@@ -326,7 +343,7 @@ macro_rules! float_variant {
             pub fn acos(&self) -> PyResult<Self> {
                 if self.0 < -1.0 || self.0 > 1.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "acos() domain error"
+                        "acos() domain error",
                     ));
                 }
                 Ok(Self(self.0.acos()))
@@ -334,7 +351,7 @@ macro_rules! float_variant {
             pub fn asin(&self) -> PyResult<Self> {
                 if self.0 < -1.0 || self.0 > 1.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "asin() domain error"
+                        "asin() domain error",
                     ));
                 }
                 Ok(Self(self.0.asin()))
@@ -352,7 +369,7 @@ macro_rules! float_variant {
             pub fn log(&self, base: Option<$type>) -> PyResult<Self> {
                 if self.0 <= 0.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "log() domain error"
+                        "log() domain error",
                     ));
                 }
                 let base_val = match base {
@@ -361,7 +378,7 @@ macro_rules! float_variant {
                 };
                 if base_val <= 1.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "log() base must be greater than 1"
+                        "log() base must be greater than 1",
                     ));
                 }
                 Ok(Self(self.0.log(base_val)))
@@ -369,7 +386,7 @@ macro_rules! float_variant {
             pub fn log10(&self) -> PyResult<Self> {
                 if self.0 <= 0.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "log10() domain error"
+                        "log10() domain error",
                     ));
                 }
                 Ok(Self(self.0.log(10.0)))
@@ -377,7 +394,7 @@ macro_rules! float_variant {
             pub fn log2(&self) -> PyResult<Self> {
                 if self.0 <= 0.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "log2() domain error"
+                        "log2() domain error",
                     ));
                 }
                 Ok(Self(self.0.log(2.0)))
@@ -389,7 +406,6 @@ macro_rules! float_variant {
             pub fn radians(&self) -> Self {
                 Self(self.0.to_radians())
             }
-
 
             // --- Helper ---
             pub fn value(&self) -> $type {

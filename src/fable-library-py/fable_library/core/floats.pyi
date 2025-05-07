@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Protocol, SupportsFloat, SupportsInt, TypeVar, final
+from typing import Any, ClassVar, Protocol, SupportsFloat, SupportsInt, TypeVar, final
+
+from typing_extensions import Self
 
 # Define a generic type variable for the protocol
 _FT = TypeVar("_FT", bound="FloatNumeric")
 
 # Define the union type for numeric inputs, including the new classes
 class FloatNumeric(SupportsFloat, SupportsInt, Protocol):
+    nan: ClassVar[Self]
+    infinity: ClassVar[Self]
+    negative_infinity: ClassVar[Self]
+
     # Define methods common to Float32 and Float64
     def __init__(self, value: int | float | FloatNumeric) -> None: ...
     @property
@@ -63,11 +69,21 @@ class FloatNumeric(SupportsFloat, SupportsInt, Protocol):
     def log2(self: _FT) -> _FT: ...
     def degrees(self: _FT) -> _FT: ...
     def radians(self: _FT) -> _FT: ...
+    def is_nan(self: Any) -> bool: ...
+    def is_infinity(self: Any) -> bool: ...
+    def is_negative_infinity(self: Any) -> bool: ...
+    def is_positive_infinity(self: Any) -> bool: ...
 
 @final  # Mark classes as final as they are implemented in Rust
-class Float32(FloatNumeric): ...
+class Float32(FloatNumeric):
+    nan: ClassVar[Self]
+    infinity: ClassVar[Self]
+    negative_infinity: ClassVar[Self]
 
 @final
-class Float64(FloatNumeric): ...
+class Float64(FloatNumeric):
+    nan: ClassVar[Self]
+    infinity: ClassVar[Self]
+    negative_infinity: ClassVar[Self]
 
 __all__ = ["Float32", "Float64"]
