@@ -671,7 +671,7 @@ let getFableLibraryPath (opts: CrackerOptions) (shouldCopy: bool) =
         | Php, None -> "fable-library-php", "fable-library-php"
         | JavaScript, None -> "fable-library-js", $"fable-library-js.%s{Literals.VERSION}"
         | Python, None -> "fable-library-py/fable_library", "fable_library"
-        | Python, Some Py.Naming.pypi -> "fable-library-py", "fable_library"
+        | Python, Some Py.Naming.fableLibPyPI -> "fable-library-py", "fable_library"
         | _, Some path ->
             if path.StartsWith("./", StringComparison.Ordinal) then
                 "", Path.normalizeFullPath path
@@ -741,7 +741,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
 
     let shouldCopy =
         match opts.FableLib with
-        | Some path when path.ToLowerInvariant() = Py.Naming.pypi -> false
+        | Some path when path.ToLowerInvariant() = Py.Naming.fableLibPyPI -> false
         | _ -> true
 
     getFableLibraryPath opts shouldCopy, pkgRefs

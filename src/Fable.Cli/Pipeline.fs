@@ -214,7 +214,7 @@ module Python =
 
         let bundleLibrary =
             match cliArgs.FableLibraryPath with
-            | Some path when path.ToLowerInvariant() = Py.Naming.pypi -> false
+            | Some path when path.ToLowerInvariant() = Py.Naming.fableLibPyPI -> false
             | _ -> true
 
         // Everything within the Fable hidden directory will be compiled as Library. We do this since the files there will be

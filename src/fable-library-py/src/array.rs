@@ -1819,7 +1819,7 @@ impl FSharpArray {
         let mut results = fs_cons.create_builder(len_inner);
 
         // Fill the result array
-        for i in 0..len_inner {
+        for _i in 0..len_inner {
             let mut inner_array = fs_cons.create_builder(len);
             for j in 0..len {
                 let item = self.get_item_at_index(j as isize, py)?;
