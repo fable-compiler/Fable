@@ -109,6 +109,29 @@ exports[`JSX API tests (using React) Fragments are supported 1`] = `
 </div>
 `;
 
+exports[`JSX API tests (using React) Test that condition without else branch works if condition is False 1`] = `
+<div>
+  <div>
+    <div>
+      I show always!
+    </div>
+  </div>
+</div>
+`;
+
+exports[`JSX API tests (using React) Test that condition without else branch works if condition is True 1`] = `
+<div>
+  <div>
+    <div>
+      I show sometimes!
+    </div>
+    <div>
+      I show always!
+    </div>
+  </div>
+</div>
+`;
+
 exports[`JSX API tests (using React) Test that non optimised condition works 1`] = `
 <div>
   <div>

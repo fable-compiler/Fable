@@ -1,7 +1,7 @@
 import * as react from "react";
-import { map, singleton, append, delay, toList } from "./fable_modules/fable-library-js.5.0.0-alpha.12/Seq.js";
-import { int32ToString } from "./fable_modules/fable-library-js.5.0.0-alpha.12/Util.js";
-import { rangeDouble } from "./fable_modules/fable-library-js.5.0.0-alpha.12/Range.js";
+import { empty, map, singleton, append, delay, toList } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Seq.js";
+import { int32ToString } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Util.js";
+import { rangeDouble } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Range.js";
 
 export const React = react;
 
@@ -97,3 +97,14 @@ export const divWithAttributes = <div className="header">
         Test 1
     </div>
 </div>;
+
+export function divWithConditionalWithoutElseBranchWorks(show) {
+    return <div>
+        {show ? (<div>
+            I show sometimes!
+        </div>) : (null)}
+        <div>
+            I show always!
+        </div>
+    </div>;
+}
