@@ -756,13 +756,13 @@ let head (xs: 'T seq) =
     | None -> invalidArg "source" SR.inputSequenceEmpty
 
 let initialize count f =
-    let gen i =
+    let generator i =
         if (i < count) then
             Some(f i, i + 1)
         else
             None
 
-    unfold gen 0
+    unfold generator 0
 
 let initializeInfinite f = initialize (System.Int32.MaxValue) f
 

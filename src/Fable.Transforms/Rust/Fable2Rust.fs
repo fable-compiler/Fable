@@ -2025,7 +2025,7 @@ module Util =
             | MaybeCasted(Fable.IdentExpr ident) -> isRefScoped ctx ident.Name
             | _ -> false
 
-        let targetIsRef = ctx.IsParamByRefPreferred
+        let targetIsRef = ctx.IsParamByRefPreferred //&& not implCopy
         // || Option.exists (isByRefType com) tOpt
         // || isAddrOfExpr e
 
@@ -2055,13 +2055,13 @@ module Util =
             let ctx = { ctx with IsParamByRefPreferred = false }
             com.TransformExpr(ctx, e)
 
-        match implCopy, implClone, sourceIsRef, targetIsRef, mustClone, isUnreachable with
-        | _, _, false, true, _, false -> expr |> mkAddrOfExpr
-        | _, _, true, true, _, false -> expr
-        | _, _, true, false, _, false -> expr |> makeClone
-        | false, true, _, false, true, false -> expr |> makeClone
+        match sourceIsRef, targetIsRef, implCopy, implClone, mustClone, isUnreachable with
+        | true, true, _, _, _, false -> expr
+        | false, true, _, _, _, false -> expr |> mkAddrOfExpr
+        | true, false, _, _, _, false -> expr |> makeClone
+        | false, false, false, true, true, false -> expr |> makeClone
         | _ -> expr
-    // |> BLOCK_COMMENT_SUFFIX (sprintf implCopy: %b, "implClone: %b, sourceIsRef; %b, targetIsRef: %b, isOnlyRef: %b (%i), isUnreachable: %b" implCopy implClone sourceIsRef targetIsRef isOnlyRef isUnreachable varAttrs.UsageCount)
+    // |> BLOCK_COMMENT_SUFFIX (sprintf "sourceIsRef: %b, targetIsRef: %b, implCopy: %b, implClone: %b, mustClone: %b, isUnreachable: %b" sourceIsRef targetIsRef implCopy implClone mustClone isUnreachable)
 
 
     // let extractBaseExprFromBaseCall (com: IRustCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
@@ -2354,15 +2354,12 @@ module Util =
 
         let isByRefPreferred =
             membOpt
-            |> Option.map (fun memberInfo ->
-                memberInfo.Attributes
-                |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
-            )
+            |> Option.map (fun memb -> memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef))
             |> Option.defaultValue false
 
         let argParams =
             membOpt
-            |> Option.map (fun memberInfo -> memberInfo.CurriedParameterGroups |> List.concat)
+            |> Option.map (fun memb -> memb.CurriedParameterGroups |> List.concat)
             |> Option.defaultValue []
 
         let ctx =
