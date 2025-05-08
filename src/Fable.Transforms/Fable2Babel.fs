@@ -2124,6 +2124,7 @@ but thanks to the optimisation done below we get
                                           _) -> exprs @ rest
                 | CalledExpression "append" exprs -> exprs @ rest
                 | CalledExpression "singleton" exprs -> exprs @ rest
+                | CalledExpression "empty" _ -> [ Expression.nullLiteral () ] @ rest
                 // Note: Should we guard this unwrapper by checking that all the elements in the array are JsxElements?
                 | ArrayExpression(UnrollerFromArray exprs, _) -> exprs @ rest
                 | ConditionalExpression(testExpr, UnrollerFromSingleton thenExprs, UnrollerFromSingleton elseExprs, loc) ->

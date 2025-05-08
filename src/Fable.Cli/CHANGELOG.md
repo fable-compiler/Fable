@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Fable Library for Python is now partially written in Rust (by @dbrattli)
 
+### Fixed
+
+* [JS/TS] JSX : Alias `empty` CEs list to `null` when encountered in the `children` list (by @MangelMaxime)
+
 ## 5.0.0-alpha.13 - 2025-05-04
 
 ### Fixed
