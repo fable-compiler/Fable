@@ -108,3 +108,5 @@ export function divWithConditionalWithoutElseBranchWorks(show) {
         </div>
     </div>;
 }
+
+export const propsCanUseUnbox = <div id="myid" />;

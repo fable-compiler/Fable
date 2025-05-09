@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [JS/TS] JSX : Alias `empty` CEs list to `null` when encountered in the `children` list (by @MangelMaxime)
+* [JS/TS] JSX : Allow usage of `unbox` when definining properties for `JSX.create` (by @MangelMaxime)
 
 ## 5.0.0-alpha.13 - 2025-05-04
 

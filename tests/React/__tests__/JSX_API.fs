@@ -81,4 +81,8 @@ Jest.describe("JSX API tests (using React)", fun () ->
     Jest.test("Test that condition without else branch works if condition is False", fun () ->
         matchSnapshot (Components.divWithConditionalWithoutElseBranchWorks false)
     )
+
+    Jest.test("Test that properties can be defined using `unbox`", fun () ->
+        matchSnapshot Components.propsCanUseUnbox
+    )
 )
