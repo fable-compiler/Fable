@@ -161,3 +161,11 @@ exports[`JSX API tests (using React) Test that optimised condition works for the
   </div>
 </div>
 `;
+
+exports[`JSX API tests (using React) Test that properties can be defined using \`unbox\` 1`] = `
+<div>
+  <div
+    id="myid"
+  />
+</div>
+`;
