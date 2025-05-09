@@ -2022,9 +2022,6 @@ module Util =
             match propsAndChildren, prop with
             | None, _ -> None
             | Some(props, children), MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _)) ->
-                // | Some(props, children),
-                //   // Allow usage of unbox for the properties if they are the right shape
-                //   Fable.TypeCast(Fable.TypeCast(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _), _), _) ->
                 if key = "children" then
                     match value with
                     | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
