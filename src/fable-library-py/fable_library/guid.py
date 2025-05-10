@@ -32,10 +32,10 @@ def array_to_guid(guid: bytearray) -> uuid.UUID:
 
 
 __all__ = [
-    "parse",
-    "try_parse",
-    "to_string",
-    "new_guid",
-    "guid_to_array",
     "array_to_guid",
+    "guid_to_array",
+    "new_guid",
+    "parse",
+    "to_string",
+    "try_parse",
 ]

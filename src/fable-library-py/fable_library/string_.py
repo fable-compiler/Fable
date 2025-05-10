@@ -300,7 +300,7 @@ def not_supported(name: str) -> NoReturn:
 
 
 def to_base64string(in_array: bytes) -> str:
-    return b64encode(in_array).decode("utf8")
+    return b64encode(bytes(in_array)).decode("utf8")
 
 
 def from_base64string(b64encoded: str) -> bytes:

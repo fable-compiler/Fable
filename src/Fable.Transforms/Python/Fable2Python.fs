@@ -779,7 +779,7 @@ module Annotation =
                 | UNativeInt -> "int"
                 | Float16
                 | Float32 -> "float32"
-                | Float64 -> "float"
+                | Float64 -> "float64"
                 | _ -> failwith $"Unsupported number type: {kind}"
 
             match name with
@@ -1185,48 +1185,49 @@ module Util =
         | m :: ms -> get com ctx None expr m false |> getParts com ctx ms
 
     let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
-        //printfn "makeArray: %A" (exprs, kind, typ)
+        printfn "makeArray: %A" typ
+
         let expr, stmts =
             exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
 
-        let letter =
+        let array_type =
+            printfn "Array type: %A" (kind, typ)
+
             match kind, typ with
             | Fable.ResizeArray, _ -> None
-            | _, Fable.Type.Number(UInt8, _) -> Some "B"
-            | _, Fable.Type.Number(Int8, _) -> Some "b"
-            | _, Fable.Type.Number(Int16, _) -> Some "h"
-            | _, Fable.Type.Number(UInt16, _) -> Some "H"
-            | _, Fable.Type.Number(Int32, _) -> Some "l"
-            | _, Fable.Type.Number(UInt32, _) -> Some "L"
-            | _, Fable.Type.Number(Int64, _) -> Some "q"
-            | _, Fable.Type.Number(UInt64, _) -> Some "Q"
-            | _, Fable.Type.Number(Float32, _) -> Some "f"
-            | _, Fable.Type.Number(Float64, _) -> Some "d"
-            | _ -> None
+            | _, Fable.Type.Number(UInt8, _) -> Some "UInt8"
+            | _, Fable.Type.Number(Int8, _) -> Some "Int8"
+            | _, Fable.Type.Number(Int16, _) -> Some "Int16"
+            | _, Fable.Type.Number(UInt16, _) -> Some "Uint16"
+            | _, Fable.Type.Number(Int32, _) -> Some "Int32"
+            | _, Fable.Type.Number(UInt32, _) -> Some "Uint32"
+            | _, Fable.Type.Number(Int64, _) -> Some "Int64"
+            | _, Fable.Type.Number(UInt64, _) -> Some "Uint64"
+            | _, Fable.Type.Number(Float32, _) -> Some "Float32"
+            | _, Fable.Type.Number(Float64, _) -> Some "Float64"
+            | _ -> Some "Generic"
 
-        match letter with
-        | Some "B" ->
-            let bytearray = Expression.name "bytearray"
-            Expression.call (bytearray, [ Expression.list expr ]), stmts
+        printfn "Array type: %A" array_type
+
+        match array_type with
         | Some l ->
-            let array = com.GetImportExpr(ctx, "array", "array")
+            let array = libValue com ctx "array_" "Array"
             Expression.call (array, Expression.stringConstant l :: [ Expression.list expr ]), stmts
         | _ -> expr |> Expression.list, stmts
 
 
-    let makeArrayAllocated (com: IPythonCompiler) ctx _typ _kind (size: Fable.Expr) =
-        //printfn "makeArrayAllocated"
+    let makeArrayAllocated (com: IPythonCompiler) ctx typ _kind (size: Fable.Expr) =
+        printfn "makeArrayAllocated"
         let size, stmts = com.TransformAsExpr(ctx, size)
         let array = Expression.list [ Expression.intConstant 0 ]
         Expression.binOp (array, Mult, size), stmts
 
     let makeArrayFrom (com: IPythonCompiler) ctx typ kind (fableExpr: Fable.Expr) : Expression * Statement list =
+        printfn "makeArrayFrom"
+
         match fableExpr with
         | Replacements.Util.ArrayOrListLiteral(exprs, _) -> makeArray com ctx exprs kind typ
-        | _ ->
-            let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-            let name = Expression.name "list"
-            Expression.call (name, [ expr ]), stmts
+        | _ -> makeArray com ctx [ fableExpr ] kind typ
 
     let makeList (com: IPythonCompiler) ctx exprs =
         let expr, stmts =
@@ -1670,9 +1671,12 @@ module Util =
                 libCall com ctx None "util" "to_enumerable" [ xs ], stmts
 
             | _ -> com.TransformAsExpr(ctx, e)
-        | Fable.Number(Float32, _)
-        | Fable.Number(Float64, _) ->
+        | Fable.Number(Float32, _) ->
             let cons = libValue com ctx "types" "float32"
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            Expression.call (cons, [ value ], ?loc = None), stmts
+        | Fable.Number(Float64, _) ->
+            let cons = libValue com ctx "types" "float64"
             let value, stmts = com.TransformAsExpr(ctx, e)
             Expression.call (cons, [ value ], ?loc = None), stmts
         | Fable.Number(Int32, _) ->
@@ -1730,7 +1734,7 @@ module Util =
             | Fable.NumberValue.UInt8 x -> makeInteger com ctx r value.Type "uint8" x
             | Fable.NumberValue.Int16 x -> makeInteger com ctx r value.Type "int16" x
             | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
-            | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.Int32 x -> makeInteger com ctx r value.Type "int32" x
             | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
             | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
             | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
@@ -1740,19 +1744,22 @@ module Util =
             | Fable.NumberValue.NativeInt x -> Expression.intConstant (x, ?loc = r), []
             | Fable.NumberValue.UNativeInt x -> Expression.intConstant (x, ?loc = r), []
             // TODO: special consts also need attention
-            | Fable.NumberValue.Float64 x when x = infinity -> Expression.name "float('inf')", []
-            | Fable.NumberValue.Float64 x when x = -infinity -> Expression.name "float('-inf')", []
-            | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> Expression.name "float('nan')", []
+            | Fable.NumberValue.Float64 x when x = infinity -> libValue com ctx "double" "float64.infinity", []
+            | Fable.NumberValue.Float64 x when x = -infinity ->
+                libValue com ctx "double" "float64.negative_infinity", []
+            | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> libValue com ctx "double" "float64.nan", []
             | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
             | Fable.NumberValue.Float16 x when Single.IsNaN(x) ->
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
             | Fable.NumberValue.Float16 x -> makeFloat com ctx r value.Type "float32" (float x)
             | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
-            | Fable.NumberValue.Float64 x -> Expression.floatConstant (x, ?loc = r), []
+            | Fable.NumberValue.Float64 x -> makeFloat com ctx r value.Type "float64" (float x)
             | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}", []
         | Fable.NewArray(newKind, typ, kind) ->
+            printfn "NewArray: %A" (typ)
+
             match newKind with
             | Fable.ArrayValues values -> makeArray com ctx values kind typ
             | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ kind size
@@ -3117,9 +3124,9 @@ module Util =
                 | _ -> None
 
             match letter with
-            | Some "B" ->
-                let bytearray = Expression.name "bytearray"
-                Expression.call (bytearray, [ value ]), stmts
+            // | Some "B" ->
+            //     let bytearray = Expression.name "bytearray"
+            //     Expression.call (bytearray, [ value ]), stmts
             | Some l ->
                 let array = com.GetImportExpr(ctx, "array", "array")
 

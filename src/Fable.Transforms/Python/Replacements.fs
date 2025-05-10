@@ -416,12 +416,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | Char :: _ -> binOpChar BinaryMinus left right
             | _ -> binOp BinaryMinus left right
         | Operators.multiply, [ left; right ] -> binOp BinaryMultiply left right
-        | (Operators.division | Operators.divideByInt), [ left; right ] ->
-            match argTypes with
-            // Floor result of integer divisions (see #172)
-            | Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Int64 | UInt64 | BigInt), _) :: _ ->
-                binOp BinaryDivide left right |> truncateUnsigned
-            | _ -> Helper.LibCall(com, "double", "divide", t, [ left; right ], argTypes, ?loc = r)
+        | (Operators.division | Operators.divideByInt), [ left; right ] -> binOp BinaryDivide left right
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [ left; right ] ->
@@ -1752,6 +1747,8 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    printfn "arrayModule: %A" t
+
     let newArray size t =
         Value(NewArray(ArrayAlloc size, t, MutableArray), None)
 
@@ -1760,8 +1757,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         | Array(Number _ as t2, _), None when com.Options.TypedArrays -> newArray size t2
         | Array(t2, _), value ->
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
-            // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
-            Helper.LibCall(com, "array", "fill", t, [ newArray size t2; makeIntConst 0; size; value ])
+            Helper.LibCall(com, "array", "create", t, [ size; value ])
         | _ ->
             $"Expecting an array type but got {t}"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1793,8 +1789,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
-        let argTypes = List.take (List.length args) i.SignatureArgTypes
-
         let call = Helper.GlobalCall(meth, t, args @ [ thisArg ], ?loc = r)
 
         Helper.GlobalCall("list", t, [ call ], ?loc = r) |> Some

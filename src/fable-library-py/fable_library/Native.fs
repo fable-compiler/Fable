@@ -30,9 +30,6 @@ module Helpers =
 
     let inline isDynamicArrayImpl arr = Py.Array.isArray arr
 
-    // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
-    //     !!target?set(source, offset)
-
     [<Emit("$0+$1")>]
     let concatImpl (array1: 'T[]) (arrays: 'T[] seq) : 'T[] = nativeOnly
 

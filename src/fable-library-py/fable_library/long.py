@@ -1,6 +1,6 @@
 from typing import Any
 
-from .types import FSharpRef, int32
+from .types import FSharpRef, float64, int64, uint64
 
 
 def compare(x: int, y: int) -> int:
@@ -124,16 +124,15 @@ def from_number(value: int, unsigned: bool) -> int:
     return int(value)
 
 
-def to_number(value: int) -> float:
-    return float(value)
+def to_number(value: int64) -> float64:
+    return float64(value)
 
 
-def from_integer(value: int, unsigned: bool | None = None, kind: int | None = None) -> int:
-    if unsigned and value < 0:
-        return value + 0x10000000000000000
-    elif not unsigned and value > 9223372036854775807:
-        return value - 0x10000000000000000
-    return value
+def from_integer(value: int, unsigned: bool | None = None, kind: int | None = None) -> int64 | uint64:
+    if unsigned:
+        return uint64(value)
+    else:
+        return int64(value)
 
 
 def get_range(unsigned: bool) -> tuple[int, int]:

@@ -32,7 +32,7 @@ module Py =
         [<Emit "$0([None]*$1...)">]
         abstract Create: size: int -> 'T[]
 
-        [<Emit "isinstance($1, list)">]
+        [<Emit "isinstance($1, Array)">]
         abstract isArray: arg: obj -> bool
 
         abstract from: arg: obj -> 'T[]
@@ -43,7 +43,7 @@ module Py =
         [<Emit("$0[$1:$1+$2]")>]
         abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
 
-    [<Emit("list")>]
+    [<Import("types", "Array")>]
     let Array: ArrayConstructor = nativeOnly
 
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
