@@ -1185,13 +1185,13 @@ module Util =
         | m :: ms -> get com ctx None expr m false |> getParts com ctx ms
 
     let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
-        printfn "makeArray: %A" typ
+        // printfn "makeArray: %A" typ
 
         let expr, stmts =
             exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
 
         let array_type =
-            printfn "Array type: %A" (kind, typ)
+            // printfn "Array type: %A" (kind, typ)
 
             match kind, typ with
             | Fable.ResizeArray, _ -> None
@@ -1207,7 +1207,7 @@ module Util =
             | _, Fable.Type.Number(Float64, _) -> Some "Float64"
             | _ -> Some "Generic"
 
-        printfn "Array type: %A" array_type
+        // printfn "Array type: %A" array_type
 
         match array_type with
         | Some l ->
@@ -1217,14 +1217,13 @@ module Util =
 
 
     let makeArrayAllocated (com: IPythonCompiler) ctx typ _kind (size: Fable.Expr) =
-        printfn "makeArrayAllocated"
+        // printfn "makeArrayAllocated"
         let size, stmts = com.TransformAsExpr(ctx, size)
         let array = Expression.list [ Expression.intConstant 0 ]
         Expression.binOp (array, Mult, size), stmts
 
     let makeArrayFrom (com: IPythonCompiler) ctx typ kind (fableExpr: Fable.Expr) : Expression * Statement list =
-        printfn "makeArrayFrom"
-
+        // printfn "makeArrayFrom"
         match fableExpr with
         | Replacements.Util.ArrayOrListLiteral(exprs, _) -> makeArray com ctx exprs kind typ
         | _ -> makeArray com ctx [ fableExpr ] kind typ
@@ -1758,7 +1757,7 @@ module Util =
             | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}", []
         | Fable.NewArray(newKind, typ, kind) ->
-            printfn "NewArray: %A" (typ)
+            // printfn "NewArray: %A" (typ)
 
             match newKind with
             | Fable.ArrayValues values -> makeArray com ctx values kind typ

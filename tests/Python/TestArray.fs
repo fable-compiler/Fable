@@ -459,19 +459,19 @@ let ``test Array.create works`` () =
 //     (xs.[2] > 1. && xs.[3] < 2.)
 //     |> equal true
 
-// [<Fact>]
-// let ``test Array.isEmpty works`` () =
-//     Array.isEmpty [|"a"|] |> equal false
-//     Array.isEmpty [||] |> equal true
+[<Fact>]
+let ``test Array.isEmpty works`` () =
+    Array.isEmpty [|"a"|] |> equal false
+    Array.isEmpty [||] |> equal true
 
-// [<Fact>]
-// let ``test Array.iter works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let total = ref 0.
-//     xs |> Array.iter (fun x ->
-//        total.Value <- total.Value + x
-//     )
-//     total.Value |> equal 10.
+[<Fact>]
+let ``test Array.iter works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let total = ref 0.
+    xs |> Array.iter (fun x ->
+       total.Value <- total.Value + x
+    )
+    total.Value |> equal 10.
 
 // [<Fact>]
 // let ``test Array.iter2 works`` () =
@@ -500,16 +500,16 @@ let ``test Array.create works`` () =
 //     ) xs xs
 //     total.Value |> equal 40.
 
-// [<Fact>]
-// let ``test Array.length works`` () =
-//     let xs = [|"a"; "a"; "a"; "a"|]
-//     Array.length xs |> equal 4
+[<Fact>]
+let ``test Array.length works`` () =
+    let xs = [|"a"; "a"; "a"; "a"|]
+    Array.length xs |> equal 4
 
-// [<Fact>]
-// let ``test Array.countBy works`` () =
-//      let xs = [|1; 2; 3; 4|]
-//      xs |> Array.countBy (fun x -> x % 2)
-//      |> Array.length |> equal 2
+[<Fact>]
+let ``test Array.countBy works`` () =
+     let xs = [|1; 2; 3; 4|]
+     xs |> Array.countBy (fun x -> x % 2)
+     |> Array.length |> equal 2
 
 [<Fact>]
 let ``test Array.map works`` () =

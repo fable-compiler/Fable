@@ -1747,7 +1747,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    printfn "arrayModule: %A" t
+    // printfn "arrayModule: %A" t
 
     let newArray size t =
         Value(NewArray(ArrayAlloc size, t, MutableArray), None)

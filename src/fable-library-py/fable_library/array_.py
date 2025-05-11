@@ -101,6 +101,8 @@ try_head = array.try_head
 try_item = array.try_item
 update_at = array.update_at
 windowed = array.windowed
+index_of = array.index_of
+remove_in_place = array.remove_in_place
 
 Array: TypeAlias = array.FSharpArray[_T]
 

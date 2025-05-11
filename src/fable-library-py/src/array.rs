@@ -53,6 +53,8 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(reduce_back, &m)?)?;
     m.add_function(wrap_pyfunction!(remove_at, &m)?)?;
     m.add_function(wrap_pyfunction!(remove_many_at, &m)?)?;
+    m.add_function(wrap_pyfunction!(remove_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(index_of, &m)?)?;
     m.add_function(wrap_pyfunction!(reverse, &m)?)?;
     m.add_function(wrap_pyfunction!(scan, &m)?)?;
     m.add_function(wrap_pyfunction!(scan_back, &m)?)?;
@@ -515,6 +517,15 @@ impl FSharpArray {
         }
     }
 
+    pub fn __iter__(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let iter = FSharpArrayIter {
+            array: Py::new(py, self.clone())?,
+            index: 0,
+            len: self.__len__(),
+        };
+        iter.into_py_any(py)
+    }
+
     pub fn __bytes__(&self, py: Python<'_>) -> PyResult<PyObject> {
         println!("Converting to bytes: {:?}", self.nominal_type);
         match &self.storage {
@@ -939,8 +950,8 @@ impl FSharpArray {
             ArrayStorage::String(vec) => {
                 vec.remove(idx as usize);
             }
-            ArrayStorage::PyObject(arc_mutex_vec) => {
-                let mut vec = arc_mutex_vec.lock().unwrap(); // Acquire the lock
+            ArrayStorage::PyObject(arc_vec) => {
+                let mut vec = arc_vec.lock().unwrap(); // Acquire the lock
                 vec.remove(idx as usize);
             }
         }
@@ -2421,6 +2432,71 @@ impl FSharpArray {
         // Return final array
         Ok(results.build(&fs_cons.array_type))
     }
+
+    pub fn index_of(&self, py: Python<'_>, item: &Bound<'_, PyAny>) -> PyResult<Option<usize>> {
+        let len = self.__len__();
+        for i in 0..len {
+            let current = self.get_item_at_index(i as isize, py)?;
+            if current
+                .bind(py)
+                .rich_compare(item, CompareOp::Eq)?
+                .is_truthy()?
+            {
+                return Ok(Some(i));
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn remove_in_place(&mut self, py: Python<'_>, item: &Bound<'_, PyAny>) -> PyResult<bool> {
+        // Find the index of the item to remove using indexOf
+        let index = match self.index_of(py, item)? {
+            Some(idx) => idx,
+            None => return Ok(false),
+        };
+
+        // Remove the item in place
+        match &mut self.storage {
+            ArrayStorage::Int8(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::UInt8(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::Int16(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::UInt16(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::Int32(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::UInt32(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::Int64(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::UInt64(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::Float32(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::Float64(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::String(vec) => {
+                vec.remove(index);
+            }
+            ArrayStorage::PyObject(arc_vec) => {
+                arc_vec.lock().unwrap().remove(index);
+            }
+        }
+
+        Ok(true)
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -2913,20 +2989,38 @@ pub fn map_indexed3(
 }
 
 #[pyfunction]
-#[pyo3(signature = (array, index))]
-pub fn remove_at(py: Python<'_>, array: &mut FSharpArray, index: isize) -> PyResult<FSharpArray> {
+#[pyo3(signature = (index, array))]
+pub fn remove_at(py: Python<'_>, index: isize, array: &mut FSharpArray) -> PyResult<FSharpArray> {
     array.remove_at(py, index)
 }
 
 #[pyfunction]
-#[pyo3(signature = (array, index, count))]
+#[pyo3(signature = (index, count, array))]
 pub fn remove_many_at(
     py: Python<'_>,
-    array: &mut FSharpArray,
     index: isize,
     count: usize,
+    array: &mut FSharpArray,
 ) -> PyResult<FSharpArray> {
     array.remove_many_at(py, index, count)
+}
+
+#[pyfunction]
+pub fn remove_in_place(
+    py: Python<'_>,
+    array: &mut FSharpArray,
+    item: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
+    array.remove_in_place(py, item)
+}
+
+#[pyfunction]
+pub fn index_of(
+    py: Python<'_>,
+    array: &FSharpArray,
+    item: &Bound<'_, PyAny>,
+) -> PyResult<Option<usize>> {
+    array.index_of(py, item)
 }
 
 // Constructor class for array allocation
@@ -3329,5 +3423,30 @@ impl ArrayStorage {
                 ArrayStorage::PyObject(Arc::new(Mutex::new(new_vec)))
             }
         }
+    }
+}
+
+#[pyclass]
+struct FSharpArrayIter {
+    array: Py<FSharpArray>,
+    index: usize,
+    len: usize,
+}
+
+#[pymethods]
+impl FSharpArrayIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<PyObject>> {
+        if slf.index >= slf.len {
+            return Ok(None);
+        }
+        let array = slf.array.bind(py);
+        let array_ref = array.borrow();
+        let item = array_ref.get_item_at_index(slf.index as isize, py)?;
+        slf.index += 1;
+        Ok(Some(item))
     }
 }
