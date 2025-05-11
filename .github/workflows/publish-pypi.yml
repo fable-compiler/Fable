@@ -21,9 +21,9 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '9.0.x'
-      - name: Install Uv and Maturin
+      - name: Install Poetry and Maturin
         run: |
-          pipx install uv
+          pipx install poetry
           pipx install maturin
       - name: Transpile F# to Python
         run: ./build.sh fable-library --python
@@ -63,8 +63,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - name: Install Uv
-        run: pipx install uv
+      - name: Install Poetry
+        run: pipx install poetry
       - name: Download fable-library-py
         uses: actions/download-artifact@v4
         with:
@@ -78,9 +78,9 @@ jobs:
       - name: Test
         run: |
           cd src/fable-library-py
-          uv sync
-          uv run maturin develop --release
-          uv run pytest tests
+          poetry install
+          poetry run maturin develop --release
+          poetry run pytest tests
 
   linux:
     needs: build-fable-library

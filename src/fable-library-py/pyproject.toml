@@ -1,33 +1,21 @@
-[project]
+[tool.poetry]
 name = "fable-library"
-version = "0.0.0"
+version = "0.0.0" # This is a placeholder version. The actual version will be set by the build system.
 description = "Fable library for Python"
-authors = [
-    { name = "Dag Brattli", email = "dag@brattli.net" }
-]
-requires-python = ">= 3.10, < 4.0"
-readme = "README.md"
+authors = ["Dag Brattli <dag@brattli.net>"]
 license = "MIT License"
+readme = "README.md"
+homepage = "https://fable.io"
+packages = [{ include = "fable_library", from = "." }]
 
-[project.urls]
-Homepage = "https://fable.io"
+[tool.poetry.dependencies]
+python = ">= 3.10, < 4.0"
 
-[dependency-groups]
-dev = [
-    "pytest>=8.3.5,<9",
-    "maturin>=1.8.3,<2",
-    "hypothesis>=6.131.9,<7",
-    "pytest-benchmark>=5.1.0,<6",
-]
-
-[tool.hatch.build.targets.sdist]
-include = ["./fable_library"]
-
-[tool.hatch.build.targets.wheel]
-include = ["./fable_library"]
-
-[tool.hatch.build.targets.wheel.sources]
-"./fable_library" = "fable_library"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+maturin = "^1.8.3"
+hypothesis = "^6.131.9"
+pytest-benchmark = "^5.1.0"
 
 [tool.maturin]
 python-source = "fable_library"
@@ -41,5 +29,5 @@ testpaths = ["tests", "tests-benchmark"]
 addopts = "--benchmark-columns=min,max,mean,stddev,iqr"
 
 [build-system]
-requires = ["hatchling", "maturin>=1.5,<2.0"]
+requires = ["poetry-core>=1.0.0", "maturin>=1.5,<2.0"]
 build-backend = "maturin"

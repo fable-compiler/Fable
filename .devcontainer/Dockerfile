@@ -81,8 +81,8 @@ RUN echo 'eval "$(pyenv init -)"' >> ~/.zshrc
 RUN source .zshrc && pyenv install $PYTHON_VERSION
 # Make python point to the installed version
 RUN source .zshrc && pyenv global $PYTHON_VERSION
-RUN source .zshrc && curl -LsSf https://astral.sh/uv/install.sh | sh
-RUN echo "# Load uv path" >> .zshrc
+RUN source .zshrc && curl -sSL https://install.python-poetry.org | python
+RUN echo "# Load poetry path" >> .zshrc
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> .zshrc
 
 # Install rust

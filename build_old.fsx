@@ -649,7 +649,7 @@ let testPython () =
             "--lang Python"
         ]
 
-    runInDir buildDir "uv run pytest -x"
+    runInDir buildDir "poetry run pytest -x"
 // Testing in Windows
 // runInDir buildDir "python -m pytest -x"
 

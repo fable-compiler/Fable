@@ -150,9 +150,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install uv
+      - name: Install poetry
         run: |
-          pipx install uv
+          pipx install poetry
           pipx install maturin
 
       - name: Fable Library - Python (linux)
