@@ -2,7 +2,7 @@ use crate::floats::{Float32, Float64};
 use crate::ints::{Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8};
 use pyo3::class::basic::CompareOp;
 use pyo3::types::{PyBytes, PyTuple, PyType};
-use pyo3::{exceptions, IntoPyObjectExt};
+use pyo3::{exceptions, IntoPyObjectExt, PyTypeInfo};
 use pyo3::{
     prelude::*,
     types::{PyAnyMethods, PyList},
@@ -144,12 +144,48 @@ impl<'py> IntoPyObject<'py> for ArrayType {
     }
 }
 
-#[pyclass(module = "fable")]
+#[pyclass(module = "fable", subclass)]
 #[derive(Clone)]
 pub struct FSharpArray {
     storage: ArrayStorage,
     nominal_type: ArrayType,
 }
+
+#[pyclass(extends=FSharpArray)]
+struct Int8Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct UInt8Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct Int16Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct UInt16Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct Int32Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct UInt32Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct Int64Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct UInt64Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct Float32Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct Float64Array {}
+
+#[pyclass(extends=FSharpArray)]
+struct StringArray {}
+
+#[pyclass(extends=FSharpArray)]
+struct GenericArray {}
 
 // Utility function to convert Python objects to FSharpArray
 fn ensure_array(py: Python<'_>, ob: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
@@ -346,16 +382,39 @@ impl FSharpArray {
 
     #[classmethod]
     fn __class_getitem__(
-        cls: &Bound<'_, PyType>,
-        _item: &Bound<'_, PyAny>,
+        _cls: &Bound<'_, PyType>,
+        item: &Bound<'_, PyAny>,
         py: Python<'_>,
     ) -> PyResult<PyObject> {
-        // This just returns the class itself, making the type hints work
-        // without changing runtime behavior
-        Ok(cls.into_py_any(py)?)
+        // Get type name - either from string or from type.__name__
+        let type_name: Option<String> = if let Ok(s) = item.extract::<String>() {
+            Some(s)
+        } else if let Ok(py_type) = item.downcast::<PyType>() {
+            py_type.getattr("__name__")?.extract()?
+        } else {
+            None
+        };
+
+        // Match on the type name
+        let array_class = match type_name.as_deref() {
+            Some("Int8") => Int8Array::type_object(py),
+            Some("UInt8") => UInt8Array::type_object(py),
+            Some("Int16") => Int16Array::type_object(py),
+            Some("UInt16") => UInt16Array::type_object(py),
+            Some("Int32") => Int32Array::type_object(py),
+            Some("UInt32") => UInt32Array::type_object(py),
+            Some("Int64") => Int64Array::type_object(py),
+            Some("UInt64") => UInt64Array::type_object(py),
+            Some("Float32") => Float32Array::type_object(py),
+            Some("Float64") => Float64Array::type_object(py),
+            Some("String") | Some("str") => StringArray::type_object(py),
+            _ => GenericArray::type_object(py),
+        };
+
+        Ok(array_class.into_pyobject(py)?.into())
     }
 
-    // Creates an array whose elements are all initially the given value.
+    /// Creates an array whose elements are all initially the given value.
     #[staticmethod]
     pub fn create(
         _py: Python<'_>,
@@ -2235,8 +2294,39 @@ impl FSharpArray {
 
     // Provide a repr that wraps the str representation in single quotes
     pub fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        let str_result = self.__str__(py)?;
-        Ok(format!("'{}'", str_result))
+        let nominal_type = match self.nominal_type {
+            ArrayType::Int8 => "Int8Array",
+            ArrayType::UInt8 => "UInt8Array",
+            ArrayType::Int16 => "Int16Array",
+            ArrayType::UInt16 => "UInt16Array",
+            ArrayType::Int32 => "Int32Array",
+            ArrayType::UInt32 => "UInt32Array",
+            ArrayType::Int64 => "Int64Array",
+            ArrayType::UInt64 => "UInt64Array",
+            ArrayType::Float32 => "Float32Array",
+            ArrayType::Float64 => "Float64Array",
+            ArrayType::String => "StringArray",
+            ArrayType::Generic => "GenericArray",
+        };
+        let storage_type = match &self.storage {
+            ArrayStorage::Int8(_) => "Int8",
+            ArrayStorage::UInt8(_) => "UInt8",
+            ArrayStorage::Int16(_) => "Int16",
+            ArrayStorage::UInt16(_) => "UInt16",
+            ArrayStorage::Int32(_) => "Int32",
+            ArrayStorage::UInt32(_) => "UInt32",
+            ArrayStorage::Int64(_) => "Int64",
+            ArrayStorage::UInt64(_) => "UInt64",
+            ArrayStorage::Float32(_) => "Float32",
+            ArrayStorage::Float64(_) => "Float64",
+            ArrayStorage::String(_) => "String",
+            ArrayStorage::PyObject(_) => "PyObject",
+        };
+        let contents = self.__str__(py)?;
+        Ok(format!(
+            "{}({}) # storage: {}",
+            nominal_type, contents, storage_type
+        ))
     }
 
     pub fn insert_at(
@@ -3063,6 +3153,113 @@ impl FSharpCons {
     // Allow calling the constructor directly
     fn __call__(&self, py: Python<'_>, length: usize) -> PyResult<FSharpArray> {
         self.allocate(py, length)
+    }
+}
+
+#[pymethods]
+impl Int8Array {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((Int8Array {}, FSharpArray::new(py, Some("Int8"), elements)?))
+    }
+}
+
+#[pymethods]
+impl UInt8Array {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            UInt8Array {},
+            FSharpArray::new(py, Some("UInt8"), elements)?,
+        ))
+    }
+}
+
+#[pymethods]
+impl Int16Array {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            Int16Array {},
+            FSharpArray::new(py, Some("Int16"), elements)?,
+        ))
+    }
+}
+
+#[pymethods]
+impl UInt16Array {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            UInt16Array {},
+            FSharpArray::new(py, Some("UInt16"), elements)?,
+        ))
+    }
+}
+
+#[pymethods]
+impl Int32Array {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            Int32Array {},
+            FSharpArray::new(py, Some("Int32"), elements)?,
+        ))
+    }
+}
+
+#[pymethods]
+impl UInt32Array {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            UInt32Array {},
+            FSharpArray::new(py, Some("UInt32"), elements)?,
+        ))
+    }
+}
+
+#[pymethods]
+impl Float32Array {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            Float32Array {},
+            FSharpArray::new(py, Some("Float32"), elements)?,
+        ))
+    }
+}
+
+#[pymethods]
+impl Float64Array {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            Float64Array {},
+            FSharpArray::new(py, Some("Float64"), elements)?,
+        ))
+    }
+}
+
+#[pymethods]
+impl StringArray {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            StringArray {},
+            FSharpArray::new(py, Some("String"), elements)?,
+        ))
+    }
+}
+
+#[pymethods]
+impl GenericArray {
+    #[new]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            GenericArray {},
+            FSharpArray::new(py, Some("generic"), elements)?,
+        ))
     }
 }
 
