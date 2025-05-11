@@ -37,7 +37,7 @@ jobs:
           VERSION=${VERSION/beta/b}
           echo "Setting version to $VERSION"
           cd temp/fable-library-py
-          poetry version $VERSION
+          uv version $VERSION
           mkdir -p fable_library
           echo "__version__ = \"$VERSION\"" > fable_library/_version.py
       - name: Upload fable-library-py
