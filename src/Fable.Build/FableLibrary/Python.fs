@@ -30,9 +30,9 @@ type BuildFableLibraryPython() =
         |> Shell.copyFiles (Path.Combine(this.BuildDir, "src"))
 
     override this.PostFableBuildStage() =
-        Command.Run("poetry", "config virtualenvs.in-project true", this.BuildDir)
-        Command.Run("poetry", "install", this.BuildDir) // Maturin needs a local virtual environment
-        Command.Run("poetry", "run maturin develop --release", this.BuildDir)
+        // Install the python dependencies at the root of the project
+        Command.Run("uv", "sync", this.BuildDir) // Maturin needs a local virtual environment
+        Command.Run("uv", "run maturin develop --release", this.BuildDir)
 
         // Fix issues with Fable .fsproj not supporting links, so we need to copy the
         // files ourself to the output directory
@@ -43,10 +43,8 @@ type BuildFableLibraryPython() =
 
         Shell.deleteDir (this.BuildDir </> "fable_library/fable-library-ts")
 
-        // Install the python dependencies at the root of the project
-        Command.Run("poetry", "install")
 
         // Run Ruff linter checking import sorting and fix any issues
-        Command.Run("poetry", $"run ruff check --select I --fix {this.BuildDir}")
+        Command.Run("uv", $"run ruff check --select I --fix {this.BuildDir}")
         // Run Ruff formatter on all generated files
-        Command.Run("poetry", $"run ruff format {this.BuildDir}")
+        Command.Run("uv", $"run ruff format {this.BuildDir}")
