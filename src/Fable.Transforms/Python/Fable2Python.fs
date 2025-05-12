@@ -1212,7 +1212,9 @@ module Util =
         match array_type with
         | Some l ->
             let array = libValue com ctx "array_" "Array"
-            Expression.call (array, Expression.stringConstant l :: [ Expression.list expr ]), stmts
+            let type_obj = libValue com ctx "array_" l
+            let sub_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
+            Expression.call (sub_array, [ Expression.list expr ]), stmts
         | _ -> expr |> Expression.list, stmts
 
 

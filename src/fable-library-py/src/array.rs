@@ -80,7 +80,6 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     parent_module.add_submodule(&m)
 }
 
-// Enum to track the declared/nominal type of an array
 #[derive(Clone, Debug, PartialEq)]
 enum ArrayType {
     Int8,
@@ -148,43 +147,42 @@ impl<'py> IntoPyObject<'py> for ArrayType {
 #[derive(Clone)]
 pub struct FSharpArray {
     storage: ArrayStorage,
-    nominal_type: ArrayType,
 }
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct Int8Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct UInt8Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct Int16Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct UInt16Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct Int32Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct UInt32Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct Int64Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct UInt64Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct Float32Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct Float64Array {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct StringArray {}
 
-#[pyclass(extends=FSharpArray)]
+#[pyclass(module="fable", extends=FSharpArray)]
 struct GenericArray {}
 
 // Utility function to convert Python objects to FSharpArray
@@ -197,22 +195,22 @@ fn ensure_array(py: Python<'_>, ob: &Bound<'_, PyAny>) -> PyResult<FSharpArray> 
     // Check if the object is iterable
     if let Ok(iter) = ob.try_iter() {
         // Convert iterable directly to FSharpArray
-        return FSharpArray::new(py, None, Some(iter.as_any()));
+        return FSharpArray::new(py, Some(iter.as_any()), None);
     }
 
     // If it's a single item, create a singleton array
     let singleton_list = PyList::new(py, &[ob])?;
-    FSharpArray::new(py, None, Some(&singleton_list))
+    FSharpArray::new(py, Some(&singleton_list), None)
 }
 
 #[pymethods]
 impl FSharpArray {
     #[new]
-    #[pyo3(signature = (array_type=None, elements=None))]
+    #[pyo3(signature = (elements=None, array_type=None))]
     pub fn new(
         py: Python<'_>,
-        array_type: Option<&str>,
         elements: Option<&Bound<'_, PyAny>>,
+        array_type: Option<&str>,
     ) -> PyResult<Self> {
         let nominal_type = if let Some(type_str) = array_type {
             match type_str {
@@ -242,7 +240,6 @@ impl FSharpArray {
                     }) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::Int8(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -252,7 +249,6 @@ impl FSharpArray {
                     }) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::UInt8(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -262,7 +258,6 @@ impl FSharpArray {
                     }) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::Int16(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -272,7 +267,6 @@ impl FSharpArray {
                     }) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::UInt16(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -283,7 +277,6 @@ impl FSharpArray {
                     }) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::Int32(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -293,7 +286,6 @@ impl FSharpArray {
                     }) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::UInt32(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -303,7 +295,6 @@ impl FSharpArray {
                     }) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::Int64(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -313,7 +304,6 @@ impl FSharpArray {
                     }) {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::UInt64(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -325,7 +315,6 @@ impl FSharpArray {
                     {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::Float32(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -337,7 +326,6 @@ impl FSharpArray {
                     {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::Float64(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -349,7 +337,6 @@ impl FSharpArray {
                     {
                         return Ok(FSharpArray {
                             storage: ArrayStorage::String(vec),
-                            nominal_type,
                         });
                     }
                 }
@@ -372,7 +359,6 @@ impl FSharpArray {
 
             Ok(FSharpArray {
                 storage: ArrayStorage::PyObject(Arc::new(Mutex::new(vec))),
-                nominal_type,
             })
         } else {
             // Empty array - create with the right type but no elements
@@ -427,7 +413,6 @@ impl FSharpArray {
             vec.resize(count, *int8);
             return Ok(FSharpArray {
                 storage: ArrayStorage::Int8(vec),
-                nominal_type: ArrayType::Int8,
             });
         } else if let Ok(uint8) = value.extract::<UInt8>() {
             println!("Creating UInt8 array");
@@ -435,70 +420,60 @@ impl FSharpArray {
             vec.resize(count, *uint8);
             return Ok(FSharpArray {
                 storage: ArrayStorage::UInt8(vec),
-                nominal_type: ArrayType::UInt8,
             });
         } else if let Ok(int16) = value.extract::<Int16>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *int16);
             return Ok(FSharpArray {
                 storage: ArrayStorage::Int16(vec),
-                nominal_type: ArrayType::Int16,
             });
         } else if let Ok(uint16) = value.extract::<UInt16>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *uint16);
             return Ok(FSharpArray {
                 storage: ArrayStorage::UInt16(vec),
-                nominal_type: ArrayType::UInt16,
             });
         } else if let Ok(int32) = value.extract::<Int32>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *int32);
             return Ok(FSharpArray {
                 storage: ArrayStorage::Int32(vec),
-                nominal_type: ArrayType::Int32,
             });
         } else if let Ok(uint32) = value.extract::<UInt32>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *uint32);
             return Ok(FSharpArray {
                 storage: ArrayStorage::UInt32(vec),
-                nominal_type: ArrayType::UInt32,
             });
         } else if let Ok(int64) = value.extract::<Int64>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *int64);
             return Ok(FSharpArray {
                 storage: ArrayStorage::Int64(vec),
-                nominal_type: ArrayType::Int64,
             });
         } else if let Ok(uint64) = value.extract::<UInt64>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *uint64);
             return Ok(FSharpArray {
                 storage: ArrayStorage::UInt64(vec),
-                nominal_type: ArrayType::UInt64,
             });
         } else if let Ok(float32) = value.extract::<Float32>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *float32);
             return Ok(FSharpArray {
                 storage: ArrayStorage::Float32(vec),
-                nominal_type: ArrayType::Float32,
             });
         } else if let Ok(float64) = value.extract::<Float64>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *float64);
             return Ok(FSharpArray {
                 storage: ArrayStorage::Float64(vec),
-                nominal_type: ArrayType::Float64,
             });
         } else if let Ok(string) = value.extract::<String>() {
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, string);
             return Ok(FSharpArray {
                 storage: ArrayStorage::String(vec),
-                nominal_type: ArrayType::String,
             });
         }
 
@@ -511,7 +486,6 @@ impl FSharpArray {
 
         Ok(FSharpArray {
             storage: ArrayStorage::PyObject(Arc::new(Mutex::new(vec))),
-            nominal_type: ArrayType::Generic,
         })
     }
 
@@ -537,7 +511,7 @@ impl FSharpArray {
         }
 
         // Construct the result array
-        Ok(results.build(&fs_cons.array_type))
+        Ok(results.build())
     }
 
     #[staticmethod]
@@ -555,7 +529,7 @@ impl FSharpArray {
         // Set the single element
         builder.push_value(value, py)?;
 
-        let array = builder.build(&fs_cons.array_type);
+        let array = builder.build();
         Ok(array)
     }
 
@@ -586,7 +560,7 @@ impl FSharpArray {
     }
 
     pub fn __bytes__(&self, py: Python<'_>) -> PyResult<PyObject> {
-        println!("Converting to bytes: {:?}", self.nominal_type);
+        println!("Converting to bytes: {:?}", self.storage.type_name());
         match &self.storage {
             // For UInt8/Int8 arrays, we can create bytes directly
             ArrayStorage::UInt8(vec) => {
@@ -708,8 +682,8 @@ impl FSharpArray {
             // Create a new array with the same type
             let fs_cons = FSharpCons::new(
                 &self
-                    .nominal_type
-                    .clone()
+                    .storage
+                    .type_name()
                     .into_pyobject(py)?
                     .extract::<String>()?,
             )?;
@@ -738,7 +712,7 @@ impl FSharpArray {
         };
         // println!("Slice length: {:?}", slice_len);
         // println!("Nominal type: {:?}", self.nominal_type);
-        let mut builder = ArrayStorage::new(&self.nominal_type, Some(slice_len));
+        let mut builder = ArrayStorage::new(&self.storage.get_type(), Some(slice_len));
 
         // Add each element from the slice range
         for i in 0..slice_len {
@@ -746,7 +720,7 @@ impl FSharpArray {
         }
 
         // Create the result array
-        let result = builder.build(&self.nominal_type);
+        let result = builder.build();
         Ok(Py::new(py, result)?.into())
     }
 
@@ -1111,7 +1085,7 @@ impl FSharpArray {
         }
 
         // Create a new array with the same type and size - 1
-        let mut builder = ArrayStorage::new(&self.nominal_type, Some(len - 1));
+        let mut builder = ArrayStorage::new(&self.storage.get_type(), Some(len - 1));
 
         // Copy all elements except the one at the specified index
         for i in 0..len {
@@ -1121,7 +1095,7 @@ impl FSharpArray {
         }
 
         // Create the result array
-        let result = builder.build(&self.nominal_type);
+        let result = builder.build();
         Ok(result)
     }
 
@@ -1145,7 +1119,7 @@ impl FSharpArray {
         }
 
         // Create a new array with the same type and size - count
-        let mut builder = ArrayStorage::new(&self.nominal_type, Some(len - count));
+        let mut builder = ArrayStorage::new(&self.storage.get_type(), Some(len - count));
 
         // Copy all elements except the ones at the specified indices
         for i in 0..len {
@@ -1155,7 +1129,7 @@ impl FSharpArray {
         }
 
         // Create the result array
-        let result = builder.build(&self.nominal_type);
+        let result = builder.build();
         Ok(result)
     }
 
@@ -1175,7 +1149,7 @@ impl FSharpArray {
                 fs_cons.array_type.clone()
             } else {
                 // Fallback if cons is not a FSharpCons
-                self.nominal_type.clone()
+                self.storage.get_type().clone()
             }
         } else {
             // If no constructor is provided, assume the type might change and default to Generic
@@ -1194,7 +1168,7 @@ impl FSharpArray {
         }
 
         // Convert the collected results into the final storage
-        Ok(results.build(&target_type))
+        Ok(results.build())
     }
 
     pub fn map2(
@@ -1215,7 +1189,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut results = fs_cons.create_builder(len);
 
         // Map each element with counterpart in source2
@@ -1227,7 +1201,7 @@ impl FSharpArray {
         }
 
         // Return final array
-        Ok(results.build(&fs_cons.array_type))
+        Ok(results.build())
     }
 
     pub fn map_indexed(
@@ -1244,7 +1218,7 @@ impl FSharpArray {
                 fs_cons.array_type.clone()
             } else {
                 // Fallback if cons is not a FSharpCons
-                self.nominal_type.clone()
+                self.storage.get_type().clone()
             }
         } else {
             // If no constructor is provided, assume the type might change and default to Generic
@@ -1263,7 +1237,7 @@ impl FSharpArray {
         }
 
         // Convert the collected results into the final storage
-        Ok(results.build(&target_type))
+        Ok(results.build())
     }
 
     // Filter implementation (Refactored with ArrayStorage)
@@ -1271,7 +1245,7 @@ impl FSharpArray {
     #[pyo3(signature = (predicate))]
     pub fn filter(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<Self> {
         let len = self.__len__();
-        let original_type = self.nominal_type.clone();
+        let original_type = self.storage.get_type().clone();
 
         // Create a helper to collect results based on the original type
         let mut results = ArrayStorage::new(&original_type, None); // No initial capacity needed
@@ -1288,7 +1262,7 @@ impl FSharpArray {
         }
 
         // Convert the collected results into the final storage
-        Ok(results.build(&original_type))
+        Ok(results.build())
     }
 
     // Skip implementation using our refined ArrayStorage
@@ -1315,10 +1289,7 @@ impl FSharpArray {
         }
 
         // Construct the result array
-        Ok(FSharpArray {
-            storage: results,
-            nominal_type: fs_cons.array_type,
-        })
+        Ok(FSharpArray { storage: results })
     }
 
     pub fn chunk_by_size(&self, py: Python<'_>, chunk_size: usize) -> PyResult<Self> {
@@ -1333,12 +1304,11 @@ impl FSharpArray {
             // Return an empty array
             return Ok(FSharpArray {
                 storage: ArrayStorage::PyObject(Arc::new(Mutex::new(vec![]))),
-                nominal_type: ArrayType::Generic,
             });
         }
 
         // Determine target type from cons or preserve source type
-        let target_type = self.nominal_type.clone();
+        let target_type = self.storage.get_type().clone();
 
         // Create the builder for results
         let mut results = ArrayStorage::new(&target_type, None); // No initial capacity needed
@@ -1353,10 +1323,7 @@ impl FSharpArray {
         }
 
         // Construct the result array
-        Ok(FSharpArray {
-            storage: results,
-            nominal_type: target_type,
-        })
+        Ok(FSharpArray { storage: results })
     }
 
     pub fn fill(
@@ -1753,8 +1720,8 @@ impl FSharpArray {
         }
 
         let count = len - 1;
-        let builder = ArrayStorage::new(&self.nominal_type, Some(count));
-        let mut result = builder.build(&self.nominal_type);
+        let builder = ArrayStorage::new(&self.storage.get_type(), Some(count));
+        let mut result = builder.build();
 
         for i in 0..count {
             let item1 = self.get_item_at_index(i as isize, py)?;
@@ -1768,8 +1735,8 @@ impl FSharpArray {
 
     pub fn permute(&self, py: Python<'_>, f: &Bound<'_, PyAny>) -> PyResult<Py<FSharpArray>> {
         let len = self.__len__();
-        let builder = ArrayStorage::new(&self.nominal_type, Some(len));
-        let mut result = builder.build(&self.nominal_type);
+        let builder = ArrayStorage::new(&self.storage.get_type(), Some(len));
+        let mut result = builder.build();
 
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
@@ -1789,7 +1756,7 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<FSharpArray>> {
         let len = self.__len__();
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut results = fs_cons.create_builder(len + 1);
         results.push_value(state, py)?;
 
@@ -1799,7 +1766,7 @@ impl FSharpArray {
             results.push_value(&new_state, py)?;
         }
 
-        Ok(results.build(&self.nominal_type).into_pyobject(py)?.into())
+        Ok(results.build().into_pyobject(py)?.into())
     }
 
     pub fn scan_back(
@@ -1810,7 +1777,7 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<FSharpArray>> {
         let len = self.__len__();
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut results = fs_cons.create_builder(len + 1);
         results.push_value(state, py)?;
 
@@ -1820,7 +1787,7 @@ impl FSharpArray {
             results.push_value(&new_state, py)?;
         }
 
-        Ok(results.build(&self.nominal_type).into_pyobject(py)?.into())
+        Ok(results.build().into_pyobject(py)?.into())
     }
 
     pub fn split_into(&self, py: Python<'_>, chunks: usize) -> PyResult<FSharpArray> {
@@ -1835,12 +1802,11 @@ impl FSharpArray {
             // Return an empty array
             return Ok(FSharpArray {
                 storage: ArrayStorage::PyObject(Arc::new(Mutex::new(vec![]))),
-                nominal_type: ArrayType::Generic,
             });
         }
 
         // Create the builder for results
-        let mut results = ArrayStorage::new(&self.nominal_type, None); // No initial capacity needed
+        let mut results = ArrayStorage::new(&self.storage.get_type(), None); // No initial capacity needed
 
         // Add each chunk to the result
         for x in 0..((len + chunks - 1) / chunks) {
@@ -1852,10 +1818,7 @@ impl FSharpArray {
         }
 
         // Construct the result array
-        Ok(FSharpArray {
-            storage: results,
-            nominal_type: self.nominal_type.clone(),
-        })
+        Ok(FSharpArray { storage: results })
     }
 
     pub fn transpose(
@@ -1867,7 +1830,6 @@ impl FSharpArray {
         if len == 0 {
             return Ok(FSharpArray {
                 storage: ArrayStorage::PyObject(Arc::new(Mutex::new(vec![]))),
-                nominal_type: ArrayType::Generic,
             });
         }
 
@@ -1885,7 +1847,7 @@ impl FSharpArray {
         }
 
         // Create the result array
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut results = fs_cons.create_builder(len_inner);
 
         // Fill the result array
@@ -1895,13 +1857,10 @@ impl FSharpArray {
                 let item = self.get_item_at_index(j as isize, py)?;
                 inner_array.push_value(&item.bind(py), py)?;
             }
-            results.push_value(
-                Py::new(py, inner_array.build(&fs_cons.array_type))?.bind(py),
-                py,
-            )?;
+            results.push_value(Py::new(py, inner_array.build())?.bind(py), py)?;
         }
 
-        Ok(results.build(&self.nominal_type))
+        Ok(results.build())
     }
 
     pub fn try_find_back(
@@ -1945,14 +1904,15 @@ impl FSharpArray {
         let count = std::cmp::max(0, len as isize - window_size as isize + 1) as usize;
 
         // Create an array of arrays
-        let builder = ArrayStorage::new(&ArrayType::Generic, Some(count));
-        let mut result = builder.build(&ArrayType::Generic);
+        let builder = ArrayStorage::new(&self.storage.get_type(), Some(count));
+        let mut result = builder.build();
 
         for i in 0..count {
             // For each window position, create a new array containing window_size elements
             let fs_cons = FSharpCons::new(
                 &self
-                    .nominal_type
+                    .storage
+                    .get_type()
                     .clone()
                     .into_pyobject(py)?
                     .extract::<String>()?,
@@ -1983,12 +1943,12 @@ impl FSharpArray {
         let len = self.__len__();
 
         // Get the constructor or use default
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
 
         if len == 0 {
             // Return empty array and original state
             let empty_array = fs_cons.create_builder(0);
-            let result_array = empty_array.build(&fs_cons.array_type);
+            let result_array = empty_array.build();
             let result_tuple =
                 PyTuple::new(py, &[Py::new(py, result_array)?.bind(py), &state.clone()]);
             return Ok(result_tuple?.into());
@@ -2012,7 +1972,7 @@ impl FSharpArray {
             result_array_builder.push_value(&mapped_item, py)?;
         }
 
-        let result_array = result_array_builder.build(&fs_cons.array_type);
+        let result_array = result_array_builder.build();
 
         // Return tuple of (result_array, final_state)
         let result_tuple = PyTuple::new(py, &[Py::new(py, result_array)?.bind(py), &current_state]);
@@ -2030,12 +1990,12 @@ impl FSharpArray {
         let len = self.__len__();
 
         // Get the constructor or use default
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
 
         if len == 0 {
             // Return empty array and original state
             let empty_array = fs_cons.create_builder(0);
-            let result_array = empty_array.build(&fs_cons.array_type);
+            let result_array = empty_array.build();
             let result_tuple =
                 PyTuple::new(py, &[Py::new(py, result_array)?.bind(py), &state.clone()]);
             return Ok(result_tuple?.into());
@@ -2059,7 +2019,7 @@ impl FSharpArray {
             result_array_builder.push_value(&mapped_item, py)?;
         }
 
-        let result_array = result_array_builder.build(&fs_cons.array_type);
+        let result_array = result_array_builder.build();
 
         // Return tuple of (result_array, final_state)
         let result_tuple = PyTuple::new(py, &[Py::new(py, result_array)?.bind(py), &current_state]);
@@ -2125,7 +2085,6 @@ impl FSharpArray {
 
         Ok(FSharpArray {
             storage: reversed_storage,
-            nominal_type: self.nominal_type.clone(),
         })
     }
 
@@ -2199,7 +2158,7 @@ impl FSharpArray {
         }
 
         // Create a new array using the constructor
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut target = fs_cons.allocate(py, len)?;
 
         // Fill the new array with values from the original array
@@ -2294,20 +2253,6 @@ impl FSharpArray {
 
     // Provide a repr that wraps the str representation in single quotes
     pub fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        let nominal_type = match self.nominal_type {
-            ArrayType::Int8 => "Int8Array",
-            ArrayType::UInt8 => "UInt8Array",
-            ArrayType::Int16 => "Int16Array",
-            ArrayType::UInt16 => "UInt16Array",
-            ArrayType::Int32 => "Int32Array",
-            ArrayType::UInt32 => "UInt32Array",
-            ArrayType::Int64 => "Int64Array",
-            ArrayType::UInt64 => "UInt64Array",
-            ArrayType::Float32 => "Float32Array",
-            ArrayType::Float64 => "Float64Array",
-            ArrayType::String => "StringArray",
-            ArrayType::Generic => "GenericArray",
-        };
         let storage_type = match &self.storage {
             ArrayStorage::Int8(_) => "Int8",
             ArrayStorage::UInt8(_) => "UInt8",
@@ -2323,10 +2268,7 @@ impl FSharpArray {
             ArrayStorage::PyObject(_) => "PyObject",
         };
         let contents = self.__str__(py)?;
-        Ok(format!(
-            "{}({}) # storage: {}",
-            nominal_type, contents, storage_type
-        ))
+        Ok(format!("{}({})", storage_type, contents))
     }
 
     pub fn insert_at(
@@ -2348,7 +2290,6 @@ impl FSharpArray {
 
         let mut target = FSharpArray {
             storage: target_storage,
-            nominal_type: self.nominal_type.clone(),
         };
 
         // Set the new value at the specified index
@@ -2376,7 +2317,6 @@ impl FSharpArray {
 
         let mut target = FSharpArray {
             storage: target_storage,
-            nominal_type: self.nominal_type.clone(),
         };
 
         // Set the new value at the specified index
@@ -2403,7 +2343,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut results = fs_cons.create_builder(len);
 
         // Map each element with counterparts in source2 and source3
@@ -2416,7 +2356,7 @@ impl FSharpArray {
         }
 
         // Return final array
-        Ok(results.build(&fs_cons.array_type))
+        Ok(results.build())
     }
 
     pub fn map_indexed2(
@@ -2436,7 +2376,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut results = fs_cons.create_builder(len);
 
         // Map each element with its index and counterpart in source2
@@ -2448,7 +2388,7 @@ impl FSharpArray {
         }
 
         // Return final array
-        Ok(results.build(&fs_cons.array_type))
+        Ok(results.build())
     }
 
     #[pyo3(signature = (array2, cons=None))]
@@ -2461,10 +2401,11 @@ impl FSharpArray {
         let array2 = ensure_array(py, array2)?;
 
         // Verify that both arrays have the same type
-        if self.nominal_type != array2.nominal_type {
+        if self.storage.get_type() != array2.storage.get_type() {
             return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
                 "Cannot append arrays of different types: {:?} and {:?}",
-                self.nominal_type, array2.nominal_type
+                self.storage.get_type(),
+                array2.storage.get_type()
             )));
         }
 
@@ -2472,7 +2413,7 @@ impl FSharpArray {
         let len2 = array2.__len__();
 
         // Get constructor from cons parameter or use default
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut builder = fs_cons.create_builder(len1 + len2);
 
         // Copy elements from first array
@@ -2486,7 +2427,7 @@ impl FSharpArray {
         }
 
         // Create the final array
-        Ok(builder.build(&fs_cons.array_type))
+        Ok(builder.build())
     }
 
     pub fn map_indexed3(
@@ -2507,7 +2448,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter
-        let fs_cons = FSharpCons::extract(cons, &self.nominal_type);
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut results = fs_cons.create_builder(len);
 
         // Map each element with its index and counterparts in source2 and source3
@@ -2520,7 +2461,7 @@ impl FSharpArray {
         }
 
         // Return final array
-        Ok(results.build(&fs_cons.array_type))
+        Ok(results.build())
     }
 
     pub fn index_of(&self, py: Python<'_>, item: &Bound<'_, PyAny>) -> PyResult<Option<usize>> {
@@ -3114,7 +3055,7 @@ pub fn index_of(
 }
 
 // Constructor class for array allocation
-#[pyclass]
+#[pyclass()]
 #[derive(Clone)]
 struct FSharpCons {
     #[pyo3(get, set)]
@@ -3146,7 +3087,7 @@ impl FSharpCons {
     // Allocate method implementing the Cons interface
     pub fn allocate(&self, _py: Python<'_>, length: usize) -> PyResult<FSharpArray> {
         let builder = ArrayStorage::new(&self.array_type, Some(length));
-        let array = builder.build(&self.array_type);
+        let array = builder.build();
         Ok(array)
     }
 
@@ -3159,18 +3100,20 @@ impl FSharpCons {
 #[pymethods]
 impl Int8Array {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((Int8Array {}, FSharpArray::new(py, Some("Int8"), elements)?))
+        Ok((Int8Array {}, FSharpArray::new(py, elements, Some("Int8"))?))
     }
 }
 
 #[pymethods]
 impl UInt8Array {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             UInt8Array {},
-            FSharpArray::new(py, Some("UInt8"), elements)?,
+            FSharpArray::new(py, elements, Some("UInt8"))?,
         ))
     }
 }
@@ -3178,10 +3121,11 @@ impl UInt8Array {
 #[pymethods]
 impl Int16Array {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             Int16Array {},
-            FSharpArray::new(py, Some("Int16"), elements)?,
+            FSharpArray::new(py, elements, Some("Int16"))?,
         ))
     }
 }
@@ -3189,10 +3133,11 @@ impl Int16Array {
 #[pymethods]
 impl UInt16Array {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             UInt16Array {},
-            FSharpArray::new(py, Some("UInt16"), elements)?,
+            FSharpArray::new(py, elements, Some("UInt16"))?,
         ))
     }
 }
@@ -3200,10 +3145,11 @@ impl UInt16Array {
 #[pymethods]
 impl Int32Array {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             Int32Array {},
-            FSharpArray::new(py, Some("Int32"), elements)?,
+            FSharpArray::new(py, elements, Some("Int32"))?,
         ))
     }
 }
@@ -3211,10 +3157,35 @@ impl Int32Array {
 #[pymethods]
 impl UInt32Array {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             UInt32Array {},
-            FSharpArray::new(py, Some("UInt32"), elements)?,
+            FSharpArray::new(py, elements, Some("UInt32"))?,
+        ))
+    }
+}
+
+#[pymethods]
+impl Int64Array {
+    #[new]
+    #[pyo3(signature = (elements=None))]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            Int64Array {},
+            FSharpArray::new(py, elements, Some("Int64"))?,
+        ))
+    }
+}
+
+#[pymethods]
+impl UInt64Array {
+    #[new]
+    #[pyo3(signature = (elements=None))]
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
+        Ok((
+            UInt64Array {},
+            FSharpArray::new(py, elements, Some("UInt64"))?,
         ))
     }
 }
@@ -3222,10 +3193,11 @@ impl UInt32Array {
 #[pymethods]
 impl Float32Array {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             Float32Array {},
-            FSharpArray::new(py, Some("Float32"), elements)?,
+            FSharpArray::new(py, elements, Some("Float32"))?,
         ))
     }
 }
@@ -3233,10 +3205,11 @@ impl Float32Array {
 #[pymethods]
 impl Float64Array {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             Float64Array {},
-            FSharpArray::new(py, Some("Float64"), elements)?,
+            FSharpArray::new(py, elements, Some("Float64"))?,
         ))
     }
 }
@@ -3244,10 +3217,11 @@ impl Float64Array {
 #[pymethods]
 impl StringArray {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             StringArray {},
-            FSharpArray::new(py, Some("String"), elements)?,
+            FSharpArray::new(py, elements, Some("String"))?,
         ))
     }
 }
@@ -3255,10 +3229,11 @@ impl StringArray {
 #[pymethods]
 impl GenericArray {
     #[new]
+    #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
             GenericArray {},
-            FSharpArray::new(py, Some("generic"), elements)?,
+            FSharpArray::new(py, elements, Some("generic"))?,
         ))
     }
 }
@@ -3330,9 +3305,6 @@ where
     Ok(vec)
 }
 
-// Buffer protocol implementation removed
-
-// The actual storage can be different from the nominal type
 #[derive(Debug)]
 enum ArrayStorage {
     Int8(Vec<i8>),
@@ -3430,6 +3402,40 @@ impl ArrayStorage {
         }
     }
 
+    fn type_name(&self) -> &str {
+        match self {
+            ArrayStorage::Int8(_) => "Int8",
+            ArrayStorage::UInt8(_) => "UInt8",
+            ArrayStorage::Int16(_) => "Int16",
+            ArrayStorage::UInt16(_) => "UInt16",
+            ArrayStorage::Int32(_) => "Int32",
+            ArrayStorage::UInt32(_) => "UInt32",
+            ArrayStorage::Int64(_) => "Int64",
+            ArrayStorage::UInt64(_) => "UInt64",
+            ArrayStorage::Float32(_) => "Float32",
+            ArrayStorage::Float64(_) => "Float64",
+            ArrayStorage::String(_) => "String",
+            ArrayStorage::PyObject(_) => "PyObject",
+        }
+    }
+
+    fn get_type(&self) -> &ArrayType {
+        match self {
+            ArrayStorage::Int8(_) => &ArrayType::Int8,
+            ArrayStorage::UInt8(_) => &ArrayType::UInt8,
+            ArrayStorage::Int16(_) => &ArrayType::Int16,
+            ArrayStorage::UInt16(_) => &ArrayType::UInt16,
+            ArrayStorage::Int32(_) => &ArrayType::Int32,
+            ArrayStorage::UInt32(_) => &ArrayType::UInt32,
+            ArrayStorage::Int64(_) => &ArrayType::Int64,
+            ArrayStorage::UInt64(_) => &ArrayType::UInt64,
+            ArrayStorage::Float32(_) => &ArrayType::Float32,
+            ArrayStorage::Float64(_) => &ArrayType::Float64,
+            ArrayStorage::String(_) => &ArrayType::String,
+            ArrayStorage::PyObject(_) => &ArrayType::Generic,
+        }
+    }
+
     // Create an empty ArrayStorage of the specified type
     fn create_empty_storage(array_type: &ArrayType) -> ArrayStorage {
         match array_type {
@@ -3474,18 +3480,14 @@ impl ArrayStorage {
         }
     }
 
-    fn build(self, array_type: &ArrayType) -> FSharpArray {
+    fn build(self) -> FSharpArray {
         // Construct the final FSharpArray
-        FSharpArray {
-            storage: self,
-            nominal_type: array_type.clone(),
-        }
+        FSharpArray { storage: self }
     }
 
     fn create_empty_array(array_type: &ArrayType) -> FSharpArray {
         FSharpArray {
             storage: Self::create_empty_storage(array_type),
-            nominal_type: array_type.clone(),
         }
     }
 
@@ -3623,7 +3625,7 @@ impl ArrayStorage {
     }
 }
 
-#[pyclass]
+#[pyclass(module = "fable")]
 struct FSharpArrayIter {
     array: Py<FSharpArray>,
     index: usize,
