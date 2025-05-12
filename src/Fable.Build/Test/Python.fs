@@ -18,7 +18,7 @@ let handle (args: string list) =
 
     Directory.clean buildDir
 
-    Command.Run("poetry", "install")
+    Command.Run("uv", "sync")
 
     let fableArgs =
         CmdLine.concat
@@ -34,11 +34,11 @@ let handle (args: string list) =
                     CmdLine.empty
                     |> CmdLine.appendRaw "--watch"
                     |> CmdLine.appendRaw "--runWatch"
-                    |> CmdLine.appendRaw $"poetry run pytest {buildDir} -x"
+                    |> CmdLine.appendRaw $"uv run pytest {buildDir} -x"
                 else
                     CmdLine.empty
                     |> CmdLine.appendRaw "--run"
-                    |> CmdLine.appendRaw $"poetry run pytest {buildDir} -x"
+                    |> CmdLine.appendRaw $"uv run pytest {buildDir} -x"
             ]
 
     if isWatch then

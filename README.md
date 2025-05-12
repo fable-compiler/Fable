@@ -31,7 +31,7 @@ Make sure the following **requirements** are installed in your system:
 - [dotnet SDK 6 or higher](https://dotnet.microsoft.com/download)
 - [node.js](https://nodejs.org) with npm
 - [Python 3](https://www.python.org/) is installed and available as `python`
-- [Poetry](https://python-poetry.org/)
+- [Uv](https://docs.astral.sh/uv/)
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Dart](https://dart.dev/get-dart)
 
