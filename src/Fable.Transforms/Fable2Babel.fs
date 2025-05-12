@@ -2021,7 +2021,7 @@ module Util =
         ||> List.fold (fun propsAndChildren prop ->
             match propsAndChildren, prop with
             | None, _ -> None
-            | Some(props, children), Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _) ->
+            | Some(props, children), MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _)) ->
                 if key = "children" then
                     match value with
                     | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
@@ -2124,6 +2124,7 @@ but thanks to the optimisation done below we get
                                           _) -> exprs @ rest
                 | CalledExpression "append" exprs -> exprs @ rest
                 | CalledExpression "singleton" exprs -> exprs @ rest
+                | CalledExpression "empty" _ -> [ Expression.nullLiteral () ] @ rest
                 // Note: Should we guard this unwrapper by checking that all the elements in the array are JsxElements?
                 | ArrayExpression(UnrollerFromArray exprs, _) -> exprs @ rest
                 | ConditionalExpression(testExpr, UnrollerFromSingleton thenExprs, UnrollerFromSingleton elseExprs, loc) ->

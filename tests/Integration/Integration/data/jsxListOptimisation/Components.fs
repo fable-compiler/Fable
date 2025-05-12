@@ -149,3 +149,16 @@ let divWithAttributes =
             Html.div "Test 1"
         ]
     ]
+
+let divWithConditionalWithoutElseBranchWorks show =
+    Html.div [
+        if show then
+            Html.div "I show sometimes!"
+
+        Html.div "I show always!"
+    ]
+
+let propsCanUseUnbox =
+    Html.div [
+        unbox<JSX_IReactProperty> ("id", "myid")
+    ]

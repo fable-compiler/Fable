@@ -173,19 +173,11 @@ pub mod Native_ {
     }
 
     pub fn min<T: PartialOrd>(x: T, y: T) -> T {
-        if x < y {
-            x
-        } else {
-            y
-        }
+        if x < y { x } else { y }
     }
 
     pub fn max<T: PartialOrd>(x: T, y: T) -> T {
-        if x > y {
-            x
-        } else {
-            y
-        }
+        if x > y { x } else { y }
     }
 
     pub fn equals<T: PartialEq>(x: T, y: T) -> bool {
