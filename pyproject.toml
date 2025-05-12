@@ -70,7 +70,7 @@ lines-after-imports = 2
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-pythonpath = "temp/tests/Python"
+pythonpath = ["temp/tests/Python", "."]
 testpaths = [
     "temp/tests/Python",
 ]
