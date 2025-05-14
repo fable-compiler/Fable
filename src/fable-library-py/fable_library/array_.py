@@ -103,6 +103,7 @@ update_at = array.update_at
 windowed = array.windowed
 index_of = array.index_of
 remove_in_place = array.remove_in_place
+copy_to = array.copy_to
 
 Array: TypeAlias = array.FSharpArray[_T]
 

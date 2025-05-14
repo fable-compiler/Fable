@@ -65,7 +65,7 @@ class Union(IComparable):
 
     def __init__(self) -> None:
         self.tag: int
-        self.fields: Array[Any] = []
+        self.fields: Array[Any] = Array[Any]()
 
     @staticmethod
     @abstractmethod

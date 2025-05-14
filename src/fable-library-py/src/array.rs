@@ -73,6 +73,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(try_item, &m)?)?;
     m.add_function(wrap_pyfunction!(update_at, &m)?)?;
     m.add_function(wrap_pyfunction!(windowed, &m)?)?;
+    m.add_function(wrap_pyfunction!(copy_to, &m)?)?;
 
     m.add_class::<FSharpCons>()?;
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
@@ -382,18 +383,18 @@ impl FSharpArray {
         };
 
         // Match on the type name
-        let array_class = match type_name.as_deref() {
-            Some("Int8") => Int8Array::type_object(py),
-            Some("UInt8") => UInt8Array::type_object(py),
-            Some("Int16") => Int16Array::type_object(py),
-            Some("UInt16") => UInt16Array::type_object(py),
-            Some("Int32") => Int32Array::type_object(py),
-            Some("UInt32") => UInt32Array::type_object(py),
-            Some("Int64") => Int64Array::type_object(py),
-            Some("UInt64") => UInt64Array::type_object(py),
-            Some("Float32") => Float32Array::type_object(py),
-            Some("Float64") => Float64Array::type_object(py),
-            Some("String") | Some("str") => StringArray::type_object(py),
+        let array_class = match type_name.map(|s| s.to_lowercase()).as_deref() {
+            Some("int8") | Some("sbyte") => Int8Array::type_object(py),
+            Some("uint8") | Some("byte") => UInt8Array::type_object(py),
+            Some("int16") => Int16Array::type_object(py),
+            Some("uint16") => UInt16Array::type_object(py),
+            Some("int32") => Int32Array::type_object(py),
+            Some("uint32") => UInt32Array::type_object(py),
+            Some("int64") => Int64Array::type_object(py),
+            Some("uint64") => UInt64Array::type_object(py),
+            Some("float32") => Float32Array::type_object(py),
+            Some("float64") => Float64Array::type_object(py),
+            Some("string") | Some("str") => StringArray::type_object(py),
             _ => GenericArray::type_object(py),
         };
 
@@ -534,20 +535,7 @@ impl FSharpArray {
     }
 
     pub fn __len__(&self) -> usize {
-        match &self.storage {
-            ArrayStorage::Int8(vec) => vec.len(),
-            ArrayStorage::UInt8(vec) => vec.len(),
-            ArrayStorage::Int16(vec) => vec.len(),
-            ArrayStorage::UInt16(vec) => vec.len(),
-            ArrayStorage::Int32(vec) => vec.len(),
-            ArrayStorage::UInt32(vec) => vec.len(),
-            ArrayStorage::Int64(vec) => vec.len(),
-            ArrayStorage::UInt64(vec) => vec.len(),
-            ArrayStorage::Float32(vec) => vec.len(),
-            ArrayStorage::Float64(vec) => vec.len(),
-            ArrayStorage::String(vec) => vec.len(),
-            ArrayStorage::PyObject(vec) => vec.lock().unwrap().len(),
-        }
+        self.storage.len()
     }
 
     pub fn __iter__(&self, py: Python<'_>) -> PyResult<PyObject> {
@@ -2528,6 +2516,18 @@ impl FSharpArray {
 
         Ok(true)
     }
+
+    pub fn copy_to(
+        &self,
+        py: Python<'_>,
+        source_index: usize,
+        target: &mut FSharpArray,
+        target_index: usize,
+        count: usize,
+    ) -> PyResult<()> {
+        self.storage
+            .copy_to(&mut target.storage, source_index, target_index, count, py)
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -3054,6 +3054,18 @@ pub fn index_of(
     array.index_of(py, item)
 }
 
+#[pyfunction]
+pub fn copy_to(
+    py: Python<'_>,
+    source: &FSharpArray,
+    source_index: usize,
+    target: &mut FSharpArray,
+    target_index: usize,
+    count: usize,
+) -> PyResult<()> {
+    source.copy_to(py, source_index, target, target_index, count)
+}
+
 // Constructor class for array allocation
 #[pyclass()]
 #[derive(Clone)]
@@ -3381,6 +3393,123 @@ macro_rules! reverse_vec {
 }
 
 impl ArrayStorage {
+    fn len(&self) -> usize {
+        match self {
+            ArrayStorage::Int8(vec) => vec.len(),
+            ArrayStorage::UInt8(vec) => vec.len(),
+            ArrayStorage::Int16(vec) => vec.len(),
+            ArrayStorage::UInt16(vec) => vec.len(),
+            ArrayStorage::Int32(vec) => vec.len(),
+            ArrayStorage::UInt32(vec) => vec.len(),
+            ArrayStorage::Int64(vec) => vec.len(),
+            ArrayStorage::UInt64(vec) => vec.len(),
+            ArrayStorage::Float32(vec) => vec.len(),
+            ArrayStorage::Float64(vec) => vec.len(),
+            ArrayStorage::String(vec) => vec.len(),
+            ArrayStorage::PyObject(vec) => vec.lock().unwrap().len(),
+        }
+    }
+
+    fn copy_to(
+        &self,
+        target: &mut ArrayStorage,
+        source_index: usize,
+        target_index: usize,
+        count: usize,
+        py: Python<'_>,
+    ) -> PyResult<()> {
+        // Check bounds using the len method
+        let source_len = self.len();
+        let target_len = target.len();
+
+        if source_index + count > source_len {
+            return Err(exceptions::PyIndexError::new_err(format!(
+                "Source array index out of range. Source length: {}, requested: {}..{}",
+                source_len,
+                source_index,
+                source_index + count
+            )));
+        }
+        if target_index + count > target_len {
+            return Err(exceptions::PyIndexError::new_err(format!(
+                "Target array index out of range. Target length: {}, requested: {}..{}",
+                target_len,
+                target_index,
+                target_index + count
+            )));
+        }
+
+        match (self, target) {
+            (ArrayStorage::Int8(src), ArrayStorage::Int8(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::UInt8(src), ArrayStorage::UInt8(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::Int16(src), ArrayStorage::Int16(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::UInt16(src), ArrayStorage::UInt16(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::Int32(src), ArrayStorage::Int32(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::UInt32(src), ArrayStorage::UInt32(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::Int64(src), ArrayStorage::Int64(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::UInt64(src), ArrayStorage::UInt64(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::Float32(src), ArrayStorage::Float32(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::Float64(src), ArrayStorage::Float64(dst)) => {
+                dst[target_index..target_index + count]
+                    .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
+            }
+            (ArrayStorage::String(src), ArrayStorage::String(dst)) => {
+                for i in 0..count {
+                    dst[target_index + i] = src[source_index + i].clone();
+                }
+                Ok(())
+            }
+            (ArrayStorage::PyObject(src), ArrayStorage::PyObject(dst)) => {
+                let src = src.lock().unwrap();
+                let mut dst = dst.lock().unwrap();
+                for i in 0..count {
+                    dst[target_index + i] = src[source_index + i].clone_ref(py);
+                }
+                Ok(())
+            }
+            _ => Err(exceptions::PyTypeError::new_err(
+                "Source and target arrays must be of the same type",
+            )),
+        }
+    }
+
     // Create a new builder for the target type, optionally with capacity
     fn new(array_type: &ArrayType, capacity: Option<usize>) -> Self {
         let cap = capacity.unwrap_or(0); // Default capacity 0 if not specified

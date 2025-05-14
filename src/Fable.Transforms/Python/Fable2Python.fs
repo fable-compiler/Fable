@@ -741,7 +741,7 @@ module Annotation =
         | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
         | Fable.Array(genArg, _) ->
             match genArg with
-            | Fable.Type.Number(UInt8, _) -> Expression.name "bytearray", []
+            | Fable.Type.Number(UInt8, _)
             | Fable.Type.Number(Int8, _)
             | Fable.Type.Number(Int16, _)
             | Fable.Type.Number(UInt16, _)
@@ -1195,24 +1195,25 @@ module Util =
 
             match kind, typ with
             | Fable.ResizeArray, _ -> None
-            | _, Fable.Type.Number(UInt8, _) -> Some "UInt8"
-            | _, Fable.Type.Number(Int8, _) -> Some "Int8"
-            | _, Fable.Type.Number(Int16, _) -> Some "Int16"
-            | _, Fable.Type.Number(UInt16, _) -> Some "Uint16"
-            | _, Fable.Type.Number(Int32, _) -> Some "Int32"
-            | _, Fable.Type.Number(UInt32, _) -> Some "Uint32"
-            | _, Fable.Type.Number(Int64, _) -> Some "Int64"
-            | _, Fable.Type.Number(UInt64, _) -> Some "Uint64"
-            | _, Fable.Type.Number(Float32, _) -> Some "Float32"
-            | _, Fable.Type.Number(Float64, _) -> Some "Float64"
-            | _ -> Some "Generic"
+            | _, Fable.Type.Number(UInt8, _) -> Some "byte"
+            | _, Fable.Type.Number(Int8, _) -> Some "sbyte"
+            | _, Fable.Type.Number(Int16, _) -> Some "int16"
+            | _, Fable.Type.Number(UInt16, _) -> Some "uint16"
+            | _, Fable.Type.Number(Int32, _) -> Some "int32"
+            | _, Fable.Type.Number(UInt32, _) -> Some "uint32"
+            | _, Fable.Type.Number(Int64, _) -> Some "int64"
+            | _, Fable.Type.Number(UInt64, _) -> Some "uint64"
+            | _, Fable.Type.Number(Float32, _) -> Some "float32"
+            | _, Fable.Type.Number(Float64, _) -> Some "float64"
+            | _ -> Some "object"
 
         // printfn "Array type: %A" array_type
 
         match array_type with
+        | Some "object" -> Expression.name "object", stmts
         | Some l ->
             let array = libValue com ctx "array_" "Array"
-            let type_obj = libValue com ctx "array_" l
+            let type_obj = libValue com ctx "types" l
             let sub_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
             Expression.call (sub_array, [ Expression.list expr ]), stmts
         | _ -> expr |> Expression.list, stmts
