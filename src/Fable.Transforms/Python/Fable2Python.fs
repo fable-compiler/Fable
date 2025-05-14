@@ -1210,10 +1210,15 @@ module Util =
         // printfn "Array type: %A" array_type
 
         match array_type with
-        | Some "object" -> Expression.name "object", stmts
         | Some l ->
             let array = libValue com ctx "array_" "Array"
-            let type_obj = libValue com ctx "types" l
+
+            let type_obj =
+                if l = "object" then
+                    Expression.name "object"
+                else
+                    libValue com ctx "types" l
+
             let sub_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
             Expression.call (sub_array, [ Expression.list expr ]), stmts
         | _ -> expr |> Expression.list, stmts
