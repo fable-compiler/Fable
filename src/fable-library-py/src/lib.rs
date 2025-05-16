@@ -1,15 +1,16 @@
 use pyo3::prelude::*;
 
-mod ints;
 mod array;
 mod datetime_offset;
 mod floats;
+mod ints;
+mod native_array;
 mod options;
 
-use crate::ints::*;
 use crate::array::register_array_module;
 use crate::datetime_offset::register_datetime_offset_module;
 use crate::floats::*;
+use crate::ints::*;
 use crate::options::register_option_module;
 
 /// A Python module implemented in Rust.
