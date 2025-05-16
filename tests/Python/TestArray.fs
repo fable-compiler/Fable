@@ -1093,56 +1093,56 @@ let ``test Array.mapFoldBack works`` () =
 //     throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
 //     throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
 
-// [<Fact>]
-// let ``test Array.insertAt works`` () =
-//     // integer list
-//     equal [|0; 1; 2; 3; 4; 5|] (Array.insertAt 0 0 [|1..5|])
-//     equal [|1; 2; 0; 3; 4; 5|] (Array.insertAt 2 0 [|1..5|])
-//     equal [|1; 2; 3; 4; 0; 5|] (Array.insertAt 4 0 [|1..5|])
+[<Fact>]
+let ``test Array.insertAt works`` () =
+    // integer list
+    equal [|0; 1; 2; 3; 4; 5|] (Array.insertAt 0 0 [|1..5|])
+    equal [|1; 2; 0; 3; 4; 5|] (Array.insertAt 2 0 [|1..5|])
+    equal [|1; 2; 3; 4; 0; 5|] (Array.insertAt 4 0 [|1..5|])
 
-//     //string list
-//     equal [|"0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "0"; "3"; "4"; "5"|] (Array.insertAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"; "4"; "0"; "5"|] (Array.insertAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "3"; "4"; "5"|] (Array.insertAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"; "5"|] (Array.insertAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     equal [|0|] (Array.insertAt 0 0 [||])
-//     throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
+    // empty list & out of bounds
+    equal [|0|] (Array.insertAt 0 0 [||])
+    throwsAnyError (fun () -> Array.insertAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertAt 2 0 [|1|] |> ignore)
 
-// [<Fact>]
-// let ``test Array.insertManyAt works`` () =
-//     // integer list
-//     equal [|0; 0; 1; 2; 3; 4; 5|] (Array.insertManyAt 0 [0; 0] [|1..5|])
-//     equal [|1; 2; 0; 0; 3; 4; 5|] (Array.insertManyAt 2 [0; 0] [|1..5|])
-//     equal [|1; 2; 3; 4; 0; 0; 5|] (Array.insertManyAt 4 [0; 0] [|1..5|])
+[<Fact>]
+let ``test Array.insertManyAt works`` () =
+    // integer list
+    equal [|0; 0; 1; 2; 3; 4; 5|] (Array.insertManyAt 0 [0; 0] [|1..5|])
+    equal [|1; 2; 0; 0; 3; 4; 5|] (Array.insertManyAt 2 [0; 0] [|1..5|])
+    equal [|1; 2; 3; 4; 0; 0; 5|] (Array.insertManyAt 4 [0; 0] [|1..5|])
 
-//     //string list
-//     equal [|"0"; "0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertManyAt 0 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "0"; "0"; "3"; "4"; "5"|] (Array.insertManyAt 2 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"; "4"; "0"; "0"; "5"|] (Array.insertManyAt 4 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"0"; "0"; "1"; "2"; "3"; "4"; "5"|] (Array.insertManyAt 0 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "0"; "3"; "4"; "5"|] (Array.insertManyAt 2 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"; "0"; "5"|] (Array.insertManyAt 4 ["0"; "0"] [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
-//     throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
+    // empty list & out of bounds
+    equal [|0; 0|] (Array.insertManyAt 0 [0; 0] [||])
+    throwsAnyError (fun () -> Array.insertManyAt -1 [0; 0] [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.insertManyAt 2 [0; 0] [|1|] |> ignore)
 
-// [<Fact>]
-// let ``test Array.removeAt works`` () =
-//     // integer list
-//     equal [|2; 3; 4; 5|] (Array.removeAt 0 [|1..5|])
-//     equal [|1; 2; 4; 5|] (Array.removeAt 2 [|1..5|])
-//     equal [|1; 2; 3; 4|] (Array.removeAt 4 [|1..5|])
+[<Fact>]
+let ``test Array.removeAt works`` () =
+    // integer list
+    equal [|2; 3; 4; 5|] (Array.removeAt 0 [|1..5|])
+    equal [|1; 2; 4; 5|] (Array.removeAt 2 [|1..5|])
+    equal [|1; 2; 3; 4|] (Array.removeAt 4 [|1..5|])
 
-//     //string list
-//     equal [|"2"; "3"; "4"; "5"|] (Array.removeAt 0 [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "4"; "5"|] (Array.removeAt 2 [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"; "4"|] (Array.removeAt 4 [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"2"; "3"; "4"; "5"|] (Array.removeAt 0 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "4"; "5"|] (Array.removeAt 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"|] (Array.removeAt 4 [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     throwsAnyError (fun () -> Array.removeAt 0 [||] |> ignore)
-//     throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.removeAt 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
 
 // [<Fact>]
 // let ``test Array.removeManyAt works`` () =

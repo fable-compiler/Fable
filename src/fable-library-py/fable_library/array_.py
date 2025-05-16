@@ -104,6 +104,11 @@ windowed = array.windowed
 index_of = array.index_of
 remove_in_place = array.remove_in_place
 copy_to = array.copy_to
+zip = array.zip
+for_all = array.for_all
+find = array.find
+try_find = array.try_find
+find_last_index = array.find_last_index
 
 Array: TypeAlias = array.FSharpArray[_T]
 
