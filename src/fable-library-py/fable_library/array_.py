@@ -109,6 +109,9 @@ for_all = array.for_all
 find = array.find
 try_find = array.try_find
 find_last_index = array.find_last_index
+add_in_place = array.add_in_place
+add_range_in_place = array.add_range_in_place
+insert_range_in_place = array.insert_range_in_place
 
 Array: TypeAlias = array.FSharpArray[_T]
 

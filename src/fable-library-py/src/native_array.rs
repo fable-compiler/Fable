@@ -1,5 +1,6 @@
 use crate::floats::{Float32, Float64};
 use crate::ints::{Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8};
+use pyo3::class::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::PyAnyMethods;
 use pyo3::IntoPyObjectExt;
@@ -140,6 +141,37 @@ impl NativeArray {
             NativeArray::Float64(vec) => vec.len(),
             NativeArray::String(vec) => vec.len(),
             NativeArray::PyObject(vec) => vec.lock().unwrap().len(),
+        }
+    }
+
+    pub fn equals(&self, other: &NativeArray, py: Python<'_>) -> bool {
+        match (self, other) {
+            (NativeArray::Int8(vec), NativeArray::Int8(other_vec)) => vec == other_vec,
+            (NativeArray::UInt8(vec), NativeArray::UInt8(other_vec)) => vec == other_vec,
+            (NativeArray::Int16(vec), NativeArray::Int16(other_vec)) => vec == other_vec,
+            (NativeArray::UInt16(vec), NativeArray::UInt16(other_vec)) => vec == other_vec,
+            (NativeArray::Int32(vec), NativeArray::Int32(other_vec)) => vec == other_vec,
+            (NativeArray::UInt32(vec), NativeArray::UInt32(other_vec)) => vec == other_vec,
+            (NativeArray::Int64(vec), NativeArray::Int64(other_vec)) => vec == other_vec,
+            (NativeArray::UInt64(vec), NativeArray::UInt64(other_vec)) => vec == other_vec,
+            (NativeArray::Float32(vec), NativeArray::Float32(other_vec)) => vec == other_vec,
+            (NativeArray::Float64(vec), NativeArray::Float64(other_vec)) => vec == other_vec,
+            (NativeArray::String(vec), NativeArray::String(other_vec)) => vec == other_vec,
+            (NativeArray::PyObject(vec), NativeArray::PyObject(other_vec)) => {
+                let xs = vec.lock().unwrap();
+                let ys = other_vec.lock().unwrap();
+                if xs.len() != ys.len() {
+                    return false;
+                }
+                // Compare each element using Python's rich comparison
+                xs.iter().zip(ys.iter()).all(|(x, y)| {
+                    x.bind(py)
+                        .rich_compare(&y.bind(py), CompareOp::Eq)
+                        .and_then(|r| r.is_truthy())
+                        .unwrap_or(false)
+                })
+            }
+            _ => false,
         }
     }
 

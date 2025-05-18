@@ -1,8 +1,12 @@
 use crate::floats::{Float32, Float64};
 use crate::ints::{Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8};
 use crate::native_array::{ArrayType, NativeArray};
+use crate::options::SomeWrapper;
 use pyo3::class::basic::CompareOp;
+use pyo3::types::PyBool;
+use pyo3::types::PyNotImplemented;
 use pyo3::types::{PyBytes, PyTuple, PyType};
+use pyo3::BoundObject;
 use pyo3::{exceptions, IntoPyObjectExt, PyTypeInfo};
 use pyo3::{
     prelude::*,
@@ -80,6 +84,9 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(find, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find, &m)?)?;
     m.add_function(wrap_pyfunction!(find_last_index, &m)?)?;
+    m.add_function(wrap_pyfunction!(add_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(add_range_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(insert_range_in_place, &m)?)?;
 
     m.add_class::<FSharpCons>()?;
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
@@ -433,6 +440,32 @@ impl FSharpArray {
         Ok(FSharpArray {
             storage: NativeArray::PyObject(Arc::new(Mutex::new(vec))),
         })
+    }
+
+    fn __richcmp__<'py>(
+        &self,
+        other: &Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'py>,
+    ) -> PyResult<Borrowed<'py, 'py, PyAny>> {
+        // First check if other is a FSharpArray
+        if let Ok(other_array) = other.extract::<PyRef<'_, FSharpArray>>() {
+            match op {
+                CompareOp::Eq => {
+                    let result = self.storage.equals(&other_array.storage, py);
+                    Ok(PyBool::new(py, result).into_any())
+                }
+                CompareOp::Ne => {
+                    // For inequality, negate the equality result
+                    let result = self.storage.equals(&other_array.storage, py);
+                    Ok(PyBool::new(py, !result).into_any())
+                }
+                _ => Ok(PyNotImplemented::get(py).into_any()),
+            }
+        } else {
+            // If other is not a FSharpArray, return NotImplemented
+            Ok(PyNotImplemented::get(py).into_any())
+        }
     }
 
     #[staticmethod]
@@ -933,8 +966,7 @@ impl FSharpArray {
         }
 
         // Create the result array
-        let result = FSharpArray { storage: builder };
-        Ok(result)
+        Ok(FSharpArray { storage: builder })
     }
 
     pub fn remove_many_at(
@@ -1145,23 +1177,30 @@ impl FSharpArray {
             });
         }
 
-        // Determine target type from cons or preserve source type
-        let target_type = self.storage.get_type().clone();
+        // Create an array of arrays (chunks)
+        let mut chunks = NativeArray::PyObject(Arc::new(Mutex::new(vec![])));
 
-        // Create the builder for results
-        let mut results = NativeArray::new(&target_type, None); // No initial capacity needed
-
-        // Add each chunk to the result
+        // Create each chunk
         for x in 0..((len + chunk_size - 1) / chunk_size) {
             let start = x * chunk_size;
             let end = std::cmp::min(start + chunk_size, len);
+
+            // Create a new array for this chunk
+            let mut chunk = NativeArray::new(self.storage.get_type(), Some(end - start));
+
+            // Fill the chunk with elements from the source array
             for i in start..end {
-                results.push_from_storage(&self.storage, i, py);
+                chunk.push_from_storage(&self.storage, i, py);
             }
+
+            // Convert the chunk to a PyObject and add it to chunks
+            let chunk_array = FSharpArray { storage: chunk };
+            let chunk_obj = chunk_array.into_pyobject(py)?;
+            chunks.push_value(&chunk_obj, py)?;
         }
 
-        // Construct the result array
-        Ok(FSharpArray { storage: results })
+        // Return the array of chunks
+        Ok(FSharpArray { storage: chunks })
     }
 
     pub fn fill(
@@ -1710,6 +1749,11 @@ impl FSharpArray {
         for i in (0..len).rev() {
             let item = self.get_item_at_index(i as isize, py)?;
             if predicate.call1((&item,))?.is_truthy()? {
+                // Since Rust options are erased when converted to Python, we need to
+                // wrap None in an extra SomeWrapper
+                if item.is_none(py) {
+                    return Ok(Some(SomeWrapper::new(item).into_py_any(py)?));
+                }
                 return Ok(Some(item));
             }
         }
@@ -2055,17 +2099,18 @@ impl FSharpArray {
         Ok(())
     }
 
-    // Format array as F# style string: [1; 2; 3] or [1; 2; 3; ... ] for longer arrays
+    // Format array as F# style string: [|1; 2; 3|] or [|1; 2; 3; ... |] for longer arrays
     pub fn __str__(&self, py: Python<'_>) -> PyResult<String> {
+        // Define max elements to show before truncating
+        const MAX_DISPLAY_ELEMENTS: usize = 10;
+
         let len = self.storage.len();
 
         // Empty array case
         if len == 0 {
-            return Ok("[]".to_string());
+            return Ok("[||]".to_string());
         }
 
-        // Define max elements to show before truncating
-        const MAX_DISPLAY_ELEMENTS: usize = 3;
         let show_ellipsis = len > MAX_DISPLAY_ELEMENTS;
         let elements_to_show = if show_ellipsis {
             MAX_DISPLAY_ELEMENTS
@@ -2073,7 +2118,7 @@ impl FSharpArray {
             len
         };
 
-        let mut result = String::from("[");
+        let mut result = String::from("[|");
 
         // Add the elements to display
         for i in 0..elements_to_show {
@@ -2093,7 +2138,7 @@ impl FSharpArray {
             result.push_str("... ");
         }
 
-        result.push(']');
+        result.push_str("|]");
         Ok(result)
     }
 
@@ -2132,16 +2177,12 @@ impl FSharpArray {
         }
 
         // Create a new array using the constructor
-        let target_storage = NativeArray::create_from_storage(&self.storage, py);
+        let mut target_storage = NativeArray::create_from_storage(&self.storage, py);
+        target_storage.insert(index, value, py)?;
 
-        let mut target = FSharpArray {
+        Ok(FSharpArray {
             storage: target_storage,
-        };
-
-        // Set the new value at the specified index
-        target.__setitem__(index as isize, &value, py)?;
-
-        Ok(target)
+        })
     }
 
     pub fn insert_many_at(
@@ -2408,6 +2449,56 @@ impl FSharpArray {
                 "An element satisfying the predicate was not found in the collection.",
             )),
         }
+    }
+
+    pub fn add_in_place(&mut self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.storage.push_value(value, py)
+    }
+
+    pub fn add_range_in_place(&mut self, py: Python<'_>, range: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Convert the range to an iterator
+        let iter = range.try_iter()?;
+
+        // Add each element from the range to the array
+        for item in iter {
+            let item = item?;
+            self.add_in_place(py, &item)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn insert_range_in_place(
+        &mut self,
+        py: Python<'_>,
+        index: isize,
+        range: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let len = self.storage.len();
+        let index = if index < 0 {
+            len as isize + index
+        } else {
+            index
+        };
+
+        if index < 0 || index as usize > len {
+            return Err(PyErr::new::<exceptions::PyIndexError, _>(
+                "index out of range",
+            ));
+        }
+
+        // Convert the range to an iterator
+        let iter = range.try_iter()?;
+        let mut current_index = index;
+
+        // Insert each element from the range at the current index
+        for item in iter {
+            let item = item?;
+            self.storage.insert(current_index as usize, &item, py)?;
+            current_index += 1;
+        }
+
+        Ok(())
     }
 }
 
@@ -2990,6 +3081,34 @@ pub fn find_last_index(
     array: &FSharpArray,
 ) -> PyResult<usize> {
     array.find_last_index(py, predicate)
+}
+
+#[pyfunction]
+pub fn add_in_place(
+    py: Python<'_>,
+    array: &mut FSharpArray,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    array.add_in_place(py, value)
+}
+
+#[pyfunction]
+pub fn add_range_in_place(
+    py: Python<'_>,
+    array: &mut FSharpArray,
+    range: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    array.add_range_in_place(py, range)
+}
+
+#[pyfunction]
+pub fn insert_range_in_place(
+    py: Python<'_>,
+    array: &mut FSharpArray,
+    index: isize,
+    range: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    array.insert_range_in_place(py, index, range)
 }
 
 // Constructor class for array allocation
