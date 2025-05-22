@@ -37,6 +37,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(fold_back_indexed, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back_indexed2, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(get_sub_array, &m)?)?;
     m.add_function(wrap_pyfunction!(head, &m)?)?;
     m.add_function(wrap_pyfunction!(initialize, &m)?)?;
     m.add_function(wrap_pyfunction!(insert_at, &m)?)?;
@@ -72,6 +73,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(sum, &m)?)?;
     m.add_function(wrap_pyfunction!(tail, &m)?)?;
     m.add_function(wrap_pyfunction!(transpose, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_find, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find_back, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find_index_back, &m)?)?;
     m.add_function(wrap_pyfunction!(try_head, &m)?)?;
@@ -82,7 +84,6 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(zip, &m)?)?;
     m.add_function(wrap_pyfunction!(for_all, &m)?)?;
     m.add_function(wrap_pyfunction!(find, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_find, &m)?)?;
     m.add_function(wrap_pyfunction!(find_last_index, &m)?)?;
     m.add_function(wrap_pyfunction!(add_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(add_range_in_place, &m)?)?;
@@ -466,6 +467,12 @@ impl FSharpArray {
             // If other is not a FSharpArray, return NotImplemented
             Ok(PyNotImplemented::get(py).into_any())
         }
+    }
+
+    fn __add__(&self, other: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<PyObject> {
+        // Use append to implement array concatenation
+        let result = self.append(py, other, None)?;
+        Ok(result.into_pyobject(py)?.into())
     }
 
     #[staticmethod]
@@ -1391,25 +1398,22 @@ impl FSharpArray {
                     new_vec.push(obj.clone_ref(py));
                 }
 
-                // Use sort_by with
+                // Use sort_by with the comparison function
                 new_vec.sort_by(|a, b| {
-                    // Compare a < b using Python's __lt__ method
                     match compare_func.call1((a, b)) {
                         Ok(result) => {
-                            if result.is_truthy().unwrap_or(false) {
-                                std::cmp::Ordering::Less
-                            } else {
-                                // If a is not less than b, check if b < a
-                                match compare_func.call1((b, a)) {
-                                    Ok(result) => {
-                                        if result.is_truthy().unwrap_or(false) {
-                                            std::cmp::Ordering::Greater
-                                        } else {
-                                            std::cmp::Ordering::Equal
-                                        }
+                            // Convert Python result to i32 and use it for ordering
+                            match result.extract::<i32>() {
+                                Ok(cmp) => {
+                                    if cmp < 0 {
+                                        std::cmp::Ordering::Less
+                                    } else if cmp > 0 {
+                                        std::cmp::Ordering::Greater
+                                    } else {
+                                        std::cmp::Ordering::Equal
                                     }
-                                    Err(_) => std::cmp::Ordering::Equal, // Default to Equal on error
                                 }
+                                Err(_) => std::cmp::Ordering::Equal, // Default to Equal on error
                             }
                         }
                         Err(_) => std::cmp::Ordering::Equal, // Default to Equal on error
@@ -2167,7 +2171,7 @@ impl FSharpArray {
         py: Python<'_>,
         index: usize,
         value: &Bound<'_, PyAny>,
-        _cons: Option<&Bound<'_, PyAny>>,
+        cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
         if index > len {
@@ -2177,12 +2181,23 @@ impl FSharpArray {
         }
 
         // Create a new array using the constructor
-        let mut target_storage = NativeArray::create_from_storage(&self.storage, py);
-        target_storage.insert(index, value, py)?;
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let mut target = fs_cons.allocate(py, len + 1)?;
 
-        Ok(FSharpArray {
-            storage: target_storage,
-        })
+        // Copy elements before the insertion point
+        for i in 0..index {
+            target.storage.push_from_storage(&self.storage, i, py);
+        }
+
+        // Insert the new value
+        target.storage.push_value(value, py)?;
+
+        // Copy elements after the insertion point
+        for i in index..len {
+            target.storage.push_from_storage(&self.storage, i, py);
+        }
+
+        Ok(target)
     }
 
     pub fn insert_many_at(
@@ -2499,6 +2514,44 @@ impl FSharpArray {
         }
 
         Ok(())
+    }
+
+    pub fn get_sub_array(
+        &self,
+        py: Python<'_>,
+        start_index: isize,
+        count: usize,
+        cons: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<FSharpArray> {
+        let len = self.storage.len();
+        let start_index = if start_index < 0 {
+            len as isize + start_index
+        } else {
+            start_index
+        };
+
+        if start_index < 0 || start_index as usize >= len {
+            return Err(PyErr::new::<exceptions::PyIndexError, _>(
+                "start_index out of range",
+            ));
+        }
+
+        if count > len - start_index as usize {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "count exceeds array bounds",
+            ));
+        }
+
+        // Get constructor from cons parameter or use default
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let mut builder = fs_cons.create(count);
+
+        // Copy elements from source array to new array
+        for i in 0..count {
+            builder.push_from_storage(&self.storage, start_index as usize + i, py);
+        }
+
+        Ok(FSharpArray { storage: builder })
     }
 }
 
@@ -3111,6 +3164,18 @@ pub fn insert_range_in_place(
     array.insert_range_in_place(py, index, range)
 }
 
+#[pyfunction]
+#[pyo3(signature = (array, start_index, count, cons=None))]
+pub fn get_sub_array(
+    py: Python<'_>,
+    array: &FSharpArray,
+    start_index: isize,
+    count: usize,
+    cons: Option<&Bound<'_, PyAny>>,
+) -> PyResult<FSharpArray> {
+    array.get_sub_array(py, start_index, count, cons)
+}
+
 // Constructor class for array allocation
 #[pyclass()]
 #[derive(Clone)]
@@ -3151,6 +3216,11 @@ impl FSharpCons {
     // Allow calling the constructor directly
     fn __call__(&self, py: Python<'_>, length: usize) -> PyResult<FSharpArray> {
         self.allocate(py, length)
+    }
+
+    #[classmethod]
+    fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> PyObject {
+        cls.clone().unbind().into()
     }
 }
 

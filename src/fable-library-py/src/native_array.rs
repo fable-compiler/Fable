@@ -187,47 +187,58 @@ impl NativeArray {
             (NativeArray::Int8(src), NativeArray::Int8(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::UInt8(src), NativeArray::UInt8(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::Int16(src), NativeArray::Int16(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::UInt16(src), NativeArray::UInt16(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::Int32(src), NativeArray::Int32(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::UInt32(src), NativeArray::UInt32(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::Int64(src), NativeArray::Int64(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::UInt64(src), NativeArray::UInt64(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::Float32(src), NativeArray::Float32(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::Float64(src), NativeArray::Float64(dst)) => {
                 dst[target_index..target_index + count]
                     .copy_from_slice(&src[source_index..source_index + count]);
+                Ok(())
             }
             (NativeArray::String(src), NativeArray::String(dst)) => {
                 for i in 0..count {
                     dst[target_index + i] = src[source_index + i].clone();
                 }
+                Ok(())
             }
             (NativeArray::PyObject(src), NativeArray::PyObject(dst)) => {
                 let src = src.lock().unwrap();
@@ -235,14 +246,14 @@ impl NativeArray {
                 for i in 0..count {
                     dst[target_index + i] = src[source_index + i].clone_ref(py);
                 }
+                Ok(())
             }
-            _ => {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "Cannot copy between different array types",
-                ));
-            }
+            (src, dst) => Err(pyo3::exceptions::PyTypeError::new_err(format!(
+                "Cannot copy between different array types: {} -> {}",
+                src.type_name(),
+                dst.type_name()
+            ))),
         }
-        Ok(())
     }
 
     pub fn new(array_type: &ArrayType, capacity: Option<usize>) -> Self {
@@ -382,7 +393,7 @@ impl NativeArray {
             NativeArray::String(vec) => vec.push(value.extract()?),
             NativeArray::PyObject(vec) => {
                 let mut guard = vec.lock().unwrap();
-                guard.push(value.clone().into());
+                guard.push(value.clone().unbind());
             }
         }
         Ok(())
@@ -397,10 +408,7 @@ impl NativeArray {
                 let mut guard = vec.lock().unwrap();
                 guard.sort_by(|a, b| {
                     let result = compare_func
-                        .call1((
-                            a.clone_ref(compare_func.py()),
-                            b.clone_ref(compare_func.py()),
-                        ))
+                        .call1((a.bind(compare_func.py()), b.bind(compare_func.py())))
                         .unwrap();
                     result.extract::<i32>().unwrap().cmp(&0)
                 });
@@ -463,8 +471,11 @@ impl NativeArray {
             NativeArray::String(vec) => NativeArray::String(reverse_vec!(vec)),
             NativeArray::PyObject(arc) => {
                 let mut new_vec = Vec::with_capacity(arc.lock().unwrap().len());
-                for i in (0..arc.lock().unwrap().len()).rev() {
-                    new_vec.push(arc.lock().unwrap()[i].clone_ref(py));
+                {
+                    let guard = arc.lock().unwrap();
+                    for i in (0..guard.len()).rev() {
+                        new_vec.push(guard[i].clone_ref(py));
+                    }
                 }
                 NativeArray::PyObject(Arc::new(Mutex::new(new_vec)))
             }

@@ -95,6 +95,7 @@ split_into = array.split_into
 sum = array.sum
 tail = array.tail
 transpose = array.transpose
+try_find = array.try_find
 try_find_back = array.try_find_back
 try_find_index_back = array.try_find_index_back
 try_head = array.try_head
@@ -107,13 +108,14 @@ copy_to = array.copy_to
 zip = array.zip
 for_all = array.for_all
 find = array.find
-try_find = array.try_find
 find_last_index = array.find_last_index
 add_in_place = array.add_in_place
 add_range_in_place = array.add_range_in_place
 insert_range_in_place = array.insert_range_in_place
+get_sub_array = array.get_sub_array
 
 Array: TypeAlias = array.FSharpArray[_T]
+FSharpCons: TypeAlias = array.FSharpCons[_T]
 
 __all__ = [
     "Array",
