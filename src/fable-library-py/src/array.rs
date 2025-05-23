@@ -24,6 +24,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(append, &m)?)?;
     m.add_function(wrap_pyfunction!(chunk_by_size, &m)?)?;
     m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(contains, &m)?)?;
     m.add_function(wrap_pyfunction!(create, &m)?)?;
     m.add_function(wrap_pyfunction!(empty, &m)?)?;
     m.add_function(wrap_pyfunction!(equals_with, &m)?)?;
@@ -2553,6 +2554,21 @@ impl FSharpArray {
 
         Ok(FSharpArray { storage: builder })
     }
+
+    pub fn contains(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let len = self.storage.len();
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            if item
+                .bind(py)
+                .rich_compare(value, CompareOp::Eq)?
+                .is_truthy()?
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -3174,6 +3190,11 @@ pub fn get_sub_array(
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
     array.get_sub_array(py, start_index, count, cons)
+}
+
+#[pyfunction]
+pub fn contains(py: Python<'_>, array: &FSharpArray, value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    array.contains(py, value)
 }
 
 // Constructor class for array allocation

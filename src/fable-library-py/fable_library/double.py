@@ -1,7 +1,7 @@
 import math
 from typing import Any
 
-from .core import float32, float64
+from .core import float
 from .types import FSharpRef
 
 
@@ -21,26 +21,6 @@ def min(x: float, y: float) -> float:
     return x if x < y else y
 
 
-def log(x: float) -> float:
-    if x == 0:
-        return float("-inf")
-    elif x < 0:
-        return float("nan")
-    return math.log(x)
-
-
-def sqrt(x: float64) -> float64:
-    return x.sqrt()
-
-
-def is_positive_inf(value: float) -> bool:
-    return math.isinf(value) and value > 0
-
-
-def is_negative_inf(value: float) -> bool:
-    return math.isinf(value) and value < 0
-
-
 def parse(value: Any) -> float:
     try:
         return float(value)
@@ -56,6 +36,34 @@ def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
         return False
 
 
+float32 = float.Float32
+float64 = float.Float64
+acos = float.acos
+asin = float.asin
+atan = float.atan
+atan2 = float.atan2
+ceil = float.ceil
+cos = float.cos
+cosh = float.cosh
+degrees = float.degrees
+exp = float.exp
+floor = float.floor
+is_infinity = float.is_infinity
+is_nan = float.is_nan
+is_negative_inf = float.is_negative_infinity
+is_positive_inf = float.is_positive_infinity
+log = float.log
+log10 = float.log10
+log2 = float.log2
+pow = float.pow
+radians = float.radians
+sin = float.sin
+sinh = float.sinh
+sqrt = float.sqrt
+tan = float.tan
+tanh = float.tanh
+
+
 __all__ = [
     "abs",
     "float32",
@@ -69,4 +77,24 @@ __all__ = [
     "sign",
     "sqrt",
     "try_parse",
+    "acos",
+    "asin",
+    "atan",
+    "atan2",
+    "ceil",
+    "cos",
+    "cosh",
+    "degrees",
+    "exp",
+    "floor",
+    "is_infinity",
+    "is_nan",
+    "log10",
+    "log2",
+    "pow",
+    "radians",
+    "sin",
+    "sinh",
+    "tan",
+    "tanh",
 ]

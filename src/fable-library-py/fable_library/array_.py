@@ -113,6 +113,7 @@ add_in_place = array.add_in_place
 add_range_in_place = array.add_range_in_place
 insert_range_in_place = array.insert_range_in_place
 get_sub_array = array.get_sub_array
+contains = array.contains
 
 Array: TypeAlias = array.FSharpArray[_T]
 FSharpCons: TypeAlias = array.FSharpCons[_T]

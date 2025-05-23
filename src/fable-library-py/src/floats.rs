@@ -334,12 +334,27 @@ macro_rules! float_variant {
             pub fn cos(&self) -> Self {
                 Self(self.0.cos())
             }
+
             pub fn sin(&self) -> Self {
                 Self(self.0.sin())
             }
+
             pub fn tan(&self) -> Self {
                 Self(self.0.tan())
             }
+
+            pub fn cosh(&self) -> Self {
+                Self(self.0.cosh())
+            }
+
+            pub fn sinh(&self) -> Self {
+                Self(self.0.sinh())
+            }
+
+            pub fn tanh(&self) -> Self {
+                Self(self.0.tanh())
+            }
+
             pub fn acos(&self) -> PyResult<Self> {
                 if self.0 < -1.0 || self.0 > 1.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -348,6 +363,7 @@ macro_rules! float_variant {
                 }
                 Ok(Self(self.0.acos()))
             }
+
             pub fn asin(&self) -> PyResult<Self> {
                 if self.0 < -1.0 || self.0 > 1.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -356,21 +372,28 @@ macro_rules! float_variant {
                 }
                 Ok(Self(self.0.asin()))
             }
+
             pub fn atan(&self) -> Self {
                 Self(self.0.atan())
             }
+
             pub fn atan2(&self, other: $type) -> PyResult<Self> {
                 Ok(Self(self.0.atan2(other)))
             }
+
             pub fn exp(&self) -> Self {
                 Self(self.0.exp())
             }
+
             #[pyo3(signature = (base = None))]
             pub fn log(&self, base: Option<$type>) -> PyResult<Self> {
-                if self.0 <= 0.0 {
-                    return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "log() domain error",
-                    ));
+                // Special case for 0.0 to match .NET semantics
+                if self.0 == 0.0 {
+                    return Ok(Self(<$type>::NEG_INFINITY));
+                }
+                // Return NaN for negative values to match .NET semantics
+                if self.0 < 0.0 {
+                    return Ok(Self(<$type>::NAN));
                 }
                 let base_val = match base {
                     Some(b) => b,
@@ -383,6 +406,7 @@ macro_rules! float_variant {
                 }
                 Ok(Self(self.0.log(base_val)))
             }
+
             pub fn log10(&self) -> PyResult<Self> {
                 if self.0 <= 0.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -391,6 +415,7 @@ macro_rules! float_variant {
                 }
                 Ok(Self(self.0.log(10.0)))
             }
+
             pub fn log2(&self) -> PyResult<Self> {
                 if self.0 <= 0.0 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -399,6 +424,7 @@ macro_rules! float_variant {
                 }
                 Ok(Self(self.0.log(2.0)))
             }
+
             pub fn degrees(&self) -> Self {
                 Self(self.0.to_degrees())
             }
@@ -438,3 +464,265 @@ macro_rules! float_variant {
 // Instantiate the float types using the macro
 float_variant!(Float32, f32);
 float_variant!(Float64, f64);
+
+// Free functions for mathematical operations
+#[pyfunction]
+pub fn sqrt(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.sqrt()?;
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn cos(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.cos();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn sin(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.sin();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn tan(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.tan();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn cosh(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.cosh();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn sinh(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.sinh();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn tanh(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.tanh();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn acos(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.acos()?;
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn asin(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.asin()?;
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn atan(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.atan();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn atan2(py: Python<'_>, y: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let y_val = y
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64 for y"))?;
+    let x_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64 for x"))?;
+    let result = y_val.atan2(*x_val)?;
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn exp(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.exp();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+#[pyo3(signature = (x, base = None))]
+pub fn log(
+    py: Python<'_>,
+    x: &Bound<'_, PyAny>,
+    base: Option<&Bound<'_, PyAny>>,
+) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let base = match base {
+        Some(b) => Some(b.extract::<f64>()?),
+        None => None,
+    };
+    let result = f64_val.log(base)?;
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn log10(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.log10()?;
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn log2(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.log2()?;
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn degrees(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.degrees();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn radians(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.radians();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn is_nan(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    Ok(f64_val.is_nan())
+}
+
+#[pyfunction]
+pub fn is_infinity(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    Ok(f64_val.is_infinity())
+}
+
+#[pyfunction]
+pub fn is_positive_infinity(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    Ok(f64_val.is_positive_infinity())
+}
+
+#[pyfunction]
+pub fn is_negative_infinity(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    Ok(f64_val.is_negative_infinity())
+}
+
+#[pyfunction]
+pub fn floor(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.floor();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn ceil(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.ceil();
+    Ok(result.into_pyobject(py)?.into())
+}
+
+#[pyfunction]
+pub fn pow(py: Python<'_>, x: &Bound<'_, PyAny>, y: f64) -> PyResult<PyObject> {
+    let f64_val = x
+        .extract::<Float64>()
+        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
+    let result = f64_val.__pow__(y, None)?;
+    Ok(result.into_pyobject(py)?.into())
+}
+
+/// A module for float operations
+pub fn register_float_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+    let m = PyModule::new(parent_module.py(), "float")?;
+
+    // Register the float classes
+    m.add_class::<Float32>()?;
+    m.add_class::<Float64>()?;
+
+    // Add functions to the module
+    m.add_function(wrap_pyfunction!(sqrt, &m)?)?;
+    m.add_function(wrap_pyfunction!(cos, &m)?)?;
+    m.add_function(wrap_pyfunction!(sin, &m)?)?;
+    m.add_function(wrap_pyfunction!(tan, &m)?)?;
+    m.add_function(wrap_pyfunction!(cosh, &m)?)?;
+    m.add_function(wrap_pyfunction!(sinh, &m)?)?;
+    m.add_function(wrap_pyfunction!(tanh, &m)?)?;
+    m.add_function(wrap_pyfunction!(acos, &m)?)?;
+    m.add_function(wrap_pyfunction!(asin, &m)?)?;
+    m.add_function(wrap_pyfunction!(atan, &m)?)?;
+    m.add_function(wrap_pyfunction!(atan2, &m)?)?;
+    m.add_function(wrap_pyfunction!(exp, &m)?)?;
+    m.add_function(wrap_pyfunction!(log, &m)?)?;
+    m.add_function(wrap_pyfunction!(log10, &m)?)?;
+    m.add_function(wrap_pyfunction!(log2, &m)?)?;
+    m.add_function(wrap_pyfunction!(degrees, &m)?)?;
+    m.add_function(wrap_pyfunction!(radians, &m)?)?;
+    m.add_function(wrap_pyfunction!(is_nan, &m)?)?;
+    m.add_function(wrap_pyfunction!(is_infinity, &m)?)?;
+    m.add_function(wrap_pyfunction!(is_positive_infinity, &m)?)?;
+    m.add_function(wrap_pyfunction!(is_negative_infinity, &m)?)?;
+    m.add_function(wrap_pyfunction!(floor, &m)?)?;
+    m.add_function(wrap_pyfunction!(ceil, &m)?)?;
+    m.add_function(wrap_pyfunction!(pow, &m)?)?;
+
+    parent_module.add_submodule(&m)
+}
