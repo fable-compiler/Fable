@@ -89,6 +89,8 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(add_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(add_range_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(insert_range_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(max, &m)?)?;
+    m.add_function(wrap_pyfunction!(min, &m)?)?;
 
     m.add_class::<FSharpCons>()?;
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
@@ -1460,22 +1462,9 @@ impl FSharpArray {
     }
 
     pub fn reduce(&self, py: Python<'_>, reduction: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        let len = self.storage.len();
-        if len == 0 {
-            return Err(PyErr::new::<exceptions::PyValueError, _>(
-                "Cannot reduce an empty array.",
-            ));
-        }
-
-        // Initialize the accumulator with the first element
-        let mut acc = self.get_item_at_index(0, py)?;
-
-        for i in 1..len {
-            let item = self.get_item_at_index(i as isize, py)?;
-            acc = reduction.call1((acc, item))?.into();
-        }
-
-        Ok(acc.into())
+        reduce_impl(self, py, |acc, item, _py| {
+            reduction.call1((acc, item)).map(|o| o.into())
+        })
     }
 
     pub fn reduce_back(&self, py: Python<'_>, reduction: &Bound<'_, PyAny>) -> PyResult<PyObject> {
@@ -2569,6 +2558,26 @@ impl FSharpArray {
         }
         Ok(false)
     }
+
+    pub fn max(&self, py: Python<'_>) -> PyResult<PyObject> {
+        reduce_impl(self, py, |acc, item, py| {
+            let is_gt = acc
+                .bind(py)
+                .rich_compare(&item, CompareOp::Gt)?
+                .is_truthy()?;
+            Ok(if is_gt { acc } else { item })
+        })
+    }
+
+    pub fn min(&self, py: Python<'_>) -> PyResult<PyObject> {
+        reduce_impl(self, py, |acc, item, py| {
+            let is_lt = acc
+                .bind(py)
+                .rich_compare(&item, CompareOp::Lt)?
+                .is_truthy()?;
+            Ok(if is_lt { acc } else { item })
+        })
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -3197,6 +3206,18 @@ pub fn contains(py: Python<'_>, array: &FSharpArray, value: &Bound<'_, PyAny>) -
     array.contains(py, value)
 }
 
+#[pyfunction]
+pub fn max(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let array = ensure_array(py, array)?;
+    array.max(py)
+}
+
+#[pyfunction]
+pub fn min(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let array = ensure_array(py, array)?;
+    array.min(py)
+}
+
 // Constructor class for array allocation
 #[pyclass()]
 #[derive(Clone)]
@@ -3475,4 +3496,23 @@ impl FSharpArrayIter {
         slf.index += 1;
         Ok(Some(item))
     }
+}
+
+// Internal reduce implementation for Rust closures (not exposed to Python)
+fn reduce_impl<F>(array: &FSharpArray, py: Python<'_>, mut f: F) -> PyResult<PyObject>
+where
+    F: FnMut(PyObject, PyObject, Python<'_>) -> PyResult<PyObject>,
+{
+    let len = array.storage.len();
+    if len == 0 {
+        return Err(PyErr::new::<exceptions::PyValueError, _>(
+            "Cannot reduce an empty array.",
+        ));
+    }
+    let mut acc = array.get_item_at_index(0, py)?;
+    for i in 1..len {
+        let item = array.get_item_at_index(i as isize, py)?;
+        acc = f(acc, item, py)?;
+    }
+    Ok(acc)
 }
