@@ -108,6 +108,7 @@ copy_to = array.copy_to
 zip = array.zip
 for_all = array.for_all
 find = array.find
+find_back = array.find_back
 find_last_index = array.find_last_index
 add_in_place = array.add_in_place
 add_range_in_place = array.add_range_in_place
@@ -116,13 +117,17 @@ get_sub_array = array.get_sub_array
 contains = array.contains
 max = array.max
 min = array.min
+max_by = array.max_by
+min_by = array.min_by
+average = array.average
+pick = array.pick
+try_pick = array.try_pick
 
 Array: TypeAlias = array.FSharpArray[_T]
 FSharpCons: TypeAlias = array.FSharpCons[_T]
 
 __all__ = [
     "Array",
-    "Float32Array",
     "Float64Array",
     "Int8Array",
     "Int16Array",
@@ -132,34 +137,62 @@ __all__ = [
     "UInt16Array",
     "UInt32Array",
     "UInt64Array",
+    "add_in_place",
+    "add_range_in_place",
     "append",
+    "average",
+    "averageFloat32Array",
     "chunk_by_size",
     "compare_with",
+    "contains",
+    "copy_to",
+    "create",
     "empty",
     "equals_with",
     "exists",
     "exists_offset",
     "fill",
     "filter",
+    "find",
+    "find_back",
+    "find_last_index",
     "fold",
     "fold_back",
     "fold_back2",
     "fold_back_indexed",
     "fold_back_indexed2",
     "fold_indexed",
+    "for_all",
+    "get_sub_array",
     "head",
+    "index_of",
     "initialize",
+    "insert_at",
+    "insert_many_at",
+    "insert_range_in_place",
     "item",
     "iterate",
     "iterate_indexed",
     "map",
+    "map2",
+    "map3",
     "map_fold",
     "map_fold_back",
     "map_indexed",
+    "map_indexed2",
+    "map_indexed3",
+    "max",
+    "max_by",
+    "min",
+    "min_by",
     "pairwise",
     "permute",
+    "pick",
     "reduce",
     "reduce_back",
+    "remove_at",
+    "remove_in_place",
+    "remove_many_at",
     "reverse",
     "scan",
     "scan_back",
@@ -171,10 +204,13 @@ __all__ = [
     "sum",
     "tail",
     "transpose",
+    "try_find",
     "try_find_back",
     "try_find_index_back",
     "try_head",
     "try_item",
+    "try_pick",
     "update_at",
     "windowed",
+    "zip",
 ]

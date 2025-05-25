@@ -22,6 +22,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
 
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
     m.add_function(wrap_pyfunction!(append, &m)?)?;
+    m.add_function(wrap_pyfunction!(average, &m)?)?;
     m.add_function(wrap_pyfunction!(chunk_by_size, &m)?)?;
     m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
     m.add_function(wrap_pyfunction!(contains, &m)?)?;
@@ -91,6 +92,12 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(insert_range_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(max, &m)?)?;
     m.add_function(wrap_pyfunction!(min, &m)?)?;
+    m.add_function(wrap_pyfunction!(max_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(min_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(choose, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(pick, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
 
     m.add_class::<FSharpCons>()?;
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
@@ -140,6 +147,19 @@ struct StringArray {}
 #[pyclass(module="fable", extends=FSharpArray)]
 struct GenericArray {}
 
+// Macro to reduce repetition in type extraction for FSharpArray::new.
+// This ensures both elegance and performance, following best Rust and craftsman practices.
+macro_rules! try_extract_array {
+    ($elements:expr, $py:expr, $variant:ident, $wrapper:ty, $native:ty, $extractor:expr) => {
+        if let Ok(vec) = extract_typed_vec_from_iterable::<$wrapper, $native>($elements, $extractor)
+        {
+            return Ok(FSharpArray {
+                storage: NativeArray::$variant(vec),
+            });
+        }
+    };
+}
+
 // Utility function to convert Python objects to FSharpArray
 fn ensure_array(py: Python<'_>, ob: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
     // If it's already a FSharpArray, just extract it
@@ -187,119 +207,52 @@ impl FSharpArray {
         };
 
         if let Some(elements) = elements {
-            // Try to create specialized storage if possible
             match &nominal_type {
                 ArrayType::Int8 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<Int8, i8>(elements, |x| {
-                        Ok(*Int8::new(x)?)
-                    }) {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::Int8(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, Int8, Int8, i8, |x| Ok(*Int8::new(x)?))
                 }
                 ArrayType::UInt8 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<UInt8, u8>(elements, |x| {
-                        Ok(*UInt8::new(x)?)
-                    }) {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::UInt8(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, UInt8, UInt8, u8, |x| Ok(*UInt8::new(x)?))
                 }
                 ArrayType::Int16 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<Int16, i16>(elements, |x| {
-                        Ok(*Int16::new(x)?)
-                    }) {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::Int16(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, Int16, Int16, i16, |x| Ok(*Int16::new(x)?))
                 }
                 ArrayType::UInt16 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<UInt16, u16>(elements, |x| {
-                        Ok(*UInt16::new(x)?)
-                    }) {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::UInt16(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, UInt16, UInt16, u16, |x| Ok(*UInt16::new(x)?))
                 }
                 ArrayType::Int32 => {
-                    // println!("FSharpArray::Int32");
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<Int32, i32>(elements, |x| {
-                        Ok(*Int32::new(x)?)
-                    }) {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::Int32(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, Int32, Int32, i32, |x| Ok(*Int32::new(x)?))
                 }
                 ArrayType::UInt32 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<UInt32, u32>(elements, |x| {
-                        Ok(*UInt32::new(x)?)
-                    }) {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::UInt32(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, UInt32, UInt32, u32, |x| Ok(*UInt32::new(x)?))
                 }
                 ArrayType::Int64 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<Int64, i64>(elements, |x| {
-                        Ok(*Int64::new(x)?)
-                    }) {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::Int64(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, Int64, Int64, i64, |x| Ok(*Int64::new(x)?))
                 }
                 ArrayType::UInt64 => {
-                    if let Ok(vec) = extract_typed_vec_from_iterable::<UInt64, u64>(elements, |x| {
-                        Ok(*UInt64::new(x)?)
-                    }) {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::UInt64(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, UInt64, UInt64, u64, |x| Ok(*UInt64::new(x)?))
                 }
                 ArrayType::Float32 => {
-                    if let Ok(vec) =
-                        extract_typed_vec_from_iterable::<Float32, f32>(elements, |x| {
-                            Ok(*x.extract::<Float32>()?)
-                        })
-                    {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::Float32(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, Float32, Float32, f32, |x| Ok(
+                        *x.extract::<Float32>()?
+                    ))
                 }
                 ArrayType::Float64 => {
-                    if let Ok(vec) =
-                        extract_typed_vec_from_iterable::<Float64, f64>(elements, |x| {
-                            Ok(*x.extract::<Float64>()?)
-                        })
-                    {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::Float64(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, Float64, Float64, f64, |x| Ok(
+                        *x.extract::<Float64>()?
+                    ))
                 }
                 ArrayType::String => {
-                    if let Ok(vec) =
-                        extract_typed_vec_from_iterable::<String, String>(elements, |x| {
-                            Ok(x.extract::<String>()?)
-                        })
-                    {
-                        return Ok(FSharpArray {
-                            storage: NativeArray::String(vec),
-                        });
-                    }
+                    try_extract_array!(elements, py, String, String, String, |x| Ok(
+                        x.extract::<String>()?
+                    ))
                 }
                 _ => {}
             }
 
-            // Fallback to PyObject storage
-            // println!("Fallback to PyObject storage");
+            // Fallback to PyObject storage if type extraction fails.
+            // This allows for generic or mixed-type arrays, at the cost of dynamic dispatch and locking.
+            // Arc<Mutex<...>> is used for thread safety and Python interop.
             let len = elements.len();
             let mut vec = match len {
                 Ok(len) => Vec::with_capacity(len),
@@ -307,11 +260,9 @@ impl FSharpArray {
             };
             if let Ok(iter) = elements.try_iter() {
                 for item in iter {
-                    // Process item
                     vec.push(item?.into_pyobject(py)?.into());
                 }
             }
-
             Ok(FSharpArray {
                 storage: NativeArray::PyObject(Arc::new(Mutex::new(vec))),
             })
@@ -1581,6 +1532,25 @@ impl FSharpArray {
         Ok(acc.into())
     }
 
+    pub fn average(&self, py: Python<'_>, averager: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let len = self.storage.len();
+        if len == 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input array was empty",
+            ));
+        }
+
+        let mut acc = averager.call_method0("GetZero")?;
+
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            acc = averager.call_method1("Add", (acc, item))?;
+        }
+
+        let result = averager.call_method1("DivideByInt", (acc, len))?;
+        Ok(result.into())
+    }
+
     pub fn pairwise(&self, py: Python<'_>) -> PyResult<FSharpArray> {
         let len = self.storage.len();
         if len < 2 {
@@ -2578,6 +2548,101 @@ impl FSharpArray {
             Ok(if is_lt { acc } else { item })
         })
     }
+
+    /// Returns the element for which the key function returns the largest value.
+    pub fn max_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        reduce_impl(self, py, |acc, item, py| {
+            let acc_key = key.call1((acc.clone_ref(py),))?;
+            let item_key = key.call1((item.clone_ref(py),))?;
+            let is_gt = item_key
+                .rich_compare(&acc_key, CompareOp::Gt)?
+                .is_truthy()?;
+            Ok(if is_gt { item } else { acc })
+        })
+    }
+
+    /// Returns the element for which the key function returns the smallest value.
+    pub fn min_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        reduce_impl(self, py, |acc, item, py| {
+            let acc_key = key.call1((acc.clone_ref(py),))?;
+            let item_key = key.call1((item.clone_ref(py),))?;
+            let is_lt = item_key
+                .rich_compare(&acc_key, CompareOp::Lt)?
+                .is_truthy()?;
+            Ok(if is_lt { item } else { acc })
+        })
+    }
+
+    // Choose implementation (map + filter in one pass)
+    #[pyo3(signature = (chooser, cons=None))]
+    pub fn choose(
+        &self,
+        py: Python<'_>,
+        chooser: &Bound<'_, PyAny>,
+        cons: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let len = self.storage.len();
+        let target_type = if let Some(cons) = cons {
+            if let Ok(fs_cons) = cons.extract::<PyRef<'_, FSharpCons>>() {
+                fs_cons.array_type.clone()
+            } else {
+                self.storage.get_type().clone()
+            }
+        } else {
+            ArrayType::Generic
+        };
+        let mut results = NativeArray::new(&target_type, None);
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            let chosen = chooser.call1((item.clone_ref(py),))?;
+            if !chosen.is_none() {
+                results.push_value(&chosen, py)?;
+            }
+        }
+        Ok(FSharpArray { storage: results })
+    }
+
+    pub fn find_back(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let len = self.storage.len();
+        for i in (0..len).rev() {
+            let item = self.get_item_at_index(i as isize, py)?;
+            let result = predicate.call1((item.clone_ref(py),))?.extract::<bool>()?;
+            if result {
+                return Ok(item);
+            }
+        }
+        Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            "An element satisfying the predicate was not found in the collection.",
+        ))
+    }
+
+    pub fn try_pick(
+        &self,
+        py: Python<'_>,
+        chooser: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<PyObject>> {
+        let len = self.storage.len();
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            let result = chooser.call1((item,))?;
+
+            // Check if the result is not None
+            if !result.is_none() {
+                return Ok(Some(result.into()));
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub fn pick(&self, py: Python<'_>, chooser: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        match self.try_pick(py, chooser)? {
+            Some(result) => Ok(result),
+            None => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "An index satisfying the predicate was not found in the collection.",
+            )),
+        }
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -2812,6 +2877,18 @@ pub fn sum(
 
     // Now call the member function
     array.sum(py, adder)
+}
+
+#[pyfunction]
+pub fn average(
+    py: Python<'_>,
+    array: &Bound<'_, PyAny>, // Take a PyAny instead of FSharpArray
+    averager: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let array = ensure_array(py, array)?;
+
+    // Now call the member function
+    array.average(py, averager)
 }
 
 #[pyfunction]
@@ -3218,6 +3295,39 @@ pub fn min(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<PyObject> {
     array.min(py)
 }
 
+#[pyfunction]
+#[pyo3(signature = (chooser, array, cons=None))]
+pub fn choose(
+    py: Python<'_>,
+    chooser: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+    cons: Option<&Bound<'_, PyAny>>,
+) -> PyResult<FSharpArray> {
+    array.choose(py, chooser, cons)
+}
+
+#[pyfunction]
+#[pyo3(signature = (key, array))]
+pub fn max_by(
+    py: Python<'_>,
+    key: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let array = ensure_array(py, array)?;
+    array.max_by(py, key)
+}
+
+#[pyfunction]
+#[pyo3(signature = (key, array))]
+pub fn min_by(
+    py: Python<'_>,
+    key: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let array = ensure_array(py, array)?;
+    array.min_by(py, key)
+}
+
 // Constructor class for array allocation
 #[pyclass()]
 #[derive(Clone)]
@@ -3515,4 +3625,27 @@ where
         acc = f(acc, item, py)?;
     }
     Ok(acc)
+}
+
+#[pyfunction]
+pub fn find_back(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<PyObject> {
+    array.find_back(py, predicate)
+}
+
+#[pyfunction]
+pub fn pick(py: Python<'_>, chooser: &Bound<'_, PyAny>, array: &FSharpArray) -> PyResult<PyObject> {
+    array.pick(py, chooser)
+}
+
+#[pyfunction]
+pub fn try_pick(
+    py: Python<'_>,
+    chooser: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<Option<PyObject>> {
+    array.try_pick(py, chooser)
 }

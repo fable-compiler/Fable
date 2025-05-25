@@ -743,7 +743,6 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
                     args @ cons
                 | _ ->
                     let cons = [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
-
                     args @ cons
             | Types.adder -> args @ [ makeGenericAdder com ctx genArg ]
             | Types.averager -> args @ [ makeGenericAverager com ctx genArg ]
@@ -1020,7 +1019,8 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
-        Helper.ImportedCall("math", meth, t, args, argTypes, ?loc = r)
+        //Helper.ImportedCall("math", meth, t, args, argTypes, ?loc = r)
+        Helper.LibCall(com, "double", meth, t, args, argTypes, ?loc = r)
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), [ opt; defValue ] ->
@@ -1550,6 +1550,8 @@ let formattableString
     | _ -> None
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // printfn "seqModule: %A" i.CompiledName
+
     match i.CompiledName, args with
     | "Cast", [ arg ] -> Some arg // Erase
     | "CreateEvent", [ addHandler; removeHandler; createHandler ] ->
@@ -1561,6 +1563,11 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
 
         Helper.LibCall(com, "seq2", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "ToArray", [ arg ] ->
+        // Call array_.Array[t](args)
+        Helper.LibCall(com, "array_", "Array", t, [ arg ], i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
@@ -1731,6 +1738,7 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
     |> Some
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // printfn "arrays: %A" i.CompiledName
     match i.CompiledName, thisArg, args with
     | "get_Length", Some arg, _ -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
@@ -1747,7 +1755,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    // printfn "arrayModule: %A" t
+    // printfn "arrayModule: %A" i.CompiledName
 
     let newArray size t =
         Value(NewArray(ArrayAlloc size, t, MutableArray), None)
@@ -1764,7 +1772,9 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
     match i.CompiledName, args with
     | "ToSeq", [ arg ] -> Some arg
-    | "OfSeq", [ arg ] -> toArray r t arg |> Some
+    | "OfSeq", [ arg ] ->
+        let xs = toArray r t arg |> Some
+        xs
     | "OfList", [ arg ] ->
         Helper.LibCall(com, "list", "toArray", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some

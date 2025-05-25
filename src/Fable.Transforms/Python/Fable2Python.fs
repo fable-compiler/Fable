@@ -450,7 +450,7 @@ module Reflection =
             | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "types" "int64") expr
             | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "types" "uint64") expr
             | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "types" "float32") expr
-            | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
+            | _, Fable.Type.Number(Float64, _) -> pyInstanceof (libValue com ctx "types" "float64") expr
             | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
             | _ -> pyInstanceof (Expression.name "int") expr
 
@@ -771,7 +771,7 @@ module Annotation =
                 | UInt32 -> "uint32"
                 | Int64 -> "int64"
                 | UInt64 -> "uint64"
-                | Int32 -> "int"
+                | Int32 -> "int32"
                 | BigInt
                 | Int128
                 | UInt128
@@ -1184,11 +1184,8 @@ module Util =
         | [] -> expr
         | m :: ms -> get com ctx None expr m false |> getParts com ctx ms
 
-    let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
-        // printfn "makeArray: %A" typ
-
-        let expr, stmts =
-            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
+    let arrayExpr (com: IPythonCompiler) ctx (expr: Expression) kind typ : Expression =
+        // printfn "arrayExpr: %A" typ
 
         let array_type =
             // printfn "Array type: %A" (kind, typ)
@@ -1205,7 +1202,7 @@ module Util =
             | _, Fable.Type.Number(UInt64, _) -> Some "uint64"
             | _, Fable.Type.Number(Float32, _) -> Some "float32"
             | _, Fable.Type.Number(Float64, _) -> Some "float64"
-            | _ -> Some "object"
+            | _ -> Some "Any"
 
         // printfn "Array type: %A" array_type
 
@@ -1214,27 +1211,37 @@ module Util =
             let array = libValue com ctx "array_" "Array"
 
             let type_obj =
-                if l = "object" then
-                    Expression.name "object"
+                if l = "Any" then
+                    com.GetImportExpr(ctx, "typing", "Any")
                 else
                     libValue com ctx "types" l
 
-            let sub_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
-            Expression.call (sub_array, [ Expression.list expr ]), stmts
-        | _ -> expr |> Expression.list, stmts
+            let types_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
+            Expression.call (types_array, [ expr ])
+        | None -> expr // <-- Fix: just return expr for ResizeArray
 
+    let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
+        // printfn "makeArray: %A" typ
+
+        let exprs, stmts =
+            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
+
+        arrayExpr com ctx (Expression.list exprs) kind typ, stmts
 
     let makeArrayAllocated (com: IPythonCompiler) ctx typ _kind (size: Fable.Expr) =
-        // printfn "makeArrayAllocated"
         let size, stmts = com.TransformAsExpr(ctx, size)
         let array = Expression.list [ Expression.intConstant 0 ]
         Expression.binOp (array, Mult, size), stmts
 
     let makeArrayFrom (com: IPythonCompiler) ctx typ kind (fableExpr: Fable.Expr) : Expression * Statement list =
-        // printfn "makeArrayFrom"
+        //printfn "makeArrayFrom: %A" (fableExpr, typ, kind)
+
         match fableExpr with
         | Replacements.Util.ArrayOrListLiteral(exprs, _) -> makeArray com ctx exprs kind typ
-        | _ -> makeArray com ctx [ fableExpr ] kind typ
+        | _ ->
+            //makeArray com ctx [ fableExpr ] kind typ
+            let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
+            arrayExpr com ctx expr kind typ, stmts
 
     let makeList (com: IPythonCompiler) ctx exprs =
         let expr, stmts =
@@ -2124,10 +2131,10 @@ module Util =
             | BinaryDivide, _ ->
                 // For integer division, we need to use the // operator
                 match typ with
-                | Fable.Number(Int32, _)
-                | Fable.Number(Int64, _)
-                | Fable.Number(UInt32, _)
-                | Fable.Number(UInt64, _) -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
+                // | Fable.Number(Int32, _)
+                // | Fable.Number(Int64, _)
+                // | Fable.Number(UInt32, _)
+                // | Fable.Number(UInt64, _) -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
                 | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 
@@ -3112,33 +3119,13 @@ module Util =
         Expression.subscript (left, slice), stmts @ stmts'
 
     let transformAsArray (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Expression * Statement list =
+        // printfn "transformAsArray: %A" (expr, info)
         let value, stmts = com.TransformAsExpr(ctx, expr)
 
         match expr.Type with
         | Fable.Type.Array(typ, Fable.ArrayKind.ResizeArray) ->
-            let letter =
-                match typ with
-                | Fable.Type.Number(UInt8, _) -> Some "B"
-                | Fable.Type.Number(Int8, _) -> Some "b"
-                | Fable.Type.Number(Int16, _) -> Some "h"
-                | Fable.Type.Number(UInt16, _) -> Some "H"
-                | Fable.Type.Number(Int32, _) -> Some "l"
-                | Fable.Type.Number(UInt32, _) -> Some "L"
-                | Fable.Type.Number(Int64, _) -> Some "q"
-                | Fable.Type.Number(UInt64, _) -> Some "Q"
-                | Fable.Type.Number(Float32, _) -> Some "f"
-                | Fable.Type.Number(Float64, _) -> Some "d"
-                | _ -> None
-
-            match letter with
-            // | Some "B" ->
-            //     let bytearray = Expression.name "bytearray"
-            //     Expression.call (bytearray, [ value ]), stmts
-            | Some l ->
-                let array = com.GetImportExpr(ctx, "array", "array")
-
-                Expression.call (array, Expression.stringConstant l :: [ value ]), stmts
-            | _ -> transformAsSlice com ctx expr info
+            // Expression.call (array, Expression.stringConstant l :: [ value ]), stmts
+            makeArray com ctx [ expr ] Fable.ArrayKind.ResizeArray typ
         | _ -> transformAsSlice com ctx expr info
 
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =

@@ -7,10 +7,12 @@ open System.Collections.Generic
 open Fable.Core
 open Fable.Core.PyInterop
 
+[<Import("FSharpCons", "array_")>]
 [<AllowNullLiteral>]
-type Cons<'T> =
-    [<Emit("$0([0]*$1)")>]
-    abstract Allocate: len: int -> 'T[]
+type Cons<'T>() =
+    [<Emit("$0.allocate($1)")>]
+    member _.Allocate(len: int) = nativeOnly
+
 
 module Helpers =
     [<Emit("list($0)")>]
@@ -24,11 +26,11 @@ module Helpers =
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T[] =
         if isNull cons then
-            Py.Array.Create(len)
+            Cons().Allocate(len)
         else
             cons.Allocate(len)
 
-    let inline isDynamicArrayImpl arr = Py.Array.isArray arr
+    //let inline isDynamicArrayImpl arr = Py.Array.isArray arr
 
     [<Emit("$0+$1")>]
     let concatImpl (array1: 'T[]) (arrays: 'T[] seq) : 'T[] = nativeOnly

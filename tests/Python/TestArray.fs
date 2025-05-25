@@ -266,26 +266,26 @@ let ``test Array.create works`` () =
 //     let zs2 = Array.append [|"x";"y"|] xs2
 //     zs2.[1] + zs2.[3] |> equal "yb"
 
-// [<Fact>]
-// let ``test Array.average works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.average xs
-//     |> equal 2.5
+[<Fact>]
+let ``test Array.average works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.average xs
+    |> equal 2.5
 
-// [<Fact>]
-// let ``test Array.averageBy works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.averageBy (fun x -> x * 2.) xs
-//     |> equal 5.
+[<Fact>]
+let ``test Array.averageBy works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.averageBy (fun x -> x * 2.) xs
+    |> equal 5.
 
-// [<Fact>]
-// let ``test Array.average works with custom types`` () =
-//     [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.average |> equal (MyNumber 2)
+[<Fact>]
+let ``test Array.average works with custom types`` () =
+    [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.average |> equal (MyNumber 2)
 
-// [<Fact>]
-// let ``test Array.averageBy works with custom types`` () =
-//     [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
-//     |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+[<Fact>]
+let ``test Array.averageBy works with custom types`` () =
+    [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
+    |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
 // [<Fact>]
 // let ``test Array.choose with ints works`` () =

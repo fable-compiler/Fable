@@ -43,8 +43,8 @@ module Py =
         [<Emit("$0[$1:$1+$2]")>]
         abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
 
-    [<Import("types", "Array")>]
-    let Array: ArrayConstructor = nativeOnly
+    //[<Import("types", "Array")>]
+    //let Array: ArrayConstructor = nativeOnly
 
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
     [<Emit("lambda *args: $0(args)")>]
