@@ -581,4 +581,26 @@ impl NativeArray {
         }
         Ok(())
     }
+
+    /// Truncates the array to the specified size.
+    pub fn truncate(&mut self, new_size: usize) {
+        match self {
+            NativeArray::Int8(vec) => vec.truncate(new_size),
+            NativeArray::UInt8(vec) => vec.truncate(new_size),
+            NativeArray::Int16(vec) => vec.truncate(new_size),
+            NativeArray::UInt16(vec) => vec.truncate(new_size),
+            NativeArray::Int32(vec) => vec.truncate(new_size),
+            NativeArray::UInt32(vec) => vec.truncate(new_size),
+            NativeArray::Int64(vec) => vec.truncate(new_size),
+            NativeArray::UInt64(vec) => vec.truncate(new_size),
+            NativeArray::Float32(vec) => vec.truncate(new_size),
+            NativeArray::Float64(vec) => vec.truncate(new_size),
+            NativeArray::String(vec) => vec.truncate(new_size),
+            NativeArray::PyObject(vec) => {
+                if let Ok(mut vec) = vec.lock() {
+                    vec.truncate(new_size);
+                }
+            }
+        }
+    }
 }

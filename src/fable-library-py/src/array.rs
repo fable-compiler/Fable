@@ -98,6 +98,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(find_back, &m)?)?;
     m.add_function(wrap_pyfunction!(pick, &m)?)?;
     m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
+    m.add_function(wrap_pyfunction!(remove_all_in_place, &m)?)?;
 
     m.add_class::<FSharpCons>()?;
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
@@ -2643,6 +2644,30 @@ impl FSharpArray {
             )),
         }
     }
+
+    pub fn remove_all_in_place(
+        &mut self,
+        py: Python<'_>,
+        predicate: &Bound<'_, PyAny>,
+    ) -> PyResult<usize> {
+        let mut count = 0;
+        let mut i = 0;
+        let len = self.storage.len();
+
+        while i < len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            let should_remove = predicate.call1((item,))?.extract::<bool>()?;
+
+            if should_remove {
+                self.storage.remove_at_index(i);
+                count += 1;
+            } else {
+                i += 1;
+            }
+        }
+
+        Ok(count)
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -3328,6 +3353,38 @@ pub fn min_by(
     array.min_by(py, key)
 }
 
+#[pyfunction]
+pub fn find_back(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<PyObject> {
+    array.find_back(py, predicate)
+}
+
+#[pyfunction]
+pub fn pick(py: Python<'_>, chooser: &Bound<'_, PyAny>, array: &FSharpArray) -> PyResult<PyObject> {
+    array.pick(py, chooser)
+}
+
+#[pyfunction]
+pub fn try_pick(
+    py: Python<'_>,
+    chooser: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<Option<PyObject>> {
+    array.try_pick(py, chooser)
+}
+
+#[pyfunction]
+pub fn remove_all_in_place(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &mut FSharpArray,
+) -> PyResult<usize> {
+    array.remove_all_in_place(py, predicate)
+}
+
 // Constructor class for array allocation
 #[pyclass()]
 #[derive(Clone)]
@@ -3625,27 +3682,4 @@ where
         acc = f(acc, item, py)?;
     }
     Ok(acc)
-}
-
-#[pyfunction]
-pub fn find_back(
-    py: Python<'_>,
-    predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
-) -> PyResult<PyObject> {
-    array.find_back(py, predicate)
-}
-
-#[pyfunction]
-pub fn pick(py: Python<'_>, chooser: &Bound<'_, PyAny>, array: &FSharpArray) -> PyResult<PyObject> {
-    array.pick(py, chooser)
-}
-
-#[pyfunction]
-pub fn try_pick(
-    py: Python<'_>,
-    chooser: &Bound<'_, PyAny>,
-    array: &FSharpArray,
-) -> PyResult<Option<PyObject>> {
-    array.try_pick(py, chooser)
 }

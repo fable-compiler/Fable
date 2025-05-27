@@ -122,6 +122,7 @@ min_by = array.min_by
 average = array.average
 pick = array.pick
 try_pick = array.try_pick
+remove_all_in_place = array.remove_all_in_place
 
 Array: TypeAlias = array.FSharpArray[_T]
 FSharpCons: TypeAlias = array.FSharpCons[_T]
@@ -141,7 +142,6 @@ __all__ = [
     "add_range_in_place",
     "append",
     "average",
-    "averageFloat32Array",
     "chunk_by_size",
     "compare_with",
     "contains",
@@ -213,4 +213,5 @@ __all__ = [
     "update_at",
     "windowed",
     "zip",
+    "remove_all_in_place",
 ]
