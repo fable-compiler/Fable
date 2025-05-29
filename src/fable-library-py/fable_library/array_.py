@@ -123,6 +123,7 @@ average = array.average
 pick = array.pick
 try_pick = array.try_pick
 remove_all_in_place = array.remove_all_in_place
+indexed = array.indexed
 
 Array: TypeAlias = array.FSharpArray[_T]
 FSharpCons: TypeAlias = array.FSharpCons[_T]
@@ -166,6 +167,7 @@ __all__ = [
     "get_sub_array",
     "head",
     "index_of",
+    "indexed",
     "initialize",
     "insert_at",
     "insert_many_at",
@@ -213,5 +215,4 @@ __all__ = [
     "update_at",
     "windowed",
     "zip",
-    "remove_all_in_place",
 ]

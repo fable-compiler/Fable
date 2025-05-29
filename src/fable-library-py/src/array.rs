@@ -3,8 +3,8 @@ use crate::ints::{Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8};
 use crate::native_array::{ArrayType, NativeArray};
 use crate::options::SomeWrapper;
 use pyo3::class::basic::CompareOp;
-use pyo3::types::PyBool;
 use pyo3::types::PyNotImplemented;
+use pyo3::types::{PyBool, PyInt};
 use pyo3::types::{PyBytes, PyTuple, PyType};
 use pyo3::BoundObject;
 use pyo3::{exceptions, IntoPyObjectExt, PyTypeInfo};
@@ -99,6 +99,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(pick, &m)?)?;
     m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
     m.add_function(wrap_pyfunction!(remove_all_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(indexed, &m)?)?;
 
     m.add_class::<FSharpCons>()?;
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
@@ -2668,6 +2669,20 @@ impl FSharpArray {
 
         Ok(count)
     }
+
+    pub fn indexed(&self, py: Python<'_>) -> PyResult<FSharpArray> {
+        let len = self.storage.len();
+        let mut builder = NativeArray::new(&ArrayType::Generic, Some(len));
+
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            let index = PyInt::new(py, i as i64);
+            let tuple = PyTuple::new(py, &[index.into(), item])?;
+            builder.push_value(&tuple, py)?;
+        }
+
+        Ok(FSharpArray { storage: builder })
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -3383,6 +3398,11 @@ pub fn remove_all_in_place(
     array: &mut FSharpArray,
 ) -> PyResult<usize> {
     array.remove_all_in_place(py, predicate)
+}
+
+#[pyfunction]
+pub fn indexed(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
+    array.indexed(py)
 }
 
 // Constructor class for array allocation
