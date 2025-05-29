@@ -739,16 +739,9 @@ module Annotation =
 
             Expression.binOp (resolved[0], BitOr, Expression.none), stmts
         | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
-        | Fable.Array(genArg, _) ->
-            match genArg with
-            | Fable.Type.Number(UInt8, _)
-            | Fable.Type.Number(Int8, _)
-            | Fable.Type.Number(Int16, _)
-            | Fable.Type.Number(UInt16, _)
-            | Fable.Type.Number(Int32, _)
-            | Fable.Type.Number(UInt32, _)
-            | Fable.Type.Number(Float32, _)
-            | Fable.Type.Number(Float64, _)
+        | Fable.Array(genArg, kind) ->
+            match kind with
+            | Fable.ResizeArray -> makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
             | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics

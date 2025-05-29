@@ -1129,3 +1129,207 @@ def test_array_error_handling() -> None:
 
     with pytest.raises(ValueError, match="Error during filtering"):
         _ = int8_arr.filter(faulty_predicate)
+
+
+def test_find_back_simple():
+    arr = Array([1, 2, 3, 4, 5, 2, 1])
+    # Find the last even number
+    result = arr.find_back(lambda x: x % 2 == 0)
+    assert result == 2
+    # Free function
+    result2 = array.find_back(lambda x: x % 2 == 0, arr)
+    assert result2 == 2
+    # Find the last 1
+    assert arr.find_back(lambda x: x == 1) == 1
+    # Find the last 5
+    assert arr.find_back(lambda x: x == 5) == 5
+    # Error if not found
+    with pytest.raises(Exception):
+        arr.find_back(lambda x: x == 42)
+    with pytest.raises(Exception):
+        array.find_back(lambda x: x == 42, arr)
+
+
+@given(elements=st.lists(st.integers(), min_size=1))
+def test_find_back_property(elements):
+    arr = Array(elements)
+    # Find the last element (should always succeed)
+    assert arr.find_back(lambda x: True) == elements[-1]
+    # Find the last even, if any
+    evens = [x for x in elements if x % 2 == 0]
+    if evens:
+        assert arr.find_back(lambda x: x % 2 == 0) == evens[-1]
+    else:
+        with pytest.raises(Exception):
+            arr.find_back(lambda x: x % 2 == 0)
+
+
+def test_pick_simple():
+    """Test the pick function of FSharpArray."""
+    arr = Array([1, 2, 3, 4, 5])
+
+    # Pick the first even number
+    result = arr.pick(lambda x: x if x % 2 == 0 else None)
+    assert result == 2
+
+    # Free function
+    result2 = array.pick(lambda x: x if x % 2 == 0 else None, arr)
+    assert result2 == 2
+
+    # Pick the first number greater than 3
+    assert arr.pick(lambda x: x if x > 3 else None) == 4
+
+    # Error if not found
+    with pytest.raises(Exception):
+        arr.pick(lambda x: x if x > 10 else None)
+    with pytest.raises(Exception):
+        array.pick(lambda x: x if x > 10 else None, arr)
+
+
+def test_try_pick_simple():
+    """Test the try_pick function of FSharpArray."""
+    arr = Array([1, 2, 3, 4, 5])
+
+    # Try pick the first even number
+    result = arr.try_pick(lambda x: x if x % 2 == 0 else None)
+    assert result == 2
+
+    # Free function
+    result2 = array.try_pick(lambda x: x if x % 2 == 0 else None, arr)
+    assert result2 == 2
+
+    # Try pick the first number greater than 3
+    assert arr.try_pick(lambda x: x if x > 3 else None) == 4
+
+    # Return None if not found
+    assert arr.try_pick(lambda x: x if x > 10 else None) is None
+    assert array.try_pick(lambda x: x if x > 10 else None, arr) is None
+
+
+def test_resize_extend_with_default():
+    # Test extending array with default values
+    arr = Array[int32]([1, 2, 3])
+    arr.resize(5)
+    assert len(arr) == 5
+    assert arr[0] == 1
+    assert arr[1] == 2
+    assert arr[2] == 3
+    assert arr[3] == 0  # Default value for Int32
+    assert arr[4] == 0  # Default value for Int32
+
+
+def test_resize_extend_with_value():
+    # Test extending array with custom value
+    arr = Array[int32]([1, 2, 3])
+    arr.resize(5, 42)
+    assert len(arr) == 5
+    assert arr[0] == 1
+    assert arr[1] == 2
+    assert arr[2] == 3
+    assert arr[3] == 42
+    assert arr[4] == 42
+
+
+def test_resize_truncate():
+    # Test truncating array
+    arr = Array[int32]([1, 2, 3, 4, 5])
+    arr.resize(3)
+    assert len(arr) == 3
+    assert arr[0] == 1
+    assert arr[1] == 2
+    assert arr[2] == 3
+
+
+def test_resize_same_size():
+    # Test resizing to same size
+    arr = Array[int32]([1, 2, 3])
+    arr.resize(3)
+    assert len(arr) == 3
+    assert arr[0] == 1
+    assert arr[1] == 2
+    assert arr[2] == 3
+
+
+def test_resize_empty():
+    # Test resizing empty array
+    arr = Array[int32]([])
+    arr.resize(3)
+    assert len(arr) == 3
+    assert arr[0] == 0
+    assert arr[1] == 0
+    assert arr[2] == 0
+
+
+def test_resize_to_zero():
+    # Test resizing to zero
+    arr = Array[int32]([1, 2, 3])
+    arr.resize(0)
+    assert len(arr) == 0
+
+
+def test_resize_generic_array():
+    # Test resizing generic array
+    arr = Array[Any]([1, "two", 3.0])
+    arr.resize(5)
+    assert len(arr) == 5
+    assert arr[0] == 1
+    assert arr[1] == "two"
+    assert arr[2] == 3.0
+    assert arr[3] is None  # Default value for generic array
+    assert arr[4] is None  # Default value for generic array
+
+
+def test_indexed():
+    # Test indexed with integers
+    arr = Array[int32]([int32(10), int32(20), int32(30)])
+    result = arr.indexed()
+    expected = [(0, int32(10)), (1, int32(20)), (2, int32(30))]
+    assert len(result) == len(expected)
+    for i, (idx, val) in enumerate(expected):
+        result_idx, result_val = result[i]
+        assert result_idx == idx
+        assert result_val == val
+
+
+def test_average_by():
+    """Test average_by function with different projections."""
+    # Test with integer array and double projection
+    arr = Array[int32]([int32(1), int32(2), int32(3), int32(4), int32(5)])
+
+    # Create a simple averager for int32
+    class Int32Averager:
+        def GetZero(self):
+            return 0.0
+
+        def Add(self, a, b):
+            return a + b
+
+        def DivideByInt(self, a, n):
+            return a / n
+
+    averager = Int32Averager()
+
+    # Test double projection: (1*2 + 2*2 + 3*2 + 4*2 + 5*2) / 5 = 30 / 5 = 6.0
+    def double(x):
+        return x * 2
+
+    result = arr.average_by(double, averager)
+    assert abs(result - 6.0) < 1e-10
+
+    # Test square projection: (1 + 4 + 9 + 16 + 25) / 5 = 55 / 5 = 11.0
+    def square(x):
+        return x * x
+
+    result2 = arr.average_by(square, averager)
+    assert abs(result2 - 11.0) < 1e-10
+
+    # Test with empty array - should raise error
+    empty_arr = Array[int32]([])
+    with pytest.raises(Exception):  # Should raise "The input array was empty"
+        empty_arr.average_by(double, averager)
+
+    # Test loose function style
+    from fable_library.array_ import average_by
+
+    result3 = average_by(double, arr, averager)
+    assert abs(result3 - 6.0) < 1e-10

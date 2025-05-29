@@ -322,12 +322,12 @@ let ``test Array.averageBy works with custom types`` () =
 //     ys1.[0] + ys1.[1] + ys1.[2] + ys1.[3] + ys1.[4]
 //     |> equal 15.
 
-// [<Fact>]
-// let ``test Array.concat works`` () =
-//     let xs = [|[|1.|]; [|2.|]; [|3.|]; [|4.|]|]
-//     let ys = xs |> Array.concat
-//     ys.[0] + ys.[1]
-//     |> equal 3.
+[<Fact>]
+let ``test Array.concat works`` () =
+    let xs = [|[|1.|]; [|2.|]; [|3.|]; [|4.|]|]
+    let ys = xs |> Array.concat
+    ys.[0] + ys.[1]
+    |> equal 3.
 
 // [<Fact>]
 // let ``test Array.concat works with strings`` () =
@@ -336,11 +336,11 @@ let ``test Array.averageBy works with custom types`` () =
 //     |> List.ofArray
 //     |> equal [ "One"; "Two" ]
 
-// [<Fact>]
-// let ``test Array.exists works`` () =
-//     let xs = [|1u; 2u; 3u; 4u|]
-//     xs |> Array.exists (fun x -> x = 2u)
-//     |> equal true
+[<Fact>]
+let ``test Array.exists works`` () =
+    let xs = [|1u; 2u; 3u; 4u|]
+    xs |> Array.exists (fun x -> x = 2u)
+    |> equal true
 
 // [<Fact>]
 // let ``test Array.exists2 works`` () =
@@ -349,72 +349,72 @@ let ``test Array.averageBy works with custom types`` () =
 //     Array.exists2 (fun x y -> x * y = 16UL) xs ys
 //     |> equal true
 
-// [<Fact>]
-// let ``test Array.filter works`` () =
-//     let xs = [|1s; 2s; 3s; 4s|]
-//     let ys = xs |> Array.filter (fun x -> x > 2s)
-//     ys.Length |> equal 2
+[<Fact>]
+let ``test Array.filter works`` () =
+    let xs = [|1s; 2s; 3s; 4s|]
+    let ys = xs |> Array.filter (fun x -> x > 2s)
+    ys.Length |> equal 2
 
-// [<Fact>]
-// let ``test Array.filter with chars works`` () =
-//     let xs = [|'a'; '2'; 'b'; 'c'|]
-//     let ys = xs |> Array.filter System.Char.IsLetter
-//     ys.Length |> equal 3
+[<Fact>]
+let ``test Array.filter with chars works`` () =
+    let xs = [|'a'; '2'; 'b'; 'c'|]
+    let ys = xs |> Array.filter System.Char.IsLetter
+    ys.Length |> equal 3
 
-// [<Fact>]
-// let ``test Array.find works`` () =
-//     let xs = [|1us; 2us; 3us; 4us|]
-//     xs |> Array.find ((=) 2us)
-//     |> equal 2us
+[<Fact>]
+let ``test Array.find works`` () =
+    let xs = [|1us; 2us; 3us; 4us|]
+    xs |> Array.find ((=) 2us)
+    |> equal 2us
 
-// // [<Fact>]
-// // let ``test System.Array.IndexOf works with non-primitive types`` () =
-// //     let myArray = [|Duck 5|]
-// //     System.Array.IndexOf(myArray, Duck 3) |> equal -1
-// //     System.Array.IndexOf(myArray, Dog 5) |> equal -1
-// //     System.Array.IndexOf(myArray, Duck 5) |> equal 0
-// //     let myArray = [|Duck 5; Dog 3|]
-// //     System.Array.IndexOf(myArray, Dog 3) |> equal 1
-// //     System.Array.IndexOf(myArray, Dog 3, 0, 1) |> equal -1
-// //     System.Array.IndexOf(myArray, Duck 5, 1) |> equal -1
+[<Fact>]
+let ``test System.Array.IndexOf works with non-primitive types`` () =
+    let myArray = [|Duck 5|]
+    System.Array.IndexOf(myArray, Duck 3) |> equal -1
+    System.Array.IndexOf(myArray, Dog 5) |> equal -1
+    System.Array.IndexOf(myArray, Duck 5) |> equal 0
+    let myArray = [|Duck 5; Dog 3|]
+    System.Array.IndexOf(myArray, Dog 3) |> equal 1
+    System.Array.IndexOf(myArray, Dog 3, 0, 1) |> equal -1
+    System.Array.IndexOf(myArray, Duck 5, 1) |> equal -1
 
-// [<Fact>]
-// let ``test Array.findIndex works`` () =
-//     let xs = [|1.f; 2.f; 3.f; 4.f|]
-//     xs |> Array.findIndex ((=) 2.f)
-//     |> equal 1
+[<Fact>]
+let ``test Array.findIndex works`` () =
+    let xs = [|1.f; 2.f; 3.f; 4.f|]
+    xs |> Array.findIndex ((=) 2.f)
+    |> equal 1
 
-// [<Fact>]
-// let ``test Array.findBack works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.find ((>) 4.) |> equal 1.
-//     xs |> Array.findBack ((>) 4.) |> equal 3.
+[<Fact>]
+let ``test Array.findBack works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.find ((>) 4.) |> equal 1.
+    xs |> Array.findBack ((>) 4.) |> equal 3.
 
-// [<Fact>]
-// let ``test Array.findIndexBack works`` () =
-//      let xs = [|1.; 2.; 3.; 4.|]
-//      xs |> Array.findIndex ((>) 4.) |> equal 0
-//      xs |> Array.findIndexBack ((>) 4.) |> equal 2
+[<Fact>]
+let ``test Array.findIndexBack works`` () =
+     let xs = [|1.; 2.; 3.; 4.|]
+     xs |> Array.findIndex ((>) 4.) |> equal 0
+     xs |> Array.findIndexBack ((>) 4.) |> equal 2
 
-// [<Fact>]
-// let ``test Array.tryFindBack works`` () =
-//      let xs = [|1.; 2.; 3.; 4.|]
-//      xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
-//      xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
-//      xs |> Array.tryFindBack ((=) 5.) |> equal None
+[<Fact>]
+let ``test Array.tryFindBack works`` () =
+     let xs = [|1.; 2.; 3.; 4.|]
+     xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
+     xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
+     xs |> Array.tryFindBack ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``test Array.tryFindIndexBack works`` () =
-//      let xs = [|1.; 2.; 3.; 4.|]
-//      xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
-//      xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-//      xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
+[<Fact>]
+let ``test Array.tryFindIndexBack works`` () =
+     let xs = [|1.; 2.; 3.; 4.|]
+     xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
+     xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+     xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
 
-// [<Fact>]
-// let ``test Array.fold works`` () =
-//     let xs = [|1y; 2y; 3y; 4y|]
-//     let total = xs |> Array.fold (+) 0y
-//     total |> equal 10y
+[<Fact>]
+let ``test Array.fold works`` () =
+    let xs = [|1y; 2y; 3y; 4y|]
+    let total = xs |> Array.fold (+) 0y
+    total |> equal 10y
 
 // [<Fact>]
 // let ``test Array.fold2 works`` () =
@@ -451,13 +451,13 @@ let ``test Array.averageBy works with custom types`` () =
 //     Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
 //     |> equal true
 
-// [<Fact>]
-// let ``test Array.init works`` () =
-//     let xs = Array.init 4 (float >> sqrt)
-//     xs.[0] + xs.[1]
-//     |> equal 1.
-//     (xs.[2] > 1. && xs.[3] < 2.)
-//     |> equal true
+[<Fact>]
+let ``test Array.init works`` () =
+    let xs = Array.init 4 (float >> sqrt)
+    xs.[0] + xs.[1]
+    |> equal 1.
+    (xs.[2] > 1. && xs.[3] < 2.)
+    |> equal true
 
 [<Fact>]
 let ``test Array.isEmpty works`` () =
@@ -566,78 +566,78 @@ let ``test Array.mapFoldBack works`` () =
     fst result |> Array.sum |> equal -20.
     snd result |> equal -10.
 
-// [<Fact>]
-// let ``test Array.max works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.max
-//     |> equal 2.
+[<Fact>]
+let ``test Array.max works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.max
+    |> equal 2.
 
-// [<Fact>]
-// let ``test Array.maxBy works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.maxBy (fun x -> -x)
-//     |> equal 1.
+[<Fact>]
+let ``test Array.maxBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.maxBy (fun x -> -x)
+    |> equal 1.
 
-// [<Fact>]
-// let ``test Array.min works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.min
-//     |> equal 1.
+[<Fact>]
+let ``test Array.min works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.min
+    |> equal 1.
 
-// [<Fact>]
-// let ``test Array.minBy works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.minBy (fun x -> -x)
-//     |> equal 2.
+[<Fact>]
+let ``test Array.minBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.minBy (fun x -> -x)
+    |> equal 2.
 
-// [<Fact>]
-// let ``test Array.ofList works`` () =
-//     let xs = [1.; 2.]
-//     let ys = Array.ofList xs
-//     ys.Length |> equal 2
+[<Fact>]
+let ``test Array.ofList works`` () =
+    let xs = [1.; 2.]
+    let ys = Array.ofList xs
+    ys.Length |> equal 2
 
-// [<Fact>]
-// let ``test Array.ofSeq works`` () =
-//     let xs = seq { yield 1; yield 2 }
-//     let ys = Array.ofSeq xs
-//     ys.[0] |> equal 1
+[<Fact>]
+let ``test Array.ofSeq works`` () =
+    let xs = seq { yield 1; yield 2 }
+    let ys = Array.ofSeq xs
+    ys.[0] |> equal 1
 
-// [<Fact>]
-// let ``test Array.partition works`` () =
-//     let xs = [|1.; 2.; 3.|]
-//     let ys, zs = xs |> Array.partition (fun x -> x <= 1.)
-//     equal ys [| 1. |]
-//     equal zs [| 2.; 3. |]
+[<Fact>]
+let ``test Array.partition works`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys, zs = xs |> Array.partition (fun x -> x <= 1.)
+    equal ys [| 1. |]
+    equal zs [| 2.; 3. |]
 
-// [<Fact>]
-// let ``test Array.permute works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = xs |> Array.permute (fun i -> i + 1 - 2 * (i % 2))
-//     ys.[0] |> equal 2.
+[<Fact>]
+let ``test Array.permute works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.permute (fun i -> i + 1 - 2 * (i % 2))
+    ys.[0] |> equal 2.
 
-// [<Fact>]
-// let ``test Array.pick works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.pick (fun x ->
-//         match x with
-//         | 2. -> Some x
-//         | _ -> None)
-//     |> equal 2.
+[<Fact>]
+let ``test Array.pick works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.pick (fun x ->
+        match x with
+        | 2. -> Some x
+        | _ -> None)
+    |> equal 2.
 
-// [<Fact>]
-// let ``test Array.range works`` () =
-//     [|1..5|]
-//     |> Array.reduce (+)
-//     |> equal 15
-//     [|0..2..9|]
-//     |> Array.reduce (+)
-//     |> equal 20
+[<Fact>]
+let ``test Array.range works`` () =
+    [|1..5|]
+    |> Array.reduce (+)
+    |> equal 15
+    [|0..2..9|]
+    |> Array.reduce (+)
+    |> equal 20
 
-// [<Fact>]
-// let ``test Array.reduce works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.reduce (-)
-//     |> equal -8.
+[<Fact>]
+let ``test Array.reduce works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.reduce (-)
+    |> equal -8.
 
 // [<Fact>]
 // let ``test Array.reduce Array.append works`` () = // See #2372
@@ -936,44 +936,44 @@ let ``test Array.head works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     Array.head xs |> equal 1.
 
-// [<Fact>]
-// let ``test Array.tryHead works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.tryHead xs |> equal (Some 1.)
-//     Array.tryHead [||] |> equal None
+[<Fact>]
+let ``test Array.tryHead works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryHead xs |> equal (Some 1.)
+    Array.tryHead [||] |> equal None
 
-// [<Fact>]
-// let ``test Array.last works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     xs |> Array.last
-//     |> equal 4.
+[<Fact>]
+let ``test Array.last works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.last
+    |> equal 4.
 
-// [<Fact>]
-// let ``test Array.tryLast works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.tryLast xs |> equal (Some 4.)
-//     Array.tryLast [||] |> equal None
+[<Fact>]
+let ``test Array.tryLast works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryLast xs |> equal (Some 4.)
+    Array.tryLast [||] |> equal None
 
 [<Fact>]
 let ``test Array.tail works`` () =
     let xs = [|1.; 2.; 3.; 4.|]
     Array.tail xs |> Array.length |> equal 3
 
-// [<Fact>]
-// let ``test Array.groupBy returns valid array`` () =
-//     let xs = [|1; 2|]
-//     let actual = Array.groupBy (fun _ -> true) xs
-//     let actualKey, actualGroup = actual.[0]
-//     let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
-//     worked |> equal true
+[<Fact>]
+let ``test Array.groupBy returns valid array`` () =
+    let xs = [|1; 2|]
+    let actual = Array.groupBy (fun _ -> true) xs
+    let actualKey, actualGroup = actual.[0]
+    let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
+    worked |> equal true
 
-// [<Fact>]
-// let ``test Array.windowed works`` () = // See #1716
-//     let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]
-//     Array.windowed 3 nums |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
-//     Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
-//     Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
-//     Array.windowed 7 nums |> Array.isEmpty |> equal true
+[<Fact>]
+let ``test Array.windowed works`` () = // See #1716
+    let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]
+    Array.windowed 3 nums |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
+    Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+    Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+    Array.windowed 7 nums |> Array.isEmpty |> equal true
 
 // [<Fact>]
 // let ``test Array.allPairs works`` () =
@@ -1040,17 +1040,17 @@ let ``test Casting to System.Array works`` () =
 //     [|1.;2.|] |> Array.tryExactlyOne |> equal None
 //     [||] |> Array.tryExactlyOne |> equal None
 
-// [<Fact>]
-// let ``test Array.pairwise works`` () =
-//     Array.pairwise<int> [||] |> equal [||]
-//     Array.pairwise [|1|] |> equal [||]
-//     Array.pairwise [|1; 2|] |> equal [|(1, 2)|]
-//     let xs = [|1; 2; 3; 4|]
-//     let xs2 = xs |> Array.pairwise
-//     equal [|(1, 2); (2, 3); (3, 4)|] xs2
-//     xs2 |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
-//     |> String.concat ""
-//     |> equal "122334"
+[<Fact>]
+let ``test Array.pairwise works`` () =
+    Array.pairwise<int> [||] |> equal [||]
+    Array.pairwise [|1|] |> equal [||]
+    Array.pairwise [|1; 2|] |> equal [|(1, 2)|]
+    let xs = [|1; 2; 3; 4|]
+    let xs2 = xs |> Array.pairwise
+    equal [|(1, 2); (2, 3); (3, 4)|] xs2
+    xs2 |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
+    |> String.concat ""
+    |> equal "122334"
 
 // [<Fact>]
 // let ``test Array.transpose works`` () =

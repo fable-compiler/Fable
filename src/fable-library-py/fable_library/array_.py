@@ -70,6 +70,7 @@ insert_many_at = array.insert_many_at
 item = array.item
 iterate = array.iterate
 iterate_indexed = array.iterate_indexed
+last = array.last
 map = array.map
 map2 = array.map2
 map3 = array.map3
@@ -98,6 +99,7 @@ transpose = array.transpose
 try_find = array.try_find
 try_find_back = array.try_find_back
 try_find_index_back = array.try_find_index_back
+try_find_index = array.try_find_index
 try_head = array.try_head
 try_item = array.try_item
 update_at = array.update_at
@@ -125,6 +127,11 @@ pick = array.pick
 try_pick = array.try_pick
 remove_all_in_place = array.remove_all_in_place
 indexed = array.indexed
+last = array.last
+try_last = array.try_last
+truncate = array.truncate
+partition = array.partition
+concat = array.concat
 
 Array: TypeAlias = array.FSharpArray[_T]
 FSharpCons: TypeAlias = array.FSharpCons[_T]
@@ -177,6 +184,7 @@ __all__ = [
     "item",
     "iterate",
     "iterate_indexed",
+    "last",
     "map",
     "map2",
     "map3",
@@ -210,6 +218,7 @@ __all__ = [
     "transpose",
     "try_find",
     "try_find_back",
+    "try_find_index",
     "try_find_index_back",
     "try_head",
     "try_item",

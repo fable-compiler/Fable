@@ -996,6 +996,9 @@ module AST =
     let makeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue None
 
+    let makeArrayFrom elementType (expr: Expr) =
+        NewArray(ArrayFrom expr, elementType, MutableArray) |> makeValue None
+
     let makeArrayWithRange r elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue r
 

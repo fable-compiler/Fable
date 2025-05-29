@@ -26,6 +26,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(average_by, &m)?)?;
     m.add_function(wrap_pyfunction!(chunk_by_size, &m)?)?;
     m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(concat, &m)?)?;
     m.add_function(wrap_pyfunction!(contains, &m)?)?;
     m.add_function(wrap_pyfunction!(create, &m)?)?;
     m.add_function(wrap_pyfunction!(empty, &m)?)?;
@@ -48,6 +49,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(item, &m)?)?;
     m.add_function(wrap_pyfunction!(iterate, &m)?)?;
     m.add_function(wrap_pyfunction!(iterate_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(last, &m)?)?;
     m.add_function(wrap_pyfunction!(map, &m)?)?;
     m.add_function(wrap_pyfunction!(map2, &m)?)?;
     m.add_function(wrap_pyfunction!(map3, &m)?)?;
@@ -99,8 +101,12 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(find_back, &m)?)?;
     m.add_function(wrap_pyfunction!(pick, &m)?)?;
     m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_last, &m)?)?;
     m.add_function(wrap_pyfunction!(remove_all_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_find_index, &m)?)?;
+    m.add_function(wrap_pyfunction!(truncate, &m)?)?;
+    m.add_function(wrap_pyfunction!(partition, &m)?)?;
 
     m.add_class::<FSharpCons>()?;
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
@@ -278,7 +284,7 @@ impl FSharpArray {
     }
 
     #[classmethod]
-    fn __class_getitem__(
+    pub fn __class_getitem__(
         _cls: &Bound<'_, PyType>,
         item: &Bound<'_, PyAny>,
         py: Python<'_>,
@@ -400,7 +406,7 @@ impl FSharpArray {
         })
     }
 
-    fn __richcmp__<'py>(
+    pub fn __richcmp__<'py>(
         &self,
         other: &Bound<'_, PyAny>,
         op: CompareOp,
@@ -426,10 +432,15 @@ impl FSharpArray {
         }
     }
 
-    fn __add__(&self, other: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn __add__(&self, other: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<PyObject> {
         // Use append to implement array concatenation
         let result = self.append(py, other, None)?;
         Ok(result.into_pyobject(py)?.into())
+    }
+
+    pub fn concat(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+        let result = self.append(py, other, None)?;
+        Ok(result)
     }
 
     #[staticmethod]
@@ -1584,7 +1595,7 @@ impl FSharpArray {
             let item1 = self.get_item_at_index(i as isize, py)?;
             let item2 = self.get_item_at_index((i + 1) as isize, py)?;
             let tuple = PyTuple::new(py, &[item1, item2])?;
-            result.__setitem__(i as isize, &tuple, py)?;
+            result.storage.push_value(&tuple, py)?;
         }
 
         Ok(result)
@@ -1592,14 +1603,39 @@ impl FSharpArray {
 
     pub fn permute(&self, py: Python<'_>, f: &Bound<'_, PyAny>) -> PyResult<Py<FSharpArray>> {
         let len = self.storage.len();
+        let mut check_flags = vec![0; len];
+        let mut temp = Vec::with_capacity(len);
+
+        // First pass: calculate new positions and validate
+        for i in 0..len {
+            let new_index = f.call1((i,))?.extract::<isize>()?;
+
+            if new_index < 0 || new_index >= len as isize {
+                return Err(PyErr::new::<exceptions::PyValueError, _>(
+                    "Not a valid permutation",
+                ));
+            }
+
+            let new_index = new_index as usize;
+            check_flags[new_index] = 1;
+            temp.push((new_index, self.get_item_at_index(i as isize, py)?));
+        }
+
+        // Verify that all positions were used exactly once
+        if !check_flags.iter().all(|&x| x == 1) {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "Not a valid permutation",
+            ));
+        }
+
+        // Sort by new index to get elements in correct order
+        temp.sort_by_key(|&(i, _)| i);
+
+        // Create result array with elements in permuted order
         let builder = NativeArray::new(&self.storage.get_type(), Some(len));
         let mut result = FSharpArray { storage: builder };
-
-        for i in 0..len {
-            let item = self.get_item_at_index(i as isize, py)?;
-            let new_index = f.call1((&item,))?.extract::<usize>()?;
-            let item_bound = item.bind(py);
-            result.__setitem__(new_index as isize, &item_bound, py)?;
+        for (_, item) in temp {
+            result.storage.push_value(&item.bind(py), py)?;
         }
 
         Ok(result.into_pyobject(py)?.into())
@@ -1676,6 +1712,51 @@ impl FSharpArray {
 
         // Construct the result array
         Ok(FSharpArray { storage: results })
+    }
+
+    pub fn truncate(&self, _py: Python<'_>, count: usize) -> PyResult<FSharpArray> {
+        if count > self.storage.len() {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be positive.",
+            ));
+        }
+
+        let mut results = NativeArray::new(&self.storage.get_type(), Some(count));
+        results.truncate(count);
+        Ok(FSharpArray { storage: results })
+    }
+
+    pub fn partition(&self, py: Python<'_>, f: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+        let len = self.storage.len();
+        let mut results = NativeArray::new(&self.storage.get_type(), Some(len));
+        let mut results2 = NativeArray::new(&self.storage.get_type(), Some(len));
+        let mut i_true = 0;
+        let mut i_false = 0;
+
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            let item_clone = item.clone_ref(py);
+            if f.call1((item,))?.is_truthy()? {
+                results.push_value(&item_clone.bind(py), py)?;
+                i_true += 1;
+            } else {
+                results2.push_value(&item_clone.bind(py), py)?;
+                i_false += 1;
+            }
+        }
+
+        // Create arrays with the correct sizes using truncate
+        let array1 = FSharpArray { storage: results }.truncate(py, i_true)?;
+        let array2 = FSharpArray { storage: results2 }.truncate(py, i_false)?;
+
+        // Create a new array containing both results
+        let mut final_results = NativeArray::new(&self.storage.get_type(), Some(2));
+        final_results.push_value(&Py::new(py, array1)?.bind(py), py)?;
+        final_results.push_value(&Py::new(py, array2)?.bind(py), py)?;
+
+        Ok(FSharpArray {
+            storage: final_results,
+        })
     }
 
     pub fn transpose(
@@ -1758,6 +1839,21 @@ impl FSharpArray {
         Ok(None)
     }
 
+    pub fn try_find_index(
+        &self,
+        py: Python<'_>,
+        predicate: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<usize>> {
+        let len = self.storage.len();
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            if predicate.call1((item,))?.is_truthy()? {
+                return Ok(Some(i));
+            }
+        }
+        Ok(None)
+    }
+
     pub fn windowed(&self, py: Python<'_>, window_size: usize) -> PyResult<FSharpArray> {
         if window_size == 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -1787,11 +1883,13 @@ impl FSharpArray {
             // Fill the window with elements from the source array
             for j in 0..window_size {
                 let item = self.get_item_at_index((i + j) as isize, py)?;
-                window.__setitem__(j as isize, &item.bind(py), py)?;
+                window.storage.push_value(&item.bind(py), py)?;
             }
 
             // Add the window to the result array
-            result.__setitem__(i as isize, &Py::new(py, window)?.bind(py), py)?;
+            result
+                .storage
+                .push_value(&Py::new(py, window)?.bind(py), py)?;
         }
 
         Ok(result)
@@ -1938,16 +2036,12 @@ impl FSharpArray {
     // Try to get an item at a specific index, returning None if out of bounds
     pub fn try_item(&self, py: Python<'_>, index: isize) -> PyResult<Option<PyObject>> {
         let len = self.storage.len();
-        let idx = if index < 0 {
-            len as isize + index
-        } else {
-            index
-        };
 
-        if idx < 0 || idx as usize >= len {
+        // Simple bounds check matching F# implementation
+        if index < 0 || index >= len as isize {
             Ok(None)
         } else {
-            Ok(Some(self.get_item_at_index(idx, py)?))
+            Ok(Some(self.get_item_at_index(index, py)?))
         }
     }
 
@@ -2370,29 +2464,45 @@ impl FSharpArray {
         Ok(FSharpArray { storage: results })
     }
 
-    pub fn index_of(&self, py: Python<'_>, item: &Bound<'_, PyAny>) -> PyResult<Option<usize>> {
-        let len = self.storage.len();
-        for i in 0..len {
+    pub fn index_of(
+        &self,
+        py: Python<'_>,
+        item: &Bound<'_, PyAny>,
+        start: Option<usize>,
+        count: Option<usize>,
+        eq: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<isize> {
+        let start = start.unwrap_or(0);
+        let end_idx = count
+            .map(|c| start + c)
+            .unwrap_or_else(|| self.storage.len());
+
+        for i in start..end_idx {
             let current = self.get_item_at_index(i as isize, py)?;
-            if current
-                .bind(py)
-                .rich_compare(item, CompareOp::Eq)?
-                .is_truthy()?
-            {
-                return Ok(Some(i));
+            let is_equal = if let Some(eq) = eq {
+                eq.call_method1("Equals", (current.bind(py), item))?
+                    .is_truthy()?
+            } else {
+                current
+                    .bind(py)
+                    .rich_compare(item, CompareOp::Eq)?
+                    .is_truthy()?
+            };
+            if is_equal {
+                return Ok(i as isize);
             }
         }
-        Ok(None)
+        Ok(-1)
     }
 
     pub fn remove_in_place(&mut self, py: Python<'_>, item: &Bound<'_, PyAny>) -> PyResult<bool> {
         // Find the index of the item to remove using indexOf
-        let index = match self.index_of(py, item)? {
-            Some(idx) => idx,
-            None => return Ok(false),
-        };
-
-        self.storage.remove_at_index(index);
+        let eq = py.import("builtins")?.getattr("__eq__")?;
+        let index = self.index_of(py, item, None, None, Some(&eq))?;
+        if index == -1 {
+            return Ok(false);
+        }
+        self.remove_at(py, index)?;
         Ok(true)
     }
 
@@ -2724,6 +2834,26 @@ impl FSharpArray {
         }
 
         Ok(FSharpArray { storage: builder })
+    }
+
+    pub fn try_last(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+        let len = self.storage.len();
+        if len == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(self.get_item_at_index((len - 1) as isize, py)?))
+        }
+    }
+
+    pub fn last(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let len = self.storage.len();
+        if len == 0 {
+            Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
+                "Array is empty",
+            ))
+        } else {
+            self.get_item_at_index((len - 1) as isize, py)
+        }
     }
 }
 
@@ -3272,8 +3402,11 @@ pub fn index_of(
     py: Python<'_>,
     array: &FSharpArray,
     item: &Bound<'_, PyAny>,
-) -> PyResult<Option<usize>> {
-    array.index_of(py, item)
+    start: Option<usize>,
+    count: Option<usize>,
+    eq: Option<&Bound<'_, PyAny>>,
+) -> PyResult<isize> {
+    array.index_of(py, item, start, count, eq)
 }
 
 #[pyfunction]
@@ -3458,6 +3591,48 @@ pub fn remove_all_in_place(
 #[pyfunction]
 pub fn indexed(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
     array.indexed(py)
+}
+
+#[pyfunction]
+pub fn try_find_index(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<Option<usize>> {
+    array.try_find_index(py, predicate)
+}
+
+#[pyfunction]
+pub fn try_last(py: Python<'_>, array: &FSharpArray) -> PyResult<Option<PyObject>> {
+    array.try_last(py)
+}
+
+#[pyfunction]
+pub fn last(py: Python<'_>, array: &FSharpArray) -> PyResult<PyObject> {
+    array.last(py)
+}
+
+#[pyfunction]
+pub fn truncate(py: Python<'_>, array: &FSharpArray, count: usize) -> PyResult<FSharpArray> {
+    array.truncate(py, count)
+}
+
+#[pyfunction]
+pub fn partition(
+    py: Python<'_>,
+    array: &FSharpArray,
+    f: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    array.partition(py, f)
+}
+
+#[pyfunction]
+pub fn concat(
+    py: Python<'_>,
+    array1: &FSharpArray,
+    array2: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    array1.concat(py, array2)
 }
 
 // Constructor class for array allocation
