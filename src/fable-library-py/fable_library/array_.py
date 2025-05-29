@@ -120,6 +120,7 @@ min = array.min
 max_by = array.max_by
 min_by = array.min_by
 average = array.average
+average_by = array.average_by
 pick = array.pick
 try_pick = array.try_pick
 remove_all_in_place = array.remove_all_in_place
@@ -143,6 +144,7 @@ __all__ = [
     "add_range_in_place",
     "append",
     "average",
+    "average_by",
     "chunk_by_size",
     "compare_with",
     "contains",

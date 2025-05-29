@@ -1234,12 +1234,11 @@ module Util =
         Expression.binOp (array, Mult, size), stmts
 
     let makeArrayFrom (com: IPythonCompiler) ctx typ kind (fableExpr: Fable.Expr) : Expression * Statement list =
-        //printfn "makeArrayFrom: %A" (fableExpr, typ, kind)
+        // printfn "makeArrayFrom: %A" (fableExpr, typ, kind)
 
         match fableExpr with
         | Replacements.Util.ArrayOrListLiteral(exprs, _) -> makeArray com ctx exprs kind typ
         | _ ->
-            //makeArray com ctx [ fableExpr ] kind typ
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
             arrayExpr com ctx expr kind typ, stmts
 
@@ -1684,7 +1683,9 @@ module Util =
                 let xs = Expression.list expr
                 libCall com ctx None "util" "to_enumerable" [ xs ], stmts
 
-            | _ -> com.TransformAsExpr(ctx, e)
+            | _ ->
+                // printfn "tranformCast: %A" e
+                com.TransformAsExpr(ctx, e)
         | Fable.Number(Float32, _) ->
             let cons = libValue com ctx "types" "float32"
             let value, stmts = com.TransformAsExpr(ctx, e)
@@ -4478,7 +4479,7 @@ module Compiler =
                 TypeParamsScope = 0
             }
 
-        // printfn "file: %A" file.Declarations
+        //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
         let rootComment =

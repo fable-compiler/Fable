@@ -23,6 +23,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
     m.add_function(wrap_pyfunction!(append, &m)?)?;
     m.add_function(wrap_pyfunction!(average, &m)?)?;
+    m.add_function(wrap_pyfunction!(average_by, &m)?)?;
     m.add_function(wrap_pyfunction!(chunk_by_size, &m)?)?;
     m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
     m.add_function(wrap_pyfunction!(contains, &m)?)?;
@@ -906,12 +907,6 @@ impl FSharpArray {
 
     pub fn remove_at(&mut self, py: Python<'_>, index: isize) -> PyResult<FSharpArray> {
         let len = self.storage.len();
-        let index = if index < 0 {
-            len as isize + index
-        } else {
-            index
-        };
-
         if index < 0 || index as usize >= len {
             return Err(PyErr::new::<exceptions::PyIndexError, _>(
                 "index out of range",
@@ -939,13 +934,9 @@ impl FSharpArray {
         count: usize,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
-        let index = if index < 0 {
-            len as isize + index
-        } else {
-            index
-        };
 
-        if index < 0 || index as usize >= len {
+        // Check if the index is out of bounds in either direction
+        if index < -(len as isize) || index as usize >= len {
             return Err(PyErr::new::<exceptions::PyIndexError, _>(
                 "index out of range",
             ));
@@ -1107,7 +1098,8 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
-        let fs_cons = FSharpCons::extract(cons, &ArrayType::Generic);
+        // Use the source array's type instead of defaulting to Generic
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         if len == 0 {
             return Ok(fs_cons.allocate(py, 0)?);
         }
@@ -1547,6 +1539,31 @@ impl FSharpArray {
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
             acc = averager.call_method1("Add", (acc, item))?;
+        }
+
+        let result = averager.call_method1("DivideByInt", (acc, len))?;
+        Ok(result.into())
+    }
+
+    pub fn average_by(
+        &self,
+        py: Python<'_>,
+        projection: &Bound<'_, PyAny>,
+        averager: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
+        let len = self.storage.len();
+        if len == 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input array was empty",
+            ));
+        }
+
+        let mut acc = averager.call_method0("GetZero")?;
+
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            let projected_item = projection.call1((item,))?;
+            acc = averager.call_method1("Add", (acc, projected_item))?;
         }
 
         let result = averager.call_method1("DivideByInt", (acc, len))?;
@@ -2015,19 +2032,19 @@ impl FSharpArray {
 
         // Create a new array using the constructor
         let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
-        let mut target = fs_cons.allocate(py, len)?;
+        let mut target = fs_cons.create(len);
 
         // Fill the new array with values from the original array
         for i in 0..len {
             if i == index {
-                target.__setitem__(i as isize, &value, py)?;
+                target.push_value(value, py)?;
             } else {
                 let item = self.get_item_at_index(i as isize, py)?;
-                target.__setitem__(i as isize, &item.bind(py), py)?;
+                target.push_value(&item.bind(py), py)?;
             }
         }
 
-        Ok(target)
+        Ok(FSharpArray { storage: target })
     }
 
     pub fn set_slice(
@@ -2167,24 +2184,49 @@ impl FSharpArray {
         py: Python<'_>,
         index: usize,
         ys: &Bound<'_, PyAny>,
-        _cons: Option<&Bound<'_, PyAny>>,
+        cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
+
         if index > len {
             return Err(PyErr::new::<exceptions::PyIndexError, _>(
                 "Index out of bounds",
             ));
         }
 
-        // Create a new array using the constructor
-        let target_storage = NativeArray::create_from_storage(&self.storage, py);
+        // Convert ys to an iterator to get the elements to insert
+        let ys_iter = ys.try_iter()?;
 
-        let mut target = FSharpArray {
-            storage: target_storage,
-        };
+        // Collect the items to insert into a Vec to know the count
+        let mut items_to_insert = Vec::new();
+        for item in ys_iter {
+            items_to_insert.push(item?);
+        }
 
-        // Set the new value at the specified index
-        target.__setitem__(index as isize, &ys, py)?;
+        let insert_count = items_to_insert.len();
+
+        // Create a new array using the constructor with proper capacity
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let mut target = fs_cons.allocate(py, len + insert_count)?;
+
+        // Copy elements before the insertion point
+        if index > 0 {
+            for i in 0..index {
+                target.storage.push_from_storage(&self.storage, i, py);
+            }
+        }
+
+        // Insert all the new values from ys at the correct position
+        for item in items_to_insert {
+            target.storage.push_value(&item, py)?;
+        }
+
+        // Copy elements after the insertion point
+        if index < len {
+            for i in index..len {
+                target.storage.push_from_storage(&self.storage, i, py);
+            }
+        }
 
         Ok(target)
     }
@@ -2929,6 +2971,19 @@ pub fn average(
 
     // Now call the member function
     array.average(py, averager)
+}
+
+#[pyfunction]
+pub fn average_by(
+    py: Python<'_>,
+    projection: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>, // Take a PyAny instead of FSharpArray
+    averager: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let array = ensure_array(py, array)?;
+
+    // Now call the member function
+    array.average_by(py, projection, averager)
 }
 
 #[pyfunction]

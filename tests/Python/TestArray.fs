@@ -809,35 +809,35 @@ let ``test Array.mapFoldBack works`` () =
 //     [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
 //     |> Array.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
-// [<Fact>]
-// let ``test Array.toList works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = xs |> Array.toList
-//     ys.[0] + ys.[1]
-//     |> equal 3.
+[<Fact>]
+let ``test Array.toList works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.toList
+    ys.[0] + ys.[1]
+    |> equal 3.
 
-// [<Fact>]
-// let ``test Array.toSeq works`` () =
-//     let xs = [|1.; 2.|]
-//     let ys = xs |> Array.toSeq
-//     ys |> Seq.head
-//     |> equal 1.
+[<Fact>]
+let ``test Array.toSeq works`` () =
+    let xs = [|1.; 2.|]
+    let ys = xs |> Array.toSeq
+    ys |> Seq.head
+    |> equal 1.
 
-// [<Fact>]
-// let ``test Array.tryFind works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.tryFind ((=) 1.)
-//     |> Option.isSome |> equal true
-//     xs |> Array.tryFind ((=) 3.)
-//     |> Option.isSome |> equal false
+[<Fact>]
+let ``test Array.tryFind works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.tryFind ((=) 1.)
+    |> Option.isSome |> equal true
+    xs |> Array.tryFind ((=) 3.)
+    |> Option.isSome |> equal false
 
-// [<Fact>]
-// let ``test Array.tryFindIndex works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.tryFindIndex ((=) 2.)
-//     |> equal (Some 1)
-//     xs |> Array.tryFindIndex ((=) 3.)
-//     |> equal None
+[<Fact>]
+let ``test Array.tryFindIndex works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.tryFindIndex ((=) 2.)
+    |> equal (Some 1)
+    xs |> Array.tryFindIndex ((=) 3.)
+    |> equal None
 
 // [<Fact>]
 // let ``test Array.tryPick works`` () =
@@ -865,13 +865,13 @@ let ``test Array.mapFoldBack works`` () =
 //     ys.[0] + zs.[0] + ks.[0]
 //     |> equal 6.
 
-// [<Fact>]
-// let ``test Array.zip works`` () =
-//     let xs = [|1.; 2.; 3.|]
-//     let ys = [|1.; 2.; 3.|]
-//     let zs = Array.zip xs ys
-//     let x, y = zs.[0]
-//     x + y |> equal 2.
+[<Fact>]
+let ``test Array.zip works`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = [|1.; 2.; 3.|]
+    let zs = Array.zip xs ys
+    let x, y = zs.[0]
+    x + y |> equal 2.
 
 // [<Fact>]
 // let ``test Array.zip3 works`` () =
@@ -919,22 +919,22 @@ let ``test Array.mapFoldBack works`` () =
 //     test1 |> Array.concat |> Array.sum |> equal 78
 //     test2 |> Array.concat |> Array.sum |> equal 78
 
-// [<Fact>]
-// let ``test Array.item works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.item 2 xs |> equal 3.
+[<Fact>]
+let ``test Array.item works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.item 2 xs |> equal 3.
 
-// [<Fact>]
-// let ``test Array.tryItem works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.tryItem 3 xs |> equal (Some 4.)
-//     Array.tryItem 4 xs |> equal None
-//     Array.tryItem -1 xs |> equal None
+[<Fact>]
+let ``test Array.tryItem works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryItem 3 xs |> equal (Some 4.)
+    Array.tryItem 4 xs |> equal None
+    Array.tryItem -1 xs |> equal None
 
-// [<Fact>]
-// let ``test Array.head works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.head xs |> equal 1.
+[<Fact>]
+let ``test Array.head works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.head xs |> equal 1.
 
 // [<Fact>]
 // let ``test Array.tryHead works`` () =
@@ -954,10 +954,10 @@ let ``test Array.mapFoldBack works`` () =
 //     Array.tryLast xs |> equal (Some 4.)
 //     Array.tryLast [||] |> equal None
 
-// [<Fact>]
-// let ``test Array.tail works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.tail xs |> Array.length |> equal 3
+[<Fact>]
+let ``test Array.tail works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tail xs |> Array.length |> equal 3
 
 // [<Fact>]
 // let ``test Array.groupBy returns valid array`` () =
@@ -986,16 +986,16 @@ let ``test Array.mapFoldBack works`` () =
 //           (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
 //           (4, 'd'); (4, 'e'); (4, 'f')|]
 
-// [<Fact>]
-// let ``test Casting to System.Array works`` () =
-//     let xs = [|1;2;3;4|] :> System.Array // Numeric array
-//     let ys = [|'a';'b';'c';'d';'e';'f'|] :> System.Array
-//     [ for i in xs do for j in ys do yield (unbox i, unbox j) ]
-//     |> equal
-//         [ (1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
-//           (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
-//           (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
-//           (4, 'd'); (4, 'e'); (4, 'f') ]
+[<Fact>]
+let ``test Casting to System.Array works`` () =
+    let xs = [|1;2;3;4|] :> System.Array // Numeric array
+    let ys = [|'a';'b';'c';'d';'e';'f'|] :> System.Array
+    [ for i in xs do for j in ys do yield (unbox i, unbox j) ]
+    |> equal
+        [ (1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+          (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+          (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+          (4, 'd'); (4, 'e'); (4, 'f') ]
 
 // [<Fact>]
 // let ``test Testing against System.Array works`` () =
@@ -1076,22 +1076,22 @@ let ``test Array.mapFoldBack works`` () =
 //     throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
 //     throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
 
-// [<Fact>]
-// let ``test Array.udpateAt works`` () =
-//     // integer list
-//     equal [|0; 2; 3; 4; 5|] (Array.updateAt 0 0 [|1..5|])
-//     equal [|1; 2; 0; 4; 5|] (Array.updateAt 2 0 [|1..5|])
-//     equal [|1; 2; 3; 4; 0|] (Array.updateAt 4 0 [|1..5|])
+[<Fact>]
+let ``test Array.updateAt works`` () =
+    // integer list
+    equal [|0; 2; 3; 4; 5|] (Array.updateAt 0 0 [|1..5|])
+    equal [|1; 2; 0; 4; 5|] (Array.updateAt 2 0 [|1..5|])
+    equal [|1; 2; 3; 4; 0|] (Array.updateAt 4 0 [|1..5|])
 
-//     //string list
-//     equal [|"0"; "2"; "3"; "4"; "5"|] (Array.updateAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "0"; "4"; "5"|] (Array.updateAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"; "4"; "0"|] (Array.updateAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"0"; "2"; "3"; "4"; "5"|] (Array.updateAt 0 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "0"; "4"; "5"|] (Array.updateAt 2 "0" [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"; "4"; "0"|] (Array.updateAt 4 "0" [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     throwsAnyError (fun () -> Array.updateAt 0 0 [||] |> ignore)
-//     throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.updateAt 0 0 [||] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt -1 0 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.updateAt 2 0 [|1|] |> ignore)
 
 [<Fact>]
 let ``test Array.insertAt works`` () =
@@ -1144,22 +1144,22 @@ let ``test Array.removeAt works`` () =
     throwsAnyError (fun () -> Array.removeAt -1 [|1|] |> ignore)
     throwsAnyError (fun () -> Array.removeAt 2 [|1|] |> ignore)
 
-// [<Fact>]
-// let ``test Array.removeManyAt works`` () =
-//     // integer list
-//     equal [|3; 4; 5|] (Array.removeManyAt 0 2 [|1..5|])
-//     equal [|1; 2; 5|] (Array.removeManyAt 2 2 [|1..5|])
-//     equal [|1; 2; 3|] (Array.removeManyAt 3 2 [|1..5|])
+[<Fact>]
+let ``test Array.removeManyAt works`` () =
+    // integer list
+    equal [|3; 4; 5|] (Array.removeManyAt 0 2 [|1..5|])
+    equal [|1; 2; 5|] (Array.removeManyAt 2 2 [|1..5|])
+    equal [|1; 2; 3|] (Array.removeManyAt 3 2 [|1..5|])
 
-//     //string list
-//     equal [|"3"; "4"; "5"|] (Array.removeManyAt 0 2 [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "5"|] (Array.removeManyAt 2 2 [|"1"; "2"; "3"; "4"; "5"|])
-//     equal [|"1"; "2"; "3"|] (Array.removeManyAt 3 2 [|"1"; "2"; "3"; "4"; "5"|])
+    //string list
+    equal [|"3"; "4"; "5"|] (Array.removeManyAt 0 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "5"|] (Array.removeManyAt 2 2 [|"1"; "2"; "3"; "4"; "5"|])
+    equal [|"1"; "2"; "3"|] (Array.removeManyAt 3 2 [|"1"; "2"; "3"; "4"; "5"|])
 
-//     // empty list & out of bounds
-//     throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
-//     throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
-//     throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
+    // empty list & out of bounds
+    throwsAnyError (fun () -> Array.removeManyAt 0 2 [||] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt -1 2 [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.removeManyAt 2 2 [|1|] |> ignore)
 
 // // [<Fact>]
 // // let ``test Array.compareWith works`` () = // See #2961

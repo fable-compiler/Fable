@@ -1565,8 +1565,9 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         |> Some
     | "ToArray", [ arg ] ->
         // Call array_.Array[t](args)
-        Helper.LibCall(com, "array_", "Array", t, [ arg ], i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
+        //Helper.LibCall(com, "array_", "Array", t, [ arg ], i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        let elementType = getElementType t
+        makeArrayFrom elementType arg |> Some
 
     | meth, _ ->
         let meth = Naming.lowerFirst meth
