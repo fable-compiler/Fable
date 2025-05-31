@@ -90,6 +90,7 @@ scan = array.scan
 scan_back = array.scan_back
 set_slice = array.set_slice
 singleton = array.singleton
+sort = array.sort
 sort_in_place = array.sort_in_place
 sort_in_place_with = array.sort_in_place_with
 split_into = array.split_into
@@ -112,6 +113,7 @@ for_all = array.for_all
 find = array.find
 find_back = array.find_back
 find_last_index = array.find_last_index
+find_index_back = array.find_index_back
 add_in_place = array.add_in_place
 add_range_in_place = array.add_range_in_place
 insert_range_in_place = array.insert_range_in_place
@@ -132,6 +134,9 @@ try_last = array.try_last
 truncate = array.truncate
 partition = array.partition
 concat = array.concat
+find_index = array.find_index
+sort_by = array.sort_by
+sum_by = array.sum_by
 
 Array: TypeAlias = array.FSharpArray[_T]
 FSharpCons: TypeAlias = array.FSharpCons[_T]
@@ -165,6 +170,8 @@ __all__ = [
     "filter",
     "find",
     "find_back",
+    "find_index",
+    "find_index_back",
     "find_last_index",
     "fold",
     "fold_back",
@@ -210,6 +217,8 @@ __all__ = [
     "scan_back",
     "set_slice",
     "singleton",
+    "sort",
+    "sort_by",
     "sort_in_place",
     "sort_in_place_with",
     "split_into",

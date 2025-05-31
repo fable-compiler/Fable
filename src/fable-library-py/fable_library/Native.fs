@@ -3,11 +3,10 @@ module Native
 // Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
 #nowarn "1204"
 
-open System.Collections.Generic
 open Fable.Core
 open Fable.Core.PyInterop
 
-[<Import("FSharpCons", "array_")>]
+[<Import("FSharpCons", ".array_")>]
 [<AllowNullLiteral>]
 type Cons<'T>() =
     [<Emit("$0.allocate($1)")>]
@@ -15,8 +14,8 @@ type Cons<'T>() =
 
 
 module Helpers =
-    [<Emit("list($0)")>]
-    let arrayFrom (xs: 'T seq) : 'T[] = nativeOnly
+    // Use Array.ofSeq to make sure we get the generic type right
+    let arrayFrom (xs: 'T seq) : 'T[] = Array.ofSeq xs
 
     [<Emit("[None]*$0")>]
     let allocateArray (len: int) : 'T[] = nativeOnly

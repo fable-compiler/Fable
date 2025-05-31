@@ -19,15 +19,19 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     let m = PyModule::new(parent_module.py(), "array")?;
 
     m.add_class::<FSharpArray>()?;
+    m.add_class::<FSharpCons>()?;
 
-    m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
+    m.add_function(wrap_pyfunction!(add_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(add_range_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(append, &m)?)?;
     m.add_function(wrap_pyfunction!(average, &m)?)?;
     m.add_function(wrap_pyfunction!(average_by, &m)?)?;
     m.add_function(wrap_pyfunction!(chunk_by_size, &m)?)?;
+    m.add_function(wrap_pyfunction!(choose, &m)?)?;
     m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
     m.add_function(wrap_pyfunction!(concat, &m)?)?;
     m.add_function(wrap_pyfunction!(contains, &m)?)?;
+    m.add_function(wrap_pyfunction!(copy_to, &m)?)?;
     m.add_function(wrap_pyfunction!(create, &m)?)?;
     m.add_function(wrap_pyfunction!(empty, &m)?)?;
     m.add_function(wrap_pyfunction!(equals_with, &m)?)?;
@@ -35,17 +39,26 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(exists_offset, &m)?)?;
     m.add_function(wrap_pyfunction!(fill, &m)?)?;
     m.add_function(wrap_pyfunction!(filter, &m)?)?;
+    m.add_function(wrap_pyfunction!(find, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_index, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_index_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_last_index, &m)?)?;
     m.add_function(wrap_pyfunction!(fold, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back2, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back_indexed, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back_indexed2, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(for_all, &m)?)?;
     m.add_function(wrap_pyfunction!(get_sub_array, &m)?)?;
     m.add_function(wrap_pyfunction!(head, &m)?)?;
+    m.add_function(wrap_pyfunction!(indexed, &m)?)?;
     m.add_function(wrap_pyfunction!(initialize, &m)?)?;
     m.add_function(wrap_pyfunction!(insert_at, &m)?)?;
     m.add_function(wrap_pyfunction!(insert_many_at, &m)?)?;
+    m.add_function(wrap_pyfunction!(insert_range_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(index_of, &m)?)?;
     m.add_function(wrap_pyfunction!(item, &m)?)?;
     m.add_function(wrap_pyfunction!(iterate, &m)?)?;
     m.add_function(wrap_pyfunction!(iterate_indexed, &m)?)?;
@@ -58,60 +71,53 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(map_indexed, &m)?)?;
     m.add_function(wrap_pyfunction!(map_indexed2, &m)?)?;
     m.add_function(wrap_pyfunction!(map_indexed3, &m)?)?;
+    m.add_function(wrap_pyfunction!(max, &m)?)?;
+    m.add_function(wrap_pyfunction!(max_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(min, &m)?)?;
+    m.add_function(wrap_pyfunction!(min_by, &m)?)?;
     m.add_function(wrap_pyfunction!(pairwise, &m)?)?;
+    m.add_function(wrap_pyfunction!(partition, &m)?)?;
     m.add_function(wrap_pyfunction!(permute, &m)?)?;
+    m.add_function(wrap_pyfunction!(pick, &m)?)?;
     m.add_function(wrap_pyfunction!(reduce, &m)?)?;
     m.add_function(wrap_pyfunction!(reduce_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(remove_all_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(remove_at, &m)?)?;
-    m.add_function(wrap_pyfunction!(remove_many_at, &m)?)?;
     m.add_function(wrap_pyfunction!(remove_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(index_of, &m)?)?;
+    m.add_function(wrap_pyfunction!(remove_many_at, &m)?)?;
     m.add_function(wrap_pyfunction!(reverse, &m)?)?;
     m.add_function(wrap_pyfunction!(scan, &m)?)?;
     m.add_function(wrap_pyfunction!(scan_back, &m)?)?;
     m.add_function(wrap_pyfunction!(set_slice, &m)?)?;
     m.add_function(wrap_pyfunction!(singleton, &m)?)?;
     m.add_function(wrap_pyfunction!(skip, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_by, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_in_place_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_with, &m)?)?;
     m.add_function(wrap_pyfunction!(split_into, &m)?)?;
     m.add_function(wrap_pyfunction!(sum, &m)?)?;
+    m.add_function(wrap_pyfunction!(sum_by, &m)?)?;
     m.add_function(wrap_pyfunction!(tail, &m)?)?;
     m.add_function(wrap_pyfunction!(transpose, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_find_index, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find_index_back, &m)?)?;
     m.add_function(wrap_pyfunction!(try_head, &m)?)?;
     m.add_function(wrap_pyfunction!(try_item, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_last, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
+    m.add_function(wrap_pyfunction!(truncate, &m)?)?;
     m.add_function(wrap_pyfunction!(update_at, &m)?)?;
     m.add_function(wrap_pyfunction!(windowed, &m)?)?;
-    m.add_function(wrap_pyfunction!(copy_to, &m)?)?;
     m.add_function(wrap_pyfunction!(zip, &m)?)?;
-    m.add_function(wrap_pyfunction!(for_all, &m)?)?;
-    m.add_function(wrap_pyfunction!(find, &m)?)?;
-    m.add_function(wrap_pyfunction!(find_last_index, &m)?)?;
-    m.add_function(wrap_pyfunction!(add_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(add_range_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(insert_range_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(max, &m)?)?;
-    m.add_function(wrap_pyfunction!(min, &m)?)?;
-    m.add_function(wrap_pyfunction!(max_by, &m)?)?;
-    m.add_function(wrap_pyfunction!(min_by, &m)?)?;
-    m.add_function(wrap_pyfunction!(choose, &m)?)?;
-    m.add_function(wrap_pyfunction!(find_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(pick, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_last, &m)?)?;
-    m.add_function(wrap_pyfunction!(remove_all_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(indexed, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_find_index, &m)?)?;
-    m.add_function(wrap_pyfunction!(truncate, &m)?)?;
-    m.add_function(wrap_pyfunction!(partition, &m)?)?;
 
-    m.add_class::<FSharpCons>()?;
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
 
-    parent_module.add_submodule(&m)
+    parent_module.add_submodule(&m)?;
+    Ok(())
 }
 
 #[pyclass(module = "fable", subclass)]
@@ -332,7 +338,6 @@ impl FSharpArray {
                 storage: NativeArray::Int8(vec),
             });
         } else if let Ok(uint8) = value.extract::<UInt8>() {
-            println!("Creating UInt8 array");
             let mut vec = Vec::with_capacity(count);
             vec.resize(count, *uint8);
             return Ok(FSharpArray {
@@ -436,11 +441,6 @@ impl FSharpArray {
         // Use append to implement array concatenation
         let result = self.append(py, other, None)?;
         Ok(result.into_pyobject(py)?.into())
-    }
-
-    pub fn concat(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
-        let result = self.append(py, other, None)?;
-        Ok(result)
     }
 
     #[staticmethod]
@@ -695,51 +695,7 @@ impl FSharpArray {
             ));
         }
 
-        match &self.storage {
-            NativeArray::Int8(vec) => {
-                let value = vec[idx as usize];
-                // Construct the Fable wrapper and convert to PyObject
-                Ok(Int8(value).into_pyobject(py)?.into())
-            }
-            NativeArray::UInt8(vec) => {
-                let value = vec[idx as usize];
-                Ok(UInt8(value).into_pyobject(py)?.into())
-            }
-            NativeArray::Int16(vec) => {
-                let value = vec[idx as usize];
-                Ok(Int16(value).into_pyobject(py)?.into())
-            }
-            NativeArray::UInt16(vec) => {
-                let value = vec[idx as usize];
-                Ok(UInt16(value).into_pyobject(py)?.into())
-            }
-            NativeArray::Int32(vec) => {
-                let value = vec[idx as usize];
-                Ok(Int32(value).into_pyobject(py)?.into())
-            }
-            NativeArray::UInt32(vec) => {
-                let value = vec[idx as usize];
-                Ok(UInt32(value).into_pyobject(py)?.into())
-            }
-            NativeArray::Int64(vec) => {
-                let value = vec[idx as usize];
-                Ok(Int64(value).into_pyobject(py)?.into())
-            }
-            NativeArray::UInt64(vec) => {
-                let value = vec[idx as usize];
-                Ok(UInt64(value).into_pyobject(py)?.into())
-            }
-            NativeArray::Float32(vec) => {
-                let value = vec[idx as usize];
-                Ok(Float32(value).into_pyobject(py)?.into())
-            }
-            NativeArray::Float64(vec) => {
-                let value = vec[idx as usize];
-                Ok(Float64(value).into_pyobject(py)?.into())
-            }
-            NativeArray::String(vec) => Ok(vec[idx as usize].clone().into_pyobject(py)?.into()),
-            NativeArray::PyObject(vec) => Ok(vec.lock().unwrap()[idx as usize].clone_ref(py)),
-        }
+        self.storage.get(py, idx as usize)
     }
 
     pub fn __setitem__(
@@ -1159,10 +1115,9 @@ impl FSharpArray {
                 chunk.push_from_storage(&self.storage, i, py);
             }
 
-            // Convert the chunk to a PyObject and add it to chunks
+            // Add the chunk to results
             let chunk_array = FSharpArray { storage: chunk };
-            let chunk_obj = chunk_array.into_pyobject(py)?;
-            chunks.push_value(&chunk_obj, py)?;
+            chunks.push_value(&chunk_array.into_pyobject(py)?.into_any(), py)?;
         }
 
         // Return the array of chunks
@@ -1345,47 +1300,18 @@ impl FSharpArray {
         Ok(())
     }
 
+    pub fn sort(&self, py: Python<'_>) -> PyResult<FSharpArray> {
+        let mut result = self.clone();
+        result.sort_in_place(py)?;
+        Ok(result)
+    }
+
     pub fn sort_in_place_with(
         &mut self,
-        py: Python<'_>,
+        _py: Python<'_>,
         compare_func: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        match &mut self.storage {
-            NativeArray::PyObject(arc_vec) => {
-                let mut new_vec: Vec<Py<PyAny>> = Vec::with_capacity(arc_vec.lock().unwrap().len());
-                for obj in arc_vec.lock().unwrap().iter() {
-                    new_vec.push(obj.clone_ref(py));
-                }
-
-                // Use sort_by with the comparison function
-                new_vec.sort_by(|a, b| {
-                    match compare_func.call1((a, b)) {
-                        Ok(result) => {
-                            // Convert Python result to i32 and use it for ordering
-                            match result.extract::<i32>() {
-                                Ok(cmp) => {
-                                    if cmp < 0 {
-                                        std::cmp::Ordering::Less
-                                    } else if cmp > 0 {
-                                        std::cmp::Ordering::Greater
-                                    } else {
-                                        std::cmp::Ordering::Equal
-                                    }
-                                }
-                                Err(_) => std::cmp::Ordering::Equal, // Default to Equal on error
-                            }
-                        }
-                        Err(_) => std::cmp::Ordering::Equal, // Default to Equal on error
-                    }
-                });
-                self.storage = NativeArray::PyObject(Arc::new(Mutex::new(new_vec)));
-            }
-            _ => {
-                // For all other types, use the helper
-                NativeArray::sort_storage_with(&mut self.storage, compare_func)?;
-            }
-        }
-        Ok(())
+        self.storage.sort_in_place_with(compare_func)
     }
 
     pub fn equals_with(
@@ -1694,20 +1620,39 @@ impl FSharpArray {
         if len == 0 {
             // Return an empty array
             return Ok(FSharpArray {
-                storage: NativeArray::PyObject(Arc::new(Mutex::new(vec![]))),
+                storage: NativeArray::new(&self.storage.get_type(), Some(0)),
             });
         }
 
-        // Create the builder for results
-        let mut results = NativeArray::new(&self.storage.get_type(), None); // No initial capacity needed
+        // Create array to hold chunks
+        let mut results = NativeArray::new(&self.storage.get_type(), Some(chunks));
 
-        // Add each chunk to the result
-        for x in 0..((len + chunks - 1) / chunks) {
-            let start = x * chunks;
-            let end = std::cmp::min(start + chunks, len);
-            for i in start..end {
-                results.push_from_storage(&self.storage, i, py);
+        // Calculate chunk sizes
+        let chunks = std::cmp::min(chunks, len);
+        let min_chunk_size = len / chunks;
+        let chunks_with_extra_item = len % chunks;
+
+        // Create each chunk
+        for i in 0..chunks {
+            let chunk_size = if i < chunks_with_extra_item {
+                min_chunk_size + 1
+            } else {
+                min_chunk_size
+            };
+
+            let start = i * min_chunk_size + std::cmp::min(chunks_with_extra_item, i);
+
+            // Create a new array for this chunk
+            let mut chunk = NativeArray::new(&self.storage.get_type(), Some(chunk_size));
+
+            // Copy elements for this chunk
+            for j in 0..chunk_size {
+                chunk.push_from_storage(&self.storage, start + j, py);
             }
+
+            // Add the chunk to results
+            let chunk_array = FSharpArray { storage: chunk };
+            results.push_value(&chunk_array.into_pyobject(py)?.into_any(), py)?;
         }
 
         // Construct the result array
@@ -1789,11 +1734,12 @@ impl FSharpArray {
         let mut results = fs_cons.create(len_inner);
 
         // Fill the result array
-        for _i in 0..len_inner {
+        for i in 0..len_inner {
             let mut inner_array = fs_cons.create(len);
             for j in 0..len {
-                let item = self.get_item_at_index(j as isize, py)?;
-                inner_array.push_value(&item.bind(py), py)?;
+                let outer_array = self.get_item_at_index(j as isize, py)?;
+                let inner_item = outer_array.bind(py).get_item(i)?;
+                inner_array.push_value(&inner_item, py)?;
             }
             let inner_array = FSharpArray {
                 storage: inner_array,
@@ -1824,19 +1770,34 @@ impl FSharpArray {
         Ok(None)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.storage.len() == 0
+    }
+
     pub fn try_find_index_back(
         &self,
         py: Python<'_>,
         predicate: &Bound<'_, PyAny>,
     ) -> PyResult<Option<usize>> {
-        let len = self.storage.len();
-        for i in (0..len).rev() {
+        if self.is_empty() {
+            return Ok(None);
+        }
+        for i in (0..self.storage.len()).rev() {
             let item = self.get_item_at_index(i as isize, py)?;
             if predicate.call1((item,))?.is_truthy()? {
                 return Ok(Some(i));
             }
         }
         Ok(None)
+    }
+
+    pub fn find_index_back(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<usize> {
+        match self.try_find_index_back(py, predicate)? {
+            Some(index) => Ok(index),
+            None => Err(pyo3::exceptions::PyValueError::new_err(
+                "No element matches the predicate",
+            )),
+        }
     }
 
     pub fn try_find_index(
@@ -2683,22 +2644,21 @@ impl FSharpArray {
         Ok(false)
     }
 
-    pub fn max(&self, py: Python<'_>) -> PyResult<PyObject> {
+    // let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
+    pub fn max(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         reduce_impl(self, py, |acc, item, py| {
-            let is_gt = acc
-                .bind(py)
-                .rich_compare(&item, CompareOp::Gt)?
-                .is_truthy()?;
+            let comparison =
+                comparer.call_method1("Compare", (acc.clone_ref(py), item.clone_ref(py)))?;
+            let is_gt = comparison.extract::<i32>()? > 0;
             Ok(if is_gt { acc } else { item })
         })
     }
 
-    pub fn min(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn min(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         reduce_impl(self, py, |acc, item, py| {
-            let is_lt = acc
-                .bind(py)
-                .rich_compare(&item, CompareOp::Lt)?
-                .is_truthy()?;
+            let comparison =
+                comparer.call_method1("Compare", (acc.clone_ref(py), item.clone_ref(py)))?;
+            let is_lt = comparison.extract::<i32>()? < 0;
             Ok(if is_lt { acc } else { item })
         })
     }
@@ -2854,6 +2814,53 @@ impl FSharpArray {
         } else {
             self.get_item_at_index((len - 1) as isize, py)
         }
+    }
+
+    pub fn find_index(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<usize> {
+        match self.try_find_index(py, predicate)? {
+            Some(index) => Ok(index),
+            None => Err(pyo3::exceptions::PyValueError::new_err(
+                "No element matches the predicate",
+            )),
+        }
+    }
+
+    #[pyo3(signature = (projection, comparer))]
+    pub fn sort_by(
+        &self,
+        py: Python<'_>,
+        projection: &Bound<'_, PyAny>,
+        comparer: &Bound<'_, PyAny>,
+    ) -> PyResult<FSharpArray> {
+        let mut result = self.clone();
+        result.storage = result
+            .storage
+            .sort_by_with_projection(py, projection, comparer)?;
+        Ok(result)
+    }
+
+    #[pyo3(signature = (comparer))]
+    pub fn sort_with(&self, _py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+        let mut result = self.storage.clone();
+        let result = result.sort_with(comparer)?;
+        Ok(FSharpArray { storage: result })
+    }
+
+    #[pyo3(signature = (projection))]
+    pub fn sum_by(&self, py: Python<'_>, projection: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if self.is_empty() {
+            return Ok(py.None().into());
+        }
+
+        let mut acc = projection.call1((self.storage.get(py, 0)?,))?;
+
+        for i in 1..self.storage.len() {
+            let item = self.storage.get(py, i)?;
+            let projected = projection.call1((item,))?;
+            acc = acc.call_method1("__add__", (projected,))?;
+        }
+
+        Ok(acc.into())
     }
 }
 
@@ -3512,15 +3519,25 @@ pub fn contains(py: Python<'_>, array: &FSharpArray, value: &Bound<'_, PyAny>) -
 }
 
 #[pyfunction]
-pub fn max(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+#[pyo3(signature = (array, comparer))]
+pub fn max(
+    py: Python<'_>,
+    array: &Bound<'_, PyAny>,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
     let array = ensure_array(py, array)?;
-    array.max(py)
+    array.max(py, comparer)
 }
 
 #[pyfunction]
-pub fn min(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+#[pyo3(signature = (array, comparer))]
+pub fn min(
+    py: Python<'_>,
+    array: &Bound<'_, PyAny>,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
     let array = ensure_array(py, array)?;
-    array.min(py)
+    array.min(py, comparer)
 }
 
 #[pyfunction]
@@ -3627,12 +3644,53 @@ pub fn partition(
 }
 
 #[pyfunction]
+#[pyo3(signature = (arrays, cons=None))]
 pub fn concat(
     py: Python<'_>,
-    array1: &FSharpArray,
-    array2: &Bound<'_, PyAny>,
+    arrays: &Bound<'_, PyAny>,
+    cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
-    array1.concat(py, array2)
+    // Convert the input to an iterator of FSharpArrays
+    let iter = arrays.try_iter()?;
+
+    // Start with an empty array
+    let fs_cons = FSharpCons::extract(cons, &ArrayType::Generic);
+    let mut result = fs_cons.allocate(py, 0)?;
+
+    // Append each array to the result, converting to target type if needed
+    for item in iter {
+        let array = item?.extract::<FSharpArray>()?;
+
+        // Convert array to target type and append
+        let array_obj = array.into_pyobject(py)?;
+        let py_array = FSharpArray::new(py, Some(&array_obj), Some(fs_cons.array_type.as_str()))?;
+        let converted = py_array.into_pyobject(py)?;
+
+        // Create FSharpCons for append
+        let append_cons = fs_cons.clone().into_pyobject(py)?;
+
+        result = result.append(py, &converted, Some(&append_cons))?;
+    }
+
+    Ok(result)
+}
+
+#[pyfunction]
+pub fn find_index(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<usize> {
+    array.find_index(py, predicate)
+}
+
+#[pyfunction]
+pub fn find_index_back(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<usize> {
+    array.find_index_back(py, predicate)
 }
 
 // Constructor class for array allocation
@@ -3932,4 +3990,37 @@ where
         acc = f(acc, item, py)?;
     }
     Ok(acc)
+}
+
+#[pyfunction]
+pub fn sort(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
+    array.sort(py)
+}
+
+#[pyfunction]
+pub fn sort_by(
+    py: Python<'_>,
+    projection: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    array.sort_by(py, projection, comparer)
+}
+
+#[pyfunction]
+pub fn sort_with(
+    py: Python<'_>,
+    array: &FSharpArray,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    array.sort_with(py, comparer)
+}
+
+#[pyfunction]
+pub fn sum_by(
+    py: Python<'_>,
+    projection: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<PyObject> {
+    array.sum_by(py, projection)
 }

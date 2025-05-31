@@ -611,27 +611,27 @@ def add_months(d: datetime, v: int) -> datetime:
 
 
 def add_days(d: datetime, v: int) -> datetime:
-    return d + timedelta(days=v)
+    return d + timedelta(days=int(v))
 
 
 def add_hours(d: datetime, v: int) -> datetime:
-    return d + timedelta(hours=v)
+    return d + timedelta(hours=int(v))
 
 
 def add_minutes(d: datetime, v: int) -> datetime:
-    return d + timedelta(minutes=v)
+    return d + timedelta(minutes=int(v))
 
 
 def add_seconds(d: datetime, v: int) -> datetime:
-    return d + timedelta(seconds=v)
+    return d + timedelta(seconds=int(v))
 
 
 def add_milliseconds(d: datetime, v: int) -> datetime:
-    return d + timedelta(milliseconds=v)
+    return d + timedelta(milliseconds=int(v))
 
 
 def add_microseconds(d: datetime, v: int) -> datetime:
-    return d + timedelta(microseconds=v)
+    return d + timedelta(microseconds=int(v))
 
 
 def kind(d: datetime) -> DateKind:

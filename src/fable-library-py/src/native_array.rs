@@ -4,6 +4,7 @@ use pyo3::class::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::PyAnyMethods;
 use pyo3::IntoPyObjectExt;
+use std::cmp::Ordering;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,14 +44,9 @@ impl<'source> FromPyObject<'source> for ArrayType {
     }
 }
 
-// Implement ToPyObject for ArrayType
-impl<'py> IntoPyObject<'py> for ArrayType {
-    type Target = PyAny;
-    type Output = Bound<'py, Self::Target>;
-    type Error = std::convert::Infallible;
-
-    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
-        let s = match self {
+impl ArrayType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
             ArrayType::Int8 => "Int8",
             ArrayType::UInt8 => "UInt8",
             ArrayType::Int16 => "Int16",
@@ -63,9 +59,19 @@ impl<'py> IntoPyObject<'py> for ArrayType {
             ArrayType::Float64 => "Float64",
             ArrayType::String => "String",
             ArrayType::Generic => "Generic",
-        };
+        }
+    }
+}
+
+// Implement ToPyObject for ArrayType
+impl<'py> IntoPyObject<'py> for ArrayType {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = std::convert::Infallible;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         // Convert directly to a Python string object
-        Ok(s.into_pyobject(py)?.into_any())
+        Ok(self.as_str().into_pyobject(py)?.into_any())
     }
 }
 
@@ -145,6 +151,20 @@ impl NativeArray {
     }
 
     pub fn equals(&self, other: &NativeArray, py: Python<'_>) -> bool {
+        // Helper for comparing PyObject with other types
+        fn compare_pyobject_with<T: PartialEq + for<'a> pyo3::FromPyObject<'a>>(
+            py_vec: &std::sync::MutexGuard<Vec<PyObject>>,
+            other_vec: &[T],
+            py: Python<'_>,
+        ) -> bool {
+            if py_vec.len() != other_vec.len() {
+                return false;
+            }
+            py_vec
+                .iter()
+                .zip(other_vec.iter())
+                .all(|(x, y)| x.bind(py).extract::<T>().map(|v| v == *y).unwrap_or(false))
+        }
         match (self, other) {
             (NativeArray::Int8(vec), NativeArray::Int8(other_vec)) => vec == other_vec,
             (NativeArray::UInt8(vec), NativeArray::UInt8(other_vec)) => vec == other_vec,
@@ -163,13 +183,46 @@ impl NativeArray {
                 if xs.len() != ys.len() {
                     return false;
                 }
-                // Compare each element using Python's rich comparison
                 xs.iter().zip(ys.iter()).all(|(x, y)| {
                     x.bind(py)
                         .rich_compare(&y.bind(py), CompareOp::Eq)
                         .and_then(|r| r.is_truthy())
                         .unwrap_or(false)
                 })
+            }
+            (NativeArray::PyObject(vec), other) => {
+                let xs = vec.lock().unwrap();
+                match other {
+                    NativeArray::Int8(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::UInt8(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::Int16(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::UInt16(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::Int32(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::UInt32(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::Int64(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::UInt64(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::Float32(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::Float64(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::String(vec) => compare_pyobject_with(&xs, vec, py),
+                    _ => false,
+                }
+            }
+            (other, NativeArray::PyObject(vec)) => {
+                let ys = vec.lock().unwrap();
+                match other {
+                    NativeArray::Int8(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::UInt8(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::Int16(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::UInt16(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::Int32(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::UInt32(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::Int64(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::UInt64(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::Float32(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::Float64(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::String(vec) => compare_pyobject_with(&ys, vec, py),
+                    _ => false,
+                }
             }
             _ => false,
         }
@@ -399,29 +452,6 @@ impl NativeArray {
         Ok(())
     }
 
-    pub fn sort_storage_with(
-        storage: &mut NativeArray,
-        compare_func: &Bound<'_, PyAny>,
-    ) -> PyResult<()> {
-        match storage {
-            NativeArray::PyObject(vec) => {
-                let mut guard = vec.lock().unwrap();
-                guard.sort_by(|a, b| {
-                    let result = compare_func
-                        .call1((a.bind(compare_func.py()), b.bind(compare_func.py())))
-                        .unwrap();
-                    result.extract::<i32>().unwrap().cmp(&0)
-                });
-            }
-            _ => {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "Cannot sort non-generic array with custom comparison function",
-                ));
-            }
-        }
-        Ok(())
-    }
-
     pub fn fill_storage(
         storage: &mut NativeArray,
         target_index: usize,
@@ -600,6 +630,267 @@ impl NativeArray {
                 if let Ok(mut vec) = vec.lock() {
                     vec.truncate(new_size);
                 }
+            }
+        }
+    }
+
+    // let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : unit
+    pub fn sort_in_place_with(&mut self, comparer: &Bound<'_, PyAny>) -> PyResult<()> {
+        match self {
+            NativeArray::Int8(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = Int8(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = Int8(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::UInt8(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = UInt8(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = UInt8(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::Int16(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = Int16(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = Int16(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::UInt16(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = UInt16(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = UInt16(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::Int32(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = Int32(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = Int32(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::UInt32(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = UInt32(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = UInt32(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::Int64(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = Int64(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = Int64(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::UInt64(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = UInt64(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = UInt64(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::Float32(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = Float32(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = Float32(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::Float64(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = Float64(*a).into_pyobject(comparer.py()).unwrap();
+                    let py_b = Float64(*b).into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::String(vec) => {
+                vec.sort_by(|a, b| {
+                    let py_a = a.into_pyobject(comparer.py()).unwrap();
+                    let py_b = b.into_pyobject(comparer.py()).unwrap();
+                    let result = comparer.call1((py_a, py_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+            NativeArray::PyObject(vec) => {
+                let mut guard = vec.lock().unwrap();
+                guard.sort_by(|a, b| {
+                    let result = comparer
+                        .call1((a.bind(comparer.py()), b.bind(comparer.py())))
+                        .unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                Ok(())
+            }
+        }
+    }
+
+    pub fn sort_with(&mut self, comparer: &Bound<'_, PyAny>) -> PyResult<NativeArray> {
+        let mut result = self.clone();
+        result.sort_in_place_with(comparer)?;
+        Ok(result)
+    }
+
+    pub fn sort_by_with_projection(
+        &self,
+        py: Python<'_>,
+        projection: &Bound<'_, PyAny>,
+        comparer: &Bound<'_, PyAny>,
+    ) -> PyResult<NativeArray> {
+        fn get_result<'a, T: Clone + IntoPyObject<'a>>(
+            a: &T,
+            b: &T,
+            py: Python<'a>,
+            projection: &Bound<'_, PyAny>,
+            comparer: &Bound<'_, PyAny>,
+        ) -> PyResult<Ordering> {
+            let py_a: PyObject = a.clone().into_py_any(py)?.into();
+            let py_b: PyObject = b.clone().into_py_any(py)?.into();
+            let proj_a = projection.call1((py_a,))?;
+            let proj_b = projection.call1((py_b,))?;
+            let result = comparer.call1((proj_a, proj_b))?;
+            Ok(result.extract::<i32>()?.cmp(&0))
+        }
+
+        let result = match self {
+            NativeArray::Int8(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::Int8(new_vec)
+            }
+            NativeArray::UInt8(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::UInt8(new_vec)
+            }
+            NativeArray::Int16(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::Int16(new_vec)
+            }
+            NativeArray::UInt16(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::UInt16(new_vec)
+            }
+            NativeArray::Int32(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::Int32(new_vec)
+            }
+            NativeArray::UInt32(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::UInt32(new_vec)
+            }
+            NativeArray::Int64(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::Int64(new_vec)
+            }
+            NativeArray::UInt64(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::UInt64(new_vec)
+            }
+            NativeArray::Float32(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::Float32(new_vec)
+            }
+            NativeArray::Float64(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::Float64(new_vec)
+            }
+            NativeArray::String(vec) => {
+                let mut new_vec = vec.clone();
+                new_vec.sort_by(|a, b| {
+                    get_result(a, b, py, projection, comparer).unwrap_or(Ordering::Equal)
+                });
+                NativeArray::String(new_vec)
+            }
+            NativeArray::PyObject(vec) => {
+                let mut new_vec = vec
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|x| x.clone_ref(py))
+                    .collect::<Vec<_>>();
+                new_vec.sort_by(|a, b| {
+                    let py_a = a.bind(py);
+                    let py_b = b.bind(py);
+                    let proj_a = projection.call1((py_a,)).unwrap();
+                    let proj_b = projection.call1((py_b,)).unwrap();
+                    let result = comparer.call1((proj_a, proj_b)).unwrap();
+                    result.extract::<i32>().unwrap().cmp(&0)
+                });
+                NativeArray::PyObject(Arc::new(Mutex::new(new_vec)))
+            }
+        };
+        Ok(result)
+    }
+
+    pub fn get(&self, py: Python<'_>, index: usize) -> PyResult<PyObject> {
+        match self {
+            NativeArray::Int8(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::UInt8(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::Int16(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::UInt16(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::Int32(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::UInt32(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::Int64(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::UInt64(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::Float32(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::Float64(vec) => Ok(vec[index].into_py_any(py)?),
+            NativeArray::String(vec) => Ok(vec[index].clone().into_py_any(py)?),
+            NativeArray::PyObject(vec) => {
+                let guard = vec.lock().unwrap();
+                Ok(guard[index].clone_ref(py))
             }
         }
     }

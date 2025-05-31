@@ -374,9 +374,8 @@ let toList com returnType expr =
     Helper.LibCall(com, "list", "ofSeq", returnType, [ expr ])
 
 let stringToCharArray t e =
-    //Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
-    // Write as global call `list` instead
-    Helper.GlobalCall("list", t, [ e ])
+    let elementType = getElementType t
+    makeArrayFrom elementType e
 
 let toSeq t (e: Expr) =
     match e.Type with
@@ -1456,7 +1455,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         | [] -> stringToCharArray t c |> Some
         | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] ->
-            Helper.LibCall(com, "string", "toCharArray2", t, c :: args, ?loc = r) |> Some
+            let elementType = getElementType t
+
+            let substring =
+                Helper.LibCall(com, "string", "substring", String, c :: args, ?loc = r)
+
+            makeArrayFrom elementType substring |> Some
         | _ -> None
     | "Split", Some c, _ ->
         match args with
@@ -1564,8 +1568,7 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         Helper.LibCall(com, "seq2", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToArray", [ arg ] ->
-        // Call array_.Array[t](args)
-        //Helper.LibCall(com, "array_", "Array", t, [ arg ], i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        // xxx
         let elementType = getElementType t
         makeArrayFrom elementType arg |> Some
 
@@ -1768,9 +1771,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
     match i.CompiledName, args with
     | "ToSeq", [ arg ] -> Some arg
-    | "OfSeq", [ arg ] ->
-        let xs = toArray r t arg |> Some
-        xs
+    | "OfSeq", [ arg ] -> toArray r t arg |> Some
     | "OfList", [ arg ] ->
         Helper.LibCall(com, "list", "toArray", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
