@@ -275,7 +275,7 @@ fn or_else(
     if opt.is_none() {
         if_none.into_pyobject(py)?.into_py_any(py)
     } else {
-        opt.into_pyobject(py)?.into_py_any(py)
+        opt.into_py_any(py)
     }
 }
 

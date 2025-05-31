@@ -75,11 +75,11 @@ def total_days(ts: TimeSpan) -> float:
     return ts / 864000000000
 
 
-def from_microseconds(micros: int64 | float) -> TimeSpan:
+def from_microseconds(micros: int | float) -> TimeSpan:
     return create(0, 0, 0, 0, 0, micros)
 
 
-def from_milliseconds(msecs: int64 | float, mc: int64 | None = None) -> TimeSpan:
+def from_milliseconds(msecs: int | float, mc: int | None = None) -> TimeSpan:
     return create(0, 0, 0, 0, msecs, mc)
 
 
@@ -87,22 +87,20 @@ def from_ticks(ticks: int) -> TimeSpan:
     return create(ticks)
 
 
-def from_seconds(s: int64 | float, ms: int64 | None = None, mc: int64 | None = None) -> TimeSpan:
+def from_seconds(s: int | float, ms: int | None = None, mc: int | None = None) -> TimeSpan:
     return create(0, 0, 0, s, ms or 0, mc or 0)
 
 
-def from_minutes(
-    m: int64 | float, s: int64 | None = None, ms: int64 | None = None, mc: int64 | None = None
-) -> TimeSpan:
+def from_minutes(m: int | float, s: int | None = None, ms: int | None = None, mc: int | None = None) -> TimeSpan:
     return create(0, 0, m or 0, s or 0, ms or 0, mc or 0)
 
 
 def from_hours(
     h: int | float,
-    m: int64 | None = None,
-    s: int64 | None = None,
-    ms: int64 | None = None,
-    mc: int64 | None = None,
+    m: int | None = None,
+    s: int | None = None,
+    ms: int | None = None,
+    mc: int | None = None,
 ) -> TimeSpan:
     return create(0, h, m or 0, s or 0, ms or 0, mc or 0)
 
@@ -110,10 +108,10 @@ def from_hours(
 def from_days(
     d: int | float,
     h: int | None = None,
-    m: int64 | None = None,
-    s: int64 | None = None,
-    ms: int64 | None = None,
-    mc: int64 | None = None,
+    m: int | None = None,
+    s: int | None = None,
+    ms: int | None = None,
+    mc: int | None = None,
 ) -> TimeSpan:
     return create(d, h or 0, m or 0, s or 0, ms or 0, mc or 0)
 

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import builtins
 import functools
-import math
 import platform
 import random
 import re
@@ -30,6 +28,8 @@ from typing import (
     cast,
 )
 from urllib.parse import quote, unquote
+
+from .core import float64
 
 
 class SupportsLessThan(Protocol):
@@ -2660,14 +2660,8 @@ def physical_hash(x: Any) -> int:
     return number_hash(ObjectRef.id(x))
 
 
-def round(value: float, digits: int = 0):
-    m = pow(10, digits)
-    n = +(value * m if digits else value)
-    i = math.floor(n)
-    f = n - i
-    e = 1e-8
-    r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else builtins.round(n)
-    return r / m if digits else r
+def round(value: float64, digits: int = 0):
+    return value.round(digits)
 
 
 def randint(a: int, b: int) -> int:
