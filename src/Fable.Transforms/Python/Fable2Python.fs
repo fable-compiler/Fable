@@ -2103,10 +2103,10 @@ module Util =
             | BinaryDivide, _ ->
                 // For integer division, we need to use the // operator
                 match typ with
-                // | Fable.Number(Int32, _)
-                // | Fable.Number(Int64, _)
-                // | Fable.Number(UInt32, _)
-                // | Fable.Number(UInt64, _) -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
+                | Fable.Number(Int32, _)
+                | Fable.Number(Int64, _)
+                | Fable.Number(UInt32, _)
+                | Fable.Number(UInt64, _) -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
                 | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 

@@ -84,9 +84,10 @@ macro_rules! float_variant {
             }
 
             // Note: __floordiv__ for floats is often less intuitive.
-            // In .NET, division by zero with floating point numbers returns infinity
+            // In .NET we don't have a floor division operator so if
+            // we divide a float by integer we get a float.
             pub fn __floordiv__(&self, other: $type) -> PyResult<Self> {
-                Ok(Self((self.0 / other).floor()))
+                Ok(Self((self.0 / other)))
             }
 
             pub fn __rfloordiv__(&self, other: $type) -> PyResult<Self> {

@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar
 
+from .option import Option, some
+
 
 _T = TypeVar("_T")
 
@@ -52,12 +54,15 @@ def find_last_index(predicate: Callable[[_T], bool], xs: list[_T]) -> int:
     return -1
 
 
-def find(predicate: Callable[[_T], bool], xs: list[_T]) -> _T:
-    """Return the first element in the list that satisfies the predicate, or raise ValueError if not found."""
+def try_find(predicate: Callable[[_T], bool], xs: list[_T]) -> Option[_T]:
+    if not xs:
+        return None
+
     for x in xs:
         if predicate(x):
-            return x
-    raise ValueError("No element satisfies the predicate.")
+            return some(x)
+
+    return None
 
 
 def find_last(predicate: Callable[[_T], bool], xs: list[_T]) -> _T:
@@ -108,16 +113,26 @@ def get_sub_array(start: int, count: int, xs: list[_T]) -> list[_T]:
     return xs[start : start + count]
 
 
+def iterate(action: Callable[[_T], None], xs: list[_T]) -> None:
+    """Iterate over a list and apply an action to each element."""
+    for x in xs:
+        action(x)
+
+
+def contains(value: _T, xs: list[_T], cons: Any | None = None) -> bool:
+    return value in xs
+
+
 __all__ = [
     "add_in_place",
     "add_range",
     "add_range_in_place",
     "exists",
-    "find",
     "find_index",
     "find_last",
     "find_last_index",
     "get_sub_array",
+    "iterate",
     "remove_all_in_place",
     "remove_range",
 ]

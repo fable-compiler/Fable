@@ -71,9 +71,9 @@ class MailboxProcessor(Generic[_Msg]):
         """
 
         result: _Reply | None = None
-        continuation: Continuations[
-            Any
-        ] | None = None  # This is the continuation for the `done` callback of the awaiting poster.
+        continuation: Continuations[Any] | None = (
+            None  # This is the continuation for the `done` callback of the awaiting poster.
+        )
 
         def check_completion() -> None:
             if result is not None and continuation is not None:
@@ -172,8 +172,8 @@ def start(
 __all__ = [
     "AsyncReplyChannel",
     "MailboxProcessor",
-    "receive",
     "post",
+    "receive",
     "start",
     "start_instance",
 ]

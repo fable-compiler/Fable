@@ -1611,14 +1611,18 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "FindLastIndex", Some ar, [ arg ] ->
         Helper.LibCall(com, "resize_array", "find_last_index", t, [ arg; ar ], ?loc = r)
         |> Some
-    | "ForEach", Some ar, [ arg ] -> Helper.LibCall(com, "array", "iterate", t, [ arg; ar ], ?loc = r) |> Some
+    | "ForEach", Some ar, [ arg ] -> Helper.LibCall(com, "resize_array", "iterate", t, [ arg; ar ], ?loc = r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
     | "get_Count", Some(MaybeCasted(ar)), _ ->
         match ar.Type with
         | Array _ -> Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "util", "count", t, [ ar ], ?loc = r) |> Some
     | "Clear", Some ar, _ -> Helper.LibCall(com, "Util", "clear", t, [ ar ], ?loc = r) |> Some
-    | "Find", Some ar, [ arg ] -> Helper.LibCall(com, "resize_array", "find", t, [ arg; ar ], ?loc = r) |> Some
+    | "Find", Some ar, [ arg ] ->
+        let opt = Helper.LibCall(com, "resize_array", "try_find", t, [ arg; ar ], ?loc = r)
+
+        Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx r t ], ?loc = r)
+        |> Some
     | "Exists", Some ar, [ arg ] -> Helper.LibCall(com, "resize_array", "exists", t, [ arg; ar ], ?loc = r) |> Some
     | "FindLast", Some ar, [ arg ] ->
         Helper.LibCall(com, "resize_array", "find_last", t, [ arg; ar ], ?loc = r)
@@ -1631,7 +1635,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "resize_array", "get_sub_array", t, [ ar; idx; cnt ], ?loc = r)
         |> Some
     | "Contains", Some(MaybeCasted(ar)), [ arg ] ->
-        let args = injectArg com ctx r "Array" "contains" i.GenericArgs [ arg; ar ]
+        let args = injectArg com ctx r "resize_array" "contains" i.GenericArgs [ arg; ar ]
 
         let moduleName =
             match ar.Type with

@@ -1300,9 +1300,10 @@ impl FSharpArray {
         Ok(())
     }
 
-    pub fn sort(&self, py: Python<'_>) -> PyResult<FSharpArray> {
+    pub fn sort(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
         let mut result = self.clone();
-        result.sort_in_place(py)?;
+        let compare_func = comparer.getattr("Compare")?;
+        result.sort_in_place_with(py, &compare_func)?;
         Ok(result)
     }
 
@@ -1514,7 +1515,7 @@ impl FSharpArray {
         }
 
         let count = len - 1;
-        let builder = NativeArray::new(&self.storage.get_type(), Some(count));
+        let builder = NativeArray::new(&ArrayType::Generic, Some(count));
         let mut result = FSharpArray { storage: builder };
 
         for i in 0..count {
@@ -1577,12 +1578,16 @@ impl FSharpArray {
         let len = self.storage.len();
         let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
         let mut results = fs_cons.create(len + 1);
-        results.push_value(state, py)?;
 
+        // Start with initial state
+        let mut current_state = state.clone();
+        results.push_value(&current_state, py)?;
+
+        // Process each element, updating the state as we go
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
-            let new_state = folder.call1((item, state))?;
-            results.push_value(&new_state, py)?;
+            current_state = folder.call1((current_state, item))?;
+            results.push_value(&current_state, py)?;
         }
 
         Ok(FSharpArray { storage: results }.into_pyobject(py)?.into())
@@ -1595,15 +1600,27 @@ impl FSharpArray {
         state: &Bound<'_, PyAny>,
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<FSharpArray>> {
-        let mut current_state = state.clone();
+        let len = self.storage.len();
         let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
-        let mut results = fs_cons.create(self.storage.len() + 1);
-        results.push_value(&current_state, py)?;
+        let mut results = fs_cons.create(len + 1);
 
-        for i in (0..self.storage.len()).rev() {
+        // Start with initial state
+        let mut current_state = state.clone();
+
+        // Process elements from right to left, building states
+        let mut states = Vec::with_capacity(len + 1);
+        states.push(current_state.clone());
+
+        for i in (0..len).rev() {
             let x = self.get_item_at_index(i as isize, py)?;
-            current_state = folder.call1((current_state, x))?;
-            results.insert(0, &current_state, py)?;
+            // F# signature: 'T -> 'State -> 'State, so element comes first
+            current_state = folder.call1((x, current_state))?;
+            states.push(current_state.clone());
+        }
+
+        // Reverse the states to get the correct order and add them to results
+        for state in states.into_iter().rev() {
+            results.push_value(&state, py)?;
         }
 
         Ok(FSharpArray { storage: results }.into_pyobject(py)?.into())
@@ -1667,43 +1684,43 @@ impl FSharpArray {
         }
 
         let mut results = NativeArray::new(&self.storage.get_type(), Some(count));
+        self.storage.copy_to(&mut results, 0, 0, count, _py)?;
         results.truncate(count);
         Ok(FSharpArray { storage: results })
     }
 
-    #[pyo3(signature = (f, _cons=None))]
+    #[pyo3(signature = (f, cons=None))]
     pub fn partition(
         &self,
         py: Python<'_>,
         f: &Bound<'_, PyAny>,
-        _cons: Option<&Bound<'_, PyAny>>,
+        cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
-        let mut results = NativeArray::new(&self.storage.get_type(), Some(len));
-        let mut results2 = NativeArray::new(&self.storage.get_type(), Some(len));
-        let mut i_true = 0;
-        let mut i_false = 0;
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+
+        let initial_capacity = (len + 1) / 2;
+        let mut results = fs_cons.create(initial_capacity);
+        let mut results2 = fs_cons.create(initial_capacity);
 
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
-            let item_clone = item.clone_ref(py);
-            if f.call1((item,))?.is_truthy()? {
-                results.push_value(&item_clone.bind(py), py)?;
-                i_true += 1;
+            // Bind once and reuse
+            let bound_item = item.bind(py);
+            if f.call1((&bound_item,))?.is_truthy()? {
+                results.push_value(&bound_item, py)?;
             } else {
-                results2.push_value(&item_clone.bind(py), py)?;
-                i_false += 1;
+                results2.push_value(&bound_item, py)?;
             }
         }
 
-        // Create arrays with the correct sizes using truncate
-        let array1 = FSharpArray { storage: results }.truncate(py, i_true)?;
-        let array2 = FSharpArray { storage: results2 }.truncate(py, i_false)?;
-
-        // Create a new array containing both results
-        let mut final_results = NativeArray::new(&self.storage.get_type(), Some(2));
-        final_results.push_value(&Py::new(py, array1)?.bind(py), py)?;
-        final_results.push_value(&Py::new(py, array2)?.bind(py), py)?;
+        // Create final array with exact size needed
+        let mut final_results = NativeArray::new(&ArrayType::Generic, Some(2));
+        final_results.push_value(&Py::new(py, FSharpArray { storage: results })?.bind(py), py)?;
+        final_results.push_value(
+            &Py::new(py, FSharpArray { storage: results2 })?.bind(py),
+            py,
+        )?;
 
         Ok(FSharpArray {
             storage: final_results,
@@ -1832,7 +1849,7 @@ impl FSharpArray {
         let count = std::cmp::max(0, len as isize - window_size as isize + 1) as usize;
 
         // Create an array of arrays
-        let builder = NativeArray::new(&self.storage.get_type(), Some(count));
+        let builder = NativeArray::new(&ArrayType::Generic, Some(count));
         let mut result = FSharpArray { storage: builder };
 
         for i in 0..count {
@@ -2027,10 +2044,14 @@ impl FSharpArray {
         py: Python<'_>,
         comparer: &Bound<'_, PyAny>,
         other: &FSharpArray,
-    ) -> PyResult<bool> {
+    ) -> PyResult<isize> {
         // Check if the other object is a FSharpArray
         if self.storage.len() != other.storage.len() {
-            return Ok(false);
+            return if self.storage.len() < other.storage.len() {
+                Ok(-1)
+            } else {
+                Ok(1)
+            };
         }
 
         // Compare elements using the provided comparer function
@@ -2038,12 +2059,14 @@ impl FSharpArray {
             let item1 = self.get_item_at_index(i as isize, py)?;
             let item2 = other.get_item_at_index(i as isize, py)?;
 
-            let result = comparer.call1((item1, item2))?;
-            if result.extract::<i32>()? != 0 {
-                return Ok(false);
+            let res = comparer.call1((item1, item2))?;
+            let res: isize = res.extract()?;
+            if res != 0 {
+                return Ok(res);
             }
         }
-        Ok(true)
+
+        Ok(0)
     }
 
     pub fn exists_offset(
@@ -2860,18 +2883,25 @@ impl FSharpArray {
         Ok(FSharpArray { storage: result })
     }
 
-    #[pyo3(signature = (projection))]
-    pub fn sum_by(&self, py: Python<'_>, projection: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    #[pyo3(signature = (projection, adder))]
+    pub fn sum_by(
+        &self,
+        py: Python<'_>,
+        projection: &Bound<'_, PyAny>,
+        adder: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
         if self.is_empty() {
-            return Ok(py.None().into());
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input array was empty",
+            ));
         }
 
-        let mut acc = projection.call1((self.storage.get(py, 0)?,))?;
+        let mut acc = adder.call_method0("GetZero")?;
 
-        for i in 1..self.storage.len() {
+        for i in 0..self.storage.len() {
             let item = self.storage.get(py, i)?;
             let projected = projection.call1((item,))?;
-            acc = acc.call_method1("__add__", (projected,))?;
+            acc = adder.call_method1("Add", (acc, projected))?;
         }
 
         Ok(acc.into())
@@ -3290,7 +3320,7 @@ pub fn compare_with(
     comparer: &Bound<'_, PyAny>,
     array1: &FSharpArray,
     array2: &FSharpArray,
-) -> PyResult<bool> {
+) -> PyResult<isize> {
     array1.compare_with(py, comparer, array2)
 }
 
@@ -3712,7 +3742,7 @@ pub fn find_index_back(
 }
 
 // Constructor class for array allocation
-#[pyclass()]
+#[pyclass(module = "fable")]
 #[derive(Clone)]
 struct FSharpCons {
     #[pyo3(get, set)]
@@ -4011,8 +4041,12 @@ where
 }
 
 #[pyfunction]
-pub fn sort(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
-    array.sort(py)
+pub fn sort(
+    py: Python<'_>,
+    array: &FSharpArray,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    array.sort(py, comparer)
 }
 
 #[pyfunction]
@@ -4035,10 +4069,13 @@ pub fn sort_with(
 }
 
 #[pyfunction]
+#[pyo3(signature = (projection, array, adder))]
 pub fn sum_by(
     py: Python<'_>,
     projection: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
+    adder: &Bound<'_, PyAny>,
 ) -> PyResult<PyObject> {
-    array.sum_by(py, projection)
+    let array = ensure_array(py, array)?;
+    array.sum_by(py, projection, adder)
 }
