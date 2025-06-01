@@ -1,7 +1,6 @@
-import math
 from typing import Any
 
-from .core import float
+from .core import floats
 from .types import FSharpRef
 
 
@@ -36,47 +35,36 @@ def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
         return False
 
 
-float32 = float.Float32
-float64 = float.Float64
-acos = float.acos
-asin = float.asin
-atan = float.atan
-atan2 = float.atan2
-ceil = float.ceil
-cos = float.cos
-cosh = float.cosh
-degrees = float.degrees
-exp = float.exp
-floor = float.floor
-is_infinity = float.is_infinity
-is_nan = float.is_nan
-is_negative_inf = float.is_negative_infinity
-is_positive_inf = float.is_positive_infinity
-log = float.log
-log10 = float.log10
-log2 = float.log2
-pow = float.pow
-radians = float.radians
-sin = float.sin
-sinh = float.sinh
-sqrt = float.sqrt
-tan = float.tan
-tanh = float.tanh
+float32 = floats.Float32
+float64 = floats.Float64
+acos = floats.acos
+asin = floats.asin
+atan = floats.atan
+atan2 = floats.atan2
+ceil = floats.ceil
+cos = floats.cos
+cosh = floats.cosh
+degrees = floats.degrees
+exp = floats.exp
+floor = floats.floor
+is_infinity = floats.is_infinity
+is_nan = floats.is_nan
+is_negative_inf = floats.is_negative_infinity
+is_positive_inf = floats.is_positive_infinity
+log = floats.log
+log10 = floats.log10
+log2 = floats.log2
+pow = floats.pow
+radians = floats.radians
+sin = floats.sin
+sinh = floats.sinh
+sqrt = floats.sqrt
+tan = floats.tan
+tanh = floats.tanh
 
 
 __all__ = [
     "abs",
-    "float32",
-    "float64",
-    "is_negative_inf",
-    "is_positive_inf",
-    "log",
-    "max",
-    "min",
-    "parse",
-    "sign",
-    "sqrt",
-    "try_parse",
     "acos",
     "asin",
     "atan",
@@ -86,15 +74,26 @@ __all__ = [
     "cosh",
     "degrees",
     "exp",
+    "float32",
+    "float64",
     "floor",
     "is_infinity",
     "is_nan",
-    "log10",
+    "is_negative_inf",
+    "is_positive_inf",
+    "log",
     "log2",
+    "log10",
+    "max",
+    "min",
+    "parse",
     "pow",
     "radians",
+    "sign",
     "sin",
     "sinh",
+    "sqrt",
     "tan",
     "tanh",
+    "try_parse",
 ]

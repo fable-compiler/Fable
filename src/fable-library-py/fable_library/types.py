@@ -308,8 +308,8 @@ class char(int):
     __slots__ = ()
 
 
-float = float  # use native float for float64
 IntegerTypes: TypeAlias = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
+FloatTypes: TypeAlias = float | float32 | float64
 
 
 def is_exception(x: Any):
@@ -325,10 +325,12 @@ __all__ = [
     "Float32Array",
     "Float64Array",
     "Float64Array",
+    "FloatTypes",
     "Int8Array",
     "Int16Array",
     "Int32Array",
     "Int64Array",
+    "IntegerTypes",
     "UInt8Array",
     "UInt16Array",
     "UInt32Array",

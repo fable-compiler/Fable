@@ -692,7 +692,7 @@ pub fn pow(py: Python<'_>, x: &Bound<'_, PyAny>, y: f64) -> PyResult<PyObject> {
 
 /// A module for float operations
 pub fn register_float_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(parent_module.py(), "float")?;
+    let m = PyModule::new(parent_module.py(), "floats")?;
 
     // Register the float classes
     m.add_class::<Float32>()?;

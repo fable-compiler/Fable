@@ -1671,7 +1671,13 @@ impl FSharpArray {
         Ok(FSharpArray { storage: results })
     }
 
-    pub fn partition(&self, py: Python<'_>, f: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    #[pyo3(signature = (f, _cons=None))]
+    pub fn partition(
+        &self,
+        py: Python<'_>,
+        f: &Bound<'_, PyAny>,
+        _cons: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
         let mut results = NativeArray::new(&self.storage.get_type(), Some(len));
         let mut results2 = NativeArray::new(&self.storage.get_type(), Some(len));
@@ -2664,25 +2670,33 @@ impl FSharpArray {
     }
 
     /// Returns the element for which the key function returns the largest value.
-    pub fn max_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn max_by(
+        &self,
+        py: Python<'_>,
+        projection: &Bound<'_, PyAny>,
+        comparer: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
         reduce_impl(self, py, |acc, item, py| {
-            let acc_key = key.call1((acc.clone_ref(py),))?;
-            let item_key = key.call1((item.clone_ref(py),))?;
-            let is_gt = item_key
-                .rich_compare(&acc_key, CompareOp::Gt)?
-                .is_truthy()?;
+            let acc_key = projection.call1((acc.clone_ref(py),))?;
+            let item_key = projection.call1((item.clone_ref(py),))?;
+            let comparison = comparer.call_method1("Compare", (item_key, acc_key))?;
+            let is_gt = comparison.extract::<i32>()? > 0;
             Ok(if is_gt { item } else { acc })
         })
     }
 
     /// Returns the element for which the key function returns the smallest value.
-    pub fn min_by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn min_by(
+        &self,
+        py: Python<'_>,
+        projection: &Bound<'_, PyAny>,
+        comparer: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
         reduce_impl(self, py, |acc, item, py| {
-            let acc_key = key.call1((acc.clone_ref(py),))?;
-            let item_key = key.call1((item.clone_ref(py),))?;
-            let is_lt = item_key
-                .rich_compare(&acc_key, CompareOp::Lt)?
-                .is_truthy()?;
+            let acc_key = projection.call1((acc.clone_ref(py),))?;
+            let item_key = projection.call1((item.clone_ref(py),))?;
+            let comparison = comparer.call_method1("Compare", (item_key, acc_key))?;
+            let is_lt = comparison.extract::<i32>()? < 0;
             Ok(if is_lt { item } else { acc })
         })
     }
@@ -3552,25 +3566,27 @@ pub fn choose(
 }
 
 #[pyfunction]
-#[pyo3(signature = (key, array))]
+#[pyo3(signature = (key, array, comparer))]
 pub fn max_by(
     py: Python<'_>,
     key: &Bound<'_, PyAny>,
     array: &Bound<'_, PyAny>,
+    comparer: &Bound<'_, PyAny>,
 ) -> PyResult<PyObject> {
     let array = ensure_array(py, array)?;
-    array.max_by(py, key)
+    array.max_by(py, key, comparer)
 }
 
 #[pyfunction]
-#[pyo3(signature = (key, array))]
+#[pyo3(signature = (key, array, comparer))]
 pub fn min_by(
     py: Python<'_>,
     key: &Bound<'_, PyAny>,
     array: &Bound<'_, PyAny>,
+    comparer: &Bound<'_, PyAny>,
 ) -> PyResult<PyObject> {
     let array = ensure_array(py, array)?;
-    array.min_by(py, key)
+    array.min_by(py, key, comparer)
 }
 
 #[pyfunction]
@@ -3635,12 +3651,14 @@ pub fn truncate(py: Python<'_>, array: &FSharpArray, count: usize) -> PyResult<F
 }
 
 #[pyfunction]
+#[pyo3(signature = (f, array, cons=None))]
 pub fn partition(
     py: Python<'_>,
-    array: &FSharpArray,
     f: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+    cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
-    array.partition(py, f)
+    array.partition(py, f, cons)
 }
 
 #[pyfunction]
