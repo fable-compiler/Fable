@@ -613,7 +613,7 @@ impl NativeArray {
     }
 
     /// Truncates the array to the specified size.
-    pub fn truncate(&mut self, new_size: usize) {
+    pub fn truncate(&mut self, new_size: usize) -> () {
         match self {
             NativeArray::Int8(vec) => vec.truncate(new_size),
             NativeArray::UInt8(vec) => vec.truncate(new_size),

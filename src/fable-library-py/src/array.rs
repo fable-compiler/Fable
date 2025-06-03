@@ -1514,7 +1514,7 @@ impl FSharpArray {
         }
 
         let count = len - 1;
-        let builder = NativeArray::new(&self.storage.get_type(), Some(count));
+        let builder = NativeArray::new(&ArrayType::Generic, Some(count));
         let mut result = FSharpArray { storage: builder };
 
         for i in 0..count {
@@ -1666,7 +1666,7 @@ impl FSharpArray {
             ));
         }
 
-        let mut results = NativeArray::new(&self.storage.get_type(), Some(count));
+        let mut results = self.storage.clone();
         results.truncate(count);
         Ok(FSharpArray { storage: results })
     }
@@ -1681,30 +1681,31 @@ impl FSharpArray {
         let len = self.storage.len();
         let mut results = NativeArray::new(&self.storage.get_type(), Some(len));
         let mut results2 = NativeArray::new(&self.storage.get_type(), Some(len));
-        let mut i_true = 0;
-        let mut i_false = 0;
+        let mut len_true = 0;
+        let mut len_false = 0;
 
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
             let item_clone = item.clone_ref(py);
-            if f.call1((item,))?.is_truthy()? {
+            // Get the raw Python object for comparison
+            let item_obj = item.bind(py);
+            if f.call1((item_obj,))?.is_truthy()? {
                 results.push_value(&item_clone.bind(py), py)?;
-                i_true += 1;
+                len_true += 1;
             } else {
                 results2.push_value(&item_clone.bind(py), py)?;
-                i_false += 1;
+                len_false += 1;
             }
         }
 
         // Create arrays with the correct sizes using truncate
-        let array1 = FSharpArray { storage: results }.truncate(py, i_true)?;
-        let array2 = FSharpArray { storage: results2 }.truncate(py, i_false)?;
+        let left = FSharpArray { storage: results }.truncate(py, len_true)?;
+        let right = FSharpArray { storage: results2 }.truncate(py, len_false)?;
 
-        // Create a new array containing both results
-        let mut final_results = NativeArray::new(&self.storage.get_type(), Some(2));
-        final_results.push_value(&Py::new(py, array1)?.bind(py), py)?;
-        final_results.push_value(&Py::new(py, array2)?.bind(py), py)?;
-
+        // Create a new array containing the left and right results
+        let mut final_results = NativeArray::new(&ArrayType::Generic, Some(2));
+        final_results.push_value(&Py::new(py, left)?.bind(py), py)?;
+        final_results.push_value(&Py::new(py, right)?.bind(py), py)?;
         Ok(FSharpArray {
             storage: final_results,
         })
@@ -1832,7 +1833,7 @@ impl FSharpArray {
         let count = std::cmp::max(0, len as isize - window_size as isize + 1) as usize;
 
         // Create an array of arrays
-        let builder = NativeArray::new(&self.storage.get_type(), Some(count));
+        let builder = NativeArray::new(&ArrayType::Generic, Some(count));
         let mut result = FSharpArray { storage: builder };
 
         for i in 0..count {
