@@ -1683,8 +1683,7 @@ impl FSharpArray {
             ));
         }
 
-        let mut results = NativeArray::new(&self.storage.get_type(), Some(count));
-        self.storage.copy_to(&mut results, 0, 0, count, _py)?;
+        let mut results = self.storage.clone();
         results.truncate(count);
         Ok(FSharpArray { storage: results })
     }
@@ -1697,11 +1696,10 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
-
-        let initial_capacity = (len + 1) / 2;
-        let mut results = fs_cons.create(initial_capacity);
-        let mut results2 = fs_cons.create(initial_capacity);
+        let mut results = NativeArray::new(&self.storage.get_type(), Some(len));
+        let mut results2 = NativeArray::new(&self.storage.get_type(), Some(len));
+        let mut len_true = 0;
+        let mut len_false = 0;
 
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
@@ -1709,19 +1707,21 @@ impl FSharpArray {
             let bound_item = item.bind(py);
             if f.call1((&bound_item,))?.is_truthy()? {
                 results.push_value(&bound_item, py)?;
+                len_true += 1;
             } else {
                 results2.push_value(&bound_item, py)?;
+                len_false += 1;
             }
         }
 
-        // Create final array with exact size needed
-        let mut final_results = NativeArray::new(&ArrayType::Generic, Some(2));
-        final_results.push_value(&Py::new(py, FSharpArray { storage: results })?.bind(py), py)?;
-        final_results.push_value(
-            &Py::new(py, FSharpArray { storage: results2 })?.bind(py),
-            py,
-        )?;
+        // Create arrays with the correct sizes using truncate
+        let left = FSharpArray { storage: results }.truncate(py, len_true)?;
+        let right = FSharpArray { storage: results2 }.truncate(py, len_false)?;
 
+        // Create a new array containing the left and right results
+        let mut final_results = NativeArray::new(&ArrayType::Generic, Some(2));
+        final_results.push_value(&Py::new(py, left)?.bind(py), py)?;
+        final_results.push_value(&Py::new(py, right)?.bind(py), py)?;
         Ok(FSharpArray {
             storage: final_results,
         })
