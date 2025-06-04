@@ -1601,7 +1601,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         "void ($0)"
         |> emitExpr r t [ Helper.InstanceCall(ar, "append", t, [ arg ]) ]
         |> Some
-    | "Remove", Some ar, [ arg ] -> Helper.InstanceCall(ar, "remove", t, [ arg ], ?loc = r) |> Some
+    | "Remove", Some ar, [ arg ] -> Helper.LibCall(com, "resize_array", "remove", t, [ arg; ar ], ?loc = r) |> Some
     | "RemoveAll", Some ar, [ arg ] ->
         Helper.LibCall(com, "resize_array", "remove_all_in_place", t, [ arg; ar ], ?loc = r)
         |> Some
@@ -1765,7 +1765,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
     let createArray size value =
         match t, value with
-        | Array(Number _ as t2, _), None when com.Options.TypedArrays -> newArray size t2
         | Array(t2, _), value ->
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             Helper.LibCall(com, "array", "create", t, [ size; value ])

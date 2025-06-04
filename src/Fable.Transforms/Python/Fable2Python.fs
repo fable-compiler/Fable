@@ -287,6 +287,7 @@ module Reflection =
         | Fable.DelegateType(argTypes, returnType) -> genericTypeInfo "delegate" [| yield! argTypes; yield returnType |]
         | Fable.Tuple(genArgs, _) -> genericTypeInfo "tuple" (List.toArray genArgs)
         | Fable.Option(genArg, _) -> genericTypeInfo "option" [| genArg |]
+        | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) -> genericTypeInfo "list" [| genArg |]
         | Fable.Array(genArg, _) -> genericTypeInfo "array" [| genArg |]
         | Fable.List genArg -> genericTypeInfo "list" [| genArg |]
         | Fable.Regex -> nonGenericTypeInfo Types.regex, []
@@ -733,10 +734,9 @@ module Annotation =
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
             Expression.binOp (resolved[0], BitOr, Expression.none), stmts
         | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
-        | Fable.Array(genArg, kind) ->
-            match kind with
-            | Fable.ResizeArray -> makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
-            | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
+        | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) ->
+            makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
+        | Fable.Array(genArg, _) -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
         | Fable.AnonymousRecordType(_, _genArgs, _) ->
@@ -1115,7 +1115,7 @@ module Util =
         // printfn "memberFromName: %A" memberName
         match memberName with
         | "ToString" -> Expression.identifier "__str__"
-        | "GetHashCode" -> Expression.identifier "__hash__"
+        //| "GetHashCode" -> Expression.identifier "__hash__"
         | "Equals" -> Expression.identifier "__eq__"
         | "CompareTo" -> Expression.identifier "__cmp__"
         | "set" -> Expression.identifier "__setitem__"
@@ -1200,6 +1200,9 @@ module Util =
         arrayExpr com ctx (Expression.list exprs) kind typ, stmts
 
     let makeArrayAllocated (com: IPythonCompiler) ctx typ _kind (size: Fable.Expr) =
+
+        printfn "makeArrayAllocated: %A" (typ, size)
+
         let size, stmts = com.TransformAsExpr(ctx, size)
         let array = Expression.list [ Expression.intConstant 0 ]
         Expression.binOp (array, Mult, size), stmts
@@ -2103,8 +2106,12 @@ module Util =
             | BinaryDivide, _ ->
                 // For integer division, we need to use the // operator
                 match typ with
+                | Fable.Number(Int8, _)
+                | Fable.Number(Int16, _)
                 | Fable.Number(Int32, _)
                 | Fable.Number(Int64, _)
+                | Fable.Number(UInt8, _)
+                | Fable.Number(UInt16, _)
                 | Fable.Number(UInt32, _)
                 | Fable.Number(UInt64, _) -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
                 | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
@@ -3586,11 +3593,40 @@ module Util =
                 Statement.assign (Expression.name arg.Arg, annotation = annotation)
             )
 
+
         let generics = makeEntityTypeParamDecl com ctx ent
         let bases = baseExpr |> Option.toList
 
+        // Add a __hash__ method to the class
+        let hashMethod =
+            // Hashing of data classes in python does not support inheritance, so we need to implement
+            // this method manually.
+            Statement.functionDef (
+                Identifier "__hash__",
+                Arguments.arguments [ Arg.arg "self" ],
+                body =
+                    [
+                        Statement.return' (
+                            Expression.call (
+                                Expression.name "int",
+                                [
+                                    Expression.call (
+                                        Expression.attribute (
+                                            value = Expression.name "self",
+                                            attr = Identifier "GetHashCode",
+                                            ctx = Load
+                                        ),
+                                        []
+                                    )
+                                ]
+                            )
+                        )
+                    ],
+                returns = Expression.name "int"
+            )
+
         let classBody =
-            let body = [ yield! props; yield! classMembers ]
+            let body = [ yield! props; yield! classMembers; yield hashMethod ]
 
             match body with
             | [] -> [ Statement.ellipsis ]

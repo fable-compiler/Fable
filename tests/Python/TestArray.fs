@@ -246,25 +246,25 @@ let ``test Array.create works`` () =
 //     let ys = Array.sub xs 5 10    // [|5; 6; 7; 8; 9; 10; 11; 12; 13; 14|]
 //     ys |> Array.sum |> equal 95
 
-// [<Fact>]
-// let ``test Array.fill works`` () =
-//     let xs = Array.zeroCreate 4   // [|0; 0; 0; 0|]
-//     Array.fill xs 1 2 3           // [|0; 3; 3; 0|]
-//     xs |> Array.sum |> equal 6
+[<Fact>]
+let ``test Array.fill works`` () =
+    let xs = Array.zeroCreate 4   // [|0; 0; 0; 0|]
+    Array.fill xs 1 2 3           // [|0; 3; 3; 0|]
+    xs |> Array.sum |> equal 6
 
-// [<Fact>]
-// let ``test Array.empty works`` () =
-//     let xs = Array.empty<int>
-//     xs.Length |> equal 0
+[<Fact>]
+let ``test Array.empty works`` () =
+    let xs = Array.empty<int>
+    xs.Length |> equal 0
 
-// [<Fact>]
-// let ``test Array.append works`` () =
-//     let xs1 = [|1; 2; 3; 4|]
-//     let zs1 = Array.append [|0|] xs1
-//     zs1.[0] + zs1.[1] |> equal 1
-//     let xs2 = [|"a"; "b"; "c"|]
-//     let zs2 = Array.append [|"x";"y"|] xs2
-//     zs2.[1] + zs2.[3] |> equal "yb"
+[<Fact>]
+let ``test Array.append works`` () =
+    let xs1 = [|1; 2; 3; 4|]
+    let zs1 = Array.append [|0|] xs1
+    zs1.[0] + zs1.[1] |> equal 1
+    let xs2 = [|"a"; "b"; "c"|]
+    let zs2 = Array.append [|"x";"y"|] xs2
+    zs2.[1] + zs2.[3] |> equal "yb"
 
 [<Fact>]
 let ``test Array.average works`` () =
@@ -329,12 +329,12 @@ let ``test Array.concat works`` () =
     ys.[0] + ys.[1]
     |> equal 3.
 
-// [<Fact>]
-// let ``test Array.concat works with strings`` () =
-//     [| [| "One" |]; [| "Two" |] |]
-//     |> Array.concat
-//     |> List.ofArray
-//     |> equal [ "One"; "Two" ]
+[<Fact>]
+let ``test Array.concat works with strings`` () =
+    [| [| "One" |]; [| "Two" |] |]
+    |> Array.concat
+    |> List.ofArray
+    |> equal [ "One"; "Two" ]
 
 [<Fact>]
 let ``test Array.exists works`` () =
@@ -698,11 +698,11 @@ let ``test Array.reduce works`` () =
 //     xs |> Array.sort |> Array.take 3 |> Array.sum |> equal 0
 //     ys |> Array.sort |> Array.item 1 |> equal "a"
 
-// [<Fact>]
-// let ``test Array.sort with tuples works`` () =
-//     let xs = [|3; 1; 1; -3|]
-//     let ys = [|"a"; "c"; "B"; "d"|]
-//     (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
+[<Fact>]
+let ``test Array.sort with tuples works`` () =
+    let xs = [|3; 1; 1; -3|]
+    let ys = [|"a"; "c"; "B"; "d"|]
+    (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
 
 // [<Fact>]
 // let ``test Array.truncate works`` () =
@@ -726,12 +726,12 @@ let ``test Array.reduce works`` () =
 //     let ys = [|"a"; "c"; "B"; "d"|]
 //     ys |> Array.sortDescending |> Array.item 1 |> equal "c"
 
-// [<Fact>]
-// let ``test Array.sortBy works`` () =
-//     let xs = [|3.; 4.; 1.; 2.|]
-//     let ys = xs |> Array.sortBy (fun x -> -x)
-//     ys.[0] + ys.[1]
-//     |> equal 7.
+[<Fact>]
+let ``test Array.sortBy works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortBy (fun x -> -x)
+    ys.[0] + ys.[1]
+    |> equal 7.
 
 // [<Fact>]
 // let ``test Array.sortByDescending works`` () =
@@ -770,17 +770,17 @@ let ``test Array.reduce works`` () =
 //     |> equal 3.
 // *)
 
-// [<Fact>]
-// let ``test Array.sum works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.sum
-//     |> equal 3.
+[<Fact>]
+let ``test Array.sum works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.sum
+    |> equal 3.
 
-// [<Fact>]
-// let ``test Array.sumBy works`` () =
-//     let xs = [|1.; 2.|]
-//     xs |> Array.sumBy (fun x -> x * 2.)
-//     |> equal 6.
+[<Fact>]
+let ``test Array.sumBy works`` () =
+    let xs = [|1.; 2.|]
+    xs |> Array.sumBy (fun x -> x * 2.)
+    |> equal 6.
 
 // [<Fact>]
 // let ``test Array.sum with non numeric types works`` () =

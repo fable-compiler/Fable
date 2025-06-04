@@ -27,6 +27,15 @@ def find_index(predicate: Callable[[_T], bool], xs: list[_T]) -> int:
     return -1
 
 
+def remove(item: _T, xs: list[_T]) -> bool:
+    """Remove an item from a list in-place. Returns True if the item was removed, False if it was not found."""
+    try:
+        xs.remove(item)
+        return True
+    except ValueError:
+        return False
+
+
 def remove_range(start: int, count: int, xs: list[Any]) -> None:
     """Remove a range of elements from a list in-place."""
 
@@ -78,9 +87,9 @@ def filter(predicate: Callable[[_T], bool], xs: list[_T]) -> list[_T]:
     return [x for x in xs if predicate(x)]
 
 
-def index_of(value: _T, xs: list[_T], start: int = 0, count: int | None = None) -> int:
-    """Return the index of value in xs, or -1 if not found. Optionally specify start and count."""
-    end = len(xs) if count is None else min(len(xs), start + count)
+def index_of(value: _T, start: int, count: int, xs: list[_T]) -> int:
+    """Return the index of value in xs, or -1 if not found. Specify start and count."""
+    end = min(len(xs), start + count)
     for i in range(start, end):
         if xs[i] == value:
             return i

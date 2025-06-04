@@ -14,11 +14,10 @@ type Cons<'T>() =
 
 
 module Helpers =
-    // Use Array.ofSeq to make sure we get the generic type right
     let arrayFrom (xs: 'T seq) : 'T[] = Array.ofSeq xs
 
-    [<Emit("[None]*$0")>]
-    let allocateArray (len: int) : 'T[] = nativeOnly
+    let allocateArray (len: int) : 'T[] =
+        Array.create len Unchecked.defaultof<'T>
 
     [<Emit("[x for i, x in enumerate(list($0)+[0]*($1-len($0))) if i < $1]")>]
     let allocateArrayFrom (xs: 'T[]) (len: int) : 'T[] = nativeOnly

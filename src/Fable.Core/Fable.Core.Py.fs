@@ -27,25 +27,6 @@ module Py =
 
         abstract Decorate: fn: Callable * info: Reflection.MethodInfo -> Callable
 
-    [<AllowNullLiteral>]
-    type ArrayConstructor =
-        [<Emit "$0([None]*$1...)">]
-        abstract Create: size: int -> 'T[]
-
-        [<Emit "isinstance($1, Array)">]
-        abstract isArray: arg: obj -> bool
-
-        abstract from: arg: obj -> 'T[]
-
-    and [<AllowNullLiteral>] ArrayBuffer =
-        abstract byteLength: int
-
-        [<Emit("$0[$1:$1+$2]")>]
-        abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
-
-    //[<Import("types", "Array")>]
-    //let Array: ArrayConstructor = nativeOnly
-
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
     [<Emit("lambda *args: $0(args)")>]
     let argsFunc (fn: obj[] -> obj) : Callable = nativeOnly

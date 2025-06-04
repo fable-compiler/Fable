@@ -379,31 +379,6 @@ impl NativeArray {
         }
     }
 
-    pub fn create_from_storage(storage: &NativeArray, py: Python<'_>) -> NativeArray {
-        match storage {
-            NativeArray::Int8(vec) => NativeArray::Int8(vec.clone()),
-            NativeArray::UInt8(vec) => NativeArray::UInt8(vec.clone()),
-            NativeArray::Int16(vec) => NativeArray::Int16(vec.clone()),
-            NativeArray::UInt16(vec) => NativeArray::UInt16(vec.clone()),
-            NativeArray::Int32(vec) => NativeArray::Int32(vec.clone()),
-            NativeArray::UInt32(vec) => NativeArray::UInt32(vec.clone()),
-            NativeArray::Int64(vec) => NativeArray::Int64(vec.clone()),
-            NativeArray::UInt64(vec) => NativeArray::UInt64(vec.clone()),
-            NativeArray::Float32(vec) => NativeArray::Float32(vec.clone()),
-            NativeArray::Float64(vec) => NativeArray::Float64(vec.clone()),
-            NativeArray::String(vec) => NativeArray::String(vec.clone()),
-            NativeArray::PyObject(vec) => {
-                let new_vec = vec
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .map(|item| item.clone_ref(py))
-                    .collect();
-                NativeArray::PyObject(Arc::new(Mutex::new(new_vec)))
-            }
-        }
-    }
-
     pub fn push_from_storage(
         &mut self,
         source_storage: &NativeArray,

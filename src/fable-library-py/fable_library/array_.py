@@ -1,4 +1,4 @@
-from typing import TypeAlias, TypeVar
+from typing import TypeVar
 
 from .core import array, float32, float64, int8, int16, int32, int64, uint8, uint16, uint32, uint64
 
@@ -138,8 +138,8 @@ find_index = array.find_index
 sort_by = array.sort_by
 sum_by = array.sum_by
 
-Array: TypeAlias = array.FSharpArray[_T]
-FSharpCons: TypeAlias = array.FSharpCons[_T]
+Array = array.FSharpArray
+FSharpCons = array.FSharpCons
 
 __all__ = [
     "Array",

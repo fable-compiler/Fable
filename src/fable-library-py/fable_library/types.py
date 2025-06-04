@@ -61,7 +61,7 @@ class FSharpRef(Generic[_T]):
 
 
 class Union(IComparable):
-    __slots__ = "fields", "tag"
+    __slots__: tuple[str, ...] = ("fields", "tag")
 
     def __init__(self) -> None:
         self.tag: int
@@ -98,9 +98,13 @@ class Union(IComparable):
     def __repr__(self) -> str:
         return str(self)
 
+    def GetHashCode(self) -> int32:
+        return int32(hash((self.tag, *self.fields)))
+
     def __hash__(self) -> int:
-        hashes = map(hash, self.fields)
-        return hash((hash(self.tag), *hashes))
+        # hashes = map(hash, self.fields)
+        # return hash((hash(self.tag), *hashes))
+        return int(self.GetHashCode())
 
     def __eq__(self, other: Any) -> bool:
         if self is other:
@@ -195,10 +199,10 @@ def record_get_hashcode(self: Record) -> int:
 
 
 class Record(IComparable):
-    __slots__: list[str]
+    __slots__: list[str] = []
 
-    def GetHashCode(self) -> int:
-        return record_get_hashcode(self)
+    def GetHashCode(self) -> int32:
+        return int32(record_get_hashcode(self))
 
     def Equals(self, other: Record) -> bool:
         return record_equals(self, other)
@@ -219,7 +223,7 @@ class Record(IComparable):
         return self.Equals(other)
 
     def __hash__(self) -> int:
-        return record_get_hashcode(self)
+        return int(self.GetHashCode())
 
 
 class Attribute: ...

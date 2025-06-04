@@ -6,12 +6,10 @@ import random
 import re
 import weakref
 from abc import ABC, abstractmethod
-from array import array
 from collections.abc import (
     Callable,
     Iterable,
     Iterator,
-    MutableSequence,
     Sequence,
     Sized,
 )
@@ -29,6 +27,7 @@ from typing import (
 )
 from urllib.parse import quote, unquote
 
+from .array_ import Array
 from .core import float64
 
 
@@ -44,8 +43,6 @@ _T_out = TypeVar("_T_out", covariant=True)
 _Key = TypeVar("_Key")
 _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
-
-Array = MutableSequence
 
 
 class ObjectDisposedException(Exception):
@@ -2539,7 +2536,7 @@ def curry20(
 
 
 def is_array_like(x: Any) -> bool:
-    return isinstance(x, list | tuple | set | array | bytes | bytearray)
+    return isinstance(x, Array | list | tuple | set | bytes | bytearray)
 
 
 def is_disposable(x: Any) -> bool:

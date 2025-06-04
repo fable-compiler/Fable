@@ -1129,15 +1129,10 @@ impl FSharpArray {
         target_index: isize,
         count: usize,
         value: &Bound<'_, PyAny>,
-        py: Python<'_>,
-    ) -> PyResult<Py<Self>> {
+        _py: Python<'_>,
+    ) -> PyResult<()> {
         // Validate input parameters
         let len = self.storage.len();
-        let target_index = if target_index < 0 {
-            len as isize + target_index
-        } else {
-            target_index
-        };
 
         if target_index < 0 || target_index as usize >= len {
             return Err(PyErr::new::<exceptions::PyIndexError, _>(
@@ -1149,37 +1144,15 @@ impl FSharpArray {
         let available_slots = len - target_index as usize;
         let actual_count = std::cmp::min(count, available_slots);
 
-        match &mut self.storage {
-            NativeArray::PyObject(arc_vec) => {
-                // Create a new vector with the same contents
-                let mut new_vec = Vec::with_capacity(arc_vec.lock().unwrap().len());
+        // For all other types, use the helper
+        NativeArray::fill_storage(
+            &mut self.storage,
+            target_index as usize,
+            actual_count,
+            value,
+        )?;
 
-                // Copy all elements to the new vector, replacing values in the target range
-                for (i, obj) in arc_vec.lock().unwrap().iter().enumerate() {
-                    if i >= target_index as usize && i < target_index as usize + actual_count {
-                        // Insert the fill value
-                        let item: PyObject = value.clone().into();
-                        new_vec.push(item);
-                    } else {
-                        // Keep the existing element
-                        new_vec.push(obj.clone_ref(py));
-                    }
-                }
-
-                // Replace the old Arc with a new one
-                self.storage = NativeArray::PyObject(Arc::new(Mutex::new(new_vec)));
-            }
-            _ => {
-                // For all other types, use the helper
-                NativeArray::fill_storage(
-                    &mut self.storage,
-                    target_index as usize,
-                    actual_count,
-                    value,
-                )?;
-            }
-        }
-        Ok(Py::new(py, self.clone())?)
+        Ok(())
     }
 
     pub fn fold(
@@ -1696,8 +1669,9 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
-        let mut results = NativeArray::new(&self.storage.get_type(), Some(len));
-        let mut results2 = NativeArray::new(&self.storage.get_type(), Some(len));
+        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let mut results = fs_cons.create(len);
+        let mut results2 = fs_cons.create(len);
         let mut len_true = 0;
         let mut len_false = 0;
 
@@ -3003,12 +2977,11 @@ pub fn chunk_by_size(
 #[pyfunction]
 pub fn fill(
     py: Python<'_>,
-    array: &Bound<'_, PyAny>, // Take a PyAny instead of FSharpArray
+    array: &mut FSharpArray,
     target_index: isize,
     count: usize,
     value: &Bound<'_, PyAny>,
-) -> PyResult<Py<FSharpArray>> {
-    let mut array = ensure_array(py, array)?;
+) -> PyResult<()> {
     array.fill(target_index, count, value, py)
 }
 
