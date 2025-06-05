@@ -4,7 +4,7 @@ import re
 from math import ceil, floor, fmod
 from typing import Any
 
-from .types import FSharpRef, int64
+from .types import FloatTypes, FSharpRef, IntegerTypes, float64
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
 
@@ -46,74 +46,76 @@ def create(
     )
 
 
-def total_nanoseconds(ts: TimeSpan) -> float:
+def total_nanoseconds(ts: TimeSpan) -> float64:
     # We store timespan as the Tick value so nanoseconds step is 100
-    return ts * 100
+    return float64(ts) * 100
 
 
-def total_microseconds(ts: TimeSpan) -> float:
-    return ts / 10
+def total_microseconds(ts: TimeSpan) -> float64:
+    return float64(ts) / 10
 
 
-def total_milliseconds(ts: TimeSpan) -> float:
-    return ts / 10000
+def total_milliseconds(ts: TimeSpan) -> float64:
+    return float64(ts) / 10000
 
 
-def total_seconds(ts: TimeSpan) -> float:
-    return ts / 10000000
+def total_seconds(ts: TimeSpan) -> float64:
+    return float64(ts) / 10000000
 
 
-def total_minutes(ts: TimeSpan) -> float:
-    return ts / 600000000
+def total_minutes(ts: TimeSpan) -> float64:
+    return float64(ts) / 600000000
 
 
-def total_hours(ts: TimeSpan) -> float:
-    return ts / 36000000000
+def total_hours(ts: TimeSpan) -> float64:
+    return float64(ts) / 36000000000
 
 
-def total_days(ts: TimeSpan) -> float:
-    return ts / 864000000000
+def total_days(ts: TimeSpan) -> float64:
+    return float64(ts) / 864000000000
 
 
-def from_microseconds(micros: int | float) -> TimeSpan:
-    return create(0, 0, 0, 0, 0, micros)
+def from_microseconds(micros: IntegerTypes | FloatTypes) -> TimeSpan:
+    return create(0, 0, 0, 0, 0, float(micros))
 
 
-def from_milliseconds(msecs: int | float, mc: int | None = None) -> TimeSpan:
-    return create(0, 0, 0, 0, msecs, mc)
+def from_milliseconds(msecs: IntegerTypes | FloatTypes, mc: int | None = None) -> TimeSpan:
+    return create(0, 0, 0, 0, float(msecs), mc)
 
 
 def from_ticks(ticks: int) -> TimeSpan:
     return create(ticks)
 
 
-def from_seconds(s: int | float, ms: int | None = None, mc: int | None = None) -> TimeSpan:
-    return create(0, 0, 0, s, ms or 0, mc or 0)
+def from_seconds(s: IntegerTypes | FloatTypes, ms: int | None = None, mc: int | None = None) -> TimeSpan:
+    return create(0, 0, 0, float(s), ms or 0, mc or 0)
 
 
-def from_minutes(m: int | float, s: int | None = None, ms: int | None = None, mc: int | None = None) -> TimeSpan:
-    return create(0, 0, m or 0, s or 0, ms or 0, mc or 0)
+def from_minutes(
+    m: IntegerTypes | FloatTypes, s: int | None = None, ms: int | None = None, mc: int | None = None
+) -> TimeSpan:
+    return create(0, 0, float(m) or 0, s or 0, ms or 0, mc or 0)
 
 
 def from_hours(
-    h: int | float,
+    h: IntegerTypes | FloatTypes,
     m: int | None = None,
     s: int | None = None,
     ms: int | None = None,
     mc: int | None = None,
 ) -> TimeSpan:
-    return create(0, h, m or 0, s or 0, ms or 0, mc or 0)
+    return create(0, float(h) or 0, m or 0, s or 0, ms or 0, mc or 0)
 
 
 def from_days(
-    d: int | float,
+    d: IntegerTypes | FloatTypes,
     h: int | None = None,
     m: int | None = None,
     s: int | None = None,
     ms: int | None = None,
     mc: int | None = None,
 ) -> TimeSpan:
-    return create(d, h or 0, m or 0, s or 0, ms or 0, mc or 0)
+    return create(float(d), h or 0, m or 0, s or 0, ms or 0, mc or 0)
 
 
 def ticks(ts: TimeSpan) -> int:

@@ -74,12 +74,12 @@ def try_find(predicate: Callable[[_T], bool], xs: list[_T]) -> Option[_T]:
     return None
 
 
-def find_last(predicate: Callable[[_T], bool], xs: list[_T]) -> _T:
+def find_last(predicate: Callable[[_T], bool], xs: list[_T]) -> _T | None:
     """Return the last element in the list that satisfies the predicate, or raise ValueError if not found."""
     for x in reversed(xs):
         if predicate(x):
             return x
-    raise ValueError("No element satisfies the predicate.")
+    return None
 
 
 def filter(predicate: Callable[[_T], bool], xs: list[_T]) -> list[_T]:
@@ -87,9 +87,9 @@ def filter(predicate: Callable[[_T], bool], xs: list[_T]) -> list[_T]:
     return [x for x in xs if predicate(x)]
 
 
-def index_of(value: _T, start: int, count: int, xs: list[_T]) -> int:
+def index_of(value: _T, start: int, count: int | None, xs: list[_T]) -> int:
     """Return the index of value in xs, or -1 if not found. Specify start and count."""
-    end = min(len(xs), start + count)
+    end = min(len(xs), start + count if count is not None else len(xs))
     for i in range(start, end):
         if xs[i] == value:
             return i

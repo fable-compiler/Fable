@@ -15,11 +15,25 @@ from typing import (
     overload,
 )
 
-from .core import Array
 from .date import to_string as date_to_string
 from .numeric import multiply, to_exponential, to_fixed, to_hex, to_precision
 from .reg_exp import escape
-from .types import to_string
+from .types import (
+    Array,
+    FloatTypes,
+    IntegerTypes,
+    byte,
+    float32,
+    float64,
+    int16,
+    int32,
+    int64,
+    sbyte,
+    to_string,
+    uint16,
+    uint32,
+    uint64,
+)
 
 
 T = TypeVar("T")
@@ -81,39 +95,48 @@ def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, for
     flags = flags or ""
     format = format or ""
 
-    try:
-        if format in ["x", "X"]:
-            # For hex formatting, preserve the original type
+    match rep:
+        case (
+            int()
+            | float()
+            | byte()
+            | uint16()
+            | uint32()
+            | uint64()
+            | sbyte()
+            | int16()
+            | int32()
+            | int64()
+            | float32()
+            | float64()
+        ):
+            if format not in ["x", "X"]:
+                if rep < 0:
+                    rep = rep * -1
+                    sign = "-"
+                else:
+                    if flags.find(" ") >= 0:
+                        sign = " "
+                    elif flags.find("+") >= 0:
+                        sign = "+"
+
             if format == "x":
                 rep = to_hex(rep)
-            else:
+            elif format == "X":
                 rep = to_hex(rep).upper()
-        else:
-            # For other formats, convert to float
-            rep = float(rep)
-            if rep < 0:
-                rep = rep * -1
-                sign = "-"
-            else:
-                if flags.find(" ") >= 0:
-                    sign = " "
-                elif flags.find("+") >= 0:
-                    sign = "+"
-
             if format in ("f", "F"):
                 precision = int(precision) if precision is not None else 6
-                rep = to_fixed(rep, precision)
+                rep = to_fixed(float(rep), precision)
             elif format in ("g", "G"):
-                rep = to_precision(rep, precision) if precision is not None else to_precision(rep)
+                rep = to_precision(float(rep), precision) if precision is not None else to_precision(float(rep))
             elif format in ("e", "E"):
-                rep_float = float(rep)  # Ensure we have a float
-                rep = to_exponential(rep_float, precision) if precision is not None else to_exponential(rep_float)
+                rep = to_exponential(float(rep), precision) if precision is not None else to_exponential(float(rep))
             else:  # AOid
                 rep = to_string(rep)
-    except (TypeError, ValueError):
-        if isinstance(rep, datetime):
+
+        case datetime():
             rep = date_to_string(rep)
-        else:
+        case _:
             rep = to_string(rep)
 
     if padLength is not None:
@@ -126,6 +149,7 @@ def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, for
             rep = sign + rep
         else:
             rep = pad_left(sign + rep, padLength, ch, minusFlag)
+
     else:
         rep = sign + rep
 
@@ -193,40 +217,45 @@ def format(string: str, *args: Any) -> str:
     def match(m: Match[str]) -> str:
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
-        precision: int | None = None
-        try:
-            precision = int(precision_) if precision_ is not None else None
-        except Exception:
-            pass
+        if isinstance(rep, IntegerTypes | FloatTypes):
+            precision: int | None = None
+            try:
+                precision: int | None = int(precision_)
+            except Exception:
+                pass
 
-        try:
-            rep = float(rep)
             if format in ["f", "F"]:
                 precision = precision if precision is not None else 2
                 rep = to_fixed(rep, precision)
+
             elif format in ["g", "G"]:
                 rep = to_precision(rep, precision) if precision is not None else to_precision(rep)
+
             elif format in ["e", "E"]:
-                rep_float = float(rep)  # Ensure we have a float
-                rep = to_exponential(rep_float, precision) if precision is not None else to_exponential(rep_float)
+                rep = to_exponential(rep, precision) if precision is not None else to_exponential(rep)
+
             elif format in ["p", "P"]:
                 precision = precision if precision is not None else 2
                 rep = to_fixed(multiply(rep, 100), precision) + " %"
+
             elif format in ["d", "D"]:
                 rep = pad_left(str(rep), precision, "0") if precision is not None else str(rep)
-            elif format in ["x", "X"]:
-                rep = pad_left(to_hex(int(rep)), precision, "0") if precision is not None else to_hex(int(rep))
+
+            elif format in ["x", "X"] and isinstance(
+                rep, int | byte | int16 | int32 | int64 | sbyte | uint16 | uint32 | uint64
+            ):
+                rep = pad_left(to_hex(rep), precision, "0") if precision is not None else to_hex(rep)
                 if format == "X":
                     rep = rep.upper()
             elif pattern:
                 sign = ""
-                numeric_value = rep  # Store the numeric value before formatting
 
                 def match(m: Match[str]):
                     nonlocal sign, rep
+
                     intPart, decimalPart = list(m.groups())
-                    if numeric_value < 0:  # Use the stored numeric value
-                        rep = multiply(numeric_value, -1)
+                    if rep < 0:
+                        rep = multiply(rep, -1)
                         sign = "-"
 
                     rep = to_fixed(rep, len(decimalPart) - 1 if decimalPart else 0)
@@ -238,11 +267,11 @@ def format(string: str, *args: Any) -> str:
 
                 rep = re.sub(r"(0+)(\.0+)?", match, pattern)
                 rep = sign + rep
-        except (TypeError, ValueError):
-            if isinstance(rep, datetime):
-                rep = date_to_string(rep, pattern or format)
-            else:
-                rep = to_string(rep)
+
+        elif isinstance(rep, datetime):
+            rep = date_to_string(rep, pattern or format)
+        else:
+            rep = to_string(rep)
 
         try:
             padLength = int((padLength or " ")[1:])
@@ -298,7 +327,7 @@ def not_supported(name: str) -> NoReturn:
 
 
 def to_base64string(in_array: bytes) -> str:
-    return b64encode(bytes(in_array)).decode("utf8")
+    return b64encode(in_array).decode("utf8")
 
 
 def from_base64string(b64encoded: str) -> bytes:
@@ -345,7 +374,7 @@ def get_char_at_index(input: str, index: int):
 
 def split(
     string: str,
-    splitters: str | Array[str],
+    splitters: str | list[str],
     count: int | None = None,
     removeEmpty: int = 0,
 ) -> Array[str]:
@@ -358,8 +387,8 @@ def split(
     if count and count < 0:
         raise ValueError("Count cannot be less than zero")
 
-    if not count:
-        return Array[str]([])
+    if count == 0:
+        return Array[str]()
 
     if isinstance(splitters, str):
         if not removeEmpty:
@@ -370,7 +399,7 @@ def split(
     splitters = [escape(x) for x in splitters] or [" "]
 
     i = 0
-    parts: list[str] = []
+    splits: list[str] = []
     matches = re.finditer("|".join(splitters), string)
     for m in matches:
         if count is not None and count <= 1:
@@ -378,7 +407,7 @@ def split(
 
         split = string[i : m.start()]
         if split or not removeEmpty:
-            parts.append(split)
+            splits.append(split)
 
             count = count - 1 if count is not None else count
 
@@ -387,9 +416,9 @@ def split(
     if (count is None or (count and count > 0)) and len(string) - i > -1:
         split = string[i:]
         if split or not removeEmpty:
-            parts.append(split)
+            splits.append(split)
 
-    return Array[str](parts)
+    return Array[str](splits)
 
 
 def trim(string: str, *chars: str) -> str:
@@ -426,6 +455,10 @@ def substring(string: str, startIndex: int, length: int | None = None) -> str:
         return string[startIndex : startIndex + length]
 
     return string[startIndex:]
+
+
+def to_char_array2(string: str, startIndex: int, length: int) -> list[str]:
+    return list(substring(string, startIndex, length))
 
 
 class StringComparison(IntEnum):

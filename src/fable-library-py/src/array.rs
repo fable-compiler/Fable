@@ -175,7 +175,7 @@ macro_rules! try_extract_array {
     };
 }
 
-// Utility function to convert Python objects to FSharpArray
+// Utility function to convert Python objects to FSharpArray.
 fn ensure_array(py: Python<'_>, ob: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
     // If it's already a FSharpArray, just extract it
     if let Ok(array) = ob.extract::<PyRef<'_, FSharpArray>>() {
@@ -3053,8 +3053,9 @@ pub fn equals_with(
 pub fn reduce(
     py: Python<'_>,
     reduction: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<PyObject> {
+    let array = ensure_array(py, array)?;
     array.reduce(py, reduction)
 }
 

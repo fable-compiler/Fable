@@ -58,7 +58,7 @@ def subtract(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
         delta_microseconds = delta.days * (24 * 3600 * 10**6) + delta.seconds * 10**6 + delta.microseconds
         return create_time_span(0, 0, 0, 0, 0, delta_microseconds)
 
-    return x - timedelta(microseconds=total_microseconds(y))
+    return x - timedelta(microseconds=float(total_microseconds(y)))
 
 
 def op_subtraction(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
@@ -485,7 +485,7 @@ def min_value() -> datetime:
 
 
 def op_addition(x: datetime, y: TimeSpan) -> datetime:
-    return x + timedelta(microseconds=total_microseconds(y))
+    return x + timedelta(microseconds=float(total_microseconds(y)))
 
 
 def add(x: datetime, y: TimeSpan) -> datetime:
