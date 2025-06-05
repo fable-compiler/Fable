@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-import builtins
 import functools
-import math
 import platform
 import random
 import re
 import weakref
 from abc import ABC, abstractmethod
-from array import array
 from collections.abc import (
     Callable,
     Iterable,
     Iterator,
-    MutableSequence,
     Sequence,
     Sized,
 )
@@ -31,6 +27,9 @@ from typing import (
 )
 from urllib.parse import quote, unquote
 
+from .array_ import Array
+from .core import float64
+
 
 class SupportsLessThan(Protocol):
     @abstractmethod
@@ -44,8 +43,6 @@ _T_out = TypeVar("_T_out", covariant=True)
 _Key = TypeVar("_Key")
 _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
-
-Array = MutableSequence
 
 
 class ObjectDisposedException(Exception):
@@ -2539,7 +2536,7 @@ def curry20(
 
 
 def is_array_like(x: Any) -> bool:
-    return isinstance(x, list | tuple | set | array | bytes | bytearray)
+    return isinstance(x, Array | list | tuple | set | bytes | bytearray)
 
 
 def is_disposable(x: Any) -> bool:
@@ -2660,14 +2657,8 @@ def physical_hash(x: Any) -> int:
     return number_hash(ObjectRef.id(x))
 
 
-def round(value: float, digits: int = 0):
-    m = pow(10, digits)
-    n = +(value * m if digits else value)
-    i = math.floor(n)
-    f = n - i
-    e = 1e-8
-    r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else builtins.round(n)
-    return r / m if digits else r
+def round(value: float64, digits: int = 0):
+    return value.round(digits)
 
 
 def randint(a: int, b: int) -> int:

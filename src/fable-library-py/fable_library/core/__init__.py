@@ -1,20 +1,6 @@
 from typing import Literal, TypeAlias, TypeVar
 
-from ._core import (
-    Float32,
-    Float64,
-    Int8,
-    Int16,
-    Int32,
-    Int64,
-    UInt8,
-    UInt16,
-    UInt32,
-    UInt64,
-    array,
-    datetime_offset,
-    option,
-)
+from ._core import Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, array, datetime_offset, floats, option
 
 
 _T = TypeVar("_T")
@@ -46,13 +32,11 @@ int32: TypeAlias = Int32
 uint32: TypeAlias = UInt32
 int64: TypeAlias = Int64
 uint64: TypeAlias = UInt64
-float32: TypeAlias = Float32
-float64: TypeAlias = Float64
+float32: TypeAlias = floats.Float32
+float64: TypeAlias = floats.Float64
 
 __all__: list[str] = [
     "ArrayType",
-    "Float32",
-    "Float64",
     "Int8",
     "Int16",
     "Int32",
@@ -66,6 +50,7 @@ __all__: list[str] = [
     "datetime_offset",
     "float32",
     "float64",
+    "floats",
     "int8",
     "int16",
     "int32",

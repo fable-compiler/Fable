@@ -2,7 +2,8 @@ use core::convert::Into;
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList};
+use pyo3::types::{PyAny, PyList, PyType};
+
 use pyo3::IntoPyObjectExt;
 
 pub fn register_option_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -78,6 +79,11 @@ impl SomeWrapper {
     pub fn __str__(&self, py: Python<'_>) -> PyResult<String> {
         let value_str = self.value.bind(py).str()?.to_string();
         Ok(format!("Some {}", value_str))
+    }
+
+    #[classmethod]
+    fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> PyObject {
+        cls.clone().unbind().into()
     }
 }
 
@@ -275,7 +281,7 @@ fn or_else(
     if opt.is_none() {
         if_none.into_pyobject(py)?.into_py_any(py)
     } else {
-        opt.into_pyobject(py)?.into_py_any(py)
+        opt.into_py_any(py)
     }
 }
 

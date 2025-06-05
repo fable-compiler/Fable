@@ -50,7 +50,7 @@ type NameProp =
 //     | Names of NameProp array
 //     | [<Erase>] Custom of key:string * value:obj
 
-[<Global("Array")>]
+[<Global("list")>]
 type PyArray =
     [<Emit("$0.append($1)")>]
     abstract push: item: obj -> unit

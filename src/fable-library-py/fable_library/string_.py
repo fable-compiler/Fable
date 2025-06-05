@@ -12,14 +12,28 @@ from typing import (
     Any,
     NoReturn,
     TypeVar,
-    cast,
     overload,
 )
 
 from .date import to_string as date_to_string
 from .numeric import multiply, to_exponential, to_fixed, to_hex, to_precision
 from .reg_exp import escape
-from .types import byte, int16, int32, int64, sbyte, to_string, uint16, uint32, uint64
+from .types import (
+    Array,
+    FloatTypes,
+    IntegerTypes,
+    byte,
+    float32,
+    float64,
+    int16,
+    int32,
+    int64,
+    sbyte,
+    to_string,
+    uint16,
+    uint32,
+    uint64,
+)
 
 
 T = TypeVar("T")
@@ -82,7 +96,20 @@ def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, for
     format = format or ""
 
     match rep:
-        case int() | float() | byte() | uint16() | uint32() | uint64() | sbyte() | int16() | int32() | int64():
+        case (
+            int()
+            | float()
+            | byte()
+            | uint16()
+            | uint32()
+            | uint64()
+            | sbyte()
+            | int16()
+            | int32()
+            | int64()
+            | float32()
+            | float64()
+        ):
             if format not in ["x", "X"]:
                 if rep < 0:
                     rep = rep * -1
@@ -94,16 +121,16 @@ def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, for
                         sign = "+"
 
             if format == "x":
-                rep = to_hex(cast(int, rep))
+                rep = to_hex(rep)
             elif format == "X":
-                rep = to_hex(cast(int, rep)).upper()
+                rep = to_hex(rep).upper()
             if format in ("f", "F"):
                 precision = int(precision) if precision is not None else 6
-                rep = to_fixed(rep, precision)
+                rep = to_fixed(float(rep), precision)
             elif format in ("g", "G"):
-                rep = to_precision(rep, precision) if precision is not None else to_precision(float(rep))
+                rep = to_precision(float(rep), precision) if precision is not None else to_precision(float(rep))
             elif format in ("e", "E"):
-                rep = to_exponential(rep, precision) if precision is not None else to_exponential(float(rep))
+                rep = to_exponential(float(rep), precision) if precision is not None else to_exponential(float(rep))
             else:  # AOid
                 rep = to_string(rep)
 
@@ -190,7 +217,7 @@ def format(string: str, *args: Any) -> str:
     def match(m: Match[str]) -> str:
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
-        if isinstance(rep, int | byte | int16 | int32 | int64 | sbyte | uint16 | uint32 | uint64 | float):
+        if isinstance(rep, IntegerTypes | FloatTypes):
             precision: int | None = None
             try:
                 precision: int | None = int(precision_)
@@ -299,12 +326,12 @@ def not_supported(name: str) -> NoReturn:
     raise Exception("The environment doesn't support '" + name + "', please use a polyfill.")
 
 
-def to_base64string(in_array: bytes) -> str:
-    return b64encode(in_array).decode("utf8")
+def to_base64string(in_array: Array[byte]) -> str:
+    return b64encode(bytes(in_array)).decode("utf8")
 
 
-def from_base64string(b64encoded: str) -> bytes:
-    return b64decode(b64encoded)
+def from_base64string(b64encoded: str) -> Array[byte]:
+    return Array[byte](b64decode(b64encoded))
 
 
 def pad_left(string: str, length: int, ch: str | None = None, isRight: bool | None = False) -> str:
@@ -350,7 +377,7 @@ def split(
     splitters: str | list[str],
     count: int | None = None,
     removeEmpty: int = 0,
-) -> list[str]:
+) -> Array[str]:
     """Split string
 
     Returns a string array that contains the substrings in this instance
@@ -361,11 +388,11 @@ def split(
         raise ValueError("Count cannot be less than zero")
 
     if count == 0:
-        return []
+        return Array[str]()
 
     if isinstance(splitters, str):
         if not removeEmpty:
-            return string.split(splitters, count - 1 if count else -1)
+            return Array[str](string.split(splitters, count - 1 if count else -1))
 
         splitters = [splitters]
 
@@ -391,7 +418,7 @@ def split(
         if split or not removeEmpty:
             splits.append(split)
 
-    return splits
+    return Array[str](splits)
 
 
 def trim(string: str, *chars: str) -> str:

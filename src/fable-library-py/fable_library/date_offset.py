@@ -43,7 +43,7 @@ def create(
 ) -> datetime:
     python_offset: timedelta | None = None
     if isinstance(ms, TimeSpan):
-        python_offset = timedelta(microseconds=time_span.total_microseconds(ms))
+        python_offset = timedelta(microseconds=float(time_span.total_microseconds(ms)))
         ms = 0
 
     if python_offset is None:
@@ -67,7 +67,7 @@ def op_addition(x: datetime, y: timedelta) -> datetime:
 
 def op_subtraction(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
     if isinstance(y, TimeSpan):
-        return x - timedelta(microseconds=time_span.total_microseconds(y))
+        return x - timedelta(microseconds=float(time_span.total_microseconds(y)))
 
     return time_span.create(0, 0, 0, 0, 0, timedelta_total_microseconds(x - y))
 

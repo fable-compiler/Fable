@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import array
 from abc import abstractmethod
-from collections.abc import Callable, Iterable, MutableSequence
+from collections.abc import Callable, Iterable
 from typing import (
     Any,
     Generic,
@@ -11,8 +10,21 @@ from typing import (
     cast,
 )
 
-from .core import byte, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
-from .util import Array, IComparable, compare
+from .array_ import (
+    Array,
+    Float32Array,
+    Float64Array,
+    Int8Array,
+    Int16Array,
+    Int32Array,
+    Int64Array,
+    UInt8Array,
+    UInt16Array,
+    UInt32Array,
+    UInt64Array,
+)
+from .core import byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
+from .util import IComparable, compare
 
 
 _T = TypeVar("_T")
@@ -49,11 +61,11 @@ class FSharpRef(Generic[_T]):
 
 
 class Union(IComparable):
-    __slots__ = "fields", "tag"
+    __slots__: tuple[str, ...] = ("fields", "tag")
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.tag: int
-        self.fields: Array[Any] = []
+        self.fields: Array[Any] = Array[Any]()
 
     @staticmethod
     @abstractmethod
@@ -86,9 +98,13 @@ class Union(IComparable):
     def __repr__(self) -> str:
         return str(self)
 
+    def GetHashCode(self) -> int32:
+        return int32(hash((self.tag, *self.fields)))
+
     def __hash__(self) -> int:
-        hashes = map(hash, self.fields)
-        return hash((hash(self.tag), *hashes))
+        # hashes = map(hash, self.fields)
+        # return hash((hash(self.tag), *hashes))
+        return int(self.GetHashCode())
 
     def __eq__(self, other: Any) -> bool:
         if self is other:
@@ -183,10 +199,10 @@ def record_get_hashcode(self: Record) -> int:
 
 
 class Record(IComparable):
-    __slots__: list[str]
+    __slots__: list[str] = []
 
-    def GetHashCode(self) -> int:
-        return record_get_hashcode(self)
+    def GetHashCode(self) -> int32:
+        return int32(record_get_hashcode(self))
 
     def Equals(self, other: Record) -> bool:
         return record_equals(self, other)
@@ -207,7 +223,7 @@ class Record(IComparable):
         return self.Equals(other)
 
     def __hash__(self) -> int:
-        return record_get_hashcode(self)
+        return int(self.GetHashCode())
 
 
 class Attribute: ...
@@ -296,44 +312,8 @@ class char(int):
     __slots__ = ()
 
 
-class float32(float):
-    __slots__ = ()
-
-
-float = float  # use native float for float64
 IntegerTypes: TypeAlias = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
-
-
-def Int8Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("b", lst)
-
-
-def Uint8Array(lst: list[int]) -> MutableSequence[int]:
-    return bytearray(lst)
-
-
-def Int16Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("h", lst)
-
-
-def Uint16Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("H", lst)
-
-
-def Int32Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("i", lst)
-
-
-def Uint32Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("I", lst)
-
-
-def Float32Array(lst: list[float]) -> MutableSequence[float]:
-    return array.array("f", lst)
-
-
-def Float64Array(lst: list[float]) -> MutableSequence[float]:
-    return array.array("d", lst)
+FloatTypes: TypeAlias = float | float32 | float64
 
 
 def is_exception(x: Any):
@@ -346,18 +326,24 @@ __all__ = [
     "FSharpException",
     "FSharpRef",
     "Float32Array",
+    "Float32Array",
     "Float64Array",
+    "Float64Array",
+    "FloatTypes",
     "Int8Array",
     "Int16Array",
     "Int32Array",
+    "Int64Array",
     "IntegerTypes",
-    "Record",
-    "Uint8Array",
-    "Uint16Array",
-    "Uint32Array",
+    "UInt8Array",
+    "UInt16Array",
+    "UInt32Array",
+    "UInt64Array",
     "Union",
     "byte",
     "char",
+    "float32",
+    "float64",
     "int8",
     "int16",
     "int32",

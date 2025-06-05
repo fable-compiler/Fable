@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from .types import int64, uint32, uint64
+from .core import int64, uint32, uint64
+from .types import IntegerTypes
 
 
 def to_fixed(x: float, dp: int | None = None) -> str:
@@ -31,8 +32,14 @@ def to_exponential(x: float, dp: int | None = None) -> str:
     return f"{x}"
 
 
-def to_hex(x: int) -> str:
-    val = uint64(x) if isinstance(x, int64 | uint64) else uint32(x)
+def to_hex(x: IntegerTypes) -> str:
+    # For int64/uint64, convert negative numbers to unsigned 64-bit
+    if isinstance(x, int64 | uint64):
+        if x < 0:
+            x = (1 << 64) + x
+        val = uint64(x)
+    else:
+        val = uint32(x)
     return f"{val:x}"
 
 
