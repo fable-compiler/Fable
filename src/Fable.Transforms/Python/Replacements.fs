@@ -1639,7 +1639,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
         let moduleName =
             match ar.Type with
-            | Array _ -> "array"
+            | Array _ -> "resize_array"
             | _ -> "seq"
 
         Helper.LibCall(com, moduleName, "contains", t, args, ?loc = r) |> Some

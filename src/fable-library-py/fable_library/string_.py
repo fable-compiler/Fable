@@ -326,12 +326,12 @@ def not_supported(name: str) -> NoReturn:
     raise Exception("The environment doesn't support '" + name + "', please use a polyfill.")
 
 
-def to_base64string(in_array: bytes) -> str:
-    return b64encode(in_array).decode("utf8")
+def to_base64string(in_array: Array[byte]) -> str:
+    return b64encode(bytes(in_array)).decode("utf8")
 
 
-def from_base64string(b64encoded: str) -> bytes:
-    return b64decode(b64encoded)
+def from_base64string(b64encoded: str) -> Array[byte]:
+    return Array[byte](b64decode(b64encoded))
 
 
 def pad_left(string: str, length: int, ch: str | None = None, isRight: bool | None = False) -> str:

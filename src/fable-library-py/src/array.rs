@@ -1166,7 +1166,7 @@ impl FSharpArray {
 
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
-            acc = folder.call1((item, acc))?;
+            acc = folder.call1((acc, item))?;
         }
 
         Ok(acc.into())
@@ -1183,7 +1183,7 @@ impl FSharpArray {
 
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
-            acc = folder.call1((i, item, acc))?;
+            acc = folder.call1((i, acc, item))?;
         }
 
         Ok(acc.into())
@@ -1217,7 +1217,7 @@ impl FSharpArray {
 
         for i in (0..len).rev() {
             let item = self.get_item_at_index(i as isize, py)?;
-            acc = folder.call1((i, item, acc))?;
+            acc = folder.call1((i, acc, item))?;
         }
 
         Ok(acc.into())
