@@ -117,7 +117,7 @@ def add_range(index: int, items: list[_T], xs: list[_T]) -> list[_T]:
     return xs[:index] + items + xs[index:]
 
 
-def get_sub_array(start: int, count: int, xs: list[_T]) -> list[_T]:
+def get_sub_array(xs: list[_T], start: int, count: int) -> list[_T]:
     """Get a sub-array of xs from the given start index and count."""
     return xs[start : start + count]
 

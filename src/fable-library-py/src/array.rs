@@ -3531,7 +3531,7 @@ pub fn get_sub_array(
 }
 
 #[pyfunction]
-pub fn contains(py: Python<'_>, array: &FSharpArray, value: &Bound<'_, PyAny>) -> PyResult<bool> {
+pub fn contains(py: Python<'_>, value: &Bound<'_, PyAny>, array: &FSharpArray) -> PyResult<bool> {
     array.contains(py, value)
 }
 
