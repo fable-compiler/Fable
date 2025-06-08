@@ -1,8 +1,6 @@
 from typing import Literal, TypeAlias, TypeVar
 
 from ._core import (
-    Float32,
-    Float64,
     Int8,
     Int16,
     Int32,
@@ -13,7 +11,9 @@ from ._core import (
     UInt64,
     array,
     datetime_offset,
+    floats,
     option,
+    types,
 )
 
 
@@ -35,6 +35,7 @@ ArrayType = Literal[
     "String",
     "Generic",
 ]
+FSharpRef: TypeAlias = types.FSharpRef[_T]
 
 byte: TypeAlias = UInt8
 sbyte: TypeAlias = Int8
@@ -46,13 +47,12 @@ int32: TypeAlias = Int32
 uint32: TypeAlias = UInt32
 int64: TypeAlias = Int64
 uint64: TypeAlias = UInt64
-float32: TypeAlias = Float32
-float64: TypeAlias = Float64
+float32: TypeAlias = floats.Float32
+float64: TypeAlias = floats.Float64
 
 __all__: list[str] = [
     "ArrayType",
-    "Float32",
-    "Float64",
+    "FSharpRef",
     "Int8",
     "Int16",
     "Int32",
@@ -66,6 +66,7 @@ __all__: list[str] = [
     "datetime_offset",
     "float32",
     "float64",
+    "floats",
     "int8",
     "int16",
     "int32",

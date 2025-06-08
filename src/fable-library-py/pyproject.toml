@@ -18,6 +18,7 @@ dev = [
     "maturin>=1.8.3,<2",
     "hypothesis>=6.131.9,<7",
     "pytest-benchmark>=5.1.0,<6",
+    "pyright>=1.1.401,<2",
 ]
 
 [tool.hatch.build.targets.sdist]

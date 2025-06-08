@@ -54,8 +54,7 @@ def change_case(string: str, case_rule: CaseRules) -> str:
 
 if TYPE_CHECKING:
 
-    class FSharpMap(dict[_K, _V]):
-        ...
+    class FSharpMap(dict[_K, _V]): ...
 
 else:
     from .map import FSharpMap

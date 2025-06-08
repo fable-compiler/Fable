@@ -20,7 +20,6 @@
     <Compile Include="../../fable-library-ts/MutableSet.fs" Link="MutableSet.fs" />
     <Compile Include="../../fable-library-ts/Result.fs" Link="Result.fs" />
     <Compile Include="../../fable-library-ts/Choice.fs" Link="Choice.fs" />
-    <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
     <Compile Include="../../fable-library-ts/Seq.fs" Link="Seq.fs" />
     <Compile Include="../../fable-library-ts/Seq2.fs" Link="Seq2.fs" />

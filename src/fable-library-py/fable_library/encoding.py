@@ -19,11 +19,11 @@ class UTF8:
         else:
             return string.encode("utf-8")[index:count]
 
-    def get_string(self, bytes: bytes, index: int | None = None, count: int | None = None) -> str:
+    def get_string(self, bytestring: bytes, index: int | None = None, count: int | None = None) -> str:
         if index is None:
-            return bytes.decode("utf-8")
+            return bytes(bytestring).decode("utf-8")
         else:
-            return bytes.decode("utf-8")[index:count]
+            return bytes(bytestring).decode("utf-8")[index:count]
 
 
 _UTF8 = UTF8()

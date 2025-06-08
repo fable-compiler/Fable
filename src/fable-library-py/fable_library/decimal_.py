@@ -1,6 +1,6 @@
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
-from .types import FSharpRef, IntegerTypes, byte, int16, int32, int64, sbyte, uint16, uint32, uint64
+from .types import FSharpRef, IntegerTypes, byte, float32, float64, int16, int32, int64, sbyte, uint16, uint32, uint64
 
 
 getcontext().prec = 29
@@ -144,8 +144,8 @@ def to_string(x: Decimal) -> str:
     return str(x)
 
 
-def to_number(x: Decimal) -> float:
-    return float(x)
+def to_number(x: Decimal) -> float64:
+    return float64(x)
 
 
 def to_int(x: Decimal) -> int:
@@ -164,15 +164,18 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
         return False
 
 
-def create(value: float | IntegerTypes | str) -> Decimal:
+def create(value: float | float32 | float64 | IntegerTypes | str) -> Decimal:
     match value:
         case sbyte() | byte() | int16() | uint16() | int32() | uint32() | int64() | uint64():
             return Decimal(int(value))
+        case float32() | float64():
+            return Decimal(float(value))
         case _:
             return Decimal(value)
 
 
 __all__ = [
+    "Decimal",
     "abs",
     "add",
     "compare",
@@ -197,7 +200,6 @@ __all__ = [
     "op_unary_negation",
     "op_unary_plus",
     "parse",
-    "Decimal",
     "remainder",
     "sign",
     "subtract",

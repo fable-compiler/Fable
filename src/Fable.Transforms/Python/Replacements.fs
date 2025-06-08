@@ -374,9 +374,8 @@ let toList com returnType expr =
     Helper.LibCall(com, "list", "ofSeq", returnType, [ expr ])
 
 let stringToCharArray t e =
-    //Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
-    // Write as global call `list` instead
-    Helper.GlobalCall("list", t, [ e ])
+    let elementType = getElementType t
+    makeArrayFrom elementType e
 
 let toSeq t (e: Expr) =
     match e.Type with
@@ -416,12 +415,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | Char :: _ -> binOpChar BinaryMinus left right
             | _ -> binOp BinaryMinus left right
         | Operators.multiply, [ left; right ] -> binOp BinaryMultiply left right
-        | (Operators.division | Operators.divideByInt), [ left; right ] ->
-            match argTypes with
-            // Floor result of integer divisions (see #172)
-            | Number((Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Int64 | UInt64 | BigInt), _) :: _ ->
-                binOp BinaryDivide left right |> truncateUnsigned
-            | _ -> Helper.LibCall(com, "double", "divide", t, [ left; right ], argTypes, ?loc = r)
+        | (Operators.division | Operators.divideByInt), [ left; right ] -> binOp BinaryDivide left right
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [ left; right ] ->
@@ -602,7 +596,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Array(genArg, _) ->
         let f = makeComparerFunction com ctx genArg
         // TODO: change to compareTo after main sync. See #2961
-        Helper.LibCall(com, "array", "compareWith", t, [ f; left; right ], ?loc = r)
+        Helper.LibCall(com, "array", "compare_to", t, [ f; left; right ], ?loc = r)
     | List _ -> Helper.LibCall(com, "util", "compare", t, [ left; right ], ?loc = r)
     | Tuple _ -> Helper.LibCall(com, "util", "compareArrays", t, [ left; right ], ?loc = r)
     | _ -> Helper.LibCall(com, "util", "compare", t, [ left; right ], ?loc = r)
@@ -748,7 +742,6 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
                     args @ cons
                 | _ ->
                     let cons = [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
-
                     args @ cons
             | Types.adder -> args @ [ makeGenericAdder com ctx genArg ]
             | Types.averager -> args @ [ makeGenericAverager com ctx genArg ]
@@ -805,7 +798,7 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let rec defaultof (com: ICompiler) ctx r t =
+let rec defaultof com ctx r t =
     match t with
     | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx r), true) |> makeValue None
     | Boolean
@@ -1025,7 +1018,8 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
-        Helper.ImportedCall("math", meth, t, args, argTypes, ?loc = r)
+        //Helper.ImportedCall("math", meth, t, args, argTypes, ?loc = r)
+        Helper.LibCall(com, "double", meth, t, args, argTypes, ?loc = r)
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), [ opt; defValue ] ->
@@ -1207,8 +1201,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> Some
         | _ -> None
     // Numbers
-    | ("Infinity" | "InfinitySingle"), _ -> Helper.ImportedValue(com, "math", "inf", t) |> Some
-    | ("NaN" | "NaNSingle"), _ -> Helper.ImportedValue(com, "math", "nan", t) |> Some
+    | ("Infinity" | "InfinitySingle"), _ -> Helper.LibValue(com, "double", "inf", t) |> Some
+    | ("NaN" | "NaNSingle"), _ -> Helper.LibValue(com, "double", "nan", t) |> Some
     | "Fst", [ tup ] -> Get(tup, TupleIndex 0, t, r) |> Some
     | "Snd", [ tup ] -> Get(tup, TupleIndex 1, t, r) |> Some
     // Reference
@@ -1461,7 +1455,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         | [] -> stringToCharArray t c |> Some
         | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] ->
-            Helper.LibCall(com, "string", "toCharArray2", t, c :: args, ?loc = r) |> Some
+            let elementType = getElementType t
+
+            let substring =
+                Helper.LibCall(com, "string", "substring", String, c :: args, ?loc = r)
+
+            makeArrayFrom elementType substring |> Some
         | _ -> None
     | "Split", Some c, _ ->
         match args with
@@ -1555,6 +1554,8 @@ let formattableString
     | _ -> None
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // printfn "seqModule: %A" i.CompiledName
+
     match i.CompiledName, args with
     | "Cast", [ arg ] -> Some arg // Erase
     | "CreateEvent", [ addHandler; removeHandler; createHandler ] ->
@@ -1566,6 +1567,11 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
 
         Helper.LibCall(com, "seq2", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "ToArray", [ arg ] ->
+        // xxx
+        let elementType = getElementType t
+        makeArrayFrom elementType arg |> Some
+
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
@@ -1586,9 +1592,7 @@ let injectIndexOfArgs com ctx r genArgs args =
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
-    // Don't pass the size to `new Array()` because that would fill the array with null values
     | ".ctor", _, [ ExprType(Number _) ] -> makeResizeArray (getElementType t) [] |> Some
-    // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
     | ".ctor", _, [ ArrayOrListLiteral(vals, _) ] -> makeResizeArray (getElementType t) vals |> Some
     | ".ctor", _, args -> Helper.GlobalCall("list", t, args, ?loc = r) |> withTag "array" |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
@@ -1597,62 +1601,62 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         "void ($0)"
         |> emitExpr r t [ Helper.InstanceCall(ar, "append", t, [ arg ]) ]
         |> Some
-    | "Remove", Some ar, [ arg ] ->
-        let args = injectArg com ctx r "Array" "removeInPlace" i.GenericArgs [ arg; ar ]
-
-        Helper.LibCall(com, "array", "removeInPlace", t, args, ?loc = r) |> Some
+    | "Remove", Some ar, [ arg ] -> Helper.LibCall(com, "resize_array", "remove", t, [ arg; ar ], ?loc = r) |> Some
     | "RemoveAll", Some ar, [ arg ] ->
-        Helper.LibCall(com, "array", "removeAllInPlace", t, [ arg; ar ], ?loc = r)
+        Helper.LibCall(com, "resize_array", "remove_all_in_place", t, [ arg; ar ], ?loc = r)
         |> Some
     | "FindIndex", Some ar, [ arg ] ->
         Helper.LibCall(com, "resize_array", "find_index", t, [ arg; ar ], ?loc = r)
         |> Some
     | "FindLastIndex", Some ar, [ arg ] ->
-        Helper.LibCall(com, "array", "findLastIndex", t, [ arg; ar ], ?loc = r) |> Some
-    | "ForEach", Some ar, [ arg ] -> Helper.LibCall(com, "array", "iterate", t, [ arg; ar ], ?loc = r) |> Some
+        Helper.LibCall(com, "resize_array", "find_last_index", t, [ arg; ar ], ?loc = r)
+        |> Some
+    | "ForEach", Some ar, [ arg ] -> Helper.LibCall(com, "resize_array", "iterate", t, [ arg; ar ], ?loc = r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
-    // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
     | "get_Count", Some(MaybeCasted(ar)), _ ->
         match ar.Type with
-        // Fable translates System.Collections.Generic.List as Array
-        // TODO: Check also IList?
         | Array _ -> Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "util", "count", t, [ ar ], ?loc = r) |> Some
     | "Clear", Some ar, _ -> Helper.LibCall(com, "Util", "clear", t, [ ar ], ?loc = r) |> Some
     | "Find", Some ar, [ arg ] ->
-        let opt = Helper.LibCall(com, "array", "tryFind", t, [ arg; ar ], ?loc = r)
+        let opt = Helper.LibCall(com, "resize_array", "try_find", t, [ arg; ar ], ?loc = r)
 
         Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx r t ], ?loc = r)
         |> Some
     | "Exists", Some ar, [ arg ] -> Helper.LibCall(com, "resize_array", "exists", t, [ arg; ar ], ?loc = r) |> Some
     | "FindLast", Some ar, [ arg ] ->
-        let opt = Helper.LibCall(com, "array", "tryFindBack", t, [ arg; ar ], ?loc = r)
-
-        Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx r t ], ?loc = r)
+        Helper.LibCall(com, "resize_array", "find_last", t, [ arg; ar ], ?loc = r)
         |> Some
-    | "FindAll", Some ar, [ arg ] -> Helper.LibCall(com, "Array", "filter", t, [ arg; ar ], ?loc = r) |> Some
+    | "FindAll", Some ar, [ arg ] -> Helper.LibCall(com, "resize_array", "filter", t, [ arg; ar ], ?loc = r) |> Some
     | "AddRange", Some ar, [ arg ] ->
-        Helper.LibCall(com, "Array", "addRangeInPlace", t, [ arg; ar ], ?loc = r)
+        Helper.LibCall(com, "resize_array", "add_range_in_place", t, [ arg; ar ], ?loc = r)
         |> Some
     | "GetRange", Some ar, [ idx; cnt ] ->
-        Helper.LibCall(com, "Array", "getSubArray", t, [ ar; idx; cnt ], ?loc = r)
+        Helper.LibCall(com, "resize_array", "get_sub_array", t, [ ar; idx; cnt ], ?loc = r)
         |> Some
     | "Contains", Some(MaybeCasted(ar)), [ arg ] ->
-        // emitExpr r t [ ar; arg ] "$1 in $0" |> Some
-        let args = injectArg com ctx r "Array" "contains" i.GenericArgs [ arg; ar ]
+        let args = injectArg com ctx r "resize_array" "contains" i.GenericArgs [ arg; ar ]
 
         let moduleName =
             match ar.Type with
-            | Array _ -> "array"
+            | Array _ -> "resize_array"
             | _ -> "seq"
 
         Helper.LibCall(com, moduleName, "contains", t, args, ?loc = r) |> Some
     | "IndexOf", Some ar, args ->
-        let args = injectIndexOfArgs com ctx r i.GenericArgs (ar :: args)
-        Helper.LibCall(com, "array", "index_of", t, args, ?loc = r) |> Some
+        // args: [item; start?; count?]
+        let args =
+            match args with
+            | [ item ] -> [ item; makeIntConst 0; makeNone Int32.Number ]
+            | [ item; start ] -> [ item; start; makeNone Int32.Number ]
+            | [ item; start; count ] -> [ item; start; count ]
+            | _ -> args
+
+        Helper.LibCall(com, "resize_array", "index_of", t, args @ [ ar ], ?loc = r)
+        |> Some
     | "Insert", Some ar, [ idx; arg ] -> Helper.InstanceCall(ar, "insert", t, [ idx; arg ], ?loc = r) |> Some
     | "InsertRange", Some ar, [ idx; arg ] ->
-        Helper.LibCall(com, "array", "insert_range_in_place", t, [ idx; arg; ar ], ?loc = r)
+        Helper.LibCall(com, "resize_array", "insert_range_in_place", t, [ idx; arg; ar ], ?loc = r)
         |> Some
     | "RemoveRange", Some ar, args ->
         Helper.LibCall(com, "resize_array", "remove_range", t, args @ [ ar ], ?loc = r)
@@ -1660,14 +1664,15 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "RemoveAt", Some ar, [ idx ] -> Helper.InstanceCall(ar, "pop", t, [ idx ], ?loc = r) |> Some
     | "Reverse", Some ar, [] -> Helper.InstanceCall(ar, "reverse", t, args, ?loc = r) |> Some
     | "Sort", Some ar, [] ->
-        let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
-
+        let compareFn = genArg com ctx r 0 i.GenericArgs |> makeComparerFunction com ctx
         Helper.InstanceCall(ar, "sort", t, [ compareFn ], ?loc = r) |> Some
     | "Sort", Some ar, [ ExprType(DelegateType _) ] -> Helper.InstanceCall(ar, "sort", t, args, ?loc = r) |> Some
     | "Sort", Some ar, [ arg ] ->
         Helper.LibCall(com, "array", "sortInPlace", t, [ ar; arg ], i.SignatureArgTypes, ?loc = r)
         |> Some
-    | "ToArray", Some ar, [] -> Helper.InstanceCall(ar, "to_array", t, args, ?loc = r) |> Some
+    | "ToArray", Some ar, [] ->
+        let elementType = getElementType t
+        makeArrayFrom elementType ar |> Some
     | _ -> None
 
 let collectionExtensions
@@ -1736,6 +1741,7 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
     |> Some
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // printfn "arrays: %A" i.CompiledName
     match i.CompiledName, thisArg, args with
     | "get_Length", Some arg, _ -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
@@ -1749,19 +1755,26 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         Helper.LibCall(com, "array", "index_of", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
+    | "Resize", None, args ->
+        let args =
+            args @ [ getZero com ctx (List.head i.GenericArgs) ]
+            |> injectArg com ctx r "Array" "resize" i.GenericArgs
+
+        Helper.LibCall(com, "Array", "resize", Unit, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    // printfn "arrayModule: %A" i.CompiledName
+
     let newArray size t =
         Value(NewArray(ArrayAlloc size, t, MutableArray), None)
 
     let createArray size value =
         match t, value with
-        | Array(Number _ as t2, _), None when com.Options.TypedArrays -> newArray size t2
         | Array(t2, _), value ->
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
-            // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
-            Helper.LibCall(com, "array", "fill", t, [ newArray size t2; makeIntConst 0; size; value ])
+            Helper.LibCall(com, "array", "create", t, [ size; value ])
         | _ ->
             $"Expecting an array type but got {t}"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -1791,10 +1804,9 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "IsEmpty", [ ar ] ->
         eq (Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r)) (makeIntConst 0)
         |> Some
+    | "Concat", [ ar1; ar2 ] -> makeBinOp r t ar1 ar2 BinaryPlus |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
-        let argTypes = List.take (List.length args) i.SignatureArgTypes
-
         let call = Helper.GlobalCall(meth, t, args @ [ thisArg ], ?loc = r)
 
         Helper.GlobalCall("list", t, [ call ], ?loc = r) |> Some
@@ -2063,7 +2075,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style
     | "Pow", _ ->
-        Helper.ImportedCall("math", "pow", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "double", "pow", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToString", [ ExprTypeAs(String, format) ] ->
         let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"

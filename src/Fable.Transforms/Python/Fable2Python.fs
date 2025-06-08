@@ -287,6 +287,7 @@ module Reflection =
         | Fable.DelegateType(argTypes, returnType) -> genericTypeInfo "delegate" [| yield! argTypes; yield returnType |]
         | Fable.Tuple(genArgs, _) -> genericTypeInfo "tuple" (List.toArray genArgs)
         | Fable.Option(genArg, _) -> genericTypeInfo "option" [| genArg |]
+        | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) -> genericTypeInfo "list" [| genArg |]
         | Fable.Array(genArg, _) -> genericTypeInfo "array" [| genArg |]
         | Fable.List genArg -> genericTypeInfo "list" [| genArg |]
         | Fable.Regex -> nonGenericTypeInfo Types.regex, []
@@ -450,7 +451,7 @@ module Reflection =
             | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "types" "int64") expr
             | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "types" "uint64") expr
             | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "types" "float32") expr
-            | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
+            | _, Fable.Type.Number(Float64, _) -> pyInstanceof (libValue com ctx "types" "float64") expr
             | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
             | _ -> pyInstanceof (Expression.name "int") expr
 
@@ -479,15 +480,12 @@ module Reflection =
                     libCall com ctx None "util" "isDisposable" [ expr ], stmts
             | Types.ienumerable ->
                 let expr, stmts = com.TransformAsExpr(ctx, expr)
-
                 [ expr ] |> libCall com ctx None "util" "isIterable", stmts
             | Types.array ->
                 let expr, stmts = com.TransformAsExpr(ctx, expr)
-
                 [ expr ] |> libCall com ctx None "util" "isArrayLike", stmts
             | Types.exception_ ->
                 let expr, stmts = com.TransformAsExpr(ctx, expr)
-
                 [ expr ] |> libCall com ctx None "types" "isException", stmts
             | Types.datetime -> pyInstanceof (com.GetImportExpr(ctx, "datetime", "datetime")) expr
             | _ ->
@@ -639,7 +637,6 @@ module Annotation =
 
     let fableModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics =
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
         fableModuleAnnotation com ctx moduleName memberName resolved, stmts
 
     let stdlibModuleTypeHint com ctx moduleName memberName genArgs =
@@ -730,26 +727,16 @@ module Annotation =
         | Fable.Number(kind, info) -> makeNumberTypeAnnotation com ctx kind info
         | Fable.LambdaType(argType, returnType) ->
             let argTypes, returnType = uncurryLambdaType -1 [ argType ] returnType
-
             stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ])
         | Fable.DelegateType(argTypes, returnType) ->
             stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ])
         | Fable.Option(genArg, _) ->
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-
             Expression.binOp (resolved[0], BitOr, Expression.none), stmts
         | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
-        | Fable.Array(genArg, _) ->
-            match genArg with
-            | Fable.Type.Number(UInt8, _) -> Expression.name "bytearray", []
-            | Fable.Type.Number(Int8, _)
-            | Fable.Type.Number(Int16, _)
-            | Fable.Type.Number(UInt16, _)
-            | Fable.Type.Number(Int32, _)
-            | Fable.Type.Number(UInt32, _)
-            | Fable.Type.Number(Float32, _)
-            | Fable.Type.Number(Float64, _)
-            | _ -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
+        | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) ->
+            makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
+        | Fable.Array(genArg, _) -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
         | Fable.AnonymousRecordType(_, _genArgs, _) ->
@@ -771,7 +758,7 @@ module Annotation =
                 | UInt32 -> "uint32"
                 | Int64 -> "int64"
                 | UInt64 -> "uint64"
-                | Int32 -> "int"
+                | Int32 -> "int32"
                 | BigInt
                 | Int128
                 | UInt128
@@ -779,7 +766,7 @@ module Annotation =
                 | UNativeInt -> "int"
                 | Float16
                 | Float32 -> "float32"
-                | Float64 -> "float"
+                | Float64 -> "float64"
                 | _ -> failwith $"Unsupported number type: {kind}"
 
             match name with
@@ -831,7 +818,6 @@ module Annotation =
         match entRef.FullName, genArgs with
         | Types.result, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
         | Replacements.Util.BuiltinEntity _kind -> stdlibModuleTypeHint com ctx "typing" "Any" []
         (*
@@ -852,7 +838,6 @@ module Annotation =
             *)
         | Types.fsharpAsyncGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "async_builder" "Async" resolved, stmts
         | Types.taskGeneric, _ -> stdlibModuleTypeHint com ctx "typing" "Awaitable" genArgs
         | Types.icomparable, _ -> libValue com ctx "util" "IComparable", []
@@ -860,67 +845,52 @@ module Annotation =
         | Types.iStructuralComparable, _ -> libValue com ctx "util" "IStructuralComparable", []
         | Types.icomparerGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "util" "IComparer_1" resolved, stmts
         | Types.iequalityComparer, _ -> libValue com ctx "util" "IEqualityComparer", []
         | Types.iequalityComparerGeneric, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
             fableModuleAnnotation com ctx "util" "IEqualityComparer_1" [ resolved ], stmts
         | Types.ienumerator, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
             fableModuleAnnotation com ctx "util" "IEnumerator" [ resolved ], stmts
         | Types.ienumeratorGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "util" "IEnumerator" resolved, stmts
         | Types.ienumerable, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
             fableModuleAnnotation com ctx "util" "IEnumerable" [ resolved ], stmts
         | Types.ienumerableGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "util" "IEnumerable_1" resolved, stmts
         | Types.iequatableGeneric, _ ->
             let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
             fableModuleAnnotation com ctx "util" "IEquatable" [ resolved ], stmts
         | Types.icomparableGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "util" "IComparable_1" resolved, stmts
         | Types.icollection, _
         | Types.icollectionGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "util" "ICollection" resolved, stmts
         | Types.idisposable, _ -> libValue com ctx "util" "IDisposable", []
         | Types.iobserverGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "observable" "IObserver" resolved, stmts
         | Types.iobservableGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "observable" "IObservable" resolved, stmts
         | Types.idictionary, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "util" "IDictionary" resolved, stmts
         | Types.ievent2, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "event" "IEvent_2" resolved, stmts
         | Types.cancellationToken, _ -> libValue com ctx "async_builder" "CancellationToken", []
         | Types.mailboxProcessor, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-
             fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
         | "Fable.Core.Py.Callable", _ ->
             let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-
             let genArgs = [ Expression.ellipsis; any ]
 
             stdlibModuleAnnotation com ctx "collections.abc" "Callable" genArgs, stmts
@@ -990,6 +960,7 @@ module Annotation =
         | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
 
     let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
+        // printfn "transformFunctionWithAnnotations: %A" (name, args, body.Type)
         let argTypes = args |> List.map (fun id -> id.Type)
 
         // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
@@ -1144,7 +1115,7 @@ module Util =
         // printfn "memberFromName: %A" memberName
         match memberName with
         | "ToString" -> Expression.identifier "__str__"
-        | "GetHashCode" -> Expression.identifier "__hash__"
+        //| "GetHashCode" -> Expression.identifier "__hash__"
         | "Equals" -> Expression.identifier "__eq__"
         | "CompareTo" -> Expression.identifier "__cmp__"
         | "set" -> Expression.identifier "__setitem__"
@@ -1184,49 +1155,65 @@ module Util =
         | [] -> expr
         | m :: ms -> get com ctx None expr m false |> getParts com ctx ms
 
-    let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
-        //printfn "makeArray: %A" (exprs, kind, typ)
-        let expr, stmts =
-            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
+    let arrayExpr (com: IPythonCompiler) ctx (expr: Expression) kind typ : Expression =
+        // printfn "arrayExpr: %A" typ
 
-        let letter =
+        let array_type =
+            // printfn "Array type: %A" (kind, typ)
+
             match kind, typ with
             | Fable.ResizeArray, _ -> None
-            | _, Fable.Type.Number(UInt8, _) -> Some "B"
-            | _, Fable.Type.Number(Int8, _) -> Some "b"
-            | _, Fable.Type.Number(Int16, _) -> Some "h"
-            | _, Fable.Type.Number(UInt16, _) -> Some "H"
-            | _, Fable.Type.Number(Int32, _) -> Some "l"
-            | _, Fable.Type.Number(UInt32, _) -> Some "L"
-            | _, Fable.Type.Number(Int64, _) -> Some "q"
-            | _, Fable.Type.Number(UInt64, _) -> Some "Q"
-            | _, Fable.Type.Number(Float32, _) -> Some "f"
-            | _, Fable.Type.Number(Float64, _) -> Some "d"
-            | _ -> None
+            | _, Fable.Type.Number(UInt8, _) -> Some "byte"
+            | _, Fable.Type.Number(Int8, _) -> Some "sbyte"
+            | _, Fable.Type.Number(Int16, _) -> Some "int16"
+            | _, Fable.Type.Number(UInt16, _) -> Some "uint16"
+            | _, Fable.Type.Number(Int32, _) -> Some "int32"
+            | _, Fable.Type.Number(UInt32, _) -> Some "uint32"
+            | _, Fable.Type.Number(Int64, _) -> Some "int64"
+            | _, Fable.Type.Number(UInt64, _) -> Some "uint64"
+            | _, Fable.Type.Number(Float32, _) -> Some "float32"
+            | _, Fable.Type.Number(Float64, _) -> Some "float64"
+            | _ -> Some "Any"
 
-        match letter with
-        | Some "B" ->
-            let bytearray = Expression.name "bytearray"
-            Expression.call (bytearray, [ Expression.list expr ]), stmts
+        // printfn "Array type: %A" array_type
+
+        match array_type with
         | Some l ->
-            let array = com.GetImportExpr(ctx, "array", "array")
-            Expression.call (array, Expression.stringConstant l :: [ Expression.list expr ]), stmts
-        | _ -> expr |> Expression.list, stmts
+            let array = libValue com ctx "array_" "Array"
 
+            let type_obj =
+                if l = "Any" then
+                    com.GetImportExpr(ctx, "typing", "Any")
+                else
+                    libValue com ctx "types" l
 
-    let makeArrayAllocated (com: IPythonCompiler) ctx _typ _kind (size: Fable.Expr) =
-        //printfn "makeArrayAllocated"
+            let types_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
+            Expression.call (types_array, [ expr ])
+        | None -> expr // <-- Fix: just return expr for ResizeArray
+
+    let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
+        // printfn "makeArray: %A" typ
+
+        let exprs, stmts =
+            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
+
+        arrayExpr com ctx (Expression.list exprs) kind typ, stmts
+
+    let makeArrayAllocated (com: IPythonCompiler) ctx typ _kind (size: Fable.Expr) =
+        // printfn "makeArrayAllocated: %A" (typ, size)
+
         let size, stmts = com.TransformAsExpr(ctx, size)
         let array = Expression.list [ Expression.intConstant 0 ]
         Expression.binOp (array, Mult, size), stmts
 
     let makeArrayFrom (com: IPythonCompiler) ctx typ kind (fableExpr: Fable.Expr) : Expression * Statement list =
+        // printfn "makeArrayFrom: %A" (fableExpr, typ, kind)
+
         match fableExpr with
         | Replacements.Util.ArrayOrListLiteral(exprs, _) -> makeArray com ctx exprs kind typ
         | _ ->
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-            let name = Expression.name "list"
-            Expression.call (name, [ expr ]), stmts
+            arrayExpr com ctx expr kind typ, stmts
 
     let makeList (com: IPythonCompiler) ctx exprs =
         let expr, stmts =
@@ -1303,14 +1290,62 @@ module Util =
 
     let callSuperAsStatement (args: Expression list) = Statement.expr (callSuper args)
 
-    let makeClassConstructor (args: Arguments) (isOptional: bool) body =
+    let getDefaultValueForType (com: IPythonCompiler) (ctx: Context) (t: Fable.Type) : Expression =
+        match t with
+        | Fable.Boolean -> Expression.boolConstant false
+        | Fable.Number(kind, _) ->
+            match kind with
+            | Int8 -> makeInteger com ctx None t "int8" (0uy :> obj) |> fst
+            | UInt8 -> makeInteger com ctx None t "uint8" (0uy :> obj) |> fst
+            | Int16 -> makeInteger com ctx None t "int16" (0s :> obj) |> fst
+            | UInt16 -> makeInteger com ctx None t "uint16" (0us :> obj) |> fst
+            | Int32 -> makeInteger com ctx None t "int32" (0 :> obj) |> fst
+            | UInt32 -> makeInteger com ctx None t "uint32" (0u :> obj) |> fst
+            | Int64 -> makeInteger com ctx None t "int64" (0L :> obj) |> fst
+            | UInt64 -> makeInteger com ctx None t "uint64" (0UL :> obj) |> fst
+            | Int128
+            | UInt128
+            | BigInt
+            | NativeInt
+            | UNativeInt -> Expression.intConstant 0
+            | Float16 -> makeFloat com ctx None t "float32" 0.0 |> fst
+            | Float32 -> makeFloat com ctx None t "float32" 0.0 |> fst
+            | Float64 -> makeFloat com ctx None t "float64" 0.0 |> fst
+            | Decimal -> makeFloat com ctx None t "float64" 0.0 |> fst
+        | Fable.String
+        | Fable.Char -> Expression.stringConstant ""
+        | Fable.DeclaredType(ent, _) -> Expression.none
+        | _ -> Expression.none
+
+    let makeClassConstructor
+        (args: Arguments)
+        (isOptional: bool)
+        (fieldTypes: Fable.Type list option)
+        (com: IPythonCompiler)
+        (ctx: Context)
+        body
+        =
         // printfn "makeClassConstructor: %A" (args.Args, body)
         let name = Identifier("__init__")
         let self = Arg.arg "self"
 
         let args_ =
-            match args.Args with
-            | [ _unit ] when isOptional ->
+            match args.Args, fieldTypes with
+            | [ _unit ], Some types when isOptional ->
+                let defaults = types |> List.map (getDefaultValueForType com ctx)
+
+                { args with
+                    Args = self :: args.Args
+                    Defaults = defaults
+                }
+            | _, Some types when isOptional ->
+                let defaults = types |> List.map (getDefaultValueForType com ctx)
+
+                { args with
+                    Args = self :: args.Args
+                    Defaults = defaults
+                }
+            | [ _unit ], None when isOptional ->
                 { args with
                     Args = self :: args.Args
                     Defaults = [ Expression.none ]
@@ -1348,7 +1383,7 @@ module Util =
     // Returns type parameters that is used more than once
     let getRepeatedGenericTypeParams ctx (types: Fable.Type list) =
         types
-        |> FSharp2Fable.Util.getGenParamNames
+        |> List.collect (fun x -> FSharp2Fable.Util.getGenParamNames [ x ]) // Pass one at a time to avoid deduping
         |> List.append (ctx.ScopedTypeParams |> Set.toList)
         |> List.countBy id
         |> List.choose (fun (param, count) ->
@@ -1421,9 +1456,6 @@ module Util =
     let wrapIntExpression typ (e: Expression) =
         match e, typ with
         | Expression.Constant _, _ -> e
-        // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number((Int8 | Int16 | Int32), _) ->
-            Expression.boolOp (BoolOperator.Or, [ e; Expression.intConstant 0 ])
         | _ -> e
 
     let wrapExprInBlockWithReturn (e, stmts) = stmts @ [ Statement.return' e ]
@@ -1669,10 +1701,15 @@ module Util =
                 let xs = Expression.list expr
                 libCall com ctx None "util" "to_enumerable" [ xs ], stmts
 
-            | _ -> com.TransformAsExpr(ctx, e)
-        | Fable.Number(Float32, _)
-        | Fable.Number(Float64, _) ->
+            | _ ->
+                // printfn "tranformCast: %A" e
+                com.TransformAsExpr(ctx, e)
+        | Fable.Number(Float32, _) ->
             let cons = libValue com ctx "types" "float32"
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            Expression.call (cons, [ value ], ?loc = None), stmts
+        | Fable.Number(Float64, _) ->
+            let cons = libValue com ctx "types" "float64"
             let value, stmts = com.TransformAsExpr(ctx, e)
             Expression.call (cons, [ value ], ?loc = None), stmts
         | Fable.Number(Int32, _) ->
@@ -1730,7 +1767,7 @@ module Util =
             | Fable.NumberValue.UInt8 x -> makeInteger com ctx r value.Type "uint8" x
             | Fable.NumberValue.Int16 x -> makeInteger com ctx r value.Type "int16" x
             | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
-            | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.Int32 x -> makeInteger com ctx r value.Type "int32" x
             | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
             | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
             | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
@@ -1740,19 +1777,22 @@ module Util =
             | Fable.NumberValue.NativeInt x -> Expression.intConstant (x, ?loc = r), []
             | Fable.NumberValue.UNativeInt x -> Expression.intConstant (x, ?loc = r), []
             // TODO: special consts also need attention
-            | Fable.NumberValue.Float64 x when x = infinity -> Expression.name "float('inf')", []
-            | Fable.NumberValue.Float64 x when x = -infinity -> Expression.name "float('-inf')", []
-            | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> Expression.name "float('nan')", []
+            | Fable.NumberValue.Float64 x when x = infinity -> libValue com ctx "double" "float64.infinity", []
+            | Fable.NumberValue.Float64 x when x = -infinity ->
+                libValue com ctx "double" "float64.negative_infinity", []
+            | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> libValue com ctx "double" "float64.nan", []
             | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
             | Fable.NumberValue.Float16 x when Single.IsNaN(x) ->
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
             | Fable.NumberValue.Float16 x -> makeFloat com ctx r value.Type "float32" (float x)
             | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
-            | Fable.NumberValue.Float64 x -> Expression.floatConstant (x, ?loc = r), []
+            | Fable.NumberValue.Float64 x -> makeFloat com ctx r value.Type "float64" (float x)
             | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
             | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}", []
         | Fable.NewArray(newKind, typ, kind) ->
+            // printfn "NewArray: %A" (typ)
+
             match newKind with
             | Fable.ArrayValues values -> makeArray com ctx values kind typ
             | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ kind size
@@ -1947,7 +1987,7 @@ module Util =
             |> Option.map (fun (baseExpr, (baseArgs, _kw, _stmts)) ->
                 let consBody = [ callSuperAsStatement baseArgs ]
                 let args = Arguments.empty
-                let classCons = makeClassConstructor args false consBody
+                let classCons = makeClassConstructor args false None com ctx consBody
                 Some baseExpr, classCons @ members
             )
             |> Option.defaultValue (None, members)
@@ -2053,8 +2093,10 @@ module Util =
         //     let args = [ left; right ]
         //     Expression.call (func, args), stmts' @ stmts
 
-        | Fable.Binary(op, TransformExpr com ctx (left, stmts), right: Fable.Expr) ->
+        | Fable.Binary(op, left, right: Fable.Expr) ->
             let typ = right.Type
+            let left_typ = left.Type
+            let left, stmts = com.TransformAsExpr(ctx, left)
             let right, stmts' = com.TransformAsExpr(ctx, right)
 
             let compare op =
@@ -2110,10 +2152,19 @@ module Util =
             | BinaryDivide, _ ->
                 // For integer division, we need to use the // operator
                 match typ with
+                | Fable.Number(Int8, _)
+                | Fable.Number(Int16, _)
                 | Fable.Number(Int32, _)
                 | Fable.Number(Int64, _)
+                | Fable.Number(UInt8, _)
+                | Fable.Number(UInt16, _)
                 | Fable.Number(UInt32, _)
-                | Fable.Number(UInt64, _) -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
+                | Fable.Number(UInt64, _) ->
+                    // In .NET we only get floor division for left integers on the left
+                    match left_typ with
+                    | Fable.Number(Float32, _)
+                    | Fable.Number(Float64, _) -> Expression.binOp (left, Div, right, ?loc = range), stmts @ stmts'
+                    | _ -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
                 | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 
@@ -3098,33 +3149,13 @@ module Util =
         Expression.subscript (left, slice), stmts @ stmts'
 
     let transformAsArray (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Expression * Statement list =
+        // printfn "transformAsArray: %A" (expr, info)
         let value, stmts = com.TransformAsExpr(ctx, expr)
 
         match expr.Type with
         | Fable.Type.Array(typ, Fable.ArrayKind.ResizeArray) ->
-            let letter =
-                match typ with
-                | Fable.Type.Number(UInt8, _) -> Some "B"
-                | Fable.Type.Number(Int8, _) -> Some "b"
-                | Fable.Type.Number(Int16, _) -> Some "h"
-                | Fable.Type.Number(UInt16, _) -> Some "H"
-                | Fable.Type.Number(Int32, _) -> Some "l"
-                | Fable.Type.Number(UInt32, _) -> Some "L"
-                | Fable.Type.Number(Int64, _) -> Some "q"
-                | Fable.Type.Number(UInt64, _) -> Some "Q"
-                | Fable.Type.Number(Float32, _) -> Some "f"
-                | Fable.Type.Number(Float64, _) -> Some "d"
-                | _ -> None
-
-            match letter with
-            | Some "B" ->
-                let bytearray = Expression.name "bytearray"
-                Expression.call (bytearray, [ value ]), stmts
-            | Some l ->
-                let array = com.GetImportExpr(ctx, "array", "array")
-
-                Expression.call (array, Expression.stringConstant l :: [ value ]), stmts
-            | _ -> transformAsSlice com ctx expr info
+            // Expression.call (array, Expression.stringConstant l :: [ value ]), stmts
+            makeArray com ctx [ expr ] Fable.ArrayKind.ResizeArray typ
         | _ -> transformAsSlice com ctx expr info
 
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
@@ -3613,11 +3644,40 @@ module Util =
                 Statement.assign (Expression.name arg.Arg, annotation = annotation)
             )
 
+
         let generics = makeEntityTypeParamDecl com ctx ent
         let bases = baseExpr |> Option.toList
 
+        // Add a __hash__ method to the class
+        let hashMethod =
+            // Hashing of data classes in python does not support inheritance, so we need to implement
+            // this method manually.
+            Statement.functionDef (
+                Identifier "__hash__",
+                Arguments.arguments [ Arg.arg "self" ],
+                body =
+                    [
+                        Statement.return' (
+                            Expression.call (
+                                Expression.name "int",
+                                [
+                                    Expression.call (
+                                        Expression.attribute (
+                                            value = Expression.name "self",
+                                            attr = Identifier "GetHashCode",
+                                            ctx = Load
+                                        ),
+                                        []
+                                    )
+                                ]
+                            )
+                        )
+                    ],
+                returns = Expression.name "int"
+            )
+
         let classBody =
-            let body = [ yield! props; yield! classMembers ]
+            let body = [ yield! props; yield! classMembers; yield hashMethod ]
 
             match body with
             | [] -> [ Statement.ellipsis ]
@@ -3656,7 +3716,14 @@ module Util =
         =
         // printfn "declareClassType: %A" consBody
         let generics = makeEntityTypeParamDecl com ctx ent
-        let classCons = makeClassConstructor consArgs isOptional consBody
+
+        let fieldTypes =
+            if ent.IsValueType then
+                Some(ent.FSharpFields |> List.map (fun f -> f.FieldType))
+            else
+                None
+
+        let classCons = makeClassConstructor consArgs isOptional fieldTypes com ctx consBody
 
         let classFields = slotMembers // TODO: annotations
         let classMembers = classCons @ classMembers
@@ -3901,12 +3968,12 @@ module Util =
             let varargs =
                 fieldIds[1]
                 |> ident com ctx
-                |> (fun id ->
+                |> fun id ->
                     let gen = getGenericTypeParams [ fieldIds[1].Type ] |> Set.toList |> List.tryHead
 
                     let ta = Expression.name (gen |> Option.defaultValue "Any")
                     Arg.arg (id, annotation = ta)
-                )
+
 
             let isOptional = Helpers.isOptional fieldIds
             Arguments.arguments (args = args, vararg = varargs), isOptional
@@ -3927,8 +3994,11 @@ module Util =
                                     [ identAsExpr com ctx id; Expression.intConstant 0 ]
                                 )
                             | Fable.Array _ ->
-                                // Convert varArg from tuple to list. TODO: we might need to do this other places as well.
-                                Expression.call (Expression.name "list", [ identAsExpr com ctx id ])
+                                // Convert varArg from tuple to array. TODO: we might need to do this other places as well.
+                                let array = libValue com ctx "array_" "Array"
+                                let type_obj = com.GetImportExpr(ctx, "typing", "Any")
+                                let types_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
+                                Expression.call (types_array, [ identAsExpr com ctx id ])
                             | _ -> identAsExpr com ctx id
 
                         let ta, _ = typeAnnotation com ctx None id.Type
@@ -4477,7 +4547,7 @@ module Compiler =
                 TypeParamsScope = 0
             }
 
-        // printfn "file: %A" file.Declarations
+        //printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
         let rootComment =
