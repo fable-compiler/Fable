@@ -28,7 +28,7 @@ from typing import (
 from urllib.parse import quote, unquote
 
 from .array_ import Array
-from .core import float64
+from .core import float64, int32
 
 
 class SupportsLessThan(Protocol):
@@ -334,7 +334,7 @@ def equal_arrays(x: Sequence[_T], y: Sequence[_T]) -> bool:
     return equal_arrays_with(x, y, equals)
 
 
-def compare_primitives(x: _TSupportsLessThan, y: _TSupportsLessThan) -> int:
+def compare_primitives(x: _TSupportsLessThan, y: _TSupportsLessThan) -> int32:
     return 0 if x == y else (-1 if x < y else 1)
 
 

@@ -7,6 +7,7 @@ mod ints;
 mod native_array;
 mod options;
 mod types;
+mod util;
 
 use crate::array::register_array_module;
 use crate::datetime_offset::register_datetime_offset_module;

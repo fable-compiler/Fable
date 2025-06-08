@@ -93,6 +93,7 @@ singleton = array.singleton
 sort = array.sort
 sort_in_place = array.sort_in_place
 sort_in_place_with = array.sort_in_place_with
+sort_in_place_by = array.sort_in_place_by
 split_into = array.split_into
 sum = array.sum
 tail = array.tail
@@ -138,6 +139,13 @@ find_index = array.find_index
 sort_by = array.sort_by
 sum_by = array.sum_by
 resize = array.resize
+unzip = array.unzip
+copy = array.copy
+take = array.take
+skip = array.skip
+compare_to = array.compare_to
+sort_with = array.sort_with
+choose = array.choose
 
 Array = array.FSharpArray
 FSharpCons = array.FSharpCons
@@ -158,9 +166,13 @@ __all__ = [
     "append",
     "average",
     "average_by",
+    "choose",
     "chunk_by_size",
+    "compare_to",
     "compare_with",
+    "concat",
     "contains",
+    "copy",
     "copy_to",
     "create",
     "empty",
@@ -206,6 +218,7 @@ __all__ = [
     "min",
     "min_by",
     "pairwise",
+    "partition",
     "permute",
     "pick",
     "reduce",
@@ -213,19 +226,28 @@ __all__ = [
     "remove_at",
     "remove_in_place",
     "remove_many_at",
+    "resize",
     "reverse",
     "scan",
     "scan_back",
     "set_slice",
     "singleton",
+    "skip",
     "sort",
     "sort_by",
+    "sort_by",
     "sort_in_place",
+    "sort_in_place",
+    "sort_in_place_by",
     "sort_in_place_with",
+    "sort_with",
     "split_into",
     "sum",
+    "sum_by",
     "tail",
+    "take",
     "transpose",
+    "truncate",
     "try_find",
     "try_find_back",
     "try_find_index",
@@ -233,6 +255,7 @@ __all__ = [
     "try_head",
     "try_item",
     "try_pick",
+    "unzip",
     "update_at",
     "windowed",
     "zip",

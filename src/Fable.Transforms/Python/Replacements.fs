@@ -596,7 +596,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Array(genArg, _) ->
         let f = makeComparerFunction com ctx genArg
         // TODO: change to compareTo after main sync. See #2961
-        Helper.LibCall(com, "array", "compareWith", t, [ f; left; right ], ?loc = r)
+        Helper.LibCall(com, "array", "compare_to", t, [ f; left; right ], ?loc = r)
     | List _ -> Helper.LibCall(com, "util", "compare", t, [ left; right ], ?loc = r)
     | Tuple _ -> Helper.LibCall(com, "util", "compareArrays", t, [ left; right ], ?loc = r)
     | _ -> Helper.LibCall(com, "util", "compare", t, [ left; right ], ?loc = r)
@@ -798,7 +798,7 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let rec defaultof (com: ICompiler) ctx r t =
+let rec defaultof com ctx r t =
     match t with
     | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx r), true) |> makeValue None
     | Boolean

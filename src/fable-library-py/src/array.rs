@@ -3,6 +3,7 @@ use crate::ints::{Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8};
 use crate::native_array::{ArrayType, NativeArray};
 use crate::options::SomeWrapper;
 use crate::types::FSharpRef;
+use crate::util::{DefaultComparer, ProjectionComparer};
 use pyo3::class::basic::CompareOp;
 use pyo3::types::PyNotImplemented;
 use pyo3::types::{PyBool, PyInt};
@@ -32,6 +33,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
     m.add_function(wrap_pyfunction!(concat, &m)?)?;
     m.add_function(wrap_pyfunction!(contains, &m)?)?;
+    m.add_function(wrap_pyfunction!(copy, &m)?)?;
     m.add_function(wrap_pyfunction!(copy_to, &m)?)?;
     m.add_function(wrap_pyfunction!(create, &m)?)?;
     m.add_function(wrap_pyfunction!(empty, &m)?)?;
@@ -96,12 +98,14 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(sort, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_by, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_in_place_by, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_in_place_with, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_with, &m)?)?;
     m.add_function(wrap_pyfunction!(split_into, &m)?)?;
     m.add_function(wrap_pyfunction!(sum, &m)?)?;
     m.add_function(wrap_pyfunction!(sum_by, &m)?)?;
     m.add_function(wrap_pyfunction!(tail, &m)?)?;
+    m.add_function(wrap_pyfunction!(take, &m)?)?;
     m.add_function(wrap_pyfunction!(transpose, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find_back, &m)?)?;
@@ -112,9 +116,11 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(try_last, &m)?)?;
     m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
     m.add_function(wrap_pyfunction!(truncate, &m)?)?;
+    m.add_function(wrap_pyfunction!(unzip, &m)?)?;
     m.add_function(wrap_pyfunction!(update_at, &m)?)?;
     m.add_function(wrap_pyfunction!(windowed, &m)?)?;
     m.add_function(wrap_pyfunction!(zip, &m)?)?;
+    m.add_function(wrap_pyfunction!(compare_to, &m)?)?;
 
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
 
@@ -436,7 +442,21 @@ impl FSharpArray {
                     let result = self.storage.equals(&other_array.storage, py);
                     Ok(PyBool::new(py, !result).into_any())
                 }
-                _ => Ok(PyNotImplemented::get(py).into_any()),
+                CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge => {
+                    // Create a default comparer using direct Python comparison
+                    let default_comparer = DefaultComparer::new()?.into_pyobject(py)?;
+                    let comparison_result =
+                        self.compare_with(py, &default_comparer, &other_array)?;
+
+                    let result = match op {
+                        CompareOp::Lt => comparison_result < 0,
+                        CompareOp::Le => comparison_result <= 0,
+                        CompareOp::Gt => comparison_result > 0,
+                        CompareOp::Ge => comparison_result >= 0,
+                        _ => unreachable!(),
+                    };
+                    Ok(PyBool::new(py, result).into_any())
+                }
             }
         } else {
             // If other is not a FSharpArray, return NotImplemented
@@ -1068,22 +1088,34 @@ impl FSharpArray {
     pub fn skip(
         &self,
         py: Python<'_>,
-        count: usize,
+        count: isize,
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
+
+        // Handle negative count by treating it as 0 (F# behavior)
+        let count = if count < 0 { 0 } else { count as usize };
+
+        // Check if count is greater than array length (F# throws error)
+        if count > len {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "count is greater than array length",
+            ));
+        }
+
         // Use the source array's type instead of defaulting to Generic
         let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
-        if len == 0 {
+
+        // If count equals array length, return empty array
+        if count == len {
             return Ok(fs_cons.allocate(py, 0)?);
         }
+
         // Create the builder for results
-        let mut results = fs_cons.create(len.saturating_sub(count));
+        let mut results = fs_cons.create(len - count);
 
         // Add the remaining elements (after skipping)
-        let actual_count = std::cmp::min(count, len);
-        for i in actual_count..len {
-            // We can use push_original since we're just taking elements from the original array
+        for i in count..len {
             results.push_from_storage(&self.storage, i, py);
         }
 
@@ -1307,54 +1339,23 @@ impl FSharpArray {
         Ok(acc.into())
     }
 
-    pub fn sort_in_place(&mut self, py: Python<'_>) -> PyResult<()> {
-        match &mut self.storage {
-            NativeArray::Int8(vec) => vec.sort(),
-            NativeArray::UInt8(vec) => vec.sort(),
-            NativeArray::Int16(vec) => vec.sort(),
-            NativeArray::UInt16(vec) => vec.sort(),
-            NativeArray::Int32(vec) => vec.sort(),
-            NativeArray::UInt32(vec) => vec.sort(),
-            NativeArray::Int64(vec) => vec.sort(),
-            NativeArray::UInt64(vec) => vec.sort(),
-            NativeArray::Float32(vec) => vec.sort_by(|a, b| a.partial_cmp(b).unwrap()),
-            NativeArray::Float64(vec) => vec.sort_by(|a, b| a.partial_cmp(b).unwrap()),
-            NativeArray::String(vec) => vec.sort(),
-            NativeArray::PyObject(arc_vec) => {
-                let mut new_vec: Vec<Py<PyAny>> = Vec::with_capacity(arc_vec.lock().unwrap().len());
-                for obj in arc_vec.lock().unwrap().iter() {
-                    new_vec.push(obj.clone_ref(py));
-                }
+    pub fn sort_in_place(&mut self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Extract the Compare method from the comparer
+        let compare_func = comparer.getattr("Compare")?;
+        self.sort_in_place_with(py, &compare_func)
+    }
 
-                // Use sort_by with Python's rich comparison protocol
-                new_vec.sort_by(|a, b| {
-                    // Compare a < b using Python's __lt__ method
-                    match a.bind(py).rich_compare(b.bind(py), CompareOp::Lt) {
-                        Ok(result) => {
-                            if result.is_truthy().unwrap_or(false) {
-                                std::cmp::Ordering::Less
-                            } else {
-                                // If a is not less than b, check if b < a
-                                match b.bind(py).rich_compare(a.bind(py), CompareOp::Lt) {
-                                    Ok(result) => {
-                                        if result.is_truthy().unwrap_or(false) {
-                                            std::cmp::Ordering::Greater
-                                        } else {
-                                            std::cmp::Ordering::Equal
-                                        }
-                                    }
-                                    Err(_) => std::cmp::Ordering::Equal, // Default to Equal on error
-                                }
-                            }
-                        }
-                        Err(_) => std::cmp::Ordering::Equal, // Default to Equal on error
-                    }
-                });
-
-                self.storage = NativeArray::PyObject(Arc::new(Mutex::new(new_vec)));
-            }
-        }
-        Ok(())
+    pub fn sort_in_place_by(
+        &mut self,
+        py: Python<'_>,
+        projection: &Bound<'_, PyAny>,
+        comparer: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        // Create a comparison helper that applies projection before comparing
+        let compare_func =
+            ProjectionComparer::new(projection.clone().into(), comparer.clone().into())?;
+        let compare_func_obj = compare_func.into_pyobject(py)?;
+        self.sort_in_place_with(py, &compare_func_obj)
     }
 
     pub fn sort(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
@@ -1699,7 +1700,7 @@ impl FSharpArray {
         }
 
         // Create array to hold chunks
-        let mut results = NativeArray::new(&self.storage.get_type(), Some(chunks));
+        let mut results = NativeArray::new(&ArrayType::Generic, Some(chunks));
 
         // Calculate chunk sizes
         let chunks = std::cmp::min(chunks, len);
@@ -1733,16 +1734,16 @@ impl FSharpArray {
         Ok(FSharpArray { storage: results })
     }
 
-    pub fn truncate(&self, _py: Python<'_>, count: usize) -> PyResult<FSharpArray> {
-        if count > self.storage.len() {
-            return Err(PyErr::new::<exceptions::PyValueError, _>(
-                "The input must be positive.",
-            ));
-        }
+    pub fn truncate(&self, py: Python<'_>, count: isize) -> PyResult<FSharpArray> {
+        // Handle negative count by treating it as 0 (F# behavior: max 0 count)
+        let count = if count < 0 { 0 } else { count as usize };
 
-        let mut results = self.storage.clone();
-        results.truncate(count);
-        Ok(FSharpArray { storage: results })
+        // F# truncate uses subArrayImpl which doesn't error if count > length
+        // It just takes what's available, so we use min(count, len)
+        let actual_count = std::cmp::min(count, self.storage.len());
+
+        // Use get_sub_array to get elements from 0 to actual_count
+        self.get_sub_array(py, 0, actual_count, None)
     }
 
     #[pyo3(signature = (f, cons=None))]
@@ -2103,17 +2104,12 @@ impl FSharpArray {
         comparer: &Bound<'_, PyAny>,
         other: &FSharpArray,
     ) -> PyResult<isize> {
-        // Check if the other object is a FSharpArray
-        if self.storage.len() != other.storage.len() {
-            return if self.storage.len() < other.storage.len() {
-                Ok(-1)
-            } else {
-                Ok(1)
-            };
-        }
+        let len1 = self.storage.len();
+        let len2 = other.storage.len();
+        let min_len = std::cmp::min(len1, len2);
 
-        // Compare elements using the provided comparer function
-        for i in 0..self.storage.len() {
+        // Compare elements one by one up to the minimum length
+        for i in 0..min_len {
             let item1 = self.get_item_at_index(i as isize, py)?;
             let item2 = other.get_item_at_index(i as isize, py)?;
 
@@ -2123,8 +2119,14 @@ impl FSharpArray {
                 return Ok(res);
             }
         }
-
-        Ok(0)
+        // If all compared elements are equal, compare lengths
+        if len1 < len2 {
+            Ok(-1)
+        } else if len1 > len2 {
+            Ok(1)
+        } else {
+            Ok(0)
+        }
     }
 
     pub fn exists_offset(
@@ -2731,6 +2733,11 @@ impl FSharpArray {
         Ok(false)
     }
 
+    /// Creates a shallow copy of the array
+    pub fn copy(&self, _py: Python<'_>) -> PyResult<FSharpArray> {
+        Ok(self.clone())
+    }
+
     // let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
     pub fn max(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         reduce_impl(self, py, |acc, item, py| {
@@ -2964,6 +2971,111 @@ impl FSharpArray {
 
         Ok(acc.into())
     }
+
+    pub fn unzip(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let len = self.storage.len();
+
+        // Create two new arrays for the results
+        let mut res1 = NativeArray::new(&ArrayType::Generic, Some(len));
+        let mut res2 = NativeArray::new(&ArrayType::Generic, Some(len));
+
+        // Iterate through each element and split the tuples
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+
+            // Try to extract as a tuple
+            if let Ok(tuple) = item.bind(py).downcast::<PyTuple>() {
+                if tuple.len() != 2 {
+                    return Err(PyErr::new::<exceptions::PyValueError, _>(
+                        "Expected tuples of length 2",
+                    ));
+                }
+
+                let first = tuple.get_item(0)?;
+                let second = tuple.get_item(1)?;
+
+                res1.push_value(&first, py)?;
+                res2.push_value(&second, py)?;
+            } else {
+                return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                    "Expected an array of tuples",
+                ));
+            }
+        }
+
+        // Create the result arrays
+        let array1 = FSharpArray { storage: res1 };
+        let array2 = FSharpArray { storage: res2 };
+
+        // Return as a tuple
+        let result_tuple = PyTuple::new(
+            py,
+            &[Py::new(py, array1)?.bind(py), Py::new(py, array2)?.bind(py)],
+        );
+        Ok(result_tuple?.into())
+    }
+
+    #[pyo3(signature = (count, cons=None))]
+    pub fn take(
+        &self,
+        py: Python<'_>,
+        count: isize,
+        cons: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<FSharpArray> {
+        if count < 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be non-negative.",
+            ));
+        }
+
+        let count = count as usize;
+        let len = self.storage.len();
+
+        if count > len {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "count is greater than array length",
+            ));
+        }
+
+        if count == 0 {
+            return FSharpArray::empty(py, cons);
+        }
+
+        // Use get_sub_array to get elements from 0 to count
+        self.get_sub_array(py, 0, count, cons)
+    }
+
+    pub fn compare_to(
+        &self,
+        py: Python<'_>,
+        comparer: &Bound<'_, PyAny>,
+        other: &FSharpArray,
+    ) -> PyResult<isize> {
+        let len1 = self.storage.len();
+        let len2 = other.storage.len();
+
+        // First compare lengths (F# implementation behavior)
+        if len1 > len2 {
+            return Ok(1);
+        } else if len1 < len2 {
+            return Ok(-1);
+        }
+
+        // If lengths are equal, compare elements one by one
+        for i in 0..len1 {
+            let item1 = self.get_item_at_index(i as isize, py)?;
+            let item2 = other.get_item_at_index(i as isize, py)?;
+
+            let res = comparer.call1((item1, item2))?;
+            let res: isize = res.extract()?;
+            if res != 0 {
+                return Ok(res);
+            }
+        }
+
+        // All elements are equal
+        Ok(0)
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -3042,7 +3154,7 @@ pub fn filter(
 #[pyo3(signature = (count, array, cons=None))]
 pub fn skip(
     py: Python<'_>,
-    count: usize,
+    count: isize,
     array: &FSharpArray,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
@@ -3110,8 +3222,12 @@ pub fn fold_back_indexed(
 }
 
 #[pyfunction]
-pub fn sort_in_place(py: Python<'_>, array: &mut FSharpArray) -> PyResult<()> {
-    array.sort_in_place(py)
+pub fn sort_in_place(
+    py: Python<'_>,
+    array: &mut FSharpArray,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    array.sort_in_place(py, comparer)
 }
 
 #[pyfunction]
@@ -3121,6 +3237,16 @@ pub fn sort_in_place_with(
     array: &mut FSharpArray,
 ) -> PyResult<()> {
     array.sort_in_place_with(py, compare_func)
+}
+
+#[pyfunction]
+pub fn sort_in_place_by(
+    py: Python<'_>,
+    projection: &Bound<'_, PyAny>,
+    array: &mut FSharpArray,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    array.sort_in_place_by(py, projection, comparer)
 }
 
 #[pyfunction]
@@ -3305,9 +3431,10 @@ pub fn split_into(py: Python<'_>, chunks: usize, array: &FSharpArray) -> PyResul
 #[pyo3(signature = (array, cons=None))]
 pub fn transpose(
     py: Python<'_>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.transpose(py, cons)
 }
 
@@ -3654,6 +3781,12 @@ pub fn contains(py: Python<'_>, value: &Bound<'_, PyAny>, array: &FSharpArray) -
 }
 
 #[pyfunction]
+pub fn copy(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
+    array.copy(py)
+}
+
+#[pyfunction]
 #[pyo3(signature = (array, comparer))]
 pub fn max(
     py: Python<'_>,
@@ -3767,7 +3900,7 @@ pub fn last(py: Python<'_>, array: &FSharpArray) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-pub fn truncate(py: Python<'_>, array: &FSharpArray, count: usize) -> PyResult<FSharpArray> {
+pub fn truncate(py: Python<'_>, count: isize, array: &FSharpArray) -> PyResult<FSharpArray> {
     array.truncate(py, count)
 }
 
@@ -3854,8 +3987,8 @@ pub fn sort_by(
 #[pyfunction]
 pub fn sort_with(
     py: Python<'_>,
-    array: &FSharpArray,
     comparer: &Bound<'_, PyAny>,
+    array: &FSharpArray,
 ) -> PyResult<FSharpArray> {
     array.sort_with(py, comparer)
 }
@@ -3870,6 +4003,33 @@ pub fn sum_by(
 ) -> PyResult<PyObject> {
     let array = ensure_array(py, array)?;
     array.sum_by(py, projection, adder)
+}
+
+#[pyfunction]
+pub fn unzip(py: Python<'_>, array: &FSharpArray) -> PyResult<PyObject> {
+    array.unzip(py)
+}
+
+#[pyfunction]
+#[pyo3(signature = (count, array, cons=None))]
+pub fn take(
+    py: Python<'_>,
+    count: isize,
+    array: &Bound<'_, PyAny>,
+    cons: Option<&Bound<'_, PyAny>>,
+) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
+    array.take(py, count, cons)
+}
+
+#[pyfunction]
+pub fn compare_to(
+    py: Python<'_>,
+    comparer: &Bound<'_, PyAny>,
+    source1: &FSharpArray,
+    source2: &FSharpArray,
+) -> PyResult<isize> {
+    source1.compare_to(py, comparer, source2)
 }
 
 // Constructor class for array allocation

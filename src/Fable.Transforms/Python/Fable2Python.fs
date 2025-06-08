@@ -1290,14 +1290,62 @@ module Util =
 
     let callSuperAsStatement (args: Expression list) = Statement.expr (callSuper args)
 
-    let makeClassConstructor (args: Arguments) (isOptional: bool) body =
+    let getDefaultValueForType (com: IPythonCompiler) (ctx: Context) (t: Fable.Type) : Expression =
+        match t with
+        | Fable.Boolean -> Expression.boolConstant false
+        | Fable.Number(kind, _) ->
+            match kind with
+            | Int8 -> makeInteger com ctx None t "int8" (0uy :> obj) |> fst
+            | UInt8 -> makeInteger com ctx None t "uint8" (0uy :> obj) |> fst
+            | Int16 -> makeInteger com ctx None t "int16" (0s :> obj) |> fst
+            | UInt16 -> makeInteger com ctx None t "uint16" (0us :> obj) |> fst
+            | Int32 -> makeInteger com ctx None t "int32" (0 :> obj) |> fst
+            | UInt32 -> makeInteger com ctx None t "uint32" (0u :> obj) |> fst
+            | Int64 -> makeInteger com ctx None t "int64" (0L :> obj) |> fst
+            | UInt64 -> makeInteger com ctx None t "uint64" (0UL :> obj) |> fst
+            | Int128
+            | UInt128
+            | BigInt
+            | NativeInt
+            | UNativeInt -> Expression.intConstant 0
+            | Float16 -> makeFloat com ctx None t "float32" 0.0 |> fst
+            | Float32 -> makeFloat com ctx None t "float32" 0.0 |> fst
+            | Float64 -> makeFloat com ctx None t "float64" 0.0 |> fst
+            | Decimal -> makeFloat com ctx None t "float64" 0.0 |> fst
+        | Fable.String
+        | Fable.Char -> Expression.stringConstant ""
+        | Fable.DeclaredType(ent, _) -> Expression.none
+        | _ -> Expression.none
+
+    let makeClassConstructor
+        (args: Arguments)
+        (isOptional: bool)
+        (fieldTypes: Fable.Type list option)
+        (com: IPythonCompiler)
+        (ctx: Context)
+        body
+        =
         // printfn "makeClassConstructor: %A" (args.Args, body)
         let name = Identifier("__init__")
         let self = Arg.arg "self"
 
         let args_ =
-            match args.Args with
-            | [ _unit ] when isOptional ->
+            match args.Args, fieldTypes with
+            | [ _unit ], Some types when isOptional ->
+                let defaults = types |> List.map (getDefaultValueForType com ctx)
+
+                { args with
+                    Args = self :: args.Args
+                    Defaults = defaults
+                }
+            | _, Some types when isOptional ->
+                let defaults = types |> List.map (getDefaultValueForType com ctx)
+
+                { args with
+                    Args = self :: args.Args
+                    Defaults = defaults
+                }
+            | [ _unit ], None when isOptional ->
                 { args with
                     Args = self :: args.Args
                     Defaults = [ Expression.none ]
@@ -1408,9 +1456,6 @@ module Util =
     let wrapIntExpression typ (e: Expression) =
         match e, typ with
         | Expression.Constant _, _ -> e
-        // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number((Int8 | Int16 | Int32), _) ->
-            Expression.boolOp (BoolOperator.Or, [ e; Expression.intConstant 0 ])
         | _ -> e
 
     let wrapExprInBlockWithReturn (e, stmts) = stmts @ [ Statement.return' e ]
@@ -1942,7 +1987,7 @@ module Util =
             |> Option.map (fun (baseExpr, (baseArgs, _kw, _stmts)) ->
                 let consBody = [ callSuperAsStatement baseArgs ]
                 let args = Arguments.empty
-                let classCons = makeClassConstructor args false consBody
+                let classCons = makeClassConstructor args false None com ctx consBody
                 Some baseExpr, classCons @ members
             )
             |> Option.defaultValue (None, members)
@@ -3671,7 +3716,14 @@ module Util =
         =
         // printfn "declareClassType: %A" consBody
         let generics = makeEntityTypeParamDecl com ctx ent
-        let classCons = makeClassConstructor consArgs isOptional consBody
+
+        let fieldTypes =
+            if ent.IsValueType then
+                Some(ent.FSharpFields |> List.map (fun f -> f.FieldType))
+            else
+                None
+
+        let classCons = makeClassConstructor consArgs isOptional fieldTypes com ctx consBody
 
         let classFields = slotMembers // TODO: annotations
         let classMembers = classCons @ classMembers
@@ -3916,12 +3968,12 @@ module Util =
             let varargs =
                 fieldIds[1]
                 |> ident com ctx
-                |> (fun id ->
+                |> fun id ->
                     let gen = getGenericTypeParams [ fieldIds[1].Type ] |> Set.toList |> List.tryHead
 
                     let ta = Expression.name (gen |> Option.defaultValue "Any")
                     Arg.arg (id, annotation = ta)
-                )
+
 
             let isOptional = Helpers.isOptional fieldIds
             Arguments.arguments (args = args, vararg = varargs), isOptional
@@ -3942,8 +3994,11 @@ module Util =
                                     [ identAsExpr com ctx id; Expression.intConstant 0 ]
                                 )
                             | Fable.Array _ ->
-                                // Convert varArg from tuple to list. TODO: we might need to do this other places as well.
-                                Expression.call (Expression.name "list", [ identAsExpr com ctx id ])
+                                // Convert varArg from tuple to array. TODO: we might need to do this other places as well.
+                                let array = libValue com ctx "array_" "Array"
+                                let type_obj = com.GetImportExpr(ctx, "typing", "Any")
+                                let types_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
+                                Expression.call (types_array, [ identAsExpr com ctx id ])
                             | _ -> identAsExpr com ctx id
 
                         let ta, _ = typeAnnotation com ctx None id.Type

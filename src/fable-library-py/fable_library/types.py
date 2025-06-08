@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from typing import (
     Any,
-    Generic,
     TypeAlias,
     TypeVar,
     cast,
@@ -28,36 +27,6 @@ from .util import IComparable, compare
 
 
 _T = TypeVar("_T")
-
-
-# class FSharpRef(Generic[_T]):
-#     __slots__ = "getter", "setter"
-
-#     def __init__(
-#         self,
-#         contents_or_getter: None | (_T | Callable[[], _T]),
-#         setter: Callable[[_T], None] | None = None,
-#     ) -> None:
-#         contents = cast(_T, contents_or_getter)
-
-#         def set_contents(value: _T):
-#             nonlocal contents
-#             contents = value
-
-#         if callable(setter):
-#             self.getter = cast(Callable[[], _T], contents_or_getter)
-#             self.setter = setter
-#         else:
-#             self.getter = lambda: contents
-#             self.setter = set_contents
-
-#     @property
-#     def contents(self) -> _T:
-#         return self.getter()
-
-#     @contents.setter
-#     def contents(self, v: _T) -> None:
-#         self.setter(v)
 
 
 class Union(IComparable):
