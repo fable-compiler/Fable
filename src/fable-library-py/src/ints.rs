@@ -406,19 +406,19 @@ macro_rules! integer_variant {
             }
         }
 
-        // Implement the `Into` trait to allow automatic conversion to the underlying type
-        impl Into<$type> for $name {
-            fn into(self) -> $type {
-                self.0
+        // Implement the `From` trait to allow automatic conversion to/from the underlying type
+        impl From<$name> for $type {
+            fn from(value: $name) -> $type {
+                value.0
             }
         }
 
-        impl Into<$name> for $type {
-            fn into(self) -> $name {
-                $name(self)
+        impl From<$type> for $name {
+            fn from(value: $type) -> $name {
+                $name(value)
             }
         }
-     };
+    };
 }
 
 integer_variant!(Int8, i8, 0xff_u32);

@@ -6,6 +6,7 @@ mod floats;
 mod ints;
 mod native_array;
 mod options;
+mod strings;
 mod types;
 mod util;
 
@@ -14,6 +15,7 @@ use crate::datetime_offset::register_datetime_offset_module;
 use crate::floats::*;
 use crate::ints::*;
 use crate::options::register_option_module;
+use crate::strings::register_string_module;
 use crate::types::*;
 
 /// A Python module implemented in Rust.
@@ -32,6 +34,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     register_datetime_offset_module(m)?;
     register_option_module(m)?;
     register_float_module(m)?;
+    register_string_module(m)?;
     register_types_module(m)?;
 
     Ok(())

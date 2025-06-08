@@ -1,587 +1,112 @@
 from __future__ import annotations
 
-import locale
-import re
 from base64 import b64decode, b64encode
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass
-from datetime import datetime
-from enum import IntEnum
-from re import Match, Pattern
-from typing import (
-    Any,
-    NoReturn,
-    TypeVar,
-    overload,
-)
+from typing import Any
 
-from .date import to_string as date_to_string
-from .numeric import multiply, to_exponential, to_fixed, to_hex, to_precision
-from .reg_exp import escape
-from .types import (
-    Array,
-    FloatTypes,
-    IntegerTypes,
-    byte,
-    float32,
-    float64,
-    int16,
-    int32,
-    int64,
-    sbyte,
-    to_string,
-    uint16,
-    uint32,
-    uint64,
-)
+from .core import strings
+from .types import Array
 
 
-T = TypeVar("T")
+# Re-export classes from core.strings
+IPrintfFormat = strings.IPrintfFormat
+StringComparison = strings.StringComparison
+
+# Re-export functions from core.strings - now with proper F# semantics
+printf = strings.printf
+continue_print = strings.continue_print
+to_console = strings.to_console
+to_text = strings.to_text
+format_replacement = strings.format_replacement
+format = strings.format
+initialize = strings.initialize
+insert = strings.insert
+is_null_or_empty = strings.is_null_or_empty
+is_null_or_white_space = strings.is_null_or_white_space
+concat = strings.concat
+join = strings.join
+pad_left = strings.pad_left
+pad_right = strings.pad_right
+remove = strings.remove
+replace = strings.replace
+replicate = strings.replicate
+get_char_at_index = strings.get_char_at_index
+split = strings.split
+trim = strings.trim
+trim_start = strings.trim_start
+trim_end = strings.trim_end
+filter = strings.filter
+substring = strings.substring
+to_char_array2 = strings.to_char_array2
+compare = strings.compare
+starts_with = strings.starts_with
+ends_with = strings.ends_with
+index_of = strings.index_of
+last_index_of = strings.last_index_of
 
 
-_fs_format_regexp: Pattern[str] = re.compile(r"(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)")
-_interpolate_regexp: Pattern[str] = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)")
-_format_regexp: Pattern[str] = re.compile(r"\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}")
+# Additional helper functions that might be needed for backward compatibility
+def to_console_error(arg: Any) -> None:
+    """Print to console error stream."""
+
+    def print_func(x: str) -> None:
+        print(x)
+
+    return continue_print(print_func, arg)
 
 
-IPrintfFormatContinuation = Callable[[Callable[[str], Any]], Callable[[str], Any]]
+def to_fail(arg: Any) -> None:
+    """Fail with message."""
 
-
-@dataclass
-class IPrintfFormat:
-    input: str
-    cont: IPrintfFormatContinuation
-
-
-def printf(input: str) -> IPrintfFormat:
-    format: IPrintfFormatContinuation = fs_format(input)
-    return IPrintfFormat(input=input, cont=format)
-
-
-def continue_print(cont: Callable[[str], Any], arg: IPrintfFormat | str) -> Any:
-    """Print continuation."""
-
-    if isinstance(arg, IPrintfFormat):
-        ret = arg.cont(cont)
-        return ret
-
-    return cont(arg)
-
-
-def to_console(arg: IPrintfFormat | Any) -> Any:
-    return continue_print(print, arg)
-
-
-def to_console_error(arg: IPrintfFormat | str):
-    return continue_print(lambda x: print(x), arg)  # noqa: T201
-
-
-def to_text(arg: IPrintfFormat | str) -> str | Callable[..., Any]:
-    def cont(x: str) -> Any:
-        return x
-
-    return continue_print(cont, arg)
-
-
-def to_fail(arg: IPrintfFormat | str):
-    def fail(msg: str):
+    def fail(msg: str) -> None:
         raise Exception(msg)
 
     return continue_print(fail, arg)
 
 
-def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, format: Any):
-    sign = ""
-    flags = flags or ""
-    format = format or ""
-
-    match rep:
-        case (
-            int()
-            | float()
-            | byte()
-            | uint16()
-            | uint32()
-            | uint64()
-            | sbyte()
-            | int16()
-            | int32()
-            | int64()
-            | float32()
-            | float64()
-        ):
-            if format not in ["x", "X"]:
-                if rep < 0:
-                    rep = rep * -1
-                    sign = "-"
-                else:
-                    if flags.find(" ") >= 0:
-                        sign = " "
-                    elif flags.find("+") >= 0:
-                        sign = "+"
-
-            if format == "x":
-                rep = to_hex(rep)
-            elif format == "X":
-                rep = to_hex(rep).upper()
-            if format in ("f", "F"):
-                precision = int(precision) if precision is not None else 6
-                rep = to_fixed(float(rep), precision)
-            elif format in ("g", "G"):
-                rep = to_precision(float(rep), precision) if precision is not None else to_precision(float(rep))
-            elif format in ("e", "E"):
-                rep = to_exponential(float(rep), precision) if precision is not None else to_exponential(float(rep))
-            else:  # AOid
-                rep = to_string(rep)
-
-        case datetime():
-            rep = date_to_string(rep)
-        case _:
-            rep = to_string(rep)
-
-    if padLength is not None:
-        padLength = int(padLength)
-        zeroFlag = flags.find("0") >= 0  # Use '0' for left padding
-        minusFlag = flags.find("-") >= 0  # Right padding
-        ch = " " if minusFlag or not zeroFlag else "0"
-        if ch == "0":
-            rep = pad_left(rep, padLength - len(sign), ch, minusFlag)
-            rep = sign + rep
-        else:
-            rep = pad_left(sign + rep, padLength, ch, minusFlag)
-
-    else:
-        rep = sign + rep
-
-    return rep
-
-
-def interpolate(string: str, values: list[Any]) -> str:
-    valIdx = 0
-    strIdx = 0
-    result = ""
-    matches = _interpolate_regexp.finditer(string)
-    for match in matches:
-        # The first group corresponds to the no-escape char (^|[^%]), the actual pattern starts in the next char
-        # Note: we don't use negative lookbehind because some browsers don't support it yet
-        matchIndex = match.start() + len(match[1] or "")
-        result += string[strIdx:matchIndex].replace("%%", "%")
-        [_, flags, padLength, precision, format] = match.groups()
-        result += format_replacement(values[valIdx], flags, padLength, precision, format)
-        valIdx += 1
-
-        strIdx = match.end()
-
-    result += string[strIdx:].replace("%%", "%")
-    return result
-
-
-def format_once(str2: str, rep: Any):
-    def match(m: Match[str]):
-        prefix, flags, pad_length, precision, format = m.groups()
-        once: str = format_replacement(rep, flags, pad_length, precision, format)
-        return prefix + once.replace("%", "%%")
-
-    ret = _fs_format_regexp.sub(match, str2, count=1)
-    return ret
-
-
-def create_printer(string: str, cont: Callable[..., Any]):
-    def _(*args: Any):
-        str_copy: str = string
-        for arg in args:
-            str_copy = format_once(str_copy, arg)
-
-        if _fs_format_regexp.search(str_copy):
-            return create_printer(str_copy, cont)
-        return cont(str_copy.replace("%%", "%"))
-
-    return _
-
-
-def fs_format(str: str) -> Callable[[Callable[..., Any]], Any]:
-    def _(cont: Callable[..., Any]):
-        if _fs_format_regexp.search(str):
-            return create_printer(str, cont)
-        return cont(str)
-
-    return _
-
-
-def format(string: str, *args: Any) -> str:
-    if not string and args:
-        # Called with culture info
-        string = args[0]
-        args = args[1:]
-
-    def match(m: Match[str]) -> str:
-        idx, padLength, format, precision_, pattern = list(m.groups())
-        rep = args[int(idx)]
-        if isinstance(rep, IntegerTypes | FloatTypes):
-            precision: int | None = None
-            try:
-                precision: int | None = int(precision_)
-            except Exception:
-                pass
-
-            if format in ["f", "F"]:
-                precision = precision if precision is not None else 2
-                rep = to_fixed(rep, precision)
-
-            elif format in ["g", "G"]:
-                rep = to_precision(rep, precision) if precision is not None else to_precision(rep)
-
-            elif format in ["e", "E"]:
-                rep = to_exponential(rep, precision) if precision is not None else to_exponential(rep)
-
-            elif format in ["p", "P"]:
-                precision = precision if precision is not None else 2
-                rep = to_fixed(multiply(rep, 100), precision) + " %"
-
-            elif format in ["d", "D"]:
-                rep = pad_left(str(rep), precision, "0") if precision is not None else str(rep)
-
-            elif format in ["x", "X"] and isinstance(
-                rep, int | byte | int16 | int32 | int64 | sbyte | uint16 | uint32 | uint64
-            ):
-                rep = pad_left(to_hex(rep), precision, "0") if precision is not None else to_hex(rep)
-                if format == "X":
-                    rep = rep.upper()
-            elif pattern:
-                sign = ""
-
-                def match(m: Match[str]):
-                    nonlocal sign, rep
-
-                    intPart, decimalPart = list(m.groups())
-                    if rep < 0:
-                        rep = multiply(rep, -1)
-                        sign = "-"
-
-                    rep = to_fixed(rep, len(decimalPart) - 1 if decimalPart else 0)
-                    return pad_left(
-                        rep,
-                        len(intPart or "") - len(sign) + (len(decimalPart) if decimalPart else 0),
-                        "0",
-                    )
-
-                rep = re.sub(r"(0+)(\.0+)?", match, pattern)
-                rep = sign + rep
-
-        elif isinstance(rep, datetime):
-            rep = date_to_string(rep, pattern or format)
-        else:
-            rep = to_string(rep)
-
-        try:
-            padLength = int((padLength or " ")[1:])
-            rep = pad_left(str(rep), abs(padLength), " ", padLength < 0)
-        except ValueError:
-            pass
-
-        return str(rep)
-
-    return _format_regexp.sub(match, string)
-
-
-def initialize(n: int, f: Callable[[int], str]) -> str:
-    if n < 0:
-        raise Exception("String length must be non-negative")
-
-    return "".join([f(i) for i in range(n)])
-
-
-def insert(string: str, startIndex: int, value: str):
-    if startIndex < 0 or startIndex > len(string):
-        raise ValueError("startIndex is negative or greater than the length of this instance.")
-
-    return string[:startIndex] + value + string[startIndex:]
-
-
-def is_null_or_empty(string: str | None):
-    return not isinstance(string, str) or not len(string)
-
-
-def is_null_or_white_space(string: Any | None) -> bool:
-    return not string or not isinstance(string, str) or string.isspace()
-
-
-def concat(*xs: Iterable[Any]) -> str:
-    return "".join(map(str, xs))
-
-
-def join(delimiter: str, xs: Iterable[Any]) -> str:
-    return delimiter.join(str(x) for x in xs)
-
-
-def join_with_indices(delimiter: str, xs: list[str], startIndex: int, count: int):
-    endIndexPlusOne = startIndex + count
-    if endIndexPlusOne > len(xs):
-        raise ValueError("Index and count must refer to a location within the buffer.")
-
-    return delimiter.join(xs[startIndex:endIndexPlusOne])
-
-
-def not_supported(name: str) -> NoReturn:
-    raise Exception("The environment doesn't support '" + name + "', please use a polyfill.")
-
-
-def to_base64string(in_array: Array[byte]) -> str:
+# Utility functions for base64 encoding/decoding
+def to_base64string(in_array: Array[int]) -> str:
+    """Convert byte array to base64 string."""
     return b64encode(bytes(in_array)).decode("utf8")
 
 
-def from_base64string(b64encoded: str) -> Array[byte]:
-    return Array[byte](b64decode(b64encoded))
+def from_base64string(b64encoded: str) -> Array[int]:
+    """Convert base64 string to byte array."""
+    return Array[int](b64decode(b64encoded))
 
 
-def pad_left(string: str, length: int, ch: str | None = None, isRight: bool | None = False) -> str:
-    ch = ch or " "
-    length = length - len(string)
-    for _ in range(length):
-        string = string + ch if isRight else ch + string
+def join_with_indices(delimiter: str, xs: list[str], startIndex: int, count: int) -> str:
+    """Join strings with start index and count."""
+    endIndexPlusOne = startIndex + count
+    if endIndexPlusOne > len(xs):
+        raise ValueError("Index and count must refer to a location within the buffer.")
+    return delimiter.join(xs[startIndex:endIndexPlusOne])
 
-    return string
 
+def not_supported(name: str) -> None:
+    """Raise not supported exception."""
+    raise Exception("The environment doesn't support '" + name + "', please use a polyfill.")
 
-def pad_right(string: str, len: int, ch: str | None = None) -> str:
-    return pad_left(string, len, ch, True)
 
-
-def remove(string: str, startIndex: int, count: int | None = None):
-    if startIndex >= len(string):
-        raise ValueError("startIndex must be less than length of string")
-
-    if count and (startIndex + count) > len(string):
-        raise ValueError("Index and count must refer to a location within the string.")
-
-    return string[:startIndex] + (string[startIndex + count :] if count is not None else "")
-
-
-def replace(string: str, search: str, replace: str):
-    return string.replace(search, replace)
-
-
-def replicate(n: int, x: str) -> str:
-    return initialize(n, lambda _=0: x)
-
-
-def get_char_at_index(input: str, index: int):
-    if index < 0 or index >= len(input):
-        raise ValueError("Index was outside the bounds of the array.")
-
-    return input[index]
-
-
-def split(
-    string: str,
-    splitters: str | list[str],
-    count: int | None = None,
-    removeEmpty: int = 0,
-) -> Array[str]:
-    """Split string
-
-    Returns a string array that contains the substrings in this instance
-    that are delimited by elements of a specified string or Unicode
-    character array."""
-
-    if count and count < 0:
-        raise ValueError("Count cannot be less than zero")
-
-    if count == 0:
-        return Array[str]()
-
-    if isinstance(splitters, str):
-        if not removeEmpty:
-            return Array[str](string.split(splitters, count - 1 if count else -1))
-
-        splitters = [splitters]
-
-    splitters = [escape(x) for x in splitters] or [" "]
-
-    i = 0
-    splits: list[str] = []
-    matches = re.finditer("|".join(splitters), string)
-    for m in matches:
-        if count is not None and count <= 1:
-            break
-
-        split = string[i : m.start()]
-        if split or not removeEmpty:
-            splits.append(split)
-
-            count = count - 1 if count is not None else count
-
-        i = m.end()
-
-    if (count is None or (count and count > 0)) and len(string) - i > -1:
-        split = string[i:]
-        if split or not removeEmpty:
-            splits.append(split)
-
-    return Array[str](splits)
-
-
-def trim(string: str, *chars: str) -> str:
-    if not len(chars):
-        return string.strip()
-
-    pattern = "[" + escape("".join(chars)) + "]+"
-    return re.sub(pattern + "$", "", re.sub("^" + pattern, "", string))
-
-
-def trim_start(string: str, *chars: str) -> str:
-    if not len(chars):
-        return string.lstrip()
-
-    return re.sub("^[" + escape("".join(chars)) + "]+", "", string)
-
-
-def trim_end(string: str, *chars: str) -> str:
-    if not len(chars):
-        return string.rstrip()
-
-    return re.sub("[" + escape("".join(chars)) + "]+$", "", string)
-
-
-def filter(pred: Callable[[str], bool], x: str) -> str:
-    return "".join(c for c in x if pred(c))
-
-
-def substring(string: str, startIndex: int, length: int | None = None) -> str:
-    if startIndex + (length or 0) > len(string):
-        raise ValueError("Invalid startIndex and/or length")
-
-    if length is not None:
-        return string[startIndex : startIndex + length]
-
-    return string[startIndex:]
-
-
-def to_char_array2(string: str, startIndex: int, length: int) -> list[str]:
-    return list(substring(string, startIndex, length))
-
-
-class StringComparison(IntEnum):
-    CurrentCulture = 0
-    CurrentCultureIgnoreCase = 1
-    InvariantCulture = 2
-    InvariantCultureIgnoreCase = 3
-    Ordinal = 4
-    OrdinalIgnoreCase = 5
-
-
-def cmp(x: str, y: str, ic: bool | StringComparison) -> int:
-    def is_ignore_case(i: bool | StringComparison) -> bool:
-        return (
-            i is True
-            or i == StringComparison.CurrentCultureIgnoreCase
-            or i == StringComparison.InvariantCultureIgnoreCase
-            or i == StringComparison.OrdinalIgnoreCase
-        )
-
-    def is_ordinal(i: bool | int) -> bool:
-        return i == StringComparison.Ordinal or i == StringComparison.OrdinalIgnoreCase
-
-    if not x:
-        return 0 if not y else -1
-    if not y:
-        return 1  # everything is bigger than None
-
-    if is_ordinal(ic):
-        if is_ignore_case(ic):
-            x = x.lower()
-            y = y.lower()
-
-        return 0 if x == y else -1 if x < y else 1
-    elif is_ignore_case(ic):
-        x = x.lower()
-        y = y.lower()
-
-    result = locale.strcoll(x, y)
-
-    # Normalize result to -1, 0, 1
-    return -1 if result < 0 else (1 if result > 0 else 0)
-
-
-@overload
-def compare(string1: str, string2: str, /) -> int:
-    """Compares two specified String objects and returns an integer that
-    indicates their relative position in the sort order."""
-    ...
-
-
-@overload
-def compare(string1: str, string2: str, ignore_case: bool, culture: StringComparison, /) -> int: ...
-
-
-def compare(*args: Any) -> int:
-    """Compares two specified String objects and returns an integer that
-    indicates their relative position in the sort order.
-
-    All overloads of the Compare method return a 32-bit signed integer
-    indicating the lexical relationship between the two comparands.
-
-    - Less than zero: The first substring precedes the second
-        substring in the sort order.
-    - Zero: The substrings occur in the same position in the sort
-        order, or length is zero.
-    - Greater than zero: The first substring follows the second
-        substring in the sort order.
-
-    Returns:
-        Integer that indicates the relationship of the two substrings
-        to each other in the sort order:
-    """
-    length = len(args)
-
-    if length == 2:
-        return cmp(args[0], args[1], False)
-    if length == 3:
-        return cmp(args[0], args[1], args[2])
-    if length == 4:
-        return cmp(args[0], args[1], args[2])
-    if length == 5:
-        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], False)
-    if length == 6:
-        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], args[5])
-    if length == 7:
-        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], args[5])
-    raise Exception("String.compare: Unsupported number of parameters")
-
-
+# Additional functions that might be needed but not in Rust implementation yet
 def compare_to(this: str, other: str) -> int:
-    """Compare this string with other
-
-    Compares this instance with a specified String object and indicates
-    whether this instance precedes, follows, or appears in the same
-    position in the sort order as the specified string.
-    """
-    return cmp(this, other, StringComparison.CurrentCulture)
+    """Compare this string with other string using current culture."""
+    return compare(this, other)
 
 
-def ends_with_exact(string: str, pattern: str):
+def ends_with_exact(string: str, pattern: str) -> bool:
+    """Check if string ends with pattern (exact match)."""
     idx = string.rfind(pattern)
     return idx >= 0 and idx == len(string) - len(pattern)
 
 
-def ends_with(string: str, pattern: str, ic: bool | StringComparison):
-    if len(string) >= len(pattern):
-        return cmp(string[len(string) - len(pattern) : len(string)], pattern, ic) == 0
-    return False
-
-
-def starts_with_exact(string: str, pattern: str):
+def starts_with_exact(string: str, pattern: str) -> bool:
+    """Check if string starts with pattern (exact match)."""
     idx = string.find(pattern)
     return idx == 0
 
 
-def starts_with(string: str, pattern: str, ic: bool | StringComparison):
-    if len(string) >= len(pattern):
-        return cmp(string[0 : len(pattern)], pattern, ic) == 0
-    return False
-
-
-def index_of_any(string: str, any_of: list[str], *args: int):
+def index_of_any(string: str, any_of: list[str], *args: int) -> int:
+    """Find index of any character from the list."""
     if not string:
         return -1
 
@@ -596,11 +121,91 @@ def index_of_any(string: str, any_of: list[str], *args: int):
     if length > len(string) - start_index:
         raise ValueError("Invalid start_index and length")
 
-    string = string[start_index:length]
+    search_string = string[start_index : start_index + length]
     any_of_str = "".join(any_of)
-    for i, c in enumerate(string):
-        index = any_of_str.find(c)
-        if index > -1:
+    for i, c in enumerate(search_string):
+        if c in any_of_str:
             return i + start_index
 
     return -1
+
+
+def interpolate(string: str, values: list[Any]) -> str:
+    """Interpolate values into a string with F# printf-style formatting."""
+    import re
+
+    # Regex pattern for F# interpolation: %[flags][width][.precision]format
+    interpolate_regexp = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)")
+
+    val_idx = 0
+    str_idx = 0
+    result = ""
+    matches = interpolate_regexp.finditer(string)
+
+    for match in matches:
+        # The first group corresponds to the no-escape char (^|[^%]), the actual pattern starts in the next char
+        # Note: we don't use negative lookbehind because some browsers don't support it yet
+        match_index = match.start() + len(match[1] or "")
+        result += string[str_idx:match_index].replace("%%", "%")
+
+        groups = match.groups()
+        flags = groups[1] if groups[1] else ""
+        pad_length = int(groups[2]) if groups[2] else None
+        precision = int(groups[3]) if groups[3] else None
+        format_spec = groups[4] if groups[4] else ""
+
+        if val_idx < len(values):
+            result += format_replacement(values[val_idx], flags, pad_length, precision, format_spec)
+            val_idx += 1
+
+        str_idx = match.end()
+
+    result += string[str_idx:].replace("%%", "%")
+    return result
+
+
+__all__ = [
+    "IPrintfFormat",
+    "StringComparison",
+    "compare",
+    "compare_to",
+    "concat",
+    "continue_print",
+    "ends_with",
+    "ends_with_exact",
+    "filter",
+    "format",
+    "format_replacement",
+    "from_base64string",
+    "get_char_at_index",
+    "index_of",
+    "index_of_any",
+    "initialize",
+    "insert",
+    "interpolate",
+    "is_null_or_empty",
+    "is_null_or_white_space",
+    "join",
+    "join_with_indices",
+    "last_index_of",
+    "not_supported",
+    "pad_left",
+    "pad_right",
+    "printf",
+    "remove",
+    "replace",
+    "replicate",
+    "split",
+    "starts_with",
+    "starts_with_exact",
+    "substring",
+    "to_base64string",
+    "to_char_array2",
+    "to_console",
+    "to_console_error",
+    "to_fail",
+    "to_text",
+    "trim",
+    "trim_end",
+    "trim_start",
+]

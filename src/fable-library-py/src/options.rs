@@ -43,11 +43,10 @@ pub struct SomeWrapper {
 impl PartialEq for SomeWrapper {
     fn eq(&self, other: &Self) -> bool {
         Python::with_gil(|py| {
-            let result = self.value.bind(py).eq(other.value.bind(py));
-            match result {
-                Ok(result_obj) => result_obj,
-                Err(_) => false,
-            }
+            self.value
+                .bind(py)
+                .eq(other.value.bind(py))
+                .unwrap_or(false)
         })
     }
 }
@@ -67,7 +66,7 @@ impl SomeWrapper {
     ) -> PyResult<bool> {
         let other_value = extract_value(py, other)?;
         let result = self.value.bind(py).rich_compare(other_value, op)?;
-        return Ok(result.is_truthy()?);
+        result.is_truthy()
     }
 
     pub fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
@@ -96,7 +95,7 @@ fn is_some_wrapper(py: Python<'_>, obj: &Bound<'_, PyAny>) -> bool {
 // Helper function to extract value from an option (None or SomeWrapper)
 fn extract_value(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
     if opt.is_none() {
-        return Err(PyValueError::new_err("Option has no value"));
+        Err(PyValueError::new_err("Option has no value"))
     } else if is_some_wrapper(py, opt) {
         let wrapper = opt.extract::<Py<SomeWrapper>>()?;
         let wrapper_ref = wrapper.borrow(py);

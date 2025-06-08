@@ -7,7 +7,7 @@ def abs(x: float64) -> float64:
 
 
 def sign(x: float64) -> float64:
-    return -1 if x < 0 else 1 if x > 0 else 0
+    return float64(-1) if x < 0 else float64(1) if x > 0 else float64(0)
 
 
 def max(x: float64, y: float64) -> float64:
