@@ -1201,8 +1201,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> Some
         | _ -> None
     // Numbers
-    | ("Infinity" | "InfinitySingle"), _ -> Helper.ImportedValue(com, "math", "inf", t) |> Some
-    | ("NaN" | "NaNSingle"), _ -> Helper.ImportedValue(com, "math", "nan", t) |> Some
+    | ("Infinity" | "InfinitySingle"), _ -> Helper.LibValue(com, "double", "inf", t) |> Some
+    | ("NaN" | "NaNSingle"), _ -> Helper.LibValue(com, "double", "nan", t) |> Some
     | "Fst", [ tup ] -> Get(tup, TupleIndex 0, t, r) |> Some
     | "Snd", [ tup ] -> Get(tup, TupleIndex 1, t, r) |> Some
     // Reference
@@ -2075,7 +2075,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style
     | "Pow", _ ->
-        Helper.ImportedCall("math", "pow", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "double", "pow", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToString", [ ExprTypeAs(String, format) ] ->
         let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"

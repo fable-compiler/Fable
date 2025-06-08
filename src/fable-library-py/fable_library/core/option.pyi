@@ -28,7 +28,7 @@ def map3(mapping: Callable[[_T, _U, _V], _W], opt1: Option[_T], opt2: Option[_U]
 
 # Based on Rust implementation's behavior with SomeWrapper
 def some(x: _T) -> SomeWrapper[_T]: ...
-def value(x: Option[_T]) -> _T: ...  # Raises ValueError if None
+def value(x: Option[_T] | _T) -> _T: ...  # Raises ValueError if None
 
 # Converts Python Optional[T] (T | None) to F# Option[T] (Some T | None)
 def of_nullable(x: _T | None) -> Option[_T]: ...

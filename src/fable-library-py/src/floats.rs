@@ -468,93 +468,53 @@ float_variant!(Float64, f64);
 
 // Free functions for mathematical operations
 #[pyfunction]
-pub fn sqrt(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.sqrt()?;
-    Ok(result.into_pyobject(py)?.into())
+pub fn sqrt(x: &Float64) -> PyResult<Float64> {
+    x.sqrt()
 }
 
 #[pyfunction]
-pub fn cos(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.cos();
-    Ok(result.into_pyobject(py)?.into())
+pub fn cos(x: &Float64) -> Float64 {
+    x.cos()
 }
 
 #[pyfunction]
-pub fn sin(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.sin();
-    Ok(result.into_pyobject(py)?.into())
+pub fn sin(x: &Float64) -> Float64 {
+    x.sin()
 }
 
 #[pyfunction]
-pub fn tan(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.tan();
-    Ok(result.into_pyobject(py)?.into())
+pub fn tan(x: &Float64) -> Float64 {
+    x.tan()
 }
 
 #[pyfunction]
-pub fn cosh(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.cosh();
-    Ok(result.into_pyobject(py)?.into())
+pub fn cosh(x: &Float64) -> Float64 {
+    x.cosh()
 }
 
 #[pyfunction]
-pub fn sinh(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.sinh();
-    Ok(result.into_pyobject(py)?.into())
+pub fn sinh(x: &Float64) -> Float64 {
+    x.sinh()
 }
 
 #[pyfunction]
-pub fn tanh(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.tanh();
-    Ok(result.into_pyobject(py)?.into())
+pub fn tanh(x: &Float64) -> Float64 {
+    x.tanh()
 }
 
 #[pyfunction]
-pub fn acos(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.acos()?;
-    Ok(result.into_pyobject(py)?.into())
+pub fn acos(x: &Float64) -> PyResult<Float64> {
+    x.acos()
 }
 
 #[pyfunction]
-pub fn asin(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.asin()?;
-    Ok(result.into_pyobject(py)?.into())
+pub fn asin(x: &Float64) -> PyResult<Float64> {
+    x.asin()
 }
 
 #[pyfunction]
-pub fn atan(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.atan();
-    Ok(result.into_pyobject(py)?.into())
+pub fn atan(x: &Float64) -> Float64 {
+    x.atan()
 }
 
 #[pyfunction]
@@ -570,12 +530,8 @@ pub fn atan2(py: Python<'_>, y: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyRe
 }
 
 #[pyfunction]
-pub fn exp(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.exp();
-    Ok(result.into_pyobject(py)?.into())
+pub fn exp(x: &Float64) -> Float64 {
+    x.exp()
 }
 
 #[pyfunction]
@@ -597,12 +553,8 @@ pub fn log(
 }
 
 #[pyfunction]
-pub fn log10(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.log10()?;
-    Ok(result.into_pyobject(py)?.into())
+pub fn log10(x: &Float64) -> PyResult<Float64> {
+    x.log10()
 }
 
 #[pyfunction]
@@ -683,12 +635,14 @@ pub fn ceil(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-pub fn pow(py: Python<'_>, x: &Bound<'_, PyAny>, y: f64) -> PyResult<PyObject> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.__pow__(y, None)?;
-    Ok(result.into_pyobject(py)?.into())
+pub fn pow(x: &Float64, y: f64) -> PyResult<Float64> {
+    x.__pow__(y, None)
+}
+
+#[pyfunction]
+pub fn parse(x: &str) -> PyResult<Float64> {
+    let value = x.trim().parse::<f64>()?;
+    Ok(Float64(value))
 }
 
 /// A module for float operations
@@ -698,6 +652,11 @@ pub fn register_float_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     // Register the float classes
     m.add_class::<Float32>()?;
     m.add_class::<Float64>()?;
+
+    // Add infinity constants
+    m.add("infinity", Float64::infinity())?;
+    m.add("negative_infinity", Float64::negative_infinity())?;
+    m.add("nan", Float64::nan())?;
 
     // Add functions to the module
     m.add_function(wrap_pyfunction!(sqrt, &m)?)?;
@@ -724,6 +683,7 @@ pub fn register_float_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(floor, &m)?)?;
     m.add_function(wrap_pyfunction!(ceil, &m)?)?;
     m.add_function(wrap_pyfunction!(pow, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse, &m)?)?;
 
     parent_module.add_submodule(&m)
 }

@@ -89,6 +89,11 @@ class Float64(FloatNumeric):
     infinity: ClassVar[Self]
     negative_infinity: ClassVar[Self]
 
+# Module-level constants
+infinity: Float64
+negative_infinity: Float64
+nan: Float64
+
 # Free functions for mathematical operations
 def sqrt(x: Float64) -> Float64: ...
 def cos(x: Float64) -> Float64: ...
@@ -113,11 +118,34 @@ def is_positive_infinity(x: Float64) -> bool: ...
 def is_negative_infinity(x: Float64) -> bool: ...
 def floor(x: Float64) -> Float64: ...
 def ceil(x: Float64) -> Float64: ...
-def pow(x: Float64, y: float) -> Float64: ...
+def pow(x: Float64, y: float | FloatNumeric) -> Float64: ...
+def parse(x: str) -> Float64: ...
 
 __all__ = [
-    "Float32", "Float64",
-    "sqrt", "cos", "sin", "tan", "acos", "asin", "atan", "atan2",
-    "exp", "log", "log10", "log2", "degrees", "radians",
-    "is_nan", "is_infinity", "is_positive_infinity", "is_negative_infinity"
+    "Float32",
+    "Float64",
+    "acos",
+    "asin",
+    "atan",
+    "atan2",
+    "ceil",
+    "cos",
+    "degrees",
+    "exp",
+    "floor",
+    "infinity",
+    "is_infinity",
+    "is_nan",
+    "is_negative_infinity",
+    "is_positive_infinity",
+    "log",
+    "log2",
+    "log10",
+    "nan",
+    "negative_infinity",
+    "pow",
+    "radians",
+    "sin",
+    "sqrt",
+    "tan",
 ]

@@ -1,33 +1,24 @@
-from typing import Any
-
-from .core import floats
+from .core import float64, floats
 from .types import FSharpRef
 
 
-def abs(x: float) -> float:
+def abs(x: float64) -> float64:
     return -x if x < 0 else x
 
 
-def sign(x: float) -> float:
+def sign(x: float64) -> float64:
     return -1 if x < 0 else 1 if x > 0 else 0
 
 
-def max(x: float, y: float) -> float:
+def max(x: float64, y: float64) -> float64:
     return x if x > y else y
 
 
-def min(x: float, y: float) -> float:
+def min(x: float64, y: float64) -> float64:
     return x if x < y else y
 
 
-def parse(value: Any) -> float:
-    try:
-        return float(value)
-    except Exception:
-        raise ValueError(f"The input string {value} was not in a correct format.")
-
-
-def try_parse(string: str, def_value: FSharpRef[float]) -> bool:
+def try_parse(string: str, def_value: FSharpRef[float64]) -> bool:
     try:
         def_value.contents = parse(string)
         return True
@@ -61,6 +52,10 @@ sinh = floats.sinh
 sqrt = floats.sqrt
 tan = floats.tan
 tanh = floats.tanh
+inf = floats.infinity
+nan = floats.nan
+negative_inf = floats.negative_infinity
+parse = floats.parse
 
 
 __all__ = [

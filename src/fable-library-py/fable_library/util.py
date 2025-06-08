@@ -21,6 +21,7 @@ from typing import (
     Any,
     ClassVar,
     Generic,
+    ParamSpec,
     Protocol,
     TypeVar,
     cast,
@@ -39,10 +40,22 @@ class SupportsLessThan(Protocol):
 
 _T = TypeVar("_T")
 _T_in = TypeVar("_T_in", contravariant=True)
-_T_out = TypeVar("_T_out", covariant=True)
 _Key = TypeVar("_Key")
 _Value = TypeVar("_Value")
 _TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
+_P = ParamSpec("_P")
+
+
+def returns(target_type: Callable[..., _T]) -> Callable[[Callable[_P, Any]], Callable[_P, _T]]:
+    def decorator(func: Callable[_P, Any]) -> Callable[_P, _T]:
+        @functools.wraps(func)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+            result = func(*args, **kwargs)
+            return target_type(result)
+
+        return wrapper
+
+    return decorator
 
 
 class ObjectDisposedException(Exception):
@@ -169,7 +182,7 @@ class IEqualityComparer(Protocol):
     def Equals(self, __x: _T_in, __y: _T_in) -> bool:
         return self.System_Collections_IEqualityComparer_Equals541DA560(__x, __y)
 
-    def GetHashCode(self) -> int:
+    def GetHashCode(self) -> int32:
         return self.System_Collections_IEqualityComparer_GetHashCode4E60E31B()
 
     @abstractmethod
@@ -185,7 +198,7 @@ class IEqualityComparer_1(Generic[_T_in], Protocol):
     def Equals(self, __x: _T_in, __y: _T_in) -> bool:
         raise NotImplementedError
 
-    def GetHashCode(self) -> int:
+    def GetHashCode(self) -> int32:
         raise NotImplementedError
 
 
@@ -240,6 +253,7 @@ def is_iterable(x: Any) -> bool:
     return isinstance(x, Iterable)
 
 
+@returns(int32)
 def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
     """Compare Python dicts with string keys.
 
@@ -266,7 +280,8 @@ def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
     return 0
 
 
-def compare_arrays(xs: list[Any] | None, ys: list[Any] | None):
+@returns(int32)
+def compare_arrays(xs: list[Any] | None, ys: list[Any] | None) -> int:
     if xs is None:
         return 0 if ys is None else 1
 
@@ -285,32 +300,27 @@ def compare_arrays(xs: list[Any] | None, ys: list[Any] | None):
     return 0
 
 
+@returns(int32)
 def compare(a: Any, b: Any) -> int:
-    if a is b:
-        return 0
-
-    if a is None:
-        return -1 if b else 0
-
-    if b is None:
-        return 1 if a else 0
-
-    if is_comparable(a):
-        return a.__cmp__(b)
-
-    if isinstance(a, dict):
-        return compare_dicts(cast(dict[str, Any], a), b)
-
-    if isinstance(a, list):
-        return compare_arrays(cast(list[Any], a), b)
-
-    if is_equatable(a) and a == b:
-        return 0
-
-    if hasattr(a, "__lt__") and callable(a.__lt__) and a < b:
-        return -1
-
-    return 1
+    match (a, b):
+        case (a, b) if a is b:
+            return 0
+        case (None, b):
+            return -1 if b else 0
+        case (a, None):
+            return 1 if a else 0
+        case (a, b) if is_comparable(a):
+            return a.__cmp__(b)
+        case (a, b) if isinstance(a, dict):
+            return compare_dicts(cast(dict[str, Any], a), b)
+        case (a, b) if isinstance(a, list):
+            return compare_arrays(cast(list[Any], a), b)
+        case (a, b) if is_equatable(a) and a == b:
+            return 0
+        case (a, b) if hasattr(a, "__lt__") and callable(a.__lt__) and a < b:
+            return -1
+        case _:
+            return 1
 
 
 def equal_arrays_with(xs: Sequence[_T] | None, ys: Sequence[_T] | None, eq: Callable[[_T, _T], bool]) -> bool:
@@ -335,7 +345,7 @@ def equal_arrays(x: Sequence[_T], y: Sequence[_T]) -> bool:
 
 
 def compare_primitives(x: _TSupportsLessThan, y: _TSupportsLessThan) -> int32:
-    return 0 if x == y else (-1 if x < y else 1)
+    return int32(0 if x == y else (-1 if x < y else 1))
 
 
 def min(comparer: Callable[[_T, _T], int], x: _T, y: _T) -> _T:
