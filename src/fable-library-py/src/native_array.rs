@@ -305,9 +305,6 @@ impl NativeArray {
                 Ok(())
             }
             (NativeArray::String(src), NativeArray::String(dst)) => {
-                //for i in 0..count {
-                //    dst[target_index + i] = src[source_index + i].clone();
-                //}
                 dst[target_index..(count + target_index)]
                     .clone_from_slice(&src[source_index..(count + source_index)]);
                 Ok(())
