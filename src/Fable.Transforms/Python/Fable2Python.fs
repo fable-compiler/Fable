@@ -1200,8 +1200,7 @@ module Util =
         arrayExpr com ctx (Expression.list exprs) kind typ, stmts
 
     let makeArrayAllocated (com: IPythonCompiler) ctx typ _kind (size: Fable.Expr) =
-
-        printfn "makeArrayAllocated: %A" (typ, size)
+        // printfn "makeArrayAllocated: %A" (typ, size)
 
         let size, stmts = com.TransformAsExpr(ctx, size)
         let array = Expression.list [ Expression.intConstant 0 ]
