@@ -137,6 +137,7 @@ concat = array.concat
 find_index = array.find_index
 sort_by = array.sort_by
 sum_by = array.sum_by
+resize = array.resize
 
 Array = array.FSharpArray
 FSharpCons = array.FSharpCons

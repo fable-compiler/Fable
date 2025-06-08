@@ -66,18 +66,18 @@ def test_float32_division():
     """Test Float32 division operations."""
     f32_a = float32(10.5)
     f32_b = float32(2.0)
-    assert f32_a / f32_b == pytest.approx(5.25, rel=1e-9)
-    assert f32_a / 2.0 == pytest.approx(5.25, rel=1e-9)
-    assert 10.5 / f32_b == pytest.approx(5.25, rel=1e-9)
+    assert f32_a / f32_b == 5.25
+    assert f32_a / 2.0 == 5.25
+    assert 10.5 / f32_b == 5.25
 
 
 def test_float32_floor_division():
     """Test Float32 floor division operations."""
     f32_a = float32(10.5)
     f32_b = float32(2.0)
-    assert f32_a // f32_b == pytest.approx(5.0, rel=1e-9)
-    assert f32_a // 2.0 == pytest.approx(5.0, rel=1e-9)
-    assert 10.5 // f32_b == pytest.approx(5.0, rel=1e-9)
+    assert f32_a // f32_b == 5.0
+    assert f32_a // 2.0 == 5.0
+    assert 10.5 // f32_b == 5.0
 
 
 def test_float32_modulo():

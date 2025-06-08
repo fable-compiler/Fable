@@ -2049,8 +2049,10 @@ module Util =
         //     let args = [ left; right ]
         //     Expression.call (func, args), stmts' @ stmts
 
-        | Fable.Binary(op, TransformExpr com ctx (left, stmts), right: Fable.Expr) ->
+        | Fable.Binary(op, left, right: Fable.Expr) ->
             let typ = right.Type
+            let left_typ = left.Type
+            let left, stmts = com.TransformAsExpr(ctx, left)
             let right, stmts' = com.TransformAsExpr(ctx, right)
 
             let compare op =
@@ -2113,7 +2115,12 @@ module Util =
                 | Fable.Number(UInt8, _)
                 | Fable.Number(UInt16, _)
                 | Fable.Number(UInt32, _)
-                | Fable.Number(UInt64, _) -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
+                | Fable.Number(UInt64, _) ->
+                    // In .NET we only get floor division for left integers on the left
+                    match left_typ with
+                    | Fable.Number(Float32, _)
+                    | Fable.Number(Float64, _) -> Expression.binOp (left, Div, right, ?loc = range), stmts @ stmts'
+                    | _ -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
                 | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
 

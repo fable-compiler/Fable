@@ -61,6 +61,23 @@ impl ArrayType {
             ArrayType::Generic => "Generic",
         }
     }
+
+    pub fn default_value<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        match self {
+            ArrayType::Int8 => Ok(0i8.into_py_any(py)?.into_bound(py)),
+            ArrayType::UInt8 => Ok(0u8.into_py_any(py)?.into_bound(py)),
+            ArrayType::Int16 => Ok(0i16.into_py_any(py)?.into_bound(py)),
+            ArrayType::UInt16 => Ok(0u16.into_py_any(py)?.into_bound(py)),
+            ArrayType::Int32 => Ok(0i32.into_py_any(py)?.into_bound(py)),
+            ArrayType::UInt32 => Ok(0u32.into_py_any(py)?.into_bound(py)),
+            ArrayType::Int64 => Ok(0i64.into_py_any(py)?.into_bound(py)),
+            ArrayType::UInt64 => Ok(0u64.into_py_any(py)?.into_bound(py)),
+            ArrayType::Float32 => Ok(0.0f32.into_py_any(py)?.into_bound(py)),
+            ArrayType::Float64 => Ok(0.0f64.into_py_any(py)?.into_bound(py)),
+            ArrayType::String => Ok("".into_py_any(py)?.into_bound(py)),
+            ArrayType::Generic => Ok(py.None().into_py_any(py)?.into_bound(py)),
+        }
+    }
 }
 
 // Implement ToPyObject for ArrayType

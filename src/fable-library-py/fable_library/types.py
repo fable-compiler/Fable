@@ -23,41 +23,41 @@ from .array_ import (
     UInt32Array,
     UInt64Array,
 )
-from .core import byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
+from .core import FSharpRef, byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
 from .util import IComparable, compare
 
 
 _T = TypeVar("_T")
 
 
-class FSharpRef(Generic[_T]):
-    __slots__ = "getter", "setter"
+# class FSharpRef(Generic[_T]):
+#     __slots__ = "getter", "setter"
 
-    def __init__(
-        self,
-        contents_or_getter: None | (_T | Callable[[], _T]),
-        setter: Callable[[_T], None] | None = None,
-    ) -> None:
-        contents = cast(_T, contents_or_getter)
+#     def __init__(
+#         self,
+#         contents_or_getter: None | (_T | Callable[[], _T]),
+#         setter: Callable[[_T], None] | None = None,
+#     ) -> None:
+#         contents = cast(_T, contents_or_getter)
 
-        def set_contents(value: _T):
-            nonlocal contents
-            contents = value
+#         def set_contents(value: _T):
+#             nonlocal contents
+#             contents = value
 
-        if callable(setter):
-            self.getter = cast(Callable[[], _T], contents_or_getter)
-            self.setter = setter
-        else:
-            self.getter = lambda: contents
-            self.setter = set_contents
+#         if callable(setter):
+#             self.getter = cast(Callable[[], _T], contents_or_getter)
+#             self.setter = setter
+#         else:
+#             self.getter = lambda: contents
+#             self.setter = set_contents
 
-    @property
-    def contents(self) -> _T:
-        return self.getter()
+#     @property
+#     def contents(self) -> _T:
+#         return self.getter()
 
-    @contents.setter
-    def contents(self, v: _T) -> None:
-        self.setter(v)
+#     @contents.setter
+#     def contents(self, v: _T) -> None:
+#         self.setter(v)
 
 
 class Union(IComparable):

@@ -2,6 +2,7 @@ use crate::floats::{Float32, Float64};
 use crate::ints::{Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8};
 use crate::native_array::{ArrayType, NativeArray};
 use crate::options::SomeWrapper;
+use crate::types::FSharpRef;
 use pyo3::class::basic::CompareOp;
 use pyo3::types::PyNotImplemented;
 use pyo3::types::{PyBool, PyInt};
@@ -85,6 +86,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(remove_at, &m)?)?;
     m.add_function(wrap_pyfunction!(remove_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(remove_many_at, &m)?)?;
+    m.add_function(wrap_pyfunction!(resize, &m)?)?;
     m.add_function(wrap_pyfunction!(reverse, &m)?)?;
     m.add_function(wrap_pyfunction!(scan, &m)?)?;
     m.add_function(wrap_pyfunction!(scan_back, &m)?)?;
@@ -180,6 +182,11 @@ fn ensure_array(py: Python<'_>, ob: &Bound<'_, PyAny>) -> PyResult<FSharpArray> 
     // If it's already a FSharpArray, just extract it
     if let Ok(array) = ob.extract::<PyRef<'_, FSharpArray>>() {
         return Ok(array.clone());
+    }
+
+    // If the object is None (null), create an empty array
+    if ob.is_none() {
+        return FSharpArray::new(py, None, None);
     }
 
     // Check if the object is iterable
@@ -1204,6 +1211,83 @@ impl FSharpArray {
         }
 
         Ok(acc.into())
+    }
+
+    // let resize
+    //     (xs: byref<'T[]>)
+    //     (newSize: int)
+    //     ([<OptionalArgument>] zero: 'T option)
+    //     ([<OptionalArgument; Inject>] cons: Cons<'T>)
+    //     : unit
+    //     =
+    //     if newSize < 0 then
+    //         invalidArg "newSize" "The input must be non-negative."
+
+    //     let zero = defaultArg zero Unchecked.defaultof<_>
+
+    //     if isNull xs then
+    //         xs <- fillImpl (allocateArrayFromCons cons newSize) zero 0 newSize
+
+    //     else
+    //         let len = xs.Length
+
+    //         if newSize < len then
+    //             xs <- subArrayImpl xs 0 newSize
+
+    //         elif newSize > len then
+    //             let target = allocateArrayFromCons cons newSize
+
+    //             if len > 0 then
+    //                 copyTo xs 0 target 0 len
+
+    //             xs <- fillImpl target zero len (newSize - len)
+
+    #[pyo3(signature = (new_size, zero=None, cons=None))]
+    pub fn resize(
+        &mut self,
+        py: Python<'_>,
+        new_size: usize,
+        zero: Option<&Bound<'_, PyAny>>,
+        cons: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        // Check for negative size (though usize is unsigned, keeping for consistency with F#)
+        if new_size > isize::MAX as usize {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be non-negative.",
+            ));
+        }
+
+        let current_len = self.storage.len();
+
+        let zero_value = if let Some(zero) = zero {
+            zero.clone() // Use the provided zero value directly
+        } else {
+            self.storage.get_type().default_value(py)?
+        };
+
+        if new_size < current_len {
+            // Shrink the array
+            self.storage.truncate(new_size);
+        } else if new_size > current_len {
+            // Create a new array of the target size
+            let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+            let mut new_storage = fs_cons.create(new_size);
+
+            // Copy existing elements from current storage to new storage
+            for i in 0..current_len {
+                new_storage.push_from_storage(&self.storage, i, py);
+            }
+
+            // Fill remaining space with zero value
+            for _ in current_len..new_size {
+                new_storage.push_value(&zero_value, zero_value.py())?;
+            }
+
+            // Replace the old storage with the new one
+            self.storage = new_storage;
+        }
+
+        Ok(())
     }
 
     pub fn fold_back_indexed(
@@ -3050,6 +3134,39 @@ pub fn equals_with(
 }
 
 #[pyfunction]
+#[pyo3(signature = (array_ref, new_size, zero=None, cons=None))]
+pub fn resize(
+    py: Python<'_>,
+    array_ref: &Bound<'_, PyAny>,
+    new_size: usize,
+    zero: Option<&Bound<'_, PyAny>>,
+    cons: Option<&Bound<'_, PyAny>>,
+) -> PyResult<()> {
+    // Check if array_ref is a FSharpRef
+    if let Ok(fs_ref) = array_ref.extract::<PyRef<'_, FSharpRef>>() {
+        // Get current array using the getter
+        let current_array_obj = fs_ref.get_contents(py)?;
+        let current_array_bound = current_array_obj.bind(py);
+
+        // Convert to FSharpArray (ensure_array now handles None as empty array)
+        let mut current_array = ensure_array(py, current_array_bound)?;
+
+        // Resize the array
+        current_array.resize(py, new_size, zero, cons)?;
+
+        // Set the new array using the setter
+        let new_array_obj = current_array.into_pyobject(py)?;
+        fs_ref.set_contents(py, new_array_obj.into())?;
+
+        Ok(())
+    } else {
+        // Fallback: try to extract as FSharpArray directly (for backward compatibility)
+        let mut array = array_ref.extract::<FSharpArray>()?;
+        array.resize(py, new_size, zero, cons)
+    }
+}
+
+#[pyfunction]
 pub fn reduce(
     py: Python<'_>,
     reduction: &Bound<'_, PyAny>,
@@ -3715,6 +3832,46 @@ pub fn find_index_back(
     array.find_index_back(py, predicate)
 }
 
+#[pyfunction]
+pub fn sort(
+    py: Python<'_>,
+    array: &FSharpArray,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    array.sort(py, comparer)
+}
+
+#[pyfunction]
+pub fn sort_by(
+    py: Python<'_>,
+    projection: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    array.sort_by(py, projection, comparer)
+}
+
+#[pyfunction]
+pub fn sort_with(
+    py: Python<'_>,
+    array: &FSharpArray,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    array.sort_with(py, comparer)
+}
+
+#[pyfunction]
+#[pyo3(signature = (projection, array, adder))]
+pub fn sum_by(
+    py: Python<'_>,
+    projection: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+    adder: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let array = ensure_array(py, array)?;
+    array.sum_by(py, projection, adder)
+}
+
 // Constructor class for array allocation
 #[pyclass(module = "fable")]
 #[derive(Clone)]
@@ -4012,44 +4169,4 @@ where
         acc = f(acc, item, py)?;
     }
     Ok(acc)
-}
-
-#[pyfunction]
-pub fn sort(
-    py: Python<'_>,
-    array: &FSharpArray,
-    comparer: &Bound<'_, PyAny>,
-) -> PyResult<FSharpArray> {
-    array.sort(py, comparer)
-}
-
-#[pyfunction]
-pub fn sort_by(
-    py: Python<'_>,
-    projection: &Bound<'_, PyAny>,
-    array: &FSharpArray,
-    comparer: &Bound<'_, PyAny>,
-) -> PyResult<FSharpArray> {
-    array.sort_by(py, projection, comparer)
-}
-
-#[pyfunction]
-pub fn sort_with(
-    py: Python<'_>,
-    array: &FSharpArray,
-    comparer: &Bound<'_, PyAny>,
-) -> PyResult<FSharpArray> {
-    array.sort_with(py, comparer)
-}
-
-#[pyfunction]
-#[pyo3(signature = (projection, array, adder))]
-pub fn sum_by(
-    py: Python<'_>,
-    projection: &Bound<'_, PyAny>,
-    array: &Bound<'_, PyAny>,
-    adder: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
-    let array = ensure_array(py, array)?;
-    array.sum_by(py, projection, adder)
 }

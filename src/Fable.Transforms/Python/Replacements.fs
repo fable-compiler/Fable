@@ -1755,6 +1755,13 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         Helper.LibCall(com, "array", "index_of", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
+    | "Resize", None, args ->
+        let args =
+            args @ [ getZero com ctx (List.head i.GenericArgs) ]
+            |> injectArg com ctx r "Array" "resize" i.GenericArgs
+
+        Helper.LibCall(com, "Array", "resize", Unit, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
