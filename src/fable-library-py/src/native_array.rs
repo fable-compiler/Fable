@@ -202,7 +202,7 @@ impl NativeArray {
                 }
                 xs.iter().zip(ys.iter()).all(|(x, y)| {
                     x.bind(py)
-                        .rich_compare(&y.bind(py), CompareOp::Eq)
+                        .rich_compare(y.bind(py), CompareOp::Eq)
                         .and_then(|r| r.is_truthy())
                         .unwrap_or(false)
                 })
@@ -305,9 +305,8 @@ impl NativeArray {
                 Ok(())
             }
             (NativeArray::String(src), NativeArray::String(dst)) => {
-                for i in 0..count {
-                    dst[target_index + i] = src[source_index + i].clone();
-                }
+                dst[target_index..(count + target_index)]
+                    .clone_from_slice(&src[source_index..(count + source_index)]);
                 Ok(())
             }
             (NativeArray::PyObject(src), NativeArray::PyObject(dst)) => {
@@ -605,7 +604,7 @@ impl NativeArray {
     }
 
     /// Truncates the array to the specified size.
-    pub fn truncate(&mut self, new_size: usize) -> () {
+    pub fn truncate(&mut self, new_size: usize) {
         match self {
             NativeArray::Int8(vec) => vec.truncate(new_size),
             NativeArray::UInt8(vec) => vec.truncate(new_size),
@@ -760,8 +759,8 @@ impl NativeArray {
             projection: &Bound<'_, PyAny>,
             comparer: &Bound<'_, PyAny>,
         ) -> PyResult<Ordering> {
-            let py_a: PyObject = a.clone().into_py_any(py)?.into();
-            let py_b: PyObject = b.clone().into_py_any(py)?.into();
+            let py_a: PyObject = a.clone().into_py_any(py)?;
+            let py_b: PyObject = b.clone().into_py_any(py)?;
             let proj_a = projection.call1((py_a,))?;
             let proj_b = projection.call1((py_b,))?;
             let result = comparer.call1((proj_a, proj_b))?;

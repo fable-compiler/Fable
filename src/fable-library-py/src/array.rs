@@ -174,8 +174,7 @@ struct GenericArray {}
 // This ensures both elegance and performance, following best Rust and craftsman practices.
 macro_rules! try_extract_array {
     ($elements:expr, $py:expr, $variant:ident, $wrapper:ty, $native:ty, $extractor:expr) => {
-        if let Ok(vec) = extract_typed_vec_from_iterable::<$wrapper, $native>($elements, $extractor)
-        {
+        if let Ok(vec) = extract_typed_vec_from_iterable::<$native>($elements, $extractor) {
             return Ok(FSharpArray {
                 storage: NativeArray::$variant(vec),
             });
@@ -202,7 +201,7 @@ fn ensure_array(py: Python<'_>, ob: &Bound<'_, PyAny>) -> PyResult<FSharpArray> 
     }
 
     // If it's a single item, create a singleton array
-    let singleton_list = PyList::new(py, &[ob])?;
+    let singleton_list = PyList::new(py, [ob])?;
     FSharpArray::new(py, Some(&singleton_list), None)
 }
 
@@ -271,9 +270,8 @@ impl FSharpArray {
                     ))
                 }
                 ArrayType::String => {
-                    try_extract_array!(elements, py, String, String, String, |x| Ok(
-                        x.extract::<String>()?
-                    ))
+                    try_extract_array!(elements, py, String, String, String, |x| x
+                        .extract::<String>())
                 }
                 _ => {}
             }
@@ -478,7 +476,7 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         if count == 0 {
-            return Ok(FSharpArray::empty(py, cons)?);
+            return FSharpArray::empty(py, cons);
         }
 
         // Create the builder for results
@@ -662,7 +660,7 @@ impl FSharpArray {
             i = indices.start;
             while (step > 0 && i < indices.stop) || (step < 0 && i > indices.stop) {
                 let item = self.get_item_at_index(i, py)?;
-                result.__setitem__(result_idx, &item.bind(py), py)?;
+                result.__setitem__(result_idx, item.bind(py), py)?;
                 result_idx += 1;
                 i += step;
             }
@@ -680,7 +678,7 @@ impl FSharpArray {
         };
         // println!("Slice length: {:?}", slice_len);
         // println!("Nominal type: {:?}", self.nominal_type);
-        let mut builder = NativeArray::new(&self.storage.get_type(), Some(slice_len));
+        let mut builder = NativeArray::new(self.storage.get_type(), Some(slice_len));
 
         // Add each element from the slice range
         for i in 0..slice_len {
@@ -696,7 +694,7 @@ impl FSharpArray {
         // Try to downcast to a slice first
         if let Ok(slice) = idx.downcast::<pyo3::types::PySlice>() {
             // println!("Slice: {:?}", slice);
-            return self.get_item_slice(&slice, py);
+            self.get_item_slice(slice, py)
         }
         // Then try to extract as an integer
         else if let Ok(i) = idx.extract::<isize>() {
@@ -886,7 +884,7 @@ impl FSharpArray {
                 "index out of range",
             ));
         }
-        Ok(self.storage.insert(idx as usize, value, py)?)
+        self.storage.insert(idx as usize, value, py)
     }
 
     #[staticmethod]
@@ -908,7 +906,7 @@ impl FSharpArray {
         }
 
         // Create a new array with the same type and size - 1
-        let mut builder = NativeArray::new(&self.storage.get_type(), Some(len - 1));
+        let mut builder = NativeArray::new(self.storage.get_type(), Some(len - 1));
 
         // Copy all elements except the one at the specified index
         for i in 0..len {
@@ -937,7 +935,7 @@ impl FSharpArray {
         }
 
         // Create a new array with the same type and size - count
-        let mut builder = NativeArray::new(&self.storage.get_type(), Some(len - count));
+        let mut builder = NativeArray::new(self.storage.get_type(), Some(len - count));
 
         // Copy all elements except the ones at the specified indices
         for i in 0..len {
@@ -1007,7 +1005,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut results = fs_cons.create(len);
 
         // Map each element with counterpart in source2
@@ -1104,11 +1102,11 @@ impl FSharpArray {
         }
 
         // Use the source array's type instead of defaulting to Generic
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
 
         // If count equals array length, return empty array
         if count == len {
-            return Ok(fs_cons.allocate(py, 0)?);
+            return fs_cons.allocate(py, 0);
         }
 
         // Create the builder for results
@@ -1142,7 +1140,7 @@ impl FSharpArray {
         let mut chunks = NativeArray::PyObject(Arc::new(Mutex::new(vec![])));
 
         // Create each chunk
-        for x in 0..((len + chunk_size - 1) / chunk_size) {
+        for x in 0..len.div_ceil(chunk_size) {
             let start = x * chunk_size;
             let end = std::cmp::min(start + chunk_size, len);
 
@@ -1302,7 +1300,7 @@ impl FSharpArray {
             self.storage.truncate(new_size);
         } else if new_size > current_len {
             // Create a new array of the target size
-            let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+            let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
             let mut new_storage = fs_cons.create(new_size);
 
             // Copy existing elements from current storage to new storage
@@ -1569,7 +1567,7 @@ impl FSharpArray {
     pub fn pairwise(&self, py: Python<'_>) -> PyResult<FSharpArray> {
         let len = self.storage.len();
         if len < 2 {
-            return Ok(FSharpArray::empty(py, None)?);
+            return FSharpArray::empty(py, None);
         }
 
         let count = len - 1;
@@ -1617,10 +1615,10 @@ impl FSharpArray {
         temp.sort_by_key(|&(i, _)| i);
 
         // Create result array with elements in permuted order
-        let builder = NativeArray::new(&self.storage.get_type(), Some(len));
+        let builder = NativeArray::new(self.storage.get_type(), Some(len));
         let mut result = FSharpArray { storage: builder };
         for (_, item) in temp {
-            result.storage.push_value(&item.bind(py), py)?;
+            result.storage.push_value(item.bind(py), py)?;
         }
 
         Ok(result.into_pyobject(py)?.into())
@@ -1634,7 +1632,7 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<FSharpArray>> {
         let len = self.storage.len();
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut results = fs_cons.create(len + 1);
 
         // Start with initial state
@@ -1659,7 +1657,7 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<FSharpArray>> {
         let len = self.storage.len();
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut results = fs_cons.create(len + 1);
 
         // Start with initial state
@@ -1695,7 +1693,7 @@ impl FSharpArray {
         if len == 0 {
             // Return an empty array
             return Ok(FSharpArray {
-                storage: NativeArray::new(&self.storage.get_type(), Some(0)),
+                storage: NativeArray::new(self.storage.get_type(), Some(0)),
             });
         }
 
@@ -1718,7 +1716,7 @@ impl FSharpArray {
             let start = i * min_chunk_size + std::cmp::min(chunks_with_extra_item, i);
 
             // Create a new array for this chunk
-            let mut chunk = NativeArray::new(&self.storage.get_type(), Some(chunk_size));
+            let mut chunk = NativeArray::new(self.storage.get_type(), Some(chunk_size));
 
             // Copy elements for this chunk
             for j in 0..chunk_size {
@@ -1754,7 +1752,7 @@ impl FSharpArray {
         cons: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut results = fs_cons.create(len);
         let mut results2 = fs_cons.create(len);
         let mut len_true = 0;
@@ -1765,10 +1763,10 @@ impl FSharpArray {
             // Bind once and reuse
             let bound_item = item.bind(py);
             if f.call1((&bound_item,))?.is_truthy()? {
-                results.push_value(&bound_item, py)?;
+                results.push_value(bound_item, py)?;
                 len_true += 1;
             } else {
-                results2.push_value(&bound_item, py)?;
+                results2.push_value(bound_item, py)?;
                 len_false += 1;
             }
         }
@@ -1779,8 +1777,8 @@ impl FSharpArray {
 
         // Create a new array containing the left and right results
         let mut final_results = NativeArray::new(&ArrayType::Generic, Some(2));
-        final_results.push_value(&Py::new(py, left)?.bind(py), py)?;
-        final_results.push_value(&Py::new(py, right)?.bind(py), py)?;
+        final_results.push_value(Py::new(py, left)?.bind(py), py)?;
+        final_results.push_value(Py::new(py, right)?.bind(py), py)?;
         Ok(FSharpArray {
             storage: final_results,
         })
@@ -1812,7 +1810,7 @@ impl FSharpArray {
         }
 
         // Create the result array
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut results = fs_cons.create(len_inner);
 
         // Fill the result array
@@ -1926,13 +1924,13 @@ impl FSharpArray {
             // Fill the window with elements from the source array
             for j in 0..window_size {
                 let item = self.get_item_at_index((i + j) as isize, py)?;
-                window.storage.push_value(&item.bind(py), py)?;
+                window.storage.push_value(item.bind(py), py)?;
             }
 
             // Add the window to the result array
             result
                 .storage
-                .push_value(&Py::new(py, window)?.bind(py), py)?;
+                .push_value(Py::new(py, window)?.bind(py), py)?;
         }
 
         Ok(result)
@@ -1949,7 +1947,7 @@ impl FSharpArray {
         let len = self.storage.len();
 
         // Get the constructor or use default
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
 
         if len == 0 {
             // Return empty array and original state
@@ -1958,7 +1956,7 @@ impl FSharpArray {
                 storage: empty_array,
             };
             let result_tuple =
-                PyTuple::new(py, &[Py::new(py, result_array)?.bind(py), &state.clone()]);
+                PyTuple::new(py, [Py::new(py, result_array)?.bind(py), &state.clone()]);
             return Ok(result_tuple?.into());
         }
 
@@ -1985,7 +1983,7 @@ impl FSharpArray {
         };
 
         // Return tuple of (result_array, final_state)
-        let result_tuple = PyTuple::new(py, &[Py::new(py, result_array)?.bind(py), &current_state]);
+        let result_tuple = PyTuple::new(py, [Py::new(py, result_array)?.bind(py), &current_state]);
         Ok(result_tuple?.into())
     }
 
@@ -2000,7 +1998,7 @@ impl FSharpArray {
         let len = self.storage.len();
 
         // Get the constructor or use default
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
 
         if len == 0 {
             // Return empty array and original state
@@ -2009,7 +2007,7 @@ impl FSharpArray {
                 storage: empty_array,
             };
             let result_tuple =
-                PyTuple::new(py, &[Py::new(py, result_array)?.bind(py), &state.clone()]);
+                PyTuple::new(py, [Py::new(py, result_array)?.bind(py), &state.clone()]);
             return Ok(result_tuple?.into());
         }
 
@@ -2036,7 +2034,7 @@ impl FSharpArray {
         };
 
         // Return tuple of (result_array, final_state)
-        let result_tuple = PyTuple::new(py, &[Py::new(py, result_array)?.bind(py), &current_state]);
+        let result_tuple = PyTuple::new(py, [Py::new(py, result_array)?.bind(py), &current_state]);
         Ok(result_tuple?.into())
     }
 
@@ -2175,7 +2173,7 @@ impl FSharpArray {
         }
 
         // Create a new array using the constructor
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut target = fs_cons.create(len);
 
         // Fill the new array with values from the original array
@@ -2184,7 +2182,7 @@ impl FSharpArray {
                 target.push_value(value, py)?;
             } else {
                 let item = self.get_item_at_index(i as isize, py)?;
-                target.push_value(&item.bind(py), py)?;
+                target.push_value(item.bind(py), py)?;
             }
         }
 
@@ -2220,7 +2218,7 @@ impl FSharpArray {
         // Copy elements from source (self) to target
         for i in 0..=length {
             let item = self.get_item_at_index(i as isize, py)?;
-            target.__setitem__((i + lower) as isize, &item.bind(py), py)?;
+            target.__setitem__((i + lower) as isize, item.bind(py), py)?;
         }
 
         Ok(())
@@ -2304,7 +2302,7 @@ impl FSharpArray {
         }
 
         // Create a new array using the constructor
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut target = fs_cons.allocate(py, len + 1)?;
 
         // Copy elements before the insertion point
@@ -2350,7 +2348,7 @@ impl FSharpArray {
         let insert_count = items_to_insert.len();
 
         // Create a new array using the constructor with proper capacity
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut target = fs_cons.allocate(py, len + insert_count)?;
 
         // Copy elements before the insertion point
@@ -2393,7 +2391,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut results = fs_cons.create(len);
 
         // Map each element with counterparts in source2 and source3
@@ -2426,7 +2424,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut results = fs_cons.create(len);
 
         // Map each element with its index and counterpart in source2
@@ -2463,7 +2461,7 @@ impl FSharpArray {
         let len2 = array2.storage.len();
 
         // Get constructor from cons parameter or use default
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut builder = fs_cons.create(len1 + len2);
 
         // Copy elements from first array
@@ -2498,7 +2496,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut results = fs_cons.create(len);
 
         // Map each element with its index and counterparts in source2 and source3
@@ -2707,7 +2705,7 @@ impl FSharpArray {
         }
 
         // Get constructor from cons parameter or use default
-        let fs_cons = FSharpCons::extract(cons, &self.storage.get_type());
+        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
         let mut builder = fs_cons.create(count);
 
         // Copy elements from source array to new array
@@ -3010,7 +3008,7 @@ impl FSharpArray {
         // Return as a tuple
         let result_tuple = PyTuple::new(
             py,
-            &[Py::new(py, array1)?.bind(py), Py::new(py, array2)?.bind(py)],
+            [Py::new(py, array1)?.bind(py), Py::new(py, array2)?.bind(py)],
         );
         Ok(result_tuple?.into())
     }
@@ -4258,18 +4256,15 @@ pub fn allocate_array_from_cons(
 }
 
 // Utility function to extract typed vectors from any iterable
-fn extract_typed_vec_from_iterable<T, U>(
+fn extract_typed_vec_from_iterable<U>(
     elements: &Bound<'_, PyAny>,
     extractor: impl Fn(&Bound<'_, PyAny>) -> PyResult<U>,
 ) -> PyResult<Vec<U>>
 where
-    T: for<'a> pyo3::FromPyObject<'a>,
+    U: for<'a> pyo3::FromPyObject<'a>,
 {
     // Check if the object is iterable
-    if let Err(err) = elements.try_iter() {
-        // println!("Error: {:?}", err);
-        return Err(err);
-    }
+    elements.try_iter()?;
 
     let len = elements.len();
     let mut vec = match len {

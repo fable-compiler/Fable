@@ -13,6 +13,7 @@ from ._core import (
     datetime_offset,
     floats,
     option,
+    strings,
     types,
 )
 
@@ -73,6 +74,7 @@ __all__: list[str] = [
     "int64",
     "option",
     "sbyte",
+    "strings",
     "uint8",
     "uint16",
     "uint32",
