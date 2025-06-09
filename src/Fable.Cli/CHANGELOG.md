@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* [Python] Do not return None | None for optional unit types (#4127) (by @dbrattli)
+
 ### Changed
 
 * [Python] Use [uv](https://docs.astral.sh/uv/) instead of Poetry for package management (by @dbrattli)
