@@ -204,3 +204,12 @@ module Issue3986 =
     // interpreted.
     type FieldFnCreator<'b, 'c> =
         abstract eval<'a> : string -> ('c -> 'a)
+
+module Issue4125 =
+    let none () : unit option =
+        None
+
+[<Fact>]
+let ``test issue 4125`` () =
+    let x = Issue4125.none ()
+    equal None x

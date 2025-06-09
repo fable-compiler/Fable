@@ -730,6 +730,9 @@ module Annotation =
             stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ])
         | Fable.DelegateType(argTypes, returnType) ->
             stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ])
+        | Fable.Option(Fable.Unit, _) ->
+            // unit option -> just None instead of None | None
+            Expression.none, []
         | Fable.Option(genArg, _) ->
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
             Expression.binOp (resolved[0], BitOr, Expression.none), stmts
