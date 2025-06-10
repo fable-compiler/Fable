@@ -43,7 +43,7 @@ static FORMAT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static PRINTF_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"%([+\-# 0]*)(\d+)?(?:\.(\d+))?([diouxXeEfFgGaAcspnOb])")
+    Regex::new(r"%([+\-# 0]*)(\d+)?(?:\.(\d+))?([diouxXeEfFgGaAcspnOAb])")
         .expect("PRINTF_PATTERN: Invalid regex pattern for printf-style formatting")
 });
 
@@ -569,15 +569,15 @@ mod printf {
     /// Continue print with given continuation function
     #[pyfunction]
     pub fn continue_print(
-        _py: Python<'_>,
+        py: Python<'_>,
         cont: &Bound<'_, PyAny>,
         arg: &Bound<'_, PyAny>,
     ) -> PyResult<PyObject> {
         if let Ok(printf_format) = arg.extract::<IPrintfFormat>() {
-            // Call continuation with the format result
             if printf_format.args.is_empty() {
-                // No args yet, call with input string
-                cont.call1((printf_format.input,))?.extract()
+                // No args yet - return the IPrintfFormat itself so it can continue to be curried
+                // The consumer will handle calling the continuation when appropriate
+                Ok(printf_format.into_pyobject(py)?.into())
             } else {
                 // Has args, call with formatted result
                 let formatted = printf_format.format_final()?;
@@ -589,12 +589,61 @@ mod printf {
         }
     }
 
-    /// Print to console
+    /// Console printer wrapper that maintains F# currying semantics
+    #[pyclass]
+    #[derive(Clone)]
+    pub struct ConsolePrinter {
+        format: IPrintfFormat,
+    }
+
+    #[pymethods]
+    impl ConsolePrinter {
+        fn __call__(&self, py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+            // Call the underlying IPrintfFormat
+            let result = self.format.__call__(py, arg)?;
+
+            // Check if we got a string (final result) or another IPrintfFormat (needs more args)
+            if let Ok(result_str) = result.extract::<String>(py) {
+                // Final result - print it and return None
+                let print_fn = py.import("builtins")?.getattr("print")?;
+                print_fn.call1((result_str,))?;
+                Ok(py.None())
+            } else if let Ok(new_format) = result.extract::<IPrintfFormat>(py) {
+                // Still needs more args - wrap in new ConsolePrinter
+                Ok(ConsolePrinter { format: new_format }
+                    .into_pyobject(py)?
+                    .into())
+            } else {
+                // Should not happen, but return the result as-is
+                Ok(result)
+            }
+        }
+    }
+
+    /// Print to console with F# semantics
     #[pyfunction]
-    pub fn to_console(py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<()> {
-        let print_fn = py.import("builtins")?.getattr("print")?;
-        continue_print(py, &print_fn, arg)?;
-        Ok(())
+    pub fn to_console(py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Ok(printf_format) = arg.extract::<IPrintfFormat>() {
+            if printf_format.args.is_empty() {
+                // Return a ConsolePrinter that will handle the currying and printing
+                Ok(ConsolePrinter {
+                    format: printf_format,
+                }
+                .into_pyobject(py)?
+                .into())
+            } else {
+                // Has args, print formatted result and return None
+                let formatted = printf_format.format_final()?;
+                let print_fn = py.import("builtins")?.getattr("print")?;
+                print_fn.call1((formatted,))?;
+                Ok(py.None())
+            }
+        } else {
+            // Not a printf format, just print it
+            let print_fn = py.import("builtins")?.getattr("print")?;
+            print_fn.call1((arg,))?;
+            Ok(py.None())
+        }
     }
 
     /// Convert to text string with F# semantics
@@ -1813,75 +1862,101 @@ mod formatting {
         Ok(-1)
     }
 
+    /// Extract format parameters from regex captures
+    fn extract_format_params<'a>(
+        captures: &regex::Captures<'a>,
+    ) -> (Option<&'a str>, Option<i32>, Option<i32>, Option<&'a str>) {
+        let flags = captures.get(2).map(|m| m.as_str());
+        let pad_length = captures.get(3).and_then(|m| m.as_str().parse().ok());
+        let precision = captures.get(4).and_then(|m| m.as_str().parse().ok());
+        let format_spec = captures.get(5).map(|m| m.as_str());
+        (flags, pad_length, precision, format_spec)
+    }
+
+    /// Extract value from values collection at given index
+    fn extract_value_at_index<'a>(
+        values: &Bound<'a, PyAny>,
+        val_idx: usize,
+    ) -> PyResult<Option<Bound<'a, PyAny>>> {
+        // Pattern match on the type of values container
+        match () {
+            // Array-like objects (FSharpArray, lists, etc.)
+            () if values.hasattr("__len__")? && values.hasattr("__getitem__")? => {
+                let length = values.call_method0("__len__")?.extract::<usize>()?;
+                if val_idx < length {
+                    Ok(values.get_item(val_idx).ok())
+                } else {
+                    Ok(None)
+                }
+            }
+            // Single value case
+            () if val_idx == 0 => Ok(Some(values.clone())),
+            // No more values available
+            _ => Ok(None),
+        }
+    }
+
+    /// Format a value using format_replacement with fallback
+    fn format_value_with_fallback(
+        py: Python<'_>,
+        value: &Bound<'_, PyAny>,
+        flags: Option<&str>,
+        pad_length: Option<i32>,
+        precision: Option<i32>,
+        format_spec: Option<&str>,
+    ) -> String {
+        match format_replacement(py, value, flags, pad_length, precision, format_spec) {
+            Ok(formatted) => formatted,
+            Err(_) => {
+                // Fallback to string representation
+                value.str().map(|s| s.to_string()).unwrap_or_default()
+            }
+        }
+    }
+
     #[pyfunction]
     pub fn interpolate(
-        _py: Python<'_>,
+        py: Python<'_>,
         string: &str,
         values: &Bound<'_, PyAny>,
     ) -> PyResult<String> {
-        // Type-safe value extraction from Python objects
-        let values_list: Vec<String> = if let Ok(list) = values.downcast::<pyo3::types::PyList>() {
-            (0..list.len())
-                .filter_map(|i| {
-                    list.get_item(i)
-                        .ok()
-                        .and_then(|item| item.str().ok())
-                        .map(|s| s.to_string())
-                })
-                .collect()
-        } else if let Ok(tuple) = values.downcast::<pyo3::types::PyTuple>() {
-            (0..tuple.len())
-                .filter_map(|i| {
-                    tuple
-                        .get_item(i)
-                        .ok()
-                        .and_then(|item| item.str().ok())
-                        .map(|s| s.to_string())
-                })
-                .collect()
-        } else {
-            // Fallback: try to convert single value to string
-            values
-                .str()
-                .ok()
-                .map(|s| vec![s.to_string()])
-                .unwrap_or_default()
-        };
-
         let mut val_idx = 0;
         let mut str_idx = 0;
         let mut result = String::new();
 
         for mat in INTERPOLATE_PATTERN.find_iter(string) {
-            let match_start = mat.start();
-            let prefix_len = if let Some(captures) = INTERPOLATE_PATTERN.captures(mat.as_str()) {
-                captures.get(1).map_or(0, |m| m.len())
-            } else {
-                0
+            let Some(captures) = INTERPOLATE_PATTERN.captures(mat.as_str()) else {
+                continue;
             };
 
-            let match_index = match_start + prefix_len;
+            // Calculate match position accounting for prefix
+            let prefix_len = captures.get(1).map_or(0, |m| m.len());
+            let match_index = mat.start() + prefix_len;
+
+            // Add text before the placeholder (with %% -> % conversion)
             result.push_str(&string[str_idx..match_index].replace("%%", "%"));
 
-            if let Some(captures) = INTERPOLATE_PATTERN.captures(mat.as_str()) {
-                let _flags = captures.get(2).map_or("", |m| m.as_str());
-                let _pad_length: Option<i32> =
-                    captures.get(3).and_then(|m| m.as_str().parse().ok());
-                let _precision: Option<i32> = captures.get(4).and_then(|m| m.as_str().parse().ok());
-                let _format_spec = captures.get(5).map_or("", |m| m.as_str());
+            // Extract format parameters
+            let (flags, pad_length, precision, format_spec) = extract_format_params(&captures);
 
-                // Type-safe value access
-                if let Some(value) = values_list.get(val_idx) {
-                    // For now, just use the string value directly
-                    // TODO: Implement proper format_replacement for interpolation
-                    result.push_str(value);
-                    val_idx += 1;
-                }
+            // Extract and format the value
+            if let Some(value) = extract_value_at_index(values, val_idx)? {
+                let formatted = format_value_with_fallback(
+                    py,
+                    &value,
+                    flags,
+                    pad_length,
+                    precision,
+                    format_spec,
+                );
+                result.push_str(&formatted);
+                val_idx += 1;
             }
 
             str_idx = mat.end();
         }
 
+        // Add remaining text (with %% -> % conversion)
         result.push_str(&string[str_idx..].replace("%%", "%"));
         Ok(result)
     }
@@ -1894,6 +1969,7 @@ pub fn register_string_module(parent_module: &Bound<'_, PyModule>) -> PyResult<(
 
     // Add classes
     m.add_class::<printf::IPrintfFormat>()?;
+    m.add_class::<printf::ConsolePrinter>()?;
     m.add_class::<formatting::StringComparison>()?;
 
     // Add functions

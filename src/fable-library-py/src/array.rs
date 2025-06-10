@@ -173,11 +173,13 @@ struct GenericArray {}
 // Macro to reduce repetition in type extraction for FSharpArray::new.
 // This ensures both elegance and performance, following best Rust and craftsman practices.
 macro_rules! try_extract_array {
-    ($elements:expr, $py:expr, $variant:ident, $wrapper:ty, $native:ty, $extractor:expr) => {
-        if let Ok(vec) = extract_typed_vec_from_iterable::<$native>($elements, $extractor) {
-            return Ok(FSharpArray {
+    ($elements:expr, $py:expr, $variant:ident, $wrapper:ty, $native:ty) => {
+        if let Ok(vec) = extract_typed_vec_from_iterable::<$native>($elements) {
+            Some(FSharpArray {
                 storage: NativeArray::$variant(vec),
-            });
+            })
+        } else {
+            None
         }
     };
 }
@@ -214,90 +216,76 @@ impl FSharpArray {
         elements: Option<&Bound<'_, PyAny>>,
         array_type: Option<&str>,
     ) -> PyResult<Self> {
-        let nominal_type = if let Some(type_str) = array_type {
-            match type_str {
-                "Int8" => ArrayType::Int8,
-                "UInt8" => ArrayType::UInt8,
-                "Int16" => ArrayType::Int16,
-                "UInt16" => ArrayType::UInt16,
-                "Int32" => ArrayType::Int32,
-                "UInt32" => ArrayType::UInt32,
-                "Int64" => ArrayType::Int64,
-                "UInt64" => ArrayType::UInt64,
-                "Float32" => ArrayType::Float32,
-                "Float64" => ArrayType::Float64,
-                "String" => ArrayType::String,
-                _ => ArrayType::Generic,
-            }
-        } else {
-            ArrayType::Generic
+        let nominal_type = array_type
+            .map(ArrayType::from_str)
+            .unwrap_or(ArrayType::Generic);
+
+        // Handle empty array case early
+        let Some(elements) = elements else {
+            return Ok(FSharpArray {
+                storage: NativeArray::create_empty_storage(&nominal_type),
+            });
         };
 
-        if let Some(elements) = elements {
-            match &nominal_type {
-                ArrayType::Int8 => {
-                    try_extract_array!(elements, py, Int8, Int8, i8, |x| Ok(*Int8::new(x)?))
-                }
-                ArrayType::UInt8 => {
-                    try_extract_array!(elements, py, UInt8, UInt8, u8, |x| Ok(*UInt8::new(x)?))
-                }
-                ArrayType::Int16 => {
-                    try_extract_array!(elements, py, Int16, Int16, i16, |x| Ok(*Int16::new(x)?))
-                }
-                ArrayType::UInt16 => {
-                    try_extract_array!(elements, py, UInt16, UInt16, u16, |x| Ok(*UInt16::new(x)?))
-                }
-                ArrayType::Int32 => {
-                    try_extract_array!(elements, py, Int32, Int32, i32, |x| Ok(*Int32::new(x)?))
-                }
-                ArrayType::UInt32 => {
-                    try_extract_array!(elements, py, UInt32, UInt32, u32, |x| Ok(*UInt32::new(x)?))
-                }
-                ArrayType::Int64 => {
-                    try_extract_array!(elements, py, Int64, Int64, i64, |x| Ok(*Int64::new(x)?))
-                }
-                ArrayType::UInt64 => {
-                    try_extract_array!(elements, py, UInt64, UInt64, u64, |x| Ok(*UInt64::new(x)?))
-                }
-                ArrayType::Float32 => {
-                    try_extract_array!(elements, py, Float32, Float32, f32, |x| Ok(
-                        *x.extract::<Float32>()?
-                    ))
-                }
-                ArrayType::Float64 => {
-                    try_extract_array!(elements, py, Float64, Float64, f64, |x| Ok(
-                        *x.extract::<Float64>()?
-                    ))
-                }
-                ArrayType::String => {
-                    try_extract_array!(elements, py, String, String, String, |x| x
-                        .extract::<String>())
-                }
-                _ => {}
+        // Try to extract as typed arrays first - if any succeed, return immediately
+        let typed_array = match &nominal_type {
+            ArrayType::Int8 => {
+                try_extract_array!(elements, py, Int8, Int8, i8)
             }
+            ArrayType::UInt8 => {
+                try_extract_array!(elements, py, UInt8, UInt8, u8)
+            }
+            ArrayType::Int16 => {
+                try_extract_array!(elements, py, Int16, Int16, i16)
+            }
+            ArrayType::UInt16 => {
+                try_extract_array!(elements, py, UInt16, UInt16, u16)
+            }
+            ArrayType::Int32 => {
+                try_extract_array!(elements, py, Int32, Int32, i32)
+            }
+            ArrayType::UInt32 => {
+                try_extract_array!(elements, py, UInt32, UInt32, u32)
+            }
+            ArrayType::Int64 => {
+                try_extract_array!(elements, py, Int64, Int64, i64)
+            }
+            ArrayType::UInt64 => {
+                try_extract_array!(elements, py, UInt64, UInt64, u64)
+            }
+            ArrayType::Float32 => {
+                try_extract_array!(elements, py, Float32, Float32, f32)
+            }
+            ArrayType::Float64 => {
+                try_extract_array!(elements, py, Float64, Float64, f64)
+            }
+            ArrayType::String => {
+                try_extract_array!(elements, py, String, String, String)
+            }
+            _ => None,
+        };
 
-            // Fallback to PyObject storage if type extraction fails.
-            // This allows for generic or mixed-type arrays, at the cost of dynamic dispatch and locking.
-            // Arc<Mutex<...>> is used for thread safety and Python interop.
-            let len = elements.len();
-            let mut vec = match len {
-                Ok(len) => Vec::with_capacity(len),
-                Err(_) => Vec::new(),
-            };
-            if let Ok(iter) = elements.try_iter() {
-                for item in iter {
-                    vec.push(item?.into_pyobject(py)?.into());
-                }
-            }
-            Ok(FSharpArray {
-                storage: NativeArray::PyObject(Arc::new(Mutex::new(vec))),
-            })
-        } else {
-            // Empty array - create with the right type but no elements
-            Ok(FSharpArray {
-                storage: NativeArray::create_empty_storage(&nominal_type),
-            })
+        // If typed extraction succeeded, return it
+        if let Some(array) = typed_array {
+            return Ok(array);
         }
+
+        // Fallback to PyObject storage if type extraction fails.
+        // This allows for generic or mixed-type arrays, at the cost of dynamic dispatch and locking.
+        // Arc<Mutex<...>> is used for thread safety and Python interop.
+        let len = elements.len();
+        let mut vec = match len {
+            Ok(len) => Vec::with_capacity(len),
+            Err(_) => Vec::new(),
+        };
+        if let Ok(iter) = elements.try_iter() {
+            for item in iter {
+                vec.push(item?.into_pyobject(py)?.into());
+            }
+        }
+        Ok(FSharpArray {
+            storage: NativeArray::PyObject(Arc::new(Mutex::new(vec))),
+        })
     }
 
     #[classmethod]
@@ -4256,26 +4244,17 @@ pub fn allocate_array_from_cons(
 }
 
 // Utility function to extract typed vectors from any iterable
-fn extract_typed_vec_from_iterable<U>(
-    elements: &Bound<'_, PyAny>,
-    extractor: impl Fn(&Bound<'_, PyAny>) -> PyResult<U>,
-) -> PyResult<Vec<U>>
+fn extract_typed_vec_from_iterable<U>(elements: &Bound<'_, PyAny>) -> PyResult<Vec<U>>
 where
     U: for<'a> pyo3::FromPyObject<'a>,
 {
-    // Check if the object is iterable
-    elements.try_iter()?;
-
-    let len = elements.len();
-    let mut vec = match len {
-        Ok(len) => Vec::with_capacity(len),
-        Err(_) => Vec::new(),
-    };
+    // Get the length. Most Python objects have a len method, but some don't.
+    // like sequences.
+    let len = elements.len().unwrap_or(0);
+    let mut vec = Vec::with_capacity(len);
 
     for item in elements.try_iter()? {
-        // println!("Item: {:?}", item);
-        let typed_item = extractor(&item?)?;
-        // println!("Got here");
+        let typed_item = item?.extract::<U>()?;
         vec.push(typed_item);
     }
 

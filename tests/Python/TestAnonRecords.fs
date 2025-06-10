@@ -57,3 +57,9 @@ let ``test Struct anonymous records structural equality works`` () =
     a = b |> equal true
     a = c |> equal false
     b = c |> equal false
+
+[<Fact>]
+let ``test Anonymous records field access with camelCase names`` () =
+    let ar = {| someName = "foo"; anotherField = 42 |}
+    ar.someName |> equal "foo"
+    ar.anotherField |> equal 42

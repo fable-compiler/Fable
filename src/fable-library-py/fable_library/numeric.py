@@ -8,7 +8,7 @@ def to_fixed(x: float, dp: int | None = None) -> str:
     x = int(x) if int(x) == x else x
 
     if dp is not None:
-        fmt = "{:.%sf}" % dp
+        fmt = f"{{:.{dp}f}}"
         return fmt.format(x)
 
     return f"{x}"
@@ -18,7 +18,7 @@ def to_precision(x: float, sd: int | None = None) -> str:
     x = int(x) if int(x) == x else x
 
     if sd is not None:
-        fmt = "{:.%se}" % sd
+        fmt = f"{{:.{sd}e}}"
         return fmt.format(x)
 
     return f"{x}"
@@ -26,7 +26,7 @@ def to_precision(x: float, sd: int | None = None) -> str:
 
 def to_exponential(x: float, dp: int | None = None) -> str:
     if dp is not None:
-        fmt = "{:.%se}" % dp
+        fmt = f"{{:.{dp}e}}"
         return fmt.format(x)
 
     return f"{x}"

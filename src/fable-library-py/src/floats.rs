@@ -41,8 +41,8 @@ macro_rules! float_variant {
             }
 
             #[new]
-            pub fn new(value: $type) -> PyResult<Self> {
-                Ok(Self(value))
+            pub fn new(value: $type) -> Self {
+                Self(value)
             }
 
             // --- Arithmetic Methods ---
@@ -468,6 +468,11 @@ float_variant!(Float64, f64);
 
 // Free functions for mathematical operations
 #[pyfunction]
+pub fn abs(x: &Float64) -> Float64 {
+    Float64(x.0.abs())
+}
+
+#[pyfunction]
 pub fn sqrt(x: &Float64) -> PyResult<Float64> {
     x.sqrt()
 }
@@ -684,6 +689,7 @@ pub fn register_float_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(ceil, &m)?)?;
     m.add_function(wrap_pyfunction!(pow, &m)?)?;
     m.add_function(wrap_pyfunction!(parse, &m)?)?;
+    m.add_function(wrap_pyfunction!(abs, &m)?)?;
 
     parent_module.add_submodule(&m)
 }
