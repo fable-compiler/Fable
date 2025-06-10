@@ -1839,7 +1839,8 @@ module Util =
             let values, stmts =
                 values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
 
-            List.zip (List.ofArray fieldNames) values |> makePyObject, stmts
+            let snakeCaseFieldNames = fieldNames |> Array.map Naming.toSnakeCase
+            List.zip (List.ofArray snakeCaseFieldNames) values |> makePyObject, stmts
         | Fable.NewUnion(values, tag, ent, _genArgs) ->
             let ent = com.GetEntity(ent)
 
