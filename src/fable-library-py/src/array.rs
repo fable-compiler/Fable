@@ -16,120 +16,9 @@ use pyo3::{
 };
 use std::sync::{Arc, Mutex};
 
-/// A module for array operations
-pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(parent_module.py(), "array")?;
-
-    m.add_class::<FSharpArray>()?;
-    m.add_class::<FSharpCons>()?;
-
-    m.add_function(wrap_pyfunction!(add_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(add_range_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(append, &m)?)?;
-    m.add_function(wrap_pyfunction!(average, &m)?)?;
-    m.add_function(wrap_pyfunction!(average_by, &m)?)?;
-    m.add_function(wrap_pyfunction!(chunk_by_size, &m)?)?;
-    m.add_function(wrap_pyfunction!(choose, &m)?)?;
-    m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
-    m.add_function(wrap_pyfunction!(concat, &m)?)?;
-    m.add_function(wrap_pyfunction!(contains, &m)?)?;
-    m.add_function(wrap_pyfunction!(copy, &m)?)?;
-    m.add_function(wrap_pyfunction!(copy_to, &m)?)?;
-    m.add_function(wrap_pyfunction!(create, &m)?)?;
-    m.add_function(wrap_pyfunction!(empty, &m)?)?;
-    m.add_function(wrap_pyfunction!(equals_with, &m)?)?;
-    m.add_function(wrap_pyfunction!(exists, &m)?)?;
-    m.add_function(wrap_pyfunction!(exists_offset, &m)?)?;
-    m.add_function(wrap_pyfunction!(fill, &m)?)?;
-    m.add_function(wrap_pyfunction!(filter, &m)?)?;
-    m.add_function(wrap_pyfunction!(find, &m)?)?;
-    m.add_function(wrap_pyfunction!(find_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(find_index, &m)?)?;
-    m.add_function(wrap_pyfunction!(find_index_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(find_last_index, &m)?)?;
-    m.add_function(wrap_pyfunction!(fold, &m)?)?;
-    m.add_function(wrap_pyfunction!(fold_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(fold_back2, &m)?)?;
-    m.add_function(wrap_pyfunction!(fold_back_indexed, &m)?)?;
-    m.add_function(wrap_pyfunction!(fold_back_indexed2, &m)?)?;
-    m.add_function(wrap_pyfunction!(fold_indexed, &m)?)?;
-    m.add_function(wrap_pyfunction!(for_all, &m)?)?;
-    m.add_function(wrap_pyfunction!(get_sub_array, &m)?)?;
-    m.add_function(wrap_pyfunction!(head, &m)?)?;
-    m.add_function(wrap_pyfunction!(indexed, &m)?)?;
-    m.add_function(wrap_pyfunction!(initialize, &m)?)?;
-    m.add_function(wrap_pyfunction!(insert_at, &m)?)?;
-    m.add_function(wrap_pyfunction!(insert_many_at, &m)?)?;
-    m.add_function(wrap_pyfunction!(insert_range_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(index_of, &m)?)?;
-    m.add_function(wrap_pyfunction!(item, &m)?)?;
-    m.add_function(wrap_pyfunction!(iterate, &m)?)?;
-    m.add_function(wrap_pyfunction!(iterate_indexed, &m)?)?;
-    m.add_function(wrap_pyfunction!(last, &m)?)?;
-    m.add_function(wrap_pyfunction!(map, &m)?)?;
-    m.add_function(wrap_pyfunction!(map2, &m)?)?;
-    m.add_function(wrap_pyfunction!(map3, &m)?)?;
-    m.add_function(wrap_pyfunction!(map_fold, &m)?)?;
-    m.add_function(wrap_pyfunction!(map_fold_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(map_indexed, &m)?)?;
-    m.add_function(wrap_pyfunction!(map_indexed2, &m)?)?;
-    m.add_function(wrap_pyfunction!(map_indexed3, &m)?)?;
-    m.add_function(wrap_pyfunction!(max, &m)?)?;
-    m.add_function(wrap_pyfunction!(max_by, &m)?)?;
-    m.add_function(wrap_pyfunction!(min, &m)?)?;
-    m.add_function(wrap_pyfunction!(min_by, &m)?)?;
-    m.add_function(wrap_pyfunction!(pairwise, &m)?)?;
-    m.add_function(wrap_pyfunction!(partition, &m)?)?;
-    m.add_function(wrap_pyfunction!(permute, &m)?)?;
-    m.add_function(wrap_pyfunction!(pick, &m)?)?;
-    m.add_function(wrap_pyfunction!(reduce, &m)?)?;
-    m.add_function(wrap_pyfunction!(reduce_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(remove_all_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(remove_at, &m)?)?;
-    m.add_function(wrap_pyfunction!(remove_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(remove_many_at, &m)?)?;
-    m.add_function(wrap_pyfunction!(resize, &m)?)?;
-    m.add_function(wrap_pyfunction!(reverse, &m)?)?;
-    m.add_function(wrap_pyfunction!(scan, &m)?)?;
-    m.add_function(wrap_pyfunction!(scan_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(set_slice, &m)?)?;
-    m.add_function(wrap_pyfunction!(singleton, &m)?)?;
-    m.add_function(wrap_pyfunction!(skip, &m)?)?;
-    m.add_function(wrap_pyfunction!(sort, &m)?)?;
-    m.add_function(wrap_pyfunction!(sort_by, &m)?)?;
-    m.add_function(wrap_pyfunction!(sort_in_place, &m)?)?;
-    m.add_function(wrap_pyfunction!(sort_in_place_by, &m)?)?;
-    m.add_function(wrap_pyfunction!(sort_in_place_with, &m)?)?;
-    m.add_function(wrap_pyfunction!(sort_with, &m)?)?;
-    m.add_function(wrap_pyfunction!(split_into, &m)?)?;
-    m.add_function(wrap_pyfunction!(sum, &m)?)?;
-    m.add_function(wrap_pyfunction!(sum_by, &m)?)?;
-    m.add_function(wrap_pyfunction!(tail, &m)?)?;
-    m.add_function(wrap_pyfunction!(take, &m)?)?;
-    m.add_function(wrap_pyfunction!(transpose, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_find, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_find_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_find_index, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_find_index_back, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_head, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_item, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_last, &m)?)?;
-    m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
-    m.add_function(wrap_pyfunction!(truncate, &m)?)?;
-    m.add_function(wrap_pyfunction!(unzip, &m)?)?;
-    m.add_function(wrap_pyfunction!(update_at, &m)?)?;
-    m.add_function(wrap_pyfunction!(windowed, &m)?)?;
-    m.add_function(wrap_pyfunction!(zip, &m)?)?;
-    m.add_function(wrap_pyfunction!(compare_to, &m)?)?;
-
-    m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
-
-    parent_module.add_submodule(&m)?;
-    Ok(())
-}
-
 #[pyclass(module = "fable", subclass)]
 #[derive(Clone, Debug)]
+
 pub struct FSharpArray {
     storage: NativeArray,
 }
@@ -273,11 +162,8 @@ impl FSharpArray {
         // Fallback to PyObject storage if type extraction fails.
         // This allows for generic or mixed-type arrays, at the cost of dynamic dispatch and locking.
         // Arc<Mutex<...>> is used for thread safety and Python interop.
-        let len = elements.len();
-        let mut vec = match len {
-            Ok(len) => Vec::with_capacity(len),
-            Err(_) => Vec::new(),
-        };
+        let len = elements.len().unwrap_or(0);
+        let mut vec = Vec::with_capacity(len);
         if let Ok(iter) = elements.try_iter() {
             for item in iter {
                 vec.push(item?.into_pyobject(py)?.into());
@@ -514,7 +400,6 @@ impl FSharpArray {
     }
 
     pub fn __bytes__(&self, py: Python<'_>) -> PyResult<PyObject> {
-        println!("Converting to bytes: {:?}", self.storage.type_name());
         match &self.storage {
             // For UInt8/Int8 arrays, we can create bytes directly
             NativeArray::UInt8(vec) => {
@@ -604,10 +489,7 @@ impl FSharpArray {
                 Ok(bytes.into())
             }
             // For non-numeric types, return NotImplemented
-            _ => {
-                println!("Cannot convert to bytes for this type");
-                Ok(py.NotImplemented())
-            }
+            _ => Ok(py.NotImplemented()),
         }
     }
 
@@ -3062,6 +2944,50 @@ impl FSharpArray {
         // All elements are equal
         Ok(0)
     }
+
+    // Collect implementation (flatMap - map each element to an array then concatenate)
+    #[pyo3(signature = (mapping, cons=None))]
+    pub fn collect(
+        &self,
+        py: Python<'_>,
+        mapping: &Bound<'_, PyAny>,
+        cons: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let len = self.storage.len();
+
+        // First, map each element to an array
+        let mut mapped_arrays = Vec::with_capacity(len);
+        for i in 0..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            let mapped_result = mapping.call1((item,))?;
+
+            // Convert the result to a FSharpArray
+            let mapped_array = ensure_array(py, &mapped_result)?;
+            mapped_arrays.push(mapped_array);
+        }
+
+        // If no arrays to concatenate, return empty array
+        if mapped_arrays.is_empty() {
+            return FSharpArray::empty(py, cons);
+        }
+
+        // Now concatenate all the arrays
+        let fs_cons = FSharpCons::extract(cons, &ArrayType::Generic);
+
+        // Calculate total length needed
+        let total_len: usize = mapped_arrays.iter().map(|arr| arr.storage.len()).sum();
+        let mut result = fs_cons.create(total_len);
+
+        // Copy all elements from all arrays
+        for array in mapped_arrays {
+            for i in 0..array.storage.len() {
+                let item = array.get_item_at_index(i as isize, py)?;
+                result.push_value(item.bind(py), py)?;
+            }
+        }
+
+        Ok(FSharpArray { storage: result })
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -3806,6 +3732,17 @@ pub fn choose(
 }
 
 #[pyfunction]
+#[pyo3(signature = (mapping, array, cons=None))]
+pub fn collect(
+    py: Python<'_>,
+    mapping: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+    cons: Option<&Bound<'_, PyAny>>,
+) -> PyResult<FSharpArray> {
+    array.collect(py, mapping, cons)
+}
+
+#[pyfunction]
 #[pyo3(signature = (key, array, comparer))]
 pub fn max_by(
     py: Python<'_>,
@@ -4303,4 +4240,117 @@ where
         acc = f(acc, item, py)?;
     }
     Ok(acc)
+}
+
+/// A module for array operations
+pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+    let m = PyModule::new(parent_module.py(), "array")?;
+
+    m.add_class::<FSharpArray>()?;
+    m.add_class::<FSharpCons>()?;
+
+    m.add_function(wrap_pyfunction!(add_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(add_range_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(append, &m)?)?;
+    m.add_function(wrap_pyfunction!(average, &m)?)?;
+    m.add_function(wrap_pyfunction!(average_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(chunk_by_size, &m)?)?;
+    m.add_function(wrap_pyfunction!(choose, &m)?)?;
+    m.add_function(wrap_pyfunction!(collect, &m)?)?;
+    m.add_function(wrap_pyfunction!(compare_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(concat, &m)?)?;
+    m.add_function(wrap_pyfunction!(contains, &m)?)?;
+    m.add_function(wrap_pyfunction!(copy, &m)?)?;
+    m.add_function(wrap_pyfunction!(copy_to, &m)?)?;
+    m.add_function(wrap_pyfunction!(create, &m)?)?;
+    m.add_function(wrap_pyfunction!(empty, &m)?)?;
+    m.add_function(wrap_pyfunction!(equals_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(exists, &m)?)?;
+    m.add_function(wrap_pyfunction!(exists_offset, &m)?)?;
+    m.add_function(wrap_pyfunction!(fill, &m)?)?;
+    m.add_function(wrap_pyfunction!(filter, &m)?)?;
+    m.add_function(wrap_pyfunction!(find, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_index, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_index_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_last_index, &m)?)?;
+    m.add_function(wrap_pyfunction!(fold, &m)?)?;
+    m.add_function(wrap_pyfunction!(fold_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(fold_back2, &m)?)?;
+    m.add_function(wrap_pyfunction!(fold_back_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(fold_back_indexed2, &m)?)?;
+    m.add_function(wrap_pyfunction!(fold_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(for_all, &m)?)?;
+    m.add_function(wrap_pyfunction!(get_sub_array, &m)?)?;
+    m.add_function(wrap_pyfunction!(head, &m)?)?;
+    m.add_function(wrap_pyfunction!(indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(initialize, &m)?)?;
+    m.add_function(wrap_pyfunction!(insert_at, &m)?)?;
+    m.add_function(wrap_pyfunction!(insert_many_at, &m)?)?;
+    m.add_function(wrap_pyfunction!(insert_range_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(index_of, &m)?)?;
+    m.add_function(wrap_pyfunction!(item, &m)?)?;
+    m.add_function(wrap_pyfunction!(iterate, &m)?)?;
+    m.add_function(wrap_pyfunction!(iterate_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(last, &m)?)?;
+    m.add_function(wrap_pyfunction!(map, &m)?)?;
+    m.add_function(wrap_pyfunction!(map2, &m)?)?;
+    m.add_function(wrap_pyfunction!(map3, &m)?)?;
+    m.add_function(wrap_pyfunction!(map_fold, &m)?)?;
+    m.add_function(wrap_pyfunction!(map_fold_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(map_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(map_indexed2, &m)?)?;
+    m.add_function(wrap_pyfunction!(map_indexed3, &m)?)?;
+    m.add_function(wrap_pyfunction!(max, &m)?)?;
+    m.add_function(wrap_pyfunction!(max_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(min, &m)?)?;
+    m.add_function(wrap_pyfunction!(min_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(pairwise, &m)?)?;
+    m.add_function(wrap_pyfunction!(partition, &m)?)?;
+    m.add_function(wrap_pyfunction!(permute, &m)?)?;
+    m.add_function(wrap_pyfunction!(pick, &m)?)?;
+    m.add_function(wrap_pyfunction!(reduce, &m)?)?;
+    m.add_function(wrap_pyfunction!(reduce_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(remove_all_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(remove_at, &m)?)?;
+    m.add_function(wrap_pyfunction!(remove_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(remove_many_at, &m)?)?;
+    m.add_function(wrap_pyfunction!(resize, &m)?)?;
+    m.add_function(wrap_pyfunction!(reverse, &m)?)?;
+    m.add_function(wrap_pyfunction!(scan, &m)?)?;
+    m.add_function(wrap_pyfunction!(scan_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(set_slice, &m)?)?;
+    m.add_function(wrap_pyfunction!(singleton, &m)?)?;
+    m.add_function(wrap_pyfunction!(skip, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_in_place_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_in_place_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(split_into, &m)?)?;
+    m.add_function(wrap_pyfunction!(sum, &m)?)?;
+    m.add_function(wrap_pyfunction!(sum_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(tail, &m)?)?;
+    m.add_function(wrap_pyfunction!(take, &m)?)?;
+    m.add_function(wrap_pyfunction!(transpose, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_find, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_find_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_find_index, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_find_index_back, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_head, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_item, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_last, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
+    m.add_function(wrap_pyfunction!(truncate, &m)?)?;
+    m.add_function(wrap_pyfunction!(unzip, &m)?)?;
+    m.add_function(wrap_pyfunction!(update_at, &m)?)?;
+    m.add_function(wrap_pyfunction!(windowed, &m)?)?;
+    m.add_function(wrap_pyfunction!(zip, &m)?)?;
+    m.add_function(wrap_pyfunction!(compare_to, &m)?)?;
+
+    m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
+
+    parent_module.add_submodule(&m)?;
+    Ok(())
 }

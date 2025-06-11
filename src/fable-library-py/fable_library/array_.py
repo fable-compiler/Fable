@@ -51,6 +51,7 @@ append = array.append
 chunk_by_size = array.chunk_by_size
 compare_with = array.compare_with
 create = array.create
+collect = array.collect
 empty = array.empty
 equals_with = array.equals_with
 exists = array.exists

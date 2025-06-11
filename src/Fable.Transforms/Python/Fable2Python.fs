@@ -153,7 +153,6 @@ module Reflection =
             ent.FSharpFields
             |> Seq.map (fun fi ->
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
-
                 let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
                 (Expression.tuple [ Expression.stringConstant name; typeInfo ]), stmts
@@ -1839,8 +1838,7 @@ module Util =
             let values, stmts =
                 values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
 
-            let snakeCaseFieldNames = fieldNames |> Array.map Naming.toSnakeCase
-            List.zip (List.ofArray snakeCaseFieldNames) values |> makePyObject, stmts
+            List.zip (List.ofArray fieldNames) values |> makePyObject, stmts
         | Fable.NewUnion(values, tag, ent, _genArgs) ->
             let ent = com.GetEntity(ent)
 
@@ -2396,7 +2394,7 @@ module Util =
 
     let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         // printfn "transformGet: %A" kind
-        // printfn "transformGet: %A" (fableExpr.Type)
+        /// printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
@@ -2406,7 +2404,14 @@ module Util =
 
         | Fable.FieldGet i ->
             // printfn "Fable.FieldGet: %A" (i.Name, fableExpr.Type)
-            let fieldName = i.Name |> Naming.toSnakeCase // |> Helpers.clean
+            let fieldName =
+                match fableExpr.Type with
+                | Fable.AnonymousRecordType _ ->
+                    // Use the field name as is for anonymous records
+                    i.Name
+                | _ ->
+                    // Use snake case for field names
+                    i.Name |> Naming.toSnakeCase // |> Helpers.clean
 
             let fableExpr =
                 match fableExpr with
