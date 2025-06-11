@@ -2432,8 +2432,22 @@ impl FSharpArray {
         target_index: usize,
         count: usize,
     ) -> PyResult<()> {
-        self.storage
+        // Try the fast path first - direct storage copy for same types
+        match self
+            .storage
             .copy_to(&mut target.storage, source_index, target_index, count, py)
+        {
+            Ok(()) => Ok(()),
+            Err(_) => {
+                // Fallback: manual copying with type conversion
+                // This handles cases where source and target have different types
+                for i in 0..count {
+                    let source_item = self.get_item_at_index((source_index + i) as isize, py)?;
+                    target.__setitem__((target_index + i) as isize, source_item.bind(py), py)?;
+                }
+                Ok(())
+            }
+        }
     }
 
     pub fn zip(&self, py: Python<'_>, array2: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {

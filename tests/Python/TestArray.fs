@@ -190,12 +190,12 @@ let ``test Array.blit works`` () =
     Array.blit xs 3 ys 5 4        // [|0; 0; 0; 0; 0; 4; 5; 6; 7; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0|]
     ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
 
-// [<Fact>]
-// let ``test Array.blit works with non typed arrays`` () =
-//     let xs = [| 'a'..'h' |] |> Array.map string
-//     let ys = Array.zeroCreate 20
-//     Array.blit xs 3 ys 5 4
-//     ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal "defg"
+[<Fact>]
+let ``test Array.blit works with non typed arrays`` () =
+    let xs = [| 'a'..'h' |] |> Array.map string
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal "defg"
 
 [<Fact>]
 let ``test Array.copy works`` () =
@@ -436,11 +436,11 @@ let ``test Array.foldBack works`` () =
 //     let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
 //     total |> equal -4
 
-// [<Fact>]
-// let ``test Array.forall works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     Array.forall ((>) 5.) xs
-//     |> equal true
+[<Fact>]
+let ``test Array.forall works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.forall ((>) 5.) xs
+    |> equal true
 
 // [<Fact>]
 // let ``test Array.forall2 works`` () =
