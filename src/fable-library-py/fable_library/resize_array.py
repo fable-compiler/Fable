@@ -11,11 +11,7 @@ _T = TypeVar("_T")
 
 def exists(predicate: Callable[[_T], bool], xs: list[_T]) -> bool:
     """Test if a predicate is true for at least one element in a list."""
-
-    for x in xs:
-        if predicate(x):
-            return True
-    return False
+    return any(predicate(x) for x in xs)
 
 
 def find_index(predicate: Callable[[_T], bool], xs: list[_T]) -> int:
@@ -44,15 +40,20 @@ def remove_range(start: int, count: int, xs: list[Any]) -> None:
 
 def remove_all_in_place(predicate: Callable[[_T], bool], xs: list[_T]) -> int:
     """Remove all elements matching predicate from the list in-place. Returns the number of removed elements."""
-    removed = 0
-    i = 0
-    while i < len(xs):
-        if predicate(xs[i]):
-            del xs[i]
-            removed += 1
-        else:
-            i += 1
-    return removed
+    # More efficient O(n) approach: build list of items to keep
+    original_length = len(xs)
+    write_index = 0
+
+    for read_index in range(len(xs)):
+        if not predicate(xs[read_index]):
+            if write_index != read_index:
+                xs[write_index] = xs[read_index]
+            write_index += 1
+
+    # Truncate the list to remove unwanted elements
+    del xs[write_index:]
+
+    return original_length - write_index
 
 
 def find_last_index(predicate: Callable[[_T], bool], xs: list[_T]) -> int:
@@ -64,18 +65,15 @@ def find_last_index(predicate: Callable[[_T], bool], xs: list[_T]) -> int:
 
 
 def try_find(predicate: Callable[[_T], bool], xs: list[_T]) -> Option[_T]:
-    if not xs:
+    """Find the first element that satisfies the predicate, returning None if not found."""
+    try:
+        return some(next(x for x in xs if predicate(x)))
+    except StopIteration:
         return None
-
-    for x in xs:
-        if predicate(x):
-            return some(x)
-
-    return None
 
 
 def find_last(predicate: Callable[[_T], bool], xs: list[_T]) -> _T | None:
-    """Return the last element in the list that satisfies the predicate, or raise ValueError if not found."""
+    """Return the last element in the list that satisfies the predicate, or None if not found."""
     for x in reversed(xs):
         if predicate(x):
             return x
@@ -90,10 +88,11 @@ def filter(predicate: Callable[[_T], bool], xs: list[_T]) -> list[_T]:
 def index_of(value: _T, start: int, count: int | None, xs: list[_T]) -> int:
     """Return the index of value in xs, or -1 if not found. Specify start and count."""
     end = min(len(xs), start + count if count is not None else len(xs))
-    for i in range(start, end):
-        if xs[i] == value:
-            return i
-    return -1
+    try:
+        # Use built-in index method with start/stop parameters for better performance
+        return xs.index(value, start, end)
+    except ValueError:
+        return -1
 
 
 def insert_range_in_place(index: int, items: list[_T], xs: list[_T]) -> None:
@@ -106,10 +105,10 @@ def add_in_place(x: _T, xs: list[_T]) -> None:
     xs.append(x)
 
 
-def add_range_in_place(range: list[_T], array: list[_T]) -> None:
-    """Add a range of items to xs at the given index."""
-    for x in range:
-        array.append(x)
+def add_range_in_place(items: list[_T], array: list[_T]) -> None:
+    """Add a range of items to the array."""
+    # Use extend for better performance instead of individual appends
+    array.extend(items)
 
 
 def add_range(index: int, items: list[_T], xs: list[_T]) -> list[_T]:
@@ -129,6 +128,7 @@ def iterate(action: Callable[[_T], None], xs: list[_T]) -> None:
 
 
 def contains(value: _T, xs: list[_T], cons: Any | None = None) -> bool:
+    """Check if a value is contained in the list."""
     return value in xs
 
 
@@ -136,12 +136,18 @@ __all__ = [
     "add_in_place",
     "add_range",
     "add_range_in_place",
+    "contains",
     "exists",
+    "filter",
     "find_index",
     "find_last",
     "find_last_index",
     "get_sub_array",
+    "index_of",
+    "insert_range_in_place",
     "iterate",
+    "remove",
     "remove_all_in_place",
     "remove_range",
+    "try_find",
 ]

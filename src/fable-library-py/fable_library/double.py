@@ -2,10 +2,6 @@ from .core import float64, floats
 from .types import FSharpRef
 
 
-def abs(x: float64) -> float64:
-    return -x if x < 0 else x
-
-
 def sign(x: float64) -> float64:
     return float64(-1) if x < 0 else float64(1) if x > 0 else float64(0)
 
@@ -56,10 +52,10 @@ inf = floats.infinity
 nan = floats.nan
 negative_inf = floats.negative_infinity
 parse = floats.parse
+abs = floats.abs
 
 
 __all__ = [
-    "abs",
     "acos",
     "asin",
     "atan",
