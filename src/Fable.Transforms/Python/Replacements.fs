@@ -738,7 +738,7 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
                 match genArg with
                 // We don't have a module for ResizeArray so let's assume the kind is MutableArray
                 | TypedArrayCompatible com MutableArray consName ->
-                    let cons = [ makeImportLib com Any consName "types" ]
+                    let cons = [ makeImportLib com Any consName "array_" ]
                     args @ cons
                 | _ ->
                     let cons = [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
