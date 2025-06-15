@@ -1680,10 +1680,10 @@ impl FSharpArray {
         }
 
         // Create the result array
-        let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
-        let mut results = fs_cons.create(len_inner);
+        let mut results = NativeArray::new(&ArrayType::Generic, Some(len_inner));
 
         // Fill the result array
+        let fs_cons = FSharpCons::extract(cons, &ArrayType::Generic);
         for i in 0..len_inner {
             let mut inner_array = fs_cons.create(len);
             for j in 0..len {

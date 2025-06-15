@@ -5,46 +5,16 @@ from .core import array, float32, float64, int8, int16, int32, int64, uint8, uin
 
 _T = TypeVar("_T")
 
-
-def Int8Array(lst: list[int8]) -> array.FSharpArray[int8]:
-    return array.FSharpArray(array_type="Int8", elements=lst)
-
-
-def UInt8Array(lst: list[uint8]) -> array.FSharpArray[uint8]:
-    return array.FSharpArray(array_type="UInt8", elements=lst)
-
-
-def Int16Array(lst: list[int16]) -> array.FSharpArray[int16]:
-    return array.FSharpArray(array_type="Int16", elements=lst)
-
-
-def UInt16Array(lst: list[uint16]) -> array.FSharpArray[uint16]:
-    return array.FSharpArray(array_type="UInt16", elements=lst)
-
-
-def Int32Array(lst: list[int32]) -> array.FSharpArray[int32]:
-    return array.FSharpArray(array_type="Int32", elements=lst)
-
-
-def UInt32Array(lst: list[uint32]) -> array.FSharpArray[uint32]:
-    return array.FSharpArray(array_type="UInt32", elements=lst)
-
-
-def Int64Array(lst: list[int64]) -> array.FSharpArray[int64]:
-    return array.FSharpArray(array_type="Int64", elements=lst)
-
-
-def UInt64Array(lst: list[uint64]) -> array.FSharpArray[uint64]:
-    return array.FSharpArray(array_type="UInt64", elements=lst)
-
-
-def Float32Array(lst: list[float32]) -> array.FSharpArray[float32]:
-    return array.FSharpArray(array_type="Float32", elements=lst)
-
-
-def Float64Array(lst: list[float64]) -> array.FSharpArray[float64]:
-    return array.FSharpArray(array_type="Float64", elements=lst)
-
+Int8Array = array.FSharpCons[int8]("Int8")
+UInt8Array = array.FSharpCons[uint8]("UInt8")
+Int16Array = array.FSharpCons[int16]("Int16")
+UInt16Array = array.FSharpCons[uint16]("UInt16")
+Int32Array = array.FSharpCons[int32]("Int32")
+UInt32Array = array.FSharpCons[uint32]("UInt32")
+Int64Array = array.FSharpCons[int64]("Int64")
+UInt64Array = array.FSharpCons[uint64]("UInt64")
+Float32Array = array.FSharpCons[float32]("Float32")
+Float64Array = array.FSharpCons[float64]("Float64")
 
 # Import loose functions directly from array module
 append = array.append

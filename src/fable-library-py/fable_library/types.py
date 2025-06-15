@@ -9,19 +9,7 @@ from typing import (
     cast,
 )
 
-from .array_ import (
-    Array,
-    Float32Array,
-    Float64Array,
-    Int8Array,
-    Int16Array,
-    Int32Array,
-    Int64Array,
-    UInt8Array,
-    UInt16Array,
-    UInt32Array,
-    UInt64Array,
-)
+from .array_ import Array
 from .core import FSharpRef, byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
 from .util import IComparable, compare
 
@@ -294,20 +282,8 @@ __all__ = [
     "Attribute",
     "FSharpException",
     "FSharpRef",
-    "Float32Array",
-    "Float32Array",
-    "Float64Array",
-    "Float64Array",
     "FloatTypes",
-    "Int8Array",
-    "Int16Array",
-    "Int32Array",
-    "Int64Array",
     "IntegerTypes",
-    "UInt8Array",
-    "UInt16Array",
-    "UInt32Array",
-    "UInt64Array",
     "Union",
     "byte",
     "char",
