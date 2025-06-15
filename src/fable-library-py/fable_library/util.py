@@ -190,7 +190,7 @@ class IEqualityComparer(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def System_Collections_IEqualityComparer_GetHashCode4E60E31B(self, x_1: Any = None) -> int:
+    def System_Collections_IEqualityComparer_GetHashCode4E60E31B(self, x_1: Any = None) -> int32:
         raise NotImplementedError
 
 

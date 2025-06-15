@@ -7,7 +7,7 @@ from .core import option
 
 _T = TypeVar("_T")
 
-Option: TypeAlias = _T | option.SomeWrapper[_T] | None
+Option: TypeAlias = option.SomeWrapper[_T] | _T | None
 
 # Re-export the functions from core.option
 bind = option.bind

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 from base64 import b64decode, b64encode
 from typing import Any
 
@@ -42,6 +43,7 @@ starts_with = strings.starts_with
 ends_with = strings.ends_with
 index_of = strings.index_of
 last_index_of = strings.last_index_of
+interpolate = strings.interpolate
 
 
 # Additional helper functions that might be needed for backward compatibility
@@ -49,7 +51,7 @@ def to_console_error(arg: Any) -> None:
     """Print to console error stream."""
 
     def print_func(x: str) -> None:
-        print(x)
+        builtins.print(x)  # noqa: T201
 
     return continue_print(print_func, arg)
 
@@ -128,40 +130,6 @@ def index_of_any(string: str, any_of: list[str], *args: int) -> int:
             return i + start_index
 
     return -1
-
-
-def interpolate(string: str, values: list[Any]) -> str:
-    """Interpolate values into a string with F# printf-style formatting."""
-    import re
-
-    # Regex pattern for F# interpolation: %[flags][width][.precision]format
-    interpolate_regexp = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)")
-
-    val_idx = 0
-    str_idx = 0
-    result = ""
-    matches = interpolate_regexp.finditer(string)
-
-    for match in matches:
-        # The first group corresponds to the no-escape char (^|[^%]), the actual pattern starts in the next char
-        # Note: we don't use negative lookbehind because some browsers don't support it yet
-        match_index = match.start() + len(match[1] or "")
-        result += string[str_idx:match_index].replace("%%", "%")
-
-        groups = match.groups()
-        flags = groups[1] if groups[1] else ""
-        pad_length = int(groups[2]) if groups[2] else None
-        precision = int(groups[3]) if groups[3] else None
-        format_spec = groups[4] if groups[4] else ""
-
-        if val_idx < len(values):
-            result += format_replacement(values[val_idx], flags, pad_length, precision, format_spec)
-            val_idx += 1
-
-        str_idx = match.end()
-
-    result += string[str_idx:].replace("%%", "%")
-    return result
 
 
 __all__ = [

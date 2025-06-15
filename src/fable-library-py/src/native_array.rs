@@ -27,24 +27,28 @@ pub enum ArrayType {
 impl<'source> FromPyObject<'source> for ArrayType {
     fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
         let s: &str = ob.extract()?;
-        match s {
-            "Int8" => Ok(ArrayType::Int8),
-            "UInt8" => Ok(ArrayType::UInt8),
-            "Int16" => Ok(ArrayType::Int16),
-            "UInt16" => Ok(ArrayType::UInt16),
-            "Int32" => Ok(ArrayType::Int32),
-            "UInt32" => Ok(ArrayType::UInt32),
-            "Int64" => Ok(ArrayType::Int64),
-            "UInt64" => Ok(ArrayType::UInt64),
-            "Float32" => Ok(ArrayType::Float32),
-            "Float64" => Ok(ArrayType::Float64),
-            "String" => Ok(ArrayType::String),
-            _ => Ok(ArrayType::Generic),
-        }
+        Ok(ArrayType::from_str(s))
     }
 }
 
 impl ArrayType {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "Int8" => ArrayType::Int8,
+            "UInt8" => ArrayType::UInt8,
+            "Int16" => ArrayType::Int16,
+            "UInt16" => ArrayType::UInt16,
+            "Int32" => ArrayType::Int32,
+            "UInt32" => ArrayType::UInt32,
+            "Int64" => ArrayType::Int64,
+            "UInt64" => ArrayType::UInt64,
+            "Float32" => ArrayType::Float32,
+            "Float64" => ArrayType::Float64,
+            "String" => ArrayType::String,
+            _ => ArrayType::Generic,
+        }
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             ArrayType::Int8 => "Int8",
@@ -146,6 +150,28 @@ macro_rules! reverse_vec {
         let mut new_vec = $vec.clone();
         new_vec.reverse();
         new_vec
+    }};
+}
+
+// Helper macro for inserting values
+macro_rules! insert_typed_value {
+    ($vec:expr, $index:expr, $value:expr, $type:ty) => {{
+        let typed_value: $type = $value.extract()?;
+        $vec.insert($index, *typed_value);
+    }};
+}
+
+// Helper macro for pushing values
+macro_rules! push_typed_value {
+    ($vec:expr, $value:expr) => {{
+        $vec.push($value.extract()?);
+    }};
+}
+
+// Helper macro for simple vector operations (like remove, truncate)
+macro_rules! simple_vec_operation {
+    ($vec:expr, $op:ident, $($args:expr),*) => {{
+        $vec.$op($($args),*);
     }};
 }
 
@@ -424,17 +450,17 @@ impl NativeArray {
 
     pub fn push_value(&mut self, value: &Bound<'_, PyAny>, _py: Python<'_>) -> PyResult<()> {
         match self {
-            NativeArray::Int8(vec) => vec.push(value.extract()?),
-            NativeArray::UInt8(vec) => vec.push(value.extract()?),
-            NativeArray::Int16(vec) => vec.push(value.extract()?),
-            NativeArray::UInt16(vec) => vec.push(value.extract()?),
-            NativeArray::Int32(vec) => vec.push(value.extract()?),
-            NativeArray::UInt32(vec) => vec.push(value.extract()?),
-            NativeArray::Int64(vec) => vec.push(value.extract()?),
-            NativeArray::UInt64(vec) => vec.push(value.extract()?),
-            NativeArray::Float32(vec) => vec.push(value.extract()?),
-            NativeArray::Float64(vec) => vec.push(value.extract()?),
-            NativeArray::String(vec) => vec.push(value.extract()?),
+            NativeArray::Int8(vec) => push_typed_value!(vec, value),
+            NativeArray::UInt8(vec) => push_typed_value!(vec, value),
+            NativeArray::Int16(vec) => push_typed_value!(vec, value),
+            NativeArray::UInt16(vec) => push_typed_value!(vec, value),
+            NativeArray::Int32(vec) => push_typed_value!(vec, value),
+            NativeArray::UInt32(vec) => push_typed_value!(vec, value),
+            NativeArray::Int64(vec) => push_typed_value!(vec, value),
+            NativeArray::UInt64(vec) => push_typed_value!(vec, value),
+            NativeArray::Float32(vec) => push_typed_value!(vec, value),
+            NativeArray::Float64(vec) => push_typed_value!(vec, value),
+            NativeArray::String(vec) => push_typed_value!(vec, value),
             NativeArray::PyObject(vec) => {
                 let mut guard = vec.lock().unwrap();
                 guard.push(value.clone().unbind());
@@ -505,39 +531,17 @@ impl NativeArray {
 
     pub fn remove_at_index(&mut self, index: usize) {
         match self {
-            NativeArray::Int8(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::UInt8(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::Int16(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::UInt16(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::Int32(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::UInt32(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::Int64(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::UInt64(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::Float32(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::Float64(vec) => {
-                vec.remove(index);
-            }
-            NativeArray::String(vec) => {
-                vec.remove(index);
-            }
+            NativeArray::Int8(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::UInt8(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::Int16(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::UInt16(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::Int32(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::UInt32(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::Int64(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::UInt64(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::Float32(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::Float64(vec) => simple_vec_operation!(vec, remove, index),
+            NativeArray::String(vec) => simple_vec_operation!(vec, remove, index),
             NativeArray::PyObject(arc_vec) => {
                 arc_vec.lock().unwrap().remove(index);
             }
@@ -551,46 +555,16 @@ impl NativeArray {
         _py: Python<'_>,
     ) -> PyResult<()> {
         match self {
-            NativeArray::Int8(vec) => {
-                let int8: Int8 = value.extract()?;
-                vec.insert(index, *int8);
-            }
-            NativeArray::UInt8(vec) => {
-                let uint8: UInt8 = value.extract()?;
-                vec.insert(index, *uint8);
-            }
-            NativeArray::Int16(vec) => {
-                let int16: Int16 = value.extract()?;
-                vec.insert(index, *int16);
-            }
-            NativeArray::UInt16(vec) => {
-                let uint16: UInt16 = value.extract()?;
-                vec.insert(index, *uint16);
-            }
-            NativeArray::Int32(vec) => {
-                let int32: Int32 = value.extract()?;
-                vec.insert(index, *int32);
-            }
-            NativeArray::UInt32(vec) => {
-                let uint32: UInt32 = value.extract()?;
-                vec.insert(index, *uint32);
-            }
-            NativeArray::Int64(vec) => {
-                let int64: Int64 = value.extract()?;
-                vec.insert(index, *int64);
-            }
-            NativeArray::UInt64(vec) => {
-                let uint64: UInt64 = value.extract()?;
-                vec.insert(index, *uint64);
-            }
-            NativeArray::Float32(vec) => {
-                let float32: Float32 = value.extract()?;
-                vec.insert(index, *float32);
-            }
-            NativeArray::Float64(vec) => {
-                let float64: Float64 = value.extract()?;
-                vec.insert(index, *float64);
-            }
+            NativeArray::Int8(vec) => insert_typed_value!(vec, index, value, Int8),
+            NativeArray::UInt8(vec) => insert_typed_value!(vec, index, value, UInt8),
+            NativeArray::Int16(vec) => insert_typed_value!(vec, index, value, Int16),
+            NativeArray::UInt16(vec) => insert_typed_value!(vec, index, value, UInt16),
+            NativeArray::Int32(vec) => insert_typed_value!(vec, index, value, Int32),
+            NativeArray::UInt32(vec) => insert_typed_value!(vec, index, value, UInt32),
+            NativeArray::Int64(vec) => insert_typed_value!(vec, index, value, Int64),
+            NativeArray::UInt64(vec) => insert_typed_value!(vec, index, value, UInt64),
+            NativeArray::Float32(vec) => insert_typed_value!(vec, index, value, Float32),
+            NativeArray::Float64(vec) => insert_typed_value!(vec, index, value, Float64),
             NativeArray::String(vec) => {
                 let string_value: String = value.extract()?;
                 vec.insert(index, string_value);
@@ -606,17 +580,17 @@ impl NativeArray {
     /// Truncates the array to the specified size.
     pub fn truncate(&mut self, new_size: usize) {
         match self {
-            NativeArray::Int8(vec) => vec.truncate(new_size),
-            NativeArray::UInt8(vec) => vec.truncate(new_size),
-            NativeArray::Int16(vec) => vec.truncate(new_size),
-            NativeArray::UInt16(vec) => vec.truncate(new_size),
-            NativeArray::Int32(vec) => vec.truncate(new_size),
-            NativeArray::UInt32(vec) => vec.truncate(new_size),
-            NativeArray::Int64(vec) => vec.truncate(new_size),
-            NativeArray::UInt64(vec) => vec.truncate(new_size),
-            NativeArray::Float32(vec) => vec.truncate(new_size),
-            NativeArray::Float64(vec) => vec.truncate(new_size),
-            NativeArray::String(vec) => vec.truncate(new_size),
+            NativeArray::Int8(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::UInt8(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::Int16(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::UInt16(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::Int32(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::UInt32(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::Int64(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::UInt64(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::Float32(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::Float64(vec) => simple_vec_operation!(vec, truncate, new_size),
+            NativeArray::String(vec) => simple_vec_operation!(vec, truncate, new_size),
             NativeArray::PyObject(vec) => {
                 if let Ok(mut vec) = vec.lock() {
                     vec.truncate(new_size);
