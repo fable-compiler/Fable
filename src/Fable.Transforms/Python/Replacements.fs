@@ -79,7 +79,7 @@ let makeDecimalFromExpr com r t (e: Expr) =
 
 let createAtom com (value: Expr) =
     let typ = value.Type
-    Helper.LibCall(com, "util", "createAtom", typ, [ value ], [ typ ])
+    Helper.LibCall(com, "util", "create_atom", typ, [ value ], [ typ ])
 
 let getRefCell com r typ (expr: Expr) = getFieldWith r typ expr "contents"
 
@@ -88,7 +88,6 @@ let setRefCell com r (expr: Expr) (value: Expr) =
 
 let makeRefCell com r genArg args =
     let typ = makeFSharpCoreType [ genArg ] Types.refCell
-
     Helper.LibCall(com, "types", "FSharpRef", typ, args, isConstructor = true, ?loc = r)
 
 let makeRefCellFromValue com r (value: Expr) =
@@ -215,9 +214,9 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
     | Number(kind, _) ->
         match kind with
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
-        | Decimal -> Helper.LibCall(com, "decimal", "toNumber", targetType, args)
+        | Decimal -> Helper.LibCall(com, "decimal", "to_number", targetType, args)
         | Int64
-        | UInt64 -> Helper.LibCall(com, "long", "toNumber", targetType, args)
+        | UInt64 -> Helper.LibCall(com, "long", "to_number", targetType, args)
         | _ -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
@@ -255,7 +254,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
     let fromInteger kind arg =
         let kind = makeIntConst (kindIndex kind)
 
-        Helper.LibCall(com, "long", "fromInteger", targetType, [ arg; makeBoolConst unsigned; kind ])
+        Helper.LibCall(com, "long", "from_integer", targetType, [ arg; makeBoolConst unsigned; kind ])
 
     let sourceType = args.Head.Type
 
@@ -267,10 +266,10 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
     | String -> stringToInt com ctx r targetType args
     | Number(kind, _) ->
         match kind with
-        | Decimal -> Helper.LibCall(com, "decimal", "toInt", targetType, args)
+        | Decimal -> Helper.LibCall(com, "decimal", "to_int", targetType, args)
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
         | Int64
-        | UInt64 -> Helper.LibCall(com, "long", "fromValue", targetType, args @ [ makeBoolConst unsigned ])
+        | UInt64 -> Helper.LibCall(com, "long", "from_value", targetType, args @ [ makeBoolConst unsigned ])
         | Int8
         | Int16
         | Int32
@@ -278,7 +277,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : 
         | UInt16
         | UInt32 as kind -> fromInteger kind args.Head
         | Float32
-        | Float64 -> Helper.LibCall(com, "long", "fromNumber", targetType, args @ [ makeBoolConst unsigned ])
+        | Float64 -> Helper.LibCall(com, "long", "from_number", targetType, args @ [ makeBoolConst unsigned ])
         | Float16 -> FableError "Casting float16 to long is not supported" |> raise
         | Int128
         | UInt128 -> FableError "Casting (u)int128 to long is not supported" |> raise
@@ -362,7 +361,7 @@ let toString com (ctx: Context) r (args: Expr list) =
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal, _) ->
-        let n = Helper.LibCall(com, "decimal", "toNumber", Float64.Number, [ args.Head ])
+        let n = Helper.LibCall(com, "decimal", "to_number", Float64.Number, [ args.Head ])
         let rounded = Helper.LibCall(com, "util", "round", Float64.Number, [ n ])
         rounded :: args.Tail
     | Number((Float32 | Float64), _) ->
@@ -430,9 +429,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         | Operators.logicalNot, [ operand ] -> unOp UnaryNotBitwise operand |> truncateUnsigned
         | Operators.unaryNegation, [ operand ] ->
             match argTypes with
-            | Number(Int8, _) :: _ -> Helper.LibCall(com, "int32", "op_UnaryNegation_Int8", t, args, ?loc = r)
-            | Number(Int16, _) :: _ -> Helper.LibCall(com, "int32", "op_UnaryNegation_Int16", t, args, ?loc = r)
-            | Number(Int32, _) :: _ -> Helper.LibCall(com, "int32", "op_UnaryNegation_Int32", t, args, ?loc = r)
+            | Number(Int8, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int8", t, args, ?loc = r)
+            | Number(Int16, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int16", t, args, ?loc = r)
+            | Number(Int32, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int32", t, args, ?loc = r)
             | _ -> unOp UnaryMinus operand
         | Operators.unaryPlus, [ operand ] -> unOp UnaryPlus operand
         | _ ->
@@ -564,7 +563,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Array(t, _) ->
         let f = makeEqualityFunction com ctx t
 
-        Helper.LibCall(com, "array", "equalsWith", Boolean, [ f; left; right ], ?loc = r)
+        Helper.LibCall(com, "array", "equals_with", Boolean, [ f; left; right ], ?loc = r)
         |> is equal
     | List _ ->
         Helper.LibCall(com, "util", "equals", Boolean, [ left; right ], ?loc = r)
@@ -779,7 +778,7 @@ let tryEntityIdent (com: Compiler) entFullName =
 
 let tryConstructor com (ent: Entity) =
     if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
-        tryEntityIdent com (ent.FullName |> Naming.toSnakeCase)
+        tryEntityIdent com (ent.FullName |> Naming.toPythonNaming)
     else
         FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
 
@@ -972,7 +971,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "PrintFormatToStringThen", _, _ ->
         match args with
         | [ _ ] ->
-            Helper.LibCall(com, "string", "toText", t, args, i.SignatureArgTypes, ?loc = r)
+            Helper.LibCall(com, "string", "to_text", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
         | [ cont; fmt ] -> Helper.InstanceCall(fmt, "cont", t, [ cont ]) |> Some
         | _ -> None
@@ -980,7 +979,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         match args with
         | [ template ] when template.Type = String -> Some template
         | _ ->
-            Helper.LibCall(com, "string", "toText", t, args, i.SignatureArgTypes, ?loc = r)
+            Helper.LibCall(com, "string", "to_text", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
     | "PrintFormatLine", _, _ ->
         Helper.LibCall(com, "string", "toConsole", t, args, i.SignatureArgTypes, ?loc = r)
@@ -991,15 +990,15 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
     | ("PrintFormatToTextWriter" | "PrintFormatLineToTextWriter"), _, _ :: args ->
         // addWarning com ctx.FileName r "fprintfn will behave as printfn"
-        Helper.LibCall(com, "string", "toConsole", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "string", "to_console", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "PrintFormat", _, _ ->
         // addWarning com ctx.FileName r "Printf will behave as printfn"
-        Helper.LibCall(com, "string", "toConsole", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "string", "to_console", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "PrintFormatThen", _, arg :: callee :: _ -> Helper.InstanceCall(callee, "cont", t, [ arg ]) |> Some
     | "PrintFormatToStringThenFail", _, _ ->
-        Helper.LibCall(com, "string", "toFail", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "string", "to_fail", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // bprintf
       _,
@@ -1301,7 +1300,7 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "IsHighSurrogate"
     | "IsLowSurrogate"
     | "IsSurrogate" ->
-        let methName = Naming.lowerFirst i.CompiledName
+        let methName = Naming.toSnakeCase i.CompiledName
 
         Helper.LibCall(com, "char", methName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -1332,7 +1331,7 @@ let implementedStringFunctions =
         |]
 
 let getEnumerator com r t expr =
-    Helper.LibCall(com, "util", "getEnumerator", t, [ toSeq Any expr ], ?loc = r)
+    Helper.LibCall(com, "util", "get_enumerator", t, [ toSeq Any expr ], ?loc = r)
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1374,28 +1373,28 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | "StartsWith", Some c, [ _str ] ->
-        Helper.LibCall(com, "string", "startsWithExact", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        Helper.LibCall(com, "string", "starts_with_exact", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "StartsWith", Some c, [ _str; _comp ] ->
-        Helper.LibCall(com, "string", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        Helper.LibCall(com, "string", "starts_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "StartsWith", Some c, [ value; ignoreCase; _culture ] ->
         addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
         let args = [ value; ignoreCase ]
 
-        Helper.LibCall(com, "string", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        Helper.LibCall(com, "string", "starts_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "EndsWith", Some c, [ _str ] ->
-        Helper.LibCall(com, "string", "endsWithExact", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        Helper.LibCall(com, "string", "ends_with_exact", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "EndsWith", Some c, [ _str; _comp ] ->
-        Helper.LibCall(com, "string", "endsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        Helper.LibCall(com, "string", "ends_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "EndsWith", Some c, [ value; ignoreCase; _culture ] ->
         addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
         let args = [ value; ignoreCase ]
 
-        Helper.LibCall(com, "string", "endsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        Helper.LibCall(com, "string", "ends_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | ReplaceName [ "ToUpper", "upper"; "ToUpperInvariant", "upper"; "ToLower", "lower"; "ToLowerInvariant", "lower" ] methName,
       Some c,
@@ -1485,7 +1484,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Join", None, _ ->
         let methName =
             match i.SignatureArgTypes with
-            | [ _; Array _; Number _; Number _ ] -> "joinWithIndices"
+            | [ _; Array _; Number _; Number _ ] -> "join_with_indices"
             | _ -> "join"
 
         Helper.LibCall(com, "string", methName, t, args, ?loc = r) |> Some
@@ -1497,7 +1496,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | _ ->
             Helper.LibCall(com, "string", "concat", t, args, hasSpread = true, ?loc = r)
             |> Some
-    | "CompareOrdinal", None, _ -> Helper.LibCall(com, "string", "compareOrdinal", t, args, ?loc = r) |> Some
+    | "CompareOrdinal", None, _ -> Helper.LibCall(com, "string", "compare_ordinal", t, args, ?loc = r) |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         Helper.LibCall(
             com,
@@ -1526,7 +1525,7 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         // Cast the string to char[], see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
 
-        let name = Naming.lowerFirst i.CompiledName
+        let name = Naming.toSnakeCase i.CompiledName
 
         emitExpr r t [ Helper.LibCall(com, "seq", name, Any, args, i.SignatureArgTypes) ] "''.join(list($0))"
         |> Some
@@ -1568,7 +1567,6 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         Helper.LibCall(com, "seq2", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToArray", [ arg ] ->
-        // xxx
         let elementType = getElementType t
         makeArrayFrom elementType arg |> Some
 
@@ -1686,7 +1684,7 @@ let collectionExtensions
     =
     match i.CompiledName, thisArg, args with
     | "AddRange", None, [ ar; arg ] ->
-        Helper.LibCall(com, "Array", "addRangeInPlace", t, [ arg; ar ], ?loc = r)
+        Helper.LibCall(com, "Array", "add_range_in_place", t, [ arg; ar ], ?loc = r)
         |> Some
     | "InsertRange", None, [ ar; idx; arg ] ->
         Helper.LibCall(com, "array", "insert_range_in_place", t, [ idx; arg; ar ], ?loc = r)
@@ -1783,10 +1781,10 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "ToSeq", [ arg ] -> Some arg
     | "OfSeq", [ arg ] -> toArray r t arg |> Some
     | "OfList", [ arg ] ->
-        Helper.LibCall(com, "list", "toArray", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "list", "to_array", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToList", args ->
-        Helper.LibCall(com, "list", "ofArray", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "list", "of_array", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Length" | "Count"), [ arg ] -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
@@ -1960,8 +1958,8 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, isStruct) |> makeValue r |> Some
     | "GetValue", [ c ] -> Helper.LibCall(com, "option", "value", t, args, ?loc = r) |> Some
-    | ("OfObj" | "OfNullable"), _ -> Helper.LibCall(com, "option", "ofNullable", t, args, ?loc = r) |> Some
-    | ("ToObj" | "ToNullable"), _ -> Helper.LibCall(com, "option", "toNullable", t, args, ?loc = r) |> Some
+    | ("OfObj" | "OfNullable"), _ -> Helper.LibCall(com, "option", "of_nullable", t, args, ?loc = r) |> Some
+    | ("ToObj" | "ToNullable"), _ -> Helper.LibCall(com, "option", "to_nullable", t, args, ?loc = r) |> Some
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
     | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
@@ -1971,13 +1969,13 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "ToList", [ arg ] ->
         let args = args |> List.replaceLast (toArray None t)
 
-        Helper.LibCall(com, "list", "ofArray", t, args, ?loc = r) |> Some
+        Helper.LibCall(com, "list", "of_array", t, args, ?loc = r) |> Some
     | "FoldBack", [ folder; opt; state ] ->
-        Helper.LibCall(com, "seq", "foldBack", t, [ folder; toArray None t opt; state ], i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "seq", "fold_back", t, [ folder; toArray None t opt; state ], i.SignatureArgTypes, ?loc = r)
         |> Some
-    | "DefaultValue", _ -> Helper.LibCall(com, "option", "defaultArg", t, List.rev args, ?loc = r) |> Some
+    | "DefaultValue", _ -> Helper.LibCall(com, "option", "default_arg", t, List.rev args, ?loc = r) |> Some
     | "DefaultWith", _ ->
-        Helper.LibCall(com, "option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "option", "default_arg_with", t, List.rev args, List.rev i.SignatureArgTypes, ?loc = r)
         |> Some
     | "OrElse", _ -> Helper.LibCall(com, "Option", "or_else", t, List.rev args, ?loc = r) |> Some
     | "OrElseWith", _ ->
@@ -2300,7 +2298,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 
         Helper.InstanceCall(ar, "slice", t, [ lower; upper ], ?loc = r) |> Some
     | "SetArraySlice", None, args ->
-        Helper.LibCall(com, "array", "setSlice", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "array", "set_slice", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("TypeTestGeneric" | "TypeTestFast"), None, [ expr ] ->
         Test(expr, TypeTest((genArg com ctx r 0 i.GenericArgs)), r) |> Some
@@ -2490,7 +2488,7 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 [ genArg com ctx r 0 i.GenericArgs |> makeTypeInfo None; value; refValue ]
             | _ -> args
 
-        Helper.LibCall(com, "Reflection", meth, t, args, ?loc = r) |> Some
+        Helper.LibCall(com, "reflection", meth, t, args, ?loc = r) |> Some
     | _ -> None
 
 let log (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2680,10 +2678,10 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         |> Some
     // DateTimeOffset
     | "get_LocalDateTime" ->
-        Helper.LibCall(com, "DateOffset", "toLocalTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        Helper.LibCall(com, "date_offset", "to_local_time", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_UtcDateTime" ->
-        Helper.LibCall(com, "DateOffset", "toUniversalTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        Helper.LibCall(com, "date_offset", "to_universal_time", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_DateTime" ->
         let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
@@ -2776,7 +2774,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | StringConst "c"
         | StringConst "g"
         | StringConst "G" ->
-            Helper.LibCall(com, "time_span", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            Helper.LibCall(com, "time_span", "to_string", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
         | _ ->
             "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
@@ -2852,7 +2850,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | [ b ] -> b
             | _ -> FableError "Unexpected arg count for Random.NextBytes" |> raise
 
-        Helper.LibCall(com, "util", "randomBytes", t, [ byteArray ], [ byteArray.Type ], ?loc = r)
+        Helper.LibCall(com, "util", "random_bytes", t, [ byteArray ], [ byteArray.Type ], ?loc = r)
         |> Some
     | _ -> None
 
@@ -2860,7 +2858,7 @@ let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName with
     | "get_None" // TODO: implement as non-cancellable token
     | ".ctor" ->
-        Helper.LibCall(com, "async_", "createCancellationToken", t, args, i.SignatureArgTypes)
+        Helper.LibCall(com, "async_", "create_cancellation_token", t, args, i.SignatureArgTypes)
         |> Some
     | "get_Token" -> thisArg
     | "Cancel"
@@ -2905,7 +2903,7 @@ let thread (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
 let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "CreateInstance", None, ([ _type ] | [ _type; (ExprType(Array(Any, _))) ]) ->
-        Helper.LibCall(com, "Reflection", "createInstance", t, args, ?loc = r) |> Some
+        Helper.LibCall(com, "Reflection", "create_instance", t, args, ?loc = r) |> Some
     | _ -> None
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2918,15 +2916,15 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         | _ -> false
 
     let createRegex r t args =
-        Helper.LibCall(com, "RegExp", "create", t, args, ?loc = r)
+        Helper.LibCall(com, "reg_exp", "create", t, args, ?loc = r)
 
     match i.CompiledName with
     // TODO: Use RegexConst if no options have been passed?
     | ".ctor" ->
-        Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "reg_exp", "create", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "get_Options" ->
-        Helper.LibCall(com, "RegExp", "options", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        Helper.LibCall(com, "reg_exp", "options", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     // Capture
     | "get_Index" ->
@@ -3027,7 +3025,7 @@ let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
     match thisArg, i.CompiledName with
     // This property only belongs to Key and Value Collections
-    | Some callee, "get_Count" -> Helper.LibCall(com, "Seq", "length", t, [ callee ], ?loc = r) |> Some
+    | Some callee, "get_Count" -> Helper.LibCall(com, "seq", "length", t, [ callee ], ?loc = r) |> Some
     | Some callee, "GetEnumerator" -> getEnumerator com r t callee |> Some
     | _ -> None
 
@@ -3107,7 +3105,7 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "get_CancellationToken" -> Helper.LibCall(com, "async_", "cancellationToken", t, [], ?loc = r) |> Some
     // `catch` cannot be used as a function name in JS
     | "Catch" ->
-        Helper.LibCall(com, "async_", "catchAsync", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "async_", "catch_async", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     // Fable.Core extensions
     | meth ->
@@ -3200,11 +3198,11 @@ let guids
     (args: Expr list)
     =
     match i.CompiledName with
-    | "NewGuid" -> Helper.LibCall(com, "Guid", "new_guid", t, []) |> Some
-    | "Parse" -> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
-    | "TryParse" -> Helper.LibCall(com, "Guid", "tryParse", t, args, i.SignatureArgTypes) |> Some
+    | "NewGuid" -> Helper.LibCall(com, "guid", "new_guid", t, []) |> Some
+    | "Parse" -> Helper.LibCall(com, "guid", "parse", t, args, i.SignatureArgTypes) |> Some
+    | "TryParse" -> Helper.LibCall(com, "guid", "try_parse", t, args, i.SignatureArgTypes) |> Some
     | "ToByteArray" ->
-        Helper.LibCall(com, "Guid", "guidToArray", t, [ thisArg.Value ], [ thisArg.Value.Type ])
+        Helper.LibCall(com, "guid", "guid_to_array", t, [ thisArg.Value ], [ thisArg.Value.Type ])
         |> Some
     | "ToString" when (args.Length = 0) -> Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "ToString" when (args.Length = 1) ->
@@ -3216,7 +3214,7 @@ let guids
             | "B"
             | "P"
             | "X" ->
-                Helper.LibCall(com, "Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+                Helper.LibCall(com, "guid", "to_string", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
                 |> Some
             | _ ->
                 "Guid.ToString doesn't support a custom format. It only handles \"N\", \"D\", \"B\", \"P\" and \"X\" format."
@@ -3224,14 +3222,16 @@ let guids
 
                 None
         | _ ->
-            Helper.LibCall(com, "Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            Helper.LibCall(com, "guid", "to_string", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
     | ".ctor" ->
         match args with
         | [] -> emptyGuid () |> Some
-        | [ ExprType(Array _) ] -> Helper.LibCall(com, "Guid", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
-        | [ StringConst _ ] -> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
-        | [ ExprType String ] -> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
+        | [ ExprType(Array _) ] ->
+            Helper.LibCall(com, "guid", "array_to_guid", t, args, i.SignatureArgTypes)
+            |> Some
+        | [ StringConst _ ] -> Helper.LibCall(com, "guid", "parse", t, args, i.SignatureArgTypes) |> Some
+        | [ ExprType String ] -> Helper.LibCall(com, "guid", "parse", t, args, i.SignatureArgTypes) |> Some
         | _ -> None
     | _ -> None
 
@@ -3252,13 +3252,13 @@ let uris
         Helper.LibCall(com, "Uri", "Uri.try_create", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "UnescapeDataString" ->
-        Helper.LibCall(com, "Util", "unescapeDataString", t, args, i.SignatureArgTypes)
+        Helper.LibCall(com, "Util", "unescape_data_string", t, args, i.SignatureArgTypes)
         |> Some
     | "EscapeDataString" ->
-        Helper.LibCall(com, "Util", "escapeDataString", t, args, i.SignatureArgTypes)
+        Helper.LibCall(com, "Util", "escape_data_string", t, args, i.SignatureArgTypes)
         |> Some
     | "EscapeUriString" ->
-        Helper.LibCall(com, "Util", "escapeUriString", t, args, i.SignatureArgTypes)
+        Helper.LibCall(com, "Util", "escape_uri_string", t, args, i.SignatureArgTypes)
         |> Some
     | "get_IsAbsoluteUri"
     | "get_Scheme"
@@ -3423,10 +3423,10 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "GetTypeInfo" -> Some thisArg
         | "get_GenericTypeArguments"
         | "GetGenericArguments" ->
-            Helper.LibCall(com, "Reflection", "getGenerics", t, [ thisArg ], ?loc = r)
+            Helper.LibCall(com, "Reflection", "get_generics", t, [ thisArg ], ?loc = r)
             |> Some
         | "MakeGenericType" ->
-            Helper.LibCall(com, "Reflection", "makeGenericType", t, thisArg :: args, ?loc = r)
+            Helper.LibCall(com, "Reflection", "make_generic_type", t, thisArg :: args, ?loc = r)
             |> Some
         | "get_FullName"
         | "get_Namespace"
@@ -3453,7 +3453,7 @@ let fsharpType com methName (r: SourceLocation option) t (i: CallInfo) (args: Ex
         |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
     | "GetRecordFields" ->
-        Helper.LibCall(com, "Reflection", "getRecordElements", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "Reflection", "get_record_elements", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "GetUnionCases"
     | "GetTupleElements"
@@ -3698,9 +3698,9 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "GetParameters" -> makeStrConst "parameters" |> getExpr r t c |> Some
         | Some c, ("get_PropertyType" | "get_ParameterType") -> makeIntConst 1 |> getExpr r t c |> Some
         | Some c, "GetFields" ->
-            Helper.LibCall(com, "Reflection", "getUnionCaseFields", t, [ c ], ?loc = r)
+            Helper.LibCall(com, "Reflection", "get_union_case_fields", t, [ c ], ?loc = r)
             |> Some
-        | Some c, "GetValue" -> Helper.LibCall(com, "Reflection", "getValue", t, c :: args, ?loc = r) |> Some
+        | Some c, "GetValue" -> Helper.LibCall(com, "Reflection", "get_value", t, c :: args, ?loc = r) |> Some
         | Some c, "get_Name" ->
             match c with
             | Value(TypeInfo(exprType, _), loc) ->
