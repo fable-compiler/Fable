@@ -245,16 +245,19 @@ module FileWatcherUtil =
                         | null ->
                             let goodPaths, badPaths =
                                 restDirs
-                                |> List.partition (fun d -> (withTrailingSep d).StartsWith(dir', StringComparison.Ordinal))
+                                |> List.partition (fun d ->
+                                    (withTrailingSep d).StartsWith(dir', StringComparison.Ordinal)
+                                )
+
                             [
-                            "Fable is trying to find a common base directory for all files and projects referenced."
-                            $"But '%s{dir'}' is not a common base directory for these source paths:"
-                            for d in badPaths do
-                                $" - {d}"
-                            // "These path are OK:"
-                            // for d in goodPaths do
-                            //     $" - {d}"
-                            "If you think this is a bug, please run again with --verbose option and report."
+                                "Fable is trying to find a common base directory for all files and projects referenced."
+                                $"But '%s{dir'}' is not a common base directory for these source paths:"
+                                for d in badPaths do
+                                    $" - {d}"
+                                // "These path are OK:"
+                                // for d in goodPaths do
+                                //     $" - {d}"
+                                "If you think this is a bug, please run again with --verbose option and report."
                             ]
                             |> String.concat Environment.NewLine
                             |> failwith
