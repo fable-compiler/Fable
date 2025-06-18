@@ -754,10 +754,10 @@ module Helpers =
             match com.Options.Language with
             | Python ->
                 let name =
-                    // Don't snake_case if member has compiled name attribute
+                    // Don't apply Python naming convention if member has compiled name attribute
                     match memb.Attributes |> Helpers.tryFindAttrib Atts.compiledName with
                     | Some _ -> name
-                    | _ -> Fable.Py.Naming.toSnakeCase name
+                    | _ -> Fable.Py.Naming.toPythonNaming name
 
                 Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> Naming.buildNameWithoutSanitation name part
@@ -1745,7 +1745,7 @@ module Identifiers =
         let sanitizedName =
             match com.Options.Language with
             | Python ->
-                let name = Fable.Py.Naming.toSnakeCase name
+                let name = Fable.Py.Naming.toPythonNaming name
 
                 Fable.Py.Naming.sanitizeIdent
                     (fun name -> isUsedName ctx name || Fable.Py.Naming.pyBuiltins.Contains name)

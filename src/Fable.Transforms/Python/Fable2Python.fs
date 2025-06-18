@@ -86,6 +86,7 @@ type Context =
         OptimizeTailCall: unit -> unit
         ScopedTypeParams: Set<string>
         TypeParamsScope: int
+        NarrowedTypes: Map<string, Fable.Type>
     }
 
 type IPythonCompiler =
@@ -155,7 +156,7 @@ module Reflection =
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
                 let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                (Expression.tuple [ Expression.stringConstant name; typeInfo ]), stmts
+                Expression.tuple [ Expression.stringConstant name; typeInfo ], stmts
             )
             |> Seq.toList
             |> Helpers.unzipArgs
@@ -343,7 +344,6 @@ module Reflection =
                 | Replacements.Util.FSharpReference gen ->
                     let ent = com.GetEntity(entRef)
                     let gen, stmts = transformTypeInfo com ctx r genMap gen
-
                     let expr, stmts' = [ gen ] |> transformRecordReflectionInfo com ctx r ent
 
                     expr, stmts @ stmts'
@@ -384,7 +384,7 @@ module Reflection =
                     | generics -> yield Expression.list generics, []
                     match tryPyConstructor com ctx ent with
                     | Some(Expression.Name { Id = name }, stmts) ->
-                        yield Expression.name (name.Name |> Naming.toSnakeCase), stmts
+                        yield Expression.name (name.Name |> Naming.toPythonNaming), stmts
                     | Some(cons, stmts) -> yield cons, stmts
                     | None -> ()
                     match ent.BaseType with
@@ -734,7 +734,7 @@ module Annotation =
             Expression.none, []
         | Fable.Option(genArg, _) ->
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-            fableModuleAnnotation com ctx "option" " Option" resolved, []
+            fableModuleAnnotation com ctx "option" "Option" resolved, []
         | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
         | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) ->
             makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
@@ -936,7 +936,8 @@ module Annotation =
         match kind with
         | Replacements.Util.BclGuid -> Expression.name "str", []
         | Replacements.Util.FSharpReference genArg ->
-            makeImportTypeAnnotation com ctx [ genArg ] "types" "FSharpRef", []
+            let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
+            fableModuleAnnotation com ctx "types" "FSharpRef" resolved, stmts
         (*
         | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
         | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
@@ -1105,7 +1106,12 @@ module Util =
     let ident (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifier(ctx, id.Name)
 
     let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) =
-        com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase id.Name)
+        com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming id.Name)
+
+    let getNarrowedType (ctx: Context) (id: Fable.Ident) =
+        match Map.tryFind id.Name ctx.NarrowedTypes with
+        | Some narrowedType -> narrowedType
+        | None -> id.Type
 
     let thisExpr = Expression.name "self"
 
@@ -1129,7 +1135,7 @@ module Util =
             let name = Identifier "__iter__"
             Expression.name name
         | n ->
-            let n = Naming.toSnakeCase n
+            let n = Naming.toPythonNaming n
 
             (n, Naming.NoMemberPart)
             ||> Naming.sanitizeIdent (fun _ -> false)
@@ -1932,7 +1938,7 @@ module Util =
                     | "ToString" -> "__str__"
                     | _ -> prop
 
-                com.GetIdentifier(ctx, Naming.toSnakeCase name)
+                com.GetIdentifier(ctx, Naming.toPythonNaming name)
 
             let self = Arg.arg "self"
 
@@ -2357,6 +2363,14 @@ module Util =
 
     let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
         // printfn "transformIfStatement"
+
+        // Create refined context for then branch if guard is a type test
+        let thenCtx =
+            match guardExpr with
+            | Fable.Test(Fable.IdentExpr ident, Fable.TypeTest typ, _) ->
+                { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }
+            | _ -> ctx
+
         let expr, stmts = com.TransformAsExpr(ctx, guardExpr)
 
         match expr with
@@ -2370,7 +2384,7 @@ module Util =
             stmts @ com.TransformAsStatements(ctx, ret, e)
         | guardExpr ->
             let thenStmnt, stmts' =
-                transformBlock com ctx ret thenStmnt
+                transformBlock com thenCtx ret thenStmnt
                 |> List.partition (
                     function
                     | Statement.NonLocal _
@@ -2406,15 +2420,25 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
         | Fable.FieldGet i ->
-            // printfn "Fable.FieldGet: %A" (i.Name, fableExpr.Type)
+            // Use effective type for field naming (considers type refinement)
+            let narrowedType =
+                match fableExpr with
+                | Fable.IdentExpr ident -> getNarrowedType ctx ident
+                | _ -> fableExpr.Type
+
             let fieldName =
-                match fableExpr.Type with
-                | Fable.AnonymousRecordType _ ->
-                    // Use the field name as is for anonymous records
-                    i.Name
+                match narrowedType with
+                | Fable.AnonymousRecordType _ -> i.Name // Use the field name as is for anonymous records
+                | Fable.DeclaredType(entityRef, _) ->
+                    // Only apply naming convention for F# Records
+                    match com.TryGetEntity entityRef with
+                    | Some ent when ent.IsFSharpRecord -> i.Name |> Naming.toSnakeCase |> Helpers.clean
+                    | _ ->
+
+                        i.Name |> Naming.toPythonNaming // Fallback to Python naming for other types
                 | _ ->
-                    // Use snake case for field names
-                    i.Name |> Naming.toSnakeCase // |> Helpers.clean
+                    // Fallback to snake case for other types
+                    i.Name |> Naming.toPythonNaming // |> Helpers.clean
 
             let fableExpr =
                 match fableExpr with
@@ -2487,8 +2511,22 @@ module Util =
                 let expr, stmts''' = getExpr com ctx None expr e
                 expr, stmts'' @ stmts'''
             | Fable.FieldSet fieldName ->
-                let fieldName = fieldName |> Naming.toSnakeCase |> Helpers.clean
-                get com ctx None expr fieldName false, []
+                // Try to get the naming convention from the narrowed type (considers type refinement)
+                let narrowedType =
+                    match fableExpr with
+                    | Fable.IdentExpr ident -> getNarrowedType ctx ident
+                    | _ -> fableExpr.Type
+
+                let finalFieldName =
+                    match narrowedType with
+                    | Fable.DeclaredType(entityRef, _) ->
+                        match com.TryGetEntity entityRef with
+                        | Some ent when ent.IsFSharpRecord -> fieldName |> Naming.toSnakeCase |> Helpers.clean
+                        | _ -> fieldName |> Naming.toPythonNaming
+                    | _ -> fieldName |> Naming.toPythonNaming
+
+                let cleanFieldName = finalFieldName |> Helpers.clean
+                get com ctx None expr cleanFieldName false, []
 
         assign range ret value, stmts @ stmts' @ stmts''
 
@@ -2504,7 +2542,7 @@ module Util =
             expr |> wrapIntExpression value.Type, stmt
 
     let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        //printfn "transformBindingAsExpr: %A" (var, value)
+        // printfn "transformBindingAsExpr: %A" (var, value)
         let expr, stmts = transformBindingExprBody com ctx var value
         expr |> assign None (identAsExpr com ctx var), stmts
 
@@ -2522,7 +2560,7 @@ module Util =
             stmts @ [ decl ] @ body
         else
             let value, stmts = transformBindingExprBody com ctx var value
-            let varName = com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase var.Name)
+            let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
             let ta, stmts' = typeAnnotation com ctx None var.Type
             let decl = varDeclaration ctx varName (Some ta) value
             stmts @ stmts' @ decl
@@ -3074,6 +3112,21 @@ module Util =
 
         | Fable.Get(expr, kind, typ, range) -> transformGet com ctx range typ expr kind
 
+        | Fable.IfThenElse(Fable.Test(expr, Fable.TypeTest typ, r),
+                           thenExpr,
+                           TransformExpr com ctx (elseExpr, stmts''),
+                           _r) ->
+            let guardExpr, stmts = transformTest com ctx r (Fable.TypeTest typ) expr
+
+            // Create refined context for then branch with type assertion
+            let thenCtx =
+                match expr with
+                | Fable.IdentExpr ident -> { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }
+                | _ -> ctx
+
+            let thenExprCompiled, stmts' = com.TransformAsExpr(thenCtx, thenExpr)
+            Expression.ifExp (guardExpr, thenExprCompiled, elseExpr), stmts @ stmts' @ stmts''
+
         | Fable.IfThenElse(TransformExpr com ctx (guardExpr, stmts),
                            TransformExpr com ctx (thenExpr, stmts'),
                            TransformExpr com ctx (elseExpr, stmts''),
@@ -3198,7 +3251,9 @@ module Util =
 
             stmts @ (expr |> resolveExpr ctx kind.Type returnStrategy)
 
-        | Fable.IdentExpr id -> identAsExpr com ctx id |> resolveExpr ctx id.Type returnStrategy
+        | Fable.IdentExpr id ->
+            let narrowedType = getNarrowedType ctx id
+            identAsExpr com ctx id |> resolveExpr ctx narrowedType returnStrategy
 
         | Fable.Import({
                            Selector = selector
@@ -3352,8 +3407,15 @@ module Util =
             if asStatement then
                 transformIfStatement com ctx r returnStrategy guardExpr thenExpr elseExpr
             else
+                // Create refined context for then branch if guard is a type test
+                let thenCtx =
+                    match guardExpr with
+                    | Fable.Test(Fable.IdentExpr ident, Fable.TypeTest typ, _) ->
+                        { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }
+                    | _ -> ctx
+
                 let guardExpr', stmts = transformAsExpr com ctx guardExpr
-                let thenExpr', stmts' = transformAsExpr com ctx thenExpr
+                let thenExpr', stmts' = transformAsExpr com thenCtx thenExpr // Use refined context
                 let elseExpr', stmts'' = transformAsExpr com ctx elseExpr
 
                 stmts
@@ -3604,12 +3666,18 @@ module Util =
 
         [| tagId; fieldsId |]
 
-    let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
+    let getEntityFieldsAsIdents (com: IPythonCompiler) (ent: Fable.Entity) =
+        let entityNamingConvention =
+            if ent.IsFSharpRecord then
+                Naming.toSnakeCase
+            else
+                Naming.toPythonNaming
+
         ent.FSharpFields
         |> Seq.map (fun field ->
             let name =
-                (Naming.toSnakeCase field.Name, Naming.NoMemberPart)
-                ||> Naming.sanitizeIdent Naming.pyBuiltins.Contains
+                (entityNamingConvention field.Name, Naming.NoMemberPart)
+                ||> Naming.sanitizeIdent (fun _ -> false)
 
             let typ = field.FieldType
 
@@ -3623,8 +3691,12 @@ module Util =
         else
             ent.FSharpFields
             |> Seq.map (fun field ->
-                let prop = memberFromName com ctx field.Name
-                prop
+                let name = field.Name |> Naming.toPythonNaming
+
+                let cleanName =
+                    (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent Naming.pyBuiltins.Contains
+
+                Expression.name cleanName
             )
             |> Seq.toArray
 
@@ -3772,7 +3844,7 @@ module Util =
             |> Helpers.unzipArgs
 
         let bases = baseExpr |> Option.toList
-        let name = com.GetIdentifier(ctx, Naming.toSnakeCase entName)
+        let name = com.GetIdentifier(ctx, Naming.toPascalCase entName)
 
         stmts
         @ [
@@ -3833,11 +3905,14 @@ module Util =
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
 
             let name =
-                com.GetIdentifier(ctx, Naming.toSnakeCase entName + Naming.reflectionSuffix)
+                com.GetIdentifier(ctx, Naming.toPascalCase entName + Naming.reflectionSuffix)
 
             expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
 
         stmts @ typeDeclaration @ reflectionDeclaration
+
+    let hasAttribute fullName (atts: Fable.Attribute seq) =
+        atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
     let transformModuleFunction
         (com: IPythonCompiler)
@@ -3850,12 +3925,13 @@ module Util =
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
-        let name = com.GetIdentifier(ctx, membName)
+        let name = com.GetIdentifier(ctx, membName |> Naming.toPythonNaming)
+        // printfn "TransformModuleFunction, name: %A" name
         let stmt = createFunction name args body' [] returnType info.XmlDoc
         let expr = Expression.name name
 
         info.Attributes
-        |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
+        |> hasAttribute Atts.entryPoint
         |> function
             | true -> [ stmt; declareEntryPoint com ctx expr ]
             | false ->
@@ -4073,14 +4149,13 @@ module Util =
                     yield callSuperAsStatement []
 
                 yield!
-                    (ent.FSharpFields
-                     |> List.collecti (fun i field ->
-                         let left = get com ctx None thisExpr (Naming.toSnakeCase field.Name) false
+                    ent.FSharpFields
+                    |> List.collecti (fun i field ->
+                        let left = get com ctx None thisExpr (field.Name |> Naming.toPythonNaming) false
+                        let right = args[i] |> wrapIntExpression field.FieldType
 
-                         let right = args[i] |> wrapIntExpression field.FieldType
-
-                         assign None left right |> exprAsStatement ctx
-                     ))
+                        assign None left right |> exprAsStatement ctx
+                    )
             ]
 
         let args =
@@ -4167,7 +4242,7 @@ module Util =
         let classMembers =
             [
                 for memb in members do
-                    let name = memb.DisplayName |> Naming.toSnakeCase |> Helpers.clean
+                    let name = memb.DisplayName |> Naming.toPythonNaming |> Helpers.clean
 
                     let abstractMethod = com.GetImportExpr(ctx, "abc", "abstractmethod")
 
@@ -4270,7 +4345,7 @@ module Util =
                 let decls =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
-                        let name = com.GetIdentifier(ctx, Naming.toSnakeCase decl.Name)
+                        let name = com.GetIdentifier(ctx, Naming.toPythonNaming decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts @ declareModuleMember com ctx info.IsPublic name (Some ta) value
@@ -4345,10 +4420,10 @@ module Util =
                     else
                         None, Alias.alias im.LocalIdent
                 | Some name ->
-                    let name = Naming.toSnakeCase name
+                    let name = name |> Naming.toPythonNaming
 
                     Some moduleName, Alias.alias (Identifier(Helpers.clean name), asname = im.LocalIdent)
-                | None -> None, Alias.alias (Identifier(moduleName), asname = im.LocalIdent)
+                | None -> None, Alias.alias (Identifier moduleName, asname = im.LocalIdent)
             )
             |> List.groupBy fst
             |> List.map (fun (a, b) -> a, List.map snd b)
@@ -4360,9 +4435,9 @@ module Util =
                     | _ -> ""
 
                 match name with
+                | name when name.StartsWith(".", StringComparison.Ordinal) -> "D" + name
                 | name when name.StartsWith("__", StringComparison.Ordinal) -> "A" + name
                 | name when name.StartsWith("fable", StringComparison.Ordinal) -> "C" + name
-                | name when name.StartsWith(".", StringComparison.Ordinal) -> "D" + name
                 | _ -> "B" + name
             )
 
@@ -4380,7 +4455,7 @@ module Util =
         // printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None -> Path.GetFileNameWithoutExtension(moduleName)
-        | Some name -> name |> Naming.toSnakeCase
+        | Some name -> name |> Naming.toPythonNaming
         |> getUniqueNameInRootScope ctx
         |> Identifier
 
@@ -4554,6 +4629,7 @@ module Compiler =
                 OptimizeTailCall = fun () -> ()
                 ScopedTypeParams = Set.empty
                 TypeParamsScope = 0
+                NarrowedTypes = Map.empty
             }
 
         //printfn "file: %A" file.Declarations

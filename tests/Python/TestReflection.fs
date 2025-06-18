@@ -218,6 +218,62 @@ let ``test Reflection Array`` () =
     typeof<bool> = elType |> equal false
     liType.GetElementType() |> equal null
 
+#if FABLE_COMPILER
+[<Fact>]
+let ``test FSharp.Reflection Record`` () =
+    let typ = typeof<MyRecord>
+    let record = { String = "a"; Int = 1 }
+    let recordTypeFields = FSharpType.GetRecordFields typ
+    let recordValueFields = FSharpValue.GetRecordFields record
+
+    let expectedRecordFields =
+        [|
+            "string", box "a"
+            "int", box 1
+        |]
+
+    let recordFields =
+        recordTypeFields
+        |> Array.map (fun field -> field.Name)
+        |> flip Array.zip recordValueFields
+
+    let isRecord = FSharpType.IsRecord typ
+    let matchRecordFields = recordFields = expectedRecordFields
+    let matchIndividualRecordFields =
+        Array.zip recordTypeFields recordValueFields
+        |> Array.forall (fun (info, value) ->
+            FSharpValue.GetRecordField(record, info) = value
+        )
+    let canMakeSameRecord =
+        unbox<MyRecord> (FSharpValue.MakeRecord(typ, recordValueFields)) = record
+
+    let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
+    all |> equal true
+
+[<Fact>]
+let ``test PropertyInfo.GetValue works`` () =
+    let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
+
+    let theType: System.Type = typeof<RecordGetValueType>
+
+    // now we want to print out the fields
+    let fieldNameToValue: Map<string, obj> =
+        match theType with
+        | t when FSharpType.IsRecord t ->
+            FSharpType.GetRecordFields(t)
+            |> Seq.fold
+                (fun acc field ->
+                    let fieldValue = field.GetValue value
+                    acc.Add (field.Name, fieldValue)
+                )
+                Map.empty
+        | _ -> Map.empty
+
+    let expected = "map [(age, 12); (firstname, Maxime)]"
+
+    equal expected (sprintf "%O" fieldNameToValue)
+
+#else
 [<Fact>]
 let ``test FSharp.Reflection Record`` () =
     let typ = typeof<MyRecord>
@@ -271,7 +327,7 @@ let ``test PropertyInfo.GetValue works`` () =
     let expected = "map [(Age, 12); (Firstname, Maxime)]"
 
     equal expected (sprintf "%O" fieldNameToValue)
-
+#endif
 
 [<Fact>]
 let ``test Comparing anonymous record types works`` () =
