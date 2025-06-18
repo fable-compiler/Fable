@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* [Python] Records now snake-cases all member fields (by @dbrattli)
+* [Python] Anonymous records now preserves the casing of member fields (by @dbrattli)
 * [Python] Option type is now `Option[T]` instead of `T | None` (by @dbrattli)
 * [Python] Use [uv](https://docs.astral.sh/uv/) instead of Poetry for package management (by @dbrattli)
 * [Python] Fable Library for Python is now partially written in Rust (by @dbrattli)

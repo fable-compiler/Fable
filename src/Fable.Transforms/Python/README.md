@@ -20,37 +20,36 @@ Python source code.
 | DateTime     |    `datetime`    |                                                                                   |
 | string       |     `string`     |                                                                                   |
 | char         |     `string`     |                                                                                   |
-| `[]<byte>`   |   `bytearray`    | Python mutable byte string                                                        |
-| `[]<sbyte>`  | `array("b", [])` | Python array module                                                               |
-| `[]<int16>`  | `array("h", [])` | Python array module                                                               |
-| `[]<uint16>` | `array("H", [])` | Python array module                                                               |
-| `[]<int>`    | `array("i", [])` | Python array module                                                               |
-| `[]<uint32>` | `array("I", [])` | Python array module                                                               |
-| `[]<long>`   | `array("l", [])` | Python array module                                                               |
-| `[]<uint64>` | `array("L", [])` | Python array module                                                               |
-| `[]<float>`  | `array("d", [])` | Python array module                                                               |
-| `[]<single>` | `array("f", [])` | Python array module                                                               |
+| `[]<byte>`   |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<sbyte>`  |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<int16>`  |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<uint16>` |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<int>`    |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<uint32>` |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<long>`   |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<uint64>` |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<float>`  |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
+| `[]<single>` |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
 | `[]<'T>`     |      `list`      | Python list module                                                                |
 
 ## Numerics
 
-Currently, every number (`int`, `int32`, `int64`, bigint) will all be translated to Python `int`. Python ints are variable in
-length and there is no unsigned alternative. For more information see https://docs.python.org/3.9/library/stdtypes.html
-and https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/basic-types.
+Most numeric types are now implemented using custom pyo3 wrapper types that maintain F#-style semantics while integrating with Python. Only `bigint` is still translated to Python's native `int` type. The wrapper types provide proper overflow behavior, type safety, and performance optimization while remaining compatible with Python code.
 
-| F#               | .NET    | Python |
-|:-----------------|:--------|--------|
-| bool             | Boolean | bool   |
-| int              | Int32   | int    |
-| byte             | Byte    | int    |
-| sbyte            | SByte   | int    |
-| int16            | Int16   | int    |
-| int64            | Int64   | int    |
-| uint16           | Uint16  | int    |
-| uint32           | Uint32  | int    |
-| uint64           | Uint64  | int    |
-| float / double   | Double  | float  |
-| float32 / single | Single  | float  |
+| F#               | .NET       | Python  | Implementation                  |
+|:-----------------|:-----------|---------|---------------------------------|
+| bool             | Boolean    | bool    | Native Python type              |
+| int              | Int32      | Int32   | Custom pyo3 wrapper (ints.rs)   |
+| byte             | Byte       | UInt8   | Custom pyo3 wrapper (ints.rs)   |
+| sbyte            | SByte      | Int8    | Custom pyo3 wrapper (ints.rs)   |
+| int16            | Int16      | Int16   | Custom pyo3 wrapper (ints.rs)   |
+| int64            | Int64      | Int64   | Custom pyo3 wrapper (ints.rs)   |
+| uint16           | Uint16     | UInt16  | Custom pyo3 wrapper (ints.rs)   |
+| uint32           | Uint32     | UInt32  | Custom pyo3 wrapper (ints.rs)   |
+| uint64           | Uint64     | UInt64  | Custom pyo3 wrapper (ints.rs)   |
+| float / double   | Double     | Float64 | Custom pyo3 wrapper (floats.rs) |
+| float32 / single | Single     | Float32 | Custom pyo3 wrapper (floats.rs) |
+| bigint           | BigInteger | int     | Native Python type              |
 
 ## Interfaces and Protocols
 
@@ -81,7 +80,7 @@ expressions. You cannot assign to e.g. an object property.
 ## Type Annotations
 
 The generated Python code is now with type annotation. Python types and F# types are not fully compatible (Ref:
-https://github.com/microsoft/pyright/issues/1264)
+<https://github.com/microsoft/pyright/issues/1264>)
 
 E.g:
 
