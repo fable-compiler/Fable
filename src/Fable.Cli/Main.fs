@@ -248,6 +248,7 @@ module FileWatcherUtil =
                                 |> List.filter (fun d ->
                                     not ((withTrailingSep d).StartsWith(dir', StringComparison.Ordinal))
                                 )
+                                |> List.truncate 20
 
                             [
                                 "Fable is trying to find a common base directory for all files and projects referenced."
