@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Option type is now `Option[T]` instead of `T | None` (by @dbrattli)
 * [Python] Use [uv](https://docs.astral.sh/uv/) instead of Poetry for package management (by @dbrattli)
 * [Python] Fable Library for Python is now partially written in Rust (by @dbrattli)
+* [All] Improve filewatcher error messages (by @goswinr)
 
 ### Fixed
 
