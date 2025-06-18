@@ -243,20 +243,17 @@ module FileWatcherUtil =
                     else
                         match IO.Path.GetDirectoryName(dir) with // 'dir' is empty string ?
                         | null ->
-                            let goodPaths, badPaths =
+                            let badPaths =
                                 restDirs
-                                |> List.partition (fun d ->
-                                    (withTrailingSep d).StartsWith(dir', StringComparison.Ordinal)
+                                |> List.filter (fun d ->
+                                    not ((withTrailingSep d).StartsWith(dir', StringComparison.Ordinal))
                                 )
 
                             [
                                 "Fable is trying to find a common base directory for all files and projects referenced."
                                 $"But '%s{dir'}' is not a common base directory for these source paths:"
                                 for d in badPaths do
-                                    $" - {d}"
-                                // "These path are OK:"
-                                // for d in goodPaths do
-                                //     $" - {d}"
+                                    $"    - {d}"
                                 "If you think this is a bug, please run again with --verbose option and report."
                             ]
                             |> String.concat Environment.NewLine
