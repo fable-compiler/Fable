@@ -243,7 +243,9 @@ module FileWatcherUtil =
                         dir
                     else
                         match IO.Path.GetDirectoryName(dir) with
-                        | null -> failwith "No common base dir, please run again with --verbose option and report"
+                        | null ->
+                            let dirList = restDirs |> String.concat $"{Environment.NewLine} - "
+                            failwith $"No common base directory was found in:{Environment.NewLine} - {dirList}{Environment.NewLine}This might be because referenced repositories are spread over several local drives, please run again with --verbose option and report"
                         | dir -> getCommonDir dir
 
                 getCommonDir dir
