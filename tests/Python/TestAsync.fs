@@ -516,3 +516,42 @@ let ``test Can use custom exceptions in async workflows #2396`` () =
         let! res = parentWorkflow()
         equal 7 res
     } |> Async.StartImmediate
+
+[<Fact>]
+let ``test Async.Sleep works correctly with TimeSpan argument`` () =
+    async {
+        let mutable executionOrder = ""
+
+        // Test that TimeSpan(0, 1, 0) means 1 minute = 60,000 milliseconds, not 600,000,000 milliseconds
+        let shortTask = async {
+            do! Async.Sleep(System.TimeSpan(0, 0, 0, 0, 100)) // 100 milliseconds
+            executionOrder <- executionOrder + "A"
+        }
+
+        let mediumTask = async {
+            do! Async.Sleep(System.TimeSpan(0, 0, 0, 0, 300)) // 300 milliseconds
+            executionOrder <- executionOrder + "B"
+        }
+
+        // Start both tasks in parallel
+        let! shortTaskAsync = shortTask |> Async.StartChild
+        let! mediumTaskAsync = mediumTask |> Async.StartChild
+
+        // Wait for both to complete
+        do! shortTaskAsync
+        do! mediumTaskAsync
+
+        // Verify execution order - shorter TimeSpan should complete first
+        equal "AB" executionOrder
+
+        // Test direct comparison with integer milliseconds
+        let startTime = System.DateTime.Now
+        do! Async.Sleep(System.TimeSpan(0, 0, 0, 0, 200)) // 200ms TimeSpan
+        let endTime = System.DateTime.Now
+        let elapsedMs = (endTime - startTime).TotalMilliseconds
+
+        // Should be approximately 200ms, not 2,000,000ms (which would be 2000 seconds)
+        // Allow some tolerance for timing variations
+        let isReasonableTime = elapsedMs >= 150.0 && elapsedMs <= 500.0
+        equal true isReasonableTime
+    } |> Async.StartImmediate

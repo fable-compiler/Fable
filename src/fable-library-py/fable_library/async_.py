@@ -32,6 +32,7 @@ from .choice import (
     FSharpChoice_2,
 )
 from .task import TaskCompletionSource
+from .time_span import TimeSpan, to_milliseconds
 
 
 _T = TypeVar("_T")
@@ -70,8 +71,9 @@ def cancel(token: CancellationToken) -> None:
     token.cancel()
 
 
-def cancel_after(token: CancellationToken, ms: int) -> None:
-    timer = Timer(float(ms) / 1000.0, token.cancel)
+def cancel_after(token: CancellationToken, ms: int | TimeSpan) -> None:
+    ms_value = to_milliseconds(ms)
+    timer = Timer(ms_value / 1000.0, token.cancel)
     timer.start()
 
 
@@ -79,7 +81,7 @@ def is_cancellation_requested(token: CancellationToken) -> bool:
     return token.is_cancelled
 
 
-def sleep(milliseconds_duetime: int) -> Async[None]:
+def sleep(milliseconds_duetime: int | TimeSpan) -> Async[None]:
     def cont(ctx: IAsyncContext[None]):
         def cancel():
             ctx.on_cancel(OperationCanceledError())
@@ -90,7 +92,7 @@ def sleep(milliseconds_duetime: int) -> Async[None]:
             ctx.cancel_token.remove_listener(token_id)
             ctx.on_success(None)
 
-        due_time = float(milliseconds_duetime) / 1000.0
+        due_time = to_milliseconds(milliseconds_duetime) / 1000.0
         ctx.trampoline.run_later(timeout, due_time)
 
     return protected_cont(cont)
@@ -271,7 +273,7 @@ def start_as_task(computation: Async[_T], cancellation_token: CancellationToken 
     return tcs.get_task()
 
 
-def throw_after(milliseconds_due_time: int) -> Async[None]:
+def throw_after(milliseconds_due_time: int | TimeSpan) -> Async[None]:
     def cont(ctx: IAsyncContext[None]) -> None:
         def cancel() -> None:
             ctx.on_cancel(OperationCanceledError())
@@ -282,12 +284,13 @@ def throw_after(milliseconds_due_time: int) -> Async[None]:
             ctx.cancel_token.remove_listener(token_id)
             ctx.on_error(TimeoutError())
 
-        ctx.trampoline.run_later(timeout, milliseconds_due_time / 1000.0)
+        due_time_ms = to_milliseconds(milliseconds_due_time)
+        ctx.trampoline.run_later(timeout, due_time_ms / 1000.0)
 
     return protected_cont(cont)
 
 
-def start_child(computation: Async[_T], ms: int | None = None) -> Async[Async[_T]]:
+def start_child(computation: Async[_T], ms: int | TimeSpan | None = None) -> Async[Async[_T]]:
     if ms is not None:
 
         def binder(results: list[_T | _U]) -> Async[_T]:
