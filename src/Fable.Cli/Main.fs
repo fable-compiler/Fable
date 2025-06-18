@@ -207,7 +207,6 @@ module private Util =
         }
 
 module FileWatcherUtil =
-    // TODO: Fail gracefully if we don't find a common dir (or try to find outlier paths somehow)
     let getCommonBaseDir (files: string list) =
         let withTrailingSep d =
             $"%s{d}%c{IO.Path.DirectorySeparatorChar}"
@@ -242,10 +241,24 @@ module FileWatcherUtil =
                     then
                         dir
                     else
-                        match IO.Path.GetDirectoryName(dir) with
+                        match IO.Path.GetDirectoryName(dir) with // 'dir' is empty string ?
                         | null ->
-                            let dirList = restDirs |> String.concat $"{Environment.NewLine} - "
-                            failwith $"No common base directory was found in:{Environment.NewLine} - {dirList}{Environment.NewLine}This might be because referenced repositories are spread over several local drives, please run again with --verbose option and report"
+                            let goodPaths, badPaths =
+                                restDirs
+                                |> List.partition (fun d -> (withTrailingSep d).StartsWith(dir', StringComparison.Ordinal))
+                            [
+                            "Fable is trying to find a common base directory for all files and projects referenced."
+                            $"But '%s{dir'}' is not a common base directory for these source paths:"
+                            for d in badPaths do
+                                $" - {d}"
+                            // "These path are OK:"
+                            // for d in goodPaths do
+                            //     $" - {d}"
+                            "If you think this is a bug, please run again with --verbose option and report."
+                            ]
+                            |> String.concat Environment.NewLine
+                            |> failwith
+
                         | dir -> getCommonDir dir
 
                 getCommonDir dir
