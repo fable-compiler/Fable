@@ -269,6 +269,14 @@ def try_parse(
     return True
 
 
+def to_milliseconds(value: int | TimeSpan) -> float:
+    """Convert either an int (milliseconds) or TimeSpan to milliseconds as float."""
+    if isinstance(value, TimeSpan):
+        return float(total_milliseconds(value))
+    else:
+        return float(value)
+
+
 __all__ = [
     "add",
     "create",
@@ -284,6 +292,7 @@ __all__ = [
     "negate",
     "parse",
     "subtract",
+    "to_milliseconds",
     "total_days",
     "total_days",
     "total_hours",
