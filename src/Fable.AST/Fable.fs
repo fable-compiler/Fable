@@ -200,6 +200,7 @@ type Type =
     | GenericParam of name: string * isMeasure: bool * constraints: Constraint list
     | DeclaredType of ref: EntityRef * genericArgs: Type list
     | AnonymousRecordType of fieldNames: string[] * genericArgs: Type list * isStruct: bool
+    | Nullable of Type
 
     member this.Generics =
         match this with
@@ -211,6 +212,7 @@ type Type =
         | Tuple(gen, _) -> gen
         | DeclaredType(_, gen) -> gen
         | AnonymousRecordType(_, gen, _) -> gen
+        | Nullable typ -> typ.Generics
         // TODO: Check numbers with measure?
         | MetaType
         | Any
@@ -233,6 +235,7 @@ type Type =
         | Tuple(gen, isStruct) -> Tuple(List.map f gen, isStruct)
         | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen)
         | AnonymousRecordType(e, gen, isStruct) -> AnonymousRecordType(e, List.map f gen, isStruct)
+        | Nullable typ -> Nullable(f typ)
         | MetaType
         | Any
         | Unit

@@ -1357,6 +1357,7 @@ module AST =
             && listEquals (typeEquals strict) gen1 gen2
             && isStruct1 = isStruct2
         | Measure _, Measure _ -> true
+        | Nullable typ1, Nullable typ2 -> typeEquals strict typ1 typ2
         | _ -> false
 
     let rec getEntityFullName prettify (entRef: EntityRef) gen =
