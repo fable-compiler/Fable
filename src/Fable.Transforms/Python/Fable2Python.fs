@@ -154,7 +154,12 @@ module Reflection =
             ent.FSharpFields
             |> Seq.map (fun fi ->
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
-                let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
+
+                let name =
+                    if Util.shouldUseRecordFieldNaming ent then
+                        fi.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                    else
+                        fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
                 Expression.tuple [ Expression.stringConstant name; typeInfo ], stmts
             )
@@ -1026,6 +1031,17 @@ module Util =
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
 
         name
+
+    /// Determines if we should use the special record field naming convention (toRecordFieldSnakeCase)
+    /// for the given entity. Returns true for user-defined F# records, false for built-in F# Core types.
+    let shouldUseRecordFieldNaming (ent: Fable.Entity) =
+        ent.IsFSharpRecord && not (ent.FullName.StartsWith("Microsoft.FSharp.Core"))
+
+    /// Determines if we should use the special record field naming convention (toRecordFieldSnakeCase)
+    /// for the given entity reference. Returns true for user-defined F# records, false for built-in F# Core types.
+    let shouldUseRecordFieldNamingForRef (entityRef: Fable.EntityRef) (ent: Fable.Entity) =
+        ent.IsFSharpRecord
+        && not (entityRef.FullName.StartsWith("Microsoft.FSharp.Core"))
 
     type NamedTailCallOpportunity(com: IPythonCompiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
@@ -2411,7 +2427,7 @@ module Util =
 
     let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         // printfn "transformGet: %A" kind
-        /// printfn "transformGet: %A" (fableExpr.Type)
+        // printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
@@ -2430,12 +2446,11 @@ module Util =
                 match narrowedType with
                 | Fable.AnonymousRecordType _ -> i.Name // Use the field name as is for anonymous records
                 | Fable.DeclaredType(entityRef, _) ->
-                    // Only apply naming convention for F# Records
+                    // Only apply naming convention for user-defined F# Records (not built-in F# Core types)
                     match com.TryGetEntity entityRef with
-                    | Some ent when ent.IsFSharpRecord -> i.Name |> Naming.toSnakeCase |> Helpers.clean
-                    | _ ->
-
-                        i.Name |> Naming.toPythonNaming // Fallback to Python naming for other types
+                    | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
+                        i.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                    | _ -> i.Name |> Naming.toPythonNaming // Fallback to Python naming for other types
                 | _ ->
                     // Fallback to snake case for other types
                     i.Name |> Naming.toPythonNaming // |> Helpers.clean
@@ -2521,7 +2536,8 @@ module Util =
                     match narrowedType with
                     | Fable.DeclaredType(entityRef, _) ->
                         match com.TryGetEntity entityRef with
-                        | Some ent when ent.IsFSharpRecord -> fieldName |> Naming.toSnakeCase |> Helpers.clean
+                        | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
+                            fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
                         | _ -> fieldName |> Naming.toPythonNaming
                     | _ -> fieldName |> Naming.toPythonNaming
 
@@ -3668,8 +3684,8 @@ module Util =
 
     let getEntityFieldsAsIdents (com: IPythonCompiler) (ent: Fable.Entity) =
         let entityNamingConvention =
-            if ent.IsFSharpRecord then
-                Naming.toSnakeCase
+            if shouldUseRecordFieldNaming ent then
+                Naming.toRecordFieldSnakeCase
             else
                 Naming.toPythonNaming
 
@@ -4151,7 +4167,13 @@ module Util =
                 yield!
                     ent.FSharpFields
                     |> List.collecti (fun i field ->
-                        let left = get com ctx None thisExpr (field.Name |> Naming.toPythonNaming) false
+                        let fieldName =
+                            if shouldUseRecordFieldNaming ent then
+                                field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                            else
+                                field.Name |> Naming.toPythonNaming
+
+                        let left = get com ctx None thisExpr fieldName false
                         let right = args[i] |> wrapIntExpression field.FieldType
 
                         assign None left right |> exprAsStatement ctx

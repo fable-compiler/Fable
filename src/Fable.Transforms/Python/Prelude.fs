@@ -28,6 +28,17 @@ module Naming =
     let toSnakeCase (name: string) =
         Naming.applyCaseRule CaseRules.SnakeCase name
 
+    /// Convert F# record field name to snake_case with special handling for camelCase/PascalCase conflicts.
+    /// - If the name is PascalCase, convert to snake_case without suffix.
+    /// - If the name is camelCase, convert to snake_case and add '_' suffix to avoid conflict with PascalCase.
+    let toRecordFieldSnakeCase (name: string) =
+        let snakeCase = Naming.applyCaseRule CaseRules.SnakeCase name
+
+        if name.Length > 0 && Char.IsLower(name.[0]) then
+            snakeCase + "_"
+        else
+            snakeCase
+
     let toPascalCase (name: string) = upperFirst name
 
     /// Convert name to Python naming convention.
