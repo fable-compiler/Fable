@@ -213,3 +213,22 @@ module Issue4125 =
 let ``test issue 4125`` () =
     let x = Issue4125.none ()
     equal None x
+
+module Issue3912 =
+    type X() =
+        let mutable _disposed = false
+
+        member this.IsDisposed = _disposed
+
+        interface System.IDisposable with
+            member this.Dispose() =
+                _disposed <- true
+
+[<Fact>]
+let ``test issue 3912`` () =
+    let x = new Issue3912.X()
+
+    let () =
+        use x = x
+        ()
+    equal x.IsDisposed true
