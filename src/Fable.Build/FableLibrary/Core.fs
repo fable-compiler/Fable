@@ -47,6 +47,20 @@ type BuildFableLibrary
     abstract member CopyStage: unit -> unit
     default _.CopyStage() = ()
 
+    /// <summary>
+    /// Robustly delete a directory, handling macOS file system timing issues
+    /// </summary>
+    member private this.deleteDirectoryRobust(path: string) =
+        if Directory.Exists path then
+            let rec tryDelete retries =
+                try
+                    Directory.Delete(path, true)
+                with :? IOException when retries > 0 ->
+                    System.Threading.Thread.Sleep(50)
+                    tryDelete (retries - 1)
+
+            tryDelete 3
+
     member this.Run(?skipIfExist: bool) =
         let toConsole (s: string) = System.Console.WriteLine(s)
 
@@ -59,8 +73,7 @@ type BuildFableLibrary
 
             "Cleaning build directory" |> toConsole
 
-            if Directory.Exists buildDir then
-                Directory.Delete(buildDir, true)
+            this.deleteDirectoryRobust buildDir
 
             "Building Fable.Library" |> toConsole
 
