@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fixed resource managers with empty body (#3912) (by @dbrattli)
 * [Python] Fixed `Async.Sleep`to handle TimeSpan correctly (#4137) (by @dbrattli)
 * [Python] Make sure snake-cased Record do not conflict (by @dbrattli)
 * [Python] Do not return None | None for optional unit types (#4127) (by @dbrattli)

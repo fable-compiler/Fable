@@ -14,7 +14,7 @@ type ReturnStrategy =
     | Return
     | ReturnUnit
     /// Return within a with-statement (to make sure we don't TC with statements)
-    | ResourceManager
+    | ResourceManager of ReturnStrategy option
     | Assign of Expression
     | Target of Identifier
 
@@ -2103,7 +2103,7 @@ module Util =
         | None
         | Some ReturnUnit -> exprAsStatement ctx pyExpr
         // TODO: Where to put these int wrappings? Add them also for function arguments?
-        | Some ResourceManager
+        | Some(ResourceManager strategy) -> resolveExpr ctx _t strategy pyExpr
         | Some Return -> [ Statement.return' pyExpr ]
         | Some(Assign left) -> exprAsStatement ctx (assign None left pyExpr)
         | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
@@ -3331,6 +3331,7 @@ module Util =
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
         | Fable.Let(ident, value, body) ->
+            // printfn "Fable.Let: %A" (ident, value, body)
             match ident, value, body with
             // Transform F# `use` i.e TryCatch as Python `with`
             | { Name = valueName },
@@ -3352,10 +3353,7 @@ module Util =
                                                    _)),
                              _) when valueName = disposeName ->
                 let id = Identifier valueName
-
-                let body =
-                    com.TransformAsStatements(ctx, Some ResourceManager, body)
-                    |> List.choose Helpers.isProductiveStatement
+                let body = transformBlock com ctx (Some(ResourceManager returnStrategy)) body
 
                 let value, stmts = com.TransformAsExpr(ctx, value)
                 let items = [ WithItem.withItem (value, Expression.name id) ]
@@ -3414,7 +3412,7 @@ module Util =
                 | Some ReturnUnit -> true
                 | Some(Target _) -> true // Compile as statement so values can be bound
                 | Some(Assign _) -> (isPyStatement ctx false thenExpr) || (isPyStatement ctx false elseExpr)
-                | Some ResourceManager
+                | Some(ResourceManager _) -> true
                 | Some Return ->
                     Option.isSome ctx.TailCallOpportunity
                     || (isPyStatement ctx false thenExpr)
@@ -4654,7 +4652,7 @@ module Compiler =
                 NarrowedTypes = Map.empty
             }
 
-        //printfn "file: %A" file.Declarations
+        // printfn "file: %A" file.Declarations
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
         let rootComment =
