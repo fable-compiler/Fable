@@ -48,7 +48,8 @@ type BuildFableLibrary
     default _.CopyStage() = ()
 
     /// <summary>
-    /// Robustly delete a directory, handling macOS file system timing issues
+    /// Robustly delete a directory, handling file system issues on MacOS and Windows.
+    /// Ref: https://stackoverflow.com/questions/329355/cannot-delete-directory-with-directory-deletepath-true
     /// </summary>
     member private this.deleteDirectoryRobust(path: string) =
         if Directory.Exists path then
@@ -56,7 +57,7 @@ type BuildFableLibrary
                 try
                     Directory.Delete(path, true)
                 with :? IOException when retries > 0 ->
-                    System.Threading.Thread.Sleep(50)
+                    System.Threading.Thread.Sleep 50
                     tryDelete (retries - 1)
 
             tryDelete 3
