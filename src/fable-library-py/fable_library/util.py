@@ -2616,58 +2616,55 @@ def safe_hash(x: Any) -> int:
     )
 
 
-def string_hash(s: str) -> int:
+def string_hash(s: str) -> int32:
     h = 5381
     for c in s:
         h = (h * 33) ^ ord(c)
 
-    return h
+    return int32(h)
 
 
-def number_hash(x: int) -> int:
-    return int(x) * 2654435761 | 0
+def number_hash(x: Any) -> int32:
+    return x.GetHashCode() if hasattr(x, "GetHashCode") else int32(hash(x))
 
 
-def identity_hash(x: Any) -> int:
+def identity_hash(x: Any) -> int32:
     if x is None:
-        return 0
+        return int32(0)
 
     if is_hashable(x):
         return x.GetHashCode()
 
     if is_hashable_py(x):
-        return hash(x)
+        return int32(hash(x))
 
-    return physical_hash(x)
+    return number_hash(ObjectRef.id(x))
 
 
-def combine_hash_codes(hashes: list[int]) -> int:
+def combine_hash_codes(hashes: list[int32]) -> int32:
     if not hashes:
         return 0
 
     return functools.reduce(lambda h1, h2: ((h1 << 5) + h1) ^ h2, hashes)
 
 
-def structural_hash(x: Any) -> int:
-    return hash(x)
+def structural_hash(x: Any) -> int32:
+    return int32(hash(x))
 
 
-def array_hash(xs: list[Any]) -> int:
-    hashes: list[int] = []
+def array_hash(xs: list[Any]) -> int32:
+    hashes: list[int32] = []
     for x in xs:
         hashes.append(structural_hash(x))
 
     return combine_hash_codes(hashes)
 
 
-def physical_hash(x: Any) -> int:
-    if hasattr(x, "__hash__") and callable(x.__hash__):
-        return hash(x)
-
+def physical_hash(x: Any) -> int32:
     return number_hash(ObjectRef.id(x))
 
 
-def round(value: float64, digits: int = 0):
+def round(value: float64, digits: int = 0) -> float64:
     return value.round(digits)
 
 
