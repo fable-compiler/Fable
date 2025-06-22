@@ -21,3 +21,4 @@ type CaseRules =
 type StringEnumAttribute() =
     inherit Attribute()
     new(caseRules: CaseRules) = StringEnumAttribute()
+    new(caseRules: CaseRules, respectValues: bool) = StringEnumAttribute()
