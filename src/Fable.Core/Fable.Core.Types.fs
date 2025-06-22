@@ -96,12 +96,25 @@ type EmitIndexerAttribute() =
 type EmitPropertyAttribute(propertyName: string) =
     inherit Attribute()
 
+/// <summary>
 /// Compile union types as string literals.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#stringenum-attribute
+/// </summary>
+/// <remarks>
+/// By default, <c>StringEnum</c> does not respect the <c>CompiledValue</c> attribute on cases. This can be toggled
+/// by enabling the <c>respectValues</c> switch:
+/// <code>
+/// [&lt;StringEnum(caseRules = CaseRules.LowerFirst, respectValues = true)>]
+/// [&lt;StringEnum(CaseRules.LowerFirst, true)>]
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#stringenum-attribute">
+/// Docs section on StringEnum
+/// </seealso>
 [<AttributeUsage(AttributeTargets.Class)>]
-type StringEnumAttribute(caseRules: CaseRules) =
+type StringEnumAttribute(caseRules: CaseRules, respectValues: bool) =
     inherit Attribute()
-    new() = StringEnumAttribute(CaseRules.LowerFirst)
+    new() = StringEnumAttribute(CaseRules.LowerFirst, false)
+    new(caseRules: CaseRules) = StringEnumAttribute(caseRules, false)
 
 /// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
 [<AttributeUsage(AttributeTargets.Parameter)>]

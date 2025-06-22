@@ -225,6 +225,11 @@ type LowerAllOptions =
     | ContentBox
     | BorderBox
 
+[<StringEnum(CaseRules.LowerAll, true); RequireQualifiedAccess>]
+type RespectValues =
+    | ContentBox
+    | [<CompiledValue(false)>] None
+
 [<StringEnum>]
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
@@ -828,6 +833,12 @@ let tests =
     testCase "StringEnum works with CaseRules.LowerAll" <| fun () ->
         let x = LowerAllOptions.ContentBox
         x |> unbox |> equal "contentbox"
+
+    testCase "StringEnum works with RespectCompiledValue" <| fun () ->
+        let x = RespectValues.ContentBox
+        x |> unbox |> equal "contentbox"
+        let y = RespectValues.None
+        y |> unbox |> equal false
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->
