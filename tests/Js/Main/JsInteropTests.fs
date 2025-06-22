@@ -225,10 +225,17 @@ type LowerAllOptions =
     | ContentBox
     | BorderBox
 
-[<StringEnum(CaseRules.LowerAll, true); RequireQualifiedAccess>]
+type RespectValuesEnum = Foo = 0 | Bar = 1 | Baz = 2
+
+[<StringEnum(CaseRules.LowerAll); RequireQualifiedAccess>]
 type RespectValues =
     | ContentBox
     | [<CompiledValue(false)>] None
+    | [<CompiledValue(42)>] AnswerToLife
+    | [<CompiledValue(3.14159)>] Pi
+    | [<CompiledValue(RespectValuesEnum.Foo)>] Foo
+    | [<CompiledName("Bar"); CompiledValue(1)>] Bar
+//    | [<CompiledValue(null)>] Undefined // Error: Expected: undefined - Actual: undefined
 
 [<StringEnum>]
 #endif
@@ -834,11 +841,15 @@ let tests =
         let x = LowerAllOptions.ContentBox
         x |> unbox |> equal "contentbox"
 
-    testCase "StringEnum works with RespectCompiledValue" <| fun () ->
-        let x = RespectValues.ContentBox
-        x |> unbox |> equal "contentbox"
-        let y = RespectValues.None
-        y |> unbox |> equal false
+    testCase "StringEnum is overwritten by CompiledValue" <| fun () ->
+        RespectValues.ContentBox |> unbox |> equal "contentbox"
+        RespectValues.None |> unbox |> equal false
+        RespectValues.Pi |> unbox |> equal 3.14159
+        RespectValues.AnswerToLife |> unbox |> equal 42
+        RespectValues.Foo |> unbox |> equal RespectValuesEnum.Foo
+
+    testCase "StringEnum CompiledName over CompiledValue" <| fun () ->
+        RespectValues.Bar |> unbox |> equal "Bar"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->

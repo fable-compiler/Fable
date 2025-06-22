@@ -64,7 +64,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
 
     | ErasedUnion(tdef, _genArgs, rule) ->
         match argExprs with
-        | [] -> transformStringEnum rule false unionCase
+        | [] -> transformStringEnum rule unionCase
         | [ argExpr ] -> argExpr
         | _ when tdef.UnionCases.Count > 1 ->
             "Erased unions with multiple cases must have one single field: "
@@ -78,7 +78,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         | _ ->
             let isCompiledValue, tagExpr =
                 match FsUnionCase.CompiledValue unionCase with
-                | None -> false, transformStringEnum rule false unionCase
+                | None -> false, transformStringEnum rule unionCase
                 | Some(CompiledValue.Integer i) -> false, makeIntConst i
                 | Some(CompiledValue.Float f) -> false, makeFloatConst f
                 | Some(CompiledValue.Boolean b) -> false, makeBoolConst b
@@ -104,9 +104,9 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
                 )
                 |> makeValue r
 
-    | StringEnum(tdef, rule, shouldRespectValue) ->
+    | StringEnum(tdef, rule) ->
         match argExprs with
-        | [] -> transformStringEnum rule shouldRespectValue unionCase
+        | [] -> transformStringEnum rule unionCase
         | _ ->
             $"StringEnum types cannot have fields: {tdef.TryFullName}"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -507,7 +507,7 @@ let private transformUnionCaseTest
 
         | ErasedUnion(tdef, genArgs, rule) ->
             match unionCase.Fields.Count with
-            | 0 -> return makeEqOp r unionExpr (transformStringEnum rule false unionCase) BinaryEqual
+            | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
             | 1 ->
                 let fi = unionCase.Fields[0]
 
@@ -533,7 +533,7 @@ let private transformUnionCaseTest
         | TypeScriptTaggedUnion(_, _, tagName, rule) ->
             let isCompiledValue, value =
                 match FsUnionCase.CompiledValue unionCase with
-                | None -> false, transformStringEnum rule false unionCase
+                | None -> false, transformStringEnum rule unionCase
                 | Some(CompiledValue.Integer i) -> true, makeIntConst i
                 | Some(CompiledValue.Float f) -> true, makeFloatConst f
                 | Some(CompiledValue.Boolean b) -> true, makeBoolConst b
@@ -558,8 +558,7 @@ let private transformUnionCaseTest
             let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
             return Fable.Test(unionExpr, kind, r)
 
-        | StringEnum(_, rule, shouldRespectValue) ->
-            return makeEqOp r unionExpr (transformStringEnum rule shouldRespectValue unionCase) BinaryEqual
+        | StringEnum(_, rule) -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
 
         | DiscriminatedUnion(tdef, _) ->
             let tag = unionCaseTag com tdef unionCase

@@ -937,20 +937,14 @@ module Helpers =
         with _ ->
             failwith $"Cannot find case %s{unionCase.Name} in %s{FsEnt.FullName ent}"
 
-    /// Apply case rules to case name if there's no explicit compiled name
-    let transformStringEnum (rule: CaseRules) (shouldRespectValue: bool) (unionCase: FSharpUnionCase) =
-        match FsUnionCase.CompiledName unionCase with
-        | Some name -> name |> makeStrConst
-        | None ->
-            if shouldRespectValue then
-                FsUnionCase.CompiledValue unionCase
-                |> function
-                    | None -> Naming.applyCaseRule rule unionCase.Name |> makeStrConst
-                    | Some(CompiledValue.Boolean value) -> makeBoolConst value
-                    | Some(CompiledValue.Float value) -> makeFloatConst value
-                    | Some(CompiledValue.Integer value) -> makeIntConst value
-            else
-                Naming.applyCaseRule rule unionCase.Name |> makeStrConst
+    /// Apply case rules to case name if there's no explicit compiled name or compiled value
+    let transformStringEnum (rule: CaseRules) (unionCase: FSharpUnionCase) =
+        match FsUnionCase.CompiledName unionCase, FsUnionCase.CompiledValue unionCase with
+        | Some name, _ -> name |> makeStrConst
+        | _, Some(CompiledValue.Boolean value) -> makeBoolConst value
+        | _, Some(CompiledValue.Float value) -> makeFloatConst value
+        | _, Some(CompiledValue.Integer value) -> makeIntConst value
+        | _ -> Naming.applyCaseRule rule unionCase.Name |> makeStrConst
 
     // let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
     //     match memb.DeclaringEntity with
@@ -1020,7 +1014,7 @@ module Helpers =
         | ErasedUnion of tdef: FSharpEntity * genArgs: IList<FSharpType> * rule: CaseRules
         | ErasedUnionCase
         | TypeScriptTaggedUnion of tdef: FSharpEntity * genArgs: IList<FSharpType> * tagName: string * rule: CaseRules
-        | StringEnum of tdef: FSharpEntity * rule: CaseRules * respectsValue: bool
+        | StringEnum of tdef: FSharpEntity * rule: CaseRules
         | DiscriminatedUnion of tdef: FSharpEntity * genArgs: IList<FSharpType>
 
     let getUnionPattern (typ: FSharpType) (unionCase: FSharpUnionCase) : UnionPattern =
@@ -1030,12 +1024,6 @@ module Helpers =
             match Seq.tryHead att.ConstructorArguments with
             | Some(_, (:? int as rule)) -> enum<CaseRules> (rule)
             | _ -> CaseRules.LowerFirst
-        // Used in matching StringEnum attributes. Checks if the string enum
-        // will respect CompiledValue attributes
-        let shouldRespectValue (att: FSharpAttribute) =
-            match Seq.tryItem 1 att.ConstructorArguments with
-            | Some(_, (:? bool as value)) -> value
-            | _ -> false
 
         unionCase.Attributes
         |> Seq.tryPick (fun att ->
@@ -1056,7 +1044,7 @@ module Helpers =
                     |> Seq.tryPick (fun att ->
                         match att.AttributeType.TryFullName with
                         | Some Atts.erase -> Some(ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
-                        | Some Atts.stringEnum -> Some(StringEnum(tdef, getCaseRule att, shouldRespectValue att))
+                        | Some Atts.stringEnum -> Some(StringEnum(tdef, getCaseRule att))
                         | Some Atts.tsTaggedUnion ->
                             match Seq.tryItem 0 att.ConstructorArguments, Seq.tryItem 1 att.ConstructorArguments with
                             | Some(_, (:? string as name)), None ->
