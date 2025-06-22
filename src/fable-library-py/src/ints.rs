@@ -641,10 +641,21 @@ macro_rules! integer_variant {
             /// Hash function for dictionary and set usage.
             ///
             /// Computes a hash value using Rust's default hasher.
-            pub fn __hash__(&self) -> $type {
+            pub fn __hash__(&self) -> u64 {
                 let mut hasher = DefaultHasher::new();
                 self.0.hash(&mut hasher);
-                hasher.finish() as $type
+                hasher.finish()
+            }
+
+            /// .NET compatible GetHashCode method.
+            ///
+            /// Returns a 32-bit hash code compatible with .NET's GetHashCode() method.
+            /// This method follows .NET naming conventions (PascalCase).
+            #[allow(non_snake_case)]
+            pub fn GetHashCode(&self) -> i32 {
+                let mut hasher = DefaultHasher::new();
+                self.0.hash(&mut hasher);
+                hasher.finish() as i32
             }
 
             /// Convert to Python int.
