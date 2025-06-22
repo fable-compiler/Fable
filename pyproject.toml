@@ -6,7 +6,7 @@ authors = [
     { name = "Alfonso Garcia-Caro" },
     { name = "Dag Brattli", email = "dag@brattli.net" },
 ]
-requires-python = ">= 3.10, < 4.0"
+requires-python = ">= 3.12, < 4.0"
 readme = "README.md"
 license = "MIT"
 dependencies = ["python-dateutil>=2.9.0,<3"]
@@ -51,7 +51,7 @@ reportConstantRedefinition = true
 reportOverlappingOverload = true
 reportInconsistentConstructor = true
 reportImplicitStringConcatenation = true
-pythonVersion = "3.10"
+pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.ruff]

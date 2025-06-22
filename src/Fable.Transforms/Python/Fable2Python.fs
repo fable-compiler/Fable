@@ -590,18 +590,57 @@ module Annotation =
         ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Set.ofSeq
 
     let makeTypeParamDecl (com: IPythonCompiler) ctx (genParams: Set<string>) =
-        if (Set.isEmpty genParams) then
-            []
-        else
-            com.GetImportExpr(ctx, "typing", "Generic") |> ignore
+        // Python 3.12+ syntax: no longer need Generic[T] base classes
+        []
 
-            let genParams =
-                genParams
-                |> Set.toList
-                |> List.map (fun genParam -> com.AddTypeVar(ctx, genParam))
+    let makeTypeParams (com: IPythonCompiler) ctx (genParams: Set<string>) : TypeParam list =
+        // Python 3.12+ syntax: create TypeParam list for class/function declaration
+        genParams
+        |> Set.toList
+        |> List.map (fun genParam -> TypeParam.typeVar (Identifier(genParam.ToUpperInvariant() |> Helpers.clean)))
 
-            let generic = Expression.name "Generic"
-            [ Expression.subscript (generic, Expression.tuple genParams) ]
+    let makeFunctionTypeParams (com: IPythonCompiler) ctx (repeatedGenerics: Set<string>) : TypeParam list =
+        // Python 3.12+ syntax: create TypeParam list for function declaration from repeated generics
+        // Ensure deduplication by normalizing case and then converting back
+        repeatedGenerics
+        |> Set.toList
+        |> List.map (fun genParam -> genParam.ToUpperInvariant() |> Helpers.clean)
+        |> Set.ofList // Remove duplicates after case normalization
+        |> Set.toList
+        |> List.map (fun genParam -> TypeParam.typeVar (Identifier(genParam)))
+
+    let extractGenericParamsFromMethodSignature
+        (com: IPythonCompiler)
+        ctx
+        (args: Arguments)
+        (returnType: Expression)
+        : Set<string>
+        =
+        // Extract generic type parameters from method signature by looking for single uppercase letter type names
+        let rec extractFromExpression (expr: Expression) : Set<string> =
+            match expr with
+            | Expression.Name { Id = Identifier name } when name.Length = 1 && System.Char.IsUpper(name.[0]) ->
+                Set.singleton name
+            | Expression.Subscript {
+                                       Value = value
+                                       Slice = slice
+                                   } -> Set.union (extractFromExpression value) (extractFromExpression slice)
+            | Expression.Tuple { Elements = elements } -> elements |> List.map extractFromExpression |> Set.unionMany
+            | Expression.BinOp {
+                                   Left = left
+                                   Right = right
+                               } -> Set.union (extractFromExpression left) (extractFromExpression right)
+            | _ -> Set.empty
+
+        let argTypes =
+            args.Args
+            |> List.choose (fun arg -> arg.Annotation)
+            |> List.map extractFromExpression
+            |> Set.unionMany
+
+        let returnTypes = extractFromExpression returnType
+
+        Set.union argTypes returnTypes
 
     let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
         libCall com ctx r "reflection" (memberName + "_type") args
@@ -1547,6 +1586,17 @@ module Util =
             Expression.name ident, [ func ]
 
     let createFunction name args body decoratorList returnType (comment: string option) =
+        createFunctionWithTypeParams name args body decoratorList returnType comment []
+
+    let createFunctionWithTypeParams
+        name
+        args
+        body
+        decoratorList
+        returnType
+        (comment: string option)
+        (typeParams: TypeParam list)
+        =
         let (|Awaitable|_|) expr =
             match expr with
             | Expression.Call {
@@ -1614,6 +1664,7 @@ module Util =
                 body = body',
                 decoratorList = decoratorList,
                 returns = returnType,
+                typeParams = typeParams,
                 ?comment = comment
             )
         | _ ->
@@ -1623,6 +1674,7 @@ module Util =
                 body = body,
                 decoratorList = decoratorList,
                 returns = returnType,
+                typeParams = typeParams,
                 ?comment = comment
             )
 
@@ -3673,6 +3725,9 @@ module Util =
     let makeEntityTypeParamDecl (com: IPythonCompiler) ctx (ent: Fable.Entity) =
         getEntityGenParams ent |> makeTypeParamDecl com ctx
 
+    let makeEntityTypeParams (com: IPythonCompiler) ctx (ent: Fable.Entity) : TypeParam list =
+        getEntityGenParams ent |> makeTypeParams com ctx
+
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number(Int32, Fable.NumberInfo.Empty)) "tag"
 
@@ -3741,6 +3796,7 @@ module Util =
 
 
         let generics = makeEntityTypeParamDecl com ctx ent
+        let typeParams = makeEntityTypeParams com ctx ent
         let bases = baseExpr |> Option.toList
 
         // Add a __hash__ method to the class
@@ -3794,7 +3850,13 @@ module Util =
             ]
 
         [
-            Statement.classDef (name, body = classBody, decoratorList = decorators, bases = bases @ generics)
+            Statement.classDef (
+                name,
+                body = classBody,
+                decoratorList = decorators,
+                bases = bases,
+                typeParams = typeParams
+            )
         ]
 
     let declareClassType
@@ -3811,6 +3873,7 @@ module Util =
         =
         // printfn "declareClassType: %A" consBody
         let generics = makeEntityTypeParamDecl com ctx ent
+        let typeParams = makeEntityTypeParams com ctx ent
 
         let fieldTypes =
             if ent.IsValueType then
@@ -3862,7 +3925,7 @@ module Util =
 
         stmts
         @ [
-            Statement.classDef (name, body = classBody, bases = bases @ interfaces @ generics)
+            Statement.classDef (name, body = classBody, bases = bases @ interfaces, typeParams = typeParams)
         ]
 
     let createSlotsForRecordType (com: IPythonCompiler) ctx (classEnt: Fable.Entity) =
@@ -3928,6 +3991,29 @@ module Util =
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
+    let calculateTypeParams (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) args returnType bodyType =
+        // Calculate type parameters for Python 3.12 syntax
+        let explicitGenerics =
+            if info.GenericParameters.Length > 0 then
+                info.GenericParameters |> List.map (fun p -> p.Name) |> Set.ofList
+            else
+                Set.empty
+
+        let signatureGenerics =
+            extractGenericParamsFromMethodSignature com ctx args returnType
+
+        let bodyGenerics =
+            // For getters/setters, also extract generics from the method body/return type
+            Util.getGenericTypeParams [ bodyType ] |> Set.difference <| ctx.ScopedTypeParams
+
+        let repeatedGenerics =
+            Set.empty
+            |> Set.union explicitGenerics
+            |> Set.union signatureGenerics
+            |> Set.union bodyGenerics
+
+        makeFunctionTypeParams com ctx repeatedGenerics
+
     let transformModuleFunction
         (com: IPythonCompiler)
         ctx
@@ -3939,9 +4025,13 @@ module Util =
         let args, body', returnType =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
+        let typeParams = calculateTypeParams com ctx info args returnType body.Type
+
         let name = com.GetIdentifier(ctx, membName |> Naming.toPythonNaming)
         // printfn "TransformModuleFunction, name: %A" name
-        let stmt = createFunction name args body' [] returnType info.XmlDoc
+        let stmt =
+            createFunctionWithTypeParams name args body' [] returnType info.XmlDoc typeParams
+
         let expr = Expression.name name
 
         info.Attributes
@@ -4003,8 +4093,18 @@ module Util =
                 let self = Arg.arg "self"
                 { args with Args = self :: args.Args }
 
+        let typeParams =
+            calculateTypeParams com ctx info arguments returnType memb.Body.Type
+
         // Python do not support static getters, so make it a function instead
-        Statement.functionDef (key, arguments, body = body, decoratorList = decorators, returns = returnType)
+        Statement.functionDef (
+            key,
+            arguments,
+            body = body,
+            decoratorList = decorators,
+            returns = returnType,
+            typeParams = typeParams
+        )
         |> List.singleton
 
     let transformAttachedMethod
@@ -4026,7 +4126,16 @@ module Util =
         let makeMethod name args body decorators returnType =
             let key = memberFromName com ctx name |> nameFromKey com ctx
 
-            Statement.functionDef (key, args, body = body, decoratorList = decorators, returns = returnType)
+            let typeParams = calculateTypeParams com ctx info args returnType memb.Body.Type
+
+            Statement.functionDef (
+                key,
+                args,
+                body = body,
+                decoratorList = decorators,
+                returns = returnType,
+                typeParams = typeParams
+            )
 
         let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached isStatic) info.HasSpread memb.Args memb.Body
@@ -4324,17 +4433,15 @@ module Util =
                 if List.isEmpty interfaces then
                     com.GetImportExpr(ctx, "typing", "Protocol")
 
-                // Collect all generic type variables and create a single `Generic` base
-                let genericTypeVars =
-                    classEnt.GenericParameters
-                    |> Seq.map (fun gen -> com.AddTypeVar(ctx, gen.Name))
-                    |> Seq.toList
-
-                if not (List.isEmpty genericTypeVars) then
-                    Expression.subscript (com.GetImportExpr(ctx, "typing", "Generic"), Expression.tuple genericTypeVars)
+            // Python 3.12: Generic type parameters are handled in class definition, not as base classes
             ]
 
-        [ Statement.classDef (classIdent, body = classMembers, bases = bases) ]
+        // Generate type parameters for Python 3.12
+        let typeParams = makeEntityTypeParams com ctx classEnt
+
+        [
+            Statement.classDef (classIdent, body = classMembers, bases = bases, typeParams = typeParams)
+        ]
 
     let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration) =
         // printfn "transformDeclaration: %A" decl
@@ -4403,14 +4510,9 @@ module Util =
             | _, None -> transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformTypeVars (com: IPythonCompiler) ctx (typeVars: HashSet<string>) =
-        [
-            for var in typeVars do
-                let targets = Expression.name var |> List.singleton
-                let value = com.GetImportExpr(ctx, "typing", "TypeVar")
-                let args = Expression.stringConstant var |> List.singleton
-                let value = Expression.call (value, args)
-                Statement.assign (targets, value)
-        ]
+        // For Python 3.12, we don't need module-level TypeVar declarations
+        // Type parameters are defined directly in function/class signatures
+        []
 
     let transformExports (_com: IPythonCompiler) _ctx (exports: HashSet<string>) =
         let exports = exports |> List.ofSeq
@@ -4557,15 +4659,10 @@ module Compiler =
             member _.GetAllExports() = exports
 
             member _.AddTypeVar(ctx, name: string) =
-                // TypeVars should be private and uppercase. For auto-generated (inferred) generics we use a double-undercore.
-                let name =
-                    let name = name.ToUpperInvariant() |> Helpers.clean
-                    $"_{name}"
+                // For Python 3.12, use clean type parameter names (no underscores)
+                let name = name.ToUpperInvariant() |> Helpers.clean
 
-                // For object expressions we need to create a new type scope so we make an extra padding to ensure uniqueness
-                let name = name.PadRight(ctx.TypeParamsScope + name.Length, '_')
-                typeVars.Add name |> ignore
-
+                // Don't add to global typeVars collection since Python 3.12 uses scoped type parameters
                 ctx.UsedNames.DeclarationScopes.Add(name) |> ignore
 
                 Expression.name name
