@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-from typing import TypeAlias, TypeVar
-
 from .core import option
 
 
-_T = TypeVar("_T")
-
-Option: TypeAlias = option.SomeWrapper[_T] | _T | None
+type Option[T] = option.SomeWrapper[T] | T | None
 
 # Re-export the functions from core.option
 bind = option.bind
@@ -33,11 +29,15 @@ __all__ = [
     "bind",
     "default_arg",
     "default_arg_with",
+    "filter",
     "flatten",
     "map",
     "map2",
     "map3",
     "of_nullable",
+    "or_else",
+    "or_else_with",
+    "some",
     "some",
     "to_array",
     "to_nullable",
