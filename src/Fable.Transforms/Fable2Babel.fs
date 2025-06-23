@@ -75,6 +75,10 @@ type IBabelCompiler =
 
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
+    abstract SaveTopDirectivePrologue: string -> unit
+
+    abstract GetAllAllTopDirectivesPrologue: unit -> string seq
+
 module Lib =
 
     let libCall (com: IBabelCompiler) ctx r moduleName memberName genArgs args =
@@ -2002,19 +2006,25 @@ module Util =
             Expression.logicalExpression (left, op, right, ?loc = range)
 
     let transformEmit (com: IBabelCompiler) ctx range (info: Fable.EmitInfo) =
-        let macro = stripImports com ctx range info.Macro
-        let info = info.CallInfo
+        match info.CallInfo.Tags with
+        | Fable.Tags.Contains "topDirectiveProloge" ->
+            com.SaveTopDirectivePrologue(info.Macro)
+            // Return empty sequence expression so it can be erased at print time
+            Expression.sequenceExpression ([||])
+        | _ ->
+            let macro = stripImports com ctx range info.Macro
+            let info = info.CallInfo
 
-        let thisArg =
-            info.ThisArg
-            |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
-            |> Option.toList
+            let thisArg =
+                info.ThisArg
+                |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
+                |> Option.toList
 
-        info.MemberRef
-        |> Option.bind com.TryGetMember
-        |> transformCallArgs com ctx info
-        |> List.append thisArg
-        |> emitExpression range macro
+            info.MemberRef
+            |> Option.bind com.TryGetMember
+            |> transformCallArgs com ctx info
+            |> List.append thisArg
+            |> emitExpression range macro
 
     let transformJsxProps (com: IBabelCompiler) props =
         (Some([], []), props)
@@ -2221,6 +2231,9 @@ but thanks to the optimisation done below we get
             "Expecting a static list or array literal (no generator) for JSX props"
             |> addErrorAndReturnNull com range
             |> Some
+        // | Fable.Tags.Contains "topDirectiveProloge", _ ->
+        //     Expression.sequenceExpression([||])
+        //     |> Some
         | Fable.Tags.Contains "jsx-template", args ->
             match args with
             | StringConst template :: _ ->
@@ -4434,6 +4447,11 @@ but thanks to the optimisation done below we get
         )
         |> fun staticImports -> [ yield! staticImports; yield! statefulImports ]
 
+    let transformDirectivesPrologue (directives: string seq) =
+        directives
+        |> Seq.map (DirectivePrologue >> DirectivePrologueDeclaration)
+        |> Seq.toList
+
     let getIdentForImport (com: IBabelCompiler) (ctx: Context) noMangle (path: string) (selector: string) =
         if System.String.IsNullOrEmpty selector then
             selector, None
@@ -4472,6 +4490,7 @@ module Compiler =
     type BabelCompiler(com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = Dictionary<string, Import>()
+        let topDirectivesPrologue = HashSet<string>()
         let isTypeScript = com.Options.Language = TypeScript
 
         interface IBabelCompiler with
@@ -4521,6 +4540,11 @@ module Compiler =
 
             member bcom.TransformImport(ctx, selector, path) =
                 transformImport bcom ctx None selector path
+
+            member _.SaveTopDirectivePrologue(text: string) =
+                topDirectivesPrologue.Add text |> ignore
+
+            member _.GetAllAllTopDirectivesPrologue() = topDirectivesPrologue |> Seq.cast
 
         interface Compiler with
             member _.Options = com.Options
@@ -4580,6 +4604,9 @@ module Compiler =
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
+        let topDirectivesPrologue =
+            com.GetAllAllTopDirectivesPrologue() |> transformDirectivesPrologue
+
         let importDecls = com.GetAllImports() |> transformImports
-        let body = importDecls @ rootDecls |> List.toArray
+        let body = topDirectivesPrologue @ importDecls @ rootDecls |> List.toArray
         Program(body)

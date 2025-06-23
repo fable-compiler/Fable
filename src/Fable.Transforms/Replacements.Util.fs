@@ -180,6 +180,7 @@ let withTag tag =
     | Call(e, i, t, r) -> Call(e, { i with Tags = tag :: i.Tags }, t, r)
     | Get(e, FieldGet i, t, r) -> Get(e, FieldGet { i with Tags = tag :: i.Tags }, t, r)
     | Operation(op, tags, t, r) -> Operation(op, tag :: tags, t, r)
+    | Emit(i, t, r) -> Emit({ i with EmitInfo.CallInfo.Tags = tag :: i.CallInfo.Tags }, t, r)
     | e -> e
 
 let getTags =
