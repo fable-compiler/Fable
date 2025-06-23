@@ -5,16 +5,12 @@ from collections.abc import Iterable
 from typing import (
     Any,
     TypeAlias,
-    TypeVar,
     cast,
 )
 
 from .array_ import Array
 from .core import FSharpRef, byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
 from .util import IComparable, compare
-
-
-_T = TypeVar("_T")
 
 
 class Union(IComparable):
@@ -130,7 +126,7 @@ def record_compare_to(self: Record, other: Record) -> int:
     return 0
 
 
-def record_equals(self: _T, other: _T) -> bool:
+def record_equals[T](self: T, other: T) -> bool:
     if self is other:
         return True
 

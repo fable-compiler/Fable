@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* [Python] Use Python 3.12 type parameter syntax. Deprecate Python 3.10 and 3.11 (by @dbrattli)
 * [Python] Records now snake-cases all member fields (by @dbrattli)
 * [Python] Anonymous records now preserves the casing of member fields (by @dbrattli)
 * [Python] Option type is now `Option[T]` instead of `T | None` (by @dbrattli)

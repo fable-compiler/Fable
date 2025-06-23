@@ -20,10 +20,7 @@ from types import TracebackType
 from typing import (
     Any,
     ClassVar,
-    Generic,
-    ParamSpec,
     Protocol,
-    TypeVar,
     cast,
 )
 from urllib.parse import quote, unquote
@@ -38,20 +35,12 @@ class SupportsLessThan(Protocol):
         raise NotImplementedError
 
 
-_T = TypeVar("_T")
-_T_in = TypeVar("_T_in", contravariant=True)
-_Key = TypeVar("_Key")
-_Value = TypeVar("_Value")
-_TSupportsLessThan = TypeVar("_TSupportsLessThan", bound=SupportsLessThan)
-_P = ParamSpec("_P")
-
-
-def returns(target_type: Callable[..., _T]) -> Callable[[Callable[_P, Any]], Callable[_P, _T]]:
-    def decorator(func: Callable[_P, Any]) -> Callable[_P, _T]:
+def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]], Callable[P, T]]:
+    def decorator(func: Callable[P, Any]) -> Callable[P, T]:
         @functools.wraps(func)
-        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             result = func(*args, **kwargs)
-            return target_type(result)
+            return targettype(result)
 
         return wrapper
 
@@ -97,7 +86,7 @@ class IDisposable(ABC):
         return AnonymousDisposable(action)
 
 
-Disposable = TypeVar("Disposable", bound=IDisposable)
+# Disposable is now a type parameter in function definitions
 
 
 class AnonymousDisposable(IDisposable):
@@ -146,9 +135,9 @@ class IComparable(IEquatable, Protocol):
         raise NotImplementedError
 
 
-class IComparable_1(Generic[_T_in], IEquatable, Protocol):
+class IComparable_1[T_in](IEquatable, Protocol):
     @abstractmethod
-    def __cmp__(self, __other: _T_in) -> int:
+    def __cmp__(self, __other: T_in) -> int:
         raise NotImplementedError
 
     @abstractmethod
@@ -164,10 +153,10 @@ class IComparer(Protocol):
 
     @property
     @abstractmethod
-    def Compare(self) -> Callable[[_T_in, _T_in], int]: ...
+    def Compare[T_in](self) -> Callable[[T_in, T_in], int]: ...
 
 
-class IComparer_1(Generic[_T_in], Protocol):
+class IComparer_1[T_in](Protocol):
     """Defines a method that a type implements to compare two objects.
 
     https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
@@ -175,11 +164,11 @@ class IComparer_1(Generic[_T_in], Protocol):
 
     @property
     @abstractmethod
-    def Compare(self) -> Callable[[_T_in, _T_in], int]: ...
+    def Compare(self) -> Callable[[T_in, T_in], int]: ...
 
 
-class IEqualityComparer(Protocol):
-    def Equals(self, __x: _T_in, __y: _T_in) -> bool:
+class IEqualityComparer[T_in](Protocol):
+    def Equals(self, __x: T_in, __y: T_in) -> bool:
         return self.System_Collections_IEqualityComparer_Equals541DA560(__x, __y)
 
     def GetHashCode(self) -> int32:
@@ -194,8 +183,8 @@ class IEqualityComparer(Protocol):
         raise NotImplementedError
 
 
-class IEqualityComparer_1(Generic[_T_in], Protocol):
-    def Equals(self, __x: _T_in, __y: _T_in) -> bool:
+class IEqualityComparer_1[T_in](Protocol):
+    def Equals(self, __x: T_in, __y: T_in) -> bool:
         raise NotImplementedError
 
     def GetHashCode(self) -> int32:
@@ -323,7 +312,7 @@ def compare(a: Any, b: Any) -> int:
             return 1
 
 
-def equal_arrays_with(xs: Sequence[_T] | None, ys: Sequence[_T] | None, eq: Callable[[_T, _T], bool]) -> bool:
+def equal_arrays_with[T](xs: Sequence[T] | None, ys: Sequence[T] | None, eq: Callable[[T, T], bool]) -> bool:
     if xs is None:
         return ys is None
 
@@ -340,23 +329,23 @@ def equal_arrays_with(xs: Sequence[_T] | None, ys: Sequence[_T] | None, eq: Call
     return True
 
 
-def equal_arrays(x: Sequence[_T], y: Sequence[_T]) -> bool:
+def equal_arrays[T](x: Sequence[T], y: Sequence[T]) -> bool:
     return equal_arrays_with(x, y, equals)
 
 
-def compare_primitives(x: _TSupportsLessThan, y: _TSupportsLessThan) -> int32:
+def compare_primitives[TSupportsLessThan: SupportsLessThan](x: TSupportsLessThan, y: TSupportsLessThan) -> int32:
     return int32(0 if x == y else (-1 if x < y else 1))
 
 
-def min(comparer: Callable[[_T, _T], int], x: _T, y: _T) -> _T:
+def min[T](comparer: Callable[[T, T], int], x: T, y: T) -> T:
     return x if comparer(x, y) < 0 else y
 
 
-def max(comparer: Callable[[_T, _T], int], x: _T, y: _T) -> _T:
+def max[T](comparer: Callable[[T, T], int], x: T, y: T) -> T:
     return x if comparer(x, y) > 0 else y
 
 
-def clamp(comparer: Callable[[_T, _T], int], value: _T, min: _T, max: _T):
+def clamp[T](comparer: Callable[[T, T], int], value: T, min: T, max: T):
     return min if (comparer(value, min) < 0) else max if comparer(value, max) > 0 else value
 
 
@@ -365,7 +354,7 @@ def assert_equal(actual: Any, expected: Any, msg: str | None = None) -> None:
         raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
 
 
-def assert_not_equal(actual: _T, expected: _T, msg: str | None = None) -> None:
+def assert_not_equal[T](actual: T, expected: T, msg: str | None = None) -> None:
     if equals(actual, expected):
         raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
 
@@ -373,7 +362,7 @@ def assert_not_equal(actual: _T, expected: _T, msg: str | None = None) -> None:
 MAX_LOCKS = 1024
 
 
-def lock(lock_obj: Any, fn: Callable[[], _T]) -> _T:
+def lock[T](lock_obj: Any, fn: Callable[[], T]) -> T:
     @functools.lru_cache(maxsize=MAX_LOCKS)
     def get_lock(n: int) -> RLock:
         return RLock()
@@ -383,14 +372,14 @@ def lock(lock_obj: Any, fn: Callable[[], _T]) -> _T:
         return fn()
 
 
-class Lazy(Generic[_T]):
-    def __init__(self, factory: Callable[[], _T]):
+class Lazy[T]:
+    def __init__(self, factory: Callable[[], T]):
         self.factory = factory
         self.is_value_created: bool = False
-        self.created_value: _T | None = None
+        self.created_value: T | None = None
 
     @property
-    def Value(self) -> _T:
+    def Value(self) -> T:
         if not self.is_value_created:
             self.created_value = self.factory()
             self.is_value_created = True
@@ -403,7 +392,7 @@ class Lazy(Generic[_T]):
         return self.is_value_created
 
 
-def lazy_from_value(v: _T) -> Lazy[_T]:
+def lazy_from_value[T](v: T) -> Lazy[T]:
     return Lazy(lambda: v)
 
 
@@ -423,14 +412,14 @@ def pad_left_and_right_with_zeros(i: int, length_left: int, length_right: int) -
     return string
 
 
-class Atom(Generic[_T], Protocol):
-    def __call__(self, *value: _T) -> _T | None: ...
+class Atom[T](Protocol):
+    def __call__(self, *value: T) -> T | None: ...
 
 
-def create_atom(value: _T) -> Atom[_T]:
+def create_atom[T](value: T) -> Atom[T]:
     atom = value
 
-    def wrapper(*value: _T) -> _T | None:
+    def wrapper(*value: T) -> T | None:
         nonlocal atom
 
         if len(value) == 0:
@@ -482,10 +471,10 @@ def clear(col: dict[Any, Any] | list[Any] | None) -> None:
         col.clear()
 
 
-class IEnumerator(Iterator[_T], IDisposable):
+class IEnumerator[T](Iterator[T], IDisposable):
     __slots__ = ()
 
-    def Current(self) -> _T:
+    def Current(self) -> T:
         return self.System_Collections_Generic_IEnumerator_1_get_Current()
 
     def MoveNext(self) -> bool:
@@ -495,7 +484,7 @@ class IEnumerator(Iterator[_T], IDisposable):
         return self.System_Collections_IEnumerator_Reset()
 
     @abstractmethod
-    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> _T: ...
+    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> T: ...
 
     def System_Collections_IEnumerator_get_Current(self) -> Any:
         return self.System_Collections_Generic_IEnumerator_1_get_Current()
@@ -506,10 +495,10 @@ class IEnumerator(Iterator[_T], IDisposable):
     @abstractmethod
     def System_Collections_IEnumerator_Reset(self) -> None: ...
 
-    def __iter__(self) -> Iterator[_T]:
+    def __iter__(self) -> Iterator[T]:
         return self
 
-    def __next__(self) -> _T:
+    def __next__(self) -> T:
         if not self.MoveNext():
             raise StopIteration
         return self.Current()
@@ -525,34 +514,34 @@ class IEnumerable(Iterable[Any], Protocol):
         return self.GetEnumerator()
 
 
-class IEnumerable_1(Iterable[_T], Protocol):
+class IEnumerable_1[T](Iterable[T], Protocol):
     __slots__ = ()
 
     @abstractmethod
-    def GetEnumerator(self) -> IEnumerator[_T]: ...
+    def GetEnumerator(self) -> IEnumerator[T]: ...
 
-    def __iter__(self) -> Iterator[_T]:
+    def __iter__(self) -> Iterator[T]:
         return self.GetEnumerator()
 
 
-class ICollection(IEnumerable_1[_T], Protocol): ...
+class ICollection[T](IEnumerable_1[T], Protocol): ...
 
 
-class IDictionary(ICollection[tuple[_Key, _Value]], Protocol):
+class IDictionary[Key, Value](ICollection[tuple[Key, Value]], Protocol):
     @abstractmethod
-    def keys(self) -> IEnumerable_1[_Key]: ...
+    def keys(self) -> IEnumerable_1[Key]: ...
 
-    def values(self) -> IEnumerable_1[_Value]: ...
+    def values(self) -> IEnumerable_1[Value]: ...
 
 
-class Enumerator(IEnumerator[_T]):
+class Enumerator[T](IEnumerator[T]):
     __slots__ = "current", "iter"
 
-    def __init__(self, iter: Iterator[_T]) -> None:
+    def __init__(self, iter: Iterator[T]) -> None:
         self.iter = iter
         self.current = None
 
-    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> _T:
+    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> T:
         if self.current is not None:
             return self.current
         return None  # type: ignore
@@ -571,27 +560,27 @@ class Enumerator(IEnumerator[_T]):
     def Dispose(self) -> None:
         return
 
-    def __next__(self) -> _T:
+    def __next__(self) -> T:
         return next(self.iter)
 
-    def __iter__(self) -> Iterator[_T]:
+    def __iter__(self) -> Iterator[T]:
         return self
 
 
-class Enumerable(IEnumerable_1[_T]):
+class Enumerable[T](IEnumerable_1[T]):
     __slots__ = "xs"
 
-    def __init__(self, xs: Iterable[_T]) -> None:
+    def __init__(self, xs: Iterable[T]) -> None:
         self.xs = xs
 
-    def GetEnumerator(self) -> IEnumerator[_T]:
+    def GetEnumerator(self) -> IEnumerator[T]:
         return Enumerator(iter(self.xs))
 
-    def __iter__(self) -> Iterator[_T]:
+    def __iter__(self) -> Iterator[T]:
         return iter(self.xs)
 
 
-def to_enumerable(e: Iterable[_T]) -> IEnumerable_1[_T]:
+def to_enumerable[T](e: Iterable[T]) -> IEnumerable_1[T]:
     return Enumerable(e)
 
 
@@ -606,40 +595,18 @@ def get_enumerator(o: Iterable[Any]) -> Enumerator[Any]:
         return Enumerator(iter(o))
 
 
-_T1 = TypeVar("_T1")
-_T2 = TypeVar("_T2")
-_T3 = TypeVar("_T3")
-_T4 = TypeVar("_T4")
-_T5 = TypeVar("_T5")
-_T6 = TypeVar("_T6")
-_T7 = TypeVar("_T7")
-_T8 = TypeVar("_T8")
-_T9 = TypeVar("_T9")
-_T10 = TypeVar("_T10")
-_T11 = TypeVar("_T11")
-_T12 = TypeVar("_T12")
-_T13 = TypeVar("_T13")
-_T14 = TypeVar("_T14")
-_T15 = TypeVar("_T15")
-_T16 = TypeVar("_T16")
-_T17 = TypeVar("_T17")
-_T18 = TypeVar("_T18")
-_T19 = TypeVar("_T19")
-_T20 = TypeVar("_T20")
-_TResult = TypeVar("_TResult")
-
 _curried = weakref.WeakKeyDictionary[Any, Any]()
 
 
-def uncurry2(f: Callable[[_T1], Callable[[_T2], _TResult]]) -> Callable[[_T1, _T2], _TResult]:
-    def f2(a1: _T1, a2: _T2) -> _TResult:
+def uncurry2[T1, T2, TResult](f: Callable[[T1], Callable[[T2], TResult]]) -> Callable[[T1, T2], TResult]:
+    def f2(a1: T1, a2: T2) -> TResult:
         return f(a1)(a2)
 
     _curried[f2] = f
     return f2
 
 
-def curry2(f: Callable[[_T1, _T2], _TResult]) -> Callable[[_T1], Callable[[_T2], _TResult]]:
+def curry2[T1, T2, TResult](f: Callable[[T1, T2], TResult]) -> Callable[[T1], Callable[[T2], TResult]]:
     f2 = _curried.get(f)
     if f2 is None:
         return lambda a1: lambda a2: f(a1, a2)
@@ -647,15 +614,19 @@ def curry2(f: Callable[[_T1, _T2], _TResult]) -> Callable[[_T1], Callable[[_T2],
         return f2
 
 
-def uncurry3(f: Callable[[_T1], Callable[[_T2], Callable[[_T3], _TResult]]]) -> Callable[[_T1, _T2, _T3], _TResult]:
-    def f2(a1: _T1, a2: _T2, a3: _T3) -> _TResult:
+def uncurry3[T1, T2, T3, TResult](
+    f: Callable[[T1], Callable[[T2], Callable[[T3], TResult]]],
+) -> Callable[[T1, T2, T3], TResult]:
+    def f2(a1: T1, a2: T2, a3: T3) -> TResult:
         return f(a1)(a2)(a3)
 
     _curried[f2] = f
     return f2
 
 
-def curry3(f: Callable[[_T1, _T2, _T3], _TResult]) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], _TResult]]]:
+def curry3[T1, T2, T3, TResult](
+    f: Callable[[T1, T2, T3], TResult],
+) -> Callable[[T1], Callable[[T2], Callable[[T3], TResult]]]:
     f2 = _curried.get(f)
     if f2 is None:
         return lambda a1: lambda a2: lambda a3: f(a1, a2, a3)
@@ -663,19 +634,19 @@ def curry3(f: Callable[[_T1, _T2, _T3], _TResult]) -> Callable[[_T1], Callable[[
         return f2
 
 
-def uncurry4(
-    f: Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], _TResult]]]],
-) -> Callable[[_T1, _T2, _T3, _T4], _TResult]:
-    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4) -> _TResult:
+def uncurry4[T1, T2, T3, T4, TResult](
+    f: Callable[[T1], Callable[[T2], Callable[[T3], Callable[[T4], TResult]]]],
+) -> Callable[[T1, T2, T3, T4], TResult]:
+    def f2(a1: T1, a2: T2, a3: T3, a4: T4) -> TResult:
         return f(a1)(a2)(a3)(a4)
 
     _curried[f2] = f
     return f2
 
 
-def curry4(
-    f: Callable[[_T1, _T2, _T3, _T4], _TResult],
-) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], _TResult]]]]:
+def curry4[T1, T2, T3, T4, TResult](
+    f: Callable[[T1, T2, T3, T4], TResult],
+) -> Callable[[T1], Callable[[T2], Callable[[T3], Callable[[T4], TResult]]]]:
     f2 = _curried.get(f)
     if f2 is None:
         return lambda a1: lambda a2: lambda a3: lambda a4: f(a1, a2, a3, a4)
@@ -683,22 +654,22 @@ def curry4(
         return f2
 
 
-def uncurry5(
+def uncurry5[T1, T2, T3, T4, T5, TResult](
     f: Callable[
-        [_T1],
-        Callable[[_T2], Callable[[_T3], Callable[[_T4], Callable[[_T5], _TResult]]]],
+        [T1],
+        Callable[[T2], Callable[[T3], Callable[[T4], Callable[[T5], TResult]]]],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5], _TResult]:
-    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5) -> _TResult:
+) -> Callable[[T1, T2, T3, T4, T5], TResult]:
+    def f2(a1: T1, a2: T2, a3: T3, a4: T4, a5: T5) -> TResult:
         return f(a1)(a2)(a3)(a4)(a5)
 
     _curried[f2] = f
     return f2
 
 
-def curry5(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5], _TResult],
-) -> Callable[[_T1], Callable[[_T2], Callable[[_T3], Callable[[_T4], Callable[[_T5], _TResult]]]]]:
+def curry5[T1, T2, T3, T4, T5, TResult](
+    f: Callable[[T1, T2, T3, T4, T5], TResult],
+) -> Callable[[T1], Callable[[T2], Callable[[T3], Callable[[T4], Callable[[T5], TResult]]]]]:
     f2 = _curried.get(f)
     if f2 is None:
         return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(a1, a2, a3, a4, a5)
@@ -706,29 +677,29 @@ def curry5(
         return f2
 
 
-def uncurry6(
+def uncurry6[T1, T2, T3, T4, T5, T6, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
-            Callable[[_T3], Callable[[_T4], Callable[[_T5], Callable[[_T6], _TResult]]]],
+            [T2],
+            Callable[[T3], Callable[[T4], Callable[[T5], Callable[[T6], TResult]]]],
         ],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult]:
-    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6) -> _TResult:
+) -> Callable[[T1, T2, T3, T4, T5, T6], TResult]:
+    def f2(a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6) -> TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)
 
     _curried[f2] = f
     return f2
 
 
-def curry6(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6], _TResult],
+def curry6[T1, T2, T3, T4, T5, T6, TResult](
+    f: Callable[[T1, T2, T3, T4, T5, T6], TResult],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
-        Callable[[_T3], Callable[[_T4], Callable[[_T5], Callable[[_T6], _TResult]]]],
+        [T2],
+        Callable[[T3], Callable[[T4], Callable[[T5], Callable[[T6], TResult]]]],
     ],
 ]:
     f2 = _curried.get(f)
@@ -738,34 +709,34 @@ def curry6(
         return f2
 
 
-def uncurry7(
+def uncurry7[T1, T2, T3, T4, T5, T6, T7, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
-                Callable[[_T4], Callable[[_T5], Callable[[_T6], Callable[[_T7], _TResult]]]],
+                [T3],
+                Callable[[T4], Callable[[T5], Callable[[T6], Callable[[T7], TResult]]]],
             ],
         ],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult]:
-    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7) -> _TResult:
+) -> Callable[[T1, T2, T3, T4, T5, T6, T7], TResult]:
+    def f2(a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7) -> TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)
 
     _curried[f2] = f
     return f2
 
 
-def curry7(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7], _TResult],
+def curry7[T1, T2, T3, T4, T5, T6, T7, TResult](
+    f: Callable[[T1, T2, T3, T4, T5, T6, T7], TResult],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
-            Callable[[_T4], Callable[[_T5], Callable[[_T6], Callable[[_T7], _TResult]]]],
+            [T3],
+            Callable[[T4], Callable[[T5], Callable[[T6], Callable[[T7], TResult]]]],
         ],
     ],
 ]:
@@ -778,42 +749,42 @@ def curry7(
         return f2
 
 
-def uncurry8(
+def uncurry8[T1, T2, T3, T4, T5, T6, T7, T8, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
-                        Callable[[_T6], Callable[[_T7], Callable[[_T8], _TResult]]],
+                        [T5],
+                        Callable[[T6], Callable[[T7], Callable[[T8], TResult]]],
                     ],
                 ],
             ],
         ],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult]:
-    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8) -> _TResult:
+) -> Callable[[T1, T2, T3, T4, T5, T6, T7, T8], TResult]:
+    def f2(a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8) -> TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)
 
     _curried[f2] = f
     return f2
 
 
-def curry8(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8], _TResult],
+def curry8[T1, T2, T3, T4, T5, T6, T7, T8, TResult](
+    f: Callable[[T1, T2, T3, T4, T5, T6, T7, T8], TResult],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
-                Callable[[_T5], Callable[[_T6], Callable[[_T7], Callable[[_T8], _TResult]]]],
+                [T4],
+                Callable[[T5], Callable[[T6], Callable[[T7], Callable[[T8], TResult]]]],
             ],
         ],
     ],
@@ -827,49 +798,49 @@ def curry8(
         return f2
 
 
-def uncurry9(
+def uncurry9[T1, T2, T3, T4, T5, T6, T7, T8, T9, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
-                            Callable[[_T7], Callable[[_T8], Callable[[_T9], _TResult]]],
+                            [T6],
+                            Callable[[T7], Callable[[T8], Callable[[T9], TResult]]],
                         ],
                     ],
                 ],
             ],
         ],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult]:
-    def f2(a1: _T1, a2: _T2, a3: _T3, a4: _T4, a5: _T5, a6: _T6, a7: _T7, a8: _T8, a9: _T9) -> _TResult:
+) -> Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9], TResult]:
+    def f2(a1: T1, a2: T2, a3: T3, a4: T4, a5: T5, a6: T6, a7: T7, a8: T8, a9: T9) -> TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)
 
     _curried[f2] = f
     return f2
 
 
-def curry9(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9], _TResult],
+def curry9[T1, T2, T3, T4, T5, T6, T7, T8, T9, TResult](
+    f: Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9], TResult],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
-                        Callable[[_T7], Callable[[_T8], Callable[[_T9], _TResult]]],
+                        [T6],
+                        Callable[[T7], Callable[[T8], Callable[[T9], TResult]]],
                     ],
                 ],
             ],
@@ -885,22 +856,22 @@ def curry9(
         return f2
 
 
-def uncurry10(
+def uncurry10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
-                                Callable[[_T8], Callable[[_T9], Callable[[_T10], _TResult]]],
+                                [T7],
+                                Callable[[T8], Callable[[T9], Callable[[T10], TResult]]],
                             ],
                         ],
                     ],
@@ -908,42 +879,42 @@ def uncurry10(
             ],
         ],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult]:
+) -> Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10], TResult]:
     def f2(
-        a1: _T1,
-        a2: _T2,
-        a3: _T3,
-        a4: _T4,
-        a5: _T5,
-        a6: _T6,
-        a7: _T7,
-        a8: _T8,
-        a9: _T9,
-        a10: _T10,
-    ) -> _TResult:
+        a1: T1,
+        a2: T2,
+        a3: T3,
+        a4: T4,
+        a5: T5,
+        a6: T6,
+        a7: T7,
+        a8: T8,
+        a9: T9,
+        a10: T10,
+    ) -> TResult:
         return f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8)(a9)(a10)
 
     _curried[f2] = f
     return f2
 
 
-def curry10(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10], _TResult],
+def curry10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, TResult](
+    f: Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10], TResult],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
-                            Callable[[_T8], Callable[[_T9], Callable[[_T10], _TResult]]],
+                            [T7],
+                            Callable[[T8], Callable[[T9], Callable[[T10], TResult]]],
                         ],
                     ],
                 ],
@@ -962,26 +933,26 @@ def curry10(
         return f2
 
 
-def uncurry11(
+def uncurry11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
-                                        Callable[[_T10], Callable[[_T11], _TResult]],
+                                        [T9],
+                                        Callable[[T10], Callable[[T11], TResult]],
                                     ],
                                 ],
                             ],
@@ -991,7 +962,7 @@ def uncurry11(
             ],
         ],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11], _TResult]:
+) -> Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11], TResult]:
     def f2(
         a1: Any,
         a2: Any,
@@ -1011,25 +982,25 @@ def uncurry11(
     return f2
 
 
-def curry11(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11], _TResult],
+def curry11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, TResult](
+    f: Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11], TResult],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
-                                Callable[[_T9], Callable[[_T10], Callable[[_T11], _TResult]]],
+                                [T8],
+                                Callable[[T9], Callable[[T10], Callable[[T11], TResult]]],
                             ],
                         ],
                     ],
@@ -1049,28 +1020,28 @@ def curry11(
         return f2
 
 
-def uncurry12(
+def uncurry12[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
-                                            Callable[[_T11], Callable[[_T12], _TResult]],
+                                            [T10],
+                                            Callable[[T11], Callable[[T12], TResult]],
                                         ],
                                     ],
                                 ],
@@ -1081,7 +1052,7 @@ def uncurry12(
             ],
         ],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult]:
+) -> Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12], TResult]:
     def f2(
         a1: Any,
         a2: Any,
@@ -1102,29 +1073,29 @@ def uncurry12(
     return f2
 
 
-def curry12(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12], _TResult],
+def curry12[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, TResult](
+    f: Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12], TResult],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
-                                        Callable[[_T11], Callable[[_T12], _TResult]],
+                                        [T10],
+                                        Callable[[T11], Callable[[T12], TResult]],
                                     ],
                                 ],
                             ],
@@ -1146,30 +1117,30 @@ def curry12(
         return f2
 
 
-def uncurry13(
+def uncurry13[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
+                                            [T10],
                                             Callable[
-                                                [_T11],
-                                                Callable[[_T12], Callable[[_T13], _TResult]],
+                                                [T11],
+                                                Callable[[T12], Callable[[T13], TResult]],
                                             ],
                                         ],
                                     ],
@@ -1181,7 +1152,7 @@ def uncurry13(
             ],
         ],
     ],
-) -> Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult]:
+) -> Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13], TResult]:
     def f2(
         a1: Any,
         a2: Any,
@@ -1203,31 +1174,31 @@ def uncurry13(
     return f2
 
 
-def curry13(
-    f: Callable[[_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13], _TResult],
+def curry13[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, TResult](
+    f: Callable[[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13], TResult],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
+                                        [T10],
                                         Callable[
-                                            [_T11],
-                                            Callable[[_T12], Callable[[_T13], _TResult]],
+                                            [T11],
+                                            Callable[[T12], Callable[[T13], TResult]],
                                         ],
                                     ],
                                 ],
@@ -1250,34 +1221,34 @@ def curry13(
         return f2
 
 
-def uncurry14(
+def uncurry14[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
+                                            [T10],
                                             Callable[
-                                                [_T11],
+                                                [T11],
                                                 Callable[
-                                                    [_T12],
+                                                    [T12],
                                                     Callable[
-                                                        [_T13],
-                                                        Callable[[_T14], _TResult],
+                                                        [T13],
+                                                        Callable[[T14], TResult],
                                                     ],
                                                 ],
                                             ],
@@ -1293,22 +1264,22 @@ def uncurry14(
     ],
 ) -> Callable[
     [
-        _T1,
-        _T2,
-        _T3,
-        _T4,
-        _T5,
-        _T6,
-        _T7,
-        _T8,
-        _T9,
-        _T10,
-        _T11,
-        _T12,
-        _T13,
-        _T14,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8,
+        T9,
+        T10,
+        T11,
+        T12,
+        T13,
+        T14,
     ],
-    _TResult,
+    TResult,
 ]:
     def f2(
         a1: Any,
@@ -1332,36 +1303,36 @@ def uncurry14(
     return f2
 
 
-def curry14(
+def curry14[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, TResult](
     f: Callable[
-        [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14],
-        _TResult,
+        [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14],
+        TResult,
     ],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
+                                        [T10],
                                         Callable[
-                                            [_T11],
+                                            [T11],
                                             Callable[
-                                                [_T12],
-                                                Callable[[_T13], Callable[[_T14], _TResult]],
+                                                [T12],
+                                                Callable[[T13], Callable[[T14], TResult]],
                                             ],
                                         ],
                                     ],
@@ -1385,36 +1356,36 @@ def curry14(
         return f2
 
 
-def uncurry15(
+def uncurry15[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
+                                            [T10],
                                             Callable[
-                                                [_T11],
+                                                [T11],
                                                 Callable[
-                                                    [_T12],
+                                                    [T12],
                                                     Callable[
-                                                        [_T13],
+                                                        [T13],
                                                         Callable[
-                                                            [_T14],
-                                                            Callable[[_T15], _TResult],
+                                                            [T14],
+                                                            Callable[[T15], TResult],
                                                         ],
                                                     ],
                                                 ],
@@ -1430,8 +1401,8 @@ def uncurry15(
         ],
     ],
 ) -> Callable[
-    [_T1, _T2, _T3, _T4, _T5, _T6, _T7, _T8, _T9, _T10, _T11, _T12, _T13, _T14, _T15],
-    _TResult,
+    [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15],
+    TResult,
 ]:
     def f2(
         a1: Any,
@@ -1456,56 +1427,56 @@ def uncurry15(
     return f2
 
 
-def curry15(
+def curry15[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, TResult](
     f: Callable[
         [
-            _T1,
-            _T2,
-            _T3,
-            _T4,
-            _T5,
-            _T6,
-            _T7,
-            _T8,
-            _T9,
-            _T10,
-            _T11,
-            _T12,
-            _T13,
-            _T14,
-            _T15,
+            T1,
+            T2,
+            T3,
+            T4,
+            T5,
+            T6,
+            T7,
+            T8,
+            T9,
+            T10,
+            T11,
+            T12,
+            T13,
+            T14,
+            T15,
         ],
-        _TResult,
+        TResult,
     ],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
+                                        [T10],
                                         Callable[
-                                            [_T11],
+                                            [T11],
                                             Callable[
-                                                [_T12],
+                                                [T12],
                                                 Callable[
-                                                    [_T13],
+                                                    [T13],
                                                     Callable[
-                                                        [_T14],
-                                                        Callable[[_T15], _TResult],
+                                                        [T14],
+                                                        Callable[[T15], TResult],
                                                     ],
                                                 ],
                                             ],
@@ -1531,38 +1502,38 @@ def curry15(
         return f2
 
 
-def uncurry16(
+def uncurry16[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
+                                            [T10],
                                             Callable[
-                                                [_T11],
+                                                [T11],
                                                 Callable[
-                                                    [_T12],
+                                                    [T12],
                                                     Callable[
-                                                        [_T13],
+                                                        [T13],
                                                         Callable[
-                                                            [_T14],
+                                                            [T14],
                                                             Callable[
-                                                                [_T15],
-                                                                Callable[[_T16], _TResult],
+                                                                [T15],
+                                                                Callable[[T16], TResult],
                                                             ],
                                                         ],
                                                     ],
@@ -1580,24 +1551,24 @@ def uncurry16(
     ],
 ) -> Callable[
     [
-        _T1,
-        _T2,
-        _T3,
-        _T4,
-        _T5,
-        _T6,
-        _T7,
-        _T8,
-        _T9,
-        _T10,
-        _T11,
-        _T12,
-        _T13,
-        _T14,
-        _T15,
-        _T16,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8,
+        T9,
+        T10,
+        T11,
+        T12,
+        T13,
+        T14,
+        T15,
+        T16,
     ],
-    _TResult,
+    TResult,
 ]:
     def f2(
         a1: Any,
@@ -1623,59 +1594,59 @@ def uncurry16(
     return f2
 
 
-def curry16(
+def curry16[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, TResult](
     f: Callable[
         [
-            _T1,
-            _T2,
-            _T3,
-            _T4,
-            _T5,
-            _T6,
-            _T7,
-            _T8,
-            _T9,
-            _T10,
-            _T11,
-            _T12,
-            _T13,
-            _T14,
-            _T15,
-            _T16,
+            T1,
+            T2,
+            T3,
+            T4,
+            T5,
+            T6,
+            T7,
+            T8,
+            T9,
+            T10,
+            T11,
+            T12,
+            T13,
+            T14,
+            T15,
+            T16,
         ],
-        _TResult,
+        TResult,
     ],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
+                                        [T10],
                                         Callable[
-                                            [_T11],
+                                            [T11],
                                             Callable[
-                                                [_T12],
+                                                [T12],
                                                 Callable[
-                                                    [_T13],
+                                                    [T13],
                                                     Callable[
-                                                        [_T14],
+                                                        [T14],
                                                         Callable[
-                                                            [_T15],
-                                                            Callable[[_T16], _TResult],
+                                                            [T15],
+                                                            Callable[[T16], TResult],
                                                         ],
                                                     ],
                                                 ],
@@ -1702,40 +1673,40 @@ def curry16(
         return f2
 
 
-def uncurry17(
+def uncurry17[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
+                                            [T10],
                                             Callable[
-                                                [_T11],
+                                                [T11],
                                                 Callable[
-                                                    [_T12],
+                                                    [T12],
                                                     Callable[
-                                                        [_T13],
+                                                        [T13],
                                                         Callable[
-                                                            [_T14],
+                                                            [T14],
                                                             Callable[
-                                                                [_T15],
+                                                                [T15],
                                                                 Callable[
-                                                                    [_T16],
-                                                                    Callable[[_T17], _TResult],
+                                                                    [T16],
+                                                                    Callable[[T17], TResult],
                                                                 ],
                                                             ],
                                                         ],
@@ -1754,25 +1725,25 @@ def uncurry17(
     ],
 ) -> Callable[
     [
-        _T1,
-        _T2,
-        _T3,
-        _T4,
-        _T5,
-        _T6,
-        _T7,
-        _T8,
-        _T9,
-        _T10,
-        _T11,
-        _T12,
-        _T13,
-        _T14,
-        _T15,
-        _T16,
-        _T17,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8,
+        T9,
+        T10,
+        T11,
+        T12,
+        T13,
+        T14,
+        T15,
+        T16,
+        T17,
     ],
-    _TResult,
+    TResult,
 ]:
     def f2(
         a1: Any,
@@ -1799,62 +1770,62 @@ def uncurry17(
     return f2
 
 
-def curry17(
+def curry17[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, TResult](
     f: Callable[
         [
-            _T1,
-            _T2,
-            _T3,
-            _T4,
-            _T5,
-            _T6,
-            _T7,
-            _T8,
-            _T9,
-            _T10,
-            _T11,
-            _T12,
-            _T13,
-            _T14,
-            _T15,
-            _T16,
-            _T17,
+            T1,
+            T2,
+            T3,
+            T4,
+            T5,
+            T6,
+            T7,
+            T8,
+            T9,
+            T10,
+            T11,
+            T12,
+            T13,
+            T14,
+            T15,
+            T16,
+            T17,
         ],
-        _TResult,
+        TResult,
     ],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
+                                        [T10],
                                         Callable[
-                                            [_T11],
+                                            [T11],
                                             Callable[
-                                                [_T12],
+                                                [T12],
                                                 Callable[
-                                                    [_T13],
+                                                    [T13],
                                                     Callable[
-                                                        [_T14],
+                                                        [T14],
                                                         Callable[
-                                                            [_T15],
+                                                            [T15],
                                                             Callable[
-                                                                [_T16],
-                                                                Callable[[_T17], _TResult],
+                                                                [T16],
+                                                                Callable[[T17], TResult],
                                                             ],
                                                         ],
                                                     ],
@@ -1882,44 +1853,44 @@ def curry17(
         return f2
 
 
-def uncurry18(
+def uncurry18[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
+                                            [T10],
                                             Callable[
-                                                [_T11],
+                                                [T11],
                                                 Callable[
-                                                    [_T12],
+                                                    [T12],
                                                     Callable[
-                                                        [_T13],
+                                                        [T13],
                                                         Callable[
-                                                            [_T14],
+                                                            [T14],
                                                             Callable[
-                                                                [_T15],
+                                                                [T15],
                                                                 Callable[
-                                                                    [_T16],
+                                                                    [T16],
                                                                     Callable[
-                                                                        [_T17],
+                                                                        [T17],
                                                                         Callable[
-                                                                            [_T18],
-                                                                            _TResult,
+                                                                            [T18],
+                                                                            TResult,
                                                                         ],
                                                                     ],
                                                                 ],
@@ -1940,26 +1911,26 @@ def uncurry18(
     ],
 ) -> Callable[
     [
-        _T1,
-        _T2,
-        _T3,
-        _T4,
-        _T5,
-        _T6,
-        _T7,
-        _T8,
-        _T9,
-        _T10,
-        _T11,
-        _T12,
-        _T13,
-        _T14,
-        _T15,
-        _T16,
-        _T17,
-        _T18,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8,
+        T9,
+        T10,
+        T11,
+        T12,
+        T13,
+        T14,
+        T15,
+        T16,
+        T17,
+        T18,
     ],
-    _TResult,
+    TResult,
 ]:
     def f2(
         a1: Any,
@@ -1987,65 +1958,65 @@ def uncurry18(
     return f2
 
 
-def curry18(
+def curry18[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, TResult](
     f: Callable[
         [
-            _T1,
-            _T2,
-            _T3,
-            _T4,
-            _T5,
-            _T6,
-            _T7,
-            _T8,
-            _T9,
-            _T10,
-            _T11,
-            _T12,
-            _T13,
-            _T14,
-            _T15,
-            _T16,
-            _T17,
-            _T18,
+            T1,
+            T2,
+            T3,
+            T4,
+            T5,
+            T6,
+            T7,
+            T8,
+            T9,
+            T10,
+            T11,
+            T12,
+            T13,
+            T14,
+            T15,
+            T16,
+            T17,
+            T18,
         ],
-        _TResult,
+        TResult,
     ],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
+                                        [T10],
                                         Callable[
-                                            [_T11],
+                                            [T11],
                                             Callable[
-                                                [_T12],
+                                                [T12],
                                                 Callable[
-                                                    [_T13],
+                                                    [T13],
                                                     Callable[
-                                                        [_T14],
+                                                        [T14],
                                                         Callable[
-                                                            [_T15],
+                                                            [T15],
                                                             Callable[
-                                                                [_T16],
+                                                                [T16],
                                                                 Callable[
-                                                                    [_T17],
-                                                                    Callable[[_T18], _TResult],
+                                                                    [T17],
+                                                                    Callable[[T18], TResult],
                                                                 ],
                                                             ],
                                                         ],
@@ -2091,46 +2062,46 @@ def curry18(
         return f2
 
 
-def uncurry19(
+def uncurry19[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
+                                            [T10],
                                             Callable[
-                                                [_T11],
+                                                [T11],
                                                 Callable[
-                                                    [_T12],
+                                                    [T12],
                                                     Callable[
-                                                        [_T13],
+                                                        [T13],
                                                         Callable[
-                                                            [_T14],
+                                                            [T14],
                                                             Callable[
-                                                                [_T15],
+                                                                [T15],
                                                                 Callable[
-                                                                    [_T16],
+                                                                    [T16],
                                                                     Callable[
-                                                                        [_T17],
+                                                                        [T17],
                                                                         Callable[
-                                                                            [_T18],
+                                                                            [T18],
                                                                             Callable[
-                                                                                [_T19],
-                                                                                _TResult,
+                                                                                [T19],
+                                                                                TResult,
                                                                             ],
                                                                         ],
                                                                     ],
@@ -2152,27 +2123,27 @@ def uncurry19(
     ],
 ) -> Callable[
     [
-        _T1,
-        _T2,
-        _T3,
-        _T4,
-        _T5,
-        _T6,
-        _T7,
-        _T8,
-        _T9,
-        _T10,
-        _T11,
-        _T12,
-        _T13,
-        _T14,
-        _T15,
-        _T16,
-        _T17,
-        _T18,
-        _T19,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8,
+        T9,
+        T10,
+        T11,
+        T12,
+        T13,
+        T14,
+        T15,
+        T16,
+        T17,
+        T18,
+        T19,
     ],
-    _TResult,
+    TResult,
 ]:
     def f2(
         a1: Any,
@@ -2201,70 +2172,70 @@ def uncurry19(
     return f2
 
 
-def curry19(
+def curry19[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, TResult](
     f: Callable[
         [
-            _T1,
-            _T2,
-            _T3,
-            _T4,
-            _T5,
-            _T6,
-            _T7,
-            _T8,
-            _T9,
-            _T10,
-            _T11,
-            _T12,
-            _T13,
-            _T14,
-            _T15,
-            _T16,
-            _T17,
-            _T18,
-            _T19,
+            T1,
+            T2,
+            T3,
+            T4,
+            T5,
+            T6,
+            T7,
+            T8,
+            T9,
+            T10,
+            T11,
+            T12,
+            T13,
+            T14,
+            T15,
+            T16,
+            T17,
+            T18,
+            T19,
         ],
-        _TResult,
+        TResult,
     ],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
+                                        [T10],
                                         Callable[
-                                            [_T11],
+                                            [T11],
                                             Callable[
-                                                [_T12],
+                                                [T12],
                                                 Callable[
-                                                    [_T13],
+                                                    [T13],
                                                     Callable[
-                                                        [_T14],
+                                                        [T14],
                                                         Callable[
-                                                            [_T15],
+                                                            [T15],
                                                             Callable[
-                                                                [_T16],
+                                                                [T16],
                                                                 Callable[
-                                                                    [_T17],
+                                                                    [T17],
                                                                     Callable[
-                                                                        [_T18],
+                                                                        [T18],
                                                                         Callable[
-                                                                            [_T19],
-                                                                            _TResult,
+                                                                            [T19],
+                                                                            TResult,
                                                                         ],
                                                                     ],
                                                                 ],
@@ -2313,48 +2284,48 @@ def curry19(
         return f2
 
 
-def uncurry20(
+def uncurry20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, TResult](
     f: Callable[
-        [_T1],
+        [T1],
         Callable[
-            [_T2],
+            [T2],
             Callable[
-                [_T3],
+                [T3],
                 Callable[
-                    [_T4],
+                    [T4],
                     Callable[
-                        [_T5],
+                        [T5],
                         Callable[
-                            [_T6],
+                            [T6],
                             Callable[
-                                [_T7],
+                                [T7],
                                 Callable[
-                                    [_T8],
+                                    [T8],
                                     Callable[
-                                        [_T9],
+                                        [T9],
                                         Callable[
-                                            [_T10],
+                                            [T10],
                                             Callable[
-                                                [_T11],
+                                                [T11],
                                                 Callable[
-                                                    [_T12],
+                                                    [T12],
                                                     Callable[
-                                                        [_T13],
+                                                        [T13],
                                                         Callable[
-                                                            [_T14],
+                                                            [T14],
                                                             Callable[
-                                                                [_T15],
+                                                                [T15],
                                                                 Callable[
-                                                                    [_T16],
+                                                                    [T16],
                                                                     Callable[
-                                                                        [_T17],
+                                                                        [T17],
                                                                         Callable[
-                                                                            [_T18],
+                                                                            [T18],
                                                                             Callable[
-                                                                                [_T19],
+                                                                                [T19],
                                                                                 Callable[
-                                                                                    [_T20],
-                                                                                    _TResult,
+                                                                                    [T20],
+                                                                                    TResult,
                                                                                 ],
                                                                             ],
                                                                         ],
@@ -2377,28 +2348,28 @@ def uncurry20(
     ],
 ) -> Callable[
     [
-        _T1,
-        _T2,
-        _T3,
-        _T4,
-        _T5,
-        _T6,
-        _T7,
-        _T8,
-        _T9,
-        _T10,
-        _T11,
-        _T12,
-        _T13,
-        _T14,
-        _T15,
-        _T16,
-        _T17,
-        _T18,
-        _T19,
-        _T20,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8,
+        T9,
+        T10,
+        T11,
+        T12,
+        T13,
+        T14,
+        T15,
+        T16,
+        T17,
+        T18,
+        T19,
+        T20,
     ],
-    _TResult,
+    TResult,
 ]:
     def f2(
         a1: Any,
@@ -2428,73 +2399,73 @@ def uncurry20(
     return f2
 
 
-def curry20(
+def curry20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, TResult](
     f: Callable[
         [
-            _T1,
-            _T2,
-            _T3,
-            _T4,
-            _T5,
-            _T6,
-            _T7,
-            _T8,
-            _T9,
-            _T10,
-            _T11,
-            _T12,
-            _T13,
-            _T14,
-            _T15,
-            _T16,
-            _T17,
-            _T18,
-            _T19,
-            _T20,
+            T1,
+            T2,
+            T3,
+            T4,
+            T5,
+            T6,
+            T7,
+            T8,
+            T9,
+            T10,
+            T11,
+            T12,
+            T13,
+            T14,
+            T15,
+            T16,
+            T17,
+            T18,
+            T19,
+            T20,
         ],
-        _TResult,
+        TResult,
     ],
 ) -> Callable[
-    [_T1],
+    [T1],
     Callable[
-        [_T2],
+        [T2],
         Callable[
-            [_T3],
+            [T3],
             Callable[
-                [_T4],
+                [T4],
                 Callable[
-                    [_T5],
+                    [T5],
                     Callable[
-                        [_T6],
+                        [T6],
                         Callable[
-                            [_T7],
+                            [T7],
                             Callable[
-                                [_T8],
+                                [T8],
                                 Callable[
-                                    [_T9],
+                                    [T9],
                                     Callable[
-                                        [_T10],
+                                        [T10],
                                         Callable[
-                                            [_T11],
+                                            [T11],
                                             Callable[
-                                                [_T12],
+                                                [T12],
                                                 Callable[
-                                                    [_T13],
+                                                    [T13],
                                                     Callable[
-                                                        [_T14],
+                                                        [T14],
                                                         Callable[
-                                                            [_T15],
+                                                            [T15],
                                                             Callable[
-                                                                [_T16],
+                                                                [T16],
                                                                 Callable[
-                                                                    [_T17],
+                                                                    [T17],
                                                                     Callable[
-                                                                        [_T18],
+                                                                        [T18],
                                                                         Callable[
-                                                                            [_T19],
+                                                                            [T19],
                                                                             Callable[
-                                                                                [_T20],
-                                                                                _TResult,
+                                                                                [T20],
+                                                                                TResult,
                                                                             ],
                                                                         ],
                                                                     ],
@@ -2576,7 +2547,7 @@ def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
 
-def to_iterator(en: IEnumerator[_T]) -> IEnumerator[_T]:
+def to_iterator[T](en: IEnumerator[T]) -> IEnumerator[T]:
     class Iterator:
         def __iter__(self):
             return self
@@ -2643,7 +2614,7 @@ def identity_hash(x: Any) -> int32:
 
 def combine_hash_codes(hashes: list[int32]) -> int32:
     if not hashes:
-        return 0
+        return int32(0)
 
     return functools.reduce(lambda h1, h2: ((h1 << 5) + h1) ^ h2, hashes)
 
@@ -2690,7 +2661,7 @@ def ignore(a: Any = None) -> None:
     return
 
 
-def copy_to_array(src: Array[_T], srci: int, trg: Array[_T], trgi: int, cnt: int) -> None:
+def copy_to_array[T](src: Array[T], srci: int, trg: Array[T], trgi: int, cnt: int) -> None:
     for i in range(0, cnt, 1):
         trg[trgi + i] = src[srci + i]
 
