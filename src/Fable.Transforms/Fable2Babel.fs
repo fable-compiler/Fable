@@ -2231,9 +2231,6 @@ but thanks to the optimisation done below we get
             "Expecting a static list or array literal (no generator) for JSX props"
             |> addErrorAndReturnNull com range
             |> Some
-        // | Fable.Tags.Contains "topDirectiveProloge", _ ->
-        //     Expression.sequenceExpression([||])
-        //     |> Some
         | Fable.Tags.Contains "jsx-template", args ->
             match args with
             | StringConst template :: _ ->

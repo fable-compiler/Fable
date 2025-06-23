@@ -47,7 +47,6 @@ let emitJsExpr<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 /// E.g. `emitJsStatement aValue "while($0 < 5) doSomething()"`
 let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 
-
 /// <summary>
 /// Emit a directive prologue at the top of the file (before the imports)
 ///
