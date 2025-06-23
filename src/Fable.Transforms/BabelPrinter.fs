@@ -1572,8 +1572,8 @@ let run writer (program: Program) : Async<unit> =
             for decl in declarations do
                 printDeclWithExtraLine false printer decl
 
-                (printer :> Printer).PrintNewLine()
-                do! printer.Flush()
+            (printer :> Printer).PrintNewLine()
+            do! printer.Flush()
         }
 
     async {
