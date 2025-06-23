@@ -125,8 +125,28 @@ type NamedParamsAttribute = ParamObjectAttribute
 type InjectAttribute() =
     inherit Attribute()
 
-/// Erased union type to represent one of two possible values.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Erased union type to represent one of two possible value types mainly intended for typing the signature of imported
+/// JS functions.
+/// </summary>
+/// <remarks>
+/// Pattern matching is possible, but should consider the implications of the Erased union and JS type testing (see the
+/// docs for details).
+/// <br/>
+/// Member concrete types will be implicitly cast into the union, and will provide a warning to this effect. Usage of
+/// the explicit cast operator <c>!^</c> available in <c>Fable.Core.JsInterop</c> will remove this warning.
+/// <a href="https://github.com/fable-compiler/Fable/pull/4143">Collection types, can provide an error</a> that will
+/// only be resolved with the explicit operator. <a href="https://github.com/glutinum-org/cli/issues/80">Anonymous
+/// records have other considerations that may be relevant if you are encountering issues.</a>
+/// <code lang="fsharp">
+/// let test(arg: U3&lt;string, int, float[]>) =
+///     match arg with
+///     | U3.Case1 x -> printfn "A string %s" x
+///     | U3.Case2 x -> printfn "An int %i" x
+///     | U3.Case3 xs -> Array.sum xs |> printfn "An array with sum %f"
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#erase-attribute"/>
 [<Erase>]
 type U2<'a, 'b> =
     | Case1 of 'a
@@ -137,8 +157,29 @@ type U2<'a, 'b> =
     static member inline op_Implicit(x: 'a) : U2<'a, 'b> = Case1 x
     static member inline op_Implicit(x: 'b) : U2<'a, 'b> = Case2 x
 
-/// Erased union type to represent one of three possible values.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Erased union type to represent one of three possible value types mainly intended for typing the signature of imported
+/// JS functions.
+/// </summary>
+/// <remarks>
+/// Pattern matching is possible, but should consider the implications of the Erased union and JS type testing (see the
+/// docs for details).
+/// <br/>
+/// Member concrete types will be implicitly cast into the union, and will provide a warning to this effect. Usage of
+/// the explicit cast operator <c>!^</c> available in <c>Fable.Core.JsInterop</c> will remove this warning.
+/// <a href="https://github.com/fable-compiler/Fable/pull/4143">Collection types, can provide an error</a> that will
+/// only be resolved with the explicit operator. <a href="https://github.com/glutinum-org/cli/issues/80">Anonymous
+/// records have other considerations that may be relevant if you are encountering issues.</a>
+/// <code lang="fsharp">
+/// let test(arg: U3&lt;string, int, float[]>) =
+///     match arg with
+///     | U3.Case1 x -> printfn "A string %s" x
+///     | U3.Case2 x -> printfn "An int %i" x
+///     | U3.Case3 xs -> Array.sum xs |> printfn "An array with sum %f"
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#erase-attribute"/>
+
 [<Erase>]
 type U3<'a, 'b, 'c> =
     | Case1 of 'a
@@ -152,8 +193,28 @@ type U3<'a, 'b, 'c> =
     static member inline op_Implicit(x: 'b) : U3<'a, 'b, 'c> = Case2 x
     static member inline op_Implicit(x: 'c) : U3<'a, 'b, 'c> = Case3 x
 
-/// Erased union type to represent one of four possible values.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Erased union type to represent one of four possible value types mainly intended for typing the signature of imported
+/// JS functions.
+/// </summary>
+/// <remarks>
+/// Pattern matching is possible, but should consider the implications of the Erased union and JS type testing (see the
+/// docs for details).
+/// <br/>
+/// Member concrete types will be implicitly cast into the union, and will provide a warning to this effect. Usage of
+/// the explicit cast operator <c>!^</c> available in <c>Fable.Core.JsInterop</c> will remove this warning.
+/// <a href="https://github.com/fable-compiler/Fable/pull/4143">Collection types, can provide an error</a> that will
+/// only be resolved with the explicit operator. <a href="https://github.com/glutinum-org/cli/issues/80">Anonymous
+/// records have other considerations that may be relevant if you are encountering issues.</a>
+/// <code lang="fsharp">
+/// let test(arg: U3&lt;string, int, float[]>) =
+///     match arg with
+///     | U3.Case1 x -> printfn "A string %s" x
+///     | U3.Case2 x -> printfn "An int %i" x
+///     | U3.Case3 xs -> Array.sum xs |> printfn "An array with sum %f"
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#erase-attribute"/>
 [<Erase>]
 type U4<'a, 'b, 'c, 'd> =
     | Case1 of 'a
@@ -170,8 +231,28 @@ type U4<'a, 'b, 'c, 'd> =
     static member inline op_Implicit(x: 'c) : U4<'a, 'b, 'c, 'd> = Case3 x
     static member inline op_Implicit(x: 'd) : U4<'a, 'b, 'c, 'd> = Case4 x
 
-/// Erased union type to represent one of five possible values.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Erased union type to represent one of five possible value types mainly intended for typing the signature of imported
+/// JS functions.
+/// </summary>
+/// <remarks>
+/// Pattern matching is possible, but should consider the implications of the Erased union and JS type testing (see the
+/// docs for details).
+/// <br/>
+/// Member concrete types will be implicitly cast into the union, and will provide a warning to this effect. Usage of
+/// the explicit cast operator <c>!^</c> available in <c>Fable.Core.JsInterop</c> will remove this warning.
+/// <a href="https://github.com/fable-compiler/Fable/pull/4143">Collection types, can provide an error</a> that will
+/// only be resolved with the explicit operator. <a href="https://github.com/glutinum-org/cli/issues/80">Anonymous
+/// records have other considerations that may be relevant if you are encountering issues.</a>
+/// <code lang="fsharp">
+/// let test(arg: U3&lt;string, int, float[]>) =
+///     match arg with
+///     | U3.Case1 x -> printfn "A string %s" x
+///     | U3.Case2 x -> printfn "An int %i" x
+///     | U3.Case3 xs -> Array.sum xs |> printfn "An array with sum %f"
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#erase-attribute"/>
 [<Erase>]
 type U5<'a, 'b, 'c, 'd, 'e> =
     | Case1 of 'a
@@ -191,8 +272,28 @@ type U5<'a, 'b, 'c, 'd, 'e> =
     static member inline op_Implicit(x: 'd) : U5<'a, 'b, 'c, 'd, 'e> = Case4 x
     static member inline op_Implicit(x: 'e) : U5<'a, 'b, 'c, 'd, 'e> = Case5 x
 
-/// Erased union type to represent one of six possible values.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Erased union type to represent one of six possible value types mainly intended for typing the signature of imported
+/// JS functions.
+/// </summary>
+/// <remarks>
+/// Pattern matching is possible, but should consider the implications of the Erased union and JS type testing (see the
+/// docs for details).
+/// <br/>
+/// Member concrete types will be implicitly cast into the union, and will provide a warning to this effect. Usage of
+/// the explicit cast operator <c>!^</c> available in <c>Fable.Core.JsInterop</c> will remove this warning.
+/// <a href="https://github.com/fable-compiler/Fable/pull/4143">Collection types, can provide an error</a> that will
+/// only be resolved with the explicit operator. <a href="https://github.com/glutinum-org/cli/issues/80">Anonymous
+/// records have other considerations that may be relevant if you are encountering issues.</a>
+/// <code lang="fsharp">
+/// let test(arg: U3&lt;string, int, float[]>) =
+///     match arg with
+///     | U3.Case1 x -> printfn "A string %s" x
+///     | U3.Case2 x -> printfn "An int %i" x
+///     | U3.Case3 xs -> Array.sum xs |> printfn "An array with sum %f"
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#erase-attribute"/>
 [<Erase>]
 type U6<'a, 'b, 'c, 'd, 'e, 'f> =
     | Case1 of 'a
@@ -215,8 +316,28 @@ type U6<'a, 'b, 'c, 'd, 'e, 'f> =
     static member inline op_Implicit(x: 'e) : U6<'a, 'b, 'c, 'd, 'e, 'f> = Case5 x
     static member inline op_Implicit(x: 'f) : U6<'a, 'b, 'c, 'd, 'e, 'f> = Case6 x
 
-/// Erased union type to represent one of seven possible values.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Erased union type to represent one of seven possible value types mainly intended for typing the signature of imported
+/// JS functions.
+/// </summary>
+/// <remarks>
+/// Pattern matching is possible, but should consider the implications of the Erased union and JS type testing (see the
+/// docs for details).
+/// <br/>
+/// Member concrete types will be implicitly cast into the union, and will provide a warning to this effect. Usage of
+/// the explicit cast operator <c>!^</c> available in <c>Fable.Core.JsInterop</c> will remove this warning.
+/// <a href="https://github.com/fable-compiler/Fable/pull/4143">Collection types, can provide an error</a> that will
+/// only be resolved with the explicit operator. <a href="https://github.com/glutinum-org/cli/issues/80">Anonymous
+/// records have other considerations that may be relevant if you are encountering issues.</a>
+/// <code lang="fsharp">
+/// let test(arg: U3&lt;string, int, float[]>) =
+///     match arg with
+///     | U3.Case1 x -> printfn "A string %s" x
+///     | U3.Case2 x -> printfn "An int %i" x
+///     | U3.Case3 xs -> Array.sum xs |> printfn "An array with sum %f"
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#erase-attribute"/>
 [<Erase>]
 type U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> =
     | Case1 of 'a
@@ -242,8 +363,28 @@ type U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> =
     static member inline op_Implicit(x: 'f) : U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> = Case6 x
     static member inline op_Implicit(x: 'g) : U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> = Case7 x
 
-/// Erased union type to represent one of eight possible values.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Erased union type to represent one of eight possible value types mainly intended for typing the signature of imported
+/// JS functions.
+/// </summary>
+/// <remarks>
+/// Pattern matching is possible, but should consider the implications of the Erased union and JS type testing (see the
+/// docs for details).
+/// <br/>
+/// Member concrete types will be implicitly cast into the union, and will provide a warning to this effect. Usage of
+/// the explicit cast operator <c>!^</c> available in <c>Fable.Core.JsInterop</c> will remove this warning.
+/// <a href="https://github.com/fable-compiler/Fable/pull/4143">Collection types, can provide an error</a> that will
+/// only be resolved with the explicit operator. <a href="https://github.com/glutinum-org/cli/issues/80">Anonymous
+/// records have other considerations that may be relevant if you are encountering issues.</a>
+/// <code lang="fsharp">
+/// let test(arg: U3&lt;string, int, float[]>) =
+///     match arg with
+///     | U3.Case1 x -> printfn "A string %s" x
+///     | U3.Case2 x -> printfn "An int %i" x
+///     | U3.Case3 xs -> Array.sum xs |> printfn "An array with sum %f"
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#erase-attribute"/>
 [<Erase>]
 type U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     | Case1 of 'a
@@ -272,8 +413,28 @@ type U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     static member inline op_Implicit(x: 'g) : U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> = Case7 x
     static member inline op_Implicit(x: 'h) : U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> = Case8 x
 
-/// Erased union type to represent one of nine or more possible values.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Erased union type to represent one of nine possible value types mainly intended for typing the signature of imported
+/// JS functions.
+/// </summary>
+/// <remarks>
+/// Pattern matching is possible, but should consider the implications of the Erased union and JS type testing (see the
+/// docs for details).
+/// <br/>
+/// Member concrete types will be implicitly cast into the union, and will provide a warning to this effect. Usage of
+/// the explicit cast operator <c>!^</c> available in <c>Fable.Core.JsInterop</c> will remove this warning.
+/// <a href="https://github.com/fable-compiler/Fable/pull/4143">Collection types, can provide an error</a> that will
+/// only be resolved with the explicit operator. <a href="https://github.com/glutinum-org/cli/issues/80">Anonymous
+/// records have other considerations that may be relevant if you are encountering issues.</a>
+/// <code lang="fsharp">
+/// let test(arg: U3&lt;string, int, float[]>) =
+///     match arg with
+///     | U3.Case1 x -> printfn "A string %s" x
+///     | U3.Case2 x -> printfn "An int %i" x
+///     | U3.Case3 xs -> Array.sum xs |> printfn "An array with sum %f"
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#erase-attribute"/>
 [<Erase>]
 type U9<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> =
     | Case1 of 'a
