@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS] Fix #3533: Add `emitTopDirectivePrologue` supports (by @MangelMaxime)
+* [JS/TS] Fix #3533: Add `emitDirectivePrologue` supports (by @MangelMaxime)
+
 ## 4.5.0 - 2025-03-03
 
 ### Added
