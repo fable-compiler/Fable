@@ -2304,8 +2304,8 @@ module Util =
                 // side-effects, we need to extract it and execute it before the call
 
                 // TODO: discardUnitArg may still be needed in some cases
-                // | Fable.Value(Fable.UnitConstant,_) -> [], []
-                // | Fable.IdentExpr ident when ident.Type = Fable.Unit -> [], []
+                | Fable.Value(Fable.UnitConstant, _) -> [], []
+                | Fable.IdentExpr ident when ident.Type = Fable.Unit -> [], []
                 | TransformExpr com ctx (arg, stmts') -> [ arg ], stmts'
 
             callFunction range applied args [], stmts @ stmts'
@@ -3654,17 +3654,16 @@ module Util =
 
                 args', [], Statement.while' (Expression.boolConstant true, body) |> List.singleton
             | _ ->
-                // Make sure all of the last optional arguments will accept None as their default value
+                // Make sure all unit arguments get default values of None
                 let defaults =
                     args
-                    |> List.rev
-                    |> List.takeWhile (fun arg ->
+                    |> List.map (fun arg ->
                         match arg.Type with
+                        | Fable.Unit -> Some Expression.none
                         | Fable.Any
-                        | Fable.Option _ -> true
-                        | _ -> false
+                        | Fable.Option _ -> Some Expression.none
+                        | _ -> None
                     )
-                    |> List.map (fun _ -> Expression.none)
 
                 let args' =
                     args
@@ -3674,7 +3673,15 @@ module Util =
                         Arg.arg (ident com ctx id, annotation = ta)
                     )
 
-                args', defaults, body
+                // Extract defaults for Python function signature
+                let finalDefaults =
+                    defaults
+                    |> List.rev
+                    |> List.takeWhile Option.isSome
+                    |> List.choose id
+                    |> List.rev
+
+                args', finalDefaults, body
 
         let arguments =
             match args, isUnit with
