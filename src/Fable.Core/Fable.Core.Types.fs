@@ -2,6 +2,58 @@ namespace Fable.Core
 
 open System
 
+/// <summary>
+/// Parameter used in <c>StringEnum</c> and methods/other attributes that
+/// generate strings from unions to change the casing in conversion.
+/// </summary>
+/// <remarks>
+/// Conversion of <c>MouseOver</c> with different enums (the qualified access is
+/// ignored for brevity):
+/// <list type="table">
+/// <item>
+/// <term><c>None</c></term>
+/// <description><c>"MouseOver"</c></description>
+/// </item>
+/// <item>
+/// <term><c>LowerFirst</c></term>
+/// <description><c>"mouseOver"</c></description>
+/// </item>
+/// <item>
+/// <term><c>SnakeCase</c></term>
+/// <description><c>"mouse_over"</c></description>
+/// </item>
+/// <item>
+/// <term><c>SnakeCaseAllCaps</c></term>
+/// <description><c>"MOUSE_OVER"</c></description>
+/// </item>
+/// <item>
+/// <term><c>KebabCase</c></term>
+/// <description><c>"mouse-over"</c></description>
+/// </item>
+/// <item>
+/// <term><c>LowerAll</c></term>
+/// <description><c>"mouseover"</c></description>
+/// </item>
+/// </list>
+/// You can also use <c>[&lt;CompiledName>]</c> and <c>[&lt;CompiledValue>]</c> to
+/// specify the name or literal of the union case in the generated code:
+/// <code lang="fsharp">
+/// [&lt;StringEnum>]
+/// type EventType =
+///     | [&lt;CompiledName("Abracadabra")>] MouseOver
+///     | [&lt;CompiledValue(false)>] RealMagic
+/// let eventType = EventType.MouseOver
+/// let magicPower = EventType.RealMagic
+/// </code>
+/// Generates:
+/// <code lang="js">
+/// export const eventType = "Abracadabra";
+/// export const magicPower = false;
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/javascript/features.html#caserules">
+/// Fable Documentation
+/// </seealso>
 type CaseRules =
     | None = 0
     /// FooBar -> fooBar
@@ -15,8 +67,68 @@ type CaseRules =
     /// FooBar -> foobar
     | LowerAll = 5
 
+/// <summary>
 /// Used on interfaces to mangle member names. This allows overloading and prevents conflicts
 /// other interfaces, but will make interop with native code more difficult.
+/// </summary>
+/// <remarks>
+/// <para>
+/// If you are not planning to use an interface to interact with JS and want to have overloaded
+/// members, you can decorate the interface declaration with the <c>Mangle</c> attribute.
+/// </para>
+/// <para>
+/// Interface coming from .NET BCL (like System.Collections.IEnumerator) are mangled by default.
+/// </para>
+/// <para>
+/// For example the following code:
+/// </para>
+/// <code lang="fsharp">
+/// type IRenderer =
+///     abstract Render : unit -> string
+///     abstract Render : indentation : int -> string
+///
+/// type Renderer() =
+///     interface IRenderer with
+///         member this.Render() =
+///             failwith "Not implemented"
+///
+///         member this.Render(indentation) =
+///             failwith "Not implemented"
+/// </code>
+/// <para>
+/// Generates invalid JavaScript code. Note the two methods named <c>Render</c> in the same class.
+/// </para>
+/// <code lang="js">
+/// export class Renderer {
+///     constructor() {
+///     }
+///     Render() {
+///         throw new Error("Not implemented");
+///     }
+///     Render(indentation) {
+///         throw new Error("Not implemented");
+///     }
+/// }
+/// </code>
+/// <para>
+/// Using <c>Mangle</c>, we would instead generate:
+/// </para>
+/// <code lang="js">
+/// export class Renderer {
+///     constructor() {
+///     }
+///     "Program.IRenderer.Render"() {
+///         throw new Error("Not implemented");
+///     }
+///     "Program.IRenderer.RenderZ524259A4"(indentation) {
+///         throw new Error("Not implemented");
+///     }
+/// }
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/javascript/features.html#mangle">
+/// Fable documentation
+/// </seealso>
 type MangleAttribute(mangle: bool) =
     inherit Attribute()
     new() = MangleAttribute(true)
@@ -38,7 +150,29 @@ type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
 
     new(tagName: string) = TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
 
-/// Used in place of `CompiledNameAttribute` if the target is not a string.
+/// <summary>
+/// Used in place of <c>CompiledNameAttribute</c> if the target is not a string.
+/// </summary>
+/// <remarks>
+/// Accepts <c>Enum</c>s, <c>int</c>, <c>float</c> or <c>bool</c>.
+/// <br/>
+/// You can also generate <c>undefined</c> by passing <c>null</c>.
+/// <para>
+/// This is typically used in conjunction with attributes such as <c>StringEnum</c>
+/// </para>
+/// </remarks>
+/// <example>
+/// <code lang="fsharp">
+/// [&lt;StringEnum>]
+/// type EventType =
+///     | [&lt;CompiledValue(false)>] Absent
+/// let eventType = EventType.Absent
+/// </code>
+/// Generates:
+/// <code lang="js">
+/// export const eventType = false;
+/// </code>
+/// </example>
 type CompiledValueAttribute private () =
     inherit Attribute()
     new(value: int) = CompiledValueAttribute()
