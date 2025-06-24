@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fixed handling of erased types for Python (#3968) (by @dbrattli)
 * [Python] Fixed unit function (zero arguments functions) are transpiled inconsistently (#4126) (by @dbrattli)
 * [Python] Fixed resource managers with empty body (#3912) (by @dbrattli)
 * [Python] Fixed `Async.Sleep`to handle TimeSpan correctly (#4137) (by @dbrattli)
