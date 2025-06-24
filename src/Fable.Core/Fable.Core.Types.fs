@@ -100,11 +100,19 @@ type EmitPropertyAttribute(propertyName: string) =
 /// Compile union types as string literals.
 /// </summary>
 /// <remarks>
-/// Use the <c>CompiledName</c> or <c>CompiledValue</c> attributes on union fields to change
-/// the generated values.
+/// You can also use <c>[&lt;CompiledName>]</c> and <c>[&lt;CompiledValue>]</c> to
+/// specify the name or literal of the union case in the generated code:
+/// <code lang="fsharp">
+/// [&lt;StringEnum>]
+/// type EventType =
+///     | [&lt;CompiledName("Abracadabra")>] MouseOver
+///     | [&lt;CompiledValue(false)>] RealMagic
+/// let eventType = EventType.MouseOver // Compiles: "Abracadabra"
+/// let magicPower = EventType.RealMagic // Compiles: false
+/// </code>
 /// </remarks>
-/// <seealso href="https://fable.io/docs/communicate/js-from-fable.html#stringenum-attribute">
-/// Docs section on StringEnum
+/// <seealso href="https://fable.io/docs/javascript/features.html#caserules">
+/// Fable Documentation
 /// </seealso>
 [<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute(caseRules: CaseRules) =
