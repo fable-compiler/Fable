@@ -12,26 +12,32 @@ open System
 /// <list type="table">
 /// <item>
 /// <term><c>None</c></term>
+/// <term><c>"MouseOver"</c></term>
 /// <description><c>"MouseOver"</c></description>
 /// </item>
 /// <item>
 /// <term><c>LowerFirst</c></term>
+/// <term><c>"mouseOver"</c></term>
 /// <description><c>"mouseOver"</c></description>
 /// </item>
 /// <item>
 /// <term><c>SnakeCase</c></term>
+/// <term><c>"mouse_over"</c></term>
 /// <description><c>"mouse_over"</c></description>
 /// </item>
 /// <item>
 /// <term><c>SnakeCaseAllCaps</c></term>
+/// <term><c>"MOUSE_OVER"</c></term>
 /// <description><c>"MOUSE_OVER"</c></description>
 /// </item>
 /// <item>
 /// <term><c>KebabCase</c></term>
+/// <term><c>"mouse-over"</c></term>
 /// <description><c>"mouse-over"</c></description>
 /// </item>
 /// <item>
 /// <term><c>LowerAll</c></term>
+/// <term><c>"mouseover"</c></term>
 /// <description><c>"mouseover"</c></description>
 /// </item>
 /// </list>
@@ -47,8 +53,9 @@ open System
 /// </code>
 /// Generates:
 /// <code lang="js">
-/// export const eventType = "Abracadabra";
-/// export const magicPower = false;
+/// // Pseudocode. See the Fable docs for your target for actual transpiled code.
+/// eventType = "Abracadabra"
+/// magicPower = false
 /// </code>
 /// </remarks>
 /// <seealso href="https://fable.io/docs/javascript/features.html#caserules">
@@ -73,7 +80,7 @@ type CaseRules =
 /// </summary>
 /// <remarks>
 /// <para>
-/// If you are not planning to use an interface to interact with JS and want to have overloaded
+/// If you are not planning to use an interface to interact with native code and want to have overloaded
 /// members, you can decorate the interface declaration with the <c>Mangle</c> attribute.
 /// </para>
 /// <para>
@@ -96,34 +103,28 @@ type CaseRules =
 ///             failwith "Not implemented"
 /// </code>
 /// <para>
-/// Generates invalid JavaScript code. Note the two methods named <c>Render</c> in the same class.
+/// May be considered invalid code depending on the target. Note the two methods named <c>Render</c> in the same class.
 /// </para>
 /// <code lang="js">
-/// export class Renderer {
-///     constructor() {
-///     }
-///     Render() {
-///         throw new Error("Not implemented");
-///     }
-///     Render(indentation) {
-///         throw new Error("Not implemented");
-///     }
-/// }
+/// // Pseudocode
+/// class Renderer
+///     method Render
+///         Error("Not implemented")
+///
+///     method Render(indentation)
+///         Error("Not implemented")
 /// </code>
 /// <para>
 /// Using <c>Mangle</c>, we would instead generate:
 /// </para>
 /// <code lang="js">
-/// export class Renderer {
-///     constructor() {
-///     }
-///     "Program.IRenderer.Render"() {
-///         throw new Error("Not implemented");
-///     }
-///     "Program.IRenderer.RenderZ524259A4"(indentation) {
-///         throw new Error("Not implemented");
-///     }
-/// }
+/// // Pseudocode
+/// class Renderer
+///     "Program.IRenderer.Render"()
+///         Error("Not implemented")
+///
+///     "Program.IRenderer.RenderZ524259A4"(indentation)
+///         Error("Not implemented")
 /// </code>
 /// </remarks>
 /// <seealso href="https://fable.io/docs/javascript/features.html#mangle">
