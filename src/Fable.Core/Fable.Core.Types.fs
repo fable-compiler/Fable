@@ -165,7 +165,7 @@ type AttachMembersAttribute() =
 ///     | String of string
 ///     | Object of obj
 /// [&lt;Global>] // no code generated for globally accessible methods etc
-/// let prettyPrint (value: ValueType) = nativeCode
+/// let prettyPrint (value: ValueType) = nativeOnly
 /// prettyPrint (Number 1)
 /// prettyPrint (String "Hello")
 /// prettyPrint (Object {|Name = "Fable"|})
