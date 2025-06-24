@@ -4204,11 +4204,7 @@ module Util =
 
                         let right =
                             match id.Type with
-                            | Fable.Number _ ->
-                                Expression.boolOp (
-                                    BoolOperator.Or,
-                                    [ identAsExpr com ctx id; Expression.intConstant 0 ]
-                                )
+                            | Fable.Number _ -> identAsExpr com ctx id
                             | Fable.Array _ ->
                                 // Convert varArg from tuple to array. TODO: we might need to do this other places as well.
                                 let array = libValue com ctx "array_" "Array"

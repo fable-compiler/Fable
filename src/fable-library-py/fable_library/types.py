@@ -17,7 +17,7 @@ class Union(IComparable):
     __slots__: tuple[str, ...] = ("fields", "tag")
 
     def __init__(self) -> None:
-        self.tag: int
+        self.tag: int32
         self.fields: Array[Any] = Array[Any]()
 
     @staticmethod
