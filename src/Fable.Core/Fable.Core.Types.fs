@@ -41,6 +41,7 @@ open System
 /// <description><c>"mouseover"</c></description>
 /// </item>
 /// </list>
+/// <br/>
 /// You can also use <c>[&lt;CompiledName>]</c> and <c>[&lt;CompiledValue>]</c> to
 /// specify the name or literal of the union case in the generated code:
 /// <code lang="fsharp">
