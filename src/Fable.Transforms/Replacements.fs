@@ -1052,9 +1052,9 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "importDynamic", [ path ] ->
             let path = fixDynamicImportPath path
             Helper.GlobalCall("import", t, [ path ], ?loc = r) |> Some
-        | "emitTopDirectivePrologue", [ StringConst arg ] ->
+        | "emitJsTopDirectivePrologue", [ StringConst arg ] ->
             "\"" + arg + "\"" |> emit r t [] false |> withTag "topDirectiveProloge" |> Some
-        | "emitDirectivePrologue", [ StringConst arg ] -> "\"" + arg + "\"" |> emit r t [] false |> Some
+        | "emitJsDirectivePrologue", [ StringConst arg ] -> "\"" + arg + "\"" |> emit r t [] false |> Some
         | "importValueDynamic", [ MaybeInScope ctx arg ] ->
             let dynamicImport selector path apply =
                 let path = fixDynamicImportPath path

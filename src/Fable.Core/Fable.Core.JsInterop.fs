@@ -54,7 +54,7 @@ let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 /// a specific directive at the top of the file, such as "use client" or "use server".
 /// </summary>
 /// <param name="text">Directive text</param>
-let emitTopDirectivePrologue (text: string) : unit = nativeOnly
+let emitJsTopDirectivePrologue (text: string) : unit = nativeOnly
 
 /// <summary>
 /// Emit a directive prologue at the calling position.
@@ -63,7 +63,7 @@ let emitTopDirectivePrologue (text: string) : unit = nativeOnly
 /// such as "use client" or "use server".
 /// </summary>
 /// <param name="text">Directive text</param>
-let emitDirectivePrologue (text: string) : unit = nativeOnly
+let emitJsDirectivePrologue (text: string) : unit = nativeOnly
 
 /// Create a literal JS object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
