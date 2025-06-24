@@ -2,6 +2,9 @@ namespace Fable.Core
 
 open System
 
+// Note: The table list renders differently between Ionide on VS Code and Rider. Two term items
+// are used to render correctly on Ionide where the description is ignored. One term item and
+// one description item are used to render correctly on Rider where the second term is ignored.
 /// <summary>
 /// Parameter used in <c>StringEnum</c> and methods/other attributes that
 /// generate strings from unions to change the casing in conversion.
@@ -135,13 +138,74 @@ type MangleAttribute(mangle: bool) =
     inherit Attribute()
     new() = MangleAttribute(true)
 
-/// Used on a class to attach all members, useful when you want to use the class from JS.
+/// <summary>
+/// Used on a class to attach all members without mangling.
+/// </summary>
+/// <remarks>
+/// If you want to have all members attached to a class (as is standard with most target languages)
+/// and not-mangled, use the <c>AttachMembers</c> attribute. But be aware that overloads won't work
+/// in this case.
+/// </remarks>
+/// <seealso href="https://fable.io/docs/javascript/features.html#attachmembers">
+/// Fable Documentation
+/// </seealso>
 [<AttributeUsage(AttributeTargets.Class)>]
 type AttachMembersAttribute() =
     inherit Attribute()
 
-/// Used for erased union types and to ignore modules in JS compilation.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Used for erased union types, erasing default constructors, and to ignore modules in Fable compilation.
+/// </summary>
+/// <remarks>
+/// <para>When placed on unions, the union code is erased, leaving the underlying fields as raw values</para>
+/// <code lang="fsharp">
+/// [&lt;Erase>]
+/// type ValueType =
+///     | Number of int
+///     | String of string
+///     | Object of obj
+/// [&lt;Global>] // no code generated for globally accessible methods etc
+/// let prettyPrint (value: ValueType) = nativeCode
+/// prettyPrint (Number 1)
+/// prettyPrint (String "Hello")
+/// prettyPrint (Object {|Name = "Fable"|})
+/// </code>
+/// Generates:
+/// <code lang="js">
+/// // Pseudocode.
+/// prettyPrint(1)
+/// prettyPrint("Hello")
+/// prettyPrint({ Name: "Fable" })
+/// </code>
+/// When used on <c>class</c> type declarations, member bindings et al, it will erase any associated
+/// target code relating to the construction, reflection, and the definition
+/// itself. Be aware that Fable will not stop you from making calls to these
+/// functions which may be undefined without replacement.
+/// <code lang="fsharp">
+/// type AnimationBuilder() = class end
+/// let anime = AnimationBuilder()
+/// [&lt;Erase>]
+/// type TimelineBuilder() = class end
+/// let tl = TimelineBuilder()
+/// </code>
+/// Generates:
+/// <code lang="js">
+/// // Pseudocode
+/// class AnimationBuilder
+/// method AnimationBuilder_$reflection()
+///     return class_type("Test.AnimationBuilder", null, AnimationBuilder)
+/// method AnimationBuilder_$ctor()
+///     return AnimationBuilder()
+/// anime = AnimationBuilder_$ctor()
+/// // no class definition or
+/// // constructor/reflection methods generated
+/// tl = TimelineBuilder_$ctor()
+/// // ^- undefined method potential
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/javascript/features.html#erased-unions">
+/// Fable Documentation
+/// </seealso>
 type EraseAttribute() =
     inherit Attribute()
     new(caseRules: CaseRules) = EraseAttribute()
