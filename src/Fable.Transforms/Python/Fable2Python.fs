@@ -8,6 +8,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Python
 open Fable.Py
+open Fable.Transforms
 
 type ReturnStrategy =
     /// Return last expression
@@ -4492,29 +4493,48 @@ module Util =
             // printfn "Class: %A" decl
             let ent = com.GetEntity(decl.Entity)
 
-            let classMembers =
-                decl.AttachedMembers
-                |> List.collect (fun memb ->
-                    withCurrentScope ctx memb.UsedNames
-                    <| fun ctx ->
-                        let info =
-                            memb.ImplementedSignatureRef
-                            |> Option.map com.GetMember
-                            |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
+            // Check for erased unions and generate type aliases
+            let hasEraseAttribute =
+                ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.erase)
 
-                        if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
-                            transformAttachedProperty com ctx info memb
-                        else
-                            transformAttachedMethod com ctx info memb
-                )
+            if hasEraseAttribute && ent.IsFSharpUnion then
+                // Generate type alias for erased union
+                match ent.UnionCases with
+                | [ singleCase ] when singleCase.UnionCaseFields.Length = 1 ->
+                    // Simple case: [<Erase>] type X = X of int becomes X = int
+                    let field = singleCase.UnionCaseFields.[0]
+                    let ta, _ = typeAnnotation com ctx None field.FieldType
+                    let name = com.GetIdentifierAsExpr(ctx, decl.Name)
+                    [ Statement.assign ([ name ], ta) ]
+                | _ ->
+                    // For now, just create an alias to Any for complex cases
+                    let name = com.GetIdentifierAsExpr(ctx, decl.Name)
+                    let anyType = com.GetImportExpr(ctx, "typing", "Any")
+                    [ Statement.assign ([ name ], anyType) ]
+            else
+                let classMembers =
+                    decl.AttachedMembers
+                    |> List.collect (fun memb ->
+                        withCurrentScope ctx memb.UsedNames
+                        <| fun ctx ->
+                            let info =
+                                memb.ImplementedSignatureRef
+                                |> Option.map com.GetMember
+                                |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
 
-            match ent, decl.Constructor with
-            | ent, _ when ent.IsInterface -> transformInterface com ctx ent decl
-            | ent, _ when ent.IsFSharpUnion -> transformUnion com ctx ent decl.Name classMembers
-            | _, Some cons ->
-                withCurrentScope ctx cons.UsedNames
-                <| fun ctx -> transformClassWithPrimaryConstructor com ctx decl classMembers cons
-            | _, None -> transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
+                            if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
+                                transformAttachedProperty com ctx info memb
+                            else
+                                transformAttachedMethod com ctx info memb
+                    )
+
+                match ent, decl.Constructor with
+                | ent, _ when ent.IsInterface -> transformInterface com ctx ent decl
+                | ent, _ when ent.IsFSharpUnion -> transformUnion com ctx ent decl.Name classMembers
+                | _, Some cons ->
+                    withCurrentScope ctx cons.UsedNames
+                    <| fun ctx -> transformClassWithPrimaryConstructor com ctx decl classMembers cons
+                | _, None -> transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformTypeVars (com: IPythonCompiler) ctx (typeVars: HashSet<string>) =
         // For Python 3.12, we don't need module-level TypeVar declarations

@@ -2043,7 +2043,9 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                 let ent = (com :> Compiler).GetEntity(entRef)
 
                 if
-                    (isErasedOrStringEnumEntity ent && Compiler.Language <> TypeScript)
+                    (isErasedOrStringEnumEntity ent
+                     && Compiler.Language <> TypeScript
+                     && Compiler.Language <> Python)
                     || isGlobalOrImportedEntity ent
                 then
                     []
