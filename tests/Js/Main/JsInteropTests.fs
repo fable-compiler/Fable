@@ -844,7 +844,11 @@ let tests =
     testCase "StringEnum is overwritten by CompiledValue" <| fun () ->
         RespectValues.ContentBox |> unbox |> equal "contentbox"
         RespectValues.None |> unbox |> equal false
+        // When running fable-compiler-js we can't make a distinction between int and float at runtime
+        // See https://github.com/fable-compiler/Fable/pull/4144#issuecomment-3001681838
+        #if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
         RespectValues.Pi |> unbox |> equal 3.14159
+        #endif
         RespectValues.AnswerToLife |> unbox |> equal 42
         RespectValues.Foo |> unbox |> equal RespectValuesEnum.Foo
 
