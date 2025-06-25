@@ -2,67 +2,11 @@ namespace Fable.Core
 
 open System
 
-// Note: The table list renders differently between Ionide on VS Code and Rider. Two term items
-// are used to render correctly on Ionide where the description is ignored. One term item and
-// one description item are used to render correctly on Rider where the second term is ignored.
 /// <summary>
 /// Parameter used in <c>StringEnum</c> and methods/other attributes that
-/// generate strings from unions to change the casing in conversion.
+/// generate strings from unions or other identifiers to change the casing in conversion.
 /// </summary>
-/// <remarks>
-/// Conversion of <c>MouseOver</c> with different enums (the qualified access is
-/// ignored for brevity):
-/// <list type="table">
-/// <item>
-/// <term><c>None</c></term>
-/// <term><c>"MouseOver"</c></term>
-/// <description><c>"MouseOver"</c></description>
-/// </item>
-/// <item>
-/// <term><c>LowerFirst</c></term>
-/// <term><c>"mouseOver"</c></term>
-/// <description><c>"mouseOver"</c></description>
-/// </item>
-/// <item>
-/// <term><c>SnakeCase</c></term>
-/// <term><c>"mouse_over"</c></term>
-/// <description><c>"mouse_over"</c></description>
-/// </item>
-/// <item>
-/// <term><c>SnakeCaseAllCaps</c></term>
-/// <term><c>"MOUSE_OVER"</c></term>
-/// <description><c>"MOUSE_OVER"</c></description>
-/// </item>
-/// <item>
-/// <term><c>KebabCase</c></term>
-/// <term><c>"mouse-over"</c></term>
-/// <description><c>"mouse-over"</c></description>
-/// </item>
-/// <item>
-/// <term><c>LowerAll</c></term>
-/// <term><c>"mouseover"</c></term>
-/// <description><c>"mouseover"</c></description>
-/// </item>
-/// </list>
-/// <br/>
-/// You can also use <c>[&lt;CompiledName>]</c> and <c>[&lt;CompiledValue>]</c> to
-/// specify the name or literal of the union case in the generated code:
-/// <code lang="fsharp">
-/// [&lt;StringEnum>]
-/// type EventType =
-///     | [&lt;CompiledName("Abracadabra")>] MouseOver
-///     | [&lt;CompiledValue(false)>] RealMagic
-/// let eventType = EventType.MouseOver
-/// let magicPower = EventType.RealMagic
-/// </code>
-/// Generates:
-/// <code lang="js">
-/// // Pseudocode. See the Fable docs for your target for actual transpiled code.
-/// eventType = "Abracadabra"
-/// magicPower = false
-/// </code>
-/// </remarks>
-/// <seealso href="https://fable.io/docs/javascript/features.html#caserules">
+/// <seealso href="https://fable.io/docs/">
 /// Fable Documentation
 /// </seealso>
 type CaseRules =
@@ -108,30 +52,10 @@ type CaseRules =
 /// </code>
 /// <para>
 /// May be considered invalid code depending on the target. Note the two methods named <c>Render</c> in the same class.
+/// This would be a primary example case where <c>Mangle</c> would allow F#/Fable to route the call correctly.
 /// </para>
-/// <code lang="js">
-/// // Pseudocode
-/// class Renderer
-///     method Render
-///         Error("Not implemented")
-///
-///     method Render(indentation)
-///         Error("Not implemented")
-/// </code>
-/// <para>
-/// Using <c>Mangle</c>, we would instead generate:
-/// </para>
-/// <code lang="js">
-/// // Pseudocode
-/// class Renderer
-///     "Program.IRenderer.Render"()
-///         Error("Not implemented")
-///
-///     "Program.IRenderer.RenderZ524259A4"(indentation)
-///         Error("Not implemented")
-/// </code>
 /// </remarks>
-/// <seealso href="https://fable.io/docs/javascript/features.html#mangle">
+/// <seealso href="https://fable.io/docs/">
 /// Fable documentation
 /// </seealso>
 type MangleAttribute(mangle: bool) =
@@ -146,7 +70,7 @@ type MangleAttribute(mangle: bool) =
 /// and not-mangled, use the <c>AttachMembers</c> attribute. But be aware that overloads won't work
 /// in this case.
 /// </remarks>
-/// <seealso href="https://fable.io/docs/javascript/features.html#attachmembers">
+/// <seealso href="https://fable.io/docs/">
 /// Fable Documentation
 /// </seealso>
 [<AttributeUsage(AttributeTargets.Class)>]
@@ -164,18 +88,6 @@ type AttachMembersAttribute() =
 ///     | Number of int
 ///     | String of string
 ///     | Object of obj
-/// [&lt;Global>] // no code generated for globally accessible methods etc
-/// let prettyPrint (value: ValueType) = nativeOnly
-/// prettyPrint (Number 1)
-/// prettyPrint (String "Hello")
-/// prettyPrint (Object {|Name = "Fable"|})
-/// </code>
-/// Generates:
-/// <code lang="js">
-/// // Pseudocode.
-/// prettyPrint(1)
-/// prettyPrint("Hello")
-/// prettyPrint({ Name: "Fable" })
 /// </code>
 /// When used on <c>class</c> type declarations, member bindings et al, it will erase any associated
 /// target code relating to the construction, reflection, and the definition
@@ -187,23 +99,13 @@ type AttachMembersAttribute() =
 /// [&lt;Erase>]
 /// type TimelineBuilder() = class end
 /// let tl = TimelineBuilder()
+/// // would fail on runtime as we have erased the constructor from
+/// // the compiled code
 /// </code>
-/// Generates:
-/// <code lang="js">
-/// // Pseudocode
-/// class AnimationBuilder
-/// method AnimationBuilder_$reflection()
-///     return class_type("Test.AnimationBuilder", null, AnimationBuilder)
-/// method AnimationBuilder_$ctor()
-///     return AnimationBuilder()
-/// anime = AnimationBuilder_$ctor()
-/// // no class definition or
-/// // constructor/reflection methods generated
-/// tl = TimelineBuilder_$ctor()
-/// // ^- undefined method potential
-/// </code>
+/// Similar behavior is seen when used on <c>module</c>s. Check the <a href="https://fable.io/docs">
+/// documentation for your target language</a> for more information.
 /// </remarks>
-/// <seealso href="https://fable.io/docs/javascript/features.html#erased-unions">
+/// <seealso href="https://fable.io/docs/">
 /// Fable Documentation
 /// </seealso>
 type EraseAttribute() =
@@ -223,22 +125,10 @@ type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
 /// Accepts <c>Enum</c>s, <c>int</c>, <c>float</c> or <c>bool</c>.
 /// <br/>
 /// You can also generate <c>undefined</c> by passing <c>null</c>.
-/// <para>
-/// This is typically used in conjunction with attributes such as <c>StringEnum</c>
-/// </para>
 /// </remarks>
-/// <example>
-/// <code lang="fsharp">
-/// [&lt;StringEnum>]
-/// type EventType =
-///     | [&lt;CompiledValue(false)>] Absent
-/// let eventType = EventType.Absent
-/// </code>
-/// Generates:
-/// <code lang="js">
-/// export const eventType = false;
-/// </code>
-/// </example>
+/// <seealso href="https://fable.io/docs/">
+/// Fable Documentation
+/// </seealso>
 type CompiledValueAttribute private () =
     inherit Attribute()
     new(value: int) = CompiledValueAttribute()
@@ -246,31 +136,80 @@ type CompiledValueAttribute private () =
     new(value: bool) = CompiledValueAttribute()
     new(value: Enum) = CompiledValueAttribute()
 
-/// The module, type, function... is globally accessible in JS.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#type-safety-with-imports-and-interfaces
+/// <summary>
+/// The module, type, function... is globally accessible in the target runtime.
+/// </summary>
+/// <remarks>
+/// Consider a function such as <c>printf</c> in <c>F#</c>, this function is accessible
+/// without any import or declaration. You would decorate a binding for a target construct
+/// using <c>Global</c> to prevent any code being compiled for the declaration, and any
+/// import-like code being generated in usage in other <c>Fable</c> code.
+/// </remarks>
+/// <seealso href="https://fable.io/docs/">
+/// Fable Documentation
+/// </seealso>
 type GlobalAttribute() =
     inherit Attribute()
     new(name: string) = GlobalAttribute()
 
+/// <summary>
 /// References to the module, type, function... will be replaced by import statements.
-/// Use `[<Import("default", "my-package")>] to import the default member.
-/// Use `[<Import("*", "my-package")>] to import the whole package.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#type-safety-with-imports-and-interfaces
+/// </summary>
+/// <remarks>
+/// <para>Use <c>[&lt;Import("default", "my-package")>]</c> to import the default member.</para>
+/// <para>Use <c>[&lt;Import("*", "my-package")>]</c> to import the whole package.</para>
+/// <para>You can import proxy-like constructs, or nested submodules as you would natively.</para>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/">
+/// Fable Documentation
+/// </seealso>
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
-/// Takes the member name from the value it decorates
+/// <summary>
+/// Similar (or same) to <c>Import</c>, except the <c>selector</c> parameter is automatically filled with the
+/// decorated members name.
+/// </summary>
+/// <example>
+/// <code lang="fsharp">
+/// [&lt;Import("Test","TestLibrary")>]
+/// let test value = value
+/// // SAME AS
+/// [&lt;ImportMember("TestLibrary")>]
+/// let Test value = value
+/// </code>
+/// </example>
+/// <seealso href="https://fable.io/docs/">
+/// Fable Documentation
+/// </seealso>
 type ImportMemberAttribute(from: string) =
     inherit Attribute()
 
-/// Same as `Import("default", "my-package")`
+/// <summary>
+/// Same as <c>[&lt;Import("default", "my-package")>]</c>.
+/// </summary>
+/// <seealso href="https://fable.io/docs/">
+/// Fable Documentation
+/// </seealso>
 type ImportDefaultAttribute(from: string) =
     inherit Attribute()
 
-/// Same as `Import("*", "my-package")`
+/// <summary>
+/// Same as <c>[&lt;Import("*", "my-package")>]</c>
+/// </summary>
+/// <seealso href="https://fable.io/docs/">
+/// Fable Documentation
+/// </seealso>
 type ImportAllAttribute(from: string) =
     inherit Attribute()
 
+/// <summary>
+/// In supporting target languages, explicitly declares the decorated member
+/// as the default export for the file.
+/// </summary>
+/// <seealso href="https://fable.io/docs/">
+/// Fable Documentation
+/// </seealso>
 type ExportDefaultAttribute() =
     inherit Attribute()
 
