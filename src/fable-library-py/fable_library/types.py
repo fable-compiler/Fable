@@ -93,33 +93,28 @@ def record_compare_to(self: Record, other: Record) -> int:
     if self is other:
         return 0
 
-    def compare_values(self_value: Any, other_value: Any) -> int:
-        match (self_value, other_value):
-            case (None, None):
-                return 0
-            case (None, _):
-                return -1
-            case (_, None):
-                return 1
-            # Check for custom equality
-            case (self_value, other_value) if self_value == other_value:
-                return 0
-            case (self_value, other_value) if self_value < other_value:
-                return -1
-            case (self_value, other_value) if self_value > other_value:
-                return 1
-            case _:
-                return 0
+    # Check if the record has a custom __eq__ method (not inherited from Record)
+    # If so, use it for equality-based comparison instead of field-by-field
+    self_eq_method = getattr(type(self), "__eq__", None)
+    record_eq_method = getattr(Record, "__eq__", None)
 
+    if self_eq_method and self_eq_method != record_eq_method:
+        # Record has custom equality, use it for comparison
+        if self == other:
+            return 0
+        # For custom equality, we can't determine ordering, so use identity comparison
+        return -1 if id(self) < id(other) else 1
+
+    # Default field-by-field comparison for records without custom equality
     if hasattr(self, "__dict__") and self.__dict__:
         for name in self.__dict__.keys():
-            result = compare_values(self.__dict__[name], other.__dict__[name])
+            result = compare(self.__dict__[name], other.__dict__[name])
             if result != 0:
                 return result
 
     elif hasattr(self, "__slots__") and self.__slots__:
         for name in self.__slots__:
-            result = compare_values(getattr(self, name), getattr(other, name))
+            result = compare(getattr(self, name), getattr(other, name))
             if result != 0:
                 return result
 
