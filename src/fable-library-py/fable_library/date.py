@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from math import fmod
 from typing import Any
 
 from .singleton_local_time_zone import local_time_zone
 from .time_span import TimeSpan, total_microseconds
 from .time_span import create as create_time_span
-from .types import FSharpRef
+from .types import FSharpRef, float64
 from .util import DateKind
 
 
@@ -56,7 +56,7 @@ def subtract(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
         # ts.microseconds only contains the microseconds provided to the constructor
         # so we need to calculate the total microseconds ourselves
         delta_microseconds = delta.days * (24 * 3600 * 10**6) + delta.seconds * 10**6 + delta.microseconds
-        return create_time_span(0, 0, 0, 0, 0, delta_microseconds)
+        return create_time_span(float64(0), float64(0), float64(0), float64(0), float64(0), float64(delta_microseconds))
 
     return x - timedelta(microseconds=float(total_microseconds(y)))
 
@@ -85,7 +85,7 @@ def create(
             minute=m,
             second=s,
             microsecond=mc + ms * 1_000,
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         )
     else:
         date = datetime(year, month, day, h, m, s, mc + ms * 1_000)
@@ -128,7 +128,7 @@ def microsecond(d: datetime) -> int:
 
 
 def to_universal_time(d: datetime) -> datetime:
-    return d.astimezone(timezone.utc)
+    return d.astimezone(UTC)
 
 
 def day_of_week(d: datetime) -> int:
@@ -211,7 +211,7 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
     cursor_pos = 0
     token_length = 0
     result = ""
-    localized_date = date.astimezone(timezone.utc) if utc else date
+    localized_date = date.astimezone(UTC) if utc else date
 
     while cursor_pos < len(format):
         token = format[cursor_pos]
@@ -403,11 +403,15 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
 
 
 def date_to_string_with_offset(date: datetime, format: str | None = None) -> str:
-    utc = date.tzinfo == timezone.utc
+    utc = date.tzinfo == UTC
 
     match format:
         case None:
-            raise NotImplementedError("date_to_string_with_offset")
+            # Default format for DateTimeOffset without explicit format
+            if utc:
+                return date.strftime("%Y-%m-%dT%H:%M:%S.%f+00:00")
+            else:
+                return date.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
         case "O" | "o":
             return date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         case _ if len(format) == 1:
@@ -417,7 +421,7 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
 
 
 def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
-    utc = date.tzinfo == timezone.utc
+    utc = date.tzinfo == UTC
 
     if not format:
         return date.isoformat() if utc else str(date)
@@ -451,7 +455,7 @@ def now() -> datetime:
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def today() -> datetime:
@@ -635,7 +639,7 @@ def add_microseconds(d: datetime, v: int) -> datetime:
 
 
 def kind(d: datetime) -> DateKind:
-    if d.tzinfo == timezone.utc:
+    if d.tzinfo == UTC:
         return DateKind.UTC
 
     elif d.tzinfo is None:
@@ -670,7 +674,7 @@ def ticks_to_unix_epoch_microseconds(ticks: int) -> int:
 
 
 def date_offset(d: datetime) -> int:
-    if d.tzinfo == timezone.utc:
+    if d.tzinfo == UTC:
         return 0
     else:
         utc_offset = d.utcoffset()
@@ -689,7 +693,7 @@ def date_offset(d: datetime) -> int:
 
 def create_from_epoch_microseconds(us: int, kind: DateKind | None = None) -> datetime:
     if kind == DateKind.UTC:
-        date = datetime.fromtimestamp(us / 1_000_000, timezone.utc)
+        date = datetime.fromtimestamp(us / 1_000_000, UTC)
     else:
         date = datetime.fromtimestamp(us / 1_000_000)
         if kind == DateKind.Local:
@@ -712,6 +716,13 @@ def from_ticks(ticks: int, kind: DateKind | None = None) -> datetime:
     return date
 
 
+def from_date_time_offset(date_time_offset: Any, _kind: int = 0) -> datetime:
+    """Convert a DateTimeOffset to a DateTime"""
+    # DateTimeOffset is a datetime subclass, so we can just return it as a datetime
+    # The _kind parameter is ignored for now (it's used in .NET for DateTimeKind)
+    return date_time_offset
+
+
 __all__ = [
     "add",
     "add_days",
@@ -731,6 +742,7 @@ __all__ = [
     "day_of_year",
     "days_in_month",
     "equals",
+    "from_date_time_offset",
     "from_ticks",
     "hour",
     "is_leap_year",

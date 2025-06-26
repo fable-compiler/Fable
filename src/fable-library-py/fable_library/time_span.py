@@ -15,12 +15,12 @@ class TimeSpan(int):
 
 
 def create(
-    days: float = 0,
-    hours: float | None = None,
-    minutes: float | None = None,
-    seconds: float | None = None,
-    milliseconds: float | None = None,
-    microseconds: float | None = None,
+    days: float64 = float64(0),
+    hours: float64 | None = None,
+    minutes: float64 | None = None,
+    seconds: float64 | None = None,
+    milliseconds: float64 | None = None,
+    microseconds: float64 | None = None,
 ) -> TimeSpan:
     match (days, hours, minutes, seconds, milliseconds, microseconds):
         # ticks constructor
@@ -31,7 +31,7 @@ def create(
             seconds = minutes
             minutes = hours
             hours = days
-            days = 0
+            days = float64(0)
         # others constructor follows the correct order of arguments
         case _:
             pass
@@ -76,25 +76,46 @@ def total_days(ts: TimeSpan) -> float64:
 
 
 def from_microseconds(micros: IntegerTypes | FloatTypes) -> TimeSpan:
-    return create(0, 0, 0, 0, 0, float(micros))
+    return create(float64(0), float64(0), float64(0), float64(0), float64(0), float64(micros))
 
 
 def from_milliseconds(msecs: IntegerTypes | FloatTypes, mc: int | None = None) -> TimeSpan:
-    return create(0, 0, 0, 0, float(msecs), mc)
+    return create(
+        float64(0),
+        float64(0),
+        float64(0),
+        float64(0),
+        float64(msecs),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def from_ticks(ticks: int) -> TimeSpan:
-    return create(ticks)
+    return create(float64(ticks))
 
 
 def from_seconds(s: IntegerTypes | FloatTypes, ms: int | None = None, mc: int | None = None) -> TimeSpan:
-    return create(0, 0, 0, float(s), ms or 0, mc or 0)
+    return create(
+        float64(0),
+        float64(0),
+        float64(0),
+        float64(s),
+        float64(ms) if ms is not None else float64(0),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def from_minutes(
     m: IntegerTypes | FloatTypes, s: int | None = None, ms: int | None = None, mc: int | None = None
 ) -> TimeSpan:
-    return create(0, 0, float(m) or 0, s or 0, ms or 0, mc or 0)
+    return create(
+        float64(0),
+        float64(0),
+        float64(m),
+        float64(s) if s is not None else float64(0),
+        float64(ms) if ms is not None else float64(0),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def from_hours(
@@ -104,7 +125,14 @@ def from_hours(
     ms: int | None = None,
     mc: int | None = None,
 ) -> TimeSpan:
-    return create(0, float(h) or 0, m or 0, s or 0, ms or 0, mc or 0)
+    return create(
+        float64(0),
+        float64(h),
+        float64(m) if m is not None else float64(0),
+        float64(s) if s is not None else float64(0),
+        float64(ms) if ms is not None else float64(0),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def from_days(
@@ -115,7 +143,14 @@ def from_days(
     ms: int | None = None,
     mc: int | None = None,
 ) -> TimeSpan:
-    return create(float(d), h or 0, m or 0, s or 0, ms or 0, mc or 0)
+    return create(
+        float64(d),
+        float64(h) if h is not None else float64(0),
+        float64(m) if m is not None else float64(0),
+        float64(s) if s is not None else float64(0),
+        float64(ms) if ms is not None else float64(0),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def ticks(ts: TimeSpan) -> int:
@@ -247,7 +282,7 @@ def parse(string: str, _: Any | None = None) -> TimeSpan:
                         ms = int(g_8) / 10000
                     case _:
                         raise Exception(f"String '{string}' was not recognized as a valid TimeSpan.")
-            return multiply(create(d, h, m, s, ms), sign)
+            return multiply(create(float64(d), float64(h), float64(m), float64(s), float64(ms)), sign)
     raise Exception(f"String '{string}' was not recognized as a valid TimeSpan.")
 
 
