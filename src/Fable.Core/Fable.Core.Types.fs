@@ -6,9 +6,6 @@ open System
 /// Parameter used in <c>StringEnum</c> and methods/other attributes that
 /// generate strings from unions or other identifiers to change the casing in conversion.
 /// </summary>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type CaseRules =
     | None = 0
     /// FooBar -> fooBar
@@ -23,41 +20,9 @@ type CaseRules =
     | LowerAll = 5
 
 /// <summary>
-/// Used on interfaces to mangle member names. This allows overloading and prevents conflicts
+/// Used on interfaces to mangle member names. This allows overloading and prevents conflicts with
 /// other interfaces, but will make interop with native code more difficult.
 /// </summary>
-/// <remarks>
-/// <para>
-/// If you are not planning to use an interface to interact with native code and want to have overloaded
-/// members, you can decorate the interface declaration with the <c>Mangle</c> attribute.
-/// </para>
-/// <para>
-/// Interface coming from .NET BCL (like System.Collections.IEnumerator) are mangled by default.
-/// </para>
-/// <para>
-/// For example the following code:
-/// </para>
-/// <code lang="fsharp">
-/// type IRenderer =
-///     abstract Render : unit -> string
-///     abstract Render : indentation : int -> string
-///
-/// type Renderer() =
-///     interface IRenderer with
-///         member this.Render() =
-///             failwith "Not implemented"
-///
-///         member this.Render(indentation) =
-///             failwith "Not implemented"
-/// </code>
-/// <para>
-/// May be considered invalid code depending on the target. Note the two methods named <c>Render</c> in the same class.
-/// This would be a primary example case where <c>Mangle</c> would allow F#/Fable to route the call correctly.
-/// </para>
-/// </remarks>
-/// <seealso href="https://fable.io/docs/">
-/// Fable documentation
-/// </seealso>
 type MangleAttribute(mangle: bool) =
     inherit Attribute()
     new() = MangleAttribute(true)
@@ -70,9 +35,6 @@ type MangleAttribute(mangle: bool) =
 /// and not-mangled, use the <c>AttachMembers</c> attribute. But be aware that overloads won't work
 /// in this case.
 /// </remarks>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 [<AttributeUsage(AttributeTargets.Class)>]
 type AttachMembersAttribute() =
     inherit Attribute()
@@ -82,32 +44,9 @@ type AttachMembersAttribute() =
 /// </summary>
 /// <remarks>
 /// <para>When placed on unions, the union code is erased, leaving the underlying fields as raw values</para>
-/// <code lang="fsharp">
-/// [&lt;Erase>]
-/// type ValueType =
-///     | Number of int
-///     | String of string
-///     | Object of obj
-/// </code>
-/// When used on <c>class</c> type declarations, member bindings et al, it will erase any associated
-/// target code relating to the construction, reflection, and the definition
-/// itself. Be aware that Fable will not stop you from making calls to these
-/// functions which may be undefined without replacement.
-/// <code lang="fsharp">
-/// type AnimationBuilder() = class end
-/// let anime = AnimationBuilder()
-/// [&lt;Erase>]
-/// type TimelineBuilder() = class end
-/// let tl = TimelineBuilder()
-/// // would fail on runtime as we have erased the constructor from
-/// // the compiled code
-/// </code>
-/// Similar behavior is seen when used on <c>module</c>s. Check the <a href="https://fable.io/docs">
-/// documentation for your target language</a> for more information.
+/// <para>When used on <c>class</c> type declarations, member bindings etc, it will erase any associated
+/// target code relating to the construction, reflection, and the definition itself.</para>
 /// </remarks>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type EraseAttribute() =
     inherit Attribute()
     new(caseRules: CaseRules) = EraseAttribute()
@@ -123,12 +62,7 @@ type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
 /// </summary>
 /// <remarks>
 /// Accepts <c>Enum</c>s, <c>int</c>, <c>float</c> or <c>bool</c>.
-/// <br/>
-/// You can also generate <c>undefined</c> by passing <c>null</c>.
 /// </remarks>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type CompiledValueAttribute private () =
     inherit Attribute()
     new(value: int) = CompiledValueAttribute()
@@ -137,17 +71,12 @@ type CompiledValueAttribute private () =
     new(value: Enum) = CompiledValueAttribute()
 
 /// <summary>
-/// The module, type, function... is globally accessible in the target runtime.
+/// The value (module, type, function...) is globally accessible in the target runtime.
 /// </summary>
 /// <remarks>
-/// Consider a function such as <c>printf</c> in <c>F#</c>, this function is accessible
-/// without any import or declaration. You would decorate a binding for a target construct
-/// using <c>Global</c> to prevent any code being compiled for the declaration, and any
-/// import-like code being generated in usage in other <c>Fable</c> code.
+/// Global accessibility means that no imports are required to use the decorated value
+/// in the target runtime.
 /// </remarks>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type GlobalAttribute() =
     inherit Attribute()
     new(name: string) = GlobalAttribute()
@@ -156,19 +85,16 @@ type GlobalAttribute() =
 /// References to the module, type, function... will be replaced by import statements.
 /// </summary>
 /// <remarks>
-/// <para>Use <c>[&lt;Import("default", "my-package")>]</c> to import the default member.</para>
-/// <para>Use <c>[&lt;Import("*", "my-package")>]</c> to import the whole package.</para>
-/// <para>You can import proxy-like constructs, or nested submodules as you would natively.</para>
+/// Example selectors:
+/// <para><c>[&lt;Import("default", "my-package")>]</c></para>
+/// <para><c>[&lt;Import("*", "my-package")>]</c></para>
+/// <para><c>[&lt;Import("nested.import", "my-package")>]</c></para>
 /// </remarks>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
 /// <summary>
-/// Similar (or same) to <c>Import</c>, except the <c>selector</c> parameter is automatically filled with the
-/// decorated members name.
+/// Imports the decorated value, by name, from the given source.
 /// </summary>
 /// <example>
 /// <code lang="fsharp">
@@ -179,27 +105,18 @@ type ImportAttribute(selector: string, from: string) =
 /// let Test value = value
 /// </code>
 /// </example>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type ImportMemberAttribute(from: string) =
     inherit Attribute()
 
 /// <summary>
 /// Same as <c>[&lt;Import("default", "my-package")>]</c>.
 /// </summary>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type ImportDefaultAttribute(from: string) =
     inherit Attribute()
 
 /// <summary>
 /// Same as <c>[&lt;Import("*", "my-package")>]</c>
 /// </summary>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type ImportAllAttribute(from: string) =
     inherit Attribute()
 
@@ -207,9 +124,6 @@ type ImportAllAttribute(from: string) =
 /// In supporting target languages, explicitly declares the decorated member
 /// as the default export for the file.
 /// </summary>
-/// <seealso href="https://fable.io/docs/">
-/// Fable Documentation
-/// </seealso>
 type ExportDefaultAttribute() =
     inherit Attribute()
 
