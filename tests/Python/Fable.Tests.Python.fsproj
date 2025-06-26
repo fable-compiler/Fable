@@ -39,6 +39,7 @@
     <Compile Include="TestCustomOperators.fs" />
     <Compile Include="TestConvert.fs" />
     <Compile Include="TestDateTime.fs" />
+    <Compile Include="TestDateTimeOffset.fs" />
     <Compile Include="TestDictionary.fs" />
     <Compile Include="TestEnum.fs" />
     <Compile Include="TestEnumerable.fs" />

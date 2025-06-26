@@ -2731,6 +2731,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "get_UtcTicks" ->
         Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
+    | "TryParse" ->
+        let args =
+            ignoreFormatProvider com ctx r i.DeclaringEntityFullName i.CompiledName args
+
+        Helper.LibCall(com, moduleName, "tryParse", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ ticks ] ->
