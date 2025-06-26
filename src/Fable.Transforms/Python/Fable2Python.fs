@@ -4310,7 +4310,6 @@ module Util =
         =
         // printfn "transformClassWithPrimaryConstructor: %A" classDecl
         let classEnt = com.GetEntity(classDecl.Entity)
-
         let classIdent = Expression.name (com.GetIdentifier(ctx, classDecl.Name))
 
         let consArgs, consBody, _returnType =
