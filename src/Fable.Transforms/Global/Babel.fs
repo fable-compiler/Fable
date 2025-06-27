@@ -200,6 +200,10 @@ type Declaration =
         | InterfaceDeclaration(_, _, _, _, doc) -> doc
         | _ -> None
 
+/// A directive prologue as defined in ECMA specification
+/// https://tc39.es/ecma262/#sec-directive-prologues-and-the-use-strict-directive
+type DirectivePrologue = | DirectivePrologue of text: string
+
 /// A module import or export declaration.
 type ModuleDeclaration =
     | PrivateModuleDeclaration of statement: Statement
@@ -211,6 +215,7 @@ type ModuleDeclaration =
     | ExportDefaultDeclaration of declaration: Choice<Declaration, Expression>
     | ImportDeclaration of specifiers: ImportSpecifier array * source: StringLiteral
     | ExportNamedReferences of specifiers: ExportSpecifier array * source: StringLiteral option
+    | DirectivePrologueDeclaration of directiveText: DirectivePrologue
 
 //    /// An export batch declaration, e.g., export * from "mod";.
 // Template Literals

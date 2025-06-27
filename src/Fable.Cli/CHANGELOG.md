@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS] Fix #3533: Add directives prologues supports (by @MangelMaxime)
+
 ### Changed
 
 * [Python] Use Python 3.12 type parameter syntax. Deprecate Python 3.10 and 3.11 (by @dbrattli)

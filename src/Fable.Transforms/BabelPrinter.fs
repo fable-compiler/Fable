@@ -527,27 +527,28 @@ module PrinterExtensions =
                 printer.PrintMemberExpression(object, property, isComputed, loc)
             | LogicalExpression(left, operator, right, loc) -> printer.PrintOperation(left, operator, right, loc)
             | SequenceExpression(expressions, loc) ->
-                // A comma-separated sequence of expressions.
-                printer.AddLocation(loc)
-                let last = expressions.Length - 1
-
-                let expressions =
-                    expressions |> Array.filteri (fun i e -> i = last || hasSideEffects e)
-
-                if expressions.Length = 1 then
-                    printer.Print(expressions[0])
-                else
+                if expressions.Length > 0 then
+                    // A comma-separated sequence of expressions.
+                    printer.AddLocation(loc)
                     let last = expressions.Length - 1
-                    printer.Print("(")
 
-                    for i = 0 to last do
-                        let e = expressions[i]
-                        printer.Print(e)
+                    let expressions =
+                        expressions |> Array.filteri (fun i e -> i = last || hasSideEffects e)
 
-                        if i < last then
-                            printer.Print(", ")
+                    if expressions.Length = 1 then
+                        printer.Print(expressions[0])
+                    else
+                        let last = expressions.Length - 1
+                        printer.Print("(")
 
-                    printer.Print(")")
+                        for i = 0 to last do
+                            let e = expressions[i]
+                            printer.Print(e)
+
+                            if i < last then
+                                printer.Print(", ")
+
+                        printer.Print(")")
             | AssignmentExpression(left, right, operator, loc) -> printer.PrintOperation(left, operator, right, loc)
             | ConditionalExpression(test, consequent, alternate, loc) ->
                 printer.PrintConditionalExpression(test, consequent, alternate, loc)
@@ -559,6 +560,8 @@ module PrinterExtensions =
                 printer.Print(expression)
                 printer.Print(" as ")
                 printer.Print(typeAnnotation)
+
+        member printer.PrintDirectivePrologue(DirectivePrologue text: DirectivePrologue) = printer.Print(text)
 
         member printer.PrintLiteral(literal: Literal) =
             match literal with
@@ -743,6 +746,7 @@ module PrinterExtensions =
                 match declaration with
                 | Choice1Of2 x -> printer.PrintDeclaration(x)
                 | Choice2Of2 x -> printer.Print(x)
+            | DirectivePrologueDeclaration directive -> printer.PrintDirectivePrologue(directive)
 
         member printer.PrintEmitExpression(value, args, loc) =
             printer.AddLocation(loc)
@@ -1563,22 +1567,36 @@ let run writer (program: Program) : Async<unit> =
         if extraLine then
             printer.PrintNewLine()
 
+    let writeTopLevelDeclarations declarations (printer: PrinterImpl) =
+        async {
+            for decl in declarations do
+                printDeclWithExtraLine false printer decl
+
+            (printer :> Printer).PrintNewLine()
+            do! printer.Flush()
+        }
+
     async {
         use printer = new PrinterImpl(writer)
 
-        let imports, restDecls =
+        let topDirectiveProloge, restDecls =
             program.Body
+            |> Array.splitWhile (
+                function
+                | DirectivePrologueDeclaration _ -> true
+                | _ -> false
+            )
+
+        let imports, restDecls =
+            restDecls
             |> Array.splitWhile (
                 function
                 | ImportDeclaration(_) -> true
                 | _ -> false
             )
 
-        for decl in imports do
-            printDeclWithExtraLine false printer decl
-
-        (printer :> Printer).PrintNewLine()
-        do! printer.Flush()
+        do! writeTopLevelDeclarations topDirectiveProloge printer
+        do! writeTopLevelDeclarations imports printer
 
         for decl in restDecls do
             printDeclWithExtraLine true printer decl

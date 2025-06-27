@@ -47,6 +47,24 @@ let emitJsExpr<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 /// E.g. `emitJsStatement aValue "while($0 < 5) doSomething()"`
 let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 
+/// <summary>
+/// Emit a directive prologue at the top of the file (before the imports)
+///
+/// This is useful when working with Next.js or other frameworks that require
+/// a specific directive at the top of the file, such as "use client" or "use server".
+/// </summary>
+/// <param name="text">Directive text</param>
+let emitJsTopDirectivePrologue (text: string) : unit = nativeOnly
+
+/// <summary>
+/// Emit a directive prologue at the calling position.
+///
+/// This is useful when you need to emit a directive prologue for a specific part of the code,
+/// such as "use client" or "use server".
+/// </summary>
+/// <param name="text">Directive text</param>
+let emitJsDirectivePrologue (text: string) : unit = nativeOnly
+
 /// Create a literal JS object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
 let createObj (fields: #seq<string * obj>) : obj = nativeOnly

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS] Fix #3533: Add directives prologues supports (by @MangelMaxime)
+
 ### Changed
 
 * [Python] Fable Library for Python is now partially written in Rust (by @dbrattli)
