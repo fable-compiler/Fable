@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Fix #3533: Add `emitJsTopDirectivePrologue` supports (by @MangelMaxime)
 * [JS/TS] Fix #3533: Add `emitJsDirectivePrologue` supports (by @MangelMaxime)
 
+### Changed
+
+* Enforce Fable.Core to dependes on FSharp.Core >= 4.7.2 (by @PierreYvesR)
+
 ## 4.5.0 - 2025-03-03
 
 ### Added
