@@ -2265,7 +2265,7 @@ module Util =
 
         let args = exprs |> List.append thisArg
 
-        // Handle EmitMethod and other emit macros that need keywords
+        // Handle EmitMethod, EmitConstructor and other emit macros that need keywords
         match kw with
         | [] ->
             // No keywords, use regular emit expression
@@ -2282,8 +2282,19 @@ module Util =
                     // Fallback to emit if no this arg
                     emitExpression range macro args, stmts @ stmts'
             | None ->
-                // For other emit patterns with keywords, fallback to emit (might lose keywords)
-                emitExpression range macro args, stmts @ stmts'
+                // Try EmitConstructor pattern
+                match tryParseEmitConstructorMacro macro with
+                | Some() ->
+                    match thisArg with
+                    | constructorExpr :: _ ->
+                        // Handle EmitConstructor with keywords: new Constructor(keywords)
+                        callFunction range constructorExpr exprs kw, stmts @ stmts'
+                    | [] ->
+                        // Fallback to emit if no constructor expression
+                        emitExpression range macro args, stmts @ stmts'
+                | None ->
+                    // For other emit patterns with keywords, fallback to emit (might lose keywords)
+                    emitExpression range macro args, stmts @ stmts'
 
     let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallInfo) : Expression * Statement list =
         // printfn "transformCall: %A" (callee, callInfo)
@@ -4033,6 +4044,17 @@ module Util =
 
         if m.Success then
             Some m.Groups[1].Value
+        else
+            None
+
+    let tryParseEmitConstructorMacro (macro: string) =
+        // Parse EmitConstructor macros like "new $0($1...)" to extract constructor call
+        let pattern = @"new \$0\(\$1\.\.\.\)"
+        let regex = Regex pattern
+        let m = macro |> regex.Match
+
+        if m.Success then
+            Some() // Return Some unit to indicate it's a constructor pattern
         else
             None
 

@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Python] Fixed EmitMethod + ParamObject losing keyword arguments (#3871) (by @dbrattli)
+* [Python] Fixed EmitConstructor + ParamObject losing keyword arguments (#3871) (by @dbrattli)
 * [Python] Fixed DateTimeOffset.TryParse, ToString() and Offset property access (#3854) (by @dbrattli)
 * [Python] Fixed anonymous records in Maps causing comparison errors (#3869) (by @dbrattli)
 * [Python] Fixed handling of erased types for Python (#3968) (by @dbrattli)

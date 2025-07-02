@@ -371,4 +371,43 @@ let ``test ParamObject with EmitMethod preserves arguments`` () =
     let result = testService.process("test", verbose = true)
     result.Contains("verbose") |> equal true
 
+// Test for ParamObject with EmitConstructor issue #3871 (continuation of PR #4158)
+
+[<Erase>]
+type ITestProcess =
+    abstract member name: string
+
+[<Erase>]
+type ITestProcessType =
+    [<EmitConstructor; ParamObject>]
+    abstract Create: ?name: string -> ITestProcess
+
+// Create a test class that accepts keyword arguments
+[<Emit("""
+class MockProcess:
+    def __init__(self, **kwargs):
+        self._name = kwargs.get('name', 'default')
+
+    @property
+    def name(self):
+        return self._name
+""", isStatement=true)>]
+let defineTestProcessClass: unit = nativeOnly
+
+defineTestProcessClass
+
+[<Emit("MockProcess")>]
+let TestProcess: ITestProcessType = nativeOnly
+
+[<Fact>]
+let ``test ParamObject with EmitConstructor preserves keyword arguments`` () =
+    // Test that EmitConstructor + ParamObject generates MockProcess(name="worker")
+    // instead of MockProcess() (losing the keyword arguments)
+    let proc = TestProcess.Create(name = "worker")
+    proc.name |> equal "worker"
+
+    // Also test with default parameter (no arguments)
+    let proc2 = TestProcess.Create()
+    proc2.name |> equal "default"
+
 #endif
