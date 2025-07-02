@@ -344,4 +344,31 @@ let ``test StringEnums can have static members`` () =
     let x = Field.Default
     validatePassword x |> equal "np"
 
+// Test for ParamObject with EmitMethod issue #3871
+
+[<Erase>]
+type ITestService =
+    [<ParamObject(1)>]
+    [<EmitMethod("process")>]
+    abstract process: data: string * ?verbose:bool -> string
+
+// Create a test implementation that tracks keyword arguments
+[<Emit("""
+class TestService:
+    def process(self, data, **kwargs):
+        return f"processed {data} with {kwargs}"
+""", isStatement=true)>]
+let defineTestService: unit = nativeOnly
+
+defineTestService
+
+[<Emit("TestService()")>]
+let testService: ITestService = nativeOnly
+
+[<Fact>]
+let ``test ParamObject with EmitMethod preserves arguments`` () =
+    // Test that EmitMethod + ParamObject preserves keyword arguments
+    let result = testService.process("test", verbose = true)
+    result.Contains("verbose") |> equal true
+
 #endif
