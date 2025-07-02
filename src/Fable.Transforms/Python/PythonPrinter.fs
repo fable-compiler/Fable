@@ -861,6 +861,7 @@ module PrinterExtensions =
             | Call _
             | List _
             | Subscript _
+            | Emit { Args = [] } // Emit with no args looks ok without parens
             | Attribute _ -> printer.Print(expr)
             | _ -> printer.WithParens(expr)
 

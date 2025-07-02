@@ -2258,13 +2258,43 @@ module Util =
             |> Option.toList
             |> Helpers.unzipArgs
 
-        let exprs, _, stmts' = transformCallArgs com ctx info
+        let exprs, kw, stmts' = transformCallArgs com ctx info
 
         if macro.StartsWith("functools", StringComparison.Ordinal) then
             com.GetImportExpr(ctx, "functools") |> ignore
 
         let args = exprs |> List.append thisArg
-        emitExpression range macro args, stmts @ stmts'
+
+        // Handle EmitMethod, EmitConstructor and other emit macros that need keywords
+        match kw with
+        | [] ->
+            // No keywords, use regular emit expression
+            emitExpression range macro args, stmts @ stmts'
+        | _ ->
+            // Handle emit patterns with keywords
+            match tryParseEmitMethodMacro macro with
+            | Some methodName ->
+                match thisArg with
+                | obj :: _ ->
+                    let methodCall = Expression.attribute (obj, Identifier methodName)
+                    callFunction range methodCall exprs kw, stmts @ stmts'
+                | [] ->
+                    // Fallback to emit if no this arg
+                    emitExpression range macro args, stmts @ stmts'
+            | None ->
+                // Try EmitConstructor pattern
+                match tryParseEmitConstructorMacro macro with
+                | Some() ->
+                    match thisArg with
+                    | constructorExpr :: _ ->
+                        // Handle EmitConstructor with keywords: new Constructor(keywords)
+                        callFunction range constructorExpr exprs kw, stmts @ stmts'
+                    | [] ->
+                        // Fallback to emit if no constructor expression
+                        emitExpression range macro args, stmts @ stmts'
+                | None ->
+                    // For other emit patterns with keywords, fallback to emit (might lose keywords)
+                    emitExpression range macro args, stmts @ stmts'
 
     let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallInfo) : Expression * Statement list =
         // printfn "transformCall: %A" (callee, callInfo)
@@ -2547,7 +2577,7 @@ module Util =
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
 
             if mustWrapOption typ || com.Options.Language = TypeScript then
-                libCall com ctx None "option" "value" [ expr ], stmts
+                libCall com ctx range "option" "value" [ expr ], stmts
             else
                 expr, stmts
 
@@ -2558,7 +2588,7 @@ module Util =
         | Fable.UnionField i ->
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
 
-            let expr, stmts' = getExpr com ctx None expr (Expression.stringConstant "fields")
+            let expr, stmts' = getExpr com ctx range expr (Expression.stringConstant "fields")
 
             let expr, stmts'' = getExpr com ctx range expr (ofInt i.FieldIndex)
 
@@ -3999,6 +4029,35 @@ module Util =
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
+    let hasAnyEmitAttribute (atts: Fable.Attribute seq) =
+        hasAttribute Atts.emitAttr atts
+        || hasAttribute Atts.emitMethod atts
+        || hasAttribute Atts.emitConstructor atts
+        || hasAttribute Atts.emitIndexer atts
+        || hasAttribute Atts.emitProperty atts
+
+    let tryParseEmitMethodMacro (macro: string) =
+        // Parse EmitMethod macros like "$0.methodName($1...)" to extract method name
+        let pattern = @"\$0\.(\w+)\(\$1\.\.\.\)"
+        let regex = Regex pattern
+        let m = macro |> regex.Match
+
+        if m.Success then
+            Some m.Groups[1].Value
+        else
+            None
+
+    let tryParseEmitConstructorMacro (macro: string) =
+        // Parse EmitConstructor macros like "new $0($1...)" to extract constructor call
+        let pattern = @"new \$0\(\$1\.\.\.\)"
+        let regex = Regex pattern
+        let m = macro |> regex.Match
+
+        if m.Success then
+            Some() // Return Some unit to indicate it's a constructor pattern
+        else
+            None
+
     let calculateTypeParams (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) args returnType bodyType =
         // Calculate type parameters for Python 3.12 syntax
         let explicitGenerics =
@@ -4362,7 +4421,12 @@ module Util =
 
         let members =
             classEnt.MembersFunctionsAndValues
-            |> Seq.filter (fun memb -> not memb.IsProperty)
+            |> Seq.filter (fun memb ->
+                not memb.IsProperty
+                // Filter out methods with emit attributes (like EmitMethod, EmitConstructor, etc.)
+                // These should be handled as emit expressions, not as interface methods
+                && not (hasAnyEmitAttribute memb.Attributes)
+            )
             |> List.ofSeq
             |> List.groupBy (fun memb -> memb.DisplayName)
             // Remove duplicate method when we have getters and setters
