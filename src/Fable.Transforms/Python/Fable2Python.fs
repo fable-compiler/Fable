@@ -1763,13 +1763,32 @@ module Util =
 
         com.GetImportExpr(ctx, moduleName, name) |> getParts com ctx parts
 
+    // Active patterns for type matching
+    let (|IEnumerableOfKeyValuePair|_|) (targetType: Fable.Type, sourceExpr: Fable.Expr) =
+        match targetType, sourceExpr.Type with
+        | Fable.DeclaredType(ent, [ Fable.DeclaredType(kvpEnt, [ _; _ ]) ]), Fable.DeclaredType(sourceEnt, _) when
+            ent.FullName = Types.ienumerableGeneric
+            && kvpEnt.FullName = Types.keyValuePair
+            && sourceEnt.FullName = Types.dictionary
+            ->
+            Some(kvpEnt)
+        | _ -> None
+
     let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * Statement list =
         // printfn "transformCast: %A" (t, e)
-        match t with
+        match (t, e) with
+        | IEnumerableOfKeyValuePair(kvpEnt) ->
+            // Call .items() on the dictionary
+            let dictExpr, stmts = com.TransformAsExpr(ctx, e)
+
+            let itemsCall =
+                Expression.attribute (value = dictExpr, attr = Identifier "items", ctx = Load)
+
+            Expression.call (itemsCall, []), stmts
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
-        | Fable.DeclaredType(ent, [ _ ]) ->
+        | Fable.DeclaredType(ent, [ _ ]), _ ->
             match ent.FullName, e with
             | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral(exprs, _typ) ->
                 let expr, stmts =
@@ -1778,18 +1797,16 @@ module Util =
                 let xs = Expression.list expr
                 libCall com ctx None "util" "to_enumerable" [ xs ], stmts
 
-            | _ ->
-                // printfn "tranformCast: %A" e
-                com.TransformAsExpr(ctx, e)
-        | Fable.Number(Float32, _) ->
+            | _ -> com.TransformAsExpr(ctx, e)
+        | Fable.Number(Float32, _), _ ->
             let cons = libValue com ctx "types" "float32"
             let value, stmts = com.TransformAsExpr(ctx, e)
             Expression.call (cons, [ value ], ?loc = None), stmts
-        | Fable.Number(Float64, _) ->
+        | Fable.Number(Float64, _), _ ->
             let cons = libValue com ctx "types" "float64"
             let value, stmts = com.TransformAsExpr(ctx, e)
             Expression.call (cons, [ value ], ?loc = None), stmts
-        | Fable.Number(Int32, _) ->
+        | Fable.Number(Int32, _), _ ->
             let cons = libValue com ctx "types" "int32"
             let value, stmts = com.TransformAsExpr(ctx, e)
             Expression.call (cons, [ value ], ?loc = None), stmts
