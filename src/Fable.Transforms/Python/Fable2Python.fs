@@ -3181,7 +3181,21 @@ module Util =
             transformFunctionWithAnnotations com ctx name args body
             |||> makeArrowFunctionExpression com ctx name
 
-        | Fable.ObjectExpr([], _typ, None) -> Expression.dict (), []
+        | Fable.ObjectExpr([], typ, None) ->
+            // Check if the type is an interface
+            match typ with
+            | Fable.DeclaredType(entRef, _) ->
+                let ent = com.GetEntity(entRef)
+
+                if ent.IsInterface then
+                    // Use cast with SimpleNamespace for interfaces to avoid type errors
+                    let cast = com.GetImportExpr(ctx, "typing", "cast")
+                    let simpleNamespace = com.GetImportExpr(ctx, "types", "SimpleNamespace")
+                    let typeAnnotation, _ = typeAnnotation com ctx None typ
+                    Expression.call (cast, [ typeAnnotation; Expression.call (simpleNamespace, []) ]), []
+                else
+                    Expression.dict (), []
+            | _ -> Expression.dict (), []
         | Fable.ObjectExpr(members, typ, baseCall) ->
             // printfn "members: %A" (members, typ)
             transformObjectExpr com ctx members typ baseCall

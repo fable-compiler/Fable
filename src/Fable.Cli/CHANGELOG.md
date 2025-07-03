@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fixed `createEmpty<T>` for interfaces using `SimpleNamespace` with type casting (#3604) (by @dbrattli)
 * [Python] Fixed EmitMethod + ParamObject losing keyword arguments (#3871) (by @dbrattli)
 * [Python] Fixed EmitConstructor + ParamObject losing keyword arguments (#3871) (by @dbrattli)
 * [Python] Fixed DateTimeOffset.TryParse, ToString() and Offset property access (#3854) (by @dbrattli)
