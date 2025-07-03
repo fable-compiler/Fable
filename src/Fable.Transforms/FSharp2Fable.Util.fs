@@ -1632,12 +1632,12 @@ module TypeHelpers =
             else
                 Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
-        // TODO:
-        // if not t.IsGenericParameter && t.HasNullAnnotation // || t.IsNullAmbivalent
-        // then
-        //     makeRuntimeType [ typ ] Types.nullable // represent it as Nullable<T>
-        // else typ
-        typ
+        if
+            Compiler.CheckNulls && not t.IsGenericParameter && t.HasNullAnnotation // || t.IsNullAmbivalent
+        then
+            makeRuntimeType [ typ ] Types.nullable // represent Nullable Reference Types as Nullable<T>
+        else
+            typ
 
     let makeType (ctxTypeArgs: Map<string, Fable.Type>) t =
         makeTypeWithConstraints true ctxTypeArgs t

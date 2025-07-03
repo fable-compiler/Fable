@@ -737,7 +737,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
             let fableProj =
                 Project.From(
                     projCracked.ProjectFile,
-                    projCracked.ProjectOptions.SourceFiles,
+                    projCracked.ProjectOptions,
                     [],
                     assemblies,
                     Log.log,

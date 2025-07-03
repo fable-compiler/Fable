@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [JS/TS] Fix #3533: Add directives prologues supports (by @MangelMaxime)
+* [TS] Initial support for Nullable Reference Types (by @ncave)
 
 ### Changed
 
