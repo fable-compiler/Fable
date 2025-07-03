@@ -3969,6 +3969,28 @@ pub fn compare_to(
     source1.compare_to(py, comparer, source2)
 }
 
+#[pyfunction]
+#[pyo3(signature = (seq, cons=None))]
+pub fn of_seq(
+    py: Python<'_>,
+    seq: &Bound<'_, PyAny>,
+    cons: Option<&Bound<'_, PyAny>>,
+) -> PyResult<FSharpArray> {
+    // Extract array type from constructor if provided
+    let array_type = if let Some(cons) = cons {
+        if let Ok(fsharp_cons) = cons.extract::<PyRef<'_, FSharpCons>>() {
+            Some(fsharp_cons.array_type.as_str())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Create array from the sequence
+    FSharpArray::new(py, Some(seq), array_type)
+}
+
 // Constructor class for array allocation
 #[pyclass(module = "fable")]
 #[derive(Clone)]
@@ -4319,6 +4341,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(max_by, &m)?)?;
     m.add_function(wrap_pyfunction!(min, &m)?)?;
     m.add_function(wrap_pyfunction!(min_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(of_seq, &m)?)?;
     m.add_function(wrap_pyfunction!(pairwise, &m)?)?;
     m.add_function(wrap_pyfunction!(partition, &m)?)?;
     m.add_function(wrap_pyfunction!(permute, &m)?)?;

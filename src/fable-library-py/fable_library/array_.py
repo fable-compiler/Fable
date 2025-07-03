@@ -50,6 +50,7 @@ map_fold_back = array.map_fold_back
 map_indexed = array.map_indexed
 map_indexed2 = array.map_indexed2
 map_indexed3 = array.map_indexed3
+of_seq = array.of_seq
 pairwise = array.pairwise
 permute = array.permute
 reduce = array.reduce
@@ -188,6 +189,7 @@ __all__ = [
     "max_by",
     "min",
     "min_by",
+    "of_seq",
     "pairwise",
     "partition",
     "permute",
