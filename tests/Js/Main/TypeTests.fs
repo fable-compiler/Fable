@@ -639,6 +639,50 @@ type StaticClass =
     static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
     static member inline InlineAdd(x: int, ?y: int) = x + (defaultArg y 2)
 
+// Test types for generic parameter static member resolution
+type TestTypeA = 
+    static member GetValue() = "A"
+    static member Combine(x: int, y: int) = x + y + 100
+    
+type TestTypeB = 
+    static member GetValue() = "B"
+    static member Combine(x: int, y: int) = x + y + 200
+    
+type TestTypeC = 
+    static member GetValue() = "C"
+    static member Combine(x: int, y: int) = x + y + 300
+
+// Inline functions for testing multiple generic parameters with static member constraints
+let inline getTwoValues<'a, 'b when 'a: (static member GetValue: unit -> string) 
+                               and 'b: (static member GetValue: unit -> string)> () =
+    'a.GetValue(), 'b.GetValue()
+
+let inline getThreeValues<'a, 'b, 'c when 'a: (static member GetValue: unit -> string) 
+                                     and 'b: (static member GetValue: unit -> string)
+                                     and 'c: (static member GetValue: unit -> string)> () =
+    'a.GetValue(), 'b.GetValue(), 'c.GetValue()
+
+let inline getValuesAndCombine<'a, 'b when 'a: (static member GetValue: unit -> string) 
+                                       and 'a: (static member Combine: int * int -> int)
+                                       and 'b: (static member GetValue: unit -> string)
+                                       and 'b: (static member Combine: int * int -> int)> x y =
+    let aVal = 'a.GetValue()
+    let bVal = 'b.GetValue()
+    let aCombined = 'a.Combine(x, y)
+    let bCombined = 'b.Combine(x, y)
+    (aVal, aCombined), (bVal, bCombined)
+
+let inline getReversed<'x, 'y when 'x: (static member GetValue: unit -> string) 
+                              and 'y: (static member GetValue: unit -> string)> () =
+    'y.GetValue(), 'x.GetValue()
+
+let inline innerGet<'t when 't: (static member GetValue: unit -> string)> () =
+    't.GetValue()
+
+let inline outerGet<'a, 'b when 'a: (static member GetValue: unit -> string)
+                            and 'b: (static member GetValue: unit -> string)> () =
+    innerGet<'a>(), innerGet<'b>()
+
 let tests =
   testList "Types" [
 
@@ -1393,4 +1437,36 @@ let tests =
         (upper :> IGenericMangledInterface<string>).ReadOnlyValue |> equal "value"
         (upper :> IGenericMangledInterface<string>).SetterOnlyValue <- "setter only value"
         (upper :> IGenericMangledInterface<string>).Value |> equal "setter only value"
+
+    // Test for generic type parameter static member resolution in inline functions
+    // https://github.com/fable-compiler/Fable/issues/4093
+    testCase "Inline function with two generic parameters resolves static members correctly" <| fun () ->
+        let result = getTwoValues<TestTypeA, TestTypeB>()
+        result |> equal ("A", "B")
+        
+    testCase "Inline function with three generic parameters resolves static members correctly" <| fun () ->
+        let result = getThreeValues<TestTypeA, TestTypeB, TestTypeC>()
+        result |> equal ("A", "B", "C")
+        
+    testCase "Inline function with multiple constraints per type parameter works" <| fun () ->
+        let result = getValuesAndCombine<TestTypeA, TestTypeB> 10 20
+        result |> equal (("A", 130), ("B", 230))
+        
+    testCase "Inline function with reversed type parameter order works" <| fun () ->
+        let result = getReversed<TestTypeA, TestTypeB>()
+        result |> equal ("B", "A")
+        
+    testCase "Nested inline functions resolve generic parameters correctly" <| fun () ->
+        let result = outerGet<TestTypeA, TestTypeB>()
+        result |> equal ("A", "B")
+        
+    testCase "Different type parameter combinations work correctly" <| fun () ->
+        let result1 = getTwoValues<TestTypeB, TestTypeA>()
+        result1 |> equal ("B", "A")
+        
+        let result2 = getTwoValues<TestTypeC, TestTypeA>()
+        result2 |> equal ("C", "A")
+        
+        let result3 = getTwoValues<TestTypeB, TestTypeC>()
+        result3 |> equal ("B", "C")
   ]
