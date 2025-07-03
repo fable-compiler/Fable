@@ -132,6 +132,11 @@ type MyInterface =
     abstract foo: int
     abstract bar: string
 
+// Test interface for createEmpty functionality
+type IUser =
+    abstract Name: string with get, set
+    abstract Age: int with get, set
+
 let validatePassword = function
     | OldPassword -> "op"
     | NewPassword -> "np"
@@ -409,5 +414,17 @@ let ``test ParamObject with EmitConstructor preserves keyword arguments`` () =
     // Also test with default parameter (no arguments)
     let proc2 = TestProcess.Create()
     proc2.name |> equal "default"
+
+[<Fact>]
+let ``test createEmpty works with interfaces`` () =
+    // Test that createEmpty<T> works with interfaces by creating a SimpleNamespace
+    // that can have properties set dynamically
+    let user = createEmpty<IUser>
+    user.Name <- "Kaladin"
+    user.Age <- 20
+
+    // Verify the properties can be accessed
+    user.Name |> equal "Kaladin"
+    user.Age |> equal 20
 
 #endif
