@@ -54,6 +54,14 @@ export class Some<T> {
   }
 }
 
+export function nullableValue<T>(x: Nullable<T>): T {
+  if (x == null) {
+    throw new Error("Nullable has no value");
+  } else {
+    return x;
+  }
+}
+
 export function value<T>(x: Option<T>) {
   if (x == null) {
     throw new Error("Option has no value");

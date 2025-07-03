@@ -111,8 +111,7 @@ module Operators =
     let withNullV (value: 'T) : System.Nullable<'T> = System.Nullable<'T>(value)
 
     [<CompiledName("NullV")>]
-    let nullV<'T when 'T: struct and 'T: (new: unit -> 'T) and 'T :> System.ValueType> =
-        System.Nullable<'T>()
+    let nullV<'T when 'T: struct and 'T: (new: unit -> 'T) and 'T :> System.ValueType> () = System.Nullable<'T>()
 
     [<CompiledName("NullArgCheck")>]
     let nullArgCheck (argumentName: string) (value: 'T) =

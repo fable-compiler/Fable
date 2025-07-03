@@ -31,7 +31,7 @@ rust_decimal = { version = "1.37", features = ["maths"], default-features = fals
 startup = { version = "0.1", path = "vendored/startup", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-uuid = { version = "1.16", features = ["v4"], default-features = false, optional = true }
+uuid = { version = "1.17", features = ["v4"], default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-uuid = { version = "1.16", features = ["v4", "js"], default-features = false, optional = true }
+uuid = { version = "1.17", features = ["v4", "js"], default-features = false, optional = true }

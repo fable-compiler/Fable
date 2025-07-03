@@ -164,7 +164,7 @@ module CodeServices =
             let fableProj =
                 Project.From(
                     cliArgs.ProjectFile,
-                    crackerResponse.ProjectOptions.SourceFiles,
+                    crackerResponse.ProjectOptions,
                     checkProjectResult.AssemblyContents.ImplementationFiles,
                     assemblies,
                     Log.log,
@@ -205,7 +205,7 @@ module CodeServices =
             let fableProj =
                 Project.From(
                     cliArgs.ProjectFile,
-                    crackerResponse.ProjectOptions.SourceFiles,
+                    crackerResponse.ProjectOptions,
                     typeCheckProjectResult.ProjectCheckResults.AssemblyContents.ImplementationFiles,
                     typeCheckProjectResult.Assemblies,
                     Log.log,
@@ -298,7 +298,7 @@ module CodeServices =
             let fableProj =
                 Project.From(
                     cliArgs.ProjectFile,
-                    crackerResponse.ProjectOptions.SourceFiles,
+                    crackerResponse.ProjectOptions,
                     checkProjectResult.AssemblyContents.ImplementationFiles,
                     assemblies,
                     Log.log,
