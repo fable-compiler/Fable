@@ -2637,6 +2637,20 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     let getTime (e: Expr) =
         Helper.InstanceCall(e, "getTime", t, [])
 
+    let convertDateTimeKindToDateKind (com: ICompiler) (r: SourceLocation option) (enumExpr: Expr) =
+        match enumExpr with
+        | Value(NumberConstant(NumberValue.Int32 enumValue, _), _) ->
+            let enumName =
+                match enumValue with
+                | 0 -> "Unspecified"
+                | 1 -> "UTC"
+                | 2 -> "Local"
+                | _ -> "Unspecified"
+
+            let dateKindClass = makeImportLib com enumExpr.Type "DateKind" "util"
+            getFieldWith r enumExpr.Type dateKindClass enumName
+        | _ -> enumExpr
+
     let moduleName =
         if i.DeclaringEntityFullName = Types.datetime then
             "Date"
@@ -2658,14 +2672,16 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
             match args.Length, last.Type with
             | 7, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
-                let args = (List.take 6 args) @ [ makeIntConst 0; makeIntConst 0; last ]
+                let kindValue = convertDateTimeKindToDateKind com r last
+                let args = (List.take 6 args) @ [ makeIntConst 0; makeIntConst 0; kindValue ]
 
                 let argTypes =
                     (List.take 6 i.SignatureArgTypes) @ [ Int32.Number; Int32.Number; last.Type ]
 
                 Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc = r) |> Some
             | 8, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
-                let args = (List.take 7 args) @ [ makeIntConst 0; last ]
+                let kindValue = convertDateTimeKindToDateKind com r last
+                let args = (List.take 7 args) @ [ makeIntConst 0; kindValue ]
 
                 let argTypes = (List.take 7 i.SignatureArgTypes) @ [ Int32.Number; last.Type ]
 
