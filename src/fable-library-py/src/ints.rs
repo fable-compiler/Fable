@@ -57,7 +57,7 @@ use std::ops::Deref;
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyAnyMethods, PyBytes};
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
@@ -512,11 +512,14 @@ macro_rules! integer_variant {
                     Ok(other) => Ok(other.0),
                     Err(_) => match other.extract::<$type>() {
                         Ok(other) => Ok(other),
-                        Err(_) => match other.extract::<f64>() {
+                        Err(_) => match other.extract::<i64>() {
                             Ok(other) => Ok(other as $type),
-                            Err(_) => {
-                                Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare"))
-                            }
+                            Err(_) => match other.extract::<f64>() {
+                                Ok(other) => Ok(other as $type),
+                                Err(_) => {
+                                    Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare"))
+                                }
+                            },
                         },
                     },
                 };
@@ -755,3 +758,306 @@ integer_variant!(UInt32, u32, 0xffffffff_u32, "32-bit unsigned integer type (0 t
 integer_variant!(Int64, i64, 0xffffffffffffffff_u64, "64-bit signed integer type (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
 integer_variant!(UInt64, u64, 0xffffffffffffffff_u64, "64-bit unsigned integer type (0 to 18,446,744,073,709,551,615).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+
+// =============================================================================
+// Integer Parsing Functions
+// =============================================================================
+
+/// .NET NumberStyles enum constants for parsing
+///
+/// These constants match the .NET NumberStyles enumeration used in F# and C#
+/// for controlling how numeric strings are parsed.
+pub const ALLOW_HEX_SPECIFIER: i32 = 0x00000200; // 512 in decimal
+pub const ALLOW_LEADING_WHITE: i32 = 0x00000001; // 1 in decimal
+pub const ALLOW_TRAILING_WHITE: i32 = 0x00000002; // 2 in decimal
+
+// =============================================================================
+// Helper Functions for Integer Parsing
+// =============================================================================
+
+/// Determines the actual radix based on style flags and string prefixes
+#[inline]
+fn determine_radix(string: &str, style: i32, default_radix: i32) -> i32 {
+    // Check style flag first - early return
+    if (style & ALLOW_HEX_SPECIFIER) != 0 {
+        return 16;
+    }
+
+    // Single length check followed by pattern match
+    if string.len() >= 2 {
+        match &string[..2] {
+            "0x" | "0X" => 16,
+            "0b" | "0B" => 2,
+            "0o" | "0O" => 8,
+            _ => default_radix,
+        }
+    } else {
+        default_radix
+    }
+}
+
+/// Trims whitespace based on NumberStyles flags
+#[inline]
+fn trim_whitespace(string: &str, style: i32) -> &str {
+    match (
+        (style & ALLOW_LEADING_WHITE) != 0,
+        (style & ALLOW_TRAILING_WHITE) != 0,
+    ) {
+        (true, true) => string.trim(),
+        (true, false) => string.trim_start(),
+        (false, true) => string.trim_end(),
+        (false, false) => string,
+    }
+}
+
+/// Removes numeric prefixes (0x, 0b, 0o) when radix is not decimal
+#[inline]
+fn remove_prefix(string: &str, radix: i32) -> &str {
+    if radix != 10 && string.len() >= 2 {
+        match &string[..2] {
+            "0x" | "0X" | "0b" | "0B" | "0o" | "0O" => &string[2..],
+            _ => string,
+        }
+    } else {
+        string
+    }
+}
+
+/// Creates a parsing error with consistent formatting
+#[inline]
+fn create_parse_error(string: &str) -> PyErr {
+    PyErr::new::<exceptions::PyValueError, _>(format!(
+        "The input string {} was not in a correct format.",
+        string
+    ))
+}
+
+/// Preprocesses a numeric string for parsing by handling radix detection,
+/// whitespace trimming, prefix removal, and underscore cleanup
+fn preprocess_numeric_string(string: &str, style: i32, default_radix: i32) -> (String, i32) {
+    let actual_radix = determine_radix(string, style, default_radix);
+    let trimmed = trim_whitespace(string, style);
+    let without_prefix = remove_prefix(trimmed, actual_radix);
+    let final_string = without_prefix.replace('_', "");
+
+    (final_string, actual_radix)
+}
+
+// =============================================================================
+// Public Parsing Functions
+// =============================================================================
+
+/// Range information for different integer bit sizes and signedness
+///
+/// Returns (min_value, max_value) for a given bit size and signedness.
+/// This matches the behavior of F#'s integer parsing functions for int32.
+///
+/// # Arguments
+/// * `unsigned` - Whether the range should be for unsigned integers
+/// * `bitsize` - The bit width (8, 16, or 32)
+///
+/// # Returns
+/// A tuple containing (minimum_value, maximum_value) for the specified type
+///
+/// # Panics
+/// Panics if bitsize is not 8, 16, or 32
+#[pyfunction]
+pub fn get_range(unsigned: bool, bitsize: i32) -> (i64, i64) {
+    match (unsigned, bitsize) {
+        (true, 8) => (0, 255),
+        (false, 8) => (-128, 127),
+        (true, 16) => (0, 65535),
+        (false, 16) => (-32768, 32767),
+        (true, 32) => (0, 4294967295),
+        (false, 32) => (-2147483648, 2147483647),
+        _ => panic!("Invalid bit size: {}. Must be 8, 16, or 32", bitsize),
+    }
+}
+
+/// Range information for 64-bit integers
+///
+/// Returns (min_value, max_value) for 64-bit integers.
+/// This matches the behavior of long.py get_range function.
+///
+/// # Arguments
+/// * `unsigned` - Whether the range should be for unsigned integers
+///
+/// # Returns
+/// A tuple containing (minimum_value, maximum_value) for 64-bit integers
+#[pyfunction]
+pub fn get_range_64(unsigned: bool) -> (i64, i64) {
+    if unsigned {
+        (0, i64::MAX) // For unsigned 64-bit, we use i64::MAX as upper bound in Rust
+    } else {
+        (i64::MIN, i64::MAX)
+    }
+}
+
+/// Parses a string as a 32-bit integer with F#-compatible semantics
+///
+/// This function matches the behavior of int32.py parse function exactly.
+///
+/// # Arguments
+/// * `string` - The string to parse
+/// * `style` - NumberStyles flags controlling parsing behavior
+/// * `unsigned` - Whether to treat the result as unsigned (u32)
+/// * `bitsize` - The bit size for range validation (8, 16, or 32)
+/// * `radix` - Optional radix override (defaults to 10)
+///
+/// # Returns
+/// The parsed integer value as i64 (to handle both i32 and u32 ranges)
+///
+/// # Errors
+/// Returns `ValueError` if the string is not in a valid format or value is out of range
+#[pyfunction]
+#[pyo3(signature = (string, style, unsigned, bitsize, radix=10))]
+pub fn parse_int32(
+    string: &str,
+    style: i32,
+    unsigned: bool,
+    bitsize: i32,
+    radix: i32,
+) -> PyResult<i64> {
+    let (final_string, actual_radix) = preprocess_numeric_string(string, style, radix);
+
+    // Parse the integer using Rust's from_str_radix
+    let v = i64::from_str_radix(&final_string, actual_radix as u32)
+        .map_err(|_| create_parse_error(string))?;
+
+    // Handle two's complement conversion for non-decimal radixes on signed types
+    let (umin, umax) = get_range(true, bitsize);
+    let in_unsigned_range = v >= umin && v <= umax;
+    let mask = 1i64 << (bitsize - 1);
+    let has_high_bit = (v & mask) != 0;
+
+    let result = match (
+        unsigned,
+        actual_radix != 10,
+        in_unsigned_range,
+        has_high_bit,
+    ) {
+        (false, true, true, true) => v - (mask << 1), // Signed, non-decimal, in range, high bit set
+        _ => v,                                       // All other cases: use value as-is
+    };
+
+    // Validate final range
+    let (min, max) = get_range(unsigned, bitsize);
+    let in_range = result >= min && result <= max;
+
+    match in_range {
+        true => Ok(result),
+        false => Err(create_parse_error(string)),
+    }
+}
+
+/// Parses a string as a 64-bit integer with F#-compatible semantics
+///
+/// This function matches the behavior of long.py parse function exactly.
+///
+/// # Arguments
+/// * `string` - The string to parse
+/// * `style` - NumberStyles flags controlling parsing behavior
+/// * `unsigned` - Whether to treat the result as unsigned (u64)
+/// * `bitsize` - The bit size for range validation (must be 64)
+/// * `radix` - Optional radix override (defaults to 10)
+///
+/// # Returns
+/// The parsed integer value
+///
+/// # Errors
+/// Returns `ValueError` if the string is not in a valid format or value is out of range
+#[pyfunction]
+#[pyo3(signature = (string, style, unsigned, _bitsize, radix=10))]
+pub fn parse_int64(
+    string: &str,
+    style: i32,
+    unsigned: bool,
+    _bitsize: i32,
+    radix: i32,
+) -> PyResult<i64> {
+    let (final_string, actual_radix) = preprocess_numeric_string(string, style, radix);
+
+    // Parse the integer - handle large hex values by parsing as u64 first for non-decimal
+    let v = if actual_radix != 10 {
+        // For non-decimal, parse as u64 first to handle large hex values
+        u64::from_str_radix(&final_string, actual_radix as u32)
+            .map(|u_val| u_val as i64) // Cast performs automatic two's complement conversion
+            .map_err(|_| create_parse_error(string))?
+    } else {
+        // For decimal, use standard i64 parsing
+        i64::from_str_radix(&final_string, actual_radix as u32)
+            .map_err(|_| create_parse_error(string))?
+    };
+
+    // No additional two's complement conversion needed for 64-bit when using u64 parsing
+    let result = v;
+
+    // Validate final range
+    let (min, max) = get_range_64(unsigned);
+    let in_range = result >= min && result <= max;
+
+    match (unsigned, result >= 0, in_range) {
+        (true, true, true) => Ok(result), // Positive unsigned in range
+        (true, true, false) => Err(create_parse_error(string)), // Positive unsigned out of range
+        (true, false, _) => Ok(result),   // Negative i64 (large u64) - always valid for unsigned
+        (false, _, true) => Ok(result),   // Signed in range
+        (false, _, false) => Err(create_parse_error(string)), // Signed out of range
+    }
+}
+
+/// Attempts to parse a 32-bit integer with F#-style try semantics
+#[pyfunction]
+#[pyo3(signature = (string, style, unsigned, bitsize, def_value))]
+pub fn try_parse_int32(
+    string: &str,
+    style: i32,
+    unsigned: bool,
+    bitsize: i32,
+    def_value: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
+    match parse_int32(string, style, unsigned, bitsize, 10) {
+        Ok(value) => {
+            def_value.setattr("contents", value)?;
+            Ok(true)
+        }
+        Err(_) => Ok(false),
+    }
+}
+
+/// Attempts to parse a 64-bit integer with F#-style try semantics
+#[pyfunction]
+#[pyo3(signature = (string, style, unsigned, bitsize, def_value))]
+pub fn try_parse_int64(
+    string: &str,
+    style: i32,
+    unsigned: bool,
+    bitsize: i32,
+    def_value: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
+    match parse_int64(string, style, unsigned, bitsize, 10) {
+        Ok(value) => {
+            def_value.setattr("contents", value)?;
+            Ok(true)
+        }
+        Err(_) => Ok(false),
+    }
+}
+
+/// Registers integer parsing functions with the Python module
+///
+/// This function adds the parse and try_parse functions to the module
+/// so they can be called from Python code.
+pub fn register_int_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Specific functions
+    m.add_function(wrap_pyfunction!(parse_int32, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_int64, m)?)?;
+    m.add_function(wrap_pyfunction!(try_parse_int32, m)?)?;
+    m.add_function(wrap_pyfunction!(try_parse_int64, m)?)?;
+
+    m.add_function(wrap_pyfunction!(get_range, m)?)?;
+    m.add_function(wrap_pyfunction!(get_range_64, m)?)?;
+    m.add("ALLOW_HEX_SPECIFIER", ALLOW_HEX_SPECIFIER)?;
+    m.add("ALLOW_LEADING_WHITE", ALLOW_LEADING_WHITE)?;
+    m.add("ALLOW_TRAILING_WHITE", ALLOW_TRAILING_WHITE)?;
+    Ok(())
+}
