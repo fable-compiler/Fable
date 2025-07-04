@@ -36,6 +36,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     register_float_module(m)?;
     register_string_module(m)?;
     register_types_module(m)?;
+    register_int_module(m)?;
 
     Ok(())
 }

@@ -783,7 +783,7 @@ module Annotation =
         | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
         | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) ->
             makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
-        | Fable.Array(genArg, _) -> fableModuleTypeHint com ctx "types" "Array" [ genArg ] repeatedGenerics
+        | Fable.Array(genArg, _) -> fableModuleTypeHint com ctx "array_" "Array" [ genArg ] repeatedGenerics
         | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
         | Fable.AnonymousRecordType(_, _genArgs, _) ->
@@ -3769,7 +3769,10 @@ module Util =
     // Declares a Python entry point, i.e `if __name__ == "__main__"`
     let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expression) =
         com.GetImportExpr(ctx, "sys") |> ignore
-        let args = emitExpression None "sys.argv[1:]" []
+
+        let args =
+            emitExpression None "sys.argv[1:]" []
+            |> fun expr -> arrayExpr com ctx expr Fable.ImmutableArray Fable.String
 
         let test =
             Expression.compare (
@@ -3954,7 +3957,7 @@ module Util =
 
         let classFields = slotMembers // TODO: annotations
         let classMembers = classCons @ classMembers
-        //printfn "ClassMembers: %A" classMembers
+
         let classBody =
             let body = [ yield! classFields; yield! classMembers ]
 

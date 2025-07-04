@@ -1,8 +1,6 @@
 """Stub file for Fable integer types."""
 
-from typing import Any, Protocol, SupportsFloat, SupportsInt, final
-
-from typing_extensions import Self
+from typing import Any, Protocol, Self, SupportsFloat, SupportsInt, final
 
 class NumericInts(Protocol):
     """Protocol for Integer types"""
@@ -71,7 +69,135 @@ class UInt64(NumericInts): ...
 @final
 class Int64(NumericInts): ...
 
+# Integer parsing functions with F#-compatible semantics
+def parse_int32(
+    string: str,
+    style: int,
+    unsigned: bool,
+    radix: int = 10,
+) -> int:
+    """
+    Parses a string representation of a 32-bit integer with F#-compatible semantics.
+    This function matches the behavior of int32.py parse function exactly.
+
+    Args:
+        string: The string to parse
+        style: NumberStyles flags controlling parsing behavior
+        unsigned: Whether to treat the result as unsigned (u32)
+        radix: Default radix to use (defaults to 10)
+
+    Returns:
+        The parsed integer value as int
+
+    Raises:
+        ValueError: If the string is not in a valid format or value is out of range
+    """
+    ...
+
+def parse_int64(
+    string: str,
+    style: int,
+    unsigned: bool,
+    radix: int = 10,
+) -> int:
+    """
+    Parses a string representation of a 64-bit integer with F#-compatible semantics.
+    This function matches the behavior of long.py parse function exactly.
+
+    Args:
+        string: The string to parse
+        style: NumberStyles flags controlling parsing behavior
+        unsigned: Whether to treat the result as unsigned (u64)
+        radix: Default radix to use (defaults to 10)
+
+    Returns:
+        The parsed integer value as int
+
+    Raises:
+        ValueError: If the string is not in a valid format or value is out of range
+    """
+    ...
+
+def try_parse_int32(
+    string: str,
+    style: int,
+    unsigned: bool,
+    def_value: Any,
+    radix: int = 10,
+) -> bool:
+    """
+    Attempts to parse a 32-bit integer with F#-style try semantics.
+
+    Args:
+        string: The string to parse
+        style: NumberStyles flags controlling parsing behavior
+        unsigned: Whether to treat the result as unsigned (u32)
+        def_value: Python object reference to store the result on success
+        radix: Default radix to use (defaults to 10)
+
+    Returns:
+        True if parsing succeeded, False otherwise
+    """
+    ...
+
+def try_parse_int64(
+    string: str,
+    style: int,
+    unsigned: bool,
+    def_value: Any,
+    radix: int = 10,
+) -> bool:
+    """
+    Attempts to parse a 64-bit integer with F#-style try semantics.
+
+    Args:
+        string: The string to parse
+        style: NumberStyles flags controlling parsing behavior
+        unsigned: Whether to treat the result as unsigned (u64)
+        def_value: Python object reference to store the result on success
+        radix: Default radix to use (defaults to 10)
+
+    Returns:
+        True if parsing succeeded, False otherwise
+    """
+    ...
+
+def get_range(unsigned: bool, bitsize: int) -> tuple[int, int]:
+    """
+    Returns the valid range for a given bit size and signedness.
+    This matches the behavior of int32.py get_range function.
+
+    Args:
+        unsigned: Whether the range should be for unsigned integers
+        bitsize: The bit width (8, 16, or 32)
+
+    Returns:
+        A tuple containing (minimum_value, maximum_value) for the specified type
+    """
+    ...
+
+def get_range_64(unsigned: bool) -> tuple[int, int]:
+    """
+    Returns the valid range for 64-bit integers.
+    This matches the behavior of long.py get_range function.
+
+    Args:
+        unsigned: Whether the range should be for unsigned integers
+
+    Returns:
+        A tuple containing (minimum_value, maximum_value) for 64-bit integers
+    """
+    ...
+
+# .NET NumberStyles constants
+ALLOW_HEX_SPECIFIER: int
+ALLOW_LEADING_WHITE: int
+ALLOW_TRAILING_WHITE: int
+
 __all__ = [
+    "ALLOW_HEX_SPECIFIER",
+    "ALLOW_LEADING_WHITE",
+    "ALLOW_TRAILING_WHITE",
     "Int8",
     "Int16",
     "Int32",
@@ -80,4 +206,10 @@ __all__ = [
     "UInt16",
     "UInt32",
     "UInt64",
+    "get_range",
+    "get_range_64",
+    "parse_int32",
+    "parse_int64",
+    "try_parse_int32",
+    "try_parse_int64",
 ]
