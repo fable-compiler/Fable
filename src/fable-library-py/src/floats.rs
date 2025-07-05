@@ -5,8 +5,6 @@ use pyo3::prelude::*;
 use pyo3::types::PyBool;
 use pyo3::types::PyNotImplemented;
 use pyo3::BoundObject;
-use std::collections::hash_map::DefaultHasher; // Using the same hasher as integers for consistency, though float hashing needs care.
-use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 // Macro to generate float wrapper types (Float32, Float64)
@@ -171,33 +169,38 @@ macro_rules! float_variant {
             }
 
             // --- Hashing ---
-            // Be careful with float hashing due to precision issues and NaN/Infinity.
-            // Python's float hash handles NaN, +/-Inf specially.
-            // A simple approach is to convert to bits, but this differs from Python's hash.
-            // For consistency with Python, converting to Python float and hashing might be best,
-            // but let's use a bit-based hash for now, acknowledging the difference.
-            pub fn __hash__(&self) -> PyResult<isize> {
-                // Handle NaN and Infinity specially if needed, similar to Python.
-                // Python hash(float('nan')) == 0
-                // Python hash(float('inf')) == some large int (sys.hash_info.inf)
-                // Python hash(float('-inf')) == some large negative int (sys.hash_info.inf)
+            // .NET-compatible float hashing with integer consistency
+            pub fn __hash__(&self) -> i64 {
                 if self.0.is_nan() {
-                    Ok(0) // Python's hash for NaN
+                    // .NET semantic: All NaN values hash to the same consistent value
+                    0
                 } else if self.0.is_infinite() {
-                    // Use Python's sys.hash_info.inf constants if possible, otherwise approximate
-                    // For simplicity here, use a fixed large value. A better way involves PySys_GetHashInfo
+                    // .NET semantic: +Inf and -Inf have distinct, consistent hashes
                     if self.0.is_sign_positive() {
-                        Ok(314159) // Placeholder for sys.hash_info.inf
+                        i64::MAX
                     } else {
-                        Ok(-271828) // Placeholder for -sys.hash_info.inf
+                        i64::MIN
                     }
+                } else if self.0.fract() == 0.0 {
+                    // Critical: Integer-like floats must hash same as integers
+                    // This ensures hash(2) == hash(2.0) for HashSet consistency
+                    self.0 as i64
                 } else {
-                    // Use DefaultHasher on the bit representation for non-special floats
-                    let mut hasher = DefaultHasher::new();
-                    self.0.to_bits().hash(&mut hasher);
-                    // Convert u64 hash to isize. Might truncate on 32-bit systems.
-                    Ok(hasher.finish() as isize)
+                    // Non-integer floats: use bit-based hashing for consistency
+                    // This ensures the same float always produces the same hash
+                    self.0.to_bits() as i64
                 }
+            }
+
+            /// .NET compatible GetHashCode method.
+            ///
+            /// Returns a 32-bit hash code by calling __hash__ and truncating to i32.
+            /// This ensures consistency between the Python hash and .NET hash while
+            /// maintaining .NET's expected return type.
+            #[allow(non_snake_case)]
+            pub fn GetHashCode(&self) -> i32 {
+                // Call the Python hash method and truncate to i32 for .NET compatibility
+                self.__hash__() as i32
             }
 
             // --- Conversions ---

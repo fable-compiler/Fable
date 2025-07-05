@@ -758,6 +758,7 @@ impl FSharpArray {
     }
 
     #[staticmethod]
+    #[pyo3(signature = (cons=None))]
     pub fn empty(py: Python<'_>, cons: Option<&Bound<'_, PyAny>>) -> PyResult<FSharpArray> {
         // Determine the type from constructor
         let fs_cons = FSharpCons::extract(cons, &ArrayType::Generic);
@@ -3017,6 +3018,7 @@ pub fn append(
 }
 
 #[pyfunction]
+#[pyo3(signature = (value, cons=None))]
 pub fn singleton(
     py: Python<'_>,
     value: &Bound<'_, PyAny>,
@@ -3026,6 +3028,7 @@ pub fn singleton(
 }
 
 #[pyfunction]
+#[pyo3(signature = (cons=None))]
 pub fn empty(py: Python<'_>, cons: Option<&Bound<'_, PyAny>>) -> PyResult<FSharpArray> {
     FSharpArray::empty(py, cons)
 }
