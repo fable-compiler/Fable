@@ -59,10 +59,9 @@ let emitJsExpr<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 
 /// <summary>
-/// Emit a directive prologue at the top of the file (before the imports).
-/// <br/><br/>
-/// This is useful when working with Next.js or other frameworks that require
-/// a specific directive at the top of the file, such as "use client" or "use server".
+/// <para>Emit a directive prologue at the top of the file (before the imports).</para>
+/// <para>This is useful when working with Next.js or other frameworks that require
+/// a specific directive at the top of the file, such as "use client" or "use server".</para>
 /// </summary>
 /// <example><code lang="fsharp">
 /// let x = 5
@@ -78,10 +77,9 @@ let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 let emitJsTopDirectivePrologue (text: string) : unit = nativeOnly
 
 /// <summary>
-/// Emit a directive prologue at the calling position.
-/// <br/><br/>
-/// This is useful when you need to emit a directive prologue for a specific part of the code,
-/// such as "use client" or "use server".
+/// <para>Emit a directive prologue at the calling position.</para>
+/// <para>This is useful when you need to emit a directive prologue for a specific part of the code,
+/// such as "use client" or "use server".</para>
 /// </summary>
 /// <example><code lang="fsharp">
 /// let x = 5
