@@ -549,7 +549,8 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Char
     | String
     | Number _
-    | MetaType ->
+    | MetaType
+    | IsNullable _ ->
         let op =
             if equal then
                 BinaryEqual
@@ -977,6 +978,7 @@ let rec defaultof (com: ICompiler) (ctx: Context) r t =
     | Builtin BclDateOnly
     | Builtin BclTimeOnly -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid ()
+    | IsNullable _ -> Value(Null t, r)
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
@@ -1742,13 +1744,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Join", None, _ ->
         let methName =
             match i.SignatureArgTypes with
-            | [ _; Array _; Number _; Number _ ] -> "joinWithIndices"
+            | [ _; MaybeNullable(Array _); Number _; Number _ ] -> "joinWithIndices"
             | _ -> "join"
 
         Helper.LibCall(com, "String", methName, t, args, ?loc = r) |> Some
     | "Concat", None, _ ->
         match i.SignatureArgTypes with
-        | [ Array _ | IEnumerable ] ->
+        | [ MaybeNullable(Array _) | MaybeNullable(IEnumerable) ] ->
             Helper.LibCall(com, "String", "join", t, ((makeStrConst "") :: args), ?loc = r)
             |> Some
         | _ ->
@@ -2296,8 +2298,7 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> List.tryHead args
-    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValue) doesn't do a null check
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [ c ], ?loc = r) |> Some
+    | "get_Value", Some c -> Helper.LibCall(com, "Option", "nullableValue", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 

@@ -1632,12 +1632,12 @@ module TypeHelpers =
             else
                 Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
-        // TODO:
-        // if not t.IsGenericParameter && t.HasNullAnnotation // || t.IsNullAmbivalent
-        // then
-        //     makeRuntimeType [ typ ] Types.nullable // represent it as Nullable<T>
-        // else typ
-        typ
+        if
+            Compiler.CheckNulls && t.HasNullAnnotation // || t.IsNullAmbivalent
+        then
+            makeRuntimeType [ typ ] Types.nullable // represent Nullable Reference Types as Nullable<T>
+        else
+            typ
 
     let makeType (ctxTypeArgs: Map<string, Fable.Type>) t =
         makeTypeWithConstraints true ctxTypeArgs t
@@ -1672,15 +1672,21 @@ module TypeHelpers =
         | FSharpXmlDoc.FromXmlText(xmlDoc) -> xmlDoc.GetXmlText() |> Some
         | _ -> None
 
-    let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
-        if meth.ImplementedAbstractSignatures.Count > 0 then
-            nonAbbreviatedType meth.ImplementedAbstractSignatures[0].DeclaringType |> Some
+    let tryGetInterfaceTypeFromMethod (memb: FSharpMemberOrFunctionOrValue) =
+        if
+            memb.IsOverrideOrExplicitInterfaceImplementation
+            && memb.ImplementedAbstractSignatures.Count > 0
+        then
+            nonAbbreviatedType memb.ImplementedAbstractSignatures[0].DeclaringType |> Some
         else
             None
 
-    let tryGetInterfaceDefinitionFromMethod (meth: FSharpMemberOrFunctionOrValue) =
-        if meth.ImplementedAbstractSignatures.Count > 0 then
-            let t = nonAbbreviatedType meth.ImplementedAbstractSignatures[0].DeclaringType
+    let tryGetInterfaceDefinitionFromMethod (memb: FSharpMemberOrFunctionOrValue) =
+        if
+            memb.IsOverrideOrExplicitInterfaceImplementation
+            && memb.ImplementedAbstractSignatures.Count > 0
+        then
+            let t = nonAbbreviatedType memb.ImplementedAbstractSignatures[0].DeclaringType
 
             if t.HasTypeDefinition then
                 Some t.TypeDefinition
@@ -2380,6 +2386,7 @@ module Util =
         entityName + "." + memberName + overloadHash
 
     let getAbstractMemberInfo com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+        let ent = tryGetInterfaceDefinitionFromMethod memb |> Option.defaultValue ent
         let isMangled = isMangledAbstractEntity com ent
         let isGetter = FsMemberFunctionOrValue.IsGetter(memb)
         let isSetter = not isGetter && FsMemberFunctionOrValue.IsSetter(memb)

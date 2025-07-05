@@ -2,42 +2,38 @@
 module SeqModule2
 
 open Fable.Core
+open System.Collections.Generic
 
-let distinct (xs: seq<'T>) ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>) =
+let distinct<'T> (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
     Seq.delay (fun () ->
-        let hashSet = System.Collections.Generic.HashSet<'T>(comparer)
+        let hashSet = HashSet<'T>(comparer)
         xs |> Seq.filter (fun x -> hashSet.Add(x))
     )
 
-let distinctBy
+let distinctBy<'T, 'Key when 'Key: not null>
     (projection: 'T -> 'Key)
     (xs: seq<'T>)
-    ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
+    ([<Inject>] comparer: IEqualityComparer<'Key>)
     =
     Seq.delay (fun () ->
-        let hashSet = System.Collections.Generic.HashSet<'Key>(comparer)
+        let hashSet = HashSet<'Key>(comparer)
         xs |> Seq.filter (fun x -> hashSet.Add(projection x))
     )
 
-let except
-    (itemsToExclude: seq<'T>)
-    (xs: seq<'T>)
-    ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>)
-    =
+let except<'T> (itemsToExclude: seq<'T>) (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
     Seq.delay (fun () ->
-        let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude, comparer)
-
+        let hashSet = HashSet<'T>(itemsToExclude, comparer)
         xs |> Seq.filter (fun x -> hashSet.Add(x))
     )
 
-let countBy
+let countBy<'T, 'Key when 'Key: not null>
     (projection: 'T -> 'Key)
     (xs: seq<'T>)
-    ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
+    ([<Inject>] comparer: IEqualityComparer<'Key>)
     : ('Key * int) seq
     =
     Seq.delay (fun () ->
-        let dict = System.Collections.Generic.Dictionary<'Key, int>(comparer)
+        let dict = Dictionary<'Key, int>(comparer)
         let keys = ResizeArray<'Key>()
 
         for x in xs do
@@ -52,14 +48,14 @@ let countBy
         Seq.map (fun key -> key, dict.[key]) keys
     )
 
-let groupBy
+let groupBy<'T, 'Key when 'Key: not null>
     (projection: 'T -> 'Key)
     (xs: seq<'T>)
-    ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
+    ([<Inject>] comparer: IEqualityComparer<'Key>)
     : ('Key * seq<'T>) seq
     =
     Seq.delay (fun () ->
-        let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>(comparer)
+        let dict = Dictionary<'Key, ResizeArray<'T>>(comparer)
 
         let keys = ResizeArray<'Key>()
 
@@ -77,68 +73,37 @@ let groupBy
 
 module Array =
 
-    let distinct (xs: 'T[]) ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>) : 'T[] =
-        distinct xs comparer |> Seq.toArray
+    let distinct (xs: 'T[]) ([<Inject>] comparer: IEqualityComparer<'T>) : 'T[] = distinct xs comparer |> Seq.toArray
 
-    let distinctBy
-        (projection: 'T -> 'Key)
-        (xs: 'T[])
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
-        : 'T[]
-        =
+    let distinctBy (projection: 'T -> 'Key) (xs: 'T[]) ([<Inject>] comparer: IEqualityComparer<'Key>) : 'T[] =
         distinctBy projection xs comparer |> Seq.toArray
 
-    let except
-        (itemsToExclude: seq<'T>)
-        (xs: 'T[])
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>)
-        : 'T[]
-        =
+    let except (itemsToExclude: seq<'T>) (xs: 'T[]) ([<Inject>] comparer: IEqualityComparer<'T>) : 'T[] =
         except itemsToExclude xs comparer |> Seq.toArray
 
-    let countBy
-        (projection: 'T -> 'Key)
-        (xs: 'T[])
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
-        : ('Key * int)[]
-        =
+    let countBy (projection: 'T -> 'Key) (xs: 'T[]) ([<Inject>] comparer: IEqualityComparer<'Key>) : ('Key * int)[] =
         countBy projection xs comparer |> Seq.toArray
 
-    let groupBy
-        (projection: 'T -> 'Key)
-        (xs: 'T[])
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
-        : ('Key * 'T[])[]
-        =
+    let groupBy (projection: 'T -> 'Key) (xs: 'T[]) ([<Inject>] comparer: IEqualityComparer<'Key>) : ('Key * 'T[])[] =
         groupBy projection xs comparer
         |> Seq.map (fun (key, values) -> key, Seq.toArray values)
         |> Seq.toArray
 
 module List =
 
-    let distinct (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>) : 'T list =
+    let distinct (xs: 'T list) ([<Inject>] comparer: IEqualityComparer<'T>) : 'T list =
         distinct xs comparer |> Seq.toList
 
-    let distinctBy
-        (projection: 'T -> 'Key)
-        (xs: 'T list)
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
-        : 'T list
-        =
+    let distinctBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] comparer: IEqualityComparer<'Key>) : 'T list =
         distinctBy projection xs comparer |> Seq.toList
 
-    let except
-        (itemsToExclude: seq<'T>)
-        (xs: 'T list)
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'T>)
-        : 'T list
-        =
+    let except (itemsToExclude: seq<'T>) (xs: 'T list) ([<Inject>] comparer: IEqualityComparer<'T>) : 'T list =
         except itemsToExclude xs comparer |> Seq.toList
 
     let countBy
         (projection: 'T -> 'Key)
         (xs: 'T list)
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
+        ([<Inject>] comparer: IEqualityComparer<'Key>)
         : ('Key * int) list
         =
         countBy projection xs comparer |> Seq.toList
@@ -146,7 +111,7 @@ module List =
     let groupBy
         (projection: 'T -> 'Key)
         (xs: 'T list)
-        ([<Inject>] comparer: System.Collections.Generic.IEqualityComparer<'Key>)
+        ([<Inject>] comparer: IEqualityComparer<'Key>)
         : ('Key * 'T list) list
         =
         groupBy projection xs comparer

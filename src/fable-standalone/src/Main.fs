@@ -169,7 +169,7 @@ let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpChec
 
     Project.From(
         projectOptions.ProjectFileName,
-        projectOptions.SourceFiles,
+        projectOptions,
         implFiles,
         checkResults.ProjectContext.GetReferencedAssemblies(),
         addLog

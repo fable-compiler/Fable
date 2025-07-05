@@ -956,6 +956,11 @@ module TypeInfo =
         | Fable.Operation(Fable.Unary(UnaryOperator.UnaryAddressOf, e), _, _, _) -> true
         | _ -> false
 
+    let isNullableType (com: IRustCompiler) =
+        function
+        | Replacements.Util.IsNullable _ -> true
+        | _ -> false
+
     let isByRefType (com: IRustCompiler) =
         function
         | Replacements.Util.IsByRefType com _ -> true
@@ -991,17 +996,17 @@ module TypeInfo =
            && not (Set.contains name ctx.ScopedEntityGenArgs)
            && not (Set.contains name ctx.ScopedMemberGenArgs)
 
-    let isNullableReferenceType com ctx constraints =
-        let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
-        let isNotNullable = constraints |> List.contains Fable.Constraint.IsNotNullable
-        let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
-        isNullable || isNotNullable && isReferenceType
+    // let isNullableReferenceType com ctx constraints =
+    //     let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
+    //     let isNotNullable = constraints |> List.contains Fable.Constraint.IsNotNullable
+    //     let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
+    //     isNullable || isNotNullable && isReferenceType
 
     let transformGenericParamType com ctx name isMeasure constraints : Rust.Ty =
-        // if isNullableReferenceType com ctx constraints then
-        //     // primitiveType name |> makeNullableTy com ctx
-        //     primitiveType name |> makeLrcPtrTy com ctx
-        // elif
+        // if Compiler.CheckNulls && isNullableReferenceType com ctx constraints then
+        //     primitiveType name |> makeNullableTy com ctx
+        //     // primitiveType name |> makeLrcPtrTy com ctx
+        // else
         if isInferredGenericParam com ctx name isMeasure then
             mkInferTy () // mkNeverTy ()
         else
@@ -1058,7 +1063,7 @@ module TypeInfo =
             | Fable.List genArg -> transformListType com ctx genArg
             | Fable.Regex -> transformRegexType com ctx
             | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
-            | Replacements.Util.IsEntity (Types.nullable) (entRef, [ genArg ]) -> transformNullableType com ctx genArg
+            | Replacements.Util.IsNullable genArg -> transformNullableType com ctx genArg
 
             // interfaces implemented as the type itself
             | Replacements.Util.IsEntity (Types.iset) (entRef, [ genArg ]) -> transformHashSetType com ctx genArg
@@ -2788,34 +2793,47 @@ module Util =
         exprs |> List.map (transformAsStmt com ctx) |> mkStmtBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
-        // match canTransformDecisionTreeAsSwitch guard thenBody elseBody with
-        // | Some(evalExpr, cases, defaultCase) ->
-        //     transformSwitch com ctx evalExpr cases (Some defaultCase)
-        // | _ ->
-        let guardExpr =
-            match guard with
-            | Fable.Test(expr, Fable.TypeTest typ, r) -> transformTypeTest com ctx r true typ expr
-            | Fable.Test(expr, Fable.OptionTest isSome, r) -> makeOptionTest com ctx r isSome expr
-            | Fable.Test(expr, Fable.UnionCaseTest tag, r) -> makeUnionCaseTest com ctx r tag expr
-            | _ -> transformLeaveContext com ctx None guard
-
-        let thenExpr =
-            let ctx =
-                match guard with
-                // | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest _, _)
-                | Fable.Test(Fable.IdentExpr ident, Fable.UnionCaseTest _, _) ->
-                    // add scoped ident to ctx for thenBody
-                    let usages = calcIdentUsages [ ident ] [ thenBody ]
-                    getScopedIdentCtx com ctx ident true false false false usages
-                | _ -> ctx
-
-            transformLeaveContext com ctx None thenBody
-
-        match elseBody with
-        | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr guardExpr thenExpr // ?loc=range)
-        | _ ->
+        // transform nullable types null check
+        match guard with
+        | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest false, r) when isNullableType com ident.Type ->
+            let value = transformIdentGet com ctx r ident
+            let pat = makeUnionCasePat (rawIdent "Some") [ makeFullNameIdentPat ident.Name ]
+            let letExpr = mkLetExpr pat value
+            let thenExpr = transformLeaveContext com ctx None thenBody
             let elseExpr = transformLeaveContext com ctx None elseBody
-            mkIfThenElseExpr guardExpr thenExpr elseExpr // ?loc=range)
+
+            match thenBody with
+            | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr letExpr elseExpr // ?loc=range)
+            | _ -> mkIfThenElseExpr letExpr elseExpr thenExpr // ?loc=range)
+        | _ ->
+            // match canTransformDecisionTreeAsSwitch guard thenBody elseBody with
+            // | Some(evalExpr, cases, defaultCase) ->
+            //     transformSwitch com ctx evalExpr cases (Some defaultCase)
+            // | _ ->
+            let guardExpr =
+                match guard with
+                | Fable.Test(expr, Fable.TypeTest typ, r) -> transformTypeTest com ctx r true typ expr
+                | Fable.Test(expr, Fable.OptionTest isSome, r) -> makeOptionTest com ctx r isSome expr
+                | Fable.Test(expr, Fable.UnionCaseTest tag, r) -> makeUnionCaseTest com ctx r tag expr
+                | _ -> transformLeaveContext com ctx None guard
+
+            let thenExpr =
+                let ctx =
+                    match guard with
+                    // | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest _, _)
+                    | Fable.Test(Fable.IdentExpr ident, Fable.UnionCaseTest _, _) ->
+                        // add scoped ident to ctx for thenBody
+                        let usages = calcIdentUsages [ ident ] [ thenBody ]
+                        getScopedIdentCtx com ctx ident true false false false usages
+                    | _ -> ctx
+
+                transformLeaveContext com ctx None thenBody
+
+            match elseBody with
+            | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr guardExpr thenExpr // ?loc=range)
+            | _ ->
+                let elseExpr = transformLeaveContext com ctx None elseBody
+                mkIfThenElseExpr guardExpr thenExpr elseExpr // ?loc=range)
 
     let transformWhileLoop (com: IRustCompiler) ctx range guard body =
         let guardExpr = transformExpr com ctx guard
@@ -4851,17 +4869,6 @@ module Util =
         let ofTrait = mkTraitRef path |> Some
         let implItem = memberItems |> makeTraitImpl com ctx entName genArgs ofTrait
         [ implItem ]
-
-    // let objectMemberNames =
-    //     set
-    //         [
-    //             // "Equals"
-    //             // "GetHashCode"
-    //             // "MemberwiseClone"
-    //             // "ReferenceEquals"
-    //             "GetType"
-    //             "ToString"
-    //         ]
 
     let findInterfaceGenArgs (com: IRustCompiler) (ent: Fable.Entity) (ifcEntRef: Fable.EntityRef) =
         let ifcOpt =
