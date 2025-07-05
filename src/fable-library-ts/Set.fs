@@ -144,7 +144,7 @@ module SetTree =
         else
             mk t1 v t2
 
-    let rec add (comparer: IComparer<'T>) k (t: SetTree<'T>) : SetTree<'T> =
+    let rec add (comparer: IComparer<'T>) (k: 'T) (t: SetTree<'T>) : SetTree<'T> =
         match t with
         | None -> SetTreeLeaf k |> Some
         | Some t2 ->
@@ -337,7 +337,7 @@ module SetTree =
 
     let subset comparer a b = forall (fun x -> mem comparer x b) a
 
-    let properSubset comparer a b =
+    let properSubset (comparer: IComparer<'T>) (a: SetTree<'T>) b =
         forall (fun x -> mem comparer x b) a
         && exists (fun x -> not (mem comparer x a)) b
 
@@ -362,7 +362,7 @@ module SetTree =
 
     let filter comparer f s = filterAux comparer f s empty
 
-    let rec diffAux comparer (t: SetTree<'T>) acc =
+    let rec diffAux (comparer: IComparer<'T>) (t: SetTree<'T>) acc =
         if isEmpty acc then
             acc
         else
@@ -376,7 +376,7 @@ module SetTree =
 
     let diff comparer a b = diffAux comparer b a
 
-    let rec union comparer (t1: SetTree<'T>) (t2: SetTree<'T>) =
+    let rec union (comparer: IComparer<'T>) (t1: SetTree<'T>) (t2: SetTree<'T>) =
         // Perf: tried bruteForce for low heights, but nothing significant
         match t1 with
         | None -> t2
@@ -403,7 +403,7 @@ module SetTree =
                     | _ -> add comparer t2'.Key t1
                 | _ -> add comparer t1'.Key t2
 
-    let rec intersectionAux comparer b (t: SetTree<'T>) acc =
+    let rec intersectionAux (comparer: IComparer<'T>) b (t: SetTree<'T>) acc =
         match t with
         | None -> acc
         | Some t2 ->
@@ -549,7 +549,7 @@ module SetTree =
 
         { new IEnumerator<'a> with
             member _.Current: 'a = current i
-            member _.Current: obj = box (current i)
+            member _.Current: objnull = box (current i)
             member _.MoveNext() = moveNext i
             member _.Reset() = i <- mkIterator s
             member _.Dispose() = ()
@@ -875,8 +875,8 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
 
     override this.GetHashCode() = this.ComputeHashCode()
 
-    override this.Equals that =
-        match that with
+    override this.Equals(other: obj) =
+        match other with
         | :? Set<'T> as that -> SetTree.compare this.Comparer this.Tree that.Tree = 0
         | _ -> false
 
@@ -884,11 +884,13 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
         member _.``Symbol.toStringTag`` = "FSharpSet"
 
     interface IJsonSerializable with
-        member this.toJSON() = Helpers.arrayFrom (this) |> box
+        member this.toJSON() = Helpers.arrayFrom (this)
 
     interface System.IComparable with
-        member s.CompareTo(that: obj) =
-            SetTree.compare s.Comparer s.Tree ((that :?> Set<'T>).Tree)
+        member this.CompareTo(other: obj) =
+            match other with
+            | :? Set<'T> as that -> SetTree.compare this.Comparer this.Tree that.Tree
+            | _ -> 1
 
     interface ICollection<'T> with
         member s.Add x =
@@ -942,16 +944,14 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
     //     let comparer = LanguagePrimitives.FastGenericComparer<'T>
     //     Set(comparer, SetTree.ofSeq comparer elements)
 
-    // static member Create(elements : seq<'T>) =  Set<'T>(elements)
+    // static member Create(elements : seq<'T>) = Set<'T>(elements)
 
     // static member FromArray(arr : 'T array) : Set<'T> =
     //     let comparer = LanguagePrimitives.FastGenericComparer<'T>
     //     Set(comparer, SetTree.ofArray comparer arr)
 
     override this.ToString() =
-        let inline toStr (x: 'T) = x.ToString()
-        let str = this |> Seq.map toStr |> String.concat "; "
-        "set [" + str + "]"
+        "set [" + System.String.Join("; ", this) + "]"
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]

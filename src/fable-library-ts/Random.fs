@@ -172,7 +172,7 @@ type Seeded(seed: int) =
         member this.NextDouble() = this.Sample()
 
         member this.NextBytes(buffer: byte array) =
-            if isNull buffer then
+            if isNull (box buffer) then
                 raise <| ArgumentNullException("buffer")
 
             for i = 0 to buffer.Length - 1 do

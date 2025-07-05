@@ -715,8 +715,23 @@ let (|IsEntity|_|) fullName =
             None
     | _ -> None
 
+let (|IsNullable|_|) =
+    function
+    | DeclaredType(entRef, [ genArg ]) ->
+        if entRef.FullName = Types.nullable then
+            Some(genArg)
+        else
+            None
+    | _ -> None
+
+let (|MaybeNullable|) =
+    function
+    | IsNullable(t) -> t
+    | t -> t
+
 let (|IDictionary|IEqualityComparer|Other|) =
     function
+    | MaybeNullable(DeclaredType(entRef, _))
     | DeclaredType(entRef, _) ->
         match entRef.FullName with
         | Types.idictionary -> IDictionary
@@ -726,6 +741,7 @@ let (|IDictionary|IEqualityComparer|Other|) =
 
 let (|IEnumerable|IEqualityComparer|Other|) =
     function
+    | MaybeNullable(DeclaredType(entRef, _))
     | DeclaredType(entRef, _) ->
         match entRef.FullName with
         | Types.ienumerableGeneric -> IEnumerable
@@ -745,6 +761,7 @@ let (|Enumerator|Other|) =
 
 let (|IsEnumerator|_|) =
     function
+    | MaybeNullable(DeclaredType(entRef, genArgs))
     | DeclaredType(entRef, genArgs) ->
         match entRef.FullName with
         | Enumerator -> Some(entRef, genArgs)

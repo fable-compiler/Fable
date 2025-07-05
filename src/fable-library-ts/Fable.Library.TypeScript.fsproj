@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <!-- <WarningsAsErrors>FS3261</WarningsAsErrors> -->
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
     <!-- <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants> -->
   </PropertyGroup>

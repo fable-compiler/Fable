@@ -483,6 +483,12 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     // | MetaType ->
     //     Helper.LibCall(com, "Reflection", "equals", t, [left; right], ?loc=r)
     | HasReferenceEquality com _ -> referenceEquals com ctx r left right
+    | IsNullable _ ->
+        // transforms null check into option test
+        match left, right with
+        | expr, Value(NewOption(None, _, _), _) -> Test(expr, OptionTest false, r)
+        | Value(NewOption(None, _, _), _), expr -> Test(expr, OptionTest false, r)
+        | _ -> makeEqOp r left right BinaryEqual
     | _ ->
         // Helper.LibCall(com, "Native", "equals", t, [left; right], ?loc=r)
         makeEqOp r left right BinaryEqual
@@ -635,7 +641,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
-    | IsEntity (Types.nullable) (_entRef, [ genArg ]) -> NewOption(None, genArg, false) |> makeValue None
+    | IsNullable genArg -> NewOption(None, genArg, false) |> makeValue None
     | HasReferenceEquality com _ -> Null t |> makeValue None
     | _ -> Helper.LibCall(com, "Native", "getZero", t, [])
 
@@ -1967,7 +1973,6 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> NewOption(List.tryHead args, t.Generics.Head, false) |> makeValue r |> Some
-    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValue) doesn't do a null check
     | "get_Value", Some c -> Helper.LibCall(com, "Option", "getValue", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
