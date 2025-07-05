@@ -1,3 +1,5 @@
+export type Nullable<T> = T | null | undefined;
+
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,
@@ -30,11 +32,11 @@ export interface IDisposable {
 }
 
 export interface IComparer<T> {
-  Compare(x: T, y: T): number;
+  Compare(x: Nullable<T>, y: Nullable<T>): number;
 }
 
 export interface IEqualityComparer<T> {
-  Equals(x: T, y: T): boolean;
+  Equals(x: Nullable<T>, y: Nullable<T>): boolean;
   GetHashCode(x: T): number;
 }
 
@@ -426,7 +428,7 @@ export function safeHash<T>(x: T): number {
   return identityHash(x);
 }
 
-export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {
+export function equalArraysWith<T>(x: Nullable<ArrayLike<T>>, y: Nullable<ArrayLike<T>>, eq: (x: T, y: T) => boolean): boolean {
   if (x == null) { return y == null; }
   if (y == null) { return false; }
   if (x.length !== y.length) { return false; }
@@ -436,7 +438,7 @@ export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, 
   return true;
 }
 
-export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
+export function equalArrays<T>(x: Nullable<ArrayLike<T>>, y: Nullable<ArrayLike<T>>): boolean {
   return equalArraysWith(x, y, equals);
 }
 

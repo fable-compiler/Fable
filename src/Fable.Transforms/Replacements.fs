@@ -550,7 +550,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | String
     | Number _
     | MetaType
-    | IsEntity (Types.nullable) _ ->
+    | IsNullable _ ->
         let op =
             if equal then
                 BinaryEqual
@@ -978,7 +978,7 @@ let rec defaultof (com: ICompiler) (ctx: Context) r t =
     | Builtin BclDateOnly
     | Builtin BclTimeOnly -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid ()
-    | IsEntity (Types.nullable) _ -> Value(Null t, r)
+    | IsNullable _ -> Value(Null t, r)
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
@@ -1744,13 +1744,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Join", None, _ ->
         let methName =
             match i.SignatureArgTypes with
-            | [ _; Array _; Number _; Number _ ] -> "joinWithIndices"
+            | [ _; MaybeNullable(Array _); Number _; Number _ ] -> "joinWithIndices"
             | _ -> "join"
 
         Helper.LibCall(com, "String", methName, t, args, ?loc = r) |> Some
     | "Concat", None, _ ->
         match i.SignatureArgTypes with
-        | [ Array _ | IEnumerable ] ->
+        | [ MaybeNullable(Array _) | MaybeNullable(IEnumerable) ] ->
             Helper.LibCall(com, "String", "join", t, ((makeStrConst "") :: args), ?loc = r)
             |> Some
         | _ ->

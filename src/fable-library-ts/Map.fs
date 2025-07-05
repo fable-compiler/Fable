@@ -161,7 +161,7 @@ module MapTree =
                 else
                     MapTreeNode(k, v, m, empty, 2) :> MapTreeLeaf<'Key, 'Value> |> Some
 
-    let rec tryFind (comparer: IComparer<'Key>) k (m: MapTree<'Key, 'Value>) =
+    let rec tryFind (comparer: IComparer<'Key>) (k: 'Key) (m: MapTree<'Key, 'Value>) =
         match m with
         | None -> None
         | Some m2 ->
@@ -503,7 +503,7 @@ module MapTree =
         else
             foldFromTo f m x
 
-    let foldSection (comparer: IComparer<'Key>) lo hi f m x =
+    let foldSection comparer lo hi f m x =
         foldSectionOpt comparer lo hi (OptimizedClosures.FSharpFunc<_, _, _, _>.Adapt f) m x
 
     let toList (m: MapTree<'Key, 'Value>) =
@@ -629,7 +629,7 @@ module MapTree =
 
         { new IEnumerator<KeyValuePair<'a, 'b>> with
             member _.Current: KeyValuePair<'a, 'b> = current i
-            member _.Current: obj = box (current i)
+            member _.Current: objnull = box (current i)
             member _.MoveNext() = moveNext i
             member _.Reset() = i <- mkIterator m
             member _.Dispose() = ()
@@ -766,7 +766,7 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
 
     member m.Fold f acc = MapTree.foldBack f tree acc
 
-    member m.FoldSection (lo: 'Key) (hi: 'Key) f (acc: 'z) =
+    member m.FoldSection lo hi f acc =
         MapTree.foldSection comparer lo hi f tree acc
 
     member m.Iterate f = MapTree.iter f tree
@@ -838,8 +838,8 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
 
     override this.GetHashCode() = this.ComputeHashCode()
 
-    override this.Equals that =
-        match that with
+    override this.Equals(other: obj) =
+        match other with
         | :? Map<'Key, 'Value> as that ->
             use e1 = (this :> seq<_>).GetEnumerator()
             use e2 = (that :> seq<_>).GetEnumerator()
@@ -862,8 +862,7 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
         member _.``Symbol.toStringTag`` = "FSharpMap"
 
     interface IJsonSerializable with
-        member this.toJSON() =
-            JS.Constructors.Array.from (this) |> box
+        member this.toJSON() = JS.Constructors.Array.from (this)
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member _.GetEnumerator() = MapTree.mkIEnumerator tree
@@ -873,11 +872,11 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
             MapTree.mkIEnumerator tree :> System.Collections.IEnumerator
 
     interface System.IComparable with
-        member m.CompareTo(obj: obj) =
-            match obj with
-            | :? Map<'Key, 'Value> as m2 ->
+        member this.CompareTo(other: obj) =
+            match other with
+            | :? Map<'Key, 'Value> as that ->
                 Seq.compareWith
-                    (fun (kvp1: KeyValuePair<_, _>) (kvp2: KeyValuePair<_, _>) ->
+                    (fun (kvp1: KeyValuePair<'Key, 'Value>) (kvp2: KeyValuePair<'Key, 'Value>) ->
                         let c = comparer.Compare(kvp1.Key, kvp2.Key) in
 
                         if c <> 0 then
@@ -885,9 +884,9 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
                         else
                             Unchecked.compare kvp1.Value kvp2.Value
                     )
-                    m
-                    m2
-            | _ -> invalidArg "obj" "not comparable"
+                    this
+                    that
+            | _ -> 1
 
     // interface IDictionary<'Key, 'Value> with
     //     member m.Item
@@ -960,8 +959,7 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
         let inline toStr (kv: KeyValuePair<'Key, 'Value>) =
             System.String.Format("({0}, {1})", kv.Key, kv.Value)
 
-        let str = this |> Seq.map toStr |> String.concat "; "
-        "map [" + str + "]"
+        "map [" + System.String.Join("; ", this |> Seq.map toStr) + "]"
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]

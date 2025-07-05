@@ -285,15 +285,11 @@ module Enumerator =
 let indexNotFound () =
     raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
-let checkNonNull argName arg =
-    if isNull arg then
-        nullArg argName
-
 let mkSeq (f: unit -> IEnumerator<'T>) : seq<'T> =
     Enumerator.Enumerable(f) :> IEnumerable<'T>
 
 let ofSeq (xs: seq<'T>) : IEnumerator<'T> =
-    checkNonNull "source" xs
+    let xs = nullArgCheck "source" xs
     xs.GetEnumerator()
 
 let delay (generator: unit -> seq<'T>) =
@@ -350,7 +346,7 @@ let append (xs: seq<'T>) (ys: seq<'T>) = concat [| xs; ys |]
 
 let cast (xs: IEnumerable<'T>) =
     mkSeq (fun () ->
-        checkNonNull "source" xs
+        let xs = nullArgCheck "source" xs
         xs.GetEnumerator() |> Enumerator.cast
     )
 
@@ -785,7 +781,7 @@ let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: s
         )
 
 let readOnly (xs: seq<'T>) =
-    checkNonNull "source" xs
+    let xs = nullArgCheck "source" xs
     map id xs
 
 type CachedSeq<'T>(cleanup, res: seq<'T>) =
@@ -803,7 +799,7 @@ type CachedSeq<'T>(cleanup, res: seq<'T>) =
 
 // Adapted from https://github.com/dotnet/fsharp/blob/eb1337f218275da5294b5fbab2cf77f35ca5f717/src/fsharp/FSharp.Core/seq.fs#L971
 let cache (source: seq<'T>) =
-    checkNonNull "source" source
+    let source = nullArgCheck "source" source
     // Wrap a seq to ensure that it is enumerated just once and only as far as is necessary.
     //
     // This code is required to be thread safe.
@@ -1056,13 +1052,13 @@ let sortWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) =
     )
 
 let sort (xs: seq<'T>) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-    sortWith (fun x y -> comparer.Compare(x, y)) xs
+    sortWith (fun (x: 'T) (y: 'T) -> comparer.Compare(x, y)) xs
 
 let sortBy (projection: 'T -> 'U) (xs: seq<'T>) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
     sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
 
 let sortDescending (xs: seq<'T>) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-    sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
+    sortWith (fun (x: 'T) (y: 'T) -> comparer.Compare(x, y) * -1) xs
 
 let sortByDescending
     (projection: 'T -> 'U)

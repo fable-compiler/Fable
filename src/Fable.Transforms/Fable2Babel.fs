@@ -693,7 +693,7 @@ module Annotation =
         makeFableLibImportTypeAnnotation com ctx [] moduleName typeName
 
     let makeNullableTypeAnnotation com ctx genArg =
-        makeFableLibImportTypeAnnotation com ctx [ genArg ] "Option" "Nullable"
+        makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "Nullable"
 
     let makeOptionTypeAnnotation com ctx genArg =
         makeFableLibImportTypeAnnotation com ctx [ genArg ] "Option" "Option"

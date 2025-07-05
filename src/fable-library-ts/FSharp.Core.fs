@@ -51,7 +51,7 @@ module Operators =
     let lock _lockObj action = action () // no locking, just invoke
 
     [<CompiledName("IsNull")>]
-    let isNull (value: 'T) =
+    let isNull (value: 'T when 'T: null) =
         match box value with
         | null -> true
         | _ -> false
@@ -66,10 +66,10 @@ module Operators =
     let isNullV (value: System.Nullable<'T>) = not value.HasValue
 
     [<CompiledName("NonNull")>]
-    let nonNull (value: 'T) =
+    let nonNull (value: 'T | null when 'T: not null and 'T: not struct) =
         match box value with
         | null -> raise (System.NullReferenceException())
-        | _ -> value
+        | _ -> (# "" value : 'T #)
 
     [<CompiledName("NonNullV")>]
     let nonNullV (value: System.Nullable<'T>) =
@@ -79,10 +79,10 @@ module Operators =
             raise (System.NullReferenceException())
 
     [<CompiledName("NullMatchPattern")>]
-    let (|Null|NonNull|) (value: 'T) =
-        match box value with
+    let (|Null|NonNull|) (value: 'T | null when 'T: not null and 'T: not struct) =
+        match value with
         | null -> Null()
-        | _ -> NonNull value
+        | _ -> NonNull (# "" value : 'T #)
 
     [<CompiledName("NullValueMatchPattern")>]
     let (|NullV|NonNullV|) (value: System.Nullable<'T>) =
@@ -92,10 +92,10 @@ module Operators =
             NullV()
 
     [<CompiledName("NonNullQuickPattern")>]
-    let (|NonNullQuick|) (value: 'T) =
+    let (|NonNullQuick|) (value: 'T | null when 'T: not null and 'T: not struct) =
         match box value with
         | null -> raise (System.NullReferenceException())
-        | _ -> value
+        | _ -> (# "" value : 'T #)
 
     [<CompiledName("NonNullQuickValuePattern")>]
     let (|NonNullQuickV|) (value: System.Nullable<'T>) =
@@ -105,19 +105,20 @@ module Operators =
             raise (System.NullReferenceException())
 
     [<CompiledName("WithNull")>]
-    let withNull (value: 'T) : 'T = value
+    let withNull (value: 'T when 'T: not null and 'T: not struct) = (# "" value : 'T | null #)
 
     [<CompiledName("WithNullV")>]
     let withNullV (value: 'T) : System.Nullable<'T> = System.Nullable<'T>(value)
 
     [<CompiledName("NullV")>]
-    let nullV<'T when 'T: struct and 'T: (new: unit -> 'T) and 'T :> System.ValueType> () = System.Nullable<'T>()
+    let nullV<'T when 'T: struct and 'T: (new: unit -> 'T) and 'T :> System.ValueType> =
+        System.Nullable<'T>()
 
     [<CompiledName("NullArgCheck")>]
-    let nullArgCheck (argumentName: string) (value: 'T) =
-        match box value with
+    let nullArgCheck (argumentName: string) (value: 'T | null when 'T: not null and 'T: not struct) =
+        match value with
         | null -> raise (new System.ArgumentNullException($"Value cannot be null. (Parameter '{argumentName}')"))
-        | _ -> value
+        | _ -> (# "" value : 'T #)
 
 module ExtraTopLevelOperators =
     [<CompiledName("LazyPattern")>]

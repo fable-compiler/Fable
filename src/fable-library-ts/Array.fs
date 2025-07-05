@@ -761,12 +761,12 @@ let splitAt (index: int) (array: 'T[]) : 'T[] * 'T[] =
 // Note that, though it's not consistent with `compare` operator,
 // Array.compareWith doesn't compare first the length, see #2961
 let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
-    if isNull source1 then
-        if isNull source2 then
+    if isNull (box source1) then
+        if isNull (box source2) then
             0
         else
             -1
-    elif isNull source2 then
+    elif isNull (box source2) then
         1
     else
         let len1 = source1.Length
@@ -795,12 +795,12 @@ let compareWith (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
             0
 
 let compareTo (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
-    if isNull source1 then
-        if isNull source2 then
+    if isNull (box source1) then
+        if isNull (box source2) then
             0
         else
             -1
-    elif isNull source2 then
+    elif isNull (box source2) then
         1
     else
         let len1 = source1.Length
@@ -820,19 +820,19 @@ let compareTo (comparer: 'T -> 'T -> int) (source1: 'T[]) (source2: 'T[]) =
 
             res
 
-let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) =
-    if isNull array1 then
-        if isNull array2 then
+let equalsWith (equals: 'T -> 'T -> bool) (source1: 'T[]) (source2: 'T[]) =
+    if isNull (box source1) then
+        if isNull (box source2) then
             true
         else
             false
-    elif isNull array2 then
+    elif isNull (box source2) then
         false
     else
         let mutable i = 0
         let mutable result = true
-        let length1 = array1.Length
-        let length2 = array2.Length
+        let length1 = source1.Length
+        let length2 = source2.Length
 
         if length1 > length2 then
             false
@@ -840,7 +840,7 @@ let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) =
             false
         else
             while i < length1 && result do
-                result <- equals array1.[i] array2.[i]
+                result <- equals source1.[i] source2.[i]
                 i <- i + 1
 
             result
@@ -1249,7 +1249,7 @@ let resize
 
     let zero = defaultArg zero Unchecked.defaultof<_>
 
-    if isNull xs then
+    if isNull (box xs) then
         xs <- fillImpl (allocateArrayFromCons cons newSize) zero 0 newSize
 
     else

@@ -1,4 +1,4 @@
-import { structuralHash, equals, compare } from "./Util.js";
+import { Nullable, structuralHash, equals, compare } from "./Util.js";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
@@ -11,8 +11,6 @@ import { structuralHash, equals, compare } from "./Util.js";
 
 // Note: We use non-strict null check for backwards compatibility with
 // code that use F# options to represent values that could be null in JS
-
-export type Nullable<T> = T | null | undefined;
 
 export type Option<T> = T | Some<T> | undefined;
 
