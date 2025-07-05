@@ -3,7 +3,18 @@ module Fable.Core.JsInterop
 open System
 open Fable.Core
 
-/// Compiles to ?? operator in JavaScript
+/// <summary>
+/// Compiles to <c>??</c> nullish coalescing operator in JavaScript.
+/// </summary>
+/// <remarks>
+/// <code lang="fsharp">
+/// expr1 ?? expr2
+/// </code>
+/// Returns <c>expr1</c> if it is neither <c>null</c> nor <c>undefined</c> on runtime; otherwise, returns <c>expr2</c>
+/// </remarks>
+/// <seealso href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing">
+/// JavaScript Documentation
+/// </seealso>
 [<Emit("$0 ?? $1")>]
 let (??=) (nullable: 'T) (defaultValue: 'T) : 'T = nativeOnly
 
@@ -48,20 +59,40 @@ let emitJsExpr<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 
 /// <summary>
-/// Emit a directive prologue at the top of the file (before the imports)
-///
+/// Emit a directive prologue at the top of the file (before the imports).
+/// <br/><br/>
 /// This is useful when working with Next.js or other frameworks that require
 /// a specific directive at the top of the file, such as "use client" or "use server".
 /// </summary>
+/// <example><code lang="fsharp">
+/// let x = 5
+/// emitJsTopDirectivePrologue "use server"
+/// </code>
+/// Compiles to:
+/// <code lang="js">
+/// "use server";
+/// export const x = 5;
+/// </code>
+/// </example>
 /// <param name="text">Directive text</param>
 let emitJsTopDirectivePrologue (text: string) : unit = nativeOnly
 
 /// <summary>
 /// Emit a directive prologue at the calling position.
-///
+/// <br/><br/>
 /// This is useful when you need to emit a directive prologue for a specific part of the code,
 /// such as "use client" or "use server".
 /// </summary>
+/// <example><code lang="fsharp">
+/// let x = 5
+/// emitJsDirectivePrologue "use server"
+/// </code>
+/// Compiles to:
+/// <code lang="js">
+/// export const x = 5;
+/// "use server";
+/// </code>
+/// </example>
 /// <param name="text">Directive text</param>
 let emitJsDirectivePrologue (text: string) : unit = nativeOnly
 
