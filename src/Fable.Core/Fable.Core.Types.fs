@@ -3,20 +3,50 @@ namespace Fable.Core
 open System
 
 /// <summary>
-/// Parameter used in <c>StringEnum</c> and methods/other attributes that
-/// generate strings from unions or other identifiers to change the casing in conversion.
+/// Specifies case transformation rules.
 /// </summary>
 type CaseRules =
+    /// <summary>
+    /// No transformation is applied.
+    /// <example>
+    /// <c>FooBar</c> -> <c>FooBar</c>
+    /// </example>
+    /// </summary>
     | None = 0
-    /// FooBar -> fooBar
+    /// <summary>
+    /// First character is lowercased.
+    /// <example>
+    /// <c>FooBar</c> -> <c>fooBar</c>
+    /// </example>
+    /// </summary>
     | LowerFirst = 1
-    /// FooBar -> foo_bar
+    /// <summary>
+    /// Underscores are used as a separator. All characters are lowercased.
+    /// </summary>
+    /// <example>
+    /// <c>FooBar</c> -> <c>foo_bar</c>
+    /// </example>
     | SnakeCase = 2
-    /// FooBar -> FOO_BAR
+    /// <summary>
+    /// Underscores are used as a separator. All characters are uppercased.
+    /// </summary>
+    /// <example>
+    /// <c>FooBar</c> -> <c>FOO_BAR</c>
+    /// </example>
     | SnakeCaseAllCaps = 3
-    /// FooBar -> foo-bar
+    /// <summary>
+    /// Hyphens are used as a separator. All characters are lowercased.
+    /// </summary>
+    /// <example>
+    /// <c>FooBar</c> -> <c>foo-bar</c>
+    /// </example>
     | KebabCase = 4
-    /// FooBar -> foobar
+    /// <summary>
+    /// All characters are lowercased.
+    /// </summary>
+    /// <example>
+    /// <c>FooBar</c> -> <c>foobar</c>
+    /// </example>
     | LowerAll = 5
 
 /// <summary>
@@ -31,9 +61,7 @@ type MangleAttribute(mangle: bool) =
 /// Used on a class to attach all members without mangling.
 /// </summary>
 /// <remarks>
-/// If you want to have all members attached to a class (as is standard with most target languages)
-/// and not-mangled, use the <c>AttachMembers</c> attribute. But be aware that overloads won't work
-/// in this case.
+/// Be aware that overloads won't work.
 /// </remarks>
 [<AttributeUsage(AttributeTargets.Class)>]
 type AttachMembersAttribute() =
@@ -61,7 +89,7 @@ type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
 /// Used in place of <c>CompiledNameAttribute</c> if the target is not a string.
 /// </summary>
 /// <remarks>
-/// Accepts <c>Enum</c>s, <c>int</c>, <c>float</c> or <c>bool</c>.
+/// Accepts <c>Enum</c>, <c>int</c>, <c>float</c> or <c>bool</c>.
 /// </remarks>
 type CompiledValueAttribute private () =
     inherit Attribute()
