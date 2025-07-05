@@ -207,6 +207,20 @@ class IStructuralComparable(Protocol):
         raise NotImplementedError
 
 
+class ISet[T](Protocol):
+    """Protocol for set-like objects that support add/has operations."""
+
+    @abstractmethod
+    def add(self, value: T) -> Any:
+        """Add a value to the set."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def __contains__(self, value: T) -> bool:
+        """Check if value is in the set."""
+        raise NotImplementedError
+
+
 class DateKind(IntEnum):
     Unspecified = 0
     UTC = 1

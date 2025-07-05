@@ -903,9 +903,7 @@ module Annotation =
         | Types.ienumeratorGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "util" "IEnumerator" resolved, stmts
-        | Types.ienumerable, _ ->
-            let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-            fableModuleAnnotation com ctx "util" "IEnumerable" [ resolved ], stmts
+        | Types.ienumerable, _ -> fableModuleAnnotation com ctx "util" "IEnumerable" [], []
         | Types.ienumerableGeneric, _ ->
             let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
             fableModuleAnnotation com ctx "util" "IEnumerable_1" resolved, stmts
@@ -1255,6 +1253,9 @@ module Util =
             Expression.call (types_array, [ expr ])
         | None -> expr // <-- Fix: just return expr for ResizeArray
 
+    /// Creates an array from a list of Fable expressions.
+    /// Use this when you have multiple expressions that should become array elements.
+    /// Example: [1; 2; 3] -> Array[int32]([int32(1), int32(2), int32(3)])
     let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
         // printfn "makeArray: %A" typ
 
@@ -1270,6 +1271,11 @@ module Util =
         let array = Expression.list [ Expression.intConstant 0 ]
         Expression.binOp (array, Mult, size), stmts
 
+    /// Creates an array from a single Fable expression.
+    /// Use this when you have one expression that should be converted to an array.
+    /// For literals like [1; 2; 3], it delegates to makeArray.
+    /// For other expressions, it transforms the expression and wraps it in an array.
+    /// Example: someList -> Array[int32](someList)
     let makeArrayFrom (com: IPythonCompiler) ctx typ kind (fableExpr: Fable.Expr) : Expression * Statement list =
         // printfn "makeArrayFrom: %A" (fableExpr, typ, kind)
 
@@ -1279,6 +1285,10 @@ module Util =
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
             arrayExpr com ctx expr kind typ, stmts
 
+    /// Creates a Python list from Fable expressions.
+    /// Note: This creates a plain Python list, not a Fable array.
+    /// Use makeArray when you need a Fable array that can be passed to functions like ofArray.
+    /// Example: [1; 2; 3] -> [int32(1), int32(2), int32(3)]
     let makeList (com: IPythonCompiler) ctx exprs =
         let expr, stmts =
             exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
@@ -1894,7 +1904,7 @@ module Util =
 
         | Fable.NewTuple(vals, _) -> makeTuple com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
-        | Fable.NewList(headAndTail, _) ->
+        | Fable.NewList(headAndTail, elementType) ->
             let rec getItems acc =
                 function
                 | None -> List.rev acc, None
@@ -1905,13 +1915,12 @@ module Util =
             | [], None -> libCall com ctx r "list" "empty" [], []
             | [ TransformExpr com ctx (expr, stmts) ], None -> libCall com ctx r "list" "singleton" [ expr ], stmts
             | exprs, None ->
-                let expr, stmts = makeList com ctx exprs
+                let expr, stmts = makeArray com ctx exprs Fable.MutableArray elementType
                 [ expr ] |> libCall com ctx r "list" "ofArray", stmts
             | [ TransformExpr com ctx (head, stmts) ], Some(TransformExpr com ctx (tail, stmts')) ->
                 libCall com ctx r "list" "cons" [ head; tail ], stmts @ stmts'
             | exprs, Some(TransformExpr com ctx (tail, stmts)) ->
-                let expr, stmts' = makeList com ctx exprs
-
+                let expr, stmts' = makeArray com ctx exprs Fable.MutableArray elementType
                 [ expr; tail ] |> libCall com ctx r "list" "ofArrayWithTail", stmts @ stmts'
         | Fable.NewOption(value, t, _) ->
             match value with
@@ -2477,6 +2486,26 @@ module Util =
             )
         ]
 
+    /// Helper function to generate a cast statement for type narrowing
+    let makeCastStatement (com: IPythonCompiler) ctx (ident: Fable.Ident) (typ: Fable.Type) =
+        // Only add cast for generic types where type checker needs help
+        let hasGenerics =
+            match typ with
+            | Fable.DeclaredType(_, genArgs) when not (List.isEmpty genArgs) -> true
+            | Fable.Array _ -> true
+            | Fable.List _ -> true
+            | _ -> false
+
+        if hasGenerics then
+            let cast = com.GetImportExpr(ctx, "typing", "cast")
+            let varExpr = identAsExpr com ctx ident
+            let typeAnnotation, importStmts = typeAnnotation com ctx None typ
+            let castExpr = Expression.call (cast, [ typeAnnotation; varExpr ])
+            let castStmt = Statement.assign ([ varExpr ], castExpr)
+            importStmts @ [ castStmt ]
+        else
+            []
+
     let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
         // printfn "transformIfStatement"
 
@@ -2498,9 +2527,19 @@ module Util =
                     elseStmnt
 
             stmts @ com.TransformAsStatements(ctx, ret, e)
-        | guardExpr ->
+        | guardExprPy ->
             let thenStmnt, stmts' =
-                transformBlock com thenCtx ret thenStmnt
+                let thenBlockStmts = transformBlock com thenCtx ret thenStmnt
+
+                // Add cast statement at the beginning of then branch for type tests
+                let thenStmtsWithCast =
+                    match guardExpr with
+                    | Fable.Test(Fable.IdentExpr ident, Fable.TypeTest typ, _) ->
+                        let castStmts = makeCastStatement com ctx ident typ
+                        castStmts @ thenBlockStmts
+                    | _ -> thenBlockStmts
+
+                thenStmtsWithCast
                 |> List.partition (
                     function
                     | Statement.NonLocal _
@@ -2519,9 +2558,9 @@ module Util =
                     )
 
                 match block with
-                | [] -> Statement.if' (guardExpr, thenStmnt, ?loc = r), stmts
-                | [ elseStmnt ] -> Statement.if' (guardExpr, thenStmnt, [ elseStmnt ], ?loc = r), stmts
-                | statements -> Statement.if' (guardExpr, thenStmnt, statements, ?loc = r), stmts
+                | [] -> Statement.if' (guardExprPy, thenStmnt, ?loc = r), stmts
+                | [ elseStmnt ] -> Statement.if' (guardExprPy, thenStmnt, [ elseStmnt ], ?loc = r), stmts
+                | statements -> Statement.if' (guardExprPy, thenStmnt, statements, ?loc = r), stmts
 
             stmts @ stmts' @ stmts'' @ [ ifStatement ]
 
