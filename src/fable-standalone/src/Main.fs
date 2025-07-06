@@ -331,7 +331,7 @@ type PhpResult(ast: Php.PhpFile, errors) =
     interface IFableResult with
         member _.FableErrors = errors
 
-type PythonResult(ast: Python.Module, errors) =
+type PythonResult(ast: Python.AST.Module, errors) =
     member _.Ast = ast
 
     interface IFableResult with
@@ -371,7 +371,7 @@ let transformToTargetAst (com: CompilerImpl) (fableAst: Fable.File) : IFableResu
         let ast = Fable2Php.Compiler.transformFile com fableAst
         upcast PhpResult(ast, errors)
     | Python ->
-        let ast = Fable2Python.Compiler.transformFile com fableAst
+        let ast = Fable.Transforms.Python.Compiler.transformFile com fableAst
         upcast PythonResult(ast, errors)
     | Dart ->
         let ast = Fable2Dart.Compiler.transformFile com fableAst
