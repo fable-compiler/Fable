@@ -2664,11 +2664,6 @@ let transformModuleFunction
 
     let typeParams = calculateTypeParams com ctx info args returnType body.Type
 
-    for param in typeParams do
-        match param with
-        | TypeParam.TypeVar(var) when var.Name.Name.StartsWith("$") -> printfn "TypeVar: %A" var.Name.Name
-        | _ -> ()
-
     let name = com.GetIdentifier(ctx, membName |> Naming.toPythonNaming)
     // printfn "TransformModuleFunction, name: %A" name
     let stmt =
