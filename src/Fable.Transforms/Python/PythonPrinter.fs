@@ -5,7 +5,7 @@ open System
 
 open Fable
 open Fable.AST
-open Fable.AST.Python
+open Fable.Transforms.Python.AST
 open Fable.Transforms.Printer
 
 module PrinterExtensions =
