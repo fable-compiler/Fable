@@ -17,10 +17,6 @@ open Fable.Transforms.Python.Reflection
 open Lib
 open Util
 
-type MemberKind =
-    | ClassConstructor
-    | NonAttached of funcName: string
-    | Attached of isStatic: bool
 
 /// Immediately Invoked Function Expression
 let iife (com: IPythonCompiler) ctx (expr: Fable.Expr) =
@@ -37,18 +33,13 @@ let transformImport (com: IPythonCompiler) ctx (_r: SourceLocation option) (name
 
     com.GetImportExpr(ctx, moduleName, name) |> getParts com ctx parts
 
-
-let getGenericTypeParams (types: Fable.Type list) =
-    types |> FSharp2Fable.Util.getGenParamNames |> Set.ofList
-
-
 let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
     // printfn "getMemberArgsAndBody: %A" hasSpread
     let funcName, genTypeParams, args, body =
         match kind, args with
         | Attached(isStatic = false), thisArg :: args ->
             let genTypeParams =
-                Set.difference (Transforms.getGenericTypeParams [ thisArg.Type ]) ctx.ScopedTypeParams
+                Set.difference (Annotation.getGenericTypeParams [ thisArg.Type ]) ctx.ScopedTypeParams
 
             let body =
                 // TODO: If ident is not captured maybe we can just replace it with "this"
@@ -2593,16 +2584,6 @@ let declareType
         expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
 
     stmts @ typeDeclaration @ reflectionDeclaration
-
-let hasAttribute fullName (atts: Fable.Attribute seq) =
-    atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
-
-let hasAnyEmitAttribute (atts: Fable.Attribute seq) =
-    hasAttribute Atts.emitAttr atts
-    || hasAttribute Atts.emitMethod atts
-    || hasAttribute Atts.emitConstructor atts
-    || hasAttribute Atts.emitIndexer atts
-    || hasAttribute Atts.emitProperty atts
 
 let tryParseEmitMethodMacro (macro: string) =
     // Parse EmitMethod macros like "$0.methodName($1...)" to extract method name

@@ -43,6 +43,9 @@ let getRepeatedGenericTypeParams ctx (types: Fable.Type list) =
     )
     |> Set.ofList
 
+let getGenericTypeParams (types: Fable.Type list) =
+    types |> FSharp2Fable.Util.getGenParamNames |> Set.ofList
+
 let getEntityGenParams (ent: Fable.Entity) =
     ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Set.ofSeq
 

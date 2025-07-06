@@ -25,6 +25,11 @@ type ITailCallOpportunity =
     abstract Args: Arg list
     abstract IsRecursiveRef: Fable.Expr -> bool
 
+type MemberKind =
+    | ClassConstructor
+    | NonAttached of funcName: string
+    | Attached of isStatic: bool
+
 type UsedNames =
     {
         RootScope: HashSet<string>

@@ -32,6 +32,17 @@ module Lib =
 module Util =
     open Lib
 
+    let hasAttribute fullName (atts: Fable.Attribute seq) =
+        atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
+
+    let hasAnyEmitAttribute (atts: Fable.Attribute seq) =
+        hasAttribute Atts.emitAttr atts
+        || hasAttribute Atts.emitMethod atts
+        || hasAttribute Atts.emitConstructor atts
+        || hasAttribute Atts.emitIndexer atts
+        || hasAttribute Atts.emitProperty atts
+
+
     let getIdentifier (_com: IPythonCompiler) (_ctx: Context) (name: string) =
         let name = Helpers.clean name
         Identifier name
