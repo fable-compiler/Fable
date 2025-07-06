@@ -235,8 +235,16 @@ let typeAnnotation
         // unit option -> just None instead of None | None
         Expression.none, []
     | Fable.Option(genArg, _) ->
-        let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-        fableModuleAnnotation com ctx "option" "Option" resolved, []
+        // Check if this is a nested option (Option<Option<T>>)
+        match genArg with
+        | Fable.Option(_, _) ->
+            // This is Option<Option<T>>, use the full Option type annotation
+            let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
+            fableModuleAnnotation com ctx "option" "Option" resolved, []
+        | _ ->
+            // This is a simple Option<T>, use erased form T | None
+            let innerType, stmts = typeAnnotation com ctx repeatedGenerics genArg
+            Expression.binOp (innerType, BinaryOrBitwise, Expression.none), stmts
     | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
     | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) -> makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
     | Fable.Array(genArg, _) -> fableModuleTypeHint com ctx "array_" "Array" [ genArg ] repeatedGenerics

@@ -166,6 +166,19 @@ mod printf {
                 self.format_final()
             }
         }
+
+        /// Continuation method for F# printf compatibility
+        /// This method takes a continuation function and applies it to the formatted result
+        fn cont(&self, py: Python<'_>, continuation: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+            if self.args.is_empty() {
+                // No args accumulated yet - return the IPrintfFormat itself so it can continue to be curried
+                Ok(self.clone().into_pyobject(py)?.into())
+            } else {
+                // We have args, format the string and apply the continuation
+                let formatted = self.format_final()?;
+                Ok(continuation.call1((formatted,))?.unbind())
+            }
+        }
     }
 
     impl IPrintfFormat {
@@ -574,18 +587,11 @@ mod printf {
         arg: &Bound<'_, PyAny>,
     ) -> PyResult<PyObject> {
         if let Ok(printf_format) = arg.extract::<IPrintfFormat>() {
-            if printf_format.args.is_empty() {
-                // No args yet - return the IPrintfFormat itself so it can continue to be curried
-                // The consumer will handle calling the continuation when appropriate
-                Ok(printf_format.into_pyobject(py)?.into())
-            } else {
-                // Has args, call with formatted result
-                let formatted = printf_format.format_final()?;
-                cont.call1((formatted,))?.extract()
-            }
+            // Use the cont method, just like the original Python implementation
+            printf_format.cont(py, cont)
         } else {
             // Not a printf format, just pass it through
-            cont.call1((arg,))?.extract()
+            Ok(cont.call1((arg,))?.unbind())
         }
     }
 

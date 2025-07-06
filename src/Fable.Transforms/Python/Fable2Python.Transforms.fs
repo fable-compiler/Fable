@@ -2680,7 +2680,13 @@ let nameFromKey (com: IPythonCompiler) (ctx: Context) key =
     | Expression.Constant(value = StringLiteral name) -> com.GetIdentifier(ctx, name)
     | name -> failwith $"Not a valid name: {name}"
 
-let transformAttachedProperty (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
+let transformAttachedProperty
+    (com: IPythonCompiler)
+    ctx
+    (ent: Fable.Entity)
+    (info: Fable.MemberFunctionOrValue)
+    (memb: Fable.MemberDecl)
+    =
     let isStatic = not info.IsInstance
     let isGetter = info.IsGetter
 
@@ -2697,7 +2703,14 @@ let transformAttachedProperty (com: IPythonCompiler) ctx (info: Fable.MemberFunc
     let args, body, returnType =
         getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
 
-    let key = memberFromName com ctx memb.Name |> nameFromKey com ctx
+    // Apply the same naming convention as record fields for record types
+    let propertyName =
+        if shouldUseRecordFieldNaming ent then
+            memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+        else
+            memb.Name |> Naming.toPythonNaming
+
+    let key = com.GetIdentifier(ctx, propertyName)
 
     let arguments =
         if isStatic then
@@ -3118,7 +3131,7 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                             |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
 
                         if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
-                            transformAttachedProperty com ctx info memb
+                            transformAttachedProperty com ctx ent info memb
                         else
                             transformAttachedMethod com ctx info memb
                 )

@@ -50,8 +50,6 @@
 //! Each type wraps the corresponding Rust primitive and implements the full Python integer protocol.
 
 #![allow(dead_code)]
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 use pyo3::class::basic::CompareOp;
