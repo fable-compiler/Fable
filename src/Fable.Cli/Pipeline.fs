@@ -329,7 +329,7 @@ module Python =
             let python =
                 FSharp2Fable.Compiler.transformFile com
                 |> FableTransforms.transformFile com
-                |> Fable2Python.Compiler.transformFile com
+                |> Python.Compiler.transformFile com
 
             if not (isSilent || PythonPrinter.isEmpty python) then
                 let writer = new PythonFileWriter(com, cliArgs, pathResolver, outPath)

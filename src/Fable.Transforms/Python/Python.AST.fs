@@ -1,11 +1,11 @@
 // Python AST based on https://docs.python.org/3/library/ast.html. Currently uses records instead of tagged unions to
 // better match with the Python AST docs.
-namespace rec Fable.AST.Python
+namespace rec Fable.Transforms.Python.AST
 
 // fsharplint:disable MemberNames InterfaceNames
 
 open Fable.AST
-open Fable.AST.Python
+open Fable.Transforms.Python.AST
 
 /// Type parameters introduced in Python 3.12 (PEP 695)
 type TypeParam =

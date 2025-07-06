@@ -32,9 +32,14 @@
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="Printer.fs" />
     <Compile Include="BabelPrinter.fs" />
-    <Compile Include="Python/Python.fs" />
-    <Compile Include="Python/Fable2Python.fs" />
+    <Compile Include="Python/Python.AST.fs" />
+    <Compile Include="Python/Fable2Python.Types.fs" />
+    <Compile Include="Python/Fable2Python.Util.fs" />
+    <Compile Include="Python/Fable2Python.Annotation.fs" />
+    <Compile Include="Python/Fable2Python.Reflection.fs" />
+    <Compile Include="Python/Fable2Python.Transforms.fs" />
     <Compile Include="Python/PythonPrinter.fs" />
+    <Compile Include="Python/PythonCompiler.fs" />
     <Compile Include="Php/Php.fs" />
     <Compile Include="Php/Fable2Php.fs" />
     <Compile Include="Php/PhpPrinter.fs" />
