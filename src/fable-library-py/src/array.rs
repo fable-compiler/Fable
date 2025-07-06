@@ -2601,15 +2601,24 @@ impl FSharpArray {
         Ok(FSharpArray { storage: builder })
     }
 
-    pub fn contains(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    pub fn contains(
+        &self,
+        py: Python<'_>,
+        value: &Bound<'_, PyAny>,
+        eq: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<bool> {
         let len = self.storage.len();
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
-            if item
-                .bind(py)
-                .rich_compare(value, CompareOp::Eq)?
-                .is_truthy()?
-            {
+            let is_equal = if let Some(eq) = eq {
+                eq.call_method1("Equals", (item.bind(py), value))?
+                    .is_truthy()?
+            } else {
+                item.bind(py)
+                    .rich_compare(value, CompareOp::Eq)?
+                    .is_truthy()?
+            };
+            if is_equal {
                 return Ok(true);
             }
         }
@@ -3705,8 +3714,15 @@ pub fn get_sub_array(
 }
 
 #[pyfunction]
-pub fn contains(py: Python<'_>, value: &Bound<'_, PyAny>, array: &FSharpArray) -> PyResult<bool> {
-    array.contains(py, value)
+#[pyo3(signature = (value, array, eq=None))]
+// let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+pub fn contains(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+    eq: Option<&Bound<'_, PyAny>>,
+) -> PyResult<bool> {
+    array.contains(py, value, eq)
 }
 
 #[pyfunction]

@@ -75,7 +75,7 @@ def parse_int32(
     style: int,
     unsigned: bool,
     radix: int = 10,
-) -> int:
+) -> Int32:
     """
     Parses a string representation of a 32-bit integer with F#-compatible semantics.
     This function matches the behavior of int32.py parse function exactly.
@@ -99,7 +99,7 @@ def parse_int64(
     style: int,
     unsigned: bool,
     radix: int = 10,
-) -> int:
+) -> Int64:
     """
     Parses a string representation of a 64-bit integer with F#-compatible semantics.
     This function matches the behavior of long.py parse function exactly.

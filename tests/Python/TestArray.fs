@@ -342,6 +342,16 @@ let ``test Array.exists works`` () =
     xs |> Array.exists (fun x -> x = 2u)
     |> equal true
 
+[<Fact>]
+let ``test Array.contains works`` () =
+    let xs = [|1; 2; 3; 4|]
+    xs |> Array.contains 3 |> equal true
+    xs |> Array.contains 5 |> equal false
+
+    let ys = [|"apple"; "banana"; "cherry"|]
+    ys |> Array.contains "banana" |> equal true
+    ys |> Array.contains "grape" |> equal false
+
 // [<Fact>]
 // let ``test Array.exists2 works`` () =
 //     let xs = [|1UL; 2UL; 3UL; 4UL|]
