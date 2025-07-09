@@ -190,9 +190,7 @@ jobs:
       uses: actions/setup-node@v2.4.1
 
     - name: Setup Rust toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
+      uses: dtolnay/rust-toolchain@stable
 
     - name: Fable Library - Rust
       run: ./build.sh fable-library --rust
