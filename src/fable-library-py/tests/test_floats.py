@@ -515,10 +515,10 @@ def test_float_hash():
     # Test NaN/inf hashing based on Rust implementation
     assert hash(float32(math.nan)) == 0
     assert hash(float64(math.nan)) == 0
-    assert hash(float32(math.inf)) == 314159  # Placeholder value used in Rust code
-    assert hash(float64(math.inf)) == 314159
-    assert hash(float32(-math.inf)) == -271828  # Placeholder value used in Rust code
-    assert hash(float64(-math.inf)) == -271828
+    assert hash(float32(math.inf)) == 9223372036854775807  # i64::MAX used in Rust code
+    assert hash(float64(math.inf)) == 9223372036854775807
+    assert hash(float32(-math.inf)) == -9223372036854775808  # i64::MIN used in Rust code
+    assert hash(float64(-math.inf)) == -9223372036854775808
 
 
 def test_float_repr_str():
