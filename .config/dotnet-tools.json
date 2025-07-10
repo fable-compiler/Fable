@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "fantomas": {
-      "version": "7.0.0",
+      "version": "7.0.3",
       "commands": [
         "fantomas"
       ]
@@ -15,7 +15,7 @@
       ]
     },
     "fsharp-analyzers": {
-      "version": "0.28.0",
+      "version": "0.31.0",
       "commands": [
         "fsharp-analyzers"
       ]
