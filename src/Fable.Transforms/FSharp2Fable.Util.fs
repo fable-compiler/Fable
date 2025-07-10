@@ -1557,6 +1557,8 @@ module TypeHelpers =
             | Types.string -> Fable.String
             | Types.regex -> Fable.Regex
             | Types.type_ -> Fable.MetaType
+            | Types.nullable ->
+                Fable.Nullable(makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs |> List.head, true)
             | Types.valueOption ->
                 Fable.Option(makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs |> List.head, true)
             | Types.option ->
@@ -1635,7 +1637,7 @@ module TypeHelpers =
         if
             Compiler.CheckNulls && t.HasNullAnnotation // || t.IsNullAmbivalent
         then
-            makeRuntimeType [ typ ] Types.nullable // represent Nullable Reference Types as Nullable<T>
+            Fable.Nullable(typ, false)
         else
             typ
 

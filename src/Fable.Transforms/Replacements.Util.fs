@@ -715,20 +715,6 @@ let (|IsEntity|_|) fullName =
             None
     | _ -> None
 
-let (|IsNullable|_|) =
-    function
-    | DeclaredType(entRef, [ genArg ]) ->
-        if entRef.FullName = Types.nullable then
-            Some(genArg)
-        else
-            None
-    | _ -> None
-
-let (|MaybeNullable|) =
-    function
-    | IsNullable(t) -> t
-    | t -> t
-
 let (|IDictionary|IEqualityComparer|Other|) =
     function
     | MaybeNullable(DeclaredType(entRef, _))

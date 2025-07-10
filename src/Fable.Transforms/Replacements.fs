@@ -549,15 +549,13 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Char
     | String
     | Number _
-    | MetaType
-    | IsNullable _ ->
-        let op =
-            if equal then
-                BinaryEqual
-            else
-                BinaryUnequal
+    | Nullable _
+    | MetaType ->
+        if equal then
+            makeBinOp r Boolean left right BinaryEqual
+        else
+            makeBinOp r Boolean left right BinaryUnequal
 
-        makeBinOp r Boolean left right op
     // Use BinaryEquals for MetaType to have a change of optimization in FableTransforms.operationReduction
     // We will call Reflection.equals in the Fable2Babel step
     //| MetaType -> Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -968,6 +966,7 @@ let emptyGuid () =
 
 let rec defaultof (com: ICompiler) (ctx: Context) r t =
     match t with
+    | Nullable _ -> Value(Null t, r)
     // Non-struct tuples default to null
     | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx r), true) |> makeValue None
     | Boolean
@@ -978,7 +977,6 @@ let rec defaultof (com: ICompiler) (ctx: Context) r t =
     | Builtin BclDateOnly
     | Builtin BclTimeOnly -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid ()
-    | IsNullable _ -> Value(Null t, r)
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
@@ -991,7 +989,6 @@ let rec defaultof (com: ICompiler) (ctx: Context) r t =
             // Null t |> makeValue None
             Helper.LibCall(com, "Util", "defaultOf", t, [], ?loc = r)
         )
-    | Nullable _ -> Value(Null Any, None) // null
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ ->
         // Null t |> makeValue None
@@ -2299,7 +2296,7 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> List.tryHead args
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "nullableValue", t, [ c ], ?loc = r) |> Some
+    | "get_Value", Some c -> Helper.LibCall(com, "Option", "nonNullValue", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 

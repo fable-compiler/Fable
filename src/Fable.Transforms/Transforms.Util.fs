@@ -790,10 +790,15 @@ module AST =
         | TypeCast(MaybeCasted e, _) -> e
         | e -> e
 
-    let (|MaybeOption|) e =
-        match e with
-        | Option(e, _) -> e
-        | e -> e
+    let (|MaybeNullable|) =
+        function
+        | Nullable(t, false) -> t
+        | t -> t
+
+    let (|MaybeOption|) =
+        function
+        | Option(t, _) -> t
+        | t -> t
 
     /// Try to uncurry lambdas at compile time in dynamic assignments
     let (|MaybeLambdaUncurriedAtCompileTime|) =
@@ -1338,6 +1343,7 @@ module AST =
         | String, String
         | Regex, Regex -> true
         | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info1 = info2
+        | Nullable(t1, isStruct1), Nullable(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Array(t1, kind1), Array(t2, kind2) -> kind1 = kind2 && typeEquals strict t1 t2
         | List t1, List t2 -> typeEquals strict t1 t2
@@ -1357,7 +1363,6 @@ module AST =
             && listEquals (typeEquals strict) gen1 gen2
             && isStruct1 = isStruct2
         | Measure _, Measure _ -> true
-        | Nullable typ1, Nullable typ2 -> typeEquals strict typ1 typ2
         | _ -> false
 
     let rec getEntityFullName prettify (entRef: EntityRef) gen =
@@ -1453,6 +1458,15 @@ module AST =
                 $"System.{isStruct}Tuple`{genArgsLength}[{genArgs}]"
         | Array(gen, _kind) -> // TODO: Check kind
             (getTypeFullName prettify gen) + "[]"
+
+        | Nullable(gen, isStruct) ->
+            let gen = getTypeFullName prettify gen
+
+            if isStruct then
+                $"System.Nullable<{gen}>"
+            else
+                $"{gen} | null"
+
         | Option(gen, isStruct) ->
             let gen = getTypeFullName prettify gen
 

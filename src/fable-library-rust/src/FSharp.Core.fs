@@ -1,19 +1,32 @@
 namespace FSharp.Core
 
 module LanguagePrimitives =
+
+    // let GenericEquality<'T> (x: 'T) (y: 'T) : bool =
+    //     System.Collections.Generic.EqualityComparer<'T>.Default.Equals(x, y)
+
+    // let GenericEqualityIntrinsic<'T> (x: 'T) (y: 'T) : bool =
+    //     System.Collections.Generic.EqualityComparer<'T>.Default.Equals(x, y)
+
+    // let GenericComparison<'T> (x: 'T) (y: 'T) : int =
+    //     System.Collections.Generic.Comparer<'T>.Default.Compare(x, y)
+
+    // let GenericComparisonIntrinsic<'T> (x: 'T) (y: 'T) : int =
+    //     System.Collections.Generic.Comparer<'T>.Default.Compare(x, y)
+
     let GenericEqualityComparer =
         { new System.Collections.IEqualityComparer with
-            override __.Equals(x: obj, y: obj) = LanguagePrimitives.GenericEquality x y
+            override _.Equals(x: obj, y: obj) = LanguagePrimitives.GenericEquality x y
 
-            override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
+            override _.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
         }
 
     let GenericEqualityERComparer =
         { new System.Collections.IEqualityComparer with
-            override __.Equals(x: obj, y: obj) =
+            override _.Equals(x: obj, y: obj) =
                 LanguagePrimitives.GenericEqualityER x y
 
-            override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
+            override _.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
         }
 
     let FastGenericComparer<'T when 'T: comparison> =

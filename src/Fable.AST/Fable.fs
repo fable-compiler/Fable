@@ -191,19 +191,20 @@ type Type =
     | String
     | Regex
     | Number of kind: NumberKind * info: NumberInfo
-    | Option of genericArg: Type * isStruct: bool
-    | Tuple of genericArgs: Type list * isStruct: bool
-    | Array of genericArg: Type * kind: ArrayKind
-    | List of genericArg: Type
+    | Option of genArg: Type * isStruct: bool
+    | Tuple of genArg: Type list * isStruct: bool
+    | Array of genArg: Type * kind: ArrayKind
+    | List of genArg: Type
     | LambdaType of argType: Type * returnType: Type
     | DelegateType of argTypes: Type list * returnType: Type
     | GenericParam of name: string * isMeasure: bool * constraints: Constraint list
-    | DeclaredType of ref: EntityRef * genericArgs: Type list
-    | AnonymousRecordType of fieldNames: string[] * genericArgs: Type list * isStruct: bool
-    | Nullable of Type
+    | DeclaredType of ref: EntityRef * genArgs: Type list
+    | AnonymousRecordType of fieldNames: string[] * genArgs: Type list * isStruct: bool
+    | Nullable of genArg: Type * isStruct: bool
 
     member this.Generics =
         match this with
+        | Nullable(gen, _)
         | Option(gen, _)
         | Array(gen, _)
         | List gen -> [ gen ]
@@ -212,7 +213,6 @@ type Type =
         | Tuple(gen, _) -> gen
         | DeclaredType(_, gen) -> gen
         | AnonymousRecordType(_, gen, _) -> gen
-        | Nullable typ -> typ.Generics
         // TODO: Check numbers with measure?
         | MetaType
         | Any
@@ -227,6 +227,7 @@ type Type =
 
     member this.MapGenerics f =
         match this with
+        | Nullable(gen, isStruct) -> Nullable(f gen, isStruct)
         | Option(gen, isStruct) -> Option(f gen, isStruct)
         | Array(gen, kind) -> Array(f gen, kind)
         | List gen -> List(f gen)
@@ -235,7 +236,6 @@ type Type =
         | Tuple(gen, isStruct) -> Tuple(List.map f gen, isStruct)
         | DeclaredType(e, gen) -> DeclaredType(e, List.map f gen)
         | AnonymousRecordType(e, gen, isStruct) -> AnonymousRecordType(e, List.map f gen, isStruct)
-        | Nullable typ -> Nullable(f typ)
         | MetaType
         | Any
         | Unit

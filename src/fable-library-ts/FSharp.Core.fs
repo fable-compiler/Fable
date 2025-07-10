@@ -1,6 +1,7 @@
 namespace FSharp.Core
 
 module LanguagePrimitives =
+
     let GenericEqualityComparer =
         { new System.Collections.IEqualityComparer with
             override __.Equals(x: obj, y: obj) = LanguagePrimitives.GenericEquality x y

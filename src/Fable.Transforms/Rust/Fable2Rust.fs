@@ -735,9 +735,6 @@ module TypeInfo =
         let importName = getLibraryImportName com ctx moduleName typeName
         transformGenericType com ctx genArgs importName
 
-    let transformNullableType com ctx genArg : Rust.Ty =
-        transformImportType com ctx [ genArg ] "Native" "Nullable"
-
     let transformBigIntType com ctx : Rust.Ty =
         transformImportType com ctx [] "BigInt" "bigint"
 
@@ -798,10 +795,13 @@ module TypeInfo =
     let transformThreadType com ctx : Rust.Ty =
         transformImportType com ctx [] "Thread" "Thread"
 
-    let transformTupleType com ctx isStruct genArgs : Rust.Ty =
+    let transformTupleType com ctx _isStruct genArgs : Rust.Ty =
         genArgs |> List.map (transformType com ctx) |> mkTupleTy
 
-    let transformOptionType com ctx genArg : Rust.Ty =
+    let transformNullableType com ctx _isStruct genArg : Rust.Ty =
+        transformImportType com ctx [ genArg ] "Native" "Nullable"
+
+    let transformOptionType com ctx _isStruct genArg : Rust.Ty =
         transformGenericType com ctx [ genArg ] (rawIdent "Option")
 
     let transformClosureType com ctx argTypes returnType : Rust.Ty =
@@ -958,7 +958,7 @@ module TypeInfo =
 
     let isNullableType (com: IRustCompiler) =
         function
-        | Replacements.Util.IsNullable _ -> true
+        | Fable.Nullable(_, _isStruct) -> true
         | _ -> false
 
     let isByRefType (com: IRustCompiler) =
@@ -1058,12 +1058,12 @@ module TypeInfo =
             | Fable.GenericParam(name, isMeasure, constraints) ->
                 transformGenericParamType com ctx name isMeasure constraints
             | Fable.Tuple(genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
-            | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
+            | Fable.Nullable(genArg, isStruct) -> transformNullableType com ctx isStruct genArg
+            | Fable.Option(genArg, isStruct) -> transformOptionType com ctx isStruct genArg
             | Fable.Array(genArg, _kind) -> transformArrayType com ctx genArg
             | Fable.List genArg -> transformListType com ctx genArg
             | Fable.Regex -> transformRegexType com ctx
             | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
-            | Replacements.Util.IsNullable genArg -> transformNullableType com ctx genArg
 
             // interfaces implemented as the type itself
             | Replacements.Util.IsEntity (Types.iset) (entRef, [ genArg ]) -> transformHashSetType com ctx genArg
@@ -3938,7 +3938,7 @@ module Util =
             | Fable.Constraint.IsNullable -> [ makeImportBound com ctx "Native" "NullableRef" ]
             | Fable.Constraint.IsNotNullable -> []
             | Fable.Constraint.IsValueType -> []
-            | Fable.Constraint.IsReferenceType -> []
+            | Fable.Constraint.IsReferenceType -> [ makeImportBound com ctx "Native" "NullableRef" ]
             | Fable.Constraint.HasDefaultConstructor -> []
             | Fable.Constraint.HasAllowsRefStruct -> []
             | Fable.Constraint.HasComparison -> [ makeRawBound "PartialOrd" ]

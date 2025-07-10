@@ -458,8 +458,14 @@ function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean
   return true;
 }
 
-export function physicalEquality<T>(x: T, y: T): boolean {
+export function physicalEquals<T>(x: T, y: T): boolean {
   return x === y;
+}
+
+export function nullableEquals<T>(x: Nullable<T>, y: Nullable<T>): boolean {
+  if (x == null) { return y == null; }
+  if (y == null) { return false; }
+  return equals(x, y);
 }
 
 export function equals<T>(x: T, y: T): boolean {
