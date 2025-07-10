@@ -28,11 +28,11 @@
         <Compile Include="__tests__/JSX_API.fs" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Fable.Core" Version="4.2.0" />
-        <PackageReference Include="Fable.FluentUI" Version="0.7.0" />
+        <PackageReference Include="Fable.Core" Version="4.5.0" />
+        <PackageReference Include="Fable.FluentUI" Version="1.0.0" />
         <PackageReference Include="Fable.Jester" Version="0.33.0" />
-        <PackageReference Include="Fable.React" Version="8.0.1" />
+        <PackageReference Include="Fable.React" Version="9.4.0" />
         <PackageReference Include="Fable.ReactTestingLibrary" Version="0.33.0" />
-        <PackageReference Include="Feliz" Version="2.0.0-prerelease-002" />
+        <PackageReference Include="Feliz" Version="2.9.0" />
     </ItemGroup>
 </Project>
