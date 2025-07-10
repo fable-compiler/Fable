@@ -555,9 +555,27 @@ module Helpers =
         makeIdentExpr "str" |> makeCall None Fable.String callInfo
 
 
-/// Statement threading utilities for cleaner code
+/// Expression builders with automatic statement threading
 [<RequireQualifiedAccess>]
-module Statements =
+module Expression =
+    // === Core Computation Expression ===
+
+    /// Creates a computation expression for cleaner statement threading
+    type WithStmtBuilder() =
+        member _.Bind((expr, stmts1): Expression * Statement list, f: Expression -> Expression * Statement list) =
+            let expr2, stmts2 = f expr
+            expr2, stmts1 @ stmts2
+
+        member _.Return(expr: Expression) = expr, []
+
+        member _.ReturnFrom(result: Expression * Statement list) = result
+
+        member _.Zero() = Expression.none, []
+
+    let withStmts = WithStmtBuilder()
+
+    // === Statement Threading Utilities ===
+
     /// Combines multiple statement lists efficiently
     let combine (stmtLists: Statement list list) : Statement list = List.collect id stmtLists
 
@@ -629,19 +647,48 @@ module Statements =
         else
             expr, stmts
 
-    /// Creates a computation expression for cleaner statement threading
-    type StmtBuilder() =
-        member _.Bind((expr, stmts1): Expression * Statement list, f: Expression -> Expression * Statement list) =
-            let expr2, stmts2 = f expr
-            expr2, stmts1 @ stmts2
+    // === High-Level Expression Builders ===
 
-        member _.Return(expr: Expression) = expr, []
+    /// Builds a binary operation with statement threading
+    let buildBinOp
+        (com: IPythonCompiler)
+        ctx
+        (left: Fable.Expr)
+        (op: BinaryOperator)
+        (right: Fable.Expr)
+        : Expression * Statement list
+        =
+        let left, right, stmts = transform2 com ctx left right
+        Expression.binOp (left, op, right), stmts
 
-        member _.ReturnFrom(result: Expression * Statement list) = result
+    /// Builds a comparison with statement threading
+    let buildComparison
+        (com: IPythonCompiler)
+        ctx
+        (left: Fable.Expr)
+        (ops: ComparisonOperator list)
+        (rights: Fable.Expr list)
+        : Expression * Statement list
+        =
+        let left, stmts1 = com.TransformAsExpr(ctx, left)
+        let rights, stmts2 = mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) rights
+        Expression.compare (left, ops, rights), stmts1 @ stmts2
 
-        member _.Zero() = Expression.none, []
+    /// Builds a function call with statement threading
+    let buildCall (com: IPythonCompiler) ctx (func: Fable.Expr) (args: Fable.Expr list) : Expression * Statement list =
+        let func, stmts1 = com.TransformAsExpr(ctx, func)
+        let args, stmts2 = mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) args
+        Expression.call (func, args), stmts1 @ stmts2
 
-    let stmt = StmtBuilder()
+    /// Creates a Python list from Fable expressions with statement threading
+    let makeList (com: IPythonCompiler) ctx exprs =
+        let expr, stmts = mapWith (fun e -> com.TransformAsExpr(ctx, e)) exprs
+        expr |> Expression.list, stmts
+
+    /// Creates a Python tuple from Fable expressions with statement threading
+    let makeTuple (com: IPythonCompiler) ctx exprs =
+        let expr, stmts = mapWith (fun e -> com.TransformAsExpr(ctx, e)) exprs
+        expr |> Expression.tuple, stmts
 
     // === Enhanced Active Patterns ===
 
@@ -657,54 +704,3 @@ module Statements =
     /// Active pattern for transforming lists of expressions
     let (|TransformExprList|) (com: IPythonCompiler) ctx (exprs: Fable.Expr list) =
         mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) exprs
-
-
-/// Common expression builders with automatic statement threading
-[<RequireQualifiedAccess>]
-module Expressions =
-    /// Builds a binary operation with statement threading
-    let buildBinOp
-        (com: IPythonCompiler)
-        ctx
-        (left: Fable.Expr)
-        (op: BinaryOperator)
-        (right: Fable.Expr)
-        : Expression * Statement list
-        =
-        let left, right, stmts = Statements.transform2 com ctx left right
-        Expression.binOp (left, op, right), stmts
-
-    /// Builds a comparison with statement threading
-    let buildComparison
-        (com: IPythonCompiler)
-        ctx
-        (left: Fable.Expr)
-        (ops: ComparisonOperator list)
-        (rights: Fable.Expr list)
-        : Expression * Statement list
-        =
-        let left, stmts1 = com.TransformAsExpr(ctx, left)
-
-        let rights, stmts2 =
-            Statements.mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) rights
-
-        Expression.compare (left, ops, rights), stmts1 @ stmts2
-
-    /// Builds a function call with statement threading
-    let buildCall (com: IPythonCompiler) ctx (func: Fable.Expr) (args: Fable.Expr list) : Expression * Statement list =
-        let func, stmts1 = com.TransformAsExpr(ctx, func)
-
-        let args, stmts2 =
-            Statements.mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) args
-
-        Expression.call (func, args), stmts1 @ stmts2
-
-    /// Creates a Python list from Fable expressions with statement threading
-    let makeList (com: IPythonCompiler) ctx exprs =
-        let expr, stmts = Statements.mapWith (fun e -> com.TransformAsExpr(ctx, e)) exprs
-        expr |> Expression.list, stmts
-
-    /// Creates a Python tuple from Fable expressions with statement threading
-    let makeTuple (com: IPythonCompiler) ctx exprs =
-        let expr, stmts = Statements.mapWith (fun e -> com.TransformAsExpr(ctx, e)) exprs
-        expr |> Expression.tuple, stmts
