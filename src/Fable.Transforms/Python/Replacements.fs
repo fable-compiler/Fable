@@ -390,7 +390,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         Operation(Binary(op, left, right), Tags.empty, t, r)
 
     let binOpChar op left right =
-        let toUInt16 e = toInt com ctx None UInt16.Number [ e ]
+        let toUInt16 e = toInt com ctx r UInt16.Number [ e ]
 
         Operation(Binary(op, toUInt16 left, toUInt16 right), Tags.empty, UInt16.Number, r)
         |> toChar com ctx r
