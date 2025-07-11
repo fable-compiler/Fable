@@ -1,5 +1,7 @@
 namespace FSharp.Core
 
+#nowarn "42" // This construct is deprecated: it is only for use in the F# library
+
 module LanguagePrimitives =
 
     let GenericEqualityComparer =

@@ -10,7 +10,7 @@ module private Native =
 
     let randomNext (min: int, max: int) : int =
         emitJsStatement
-            ()
+            (box () |> nonNull)
             """
         if (max < min) {
             throw new Error("minValue must be less than maxValue");
@@ -20,7 +20,7 @@ module private Native =
 
     let randomBytes (buffer: byte array) : unit =
         emitJsStatement
-            ()
+            (box () |> nonNull)
             """
         if (buffer == null) {
             throw new Error("Buffer cannot be null");
