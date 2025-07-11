@@ -483,6 +483,12 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     // | MetaType ->
     //     Helper.LibCall(com, "Reflection", "equals", t, [left; right], ?loc=r)
     | HasReferenceEquality com _ -> referenceEquals com ctx r left right
+    | Nullable _ ->
+        // transforms null checks into option tests
+        match left, right with
+        | expr, Value(NewOption(None, _, _), _) -> Test(expr, OptionTest false, r)
+        | Value(NewOption(None, _, _), _), expr -> Test(expr, OptionTest false, r)
+        | _ -> makeEqOp r left right BinaryEqual
     | _ ->
         // Helper.LibCall(com, "Native", "equals", t, [left; right], ?loc=r)
         makeEqOp r left right BinaryEqual
@@ -561,15 +567,14 @@ let applyCompareOp (com: ICompiler) (ctx: Context) r t opName (left: Expr) (righ
 //     let body = equals com ctx None (IdentExpr x) (IdentExpr y)
 //     Delegate([x; y], body, None, Tags.empty)
 
-let makeEqualityComparer (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
-
-    objExpr
-        [
-            "Equals", Delegate([ x; y ], equals com ctx None (IdentExpr x) (IdentExpr y), None, Tags.empty)
-            "GetHashCode", Delegate([ x ], getHashCode com ctx None (IdentExpr x), None, Tags.empty)
-        ]
+// let makeEqualityComparer (com: ICompiler) ctx typArg =
+//     let x = makeUniqueIdent ctx typArg "x"
+//     let y = makeUniqueIdent ctx typArg "y"
+//     objExpr
+//         [
+//             "Equals", Delegate([ x; y ], equals com ctx None (IdentExpr x) (IdentExpr y), None, Tags.empty)
+//             "GetHashCode", Delegate([ x ], getHashCode com ctx None (IdentExpr x), None, Tags.empty)
+//         ]
 
 // // TODO: Try to detect at compile-time if the object already implements `Compare`?
 // let inline makeComparerFromEqualityComparer e =
@@ -619,6 +624,7 @@ let makeMap (com: ICompiler) ctx r t args genArg =
 
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
+    | Nullable(genArg, _) -> NewOption(None, genArg, false) |> makeValue None
     | Boolean -> makeBoolConst false
     | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "zero", t, [])
     | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "Zero", t)
@@ -635,7 +641,6 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
-    | IsEntity (Types.nullable) (_entRef, [ genArg ]) -> NewOption(None, genArg, false) |> makeValue None
     | HasReferenceEquality com _ -> Null t |> makeValue None
     | _ -> Helper.LibCall(com, "Native", "getZero", t, [])
 
@@ -1282,8 +1287,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ ->
         match i.SignatureArgTypes with
         | [ Char; Number(Int32, _) ] -> Helper.LibCall(com, "String", "fromChar", t, args, ?loc = r) |> Some
-        | [ Array(Char, _) ] -> Helper.LibCall(com, "String", "fromChars", t, args, ?loc = r) |> Some
-        | [ Array(Char, _); Number(Int32, _); Number(Int32, _) ] ->
+        | [ MaybeNullable(Array(Char, _)) ] -> Helper.LibCall(com, "String", "fromChars", t, args, ?loc = r) |> Some
+        | [ MaybeNullable(Array(Char, _)); Number(Int32, _); Number(Int32, _) ] ->
             Helper.LibCall(com, "String", "fromChars2", t, args, ?loc = r) |> Some
         | _ -> None
     | "get_Length", Some c, _ -> Helper.LibCall(com, "String", "length", t, c :: args, ?loc = r) |> Some
@@ -1967,7 +1972,6 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> NewOption(List.tryHead args, t.Generics.Head, false) |> makeValue r |> Some
-    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValue) doesn't do a null check
     | "get_Value", Some c -> Helper.LibCall(com, "Option", "getValue", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
@@ -2851,6 +2855,28 @@ let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
 // alternative member suffix for languages that don't support member overloads
 let getArgsSuffix (thisArg: Expr option) (args: Expr list) =
+    let rec typeSuffix =
+        function
+        | Nullable(t, _) -> typeSuffix t // suffix from the actual type
+        | Measure _ -> '_'
+        | MetaType -> '_'
+        | Any -> '_'
+        | Unit -> 'u'
+        | Boolean -> 'b'
+        | Char -> 'c'
+        | String -> 's'
+        | Regex -> 'r'
+        | Number _ -> 'n'
+        | Option _ -> 'o'
+        | Tuple _ -> 't'
+        | Array _ -> 'a'
+        | List _ -> 'l'
+        | LambdaType _ -> 'f'
+        | DelegateType _ -> 'f'
+        | GenericParam _ -> 'g'
+        | DeclaredType _ -> '_'
+        | AnonymousRecordType _ -> '_'
+
     let chars =
         [|
             if thisArg.IsNone then
@@ -2858,25 +2884,7 @@ let getArgsSuffix (thisArg: Expr option) (args: Expr list) =
             if args.Length > 0 then
                 '_'
             for arg in args do
-                match arg.Type with
-                | Measure _ -> '_'
-                | MetaType -> '_'
-                | Any -> '_'
-                | Unit -> 'u'
-                | Boolean -> 'b'
-                | Char -> 'c'
-                | String -> 's'
-                | Regex -> 'r'
-                | Number _ -> 'n'
-                | Option _ -> 'o'
-                | Tuple _ -> 't'
-                | Array _ -> 'a'
-                | List _ -> 'l'
-                | LambdaType _ -> 'f'
-                | DelegateType _ -> 'f'
-                | GenericParam _ -> 'g'
-                | DeclaredType _ -> '_'
-                | AnonymousRecordType _ -> '_'
+                typeSuffix arg.Type
         |]
 
     System.String(chars)

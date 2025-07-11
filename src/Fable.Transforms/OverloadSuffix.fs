@@ -56,6 +56,15 @@ let private getConstraintHash genParams =
 
 let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Type) =
     match t with
+    | Fable.Nullable(genArg, isStruct) ->
+        let typeName = getTypeFastFullName genParams genArg
+
+        if isStruct then
+            $"System.Nullable<{typeName}>"
+        else
+            // there is no overload distinction for nullable reference types,
+            // so the name and overload suffix are the same as the inner type
+            typeName
     | Fable.Measure fullname -> fullname
     | Fable.GenericParam(name, isMeasure, constraints) ->
         if isMeasure then

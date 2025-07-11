@@ -7,7 +7,7 @@ open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
 
-[<AllowNullLiteral; Erase>]
+[<Erase>]
 type Cons<'T> =
     [<Emit("new $0($1)")>]
     abstract Allocate: len: int -> 'T[]
@@ -22,11 +22,14 @@ module Helpers =
     [<Emit("new $0.constructor($1)")>]
     let allocateArrayFrom (xs: 'T[]) (len: int) : 'T[] = nativeOnly
 
-    let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T[] =
-        if jsTypeof cons = "function" then
-            cons.Allocate(len)
-        else
-            JS.Constructors.Array.Create(len)
+    let allocateArrayFromCons (cons: Cons<'T> | null) (len: int) : 'T[] =
+        match cons with
+        | null -> JS.Constructors.Array.Create(len)
+        | cons ->
+            if jsTypeof cons = "function" then
+                cons.Allocate(len)
+            else
+                JS.Constructors.Array.Create(len)
 
     let inline isDynamicArrayImpl arr = JS.Constructors.Array.isArray arr
 

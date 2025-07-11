@@ -264,7 +264,11 @@ let makeHashSetIgnoreCase () =
     let equalityComparerIgnoreCase =
         { new IEqualityComparer<string> with
             member _.Equals(x, y) =
-                x.ToLowerInvariant() = y.ToLowerInvariant()
+                match x, y with
+                | null, null -> true
+                | null, y -> false
+                | x, null -> false
+                | x, y -> x.ToLowerInvariant() = y.ToLowerInvariant()
 
             member _.GetHashCode(x) = hash (x.ToLowerInvariant())
         }

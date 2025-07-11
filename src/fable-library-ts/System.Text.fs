@@ -11,12 +11,12 @@ type StringBuilder(value: string, capacity: int) =
     new(value: string) = StringBuilder(value, 16)
     new() = StringBuilder("", 16)
 
-    member x.Append(s: string) =
-        buf.Add(s)
+    member x.Append(s: string | null) =
+        buf.Add(string s)
         x
 
-    member x.Append(s: string, startIndex: int, count: int) =
-        buf.Add(s.Substring(startIndex, count))
+    member x.Append(s: string | null, startIndex: int, count: int) =
+        buf.Add((string s).Substring(startIndex, count))
         x
 
     member x.Append(c: char) =

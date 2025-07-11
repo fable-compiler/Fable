@@ -1252,26 +1252,26 @@ let chunkBySize (chunkSize: int) (xs: 'T seq) : 'T[] seq =
 
 let distinct<'T when 'T: equality> (xs: 'T seq) =
     delay (fun () ->
-        let hashSet = System.Collections.Generic.HashSet<'T>()
+        let hashSet = HashSet<'T>()
         xs |> filter (fun x -> hashSet.Add(x))
     )
 
-let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) =
+let distinctBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 'Key) (xs: 'T seq) =
     delay (fun () ->
-        let hashSet = System.Collections.Generic.HashSet<'Key>()
+        let hashSet = HashSet<'Key>()
         xs |> filter (fun x -> hashSet.Add(projection x))
     )
 
 let except<'T when 'T: equality> (itemsToExclude: 'T seq) (xs: 'T seq) =
     delay (fun () ->
-        let hashSet = System.Collections.Generic.HashSet<'T>(toArray itemsToExclude)
+        let hashSet = HashSet<'T>(toArray itemsToExclude)
 
         xs |> filter (fun x -> hashSet.Add(x))
     )
 
-let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) : ('Key * int) seq =
+let countBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 'Key) (xs: 'T seq) : ('Key * int) seq =
     delay (fun () ->
-        let dict = System.Collections.Generic.Dictionary<'Key, int>()
+        let dict = Dictionary<'Key, int>()
         let keys = ResizeArray<'Key>()
 
         for x in xs do
@@ -1286,10 +1286,13 @@ let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) 
         keys |> asArray |> Array.map (fun key -> key, dict[key]) |> ofArray
     )
 
-let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T seq) : ('Key * 'T seq) seq =
+let groupBy<'T, 'Key when 'Key: equality and 'Key: not null>
+    (projection: 'T -> 'Key)
+    (xs: 'T seq)
+    : ('Key * 'T seq) seq
+    =
     delay (fun () ->
-        let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
-
+        let dict = Dictionary<'Key, ResizeArray<'T>>()
         let keys = ResizeArray<'Key>()
 
         for x in xs do
