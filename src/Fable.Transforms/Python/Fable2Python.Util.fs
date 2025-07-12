@@ -267,11 +267,8 @@ module Util =
     /// Example: [1; 2; 3] -> Array[int32]([int32(1), int32(2), int32(3)])
     let makeArray (com: IPythonCompiler) ctx exprs kind typ : Expression * Statement list =
         // printfn "makeArray: %A" typ
-
-        let exprs, stmts =
-            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
-
-        arrayExpr com ctx (Expression.list exprs) kind typ, stmts
+        let listExpr, stmts = Expression.makeList com ctx exprs
+        arrayExpr com ctx listExpr kind typ, stmts
 
     let makeArrayAllocated (com: IPythonCompiler) ctx typ _kind (size: Fable.Expr) =
         // printfn "makeArrayAllocated: %A" (typ, size)
@@ -293,22 +290,6 @@ module Util =
         | _ ->
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
             arrayExpr com ctx expr kind typ, stmts
-
-    /// Creates a Python list from Fable expressions.
-    /// Note: This creates a plain Python list, not a Fable array.
-    /// Use makeArray when you need a Fable array that can be passed to functions like ofArray.
-    /// Example: [1; 2; 3] -> [int32(1), int32(2), int32(3)]
-    let makeList (com: IPythonCompiler) ctx exprs =
-        let expr, stmts =
-            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
-
-        expr |> Expression.list, stmts
-
-    let makeTuple (com: IPythonCompiler) ctx exprs =
-        let expr, stmts =
-            exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
-
-        expr |> Expression.tuple, stmts
 
     let makeStringArray strings =
         strings |> List.map (fun x -> Expression.stringConstant x) |> Expression.list
@@ -566,13 +547,94 @@ module Expression =
             let expr2, stmts2 = f expr
             expr2, stmts1 @ stmts2
 
+        // Overload for tuple binding (needed for and! support)
+        member _.Bind
+            (
+                (exprs, stmts1): (Expression * Expression) * Statement list,
+                f: (Expression * Expression) -> Expression * Statement list
+            )
+            =
+            let expr2, stmts2 = f exprs
+            expr2, stmts1 @ stmts2
+
+        // Overload for Expression list binding
+        member _.Bind
+            ((exprs, stmts1): Expression list * Statement list, f: Expression list -> Expression * Statement list)
+            =
+            let expr2, stmts2 = f exprs
+            expr2, stmts1 @ stmts2
+
+        // Overload for Expression list binding with BindReturn (for direct return)
+        member _.BindReturn((exprs, stmts1): Expression list * Statement list, f: Expression list -> Expression) =
+            f exprs, stmts1
+
         member _.Return(expr: Expression) = expr, []
 
         member _.ReturnFrom(result: Expression * Statement list) = result
 
         member _.Zero() = Expression.none, []
 
+        // Support for and! (applicative-style parallel binding)
+        member _.MergeSources(left: Expression * Statement list, right: Expression * Statement list) =
+            let leftExpr, leftStmts = left
+            let rightExpr, rightStmts = right
+            (leftExpr, rightExpr), leftStmts @ rightStmts
+
+        member _.BindReturn(source: Expression * Statement list, f: Expression -> Expression) =
+            let expr, stmts = source
+            f expr, stmts
+
+        // Support for and! with 3 sources
+        member _.MergeSources3
+            (
+                source1: Expression * Statement list,
+                source2: Expression * Statement list,
+                source3: Expression * Statement list
+            )
+            =
+            let expr1, stmts1 = source1
+            let expr2, stmts2 = source2
+            let expr3, stmts3 = source3
+            (expr1, expr2, expr3), combine [ stmts1; stmts2; stmts3 ]
+
     let withStmts = WithStmtBuilder()
+
+    /// Creates a computation expression for statement contexts
+    type StatementBuilder() =
+        member _.Bind((expr, stmts1): Expression * Statement list, f: Expression -> Statement list) =
+            let stmts2 = f expr
+            stmts1 @ stmts2
+
+        // Overload for binding Expression * Statement list where we want to extract just the Expression
+        // and continue with something that produces a Statement
+        member _.Bind((expr, stmts1): Expression * Statement list, f: Expression -> Statement) =
+            let stmt = f expr
+            stmts1 @ [ stmt ]
+
+        // Overload for binding Statement list directly - ignores the statements and continues
+        member _.Bind(stmts1: Statement list, f: unit -> Statement list) =
+            let stmts2 = f ()
+            stmts1 @ stmts2
+
+        // Overload for binding Statement list to a variable
+        member _.Bind(stmts1: Statement list, f: Statement list -> Statement list) =
+            let stmts2 = f stmts1
+            stmts1 @ stmts2
+
+        // Overload for binding Statement directly
+        member _.Bind(stmt: Statement, f: unit -> Statement list) =
+            let stmts2 = f ()
+            [ stmt ] @ stmts2
+
+        member _.Return(stmts: Statement list) = stmts
+
+        member _.ReturnFrom(stmts: Statement list) = stmts
+
+        member _.Zero() = []
+
+        member _.Combine(stmts1: Statement list, stmts2: Statement list) = stmts1 @ stmts2
+
+    let asStmts = StatementBuilder()
 
     // === Statement Threading Utilities ===
 
@@ -612,7 +674,7 @@ module Expression =
         let e3, stmts3 = com.TransformAsExpr(ctx, expr3)
         e1, e2, e3, combine [ stmts1; stmts2; stmts3 ]
 
-    /// Transforms an optional expression
+
     let transformOpt (com: IPythonCompiler) ctx (expr: Fable.Expr option) : Expression option * Statement list =
         match expr with
         | Some e ->
@@ -703,4 +765,8 @@ module Expression =
 
     /// Active pattern for transforming lists of expressions
     let (|TransformExprList|) (com: IPythonCompiler) ctx (exprs: Fable.Expr list) =
-        mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) exprs
+        mapWith (fun e -> com.TransformAsExpr(ctx, e)) exprs
+
+let expression = Expression.withStmts
+
+let statements = Expression.asStmts
