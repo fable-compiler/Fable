@@ -197,7 +197,7 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
 
                 genericEntity fullName [ keys; values ], stmts @ stmts'
             | Replacements.Util.FSharpResult(ok, err) ->
-                Expression.withStmts {
+                expression {
                     let ent = com.GetEntity(entRef)
                     let! ok' = transformTypeInfo com ctx r genMap ok
                     let! err' = transformTypeInfo com ctx r genMap err
@@ -207,14 +207,14 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
                     return expr
                 }
             | Replacements.Util.FSharpChoice gen ->
-                Expression.withStmts {
+                expression {
                     let ent = com.GetEntity(entRef)
 
                     let! gen' = gen |> Expression.mapWith (transformTypeInfo com ctx r genMap)
                     return! transformUnionReflectionInfo com ctx r ent gen'
                 }
             | Replacements.Util.FSharpReference gen ->
-                Expression.withStmts {
+                expression {
                     let ent = com.GetEntity entRef
                     let! gen' = transformTypeInfo com ctx r genMap gen
                     return! transformRecordReflectionInfo com ctx r ent [ gen' ]
