@@ -81,7 +81,7 @@ let getUnionCaseName (uci: Fable.UnionCase) =
     | None -> uci.Name
 
 let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
-    Expression.withStmts {
+    expression {
         let! expr = com.TransformAsExpr(ctx, fableExpr)
         let! finalExpr = getExpr com ctx r expr (Expression.stringConstant "tag")
         return finalExpr
@@ -338,12 +338,8 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
     | Fable.DeclaredType(ent, [ _ ]), _ ->
         match ent.FullName, e with
         | Types.ienumerableGeneric, Replacements.Util.ArrayOrListLiteral(exprs, _typ) ->
-            let expr, stmts =
-                exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
-
-            let xs = Expression.list expr
+            let xs, stmts = Expression.makeList com ctx exprs
             libCall com ctx None "util" "to_enumerable" [ xs ], stmts
-
         | _ -> com.TransformAsExpr(ctx, e)
     | Fable.Number(Float32, _), _ ->
         let cons = libValue com ctx "types" "float32"
@@ -429,7 +425,7 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
         | Fable.ArrayAlloc size -> makeArrayAllocated com ctx typ kind size
         | Fable.ArrayFrom expr -> makeArrayFrom com ctx typ kind expr
 
-    | Fable.NewTuple(vals, _) -> makeTuple com ctx vals
+    | Fable.NewTuple(vals, _) -> Expression.makeTuple com ctx vals
     // Optimization for bundle size: compile list literals as List.ofArray
     | Fable.NewList(headAndTail, elementType) ->
         let rec getItems acc =
@@ -460,21 +456,18 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
     | Fable.NewRecord(values, ent, _genArgs) ->
         let ent = com.GetEntity(ent)
 
-        let values, stmts =
-            List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
+        let values, stmts = Expression.mapWith (fun x -> com.TransformAsExpr(ctx, x)) values
 
         let consRef, stmts' = ent |> pyConstructor com ctx
         Expression.call (consRef, values, ?loc = r), stmts @ stmts'
     | Fable.NewAnonymousRecord(values, fieldNames, _genArgs, _isStruct) ->
-        let values, stmts =
-            values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
+        let values, stmts = Expression.mapWith (fun x -> com.TransformAsExpr(ctx, x)) values
 
         List.zip (List.ofArray fieldNames) values |> makePyObject, stmts
     | Fable.NewUnion(values, tag, ent, _genArgs) ->
         let ent = com.GetEntity(ent)
 
-        let values, stmts =
-            List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
+        let values, stmts = Expression.mapWith (fun x -> com.TransformAsExpr(ctx, x)) values
 
         let consRef, stmts' = ent |> pyConstructor com ctx
         // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
@@ -644,19 +637,24 @@ let transformCallArgs
             | Some(args, None) -> args, None, []
             | Some(args, Some namedArgs) ->
                 let objArg, stmts =
-                    namedArgs
-                    |> List.choose (fun (p, v) ->
-                        match p.Name, v with
-                        | Some k, Fable.Value(Fable.NewOption(value, _, _), _) -> value |> Option.map (fun v -> k, v)
-                        | Some k, v -> Some(k, v)
-                        | None, _ -> None
-                    )
-                    |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
-                    |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
-                    |> List.unzip
-                    |> (fun (kv, stmts) ->
-                        kv |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)), stmts |> List.collect id
-                    )
+                    let keyValuePairs =
+                        namedArgs
+                        |> List.choose (fun (p, v) ->
+                            match p.Name, v with
+                            | Some k, Fable.Value(Fable.NewOption(value, _, _), _) ->
+                                value |> Option.map (fun v -> k, v)
+                            | Some k, v -> Some(k, v)
+                            | None, _ -> None
+                        )
+
+                    let keywords, stmts =
+                        keyValuePairs
+                        |> Expression.mapWith (fun (k, v) ->
+                            let expr, stmts = com.TransformAsExpr(ctx, v)
+                            Keyword.keyword (Identifier k, expr), stmts
+                        )
+
+                    keywords, stmts
 
                 args, Some objArg, stmts
 
@@ -670,19 +668,20 @@ let transformCallArgs
             match List.rev args with
             | [] -> [], []
             | Replacements.Util.ArrayOrListLiteral(spreadArgs, _) :: rest ->
-                let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+                let restExprs, restStmts =
+                    List.rev rest |> Expression.mapWith (fun e -> com.TransformAsExpr(ctx, e))
 
-                rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
-                |> Helpers.unzipArgs
+                let spreadExprs, spreadStmts =
+                    spreadArgs |> Expression.mapWith (fun e -> com.TransformAsExpr(ctx, e))
+
+                restExprs @ spreadExprs, restStmts @ spreadStmts
             | last :: rest ->
-                let rest, stmts =
-                    List.rev rest
-                    |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-                    |> Helpers.unzipArgs
+                let restExprs, restStmts =
+                    List.rev rest |> Expression.mapWith (fun e -> com.TransformAsExpr(ctx, e))
 
-                let expr, stmts' = com.TransformAsExpr(ctx, last)
-                rest @ [ Expression.starred expr ], stmts @ stmts'
-        | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
+                let expr, lastStmts = com.TransformAsExpr(ctx, last)
+                restExprs @ [ Expression.starred expr ], restStmts @ lastStmts
+        | args -> Expression.mapWith (fun e -> com.TransformAsExpr(ctx, e)) args
 
     match objArg with
     | None -> args, [], stmts @ stmts'
@@ -714,80 +713,88 @@ let transformOperation com ctx range opKind tags : Expression * Statement list =
     | Fable.Binary(op, left, right: Fable.Expr) ->
         let typ = right.Type
         let left_typ = left.Type
-        let left, stmts = com.TransformAsExpr(ctx, left)
-        let right, stmts' = com.TransformAsExpr(ctx, right)
 
-        let compare op =
-            Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
+        expression {
+            let! left = com.TransformAsExpr(ctx, left)
+            let! right = com.TransformAsExpr(ctx, right)
 
-        let (|IsNone|_|) =
-            function
-            | Name { Id = Identifier "None" } -> Some()
-            | _ -> None
+            let compare op =
+                Expression.compare (left, [ op ], [ right ], ?loc = range)
 
-        let strict =
-            match tags with
-            | Fable.Tags.Contains "strict" -> true
-            | _ -> false
+            let (|IsNone|_|) =
+                function
+                | Name { Id = Identifier "None" } -> Some()
+                | _ -> None
 
-        match op, strict with
-        | BinaryEqual, true ->
-            match left, right with
-            // Use == with literals
-            | Constant _, _ -> compare Eq
-            | _, Constant _ -> compare Eq
-            | _ -> compare Is
-        | BinaryEqual, false ->
-            match left, right with
-            // Use == with literals
-            | Constant _, _ -> compare Eq
-            | _, Constant _ -> compare Eq
-            // Use `is` with None (except literals)
-            | _, IsNone -> compare Is
-            | IsNone, _ -> compare Is
-            // Use == for the rest
-            | _ -> compare Eq
-        | BinaryUnequal, true ->
-            match left, right with
-            // Use == with literals
-            | Constant _, _ -> compare NotEq
-            | _, Constant _ -> compare NotEq
-            | _ -> compare IsNot
-        | BinaryUnequal, false ->
-            match left, right with
-            // Use != with literals
-            | Constant _, _ -> compare NotEq
-            | _, Constant _ -> compare NotEq
-            // Use `is not` with None (except literals)
-            | _, IsNone -> compare IsNot
-            | IsNone, _ -> compare IsNot
-            // Use != for the rest
-            | _ -> compare NotEq
-        | BinaryLess, _ -> compare Lt
-        | BinaryLessOrEqual, _ -> compare LtE
-        | BinaryGreater, _ -> compare Gt
-        | BinaryGreaterOrEqual, _ -> compare GtE
-        | BinaryDivide, _ ->
-            // For integer division, we need to use the // operator
-            match typ with
-            | Fable.Number(Int8, _)
-            | Fable.Number(Int16, _)
-            | Fable.Number(Int32, _)
-            | Fable.Number(Int64, _)
-            | Fable.Number(UInt8, _)
-            | Fable.Number(UInt16, _)
-            | Fable.Number(UInt32, _)
-            | Fable.Number(UInt64, _) ->
-                // In .NET we only get floor division for left integers on the left
-                match left_typ with
-                | Fable.Number(Float32, _)
-                | Fable.Number(Float64, _) -> Expression.binOp (left, Div, right, ?loc = range), stmts @ stmts'
-                | _ -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
-            | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
-        | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
+            let strict =
+                match tags with
+                | Fable.Tags.Contains "strict" -> true
+                | _ -> false
 
-    | Fable.Logical(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-        Expression.boolOp (op, [ left; right ], ?loc = range), stmts @ stmts'
+            return
+                match op, strict with
+                | BinaryEqual, true ->
+                    match left, right with
+                    // Use == with literals
+                    | Constant _, _ -> compare Eq
+                    | _, Constant _ -> compare Eq
+                    | _ -> compare Is
+                | BinaryEqual, false ->
+                    match left, right with
+                    // Use == with literals
+                    | Constant _, _ -> compare Eq
+                    | _, Constant _ -> compare Eq
+                    // Use `is` with None (except literals)
+                    | _, IsNone -> compare Is
+                    | IsNone, _ -> compare Is
+                    // Use == for the rest
+                    | _ -> compare Eq
+                | BinaryUnequal, true ->
+                    match left, right with
+                    // Use == with literals
+                    | Constant _, _ -> compare NotEq
+                    | _, Constant _ -> compare NotEq
+                    | _ -> compare IsNot
+                | BinaryUnequal, false ->
+                    match left, right with
+                    // Use != with literals
+                    | Constant _, _ -> compare NotEq
+                    | _, Constant _ -> compare NotEq
+                    // Use `is not` with None (except literals)
+                    | _, IsNone -> compare IsNot
+                    | IsNone, _ -> compare IsNot
+                    // Use != for the rest
+                    | _ -> compare NotEq
+                | BinaryLess, _ -> compare Lt
+                | BinaryLessOrEqual, _ -> compare LtE
+                | BinaryGreater, _ -> compare Gt
+                | BinaryGreaterOrEqual, _ -> compare GtE
+                | BinaryDivide, _ ->
+                    // For integer division, we need to use the // operator
+                    match typ with
+                    | Fable.Number(Int8, _)
+                    | Fable.Number(Int16, _)
+                    | Fable.Number(Int32, _)
+                    | Fable.Number(Int64, _)
+                    | Fable.Number(UInt8, _)
+                    | Fable.Number(UInt16, _)
+                    | Fable.Number(UInt32, _)
+                    | Fable.Number(UInt64, _) ->
+                        // In .NET we only get floor division for left integers on the left
+                        match left_typ with
+                        | Fable.Number(Float32, _)
+                        | Fable.Number(Float64, _) -> Expression.binOp (left, Div, right, ?loc = range)
+                        | _ -> Expression.binOp (left, FloorDiv, right, ?loc = range)
+                    | _ -> Expression.binOp (left, op, right, ?loc = range)
+                | _ -> Expression.binOp (left, op, right, ?loc = range)
+        }
+
+    | Fable.Logical(op, left, right) ->
+        expression {
+            let! left = com.TransformAsExpr(ctx, left)
+            let! right = com.TransformAsExpr(ctx, right)
+            return Expression.boolOp (op, [ left; right ], ?loc = range)
+        }
 
 let transformEmit (com: IPythonCompiler) ctx range (info: Fable.EmitInfo) =
     let macro = info.Macro
@@ -850,7 +857,7 @@ let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallI
         libCall com ctx range "util" "dispose" [ expr ], stmts @ stmts' @ stmts''
     | Fable.Get(expr, Fable.FieldGet { Name = "set" }, _, _), _ ->
         // printfn "Type: %A" expr.Type
-        Expression.withStmts {
+        expression {
             let! right = com.TransformAsExpr(ctx, callInfo.Args.Head)
             let! arg = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
             let! value = com.TransformAsExpr(ctx, expr)
@@ -1076,10 +1083,9 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
     match kind with
     | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
         let expr, stmts' =
-            Expression.withStmts {
+            expression {
                 let! expr = com.TransformAsExpr(ctx, fableExpr)
-                let! finalExpr = getExpr com ctx range expr prop
-                return finalExpr
+                return! getExpr com ctx range expr prop
             }
 
         expr, stmts @ stmts'
@@ -1152,47 +1158,50 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
         expr, stmts
 
     | Fable.UnionField i ->
-        Expression.withStmts {
+        expression {
             let! baseExpr = com.TransformAsExpr(ctx, fableExpr)
             let! fieldsExpr = getExpr com ctx range baseExpr (Expression.stringConstant "fields")
-            let! finalExpr = getExpr com ctx range fieldsExpr (ofInt i.FieldIndex)
-            return finalExpr
+            return! getExpr com ctx range fieldsExpr (ofInt i.FieldIndex)
         }
 
 let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
     // printfn "transformSet: %A" (fableExpr, value)
-    let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
+    expression {
+        let! expr = com.TransformAsExpr(ctx, fableExpr)
 
-    let value, stmts' =
-        let value, st = com.TransformAsExpr(ctx, value)
-        value |> wrapIntExpression typ, st
+        let! value =
+            let v, stmts = com.TransformAsExpr(ctx, value)
+            v |> wrapIntExpression typ, stmts
 
-    let ret, stmts'' =
-        match kind with
-        | Fable.ValueSet -> expr, []
-        | Fable.ExprSet(TransformExpr com ctx (e, stmts'')) ->
-            let expr, stmts''' = getExpr com ctx None expr e
-            expr, stmts'' @ stmts'''
-        | Fable.FieldSet fieldName ->
-            // Try to get the naming convention from the narrowed type (considers type refinement)
-            let narrowedType =
-                match fableExpr with
-                | Fable.IdentExpr ident -> getNarrowedType ctx ident
-                | _ -> fableExpr.Type
+        let! ret =
+            match kind with
+            | Fable.ValueSet -> expr, []
+            | Fable.ExprSet e ->
+                expression {
+                    let! e' = com.TransformAsExpr(ctx, e)
+                    return! getExpr com ctx None expr e'
+                }
+            | Fable.FieldSet fieldName ->
+                // Try to get the naming convention from the narrowed type (considers type refinement)
+                let narrowedType =
+                    match fableExpr with
+                    | Fable.IdentExpr ident -> getNarrowedType ctx ident
+                    | _ -> fableExpr.Type
 
-            let finalFieldName =
-                match narrowedType with
-                | Fable.DeclaredType(entityRef, _) ->
-                    match com.TryGetEntity entityRef with
-                    | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
-                        fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                let finalFieldName =
+                    match narrowedType with
+                    | Fable.DeclaredType(entityRef, _) ->
+                        match com.TryGetEntity entityRef with
+                        | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
+                            fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                        | _ -> fieldName |> Naming.toPythonNaming
                     | _ -> fieldName |> Naming.toPythonNaming
-                | _ -> fieldName |> Naming.toPythonNaming
 
-            let cleanFieldName = finalFieldName |> Helpers.clean
-            get com ctx None expr cleanFieldName false, []
+                let cleanFieldName = finalFieldName |> Helpers.clean
+                get com ctx None expr cleanFieldName false, []
 
-    assign range ret value, stmts @ stmts' @ stmts''
+        return assign range ret value
+    }
 
 let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
     match value with
@@ -1207,29 +1216,30 @@ let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.I
 
 let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
     // printfn "transformBindingAsExpr: %A" (var, value)
-    let expr, stmts = transformBindingExprBody com ctx var value
-    expr |> assign None (identAsExpr com ctx var), stmts
+    expression {
+        let! expr = transformBindingExprBody com ctx var value
+        return assign None (identAsExpr com ctx var) expr
+    }
 
 let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-    // printfn "transformBindingAsStatements: %A" (var, value)
-    let shouldTreatAsStatement = isPyStatement ctx false value
+    statements {
+        // printfn "transformBindingAsStatements: %A" (var, value)
+        let shouldTreatAsStatement = isPyStatement ctx false value
 
-    if shouldTreatAsStatement then
-        let varName, varExpr = Expression.name var.Name, identAsExpr com ctx var
+        if shouldTreatAsStatement then
+            let varName, varExpr = Expression.name var.Name, identAsExpr com ctx var
 
-        ctx.BoundVars.Bind(var.Name)
-        let ta, stmts = Annotation.typeAnnotation com ctx None var.Type
-        let decl = Statement.assign (varName, ta)
+            ctx.BoundVars.Bind(var.Name)
+            let! ta = Annotation.typeAnnotation com ctx None var.Type
+            do! Statement.assign (varName, ta)
 
-        let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
-
-        stmts @ [ decl ] @ body
-    else
-        let value, stmts = transformBindingExprBody com ctx var value
-        let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
-        let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
-        let decl = varDeclaration ctx varName (Some ta) value
-        stmts @ stmts' @ decl
+            return! com.TransformAsStatements(ctx, Some(Assign varExpr), value)
+        else
+            let! value = transformBindingExprBody com ctx var value
+            let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
+            let! ta = Annotation.typeAnnotation com ctx None var.Type
+            return! varDeclaration ctx varName (Some ta) value
+    }
 
 let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Statement list =
     match kind with
@@ -1756,7 +1766,7 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
         transformObjectExpr com ctx members typ baseCall
 
     | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "has" }, _, _), info, _, _range) ->
-        Expression.withStmts {
+        expression {
             let! left = com.TransformAsExpr(ctx, info.Args.Head)
             let! value = com.TransformAsExpr(ctx, expr)
             return Expression.compare (left, [ ComparisonOperator.In ], [ value ])
@@ -1769,7 +1779,7 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
         transformAsArray com ctx expr info
 
     | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "Equals" }, _, _), { Args = [ arg ] }, _, _range) ->
-        Expression.withStmts {
+        expression {
             let! left = com.TransformAsExpr(ctx, expr)
             let! right = com.TransformAsExpr(ctx, arg)
             return Expression.compare (left, [ Eq ], [ right ])
@@ -1783,27 +1793,29 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
 
     | Fable.Get(expr, kind, typ, range) -> transformGet com ctx range typ expr kind
 
-    | Fable.IfThenElse(Fable.Test(expr, Fable.TypeTest typ, r), thenExpr, TransformExpr com ctx (elseExpr, stmts''), _r) ->
-        let finalExpr, stmts =
-            Expression.withStmts {
-                let! guardExpr = transformTest com ctx r (Fable.TypeTest typ) expr
+    | Fable.IfThenElse(Fable.Test(expr, Fable.TypeTest typ, r), thenExpr, TransformExpr com ctx elseExpr, _r) ->
+        expression {
+            let! guardExpr = transformTest com ctx r (Fable.TypeTest typ) expr
 
-                // Create refined context for then branch with type assertion
-                let thenCtx =
-                    match expr with
-                    | Fable.IdentExpr ident -> { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }
-                    | _ -> ctx
+            // Create refined context for then branch with type assertion
+            let thenCtx =
+                match expr with
+                | Fable.IdentExpr ident -> { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }
+                | _ -> ctx
 
-                let! thenExprCompiled = com.TransformAsExpr(thenCtx, thenExpr)
-                return Expression.ifExp (guardExpr, thenExprCompiled, elseExpr)
-            }
+            let! thenExprCompiled = com.TransformAsExpr(thenCtx, thenExpr)
+            let! elseExpr' = elseExpr
+            return Expression.ifExp (guardExpr, thenExprCompiled, elseExpr')
+        }
 
-        finalExpr, stmts @ stmts''
 
-    | Fable.IfThenElse(TransformExpr com ctx (guardExpr, stmts),
-                       TransformExpr com ctx (thenExpr, stmts'),
-                       TransformExpr com ctx (elseExpr, stmts''),
-                       _r) -> Expression.ifExp (guardExpr, thenExpr, elseExpr), stmts @ stmts' @ stmts''
+    | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, _r) ->
+        expression {
+            let! guardExpr' = com.TransformAsExpr(ctx, guardExpr)
+            let! thenExpr' = com.TransformAsExpr(ctx, thenExpr)
+            let! elseExpr' = com.TransformAsExpr(ctx, elseExpr)
+            return Expression.ifExp (guardExpr', thenExpr', elseExpr')
+        }
 
     | Fable.DecisionTree(expr, targets) -> transformDecisionTreeAsExpr com ctx targets expr
 
@@ -1832,7 +1844,7 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
 
     | Fable.LetRec(bindings, body) ->
         if ctx.HoistVars(List.map fst bindings) then
-            Expression.withStmts {
+            expression {
                 let values, stmts =
                     bindings
                     |> List.map (fun (id, value) -> transformBindingAsExpr com ctx id value)
@@ -1865,11 +1877,10 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
         | Fable.Debugger -> iife com ctx expr
 
 let transformAsSlice (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Expression * Statement list =
-    Expression.withStmts {
+    expression {
         let! left = com.TransformAsExpr(ctx, expr)
 
-        let args, stmts =
-            Expression.mapWith (fun arg -> com.TransformAsExpr(ctx, arg)) info.Args
+        let! args = Expression.mapWith (fun arg -> com.TransformAsExpr(ctx, arg)) info.Args
 
         let slice =
             match args with
@@ -1879,7 +1890,7 @@ let transformAsSlice (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Ex
             | [ lower; upper ] -> Expression.slice (lower = lower, upper = upper)
             | _ -> failwith $"Array slice with {args.Length} not supported"
 
-        return! Expression.subscript (left, slice), stmts
+        return Expression.subscript (left, slice)
     }
 
 let transformAsArray (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Expression * Statement list =
@@ -1990,12 +2001,14 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
         transformCurriedApplyAsStatements com ctx range typ returnStrategy callee args
 
     | Fable.Emit(info, t, range) ->
-        let e, stmts = transformEmit com ctx range info
+        statements {
+            let! e = transformEmit com ctx range info
 
-        if info.IsStatement then
-            stmts @ [ Statement.expr e ] // Ignore the return strategy
-        else
-            stmts @ resolveExpr ctx t returnStrategy e
+            if info.IsStatement then
+                return [ Statement.expr e ] // Ignore the return strategy
+            else
+                return resolveExpr ctx t returnStrategy e
+        }
 
     | Fable.Operation(kind, tags, t, range) ->
         let expr, stmts = transformOperation com ctx range kind tags
@@ -2085,7 +2098,7 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
                 | _ -> ctx
 
             let expr, stmts =
-                Expression.withStmts {
+                expression {
                     let! guardExpr' = transformAsExpr com ctx guardExpr
                     let! thenExpr' = transformAsExpr com thenCtx thenExpr // Use refined context
                     let! elseExpr' = transformAsExpr com ctx elseExpr
@@ -2512,7 +2525,7 @@ let declareClassType
             let name = Helpers.removeNamespace (int.Entity.FullName)
             allowedInterfaces |> List.contains name
         )
-        |> List.map (fun int ->
+        |> Expression.mapWith (fun int ->
             let genericArgs =
                 match int.GenericArgs with
                 | [ Fable.DeclaredType({ FullName = fullName }, _genericArgs) ] when
@@ -2521,12 +2534,8 @@ let declareClassType
                     [ Fable.Type.Any ]
                 | args -> args
 
-            let expr, stmts =
-                Annotation.makeEntityTypeAnnotation com ctx int.Entity genericArgs None
-
-            expr, stmts
+            Annotation.makeEntityTypeAnnotation com ctx int.Entity genericArgs None
         )
-        |> Helpers.unzipArgs
 
     let bases = baseExpr |> Option.toList
     let name = com.GetIdentifier(ctx, Naming.toPascalCase entName)
@@ -2841,7 +2850,7 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             ent.UnionCases
             |> Seq.map (getUnionCaseName >> makeStrConst)
             |> Seq.toList
-            |> makeList com ctx
+            |> Expression.makeList com ctx
 
         let name = Identifier("cases")
         let body = stmts @ [ Statement.return' expr ]

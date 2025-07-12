@@ -28,7 +28,8 @@ let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics
 
     let fields, stmts =
         ent.FSharpFields
-        |> Seq.map (fun fi ->
+        |> Seq.toList
+        |> Expression.mapWith (fun fi ->
             let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
             let name =
@@ -39,8 +40,6 @@ let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics
 
             Expression.tuple [ Expression.stringConstant name; typeInfo ], stmts
         )
-        |> Seq.toList
-        |> Helpers.unzipArgs
 
     let fields = Expression.lambda (Arguments.arguments [], Expression.list fields)
 
@@ -97,9 +96,8 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
 
     let resolveGenerics generics : Expression list * Statement list =
         generics
-        |> Array.map (transformTypeInfo com ctx r genMap)
-        |> List.ofArray
-        |> Helpers.unzipArgs
+        |> Array.toList
+        |> Expression.mapWith (transformTypeInfo com ctx r genMap)
 
     let genericTypeInfo name genArgs =
         let resolved, stmts = resolveGenerics genArgs
@@ -199,33 +197,33 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
 
                 genericEntity fullName [ keys; values ], stmts @ stmts'
             | Replacements.Util.FSharpResult(ok, err) ->
-                let ent = com.GetEntity(entRef)
-                let ok', stmts = transformTypeInfo com ctx r genMap ok
-                let err', stmts' = transformTypeInfo com ctx r genMap err
+                Expression.withStmts {
+                    let ent = com.GetEntity(entRef)
+                    let! ok' = transformTypeInfo com ctx r genMap ok
+                    let! err' = transformTypeInfo com ctx r genMap err
 
-                let expr, stmts'' = transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
+                    let! expr = transformUnionReflectionInfo com ctx r ent [ ok'; err' ]
 
-                expr, stmts @ stmts' @ stmts''
+                    return expr
+                }
             | Replacements.Util.FSharpChoice gen ->
-                let ent = com.GetEntity(entRef)
+                Expression.withStmts {
+                    let ent = com.GetEntity(entRef)
 
-                let gen, stmts =
-                    List.map (transformTypeInfo com ctx r genMap) gen |> Helpers.unzipArgs
-
-                let expr, stmts' = gen |> transformUnionReflectionInfo com ctx r ent
-
-                expr, stmts @ stmts'
+                    let! gen' = gen |> Expression.mapWith (transformTypeInfo com ctx r genMap)
+                    return! transformUnionReflectionInfo com ctx r ent gen'
+                }
             | Replacements.Util.FSharpReference gen ->
-                let ent = com.GetEntity(entRef)
-                let gen, stmts = transformTypeInfo com ctx r genMap gen
-                let expr, stmts' = [ gen ] |> transformRecordReflectionInfo com ctx r ent
-
-                expr, stmts @ stmts'
+                Expression.withStmts {
+                    let ent = com.GetEntity entRef
+                    let! gen' = transformTypeInfo com ctx r genMap gen
+                    return! transformRecordReflectionInfo com ctx r ent [ gen' ]
+                }
         | _ ->
             let ent = com.GetEntity(entRef)
 
             let generics, stmts =
-                generics |> List.map (transformTypeInfo com ctx r genMap) |> Helpers.unzipArgs
+                generics |> Expression.mapWith (transformTypeInfo com ctx r genMap)
             // Check if the entity is actually declared in Python code
             if
                 ent.IsInterface

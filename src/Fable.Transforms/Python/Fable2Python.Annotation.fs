@@ -195,9 +195,7 @@ let makeGenericTypeAnnotation'
         Expression.subscript (name, Expression.tuple genArgs)
 
 let resolveGenerics com ctx generics repeatedGenerics : Expression list * Statement list =
-    generics
-    |> List.map (typeAnnotation com ctx repeatedGenerics)
-    |> Helpers.unzipArgs
+    generics |> Expression.mapWith (typeAnnotation com ctx repeatedGenerics)
 
 let typeAnnotation
     (com: IPythonCompiler)
