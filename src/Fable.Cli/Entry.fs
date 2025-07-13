@@ -114,10 +114,6 @@ let knownCliArgs () =
             ""
             "Support for TypeScript, Python, Rust, Php and Dart is experimental."
         ]
-        [ "--legacyCracker" ],
-        [
-            "Use this if you have issues with the new MSBuild Cracker released in Fable 5"
-        ]
 
         // Hidden args
         [ "--precompiledLib" ], []
@@ -127,6 +123,7 @@ let knownCliArgs () =
         [ "--trimRootModule" ], []
         [ "--fableLib" ], []
         [ "--replace" ], []
+        [ "--test:MSBuildCracker" ], []
     ]
 
 let printKnownCliArgs () =
@@ -271,7 +268,7 @@ type Runner =
                 args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
 
             let fableLib = args.Value "--fableLib" |> Option.map Path.normalizePath
-            let useMSBuildForCracking = args.FlagOr("--legacyCracker", true)
+            let useMSBuildForCracking = args.FlagOr("--test:MSBuildCracker", false)
 
             do!
                 match watch, outDir, fableLib with
@@ -314,7 +311,7 @@ type Runner =
                 |> List.append
                     [
                         "FABLE_COMPILER"
-                        "FABLE_COMPILER_5"
+                        "FABLE_COMPILER_4"
                         match language with
                         | Php -> "FABLE_COMPILER_PHP"
                         | Rust -> "FABLE_COMPILER_RUST"

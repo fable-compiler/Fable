@@ -511,7 +511,7 @@ let ``test can check compiler version with constant`` () =
     x <- x + 32
     #endif
 
-    equal 41 x
+    equal 13 x
 
 [<Fact>]
 let ``test Can check compiler version at runtime`` () =

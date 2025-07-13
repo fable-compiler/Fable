@@ -568,7 +568,7 @@ let ``Can check compiler version with constant`` () =
     #if FABLE_COMPILER_RUST
     x <- x + 32
     #endif
-    equal 41 x
+    equal 37 x
 
 // [<Fact>]
 // let ``Can check compiler version at runtime`` () =
