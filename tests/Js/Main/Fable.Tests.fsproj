@@ -3,6 +3,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
     <RollForward>Major</RollForward>
+    <!-- <Nullable>enable</Nullable> -->
+    <!-- <WarningsAsErrors>FS3261</WarningsAsErrors> -->
     <OtherFlags>$(OtherFlags) --crossoptimize- --nowarn:3370</OtherFlags>
     <FableDefinesQueue>True</FableDefinesQueue>
     <LangVersion>Preview</LangVersion>

@@ -334,6 +334,7 @@ module Reflection =
         | Fable.LambdaType(argType, returnType) -> genericTypeInfo "lambda" [ argType; returnType ]
         | Fable.DelegateType(argTypes, returnType) -> genericTypeInfo "delegate" [ yield! argTypes; yield returnType ]
         | Fable.Tuple(genArgs, _) -> genericTypeInfo "tuple" genArgs
+        | Fable.Nullable(genArg, isStruct) -> transformTypeInfoFor purpose com ctx r genMap genArg
         | Fable.Option(genArg, _) -> genericTypeInfo "option" [ genArg ]
         | Fable.Array(genArg, _) -> genericTypeInfo "array" [ genArg ]
         | Fable.List genArg -> genericTypeInfo "list" [ genArg ]
@@ -495,6 +496,7 @@ module Reflection =
         | Fable.MetaType -> jsInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
         | Fable.Option _ -> warnAndEvalToFalse "options" // TODO
         | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters"
+        | Fable.Nullable(genArg, _isStruct) -> transformTypeTest com ctx range expr genArg
         | Fable.DeclaredType(ent, genArgs) ->
             match ent.FullName with
             | Types.idisposable ->
@@ -609,6 +611,7 @@ module Annotation =
         | Fable.Regex -> makeAliasTypeAnnotation com ctx "RegExp"
         | Fable.Number(BigInt, _) -> makeAliasTypeAnnotation com ctx "bigint"
         | Fable.Number(kind, _) -> makeNumericTypeAnnotation com ctx kind
+        | Fable.Nullable(genArg, _) -> makeNullableTypeAnnotation com ctx genArg
         | Fable.Option(genArg, _) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs, _) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
@@ -693,7 +696,7 @@ module Annotation =
         makeFableLibImportTypeAnnotation com ctx [] moduleName typeName
 
     let makeNullableTypeAnnotation com ctx genArg =
-        makeFableLibImportTypeAnnotation com ctx [ genArg ] "Option" "Nullable"
+        makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "Nullable"
 
     let makeOptionTypeAnnotation com ctx genArg =
         makeFableLibImportTypeAnnotation com ctx [ genArg ] "Option" "Option"
@@ -881,8 +884,6 @@ module Annotation =
 
     let makeEntityTypeAnnotation com ctx genArgs (ent: Fable.Entity) =
         match genArgs, ent with
-        | [ genArg ], EntFullName Types.nullable -> makeNullableTypeAnnotation com ctx genArg
-
         | _, Patterns.Try (tryNativeOrFableLibraryInterface com ctx genArgs) ta -> ta
 
         | _, Patterns.Try (Lib.tryJsConstructorFor Annotation com ctx) entRef ->
@@ -1978,6 +1979,16 @@ module Util =
                 | Fable.Value(Fable.Null _, _), e
                 | e, Fable.Value(Fable.Null _, _) ->
                     com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
+                | ExprType(Fable.Nullable _), ExprType(Fable.Nullable _) ->
+                    Replacements.Util.Helper.LibCall(
+                        com,
+                        "Util",
+                        "nullableEquals",
+                        Fable.Boolean,
+                        [ e1; e2 ],
+                        ?loc = range
+                    )
+                    |> transformAsExpr com ctx
                 | ExprType(Fable.MetaType), _ ->
                     let e =
                         Replacements.Util.Helper.LibCall(
