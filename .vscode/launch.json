@@ -9,7 +9,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/quicktest-dart",
         "--lang",
@@ -29,7 +29,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/quicktest",
         "--exclude",
@@ -45,7 +45,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/quicktest",
         "--lang",
@@ -62,7 +62,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/quicktest-py",
         "--lang",
@@ -82,7 +82,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/quicktest-rust",
         "--lang",
@@ -102,7 +102,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/quicktest-rust",
         "--lang",
@@ -124,7 +124,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/quicktest-rust",
         "--lang",
@@ -191,7 +191,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/fable-library-dart",
         "--outDir", "temp/fable-library-dart",
@@ -207,7 +207,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/fable-library-ts",
         "--outDir", "temp/fable-library-ts",
@@ -225,7 +225,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/fable-library-py/fable_library",
         "--outDir", "temp/fable-library-py/fable_library",
@@ -241,7 +241,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "src/fable-library-rust/src",
         "--outDir", "temp/fable-library-rust/src",
@@ -250,8 +250,7 @@
         "--define", "FABLE_LIBRARY",
         "--lang", "Rust",
         "--noCache",
-        "--noParallelTypeCheck",
-        "--test:MSBuildCracker"
+        "--noParallelTypeCheck"
       ]
     },
     {
@@ -259,15 +258,14 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net6.0/fable.dll",
+      "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net8.0/fable.dll",
       "args": [
         "--outDir", "${workspaceRoot}/../fable-test",
         "--fableLib", "${workspaceRoot}/temp/fable-library-rust",
         "--exclude", "Fable.Core",
         "--lang", "Rust",
         "--noCache",
-        "--noParallelTypeCheck",
-        "--test:MSBuildCracker"
+        "--noParallelTypeCheck"
       ],
       "cwd": "${workspaceRoot}/../fable-test",
       "stopAtEntry": false,

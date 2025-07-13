@@ -12,7 +12,7 @@
     "prebuild-cli-js": "npm run clean && FABLE=fable-cli npm run build-lib-ts",
     "build-cli-js": "npm run fable-cli -- bench-compiler.fsproj --outDir ./out-node --fableLib ./out-lib-js",
     "postbuild-cli-js": "npm run rollup-bundle",
-    "build-cli-rust": "npm run fable-cli -- bench-compiler.fsproj --outDir ./out-rust --lang Rust --noCache --test:MSBuildCracker",
+    "build-cli-rust": "npm run fable-cli -- bench-compiler.fsproj --outDir ./out-rust --lang Rust --noCache",
 
     "fable": "dotnet run -c Release --project bench-compiler.fsproj",
     "prebuild-js": "npm run clean && FABLE=fable npm run build-lib-ts",
