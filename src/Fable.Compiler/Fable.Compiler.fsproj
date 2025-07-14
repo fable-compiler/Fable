@@ -6,11 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-017</Version>
-        <PackageReleaseNotes>## Fixed
+        <Version>4.0.0-alpha-018</Version>
+        <PackageReleaseNotes>## Changed
 
-- [JS/TS] Propagate non-captured exception when running `Async.Start` or `Async.StartImmediate` (by @MangelMaxime)
-- [JS/TS] Report an error at compilation time when trying to use `Async.RunSynchronously` (by @MangelMaxime)
+- [All] Fix #4176: Move TargetFramework to net8.0 (@ncave)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

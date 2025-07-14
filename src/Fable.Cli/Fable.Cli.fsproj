@@ -4,11 +4,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <Version>4.25.0</Version>
-    <PackageReleaseNotes>## Fixed
+    <Version>4.26.0</Version>
+    <PackageReleaseNotes>## Changed
 
-- [JS/TS] Propagate non-captured exception when running `Async.Start` or `Async.StartImmediate` (by @MangelMaxime)
-- [JS/TS] Report an error at compilation time when trying to use `Async.RunSynchronously` (by @MangelMaxime)
+- [All] Fix #4176: Move TargetFramework to net8.0 (@ncave)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->

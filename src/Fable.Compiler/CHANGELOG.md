@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.0.0-alpha-018 - 2025-07-14
+
 ### Changed
 
 * [All] Fix #4176: Move TargetFramework to net8.0 (@ncave)
