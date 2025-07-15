@@ -337,7 +337,9 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
     | Fable.List _ -> pyInstanceof (libValue com ctx "List" "FSharpList") expr
     | Fable.AnonymousRecordType _ -> warnAndEvalToFalse "anonymous records", []
     | Fable.MetaType -> pyInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
-    | Fable.Nullable _ -> warnAndEvalToFalse "options", [] // TODO
+    | Fable.Nullable(genArg, _isStruct) ->
+        // For nullable types, forward to the inner type (same as JS/TS implementation)
+        transformTypeTest com ctx range expr genArg
     | Fable.Option _ -> warnAndEvalToFalse "options", [] // TODO
     | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters", []
     | Fable.DeclaredType(ent, genArgs) ->

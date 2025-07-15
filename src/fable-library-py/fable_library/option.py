@@ -22,6 +22,9 @@ or_else = option.or_else
 or_else_with = option.or_else_with
 filter = option.filter
 some = option.some
+non_null = option.non_null
+# Alias for compatibility
+of_null = option.of_nullable
 
 
 __all__ = [
@@ -34,6 +37,8 @@ __all__ = [
     "map",
     "map2",
     "map3",
+    "non_null",
+    "of_null",
     "of_nullable",
     "or_else",
     "or_else_with",
