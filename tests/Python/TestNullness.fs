@@ -2,6 +2,7 @@ module Fable.Tests.Nullness
 
 open System
 open Util.Testing
+open Fable.Core.PyInterop
 
 type ABNull =
     | A
@@ -48,6 +49,32 @@ let ``test works with generics`` () =
 
     equal (findOrNull 1 [ "a"; "b"; "c" ]) "b"
     equal (findOrNull 3 [ "a"; "b"; "c" ]) null
+
+#if FABLE_COMPILER
+[<Fact>]
+let ``test works for interop with undefined`` () =
+    let maybeUndefined (value: string) : (string | null) = importMember "./py/nullness.py"
+
+    match maybeUndefined "ok" with
+    | NonNull _ -> equal true true
+    | Null -> equal true false
+
+    match maybeUndefined "foo" with
+    | NonNull _ -> equal true false
+    | Null -> equal true true
+
+[<Fact>]
+let ``test works for interop with null`` () =
+    let maybeNull (value: string) : (string | null) = importMember "./py/nullness.py"
+
+    match maybeNull "ok" with
+    | NonNull _ -> equal true true
+    | Null -> equal true false
+
+    match maybeNull "foo" with
+    | NonNull _ -> equal true false
+    | Null -> equal true true
+#endif
 
 [<Fact>]
 let ``test Unchecked.nonNull works`` () =
