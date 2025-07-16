@@ -231,6 +231,10 @@ let typeAnnotation
         stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ])
     | Fable.DelegateType(argTypes, returnType) ->
         stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ])
+    | Fable.Nullable(genArg, _isStruct) ->
+        // For nullable reference types, use T | None pattern similar to Option but without special handling
+        let innerType, stmts = typeAnnotation com ctx repeatedGenerics genArg
+        Expression.binOp (innerType, BinaryOrBitwise, Expression.none), stmts
     | Fable.Option(Fable.Unit, _) ->
         // unit option -> just None instead of None | None
         Expression.none, []

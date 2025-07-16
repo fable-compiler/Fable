@@ -28,6 +28,7 @@ pub fn register_option_module(parent_module: &Bound<'_, PyModule>) -> PyResult<(
     m.add_function(wrap_pyfunction!(bind, &m)?)?;
     m.add_function(wrap_pyfunction!(or_else, &m)?)?;
     m.add_function(wrap_pyfunction!(or_else_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(non_null, &m)?)?;
 
     parent_module.add_submodule(&m)?;
     Ok(())
@@ -294,5 +295,14 @@ fn or_else_with(
         if_none_thunk.call0()?.into_py_any(py)
     } else {
         opt.into_py_any(py)
+    }
+}
+
+#[pyfunction]
+fn non_null(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    if x.is_none() {
+        Err(PyValueError::new_err("Value cannot be null"))
+    } else {
+        x.into_py_any(py)
     }
 }

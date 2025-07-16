@@ -2675,6 +2675,13 @@ def ignore(a: Any = None) -> None:
     return
 
 
+def null_arg_check(param_name: str, value: Any) -> Any:
+    """Check if argument is null and throw if it is."""
+    if value is None:
+        raise ValueError(f"Value cannot be null. (Parameter '{param_name}')")
+    return value
+
+
 def copy_to_array[T](src: Array[T], srci: int, trg: Array[T], trgi: int, cnt: int) -> None:
     for i in range(0, cnt, 1):
         trg[trgi + i] = src[srci + i]
