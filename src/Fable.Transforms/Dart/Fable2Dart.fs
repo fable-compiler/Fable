@@ -194,10 +194,13 @@ module Util =
         let tup = List.length genArgs |> getTupleTypeIdent com ctx
         Type.reference (tup, genArgs)
 
-    let transformNullableType com ctx genArg =
-        transformType com ctx genArg |> Nullable
+    let transformNullableType com ctx isStruct genArg =
+        if isStruct then
+            transformType com ctx genArg |> Nullable
+        else
+            transformType com ctx genArg // nullable reference types are erased
 
-    let transformOptionType com ctx genArg =
+    let transformOptionType com ctx _isStruct genArg =
         let genArg = transformType com ctx genArg
 
         Type.reference (libValue com ctx Fable.MetaType "Types" "Some", [ genArg ])
@@ -652,8 +655,8 @@ module Util =
             | BigInt
             | NativeInt
             | UNativeInt -> Dynamic // TODO
-        | Fable.Nullable(genArg, _isStruct) -> transformNullableType com ctx genArg
-        | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
+        | Fable.Nullable(genArg, isStruct) -> transformNullableType com ctx isStruct genArg
+        | Fable.Option(genArg, isStruct) -> transformOptionType com ctx isStruct genArg
         | Fable.Array(TransformType com ctx genArg, _) -> List genArg
         | Fable.List(TransformType com ctx genArg) -> Type.reference (getFSharpListTypeIdent com ctx, [ genArg ])
         | Fable.Tuple(genArgs, _) -> transformGenArgs com ctx genArgs |> transformTupleType com ctx
@@ -798,10 +801,10 @@ module Util =
             Expression.invocationExpression (regexIdent.Expr, args, Type.reference regexIdent)
             |> resolveExpr returnStrategy
 
-        | Fable.NewOption(expr, genArg, _isStruct) ->
+        | Fable.NewOption(expr, genArg, isStruct) ->
             let transformOption (com: IDartCompiler) ctx genArg (arg: Expression) =
                 let cons = libValue com ctx Fable.MetaType "Types" "Some"
-                let t = transformOptionType com ctx genArg
+                let t = transformOptionType com ctx isStruct genArg
 
                 let isConst, args =
                     if areConstTypes t.Generics && isConstExpr ctx arg then
