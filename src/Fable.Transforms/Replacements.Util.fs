@@ -672,11 +672,12 @@ let (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
     | Any
     | LambdaType _
     | DelegateType _ -> Some t
+    | Nullable(_, false) -> Some t
     | GenericParam(_name, _isMeasure, constraints) ->
         let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
-        // let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
+        let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
 
-        if isNullable then // || isReferenceType then
+        if isNullable || isReferenceType then
             Some t
         else
             None

@@ -458,7 +458,7 @@ let objectHash (com: ICompiler) ctx r (arg: Expr) =
 let referenceEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left, right with
     | Value(Null _, _), o
-    | o, Value(Null _, _) -> Helper.LibCall(com, "Native", "is_null", Boolean, [ o ], ?loc = r)
+    | o, Value(Null _, _) -> Helper.LibCall(com, "Native", "is_null", Boolean, [ makeRef o ], ?loc = r)
     | _ ->
         match left.Type with
         | Boolean
@@ -624,7 +624,8 @@ let makeMap (com: ICompiler) ctx r t args genArg =
 
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
-    | Nullable(genArg, _) -> NewOption(None, genArg, false) |> makeValue None
+    | Nullable(genArg, true) -> NewOption(None, genArg, false) |> makeValue None
+    | Nullable(genArg, false) -> Null t |> makeValue None
     | Boolean -> makeBoolConst false
     | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "zero", t, [])
     | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "Zero", t)
@@ -632,6 +633,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> Null t |> makeValue None
     | Array(typ, _) -> makeArray typ []
+    | List genArg -> NewList(None, genArg) |> makeValue None
     | Builtin BclDateTime -> Helper.LibCall(com, "DateTime", "zero", t, [])
     | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateTimeOffset", "zero", t, [])
     | Builtin BclDateOnly -> Helper.LibCall(com, "DateOnly", "zero", t, [])
@@ -640,7 +642,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin(FSharpSet genArg) -> makeSet com ctx None t [] genArg
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
-    | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
+    // | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | HasReferenceEquality com _ -> Null t |> makeValue None
     | _ -> Helper.LibCall(com, "Native", "getZero", t, [])
 
@@ -650,7 +652,7 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "one", t, [])
     | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "One", t)
     | Number(kind, uom) -> NumberConstant(NumberValue.GetOne kind, uom) |> makeValue None
-    | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
+    // | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
