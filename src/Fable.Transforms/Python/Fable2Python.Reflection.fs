@@ -160,7 +160,8 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
     | Fable.LambdaType(argType, returnType) -> genericTypeInfo "lambda" [| argType; returnType |]
     | Fable.DelegateType(argTypes, returnType) -> genericTypeInfo "delegate" [| yield! argTypes; yield returnType |]
     | Fable.Tuple(genArgs, _) -> genericTypeInfo "tuple" (List.toArray genArgs)
-    | Fable.Nullable(genArg, _) -> genericTypeInfo "option" [| genArg |]
+    | Fable.Nullable(genArg, true) -> genericTypeInfo "option" [| genArg |]
+    | Fable.Nullable(genArg, false) -> transformTypeInfo com ctx r genMap genArg
     | Fable.Option(genArg, _) -> genericTypeInfo "option" [| genArg |]
     | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) -> genericTypeInfo "list" [| genArg |]
     | Fable.Array(genArg, _) -> genericTypeInfo "array" [| genArg |]

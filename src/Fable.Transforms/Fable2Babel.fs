@@ -334,7 +334,8 @@ module Reflection =
         | Fable.LambdaType(argType, returnType) -> genericTypeInfo "lambda" [ argType; returnType ]
         | Fable.DelegateType(argTypes, returnType) -> genericTypeInfo "delegate" [ yield! argTypes; yield returnType ]
         | Fable.Tuple(genArgs, _) -> genericTypeInfo "tuple" genArgs
-        | Fable.Nullable(genArg, isStruct) -> transformTypeInfoFor purpose com ctx r genMap genArg
+        | Fable.Nullable(genArg, true) -> genericTypeInfo "option" [ genArg ]
+        | Fable.Nullable(genArg, false) -> transformTypeInfoFor purpose com ctx r genMap genArg
         | Fable.Option(genArg, _) -> genericTypeInfo "option" [ genArg ]
         | Fable.Array(genArg, _) -> genericTypeInfo "array" [ genArg ]
         | Fable.List genArg -> genericTypeInfo "list" [ genArg ]
@@ -611,9 +612,9 @@ module Annotation =
         | Fable.Regex -> makeAliasTypeAnnotation com ctx "RegExp"
         | Fable.Number(BigInt, _) -> makeAliasTypeAnnotation com ctx "bigint"
         | Fable.Number(kind, _) -> makeNumericTypeAnnotation com ctx kind
-        | Fable.Nullable(genArg, _) -> makeNullableTypeAnnotation com ctx genArg
-        | Fable.Option(genArg, _) -> makeOptionTypeAnnotation com ctx genArg
-        | Fable.Tuple(genArgs, _) -> makeTupleTypeAnnotation com ctx genArgs
+        | Fable.Nullable(genArg, isStruct) -> makeNullableTypeAnnotation com ctx isStruct genArg
+        | Fable.Option(genArg, isStruct) -> makeOptionTypeAnnotation com ctx isStruct genArg
+        | Fable.Tuple(genArgs, isStruct) -> makeTupleTypeAnnotation com ctx isStruct genArgs
         | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
         | Fable.GenericParam(name = name) -> makeAliasTypeAnnotation com ctx name
@@ -695,13 +696,16 @@ module Annotation =
         let typeName = getNumberKindName kind
         makeFableLibImportTypeAnnotation com ctx [] moduleName typeName
 
-    let makeNullableTypeAnnotation com ctx genArg =
-        makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "Nullable"
+    let makeNullableTypeAnnotation com ctx isStruct genArg =
+        if isStruct then
+            makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "Nullable"
+        else
+            makeTypeAnnotation com ctx genArg // nullable reference types are erased
 
-    let makeOptionTypeAnnotation com ctx genArg =
+    let makeOptionTypeAnnotation com ctx _isStruct genArg =
         makeFableLibImportTypeAnnotation com ctx [ genArg ] "Option" "Option"
 
-    let makeTupleTypeAnnotation com ctx genArgs =
+    let makeTupleTypeAnnotation com ctx _isStruct genArgs =
         List.map (makeTypeAnnotation com ctx) genArgs
         |> List.toArray
         |> TupleTypeAnnotation
@@ -733,7 +737,7 @@ module Annotation =
         | Replacements.Util.BclHashSet key -> makeFableLibImportTypeAnnotation com ctx [ key ] "Util" "ISet"
         | Replacements.Util.BclDictionary(key, value) ->
             makeFableLibImportTypeAnnotation com ctx [ key; value ] "Util" "IMap"
-        | Replacements.Util.BclKeyValuePair(key, value) -> makeTupleTypeAnnotation com ctx [ key; value ]
+        | Replacements.Util.BclKeyValuePair(key, value) -> makeTupleTypeAnnotation com ctx true [ key; value ]
         | Replacements.Util.FSharpSet key -> makeFableLibImportTypeAnnotation com ctx [ key ] "Set" "FSharpSet"
         | Replacements.Util.FSharpMap(key, value) ->
             makeFableLibImportTypeAnnotation com ctx [ key; value ] "Map" "FSharpMap"
@@ -1980,14 +1984,7 @@ module Util =
                 | e, Fable.Value(Fable.Null _, _) ->
                     com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
                 | ExprType(Fable.Nullable _), ExprType(Fable.Nullable _) ->
-                    Replacements.Util.Helper.LibCall(
-                        com,
-                        "Util",
-                        "nullableEquals",
-                        Fable.Boolean,
-                        [ e1; e2 ],
-                        ?loc = range
-                    )
+                    Replacements.Util.Helper.LibCall(com, "Util", "equals", Fable.Boolean, [ e1; e2 ], ?loc = range)
                     |> transformAsExpr com ctx
                 | ExprType(Fable.MetaType), _ ->
                     let e =

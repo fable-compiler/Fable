@@ -32,11 +32,11 @@ export interface IDisposable {
 }
 
 export interface IComparer<T> {
-  Compare(x: Nullable<T>, y: Nullable<T>): number;
+  Compare(x: T, y: T): number;
 }
 
 export interface IEqualityComparer<T> {
-  Equals(x: Nullable<T>, y: Nullable<T>): boolean;
+  Equals(x: T, y: T): boolean;
   GetHashCode(x: T): number;
 }
 
@@ -462,13 +462,7 @@ export function physicalEquals<T>(x: T, y: T): boolean {
   return x === y;
 }
 
-export function nullableEquals<T>(x: Nullable<T>, y: Nullable<T>): boolean {
-  if (x == null) { return y == null; }
-  if (y == null) { return false; }
-  return equals(x, y);
-}
-
-export function equals<T>(x: T, y: T): boolean {
+export function equals<T>(x: Nullable<T>, y: Nullable<T>): boolean {
   if (x === y) {
     return true;
   } else if (x == null) {
