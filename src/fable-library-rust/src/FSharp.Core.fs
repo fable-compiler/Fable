@@ -14,20 +14,11 @@ module LanguagePrimitives =
     // let GenericComparisonIntrinsic<'T> (x: 'T) (y: 'T) : int =
     //     System.Collections.Generic.Comparer<'T>.Default.Compare(x, y)
 
-    let GenericEqualityComparer =
-        { new System.Collections.IEqualityComparer with
-            override _.Equals(x: obj, y: obj) = LanguagePrimitives.GenericEquality x y
+    let GenericEqualityComparer<'T when 'T: equality> =
+        FSharp.Collections.HashIdentity.Structural<'T>
 
-            override _.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
-        }
-
-    let GenericEqualityERComparer =
-        { new System.Collections.IEqualityComparer with
-            override _.Equals(x: obj, y: obj) =
-                LanguagePrimitives.GenericEqualityER x y
-
-            override _.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
-        }
+    let GenericEqualityERComparer<'T when 'T: equality> =
+        FSharp.Collections.HashIdentity.Structural<'T>
 
     let FastGenericComparer<'T when 'T: comparison> =
         FSharp.Collections.ComparisonIdentity.Structural<'T>

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Support for Nullable Reference Types (by @dbrattli)
 * [JS/TS] Fix #3533: Add directives prologues supports (by @MangelMaxime)
 * [JS/TS] Support for Nullable Reference Types (by @ncave and @MangelMaxime)
+* [Rust] Initial support for Nullable Reference Types (by @ncave)
 
 ### Changed
 

@@ -798,8 +798,11 @@ module TypeInfo =
     let transformTupleType com ctx _isStruct genArgs : Rust.Ty =
         genArgs |> List.map (transformType com ctx) |> mkTupleTy
 
-    let transformNullableType com ctx _isStruct genArg : Rust.Ty =
-        transformImportType com ctx [ genArg ] "Native" "Nullable"
+    let transformNullableType com ctx isStruct genArg : Rust.Ty =
+        if isStruct then
+            transformImportType com ctx [ genArg ] "Native" "Nullable"
+        else
+            transformType com ctx genArg // nullable reference types are transparent
 
     let transformOptionType com ctx _isStruct genArg : Rust.Ty =
         transformGenericType com ctx [ genArg ] (rawIdent "Option")
@@ -956,9 +959,9 @@ module TypeInfo =
         | Fable.Operation(Fable.Unary(UnaryOperator.UnaryAddressOf, e), _, _, _) -> true
         | _ -> false
 
-    let isNullableType (com: IRustCompiler) =
+    let isNullableValueType (com: IRustCompiler) =
         function
-        | Fable.Nullable(_, _isStruct) -> true
+        | Fable.Nullable(_, true) -> true
         | _ -> false
 
     let isByRefType (com: IRustCompiler) =
@@ -1740,7 +1743,7 @@ module Util =
         makeLibCall com ctx None "String" "fromString" [ value ]
 
     let makeNullCheck com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "Native" "is_null" [ value ]
+        makeLibCall com ctx None "Native" "is_null" [ value |> mkAddrOfExpr ]
 
     let makeNull com ctx (typ: Fable.Type) =
         let typ =
@@ -2793,9 +2796,9 @@ module Util =
         exprs |> List.map (transformAsStmt com ctx) |> mkStmtBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
-        // transform nullable types null check
+        // transform null checks for nullable value types
         match guard with
-        | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest false, r) when isNullableType com ident.Type ->
+        | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest false, r) when isNullableValueType com ident.Type ->
             let value = transformIdentGet com ctx r ident
             let pat = makeUnionCasePat (rawIdent "Some") [ makeFullNameIdentPat ident.Name ]
             let letExpr = mkLetExpr pat value
