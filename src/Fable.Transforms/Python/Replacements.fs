@@ -950,39 +950,10 @@ let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     |> Some
 
 let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | "NullMatchPattern" ->
-        // The (|Null|NonNull|) active pattern - should return Choice2Of2() for null, Choice1Of2(value) for non-null
-        match args with
-        | [ value ] ->
-            let nullCheck =
-                Operation(Binary(BinaryEqual, value, Value(Null value.Type, None)), Tags.empty, Boolean, r)
+    let moduleName, mangledName = getMangledNames i thisArg
 
-            let nullCase =
-                Helper.LibCall(com, "choice", "Choice_makeChoice1Of2", t, [], ?loc = r) // tag = 0 (Null case)
-
-            let nonNullCase =
-                Helper.LibCall(com, "choice", "Choice_makeChoice2Of2", t, [ value ], ?loc = r) // tag = 1 (NonNull case)
-
-            IfThenElse(nullCheck, nullCase, nonNullCase, r) |> Some
-        | _ -> None
-    | "NonNull" ->
-        // Unchecked.nonNull - remove null from nullable type, throws if null
-        match args with
-        | [ value ] -> Helper.LibCall(com, "Option", "non_null", t, [ value ], ?loc = r) |> Some
-        | _ -> None
-    | "NullArgCheck" ->
-        // nullArgCheck function - check if argument is null and throw if it is
-        match args with
-        | [ paramName; value ] ->
-            Helper.LibCall(com, "util", "null_arg_check", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | _ -> None
-    | _ ->
-        let moduleName, mangledName = getMangledNames i thisArg
-
-        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc = r)
+    |> Some
 
 // TODO: This is likely broken
 let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
@@ -1116,8 +1087,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Strings
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail" | "PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // bprintf
       _ -> fsFormat com ctx r t i thisArg args
-    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using" | "NullArgCheck" | "NullMatchPattern"), _ ->
-        fsharpModule com ctx r t i thisArg args
+    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using"), _ -> fsharpModule com ctx r t i thisArg args
+    | ("IsNull" | "IsNotNull" | "IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
+      _ -> fsharpModule com ctx r t i thisArg args
     | "Lock", _ ->
         Helper.LibCall(com, "util", "lock", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -1253,7 +1225,6 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals com ctx r false left right |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals com ctx r true left right |> Some
-    | "IsNull", [ arg ] -> nullCheck r true arg |> Some
     | "Hash", [ arg ] -> structuralHash com r arg |> Some
     // Comparison
     | "Compare", [ left; right ] -> compare com ctx r left right |> Some
@@ -2499,9 +2470,7 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | "Hash", [ arg ] -> structuralHash com r arg |> Some
     | "Equals", [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
     | "Compare", [ arg1; arg2 ] -> compare com ctx r arg1 arg2 |> Some
-    | "NonNull", [ value ] ->
-        // Unchecked.nonNull - remove null from nullable type, throws if null
-        Helper.LibCall(com, "Option", "non_null", t, [ value ], ?loc = r) |> Some
+    | "NonNull", [ arg ] -> arg |> Some
     | _ -> None
 
 let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

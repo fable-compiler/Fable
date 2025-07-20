@@ -2017,7 +2017,7 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
     | "DefaultValue", [ defValue; option ] -> defaultValue com ctx r t defValue option
-    | ("ToArray" | "ToList" | "OfNullable" | "ToNullable" | "Count" | "Contains" | "ForAll" | "Iterate" | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists" | "Flatten" | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth),
+    | ("ToArray" | "ToList" | "OfNullable" | "ToNullable" | "OfObj" | "ToObj" | "Count" | "Contains" | "ForAll" | "Iterate" | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists" | "Flatten" | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth),
       args ->
         Helper.LibCall(
             com,
@@ -2030,7 +2030,6 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
             ?loc = r
         )
         |> Some
-    //    | ("OfObj" | "ToObj"), _ ->
     | _ -> None
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2584,6 +2583,7 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | "Compare", [ arg1; arg2 ] ->
         Helper.LibCall(com, "Util", "compareDynamic", t, [ arg1; arg2 ], ?loc = r)
         |> Some
+    | "NonNull", [ arg ] -> arg |> Some
     | _ -> None
 
 let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

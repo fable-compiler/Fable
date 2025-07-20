@@ -49,11 +49,13 @@
     <Compile Include="tests/src/InterfaceTests.fs" />
     <Compile Include="tests/src/InteropTests.fs" />
     <!-- <Compile Include="tests/src/ImportTests.fs" /> -->
+    <!-- <Compile Include="tests/src/ListCollectorTests.fs" /> -->
     <Compile Include="tests/src/ListTests.fs" />
     <Compile Include="tests/src/MapTests.fs" />
     <Compile Include="tests/src/MiscTests.fs" />
     <Compile Include="tests/src/MiscTests2.fs" />
     <Compile Include="tests/src/NBodyTests.fs" />
+    <Compile Include="tests/src/NullnessTests.fs" />
     <!-- <Compile Include="tests/src/ObservableTests.fs" /> -->
     <Compile Include="tests/src/OptionTests.fs" />
     <Compile Include="tests/src/QueueTests.fs" />

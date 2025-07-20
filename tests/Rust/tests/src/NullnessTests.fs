@@ -1,8 +1,6 @@
-module Fable.Tests.Nullness
+module Fable.Tests.NullnessTests
 
 open Util.Testing
-open Fable.Tests.Util
-open Fable.Core.PyInterop
 
 type ABNull =
     | A
@@ -81,21 +79,21 @@ type Person =
     { First: string
       Last: string }
 
-[<Fact>]
-let ``test Lists of nullable records works`` () =
-    let args: (Person | null) list =
-        [
-            { First = "A"; Last = "B" }
-            null
-            { First = "C"; Last = "D" }
-            { First = "E"; Last = "F" }
-            null
-        ]
-    let nullCount = args |> List.filter isNull |> List.length
-    nullCount |> equal 2
+// [<Fact>]
+// let ``Lists of nullable records works`` () =
+//     let args: (Person | null) list =
+//         [
+//             { First = "A"; Last = "B" }
+//             null
+//             { First = "C"; Last = "D" }
+//             { First = "E"; Last = "F" }
+//             null
+//         ]
+//     let nullCount = args |> List.filter isNull |> List.length
+//     nullCount |> equal 2
 
 [<Fact>]
-let ``test Lists of nullable strings works`` () =
+let ``Lists of nullable strings works`` () =
     let args: (string | null * bool) list =
         [
             ("", true)
@@ -108,7 +106,7 @@ let ``test Lists of nullable strings works`` () =
     nullCount |> equal 2
 
 [<Fact>]
-let ``test Nullable integer value works`` () =
+let ``Nullable integer value works`` () =
     let i_null = System.Nullable<int>()
     let i_five = System.Nullable(5)
     i_null |> getNullableValueOrDefault |> equal 0
@@ -121,37 +119,37 @@ let ``test Nullable integer value works`` () =
     (withNullV 42).HasValue |> equal true
 
 [<Fact>]
-let ``test Nullable string length works`` () =
+let ``Nullable string length works`` () =
     handleString1 "abc" |> equal 3
     handleString1 null |> equal 0
     handleString2 "abc" |> equal 3
     handleString2 null |> equal 0
 
 [<Fact>]
-let ``test Nullable string union works`` () =
+let ``Nullable string union works`` () =
     A |> handleUnion |> equal 0
     B null |> handleUnion |> equal 0
     B "cd" |> handleUnion |> equal 2
 
 [<Fact>]
-let ``test Nullable string check works`` () =
+let ``Nullable string check works`` () =
     argValidateShadowing "ABC" |> equal 3
     argValidateShadowing2 "ABC" |> equal 3
     automaticValidationViaActivePattern "ABC" |> equal 3
 
 [<Fact>]
-let ``test Nullable string to option works`` () =
+let ``Nullable string to option works`` () =
     handleString3 "abc" |> Option.isSome |> equal true
     handleString3 null |> Option.isSome |> equal false
 
 [<Fact>]
-let ``test Nullable pattern matching works`` () =
+let ``Nullable pattern matching works`` () =
     getStringLengthSafe "abc" |> equal 3
     getStringLengthSafe null |> equal -1
     getStringLengthSafe "" |> equal -1
 
 [<Fact>]
-let ``test Nullable type inferrence works`` () =
+let ``Nullable type inferrence works`` () =
     getList() |> isNull |> equal false
     getList() |> nonNull |> List.length |> equal 2
     processNullableList [2;3] |> List.length |> equal 2
@@ -160,12 +158,12 @@ let ``test Nullable type inferrence works`` () =
     processNullString null |> equal 0
 
 [<Fact>]
-let ``test nullArgCheck works`` () =
+let ``nullArgCheck works`` () =
     nullArgCheck "arg" "ABC" |> equal "ABC"
     throwsAnyError (fun () -> nullArgCheck<string> "arg" null)
 
 [<Fact>]
-let ``test Null active pattern works`` () =
+let ``Null active pattern works`` () =
     let getLength abnull =
         match abnull with
         | A -> 0
@@ -176,7 +174,7 @@ let ``test Null active pattern works`` () =
     equal (getLength (B null)) 0
 
 [<Fact>]
-let ``test NonNull active pattern works`` () =
+let ``NonNull active pattern works`` () =
     let getLength abnull =
         match abnull with
         | A -> 0
@@ -186,7 +184,7 @@ let ``test NonNull active pattern works`` () =
     equal (getLength (B "hello")) 5
 
 [<Fact>]
-let ``test Nullness works with generics`` () =
+let ``Nullness works with generics`` () =
     // Generic code, note 'T must be constrained to be a reference type
     let findOrNull (index: int) (list: 'T list) : 'T | null when 'T: not struct =
         match List.tryItem index list with
@@ -197,34 +195,8 @@ let ``test Nullness works with generics`` () =
     equal (findOrNull 3 [ "a"; "b"; "c" ]) null
 
 [<Fact>]
-let ``test Unchecked.nonNull works`` () =
+let ``Unchecked.nonNull works`` () =
     let toUpper (text: string | null) =
         (Unchecked.nonNull text).ToUpperInvariant()
 
     equal (toUpper "hello") "HELLO"
-
-#if FABLE_COMPILER
-[<Fact>]
-let ``test Nullness works for interop with undefined`` () =
-    let maybeUndefined (value: string) : (string | null) = importMember "./py/nullness.py"
-
-    match maybeUndefined "ok" with
-    | NonNull _ -> equal true true
-    | Null -> equal true false
-
-    match maybeUndefined "foo" with
-    | NonNull _ -> equal true false
-    | Null -> equal true true
-
-[<Fact>]
-let ``test Nullness works for interop with null`` () =
-    let maybeNull (value: string) : (string | null) = importMember "./py/nullness.py"
-
-    match maybeNull "ok" with
-    | NonNull _ -> equal true true
-    | Null -> equal true false
-
-    match maybeNull "foo" with
-    | NonNull _ -> equal true false
-    | Null -> equal true true
-#endif

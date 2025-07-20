@@ -57,11 +57,13 @@
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="JsInteropTests.fs" />
+    <Compile Include="ListCollectorTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
     <Compile Include="MiscTestsHelper.fs" />
     <Compile Include="MiscTests.fs" />
     <Compile Include="NestedAndRecursivePatternTests.fs" />
+    <Compile Include="NullnessTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
     <Compile Include="QueueTests.fs" />
@@ -77,17 +79,14 @@
     <Compile Include="StringTests.fs" />
     <Compile Include="SudokuTest.fs" />
     <Compile Include="TailCallTests.fs" />
+    <Compile Include="TimeOnlyTests.fs" />
+    <Compile Include="TimeSpanTests.fs" />
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="UriTests.fs" />
-    <Compile Include="TimeOnlyTests.fs" />
-    <Compile Include="TimeSpanTests.fs" />
-    <Compile Include="ListCollectorTests.fs" />
-    <Compile Include="Nullness.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
-
 
   <Target Name="Collect_Coverage" DependsOnTargets="Restore;BuildProject">
       <!-- Altcover fails if _Reports folder doesn't exist -->
