@@ -964,7 +964,7 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
             match cliArgs.CompilerOptions.Language, runProc.ExeFile with
             | Python, Naming.placeholder ->
                 let lastFilePath = findLastFileRelativePath ()
-                "uv", "run" :: "python" :: lastFilePath :: runProc.Args
+                "python", lastFilePath :: runProc.Args
             | Rust, Naming.placeholder ->
                 let lastFileDir = IO.Path.GetDirectoryName(findLastFileFullPath ())
 
