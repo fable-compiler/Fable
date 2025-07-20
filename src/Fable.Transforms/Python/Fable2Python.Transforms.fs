@@ -1180,14 +1180,38 @@ let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Ex
                 | Fable.IdentExpr ident -> getNarrowedType ctx ident
                 | _ -> fableExpr.Type
 
+            // Check if this is a static property backing field assignment
+            // Only apply special naming to static properties, not regular static fields
+            let isStaticPropertyBackingField =
+                match fableExpr with
+                | Fable.IdentExpr ident ->
+                    // Be more conservative - only apply to backing fields ending with @ that are likely property backing fields
+                    // We can identify these by checking if this looks like a property backing field pattern:
+                    // 1. Class identifier (starts with uppercase)
+                    // 2. Field name ends with @ (backing field marker)
+                    // 3. Field name (without @) starts with uppercase (property naming convention)
+                    ident.Name.Length > 0
+                    && System.Char.IsUpper(ident.Name.[0])
+                    && fieldName.EndsWith("@", System.StringComparison.Ordinal)
+                    && (let baseFieldName = fieldName.Substring(0, fieldName.Length - 1)
+                        baseFieldName.Length > 0 && System.Char.IsUpper(baseFieldName.[0]))
+                | _ -> false
+
             let finalFieldName =
                 match narrowedType with
                 | Fable.DeclaredType(entityRef, _) ->
                     match com.TryGetEntity entityRef with
                     | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
                         fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                    | Some ent when isStaticPropertyBackingField ->
+                        // Use static property naming for static property backing field assignments
+                        fieldName |> Naming.toStaticPropertyNaming
                     | _ -> fieldName |> Naming.toPythonNaming
-                | _ -> fieldName |> Naming.toPythonNaming
+                | _ ->
+                    if isStaticPropertyBackingField then
+                        fieldName |> Naming.toStaticPropertyNaming
+                    else
+                        fieldName |> Naming.toPythonNaming
 
             let cleanFieldName = finalFieldName |> Helpers.clean
             get com ctx None expr cleanFieldName false, []
@@ -2654,9 +2678,8 @@ let transformModuleFunction
         getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
 
     let typeParams = calculateTypeParams com ctx info args returnType body.Type
-
     let name = com.GetIdentifier(ctx, membName |> Naming.toPythonNaming)
-    // printfn "TransformModuleFunction, name: %A" name
+
     let stmt =
         createFunctionWithTypeParams name args body' [] returnType info.XmlDoc typeParams
 
@@ -2672,23 +2695,66 @@ let transformModuleFunction
 
             [ stmt ]
 
-let transformAction (com: IPythonCompiler) ctx expr =
-    let statements = transformAsStatements com ctx None expr
-    // let hasVarDeclarations =
-    //     statements |> List.exists (function
-    //         | Declaration(_) -> true
-    //         | _ -> false)
-    // if hasVarDeclarations then
-    //     [ Expression.call(Expression.functionExpression([||], BlockStatement(statements)), [||])
-    //       |> Statement.expr |> PrivateModuleDeclaration ]
-    //else
-    statements
+let transformAction (com: IPythonCompiler) ctx expr = transformAsStatements com ctx None expr
 
 let nameFromKey (com: IPythonCompiler) (ctx: Context) key =
     match key with
     | Expression.Name { Id = ident } -> ident
     | Expression.Constant(value = StringLiteral name) -> com.GetIdentifier(ctx, name)
     | name -> failwith $"Not a valid name: {name}"
+
+let generateStaticPropertySetter
+    (com: IPythonCompiler)
+    (ctx: Context)
+    (className: string)
+    (propertyName: string)
+    (setterBody: Statement list)
+    (args: Arguments)
+    : Statement
+    =
+    let functionName = $"_{className}_{propertyName}_setter"
+    let functionNameIdent = com.GetIdentifier(ctx, functionName)
+
+    // Create setter function with just the value parameter (remove 'self' for static)
+    let setterArgs =
+        match args.Args with
+        | _self :: valueArg :: [] -> Arguments.arguments [ valueArg ]
+        | valueArg :: [] -> Arguments.arguments [ valueArg ]
+        | _ -> Arguments.arguments [ Arg.arg "value" ]
+
+    // Filter out any assignments to backing fields that don't exist
+    // The descriptor will handle value storage automatically
+    let filteredBody =
+        setterBody
+        |> List.filter (fun stmt ->
+            match stmt with
+            | Statement.Assign {
+                                   Targets = [ Expression.Attribute {
+                                                                        Value = Expression.Name {
+                                                                                                    Id = Identifier className_
+                                                                                                }
+                                                                        Attr = Identifier field
+                                                                    } ]
+                               } when className_ = className && field.StartsWith("_") -> false // Remove backing field assignments
+            | _ -> true
+        )
+
+    // If the filtered body is empty, add a pass statement to make valid Python
+    let finalBody =
+        if List.isEmpty filteredBody then
+            [ Statement.Pass ]
+        else
+            filteredBody
+
+    Statement.functionDef (functionNameIdent, setterArgs, body = finalBody)
+
+// Check if a class needs StaticProperty descriptor (has static properties)
+let classHasStaticProperties (members: Fable.MemberDecl list) (com: IPythonCompiler) : bool =
+    members
+    |> List.exists (fun memb ->
+        let info = com.GetMember(memb.MemberRef)
+        not info.IsInstance && (info.IsGetter || info.IsSetter)
+    )
 
 let transformAttachedProperty
     (com: IPythonCompiler)
@@ -2700,48 +2766,48 @@ let transformAttachedProperty
     let isStatic = not info.IsInstance
     let isGetter = info.IsGetter
 
-    let decorators =
-        [
-            if isStatic then
-                Expression.name "staticmethod"
-            elif isGetter then
-                Expression.name "property"
+    // For static properties, we'll handle them differently using descriptors
+    if isStatic then
+        // Static properties need special handling - return empty list for now
+        // They will be processed at the class level
+        []
+    else
+        // Instance properties use the traditional approach
+        let decorators =
+            [
+                if isGetter then
+                    Expression.name "property"
+                else
+                    Expression.name $"{memb.Name}.setter"
+            ]
+
+        let args, body, returnType =
+            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
+
+        // Apply the same naming convention as record fields for record types
+        let propertyName =
+            if shouldUseRecordFieldNaming ent then
+                memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
             else
-                Expression.name $"{memb.Name}.setter"
-        ]
+                memb.Name |> Naming.toPythonNaming
 
-    let args, body, returnType =
-        getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
+        let key = com.GetIdentifier(ctx, propertyName)
 
-    // Apply the same naming convention as record fields for record types
-    let propertyName =
-        if shouldUseRecordFieldNaming ent then
-            memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-        else
-            memb.Name |> Naming.toPythonNaming
+        let self = Arg.arg "self"
+        let arguments = { args with Args = self :: args.Args }
 
-    let key = com.GetIdentifier(ctx, propertyName)
+        let typeParams =
+            calculateTypeParams com ctx info arguments returnType memb.Body.Type
 
-    let arguments =
-        if isStatic then
-            { args with Args = [] }
-        else
-            let self = Arg.arg "self"
-            { args with Args = self :: args.Args }
-
-    let typeParams =
-        calculateTypeParams com ctx info arguments returnType memb.Body.Type
-
-    // Python do not support static getters, so make it a function instead
-    Statement.functionDef (
-        key,
-        arguments,
-        body = body,
-        decoratorList = decorators,
-        returns = returnType,
-        typeParams = typeParams
-    )
-    |> List.singleton
+        Statement.functionDef (
+            key,
+            arguments,
+            body = body,
+            decoratorList = decorators,
+            returns = returnType,
+            typeParams = typeParams
+        )
+        |> List.singleton
 
 let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
     // printfn "transformAttachedMethod: %A" memb
@@ -2843,7 +2909,7 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             |> Seq.toList
             |> makeList com ctx
 
-        let name = Identifier("cases")
+        let name = Identifier "cases"
         let body = stmts @ [ Statement.return' expr ]
         let decorators = [ Expression.name "staticmethod" ]
 
@@ -3069,6 +3135,138 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
         Statement.classDef (classIdent, body = classMembers, bases = bases, typeParams = typeParams)
     ]
 
+// Helper function to extract initial value from getter body
+let getInitialValue com ctx (getterMemb: Fable.MemberDecl) wrapInLambda (fallback: Expression) =
+    match getterMemb.Body with
+    | Fable.Value(kind, r) ->
+        // Use transformValue for literal values
+        transformValue com ctx r kind |> fst
+    | _ ->
+        // Try to transform the expression
+        try
+            let expr, _ = com.TransformAsExpr(ctx, getterMemb.Body)
+
+            if wrapInLambda then
+                Expression.lambda (Arguments.arguments [], expr)
+            else
+                expr
+        with _ ->
+            fallback
+
+
+// Process a single static property and return (property assignment, extra statements)
+let transformStaticProperty
+    (com: IPythonCompiler)
+    (ctx: Context)
+    (name: string)
+    (ent: Fable.Entity)
+    (propName: string)
+    (members: Fable.MemberDecl list)
+    =
+    let getter =
+        members |> List.tryFind (fun m -> (com.GetMember(m.MemberRef)).IsGetter)
+
+    let setter =
+        members |> List.tryFind (fun m -> (com.GetMember(m.MemberRef)).IsSetter)
+
+    let propertyName =
+        if shouldUseRecordFieldNaming ent then
+            propName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+        else
+            propName |> Naming.toStaticPropertyNaming
+
+    let staticProperty = libValue com ctx "util" "StaticProperty"
+
+    match getter, setter with
+    | Some getterMemb, None ->
+        // Read-only property
+        let initialValue = getInitialValue com ctx getterMemb true Expression.none
+        let propExpr = Expression.call (staticProperty, [ initialValue ])
+        Some(propertyName, propExpr), []
+
+    | Some getterMemb, Some setterMemb ->
+        // Property with both getter and setter
+        let setterArgs, setterBody, _setterReturnType =
+            getMemberArgsAndBody com ctx (Attached true) false setterMemb.Args setterMemb.Body
+
+        let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
+        let initialValue = getInitialValue com ctx getterMemb false fallback
+
+        // Check if setter has custom logic beyond simple assignment
+        let hasCustomSetter =
+            setterBody.Length > 1
+            || setterBody.Length = 1
+               && match setterBody.[0] with
+                  | Statement.Assign _ -> false // Simple assignment
+                  | _ -> true // Has other logic (validation, printing, etc.)
+
+        if hasCustomSetter then
+            // Generate setter function for complex setters
+            let setterFunc =
+                generateStaticPropertySetter com ctx name propertyName setterBody setterArgs
+
+            let setterFuncName = $"_{name}_{propertyName}_setter"
+
+            let propExpr =
+                Expression.call (staticProperty, [ initialValue; Expression.name setterFuncName ])
+
+            Some(propertyName, propExpr), [ setterFunc ]
+        else
+            // Simple setter, no custom function needed - just use the descriptor
+            let propExpr = Expression.call (staticProperty, [ initialValue ])
+            Some(propertyName, propExpr), []
+
+    | None, Some setterMemb ->
+        // Setter-only property (unusual but possible)
+        let setterArgs, setterBody, _setterReturnType =
+            getMemberArgsAndBody com ctx (Attached true) false setterMemb.Args setterMemb.Body
+
+        let setterFunc =
+            generateStaticPropertySetter com ctx name propertyName setterBody setterArgs
+
+        let setterFuncName = $"_{name}_{propertyName}_setter"
+
+        let propExpr =
+            Expression.call (staticProperty, [ Expression.none; Expression.name setterFuncName ])
+
+        Some(propertyName, propExpr), [ setterFunc ]
+
+    | None, None ->
+        // Should not happen
+        None, []
+
+// Extract static properties handling into its own function
+let transformStaticProperties (com: IPythonCompiler) (ctx: Context) (decl: Fable.ClassDecl) (ent: Fable.Entity) =
+    let staticPropMembers =
+        decl.AttachedMembers
+        |> List.filter (fun memb ->
+            let info = com.GetMember(memb.MemberRef)
+            not info.IsInstance && (info.IsGetter || info.IsSetter) && not memb.IsMangled
+        )
+
+    if List.isEmpty staticPropMembers then
+        Map.empty, []
+    else
+        // Group static properties by name
+        let groupedProps =
+            staticPropMembers |> List.groupBy (fun memb -> memb.Name) |> Map.ofList
+
+        let propStatements = ResizeArray<Statement>()
+        let propMap = ResizeArray<string * Expression>()
+
+        // Process each static property
+        for propName, members in Map.toList groupedProps do
+            let propertyAssignment, extraStatements =
+                transformStaticProperty com ctx decl.Name ent propName members
+
+            match propertyAssignment with
+            | Some(name, expr) -> propMap.Add((name, expr))
+            | None -> ()
+
+            extraStatements |> List.iter propStatements.Add
+
+        Map.ofSeq propMap, List.ofSeq propStatements
+
 let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration) =
     // printfn "transformDeclaration: %A" decl
     // printfn "ctx.UsedNames: %A" ctx.UsedNames
@@ -3146,13 +3344,38 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                             transformAttachedMethod com ctx info memb
                 )
 
+            // Handle static properties separately using descriptors
+            let staticProperties, staticPropertyStatements =
+                transformStaticProperties com ctx decl ent
+
+            // Add static property declarations to class members with None placeholder
+            // The static constructor will handle actual initialization to avoid scoping issues
+            let staticPropertyDeclarations =
+                staticProperties
+                |> Map.toList
+                |> List.map (fun (propName, propExpr) ->
+                    // Use the computed expression (factory function or value)
+                    Statement.assign ([ Expression.name propName ], propExpr)
+                )
+
+            let allClassMembers = classMembers @ staticPropertyDeclarations
+            let allStatements = staticPropertyStatements
+
             match ent, decl.Constructor with
             | ent, _ when ent.IsInterface -> transformInterface com ctx ent decl
-            | ent, _ when ent.IsFSharpUnion -> transformUnion com ctx ent decl.Name classMembers
+            | ent, _ when ent.IsFSharpUnion -> transformUnion com ctx ent decl.Name allClassMembers
             | _, Some cons ->
                 withCurrentScope ctx cons.UsedNames
-                <| fun ctx -> transformClassWithPrimaryConstructor com ctx decl classMembers cons
-            | _, None -> transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
+                <| fun ctx ->
+                    let classStmts =
+                        transformClassWithPrimaryConstructor com ctx decl allClassMembers cons
+
+                    allStatements @ classStmts
+            | _, None ->
+                let classStmts =
+                    transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name allClassMembers
+
+                allStatements @ classStmts
 
 let transformTypeVars (com: IPythonCompiler) ctx (typeVars: HashSet<string>) =
     // For Python 3.12, we don't need module-level TypeVar declarations

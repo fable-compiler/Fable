@@ -2702,3 +2702,93 @@ def get_platform() -> PlatformID:
         return PlatformID.MacOSX
 
     return PlatformID.Other
+
+
+class StaticProperty[T]:
+    """Static property descriptor.
+
+    This is a descriptor that can be used to define static properties on
+    a class. Supports lazy initialization with factory functions.
+    """
+
+    __slots__ = "_initialized", "factory", "setter_func", "value"
+
+    def __init__(
+        self, initial_value_or_factory: T | Callable[[], T], setter_func: Callable[[T], None] | None = None
+    ) -> None:
+        if callable(initial_value_or_factory):
+            # Factory function for lazy initialization
+            self.factory = initial_value_or_factory
+            self.value = None
+            self._initialized = False
+        else:
+            # Direct value
+            self.value = initial_value_or_factory
+            self.factory = None
+            self._initialized = True
+        self.setter_func = setter_func
+
+    def __get__(self, instance: Any, owner: Any) -> T:
+        if not self._initialized and self.factory is not None:
+            # Lazy initialization - call factory function
+            self.value = self.factory()
+            self._initialized = True
+        return self.value  # type: ignore
+
+    def __set__(self, instance: Any, value: T) -> None:
+        if self.setter_func:
+            self.setter_func(value)
+
+        self.value = value
+        self._initialized = True  # Mark as initialized after manual assignment
+
+
+__all__ = [
+    "ObjectRef",
+    "ObjectRef",
+    "PlatformID",
+    "PlatformID",
+    "PlatformID",
+    "PlatformID",
+    "StaticProperty",
+    "StaticProperty",
+    "array_hash",
+    "array_hash",
+    "copy_to_array",
+    "copy_to_array",
+    "curry2",
+    "curry3",
+    "curry4",
+    "curry5",
+    "curry6",
+    "curry7",
+    "curry8",
+    "curry9",
+    "curry10",
+    "escape_data_string",
+    "escape_data_string",
+    "escape_uri_string",
+    "escape_uri_string",
+    "get_platform",
+    "get_platform",
+    "get_platform",
+    "get_platform",
+    "get_platform",
+    "identity_hash",
+    "ignore",
+    "null_arg_check",
+    "number_hash",
+    "physical_hash",
+    "randint",
+    "round",
+    "uncurry2",
+    "uncurry3",
+    "uncurry4",
+    "uncurry5",
+    "uncurry6",
+    "uncurry7",
+    "uncurry8",
+    "uncurry9",
+    "uncurry10",
+    "unescape_data_string",
+]
