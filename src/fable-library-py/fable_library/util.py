@@ -2711,15 +2711,15 @@ class StaticProperty[T]:
     a class. Supports lazy initialization with factory functions.
     """
 
-    __slots__ = "_initialized", "factory", "setter_func", "value"
+    __slots__ = "_initialized", "factory", "name", "setter_func", "value"
 
     def __init__(
         self, initial_value_or_factory: T | Callable[[], T], setter_func: Callable[[T], None] | None = None
     ) -> None:
         if callable(initial_value_or_factory):
             # Factory function for lazy initialization
-            self.factory = initial_value_or_factory
-            self.value = None
+            self.factory: Callable[[], T] | None = initial_value_or_factory
+            self.value: T | None = None
             self._initialized = False
         else:
             # Direct value
@@ -2727,11 +2727,14 @@ class StaticProperty[T]:
             self.factory = None
             self._initialized = True
         self.setter_func = setter_func
+        self.name = None  # Will be set by __set_name__ if available
 
     def __get__(self, instance: Any, owner: Any) -> T:
-        if not self._initialized and self.factory is not None:
-            # Lazy initialization - call factory function
+        if self.factory is not None:
+            # Factory-based property - always call factory, never cache
             self.value = self.factory()
+        elif not self._initialized:
+            # Direct value property that hasn't been initialized yet
             self._initialized = True
         return self.value  # type: ignore
 
@@ -2739,22 +2742,50 @@ class StaticProperty[T]:
         if self.setter_func:
             self.setter_func(value)
 
-        self.value = value
-        self._initialized = True  # Mark as initialized after manual assignment
+        if self.factory is None:
+            # Direct value property - cache the value
+            self.value = value
+            self._initialized = True
+        # For factory-based properties, don't cache - let the factory handle value retrieval
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        """Called when the descriptor is assigned to a class attribute"""
+        self.name = name
+
+
+class StaticPropertyMeta(type):
+    """Metaclass that enables StaticProperty descriptors to work with class-level assignment."""
+
+    def __setattr__(cls, name: str, value: Any) -> None:
+        # Check if the attribute exists and is a StaticProperty
+        # Use dict lookup instead of getattr to avoid triggering descriptors
+        if hasattr(cls, "__dict__") and name in cls.__dict__:
+            existing_attr = cls.__dict__[name]
+            if isinstance(existing_attr, StaticProperty):
+                # Call the descriptor's __set__ method instead of replacing it
+                attr = cast(StaticProperty[Any], existing_attr)
+                attr.__set__(cls, value)
+                return
+
+        # Check parent classes for the attribute
+        for base in cls.__mro__[1:]:  # Skip self
+            if hasattr(base, "__dict__") and name in base.__dict__:
+                existing_attr = base.__dict__[name]
+                if isinstance(existing_attr, StaticProperty):
+                    attr = cast(StaticProperty[Any], existing_attr)
+                    attr.__set__(cls, value)
+                    return
+
+        # Normal attribute assignment
+        super().__setattr__(name, value)
 
 
 __all__ = [
     "ObjectRef",
-    "ObjectRef",
-    "PlatformID",
-    "PlatformID",
-    "PlatformID",
     "PlatformID",
     "StaticProperty",
-    "StaticProperty",
+    "StaticPropertyMeta",
     "array_hash",
-    "array_hash",
-    "copy_to_array",
     "copy_to_array",
     "curry2",
     "curry3",
@@ -2766,17 +2797,10 @@ __all__ = [
     "curry9",
     "curry10",
     "escape_data_string",
-    "escape_data_string",
     "escape_uri_string",
-    "escape_uri_string",
-    "get_platform",
-    "get_platform",
-    "get_platform",
-    "get_platform",
     "get_platform",
     "identity_hash",
     "ignore",
-    "null_arg_check",
     "number_hash",
     "physical_hash",
     "randint",
